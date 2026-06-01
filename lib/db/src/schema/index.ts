@@ -4,3 +4,4 @@ export * from "./aiTasks";
 export * from "./users";
 export * from "./messages";
 export * from "./billing";
+export * from "./rbac";
