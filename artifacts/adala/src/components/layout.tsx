@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Bell, Search, Sparkles, LogOut } from "lucide-react";
+import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Bell, Search, Sparkles, LogOut, Swords } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ const navItems = [
   { href: "/documents", label: "المستندات", icon: FileText },
   { href: "/ai-tasks", label: "مهام الذكاء الاصطناعي", icon: Bot },
   { href: "/ai-chat", label: "المساعد الذكي", icon: Sparkles },
+  { href: "/opponent-simulator", label: "محاكي الخصم", icon: Swords },
   { href: "/users", label: "فريق العمل", icon: Users },
   { href: "/messages", label: "المراسلات", icon: MessageSquare },
   { href: "/billing", label: "الاشتراك والفوترة", icon: CreditCard },

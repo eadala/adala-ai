@@ -16,6 +16,7 @@ import Users from "@/pages/users";
 import Messages from "@/pages/messages";
 import Billing from "@/pages/billing";
 import AiChat from "@/pages/ai-chat";
+import OpponentSimulator from "@/pages/opponent-simulator";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -197,6 +198,9 @@ function AppRoutes() {
             </Route>
             <Route path="/ai-chat">
               <ProtectedRoute><AiChat /></ProtectedRoute>
+            </Route>
+            <Route path="/opponent-simulator">
+              <ProtectedRoute><OpponentSimulator /></ProtectedRoute>
             </Route>
             <Route path="/users">
               <ProtectedRoute><Users /></ProtectedRoute>
