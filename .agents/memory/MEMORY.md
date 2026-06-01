@@ -1,0 +1,3 @@
+- [Adala DB schema naming](adala-db-schema.md) — Drizzle tables use `casesTable`, `documentsTable`, `aiTasksTable` etc. (not `cases`, `documents`)
+- [Adala AI integration](adala-ai.md) — Replit AI integration requires phone verification; using direct Anthropic/OpenAI fetch with env vars + Arabic template fallback
+- [Adala Clerk auth](adala-clerk.md) — Clerk provisioned (app_3EX1sJ94noXziGaliZZ7ZC6bHFc), routing: "/" = Landing (public), "/dashboard" = auth-protected, sign-in/sign-up at `/sign-in` `/sign-up`
