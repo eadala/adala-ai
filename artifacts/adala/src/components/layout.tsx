@@ -1,23 +1,36 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Bell, Search } from "lucide-react";
+import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Bell, Search, Sparkles, LogOut } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useUser, useClerk } from "@clerk/react";
 
 const navItems = [
-  { href: "/", label: "الرئيسية", icon: LayoutDashboard },
+  { href: "/dashboard", label: "الرئيسية", icon: LayoutDashboard },
   { href: "/cases", label: "القضايا", icon: Scale },
   { href: "/documents", label: "المستندات", icon: FileText },
   { href: "/ai-tasks", label: "مهام الذكاء الاصطناعي", icon: Bot },
+  { href: "/ai-chat", label: "المساعد الذكي", icon: Sparkles },
   { href: "/users", label: "فريق العمل", icon: Users },
   { href: "/messages", label: "المراسلات", icon: MessageSquare },
   { href: "/billing", label: "الاشتراك والفوترة", icon: CreditCard },
 ];
 
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
+
+  const displayName = isLoaded && user
+    ? user.fullName || user.emailAddresses[0]?.emailAddress?.split("@")[0] || "مستخدم"
+    : "مستخدم";
+
+  const initials = displayName.slice(0, 2);
+  const role = "مدير النظام";
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -32,19 +45,22 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="flex-1 overflow-y-auto py-4">
           <nav className="space-y-1 px-4">
             {navItems.map((item) => {
-              const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+              const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
-                    isActive 
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground" 
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
                       : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   }`}
                 >
-                  <item.icon className="h-4 w-4" />
+                  <item.icon className={`h-4 w-4 ${item.href === "/ai-chat" ? "text-[#C9A84C]" : ""}`} />
                   {item.label}
+                  {item.href === "/ai-chat" && (
+                    <span className="mr-auto text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(201,168,76,0.2)", color: "#C9A84C" }}>جديد</span>
+                  )}
                 </Link>
               );
             })}
@@ -53,15 +69,58 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="border-t border-sidebar-border p-4">
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9 border border-sidebar-border">
-              <AvatarFallback className="bg-sidebar-primary text-primary-foreground">مح</AvatarFallback>
+              {user?.imageUrl && <AvatarImage src={user.imageUrl} alt={displayName} />}
+              <AvatarFallback className="bg-sidebar-primary text-primary-foreground text-xs">
+                {initials}
+              </AvatarFallback>
             </Avatar>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-white">محمد المحامي</span>
-              <span className="text-xs text-sidebar-foreground/60">مدير النظام</span>
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className="text-sm font-medium text-white truncate">{displayName}</span>
+              <span className="text-xs text-sidebar-foreground/60">{role}</span>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-sidebar-foreground/50 hover:text-white hover:bg-sidebar-accent/50"
+              onClick={() => signOut({ redirectUrl: basePath || "/" })}
+              title="تسجيل الخروج"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </aside>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setIsMobileMenuOpen(false)} />
+          <aside className="absolute right-0 top-0 bottom-0 w-64 bg-sidebar border-l border-sidebar-border flex flex-col">
+            <div className="flex h-16 items-center px-6 border-b border-sidebar-border">
+              <Scale className="h-6 w-6 text-sidebar-primary ml-2" />
+              <span className="text-xl font-bold text-white">عدالة AI</span>
+            </div>
+            <nav className="flex-1 overflow-y-auto py-4 px-4 space-y-1">
+              {navItems.map((item) => {
+                const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+                      isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </aside>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex flex-1 flex-col overflow-hidden">
@@ -76,13 +135,13 @@ export function Layout({ children }: { children: ReactNode }) {
               <span className="text-lg font-bold text-foreground">عدالة AI</span>
             </div>
           </div>
-          
+
           <div className="hidden md:flex flex-1 items-center max-w-md">
             <div className="relative w-full">
               <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input 
-                placeholder="ابحث في القضايا والمستندات..." 
-                className="w-full pl-4 pr-10 bg-muted/50 border-none focus-visible:ring-1" 
+              <Input
+                placeholder="ابحث في القضايا والمستندات..."
+                className="w-full pl-4 pr-10 bg-muted/50 border-none focus-visible:ring-1"
               />
             </div>
           </div>
@@ -92,6 +151,13 @@ export function Layout({ children }: { children: ReactNode }) {
               <Bell className="h-5 w-5 text-muted-foreground" />
               <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-destructive border-2 border-card"></span>
             </Button>
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50">
+              <Avatar className="h-7 w-7">
+                {user?.imageUrl && <AvatarImage src={user.imageUrl} />}
+                <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium text-foreground truncate max-w-[120px]">{displayName}</span>
+            </div>
           </div>
         </header>
 
