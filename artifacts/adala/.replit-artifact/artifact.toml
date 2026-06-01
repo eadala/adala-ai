@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "عدالة AI"
+version = "1.0.0"
+id = "artifacts/adala"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20637
+
+[services.development]
+run = "pnpm --filter @workspace/adala run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/adala", "run", "build" ]
+publicDir = "artifacts/adala/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20637"
+BASE_PATH = "/"
