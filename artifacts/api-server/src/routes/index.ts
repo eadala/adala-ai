@@ -9,6 +9,7 @@ import billingRouter from "./billing";
 import dashboardRouter from "./dashboard";
 import aiChatRouter from "./aiChat";
 import rbacRouter from "./rbac";
+import opponentSimulatorRouter from "./opponentSimulator";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(billingRouter);
 router.use(dashboardRouter);
 router.use(aiChatRouter);
 router.use(rbacRouter);
+router.use(opponentSimulatorRouter);
 
 export default router;
