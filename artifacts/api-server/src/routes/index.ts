@@ -8,6 +8,7 @@ import messagesRouter from "./messages";
 import billingRouter from "./billing";
 import dashboardRouter from "./dashboard";
 import aiChatRouter from "./aiChat";
+import rbacRouter from "./rbac";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(messagesRouter);
 router.use(billingRouter);
 router.use(dashboardRouter);
 router.use(aiChatRouter);
+router.use(rbacRouter);
 
 export default router;
