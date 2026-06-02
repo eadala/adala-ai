@@ -5,3 +5,5 @@ export * from "./users";
 export * from "./messages";
 export * from "./billing";
 export * from "./rbac";
+export * from "./contracts";
+export * from "./clients";

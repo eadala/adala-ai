@@ -17,6 +17,10 @@ import Messages from "@/pages/messages";
 import Billing from "@/pages/billing";
 import AiChat from "@/pages/ai-chat";
 import OpponentSimulator from "@/pages/opponent-simulator";
+import AiAgents from "@/pages/ai-agents";
+import CommandCenter from "@/pages/command-center";
+import Contracts from "@/pages/contracts";
+import Clients from "@/pages/clients";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -201,6 +205,18 @@ function AppRoutes() {
             </Route>
             <Route path="/opponent-simulator">
               <ProtectedRoute><OpponentSimulator /></ProtectedRoute>
+            </Route>
+            <Route path="/ai-agents">
+              <ProtectedRoute><AiAgents /></ProtectedRoute>
+            </Route>
+            <Route path="/command-center">
+              <ProtectedRoute><CommandCenter /></ProtectedRoute>
+            </Route>
+            <Route path="/contracts">
+              <ProtectedRoute><Contracts /></ProtectedRoute>
+            </Route>
+            <Route path="/clients">
+              <ProtectedRoute><Clients /></ProtectedRoute>
             </Route>
             <Route path="/users">
               <ProtectedRoute><Users /></ProtectedRoute>

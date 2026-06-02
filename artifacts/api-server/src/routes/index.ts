@@ -10,6 +10,10 @@ import dashboardRouter from "./dashboard";
 import aiChatRouter from "./aiChat";
 import rbacRouter from "./rbac";
 import opponentSimulatorRouter from "./opponentSimulator";
+import contractsRouter from "./contracts";
+import clientsRouter from "./clients";
+import aiAgentsRouter from "./aiAgents";
+import commandCenterRouter from "./commandCenter";
 
 const router: IRouter = Router();
 
@@ -24,5 +28,9 @@ router.use(dashboardRouter);
 router.use(aiChatRouter);
 router.use(rbacRouter);
 router.use(opponentSimulatorRouter);
+router.use(contractsRouter);
+router.use(clientsRouter);
+router.use(aiAgentsRouter);
+router.use(commandCenterRouter);
 
 export default router;
