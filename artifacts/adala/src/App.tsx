@@ -21,6 +21,8 @@ import AiAgents from "@/pages/ai-agents";
 import CommandCenter from "@/pages/command-center";
 import Contracts from "@/pages/contracts";
 import Clients from "@/pages/clients";
+import LegalResearch from "@/pages/legal-research";
+import Arbitration from "@/pages/arbitration";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -217,6 +219,12 @@ function AppRoutes() {
             </Route>
             <Route path="/clients">
               <ProtectedRoute><Clients /></ProtectedRoute>
+            </Route>
+            <Route path="/legal-research">
+              <ProtectedRoute><LegalResearch /></ProtectedRoute>
+            </Route>
+            <Route path="/arbitration">
+              <ProtectedRoute><Arbitration /></ProtectedRoute>
             </Route>
             <Route path="/users">
               <ProtectedRoute><Users /></ProtectedRoute>
