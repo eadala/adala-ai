@@ -7,3 +7,4 @@ export * from "./billing";
 export * from "./rbac";
 export * from "./contracts";
 export * from "./clients";
+export * from "./arbitration";
