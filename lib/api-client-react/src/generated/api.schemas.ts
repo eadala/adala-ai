@@ -183,6 +183,49 @@ export interface ActivityItem {
   createdAt: string;
 }
 
+export interface UploadUrlRequest {
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 1 */
+  size: number;
+  /** @minLength 1 */
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata?: UploadUrlRequest;
+}
+
+export interface ErrorEnvelope {
+  error: string;
+}
+
+export interface OfficeBranding {
+  id?: string;
+  tenantId?: string;
+  officeName?: string;
+  officeNameEn?: string;
+  tagline?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  website?: string;
+  licenseNo?: string;
+  logoUrl?: string;
+  stampUrl?: string;
+  signatureUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  subscriptionTier?: string;
+  showAdalalahLogo?: boolean;
+  showAdalalahFooter?: boolean;
+  adalalahLogoSize?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type CaseBreakdownByStatusItem = {
   label: string;
   count: number;
@@ -215,5 +258,9 @@ caseId?: string;
 export type ListMessagesParams = {
 caseId?: string;
 channel?: string;
+};
+
+export type GetBrandingParams = {
+tenantId?: string;
 };
 

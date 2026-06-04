@@ -1,0 +1,25 @@
+import { pgTable, uuid, text, timestamp, boolean } from "drizzle-orm/pg-core";
+
+export const officeBrandingTable = pgTable("office_branding", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: text("tenant_id").notNull().default("default"),
+  officeName: text("office_name"),
+  officeNameEn: text("office_name_en"),
+  tagline: text("tagline"),
+  phone: text("phone"),
+  email: text("email"),
+  address: text("address"),
+  website: text("website"),
+  licenseNo: text("license_no"),
+  logoUrl: text("logo_url"),
+  stampUrl: text("stamp_url"),
+  signatureUrl: text("signature_url"),
+  primaryColor: text("primary_color").default("#1e3a5f"),
+  secondaryColor: text("secondary_color").default("#c9a84c"),
+  subscriptionTier: text("subscription_tier").notNull().default("basic"),
+  showAdalalahLogo: boolean("show_adalah_logo").notNull().default(true),
+  showAdalalahFooter: boolean("show_adalah_footer").notNull().default(true),
+  adalalahLogoSize: text("adalah_logo_size").notNull().default("normal"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

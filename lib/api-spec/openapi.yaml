@@ -23,6 +23,10 @@ tags:
     description: Billing and subscriptions
   - name: dashboard
     description: Dashboard summaries and stats
+  - name: storage
+    description: Object storage upload and serving
+  - name: branding
+    description: Office branding and white-label settings
 
 paths:
   /healthz:
@@ -465,6 +469,75 @@ paths:
               schema:
                 $ref: "#/components/schemas/CaseBreakdown"
 
+  # ── STORAGE ─────────────────────────────────────────────
+  /storage/uploads/request-url:
+    post:
+      tags: [storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+      responses:
+        '200':
+          description: Presigned upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+
+  /storage/objects/{objectPath}:
+    get:
+      tags: [storage]
+      operationId: getStorageObject
+      summary: Serve an object entity
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Object content streamed
+
+  # ── BRANDING ─────────────────────────────────────────────
+  /branding:
+    get:
+      operationId: getBranding
+      tags: [branding]
+      summary: Get office branding settings
+      parameters:
+        - in: query
+          name: tenantId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Branding settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeBranding"
+    post:
+      operationId: saveBranding
+      tags: [branding]
+      summary: Save or update office branding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficeBranding"
+      responses:
+        "200":
+          description: Saved branding
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeBranding"
+
 components:
   schemas:
     HealthStatus:
@@ -668,6 +741,61 @@ components:
         entityId:    { type: ["string", "null"] }
         createdAt:   { type: string }
 
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: '#/components/schemas/UploadUrlRequest'
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    OfficeBranding:
+      type: object
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        officeName: { type: string }
+        officeNameEn: { type: string }
+        tagline: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        address: { type: string }
+        website: { type: string }
+        licenseNo: { type: string }
+        logoUrl: { type: string }
+        stampUrl: { type: string }
+        signatureUrl: { type: string }
+        primaryColor: { type: string }
+        secondaryColor: { type: string }
+        subscriptionTier: { type: string }
+        showAdalalahLogo: { type: boolean }
+        showAdalalahFooter: { type: boolean }
+        adalalahLogoSize: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    # ── STORAGE + BRANDING (added below CaseBreakdown) ──────
     CaseBreakdown:
       type: object
       required: [byStatus, byType]

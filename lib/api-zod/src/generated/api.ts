@@ -399,3 +399,125 @@ export const GetCaseBreakdownResponse = zod.object({
 })
 
 
+/**
+ * @summary Request a presigned URL for file upload
+ */
+
+
+
+
+
+export const RequestUploadUrlBody = zod.object({
+  "name": zod.string().min(1),
+  "size": zod.number().min(1),
+  "contentType": zod.string().min(1)
+})
+
+
+
+
+
+
+export const RequestUploadUrlResponse = zod.object({
+  "uploadURL": zod.string().url(),
+  "objectPath": zod.string(),
+  "metadata": zod.object({
+  "name": zod.string().min(1),
+  "size": zod.number().min(1),
+  "contentType": zod.string().min(1)
+}).optional()
+})
+
+
+/**
+ * @summary Serve an object entity
+ */
+export const GetStorageObjectParams = zod.object({
+  "objectPath": zod.coerce.string()
+})
+
+
+/**
+ * @summary Get office branding settings
+ */
+export const GetBrandingQueryParams = zod.object({
+  "tenantId": zod.coerce.string().optional()
+})
+
+export const GetBrandingResponse = zod.object({
+  "id": zod.string().optional(),
+  "tenantId": zod.string().optional(),
+  "officeName": zod.string().optional(),
+  "officeNameEn": zod.string().optional(),
+  "tagline": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "address": zod.string().optional(),
+  "website": zod.string().optional(),
+  "licenseNo": zod.string().optional(),
+  "logoUrl": zod.string().optional(),
+  "stampUrl": zod.string().optional(),
+  "signatureUrl": zod.string().optional(),
+  "primaryColor": zod.string().optional(),
+  "secondaryColor": zod.string().optional(),
+  "subscriptionTier": zod.string().optional(),
+  "showAdalalahLogo": zod.boolean().optional(),
+  "showAdalalahFooter": zod.boolean().optional(),
+  "adalalahLogoSize": zod.string().optional(),
+  "createdAt": zod.string().optional(),
+  "updatedAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Save or update office branding
+ */
+export const SaveBrandingBody = zod.object({
+  "id": zod.string().optional(),
+  "tenantId": zod.string().optional(),
+  "officeName": zod.string().optional(),
+  "officeNameEn": zod.string().optional(),
+  "tagline": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "address": zod.string().optional(),
+  "website": zod.string().optional(),
+  "licenseNo": zod.string().optional(),
+  "logoUrl": zod.string().optional(),
+  "stampUrl": zod.string().optional(),
+  "signatureUrl": zod.string().optional(),
+  "primaryColor": zod.string().optional(),
+  "secondaryColor": zod.string().optional(),
+  "subscriptionTier": zod.string().optional(),
+  "showAdalalahLogo": zod.boolean().optional(),
+  "showAdalalahFooter": zod.boolean().optional(),
+  "adalalahLogoSize": zod.string().optional(),
+  "createdAt": zod.string().optional(),
+  "updatedAt": zod.string().optional()
+})
+
+export const SaveBrandingResponse = zod.object({
+  "id": zod.string().optional(),
+  "tenantId": zod.string().optional(),
+  "officeName": zod.string().optional(),
+  "officeNameEn": zod.string().optional(),
+  "tagline": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "address": zod.string().optional(),
+  "website": zod.string().optional(),
+  "licenseNo": zod.string().optional(),
+  "logoUrl": zod.string().optional(),
+  "stampUrl": zod.string().optional(),
+  "signatureUrl": zod.string().optional(),
+  "primaryColor": zod.string().optional(),
+  "secondaryColor": zod.string().optional(),
+  "subscriptionTier": zod.string().optional(),
+  "showAdalalahLogo": zod.boolean().optional(),
+  "showAdalalahFooter": zod.boolean().optional(),
+  "adalalahLogoSize": zod.string().optional(),
+  "createdAt": zod.string().optional(),
+  "updatedAt": zod.string().optional()
+})
+
+
