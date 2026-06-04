@@ -8,3 +8,4 @@ export * from "./rbac";
 export * from "./contracts";
 export * from "./clients";
 export * from "./arbitration";
+export * from "./hr";
