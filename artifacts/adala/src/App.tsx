@@ -30,6 +30,7 @@ import Employees from "@/pages/employees";
 import Attendance from "@/pages/attendance";
 import Leaves from "@/pages/leaves";
 import Payroll from "@/pages/payroll";
+import OfficeSettings from "@/pages/office-settings";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -253,6 +254,9 @@ function AppRoutes() {
             </Route>
             <Route path="/payroll">
               <ProtectedRoute><Payroll /></ProtectedRoute>
+            </Route>
+            <Route path="/office-settings">
+              <ProtectedRoute><OfficeSettings /></ProtectedRoute>
             </Route>
             <Route path="/users">
               <ProtectedRoute><Users /></ProtectedRoute>
