@@ -20,6 +20,7 @@ import hrRouter from "./hr";
 import brandingRouter from "./branding";
 import storageRouter from "./storage";
 import judgePrepRouter from "./judgePrep";
+import webhookRouter from "./webhook";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(hrRouter);
 router.use(brandingRouter);
 router.use(storageRouter);
 router.use(judgePrepRouter);
+router.use(webhookRouter);
 
 export default router;
