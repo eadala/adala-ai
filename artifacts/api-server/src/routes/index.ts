@@ -19,6 +19,7 @@ import arbitrationRouter from "./arbitration";
 import hrRouter from "./hr";
 import brandingRouter from "./branding";
 import storageRouter from "./storage";
+import judgePrepRouter from "./judgePrep";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(arbitrationRouter);
 router.use(hrRouter);
 router.use(brandingRouter);
 router.use(storageRouter);
+router.use(judgePrepRouter);
 
 export default router;
