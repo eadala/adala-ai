@@ -32,6 +32,7 @@ import Leaves from "@/pages/leaves";
 import Payroll from "@/pages/payroll";
 import OfficeSettings from "@/pages/office-settings";
 import JudgePrep from "@/pages/judge-prep";
+import SaudiSystems from "@/pages/saudi-systems";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -261,6 +262,9 @@ function AppRoutes() {
             </Route>
             <Route path="/judge-prep">
               <ProtectedRoute><JudgePrep /></ProtectedRoute>
+            </Route>
+            <Route path="/saudi-systems">
+              <ProtectedRoute><SaudiSystems /></ProtectedRoute>
             </Route>
             <Route path="/users">
               <ProtectedRoute><Users /></ProtectedRoute>
