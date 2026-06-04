@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Bell, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2 } from "lucide-react";
+import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Bell, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2, Gavel } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ const NAV_GROUPS = [
       { href: "/ai-agents", label: "الوكلاء الذكيون", icon: Bot },
       { href: "/ai-chat", label: "المساعد الذكي", icon: Sparkles },
       { href: "/opponent-simulator", label: "محاكي الخصم", icon: Swords },
+      { href: "/judge-prep", label: "توقع أسئلة القاضي", icon: Gavel },
       { href: "/legal-research", label: "البحث القانوني", icon: LibraryBig },
       { href: "/arbitration", label: "التحكيم والوساطة", icon: Handshake },
     ],
