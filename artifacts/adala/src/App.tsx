@@ -26,6 +26,10 @@ import Arbitration from "@/pages/arbitration";
 import RiskManagement from "@/pages/risk-management";
 import Analytics from "@/pages/analytics";
 import Compliance from "@/pages/compliance";
+import Employees from "@/pages/employees";
+import Attendance from "@/pages/attendance";
+import Leaves from "@/pages/leaves";
+import Payroll from "@/pages/payroll";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -237,6 +241,18 @@ function AppRoutes() {
             </Route>
             <Route path="/compliance">
               <ProtectedRoute><Compliance /></ProtectedRoute>
+            </Route>
+            <Route path="/employees">
+              <ProtectedRoute><Employees /></ProtectedRoute>
+            </Route>
+            <Route path="/attendance">
+              <ProtectedRoute><Attendance /></ProtectedRoute>
+            </Route>
+            <Route path="/leaves">
+              <ProtectedRoute><Leaves /></ProtectedRoute>
+            </Route>
+            <Route path="/payroll">
+              <ProtectedRoute><Payroll /></ProtectedRoute>
             </Route>
             <Route path="/users">
               <ProtectedRoute><Users /></ProtectedRoute>

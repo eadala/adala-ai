@@ -16,6 +16,7 @@ import aiAgentsRouter from "./aiAgents";
 import commandCenterRouter from "./commandCenter";
 import legalResearchRouter from "./legalResearch";
 import arbitrationRouter from "./arbitration";
+import hrRouter from "./hr";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(aiAgentsRouter);
 router.use(commandCenterRouter);
 router.use(legalResearchRouter);
 router.use(arbitrationRouter);
+router.use(hrRouter);
 
 export default router;

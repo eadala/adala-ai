@@ -1,0 +1,233 @@
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { employeesTable, attendanceTable, leavesTable, payrollTable } from "@workspace/db/schema";
+import { eq, desc, and } from "drizzle-orm";
+
+const router = Router();
+
+/* ─── EMPLOYEES ─────────────────────────────────────── */
+
+router.get("/hr/employees", async (_req, res) => {
+  const rows = await db.select().from(employeesTable).orderBy(desc(employeesTable.createdAt));
+  res.json(rows);
+});
+
+router.post("/hr/employees", async (req, res) => {
+  const [row] = await db.insert(employeesTable).values(req.body).returning();
+  res.json(row);
+});
+
+router.patch("/hr/employees/:id", async (req, res) => {
+  const [row] = await db.update(employeesTable)
+    .set({ ...req.body, updatedAt: new Date() })
+    .where(eq(employeesTable.id, req.params.id)).returning();
+  res.json(row);
+});
+
+router.delete("/hr/employees/:id", async (req, res) => {
+  await db.delete(employeesTable).where(eq(employeesTable.id, req.params.id));
+  res.json({ success: true });
+});
+
+router.get("/hr/employees/stats", async (_req, res) => {
+  const all = await db.select().from(employeesTable);
+  res.json({
+    total: all.length,
+    active: all.filter(e => e.status === "active").length,
+    inactive: all.filter(e => e.status === "inactive").length,
+    totalSalaries: all.reduce((s, e) => s + parseFloat(String(e.salary) || "0"), 0),
+  });
+});
+
+/* ─── ATTENDANCE ─────────────────────────────────────── */
+
+router.get("/hr/attendance", async (req, res) => {
+  const { employeeId, date } = req.query as Record<string, string>;
+  let q = db.select({
+    id: attendanceTable.id,
+    employeeId: attendanceTable.employeeId,
+    checkIn: attendanceTable.checkIn,
+    checkOut: attendanceTable.checkOut,
+    workDate: attendanceTable.workDate,
+    status: attendanceTable.status,
+    notes: attendanceTable.notes,
+    createdAt: attendanceTable.createdAt,
+    employeeName: employeesTable.fullName,
+    jobTitle: employeesTable.jobTitle,
+    department: employeesTable.department,
+  }).from(attendanceTable)
+    .leftJoin(employeesTable, eq(attendanceTable.employeeId, employeesTable.id))
+    .orderBy(desc(attendanceTable.createdAt));
+  const rows = await q;
+  const filtered = rows.filter(r => {
+    if (employeeId && r.employeeId !== employeeId) return false;
+    if (date && r.workDate !== date) return false;
+    return true;
+  });
+  res.json(filtered);
+});
+
+router.post("/hr/attendance/check-in", async (req, res) => {
+  const { employeeId } = req.body;
+  const today = new Date().toISOString().split("T")[0];
+  const existing = await db.select().from(attendanceTable)
+    .where(and(eq(attendanceTable.employeeId, employeeId), eq(attendanceTable.workDate, today)));
+  if (existing.length > 0) return res.status(400).json({ error: "تم تسجيل الحضور مسبقاً لهذا اليوم" });
+  const [row] = await db.insert(attendanceTable).values({
+    employeeId, workDate: today, checkIn: new Date(), status: "present",
+    ipAddress: req.ip,
+  }).returning();
+  res.json(row);
+});
+
+router.post("/hr/attendance/check-out", async (req, res) => {
+  const { employeeId } = req.body;
+  const today = new Date().toISOString().split("T")[0];
+  const [existing] = await db.select().from(attendanceTable)
+    .where(and(eq(attendanceTable.employeeId, employeeId), eq(attendanceTable.workDate, today)));
+  if (!existing) return res.status(404).json({ error: "لم يتم تسجيل الحضور بعد" });
+  const [row] = await db.update(attendanceTable)
+    .set({ checkOut: new Date() })
+    .where(eq(attendanceTable.id, existing.id)).returning();
+  res.json(row);
+});
+
+router.post("/hr/attendance", async (req, res) => {
+  const body = { ...req.body };
+  if (body.checkIn && typeof body.checkIn === "string") body.checkIn = new Date(body.checkIn);
+  if (body.checkOut && typeof body.checkOut === "string") body.checkOut = new Date(body.checkOut);
+  const [row] = await db.insert(attendanceTable).values(body).returning();
+  res.json(row);
+});
+
+router.get("/hr/attendance/stats", async (_req, res) => {
+  const today = new Date().toISOString().split("T")[0];
+  const all = await db.select().from(attendanceTable);
+  const todayRows = all.filter(r => r.workDate === today);
+  res.json({
+    todayPresent: todayRows.filter(r => r.status === "present").length,
+    todayAbsent: todayRows.filter(r => r.status === "absent").length,
+    totalRecords: all.length,
+    checkedOut: todayRows.filter(r => r.checkOut).length,
+  });
+});
+
+/* ─── LEAVES ─────────────────────────────────────── */
+
+router.get("/hr/leaves", async (_req, res) => {
+  const rows = await db.select({
+    id: leavesTable.id,
+    employeeId: leavesTable.employeeId,
+    type: leavesTable.type,
+    startDate: leavesTable.startDate,
+    endDate: leavesTable.endDate,
+    days: leavesTable.days,
+    reason: leavesTable.reason,
+    status: leavesTable.status,
+    approvedBy: leavesTable.approvedBy,
+    approvedAt: leavesTable.approvedAt,
+    createdAt: leavesTable.createdAt,
+    employeeName: employeesTable.fullName,
+    jobTitle: employeesTable.jobTitle,
+  }).from(leavesTable)
+    .leftJoin(employeesTable, eq(leavesTable.employeeId, employeesTable.id))
+    .orderBy(desc(leavesTable.createdAt));
+  res.json(rows);
+});
+
+router.post("/hr/leaves", async (req, res) => {
+  const { startDate, endDate } = req.body;
+  const days = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1;
+  const [row] = await db.insert(leavesTable).values({ ...req.body, days }).returning();
+  res.json(row);
+});
+
+router.patch("/hr/leaves/:id", async (req, res) => {
+  const { status, approvedBy } = req.body;
+  const [row] = await db.update(leavesTable)
+    .set({ status, approvedBy, approvedAt: status !== "pending" ? new Date() : undefined })
+    .where(eq(leavesTable.id, req.params.id)).returning();
+  res.json(row);
+});
+
+router.get("/hr/leaves/stats", async (_req, res) => {
+  const all = await db.select().from(leavesTable);
+  res.json({
+    pending: all.filter(l => l.status === "pending").length,
+    approved: all.filter(l => l.status === "approved").length,
+    rejected: all.filter(l => l.status === "rejected").length,
+    total: all.length,
+  });
+});
+
+/* ─── PAYROLL ─────────────────────────────────────── */
+
+router.get("/hr/payroll", async (_req, res) => {
+  const rows = await db.select({
+    id: payrollTable.id,
+    employeeId: payrollTable.employeeId,
+    month: payrollTable.month,
+    year: payrollTable.year,
+    baseSalary: payrollTable.baseSalary,
+    allowances: payrollTable.allowances,
+    deductions: payrollTable.deductions,
+    gosi: payrollTable.gosi,
+    netSalary: payrollTable.netSalary,
+    status: payrollTable.status,
+    paidAt: payrollTable.paidAt,
+    notes: payrollTable.notes,
+    createdAt: payrollTable.createdAt,
+    employeeName: employeesTable.fullName,
+    jobTitle: employeesTable.jobTitle,
+  }).from(payrollTable)
+    .leftJoin(employeesTable, eq(payrollTable.employeeId, employeesTable.id))
+    .orderBy(desc(payrollTable.createdAt));
+  res.json(rows);
+});
+
+router.post("/hr/payroll/generate", async (req, res) => {
+  const { month, year } = req.body;
+  const employees = await db.select().from(employeesTable).where(eq(employeesTable.status, "active"));
+  const entries = [];
+  for (const emp of employees) {
+    const base = parseFloat(String(emp.salary) || "0");
+    const gosi = base * 0.1;
+    const allowances = base * 0.15;
+    const deductions = 0;
+    const net = base + allowances - deductions - gosi;
+    const [row] = await db.insert(payrollTable).values({
+      employeeId: emp.id, month, year: parseInt(year),
+      baseSalary: String(base), allowances: String(allowances),
+      deductions: String(deductions), gosi: String(gosi),
+      netSalary: String(net), status: "draft",
+    }).returning();
+    entries.push(row);
+  }
+  res.json({ generated: entries.length, entries });
+});
+
+router.patch("/hr/payroll/:id/pay", async (req, res) => {
+  const [row] = await db.update(payrollTable)
+    .set({ status: "paid", paidAt: new Date() })
+    .where(eq(payrollTable.id, req.params.id)).returning();
+  res.json(row);
+});
+
+router.patch("/hr/payroll/pay-all", async (req, res) => {
+  const { month, year } = req.body;
+  await db.update(payrollTable)
+    .set({ status: "paid", paidAt: new Date() })
+    .where(and(eq(payrollTable.month, month), eq(payrollTable.status, "draft")));
+  res.json({ success: true });
+});
+
+router.get("/hr/payroll/stats", async (_req, res) => {
+  const all = await db.select().from(payrollTable);
+  res.json({
+    totalPaid: all.filter(p => p.status === "paid").reduce((s, p) => s + parseFloat(String(p.netSalary) || "0"), 0),
+    totalDraft: all.filter(p => p.status === "draft").length,
+    paidCount: all.filter(p => p.status === "paid").length,
+  });
+});
+
+export default router;

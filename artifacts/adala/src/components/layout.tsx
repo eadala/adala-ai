@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Bell, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield } from "lucide-react";
+import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Bell, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,15 @@ const NAV_GROUPS = [
       { href: "/opponent-simulator", label: "محاكي الخصم", icon: Swords },
       { href: "/legal-research", label: "البحث القانوني", icon: LibraryBig },
       { href: "/arbitration", label: "التحكيم والوساطة", icon: Handshake },
+    ],
+  },
+  {
+    label: "الموارد البشرية",
+    items: [
+      { href: "/employees", label: "الموظفون", icon: UserCog },
+      { href: "/attendance", label: "الحضور والانصراف", icon: Clock },
+      { href: "/leaves", label: "الإجازات", icon: CalendarDays },
+      { href: "/payroll", label: "الرواتب", icon: DollarSign },
     ],
   },
   {
