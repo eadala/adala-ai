@@ -12,7 +12,8 @@ import { toast } from "sonner";
 import {
   Building2, Upload, Palette, FileText, Crown, CheckCircle2,
   Image, Stamp, PenLine, Phone, Mail, Globe, Hash, Eye, EyeOff,
-  Save, AlertCircle
+  Save, AlertCircle, MessageCircle, Link, Copy, CheckCheck,
+  Zap, ShieldCheck, RefreshCw, ExternalLink, Loader2
 } from "lucide-react";
 
 const BASE_URL = import.meta.env.BASE_URL ?? "/";
@@ -133,6 +134,261 @@ function UploadZone({ label, icon: Icon, value, onUpload, accept = "image/*" }: 
   );
 }
 
+// ─── WhatsApp Business API Settings Component ───
+function WhatsAppSettings() {
+  const BASE = import.meta.env.BASE_URL ?? "/";
+  const [phoneId,    setPhoneId]    = useState("");
+  const [token,      setToken]      = useState("");
+  const [verifyTok,  setVerifyTok]  = useState("adala_whatsapp_verify");
+  const [showToken,  setShowToken]  = useState(false);
+  const [copied,     setCopied]     = useState(false);
+  const [testing,    setTesting]    = useState(false);
+  const [testResult, setTestResult] = useState<{ ok?: boolean; phone?: string; error?: string } | null>(null);
+
+  const { data: status } = useQuery({
+    queryKey: ["wa-settings"],
+    queryFn:  () => fetch(`${BASE}api/webhook/whatsapp/settings`).then(r => r.json()),
+  });
+
+  const webhookUrl = status?.webhookUrl || `${window.location.origin}${BASE}api/webhook/whatsapp`;
+
+  const copyUrl = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const testConn = async () => {
+    if (!phoneId || !token) { toast.error("أدخل Phone Number ID و Access Token أولاً"); return; }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const r = await fetch(`${BASE}api/webhook/whatsapp/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumberId: phoneId, accessToken: token }),
+      });
+      const d = await r.json();
+      setTestResult(d);
+      if (d.ok) toast.success(`✅ متصل — ${d.phone || "رقم مُفعَّل"}`);
+      else      toast.error(`❌ ${d.error}`);
+    } catch { toast.error("تعذّر الاتصال"); }
+    setTesting(false);
+  };
+
+  const STEPS = [
+    { n: "1", title: "أنشئ تطبيق Meta", desc: "اذهب إلى developers.facebook.com → My Apps → Create App → Business" },
+    { n: "2", title: "أضف منتج WhatsApp",   desc: "من لوحة التحكم: Add Product → WhatsApp → انقر Setup" },
+    { n: "3", title: "احصل على Phone Number ID", desc: "WhatsApp → Getting Started → انسخ Phone Number ID" },
+    { n: "4", title: "أنشئ Access Token",    desc: "System User → Generate Token → اختر الصلاحيات: whatsapp_business_messaging" },
+    { n: "5", title: "هيّئ Webhook",         desc: "WhatsApp → Configuration → انسخ Webhook URL أعلاه وأدخل Verify Token" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Status Banner */}
+      <Card className={`border-2 ${status?.connected ? "border-green-500/40 bg-green-500/5" : "border-amber-500/40 bg-amber-500/5"}`}>
+        <CardContent className="flex items-center gap-4 pt-5">
+          <div className={`p-3 rounded-xl ${status?.connected ? "bg-green-500/10" : "bg-amber-500/10"}`}>
+            <MessageCircle className={`h-7 w-7 ${status?.connected ? "text-green-500" : "text-amber-500"}`} />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-base">
+              {status?.connected ? "WhatsApp Business مُفعَّل ومتصل ✅" : "WhatsApp Business API غير مُفعَّل"}
+            </p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {status?.connected
+                ? `رقم: ${status.phoneNumberId} • مزوّد: ${status.provider}`
+                : "أدخل بيانات Meta Business API لتفعيل الاستقبال التلقائي"}
+            </p>
+          </div>
+          <Badge variant={status?.connected ? "default" : "secondary"} className="text-sm px-3 py-1">
+            {status?.connected ? "مُفعَّل" : "غير مُفعَّل"}
+          </Badge>
+        </CardContent>
+      </Card>
+
+      {/* Credentials Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" />بيانات الربط — Meta Business API</CardTitle>
+          <CardDescription>يُحفظ في متغيرات البيئة على الخادم</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <Label>Phone Number ID</Label>
+            <Input
+              dir="ltr"
+              placeholder="1234567890123456"
+              value={phoneId}
+              onChange={e => setPhoneId(e.target.value)}
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground">من: Meta Business Suite → WhatsApp → Getting Started</p>
+          </div>
+          <div className="space-y-2">
+            <Label>Access Token (Permanent)</Label>
+            <div className="relative">
+              <Input
+                dir="ltr"
+                type={showToken ? "text" : "password"}
+                placeholder="EAAxxxxxxx..."
+                value={token}
+                onChange={e => setToken(e.target.value)}
+                className="font-mono pl-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken(!showToken)}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">System User → Generate Token مع صلاحية whatsapp_business_messaging</p>
+          </div>
+          <div className="space-y-2">
+            <Label>Webhook Verify Token (تخصيص)</Label>
+            <Input
+              dir="ltr"
+              value={verifyTok}
+              onChange={e => setVerifyTok(e.target.value)}
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground">ادخله في حقل Verify Token بلوحة Meta</p>
+          </div>
+
+          {/* Test Connection */}
+          <div className="flex gap-3 pt-2">
+            <Button onClick={testConn} disabled={testing} variant="outline" className="flex items-center gap-2">
+              {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              اختبر الاتصال
+            </Button>
+            {testResult?.ok && (
+              <div className="flex items-center gap-2 text-green-600 text-sm">
+                <CheckCheck className="h-4 w-4" />
+                متصل — {testResult.phone || "رقم مُفعَّل"}
+              </div>
+            )}
+            {testResult?.error && (
+              <div className="flex items-center gap-2 text-red-500 text-sm">
+                <AlertCircle className="h-4 w-4" />
+                {testResult.error}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Webhook URL */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Link className="h-5 w-5 text-primary" />Webhook URL (انسخه في Meta)</CardTitle>
+          <CardDescription>أدخل هذا الرابط في إعدادات Webhook بلوحة تحكم Meta Developers</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 bg-muted rounded-lg px-4 py-3 font-mono text-sm break-all" dir="ltr">
+              {webhookUrl}
+            </div>
+            <Button variant="outline" size="sm" onClick={copyUrl} className="shrink-0 gap-2">
+              {copied ? <CheckCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+              {copied ? "تم النسخ" : "نسخ"}
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Verify Token</p>
+              <p className="font-mono text-sm">{verifyTok}</p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Subscribed Fields</p>
+              <p className="font-mono text-sm">messages, message_deliveries</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Setup Steps */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ExternalLink className="h-5 w-5 text-primary" />خطوات الربط بـ Meta Business API</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ol className="space-y-3">
+            {STEPS.map(step => (
+              <li key={step.n} className="flex gap-4 items-start">
+                <div className="w-7 h-7 rounded-full bg-primary/10 text-primary font-bold text-sm flex items-center justify-center shrink-0 mt-0.5">
+                  {step.n}
+                </div>
+                <div>
+                  <p className="font-medium text-sm">{step.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{step.desc}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          <Separator className="my-4" />
+
+          <div className="flex gap-3 flex-wrap">
+            <a
+              href="https://developers.facebook.com/apps"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Meta Developers Portal
+            </a>
+            <a
+              href="https://business.facebook.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Meta Business Suite
+            </a>
+            <a
+              href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              توثيق WhatsApp Cloud API
+            </a>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Inbound Events Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><RefreshCw className="h-5 w-5 text-primary" />ما يحدث عند ورود رسالة واتساب</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {[
+              { icon: "📥", title: "الاستقبال التلقائي", desc: "كل رسالة واردة تُحفظ فوراً في قاعدة البيانات" },
+              { icon: "🏷️", title: "التصنيف الذكي",  desc: "يُصنَّف تلقائياً: استشارة، موعد، مستند، مالي، شكوى" },
+              { icon: "💬", title: "تكامل مع تواصل", desc: "تظهر في صفحة تواصل تحت قناة WhatsApp" },
+            ].map(item => (
+              <div key={item.title} className="bg-muted/50 rounded-xl p-4">
+                <div className="text-2xl mb-2">{item.icon}</div>
+                <p className="font-medium text-sm">{item.title}</p>
+                <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function OfficeSettings() {
   const qc = useQueryClient();
   const [form, setForm] = useState<Branding>({});
@@ -180,7 +436,6 @@ export default function OfficeSettings() {
   });
 
   const set = (key: keyof Branding, value: any) => setForm(p => ({ ...p, [key]: value }));
-
   const currentTier = TIERS.find(t => t.id === (form.subscriptionTier || "basic")) || TIERS[0];
 
   return (
@@ -191,11 +446,12 @@ export default function OfficeSettings() {
       </div>
 
       <Tabs defaultValue="identity" dir="rtl">
-        <TabsList className="grid grid-cols-4 w-full">
+        <TabsList className="grid grid-cols-5 w-full">
           <TabsTrigger value="identity"><Building2 className="h-4 w-4 ml-2" />هوية المكتب</TabsTrigger>
           <TabsTrigger value="assets"><Image className="h-4 w-4 ml-2" />الشعار والختم</TabsTrigger>
           <TabsTrigger value="branding"><Palette className="h-4 w-4 ml-2" />الهوية المزدوجة</TabsTrigger>
           <TabsTrigger value="subscription"><Crown className="h-4 w-4 ml-2" />الاشتراك</TabsTrigger>
+          <TabsTrigger value="whatsapp"><MessageCircle className="h-4 w-4 ml-2" />واتساب API</TabsTrigger>
         </TabsList>
 
         {/* TAB 1: Identity */}
@@ -425,6 +681,11 @@ export default function OfficeSettings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* TAB 5: WhatsApp Business API */}
+        <TabsContent value="whatsapp" className="space-y-4 mt-4">
+          <WhatsAppSettings />
         </TabsContent>
       </Tabs>
 
