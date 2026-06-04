@@ -1,0 +1,138 @@
+منصة بحجم عدالة AI (قضايا + موارد بشرية + حضور وانصراف + اشتراكات + ذكاء اصطناعي + صلاحيات) تحتاج عشرات آلاف الأسطر البرمجية، ولا يمكن اختصارها في رسالة واحدة.
+
+الأفضل أن أبدأ معك بالهيكل البرمجي الصحيح (Production Architecture) ثم نبني الوحدات تدريجيًا.
+
+التقنية المقترحة
+
+Frontend
+├── Next.js
+├── TypeScript
+├── TailwindCSS
+└── ShadCN UI
+Backend
+├── NestJS
+├── TypeScript
+├── REST API
+└── JWT Auth
+Database
+├── PostgreSQL
+└── Prisma ORM
+Storage
+├── S3 Compatible Storage
+└── File Manager
+AI Layer
+├── OpenAI
+├── Claude
+├── Gemini
+└── Local Models
+Payments
+├── Stripe
+├── Moyasar
+└── HyperPay
+
+جداول قاعدة البيانات الأساسية
+
+CREATE TABLE tenants (
+  id UUID PRIMARY KEY,
+  name VARCHAR(255),
+  subscription_plan VARCHAR(50),
+  status VARCHAR(20),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  tenant_id UUID REFERENCES tenants(id),
+  full_name VARCHAR(255),
+  email VARCHAR(255) UNIQUE,
+  password_hash TEXT,
+  role VARCHAR(50),
+  status VARCHAR(20),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE employees (
+  id UUID PRIMARY KEY,
+  tenant_id UUID REFERENCES tenants(id),
+  user_id UUID REFERENCES users(id),
+  employee_no VARCHAR(50),
+  job_title VARCHAR(255),
+  salary NUMERIC,
+  hire_date DATE
+);
+CREATE TABLE attendance (
+  id UUID PRIMARY KEY,
+  employee_id UUID REFERENCES employees(id),
+  check_in TIMESTAMP,
+  check_out TIMESTAMP,
+  ip_address VARCHAR(100),
+  device_info TEXT,
+  gps_location TEXT
+);
+CREATE TABLE cases (
+  id UUID PRIMARY KEY,
+  tenant_id UUID REFERENCES tenants(id),
+  title VARCHAR(255),
+  case_number VARCHAR(255),
+  status VARCHAR(50),
+  assigned_lawyer UUID,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+API تسجيل الحضور
+
+@Post('/attendance/check-in')
+async checkIn(@Req() req) {
+  return this.attendanceService.checkIn({
+    employeeId: req.user.employeeId,
+    ip: req.ip,
+    checkIn: new Date()
+  });
+}
+
+API تسجيل الانصراف
+
+@Post('/attendance/check-out')
+async checkOut(@Req() req) {
+  return this.attendanceService.checkOut({
+    employeeId: req.user.employeeId,
+    checkOut: new Date()
+  });
+}
+
+صلاحيات النظام
+
+SUPER_OWNER
+PLATFORM_ADMIN
+SUPPORT_AGENT
+TENANT_OWNER
+OFFICE_MANAGER
+LAWYER
+TRAINEE
+HR_MANAGER
+ACCOUNTANT
+
+لوحة التحكم الرئيسية
+
+Dashboard
+│
+├── القضايا
+├── العقود
+├── التنفيذ
+├── العملاء
+├── الموظفون
+├── الحضور
+├── الإجازات
+├── الرواتب
+├── الذكاء الاصطناعي
+├── التقارير
+├── الاشتراكات
+└── الإعدادات
+
+إذا كنت تريد مشروعًا حقيقيًا جاهزًا للمطورين، فالخطوة التالية هي إعداد:
+
+* Database Schema كامل (50+ جدول).
+* RBAC كامل للصلاحيات.
+* API Specification كاملة.
+* Architecture Diagram.
+* PRD تفصيلي لمنصة عدالة AI.
+
+وهذا عادة يكون ملفًا هندسيًا متكاملًا من عشرات الصفحات قبل البدء بكتابة الكود الفعلي.

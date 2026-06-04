@@ -23,6 +23,9 @@ import Contracts from "@/pages/contracts";
 import Clients from "@/pages/clients";
 import LegalResearch from "@/pages/legal-research";
 import Arbitration from "@/pages/arbitration";
+import RiskManagement from "@/pages/risk-management";
+import Analytics from "@/pages/analytics";
+import Compliance from "@/pages/compliance";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -225,6 +228,15 @@ function AppRoutes() {
             </Route>
             <Route path="/arbitration">
               <ProtectedRoute><Arbitration /></ProtectedRoute>
+            </Route>
+            <Route path="/risk-management">
+              <ProtectedRoute><RiskManagement /></ProtectedRoute>
+            </Route>
+            <Route path="/analytics">
+              <ProtectedRoute><Analytics /></ProtectedRoute>
+            </Route>
+            <Route path="/compliance">
+              <ProtectedRoute><Compliance /></ProtectedRoute>
             </Route>
             <Route path="/users">
               <ProtectedRoute><Users /></ProtectedRoute>
