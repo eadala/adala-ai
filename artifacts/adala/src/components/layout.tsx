@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Bell, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2, Gavel } from "lucide-react";
+import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Bell, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2, Gavel, MessageCircle } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser, useClerk } from "@clerk/react";
 
 const NAV_GROUPS = [
+  {
+    label: "تواصل",
+    items: [
+      { href: "/messages", label: "تواصل", icon: MessageCircle },
+    ],
+  },
   {
     label: "الإدارة",
     items: [
@@ -50,7 +56,6 @@ const NAV_GROUPS = [
     label: "النظام",
     items: [
       { href: "/users", label: "فريق العمل", icon: Users },
-      { href: "/messages", label: "المراسلات", icon: MessageSquare },
       { href: "/billing", label: "الاشتراك والفوترة", icon: CreditCard },
       { href: "/office-settings", label: "إعدادات المكتب", icon: Building2 },
     ],
