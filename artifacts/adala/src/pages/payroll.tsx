@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   DollarSign, Plus, Loader2, CheckCircle2, Clock, Sparkles,
-  TrendingUp, Users, CreditCard, Download, Filter, FileText
+  TrendingUp, Users, CreditCard, Download, Filter, FileText, Printer
 } from "lucide-react";
+import { DocumentPrintTemplate, PrintButton } from "@/components/document-print-template";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,9 +81,51 @@ export default function Payroll() {
           <h1 className="text-2xl font-black">الرواتب</h1>
           <p className="text-muted-foreground text-sm">إدارة وصرف رواتب الموظفين</p>
         </div>
-        <Button onClick={() => setShowGenerate(true)} className="gap-2">
-          <Sparkles className="h-4 w-4" /> توليد كشف الرواتب
-        </Button>
+        <div className="flex gap-2">
+          <PrintButton label="طباعة الكشف">
+            <DocumentPrintTemplate
+              title="كشف الرواتب"
+              subtitle={`${monthFilter !== "all" ? monthFilter : "جميع الشهور"} — ${filtered.length} موظف`}
+              date={new Date().toLocaleDateString("ar-EG")}
+              showStamp
+              showSignature
+            >
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                <thead>
+                  <tr style={{ background: "#f5f5f5" }}>
+                    {["الموظف", "الشهر", "الراتب الأساسي", "البدلات", "التأمينات", "الاستقطاعات", "الصافي", "الحالة"].map(h => (
+                      <th key={h} style={{ border: "1px solid #ddd", padding: "6px 8px", textAlign: "right", fontSize: "11px" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((p: any, i: number) => (
+                    <tr key={p.id} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                      <td style={{ border: "1px solid #ddd", padding: "6px 8px" }}><div style={{ fontWeight: 600 }}>{p.employeeName}</div><div style={{ fontSize: "10px", color: "#888" }}>{p.jobTitle}</div></td>
+                      <td style={{ border: "1px solid #ddd", padding: "6px 8px" }}>{p.month} {p.year}</td>
+                      <td style={{ border: "1px solid #ddd", padding: "6px 8px" }}>{fmt(p.baseSalary)}</td>
+                      <td style={{ border: "1px solid #ddd", padding: "6px 8px", color: "#059669" }}>+{fmt(p.allowances)}</td>
+                      <td style={{ border: "1px solid #ddd", padding: "6px 8px", color: "#ea580c" }}>-{fmt(p.gosi)}</td>
+                      <td style={{ border: "1px solid #ddd", padding: "6px 8px", color: "#dc2626" }}>-{fmt(p.deductions)}</td>
+                      <td style={{ border: "1px solid #ddd", padding: "6px 8px", fontWeight: 700 }}>{fmt(p.netSalary)} ر.س</td>
+                      <td style={{ border: "1px solid #ddd", padding: "6px 8px" }}>{p.status === "paid" ? "✅ مدفوع" : "⏳ معلق"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: "#f0f0f0", fontWeight: 700 }}>
+                    <td colSpan={6} style={{ border: "1px solid #ddd", padding: "8px", textAlign: "center" }}>الإجمالي</td>
+                    <td style={{ border: "1px solid #ddd", padding: "8px" }}>{fmt(totalNet)} ر.س</td>
+                    <td style={{ border: "1px solid #ddd", padding: "8px" }}></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </DocumentPrintTemplate>
+          </PrintButton>
+          <Button onClick={() => setShowGenerate(true)} className="gap-2">
+            <Sparkles className="h-4 w-4" /> توليد كشف الرواتب
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}

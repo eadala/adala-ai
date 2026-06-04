@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   FileText, Plus, Search, Filter, Loader2, Sparkles, Eye, Trash2,
   AlertTriangle, CheckCircle, Clock, PenLine, XCircle, ChevronDown,
-  Download, Shield
+  Download, Shield, Printer
 } from "lucide-react";
+import { DocumentPrintTemplate, PrintButton } from "@/components/document-print-template";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -309,6 +310,33 @@ export default function Contracts() {
               <Button variant="outline" onClick={() => handleAnalyze(viewContract)} className="gap-2">
                 <Shield className="h-4 w-4" /> تحليل المخاطر
               </Button>
+            )}
+            {viewContract && (
+              <PrintButton label="طباعة العقد">
+                <DocumentPrintTemplate
+                  title={viewContract.title}
+                  subtitle={CONTRACT_TYPES.find(t => t.value === viewContract.type)?.label}
+                  docNumber={viewContract.id?.slice(0, 8).toUpperCase()}
+                  date={new Date().toLocaleDateString("ar-EG")}
+                  showStamp
+                  showSignature
+                >
+                  {analysisResult && (
+                    <div style={{ marginBottom: "16px", padding: "12px", background: "#f0f7ff", borderRadius: "8px", borderRight: "4px solid #1e3a5f" }}>
+                      <div style={{ fontWeight: 700, marginBottom: "8px" }}>تقرير تحليل المخاطر</div>
+                      <pre style={{ whiteSpace: "pre-wrap", fontSize: "12px", fontFamily: "Cairo, sans-serif" }}>{analysisResult}</pre>
+                    </div>
+                  )}
+                  <div style={{ marginBottom: "12px", display: "flex", gap: "24px", flexWrap: "wrap", fontSize: "13px" }}>
+                    <span><strong>الحالة:</strong> {STATUS_CONFIG[viewContract.status]?.label}</span>
+                    {viewContract.expiresAt && <span><strong>انتهاء:</strong> {new Date(viewContract.expiresAt).toLocaleDateString("ar-SA")}</span>}
+                    {viewContract.riskScore && <span><strong>درجة المخاطرة:</strong> {viewContract.riskScore}/10</span>}
+                  </div>
+                  <pre style={{ whiteSpace: "pre-wrap", fontSize: "13px", fontFamily: "Cairo, sans-serif", lineHeight: 1.8 }}>
+                    {viewContract.content ?? "لا يوجد محتوى"}
+                  </pre>
+                </DocumentPrintTemplate>
+              </PrintButton>
             )}
             <Button onClick={() => { setViewContract(null); setAnalysisResult(""); }}>إغلاق</Button>
           </DialogFooter>

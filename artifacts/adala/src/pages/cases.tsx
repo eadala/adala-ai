@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Search, Plus, Filter, MoreHorizontal } from "lucide-react";
+import { Search, Plus, Filter, MoreHorizontal, Printer } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListCasesQueryKey } from "@workspace/api-client-react";
+import { DocumentPrintTemplate, PrintButton, useBranding } from "@/components/document-print-template";
 
 const STATUS_MAP: Record<string, string> = {
   open: "مفتوحة",
@@ -66,7 +67,38 @@ export default function Cases() {
           <h1 className="text-3xl font-bold tracking-tight">إدارة القضايا</h1>
           <p className="text-muted-foreground mt-1">عرض وإدارة جميع القضايا النشطة والمغلقة</p>
         </div>
-        <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
+        <div className="flex gap-2">
+          <PrintButton label="تصدير PDF">
+            <DocumentPrintTemplate
+              title="كشف القضايا"
+              subtitle={`إجمالي القضايا: ${filteredCases?.length ?? 0}`}
+              date={new Date().toLocaleDateString("ar-EG")}
+              showStamp
+              showSignature
+            >
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                <thead>
+                  <tr style={{ background: "#f5f5f5" }}>
+                    {["عنوان القضية", "الموكل", "النوع", "الحالة", "تاريخ الإضافة"].map(h => (
+                      <th key={h} style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCases?.map((c, i) => (
+                    <tr key={c.id} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                      <td style={{ border: "1px solid #ddd", padding: "8px" }}>{c.title}</td>
+                      <td style={{ border: "1px solid #ddd", padding: "8px" }}>{c.clientName || "—"}</td>
+                      <td style={{ border: "1px solid #ddd", padding: "8px" }}>{TYPE_MAP[c.caseType] || c.caseType}</td>
+                      <td style={{ border: "1px solid #ddd", padding: "8px" }}>{STATUS_MAP[c.status] || c.status}</td>
+                      <td style={{ border: "1px solid #ddd", padding: "8px" }}>{new Date(c.createdAt).toLocaleDateString("ar-EG")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </DocumentPrintTemplate>
+          </PrintButton>
+          <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
           <DialogTrigger asChild>
             <Button className="hover-elevate">
               <Plus className="ml-2 h-4 w-4" />
@@ -108,6 +140,7 @@ export default function Cases() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
