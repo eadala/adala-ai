@@ -64,6 +64,35 @@ export const leavesTable = pgTable("leaves", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const employeeWarningsTable = pgTable("employee_warnings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  employeeId: uuid("employee_id").notNull().references(() => employeesTable.id, { onDelete: "cascade" }),
+  type: text("type").notNull().default("written"),
+  reason: text("reason").notNull(),
+  description: text("description"),
+  issuedBy: text("issued_by"),
+  status: text("status").notNull().default("active"),
+  appealNotes: text("appeal_notes"),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const employeeInvestigationsTable = pgTable("employee_investigations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  employeeId: uuid("employee_id").notNull().references(() => employeesTable.id, { onDelete: "cascade" }),
+  subject: text("subject").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("open"),
+  outcome: text("outcome"),
+  openedBy: text("opened_by"),
+  committee: text("committee"),
+  sessionDate: date("session_date"),
+  closedAt: timestamp("closed_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const payrollTable = pgTable("payroll", {
   id: uuid("id").primaryKey().defaultRandom(),
   employeeId: uuid("employee_id").notNull().references(() => employeesTable.id, { onDelete: "cascade" }),
