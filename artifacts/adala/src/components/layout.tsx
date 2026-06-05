@@ -51,6 +51,12 @@ const NAV_GROUPS = [
     ],
   },
   {
+    label: "الموقع القانوني",
+    items: [
+      { href: "/office-management", label: "الموقع الذكي للمكتب", icon: Globe },
+    ],
+  },
+  {
     label: "النظام",
     items: [
       { href: "/users", label: "فريق العمل", icon: Users },

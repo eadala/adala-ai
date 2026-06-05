@@ -11,3 +11,4 @@ export * from "./arbitration";
 export * from "./hr";
 export * from "./branding";
 export * from "./invoices";
+export * from "./office";
