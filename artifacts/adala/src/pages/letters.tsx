@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,11 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   FileText, Copy, Printer, Search, ChevronLeft,
-  Scale, Handshake, DollarSign, Building2, Star, Check
+  Scale, Handshake, DollarSign, Building2, Star, Check,
+  Mail, Send, Loader2, Settings2, AlertCircle
 } from "lucide-react";
 
 interface TemplateField {
@@ -418,8 +421,53 @@ export default function Letters() {
   const [selected, setSelected] = useState<LetterTemplate | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+  const [toEmail, setToEmail] = useState("");
+  const [toName, setToName] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [fromName, setFromName] = useState("");
   const previewRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const { data: smtpStatus } = useQuery<{ configured: boolean }>({
+    queryKey: ["smtp-status"],
+    queryFn: () => fetch("/api/email/smtp-status").then(r => r.json()),
+  });
+
+  const sendEmailMutation = useMutation({
+    mutationFn: (data: any) => fetch("/api/email/send-letter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }).then(r => r.json()),
+    onSuccess: (data) => {
+      if (data.mailtoFallback) {
+        const mailtoLink = `mailto:${toEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(previewText.replace(/\*\*(.*?)\*\*/g, "$1"))}`;
+        window.open(mailtoLink, "_blank");
+        toast({ title: "فُتح برنامج البريد", description: "أكمل الإرسال من برنامج البريد لديك" });
+      } else if (data.success) {
+        toast({ title: "✅ تم الإرسال بنجاح", description: `تم إرسال الخطاب إلى ${toEmail}` });
+        setShowEmail(false);
+      } else {
+        toast({ title: "فشل الإرسال", description: data.error, variant: "destructive" });
+      }
+    },
+    onError: () => toast({ title: "خطأ في الإرسال", variant: "destructive" }),
+  });
+
+  function openEmailDialog() {
+    if (selected) setEmailSubject(selected.title);
+    setShowEmail(true);
+  }
+
+  function handleSendEmail() {
+    sendEmailMutation.mutate({ to: toEmail, toName, subject: emailSubject, body: previewText, fromName });
+  }
+
+  function handleMailtoFallback() {
+    const mailtoLink = `mailto:${toEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(previewText.replace(/\*\*(.*?)\*\*/g, "$1"))}`;
+    window.open(mailtoLink, "_blank");
+  }
 
   const filtered = TEMPLATES.filter(t => {
     if (selectedCategory !== "all" && t.category !== selectedCategory) return false;
@@ -586,7 +634,7 @@ export default function Letters() {
         <div className="flex flex-col gap-3">
           {selected ? (
             <>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-semibold text-muted-foreground flex-1">معاينة الخطاب</span>
                 <Button size="sm" variant="outline" onClick={handleCopy} className="h-7 text-xs gap-1.5">
                   {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
@@ -594,6 +642,9 @@ export default function Letters() {
                 </Button>
                 <Button size="sm" variant="outline" onClick={handlePrint} className="h-7 text-xs gap-1.5">
                   <Printer className="h-3.5 w-3.5" /> طباعة
+                </Button>
+                <Button size="sm" onClick={openEmailDialog} className="h-7 text-xs gap-1.5 bg-primary hover:bg-primary/90">
+                  <Mail className="h-3.5 w-3.5" /> إرسال بالبريد
                 </Button>
               </div>
               <Card className="flex-1 border-border/50">
@@ -616,6 +667,95 @@ export default function Letters() {
           )}
         </div>
       </div>
+
+      {/* Email Dialog */}
+      <Dialog open={showEmail} onOpenChange={setShowEmail}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-primary" />
+              إرسال الخطاب بالبريد الإلكتروني
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* SMTP status notice */}
+          {smtpStatus && !smtpStatus.configured && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-300">
+              <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span>
+                لم يتم إعداد خادم البريد (SMTP) بعد — سيُفتح برنامج بريدك الإلكتروني تلقائياً لإكمال الإرسال.
+              </span>
+            </div>
+          )}
+          {smtpStatus?.configured && (
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300">
+              <Check className="h-3.5 w-3.5 shrink-0" />
+              خادم البريد مُهيّأ — سيتم الإرسال مباشرة
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs font-semibold mb-1 block">البريد الإلكتروني للمستلم *</Label>
+              <Input
+                type="email"
+                value={toEmail}
+                onChange={e => setToEmail(e.target.value)}
+                placeholder="client@example.com"
+                dir="ltr"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold mb-1 block">اسم المستلم</Label>
+              <Input
+                value={toName}
+                onChange={e => setToName(e.target.value)}
+                placeholder="محمد عبدالله"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold mb-1 block">موضوع الرسالة *</Label>
+              <Input
+                value={emailSubject}
+                onChange={e => setEmailSubject(e.target.value)}
+                placeholder={selected?.title ?? "موضوع الخطاب"}
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold mb-1 block">اسم المُرسِل / المكتب</Label>
+              <Input
+                value={fromName}
+                onChange={e => setFromName(e.target.value)}
+                placeholder="مكتب المحاماة / اسم المحامي"
+              />
+            </div>
+
+            {/* preview snippet */}
+            <div className="rounded-lg bg-muted/30 border border-border/40 p-3 text-xs text-muted-foreground leading-6 max-h-24 overflow-hidden relative">
+              <div className="line-clamp-3">{previewText.replace(/\*\*/g, "").slice(0, 200)}...</div>
+              <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-background/80 to-transparent" />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            {!smtpStatus?.configured && (
+              <Button variant="outline" onClick={handleMailtoFallback} disabled={!toEmail} className="gap-2 flex-1">
+                <Mail className="h-4 w-4" /> فتح في برنامج البريد
+              </Button>
+            )}
+            <Button
+              onClick={handleSendEmail}
+              disabled={!toEmail || !emailSubject || sendEmailMutation.isPending}
+              className="gap-2 flex-1"
+            >
+              {sendEmailMutation.isPending
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Send className="h-4 w-4" />}
+              {smtpStatus?.configured ? "إرسال الآن" : "إرسال عبر البريد"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
