@@ -40,17 +40,12 @@ export default function OfficeManagement() {
   });
 
   const [pageForm, setPageForm] = useState<any>(null);
-  const [creating, setCreating] = useState(false);
-  const initForm = {
-    slug: "", name: "", tagline: "", about: "", licenseNumber: "",
-    experienceYears: 0, phone: "", whatsapp: "", email: "", address: "", city: "",
-    regions: "", casesCount: 0, clientsCount: 0, successRate: 0,
-    showStats: true, isPublished: false,
-  };
+  const [initName, setInitName] = useState("");
+  const [initSlug, setInitSlug] = useState("");
 
   const createOfficeMutation = useMutation({
     mutationFn: (d: any) => fetch("/api/office/my", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-office"] }); setCreating(false); toast({ title: "تم إنشاء الصفحة ✓" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-office"] }); toast({ title: "تم إنشاء الصفحة ✓" }); },
   });
 
   const updateOfficeMutation = useMutation({
@@ -133,17 +128,27 @@ export default function OfficeManagement() {
       <Card>
         <CardContent className="pt-6 space-y-3">
           <div><Label className="text-xs font-semibold mb-1 block">اسم المكتب *</Label>
-            <Input value={initForm.name} onChange={e => {}} placeholder="مكتب عبدالله للمحاماة" id="init-name" /></div>
+            <Input
+              value={initName}
+              onChange={e => setInitName(e.target.value)}
+              placeholder="مكتب عبدالله للمحاماة"
+            /></div>
           <div><Label className="text-xs font-semibold mb-1 block">الرابط المختصر * <span className="text-muted-foreground font-normal">(بالإنجليزية، بدون مسافات)</span></Label>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground text-sm">adalah.sa/firms/</span>
-              <Input id="init-slug" placeholder="alharbi-law" dir="ltr" className="flex-1" />
+              <Input
+                value={initSlug}
+                onChange={e => setInitSlug(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""))}
+                placeholder="alharbi-law"
+                dir="ltr"
+                className="flex-1"
+              />
             </div></div>
-          <Button className="w-full mt-2" onClick={() => {
-            const name = (document.getElementById("init-name") as HTMLInputElement)?.value;
-            const slug = (document.getElementById("init-slug") as HTMLInputElement)?.value;
-            if (name && slug) createOfficeMutation.mutate({ name, slug });
-          }} disabled={createOfficeMutation.isPending}>
+          <Button
+            className="w-full mt-2"
+            disabled={!initName.trim() || !initSlug.trim() || createOfficeMutation.isPending}
+            onClick={() => createOfficeMutation.mutate({ name: initName.trim(), slug: initSlug.trim() })}
+          >
             {createOfficeMutation.isPending && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
             إنشاء الصفحة
           </Button>
