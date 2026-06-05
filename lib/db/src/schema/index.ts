@@ -12,3 +12,4 @@ export * from "./hr";
 export * from "./branding";
 export * from "./invoices";
 export * from "./office";
+export * from "./admin";

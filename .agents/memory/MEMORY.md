@@ -2,3 +2,4 @@
 - [Adala AI integration](adala-ai.md) — Replit AI integration requires phone verification; using direct Anthropic/OpenAI fetch with env vars + Arabic template fallback
 - [Adala dual branding](adala-branding.md) — Object storage provisioned; officeBrandingTable in DB; /office-settings page; DocumentPrintTemplate + PrintButton components for PDF export
 - [Adala Clerk auth](adala-clerk.md) — Clerk provisioned (app_3EX1sJ94noXziGaliZZ7ZC6bHFc), routing: "/" = Landing (public), "/dashboard" = auth-protected, sign-in/sign-up at `/sign-in` `/sign-up`
+- [Adala Super Admin](adala-super-admin.md) — drizzle-kit push fails without TTY; use executeSql directly. Super Admin auth via VITE_SUPER_ADMIN_EMAILS or Clerk publicMetadata.role=super_admin

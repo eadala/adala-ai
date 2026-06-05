@@ -24,6 +24,7 @@ import webhookRouter from "./webhook";
 import invoicesRouter from "./invoices";
 import emailRouter from "./email";
 import officeRouter from "./office";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -52,5 +53,6 @@ router.use(webhookRouter);
 router.use(invoicesRouter);
 router.use(emailRouter);
 router.use(officeRouter);
+router.use(adminRouter);
 
 export default router;
