@@ -2,6 +2,17 @@ import Stripe from 'stripe';
 import { StripeSync } from 'stripe-replit-sync';
 
 async function getStripeCredentials(): Promise<{ secretKey: string; webhookSecret?: string }> {
+  if (process.env.STRIPE_SECRET_KEY) {
+    const key = process.env.STRIPE_SECRET_KEY.trim();
+    if (key.startsWith("pk_")) {
+      throw new Error("STRIPE_SECRET_KEY يبدأ بـ pk_ وهو مفتاح نشر عام — يجب إدخال المفتاح السري الذي يبدأ بـ sk_test_ أو sk_live_");
+    }
+    return {
+      secretKey: key,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    };
+  }
+
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? "repl " + process.env.REPL_IDENTITY
@@ -10,7 +21,7 @@ async function getStripeCredentials(): Promise<{ secretKey: string; webhookSecre
       : null;
 
   if (!hostname || !xReplitToken) {
-    throw new Error('Missing Replit environment variables. Ensure the Stripe integration is connected via the Integrations tab.');
+    throw new Error('Stripe integration not connected. Connect Stripe via the Integrations tab first.');
   }
 
   const resp = await fetch(
