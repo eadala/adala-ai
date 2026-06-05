@@ -9,12 +9,11 @@ import { eq, desc, count, sum, sql } from "drizzle-orm";
 
 const router = Router();
 
-/* ── Super Admin Guard ─────────────────────────────── */
+/* ── Platform Owner Guard ──────────────────────────── */
 function isSuperAdmin(req: any): boolean {
   const email = req.auth?.sessionClaims?.email as string | undefined;
-  const role = req.auth?.sessionClaims?.metadata?.role as string | undefined;
-  const superAdminEmails = (process.env.SUPER_ADMIN_EMAILS ?? "").split(",").map(e => e.trim()).filter(Boolean);
-  return role === "super_admin" || (superAdminEmails.length > 0 && !!email && superAdminEmails.includes(email));
+  const ownerEmail = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
+  return !!ownerEmail && !!email && email === ownerEmail;
 }
 
 function adminOnly(req: any, res: any, next: any) {
