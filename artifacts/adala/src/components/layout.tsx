@@ -64,6 +64,13 @@ const NAV_GROUPS = [
       { href: "/office-settings", label: "إعدادات المكتب", icon: Building2 },
     ],
   },
+  {
+    label: "Super Admin",
+    superAdminOnly: true,
+    items: [
+      { href: "/super-admin", label: "لوحة التحكم العليا", icon: Shield },
+    ],
+  },
 ];
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -81,6 +88,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const initials = displayName.slice(0, 2);
   const role = "مدير النظام";
 
+  const userEmail = user?.emailAddresses[0]?.emailAddress ?? "";
+  const superAdminEmails = (import.meta.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map((e: string) => e.trim()).filter(Boolean);
+  const isSuperAdmin = superAdminEmails.includes(userEmail) || (user?.publicMetadata as any)?.role === "super_admin";
+
+  const visibleGroups = NAV_GROUPS.filter((g: any) => !g.superAdminOnly || isSuperAdmin);
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar - RTL */}
@@ -93,7 +106,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
         <div className="flex-1 overflow-y-auto py-3">
           <nav className="px-3 space-y-4">
-            {NAV_GROUPS.map((group) => (
+            {visibleGroups.map((group) => (
               <div key={group.label}>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40 px-2 mb-1">{group.label}</p>
                 <div className="space-y-0.5">
