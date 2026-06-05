@@ -4,10 +4,35 @@ import { eq } from "drizzle-orm";
 
 const router = Router();
 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-async function callAI(systemPrompt: string, userMessage: string): Promise<string> {
+async function callAI(systemPrompt: string, userMessage: string, history: { role: string; content: string }[] = []): Promise<string> {
+  if (GEMINI_API_KEY) {
+    const contents = [
+      ...history.map(h => ({
+        role: h.role === "assistant" ? "model" : "user",
+        parts: [{ text: h.content }],
+      })),
+      { role: "user", parts: [{ text: userMessage }] },
+    ];
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents,
+          generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
+        }),
+      }
+    );
+    const data = await res.json() as any;
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "عذراً، لم أتمكن من معالجة الطلب.";
+  }
+
   if (ANTHROPIC_API_KEY) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -185,7 +210,7 @@ router.post("/ai-chat/message", async (req, res) => {
     ? `${history.map(h => `${h.role === "user" ? "المستخدم" : "المساعد"}: ${h.content}`).join("\n")}\nالمستخدم: ${message}`
     : message;
 
-  const reply = await callAI(systemPrompt, fullMessage);
+  const reply = await callAI(systemPrompt, message, history as { role: string; content: string }[]);
   return res.json({ reply });
 });
 
