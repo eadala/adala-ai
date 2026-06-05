@@ -510,55 +510,78 @@ export default function Warnings() {
       </Dialog>
 
       {/* ════════ Investigation Detail/Close Dialog ════════ */}
-      <Dialog open={!!showInvDetail} onOpenChange={() => setShowInvDetail(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Gavel className="h-4 w-4 text-amber-400" /> إغلاق التحقيق وتسجيل النتيجة
-            </DialogTitle>
-          </DialogHeader>
-          {showInvDetail && (() => {
-            const [outcome, setOutcome] = useState(showInvDetail.outcome ?? "");
-            const [notes, setNotes] = useState(showInvDetail.notes ?? "");
-            return (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><span className="text-muted-foreground text-xs">الموظف</span><div className="font-semibold">{showInvDetail.employeeName}</div></div>
-                  <div><span className="text-muted-foreground text-xs">الحالة</span><div className="font-semibold">{INV_STATUS[showInvDetail.status]?.label}</div></div>
-                  <div className="col-span-2"><span className="text-muted-foreground text-xs">الموضوع</span><div className="font-semibold">{showInvDetail.subject}</div></div>
-                  {showInvDetail.committee && <div className="col-span-2"><span className="text-muted-foreground text-xs">اللجنة</span><div>{showInvDetail.committee}</div></div>}
-                </div>
-                <div className="pt-2 border-t border-border/50 space-y-3">
-                  <div>
-                    <Label className="text-xs font-semibold mb-1 block">نتيجة التحقيق *</Label>
-                    <Select value={outcome} onValueChange={setOutcome}>
-                      <SelectTrigger><SelectValue placeholder="اختر النتيجة" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cleared">براءة — لا إجراء</SelectItem>
-                        <SelectItem value="warning">توجيه إنذار</SelectItem>
-                        <SelectItem value="demotion">تخفيض رتبة</SelectItem>
-                        <SelectItem value="termination">إنهاء الخدمة</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold mb-1 block">ملاحظات القرار</Label>
-                    <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="أضف ملاحظات القرار التفصيلية..." rows={3} className="resize-none text-sm" />
-                  </div>
-                </div>
-                <Button
-                  className="w-full gap-2"
-                  disabled={!outcome || updateInvestigation.isPending}
-                  onClick={() => updateInvestigation.mutate({ id: showInvDetail.id, status: "closed", outcome, notes, closedAt: new Date().toISOString() })}
-                >
-                  {updateInvestigation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  <Gavel className="h-4 w-4" /> إغلاق التحقيق وحفظ القرار
-                </Button>
-              </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+      {showInvDetail && (
+        <InvDetailDialog
+          inv={showInvDetail}
+          onClose={() => setShowInvDetail(null)}
+          onSave={(payload) => updateInvestigation.mutate(payload)}
+          isPending={updateInvestigation.isPending}
+        />
+      )}
     </div>
+  );
+}
+
+/* ── Extracted component to satisfy React hooks rules ── */
+function InvDetailDialog({ inv, onClose, onSave, isPending }: {
+  inv: any;
+  onClose: () => void;
+  onSave: (payload: any) => void;
+  isPending: boolean;
+}) {
+  const [outcome, setOutcome] = useState(inv.outcome ?? "");
+  const [notes, setNotes] = useState(inv.notes ?? "");
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Gavel className="h-4 w-4 text-amber-400" /> إغلاق التحقيق وتسجيل النتيجة
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div><span className="text-muted-foreground text-xs">الموظف</span><div className="font-semibold">{inv.employeeName}</div></div>
+            <div><span className="text-muted-foreground text-xs">الحالة</span><div className="font-semibold">{INV_STATUS[inv.status]?.label}</div></div>
+            <div className="col-span-2"><span className="text-muted-foreground text-xs">الموضوع</span><div className="font-semibold">{inv.subject}</div></div>
+            {inv.committee && <div className="col-span-2"><span className="text-muted-foreground text-xs">اللجنة</span><div>{inv.committee}</div></div>}
+            {inv.description && <div className="col-span-2"><span className="text-muted-foreground text-xs">الوقائع</span><div className="text-xs text-muted-foreground">{inv.description}</div></div>}
+          </div>
+          <div className="pt-2 border-t border-border/50 space-y-3">
+            <div>
+              <Label className="text-xs font-semibold mb-1 block">نتيجة التحقيق *</Label>
+              <Select value={outcome} onValueChange={setOutcome}>
+                <SelectTrigger><SelectValue placeholder="اختر النتيجة" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cleared">براءة — لا إجراء</SelectItem>
+                  <SelectItem value="warning">توجيه إنذار</SelectItem>
+                  <SelectItem value="demotion">تخفيض رتبة</SelectItem>
+                  <SelectItem value="termination">إنهاء الخدمة</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-semibold mb-1 block">ملاحظات القرار</Label>
+              <Textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="أضف ملاحظات القرار التفصيلية..."
+                rows={3}
+                className="resize-none text-sm"
+              />
+            </div>
+          </div>
+          <Button
+            className="w-full gap-2"
+            disabled={!outcome || isPending}
+            onClick={() => onSave({ id: inv.id, status: "closed", outcome, notes, closedAt: new Date().toISOString() })}
+          >
+            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Gavel className="h-4 w-4" /> إغلاق التحقيق وحفظ القرار
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
