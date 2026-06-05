@@ -89,8 +89,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const role = "مدير النظام";
 
   const userEmail = user?.emailAddresses[0]?.emailAddress ?? "";
-  const superAdminEmails = (import.meta.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map((e: string) => e.trim()).filter(Boolean);
-  const isSuperAdmin = superAdminEmails.includes(userEmail) || (user?.publicMetadata as any)?.role === "super_admin";
+  const ownerEmail = (import.meta.env.VITE_PLATFORM_OWNER_EMAIL ?? "").trim();
+  const isSuperAdmin = !!ownerEmail && userEmail === ownerEmail;
 
   const visibleGroups = NAV_GROUPS.filter((g: any) => !g.superAdminOnly || isSuperAdmin);
 
