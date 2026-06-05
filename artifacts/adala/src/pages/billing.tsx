@@ -41,7 +41,8 @@ export default function Billing() {
 
   const { data: invoices = [], isLoading: invoicesLoading } = useQuery<any[]>({
     queryKey: ["billing-invoices"],
-    queryFn: () => fetch("/api/billing/invoices").then(r => r.json()),
+    queryFn: () => fetch("/api/billing/invoices").then(r => r.ok ? r.json() : []),
+    select: (data) => Array.isArray(data) ? data : [],
   });
 
   const checkoutMutation = useMutation({

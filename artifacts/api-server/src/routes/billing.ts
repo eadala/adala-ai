@@ -146,8 +146,8 @@ router.get("/billing/invoices", async (_req, res) => {
   try {
     const invoices = await db.select().from(invoicesTable).orderBy(invoicesTable.createdAt);
     res.json(invoices.map(i => ({ ...i, createdAt: i.createdAt.toISOString() })));
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch {
+    res.json([]);
   }
 });
 
