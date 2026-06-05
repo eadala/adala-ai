@@ -23,6 +23,7 @@ import judgePrepRouter from "./judgePrep";
 import webhookRouter from "./webhook";
 import invoicesRouter from "./invoices";
 import emailRouter from "./email";
+import officeRouter from "./office";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use(judgePrepRouter);
 router.use(webhookRouter);
 router.use(invoicesRouter);
 router.use(emailRouter);
+router.use(officeRouter);
 
 export default router;
