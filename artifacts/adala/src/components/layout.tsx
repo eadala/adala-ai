@@ -8,15 +8,10 @@ import { useUser, useClerk } from "@clerk/react";
 
 const NAV_GROUPS = [
   {
-    label: "تواصل",
-    items: [
-      { href: "/messages", label: "تواصل", icon: MessageCircle },
-    ],
-  },
-  {
     label: "الإدارة",
     items: [
       { href: "/dashboard", label: "الرئيسية", icon: LayoutDashboard },
+      { href: "/messages", label: "مراسلات", icon: MessageCircle },
       { href: "/cases", label: "القضايا", icon: Scale },
       { href: "/contracts", label: "العقود", icon: FileText },
       { href: "/clients", label: "العملاء (CRM)", icon: UserCircle },
