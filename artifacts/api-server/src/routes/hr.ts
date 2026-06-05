@@ -1,7 +1,17 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { employeesTable, attendanceTable, leavesTable, payrollTable } from "@workspace/db/schema";
+import { employeesTable, attendanceTable, leavesTable, payrollTable, officeLocationTable } from "@workspace/db/schema";
 import { eq, desc, and } from "drizzle-orm";
+
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(Δφ/2)**2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
 
 const router = Router();
 
@@ -68,27 +78,65 @@ router.get("/hr/attendance", async (req, res) => {
 });
 
 router.post("/hr/attendance/check-in", async (req, res) => {
-  const { employeeId } = req.body;
+  const { employeeId, latitude, longitude } = req.body;
   const today = new Date().toISOString().split("T")[0];
   const existing = await db.select().from(attendanceTable)
     .where(and(eq(attendanceTable.employeeId, employeeId), eq(attendanceTable.workDate, today)));
   if (existing.length > 0) return res.status(400).json({ error: "تم تسجيل الحضور مسبقاً لهذا اليوم" });
+
+  let locationVerified = false;
+  let distanceMeters: number | null = null;
+  if (latitude != null && longitude != null) {
+    const [office] = await db.select().from(officeLocationTable).where(eq(officeLocationTable.isActive, true));
+    if (office) {
+      distanceMeters = Math.round(haversineDistance(latitude, longitude, parseFloat(String(office.latitude)), parseFloat(String(office.longitude))));
+      locationVerified = distanceMeters <= office.radius;
+    }
+  }
+
   const [row] = await db.insert(attendanceTable).values({
     employeeId, workDate: today, checkIn: new Date(), status: "present",
     ipAddress: req.ip,
+    checkInLat: latitude != null ? String(latitude) : null,
+    checkInLng: longitude != null ? String(longitude) : null,
+    locationVerified,
   }).returning();
-  res.json(row);
+  res.json({ ...row, distanceMeters });
 });
 
 router.post("/hr/attendance/check-out", async (req, res) => {
-  const { employeeId } = req.body;
+  const { employeeId, latitude, longitude } = req.body;
   const today = new Date().toISOString().split("T")[0];
   const [existing] = await db.select().from(attendanceTable)
     .where(and(eq(attendanceTable.employeeId, employeeId), eq(attendanceTable.workDate, today)));
   if (!existing) return res.status(404).json({ error: "لم يتم تسجيل الحضور بعد" });
   const [row] = await db.update(attendanceTable)
-    .set({ checkOut: new Date() })
+    .set({
+      checkOut: new Date(),
+      checkOutLat: latitude != null ? String(latitude) : null,
+      checkOutLng: longitude != null ? String(longitude) : null,
+    })
     .where(eq(attendanceTable.id, existing.id)).returning();
+  res.json(row);
+});
+
+/* ─── OFFICE LOCATION ─────────────────────────────────────── */
+
+router.get("/hr/office-location", async (_req, res) => {
+  const [office] = await db.select().from(officeLocationTable).where(eq(officeLocationTable.isActive, true));
+  res.json(office ?? null);
+});
+
+router.post("/hr/office-location", async (req, res) => {
+  const { name, latitude, longitude, radius } = req.body;
+  await db.update(officeLocationTable).set({ isActive: false });
+  const [row] = await db.insert(officeLocationTable).values({
+    name: name || "المكتب الرئيسي",
+    latitude: String(latitude),
+    longitude: String(longitude),
+    radius: parseInt(radius) || 200,
+    isActive: true,
+  }).returning();
   res.json(row);
 });
 
