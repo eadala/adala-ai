@@ -37,6 +37,7 @@ import Invoices from "@/pages/invoices";
 import Letters from "@/pages/letters";
 import Warnings from "@/pages/warnings";
 import OfficePage from "@/pages/office-public";
+import OfficeStore from "@/pages/office-store";
 import OfficeManagement from "@/pages/office-management";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
@@ -282,6 +283,9 @@ function AppRoutes() {
             </Route>
             <Route path="/office-management">
               <ProtectedRoute><OfficeManagement /></ProtectedRoute>
+            </Route>
+            <Route path="/firms/:slug/store">
+              <OfficeStore />
             </Route>
             <Route path="/firms/:slug">
               <OfficePage />

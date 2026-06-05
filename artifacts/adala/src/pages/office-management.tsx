@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useUpload } from "@workspace/object-storage-web";
 import {
-  Globe, Settings, Users, ShoppingBag, Star, BookOpen, Package,
-  Plus, Loader2, ExternalLink, Eye, EyeOff, Save, Trash2,
-  CheckCircle2, XCircle, Edit2, MoreVertical, Phone, Mail,
-  Copy, Check
+  Globe, Users, ShoppingBag, Star, Package,
+  Plus, Loader2, Eye, EyeOff, Save, Trash2,
+  CheckCircle2, Edit2, Phone, Mail,
+  Copy, Check, Camera, Image, MapPin
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,7 +78,7 @@ export default function OfficeManagement() {
     enabled: !!office?.id,
   });
   const [showTeamForm, setShowTeamForm] = useState(false);
-  const [teamForm, setTeamForm] = useState({ name: "", title: "", specialties: "", bio: "", linkedin: "" });
+  const [teamForm, setTeamForm] = useState({ name: "", title: "", specialties: "", bio: "", linkedin: "", photoUrl: "" });
   const addTeam = useMutation({
     mutationFn: (d: any) => fetch(`/api/office/my/${office.id}/team`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-team", office.id] }); setShowTeamForm(false); toast({ title: "تمت إضافة العضو ✓" }); },
@@ -114,6 +115,20 @@ export default function OfficeManagement() {
   const copyLink = () => {
     if (publicUrl) { navigator.clipboard.writeText(window.location.origin + publicUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); }
   };
+
+  /* ── Photo upload helpers (must be before any conditional return) ── */
+  const logoUpload = useUpload({ onSuccess: (r) => updateOfficeMutation.mutate({ id: office?.id, logo: r.objectPath }) });
+  const coverUpload = useUpload({ onSuccess: (r) => updateOfficeMutation.mutate({ id: office?.id, coverImage: r.objectPath }) });
+  const teamPhotoUpload = useUpload({ onSuccess: (r) => setTeamForm(f => ({ ...f, photoUrl: r.objectPath })) });
+  const logoRef = useRef<HTMLInputElement>(null);
+  const coverRef = useRef<HTMLInputElement>(null);
+  const teamPhotoRef = useRef<HTMLInputElement>(null);
+
+  function imgSrc(path: string | null | undefined): string | undefined {
+    if (!path) return undefined;
+    if (path.startsWith("http")) return path;
+    return `/api/storage/objects${path.startsWith("/") ? path : "/" + path}`;
+  }
 
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
@@ -337,16 +352,62 @@ export default function OfficeManagement() {
           <DialogHeader><DialogTitle>تعديل بيانات الصفحة</DialogTitle></DialogHeader>
           {pageForm && (
             <div className="space-y-4">
+
+              {/* Photos */}
               <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-xs font-semibold mb-1 block">اسم المكتب</Label>
-                  <Input value={pageForm.name} onChange={e => setPageForm((f: any) => ({ ...f, name: e.target.value }))} /></div>
-                <div><Label className="text-xs font-semibold mb-1 block">الشعار (رابط صورة)</Label>
-                  <Input value={pageForm.logo ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, logo: e.target.value }))} placeholder="https://..." dir="ltr" /></div>
+                <div>
+                  <Label className="text-xs font-semibold mb-2 block">شعار المكتب</Label>
+                  <div className="flex items-center gap-2">
+                    {pageForm.logo && (
+                      <img src={imgSrc(pageForm.logo)} alt="" className="h-12 w-12 rounded-lg object-cover border border-border/50" />
+                    )}
+                    <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs"
+                      onClick={() => logoRef.current?.click()} disabled={logoUpload.isUploading}>
+                      {logoUpload.isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                      {pageForm.logo ? "تغيير" : "رفع شعار"}
+                    </Button>
+                    <input ref={logoRef} type="file" accept="image/*" className="hidden"
+                      onChange={async e => { const f = e.target.files?.[0]; if (f) { const r = await logoUpload.uploadFile(f); if (r) setPageForm((pf: any) => ({ ...pf, logo: r.objectPath })); } }} />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold mb-2 block">صورة الخلفية (هيرو)</Label>
+                  <div className="flex items-center gap-2">
+                    {pageForm.coverImage && (
+                      <img src={imgSrc(pageForm.coverImage)} alt="" className="h-12 w-20 rounded-lg object-cover border border-border/50" />
+                    )}
+                    <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs"
+                      onClick={() => coverRef.current?.click()} disabled={coverUpload.isUploading}>
+                      {coverUpload.isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Image className="h-3.5 w-3.5" />}
+                      {pageForm.coverImage ? "تغيير" : "رفع صورة"}
+                    </Button>
+                    <input ref={coverRef} type="file" accept="image/*" className="hidden"
+                      onChange={async e => { const f = e.target.files?.[0]; if (f) { const r = await coverUpload.uploadFile(f); if (r) setPageForm((pf: any) => ({ ...pf, coverImage: r.objectPath })); } }} />
+                  </div>
+                </div>
               </div>
-              <div><Label className="text-xs font-semibold mb-1 block">الشعار النصي (tagline)</Label>
-                <Input value={pageForm.tagline ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, tagline: e.target.value }))} placeholder="متخصصون في القانون التجاري والعقاري" /></div>
-              <div><Label className="text-xs font-semibold mb-1 block">من نحن</Label>
-                <Textarea value={pageForm.about ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, about: e.target.value }))} rows={4} className="resize-none" /></div>
+
+              {/* Arabic fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs font-semibold mb-1 block">اسم المكتب (عربي)</Label>
+                  <Input value={pageForm.name} onChange={e => setPageForm((f: any) => ({ ...f, name: e.target.value }))} /></div>
+                <div><Label className="text-xs font-semibold mb-1 block">اسم المكتب (English)</Label>
+                  <Input value={pageForm.nameEn ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, nameEn: e.target.value }))} dir="ltr" placeholder="Al-Harbi Law Firm" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs font-semibold mb-1 block">الشعار النصي (عربي)</Label>
+                  <Input value={pageForm.tagline ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, tagline: e.target.value }))} placeholder="متخصصون في القانون التجاري" /></div>
+                <div><Label className="text-xs font-semibold mb-1 block">Tagline (English)</Label>
+                  <Input value={pageForm.taglineEn ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, taglineEn: e.target.value }))} dir="ltr" placeholder="Specialists in Commercial Law" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs font-semibold mb-1 block">من نحن (عربي)</Label>
+                  <Textarea value={pageForm.about ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, about: e.target.value }))} rows={3} className="resize-none" /></div>
+                <div><Label className="text-xs font-semibold mb-1 block">About Us (English)</Label>
+                  <Textarea value={pageForm.aboutEn ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, aboutEn: e.target.value }))} rows={3} className="resize-none" dir="ltr" /></div>
+              </div>
+
+              {/* Info */}
               <div className="grid grid-cols-3 gap-3">
                 <div><Label className="text-xs font-semibold mb-1 block">رقم الترخيص</Label>
                   <Input value={pageForm.licenseNumber ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, licenseNumber: e.target.value }))} /></div>
@@ -355,22 +416,38 @@ export default function OfficeManagement() {
                 <div><Label className="text-xs font-semibold mb-1 block">المدينة</Label>
                   <Input value={pageForm.city ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, city: e.target.value }))} placeholder="الرياض" /></div>
               </div>
+
+              {/* Contact */}
               <div className="grid grid-cols-2 gap-3">
                 <div><Label className="text-xs font-semibold mb-1 block">الهاتف</Label>
                   <Input value={pageForm.phone ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, phone: e.target.value }))} dir="ltr" /></div>
-                <div><Label className="text-xs font-semibold mb-1 block">واتساب</Label>
-                  <Input value={pageForm.whatsapp ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, whatsapp: e.target.value }))} dir="ltr" placeholder="966xxxxxxxxx" /></div>
+                <div><Label className="text-xs font-semibold mb-1 block">واتساب <span className="text-muted-foreground font-normal">(966xxxxxxxxx)</span></Label>
+                  <Input value={pageForm.whatsapp ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, whatsapp: e.target.value }))} dir="ltr" placeholder="9665xxxxxxxx" /></div>
                 <div><Label className="text-xs font-semibold mb-1 block">البريد الإلكتروني</Label>
                   <Input value={pageForm.email ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, email: e.target.value }))} dir="ltr" /></div>
                 <div><Label className="text-xs font-semibold mb-1 block">العنوان</Label>
                   <Input value={pageForm.address ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, address: e.target.value }))} /></div>
               </div>
+
+              {/* Maps */}
+              <div>
+                <Label className="text-xs font-semibold mb-1 block flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5" /> رابط تضمين خريطة جوجل
+                </Label>
+                <Input value={pageForm.mapsEmbedUrl ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, mapsEmbedUrl: e.target.value }))} dir="ltr"
+                  placeholder="https://www.google.com/maps/embed?pb=..." />
+                <p className="text-[10px] text-muted-foreground mt-1">من Google Maps: مشاركة → تضمين خريطة → انسخ رابط src من iframe</p>
+              </div>
+
+              {/* Social */}
               <div className="grid grid-cols-2 gap-3">
                 <div><Label className="text-xs font-semibold mb-1 block">تويتر X</Label>
                   <Input value={pageForm.twitter ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, twitter: e.target.value }))} dir="ltr" /></div>
                 <div><Label className="text-xs font-semibold mb-1 block">لينكدإن</Label>
                   <Input value={pageForm.linkedin ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, linkedin: e.target.value }))} dir="ltr" /></div>
               </div>
+
+              {/* Stats */}
               <div className="border-t border-border/50 pt-4 space-y-3">
                 <h3 className="text-sm font-bold">الإحصائيات</h3>
                 <div className="grid grid-cols-3 gap-3">
@@ -440,14 +517,42 @@ export default function OfficeManagement() {
       </Dialog>
 
       {/* ── Add Team Dialog ── */}
-      <Dialog open={showTeamForm} onOpenChange={setShowTeamForm}>
+      <Dialog open={showTeamForm} onOpenChange={v => { setShowTeamForm(v); if (!v) setTeamForm({ name: "", title: "", specialties: "", bio: "", linkedin: "", photoUrl: "" }); }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>إضافة عضو للفريق</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div><Label className="text-xs font-semibold mb-1 block">الاسم *</Label>
-              <Input value={teamForm.name} onChange={e => setTeamForm(f => ({ ...f, name: e.target.value }))} placeholder="أ. محمد عبدالله" /></div>
-            <div><Label className="text-xs font-semibold mb-1 block">اللقب / المسمى الوظيفي *</Label>
-              <Input value={teamForm.title} onChange={e => setTeamForm(f => ({ ...f, title: e.target.value }))} placeholder="محامٍ أول" /></div>
+            {/* Photo upload */}
+            <div className="flex items-center gap-3">
+              {teamForm.photoUrl ? (
+                <img src={imgSrc(teamForm.photoUrl)} alt="" className="h-14 w-14 rounded-full object-cover border border-border/50" />
+              ) : (
+                <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                  <Camera className="h-5 w-5" />
+                </div>
+              )}
+              <div>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs"
+                  onClick={() => teamPhotoRef.current?.click()} disabled={teamPhotoUpload.isUploading}>
+                  {teamPhotoUpload.isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                  {teamForm.photoUrl ? "تغيير الصورة" : "رفع صورة"}
+                </Button>
+                <input ref={teamPhotoRef} type="file" accept="image/*" className="hidden"
+                  onChange={async e => { const f = e.target.files?.[0]; if (f) await teamPhotoUpload.uploadFile(f); }} />
+                <p className="text-[10px] text-muted-foreground mt-1">صورة المحامي / العضو</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs font-semibold mb-1 block">الاسم (عربي) *</Label>
+                <Input value={teamForm.name} onChange={e => setTeamForm(f => ({ ...f, name: e.target.value }))} placeholder="أ. محمد عبدالله" /></div>
+              <div><Label className="text-xs font-semibold mb-1 block">Name (English)</Label>
+                <Input value={(teamForm as any).nameEn ?? ""} onChange={e => setTeamForm(f => ({ ...f, nameEn: e.target.value } as any))} dir="ltr" placeholder="Mohammed Abdullah" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs font-semibold mb-1 block">المسمى الوظيفي (عربي) *</Label>
+                <Input value={teamForm.title} onChange={e => setTeamForm(f => ({ ...f, title: e.target.value }))} placeholder="محامٍ أول" /></div>
+              <div><Label className="text-xs font-semibold mb-1 block">Title (English)</Label>
+                <Input value={(teamForm as any).titleEn ?? ""} onChange={e => setTeamForm(f => ({ ...f, titleEn: e.target.value } as any))} dir="ltr" placeholder="Senior Lawyer" /></div>
+            </div>
             <div><Label className="text-xs font-semibold mb-1 block">التخصصات (مفصولة بـ ،)</Label>
               <Input value={teamForm.specialties} onChange={e => setTeamForm(f => ({ ...f, specialties: e.target.value }))} placeholder="قانون تجاري، عقود، تحكيم" /></div>
             <div><Label className="text-xs font-semibold mb-1 block">لينكدإن</Label>
