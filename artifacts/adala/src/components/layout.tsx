@@ -39,6 +39,7 @@ const NAV_GROUPS = [
       { href: "/attendance", label: "الحضور والانصراف", icon: Clock },
       { href: "/leaves", label: "الإجازات", icon: CalendarDays },
       { href: "/payroll", label: "الرواتب", icon: DollarSign },
+      { href: "/warnings", label: "الإنذارات والتحقيقات", icon: AlertTriangle },
     ],
   },
   {

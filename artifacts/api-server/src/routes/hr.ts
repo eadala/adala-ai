@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { employeesTable, attendanceTable, leavesTable, payrollTable, officeLocationTable } from "@workspace/db/schema";
+import { employeesTable, attendanceTable, leavesTable, payrollTable, officeLocationTable, employeeWarningsTable, employeeInvestigationsTable } from "@workspace/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -266,6 +266,91 @@ router.patch("/hr/payroll/pay-all", async (req, res) => {
   await db.update(payrollTable)
     .set({ status: "paid", paidAt: new Date() })
     .where(and(eq(payrollTable.month, month), eq(payrollTable.status, "draft")));
+  res.json({ success: true });
+});
+
+/* ─── WARNINGS ─────────────────────────────────────── */
+
+router.get("/hr/warnings", async (_req, res) => {
+  const rows = await db.select({
+    id: employeeWarningsTable.id,
+    employeeId: employeeWarningsTable.employeeId,
+    type: employeeWarningsTable.type,
+    reason: employeeWarningsTable.reason,
+    description: employeeWarningsTable.description,
+    issuedBy: employeeWarningsTable.issuedBy,
+    status: employeeWarningsTable.status,
+    appealNotes: employeeWarningsTable.appealNotes,
+    resolvedAt: employeeWarningsTable.resolvedAt,
+    createdAt: employeeWarningsTable.createdAt,
+    employeeName: employeesTable.fullName,
+    jobTitle: employeesTable.jobTitle,
+    department: employeesTable.department,
+  }).from(employeeWarningsTable)
+    .leftJoin(employeesTable, eq(employeeWarningsTable.employeeId, employeesTable.id))
+    .orderBy(desc(employeeWarningsTable.createdAt));
+  res.json(rows);
+});
+
+router.post("/hr/warnings", async (req, res) => {
+  const [row] = await db.insert(employeeWarningsTable).values(req.body).returning();
+  res.json(row);
+});
+
+router.patch("/hr/warnings/:id", async (req, res) => {
+  const updates: any = { ...req.body };
+  if (updates.status === "resolved" && !updates.resolvedAt) updates.resolvedAt = new Date();
+  const [row] = await db.update(employeeWarningsTable).set(updates)
+    .where(eq(employeeWarningsTable.id, req.params.id)).returning();
+  res.json(row);
+});
+
+router.delete("/hr/warnings/:id", async (req, res) => {
+  await db.delete(employeeWarningsTable).where(eq(employeeWarningsTable.id, req.params.id));
+  res.json({ success: true });
+});
+
+/* ─── INVESTIGATIONS ─────────────────────────────────────── */
+
+router.get("/hr/investigations", async (_req, res) => {
+  const rows = await db.select({
+    id: employeeInvestigationsTable.id,
+    employeeId: employeeInvestigationsTable.employeeId,
+    subject: employeeInvestigationsTable.subject,
+    description: employeeInvestigationsTable.description,
+    status: employeeInvestigationsTable.status,
+    outcome: employeeInvestigationsTable.outcome,
+    openedBy: employeeInvestigationsTable.openedBy,
+    committee: employeeInvestigationsTable.committee,
+    sessionDate: employeeInvestigationsTable.sessionDate,
+    closedAt: employeeInvestigationsTable.closedAt,
+    notes: employeeInvestigationsTable.notes,
+    createdAt: employeeInvestigationsTable.createdAt,
+    updatedAt: employeeInvestigationsTable.updatedAt,
+    employeeName: employeesTable.fullName,
+    jobTitle: employeesTable.jobTitle,
+    department: employeesTable.department,
+  }).from(employeeInvestigationsTable)
+    .leftJoin(employeesTable, eq(employeeInvestigationsTable.employeeId, employeesTable.id))
+    .orderBy(desc(employeeInvestigationsTable.createdAt));
+  res.json(rows);
+});
+
+router.post("/hr/investigations", async (req, res) => {
+  const [row] = await db.insert(employeeInvestigationsTable).values(req.body).returning();
+  res.json(row);
+});
+
+router.patch("/hr/investigations/:id", async (req, res) => {
+  const updates: any = { ...req.body, updatedAt: new Date() };
+  if (updates.status === "closed" && !updates.closedAt) updates.closedAt = new Date();
+  const [row] = await db.update(employeeInvestigationsTable).set(updates)
+    .where(eq(employeeInvestigationsTable.id, req.params.id)).returning();
+  res.json(row);
+});
+
+router.delete("/hr/investigations/:id", async (req, res) => {
+  await db.delete(employeeInvestigationsTable).where(eq(employeeInvestigationsTable.id, req.params.id));
   res.json({ success: true });
 });
 
