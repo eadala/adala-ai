@@ -123,6 +123,19 @@ router.post("/invoices/:id/payment-link", async (req: Request, res: Response) =>
       res.json({ url: invoice.stripePaymentLinkUrl, existing: true }); return;
     }
 
+    // Convert SAR → halalas (×100) for Stripe unit_amount
+    const unitAmount = Math.round(invoice.total * 100);
+    const STRIPE_MAX = 99_999_999;
+    if (unitAmount > STRIPE_MAX) {
+      res.status(400).json({
+        error: `المبلغ (${invoice.total.toLocaleString("ar-SA")} ر.س) يتجاوز الحد الأقصى لـ Stripe (999,999.99 ر.س). يُرجى تقسيم الفاتورة أو تحصيل المبلغ خارج المنصة.`,
+        hint: "stripe_max_exceeded",
+      }); return;
+    }
+    if (unitAmount <= 0) {
+      res.status(400).json({ error: "مبلغ الفاتورة يجب أن يكون أكبر من الصفر" }); return;
+    }
+
     const stripe = await getUncachableStripeClient();
     const host   = req.get("host") ?? "";
 
@@ -140,11 +153,11 @@ router.post("/invoices/:id/payment-link", async (req: Request, res: Response) =>
       metadata: { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber },
     });
 
-    // Create Price (total in halalas — SAR smallest unit)
+    // Create Price (converted to halalas — SAR smallest unit)
     const currency = (invoice.currency ?? "SAR").toLowerCase();
     const price = await stripe.prices.create({
       product: product.id,
-      unit_amount: invoice.total, // already in halalas (cents equivalent)
+      unit_amount: unitAmount,
       currency,
     });
 
