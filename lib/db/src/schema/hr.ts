@@ -31,7 +31,23 @@ export const attendanceTable = pgTable("attendance", {
   status: text("status").notNull().default("present"),
   notes: text("notes"),
   ipAddress: text("ip_address"),
+  checkInLat: numeric("check_in_lat"),
+  checkInLng: numeric("check_in_lng"),
+  checkOutLat: numeric("check_out_lat"),
+  checkOutLng: numeric("check_out_lng"),
+  locationVerified: boolean("location_verified").default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const officeLocationTable = pgTable("office_location", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().default("المكتب الرئيسي"),
+  latitude: numeric("latitude").notNull(),
+  longitude: numeric("longitude").notNull(),
+  radius: integer("radius").notNull().default(200),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const leavesTable = pgTable("leaves", {
