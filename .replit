@@ -42,3 +42,8 @@ externalPort = 3000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+"AQ.Ab8RN6ICkoNqaf2DFBiXruzWOPAcDmOwdozau2wnilFYa5O5Dw" = "GEMINI_API_KEY"
