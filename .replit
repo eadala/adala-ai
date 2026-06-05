@@ -48,3 +48,4 @@ channel = "stable-25_05"
 [userenv.shared]
 grok_API_KEY = "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"
 GEMINI_API_KEY = "AQ.Ab8RN6ICkoNqaf2DFBiXruzWOPAcDmOwdozau2wnilFYa5O5Dw"
+deepseek_api_keys = "sk-bb33db3db6a346b18fa5f57f847aeccf"
