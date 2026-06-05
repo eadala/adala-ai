@@ -33,6 +33,7 @@ import Payroll from "@/pages/payroll";
 import OfficeSettings from "@/pages/office-settings";
 import JudgePrep from "@/pages/judge-prep";
 import SaudiSystems from "@/pages/saudi-systems";
+import Invoices from "@/pages/invoices";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -265,6 +266,9 @@ function AppRoutes() {
             </Route>
             <Route path="/saudi-systems">
               <ProtectedRoute><SaudiSystems /></ProtectedRoute>
+            </Route>
+            <Route path="/invoices">
+              <ProtectedRoute><Invoices /></ProtectedRoute>
             </Route>
             <Route path="/users">
               <ProtectedRoute><Users /></ProtectedRoute>

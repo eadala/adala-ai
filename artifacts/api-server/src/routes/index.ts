@@ -21,6 +21,7 @@ import brandingRouter from "./branding";
 import storageRouter from "./storage";
 import judgePrepRouter from "./judgePrep";
 import webhookRouter from "./webhook";
+import invoicesRouter from "./invoices";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(brandingRouter);
 router.use(storageRouter);
 router.use(judgePrepRouter);
 router.use(webhookRouter);
+router.use(invoicesRouter);
 
 export default router;
