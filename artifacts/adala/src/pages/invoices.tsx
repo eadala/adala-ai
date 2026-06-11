@@ -385,15 +385,10 @@ function InvoiceSheet({
         setWaDialogOpen(false);
         setWaPhone("");
       } else {
-        const msg = encodeURIComponent(message);
-        window.open(`https://wa.me/${phone.replace(/\D/g, "")}?text=${msg}`, "_blank");
-        toast.success("تم فتح واتساب لإرسال الفاتورة");
-        setWaDialogOpen(false);
+        toast.error(d.error || "فشل الإرسال — تحقق من إعدادات واتساب");
       }
     } catch {
-      const message2 = `السلام عليكم،\nيرجى سداد الفاتورة رقم ${invoice.invoiceNumber}`;
-      const msg = encodeURIComponent(message2);
-      window.open(`https://wa.me/?text=${msg}`, "_blank");
+      toast.error("تعذّر الاتصال بخدمة واتساب");
     } finally { setWaSending(false); }
   };
 

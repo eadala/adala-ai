@@ -10,7 +10,7 @@ import {
   Scale, Receipt, Handshake, CalendarDays, Loader2,
   TrendingUp, DollarSign, AlertCircle, ExternalLink,
   MessageSquare, Activity, CheckCircle2, Clock, FileText,
-  UserPlus
+  UserPlus, SmartphoneIcon, CheckCircle, XCircle
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -104,6 +104,19 @@ export default function ClientDetail() {
   }
 
   const { client, cases, invoices, contracts, events, messages = [], activities = [], stats } = data;
+
+  const { data: waLogs = [] } = useQuery<any[]>({
+    queryKey: ["whatsapp-logs-client", client.phone],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/whatsapp/logs`);
+      if (!r.ok) return [];
+      const all = await r.json();
+      if (!client.phone) return [];
+      const normalized = client.phone.replace(/\D/g, "");
+      return all.filter((l: any) => l.to_number?.replace(/\D/g, "")?.includes(normalized));
+    },
+    enabled: !!client.phone,
+  });
   const typeInfo = TYPE_LABELS[client.type] ?? TYPE_LABELS.individual;
   const TypeIcon = typeInfo.icon;
 
@@ -188,7 +201,7 @@ export default function ClientDetail() {
 
       {/* ── Tabs ── */}
       <Tabs defaultValue="cases" dir="rtl">
-        <TabsList className="grid w-full grid-cols-6 h-9">
+        <TabsList className="grid w-full grid-cols-7 h-9">
           <TabsTrigger value="cases" className="text-xs px-2">
             <Scale className="h-3.5 w-3.5 ml-1 hidden sm:block" />القضايا
             {cases.length > 0 && <span className="mr-1 text-[10px] bg-blue-500/20 text-blue-400 rounded px-1">{cases.length}</span>}
@@ -211,6 +224,10 @@ export default function ClientDetail() {
           </TabsTrigger>
           <TabsTrigger value="activities" className="text-xs px-2">
             <Activity className="h-3.5 w-3.5 ml-1 hidden sm:block" />النشاطات
+          </TabsTrigger>
+          <TabsTrigger value="whatsapp" className="text-xs px-2">
+            <SmartphoneIcon className="h-3.5 w-3.5 ml-1 hidden sm:block" />واتساب
+            {waLogs.length > 0 && <span className="mr-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{waLogs.length}</span>}
           </TabsTrigger>
         </TabsList>
 
@@ -409,6 +426,47 @@ export default function ClientDetail() {
                           {msg.sender_ip && <span className="mr-2 opacity-60">IP: {msg.sender_ip}</span>}
                         </p>
                       )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* WHATSAPP LOGS TAB */}
+        <TabsContent value="whatsapp" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <SmartphoneIcon className="h-4 w-4 text-emerald-400" />
+                سجل رسائل واتساب
+              </CardTitle>
+              {!client.phone && (
+                <span className="text-xs text-muted-foreground">لا يوجد رقم هاتف مسجّل لهذا العميل</span>
+              )}
+            </CardHeader>
+            <CardContent>
+              {waLogs.length === 0 ? (
+                <EmptyTab icon={<SmartphoneIcon />} label={client.phone ? "لا توجد رسائل واتساب مرسلة لهذا العميل" : "أضف رقم هاتف للعميل لتتبع رسائل واتساب"} />
+              ) : (
+                <div className="space-y-2">
+                  {waLogs.map((log: any) => (
+                    <div key={log.id} className="p-3 rounded-lg border bg-muted/30">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2">
+                          {log.status === "sent"
+                            ? <CheckCircle className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                            : <XCircle className="h-4 w-4 text-red-400 flex-shrink-0" />}
+                          <span className="text-xs font-medium">{log.to_number}</span>
+                          {log.template && <span className="text-[10px] bg-emerald-500/15 text-emerald-400 rounded px-1.5 py-0.5">{log.template}</span>}
+                        </div>
+                        <span className="text-[11px] text-muted-foreground flex-shrink-0">
+                          {new Date(log.sent_at).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mr-6">{log.message}</p>
+                      {log.error && <p className="text-[11px] text-red-400 mt-1 mr-6">{log.error}</p>}
                     </div>
                   ))}
                 </div>
