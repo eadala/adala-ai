@@ -3,4 +3,5 @@
 - [Adala Clerk auth](adala-clerk.md) — Clerk provisioned (app_3EX1sJ94noXziGaliZZ7ZC6bHFc), routing: "/" = Landing (public), "/dashboard" = auth-protected, sign-in/sign-up at `/sign-in` `/sign-up`
 - [Adala Super Admin](adala-super-admin.md) — drizzle-kit push fails without TTY; use executeSql directly. Super Admin auth via VITE_SUPER_ADMIN_EMAILS or Clerk publicMetadata.role=super_admin
 - [Adala enterprise modules](adala-enterprise.md) — V2 enterprise modules: LOC dashboard, client portal (/portal/:token public), marketplace, AI workflow engine, calendar, wallet tables all created
+- [Adala branding system](adala-branding.md) — Multi-tenant branding: OfficeThemeProvider (CSS vars), OfficeLogo in sidebar, invoice templates, favicon/watermark/login-bg uploads; useBranding hook lives in hooks/use-branding.ts (NOT document-print-template)
 - [Adala messaging & AI assistant](adala-messaging-ai.md) — office_messages/recipients/attachments/ai_assistant_logs tables; routes at /api/internal-messages and /api/ai-assistant; new pages /messages (inbox) and /ai-assistant; must use db.execute(sql`...`) NOT direct pg Pool (esbuild can't resolve pg)

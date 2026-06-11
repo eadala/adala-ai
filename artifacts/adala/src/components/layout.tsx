@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown, BrainCircuit } from "lucide-react";
 import { ReactNode, useState } from "react";
+import { useBranding } from "@/hooks/use-branding";
 import { NotificationsPanel } from "@/components/notifications-panel";
 import { AccountMenu } from "@/components/account-menu";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,39 @@ const NAV_GROUPS = [
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function OfficeLogo() {
+  const { data: branding } = useBranding();
+  const primary = branding?.primaryColor || "#1e3a5f";
+  return (
+    <div className="flex h-16 items-center px-4 border-b border-sidebar-border gap-3 shrink-0">
+      {branding?.logoUrl ? (
+        <img
+          src={branding.logoUrl}
+          alt={branding.officeName || "شعار المكتب"}
+          className="h-9 w-9 object-contain rounded-md bg-white/10 p-0.5"
+        />
+      ) : (
+        <div
+          className="h-9 w-9 rounded-md flex items-center justify-center text-white font-bold text-base shrink-0"
+          style={{ backgroundColor: primary }}
+        >
+          {(branding?.officeName || "ع")[0]}
+        </div>
+      )}
+      <div className="flex flex-col min-w-0">
+        <span className="text-sm font-bold tracking-tight text-white truncate leading-tight">
+          {branding?.officeName || "عدالة AI"}
+        </span>
+        {branding?.tagline && (
+          <span className="text-[10px] text-sidebar-foreground/50 truncate leading-tight">
+            {branding.tagline}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -117,12 +151,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar - RTL */}
       <aside className="hidden w-64 flex-col border-l border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
-        <div className="flex h-16 items-center px-6 border-b border-sidebar-border">
-          <div className="flex items-center gap-2">
-            <Scale className="h-6 w-6 text-sidebar-primary" />
-            <span className="text-xl font-bold tracking-tight text-white">عدالة AI</span>
-          </div>
-        </div>
+        <OfficeLogo />
         <div className="flex-1 overflow-y-auto py-3">
           <nav className="px-3 space-y-4">
             {visibleGroups.map((group) => (
@@ -182,10 +211,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={() => setIsMobileMenuOpen(false)} />
           <aside className="absolute right-0 top-0 bottom-0 w-64 bg-sidebar border-l border-sidebar-border flex flex-col">
-            <div className="flex h-16 items-center px-6 border-b border-sidebar-border">
-              <Scale className="h-6 w-6 text-sidebar-primary ml-2" />
-              <span className="text-xl font-bold text-white">عدالة AI</span>
-            </div>
+            <OfficeLogo />
             <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-4">
               {NAV_GROUPS.map((group) => (
                 <div key={group.label}>

@@ -13,7 +13,8 @@ import {
   Building2, Upload, Palette, FileText, Crown, CheckCircle2,
   Image, Stamp, PenLine, Phone, Mail, Globe, Hash, Eye, EyeOff,
   Save, AlertCircle, MessageCircle, Link, Copy, CheckCheck,
-  Zap, ShieldCheck, RefreshCw, ExternalLink, Loader2
+  Zap, ShieldCheck, RefreshCw, ExternalLink, Loader2, Monitor,
+  Layers, Star, Globe2
 } from "lucide-react";
 
 const BASE_URL = import.meta.env.BASE_URL ?? "/";
@@ -32,6 +33,10 @@ type Branding = {
   logoUrl?: string;
   stampUrl?: string;
   signatureUrl?: string;
+  faviconUrl?: string;
+  loginBackgroundUrl?: string;
+  watermarkUrl?: string;
+  invoiceTemplate?: string;
   primaryColor?: string;
   secondaryColor?: string;
   subscriptionTier?: string;
@@ -75,6 +80,33 @@ const TIERS = [
   },
 ];
 
+const INVOICE_TEMPLATES = [
+  {
+    id: "classic_legal",
+    label: "الكلاسيكي القانوني",
+    desc: "تصميم رسمي بخط ذهبي، مثالي للمحاكم",
+    color: "#1e3a5f",
+    accent: "#c9a84c",
+    preview: "classic",
+  },
+  {
+    id: "modern_blue",
+    label: "الحديث الأزرق",
+    desc: "تصميم عصري بألوان متدرجة، احترافي وجذاب",
+    color: "#1d4ed8",
+    accent: "#60a5fa",
+    preview: "modern",
+  },
+  {
+    id: "minimal",
+    label: "المبسّط الأنيق",
+    desc: "تصميم نظيف ومينيمالي، يبرز المحتوى",
+    color: "#18181b",
+    accent: "#71717a",
+    preview: "minimal",
+  },
+];
+
 async function uploadFile(file: File): Promise<string> {
   const urlRes = await fetch(`${BASE_URL}api/storage/uploads/request-url`, {
     method: "POST",
@@ -86,8 +118,8 @@ async function uploadFile(file: File): Promise<string> {
   return `${BASE_URL}api/storage${objectPath}`;
 }
 
-function UploadZone({ label, icon: Icon, value, onUpload, accept = "image/*" }: {
-  label: string; icon: any; value?: string; onUpload: (url: string) => void; accept?: string;
+function UploadZone({ label, icon: Icon, value, onUpload, accept = "image/*", description }: {
+  label: string; icon: any; value?: string; onUpload: (url: string) => void; accept?: string; description?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -110,6 +142,7 @@ function UploadZone({ label, icon: Icon, value, onUpload, accept = "image/*" }: 
   return (
     <div className="flex flex-col gap-2">
       <Label className="text-sm font-medium">{label}</Label>
+      {description && <p className="text-xs text-muted-foreground -mt-1">{description}</p>}
       <div
         className="border-2 border-dashed border-border/60 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-all min-h-[120px] relative"
         onClick={() => ref.current?.click()}
@@ -129,6 +162,91 @@ function UploadZone({ label, icon: Icon, value, onUpload, accept = "image/*" }: 
           </div>
         )}
         <input ref={ref} type="file" accept={accept} className="hidden" onChange={handle} />
+      </div>
+      {value && (
+        <button
+          type="button"
+          onClick={() => onUpload("")}
+          className="text-xs text-destructive hover:underline text-right"
+        >
+          حذف الصورة
+        </button>
+      )}
+    </div>
+  );
+}
+
+function InvoiceTemplateCard({ template, selected, onSelect, primaryColor, secondaryColor, officeName }: {
+  template: typeof INVOICE_TEMPLATES[0];
+  selected: boolean;
+  onSelect: () => void;
+  primaryColor?: string;
+  secondaryColor?: string;
+  officeName?: string;
+}) {
+  const pc = primaryColor || template.color;
+  const sc = secondaryColor || template.accent;
+  const name = officeName || "مكتب الزهراني للمحاماة";
+
+  return (
+    <div
+      onClick={onSelect}
+      className={`border-2 rounded-xl overflow-hidden cursor-pointer transition-all ${
+        selected ? "border-primary shadow-md scale-[1.01]" : "border-border/60 hover:border-primary/40"
+      }`}
+    >
+      {/* Mini preview */}
+      <div className="p-3 bg-white dark:bg-slate-900 border-b border-border/40" style={{ direction: "rtl" }}>
+        {template.preview === "classic" && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between border-b pb-1.5" style={{ borderColor: sc }}>
+              <div>
+                <div className="h-2 rounded font-bold text-[9px] flex items-center" style={{ color: pc }}>{name}</div>
+                <div className="h-1.5 w-16 rounded mt-0.5 opacity-40" style={{ backgroundColor: pc }} />
+              </div>
+              <div className="w-6 h-6 rounded flex items-center justify-center text-white text-[8px] font-bold" style={{ backgroundColor: pc }}>ع</div>
+            </div>
+            <div className="space-y-1">
+              <div className="h-1.5 w-full rounded opacity-20" style={{ backgroundColor: pc }} />
+              <div className="h-1.5 w-3/4 rounded opacity-20" style={{ backgroundColor: pc }} />
+            </div>
+            <div className="border-t pt-1 text-center" style={{ borderColor: sc }}>
+              <div className="h-1 w-24 rounded mx-auto opacity-20" style={{ backgroundColor: pc }} />
+            </div>
+          </div>
+        )}
+        {template.preview === "modern" && (
+          <div className="space-y-1.5">
+            <div className="rounded p-1.5 text-white" style={{ background: `linear-gradient(135deg, ${pc}, ${sc})` }}>
+              <div className="text-[9px] font-bold">{name}</div>
+              <div className="text-[7px] opacity-80">فاتورة قانونية</div>
+            </div>
+            <div className="space-y-1">
+              <div className="h-1.5 w-full rounded opacity-30" style={{ backgroundColor: pc }} />
+              <div className="h-1.5 w-2/3 rounded opacity-30" style={{ backgroundColor: pc }} />
+            </div>
+          </div>
+        )}
+        {template.preview === "minimal" && (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 pb-1.5 border-b border-border/40">
+              <div className="w-4 h-4 rounded-sm" style={{ backgroundColor: pc }} />
+              <div className="text-[9px] font-bold" style={{ color: pc }}>{name}</div>
+            </div>
+            <div className="space-y-1">
+              <div className="h-1.5 w-full rounded opacity-20 bg-current" />
+              <div className="h-1.5 w-1/2 rounded opacity-20 bg-current" />
+            </div>
+          </div>
+        )}
+      </div>
+      {/* Label */}
+      <div className={`px-3 py-2 flex items-center justify-between ${selected ? "bg-primary/5" : "bg-muted/20"}`}>
+        <div>
+          <p className="text-sm font-semibold">{template.label}</p>
+          <p className="text-xs text-muted-foreground">{template.desc}</p>
+        </div>
+        {selected && <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />}
       </div>
     </div>
   );
@@ -186,7 +304,6 @@ function WhatsAppSettings() {
 
   return (
     <div className="space-y-6">
-      {/* Status Banner */}
       <Card className={`border-2 ${status?.connected ? "border-green-500/40 bg-green-500/5" : "border-amber-500/40 bg-amber-500/5"}`}>
         <CardContent className="flex items-center gap-4 pt-5">
           <div className={`p-3 rounded-xl ${status?.connected ? "bg-green-500/10" : "bg-amber-500/10"}`}>
@@ -208,7 +325,6 @@ function WhatsAppSettings() {
         </CardContent>
       </Card>
 
-      {/* Credentials Form */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" />بيانات الربط — Meta Business API</CardTitle>
@@ -217,184 +333,89 @@ function WhatsAppSettings() {
         <CardContent className="space-y-5">
           <div className="space-y-2">
             <Label>Phone Number ID</Label>
-            <Input
-              dir="ltr"
-              placeholder="1234567890123456"
-              value={phoneId}
-              onChange={e => setPhoneId(e.target.value)}
-              className="font-mono"
-            />
+            <Input dir="ltr" placeholder="1234567890123456" value={phoneId} onChange={e => setPhoneId(e.target.value)} className="font-mono" />
             <p className="text-xs text-muted-foreground">من: Meta Business Suite → WhatsApp → Getting Started</p>
           </div>
           <div className="space-y-2">
-            <Label>Access Token (Permanent)</Label>
-            <div className="relative">
-              <Input
-                dir="ltr"
-                type={showToken ? "text" : "password"}
-                placeholder="EAAxxxxxxx..."
-                value={token}
-                onChange={e => setToken(e.target.value)}
-                className="font-mono pl-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowToken(!showToken)}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
+            <Label>Access Token</Label>
+            <div className="flex gap-2">
+              <Input dir="ltr" type={showToken ? "text" : "password"} placeholder="EAAxxxx..." value={token} onChange={e => setToken(e.target.value)} className="font-mono flex-1" />
+              <Button variant="ghost" size="icon" onClick={() => setShowToken(p => !p)}>
                 {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+              </Button>
             </div>
-            <p className="text-xs text-muted-foreground">System User → Generate Token مع صلاحية whatsapp_business_messaging</p>
           </div>
           <div className="space-y-2">
-            <Label>Webhook Verify Token (تخصيص)</Label>
-            <Input
-              dir="ltr"
-              value={verifyTok}
-              onChange={e => setVerifyTok(e.target.value)}
-              className="font-mono"
-            />
-            <p className="text-xs text-muted-foreground">ادخله في حقل Verify Token بلوحة Meta</p>
+            <Label>Verify Token (للـ Webhook)</Label>
+            <Input dir="ltr" value={verifyTok} onChange={e => setVerifyTok(e.target.value)} className="font-mono" />
           </div>
-
-          {/* Test Connection */}
-          <div className="flex gap-3 pt-2">
-            <Button onClick={testConn} disabled={testing} variant="outline" className="flex items-center gap-2">
-              {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+          <div className="flex gap-3">
+            <Button onClick={testConn} disabled={testing} variant="outline" className="gap-2">
+              {testing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
               اختبر الاتصال
             </Button>
-            {testResult?.ok && (
-              <div className="flex items-center gap-2 text-green-600 text-sm">
-                <CheckCheck className="h-4 w-4" />
-                متصل — {testResult.phone || "رقم مُفعَّل"}
-              </div>
-            )}
-            {testResult?.error && (
-              <div className="flex items-center gap-2 text-red-500 text-sm">
-                <AlertCircle className="h-4 w-4" />
-                {testResult.error}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Webhook URL */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Link className="h-5 w-5 text-primary" />Webhook URL (انسخه في Meta)</CardTitle>
-          <CardDescription>أدخل هذا الرابط في إعدادات Webhook بلوحة تحكم Meta Developers</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 bg-muted rounded-lg px-4 py-3 font-mono text-sm break-all" dir="ltr">
-              {webhookUrl}
-            </div>
-            <Button variant="outline" size="sm" onClick={copyUrl} className="shrink-0 gap-2">
-              {copied ? <CheckCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-              {copied ? "تم النسخ" : "نسخ"}
+            <Button className="gap-2">
+              <Save className="h-4 w-4" />
+              حفظ البيانات
             </Button>
           </div>
+          {testResult && (
+            <div className={`p-3 rounded-lg text-sm border ${testResult.ok ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-950/20 dark:border-green-800 dark:text-green-400" : "bg-red-50 border-red-200 text-red-700 dark:bg-red-950/20 dark:border-red-800 dark:text-red-400"}`}>
+              {testResult.ok ? `✅ الاتصال ناجح — ${testResult.phone}` : `❌ ${testResult.error}`}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-muted/50 rounded-lg p-3">
-              <p className="text-xs font-medium text-muted-foreground mb-1">Verify Token</p>
-              <p className="font-mono text-sm">{verifyTok}</p>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-3">
-              <p className="text-xs font-medium text-muted-foreground mb-1">Subscribed Fields</p>
-              <p className="font-mono text-sm">messages, message_deliveries</p>
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Link className="h-5 w-5 text-primary" />رابط Webhook</CardTitle>
+          <CardDescription>انسخ هذا الرابط وأضفه في إعدادات Meta Business</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input dir="ltr" readOnly value={webhookUrl} className="font-mono text-sm flex-1 bg-muted/50" />
+            <Button variant="outline" size="icon" onClick={copyUrl}>
+              {copied ? <CheckCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+            </Button>
+            <Button variant="outline" size="icon" asChild>
+              <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Setup Steps */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><ExternalLink className="h-5 w-5 text-primary" />خطوات الربط بـ Meta Business API</CardTitle>
+          <CardTitle className="flex items-center gap-2">خطوات الربط</CardTitle>
         </CardHeader>
         <CardContent>
           <ol className="space-y-3">
-            {STEPS.map(step => (
-              <li key={step.n} className="flex gap-4 items-start">
-                <div className="w-7 h-7 rounded-full bg-primary/10 text-primary font-bold text-sm flex items-center justify-center shrink-0 mt-0.5">
-                  {step.n}
-                </div>
+            {STEPS.map(s => (
+              <li key={s.n} className="flex gap-3 items-start">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">{s.n}</span>
                 <div>
-                  <p className="font-medium text-sm">{step.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{step.desc}</p>
+                  <p className="font-medium text-sm">{s.title}</p>
+                  <p className="text-xs text-muted-foreground">{s.desc}</p>
                 </div>
               </li>
             ))}
           </ol>
-
-          <Separator className="my-4" />
-
-          <div className="flex gap-3 flex-wrap">
-            <a
-              href="https://developers.facebook.com/apps"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Meta Developers Portal
-            </a>
-            <a
-              href="https://business.facebook.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Meta Business Suite
-            </a>
-            <a
-              href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              توثيق WhatsApp Cloud API
-            </a>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Inbound Events Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><RefreshCw className="h-5 w-5 text-primary" />ما يحدث عند ورود رسالة واتساب</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {[
-              { icon: "📥", title: "الاستقبال التلقائي", desc: "كل رسالة واردة تُحفظ فوراً في قاعدة البيانات" },
-              { icon: "🏷️", title: "التصنيف الذكي",  desc: "يُصنَّف تلقائياً: استشارة، موعد، مستند، مالي، شكوى" },
-              { icon: "💬", title: "تكامل مع تواصل", desc: "تظهر في صفحة تواصل تحت قناة WhatsApp" },
-            ].map(item => (
-              <div key={item.title} className="bg-muted/50 rounded-xl p-4">
-                <div className="text-2xl mb-2">{item.icon}</div>
-                <p className="font-medium text-sm">{item.title}</p>
-                <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
-              </div>
-            ))}
-          </div>
         </CardContent>
       </Card>
     </div>
   );
 }
 
-export default function OfficeSettings() {
+// ─── Main Page ───
+export default function OfficeSettingsPage() {
   const qc = useQueryClient();
   const [form, setForm] = useState<Branding>({});
   const [loaded, setLoaded] = useState(false);
 
-  const { data: branding } = useQuery<Branding | null>({
+  useQuery({
     queryKey: ["branding"],
     queryFn: async () => {
       const r = await fetch(`${BASE_URL}api/branding`);
@@ -412,6 +433,7 @@ export default function OfficeSettings() {
           showAdalalahLogo: true,
           showAdalalahFooter: true,
           adalalahLogoSize: "normal",
+          invoiceTemplate: "classic_legal",
         });
         setLoaded(true);
       }
@@ -429,6 +451,7 @@ export default function OfficeSettings() {
     },
     onSuccess: (saved) => {
       qc.setQueryData(["branding"], saved);
+      qc.invalidateQueries({ queryKey: ["branding"] });
       setForm(saved);
       toast.success("تم حفظ إعدادات المكتب بنجاح ✓");
     },
@@ -442,16 +465,17 @@ export default function OfficeSettings() {
     <div className="space-y-6 max-w-5xl">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">إعدادات المكتب</h1>
-        <p className="text-muted-foreground mt-1">هوية مكتبك، الشعارات، والتصدير الاحترافي</p>
+        <p className="text-muted-foreground mt-1">هوية مكتبك، الشعارات، القوالب، والتصدير الاحترافي</p>
       </div>
 
       <Tabs defaultValue="identity" dir="rtl">
-        <TabsList className="grid grid-cols-5 w-full">
-          <TabsTrigger value="identity"><Building2 className="h-4 w-4 ml-2" />هوية المكتب</TabsTrigger>
-          <TabsTrigger value="assets"><Image className="h-4 w-4 ml-2" />الشعار والختم</TabsTrigger>
-          <TabsTrigger value="branding"><Palette className="h-4 w-4 ml-2" />الهوية المزدوجة</TabsTrigger>
-          <TabsTrigger value="subscription"><Crown className="h-4 w-4 ml-2" />الاشتراك</TabsTrigger>
-          <TabsTrigger value="whatsapp"><MessageCircle className="h-4 w-4 ml-2" />واتساب API</TabsTrigger>
+        <TabsList className="grid grid-cols-6 w-full">
+          <TabsTrigger value="identity"><Building2 className="h-4 w-4 ml-1.5" />هوية المكتب</TabsTrigger>
+          <TabsTrigger value="assets"><Image className="h-4 w-4 ml-1.5" />الشعار والختم</TabsTrigger>
+          <TabsTrigger value="branding"><Palette className="h-4 w-4 ml-1.5" />الهوية البصرية</TabsTrigger>
+          <TabsTrigger value="templates"><FileText className="h-4 w-4 ml-1.5" />قوالب الفواتير</TabsTrigger>
+          <TabsTrigger value="subscription"><Crown className="h-4 w-4 ml-1.5" />الاشتراك</TabsTrigger>
+          <TabsTrigger value="whatsapp"><MessageCircle className="h-4 w-4 ml-1.5" />واتساب API</TabsTrigger>
         </TabsList>
 
         {/* TAB 1: Identity */}
@@ -511,29 +535,66 @@ export default function OfficeSettings() {
                 icon={Image}
                 value={form.logoUrl}
                 onUpload={url => set("logoUrl", url)}
+                description="يظهر في رأس الصفحة والـ navbar"
               />
               <UploadZone
                 label="ختم المكتب"
                 icon={Stamp}
                 value={form.stampUrl}
                 onUpload={url => set("stampUrl", url)}
+                description="يُطبع في أسفل الوثائق الرسمية"
               />
               <UploadZone
                 label="توقيع المدير"
                 icon={PenLine}
                 value={form.signatureUrl}
                 onUpload={url => set("signatureUrl", url)}
+                description="توقيع المحامي أو مدير المكتب"
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Monitor className="h-5 w-5 text-primary" />
+                أصول الهوية الرقمية
+              </CardTitle>
+              <CardDescription>تُحسّن تجربة المستخدم وتميّز مكتبك بشكل كامل</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <UploadZone
+                label="Favicon (أيقونة التبويب)"
+                icon={Star}
+                value={form.faviconUrl}
+                onUpload={url => set("faviconUrl", url)}
+                accept="image/png,image/ico,image/svg+xml,image/x-icon"
+                description="تظهر في تبويب المتصفح — PNG أو ICO بحجم 32×32"
+              />
+              <UploadZone
+                label="خلفية صفحة تسجيل الدخول"
+                icon={Globe2}
+                value={form.loginBackgroundUrl}
+                onUpload={url => set("loginBackgroundUrl", url)}
+                description="خلفية صفحة Sign In الخاصة بمكتبك"
+              />
+              <UploadZone
+                label="العلامة المائية (Watermark)"
+                icon={Layers}
+                value={form.watermarkUrl}
+                onUpload={url => set("watermarkUrl", url)}
+                description="تُطبع بشفافية على المستندات المُصدَّرة"
               />
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* TAB 3: Dual Branding */}
+        {/* TAB 3: Branding (Colors + Dual branding) */}
         <TabsContent value="branding" className="space-y-4 mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>الهوية المزدوجة</CardTitle>
-              <CardDescription>تحكم في ظهور شعار عدالة AI حسب باقتك</CardDescription>
+              <CardTitle>الهوية البصرية</CardTitle>
+              <CardDescription>ألوان المكتب تُطبَّق تلقائياً على كل صفحات النظام والمستندات</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Colors */}
@@ -554,6 +615,29 @@ export default function OfficeSettings() {
                       <Input value={form.secondaryColor || "#c9a84c"} onChange={e => set("secondaryColor", e.target.value)} className="font-mono" placeholder="#c9a84c" />
                     </div>
                   </div>
+                </div>
+
+                {/* Live color swatches */}
+                <div className="mt-4 flex gap-2 flex-wrap">
+                  {[
+                    { label: "الأساسي العميق", primary: "#1e3a5f", secondary: "#c9a84c" },
+                    { label: "الملكي الذهبي", primary: "#2d1b69", secondary: "#f59e0b" },
+                    { label: "الأخضر القانوني", primary: "#14532d", secondary: "#86efac" },
+                    { label: "الأسود الفاخر", primary: "#0f0f0f", secondary: "#c9a84c" },
+                    { label: "الأزرق الدولي", primary: "#1d4ed8", secondary: "#60a5fa" },
+                  ].map(preset => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => { set("primaryColor", preset.primary); set("secondaryColor", preset.secondary); }}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/60 text-xs hover:border-primary/50 transition-colors"
+                      title={preset.label}
+                    >
+                      <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: preset.primary }} />
+                      <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: preset.secondary }} />
+                      {preset.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -601,10 +685,9 @@ export default function OfficeSettings() {
 
               {/* Preview */}
               <div>
-                <h3 className="font-semibold mb-3 flex items-center gap-2"><FileText className="h-4 w-4" />معاينة رأس المستند</h3>
+                <h3 className="font-semibold mb-3 flex items-center gap-2"><FileText className="h-4 w-4" />معاينة رأس المستند (مباشر)</h3>
                 <div className="border border-border rounded-xl overflow-hidden shadow-sm">
                   <div className="p-6 bg-white dark:bg-slate-900" style={{ direction: "rtl" }}>
-                    {/* Header */}
                     <div className="flex items-start justify-between border-b pb-4 mb-4" style={{ borderColor: form.secondaryColor || "#c9a84c" }}>
                       <div className="flex items-center gap-3">
                         {form.logoUrl ? (
@@ -630,7 +713,6 @@ export default function OfficeSettings() {
                       )}
                     </div>
                     <p className="text-center text-sm text-gray-400 italic">... محتوى المستند ...</p>
-                    {/* Footer */}
                     {(form.showAdalalahFooter !== false) && (
                       <div className="mt-4 pt-3 border-t text-center text-xs text-gray-400" style={{ borderColor: form.secondaryColor || "#c9a84c" }}>
                         تم إنشاء هذا المستند بواسطة منصة <span className="font-semibold">عدالة AI</span> — Powered by Adalah AI
@@ -643,7 +725,148 @@ export default function OfficeSettings() {
           </Card>
         </TabsContent>
 
-        {/* TAB 4: Subscription */}
+        {/* TAB 4: Invoice Templates */}
+        <TabsContent value="templates" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                قالب الفاتورة القانونية
+              </CardTitle>
+              <CardDescription>
+                اختر التصميم الذي يناسب هوية مكتبك — يُطبَّق على كل الفواتير والمستندات المُصدَّرة
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {INVOICE_TEMPLATES.map(tpl => (
+                  <InvoiceTemplateCard
+                    key={tpl.id}
+                    template={tpl}
+                    selected={(form.invoiceTemplate || "classic_legal") === tpl.id}
+                    onSelect={() => set("invoiceTemplate", tpl.id)}
+                    primaryColor={form.primaryColor}
+                    secondaryColor={form.secondaryColor}
+                    officeName={form.officeName}
+                  />
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 text-sm border border-blue-200 dark:border-blue-800">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <span>
+                  القالب المختار: <strong>{INVOICE_TEMPLATES.find(t => t.id === (form.invoiceTemplate || "classic_legal"))?.label}</strong> — يُطبَّق على الفواتير والعقود والتقارير.
+                </span>
+              </div>
+
+              <Separator />
+
+              {/* Full invoice preview */}
+              <div>
+                <h3 className="font-semibold mb-3">معاينة الفاتورة الكاملة</h3>
+                <div className="border border-border rounded-xl overflow-hidden shadow-sm">
+                  <div className="bg-white dark:bg-slate-900 p-6" style={{ direction: "rtl" }}>
+                    {/* Header */}
+                    {(form.invoiceTemplate === "modern_blue") ? (
+                      <div className="rounded-lg p-4 mb-4 text-white" style={{ background: `linear-gradient(135deg, ${form.primaryColor || "#1d4ed8"}, ${form.secondaryColor || "#60a5fa"})` }}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h2 className="text-xl font-bold">{form.officeName || "مكتب الزهراني للمحاماة"}</h2>
+                            {form.tagline && <p className="text-sm opacity-80">{form.tagline}</p>}
+                          </div>
+                          <div className="text-left opacity-90">
+                            <p className="text-2xl font-bold">فاتورة</p>
+                            <p className="text-sm">#INV-2024-001</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (form.invoiceTemplate === "minimal") ? (
+                      <div className="flex items-start justify-between mb-4 pb-3 border-b border-border/40">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded" style={{ backgroundColor: form.primaryColor || "#18181b" }} />
+                          <div>
+                            <h2 className="font-bold text-base" style={{ color: form.primaryColor || "#18181b" }}>{form.officeName || "مكتب الزهراني"}</h2>
+                          </div>
+                        </div>
+                        <div className="text-left">
+                          <p className="font-semibold text-sm">فاتورة #INV-2024-001</p>
+                          <p className="text-xs text-muted-foreground">١١ يونيو ٢٠٢٦</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between border-b pb-4 mb-4" style={{ borderColor: form.secondaryColor || "#c9a84c" }}>
+                        <div className="flex items-center gap-3">
+                          {form.logoUrl ? (
+                            <img src={form.logoUrl} alt="شعار" className="h-12 w-12 object-contain" />
+                          ) : (
+                            <div className="h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold" style={{ backgroundColor: form.primaryColor || "#1e3a5f" }}>
+                              {(form.officeName || "م")[0]}
+                            </div>
+                          )}
+                          <div>
+                            <h2 className="text-lg font-bold" style={{ color: form.primaryColor || "#1e3a5f" }}>{form.officeName || "مكتب الزهراني للمحاماة"}</h2>
+                            {form.tagline && <p className="text-xs text-gray-500">{form.tagline}</p>}
+                          </div>
+                        </div>
+                        <div className="text-left">
+                          <p className="text-2xl font-bold" style={{ color: form.secondaryColor || "#c9a84c" }}>فاتورة</p>
+                          <p className="text-sm text-gray-500">#INV-2024-001</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Body */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="p-3 rounded-lg bg-muted/30">
+                        <p className="text-xs text-muted-foreground mb-1">فاتورة إلى</p>
+                        <p className="font-semibold">شركة الأمل التجارية</p>
+                        <p className="text-sm text-muted-foreground">الرياض، المملكة العربية السعودية</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/30 text-left">
+                        <p className="text-xs text-muted-foreground mb-1">تاريخ الإصدار</p>
+                        <p className="font-semibold">١١ يونيو ٢٠٢٦</p>
+                        <p className="text-sm text-muted-foreground">تاريخ الاستحقاق: ٢٥ يونيو ٢٠٢٦</p>
+                      </div>
+                    </div>
+
+                    <table className="w-full text-sm mb-4">
+                      <thead>
+                        <tr className="text-xs text-muted-foreground border-b border-border/40">
+                          <th className="py-2 text-right">الوصف</th>
+                          <th className="py-2 text-center">الساعات</th>
+                          <th className="py-2 text-left">المبلغ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-border/20">
+                          <td className="py-2">خدمات التمثيل القانوني — قضية عقد تجاري</td>
+                          <td className="py-2 text-center">٨</td>
+                          <td className="py-2 text-left">٤٠٠٠ ريال</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2">مراجعة وصياغة عقد الشراكة</td>
+                          <td className="py-2 text-center">٣</td>
+                          <td className="py-2 text-left">١٥٠٠ ريال</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <div className="flex justify-end">
+                      <div className="w-48 space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">الإجمالي:</span>
+                          <span className="font-bold">٥٥٠٠ ريال</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 5: Subscription */}
         <TabsContent value="subscription" className="space-y-4 mt-4">
           <Card>
             <CardHeader>
@@ -683,7 +906,7 @@ export default function OfficeSettings() {
           </Card>
         </TabsContent>
 
-        {/* TAB 5: WhatsApp Business API */}
+        {/* TAB 6: WhatsApp */}
         <TabsContent value="whatsapp" className="space-y-4 mt-4">
           <WhatsAppSettings />
         </TabsContent>

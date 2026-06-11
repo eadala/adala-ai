@@ -15,7 +15,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListCasesQueryKey } from "@workspace/api-client-react";
-import { DocumentPrintTemplate, PrintButton, useBranding } from "@/components/document-print-template";
+import { DocumentPrintTemplate, PrintButton } from "@/components/document-print-template";
+import { useBranding } from "@/hooks/use-branding";
 
 const STATUS_MAP: Record<string, string> = {
   open: "مفتوحة",
