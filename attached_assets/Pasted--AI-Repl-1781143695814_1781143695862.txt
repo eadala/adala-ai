@@ -1,0 +1,341 @@
+ممتاز. سنبدأ بالنسخة الاحترافية الأولى من صفحة **الفواتير** في عدالة AI، بحيث تكون متوافقة مع **Replit + React + Tailwind + shadcn/ui + TanStack Table**.
+
+---
+
+# 1. الصفحة الرئيسية
+
+## `pages/InvoicesPage.tsx`
+
+```tsx
+import { InvoiceStats } from "@/components/invoices/InvoiceStats";
+import { RevenueChart } from "@/components/invoices/RevenueChart";
+import { InvoiceFilters } from "@/components/invoices/InvoiceFilters";
+import { InvoiceTable } from "@/components/invoices/InvoiceTable";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+
+export default function InvoicesPage() {
+  return (
+    <div className="space-y-6">
+
+      <div className="flex items-center justify-between">
+
+        <div>
+          <h1 className="text-3xl font-bold">
+            الفواتير
+          </h1>
+
+          <p className="text-muted-foreground">
+            إدارة الفواتير والتحصيل
+          </p>
+        </div>
+
+        <Button>
+          <Plus className="w-4 h-4 ml-2" />
+          إنشاء فاتورة
+        </Button>
+
+      </div>
+
+      <InvoiceStats />
+
+      <RevenueChart />
+
+      <InvoiceFilters />
+
+      <InvoiceTable />
+
+    </div>
+  );
+}
+```
+
+---
+
+# 2. بطاقات الإحصائيات
+
+## `components/invoices/InvoiceStats.tsx`
+
+```tsx
+import {
+Card,
+CardContent
+} from "@/components/ui/card";
+
+export function InvoiceStats() {
+
+  const stats = [
+    {
+      title: "إجمالي الفواتير",
+      value: "5"
+    },
+    {
+      title: "المبالغ المحصلة",
+      value: "1,233,000 ر.س"
+    },
+    {
+      title: "بانتظار السداد",
+      value: "5"
+    },
+    {
+      title: "المتأخرة",
+      value: "2"
+    },
+    {
+      title: "معدل التحصيل",
+      value: "89%"
+    }
+  ];
+
+  return (
+    <div className="grid md:grid-cols-5 gap-4">
+
+      {stats.map((item) => (
+
+        <Card key={item.title}>
+
+          <CardContent className="p-6">
+
+            <div className="text-sm text-muted-foreground">
+              {item.title}
+            </div>
+
+            <div className="text-3xl font-bold mt-2">
+              {item.value}
+            </div>
+
+          </CardContent>
+
+        </Card>
+
+      ))}
+
+    </div>
+  );
+}
+```
+
+---
+
+# 3. شريط الفلاتر
+
+## `components/invoices/InvoiceFilters.tsx`
+
+```tsx
+import { Input } from "@/components/ui/input";
+
+export function InvoiceFilters() {
+
+  return (
+
+    <div className="flex gap-4">
+
+      <Input
+        placeholder="بحث برقم الفاتورة أو العميل..."
+      />
+
+    </div>
+
+  );
+}
+```
+
+---
+
+# 4. حالة الفاتورة
+
+## `components/invoices/InvoiceStatusBadge.tsx`
+
+```tsx
+import { Badge } from "@/components/ui/badge";
+
+interface Props {
+  status: string;
+}
+
+export function InvoiceStatusBadge({
+  status
+}: Props) {
+
+  if (status === "paid")
+    return (
+      <Badge className="bg-green-500">
+        مدفوعة
+      </Badge>
+    );
+
+  if (status === "pending")
+    return (
+      <Badge className="bg-yellow-500">
+        بانتظار الدفع
+      </Badge>
+    );
+
+  if (status === "overdue")
+    return (
+      <Badge className="bg-red-500">
+        متأخرة
+      </Badge>
+    );
+
+  return (
+    <Badge>
+      مسودة
+    </Badge>
+  );
+}
+```
+
+---
+
+# 5. جدول الفواتير
+
+## `components/invoices/InvoiceTable.tsx`
+
+```tsx
+import {
+Card,
+CardContent
+} from "@/components/ui/card";
+
+import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
+
+export function InvoiceTable() {
+
+  const invoices = [
+    {
+      number: "INV-2026-0001",
+      client: "شركة التقنية",
+      amount: "20,000 ر.س",
+      status: "paid"
+    },
+    {
+      number: "INV-2026-0002",
+      client: "مؤسسة الأعمال",
+      amount: "10,000 ر.س",
+      status: "pending"
+    }
+  ];
+
+  return (
+
+    <Card>
+
+      <CardContent className="p-0">
+
+        <table className="w-full">
+
+          <thead>
+
+            <tr className="border-b">
+
+              <th className="p-4 text-right">
+                رقم الفاتورة
+              </th>
+
+              <th className="p-4 text-right">
+                العميل
+              </th>
+
+              <th className="p-4 text-right">
+                المبلغ
+              </th>
+
+              <th className="p-4 text-right">
+                الحالة
+              </th>
+
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+            {invoices.map((invoice) => (
+
+              <tr
+                key={invoice.number}
+                className="border-b"
+              >
+                <td className="p-4">
+                  {invoice.number}
+                </td>
+
+                <td className="p-4">
+                  {invoice.client}
+                </td>
+
+                <td className="p-4">
+                  {invoice.amount}
+                </td>
+
+                <td className="p-4">
+
+                  <InvoiceStatusBadge
+                    status={invoice.status}
+                  />
+
+                </td>
+
+              </tr>
+
+            ))}
+
+          </tbody>
+
+        </table>
+
+      </CardContent>
+
+    </Card>
+
+  );
+}
+```
+
+---
+
+# الهيكل النهائي للمجلدات
+
+```text
+components
+
+└── invoices
+
+    InvoiceFilters.tsx
+
+    InvoiceStats.tsx
+
+    InvoiceTable.tsx
+
+    InvoiceStatusBadge.tsx
+
+    RevenueChart.tsx
+
+    InvoiceRowActions.tsx
+
+    InvoiceDetailsSheet.tsx
+
+    InvoiceTimeline.tsx
+
+pages
+
+    InvoicesPage.tsx
+```
+
+## ما أقترحه في الخطوة التالية (وهي الأهم):
+
+بناء نسخة **Enterprise** شبيهة بـ Stripe وClio تتضمن:
+
+* TanStack Table الحقيقي.
+* البحث والفلاتر المتقدمة.
+* القائمة المنسدلة للإجراءات (⋮).
+* نافذة تفاصيل الفاتورة (Sheet).
+* Timeline.
+* QR Code.
+* تصدير PDF.
+* إرسال واتساب.
+* الرسم البياني باستخدام Recharts.
+* ربط Supabase وDrizzle ORM.
+
+وهذه ستكون نسخة بمستوى SaaS عالمي وجاهزة للعمل داخل Replit.
