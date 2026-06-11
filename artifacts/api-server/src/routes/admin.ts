@@ -6,6 +6,7 @@ import {
   usersTable, usageLogsTable, officePageTable,
 } from "@workspace/db/schema";
 import { eq, desc, count, sum } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
 
 const router = Router();
@@ -77,6 +78,33 @@ router.get("/admin/offices", adminOnly, async (_req, res) => {
 
 router.patch("/admin/offices/:id", adminOnly, async (req, res) => {
   const { id } = req.params;
+
+  /* Detect plan change and log notification */
+  if (req.body.plan) {
+    try {
+      const [before] = await db.select({ plan: officePageTable.plan }).from(officePageTable).where(eq(officePageTable.id, id));
+      const oldPlan = before?.plan ?? "starter";
+      const newPlan = req.body.plan;
+      if (oldPlan !== newPlan) {
+        const LABELS: Record<string, string> = { free: "مجاني", starter: "مبتدئ", professional: "احترافي", enterprise: "مؤسسي" };
+        const isUpgrade = ["free","starter","professional","enterprise"].indexOf(newPlan) > ["free","starter","professional","enterprise"].indexOf(oldPlan);
+        const title = isUpgrade ? `✅ تم ترقية باقتك إلى ${LABELS[newPlan] ?? newPlan}` : `⚠️ تم تعديل باقتك إلى ${LABELS[newPlan] ?? newPlan}`;
+        const message = isUpgrade
+          ? `تم ترقية اشتراك مكتبك من باقة "${LABELS[oldPlan] ?? oldPlan}" إلى باقة "${LABELS[newPlan] ?? newPlan}". الخدمات الجديدة متاحة الآن.`
+          : `تم تغيير اشتراك مكتبك من باقة "${LABELS[oldPlan] ?? oldPlan}" إلى باقة "${LABELS[newPlan] ?? newPlan}". بعض الخدمات قد تكون غير متاحة.`;
+        await db.execute(sql`
+          INSERT INTO plan_notifications (id, type, old_plan, new_plan, title, message)
+          VALUES (gen_random_uuid()::text, ${isUpgrade ? "upgrade" : "downgrade"}, ${oldPlan}, ${newPlan}, ${title}, ${message})
+        `);
+        /* Invalidate feature flag cache */
+        const { invalidateFeatureCache } = await import("../middleware/feature-gate.js");
+        invalidateFeatureCache();
+      }
+    } catch (e) {
+      console.error("Plan notification error:", e);
+    }
+  }
+
   const updated = await db.update(officePageTable).set({ ...req.body }).where(eq(officePageTable.id, id)).returning();
   res.json(updated[0]);
 });

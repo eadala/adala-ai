@@ -241,6 +241,29 @@ router.get("/notifications", async (_req, res) => {
     }
   } catch {}
 
+  /* 10. Plan change notifications */
+  try {
+    const rows = await db.execute(sql`
+      SELECT id, type, old_plan, new_plan, title, message, is_read, created_at
+      FROM plan_notifications
+      WHERE is_read = FALSE
+      ORDER BY created_at DESC
+      LIMIT 5
+    `);
+    for (const n of (rows.rows ?? []) as any[]) {
+      notifications.push({
+        id: `plan-notif-${n.id}`,
+        type: n.type === "upgrade" ? "success" : "warning",
+        category: "الاشتراك",
+        title: n.title,
+        body: n.message,
+        href: "/billing",
+        createdAt: n.created_at instanceof Date ? n.created_at.toISOString() : String(n.created_at),
+        read: false,
+      });
+    }
+  } catch {}
+
   /* Sort: errors first, then warnings, then info — then by date */
   const ORDER = { error: 0, warning: 1, info: 2, success: 3 };
   notifications.sort((a, b) => {

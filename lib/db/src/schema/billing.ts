@@ -41,3 +41,16 @@ export type Subscription = typeof subscriptionsTable.$inferSelect;
 export const insertUsageLogSchema = createInsertSchema(usageLogsTable).omit({ id: true, createdAt: true });
 export type InsertUsageLog = z.infer<typeof insertUsageLogSchema>;
 export type UsageLog = typeof usageLogsTable.$inferSelect;
+
+/* ── Plan Change Notifications ──────────────────────── */
+export const planNotificationsTable = pgTable("plan_notifications", {
+  id:        text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  type:      text("type").notNull().default("plan_change"),
+  oldPlan:   text("old_plan"),
+  newPlan:   text("new_plan"),
+  title:     text("title").notNull(),
+  message:   text("message").notNull(),
+  isRead:    boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+export type PlanNotification = typeof planNotificationsTable.$inferSelect;

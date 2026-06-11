@@ -1,52 +1,66 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown, BrainCircuit } from "lucide-react";
+import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown, BrainCircuit, Lock } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { useBranding } from "@/hooks/use-branding";
+import { useOfficePlan } from "@/hooks/use-office-plan";
 import { NotificationsPanel } from "@/components/notifications-panel";
 import { AccountMenu } from "@/components/account-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUser, useClerk } from "@clerk/react";
 
-const NAV_GROUPS = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<any>;
+  feature?: string;
+}
+interface NavGroup {
+  label: string;
+  superAdminOnly?: boolean;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
   {
     label: "العمليات القانونية",
     items: [
-      { href: "/dashboard",     label: "الرئيسية",          icon: LayoutDashboard },
-      { href: "/cases",         label: "القضايا",            icon: Scale },
-      { href: "/clients",       label: "العملاء (CRM)",      icon: UserCircle },
-      { href: "/contracts",     label: "العقود",             icon: FileText },
-      { href: "/documents",     label: "المستندات",          icon: BookOpen },
-      { href: "/letters",       label: "نماذج الخطابات",     icon: Mail },
+      { href: "/dashboard",  label: "الرئيسية",          icon: LayoutDashboard },
+      { href: "/cases",      label: "القضايا",            icon: Scale },
+      { href: "/clients",    label: "العملاء (CRM)",      icon: UserCircle },
+      { href: "/contracts",  label: "العقود",             icon: FileText },
+      { href: "/documents",  label: "المستندات",          icon: BookOpen },
+      { href: "/letters",    label: "نماذج الخطابات",     icon: Mail },
     ],
   },
   {
     label: "الإدارة المالية",
     items: [
-      { href: "/invoices",      label: "الفواتير",           icon: Receipt },
-      { href: "/billing",       label: "الاشتراك والفوترة",  icon: CreditCard },
+      { href: "/invoices", label: "الفواتير",          icon: Receipt },
+      { href: "/billing",  label: "الاشتراك والفوترة", icon: CreditCard },
     ],
   },
   {
     label: "التواصل والجدول",
     items: [
-      { href: "/messages",      label: "المراسلات",          icon: MessageCircle },
-      { href: "/calendar",      label: "التقويم والمواعيد",  icon: CalendarDays },
-      { href: "/client-portal", label: "بوابة العملاء",      icon: Globe },
+      { href: "/messages",      label: "المراسلات",           icon: MessageCircle },
+      { href: "/calendar",      label: "التقويم والمواعيد",   icon: CalendarDays,  feature: "calendar" },
+      { href: "/client-portal", label: "بوابة العملاء",       icon: Globe,         feature: "clientPortal" },
     ],
   },
   {
     label: "الذكاء الاصطناعي",
     items: [
-      { href: "/command-center",      label: "مركز الأوامر",       icon: Zap },
-      { href: "/ai-assistant",        label: "المساعد الإداري",    icon: BrainCircuit },
-      { href: "/ai-agents",           label: "الوكلاء الذكيون",    icon: Bot },
-      { href: "/ai-chat",             label: "المساعد الذكي",      icon: Sparkles },
-      { href: "/opponent-simulator",  label: "محاكي الخصم",        icon: Swords },
-      { href: "/judge-prep",          label: "توقع أسئلة القاضي",  icon: Gavel },
-      { href: "/legal-research",      label: "البحث القانوني",     icon: LibraryBig },
-      { href: "/arbitration",         label: "التحكيم والوساطة",   icon: Handshake },
+      { href: "/command-center",     label: "مركز الأوامر",        icon: Zap,         feature: "ai" },
+      { href: "/ai-assistant",       label: "المساعد الإداري",     icon: BrainCircuit,feature: "ai" },
+      { href: "/ai-agents",          label: "الوكلاء الذكيون",     icon: Bot,         feature: "ai" },
+      { href: "/ai-chat",            label: "المساعد الذكي",       icon: Sparkles,    feature: "ai" },
+      { href: "/opponent-simulator", label: "محاكي الخصم",         icon: Swords,      feature: "ai" },
+      { href: "/judge-prep",         label: "توقع أسئلة القاضي",   icon: Gavel,       feature: "ai" },
+      { href: "/legal-research",     label: "البحث القانوني",      icon: LibraryBig,  feature: "ai" },
+      { href: "/arbitration",        label: "التحكيم والوساطة",    icon: Handshake,   feature: "ai" },
     ],
   },
   {
@@ -62,24 +76,24 @@ const NAV_GROUPS = [
   {
     label: "التحليل والامتثال",
     items: [
-      { href: "/analytics",       label: "تحليلات الأداء",    icon: BarChart3 },
-      { href: "/risk-management", label: "إدارة المخاطر",     icon: AlertTriangle },
+      { href: "/analytics",       label: "تحليلات الأداء",    icon: BarChart3,     feature: "advancedReports" },
+      { href: "/risk-management", label: "إدارة المخاطر",     icon: AlertTriangle, feature: "advancedReports" },
       { href: "/compliance",      label: "الامتثال القانوني", icon: Shield },
     ],
   },
   {
     label: "الموقع القانوني",
     items: [
-      { href: "/office-management", label: "الموقع الذكي للمكتب", icon: Globe },
-      { href: "/marketplace",       label: "السوق القانوني",       icon: ShoppingBag },
+      { href: "/office-management", label: "الموقع الذكي للمكتب", icon: Globe,      feature: "officePage" },
+      { href: "/marketplace",       label: "السوق القانوني",       icon: ShoppingBag,feature: "legalStore" },
     ],
   },
   {
     label: "الإدارة",
     items: [
-      { href: "/firm-admin",     label: "لوحة مدير المكتب",  icon: Crown },
-      { href: "/users",          label: "فريق العمل",         icon: Users },
-      { href: "/office-settings",label: "إعدادات المكتب",     icon: Building2 },
+      { href: "/firm-admin",      label: "لوحة مدير المكتب", icon: Crown },
+      { href: "/users",           label: "فريق العمل",        icon: Users },
+      { href: "/office-settings", label: "إعدادات المكتب",    icon: Building2 },
     ],
   },
   {
@@ -99,16 +113,11 @@ function OfficeLogo() {
   return (
     <div className="flex h-16 items-center px-4 border-b border-sidebar-border gap-3 shrink-0">
       {branding?.logoUrl ? (
-        <img
-          src={branding.logoUrl}
-          alt={branding.officeName || "شعار المكتب"}
-          className="h-9 w-9 object-contain rounded-md bg-white/10 p-0.5"
-        />
+        <img src={branding.logoUrl} alt={branding.officeName || "شعار المكتب"}
+          className="h-9 w-9 object-contain rounded-md bg-white/10 p-0.5" />
       ) : (
-        <div
-          className="h-9 w-9 rounded-md flex items-center justify-center text-white font-bold text-base shrink-0"
-          style={{ backgroundColor: primary }}
-        >
+        <div className="h-9 w-9 rounded-md flex items-center justify-center text-white font-bold text-base shrink-0"
+          style={{ backgroundColor: primary }}>
           {(branding?.officeName || "ع")[0]}
         </div>
       )}
@@ -123,6 +132,41 @@ function OfficeLogo() {
         )}
       </div>
     </div>
+  );
+}
+
+function NavItemLink({ item, isActive, onClick }: { item: NavItem; isActive: boolean; onClick?: () => void }) {
+  const { hasFeature, isLoaded } = useOfficePlan();
+  const isAI = ["/command-center", "/ai-agents", "/ai-chat", "/opponent-simulator", "/ai-assistant"].includes(item.href);
+  const isLocked = isLoaded && item.feature ? !hasFeature(item.feature) : false;
+
+  const baseClass = `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors w-full text-right`;
+  const activeClass = "bg-sidebar-accent text-sidebar-accent-foreground";
+  const inactiveClass = "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground";
+  const lockedClass = "text-sidebar-foreground/40 cursor-default";
+
+  if (isLocked) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link href="/billing" className={`${baseClass} ${lockedClass}`} onClick={onClick}>
+            <item.icon className="h-4 w-4 flex-shrink-0 opacity-40" />
+            <span className="truncate flex-1">{item.label}</span>
+            <Lock className="h-3 w-3 opacity-50 flex-shrink-0" />
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="text-xs max-w-48">
+          هذه الميزة غير متاحة في باقتك الحالية — <span className="text-primary font-semibold">قم بالترقية</span>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Link href={item.href} className={`${baseClass} ${isActive ? activeClass : inactiveClass}`} onClick={onClick}>
+      <item.icon className={`h-4 w-4 flex-shrink-0 ${isAI ? "text-[#C9A84C]" : ""}`} />
+      <span className="truncate">{item.label}</span>
+    </Link>
   );
 }
 
@@ -145,7 +189,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const isSuperAdminByRole = user?.publicMetadata?.role === "super_admin";
   const isSuperAdmin = isSuperAdminByEmail || isSuperAdminByRole;
 
-  const visibleGroups = NAV_GROUPS.filter((g: any) => !g.superAdminOnly || isSuperAdmin);
+  const visibleGroups = NAV_GROUPS.filter((g) => !g.superAdminOnly || isSuperAdmin);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -160,20 +204,8 @@ export function Layout({ children }: { children: ReactNode }) {
                 <div className="space-y-0.5">
                   {group.items.map((item) => {
                     const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
-                    const isAI = ["/command-center", "/ai-agents", "/ai-chat", "/opponent-simulator"].includes(item.href);
                     return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                          isActive
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                        }`}
-                      >
-                        <item.icon className={`h-4 w-4 flex-shrink-0 ${isAI ? "text-[#C9A84C]" : ""}`} />
-                        <span className="truncate">{item.label}</span>
-                      </Link>
+                      <NavItemLink key={item.href} item={item} isActive={isActive} />
                     );
                   })}
                 </div>
@@ -193,13 +225,9 @@ export function Layout({ children }: { children: ReactNode }) {
               <span className="text-sm font-medium text-white truncate">{displayName}</span>
               <span className="text-xs text-sidebar-foreground/60">{role}</span>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
+            <Button variant="ghost" size="icon"
               className="h-7 w-7 text-sidebar-foreground/50 hover:text-white hover:bg-sidebar-accent/50"
-              onClick={() => signOut({ redirectUrl: basePath || "/" })}
-              title="تسجيل الخروج"
-            >
+              onClick={() => signOut({ redirectUrl: basePath || "/" })} title="تسجيل الخروج">
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
@@ -213,20 +241,14 @@ export function Layout({ children }: { children: ReactNode }) {
           <aside className="absolute right-0 top-0 bottom-0 w-64 bg-sidebar border-l border-sidebar-border flex flex-col">
             <OfficeLogo />
             <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-4">
-              {NAV_GROUPS.map((group) => (
+              {visibleGroups.map((group) => (
                 <div key={group.label}>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40 px-2 mb-1">{group.label}</p>
                   <div className="space-y-0.5">
                     {group.items.map((item) => {
                       const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
                       return (
-                        <Link key={item.href} href={item.href} onClick={() => setIsMobileMenuOpen(false)}
-                          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                            isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
-                          }`}>
-                          <item.icon className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate">{item.label}</span>
-                        </Link>
+                        <NavItemLink key={item.href} item={item} isActive={isActive} onClick={() => setIsMobileMenuOpen(false)} />
                       );
                     })}
                   </div>
@@ -254,10 +276,8 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="hidden md:flex flex-1 items-center max-w-md">
             <div className="relative w-full">
               <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="ابحث في القضايا والمستندات..."
-                className="w-full pl-4 pr-10 bg-muted/50 border-none focus-visible:ring-1"
-              />
+              <Input placeholder="ابحث في القضايا والمستندات..."
+                className="w-full pl-4 pr-10 bg-muted/50 border-none focus-visible:ring-1" />
             </div>
           </div>
 
