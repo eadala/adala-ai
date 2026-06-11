@@ -43,6 +43,8 @@ import developerRouter from "./developer";
 import paymentsRouter from "./payments";
 import hostingRouter from "./hosting";
 import studioRouter from "./studio";
+import entitlementsRouter from "./entitlements";
+import officeApiKeysRouter from "./officeApiKeys";
 
 const router: IRouter = Router();
 
@@ -90,5 +92,7 @@ router.use(developerRouter);
 router.use(paymentsRouter);
 router.use(hostingRouter);
 router.use(studioRouter);
+router.use(entitlementsRouter);
+router.use(officeApiKeysRouter);
 
 export default router;

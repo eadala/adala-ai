@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db, invoicesTable, subscriptionsTable, usageLogsTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import Stripe from "stripe";
 
 const router = Router();
@@ -65,6 +66,7 @@ router.post("/billing/checkout", async (req, res) => {
   if (!plan) return res.status(400).json({ error: "الخطة غير موجودة" });
 
   try {
+    const officeId = (req.body.officeId as string) ?? "default";
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
@@ -82,6 +84,7 @@ router.post("/billing/checkout", async (req, res) => {
           quantity: 1,
         },
       ],
+      metadata: { plan: planId, officeId, planName: plan.name },
       success_url: successUrl ?? `${req.headers.origin}/billing?success=1`,
       cancel_url: cancelUrl ?? `${req.headers.origin}/billing?canceled=1`,
       locale: "ar",
@@ -167,6 +170,36 @@ router.get("/billing/usage", async (_req, res) => {
     res.json(logs.map(u => ({ ...u, createdAt: u.createdAt.toISOString() })));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+/* ── Ledger ───────────────────────────────────────── */
+router.get("/billing/ledger", async (req, res) => {
+  try {
+    const officeId = (req.headers["x-office-id"] as string) ?? "default";
+    const r = await db.execute(sql`
+      SELECT id, type, amount, currency, ref, description, stripe_id, created_at
+      FROM office_ledger
+      WHERE office_id = ${officeId}
+      ORDER BY created_at DESC
+      LIMIT 100
+    `);
+    const rows = (r as any)?.rows ?? [];
+    res.json(rows);
+  } catch {
+    res.json([]);
+  }
+});
+
+/* ── Manual plan activation (test/admin) ──────────── */
+router.post("/billing/activate-plan", async (req, res) => {
+  try {
+    const { plan = "basic", officeId = "default" } = req.body as { plan: string; officeId?: string };
+    const { provisionTenant } = await import("../services/tenantProvisioning");
+    const result = await provisionTenant({ officeId, plan, email: "manual@activation.com" });
+    res.json({ ok: true, ...result });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
