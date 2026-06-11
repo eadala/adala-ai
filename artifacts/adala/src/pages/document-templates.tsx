@@ -24,6 +24,14 @@ import { toast } from "sonner";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/\son\w+\s*=\s*(['"])[^'"]*\1/gi, "")
+    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "")
+    .replace(/javascript\s*:/gi, "");
+}
+
 const CATEGORY_MAP: Record<string, { label: string; color: string }> = {
   contracts:  { label: "عقود",        color: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
   litigation: { label: "تقاضي",       color: "bg-red-500/15 text-red-400 border-red-500/30" },
@@ -212,10 +220,13 @@ export default function DocumentTemplates() {
 
   const addTemplateMutation = useMutation({
     mutationFn: async () => {
+      let parsedFields: any[] = [];
+      try { parsedFields = JSON.parse(newTemplate.fields); } catch { parsedFields = []; }
+      if (!Array.isArray(parsedFields)) parsedFields = [];
       const r = await fetch(`${BASE}/api/document-templates`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newTemplate),
+        body: JSON.stringify({ ...newTemplate, fields: parsedFields }),
       });
       if (!r.ok) {
         const e = await r.json();
@@ -250,9 +261,19 @@ export default function DocumentTemplates() {
     if (!selectedTemplate?.body) return "";
     let html = selectedTemplate.body as string;
     for (const [key, value] of Object.entries(filledData)) {
-      html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value || `<span style="color:#C9A84C">[${key}]</span>`);
+      html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), sanitizeHtml(value) || `<span style="color:#C9A84C">[${key}]</span>`);
     }
-    return html;
+    return sanitizeHtml(html);
+  };
+
+  const previewPdfBeforeSave = () => {
+    const html = previewHtml();
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"/><title>${selectedTemplate?.name ?? "معاينة"}</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"/><style>body{margin:0;padding:0;font-family:'Cairo',Arial,sans-serif;}@media print{body{margin:0;}}</style></head><body>${html}</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); }, 500);
   };
 
   const viewGeneratedDoc = async (doc: any) => {
@@ -429,14 +450,25 @@ export default function DocumentTemplates() {
                   </div>
                 </div>
 
-                <Button
-                  onClick={() => generateMutation.mutate()}
-                  disabled={!allRequiredFilled || generateMutation.isPending}
-                  className="w-full bg-primary hover:bg-primary/90 gap-2 mt-2"
-                >
-                  {generateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                  إنشاء الوثيقة وحفظها
-                </Button>
+                <div className="flex flex-col gap-2 mt-2">
+                  <Button
+                    variant="outline"
+                    onClick={previewPdfBeforeSave}
+                    disabled={!allRequiredFilled}
+                    className="w-full gap-2"
+                  >
+                    <Printer className="h-4 w-4" />
+                    معاينة PDF قبل الحفظ
+                  </Button>
+                  <Button
+                    onClick={() => generateMutation.mutate()}
+                    disabled={!allRequiredFilled || generateMutation.isPending}
+                    className="w-full bg-primary hover:bg-primary/90 gap-2"
+                  >
+                    {generateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    إنشاء الوثيقة وحفظها
+                  </Button>
+                </div>
                 {!allRequiredFilled && (
                   <p className="text-xs text-muted-foreground text-center">يرجى تعبئة الحقول الإلزامية (*) أولاً</p>
                 )}
@@ -454,6 +486,7 @@ export default function DocumentTemplates() {
                     style={{ fontSize: "12px" }}
                     dangerouslySetInnerHTML={{ __html: previewHtml() }}
                   />
+                  {/* previewHtml() already applies sanitizeHtml() internally */}
                 </div>
               </div>
             </div>
@@ -477,7 +510,7 @@ export default function DocumentTemplates() {
           </DialogHeader>
           <div className="border rounded-lg bg-white text-black overflow-y-auto">
             {previewDoc && (
-              <div dangerouslySetInnerHTML={{ __html: previewDoc.generated_html }} />
+              <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewDoc.generated_html) }} />
             )}
           </div>
         </DialogContent>

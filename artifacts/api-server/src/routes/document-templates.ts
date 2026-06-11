@@ -5,6 +5,22 @@ import { getAuth } from "@clerk/express";
 
 const router = Router();
 
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/\son\w+\s*=\s*(['"])[^'"]*\1/gi, "")
+    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "")
+    .replace(/javascript\s*:/gi, "");
+}
+
+function parseFields(fields: any): any[] {
+  if (Array.isArray(fields)) return fields;
+  if (typeof fields === "string") {
+    try { return JSON.parse(fields); } catch { return []; }
+  }
+  return [];
+}
+
 function requireAuth(req: any, res: any): boolean {
   const { userId } = getAuth(req);
   if (!userId) { res.status(401).json({ error: "غير مصرح" }); return false; }
@@ -379,9 +395,11 @@ router.post("/document-templates", async (req, res) => {
   try {
     const { name, type, category, description, body, fields } = req.body;
     if (!name || !body) return res.status(400).json({ error: "name و body مطلوبان" });
+    const safeBody = sanitizeHtml(body);
+    const parsedFields = parseFields(fields);
     const row = await sqlOne(sql`
       INSERT INTO document_templates (office_id, name, type, category, description, body, fields, is_custom)
-      VALUES ('default', ${name}, ${type ?? 'other'}, ${category ?? 'contracts'}, ${description ?? null}, ${body}, ${JSON.stringify(fields ?? [])}::jsonb, TRUE)
+      VALUES ('default', ${name}, ${type ?? 'other'}, ${category ?? 'contracts'}, ${description ?? null}, ${safeBody}, ${JSON.stringify(parsedFields)}::jsonb, TRUE)
       RETURNING id, name, type, category, description, fields, is_default, is_custom, created_at
     `);
     res.json(row);
@@ -396,14 +414,16 @@ router.put("/document-templates/:id", async (req, res) => {
     const existing = await sqlOne(sql`SELECT * FROM document_templates WHERE id = ${parseInt(req.params.id)}`);
     if (!existing) return res.status(404).json({ error: "القالب غير موجود" });
     if (existing.is_default) return res.status(403).json({ error: "لا يمكن تعديل القوالب الافتراضية" });
+    const safeBody = body ? sanitizeHtml(body) : existing.body;
+    const parsedFields = fields !== undefined ? parseFields(fields) : existing.fields;
     const row = await sqlOne(sql`
       UPDATE document_templates SET
         name = ${name ?? existing.name},
         type = ${type ?? existing.type},
         category = ${category ?? existing.category},
         description = ${description ?? existing.description},
-        body = ${body ?? existing.body},
-        fields = ${JSON.stringify(fields ?? existing.fields)}::jsonb,
+        body = ${safeBody},
+        fields = ${JSON.stringify(parsedFields)}::jsonb,
         updated_at = NOW()
       WHERE id = ${parseInt(req.params.id)}
       RETURNING id, name, type, category, description, fields, is_default, is_custom, created_at
@@ -436,9 +456,11 @@ router.post("/document-templates/:id/generate", async (req, res) => {
 
     let generatedHtml = template.body as string;
     for (const [key, value] of Object.entries(filledData as Record<string, string>)) {
-      generatedHtml = generatedHtml.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), String(value || ""));
+      const safeValue = sanitizeHtml(String(value || ""));
+      generatedHtml = generatedHtml.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), safeValue);
     }
     generatedHtml = generatedHtml.replace(/\{\{[^}]+\}\}/g, "");
+    generatedHtml = sanitizeHtml(generatedHtml);
 
     const name = documentName || `${template.name} - ${new Date().toLocaleDateString("ar-EG")}`;
     const row = await sqlOne(sql`
