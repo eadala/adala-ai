@@ -1,9 +1,10 @@
-import { pgTable, uuid, text, timestamp, numeric, boolean, integer, date } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, numeric, boolean, integer, date, varchar } from "drizzle-orm/pg-core";
 
 export const officePageTable = pgTable("office_page", {
   id: uuid("id").primaryKey().defaultRandom(),
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
+  plan: text("plan").default("starter"),
   logo: text("logo"),
   tagline: text("tagline"),
   about: text("about"),
@@ -95,4 +96,18 @@ export const officeArticlesTable = pgTable("office_articles", {
   publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const officeDomainsTable = pgTable("office_domains", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  officeId: uuid("office_id").notNull().references(() => officePageTable.id, { onDelete: "cascade" }),
+  subdomain: varchar("subdomain", { length: 100 }).notNull(),
+  customDomain: varchar("custom_domain", { length: 255 }),
+  isVerified: boolean("is_verified").default(false),
+  sslEnabled: boolean("ssl_enabled").default(false),
+  cnameTarget: text("cname_target").default("cname.adala-ai.sa"),
+  verificationToken: text("verification_token"),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });

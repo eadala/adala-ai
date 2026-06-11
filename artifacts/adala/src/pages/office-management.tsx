@@ -6,8 +6,11 @@ import {
   Plus, Loader2, Eye, EyeOff, Save, Trash2,
   CheckCircle2, Edit2, Phone, Mail,
   Copy, Check, Camera, Image, MapPin,
-  FileText, Pencil, BookOpen, Calendar, ExternalLink
+  FileText, Pencil, BookOpen, Calendar, ExternalLink,
+  Link2, Shield, ShieldCheck, Wifi, WifiOff, Lock, Unlock,
+  ArrowUpRight, Crown, Zap, AlertCircle, RefreshCw
 } from "lucide-react";
+import { getPlanFeatures, canUseFeature, generateSubdomain, PLAN_FEATURES } from "@/lib/plan-features";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -144,6 +147,35 @@ export default function OfficeManagement() {
   });
   function slugify(s: string) { return s.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^\u0600-\u06FFa-z0-9-]/g, ""); }
 
+  /* ── Domains ── */
+  const { data: domainData, refetch: refetchDomain } = useQuery<any>({
+    queryKey: ["my-domains", office?.id],
+    queryFn: () => fetch(`/api/office/my/${office.id}/domains`).then(r => r.json()),
+    enabled: !!office?.id,
+  });
+  const [customDomainInput, setCustomDomainInput] = useState("");
+  const [copiedSub, setCopiedSub] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
+  const initDomain = useMutation({
+    mutationFn: () => fetch(`/api/office/my/${office.id}/domains`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-domains", office?.id] }),
+  });
+  const connectCustomDomain = useMutation({
+    mutationFn: (d: any) => fetch(`/api/office/my/domains/${domainData.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-domains", office?.id] }); setCustomDomainInput(""); toast({ title: "تم إضافة الدومين — أضف DNS CNAME الآن" }); },
+  });
+  const removeCustomDomain = useMutation({
+    mutationFn: () => fetch(`/api/office/my/domains/${domainData.id}/custom`, { method: "DELETE" }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-domains", office?.id] }); toast({ title: "تم إزالة الدومين الخاص" }); },
+  });
+  const verifyDomain = useMutation({
+    mutationFn: () => fetch(`/api/office/my/domains/${domainData.id}/verify`, { method: "POST" }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-domains", office?.id] }); toast({ title: "تم التحقق من الدومين ✓" }); },
+  });
+  const planFeatures = getPlanFeatures(office?.plan);
+  const canCustomDomain = canUseFeature(office?.plan, "customDomain");
+  function copyText(text: string, setter: (v: boolean) => void) { navigator.clipboard.writeText(text).then(() => { setter(true); setTimeout(() => setter(false), 2000); }); }
+
   const publicUrl = office ? `/firms/${office.slug}` : null;
 
   const copyLink = () => {
@@ -269,6 +301,7 @@ export default function OfficeManagement() {
           <TabsTrigger value="team" className="gap-1.5 text-xs"><Users className="h-3.5 w-3.5" /> الفريق</TabsTrigger>
           <TabsTrigger value="reviews" className="gap-1.5 text-xs"><Star className="h-3.5 w-3.5" /> التقييمات</TabsTrigger>
           <TabsTrigger value="articles" className="gap-1.5 text-xs"><FileText className="h-3.5 w-3.5" /> المقالات</TabsTrigger>
+          <TabsTrigger value="domains" className="gap-1.5 text-xs"><Link2 className="h-3.5 w-3.5" /> النطاق</TabsTrigger>
         </TabsList>
 
         {/* ── ORDERS ── */}
@@ -438,6 +471,214 @@ export default function OfficeManagement() {
                 </Card>
               ))}
             </div>
+          )}
+        </TabsContent>
+
+        {/* ── DOMAINS ── */}
+        <TabsContent value="domains" className="space-y-6 mt-4">
+          {/* Plan badge */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Crown className="h-4 w-4 text-yellow-400" />
+              <span className="text-sm font-semibold">
+                خطة <span style={{ color: PLAN_FEATURES[(office?.plan as any) ?? "starter"]?.color }}>
+                  {PLAN_FEATURES[(office?.plan as any) ?? "starter"]?.label ?? "مبتدئ"}
+                </span>
+              </span>
+            </div>
+            {!canCustomDomain && (
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
+                onClick={() => window.location.href = "/pricing"}>
+                <ArrowUpRight className="h-3.5 w-3.5" /> ترقية الخطة
+              </Button>
+            )}
+          </div>
+
+          {/* Subdomain card */}
+          <Card className="border-border/50 bg-card/50">
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Globe className="h-4 w-4 text-[#C9A84C]" />
+                <h3 className="font-bold text-sm">الدومين الفرعي</h3>
+                <Badge className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 gap-1">
+                  <CheckCircle2 className="h-2.5 w-2.5" /> نشط
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">الدومين الفرعي المخصص لمكتبك — متاح فور التسجيل مجاناً</p>
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border/50 font-mono text-sm">
+                <span className="flex-1 text-foreground select-all dir-ltr text-left">
+                  {office ? generateSubdomain(office.slug) : "..."}
+                </span>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0"
+                  onClick={() => copyText(office ? generateSubdomain(office.slug) : "", setCopiedSub)}>
+                  {copiedSub ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" asChild>
+                  <a href={office ? `/firms/${office.slug}` : "#"} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5 text-[#C9A84C]" />
+                  </a>
+                </Button>
+              </div>
+
+              {/* Init domain record */}
+              {!domainData && (
+                <Button size="sm" variant="outline" className="w-full gap-1.5 text-xs"
+                  onClick={() => initDomain.mutate()} disabled={initDomain.isPending}>
+                  {initDomain.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                  تفعيل إعدادات النطاق
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Custom domain card */}
+          <Card className={`border-border/50 ${!canCustomDomain ? "opacity-60" : "bg-card/50"}`}>
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-purple-400" />
+                <h3 className="font-bold text-sm">الدومين الخاص</h3>
+                {!canCustomDomain && (
+                  <Badge className="text-[10px] bg-yellow-500/10 text-yellow-400 border-yellow-500/20 gap-1">
+                    <Lock className="h-2.5 w-2.5" /> خطة أعمال+
+                  </Badge>
+                )}
+              </div>
+
+              {!canCustomDomain ? (
+                <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-4 text-center space-y-3">
+                  <Crown className="h-8 w-8 text-yellow-400 mx-auto" />
+                  <p className="text-sm font-semibold">ميزة الدومين الخاص متاحة في خطة أعمال ومؤسسي</p>
+                  <p className="text-xs text-muted-foreground">استخدم دومينك الخاص مثل <span className="font-mono text-foreground">law.yourfirm.com</span> بدلاً من الدومين الفرعي</p>
+                  <Button size="sm" className="gap-1.5 bg-yellow-500 hover:bg-yellow-600 text-black"
+                    onClick={() => window.location.href = "/pricing"}>
+                    <ArrowUpRight className="h-3.5 w-3.5" /> ترقية الآن
+                  </Button>
+                </div>
+              ) : domainData?.customDomain ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border/50">
+                    <span className="font-mono text-sm flex-1 dir-ltr text-left">{domainData.customDomain}</span>
+                    {domainData.isVerified
+                      ? <Badge className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 gap-1"><ShieldCheck className="h-2.5 w-2.5" /> موثق</Badge>
+                      : <Badge className="text-[10px] bg-orange-500/10 text-orange-400 border-orange-500/20 gap-1"><AlertCircle className="h-2.5 w-2.5" /> بانتظار التحقق</Badge>}
+                    {domainData.sslEnabled
+                      ? <Badge className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/20 gap-1"><Shield className="h-2.5 w-2.5" /> SSL</Badge>
+                      : <Badge className="text-[10px] bg-muted text-muted-foreground gap-1"><WifiOff className="h-2.5 w-2.5" /> بدون SSL</Badge>}
+                  </div>
+                  <div className="flex gap-2">
+                    {!domainData.isVerified && (
+                      <Button size="sm" className="flex-1 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => verifyDomain.mutate()} disabled={verifyDomain.isPending}>
+                        {verifyDomain.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                        تحقق من الدومين
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10"
+                      onClick={() => removeCustomDomain.mutate()} disabled={removeCustomDomain.isPending}>
+                      {removeCustomDomain.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                      إزالة الدومين
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">أدخل دومينك الخاص — ستحتاج لإضافة سجل CNAME في إعدادات DNS</p>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="law.yourfirm.com"
+                      value={customDomainInput}
+                      onChange={e => setCustomDomainInput(e.target.value)}
+                      className="dir-ltr flex-1 font-mono text-sm h-9"
+                      disabled={!domainData}
+                    />
+                    <Button size="sm" className="gap-1.5 text-xs bg-purple-600 hover:bg-purple-700 shrink-0"
+                      disabled={!customDomainInput.trim() || !domainData || connectCustomDomain.isPending}
+                      onClick={() => connectCustomDomain.mutate({ customDomain: customDomainInput.trim() })}>
+                      {connectCustomDomain.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                      ربط
+                    </Button>
+                  </div>
+                  {!domainData && (
+                    <p className="text-[11px] text-yellow-400 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" /> فعّل إعدادات النطاق أولاً من القسم أعلاه
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* DNS instructions */}
+          {domainData?.customDomain && !domainData?.isVerified && (
+            <Card className="border-orange-500/30 bg-orange-500/5">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Wifi className="h-4 w-4 text-orange-400" />
+                  <h3 className="font-bold text-sm">خطوات التحقق من DNS</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">أضف السجل التالي في لوحة DNS الخاصة بك (GoDaddy / Namecheap / Cloudflare...)</p>
+                <div className="rounded-lg border border-border/60 overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="p-2 text-right font-semibold">النوع</th>
+                        <th className="p-2 text-right font-semibold">الاسم</th>
+                        <th className="p-2 text-right font-semibold">القيمة</th>
+                        <th className="p-2 w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-t border-border/40">
+                        <td className="p-2 font-mono font-bold text-blue-400">CNAME</td>
+                        <td className="p-2 font-mono">{domainData.customDomain?.split(".")[0] ?? "@"}</td>
+                        <td className="p-2 font-mono text-emerald-400 dir-ltr">cname.adala-ai.sa</td>
+                        <td className="p-2">
+                          <Button variant="ghost" size="icon" className="h-6 w-6"
+                            onClick={() => copyText("cname.adala-ai.sa", setCopiedToken)}>
+                            {copiedToken ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                          </Button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3" /> قد يستغرق الانتشار من ٥ دقائق إلى ٤٨ ساعة
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* SSL + status summary */}
+          {domainData && (
+            <Card className="border-border/50 bg-card/50">
+              <CardContent className="p-4">
+                <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-blue-400" /> حالة الاتصال
+                </h3>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-lg bg-muted/40 p-3 text-center">
+                    <Globe className="h-5 w-5 mx-auto mb-1 text-[#C9A84C]" />
+                    <p className="text-[11px] text-muted-foreground">الدومين الفرعي</p>
+                    <p className="text-xs font-bold text-emerald-400">نشط</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/40 p-3 text-center">
+                    <Link2 className="h-5 w-5 mx-auto mb-1 text-purple-400" />
+                    <p className="text-[11px] text-muted-foreground">الدومين الخاص</p>
+                    <p className={`text-xs font-bold ${domainData.customDomain ? (domainData.isVerified ? "text-emerald-400" : "text-orange-400") : "text-muted-foreground"}`}>
+                      {domainData.customDomain ? (domainData.isVerified ? "موثق" : "بانتظار DNS") : "غير مفعل"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-muted/40 p-3 text-center">
+                    <Shield className="h-5 w-5 mx-auto mb-1 text-blue-400" />
+                    <p className="text-[11px] text-muted-foreground">شهادة SSL</p>
+                    <p className={`text-xs font-bold ${domainData.sslEnabled ? "text-emerald-400" : "text-muted-foreground"}`}>
+                      {domainData.sslEnabled ? "مفعل" : "غير نشط"}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>
