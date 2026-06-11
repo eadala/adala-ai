@@ -135,6 +135,17 @@ export default function Billing() {
         </div>
       )}
 
+      {/* Payment commission notice */}
+      <div className="flex items-start gap-3 p-4 rounded-xl border" style={{ background: "rgba(201,168,76,0.06)", borderColor: "rgba(201,168,76,0.25)" }}>
+        <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-[#C9A84C]" />
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          <span className="font-semibold text-foreground">رسوم معالجة المدفوعات الإلكترونية: </span>
+          عند استخدام خدمات الدفع الإلكتروني من خلال المنصة، يتم استقطاع عمولة تشغيل وإدارة قدرها{" "}
+          <span className="font-bold text-[#C9A84C]">10%</span>{" "}
+          من قيمة المدفوعات المحصلة عبر المنصة، بالإضافة إلى أي رسوم تفرضها بوابات الدفع المعتمدة.
+        </p>
+      </div>
+
       {/* Pricing plans */}
       <div>
         <h2 className="text-lg font-bold mb-4">خطط الاشتراك</h2>
@@ -183,6 +194,11 @@ export default function Billing() {
                         </li>
                       ))}
                     </ul>
+                    {/* Per-plan commission note */}
+                    <div className="flex items-start gap-2 rounded-lg px-3 py-2 text-[10px] text-muted-foreground border border-border/40 bg-muted/20">
+                      <AlertCircle className="h-3 w-3 mt-0.5 shrink-0 text-[#C9A84C]" />
+                      <span>عمولة الدفع الإلكتروني عبر المنصة: <strong className="text-foreground">10%</strong> من المبالغ المحصلة</span>
+                    </div>
                     <div className="space-y-2 pt-2">
                       <Button
                         className={cn("w-full gap-2 font-bold", colors.btn)}
