@@ -51,6 +51,7 @@ import remindersRouter from "./reminders";
 import emailNotificationsRouter from "./emailNotifications";
 import onboardingRouter from "./onboarding";
 import importDataRouter from "./importData";
+import whatsappRouter from "./whatsapp";
 
 const router: IRouter = Router();
 
@@ -106,5 +107,6 @@ router.use(remindersRouter);
 router.use(emailNotificationsRouter);
 router.use(onboardingRouter);
 router.use(importDataRouter);
+router.use(whatsappRouter);
 
 export default router;
