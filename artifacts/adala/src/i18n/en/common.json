@@ -65,5 +65,169 @@
       "office_settings": "Office Settings",
       "super_admin_panel": "Super Admin Dashboard"
     }
+  },
+
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "how": "How It Works",
+      "security": "Security",
+      "pricing": "Pricing",
+      "faq": "FAQ"
+    },
+    "signIn": "Sign In",
+    "startFree": "Start Free",
+    "startFreeNow": "Start Free Now",
+    "bookDemo": "Book a Live Demo",
+    "hero": {
+      "badge": "The #1 Smart Legal Platform in Saudi Arabia",
+      "titleLine1": "The Future of",
+      "titleLine2": "Legal Office Management",
+      "titleHighlight": "Powered by Artificial Intelligence",
+      "subtitle": "Everything your law firm needs in one platform. Manage cases, contracts, clients, invoices, and communications — with AI-powered document analysis.",
+      "noCard": "No credit card",
+      "quickSetup": "Setup in 2 minutes",
+      "arabicSupport": "Full Arabic support"
+    },
+    "trust": {
+      "tagline": "Trusted by hundreds of lawyers and law firms across Saudi Arabia",
+      "offices": "Law Firms",
+      "cases": "Cases Managed",
+      "satisfaction": "Client Satisfaction",
+      "timeSaving": "Time Saved"
+    },
+    "features": {
+      "label": "Features",
+      "title": "Everything Your Law Firm Needs",
+      "subtitle": "An integrated platform covering every aspect of law firm management in one place",
+      "items": [
+        { "title": "Case Management", "desc": "Track all your cases and deadlines at a glance with advanced filtering" },
+        { "title": "AI Assistant", "desc": "Document analysis and legal risk assessment in Arabic" },
+        { "title": "Contract Management", "desc": "Draft and track contracts with automatic expiry alerts" },
+        { "title": "Client CRM", "desc": "Complete client profile with full history and dedicated client portal" },
+        { "title": "Appointments & Sessions", "desc": "Smart calendar with automatic reminders before hearings and calendar sync" },
+        { "title": "Internal Messaging", "desc": "Secure internal messaging with read receipts and full history" },
+        { "title": "Invoices & Collections", "desc": "Create professional invoices and automatically track payments" },
+        { "title": "Document Management", "desc": "Document library with OCR, smart search, and case linking" },
+        { "title": "Client Portal", "desc": "Secure client access to follow their case and download documents" },
+        { "title": "Team Permissions", "desc": "Full RBAC system with fine-grained team permission control" }
+      ]
+    },
+    "ai": {
+      "label": "✦ Artificial Intelligence",
+      "title": "Smart Legal Assistant",
+      "titleHighlight": "Working with You 24/7",
+      "subtitle": "Ask it anything about your firm — from hearing schedules to case summaries and contract risk analysis.",
+      "available": "● Online",
+      "assistantName": "Smart Admin Assistant",
+      "askPlaceholder": "Ask the assistant...",
+      "items": [
+        { "title": "Document Analysis", "desc": "Extract key points from any contract or document with high accuracy" },
+        { "title": "Risk Assessment", "desc": "Detect dangerous clauses in contracts and suggest amendments" },
+        { "title": "Case Summaries", "desc": "Instant summary of any case with key events and deadlines" },
+        { "title": "Smart Legal Research", "desc": "Precise search in Saudi laws and regulations in Arabic" }
+      ]
+    },
+    "how": {
+      "label": "Get Started",
+      "title": "Launch Your Firm in 4 Steps",
+      "subtitle": "Getting started with Adala AI takes less than 2 minutes",
+      "steps": [
+        { "n": "1", "title": "Create Your Firm", "desc": "Register an account and customize your firm's visual identity in 2 minutes" },
+        { "n": "2", "title": "Add Clients & Cases", "desc": "Import your existing data or add it manually with ease" },
+        { "n": "3", "title": "Activate AI", "desc": "Let the smart assistant analyze your documents and answer your queries" },
+        { "n": "4", "title": "Manage Everything", "desc": "Everything in one dashboard — from anywhere, on any device" }
+      ]
+    },
+    "security": {
+      "label": "Security & Privacy",
+      "title": "Enterprise-Grade Security",
+      "subtitle": "Your legal data is fully protected with the highest security standards",
+      "items": [
+        { "title": "AES-256 Encryption", "desc": "All data encrypted in transit and at rest with the highest encryption standards" },
+        { "title": "Full Multi-Tenant Isolation", "desc": "Each firm is completely isolated — no data sharing between firms" },
+        { "title": "Daily Backups", "desc": "Automatic daily backups with the ability to restore data at any time" },
+        { "title": "Comprehensive Audit Logs", "desc": "Complete log of every operation with full user attribution" },
+        { "title": "Advanced RBAC Permissions", "desc": "Fine-grained control over each team member's access rights" },
+        { "title": "Reliable Infrastructure", "desc": "Hosted on reliable servers with 99.9% uptime guarantee and high performance" }
+      ]
+    },
+    "testimonials": {
+      "title": "What Our Clients Say",
+      "subtitle": "Real reviews from lawyers and law firms using Adala AI",
+      "items": [
+        { "name": "Khalid Al-Saidi", "role": "Lawyer — Riyadh", "text": "The platform saved me at least 6 hours a week in file and correspondence management. The AI assistant answers with amazing accuracy in Arabic." },
+        { "name": "Al-Barqi Law Office", "role": "Jeddah", "text": "The best Arabic platform for managing law offices. Transitioning from traditional methods to Adala AI completely transformed how we work." },
+        { "name": "Noura Al-Shamri", "role": "Legal Consultant — Dammam", "text": "The client portal has significantly elevated our firm's professionalism. Clients are very happy with the ability to follow their cases directly." }
+      ]
+    },
+    "pricing": {
+      "label": "Pricing",
+      "title": "Plans for Every Firm",
+      "subtitle": "Start free — no credit card required",
+      "mostPopular": "Most Popular",
+      "viewAll": "View Full Plan Comparison",
+      "plans": [
+        { "name": "Basic", "price": "Free", "period": "Forever", "cta": "Start Free", "features": ["3 users", "20 active cases", "Client management", "Appointment calendar", "Basic invoicing"] },
+        { "name": "Professional", "price": "299", "period": "SAR/month", "cta": "Start Trial", "features": ["15 users", "Unlimited cases", "AI assistant", "Client portal", "Contract management", "Advanced reports", "Priority support"] },
+        { "name": "Enterprise", "price": "Contact Us", "period": "", "cta": "Contact Us", "features": ["Unlimited users", "Full White Label", "Custom API", "Dedicated account manager", "99.9% SLA guarantee", "Full training & onboarding"] }
+      ]
+    },
+    "faq": {
+      "title": "Frequently Asked Questions",
+      "subtitle": "Everything you want to know about Adala AI",
+      "items": [
+        { "q": "Is there a free trial?", "a": "Yes, the Basic plan is permanently free for up to 3 users and 20 cases. You also get a 14-day free trial on the Professional plan." },
+        { "q": "Does the platform fully support Arabic?", "a": "Yes, the platform is built from the ground up for Arabic and fully supports RTL. The AI assistant also handles Arabic with high accuracy." },
+        { "q": "Can I import my existing data?", "a": "Absolutely. We support data import from Excel, CSV, and common systems. Our support team will help you with migration for free." },
+        { "q": "How is my data stored? Is it secure?", "a": "Your data is protected with AES-256 encryption and stored completely isolated from other firms (Multi-tenant). Automatic daily backups." },
+        { "q": "Can the platform be used on mobile?", "a": "Yes, the platform is fully responsive on mobile and tablets. iOS and Android apps are coming soon." },
+        { "q": "Do you support custom visual identity for the firm?", "a": "Yes, the Professional plan and above allow customization of logo, colors, and invoice templates. The Enterprise plan allows full White Label." }
+      ]
+    },
+    "cta": {
+      "title": "Start Your Journey Toward a",
+      "titleHighlight": "Smarter, More Efficient Law Firm",
+      "subtitle": "Join hundreds of law firms that trust Adala AI. Start free today.",
+      "noCard": "No credit card required",
+      "arabicSupport": "Full Arabic support"
+    },
+    "privacy": {
+      "badge": "🔒 Security & Privacy",
+      "title": "Your Privacy and File Confidentiality Are Our Priority",
+      "subtitle": "No firm can access another firm's files, and your data is only accessible by authorized users within your firm. Your data is protected with AES-256 encryption and stored in a completely isolated environment.",
+      "learnMore": "Learn about our security standards and data protection",
+      "items": [
+        { "icon": "🔐", "label": "AES-256 Encryption", "desc": "For all stored data" },
+        { "icon": "🏗️", "label": "Full Firm Isolation", "desc": "Multi-tenant isolation" },
+        { "icon": "🛡️", "label": "PDPL Compliance", "desc": "Saudi Data Protection Law" },
+        { "icon": "💾", "label": "Daily Backups", "desc": "Recovery in under 4 hours" }
+      ]
+    },
+    "footer": {
+      "tagline": "The #1 Smart Legal Platform in Saudi Arabia",
+      "platform": "Platform",
+      "company": "Company",
+      "support": "Support",
+      "copyright": "© 2026 Adala AI — All rights reserved",
+      "allSystemsNormal": "● All systems operational",
+      "platformLinks": ["Features", "Pricing", "System Status", "Roadmap"],
+      "companyLinks": ["About Adala AI", "Blog", "Partnerships", "Contact Us"],
+      "supportLinks": ["Help Center", "Privacy Policy", "Terms & Conditions", "Security & Data Protection"]
+    },
+    "dashboard": {
+      "tab0": "Dashboard",
+      "tab1": "Cases",
+      "tab2": "Clients",
+      "tab3": "Invoices",
+      "tab4": "AI Assistant",
+      "openCases": "Open Cases",
+      "upcomingSessions": "Upcoming Sessions",
+      "activeClients": "Active Clients",
+      "pendingInvoices": "Pending Invoices",
+      "activeClient": "Active Client",
+      "paid": "Paid",
+      "pending": "Pending"
+    }
   }
 }
