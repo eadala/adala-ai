@@ -34,6 +34,8 @@ import notificationsRouter from "./notifications";
 import complianceRouter from "./compliance";
 import aiAgentRouter from "./ai-agent";
 import aiEngineRouter from "./ai-engine";
+import internalMessagesRouter from "./internal-messages";
+import aiAssistantRouter from "./ai-assistant";
 
 const router: IRouter = Router();
 
@@ -72,5 +74,7 @@ router.use(notificationsRouter);
 router.use(complianceRouter);
 router.use(aiAgentRouter);
 router.use(aiEngineRouter);
+router.use("/internal-messages", internalMessagesRouter);
+router.use("/ai-assistant", aiAssistantRouter);
 
 export default router;

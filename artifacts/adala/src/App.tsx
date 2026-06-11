@@ -46,6 +46,7 @@ import CalendarPage from "@/pages/calendar";
 import ClientPortal from "@/pages/client-portal";
 import PortalView from "@/pages/portal-view";
 import Marketplace from "@/pages/marketplace";
+import AIAssistant from "@/pages/ai-assistant";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -311,6 +312,9 @@ function AppRoutes() {
             </Route>
             <Route path="/messages">
               <ProtectedRoute><Messages /></ProtectedRoute>
+            </Route>
+            <Route path="/ai-assistant">
+              <ProtectedRoute><AIAssistant /></ProtectedRoute>
             </Route>
             <Route path="/billing">
               <ProtectedRoute><Billing /></ProtectedRoute>
