@@ -329,7 +329,7 @@ export default function Landing() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-6"
               style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", color: "#C9A84C" }}
             >
-              <span>🇸🇦</span>
+              <Sparkles className="w-3.5 h-3.5" />
               {t("landing.hero.badge")}
             </motion.div>
 
@@ -381,7 +381,7 @@ export default function Landing() {
               transition={{ duration: 0.6, delay: 0.5 }}
               className="flex items-center gap-4 flex-wrap"
             >
-              {[t("landing.hero.noCard"), t("landing.hero.quickSetup"), t("landing.hero.arabicSupport")].map(label => (
+              {[t("landing.hero.noCard"), t("landing.hero.quickSetup"), t("landing.hero.arabicSupport"), t("landing.hero.interactive")].map(label => (
                 <span key={label} className="flex items-center gap-1.5 text-sm text-white/50">
                   <Check className="w-3.5 h-3.5 text-green-400" />
                   {label}
@@ -407,9 +407,9 @@ export default function Landing() {
           <p className="text-center text-white/30 text-sm mb-10">{t("landing.trust.tagline")}</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { to: 500,   suffix: "+", labelKey: "landing.trust.offices",      icon: Building2 },
-              { to: 10000, suffix: "+", labelKey: "landing.trust.cases",        icon: Briefcase },
-              { to: 98,    suffix: "%", labelKey: "landing.trust.satisfaction", icon: Award },
+              { to: 1000,   suffix: "+", labelKey: "landing.trust.offices",      icon: Building2 },
+              { to: 100000, suffix: "+", labelKey: "landing.trust.cases",        icon: Briefcase },
+              { to: 99,    suffix: ".9%", labelKey: "landing.trust.satisfaction", icon: Award },
               { to: 40,    suffix: "%", labelKey: "landing.trust.timeSaving",   icon: Clock },
             ].map(s => (
               <div key={s.labelKey} className="space-y-1">
