@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Search, Plus, Filter, MoreHorizontal, Printer } from "lucide-react";
+import { Search, Plus, Filter, MoreHorizontal, Printer, Upload } from "lucide-react";
+import { ImportDialog } from "@/components/import-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,6 +35,7 @@ const TYPE_MAP: Record<string, string> = {
 
 export default function Cases() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
   const { data: cases, isLoading } = useListCases();
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [newCase, setNewCase] = useState({ title: "", caseType: "civil", clientName: "" });
@@ -69,6 +71,10 @@ export default function Cases() {
           <p className="text-muted-foreground mt-1">عرض وإدارة جميع القضايا النشطة والمغلقة</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1.5">
+            <Upload className="h-4 w-4" /> استيراد CSV
+          </Button>
+          <ImportDialog open={importOpen} onOpenChange={setImportOpen} type="cases" queryKey={getListCasesQueryKey()} />
           <PrintButton label="تصدير PDF">
             <DocumentPrintTemplate
               title="كشف القضايا"

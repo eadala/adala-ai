@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   Users, Plus, Search, Building2, User, Landmark, Mail, Phone,
-  Loader2, Trash2, Edit3, MoreHorizontal, TrendingUp, Star, ChevronLeft
+  Loader2, Trash2, Edit3, MoreHorizontal, TrendingUp, Star, ChevronLeft, Upload
 } from "lucide-react";
+import { ImportDialog } from "@/components/import-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -115,6 +116,7 @@ export default function Clients() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [importOpen, setImportOpen] = useState(false);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -167,10 +169,16 @@ export default function Clients() {
           <h1 className="text-2xl font-black">إدارة العملاء</h1>
           <p className="text-muted-foreground text-sm">قاعدة بيانات عملائك الكاملة</p>
         </div>
-        <Button onClick={() => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); }} className="gap-2">
-          <Plus className="h-4 w-4" /> عميل جديد
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1.5 text-sm">
+            <Upload className="h-4 w-4" /> استيراد CSV
+          </Button>
+          <Button onClick={() => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); }} className="gap-2">
+            <Plus className="h-4 w-4" /> عميل جديد
+          </Button>
+        </div>
       </div>
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} type="clients" queryKey={["clients"]} />
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">

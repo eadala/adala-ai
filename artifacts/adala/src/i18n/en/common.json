@@ -42,6 +42,8 @@
       "payment_center": "Payment Center",
       "studio": "Adala Studio",
       "messages": "Messages",
+      "reminders": "Reminders",
+      "email_notifications": "Email Notifications",
       "calendar": "Calendar & Appointments",
       "client_portal": "Client Portal",
       "command_center": "Command Center",
