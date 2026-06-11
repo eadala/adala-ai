@@ -1,0 +1,394 @@
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import { requireAuth } from "../middlewares/requireAuth";
+
+const router = Router();
+
+function num(v: any) { return parseFloat(String(v ?? "0")) || 0; }
+
+async function sqlAll(query: any): Promise<Record<string, any>[]> {
+  try {
+    const result = await db.execute(query) as any;
+    if (Array.isArray(result)) return result;
+    if (result?.rows && Array.isArray(result.rows)) return result.rows;
+    return [];
+  } catch { return []; }
+}
+
+async function sqlOne(query: any): Promise<Record<string, any>> {
+  const rows = await sqlAll(query);
+  return rows[0] ?? {};
+}
+
+function periodInterval(period: string): string {
+  switch (period) {
+    case "30d": return "30 days";
+    case "3m":  return "3 months";
+    case "6m":  return "6 months";
+    default:    return "12 months";
+  }
+}
+
+function periodMonths(period: string): number {
+  switch (period) {
+    case "30d": return 1;
+    case "3m":  return 3;
+    case "6m":  return 6;
+    default:    return 12;
+  }
+}
+
+/* ─── FINANCIAL analytics ─────────────────────────────────── */
+router.get("/analytics/financial", requireAuth, async (req, res) => {
+  try {
+    const period = String(req.query.period ?? "1y");
+    const interval = periodInterval(period);
+    const months = periodMonths(period);
+
+    // Monthly revenue from revenues table
+    const revMonthly = await sqlAll(sql`
+      SELECT
+        TO_CHAR(date, 'YYYY-MM') AS month_key,
+        TO_CHAR(date, 'Mon') AS month_label,
+        SUM(amount) AS revenue
+      FROM revenues
+      WHERE date >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      GROUP BY month_key, month_label
+      ORDER BY month_key
+    `);
+
+    // Monthly paid invoices contribution
+    const invMonthly = await sqlAll(sql`
+      SELECT
+        TO_CHAR(paid_at::date, 'YYYY-MM') AS month_key,
+        SUM(total) / 100.0 AS inv_revenue
+      FROM client_invoices
+      WHERE status = 'paid'
+        AND paid_at IS NOT NULL
+        AND paid_at::date >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      GROUP BY month_key
+      ORDER BY month_key
+    `);
+
+    // Monthly expenses
+    const expMonthly = await sqlAll(sql`
+      SELECT
+        TO_CHAR(date, 'YYYY-MM') AS month_key,
+        TO_CHAR(date, 'Mon') AS month_label,
+        SUM(amount) AS expenses
+      FROM expenses
+      WHERE date >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      GROUP BY month_key, month_label
+      ORDER BY month_key
+    `);
+
+    // Build merged monthly map
+    const monthMap: Record<string, { month: string; revenue: number; expenses: number; profit: number }> = {};
+
+    // Generate last N months as skeleton
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const key = d.toISOString().slice(0, 7);
+      const label = d.toLocaleString("ar-SA", { month: "short" });
+      monthMap[key] = { month: label, revenue: 0, expenses: 0, profit: 0 };
+    }
+
+    for (const r of revMonthly) {
+      if (monthMap[r.month_key]) monthMap[r.month_key].revenue += num(r.revenue);
+      else monthMap[r.month_key] = { month: r.month_label, revenue: num(r.revenue), expenses: 0, profit: 0 };
+    }
+    for (const r of invMonthly) {
+      if (monthMap[r.month_key]) monthMap[r.month_key].revenue += num(r.inv_revenue);
+    }
+    for (const r of expMonthly) {
+      if (monthMap[r.month_key]) monthMap[r.month_key].expenses += num(r.expenses);
+    }
+
+    const monthly = Object.values(monthMap).map(m => ({
+      ...m,
+      profit: m.revenue - m.expenses,
+    }));
+
+    // Totals
+    const totRev = await sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM revenues WHERE date >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}`);
+    const totInv = await sqlOne(sql`SELECT COALESCE(SUM(total),0)/100.0 AS total FROM client_invoices WHERE status='paid' AND paid_at IS NOT NULL AND paid_at::date >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}`);
+    const totExp = await sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE date >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}`);
+    const totalRevenue = num(totRev.total) + num(totInv.total);
+    const totalExpenses = num(totExp.total);
+    const netProfit = totalRevenue - totalExpenses;
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+
+    // Invoice collection rate
+    const invStats = await sqlOne(sql`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'paid') AS paid_count,
+        COUNT(*) AS total_count,
+        COALESCE(SUM(total) FILTER (WHERE status = 'paid'), 0) / 100.0 AS paid_amount,
+        COALESCE(SUM(total), 0) / 100.0 AS total_amount
+      FROM client_invoices
+      WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+    `);
+    const collectionRate = num(invStats.total_amount) > 0
+      ? (num(invStats.paid_amount) / num(invStats.total_amount)) * 100
+      : 0;
+
+    // Revenue by category
+    const revCategories = await sqlAll(sql`
+      SELECT category AS name, SUM(amount) AS value
+      FROM revenues
+      WHERE date >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      GROUP BY category ORDER BY value DESC LIMIT 6
+    `);
+
+    // Expense by category
+    const expCategories = await sqlAll(sql`
+      SELECT category AS name, SUM(amount) AS value
+      FROM expenses
+      WHERE date >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      GROUP BY category ORDER BY value DESC LIMIT 6
+    `);
+
+    res.json({
+      monthly,
+      totalRevenue,
+      totalExpenses,
+      netProfit,
+      profitMargin,
+      collectionRate,
+      paidInvoices: num(invStats.paid_count),
+      totalInvoices: num(invStats.total_count),
+      revCategories: revCategories.map(r => ({ name: r.name, value: num(r.value) })),
+      expCategories: expCategories.map(r => ({ name: r.name, value: num(r.value) })),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ─── CASES analytics ─────────────────────────────────────── */
+router.get("/analytics/cases", requireAuth, async (req, res) => {
+  try {
+    const period = String(req.query.period ?? "1y");
+    const interval = periodInterval(period);
+    const months = periodMonths(period);
+
+    // By type
+    const byType = await sqlAll(sql`
+      SELECT case_type AS name, COUNT(*) AS value
+      FROM cases
+      WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      GROUP BY case_type ORDER BY value DESC
+    `);
+
+    // By status
+    const byStatus = await sqlAll(sql`
+      SELECT status AS name, COUNT(*) AS value
+      FROM cases
+      WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      GROUP BY status ORDER BY value DESC
+    `);
+
+    // Monthly new cases trend
+    const skeleton: Record<string, { month: string; total: number; closed: number; open: number }> = {};
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const key = d.toISOString().slice(0, 7);
+      skeleton[key] = { month: d.toLocaleString("ar-SA", { month: "short" }), total: 0, closed: 0, open: 0 };
+    }
+
+    const monthlyTrend = await sqlAll(sql`
+      SELECT
+        TO_CHAR(created_at, 'YYYY-MM') AS month_key,
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status IN ('closed','مغلقة','فائزة','فاز')) AS closed,
+        COUNT(*) FILTER (WHERE status NOT IN ('closed','مغلقة','فائزة','فاز')) AS open
+      FROM cases
+      WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      GROUP BY month_key ORDER BY month_key
+    `);
+
+    for (const r of monthlyTrend) {
+      if (skeleton[r.month_key]) {
+        skeleton[r.month_key].total = num(r.total);
+        skeleton[r.month_key].closed = num(r.closed);
+        skeleton[r.month_key].open = num(r.open);
+      }
+    }
+
+    // KPIs
+    const totals = await sqlOne(sql`
+      SELECT
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status IN ('closed','مغلقة','فائزة','فاز')) AS closed,
+        COUNT(*) FILTER (WHERE status = 'open' OR status = 'مفتوحة') AS open,
+        COUNT(*) FILTER (WHERE status = 'in_progress' OR status = 'قيد النظر') AS in_progress,
+        ROUND(AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400)) AS avg_days
+      FROM cases
+      WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+    `);
+
+    const total = num(totals.total);
+    const closed = num(totals.closed);
+    const successRate = total > 0 ? Math.round((closed / total) * 100) : 0;
+    const avgDays = num(totals.avg_days);
+
+    res.json({
+      byType: byType.map(r => ({ name: r.name, value: num(r.value) })),
+      byStatus: byStatus.map(r => ({ name: r.name, value: num(r.value) })),
+      monthly: Object.values(skeleton),
+      total,
+      closed,
+      open: num(totals.open),
+      inProgress: num(totals.in_progress),
+      successRate,
+      avgDays: Math.round(avgDays),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ─── TEAM analytics ──────────────────────────────────────── */
+router.get("/analytics/team", requireAuth, async (req, res) => {
+  try {
+    const period = String(req.query.period ?? "1y");
+    const interval = periodInterval(period);
+
+    // Cases per assignee
+    const casesByAssignee = await sqlAll(sql`
+      SELECT
+        COALESCE(assigned_to, 'غير محدد') AS name,
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status IN ('closed','مغلقة','فائزة','فاز')) AS closed
+      FROM cases
+      WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      GROUP BY assigned_to ORDER BY total DESC LIMIT 10
+    `);
+
+    // Employees list for enrichment
+    const employees = await sqlAll(sql`
+      SELECT full_name, job_title, department, status FROM employees WHERE status = 'active' LIMIT 20
+    `);
+
+    // Team size
+    const teamStats = await sqlOne(sql`
+      SELECT
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status = 'active') AS active
+      FROM employees
+    `);
+
+    // Invoice revenue per assignee (via cases)
+    const revenueByMember = await sqlAll(sql`
+      SELECT
+        COALESCE(c.assigned_to, 'غير محدد') AS name,
+        COALESCE(SUM(i.total), 0) / 100.0 AS revenue
+      FROM cases c
+      JOIN client_invoices i ON i.case_id = c.id AND i.status = 'paid'
+      WHERE c.created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      GROUP BY c.assigned_to ORDER BY revenue DESC LIMIT 10
+    `);
+
+    res.json({
+      casesByMember: casesByAssignee.map(r => ({
+        name: r.name,
+        قضايا: num(r.total),
+        مغلقة: num(r.closed),
+        نسبة: num(r.total) > 0 ? Math.round((num(r.closed) / num(r.total)) * 100) : 0,
+      })),
+      revenueByMember: revenueByMember.map(r => ({
+        name: r.name,
+        إيرادات: Math.round(num(r.revenue)),
+      })),
+      employees: employees.map(e => ({
+        name: e.full_name,
+        title: e.job_title,
+        dept: e.department,
+      })),
+      teamTotal: num(teamStats.total),
+      teamActive: num(teamStats.active),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ─── CLIENTS analytics ───────────────────────────────────── */
+router.get("/analytics/clients", requireAuth, async (req, res) => {
+  try {
+    const period = String(req.query.period ?? "1y");
+    const interval = periodInterval(period);
+    const months = periodMonths(period);
+
+    // New clients per month
+    const skeleton: Record<string, { month: string; عملاء: number }> = {};
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const key = d.toISOString().slice(0, 7);
+      skeleton[key] = { month: d.toLocaleString("ar-SA", { month: "short" }), عملاء: 0 };
+    }
+
+    const clientsMonthly = await sqlAll(sql`
+      SELECT TO_CHAR(created_at, 'YYYY-MM') AS month_key, COUNT(*) AS cnt
+      FROM clients
+      WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      GROUP BY month_key ORDER BY month_key
+    `);
+    for (const r of clientsMonthly) {
+      if (skeleton[r.month_key]) skeleton[r.month_key].عملاء = num(r.cnt);
+    }
+
+    // Client type breakdown
+    const byType = await sqlAll(sql`
+      SELECT type AS name, COUNT(*) AS value
+      FROM clients
+      GROUP BY type ORDER BY value DESC
+    `);
+
+    // Top clients by invoice revenue
+    const topClients = await sqlAll(sql`
+      SELECT
+        cl.full_name AS name,
+        cl.type,
+        COUNT(DISTINCT c.id) AS cases_count,
+        COALESCE(SUM(i.total) FILTER (WHERE i.status = 'paid'), 0) / 100.0 AS revenue
+      FROM clients cl
+      LEFT JOIN cases c ON c.client_name = cl.full_name
+      LEFT JOIN client_invoices i ON i.client_id = cl.id::text
+      GROUP BY cl.id, cl.full_name, cl.type
+      ORDER BY revenue DESC, cases_count DESC
+      LIMIT 8
+    `);
+
+    // KPIs
+    const totals = await sqlOne(sql`
+      SELECT
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status = 'active') AS active,
+        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}) AS new_in_period
+      FROM clients
+    `);
+
+    res.json({
+      monthly: Object.values(skeleton),
+      byType: byType.map(r => ({ name: r.name === "individual" ? "أفراد" : r.name === "company" ? "شركات" : r.name, value: num(r.value) })),
+      topClients: topClients.map(r => ({
+        name: r.name,
+        type: r.type,
+        قضايا: num(r.cases_count),
+        إيرادات: Math.round(num(r.revenue)),
+      })),
+      totalClients: num(totals.total),
+      activeClients: num(totals.active),
+      newInPeriod: num(totals.new_in_period),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+export default router;
