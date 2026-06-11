@@ -9,6 +9,63 @@ import * as crypto from "crypto";
 
 /* ── Plan → limits mapping ─────────────────────────────── */
 export const PLAN_LIMITS: Record<string, Record<string, number>> = {
+  /* ── الباقات الجديدة ── */
+  advisor: {
+    AI_CALLS:    50,
+    CASES:       20,
+    CLIENTS:     30,
+    USERS:        2,
+    STORAGE_GB:   5,
+    DOCUMENTS:  100,
+    INVOICES:    30,
+  },
+  solo: {
+    AI_CALLS:   200,
+    CASES:      100,
+    CLIENTS:    150,
+    USERS:        5,
+    STORAGE_GB:  20,
+    DOCUMENTS: 1_000,
+    INVOICES:   200,
+  },
+  office: {
+    AI_CALLS:  1_000,
+    CASES:      9_999,
+    CLIENTS:    9_999,
+    USERS:        15,
+    STORAGE_GB:   50,
+    DOCUMENTS: 10_000,
+    INVOICES:  1_000,
+  },
+  advanced: {
+    AI_CALLS:   5_000,
+    CASES:      9_999,
+    CLIENTS:    9_999,
+    USERS:        30,
+    STORAGE_GB:  100,
+    DOCUMENTS:  50_000,
+    INVOICES:   5_000,
+  },
+  corporate: {
+    AI_CALLS:  99_999,
+    CASES:      99_999,
+    CLIENTS:    99_999,
+    USERS:        99_999,
+    STORAGE_GB:   500,
+    DOCUMENTS:   99_999,
+    INVOICES:    99_999,
+  },
+  /* enterprise = fully custom, use open limits as fallback */
+  enterprise: {
+    AI_CALLS:  99_999,
+    CASES:      99_999,
+    CLIENTS:    99_999,
+    USERS:      99_999,
+    STORAGE_GB: 9_999,
+    DOCUMENTS:  99_999,
+    INVOICES:   99_999,
+  },
+  /* ── الباقات القديمة (للتوافق الخلفي) ── */
   basic: {
     AI_CALLS:    100,
     CASES:        20,
@@ -26,15 +83,6 @@ export const PLAN_LIMITS: Record<string, Record<string, number>> = {
     STORAGE_GB:   20,
     DOCUMENTS: 5_000,
     INVOICES:    500,
-  },
-  enterprise: {
-    AI_CALLS:  10_000,
-    CASES:      9_999,
-    CLIENTS:    9_999,
-    USERS:         50,
-    STORAGE_GB:   100,
-    DOCUMENTS:  50_000,
-    INVOICES:   9_999,
   },
   open: {
     AI_CALLS:  99_999,

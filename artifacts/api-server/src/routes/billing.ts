@@ -232,6 +232,68 @@ router.get("/billing/ledger", async (req, res) => {
   }
 });
 
+/* ── تغيير الباقة (ترقية / تخفيض) — لأي مستخدم مصرح ── */
+router.post("/billing/change-plan", async (req, res) => {
+  try {
+    const { userId } = getAuth(req as any);
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+
+    const { planId } = req.body as { planId: string };
+    const plan = PLANS.find(p => p.id === planId);
+    if (!plan) return res.status(400).json({ error: "الباقة غير موجودة" });
+    if ((plan as any).contactOnly) {
+      return res.status(400).json({ error: "هذه الباقة تتطلب التواصل المباشر" });
+    }
+
+    const officeId = "default";
+
+    /* Get current plan before change */
+    const currentRows = await db.execute(
+      sql`SELECT plan FROM office_page ORDER BY created_at LIMIT 1`
+    );
+    const oldPlan = (currentRows as any)?.rows?.[0]?.plan ?? "starter";
+
+    /* Provision (upsert entitlements + update office plan) */
+    const { clerkClient } = await import("@clerk/express");
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress ?? "unknown";
+    const { provisionTenant } = await import("../services/tenantProvisioning");
+    await provisionTenant({ officeId, plan: planId, email });
+
+    /* Create plan-change notification */
+    const PLAN_ORDER = ["advisor","solo","office","advanced","corporate","enterprise"];
+    const oldIdx = PLAN_ORDER.indexOf(oldPlan);
+    const newIdx = PLAN_ORDER.indexOf(planId);
+    const direction = newIdx > oldIdx ? "upgrade" : newIdx < oldIdx ? "downgrade" : "same";
+    const oldPlanObj = PLANS.find(p => p.id === oldPlan);
+
+    if (direction !== "same") {
+      const title = direction === "upgrade"
+        ? `✅ تمت الترقية إلى ${plan.name}`
+        : `⚠️ تم التخفيض إلى ${plan.name}`;
+      const message = direction === "upgrade"
+        ? `تم ترقية الباقة من "${oldPlanObj?.name ?? oldPlan}" إلى "${plan.name}" بنجاح.`
+        : `تم تخفيض الباقة من "${oldPlanObj?.name ?? oldPlan}" إلى "${plan.name}".`;
+
+      await db.execute(sql`
+        INSERT INTO plan_notifications (office_id, type, old_plan, new_plan, title, message, is_read)
+        VALUES (${officeId}, ${direction}, ${oldPlan}, ${planId}, ${title}, ${message}, FALSE)
+      `);
+    }
+
+    return res.json({
+      ok: true,
+      oldPlan,
+      newPlan: planId,
+      direction,
+      planName: plan.name,
+    });
+  } catch (err: any) {
+    console.error("[billing/change-plan]", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 /* ── Manual plan activation (super-admin only) ──────── */
 router.post("/billing/activate-plan", async (req, res) => {
   try {
