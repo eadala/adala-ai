@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ShieldCheck, Building2, Users, Package, Tag, KeyRound, Activity,
@@ -23,11 +24,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-const API = (path: string, opts?: RequestInit) =>
-  fetch(`/api/admin${path}`, { headers: { "Content-Type": "application/json" }, ...opts }).then(r => r.json());
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+/* Token injected by <SuperAdmin> on every render */
+let _getToken: (() => Promise<string | null>) | null = null;
+
+async function API(path: string, opts?: RequestInit) {
+  const token = _getToken ? await _getToken() : null;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${BASE}/api/admin${path}`, { headers, ...opts });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new Error(err.error ?? `HTTP ${res.status}`);
+  }
+  return res.json();
+}
 
 function useAdmin<T>(path: string) {
-  return useQuery<T>({ queryKey: ["admin", path], queryFn: () => API(path) });
+  return useQuery<T>({ queryKey: ["admin", path], queryFn: () => API(path), retry: false });
 }
 
 function StatCard({ icon, label, value, sub, color }: { icon: any; label: string; value: any; sub?: string; color?: string }) {
@@ -54,8 +69,26 @@ export default function SuperAdmin() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [tab, setTab] = useState("overview");
+  const { getToken } = useAuth();
 
-  const { data: stats } = useAdmin<any>("/stats");
+  /* Inject token getter so module-level API() can use it */
+  _getToken = getToken;
+
+  const { data: stats, error: statsError } = useAdmin<any>("/stats");
+
+  if (statsError?.message?.includes("403") || statsError?.message?.includes("غير مصرح")) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 py-24">
+        <div className="h-16 w-16 rounded-full bg-red-500/10 flex items-center justify-center">
+          <Lock className="h-8 w-8 text-red-400" />
+        </div>
+        <h2 className="text-lg font-black text-red-400">غير مصرح بالدخول</h2>
+        <p className="text-sm text-muted-foreground text-center max-w-sm">
+          هذه اللوحة مخصصة لمالك المنصة فقط. تحقق من إعداد <code className="bg-muted px-1 rounded text-xs">PLATFORM_OWNER_EMAIL</code> في متغيرات البيئة.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
