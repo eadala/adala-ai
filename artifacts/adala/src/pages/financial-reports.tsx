@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, TrendingUp, TrendingDown, DollarSign, BarChart2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, DollarSign, BarChart2, ArrowUpRight, ArrowDownRight, Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -82,14 +83,19 @@ export default function FinancialReports() {
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#C9A84C]/20 flex items-center justify-center">
-            <BarChart2 className="h-5 w-5 text-[#C9A84C]" />
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-[#C9A84C]/20 flex items-center justify-center">
+              <BarChart2 className="h-5 w-5 text-[#C9A84C]" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white">التقارير المالية</h1>
+              <p className="text-xs text-muted-foreground">قائمة الأرباح والخسائر · العام الحالي</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-white">التقارير المالية</h1>
-            <p className="text-xs text-muted-foreground">قائمة الأرباح والخسائر · العام الحالي</p>
-          </div>
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5 print:hidden">
+            <Printer className="h-4 w-4" /> تصدير PDF
+          </Button>
         </div>
 
         {/* KPI Cards */}

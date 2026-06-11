@@ -5,7 +5,7 @@ import {
   AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign,
   Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown,
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
-  Landmark, Wallet, BarChart2, Cpu, HardDrive,
+  Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -62,9 +62,11 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "nav.groups.communication",
     items: [
-      { href: "/messages",      labelKey: "nav.items.messages",      icon: MessageCircle },
-      { href: "/calendar",      labelKey: "nav.items.calendar",      icon: CalendarDays,  feature: "calendar" },
-      { href: "/client-portal", labelKey: "nav.items.client_portal", icon: Globe,         feature: "clientPortal" },
+      { href: "/messages",             labelKey: "nav.items.messages",              icon: MessageCircle },
+      { href: "/reminders",            labelKey: "nav.items.reminders",             icon: Bell },
+      { href: "/calendar",             labelKey: "nav.items.calendar",              icon: CalendarDays,  feature: "calendar" },
+      { href: "/client-portal",        labelKey: "nav.items.client_portal",         icon: Globe,         feature: "clientPortal" },
+      { href: "/email-notifications",  labelKey: "nav.items.email_notifications",   icon: MailIcon },
     ],
   },
   {

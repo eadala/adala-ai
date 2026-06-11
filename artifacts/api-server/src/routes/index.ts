@@ -47,6 +47,10 @@ import entitlementsRouter from "./entitlements";
 import officeApiKeysRouter from "./officeApiKeys";
 import loginTrackingRouter from "./loginTracking";
 import financialIntelligenceRouter from "./financialIntelligence";
+import remindersRouter from "./reminders";
+import emailNotificationsRouter from "./emailNotifications";
+import onboardingRouter from "./onboarding";
+import importDataRouter from "./importData";
 
 const router: IRouter = Router();
 
@@ -98,5 +102,9 @@ router.use(entitlementsRouter);
 router.use(officeApiKeysRouter);
 router.use(loginTrackingRouter);
 router.use(financialIntelligenceRouter);
+router.use(remindersRouter);
+router.use(emailNotificationsRouter);
+router.use(onboardingRouter);
+router.use(importDataRouter);
 
 export default router;

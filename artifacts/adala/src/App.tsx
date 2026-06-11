@@ -68,6 +68,9 @@ import StorageSettings from "@/pages/storage-settings";
 import DemoPage from "@/pages/demo";
 import LoginTrackingPage from "@/pages/login-tracking";
 import FinancialIntelligence from "@/pages/financial-intelligence";
+import RemindersPage from "@/pages/reminders";
+import OnboardingPage from "@/pages/onboarding";
+import EmailNotificationsPage from "@/pages/email-notifications";
 
 const queryClient = new QueryClient();
 
@@ -382,6 +385,15 @@ function AppRoutes() {
             </Route>
             <Route path="/billing">
               <ProtectedRoute><Billing /></ProtectedRoute>
+            </Route>
+            <Route path="/reminders">
+              <ProtectedRoute><RemindersPage /></ProtectedRoute>
+            </Route>
+            <Route path="/email-notifications">
+              <ProtectedRoute><EmailNotificationsPage /></ProtectedRoute>
+            </Route>
+            <Route path="/onboarding">
+              <OnboardingPage />
             </Route>
             <Route path="/calendar">
               <ProtectedRoute><CalendarPage /></ProtectedRoute>
