@@ -1,0 +1,63 @@
+لتنفيذ فكرة قسم **"الوسطاء والمتعاونون"** بشكل تقني متكامل، سأكتب لك كود الواجهة (Frontend) الذي يربط بين عرض المهام المتاحة وقبولها، مع تضمين "شرط الموافقة" على اتفاقية السرية لضمان الحوكمة القانونية.
+هذا الكود مصمم ليتم دمجه في منصة "عدالة AI" باستخدام Tailwind CSS:
+### كود واجهة "الوسطاء والمتعاونون"
+```html
+<section class="p-6 bg-gray-50 rounded-2xl">
+  <div class="mb-8">
+    <h2 class="text-2xl font-bold text-gray-900">سوق الوسطاء والمتعاونين</h2>
+    <p class="text-gray-600">مهام قانونية متاحة للمتعاونين وفرص للوسطاء</p>
+  </div>
+
+  <div class="space-y-4">
+    <div class="bg-white p-6 rounded-xl border border-gray-200 flex justify-between items-center shadow-sm">
+      <div>
+        <h3 class="font-bold text-lg">بحث في سوابق قضائية - عقارات</h3>
+        <p class="text-sm text-gray-500">مكتب المحاماة: مكتب التميز القانوني</p>
+        <span class="inline-block mt-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">العمولة: 500 ر.س</span>
+      </div>
+      
+      <button onclick="openAgreementModal()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">تقديم طلب</button>
+    </div>
+  </div>
+</section>
+
+<div id="agreementModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+  <div class="bg-white p-8 rounded-2xl max-w-lg w-full">
+    <h3 class="text-xl font-bold mb-4">اتفاقية الالتزام والسرية</h3>
+    <div class="text-sm text-gray-600 mb-6 h-40 overflow-y-auto border p-4 rounded-lg">
+      <p>بصفتك متعاوناً، تقر بأنك ستلتزم بالحفاظ على سرية بيانات الموكلين، وعدم الإفصاح عن أي وثائق يتم تداولها عبر منصة "عدالة AI". خرق هذه الاتفاقية يعرضك للمسؤولية القانونية الكاملة.</p>
+    </div>
+    
+    <label class="flex items-center mb-6">
+      <input type="checkbox" id="agreeCheck" class="w-5 h-5 ml-2">
+      <span class="text-sm">أوافق على كافة الشروط أعلاه</span>
+    </label>
+    
+    <div class="flex gap-4">
+      <button onclick="closeAgreementModal()" class="flex-1 py-2 border rounded-lg">إلغاء</button>
+      <button onclick="submitApplication()" class="flex-1 py-2 bg-blue-600 text-white rounded-lg">تأكيد الموافقة والتقديم</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openAgreementModal() { document.getElementById('agreementModal').classList.remove('hidden'); }
+  function closeAgreementModal() { document.getElementById('agreementModal').classList.add('hidden'); }
+  
+  function submitApplication() {
+    if(document.getElementById('agreeCheck').checked) {
+      alert("تم تقديم طلبك بنجاح. سيقوم المكتب بمراجعة طلبك.");
+      closeAgreementModal();
+    } else {
+      alert("يرجى الموافقة على اتفاقية السرية أولاً.");
+    }
+  }
+</script>
+
+```
+### **كيف تضمن أداء هذا الكود في منصتك؟**
+ 1. **الربط مع الـ Backend:** عند الضغط على "تأكيد الموافقة"، يجب أن يرسل الـ script طلباً للسيرفر (POST /api/apply-task) يحتوي على user_id و task_id وتاريخ الموافقة. هذا يسجل في قاعدة بياناتك "طابعاً زمنياً" يثبت أن المتعاون وقع رقمياً على الاتفاقية.
+ 2. **لوحة تحكم الوسطاء:** يمكنك تكرار نفس المنطق في "صفحة الوسيط" ولكن مع تغيير البيانات لتعرض "القضايا المحالة" بدلاً من "المهام".
+ 3. **تطوير مستقبل (Automated Workflow):**
+   هذا التدفق (Workflow) يوضح كيف تتحول القضية من "محالة من الوسيط" إلى "مهمة للمتعاون" وصولاً إلى "تسوية مالية"؛ وهو ما يجعل المنصة تبدو كأنها نظام ERP متكامل للمحاماة وليس مجرد موقع ويب.
+هل ترغب في أن نطور **لوحة تحكم (Dashboard)** خاصة للوسيط تظهر له فقط "القضايا التي أحالها" و "العمولات التي حققها"؟
