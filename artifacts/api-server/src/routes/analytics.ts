@@ -8,12 +8,10 @@ const router = Router();
 function num(v: any) { return parseFloat(String(v ?? "0")) || 0; }
 
 async function sqlAll(query: any): Promise<Record<string, any>[]> {
-  try {
-    const result = await db.execute(query) as any;
-    if (Array.isArray(result)) return result;
-    if (result?.rows && Array.isArray(result.rows)) return result.rows;
-    return [];
-  } catch { return []; }
+  const result = await db.execute(query) as any;
+  if (Array.isArray(result)) return result;
+  if (result?.rows && Array.isArray(result.rows)) return result.rows;
+  return [];
 }
 
 async function sqlOne(query: any): Promise<Record<string, any>> {
@@ -349,18 +347,27 @@ router.get("/analytics/clients", requireAuth, async (req, res) => {
       GROUP BY type ORDER BY value DESC
     `);
 
-    // Top clients by invoice revenue
+    // Top clients by invoice revenue — aggregate each side independently to avoid join multiplication
     const topClients = await sqlAll(sql`
       SELECT
+        cl.id,
         cl.full_name AS name,
         cl.type,
-        COUNT(DISTINCT c.id) AS cases_count,
-        COALESCE(SUM(i.total) FILTER (WHERE i.status = 'paid'), 0) / 100.0 AS revenue
+        COALESCE(cc.cases_count, 0) AS cases_count,
+        COALESCE(inv.revenue, 0)    AS revenue
       FROM clients cl
-      LEFT JOIN cases c ON c.client_name = cl.full_name
-      LEFT JOIN client_invoices i ON i.client_id = cl.id::text
-      GROUP BY cl.id, cl.full_name, cl.type
-      ORDER BY revenue DESC, cases_count DESC
+      LEFT JOIN (
+        SELECT client_name, COUNT(*) AS cases_count
+        FROM cases
+        GROUP BY client_name
+      ) cc ON cc.client_name = cl.full_name
+      LEFT JOIN (
+        SELECT client_id, SUM(total) / 100.0 AS revenue
+        FROM client_invoices
+        WHERE status = 'paid'
+        GROUP BY client_id
+      ) inv ON inv.client_id = cl.id::text
+      ORDER BY revenue DESC NULLS LAST, cases_count DESC
       LIMIT 8
     `);
 
