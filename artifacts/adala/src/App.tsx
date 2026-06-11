@@ -71,6 +71,7 @@ import FinancialIntelligence from "@/pages/financial-intelligence";
 import RemindersPage from "@/pages/reminders";
 import OnboardingPage from "@/pages/onboarding";
 import EmailNotificationsPage from "@/pages/email-notifications";
+import WhatsAppSettingsPage from "@/pages/whatsapp-settings";
 
 const queryClient = new QueryClient();
 
@@ -391,6 +392,9 @@ function AppRoutes() {
             </Route>
             <Route path="/email-notifications">
               <ProtectedRoute><EmailNotificationsPage /></ProtectedRoute>
+            </Route>
+            <Route path="/whatsapp-settings">
+              <ProtectedRoute><WhatsAppSettingsPage /></ProtectedRoute>
             </Route>
             <Route path="/onboarding">
               <OnboardingPage />

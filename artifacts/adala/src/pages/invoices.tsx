@@ -365,12 +365,41 @@ function InvoiceSheet({
     copyToClipboard(url, () => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
 
+  const [waSending, setWaSending] = useState(false);
+  const [waPhone, setWaPhone] = useState("");
+  const [waDialogOpen, setWaDialogOpen] = useState(false);
+
+  const sendWhatsAppViaApi = async (phone: string) => {
+    if (!invoice) return;
+    const message = `السلام عليكم،\nيرجى سداد الفاتورة رقم ${invoice.invoiceNumber} بمبلغ ${fmt(invoice.total)} ر.س${invoice.stripePaymentLinkUrl ? `\nرابط الدفع: ${invoice.stripePaymentLinkUrl}` : ""}`;
+    setWaSending(true);
+    try {
+      const r = await fetch(`${BASE}api/whatsapp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: phone, message, template: "invoice" }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast.success("تم إرسال إشعار الفاتورة عبر واتساب ✅");
+        setWaDialogOpen(false);
+        setWaPhone("");
+      } else {
+        const msg = encodeURIComponent(message);
+        window.open(`https://wa.me/${phone.replace(/\D/g, "")}?text=${msg}`, "_blank");
+        toast.success("تم فتح واتساب لإرسال الفاتورة");
+        setWaDialogOpen(false);
+      }
+    } catch {
+      const message2 = `السلام عليكم،\nيرجى سداد الفاتورة رقم ${invoice.invoiceNumber}`;
+      const msg = encodeURIComponent(message2);
+      window.open(`https://wa.me/?text=${msg}`, "_blank");
+    } finally { setWaSending(false); }
+  };
+
   const sendWhatsApp = () => {
     if (!invoice) return;
-    const msg = encodeURIComponent(
-      `السلام عليكم،\nيرجى سداد الفاتورة رقم ${invoice.invoiceNumber} بمبلغ ${fmt(invoice.total)} ر.س\nرابط الدفع: ${invoice.stripePaymentLinkUrl ?? "لم يُنشأ بعد"}`
-    );
-    window.open(`https://wa.me/?text=${msg}`, "_blank");
+    setWaDialogOpen(true);
   };
 
   const printInvoice = () => {
@@ -520,6 +549,35 @@ function InvoiceSheet({
               <Printer className="h-3.5 w-3.5" />طباعة
             </Button>
           </div>
+
+          {/* WhatsApp phone dialog */}
+          {waDialogOpen && (
+            <div className="border border-green-500/30 bg-green-500/5 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-medium text-green-400 flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />إرسال الفاتورة عبر واتساب
+              </p>
+              <div className="flex gap-2">
+                <input
+                  dir="ltr"
+                  className="flex-1 px-3 py-2 text-sm rounded-lg border border-border bg-background placeholder:text-muted-foreground"
+                  placeholder="+966501234567 أو 0501234567"
+                  value={waPhone}
+                  onChange={e => setWaPhone(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && waPhone && sendWhatsAppViaApi(waPhone)}
+                />
+                <Button size="sm" className="gap-1.5 bg-green-600 hover:bg-green-700 text-white shrink-0"
+                  onClick={() => sendWhatsAppViaApi(waPhone)}
+                  disabled={!waPhone || waSending}>
+                  {waSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  إرسال
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => { setWaDialogOpen(false); setWaPhone(""); }}>
+                  ✕
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">سيتم إرسال تفاصيل الفاتورة ورابط الدفع تلقائياً</p>
+            </div>
+          )}
 
           {/* Status Change */}
           {invoice.status !== "paid" && (
