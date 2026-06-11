@@ -40,6 +40,7 @@ import OfficePage from "@/pages/office-public";
 import OfficeStore from "@/pages/office-store";
 import OfficeManagement from "@/pages/office-management";
 import SuperAdmin from "@/pages/super-admin";
+import FirmAdmin from "@/pages/firm-admin";
 import CalendarPage from "@/pages/calendar";
 import ClientPortal from "@/pages/client-portal";
 import PortalView from "@/pages/portal-view";
@@ -291,6 +292,9 @@ function AppRoutes() {
             </Route>
             <Route path="/super-admin">
               <ProtectedRoute><SuperAdmin /></ProtectedRoute>
+            </Route>
+            <Route path="/firm-admin">
+              <ProtectedRoute><FirmAdmin /></ProtectedRoute>
             </Route>
             <Route path="/firms/:slug/store">
               <OfficeStore />

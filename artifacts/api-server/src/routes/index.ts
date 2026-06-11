@@ -29,6 +29,7 @@ import calendarRouter from "./calendar";
 import clientPortalRouter from "./client-portal";
 import marketplaceRouter from "./marketplace";
 import aiWorkflowRouter from "./ai-workflow";
+import firmAdminRouter from "./firm-admin";
 
 const router: IRouter = Router();
 
@@ -62,5 +63,6 @@ router.use(calendarRouter);
 router.use(clientPortalRouter);
 router.use(marketplaceRouter);
 router.use(aiWorkflowRouter);
+router.use(firmAdminRouter);
 
 export default router;
