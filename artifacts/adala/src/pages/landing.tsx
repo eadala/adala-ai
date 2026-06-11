@@ -366,11 +366,13 @@ export default function Landing() {
                   {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
                 </button>
               </Link>
-              <a href="#how" className="flex items-center gap-2 font-semibold px-7 py-3.5 rounded-xl text-base border transition-all hover:bg-white/5"
-                style={{ borderColor: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.8)" }}>
-                <Play className="w-4 h-4" />
-                {t("landing.bookDemo")}
-              </a>
+              <Link href={`${BASE}/demo`}>
+                <button className="flex items-center gap-2 font-semibold px-7 py-3.5 rounded-xl text-base border transition-all hover:bg-white/5 hover:scale-[1.02]"
+                  style={{ borderColor: "rgba(201,168,76,0.4)", color: "#E0C060", background: "rgba(201,168,76,0.06)" }}>
+                  <Sparkles className="w-4 h-4" />
+                  استكشف المنصة
+                </button>
+              </Link>
             </motion.div>
 
             <motion.div
