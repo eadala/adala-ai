@@ -63,6 +63,7 @@ import TermsPage from "@/pages/terms";
 import PrivacyPage from "@/pages/privacy";
 import SecurityPage from "@/pages/security";
 import NotFound from "@/pages/not-found";
+import AdalaBuildStudio from "@/pages/studio";
 
 const queryClient = new QueryClient();
 
@@ -340,6 +341,9 @@ function AppRoutes() {
             </Route>
             <Route path="/super-admin">
               <ProtectedRoute><SuperAdmin /></ProtectedRoute>
+            </Route>
+            <Route path="/studio">
+              <ProtectedRoute><AdalaBuildStudio /></ProtectedRoute>
             </Route>
             <Route path="/firm-admin">
               <ProtectedRoute><FirmAdmin /></ProtectedRoute>

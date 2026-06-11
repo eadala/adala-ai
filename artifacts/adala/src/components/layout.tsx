@@ -5,7 +5,7 @@ import {
   AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign,
   Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown,
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
-  Landmark, Wallet, BarChart2,
+  Landmark, Wallet, BarChart2, Cpu,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -123,6 +123,7 @@ const NAV_GROUPS: NavGroup[] = [
     superAdminOnly: true,
     items: [
       { href: "/super-admin", labelKey: "nav.items.super_admin_panel", icon: Shield },
+      { href: "/studio",      labelKey: "nav.items.studio",            icon: Cpu },
     ],
   },
 ];
