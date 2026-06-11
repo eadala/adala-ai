@@ -171,6 +171,136 @@ router.get("/clients/:id/overview", async (req, res) => {
   }
 });
 
+/* ─── Client Accounting / Financial Statements ──────────────────────────── */
+router.get("/clients/:id/accounting", async (req, res) => {
+  try {
+    if (!requireAuth(req, res)) return;
+    const { id } = req.params;
+    const { period = "annual", year = new Date().getFullYear(), month = "1" } = req.query as any;
+
+    async function safeRows(q: any): Promise<any[]> {
+      try {
+        const r = await db.execute(q) as any;
+        return Array.isArray(r) ? r : (r?.rows ?? []);
+      } catch { return []; }
+    }
+
+    // Determine date range from period
+    const y = parseInt(year);
+    const m = parseInt(month);
+    let startDate: string, endDate: string, label: string;
+    if (period === "monthly") {
+      startDate = `${y}-${String(m).padStart(2, "0")}-01`;
+      const lastDay = new Date(y, m, 0).getDate();
+      endDate = `${y}-${String(m).padStart(2, "0")}-${lastDay}`;
+      label = `${y}/${String(m).padStart(2, "0")}`;
+    } else if (period === "quarterly") {
+      const q2 = Math.ceil(m / 3);
+      const sm = (q2 - 1) * 3 + 1;
+      const em = q2 * 3;
+      startDate = `${y}-${String(sm).padStart(2, "0")}-01`;
+      endDate = `${y}-${String(em).padStart(2, "0")}-${new Date(y, em, 0).getDate()}`;
+      label = `الربع ${q2} - ${y}`;
+    } else if (period === "semi") {
+      const isFirst = m <= 6;
+      startDate = isFirst ? `${y}-01-01` : `${y}-07-01`;
+      endDate = isFirst ? `${y}-06-30` : `${y}-12-31`;
+      label = isFirst ? `النصف الأول ${y}` : `النصف الثاني ${y}`;
+    } else {
+      startDate = `${y}-01-01`;
+      endDate = `${y}-12-31`;
+      label = `سنة ${y}`;
+    }
+
+    // All invoices for this client in period
+    const invoices = await safeRows(sql`
+      SELECT * FROM client_invoices
+      WHERE client_id = ${id}
+        AND created_at::date BETWEEN ${startDate}::date AND ${endDate}::date
+    `);
+
+    // All expenses linked to this client in period (if client_id col exists)
+    const expenses = await safeRows(sql`
+      SELECT * FROM expenses
+      WHERE client_id = ${id}
+        AND date BETWEEN ${startDate}::date AND ${endDate}::date
+    `).catch(() => []);
+
+    // Revenue = paid invoices (total stored in minor units ÷ 100)
+    const revenue = invoices
+      .filter((i: any) => i.status === "paid")
+      .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0);
+
+    // Receivables = unpaid (sent / draft / overdue)
+    const receivables = invoices
+      .filter((i: any) => i.status !== "paid" && i.status !== "cancelled")
+      .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0);
+
+    // Expenses
+    const totalExpenses = expenses.reduce((s: number, e: any) => s + (parseFloat(String(e.amount ?? 0))), 0);
+    const netProfit = revenue - totalExpenses;
+
+    // Monthly breakdown for the chart (always show 12 months of the year)
+    const monthlyRows = await safeRows(sql`
+      SELECT
+        EXTRACT(MONTH FROM created_at)::int AS month,
+        SUM(CASE WHEN status = 'paid' THEN total ELSE 0 END)::float / 100 AS revenue,
+        SUM(CASE WHEN status != 'paid' AND status != 'cancelled' THEN total ELSE 0 END)::float / 100 AS receivables,
+        COUNT(*)::int AS count
+      FROM client_invoices
+      WHERE client_id = ${id}
+        AND EXTRACT(YEAR FROM created_at) = ${y}
+      GROUP BY month ORDER BY month
+    `);
+
+    const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+    const monthly = MONTHS_AR.map((name, i) => {
+      const row = monthlyRows.find((r: any) => parseInt(r.month) === i + 1);
+      return {
+        name,
+        revenue: parseFloat(String(row?.revenue ?? 0)),
+        receivables: parseFloat(String(row?.receivables ?? 0)),
+      };
+    });
+
+    // Invoice breakdown by status
+    const byStatus = {
+      paid:    invoices.filter((i: any) => i.status === "paid").length,
+      overdue: invoices.filter((i: any) => i.status === "overdue").length,
+      sent:    invoices.filter((i: any) => i.status === "sent").length,
+      draft:   invoices.filter((i: any) => i.status === "draft").length,
+    };
+
+    res.json({
+      period: { type: period, startDate, endDate, label, year: y },
+      accounting: { revenue, receivables, expenses: totalExpenses, netProfit },
+      financialStatements: {
+        incomeStatement: {
+          revenue,
+          expenses: totalExpenses,
+          netProfit,
+          margin: revenue > 0 ? ((netProfit / revenue) * 100) : 0,
+        },
+        balanceSheet: {
+          assets: { cash: revenue, receivables },
+          totalAssets: revenue + receivables,
+          equity: revenue + receivables - totalExpenses,
+        },
+        cashFlow: {
+          cashIn: revenue,
+          cashOut: totalExpenses,
+          netCashFlow: revenue - totalExpenses,
+        },
+      },
+      monthly,
+      byStatus,
+      invoicesCount: invoices.length,
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.get("/clients/stats", async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;

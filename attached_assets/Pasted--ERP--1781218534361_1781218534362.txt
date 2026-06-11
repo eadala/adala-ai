@@ -1,0 +1,215 @@
+تمام — سأبنيه لك كـ نظام محاسبي مبسّط جدًا للمحامي داخل منصة عدالة، بدون تعقيد ERP، وبكود نظيف جاهز للاستخدام.
+
+الفكرة:
+👉 المحامي لا يتعامل إلا مع: فواتير + مدفوعات + تقارير جاهزة
+
+⸻
+
+🏛️ 📊 نظام المحاسبة المبسطة + القوائم المالية (جاهز للكود)
+
+⸻
+
+🧠 1. الفكرة العامة
+
+Invoices
+   ↓
+Payments
+   ↓
+Simple Accounting Engine
+   ↓
+Monthly / Quarterly / Annual Reports
+   ↓
+Financial Statements (Qawaem-ready)
+
+⸻
+
+⚙️ 2. المحرك الأساسي (Backend Core)
+
+function buildSimpleAccounting({ invoices, payments, expenses = [] }) {
+  // 💰 الإيرادات (كل المدفوعات)
+  const revenue = payments.reduce((sum, p) => sum + p.amount, 0);
+  // 📄 المستحقات (فواتير غير مدفوعة)
+  const receivables = invoices
+    .filter(i => !i.is_paid)
+    .reduce((sum, i) => sum + i.total, 0);
+  // 💸 المصاريف
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  // 📈 صافي الربح
+  const netProfit = revenue - totalExpenses;
+  return {
+    revenue,
+    receivables,
+    expenses: totalExpenses,
+    netProfit
+  };
+}
+
+⸻
+
+📊 3. توليد القوائم المالية (بسيطة وواضحة)
+
+function generateFinancialStatements(data) {
+  return {
+    income_statement: {
+      revenue: data.revenue,
+      expenses: data.expenses,
+      net_profit: data.netProfit
+    },
+    balance_sheet: {
+      assets: {
+        cash: data.revenue,
+        receivables: data.receivables
+      },
+      equity: data.revenue + data.receivables - data.expenses
+    },
+    cash_flow: {
+      cash_in: data.revenue,
+      cash_out: data.expenses,
+      net_cash_flow: data.revenue - data.expenses
+    }
+  };
+}
+
+⸻
+
+📅 4. التقارير حسب الفترة (شهري / ربع / نصف / سنوي)
+
+function filterByPeriod(items, startDate, endDate) {
+  return items.filter(i => {
+    const date = new Date(i.date);
+    return date >= new Date(startDate) && date <= new Date(endDate);
+  });
+}
+function getPeriodLabel(type, year, month = null) {
+  if (type === "monthly") return `${year}-${month}`;
+  if (type === "quarterly") return `Q${Math.ceil(month / 3)}-${year}`;
+  if (type === "semi") return month <= 6 ? `H1-${year}` : `H2-${year}`;
+  if (type === "annual") return `${year}`;
+}
+
+⸻
+
+🌐 5. API جاهز داخل منصة عدالة
+
+📌 توليد التقرير
+
+app.post("/api/accounting/report", async (req, res) => {
+  const { firm_id, startDate, endDate } = req.body;
+  const invoices = await db.invoices.findMany({ where: { firm_id } });
+  const payments = await db.payments.findMany({ where: { firm_id } });
+  const expenses = await db.expenses?.findMany({ where: { firm_id } }) || [];
+  const filteredInvoices = filterByPeriod(invoices, startDate, endDate);
+  const filteredPayments = filterByPeriod(payments, startDate, endDate);
+  const filteredExpenses = filterByPeriod(expenses, startDate, endDate);
+  const accounting = buildSimpleAccounting({
+    invoices: filteredInvoices,
+    payments: filteredPayments,
+    expenses: filteredExpenses
+  });
+  const financialStatements = generateFinancialStatements(accounting);
+  res.json({
+    period: { startDate, endDate },
+    accounting,
+    financialStatements
+  });
+});
+
+⸻
+
+📊 6. شكل النتيجة (JSON جاهز)
+
+{
+  "accounting": {
+    "revenue": 1200000,
+    "receivables": 250000,
+    "expenses": 200000,
+    "netProfit": 1000000
+  },
+  "financialStatements": {
+    "income_statement": {
+      "revenue": 1200000,
+      "expenses": 200000,
+      "net_profit": 1000000
+    },
+    "balance_sheet": {
+      "assets": {
+        "cash": 1200000,
+        "receivables": 250000
+      },
+      "equity": 1450000
+    },
+    "cash_flow": {
+      "cash_in": 1200000,
+      "cash_out": 200000,
+      "net_cash_flow": 1000000
+    }
+  }
+}
+
+⸻
+
+📄 7. فكرة واجهة المستخدم (للمحامي)
+
+🧾 بسيطة جدًا:
+
+📊 اختيار الفترة:
+
+* شهري
+* ربع سنوي
+* نصف سنوي
+* سنوي
+
+🟢 زر:
+
+Generate Report
+
+⸻
+
+📈 عرض:
+
+* الإيرادات
+* المصاريف
+* صافي الربح
+* المستحقات
+
+⸻
+
+📄 أزرار:
+
+* تحميل PDF
+* تصدير Excel
+* عرض JSON
+
+⸻
+
+⚖️ 8. لماذا هذا التصميم مثالي لك؟
+
+✔ سهل للمحامي (ليس محاسب)
+✔ بدون تعقيد ERP
+✔ يعتمد على بياناتك الحالية فقط
+✔ جاهز للقوائم الرسمية
+✔ قابل للتوسع لاحقًا
+
+⸻
+
+🚀 إذا تبغى الخطوة التالية
+
+￼ أقدر أطور لك مباشرة:
+
+🔥 واجهة Dashboard كاملة React
+
+🔥 PDF رسمي مطابق لـ Qawaem
+
+🔥 Charts احترافية (Revenue / Profit)
+
+🔥 نظام مقارنة فترات (YoY)
+
+🔥 تنبيهات مالية ذكية
+
+⸻
+
+قل:
+
+“ابنِ لي واجهة التقارير كاملة”
+
+وأبني لك لوحة مالية احترافية جاهزة داخل عدالة.
