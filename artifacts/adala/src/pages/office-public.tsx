@@ -5,7 +5,7 @@ import {
   Phone, Mail, MapPin, MessageCircle, Star, Globe, Twitter,
   Linkedin, Facebook, Clock, BadgeCheck, Award, Users, Briefcase,
   ShoppingBag, ChevronLeft, ChevronDown, Send, CheckCircle2,
-  Loader2, Scale, Menu, X, ExternalLink, FileText
+  Loader2, Scale, Menu, X, ExternalLink, FileText, Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,6 +151,11 @@ export default function OfficePage() {
                 <ShoppingBag className="h-3 w-3" /> {lang === "ar" ? "المتجر" : "Store"}
               </Button>
             </a>
+            <a href={`/firms/${slug}/book`}>
+              <Button size="sm" className="gap-1.5 text-xs font-bold" style={{ background: gold, color: "#000" }}>
+                <Calendar className="h-3 w-3" /> {lang === "ar" ? "احجز استشارة" : "Book Now"}
+              </Button>
+            </a>
             {/* Language Toggle */}
             <button onClick={() => setLang(l => l === "ar" ? "en" : "ar")}
               className="text-xs px-2.5 py-1 rounded-lg font-bold border border-white/20 hover:border-white/40 transition-colors" style={{ color: gold }}>
@@ -218,6 +223,12 @@ export default function OfficePage() {
           {tagline && <p className="text-lg md:text-xl text-white/60 mb-10 max-w-2xl mx-auto">{tagline}</p>}
 
           <div className="flex flex-wrap gap-3 justify-center">
+            <a href={`/firms/${slug}/book`}>
+              <Button size="lg" className="gap-2 px-7 font-bold text-base shadow-2xl hover:opacity-90 transition-opacity" style={{ background: `linear-gradient(135deg, ${gold}, #f0d060)`, color: "#000" }}>
+                <Calendar className="h-5 w-5" />
+                {lang === "ar" ? "احجز استشارتك الآن" : "Book a Consultation"}
+              </Button>
+            </a>
             {(office.whatsapp || office.phone) && (
               <a href={whatsappUrl()} target="_blank" rel="noreferrer">
                 <Button size="lg" className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6">
@@ -226,7 +237,7 @@ export default function OfficePage() {
                 </Button>
               </a>
             )}
-            <Button size="lg" className="gap-2 px-6 font-bold" style={{ background: gold, color: "#000" }}
+            <Button size="lg" variant="outline" className="gap-2 px-6 border-white/20 hover:bg-white/10"
               onClick={() => scrollTo(contactRef)}>
               <Send className="h-5 w-5" />
               {lang === "ar" ? "تواصل معنا" : "Contact Us"}

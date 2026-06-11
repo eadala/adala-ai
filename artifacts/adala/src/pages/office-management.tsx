@@ -5,7 +5,8 @@ import {
   Globe, Users, ShoppingBag, Star, Package,
   Plus, Loader2, Eye, EyeOff, Save, Trash2,
   CheckCircle2, Edit2, Phone, Mail,
-  Copy, Check, Camera, Image, MapPin
+  Copy, Check, Camera, Image, MapPin,
+  FileText, Pencil, BookOpen, Calendar, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +71,12 @@ export default function OfficeManagement() {
     mutationFn: (id: string) => fetch(`/api/office/my/services/${id}`, { method: "DELETE" }).then(r => r.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-services", office.id] }),
   });
+  const [editSvcDialog, setEditSvcDialog] = useState<any>(null);
+  const [editSvcForm, setEditSvcForm] = useState({ name: "", description: "", price: "", isCustomQuote: false, category: "استشارات", deliveryDays: "1" });
+  const updateSvc = useMutation({
+    mutationFn: ({ id, ...d }: any) => fetch(`/api/office/my/services/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-services", office?.id] }); setEditSvcDialog(null); toast({ title: "تم تحديث الخدمة ✓" }); },
+  });
 
   /* ── Team ── */
   const { data: team = [] } = useQuery<any[]>({
@@ -109,6 +116,33 @@ export default function OfficeManagement() {
     mutationFn: ({ id, ...d }: any) => fetch(`/api/office/my/reviews/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => r.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-reviews", office.id] }),
   });
+  const deleteReview = useMutation({
+    mutationFn: (id: string) => fetch(`/api/office/my/reviews/${id}`, { method: "DELETE" }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-reviews", office?.id] }),
+  });
+
+  /* ── Articles ── */
+  const { data: articles = [] } = useQuery<any[]>({
+    queryKey: ["my-articles", office?.id],
+    queryFn: () => fetch(`/api/office/my/${office.id}/articles`).then(r => r.json()),
+    enabled: !!office?.id,
+  });
+  const [showArticleForm, setShowArticleForm] = useState(false);
+  const [editArticle, setEditArticle] = useState<any>(null);
+  const [articleForm, setArticleForm] = useState({ title: "", slug: "", excerpt: "", content: "", category: "قانوني", isPublished: false });
+  const addArticle = useMutation({
+    mutationFn: (d: any) => fetch(`/api/office/my/${office.id}/articles`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-articles", office.id] }); setShowArticleForm(false); toast({ title: "تمت إضافة المقال ✓" }); },
+  });
+  const updateArticle = useMutation({
+    mutationFn: ({ id, ...d }: any) => fetch(`/api/office/my/articles/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-articles", office?.id] }); setEditArticle(null); toast({ title: "تم تحديث المقال ✓" }); },
+  });
+  const deleteArticle = useMutation({
+    mutationFn: (id: string) => fetch(`/api/office/my/articles/${id}`, { method: "DELETE" }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-articles", office?.id] }),
+  });
+  function slugify(s: string) { return s.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^\u0600-\u06FFa-z0-9-]/g, ""); }
 
   const publicUrl = office ? `/firms/${office.slug}` : null;
 
@@ -211,12 +245,13 @@ export default function OfficeManagement() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-5 gap-3">
         {[
           { label: "الطلبات", val: orders.length, color: "#C9A84C" },
           { label: "الخدمات", val: services.length, color: "#3B82F6" },
           { label: "الفريق", val: team.length, color: "#8B5CF6" },
           { label: "التقييمات", val: reviews.length, color: "#10B981" },
+          { label: "المقالات", val: articles.length, color: "#F97316" },
         ].map(s => (
           <Card key={s.label} className="border-border/50">
             <CardContent className="p-3 text-center">
@@ -233,6 +268,7 @@ export default function OfficeManagement() {
           <TabsTrigger value="services" className="gap-1.5 text-xs"><ShoppingBag className="h-3.5 w-3.5" /> الخدمات</TabsTrigger>
           <TabsTrigger value="team" className="gap-1.5 text-xs"><Users className="h-3.5 w-3.5" /> الفريق</TabsTrigger>
           <TabsTrigger value="reviews" className="gap-1.5 text-xs"><Star className="h-3.5 w-3.5" /> التقييمات</TabsTrigger>
+          <TabsTrigger value="articles" className="gap-1.5 text-xs"><FileText className="h-3.5 w-3.5" /> المقالات</TabsTrigger>
         </TabsList>
 
         {/* ── ORDERS ── */}
@@ -281,14 +317,23 @@ export default function OfficeManagement() {
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="font-bold text-sm">{s.name}</span>
                     <Badge className="text-[9px] bg-muted text-muted-foreground">{s.category}</Badge>
+                    {s.isActive ? <Badge className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">نشط</Badge>
+                      : <Badge className="text-[9px] bg-muted text-muted-foreground">مخفي</Badge>}
                   </div>
                   <div className="text-xs text-primary font-semibold">
                     {s.isCustomQuote ? "حسب العرض" : `${Number(s.price).toLocaleString("ar-SA")} ر.س`}
                   </div>
+                  {s.description && <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{s.description}</p>}
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteSvc.mutate(s.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400"
+                    onClick={() => { setEditSvcDialog(s); setEditSvcForm({ name: s.name, description: s.description ?? "", price: s.price?.toString() ?? "", isCustomQuote: s.isCustomQuote ?? false, category: s.category ?? "استشارات", deliveryDays: s.deliveryDays?.toString() ?? "1" }); }}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteSvc.mutate(s.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -339,10 +384,61 @@ export default function OfficeManagement() {
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400"
+                    onClick={() => deleteReview.mutate(r.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
+        </TabsContent>
+
+        {/* ── ARTICLES ── */}
+        <TabsContent value="articles" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">{articles.length} مقال • {articles.filter((a: any) => a.isPublished).length} منشور</p>
+            <Button size="sm" className="gap-1.5 text-xs"
+              onClick={() => { setArticleForm({ title: "", slug: "", excerpt: "", content: "", category: "قانوني", isPublished: false }); setShowArticleForm(true); }}>
+              <Plus className="h-3.5 w-3.5" /> مقال جديد
+            </Button>
+          </div>
+          {articles.length === 0 ? <Empty icon={<FileText />} text="لا توجد مقالات بعد — ابدأ بنشر محتوى قانوني لجذب العملاء" /> : (
+            <div className="space-y-2">
+              {articles.map((a: any) => (
+                <Card key={a.id} className="border-border/50">
+                  <CardContent className="p-4 flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="font-bold text-sm line-clamp-1">{a.title}</span>
+                        {a.category && <Badge variant="outline" className="text-[10px]">{a.category}</Badge>}
+                        {a.isPublished
+                          ? <Badge className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">منشور</Badge>
+                          : <Badge className="text-[9px] bg-muted text-muted-foreground">مسودة</Badge>}
+                      </div>
+                      {a.excerpt && <p className="text-xs text-muted-foreground line-clamp-2">{a.excerpt}</p>}
+                      {a.slug && <p className="text-[10px] text-muted-foreground/50 mt-1 font-mono">/blog/{a.slug}</p>}
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button variant="ghost" size="icon" className="h-7 w-7"
+                        title={a.isPublished ? "تحويل لمسودة" : "نشر"}
+                        onClick={() => updateArticle.mutate({ id: a.id, isPublished: !a.isPublished })}>
+                        {a.isPublished ? <EyeOff className="h-3.5 w-3.5 text-muted-foreground" /> : <Eye className="h-3.5 w-3.5 text-emerald-400" />}
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400"
+                        onClick={() => { setEditArticle(a); setArticleForm({ title: a.title, slug: a.slug ?? "", excerpt: a.excerpt ?? "", content: a.content ?? "", category: a.category ?? "قانوني", isPublished: a.isPublished ?? false }); }}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400"
+                        onClick={() => deleteArticle.mutate(a.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -511,6 +607,97 @@ export default function OfficeManagement() {
             <Button disabled={!svcForm.name || addSvc.isPending} onClick={() => addSvc.mutate(svcForm)} className="gap-2">
               {addSvc.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               <Plus className="h-4 w-4" /> إضافة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Service Dialog ── */}
+      <Dialog open={!!editSvcDialog} onOpenChange={v => { if (!v) setEditSvcDialog(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>تعديل الخدمة</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label className="text-xs font-semibold mb-1 block">اسم الخدمة *</Label>
+              <Input value={editSvcForm.name} onChange={e => setEditSvcForm(f => ({ ...f, name: e.target.value }))} /></div>
+            <div><Label className="text-xs font-semibold mb-1 block">الوصف</Label>
+              <Textarea value={editSvcForm.description} onChange={e => setEditSvcForm(f => ({ ...f, description: e.target.value }))} rows={2} className="resize-none" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs font-semibold mb-1 block">التصنيف</Label>
+                <Select value={editSvcForm.category} onValueChange={v => setEditSvcForm(f => ({ ...f, category: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["استشارات", "عقود", "دعاوى", "توثيق", "تحكيم", "أحوال شخصية", "تجاري", "عقاري"].map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select></div>
+              <div><Label className="text-xs font-semibold mb-1 block">مدة التسليم (أيام)</Label>
+                <Input type="number" value={editSvcForm.deliveryDays} onChange={e => setEditSvcForm(f => ({ ...f, deliveryDays: e.target.value }))} /></div>
+            </div>
+            <div className="flex items-center gap-2 pb-1">
+              <Switch checked={editSvcForm.isCustomQuote} onCheckedChange={v => setEditSvcForm(f => ({ ...f, isCustomQuote: v }))} />
+              <Label className="text-xs">السعر حسب العرض</Label>
+            </div>
+            {!editSvcForm.isCustomQuote && (
+              <div><Label className="text-xs font-semibold mb-1 block">السعر (ر.س) *</Label>
+                <Input type="number" value={editSvcForm.price} onChange={e => setEditSvcForm(f => ({ ...f, price: e.target.value }))} /></div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditSvcDialog(null)}>إلغاء</Button>
+            <Button disabled={!editSvcForm.name || updateSvc.isPending} onClick={() => updateSvc.mutate({ id: editSvcDialog.id, ...editSvcForm })} className="gap-2">
+              {updateSvc.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Save className="h-4 w-4" /> حفظ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add / Edit Article Dialog ── */}
+      <Dialog open={showArticleForm || !!editArticle} onOpenChange={v => { if (!v) { setShowArticleForm(false); setEditArticle(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editArticle ? "تعديل المقال" : "إضافة مقال جديد"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label className="text-xs font-semibold mb-1 block">عنوان المقال *</Label>
+              <Input
+                value={articleForm.title}
+                onChange={e => setArticleForm(f => ({ ...f, title: e.target.value, slug: editArticle ? f.slug : slugify(e.target.value) }))}
+                placeholder="أهمية توثيق العقود التجارية"
+              /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs font-semibold mb-1 block">الرابط المختصر (slug)</Label>
+                <Input value={articleForm.slug} onChange={e => setArticleForm(f => ({ ...f, slug: slugify(e.target.value) }))} dir="ltr" placeholder="legal-contracts-importance" className="font-mono text-xs" /></div>
+              <div><Label className="text-xs font-semibold mb-1 block">التصنيف</Label>
+                <Select value={articleForm.category} onValueChange={v => setArticleForm(f => ({ ...f, category: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["قانوني", "تجاري", "أسري", "عقاري", "عمالي", "تحكيم", "نصائح", "أخبار"].map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select></div>
+            </div>
+            <div><Label className="text-xs font-semibold mb-1 block">مقتطف (يظهر في القائمة)</Label>
+              <Textarea value={articleForm.excerpt} onChange={e => setArticleForm(f => ({ ...f, excerpt: e.target.value }))} rows={2} className="resize-none"
+                placeholder="ملخص مختصر عن موضوع المقال..." /></div>
+            <div><Label className="text-xs font-semibold mb-1 block">محتوى المقال</Label>
+              <Textarea value={articleForm.content} onChange={e => setArticleForm(f => ({ ...f, content: e.target.value }))} rows={8} className="resize-none text-sm"
+                placeholder="اكتب محتوى المقال هنا..." /></div>
+            <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+              <Switch checked={articleForm.isPublished} onCheckedChange={v => setArticleForm(f => ({ ...f, isPublished: v }))} />
+              <Label className="text-xs">{articleForm.isPublished ? "نشر المقال فوراً" : "حفظ كمسودة"}</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowArticleForm(false); setEditArticle(null); }}>إلغاء</Button>
+            <Button
+              disabled={!articleForm.title || (editArticle ? updateArticle.isPending : addArticle.isPending)}
+              onClick={() => editArticle
+                ? updateArticle.mutate({ id: editArticle.id, ...articleForm })
+                : addArticle.mutate(articleForm)}
+              className="gap-2">
+              {(editArticle ? updateArticle.isPending : addArticle.isPending) && <Loader2 className="h-4 w-4 animate-spin" />}
+              {editArticle ? <><Save className="h-4 w-4" /> حفظ التغييرات</> : <><Plus className="h-4 w-4" /> نشر المقال</>}
             </Button>
           </DialogFooter>
         </DialogContent>
