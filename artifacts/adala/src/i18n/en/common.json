@@ -74,7 +74,8 @@
       "bank_accounts": "Bank Accounts",
       "advances": "Advances",
       "financial_reports": "Financial Reports",
-      "login_tracking": "Login Tracking"
+      "login_tracking": "Login Tracking",
+      "financial_intelligence": "Financial Intelligence"
     }
   },
   "landing": {

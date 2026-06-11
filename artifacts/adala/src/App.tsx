@@ -67,6 +67,7 @@ import AdalaBuildStudio from "@/pages/studio";
 import StorageSettings from "@/pages/storage-settings";
 import DemoPage from "@/pages/demo";
 import LoginTrackingPage from "@/pages/login-tracking";
+import FinancialIntelligence from "@/pages/financial-intelligence";
 
 const queryClient = new QueryClient();
 
@@ -288,6 +289,9 @@ function AppRoutes() {
             </Route>
             <Route path="/login-tracking">
               <ProtectedRoute><LoginTrackingPage /></ProtectedRoute>
+            </Route>
+            <Route path="/financial-intelligence">
+              <ProtectedRoute><FinancialIntelligence /></ProtectedRoute>
             </Route>
             <Route path="/employees">
               <ProtectedRoute><Employees /></ProtectedRoute>

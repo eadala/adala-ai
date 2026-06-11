@@ -46,6 +46,7 @@ import studioRouter from "./studio";
 import entitlementsRouter from "./entitlements";
 import officeApiKeysRouter from "./officeApiKeys";
 import loginTrackingRouter from "./loginTracking";
+import financialIntelligenceRouter from "./financialIntelligence";
 
 const router: IRouter = Router();
 
@@ -96,5 +97,6 @@ router.use(studioRouter);
 router.use(entitlementsRouter);
 router.use(officeApiKeysRouter);
 router.use(loginTrackingRouter);
+router.use(financialIntelligenceRouter);
 
 export default router;

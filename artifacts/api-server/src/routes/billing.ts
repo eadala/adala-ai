@@ -191,12 +191,29 @@ router.get("/billing/ledger", async (req, res) => {
   }
 });
 
-/* ── Manual plan activation (test/admin) ──────────── */
+/* ── Manual plan activation (super-admin only) ──────── */
 router.post("/billing/activate-plan", async (req, res) => {
   try {
-    const { plan = "basic", officeId = "default" } = req.body as { plan: string; officeId?: string };
+    const { userId } = getAuth(req as any);
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+
+    /* Super-admin check: must be platform owner e-mail or Clerk publicMetadata.role=super_admin */
+    const { clerkClient } = await import("@clerk/express");
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const ownerEmail = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
+    const userEmail  = clerkUser.emailAddresses?.[0]?.emailAddress ?? "";
+    const isSuperAdmin =
+      (ownerEmail && userEmail === ownerEmail) ||
+      clerkUser.publicMetadata?.role === "super_admin";
+
+    if (!isSuperAdmin) {
+      return res.status(403).json({ error: "يتطلب صلاحية المشرف العام" });
+    }
+
+    const { plan = "basic" } = req.body as { plan: string };
+    const officeId = "default"; // always server-resolved
     const { provisionTenant } = await import("../services/tenantProvisioning");
-    const result = await provisionTenant({ officeId, plan, email: "manual@activation.com" });
+    const result = await provisionTenant({ officeId, plan, email: userEmail });
     res.json({ ok: true, ...result });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

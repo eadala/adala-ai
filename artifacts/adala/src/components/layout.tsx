@@ -93,10 +93,11 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "nav.groups.analytics",
     items: [
-      { href: "/analytics",        labelKey: "nav.items.performance_analytics", icon: BarChart3,     feature: "advancedReports" },
-      { href: "/risk-management",  labelKey: "nav.items.risk_management",       icon: AlertTriangle, feature: "advancedReports" },
-      { href: "/compliance",       labelKey: "nav.items.compliance",            icon: Shield },
-      { href: "/login-tracking",   labelKey: "nav.items.login_tracking",        icon: Lock },
+      { href: "/analytics",                labelKey: "nav.items.performance_analytics",   icon: BarChart3,     feature: "advancedReports" },
+      { href: "/financial-intelligence",   labelKey: "nav.items.financial_intelligence",  icon: BrainCircuit },
+      { href: "/risk-management",          labelKey: "nav.items.risk_management",         icon: AlertTriangle, feature: "advancedReports" },
+      { href: "/compliance",               labelKey: "nav.items.compliance",              icon: Shield },
+      { href: "/login-tracking",           labelKey: "nav.items.login_tracking",          icon: Lock },
     ],
   },
   {
