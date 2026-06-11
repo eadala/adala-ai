@@ -72,6 +72,7 @@ import RemindersPage from "@/pages/reminders";
 import OnboardingPage from "@/pages/onboarding";
 import EmailNotificationsPage from "@/pages/email-notifications";
 import WhatsAppSettingsPage from "@/pages/whatsapp-settings";
+import ThemeBuilderPage from "@/pages/theme-builder";
 import DocumentTemplatesPage from "@/pages/document-templates";
 import FinanceCenter from "@/pages/finance-center";
 import Collections from "@/pages/collections";
@@ -425,6 +426,9 @@ function AppRoutes() {
             </Route>
             <Route path="/whatsapp-settings">
               <ProtectedRoute><WhatsAppSettingsPage /></ProtectedRoute>
+            </Route>
+            <Route path="/theme-builder">
+              <ProtectedRoute><ThemeBuilderPage /></ProtectedRoute>
             </Route>
             <Route path="/document-templates">
               <ProtectedRoute><DocumentTemplatesPage /></ProtectedRoute>

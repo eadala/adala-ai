@@ -55,6 +55,7 @@ import whatsappRouter from "./whatsapp";
 import documentTemplatesRouter from "./document-templates";
 import financeCenterRouter from "./finance-center";
 import analyticsRouter from "./analytics";
+import themeBuilderRouter from "./themeBuilder";
 
 const router: IRouter = Router();
 
@@ -123,5 +124,6 @@ router.use((req, _res, next) => {
 router.use(documentTemplatesRouter);
 router.use(financeCenterRouter);
 router.use(analyticsRouter);
+router.use(themeBuilderRouter);
 
 export default router;
