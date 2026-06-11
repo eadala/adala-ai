@@ -14,3 +14,4 @@
 - [Adala hosting center](adala-hosting.md) — hosting_domains + hosting_providers DB tables; /api/hosting/* routes (all adminOnly); HostingCenterTab in super-admin.tsx with 5 sub-tabs: infrastructure/domains/subdomains/providers/devaccess
 - [Adala Studio](adala-studio.md) — 7 DB tables (studio_custom_tables/fields/forms/workflows/plugins/api_keys/ai_tasks); /api/studio/* routes; standalone /studio page (7 sections); Clerk import must be @clerk/react NOT @clerk/clerk-react
 - [Adala Storage Manager](adala-storage.md) — 3 DB tables (storage_files, office_storage_quota, storage_settings); routes appended to existing storage.ts (not a separate file); /storage-settings page with 4 tabs; Copy2 not valid in lucide-react, use Copy
+- [Adala Mobile App](adala-mobile.md) — React+Vite PWA at /adala-mobile/; uses port 8082 (not 24009 scaffold default); port must be in .replit [[ports]] for workflow to start
