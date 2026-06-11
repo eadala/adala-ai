@@ -14,8 +14,9 @@ import { toast } from "sonner";
 import {
   ShoppingBag, Plus, Star, Clock, DollarSign, Trash2, Edit2, Search,
   Scale, FileText, Gavel, Briefcase, Building2, Home, Users, Loader2,
-  ToggleLeft, ToggleRight, Package
+  ToggleLeft, ToggleRight, Package, AlertCircle, CheckSquare
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 
@@ -150,6 +151,7 @@ function NewServiceDialog({ onCreated }: { onCreated: () => void }) {
   const [duration, setDuration] = useState("");
   const [tags, setTags] = useState("");
   const [officeName, setOfficeName] = useState("");
+  const [acceptedCommission, setAcceptedCommission] = useState(false);
 
   const create = useMutation({
     mutationFn: () =>
@@ -227,7 +229,30 @@ function NewServiceDialog({ onCreated }: { onCreated: () => void }) {
             <Label>الكلمات المفتاحية (مفصولة بفاصلة)</Label>
             <Input placeholder="عمالي, عقود, شركات" value={tags} onChange={e => setTags(e.target.value)} />
           </div>
-          <Button className="w-full" onClick={() => create.mutate()} disabled={!title || !price || create.isPending}>
+          {/* Commission disclosure + acceptance */}
+          <div className="rounded-xl p-3 space-y-3 border" style={{ background: "rgba(201,168,76,0.05)", borderColor: "rgba(201,168,76,0.25)" }}>
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-[#C9A84C]" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                عند استخدام متجر الخدمات القانونية والدفع الإلكتروني عبر منصة عدالة AI، يتم تحويل صافي المبلغ المستحق للمكتب بعد خصم{" "}
+                <strong className="text-foreground">عمولة المنصة البالغة 10%</strong> ورسوم مزود خدمة الدفع إن وجدت.
+              </p>
+            </div>
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="commission-accept"
+                checked={acceptedCommission}
+                onCheckedChange={(v) => setAcceptedCommission(!!v)}
+                className="mt-0.5"
+              />
+              <label htmlFor="commission-accept" className="text-xs text-muted-foreground cursor-pointer leading-relaxed select-none">
+                أقر وأوافق على استقطاع عمولة تشغيل وإدارة بنسبة{" "}
+                <strong className="text-foreground">10%</strong>{" "}
+                عند استخدام خدمات الدفع الإلكتروني الخاصة بمنصة عدالة AI.
+              </label>
+            </div>
+          </div>
+          <Button className="w-full" onClick={() => create.mutate()} disabled={!title || !price || !acceptedCommission || create.isPending}>
             {create.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <ShoppingBag className="h-4 w-4 ml-2" />}
             نشر الخدمة
           </Button>
@@ -279,6 +304,17 @@ export default function Marketplace() {
           <p className="text-muted-foreground mt-1">تصفح الخدمات القانونية أو انشر خدماتك وصل للعملاء</p>
         </div>
         <NewServiceDialog onCreated={refresh} />
+      </div>
+
+      {/* Commission notice */}
+      <div className="flex items-start gap-3 p-3 rounded-xl border text-xs" style={{ background: "rgba(201,168,76,0.05)", borderColor: "rgba(201,168,76,0.2)" }}>
+        <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[#C9A84C]" />
+        <p className="text-muted-foreground leading-relaxed">
+          <span className="font-semibold text-foreground">سياسة العمولة: </span>
+          عند استخدام الدفع الإلكتروني عبر المنصة، يتم استقطاع عمولة تشغيل وإدارة بنسبة{" "}
+          <span className="font-bold text-[#C9A84C]">10%</span>{" "}
+          من المبالغ المحصلة، بالإضافة إلى رسوم مزود خدمة الدفع عند الاقتضاء.
+        </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
