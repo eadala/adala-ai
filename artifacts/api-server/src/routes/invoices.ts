@@ -123,12 +123,13 @@ router.post("/invoices/:id/payment-link", async (req: Request, res: Response) =>
       res.json({ url: invoice.stripePaymentLinkUrl, existing: true }); return;
     }
 
-    // Convert SAR → halalas (×100) for Stripe unit_amount
-    const unitAmount = Math.round(invoice.total * 100);
+    // unit_amount: amounts stored in halalas (SAR smallest unit = 1/100 riyal)
+    const unitAmount = Math.round(invoice.total);
     const STRIPE_MAX = 99_999_999;
     if (unitAmount > STRIPE_MAX) {
+      const sarDisplay = (invoice.total / 100).toLocaleString("ar-SA", { maximumFractionDigits: 2 });
       res.status(400).json({
-        error: `المبلغ (${invoice.total.toLocaleString("ar-SA")} ر.س) يتجاوز الحد الأقصى لـ Stripe (999,999.99 ر.س). يُرجى تقسيم الفاتورة أو تحصيل المبلغ خارج المنصة.`,
+        error: `المبلغ (${sarDisplay} ر.س) يتجاوز الحد الأقصى لـ Stripe (999,999.99 ر.س). يُرجى تقسيم الفاتورة أو تحصيل المبلغ خارج المنصة.`,
         hint: "stripe_max_exceeded",
       }); return;
     }
