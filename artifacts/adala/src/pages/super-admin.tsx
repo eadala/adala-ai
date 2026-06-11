@@ -121,7 +121,7 @@ export default function SuperAdmin() {
             <StatCard icon={<Building2 className="h-4 w-4" />} label="إجمالي المكاتب" value={stats?.totalOffices} color="#C9A84C" />
             <StatCard icon={<Users className="h-4 w-4" />} label="إجمالي المستخدمين" value={stats?.totalUsers} color="#3B82F6" />
             <StatCard icon={<Activity className="h-4 w-4" />} label="استهلاك الذكاء الاصطناعي" value={stats?.totalAiUsage?.toLocaleString()} sub="وحدة" color="#8B5CF6" />
-            <StatCard icon={<DollarSign className="h-4 w-4" />} label="التكلفة الإجمالية" value={`$${(stats?.totalCost ?? 0).toFixed(2)}`} color="#10B981" />
+            <StatCard icon={<DollarSign className="h-4 w-4" />} label="التكلفة الإجمالية" value={`$${Number(stats?.totalCost ?? 0).toFixed(2)}`} color="#10B981" />
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
             <StatCard icon={<Package className="h-4 w-4" />} label="الباقات النشطة" value={stats?.activePlans} color="#F59E0B" />
