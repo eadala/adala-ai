@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -9,6 +9,9 @@ export const usersTable = pgTable("users", {
   phone:     text("phone"),
   status:    text("status").notNull().default("active"),
   role:      text("role").notNull().default("lawyer"),
+  acceptedTerms: boolean("accepted_terms").default(false),
+  acceptedTermsAt: timestamp("accepted_terms_at"),
+  acceptedPrivacyAt: timestamp("accepted_privacy_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
