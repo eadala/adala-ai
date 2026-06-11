@@ -1,8 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import nodemailer from "nodemailer";
-import { getAuth } from "@clerk/express";
 
 const router = Router();
 
@@ -278,90 +276,6 @@ router.get("/notifications", async (_req, res) => {
     notifications,
     unreadCount: notifications.length,
   });
-});
-
-/* ═══════════════════════════════════════════════════════════════════
-   EMAIL NOTIFICATIONS  — /email-notifications/*
-═══════════════════════════════════════════════════════════════════ */
-
-
-async function sqlOne2(q: any) {
-  try { const r = await db.execute(q) as any; const rows = Array.isArray(r) ? r : (r?.rows ?? []); return rows[0] ?? null; }
-  catch { return null; }
-}
-async function sqlAll2(q: any) {
-  try { const r = await db.execute(q) as any; return Array.isArray(r) ? r : (r?.rows ?? []); }
-  catch { return []; }
-}
-
-router.get("/email-notifications/settings", async (req, res) => {
-  try {
-    
-    const { userId } = getAuth(req as any);
-    if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const row = await sqlOne2(sql`SELECT id, user_id, email_enabled, smtp_host, smtp_port, smtp_user, smtp_from, notify_new_case, notify_invoice_due, notify_reminder, notify_team_activity, updated_at FROM notification_settings WHERE user_id = ${userId}`);
-    res.json(row ?? { enabled: false }); // smtp_pass intentionally excluded
-  } catch (e: any) { res.json({ enabled: false }); }
-});
-
-router.post("/email-notifications/settings", async (req, res) => {
-  try {
-    
-    const { userId } = getAuth(req as any);
-    if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const { enabled, smtpHost, smtpPort, smtpUser, smtpPass, fromEmail, fromName, triggers } = req.body;
-    const row = await sqlOne2(sql`
-      INSERT INTO notification_settings (user_id, email_enabled, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, updated_at)
-      VALUES (${userId}, ${enabled ?? false}, ${smtpHost ?? null}, ${parseInt(smtpPort ?? "587")}, ${smtpUser ?? null}, ${smtpPass ?? null}, ${fromEmail ?? null}, NOW())
-      ON CONFLICT (user_id) DO UPDATE SET
-        email_enabled = EXCLUDED.email_enabled,
-        smtp_host     = EXCLUDED.smtp_host,
-        smtp_port     = EXCLUDED.smtp_port,
-        smtp_user     = EXCLUDED.smtp_user,
-        smtp_pass     = EXCLUDED.smtp_pass,
-        smtp_from     = EXCLUDED.smtp_from,
-        updated_at    = NOW()
-      RETURNING *
-    `);
-    res.json({ ok: true, row });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-router.post("/email-notifications/test", async (req, res) => {
-  try {
-    
-    const { userId } = getAuth(req as any);
-    if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const { to, smtpHost, smtpPort, smtpUser, smtpPass, fromEmail } = req.body;
-    if (!smtpHost || !smtpUser || !smtpPass) return res.status(400).json({ error: "يرجى ضبط إعدادات SMTP أولاً" });
-    if (!nodemailer) return res.status(400).json({ error: "nodemailer غير متاح" });
-    const transporter = nodemailer.createTransport({
-      host: smtpHost, port: parseInt(smtpPort ?? "587"),
-      secure: parseInt(smtpPort ?? "587") === 465,
-      auth: { user: smtpUser, pass: smtpPass },
-    });
-    await transporter.sendMail({
-      from: fromEmail ?? smtpUser,
-      to: to ?? smtpUser,
-      subject: "اختبار إشعارات عدالة AI",
-      html: `<div dir="rtl" style="font-family:Cairo,sans-serif;padding:24px"><h2 style="color:#1a2b4a">🔔 اختبار إشعار</h2><p>تم استلام هذه الرسالة من نظام عدالة AI — إعدادات البريد تعمل بشكل صحيح.</p></div>`,
-    });
-    await db.execute(sql`
-      INSERT INTO email_logs (user_id, to_email, subject, status, sent_at)
-      VALUES (${userId}, ${to ?? smtpUser}, 'اختبار إشعارات عدالة AI', 'sent', NOW())
-    `).catch(() => {});
-    res.json({ ok: true, msg: "تم إرسال البريد الاختباري بنجاح" });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-router.get("/email-notifications/logs", async (req, res) => {
-  try {
-    
-    const { userId } = getAuth(req as any);
-    if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const rows = await sqlAll2(sql`SELECT * FROM email_logs WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 50`);
-    res.json(rows);
-  } catch (e: any) { res.json([]); }
 });
 
 export default router;
