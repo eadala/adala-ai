@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useState, useEffect, useRef } from "react";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import {
   Scale, Shield, Bot, FileText, Users, ArrowLeft, CheckCircle, Star,
@@ -219,6 +220,7 @@ export default function Landing() {
           </nav>
           {/* CTA */}
           <div className="hidden md:flex items-center gap-3">
+            <LanguageSwitcher />
             <Link href={`${BASE}/sign-in`}>
               <button className="text-sm text-white/70 hover:text-white transition-colors px-3 py-1.5">تسجيل الدخول</button>
             </Link>
@@ -229,9 +231,12 @@ export default function Landing() {
             </Link>
           </div>
           {/* Mobile hamburger */}
-          <button className="md:hidden text-white/70 hover:text-white p-2" onClick={() => setNavOpen(p => !p)}>
-            {navOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+          <div className="md:hidden flex items-center gap-2">
+            <LanguageSwitcher />
+            <button className="text-white/70 hover:text-white p-2" onClick={() => setNavOpen(p => !p)}>
+              {navOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
         {/* Mobile menu */}
         <AnimatePresence>
