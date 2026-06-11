@@ -72,8 +72,9 @@ router.get("/office/plan-notifications", async (_req, res) => {
       LIMIT 20
     `);
     res.json(rows.rows ?? []);
-  } catch {
-    res.json([]);
+  } catch (e: any) {
+    console.error("[plan-notifications]", e);
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -85,8 +86,9 @@ router.patch("/office/plan-notifications/read-all", async (_req, res) => {
   try {
     await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE`);
     res.json({ ok: true });
-  } catch {
-    res.json({ ok: false });
+  } catch (e: any) {
+    console.error("[plan-notifications/read-all]", e);
+    res.status(500).json({ error: e.message, ok: false });
   }
 });
 

@@ -66,7 +66,8 @@ router.post("/billing/checkout", async (req, res) => {
   if (!plan) return res.status(400).json({ error: "الخطة غير موجودة" });
 
   try {
-    const officeId = (req.body.officeId as string) ?? "default";
+    /* officeId always server-resolved — never trust client */
+    const officeId = "default";
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
@@ -145,12 +146,15 @@ router.get("/billing/stripe-status", (_req, res) => {
 });
 
 /* ── الفواتير ─────────────────────────────────────── */
-router.get("/billing/invoices", async (_req, res) => {
+router.get("/billing/invoices", async (req, res) => {
   try {
+    const { userId } = getAuth(req as any);
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
     const invoices = await db.select().from(invoicesTable).orderBy(invoicesTable.createdAt);
     res.json(invoices.map(i => ({ ...i, createdAt: i.createdAt.toISOString() })));
-  } catch {
-    res.json([]);
+  } catch (e: any) {
+    console.error("[billing/invoices]", e);
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -176,7 +180,11 @@ router.get("/billing/usage", async (_req, res) => {
 /* ── Ledger ───────────────────────────────────────── */
 router.get("/billing/ledger", async (req, res) => {
   try {
-    const officeId = (req.headers["x-office-id"] as string) ?? "default";
+    const { userId } = getAuth(req as any);
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+
+    /* officeId always server-resolved — never trust x-office-id header */
+    const officeId = "default";
     const r = await db.execute(sql`
       SELECT id, type, amount, currency, ref, description, stripe_id, created_at
       FROM office_ledger
@@ -186,8 +194,9 @@ router.get("/billing/ledger", async (req, res) => {
     `);
     const rows = (r as any)?.rows ?? [];
     res.json(rows);
-  } catch {
-    res.json([]);
+  } catch (e: any) {
+    console.error("[billing/ledger]", e);
+    res.status(500).json({ error: e.message });
   }
 });
 
