@@ -1,0 +1,390 @@
+بما أنك تعمل على **Replit (React + TypeScript + Express + PostgreSQL + Drizzle)**، فمن الأفضل بناء النظام بطريقة احترافية وقابلة للتوسع، بحيث تكون **الرواتب مرتبطة بالمصاريف والتقارير المالية تلقائياً**.
+
+---
+
+# 1) تعديل قاعدة البيانات
+
+## `shared/schema.ts`
+
+### جدول الإيرادات
+
+```ts
+export const revenues = pgTable("revenues", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  officeId: uuid("office_id").notNull(),
+
+  title: varchar("title", { length: 255 }).notNull(),
+
+  category: varchar("category", { length: 100 }),
+
+  amount: decimal("amount", {
+    precision: 15,
+    scale: 2
+  }).notNull(),
+
+  paymentMethod: varchar("payment_method", {
+    length: 100
+  }),
+
+  date: timestamp("date").defaultNow(),
+
+  notes: text("notes"),
+
+  createdAt: timestamp("created_at").defaultNow()
+});
+```
+
+---
+
+## جدول المصاريف
+
+```ts
+export const expenses = pgTable("expenses", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  officeId: uuid("office_id").notNull(),
+
+  title: varchar("title", {
+    length: 255
+  }).notNull(),
+
+  category: varchar("category", {
+    length: 100
+  }).notNull(),
+
+  amount: decimal("amount", {
+    precision: 15,
+    scale: 2
+  }).notNull(),
+
+  paymentMethod: varchar("payment_method", {
+    length: 100
+  }),
+
+  date: timestamp("date").defaultNow(),
+
+  notes: text("notes"),
+
+  createdAt: timestamp("created_at").defaultNow()
+});
+```
+
+---
+
+## جدول الرواتب
+
+```ts
+export const payrolls = pgTable("payrolls", {
+
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  officeId: uuid("office_id").notNull(),
+
+  employeeId: uuid("employee_id").notNull(),
+
+  basicSalary: decimal(
+    "basic_salary",
+    {
+      precision: 15,
+      scale: 2
+    }
+  ).notNull(),
+
+  allowances: decimal(
+    "allowances",
+    {
+      precision: 15,
+      scale: 2
+    }
+  ).default("0"),
+
+  deductions: decimal(
+    "deductions",
+    {
+      precision: 15,
+      scale: 2
+    }
+  ).default("0"),
+
+  netSalary: decimal(
+    "net_salary",
+    {
+      precision: 15,
+      scale: 2
+    }
+  ).notNull(),
+
+  salaryMonth: varchar(
+    "salary_month",
+    {
+      length: 20
+    }
+  ),
+
+  paidAt: timestamp(
+    "paid_at"
+  ),
+
+  createdAt: timestamp(
+    "created_at"
+  ).defaultNow()
+
+});
+```
+
+---
+
+# 2) ربط الرواتب بالمصاريف تلقائياً
+
+## `server/services/payrollService.ts`
+
+```ts
+import { db } from "../db";
+import {
+  payrolls,
+  expenses
+} from "@shared/schema";
+
+export async function createPayroll(
+  data: any
+) {
+
+  const salary = await db
+    .insert(payrolls)
+    .values(data)
+    .returning();
+
+  await db
+    .insert(expenses)
+    .values({
+
+      officeId: data.officeId,
+
+      title:
+        `راتب الموظف ${data.employeeId}`,
+
+      category: "الرواتب",
+
+      amount: data.netSalary,
+
+      paymentMethod: "bank",
+
+      notes:
+        `راتب شهر ${data.salaryMonth}`
+
+    });
+
+  return salary;
+}
+```
+
+---
+
+# 3) حساب الأرباح والخسائر
+
+## `server/services/financeService.ts`
+
+```ts
+export async function getProfitLoss(
+  officeId: string
+) {
+
+  const revenueTotal = 500000;
+
+  const expenseTotal = 180000;
+
+  return {
+
+    revenue: revenueTotal,
+
+    expenses: expenseTotal,
+
+    netProfit:
+      revenueTotal -
+      expenseTotal
+
+  };
+
+}
+```
+
+---
+
+# 4) API
+
+## `server/routes/finance.ts`
+
+```ts
+router.get(
+"/profit-loss",
+async (
+req,
+res
+) => {
+
+const data =
+await getProfitLoss(
+req.user.officeId
+);
+
+res.json(data);
+
+});
+```
+
+---
+
+# 5) القائمة الجانبية
+
+```ts
+{
+title: "المحاسبة",
+
+children: [
+
+{
+title: "الإيرادات",
+href: "/revenues"
+},
+
+{
+title: "المصاريف",
+href: "/expenses"
+},
+
+{
+title: "الرواتب",
+href: "/payrolls"
+},
+
+{
+title: "التدفقات النقدية",
+href: "/cashflow"
+},
+
+{
+title: "الحسابات البنكية",
+href: "/bank-accounts"
+},
+
+{
+title: "العهد والسلف",
+href: "/advances"
+},
+
+{
+title: "التقارير المالية",
+href: "/financial-reports"
+}
+
+]
+
+}
+```
+
+---
+
+# 6) بطاقات لوحة التحكم
+
+```tsx
+<Card>
+<CardHeader>
+
+إجمالي الإيرادات
+
+</CardHeader>
+
+<CardContent>
+
+2,500,000 ر.س
+
+</CardContent>
+</Card>
+```
+
+```tsx
+<Card>
+<CardHeader>
+
+إجمالي المصاريف
+
+</CardHeader>
+
+<CardContent>
+
+950,000 ر.س
+
+</CardContent>
+</Card>
+```
+
+```tsx
+<Card>
+<CardHeader>
+
+صافي الربح
+
+</CardHeader>
+
+<CardContent>
+
+1,550,000 ر.س
+
+</CardContent>
+</Card>
+```
+
+---
+
+# 7) الرسم البياني
+
+```tsx
+<RevenueExpenseChart />
+```
+
+يعرض:
+
+* الإيرادات الشهرية.
+* المصاريف.
+* الأرباح.
+
+---
+
+# المعمارية التي أوصي بها لعدالة AI
+
+```text
+server/
+
+services/
+
+financeService.ts
+
+expenseService.ts
+
+revenueService.ts
+
+payrollService.ts
+
+cashflowService.ts
+
+bankService.ts
+
+routes/
+
+finance.ts
+
+expenses.ts
+
+revenues.ts
+
+payrolls.ts
+
+cashflow.ts
+
+shared/
+
+schema.ts
+```
+
+وهذا التصميم مناسب جداً لـ Replit، ويجعل المحاسبة خفيفة ومترابطة مع الموارد البشرية والفواتير والتقارير المالية، دون تعقيد أنظمة ERP الكبيرة.

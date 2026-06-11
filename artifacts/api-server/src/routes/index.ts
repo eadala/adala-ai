@@ -37,6 +37,7 @@ import aiEngineRouter from "./ai-engine";
 import internalMessagesRouter from "./internal-messages";
 import aiAssistantRouter from "./ai-assistant";
 import subscriptionRouter from "./subscription";
+import backupRouter from "./backup";
 
 const router: IRouter = Router();
 
@@ -78,5 +79,6 @@ router.use(aiEngineRouter);
 router.use("/internal-messages", internalMessagesRouter);
 router.use("/ai-assistant", aiAssistantRouter);
 router.use(subscriptionRouter);
+router.use(backupRouter);
 
 export default router;

@@ -44,6 +44,7 @@ import OfficeStore from "@/pages/office-store";
 import OfficeBook from "@/pages/office-book";
 import OfficeManagement from "@/pages/office-management";
 import SuperAdmin from "@/pages/super-admin";
+import BackupCenter from "@/pages/backup";
 import FirmAdmin from "@/pages/firm-admin";
 import CalendarPage from "@/pages/calendar";
 import ClientPortal from "@/pages/client-portal";
@@ -287,6 +288,9 @@ function AppRoutes() {
             </Route>
             <Route path="/office-settings">
               <ProtectedRoute><OfficeSettings /></ProtectedRoute>
+            </Route>
+            <Route path="/backup">
+              <ProtectedRoute><BackupCenter /></ProtectedRoute>
             </Route>
             <Route path="/judge-prep">
               <ProtectedRoute><JudgePrep /></ProtectedRoute>
