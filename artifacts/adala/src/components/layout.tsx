@@ -17,6 +17,7 @@ const NAV_GROUPS = [
       { href: "/contracts", label: "العقود", icon: FileText },
       { href: "/clients", label: "العملاء (CRM)", icon: UserCircle },
       { href: "/invoices", label: "الفواتير", icon: Receipt },
+      { href: "/calendar", label: "التقويم والمواعيد", icon: CalendarDays },
       { href: "/documents", label: "المستندات", icon: BookOpen },
     ],
   },

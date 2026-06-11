@@ -39,7 +39,7 @@ const PAYMENT_METHODS = [
   { icon: "💳", label: "مدى" },
   { icon: "💳", label: "Visa" },
   { icon: "💳", label: "Mastercard" },
-  { icon: "🍎", label: "Apple Pay" },
+  { icon: "", label: "Apple Pay" },
   { icon: "🔵", label: "Google Pay" },
 ];
 
@@ -213,6 +213,13 @@ function InvoiceCard({ invoice, onRefresh }: { invoice: Invoice; onRefresh: () =
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const deleteInvoice = useMutation({
+    mutationFn: () => fetch(`${BASE}api/invoices/${invoice.id}`, { method: "DELETE" }).then(r => r.json()),
+    onSuccess: () => { toast.success("تم حذف الفاتورة"); onRefresh(); },
+    onError: () => toast.error("فشل حذف الفاتورة"),
+  });
+
   return (
     <Card className="hover:border-primary/30 transition-all">
       <CardContent className="pt-5 space-y-4">
@@ -298,6 +305,28 @@ function InvoiceCard({ invoice, onRefresh }: { invoice: Invoice; onRefresh: () =
               {loadingLink ? "جاري إنشاء رابط الدفع..." : "إنشاء رابط دفع إلكتروني"}
             </Button>
           )
+        )}
+
+        {/* Delete (unpaid only) */}
+        {invoice.status !== "paid" && (
+          <div className="pt-1 border-t border-border/40">
+            {!confirmDelete ? (
+              <Button variant="ghost" size="sm" className="w-full text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 gap-1.5"
+                onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="h-3.5 w-3.5" />حذف الفاتورة
+              </Button>
+            ) : (
+              <div className="flex gap-2 items-center">
+                <span className="text-xs text-red-400 flex-1">هل أنت متأكد؟</span>
+                <Button variant="destructive" size="sm" className="text-xs h-7 px-3"
+                  onClick={() => deleteInvoice.mutate()} disabled={deleteInvoice.isPending}>
+                  {deleteInvoice.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "حذف"}
+                </Button>
+                <Button variant="ghost" size="sm" className="text-xs h-7 px-3"
+                  onClick={() => setConfirmDelete(false)}>إلغاء</Button>
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

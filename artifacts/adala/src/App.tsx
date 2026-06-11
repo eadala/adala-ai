@@ -40,6 +40,7 @@ import OfficePage from "@/pages/office-public";
 import OfficeStore from "@/pages/office-store";
 import OfficeManagement from "@/pages/office-management";
 import SuperAdmin from "@/pages/super-admin";
+import CalendarPage from "@/pages/calendar";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -302,6 +303,9 @@ function AppRoutes() {
             </Route>
             <Route path="/billing">
               <ProtectedRoute><Billing /></ProtectedRoute>
+            </Route>
+            <Route path="/calendar">
+              <ProtectedRoute><CalendarPage /></ProtectedRoute>
             </Route>
             <Route>
               <Layout><NotFound /></Layout>
