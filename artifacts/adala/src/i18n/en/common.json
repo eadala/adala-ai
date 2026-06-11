@@ -109,47 +109,71 @@
     "features": {
       "label": "Features",
       "title": "Everything Your Firm Needs in One Platform",
-      "subtitle": "Integrated solutions to run your legal practice more efficiently and scale faster",
+      "subtitle": "30+ integrated modules to run your legal practice more efficiently and scale faster",
       "items": [
         {
           "title": "Case Management",
-          "desc": "Track all your cases and deadlines at a glance with advanced filtering"
+          "desc": "Track all your cases and deadlines at a glance with advanced filtering and PDF export"
         },
         {
-          "title": "AI Assistant",
-          "desc": "Document analysis and legal risk assessment in Arabic"
+          "title": "AI Legal Agents",
+          "desc": "6 specialized agents: Contracts, Litigation, Corporate, Compliance, IP, Collections"
         },
         {
           "title": "Contract Management",
-          "desc": "Draft and track contracts with automatic expiry alerts"
+          "desc": "Draft and track contracts with automatic expiry alerts and full archiving"
         },
         {
           "title": "Client CRM",
-          "desc": "Complete client profile with full history and dedicated client portal"
+          "desc": "Complete client profile with full case history and dedicated client portal"
         },
         {
           "title": "Appointments & Sessions",
           "desc": "Smart calendar with automatic reminders before hearings and calendar sync"
         },
         {
-          "title": "Internal Messaging",
-          "desc": "Secure internal messaging with read receipts and full history"
-        },
-        {
           "title": "Invoices & Collections",
-          "desc": "Create professional invoices and automatically track payments"
+          "desc": "Create professional invoices with multiple templates and auto payment tracking"
         },
         {
           "title": "Document Management",
-          "desc": "Document library with OCR, smart search, and case linking"
+          "desc": "Central document library with OCR, smart search, and direct case linking"
         },
         {
           "title": "Client Portal",
-          "desc": "Secure client access to follow their case and download documents"
+          "desc": "Private link for each client to track their case, download documents and pay invoices"
         },
         {
-          "title": "Team Permissions",
-          "desc": "Full RBAC system with fine-grained team permission control"
+          "title": "Opponent Simulator",
+          "desc": "Argue against an AI lawyer to find weaknesses in your case before the hearing"
+        },
+        {
+          "title": "Smart Legal Research",
+          "desc": "AI-powered search across regulations and judicial precedents"
+        },
+        {
+          "title": "Financial Reports",
+          "desc": "Profit & loss, cash flow, and revenue breakdown reports"
+        },
+        {
+          "title": "HR Management",
+          "desc": "Manage staff records, roles, professional credentials, and disciplinary actions"
+        },
+        {
+          "title": "Payroll & Attendance",
+          "desc": "Accurate tracking of attendance, leaves, and payroll for legal staff"
+        },
+        {
+          "title": "Office Website",
+          "desc": "Professional office page with services for sale and online appointment booking"
+        },
+        {
+          "title": "Official Letters",
+          "desc": "Generate formal legal correspondence with professional templates and e-signature"
+        },
+        {
+          "title": "Payment Center",
+          "desc": "Secure electronic payment processing with bank and escrow account management"
         }
       ]
     },
