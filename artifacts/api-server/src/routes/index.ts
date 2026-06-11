@@ -39,6 +39,7 @@ import aiAssistantRouter from "./ai-assistant";
 import subscriptionRouter from "./subscription";
 import backupRouter from "./backup";
 import accountingRouter from "./accounting";
+import developerRouter from "./developer";
 
 const router: IRouter = Router();
 
@@ -82,5 +83,6 @@ router.use("/ai-assistant", aiAssistantRouter);
 router.use(subscriptionRouter);
 router.use(backupRouter);
 router.use(accountingRouter);
+router.use(developerRouter);
 
 export default router;
