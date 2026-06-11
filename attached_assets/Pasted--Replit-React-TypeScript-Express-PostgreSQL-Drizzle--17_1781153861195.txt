@@ -1,0 +1,601 @@
+إذا كنت تستخدم **Replit + React + TypeScript + Express + PostgreSQL + Drizzle** فأفضل طريقة احترافية هي بناء **Hosting Center** كوحدة مستقلة داخل النظام.
+
+---
+
+# 1. جدول مزودي الاستضافة
+
+## `shared/schema/hostingProviders.ts`
+
+```ts
+import {
+  pgTable,
+  uuid,
+  varchar,
+  boolean,
+  text,
+  timestamp
+} from "drizzle-orm/pg-core";
+
+export const hostingProviders = pgTable(
+  "hosting_providers",
+  {
+
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    providerName: varchar(
+      "provider_name",
+      {
+        length: 100
+      }
+    ).notNull(),
+
+    apiKey: text(
+      "api_key"
+    ),
+
+    secretKey: text(
+      "secret_key"
+    ),
+
+    endpoint: text(
+      "endpoint"
+    ),
+
+    isActive: boolean(
+      "is_active"
+    ).default(true),
+
+    createdAt: timestamp(
+      "created_at"
+    ).defaultNow()
+
+  }
+);
+```
+
+---
+
+# 2. جدول الدومينات
+
+## `shared/schema/domains.ts`
+
+```ts
+export const domains = pgTable(
+  "domains",
+  {
+
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    officeId: uuid(
+      "office_id"
+    ).notNull(),
+
+    domain: varchar(
+      "domain",
+      {
+        length: 255
+      }
+    ).notNull(),
+
+    provider: varchar(
+      "provider",
+      {
+        length: 100
+      }
+    ),
+
+    type: varchar(
+      "type",
+      {
+        length: 50
+      }
+    ),
+
+    sslEnabled: boolean(
+      "ssl_enabled"
+    ).default(true),
+
+    dnsVerified: boolean(
+      "dns_verified"
+    ).default(false),
+
+    status: varchar(
+      "status",
+      {
+        length: 50
+      }
+    ).default("pending"),
+
+    createdAt: timestamp(
+      "created_at"
+    ).defaultNow()
+
+  }
+);
+```
+
+---
+
+# 3. جدول المواقع الفرعية
+
+## `shared/schema/subdomains.ts`
+
+```ts
+export const subdomains = pgTable(
+  "subdomains",
+  {
+
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    officeId: uuid(
+      "office_id"
+    ).notNull(),
+
+    subdomain: varchar(
+      "subdomain",
+      {
+        length: 255
+      }
+    ).notNull(),
+
+    status: varchar(
+      "status",
+      {
+        length: 50
+      }
+    ).default("active"),
+
+    createdAt: timestamp(
+      "created_at"
+    ).defaultNow()
+
+  }
+);
+```
+
+---
+
+# 4. Cloudflare Service
+
+## `server/services/cloudflareService.ts`
+
+```ts
+import axios from "axios";
+
+const baseURL =
+"https://api.cloudflare.com/client/v4";
+
+export async function createDNSRecord(
+
+zoneId: string,
+
+name: string,
+
+ip: string
+
+) {
+
+  return axios.post(
+
+    `${baseURL}/zones/${zoneId}/dns_records`,
+
+    {
+
+      type: "A",
+
+      name,
+
+      content: ip,
+
+      proxied: true
+
+    },
+
+    {
+
+      headers: {
+
+        Authorization:
+
+          `Bearer ${process.env.CLOUDFLARE_TOKEN}`,
+
+        "Content-Type":
+
+          "application/json"
+
+      }
+
+    }
+
+  );
+
+}
+```
+
+---
+
+# 5. Domain Service
+
+## `server/services/domainService.ts`
+
+```ts
+export async function createSubDomain(
+
+officeName: string
+
+) {
+
+  const subdomain =
+
+    `${officeName}.adala-ai.com`;
+
+  return {
+
+    success: true,
+
+    subdomain
+
+  };
+
+}
+```
+
+---
+
+```ts
+export async function verifyDomain() {
+
+  return {
+
+    connected: true
+
+  };
+
+}
+```
+
+---
+
+```ts
+export async function issueSSL() {
+
+  return {
+
+    success: true
+
+  };
+
+}
+```
+
+---
+
+# 6. Hosting Service
+
+## `server/services/hostingService.ts`
+
+```ts
+import os from "os";
+
+export function getServerStatus() {
+
+  return {
+
+    cpu:
+
+      os.cpus().length,
+
+    memory:
+
+      os.totalmem(),
+
+    hostname:
+
+      os.hostname(),
+
+    platform:
+
+      os.platform()
+
+  };
+
+}
+```
+
+---
+
+# 7. API
+
+## `server/routes/hosting.ts`
+
+```ts
+import express from "express";
+
+import {
+
+getServerStatus
+
+}
+
+from "../services/hostingService";
+
+const router = express.Router();
+
+router.get(
+"/status",
+(
+req,
+res
+) => {
+
+res.json(
+getServerStatus()
+);
+
+}
+);
+
+export default router;
+```
+
+---
+
+## `server/routes/domains.ts`
+
+```ts
+import express from "express";
+
+import {
+
+createSubDomain
+
+}
+
+from "../services/domainService";
+
+const router = express.Router();
+
+router.post(
+"/subdomain",
+async (
+req,
+res
+) => {
+
+const data =
+
+await createSubDomain(
+req.body.name
+);
+
+res.json(data);
+
+}
+);
+
+export default router;
+```
+
+---
+
+# 8. تسجيل الراوتر
+
+## `server/index.ts`
+
+```ts
+import hostingRoutes
+from "./routes/hosting";
+
+import domainRoutes
+from "./routes/domains";
+
+app.use(
+"/api/hosting",
+hostingRoutes
+);
+
+app.use(
+"/api/domains",
+domainRoutes
+);
+```
+
+---
+
+# 9. واجهة React
+
+## `client/src/pages/admin/HostingCenterPage.tsx`
+
+```tsx
+import {
+
+Card,
+CardHeader,
+CardContent
+
+}
+
+from "@/components/ui/card";
+
+export default function HostingCenterPage() {
+
+  return (
+
+    <div className="space-y-6">
+
+      <Card>
+
+        <CardHeader>
+
+          حالة الخادم
+
+        </CardHeader>
+
+        <CardContent>
+
+          Online
+
+        </CardContent>
+
+      </Card>
+
+      <Card>
+
+        <CardHeader>
+
+          Cloudflare
+
+        </CardHeader>
+
+        <CardContent>
+
+          Connected
+
+        </CardContent>
+
+      </Card>
+
+      <Card>
+
+        <CardHeader>
+
+          SSL
+
+        </CardHeader>
+
+        <CardContent>
+
+          Active
+
+        </CardContent>
+
+      </Card>
+
+    </div>
+
+  );
+
+}
+```
+
+---
+
+# 10. القائمة الجانبية
+
+```ts
+{
+title:"مركز الاستضافة والبنية التحتية",
+
+children:[
+
+{
+title:"الخوادم",
+href:"/admin/hosting"
+},
+
+{
+title:"الدومينات",
+href:"/admin/domains"
+},
+
+{
+title:"المواقع الفرعية",
+href:"/admin/subdomains"
+},
+
+{
+title:"DNS"
+},
+
+{
+title:"SSL"
+},
+
+{
+title:"التخزين السحابي"
+},
+
+{
+title:"المراقبة"
+}
+
+]
+
+}
+```
+
+---
+
+# البنية الاحترافية التي أوصي بها لعدالة AI
+
+```text
+server/
+
+services/
+
+hostingService.ts
+
+domainService.ts
+
+dnsService.ts
+
+sslService.ts
+
+cloudflareService.ts
+
+monitoringService.ts
+
+storageService.ts
+
+providers/
+
+cloudflareProvider.ts
+
+contaboProvider.ts
+
+hetznerProvider.ts
+
+hostingerProvider.ts
+
+routes/
+
+hosting.ts
+
+domains.ts
+
+dns.ts
+
+ssl.ts
+
+monitoring.ts
+
+shared/
+
+schema/
+
+hostingProviders.ts
+
+domains.ts
+
+subdomains.ts
+
+sslCertificates.ts
+
+dnsRecords.ts
+```
+
+وأفضل بنية تشغيل مستقبلية لعدالة AI هي:
+
+* **Cloudflare** → DNS + SSL + CDN.
+* **Contabo أو Hetzner** → الخوادم.
+* **Cloudflare R2** → تخزين الملفات.
+* **GitHub** → إدارة الإصدارات.
+* **Replit** → التطوير والنشر.
+* **PostgreSQL + Drizzle** → قاعدة البيانات.
+* **Stripe Connect** → المدفوعات وتحويل مستحقات المكاتب.

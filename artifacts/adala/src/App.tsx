@@ -45,6 +45,12 @@ import OfficeBook from "@/pages/office-book";
 import OfficeManagement from "@/pages/office-management";
 import SuperAdmin from "@/pages/super-admin";
 import BackupCenter from "@/pages/backup";
+import Revenues from "@/pages/revenues";
+import Expenses from "@/pages/expenses";
+import FinancialReports from "@/pages/financial-reports";
+import Cashflow from "@/pages/cashflow";
+import BankAccounts from "@/pages/bank-accounts";
+import Advances from "@/pages/advances";
 import FirmAdmin from "@/pages/firm-admin";
 import CalendarPage from "@/pages/calendar";
 import ClientPortal from "@/pages/client-portal";
@@ -291,6 +297,24 @@ function AppRoutes() {
             </Route>
             <Route path="/backup">
               <ProtectedRoute><BackupCenter /></ProtectedRoute>
+            </Route>
+            <Route path="/revenues">
+              <ProtectedRoute><Revenues /></ProtectedRoute>
+            </Route>
+            <Route path="/expenses">
+              <ProtectedRoute><Expenses /></ProtectedRoute>
+            </Route>
+            <Route path="/financial-reports">
+              <ProtectedRoute><FinancialReports /></ProtectedRoute>
+            </Route>
+            <Route path="/cashflow">
+              <ProtectedRoute><Cashflow /></ProtectedRoute>
+            </Route>
+            <Route path="/bank-accounts">
+              <ProtectedRoute><BankAccounts /></ProtectedRoute>
+            </Route>
+            <Route path="/advances">
+              <ProtectedRoute><Advances /></ProtectedRoute>
             </Route>
             <Route path="/judge-prep">
               <ProtectedRoute><JudgePrep /></ProtectedRoute>
