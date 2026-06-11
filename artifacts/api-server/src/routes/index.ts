@@ -30,6 +30,7 @@ import clientPortalRouter from "./client-portal";
 import marketplaceRouter from "./marketplace";
 import aiWorkflowRouter from "./ai-workflow";
 import firmAdminRouter from "./firm-admin";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -64,5 +65,6 @@ router.use(clientPortalRouter);
 router.use(marketplaceRouter);
 router.use(aiWorkflowRouter);
 router.use(firmAdminRouter);
+router.use(notificationsRouter);
 
 export default router;
