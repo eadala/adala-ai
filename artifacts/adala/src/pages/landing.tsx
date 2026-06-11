@@ -646,40 +646,52 @@ export default function Landing() {
             <h2 className="text-3xl sm:text-4xl font-black text-white mt-3 mb-4">{t("landing.pricing.title")}</h2>
             <p className="text-white/50">{t("landing.pricing.subtitle")}</p>
           </FadeIn>
-          <div className="grid sm:grid-cols-3 gap-5">
+          <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-5">
             {pricingPlans.map((p, i) => {
               const highlight = i === 1;
+              const isOpen = i === pricingPlans.length - 1;
               return (
                 <FadeIn key={i} delay={i * 0.1}>
                   <div
                     className="p-6 rounded-2xl h-full flex flex-col relative overflow-hidden"
                     style={{
-                      background: highlight ? "rgba(201,168,76,0.1)" : "rgba(255,255,255,0.03)",
-                      border: highlight ? "2px solid rgba(201,168,76,0.5)" : "1px solid rgba(255,255,255,0.08)",
+                      background: isOpen
+                        ? "linear-gradient(135deg, rgba(201,168,76,0.12), rgba(99,102,241,0.08))"
+                        : highlight ? "rgba(201,168,76,0.1)" : "rgba(255,255,255,0.03)",
+                      border: isOpen
+                        ? "2px solid rgba(201,168,76,0.6)"
+                        : highlight ? "2px solid rgba(201,168,76,0.5)" : "1px solid rgba(255,255,255,0.08)",
                     }}
                   >
-                    {highlight && (
+                    {highlight && !isOpen && (
                       <div className="absolute top-4 left-4 text-xs font-bold px-3 py-1 rounded-full" style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626" }}>
                         {t("landing.pricing.mostPopular")}
                       </div>
                     )}
-                    <p className="font-bold text-white/60 text-sm mb-3">{p.name}</p>
+                    {isOpen && (
+                      <div className="absolute top-4 left-4 text-xs font-bold px-3 py-1 rounded-full" style={{ background: "linear-gradient(135deg,#C9A84C,#6366F1)", color: "#fff" }}>
+                        كل الخدمات
+                      </div>
+                    )}
+                    <p className={`font-bold text-sm mb-3 ${isOpen ? "text-amber-400 mt-6" : highlight ? "text-white/60 mt-6" : "text-white/60"}`}>{p.name}</p>
                     <div className="mb-6">
                       <span className="text-4xl font-black text-white">{p.price}</span>
                       {p.period && <span className="text-white/40 text-sm mr-1">{p.period}</span>}
                     </div>
-                    <ul className="space-y-2.5 flex-1 mb-6">
+                    <ul className="space-y-2 flex-1 mb-6">
                       {p.features.map((f, fi) => (
-                        <li key={fi} className="flex items-center gap-2.5 text-sm text-white/70">
-                          <Check className="w-4 h-4 text-[#C9A84C] shrink-0" />
-                          {f}
+                        <li key={fi} className={`flex items-start gap-2 text-sm ${isOpen ? "text-white/80" : "text-white/70"}`}>
+                          <Check className="w-4 h-4 text-[#C9A84C] shrink-0 mt-0.5" />
+                          <span>{f}</span>
                         </li>
                       ))}
                     </ul>
-                    <Link href={`${BASE}/sign-up`}>
+                    <Link href={isOpen ? "#contact" : `${BASE}/sign-up`}>
                       <button
                         className="w-full py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90"
-                        style={highlight
+                        style={isOpen
+                          ? { background: "linear-gradient(135deg,#C9A84C,#6366F1)", color: "#fff" }
+                          : highlight
                           ? { background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626" }
                           : { background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.8)", border: "1px solid rgba(255,255,255,0.12)" }
                         }

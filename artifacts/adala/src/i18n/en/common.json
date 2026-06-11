@@ -39,8 +39,8 @@
       "letters": "Letter Templates",
       "invoices": "Invoices",
       "billing": "Subscription & Billing",
-        "payment_center": "Payment Center",
-        "studio": "Adala Studio",
+      "payment_center": "Payment Center",
+      "studio": "Adala Studio",
       "messages": "Messages",
       "calendar": "Calendar & Appointments",
       "client_portal": "Client Portal",
@@ -311,23 +311,52 @@
           "features": [
             "15 users",
             "Unlimited cases",
-            "AI assistant",
+            "AI Legal Agents",
             "Client portal",
-            "Contract management",
-            "Advanced reports",
+            "Contract & document management",
+            "Financial reports",
             "Priority support"
           ]
         },
         {
           "name": "Enterprise",
+          "price": "999",
+          "period": "SAR/month",
+          "cta": "Start Trial",
+          "features": [
+            "50 users",
+            "Full White Label",
+            "Opponent Simulator",
+            "Smart Legal Research",
+            "Office website & store",
+            "HR & payroll",
+            "Dedicated account manager"
+          ]
+        },
+        {
+          "name": "Open ✦",
           "price": "Contact Us",
           "period": "",
           "cta": "Contact Us",
           "features": [
             "Unlimited users",
+            "Full case management",
+            "AI Legal Agents (6 agents)",
+            "Contract & document management",
+            "Client CRM",
+            "Appointments & sessions",
+            "Invoices & collections",
+            "Client portal",
+            "Opponent Simulator",
+            "Smart Legal Research",
+            "Financial reports",
+            "HR management",
+            "Payroll & attendance",
+            "Office website & store",
+            "Official letters",
+            "Payment center",
             "Full White Label",
             "Custom API",
-            "Dedicated account manager",
             "99.9% SLA guarantee",
             "Full training & onboarding"
           ]

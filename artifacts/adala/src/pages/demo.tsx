@@ -8,7 +8,7 @@ import {
   Building2, Phone, Mail, Calendar, Shield, Zap, Sparkles,
   ChevronRight, Eye, Plus, Search, Filter, MoreVertical,
   UserCircle, FileCheck, CreditCard, Activity, Award,
-  Banknote, BookOpen, PieChart, Send, Mic, CircleCheck,
+  Banknote, BookOpen, PieChart, Send, Mic, CircleCheck, Globe,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -78,6 +78,33 @@ const AI_PROMPTS = [
   { q: "لخّص لي قضية الأفق العقارية", a: "قضية الأفق العقارية (QD-2024-001) هي نزاع تجاري بقيمة 450,000 ريال، تمثّل فيها موكلنا أحمد السعيد ضد الشركة المدعى عليها. الجلسة القادمة بتاريخ 15 مايو 2024 أمام المحكمة التجارية بالرياض. نقاط القوة: وجود عقد مكتوب + شهود. المخاطر: تأخر في تقديم المستندات المالية." },
   { q: "ما الفواتير المتأخرة هذا الشهر؟", a: "لديك فاتورة واحدة متأخرة: INV-2024-043 للعميل فيصل ناصر القحطاني بقيمة 10,000 ريال، مستحقة منذ 25 أبريل 2024 (تأخر 5 أيام). أنصح بإرسال تذكير فوري عبر البريد الإلكتروني أو رسالة نصية." },
   { q: "هل هناك نزاعات مشابهة في قانون الشركات السعودي؟", a: "نعم، وفق نظام الشركات السعودي الجديد 2022، هناك عدة أحكام محكمة في منازعات الشراكة (المادتان 108 و114) تدعم موقف موكلك. سأقترح إضافتها كمرجع قانوني في المذكرة القادمة." },
+];
+
+const DOCUMENTS = [
+  { name: "عقد توكيل - أحمد السعيد.pdf", case: "QD-2024-001", size: "1.2 MB", date: "2024-04-01", status: "مُفهرس", ocr: true },
+  { name: "حكم محكمة تجارية 2024.pdf", case: "QD-2024-001", size: "3.8 MB", date: "2024-04-05", status: "مُفهرس", ocr: true },
+  { name: "عقد استشارة - شركة النخيل.docx", case: "QD-2024-002", size: "0.4 MB", date: "2024-04-10", status: "مُعالج", ocr: false },
+  { name: "صورة بطاقة - خالد الحربي.jpg", case: "QD-2024-003", size: "0.8 MB", date: "2024-04-12", status: "مُفهرس", ocr: true },
+  { name: "كشف حساب بنكي - أبريل.pdf", case: "QD-2024-005", size: "2.1 MB", date: "2024-04-20", status: "جديد", ocr: false },
+];
+
+const SESSIONS = [
+  { title: "جلسة قضية الأفق العقارية", case: "QD-2024-001", court: "المحكمة التجارية - الرياض", date: "2024-05-15", time: "10:00 ص", type: "مرافعة", status: "قادمة" },
+  { title: "جلسة عقد عمل النخيل", case: "QD-2024-002", court: "المحكمة العمالية - جدة", date: "2024-05-18", time: "09:30 ص", type: "صلح", status: "قادمة" },
+  { title: "استشارة - فيصل القحطاني", case: "QD-2024-004", court: "مكتب المحامي", date: "2024-05-20", time: "02:00 م", type: "استشارة", status: "مؤكدة" },
+  { title: "تقديم مستندات - ورثة الحربي", case: "QD-2024-003", court: "المحكمة العامة - الدمام", date: "2024-05-22", time: "11:00 ص", type: "إجراء", status: "قادمة" },
+];
+
+const LEGAL_RESULTS = [
+  { title: "نظام الشركات السعودي 2022 - المادة 108", source: "وزارة التجارة", relevance: 97, type: "نظام", date: "2022-11-16" },
+  { title: "حكم محكمة الاستئناف التجارية رقم 4521/2023", source: "ديوان المظالم", relevance: 91, type: "سابقة قضائية", date: "2023-08-22" },
+  { title: "نظام العمل السعودي - الباب الخامس", source: "وزارة الموارد البشرية", relevance: 85, type: "نظام", date: "2021-03-01" },
+  { title: "لائحة التحكيم التجاري - المادة 35", source: "هيئة التحكيم التجاري", relevance: 78, type: "لائحة", date: "2023-01-15" },
+];
+
+const OPPONENT_ROUNDS = [
+  { counter: "العقد وُقِّع تحت إكراه مالي، والمادة 178 من نظام الأحوال الشخصية تُجيز إبطاله. علاوةً على ذلك، لم يلتزم الطرف الآخر بالتسليم في الموعد المحدد مما يُسقط الالتزام المقابل." },
+  { counter: "وثيقة الاستلام المقدمة غير موثقة من طرف ثالث محايد. المحكمة التجارية الرياض سبق أن رفضت مستندات مشابهة في قضية رقم 3841/2022. يجب توثيقها من الغرفة التجارية." },
 ];
 
 /* ── HELPERS ─────────────────────────────────── */
@@ -579,19 +606,252 @@ function BankSection() {
   );
 }
 
+function DocumentsSection() {
+  return (
+    <div>
+      <SectionHeader title="إدارة المستندات" count={DOCUMENTS.length} icon={FileText} />
+      <SearchBar placeholder="ابحث في المستندات أو استخدم OCR..." />
+      <div className="space-y-2">
+        {DOCUMENTS.map((d, i) => (
+          <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/8 border border-white/8 rounded-xl transition-all cursor-pointer">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+                <FileText className="w-4 h-4 text-blue-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white truncate">{d.name}</p>
+                <div className="flex gap-2 text-xs text-white/40 mt-0.5">
+                  <span>{d.case}</span>
+                  <span>{d.size}</span>
+                  <span>{d.date}</span>
+                  {d.ocr && <span className="text-emerald-400">✓ OCR</span>}
+                </div>
+              </div>
+            </div>
+            <StatusBadge label={d.status} />
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CalendarSection() {
+  const highlighted = [15, 18, 20, 22];
+  return (
+    <div>
+      <SectionHeader title="المواعيد والجلسات" count={SESSIONS.length} icon={Calendar} />
+      <div className="bg-white/5 border border-white/8 rounded-xl p-4 mb-4">
+        <p className="text-xs text-white/40 mb-3">مايو 2024</p>
+        <div className="grid grid-cols-7 gap-1 text-center mb-1">
+          {["أح","إث","ثل","أر","خم","جم","سب"].map(d => (
+            <div key={d} className="text-xs text-white/30 py-1">{d}</div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1 text-center">
+          {[...Array(31)].map((_, i) => {
+            const day = i + 1;
+            const has = highlighted.includes(day);
+            return (
+              <div key={i} className={`text-xs py-1.5 rounded-lg cursor-pointer transition-colors ${
+                has ? "bg-amber-500 text-black font-bold" :
+                day === 11 ? "bg-white/15 text-white font-bold" :
+                "text-white/40 hover:bg-white/8"
+              }`}>{day}</div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="space-y-2">
+        {SESSIONS.map((s, i) => (
+          <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+            className="p-3 bg-white/5 hover:bg-white/8 border border-white/8 rounded-xl transition-all">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs bg-white/5 px-2 py-0.5 rounded text-white/50">{s.type}</span>
+                  <StatusBadge label={s.status} />
+                </div>
+                <p className="text-sm font-semibold text-white mb-0.5">{s.title}</p>
+                <p className="text-xs text-white/40">{s.court}</p>
+              </div>
+              <div className="text-left shrink-0">
+                <p className="text-sm font-bold text-amber-400">{s.time}</p>
+                <p className="text-xs text-white/40">{s.date}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OpponentSection() {
+  const [phase, setPhase] = useState<"idle"|"thinking"|"done">("idle");
+  const [round, setRound] = useState(0);
+
+  function simulate() {
+    setPhase("thinking");
+    setTimeout(() => { setPhase("done"); setRound(r => (r + 1) % OPPONENT_ROUNDS.length); }, 1800);
+  }
+
+  return (
+    <div>
+      <SectionHeader title="محاكي الخصم" icon={Shield} />
+      <div className="bg-gradient-to-br from-red-950/30 to-[#0B1B2B] border border-red-500/20 rounded-xl p-4 mb-4">
+        <p className="text-xs text-red-400/80 mb-2 flex items-center gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5" /> الوضع: محاكاة — المحامي الافتراضي يمثل الخصم
+        </p>
+        <p className="text-sm text-white/60 mb-4 leading-6">اكتب حجتك القانونية وسيردّ عليك محامي AI كخصم حقيقي لاكتشاف نقاط ضعفك قبل الجلسة.</p>
+        <div className="flex gap-2">
+          <input placeholder="مثال: العقد الموقع يُثبت التزام موكلي..." className="flex-1 bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-red-500/40" />
+          <button onClick={simulate} className="px-4 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg text-sm font-bold transition-colors whitespace-nowrap">
+            جرّب الآن
+          </button>
+        </div>
+      </div>
+      {phase === "thinking" && (
+        <div className="flex items-center gap-3 p-4 bg-red-900/10 border border-red-500/20 rounded-xl">
+          <div className="w-7 h-7 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+            <Shield className="w-4 h-4 text-red-400" />
+          </div>
+          <div className="flex gap-1">
+            {[0,1,2].map(d => (
+              <motion.div key={d} className="w-2 h-2 rounded-full bg-red-400/60"
+                animate={{ y: [0,-5,0] }} transition={{ duration: 0.6, repeat: Infinity, delay: d * 0.15 }} />
+            ))}
+          </div>
+          <span className="text-xs text-red-400/70">المحامي الافتراضي يحضّر ردّه...</span>
+        </div>
+      )}
+      {phase === "done" && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="p-4 bg-red-900/15 border border-red-500/25 rounded-xl">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+              <Shield className="w-4 h-4 text-red-400" />
+            </div>
+            <span className="text-xs font-bold text-red-400">محامي الخصم — ردّه:</span>
+          </div>
+          <p className="text-sm text-white/80 leading-7">{OPPONENT_ROUNDS[round].counter}</p>
+          <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+            <p className="text-xs text-amber-400 font-semibold">⚡ نقطة ضعف مكتشفة:</p>
+            <p className="text-xs text-white/60 mt-1">يُنصح بتقوية الحجة بمستندات موثقة أو سوابق قضائية داعمة قبل الجلسة.</p>
+          </div>
+        </motion.div>
+      )}
+      {phase === "idle" && (
+        <div className="p-3 bg-white/3 border border-white/5 rounded-xl">
+          <p className="text-xs text-white/30 mb-2">مثال من جلسة سابقة:</p>
+          <p className="text-xs text-blue-300/60 mb-1">⚖ الحجة: العقد الموقع يُثبت الالتزام بالدفع خلال 30 يوماً</p>
+          <p className="text-xs text-red-300/60">{OPPONENT_ROUNDS[0].counter.slice(0,120)}...</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LegalResearchSection() {
+  const [searched, setSearched] = useState(false);
+  return (
+    <div>
+      <SectionHeader title="البحث القانوني الذكي" icon={Search} />
+      <div className="flex gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+          <input defaultValue="منازعات الشراكة التجارية" placeholder="ابحث في الأنظمة والسوابق القضائية..."
+            className="w-full bg-white/5 border border-white/10 rounded-lg py-2 pr-9 pl-4 text-sm text-white focus:outline-none focus:border-amber-500/40" />
+        </div>
+        <button onClick={() => setSearched(true)} className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black rounded-lg text-sm font-bold transition-colors">
+          بحث AI
+        </button>
+      </div>
+      {searched && (
+        <div className="mb-3 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-xs text-indigo-300">
+          ✓ تم تحليل 12,847 وثيقة قانونية — إليك أعلى النتائج صلةً:
+        </div>
+      )}
+      <div className="space-y-2">
+        {LEGAL_RESULTS.map((r, i) => (
+          <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+            className="p-4 bg-white/5 hover:bg-white/8 border border-white/8 rounded-xl cursor-pointer transition-all">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full">{r.type}</span>
+                  <span className="text-xs text-white/30">{r.source}</span>
+                </div>
+                <p className="text-sm font-semibold text-white">{r.title}</p>
+                <p className="text-xs text-white/30 mt-0.5">{r.date}</p>
+              </div>
+              <div className="shrink-0 text-center">
+                <div className="text-lg font-black text-emerald-400">{r.relevance}%</div>
+                <div className="text-xs text-white/30">صلة</div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ClientPortalSection() {
+  return (
+    <div>
+      <SectionHeader title="بوابة الموكلين" count={CLIENTS.length} icon={Globe} />
+      <div className="bg-gradient-to-l from-indigo-900/20 to-transparent border border-indigo-500/15 rounded-xl p-4 mb-4">
+        <p className="text-xs text-indigo-400 mb-2">كل موكل لديه رابط خاص ومشفر للوصول لملفه في أي وقت</p>
+        <div className="flex items-center gap-2 bg-black/20 rounded-lg p-2.5">
+          <Globe className="w-4 h-4 text-indigo-400 shrink-0" />
+          <span className="text-xs text-white/50 font-mono truncate">portal.adalah.ai/client/tk_a8f2c9e1...</span>
+          <button className="mr-auto text-xs text-indigo-400 hover:text-indigo-300 shrink-0">نسخ</button>
+        </div>
+      </div>
+      <div className="space-y-3">
+        {CLIENTS.map((c, i) => (
+          <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between p-3 bg-white/5 border border-white/8 rounded-xl transition-all hover:border-indigo-500/20">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-600/40 to-indigo-400/20 flex items-center justify-center text-indigo-300 font-bold text-sm shrink-0">
+                {c.name[0]}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white">{c.name}</p>
+                <p className="text-xs text-white/40">{c.cases} قضايا • آخر دخول: منذ {i + 1} أيام</p>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <StatusBadge label={c.status} />
+              <button className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">إرسال الرابط</button>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── MAIN TABS CONFIG ─────────────────────────── */
 const TABS = [
-  { id: "cases",     label: "القضايا",      icon: Scale,          component: CasesSection },
-  { id: "clients",   label: "العملاء",       icon: Users,          component: ClientsSection },
-  { id: "contracts", label: "العقود",        icon: FileCheck,      component: ContractsSection },
-  { id: "employees", label: "الموظفون",      icon: UserCircle,     component: EmployeesSection },
-  { id: "revenues",  label: "الإيرادات",     icon: TrendingUp,     component: RevenuesSection },
-  { id: "expenses",  label: "المصاريف",      icon: TrendingDown,   component: ExpensesSection },
-  { id: "bank",      label: "البنك والسلف",   icon: Landmark,       component: BankSection },
-  { id: "invoices",  label: "الفواتير",      icon: Receipt,        component: InvoicesSection },
-  { id: "messages",  label: "المراسلات",     icon: MessageSquare,  component: MessagesSection },
-  { id: "reports",   label: "التقارير",      icon: BarChart3,      component: ReportsSection },
-  { id: "ai",        label: "الذكاء AI",     icon: Bot,            component: AiSection },
+  { id: "cases",     label: "القضايا",        icon: Scale,          component: CasesSection },
+  { id: "clients",   label: "الموكلين",        icon: Users,          component: ClientsSection },
+  { id: "contracts", label: "العقود",          icon: FileCheck,      component: ContractsSection },
+  { id: "documents", label: "المستندات",       icon: FileText,       component: DocumentsSection },
+  { id: "calendar",  label: "المواعيد",        icon: Calendar,       component: CalendarSection },
+  { id: "employees", label: "الموظفون",        icon: UserCircle,     component: EmployeesSection },
+  { id: "revenues",  label: "الإيرادات",       icon: TrendingUp,     component: RevenuesSection },
+  { id: "expenses",  label: "المصاريف",        icon: TrendingDown,   component: ExpensesSection },
+  { id: "bank",      label: "البنك والسلف",    icon: Landmark,       component: BankSection },
+  { id: "invoices",  label: "الفواتير",        icon: Receipt,        component: InvoicesSection },
+  { id: "messages",  label: "المراسلات",       icon: MessageSquare,  component: MessagesSection },
+  { id: "reports",   label: "التقارير",        icon: BarChart3,      component: ReportsSection },
+  { id: "opponent",  label: "محاكي الخصم",     icon: Shield,         component: OpponentSection },
+  { id: "research",  label: "البحث القانوني",  icon: Search,         component: LegalResearchSection },
+  { id: "portal",    label: "بوابة الموكلين",  icon: Globe,          component: ClientPortalSection },
+  { id: "ai",        label: "الذكاء AI",       icon: Bot,            component: AiSection },
 ];
 
 /* ── PAGE ─────────────────────────────────────── */
