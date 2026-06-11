@@ -87,19 +87,27 @@ router.get("/cases/:id/hub", async (req, res) => {
   try {
     const { sql } = await import("drizzle-orm");
     const caseId = req.params.id;
-    const [caseRow, invoices, contracts, events, documents] = await Promise.all([
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
+
+    const [caseRow, invoices, events, documents] = await Promise.all([
       db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} LIMIT 1`),
       db.execute(sql`SELECT id, invoice_number, title, total, status, due_date, created_at FROM client_invoices WHERE case_id = ${caseId} ORDER BY created_at DESC`),
-      db.execute(sql`SELECT id, title, type, status, expires_at, created_at FROM contracts WHERE case_id = ${caseId} ORDER BY created_at DESC`),
       db.execute(sql`SELECT id, title, event_type, start_at, location, status FROM events WHERE case_id = ${caseId} ORDER BY start_at DESC`),
-      db.execute(sql`SELECT id, name, file_type, file_size, created_at FROM documents WHERE case_id = ${caseId} ORDER BY created_at DESC`),
+      db.execute(sql`SELECT id, file_name, file_type, created_at FROM documents WHERE case_id = ${caseId} ORDER BY created_at DESC`),
     ]);
+
+    let contractRows: any[] = [];
+    if (isUuid) {
+      const contractsResult = await db.execute(sql`SELECT id, title, type, status, expires_at, created_at FROM contracts WHERE case_id = ${caseId}::uuid ORDER BY created_at DESC`);
+      contractRows = contractsResult.rows ?? [];
+    }
+
     const found = caseRow.rows?.[0];
     if (!found) { res.status(404).json({ error: "Not found" }); return; }
     res.json({
       case: found,
       invoices: invoices.rows ?? [],
-      contracts: contracts.rows ?? [],
+      contracts: contractRows,
       events: events.rows ?? [],
       documents: documents.rows ?? [],
     });

@@ -33,6 +33,7 @@ import firmAdminRouter from "./firm-admin";
 import notificationsRouter from "./notifications";
 import complianceRouter from "./compliance";
 import aiAgentRouter from "./ai-agent";
+import aiEngineRouter from "./ai-engine";
 
 const router: IRouter = Router();
 
@@ -70,5 +71,6 @@ router.use(firmAdminRouter);
 router.use(notificationsRouter);
 router.use(complianceRouter);
 router.use(aiAgentRouter);
+router.use(aiEngineRouter);
 
 export default router;
