@@ -52,6 +52,7 @@ import emailNotificationsRouter from "./emailNotifications";
 import onboardingRouter from "./onboarding";
 import importDataRouter from "./importData";
 import whatsappRouter from "./whatsapp";
+import documentTemplatesRouter from "./document-templates";
 
 const router: IRouter = Router();
 
@@ -108,5 +109,6 @@ router.use(emailNotificationsRouter);
 router.use(onboardingRouter);
 router.use(importDataRouter);
 router.use(whatsappRouter);
+router.use(documentTemplatesRouter);
 
 export default router;

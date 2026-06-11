@@ -6,6 +6,7 @@ import {
   Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown,
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
+  FileSignature,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -40,9 +41,10 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard",  labelKey: "nav.items.dashboard",  icon: LayoutDashboard },
       { href: "/cases",      labelKey: "nav.items.cases",      icon: Scale },
       { href: "/clients",    labelKey: "nav.items.clients",    icon: UserCircle },
-      { href: "/contracts",  labelKey: "nav.items.contracts",  icon: FileText },
-      { href: "/documents",  labelKey: "nav.items.documents",  icon: BookOpen },
-      { href: "/letters",    labelKey: "nav.items.letters",    icon: Mail },
+      { href: "/contracts",          labelKey: "nav.items.contracts",          icon: FileText },
+      { href: "/documents",          labelKey: "nav.items.documents",          icon: BookOpen },
+      { href: "/document-templates", labelKey: "nav.items.documentTemplates",  icon: FileSignature },
+      { href: "/letters",            labelKey: "nav.items.letters",            icon: Mail },
     ],
   },
   {
