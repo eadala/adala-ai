@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import {
   plansTable, discountCodesTable, aiApiKeysTable, platformSettingsTable,
-  departmentsTable, jobTitlesTable, legalSystemsTable, supportTicketsTable,
+  departmentsTable, jobTitlesTable, legalSystemsTable, supportTicketsTable, supportMessagesTable,
   usersTable, usageLogsTable, officePageTable,
 } from "@workspace/db/schema";
 import { eq, desc, count, sum } from "drizzle-orm";
@@ -309,6 +309,30 @@ router.patch("/admin/support/:id", adminOnly, async (req, res) => {
   if (req.body.status === "resolved" && !data.resolvedAt) data.resolvedAt = new Date();
   const updated = await db.update(supportTicketsTable).set(data).where(eq(supportTicketsTable.id, id)).returning();
   res.json(updated[0]);
+});
+
+router.get("/admin/support/:id/messages", adminOnly, async (req, res) => {
+  try {
+    const messages = await db.select().from(supportMessagesTable)
+      .where(eq(supportMessagesTable.ticketId, req.params.id))
+      .orderBy(supportMessagesTable.createdAt);
+    res.json(messages);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.post("/admin/support/:id/reply", adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message = "" } = req.body;
+    if (!message.trim()) return res.status(400).json({ error: "الرسالة مطلوبة" });
+    const [msg] = await db.insert(supportMessagesTable).values({
+      ticketId: id, senderType: "admin", senderName: "فريق الدعم",  message,
+    }).returning();
+    await db.update(supportTicketsTable)
+      .set({ response: message, status: "in_progress", updatedAt: new Date() })
+      .where(eq(supportTicketsTable.id, id));
+    res.json(msg);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 /* ══════════════════════════════════════════════════════
