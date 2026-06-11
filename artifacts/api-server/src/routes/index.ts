@@ -42,6 +42,7 @@ import accountingRouter from "./accounting";
 import developerRouter from "./developer";
 import paymentsRouter from "./payments";
 import hostingRouter from "./hosting";
+import studioRouter from "./studio";
 
 const router: IRouter = Router();
 
@@ -88,5 +89,6 @@ router.use(accountingRouter);
 router.use(developerRouter);
 router.use(paymentsRouter);
 router.use(hostingRouter);
+router.use(studioRouter);
 
 export default router;
