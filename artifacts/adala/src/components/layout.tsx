@@ -5,7 +5,7 @@ import {
   AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign,
   Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown,
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
-  Landmark, Wallet, BarChart2, Cpu,
+  Landmark, Wallet, BarChart2, Cpu, HardDrive,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -115,7 +115,8 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/firm-admin",      labelKey: "nav.items.firm_admin",      icon: Crown },
       { href: "/users",           labelKey: "nav.items.users",           icon: Users },
       { href: "/office-settings", labelKey: "nav.items.office_settings", icon: Building2 },
-      { href: "/backup",          labelKey: "nav.items.backup_center",   icon: Database },
+      { href: "/backup",            labelKey: "nav.items.backup_center",      icon: Database },
+      { href: "/storage-settings", labelKey: "nav.items.storage_settings",   icon: HardDrive },
     ],
   },
   {
