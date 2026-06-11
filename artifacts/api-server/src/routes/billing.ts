@@ -323,4 +323,105 @@ router.post("/billing/activate-plan", async (req, res) => {
   }
 });
 
+/* ══════════════════════════════════════════════════════
+   PLATFORM BILLING INVOICES (SaaS Subscription Billing)
+══════════════════════════════════════════════════════ */
+
+/* ── قائمة فواتير الاشتراك للمكتب ───────────────────── */
+router.get("/billing/platform-invoices", async (req, res) => {
+  try {
+    const { userId } = getAuth(req as any);
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const r = await db.execute(sql`
+      SELECT id, plan_id, plan_name, amount, currency, status,
+             billing_cycle, issue_date, due_date, paid_at, notes, created_at
+      FROM platform_billing_invoices
+      ORDER BY created_at DESC
+      LIMIT 50
+    `);
+    res.json((r as any)?.rows ?? []);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ── إحصائيات فواتير الاشتراك للمكتب ────────────────── */
+router.get("/billing/platform-invoices/stats", async (req, res) => {
+  try {
+    const { userId } = getAuth(req as any);
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const r = await db.execute(sql`
+      SELECT
+        COUNT(*)::int                                           AS total,
+        COUNT(*) FILTER (WHERE status = 'paid')::int           AS paid,
+        COUNT(*) FILTER (WHERE status = 'unpaid')::int         AS unpaid,
+        COUNT(*) FILTER (WHERE status = 'overdue')::int        AS overdue,
+        COALESCE(SUM(amount) FILTER (WHERE status='paid'),0)   AS total_paid,
+        COALESCE(SUM(amount) FILTER (WHERE status='unpaid'),0) AS total_pending
+      FROM platform_billing_invoices
+    `);
+    res.json(((r as any)?.rows ?? [])[0] ?? {});
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ── إنشاء اشتراك + فاتورة تلقائية ─────────────────── */
+router.post("/billing/subscribe", async (req, res) => {
+  try {
+    const { userId } = getAuth(req as any);
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const { planId } = req.body as { planId: string };
+    const plan = PLANS.find(p => p.id === planId);
+    if (!plan) return res.status(400).json({ error: "الباقة غير موجودة" });
+    if ((plan as any).contactOnly)
+      return res.status(400).json({ error: "هذه الباقة تتطلب التواصل المباشر" });
+
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+    const invoiceId = crypto.randomUUID();
+
+    await db.execute(sql`
+      INSERT INTO platform_billing_invoices
+        (id, plan_id, plan_name, amount, currency, status, billing_cycle, due_date)
+      VALUES
+        (${invoiceId}, ${planId}, ${plan.name}, ${plan.price}, 'SAR', 'unpaid', 'monthly', ${dueDate.toISOString()})
+    `);
+    res.json({ ok: true, invoiceId });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ── تسديد فاتورة اشتراك ────────────────────────────── */
+router.post("/billing/pay/:id", async (req, res) => {
+  try {
+    const { userId } = getAuth(req as any);
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const { id } = req.params;
+    await db.execute(sql`
+      UPDATE platform_billing_invoices
+      SET status = 'paid', paid_at = NOW()
+      WHERE id = ${id}
+    `);
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ── تحديث الفواتير المتأخرة (overdue) ──────────────── */
+router.post("/billing/mark-overdue", async (_req, res) => {
+  try {
+    await db.execute(sql`
+      UPDATE platform_billing_invoices
+      SET status = 'overdue'
+      WHERE status = 'unpaid' AND due_date < NOW()
+    `);
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;

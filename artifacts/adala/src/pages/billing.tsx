@@ -78,10 +78,11 @@ const KEY_LABELS: Record<string, { ar: string; icon: string }> = {
 
 /* ─── Tabs ────────────────────────────────────────────── */
 const TABS = [
-  { id: "plans",        label: "الباقات والدفع",   icon: CreditCard },
-  { id: "entitlements", label: "الاستخدام والحدود", icon: TrendingUp },
-  { id: "apikeys",      label: "مفاتيح API",        icon: Key },
-  { id: "ledger",       label: "السجل المالي",      icon: BookOpen },
+  { id: "plans",            label: "الباقات والدفع",    icon: CreditCard },
+  { id: "entitlements",     label: "الاستخدام والحدود", icon: TrendingUp },
+  { id: "apikeys",          label: "مفاتيح API",        icon: Key },
+  { id: "ledger",           label: "السجل المالي",      icon: BookOpen },
+  { id: "platform_invoices", label: "فواتير الاشتراك",  icon: FileText },
 ];
 
 /* ─── Upgrade / Downgrade Modal ───────────────────────── */
@@ -284,7 +285,43 @@ export default function Billing() {
   const { data: ledger = [], isLoading: ledgerLoading } = useQuery<any[]>({
     queryKey: ["billing-ledger"],
     queryFn: () => fetch(`${BASE}/api/billing/ledger`).then(r => r.json()),
-    enabled: tab === "ledger",
+  });
+  const { data: platInvoices = [], isLoading: platInvLoading, refetch: refetchPlatInv } = useQuery<any[]>({
+    queryKey: ["platform-invoices"],
+    queryFn: () => fetch(`${BASE}/api/billing/platform-invoices`).then(r => r.json()),
+    enabled: tab === "platform_invoices",
+  });
+  const { data: platStats } = useQuery<any>({
+    queryKey: ["platform-invoice-stats"],
+    queryFn: () => fetch(`${BASE}/api/billing/platform-invoices/stats`).then(r => r.json()),
+    enabled: tab === "platform_invoices",
+  });
+  const payInvoiceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetch(`${BASE}/api/billing/pay/${id}`, { method: "POST" });
+      return r.json();
+    },
+    onSuccess: () => {
+      toast({ title: "✅ تم تسجيل الدفع!", description: "تم تحديث حالة الفاتورة إلى مدفوعة" });
+      qc.invalidateQueries({ queryKey: ["platform-invoices"] });
+      qc.invalidateQueries({ queryKey: ["platform-invoice-stats"] });
+    },
+    onError: () => toast({ title: "خطأ", variant: "destructive" }),
+  });
+  const genInvoiceMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      const r = await fetch(`${BASE}/api/billing/subscribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId }),
+      });
+      return r.json();
+    },
+    onSuccess: () => {
+      toast({ title: "✅ تم إنشاء فاتورة الاشتراك!" });
+      refetchPlatInv();
+      qc.invalidateQueries({ queryKey: ["platform-invoice-stats"] });
+    },
   });
 
   /* ─── Checkout mutation ───────────────────────────── */
@@ -971,6 +1008,136 @@ export default function Billing() {
               </Table>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════
+          TAB: PLATFORM INVOICES (فواتير الاشتراك)
+      ══════════════════════════════════════════════ */}
+      {tab === "platform_invoices" && (
+        <div className="space-y-5" dir="rtl">
+          {/* Header */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="text-lg font-bold">فواتير اشتراك المنصة</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">سجل كامل بفواتير الاشتراك السنوية والشهرية لعدالة AI</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="gap-2 text-xs"
+                onClick={() => { qc.invalidateQueries({ queryKey: ["platform-invoices"] }); qc.invalidateQueries({ queryKey: ["platform-invoice-stats"] }); }}>
+                <RefreshCw className="h-3.5 w-3.5" /> تحديث
+              </Button>
+              <Button size="sm" className="gap-2 text-xs bg-[#C9A84C] hover:bg-[#b8943e] text-black font-bold"
+                onClick={() => genInvoiceMutation.mutate(currentPlanSlug || "advisor")}
+                disabled={genInvoiceMutation.isPending}>
+                {genInvoiceMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                إنشاء فاتورة اشتراك
+              </Button>
+            </div>
+          </div>
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {[
+              { label: "إجمالي الفواتير",  value: platStats?.total ?? 0,   color: "text-blue-400 bg-blue-500/15", suffix: "" },
+              { label: "مدفوعة",           value: platStats?.paid ?? 0,    color: "text-emerald-400 bg-emerald-500/15", suffix: "" },
+              { label: "قيد الانتظار",     value: platStats?.unpaid ?? 0,  color: "text-amber-400 bg-amber-500/15", suffix: "" },
+              { label: "متأخرة",           value: platStats?.overdue ?? 0, color: "text-red-400 bg-red-500/15", suffix: "" },
+              { label: "الإيرادات المحصّلة", value: Number(platStats?.total_paid ?? 0).toLocaleString("ar-SA", { maximumFractionDigits: 0 }), color: "text-[#C9A84C] bg-[#C9A84C]/15", suffix: " ر.س" },
+            ].map(({ label, value, color, suffix }) => (
+              <Card key={label} className="border-border/50 bg-sidebar">
+                <CardContent className="p-4 text-center">
+                  <div className={cn("text-2xl font-black mb-1", color.split(" ")[0])}>
+                    {value}{suffix}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">{label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Invoices Table */}
+          <Card className="border-border/50">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right">الباقة</TableHead>
+                    <TableHead className="text-right">المبلغ</TableHead>
+                    <TableHead className="text-right">الحالة</TableHead>
+                    <TableHead className="text-right">تاريخ الإصدار</TableHead>
+                    <TableHead className="text-right">تاريخ الاستحقاق</TableHead>
+                    <TableHead className="text-right">تاريخ الدفع</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {platInvLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <TableRow key={i}><TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                    ))
+                  ) : platInvoices.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-12 text-sm">
+                        <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        لا توجد فواتير اشتراك بعد — اضغط "إنشاء فاتورة اشتراك" لإضافة الأولى
+                      </TableCell>
+                    </TableRow>
+                  ) : platInvoices.map((inv: any) => {
+                    const statusMap: Record<string, { label: string; cls: string }> = {
+                      paid:    { label: "مدفوعة",       cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
+                      unpaid:  { label: "قيد الانتظار", cls: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
+                      overdue: { label: "متأخرة",       cls: "bg-red-500/10 text-red-400 border-red-500/30" },
+                    };
+                    const st = statusMap[inv.status] ?? statusMap.unpaid;
+                    return (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-medium text-sm">{inv.plan_name}</TableCell>
+                        <TableCell className="font-bold text-[#C9A84C]">
+                          {Number(inv.amount).toLocaleString("ar-SA")} {inv.currency}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={cn("text-[10px] border", st.cls)}>{st.label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {inv.issue_date ? new Date(inv.issue_date).toLocaleDateString("ar-SA") : "—"}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {inv.due_date ? new Date(inv.due_date).toLocaleDateString("ar-SA") : "—"}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString("ar-SA") : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {inv.status !== "paid" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs gap-1 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                              onClick={() => payInvoiceMutation.mutate(inv.id)}
+                              disabled={payInvoiceMutation.isPending}>
+                              <CheckCircle2 className="h-3.5 w-3.5" /> تسديد
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Info box */}
+          <div className="p-4 rounded-xl border border-[#C9A84C]/20 bg-[#C9A84C]/5 space-y-1">
+            <p className="text-sm font-semibold text-[#C9A84C] flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" /> معلومات الفوترة
+            </p>
+            <p className="text-xs text-muted-foreground">
+              الفواتير تُصدر تلقائياً في بداية كل دورة اشتراك. الدفع يُفعّل جميع ميزات الباقة خلال لحظات.
+              للدفع بواسطة Stripe أو Apple Pay اضغط زر "الترقية" في تبويب الباقات.
+            </p>
+          </div>
         </div>
       )}
     </div>
