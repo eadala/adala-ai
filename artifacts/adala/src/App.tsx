@@ -73,6 +73,8 @@ import OnboardingPage from "@/pages/onboarding";
 import EmailNotificationsPage from "@/pages/email-notifications";
 import WhatsAppSettingsPage from "@/pages/whatsapp-settings";
 import DocumentTemplatesPage from "@/pages/document-templates";
+import FinanceCenter from "@/pages/finance-center";
+import Collections from "@/pages/collections";
 
 const queryClient = new QueryClient();
 
@@ -342,6 +344,12 @@ function AppRoutes() {
             </Route>
             <Route path="/expenses">
               <ProtectedRoute><Expenses /></ProtectedRoute>
+            </Route>
+            <Route path="/finance">
+              <ProtectedRoute><FinanceCenter /></ProtectedRoute>
+            </Route>
+            <Route path="/collections">
+              <ProtectedRoute><Collections /></ProtectedRoute>
             </Route>
             <Route path="/financial-reports">
               <ProtectedRoute><FinancialReports /></ProtectedRoute>
