@@ -1,18 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CreditCard, Zap, Shield, Check, Star, Building2,
   Loader2, ExternalLink, AlertCircle, Download, FileText,
   Sparkles, Crown, Rocket, Key, BookOpen, TrendingUp,
   Plus, Copy, Eye, EyeOff, Trash2, ToggleLeft, ToggleRight,
-  ArrowUpRight, ArrowDownRight, RefreshCw, CheckCircle2, XCircle
+  ArrowUpRight, ArrowDownRight, RefreshCw, CheckCircle2, XCircle,
+  ArrowUp, ArrowDown, X, Phone, Minus, ChevronRight
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useOfficePlan } from "@/hooks/use-office-plan";
 import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -35,6 +38,33 @@ const PLAN_COLORS: Record<string, { border: string; badge: string; btn: string; 
   enterprise: { border: "border-slate-500/30",    badge: "bg-slate-500/10 text-slate-300 border-slate-500/30",      btn: "bg-slate-700 hover:bg-slate-600 text-white",      glow: "" },
 };
 
+/* ─── Plan ordering & comparison data ────────────────── */
+const PLAN_ORDER = ["advisor","solo","office","advanced","corporate","enterprise"];
+
+interface PlanMeta {
+  aiOps: string; cases: string; users: string; storage: string;
+  portal: boolean; ai: boolean; reports: boolean; support: string;
+}
+const PLAN_COMPARE: Record<string, PlanMeta> = {
+  advisor:    { aiOps: "50",          cases: "محدودة",       users: "2",        storage: "5 GB",   portal: false, ai: false, reports: false, support: "بريد إلكتروني" },
+  solo:       { aiOps: "200",         cases: "100",          users: "5",        storage: "20 GB",  portal: false, ai: true,  reports: true,  support: "أولوية" },
+  office:     { aiOps: "1,000",       cases: "غير محدودة",   users: "15",       storage: "50 GB",  portal: true,  ai: true,  reports: true,  support: "أولوية" },
+  advanced:   { aiOps: "5,000",       cases: "غير محدودة",   users: "30",       storage: "100 GB", portal: true,  ai: true,  reports: true,  support: "مخصص" },
+  corporate:  { aiOps: "غير محدودة", cases: "غير محدودة",   users: "غير محدود", storage: "500 GB", portal: true,  ai: true,  reports: true,  support: "SLA مضمون" },
+  enterprise: { aiOps: "غير محدودة", cases: "غير محدودة",   users: "غير محدود", storage: "غير محدودة", portal: true, ai: true, reports: true, support: "24/7 مخصص" },
+};
+
+const COMPARE_ROWS: { key: keyof PlanMeta; label: string; icon: string; isBool?: boolean }[] = [
+  { key: "aiOps",    label: "عمليات الذكاء الاصطناعي", icon: "🤖" },
+  { key: "cases",    label: "القضايا",                  icon: "⚖️" },
+  { key: "users",    label: "المستخدمون",               icon: "👥" },
+  { key: "storage",  label: "التخزين",                  icon: "💾" },
+  { key: "portal",   label: "بوابة الموكل",             icon: "🌐", isBool: true },
+  { key: "ai",       label: "أدوات الذكاء الاصطناعي",  icon: "✨", isBool: true },
+  { key: "reports",  label: "تقارير متقدمة",            icon: "📊", isBool: true },
+  { key: "support",  label: "مستوى الدعم",              icon: "🎧" },
+];
+
 /* ─── Entitlement key labels ──────────────────────────── */
 const KEY_LABELS: Record<string, { ar: string; icon: string }> = {
   AI_CALLS:   { ar: "استدعاءات الذكاء الاصطناعي", icon: "🤖" },
@@ -54,6 +84,166 @@ const TABS = [
   { id: "ledger",       label: "السجل المالي",      icon: BookOpen },
 ];
 
+/* ─── Upgrade / Downgrade Modal ───────────────────────── */
+function UpgradeModal({
+  open, onClose, currentPlanId, targetPlan, plans, onConfirmStripe, onConfirmDirect,
+  isLoading, stripeConfigured,
+}: {
+  open: boolean; onClose: () => void; currentPlanId: string;
+  targetPlan: any | null; plans: any[];
+  onConfirmStripe: (id: string) => void; onConfirmDirect: (id: string) => void;
+  isLoading: boolean; stripeConfigured: boolean;
+}) {
+  if (!targetPlan) return null;
+
+  const currentPlan = plans.find((p: any) => p.id === currentPlanId);
+  const curMeta  = PLAN_COMPARE[currentPlanId]  ?? PLAN_COMPARE.advisor;
+  const tgtMeta  = PLAN_COMPARE[targetPlan.id]  ?? PLAN_COMPARE.advisor;
+  const curOrder = PLAN_ORDER.indexOf(currentPlanId);
+  const tgtOrder = PLAN_ORDER.indexOf(targetPlan.id);
+  const isUpgrade   = tgtOrder > curOrder;
+  const isDowngrade = tgtOrder < curOrder;
+  const priceDiff = targetPlan.contactOnly
+    ? null
+    : (targetPlan.price ?? 0) - (currentPlan?.price ?? 0);
+
+  const Icon = PLAN_ICONS[targetPlan.id] ?? Star;
+  const colors = PLAN_COLORS[targetPlan.id] ?? PLAN_COLORS.advisor;
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="max-w-lg p-0 overflow-hidden border-border/60"
+        style={{ background: "linear-gradient(180deg,#1A2744 0%,#141E38 100%)" }}>
+
+        {/* ── Header ── */}
+        <div className="px-6 pt-6 pb-4 border-b border-border/30"
+          style={{ background: isUpgrade ? "rgba(201,168,76,0.06)" : "rgba(239,68,68,0.05)" }}>
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className={cn("w-10 h-10 rounded-xl border-2 flex items-center justify-center", colors.badge)}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-black">
+                  {isUpgrade ? "ترقية إلى" : isDowngrade ? "التخفيض إلى" : "التبديل إلى"}{" "}
+                  <span style={{ color: isUpgrade ? "#C9A84C" : isDowngrade ? "#EF4444" : "#94A3B8" }}>
+                    {targetPlan.name}
+                  </span>
+                </DialogTitle>
+                <DialogDescription className="text-xs mt-0.5">
+                  {isUpgrade
+                    ? "ستحصل على المزايا الإضافية التالية فور التأكيد"
+                    : isDowngrade
+                    ? "ستفقد بعض المزايا عند التخفيض"
+                    : "مراجعة تفاصيل الباقة المحددة"}
+                </DialogDescription>
+              </div>
+            </div>
+
+            {/* Price badge */}
+            {priceDiff !== null && priceDiff !== 0 && (
+              <div className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border",
+                priceDiff > 0
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                  : "bg-red-500/10 text-red-400 border-red-500/30"
+              )}>
+                {priceDiff > 0 ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                {priceDiff > 0 ? "+" : ""}{priceDiff.toLocaleString("ar-SA")} ر.س/شهر
+              </div>
+            )}
+          </DialogHeader>
+        </div>
+
+        {/* ── Comparison table ── */}
+        <div className="px-6 py-4 max-h-72 overflow-y-auto">
+          <div className="space-y-2">
+            {COMPARE_ROWS.map(row => {
+              const curVal = curMeta[row.key];
+              const tgtVal = tgtMeta[row.key];
+              const changed = curVal !== tgtVal;
+              const isBetter = row.isBool
+                ? tgtVal === true && curVal === false
+                : typeof tgtVal === "string" && typeof curVal === "string" && tgtVal !== curVal && isUpgrade;
+              const isWorse = row.isBool
+                ? tgtVal === false && curVal === true
+                : typeof tgtVal === "string" && typeof curVal === "string" && tgtVal !== curVal && isDowngrade;
+
+              return (
+                <div key={row.key}
+                  className={cn(
+                    "flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors",
+                    changed
+                      ? isBetter ? "bg-emerald-500/8 border border-emerald-500/20"
+                        : isWorse ? "bg-red-500/8 border border-red-500/20"
+                        : "bg-muted/30"
+                      : "bg-muted/20"
+                  )}>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span>{row.icon}</span>
+                    <span>{row.label}</span>
+                  </div>
+                  <div className="flex items-center gap-3 font-medium">
+                    {/* Current */}
+                    <span className="text-muted-foreground text-xs line-through opacity-60">
+                      {row.isBool ? (curVal ? "✓" : "✗") : String(curVal)}
+                    </span>
+                    <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
+                    {/* Target */}
+                    <span className={cn(
+                      "font-bold",
+                      isBetter ? "text-emerald-400" : isWorse ? "text-red-400" : "text-foreground"
+                    )}>
+                      {row.isBool ? (tgtVal ? "✓" : "✗") : String(tgtVal)}
+                      {isBetter && <ArrowUp className="h-3 w-3 inline mr-1" />}
+                      {isWorse  && <ArrowDown className="h-3 w-3 inline mr-1" />}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {isDowngrade && (
+            <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-orange-500/8 border border-orange-500/20">
+              <AlertCircle className="h-4 w-4 text-orange-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-orange-300">
+                سيتم تخفيض حدود الاستخدام فوراً. البيانات المخزنة لن تُحذف، لكن قد تصبح بعض الميزات غير متاحة.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* ── Actions ── */}
+        <div className="px-6 pb-6 pt-2 flex gap-3">
+          <Button variant="outline" className="flex-1" onClick={onClose} disabled={isLoading}>
+            إلغاء
+          </Button>
+          {stripeConfigured && !isLoading ? (
+            <Button
+              className={cn("flex-1 font-bold gap-2", colors.btn)}
+              onClick={() => onConfirmStripe(targetPlan.id)}
+              disabled={isLoading}
+            >
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+              {isUpgrade ? "ترقية عبر Stripe" : "تأكيد التخفيض"}
+            </Button>
+          ) : (
+            <Button
+              className={cn("flex-1 font-bold gap-2", colors.btn)}
+              onClick={() => onConfirmDirect(targetPlan.id)}
+              disabled={isLoading}
+            >
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              تأكيد التغيير
+            </Button>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Billing() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -62,6 +252,11 @@ export default function Billing() {
   const [showNewKey, setShowNewKey] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
+  const [changingPlan, setChangingPlan] = useState(false);
+
+  /* ─── Current plan from office subscription ───────── */
+  const { planSlug: currentPlanSlug } = useOfficePlan();
 
   /* ─── Queries ─────────────────────────────────────── */
   const { data: stripeStatus } = useQuery<any>({
@@ -136,6 +331,55 @@ export default function Billing() {
       }
     },
   });
+
+  /* ─── Change plan (direct — no Stripe) ────────────── */
+  const changePlanMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      const r = await fetch(`${BASE}/api/billing/change-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId }),
+      });
+      return r.json();
+    },
+    onSuccess: (data) => {
+      setChangingPlan(false);
+      setSelectedPlan(null);
+      if (data.ok) {
+        const emoji = data.direction === "upgrade" ? "🎉" : data.direction === "downgrade" ? "⚠️" : "✅";
+        toast({ title: `${emoji} تم تغيير الباقة!`, description: `الانتقال إلى: ${data.planName}` });
+        qc.invalidateQueries({ queryKey: ["office-subscription"] });
+        qc.invalidateQueries({ queryKey: ["entitlements"] });
+        qc.invalidateQueries({ queryKey: ["plan-notifications"] });
+      } else {
+        toast({ title: "خطأ", description: data.error ?? "فشل تغيير الباقة", variant: "destructive" });
+      }
+    },
+    onError: () => {
+      setChangingPlan(false);
+      toast({ title: "خطأ في الاتصال", variant: "destructive" });
+    },
+  });
+
+  const handleConfirmDirect = (planId: string) => {
+    setChangingPlan(true);
+    changePlanMutation.mutate(planId);
+  };
+
+  const handleConfirmStripe = (planId: string) => {
+    setSelectedPlan(null);
+    setLoadingPlan(planId);
+    checkoutMutation.mutate(planId);
+  };
+
+  /* ─── Plan button logic ────────────────────────────── */
+  const getPlanAction = (plan: any): "current" | "upgrade" | "downgrade" | "contact" => {
+    if (plan.contactOnly) return "contact";
+    if (plan.id === currentPlanSlug) return "current";
+    const cur = PLAN_ORDER.indexOf(currentPlanSlug);
+    const tgt = PLAN_ORDER.indexOf(plan.id);
+    return tgt > cur ? "upgrade" : "downgrade";
+  };
 
   /* ─── API Key mutations ───────────────────────────── */
   const createKeyMutation = useMutation({
@@ -252,6 +496,31 @@ export default function Billing() {
             </p>
           </div>
 
+          {/* Current plan banner */}
+          {currentPlanSlug && currentPlanSlug !== "starter" && (() => {
+            const cur = plans.find((p: any) => p.id === currentPlanSlug);
+            const Icon = cur ? (PLAN_ICONS[cur.id] ?? Star) : Star;
+            const colors = cur ? (PLAN_COLORS[cur.id] ?? PLAN_COLORS.advisor) : PLAN_COLORS.advisor;
+            return cur ? (
+              <div className="flex items-center gap-3 p-4 rounded-xl border"
+                style={{ background: "rgba(201,168,76,0.06)", borderColor: "rgba(201,168,76,0.3)" }}>
+                <div className={cn("w-9 h-9 rounded-xl border-2 flex items-center justify-center shrink-0", colors.badge)}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-[#C9A84C]">باقتك الحالية: {cur.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {cur.contactOnly ? "تواصل معنا" : `${cur.price.toLocaleString("ar-SA")} ر.س / شهر`}
+                    {" — "}اختر باقة أخرى للترقية أو التخفيض
+                  </p>
+                </div>
+                <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] border">
+                  نشطة ✓
+                </Badge>
+              </div>
+            ) : null;
+          })()}
+
           {/* Plans grid */}
           {plansLoading ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -265,31 +534,55 @@ export default function Billing() {
                 const isPopular = plan.popular === true;
                 const isEnterprise = plan.contactOnly === true;
                 const isLoadingThis = loadingPlan === plan.id;
+                const action = getPlanAction(plan);
+                const isCurrent = action === "current";
 
                 return (
                   <Card key={plan.id} className={cn(
                     "relative border-2 transition-all duration-200 flex flex-col",
-                    colors.border, colors.glow,
-                    isPopular && "ring-2 ring-[#C9A84C]/40 scale-[1.02] z-10"
+                    isCurrent
+                      ? "border-[#C9A84C]/60 ring-2 ring-[#C9A84C]/20"
+                      : colors.border,
+                    !isCurrent && colors.glow,
+                    isPopular && !isCurrent && "scale-[1.02] z-10"
                   )}>
-                    {isPopular && (
-                      <div className="absolute -top-3 right-1/2 translate-x-1/2">
+                    {/* Badges row */}
+                    <div className="absolute -top-3 right-1/2 translate-x-1/2 flex gap-1.5">
+                      {isCurrent && (
+                        <Badge className="bg-[#C9A84C] text-black text-[10px] font-black px-3 py-1">
+                          ✓ باقتك الحالية
+                        </Badge>
+                      )}
+                      {isPopular && !isCurrent && (
                         <Badge className="bg-[#C9A84C] text-black text-[10px] font-black px-3 py-1">
                           ⭐ الأكثر طلباً
                         </Badge>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
                     <CardHeader className="pb-3 pt-5">
                       <div className="flex items-center justify-between mb-2">
                         <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border-2", colors.badge)}>
                           <Icon className="h-4 w-4" />
                         </div>
-                        {plan.trialMonth && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                            الشهر الأول مجاناً 🎁
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {plan.trialMonth && !isCurrent && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              الشهر الأول مجاناً 🎁
+                            </span>
+                          )}
+                          {/* Direction badge */}
+                          {!isCurrent && action === "upgrade" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5">
+                              <ArrowUp className="h-2.5 w-2.5" /> ترقية
+                            </span>
+                          )}
+                          {!isCurrent && action === "downgrade" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center gap-0.5">
+                              <ArrowDown className="h-2.5 w-2.5" /> تخفيض
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <CardTitle className="text-base font-bold">{plan.name}</CardTitle>
@@ -317,37 +610,45 @@ export default function Billing() {
                       </ul>
 
                       <div className="space-y-2 pt-2">
-                        {isEnterprise ? (
+                        {/* ── Action button ── */}
+                        {isCurrent ? (
+                          <Button
+                            className="w-full gap-2 font-bold bg-[#C9A84C]/10 text-[#C9A84C] border border-[#C9A84C]/30 hover:bg-[#C9A84C]/15"
+                            disabled
+                          >
+                            <Check className="h-4 w-4" />
+                            باقتك الحالية
+                          </Button>
+                        ) : isEnterprise ? (
                           <Button
                             className={cn("w-full gap-2 font-bold", colors.btn)}
                             onClick={() => window.open("mailto:sales@adalaai.com?subject=طلب عرض سعر - باقة المؤسسات", "_blank")}
                           >
-                            <Sparkles className="h-4 w-4" />
-                            طلب عرض سعر
+                            <Phone className="h-4 w-4" />
+                            تواصل معنا
                           </Button>
-                        ) : (
+                        ) : action === "upgrade" ? (
                           <Button
                             className={cn("w-full gap-2 font-bold", colors.btn)}
                             disabled={isLoadingThis}
-                            onClick={() => handleSubscribe(plan.id)}
+                            onClick={() => setSelectedPlan(plan)}
                           >
                             {isLoadingThis
                               ? <Loader2 className="h-4 w-4 animate-spin" />
-                              : <CreditCard className="h-4 w-4" />}
-                            اشتراك إلكتروني
+                              : <ArrowUp className="h-4 w-4" />}
+                            ترقية إلى هذه الباقة
                           </Button>
-                        )}
-                        {/* Dev-mode: activate without payment */}
-                        {!isEnterprise && stripeStatus?.mode === "test" && (
+                        ) : (
                           <Button
                             variant="outline"
-                            size="sm"
-                            className="w-full gap-2 text-xs text-muted-foreground"
-                            onClick={() => activateMutation.mutate(plan.id)}
-                            disabled={activateMutation.isPending}
+                            className="w-full gap-2 font-bold border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+                            disabled={isLoadingThis}
+                            onClick={() => setSelectedPlan(plan)}
                           >
-                            {activateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-                            تفعيل تجريبي (بدون دفع)
+                            {isLoadingThis
+                              ? <Loader2 className="h-4 w-4 animate-spin" />
+                              : <ArrowDown className="h-4 w-4" />}
+                            التخفيض إلى هذه الباقة
                           </Button>
                         )}
                       </div>
@@ -357,6 +658,19 @@ export default function Billing() {
               })}
             </div>
           )}
+
+          {/* ── Upgrade Modal ── */}
+          <UpgradeModal
+            open={!!selectedPlan}
+            onClose={() => setSelectedPlan(null)}
+            currentPlanId={currentPlanSlug}
+            targetPlan={selectedPlan}
+            plans={plans}
+            onConfirmStripe={handleConfirmStripe}
+            onConfirmDirect={handleConfirmDirect}
+            isLoading={changingPlan || changePlanMutation.isPending}
+            stripeConfigured={!!stripeStatus?.configured}
+          />
         </div>
       )}
 
