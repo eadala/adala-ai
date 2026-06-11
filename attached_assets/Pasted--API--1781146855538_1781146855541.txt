@@ -1,0 +1,279 @@
+كتابة المشروع كاملاً (واجهة + API + قاعدة بيانات + الدفع + بوابة العملاء) تتطلب مئات الملفات وآلاف الأسطر، لذلك لا يمكن وضع "الكود الكامل" في رسالة واحدة. لكن يمكنني بناؤه معك جزءاً جزءاً حتى تحصل على مشروع جاهز لـ Replit.
+
+### ابدأ بهذا الهيكل
+
+```txt
+client/
+│
+├── pages/
+│     HomePage.tsx
+│     ServicesPage.tsx
+│     ServiceDetailsPage.tsx
+│     TeamPage.tsx
+│     ArticlesPage.tsx
+│     ContactPage.tsx
+│     BookConsultationPage.tsx
+│     ClientPortalPage.tsx
+│
+├── components/
+│     layout/
+│          Navbar.tsx
+│          Footer.tsx
+│
+│     services/
+│          ServiceCard.tsx
+│          ServiceGrid.tsx
+│          ServiceFilters.tsx
+│
+│     home/
+│          HeroSection.tsx
+│          ServicesSection.tsx
+│          TestimonialsSection.tsx
+│
+server/
+│
+├── routes/
+│      services.ts
+│      serviceOrders.ts
+│
+shared/
+│
+├── schema.ts
+```
+
+---
+
+# جدول الخدمات
+
+## `shared/schema.ts`
+
+```ts
+export const services = pgTable("services", {
+
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  officeId: uuid("office_id").notNull(),
+
+  name: varchar("name", { length: 255 }).notNull(),
+
+  slug: varchar("slug", { length: 255 }).notNull(),
+
+  shortDescription: text("short_description"),
+
+  description: text("description"),
+
+  price: decimal("price"),
+
+  durationDays: integer("duration_days"),
+
+  imageUrl: text("image_url"),
+
+  isFeatured: boolean("is_featured").default(false),
+
+  isActive: boolean("is_active").default(true),
+
+});
+```
+
+---
+
+# API
+
+## `server/routes/services.ts`
+
+```ts
+import express from "express";
+
+const router = express.Router();
+
+router.get("/", async (req, res) => {
+
+  const data = await db.query.services.findMany();
+
+  res.json(data);
+
+});
+
+export default router;
+```
+
+---
+
+# بطاقة الخدمة
+
+## `components/services/ServiceCard.tsx`
+
+```tsx
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+export function ServiceCard({
+  service,
+}: any) {
+
+  return (
+
+    <Card className="overflow-hidden">
+
+      <img
+        src={service.imageUrl}
+        className="h-52 w-full object-cover"
+      />
+
+      <div className="p-5">
+
+        <h3 className="text-xl font-bold">
+          {service.name}
+        </h3>
+
+        <p className="mt-3 text-muted-foreground">
+          {service.shortDescription}
+        </p>
+
+        <div className="mt-4">
+
+          <div>
+            مدة الإنجاز:
+            {service.durationDays} أيام
+          </div>
+
+          <div className="font-bold text-2xl mt-2">
+
+            {service.price} ر.س
+
+          </div>
+
+        </div>
+
+        <Button className="w-full mt-5">
+
+          شراء الخدمة
+
+        </Button>
+
+      </div>
+
+    </Card>
+
+  );
+
+}
+```
+
+---
+
+# صفحة الخدمات
+
+## `pages/ServicesPage.tsx`
+
+```tsx
+import { useQuery } from "@tanstack/react-query";
+import { ServiceCard } from "@/components/services/ServiceCard";
+
+export default function ServicesPage() {
+
+  const { data = [] } = useQuery({
+
+    queryKey: ["services"],
+
+    queryFn: async () => {
+
+      const res = await fetch("/api/services");
+
+      return res.json();
+
+    },
+
+  });
+
+  return (
+
+    <div className="container py-10">
+
+      <h1 className="text-4xl font-bold mb-8">
+
+        الخدمات القانونية
+
+      </h1>
+
+      <div className="grid md:grid-cols-3 gap-6">
+
+        {data.map((service: any) => (
+
+          <ServiceCard
+            key={service.id}
+            service={service}
+          />
+
+        ))}
+
+      </div>
+
+    </div>
+
+  );
+
+}
+```
+
+---
+
+# إضافتها إلى الموقع الخارجي للمكتب
+
+في `Navbar.tsx`
+
+```tsx
+const links = [
+
+  {
+    title: "الرئيسية",
+    href: "/",
+  },
+
+  {
+    title: "الخدمات القانونية",
+    href: "/services",
+  },
+
+  {
+    title: "فريق العمل",
+    href: "/team",
+  },
+
+  {
+    title: "المقالات",
+    href: "/articles",
+  },
+
+  {
+    title: "حجز استشارة",
+    href: "/book",
+  },
+
+  {
+    title: "بوابة العملاء",
+    href: "/portal",
+  },
+
+  {
+    title: "تواصل معنا",
+    href: "/contact",
+  },
+
+];
+```
+
+---
+
+### أفضل طريقة للبناء هي على مراحل:
+
+1. متجر الخدمات القانونية.
+2. صفحة تفاصيل الخدمة.
+3. السلة والدفع.
+4. إنشاء الطلب والفاتورة تلقائياً.
+5. بوابة العميل.
+6. نظام حجز الاستشارات.
+7. الدفع الإلكتروني (مدى وApple Pay وSTC Pay).
+8. لوحة إدارة الخدمات داخل المكتب.
+
+وهذا سيعطيك نظاماً قريباً من **LegalZoom + Clio Grow** داخل عدالة AI.

@@ -40,6 +40,7 @@ import Letters from "@/pages/letters";
 import Warnings from "@/pages/warnings";
 import OfficePage from "@/pages/office-public";
 import OfficeStore from "@/pages/office-store";
+import OfficeBook from "@/pages/office-book";
 import OfficeManagement from "@/pages/office-management";
 import SuperAdmin from "@/pages/super-admin";
 import FirmAdmin from "@/pages/firm-admin";
@@ -305,6 +306,9 @@ function AppRoutes() {
             </Route>
             <Route path="/firms/:slug/store">
               <OfficeStore />
+            </Route>
+            <Route path="/firms/:slug/book">
+              <OfficeBook />
             </Route>
             <Route path="/firms/:slug">
               <OfficePage />
