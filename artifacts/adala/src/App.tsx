@@ -38,6 +38,7 @@ import SaudiSystems from "@/pages/saudi-systems";
 import Invoices from "@/pages/invoices";
 import Letters from "@/pages/letters";
 import Warnings from "@/pages/warnings";
+import PricingPage from "@/pages/pricing";
 import OfficePage from "@/pages/office-public";
 import OfficeStore from "@/pages/office-store";
 import OfficeBook from "@/pages/office-book";
@@ -212,6 +213,7 @@ function AppRoutes() {
         <TooltipProvider>
           <Switch>
             <Route path="/" component={HomeRedirect} />
+            <Route path="/pricing" component={PricingPage} />
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
             <Route path="/dashboard">
