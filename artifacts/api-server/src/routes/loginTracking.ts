@@ -66,33 +66,28 @@ function getClientIp(req: any): string {
 ══════════════════════════════════════════════════ */
 router.post("/security/login", async (req, res) => {
   try {
+    /* Auth required — userId and identity always server-resolved from Clerk */
     const auth = getAuth(req as any);
-    const userId = auth?.userId ?? null;
+    if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
 
-    const {
-      email = null,
-      fullName = null,
-      status = "success",
-      sessionId = null,
-    } = req.body as {
-      email?: string;
-      fullName?: string;
-      status?: string;
-      sessionId?: string;
-    };
+    const userId = auth.userId;
+
+    /* Only sessionId accepted from client — identity fields server-resolved */
+    const sessionId: string | null = (typeof req.body?.sessionId === "string" && req.body.sessionId)
+      ? req.body.sessionId : null;
 
     const ipAddress = getClientIp(req);
     const userAgent = (req.headers["user-agent"] as string) ?? "";
     const { browser, os, deviceType } = parseUserAgent(userAgent);
-    const officeId = "default"; // single-tenant
+    const officeId = "default";
 
     await db.execute(sql`
       INSERT INTO login_logs
         (user_id, email, full_name, ip_address, user_agent, browser, os, device_type,
          status, office_id, session_id)
       VALUES
-        (${userId}, ${email}, ${fullName}, ${ipAddress}, ${userAgent}, ${browser},
-         ${os}, ${deviceType}, ${status}, ${officeId}, ${sessionId})
+        (${userId}, null, null, ${ipAddress}, ${userAgent}, ${browser},
+         ${os}, ${deviceType}, 'success', ${officeId}, ${sessionId})
     `);
 
     res.json({ ok: true });
