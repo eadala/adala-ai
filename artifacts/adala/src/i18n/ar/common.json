@@ -73,7 +73,8 @@
       "cashflow": "التدفقات النقدية",
       "bank_accounts": "الحسابات البنكية",
       "advances": "العهد والسلف",
-      "financial_reports": "التقارير المالية"
+      "financial_reports": "التقارير المالية",
+      "login_tracking": "تتبع الدخول"
     }
   },
   "landing": {

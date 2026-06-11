@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUser, useClerk } from "@clerk/react";
+import { useLoginTracker } from "@/hooks/useLoginTracker";
 
 interface NavItem {
   href: string;
@@ -92,9 +93,10 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "nav.groups.analytics",
     items: [
-      { href: "/analytics",       labelKey: "nav.items.performance_analytics", icon: BarChart3,     feature: "advancedReports" },
-      { href: "/risk-management", labelKey: "nav.items.risk_management",       icon: AlertTriangle, feature: "advancedReports" },
-      { href: "/compliance",      labelKey: "nav.items.compliance",            icon: Shield },
+      { href: "/analytics",        labelKey: "nav.items.performance_analytics", icon: BarChart3,     feature: "advancedReports" },
+      { href: "/risk-management",  labelKey: "nav.items.risk_management",       icon: AlertTriangle, feature: "advancedReports" },
+      { href: "/compliance",       labelKey: "nav.items.compliance",            icon: Shield },
+      { href: "/login-tracking",   labelKey: "nav.items.login_tracking",        icon: Lock },
     ],
   },
   {
@@ -216,6 +218,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const isSuperAdminByEmail = !!ownerEmail && userEmail === ownerEmail;
   const isSuperAdminByRole = user?.publicMetadata?.role === "super_admin";
   const isSuperAdmin = isSuperAdminByEmail || isSuperAdminByRole;
+
+  useLoginTracker();
 
   const visibleGroups = NAV_GROUPS.filter((g) => !g.superAdminOnly || isSuperAdmin);
 
