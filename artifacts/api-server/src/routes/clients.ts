@@ -53,16 +53,26 @@ router.get("/clients/:id/overview", async (req, res) => {
     const [clientRow] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
     if (!clientRow) { res.status(404).json({ error: "Not found" }); return; }
 
-    const [cases, invoices, contracts, events] = await Promise.all([
+    const [cases, invoices, contracts, events, messages] = await Promise.all([
       db.execute(sql`SELECT id, title, case_type, status, created_at FROM cases WHERE client_name ILIKE ${"%" + clientRow.fullName + "%"} ORDER BY created_at DESC LIMIT 20`),
       db.execute(sql`SELECT id, invoice_number, title, total, status, due_date, created_at FROM client_invoices WHERE client_id = ${clientId} ORDER BY created_at DESC LIMIT 20`),
       db.execute(sql`SELECT id, title, type, status, expires_at, created_at FROM contracts WHERE client_id = ${clientId} ORDER BY created_at DESC LIMIT 20`),
       db.execute(sql`SELECT id, title, event_type, start_at FROM events WHERE client_id = ${clientId} ORDER BY start_at DESC LIMIT 10`),
+      db.execute(sql`SELECT id, subject, body, sender_name, sender_ip, device_info, created_at FROM office_messages WHERE body ILIKE ${"%" + clientRow.fullName + "%"} OR subject ILIKE ${"%" + clientRow.fullName + "%"} ORDER BY created_at DESC LIMIT 20`),
     ]);
 
     const inv = invoices.rows as any[];
     const paidTotal = inv.filter(i => i.status === "paid").reduce((s, i) => s + Number(i.total ?? 0), 0);
     const outstandingTotal = inv.filter(i => ["sent", "overdue"].includes(i.status)).reduce((s, i) => s + Number(i.total ?? 0), 0);
+
+    // Build activity timeline
+    const activities: any[] = [];
+    activities.push({ type: "client_created", label: "إنشاء العميل", date: clientRow.createdAt, icon: "user" });
+    for (const c of (cases.rows as any[])) activities.push({ type: "case_created", label: `قضية: ${c.title}`, date: c.created_at, icon: "scale" });
+    for (const i of inv) activities.push({ type: "invoice_created", label: `فاتورة: ${i.title} — ${Number(i.total).toLocaleString()} ر.س`, date: i.created_at, icon: "receipt", status: i.status });
+    for (const c of (contracts.rows as any[])) activities.push({ type: "contract_created", label: `عقد: ${c.title}`, date: c.created_at, icon: "handshake" });
+    for (const e of (events.rows as any[])) activities.push({ type: "event_scheduled", label: `موعد: ${e.title}`, date: e.start_at, icon: "calendar" });
+    activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     res.json({
       client: clientRow,
@@ -70,6 +80,8 @@ router.get("/clients/:id/overview", async (req, res) => {
       invoices: inv,
       contracts: contracts.rows ?? [],
       events: events.rows ?? [],
+      messages: messages.rows ?? [],
+      activities,
       stats: {
         casesCount: (cases.rows?.length ?? 0),
         invoicesCount: inv.length,

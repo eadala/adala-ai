@@ -1,0 +1,203 @@
+إذا كانت عدالة AI مبنية على **React + Express + PostgreSQL + Drizzle + Replit** فهذه رسالة جاهزة يمكنك وضعها مباشرة في Replit AI لتنفيذ التعديلات المطلوبة.
+
+أريد تطوير قسم العملاء والمراسلات في منصة عدالة AI وإضافة مساعد إداري ذكي، مع الحفاظ على تصميم shadcn/ui وTailwind.
+
+# أولاً: تطوير صفحة العميل
+
+إضافة تبويبات جديدة:
+
+* القضايا
+* الفواتير
+* العقود
+* المواعيد
+* المراسلات
+* النشاطات
+
+داخل تبويب القضايا:
+
+عرض جدول يحتوي على:
+
+* رقم القضية
+* نوع القضية
+* المحكمة
+* الحالة
+* المحامي المسؤول
+
+مع زر:
+
+* إنشاء قضية
+* ربط قضية موجودة
+
+داخل تبويب المراسلات:
+
+إظهار جميع الرسائل المرتبطة بالعميل.
+
+إضافة Timeline للنشاطات:
+
+* إنشاء العميل
+* إنشاء قضية
+* إرسال خطاب
+* إنشاء فاتورة
+* دفع فاتورة
+* إضافة موعد
+
+# ثانياً: تطوير قسم المراسلات العامة
+
+تحويل قسم المراسلات إلى نظام مراسلات داخلي كامل.
+
+إضافة:
+
+Inbox
+Sent
+Drafts
+Archive
+
+عند إنشاء رسالة جديدة:
+
+يظهر حقل متعدد الاختيار للموظفين.
+
+يمكن اختيار أكثر من موظف.
+
+مثال:
+
+خالد حماد
+محمد العتيبي
+أحمد السبيعي
+سارة الدوسري
+
+ويتم إرسال الرسالة لجميع المختارين.
+
+إضافة دعم:
+
+* المرفقات
+* البحث
+* الوسوم
+* الإشعارات
+
+# ثالثاً: تسجيل عنوان IP
+
+في الرسائل:
+
+حفظ:
+
+sender_ip
+device_info
+
+وعند قراءة الرسالة:
+
+reader_ip
+read_at
+
+وإظهار معلومات القراءة داخل الرسالة.
+
+# رابعاً: إنشاء AI Administrative Assistant
+
+إضافة صفحة جديدة:
+
+/ai-assistant
+
+في القائمة الجانبية تحت الذكاء الاصطناعي.
+
+المساعد الإداري الذكي يستطيع الوصول إلى:
+
+* القضايا
+* العملاء
+* العقود
+* المستندات
+* الفواتير
+* التقويم
+* المراسلات
+
+ويمكنه الإجابة على أوامر باللغة العربية مثل:
+
+ما هي القضايا المتأخرة؟
+
+ما هي الجلسات القادمة؟
+
+أظهر فواتير مؤسسة النخبة التجارية.
+
+ما هي العقود التي ستنتهي قريباً؟
+
+ألخص المراسلات غير المقروءة.
+
+# خامساً: قاعدة البيانات
+
+messages
+
+id
+office_id
+subject
+body
+sender_id
+sender_ip
+device_info
+created_at
+
+message_recipients
+
+id
+message_id
+user_id
+is_read
+reader_ip
+read_at
+
+message_attachments
+
+id
+message_id
+file_name
+file_url
+
+ai_assistant_logs
+
+id
+office_id
+user_id
+question
+response
+created_at
+
+# سادساً: إنشاء المكونات التالية
+
+components/messages
+
+MessageList.tsx
+
+MessageDetails.tsx
+
+ComposeMessageDialog.tsx
+
+RecipientSelector.tsx
+
+MessageAttachmentUploader.tsx
+
+components/clients
+
+ClientCasesTab.tsx
+
+ClientMessagesTab.tsx
+
+ClientTimeline.tsx
+
+components/ai
+
+AIAssistantPage.tsx
+
+AIInsightsCard.tsx
+
+AICommandCenter.tsx
+
+استخدام:
+
+React
+TypeScript
+Tailwind
+shadcn/ui
+TanStack Table
+React Query
+Drizzle ORM
+
+ويجب أن تكون جميع الصفحات Responsive ومتوافقة مع Replit.
+
+هذه الصيغة مناسبة جداً لـ Replit AI وسيقوم بإنشاء الملفات والتعديلات المطلوبة بطريقة منظمة.

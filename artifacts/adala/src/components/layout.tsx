@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown } from "lucide-react";
+import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown, BrainCircuit } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { NotificationsPanel } from "@/components/notifications-panel";
 import { AccountMenu } from "@/components/account-menu";
@@ -39,6 +39,7 @@ const NAV_GROUPS = [
     label: "الذكاء الاصطناعي",
     items: [
       { href: "/command-center",      label: "مركز الأوامر",       icon: Zap },
+      { href: "/ai-assistant",        label: "المساعد الإداري",    icon: BrainCircuit },
       { href: "/ai-agents",           label: "الوكلاء الذكيون",    icon: Bot },
       { href: "/ai-chat",             label: "المساعد الذكي",      icon: Sparkles },
       { href: "/opponent-simulator",  label: "محاكي الخصم",        icon: Swords },
