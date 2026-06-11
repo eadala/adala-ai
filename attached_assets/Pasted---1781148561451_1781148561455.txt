@@ -1,0 +1,305 @@
+نعم، هذا مهم جداً قانونياً. الأفضل أن تكون **الشروط والأحكام وسياسة الخصوصية موجودة في الصفحة الرئيسية**، وأن يتم **إلزام العميل بالموافقة عليها عند التسجيل أو شراء الاشتراك** بحيث لا يمكنه إتمام العملية إلا بعد الإقرار بالاطلاع والموافقة.
+
+## أولاً: إضافة روابط في Footer الصفحة الرئيسية
+
+### `Footer.tsx`
+
+```tsx
+<div className="flex gap-6">
+
+<Link to="/terms">
+
+الشروط والأحكام
+
+</Link>
+
+<Link to="/privacy">
+
+سياسة الخصوصية
+
+</Link>
+
+<Link to="/security">
+
+الأمان وحماية البيانات
+
+</Link>
+
+</div>
+```
+
+---
+
+# صفحة التسجيل
+
+## شرط إلزامي قبل إنشاء الحساب
+
+```tsx
+<div className="space-y-4">
+
+<div className="flex items-start gap-3">
+
+<Checkbox
+checked={acceptedTerms}
+onCheckedChange={(v) =>
+setAcceptedTerms(!!v)
+}
+/>
+
+<p className="text-sm">
+
+أقر بأنني اطلعت على
+
+<Link
+to="/terms"
+className="text-primary mx-1"
+>
+
+الشروط والأحكام
+
+</Link>
+
+و
+
+<Link
+to="/privacy"
+className="text-primary mx-1"
+>
+
+سياسة الخصوصية
+
+</Link>
+
+وأوافق عليهما.
+
+</p>
+
+</div>
+
+</div>
+```
+
+---
+
+# منع التسجيل
+
+```tsx
+<Button
+
+disabled={!acceptedTerms}
+
+>
+
+إنشاء الحساب
+
+</Button>
+```
+
+---
+
+# قاعدة البيانات
+
+## users
+
+أضف:
+
+```ts
+acceptedTerms: boolean("accepted_terms")
+.default(false),
+
+acceptedTermsAt:
+timestamp("accepted_terms_at"),
+
+acceptedPrivacyAt:
+timestamp("accepted_privacy_at"),
+```
+
+---
+
+# حفظ الموافقة
+
+```ts
+await db.insert(users).values({
+
+...
+
+acceptedTerms: true,
+
+acceptedTermsAt: new Date(),
+
+acceptedPrivacyAt: new Date()
+
+});
+```
+
+---
+
+# عند شراء الاشتراك
+
+### قبل الدفع
+
+```tsx
+<Card>
+
+<CardContent>
+
+<div className="flex gap-3">
+
+<Checkbox
+checked={acceptBillingTerms}
+onCheckedChange={(v)=>
+setAcceptBillingTerms(!!v)
+}
+/>
+
+<p>
+
+أقر بأنني اطلعت على
+
+<Link to="/terms">
+
+الشروط والأحكام
+
+</Link>
+
+و
+
+<Link to="/privacy">
+
+سياسة الخصوصية
+
+</Link>
+
+وأوافق عليهما، وأتحمل مسؤولية استخدام المنصة.
+
+</p>
+
+</div>
+
+</CardContent>
+
+</Card>
+```
+
+---
+
+# منع الدفع
+
+```tsx
+<Button
+
+disabled={!acceptBillingTerms}
+
+>
+
+إتمام الاشتراك
+
+</Button>
+```
+
+---
+
+# حفظ الموافقة داخل الاشتراك
+
+جدول:
+
+## subscriptions
+
+```ts
+acceptedTerms: boolean(
+"accepted_terms"
+).default(false),
+
+acceptedTermsAt:
+timestamp(
+"accepted_terms_at"
+),
+
+ipAddress:
+varchar(
+"ip_address",
+{
+length: 100
+}
+),
+
+userAgent:
+text(
+"user_agent"
+),
+```
+
+---
+
+# API
+
+```ts
+await db.insert(subscriptions).values({
+
+...
+
+acceptedTerms: true,
+
+acceptedTermsAt: new Date(),
+
+ipAddress: req.ip,
+
+userAgent:
+req.headers["user-agent"]
+
+});
+```
+
+---
+
+# داخل الفاتورة
+
+يمكن إضافة:
+
+```text
+تم الاشتراك بعد إقرار العميل بالاطلاع والموافقة على الشروط والأحكام وسياسة الخصوصية الخاصة بمنصة عدالة AI.
+```
+
+---
+
+# صفحة مستقلة
+
+```text
+/terms
+
+/privacy
+
+/security
+```
+
+---
+
+# وفي أسفل الصفحة الرئيسية
+
+أضف قسم الثقة:
+
+```tsx
+<section>
+
+<h2>
+
+خصوصيتك وسرية ملفاتك أولوية لدينا
+
+</h2>
+
+<p>
+
+لا يمكن لأي مكتب الاطلاع على ملفات مكتب آخر، ولا يتم الوصول إلى بياناتك إلا من خلال المستخدمين المخولين داخل مكتبك.
+
+</p>
+
+<Link to="/security">
+
+تعرف على معايير الأمان وحماية البيانات
+
+</Link>
+
+</section>
+```
+
+هذا الأسلوب قريب مما تطبقه Stripe وHubSpot وClio، ويوفر إثباتاً قانونياً لموافقة العميل مع تسجيل وقت الموافقة وعنوان الـ IP والجهاز المستخدم.

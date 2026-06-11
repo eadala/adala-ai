@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import {
   officePageTable, officeServicesTable, officeTeamTable,
   officeOrdersTable, officeReviewsTable, officeArticlesTable,
+  officeDomainsTable,
 } from "@workspace/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import Stripe from "stripe";
@@ -227,6 +228,63 @@ router.patch("/office/my/articles/:id", async (req, res) => {
 router.delete("/office/my/articles/:id", async (req, res) => {
   await db.delete(officeArticlesTable).where(eq(officeArticlesTable.id, req.params.id));
   res.json({ success: true });
+});
+
+/* ═══ DOMAINS ═══════════════════════════════════════════════ */
+
+router.get("/office/my/:officeId/domains", async (req, res) => {
+  const { officeId } = req.params;
+  const rows = await db.select().from(officeDomainsTable).where(eq(officeDomainsTable.officeId, officeId));
+  res.json(rows[0] ?? null);
+});
+
+router.post("/office/my/:officeId/domains", async (req, res) => {
+  const { officeId } = req.params;
+  const [office] = await db.select().from(officePageTable).where(eq(officePageTable.id, officeId));
+  if (!office) return res.status(404).json({ error: "not found" });
+  const existing = await db.select().from(officeDomainsTable).where(eq(officeDomainsTable.officeId, officeId));
+  if (existing[0]) {
+    const [updated] = await db.update(officeDomainsTable).set({ ...req.body, updatedAt: new Date() })
+      .where(eq(officeDomainsTable.officeId, officeId)).returning();
+    return res.json(updated);
+  }
+  const { randomBytes } = await import("crypto");
+  const token = randomBytes(16).toString("hex");
+  const [created] = await db.insert(officeDomainsTable).values({
+    officeId, subdomain: office.slug, verificationToken: token, ...req.body,
+  }).returning();
+  res.json(created);
+});
+
+router.patch("/office/my/domains/:id", async (req, res) => {
+  const body: any = { ...req.body, updatedAt: new Date() };
+  if (body.customDomain === "") body.customDomain = null;
+  const [updated] = await db.update(officeDomainsTable).set(body)
+    .where(eq(officeDomainsTable.id, req.params.id)).returning();
+  res.json(updated);
+});
+
+router.post("/office/my/domains/:id/verify", async (req, res) => {
+  const [updated] = await db.update(officeDomainsTable)
+    .set({ isVerified: true, sslEnabled: true, verifiedAt: new Date(), updatedAt: new Date() })
+    .where(eq(officeDomainsTable.id, req.params.id)).returning();
+  res.json(updated);
+});
+
+router.delete("/office/my/domains/:id/custom", async (req, res) => {
+  const [updated] = await db.update(officeDomainsTable)
+    .set({ customDomain: null, isVerified: false, sslEnabled: false, verifiedAt: null, updatedAt: new Date() })
+    .where(eq(officeDomainsTable.id, req.params.id)).returning();
+  res.json(updated);
+});
+
+/* ═══ PLAN ═══════════════════════════════════════════════════ */
+
+router.patch("/office/my/:officeId/plan", async (req, res) => {
+  const { plan } = req.body;
+  const [updated] = await db.update(officePageTable).set({ plan, updatedAt: new Date() })
+    .where(eq(officePageTable.id, req.params.officeId)).returning();
+  res.json(updated);
 });
 
 export default router;
