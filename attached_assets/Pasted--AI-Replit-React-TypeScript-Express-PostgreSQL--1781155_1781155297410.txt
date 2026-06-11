@@ -1,0 +1,526 @@
+إذا كنت تبني **عدالة AI** على Replit باستخدام:
+
+* React
+* TypeScript
+* Express
+* PostgreSQL
+* Drizzle ORM
+
+فهذا هو التصميم الاحترافي الذي أوصي به لمحرك التخزين الذكي (Smart Storage Engine).
+
+---
+
+# 1. جدول الملفات
+
+## shared/schema/caseDocuments.ts
+
+```ts
+import {
+  pgTable,
+  uuid,
+  varchar,
+  bigint,
+  boolean,
+  timestamp
+} from "drizzle-orm/pg-core";
+
+export const caseDocuments = pgTable(
+  "case_documents",
+  {
+
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    officeId: uuid("office_id")
+      .notNull(),
+
+    caseId: uuid("case_id")
+      .notNull(),
+
+    fileName: varchar(
+      "file_name",
+      {
+        length: 500
+      }
+    ),
+
+    originalName: varchar(
+      "original_name",
+      {
+        length: 500
+      }
+    ),
+
+    mimeType: varchar(
+      "mime_type",
+      {
+        length: 100
+      }
+    ),
+
+    fileSize: bigint(
+      "file_size",
+      {
+        mode: "number"
+      }
+    ),
+
+    hash: varchar(
+      "hash",
+      {
+        length: 255
+      }
+    ),
+
+    fileUrl: varchar(
+      "file_url",
+      {
+        length: 1000
+      }
+    ),
+
+    storageProvider: varchar(
+      "storage_provider",
+      {
+        length: 100
+      }
+    ).default("cloudflare-r2"),
+
+    archived: boolean(
+      "archived"
+    ).default(false),
+
+    deleted: boolean(
+      "deleted"
+    ).default(false),
+
+    createdAt: timestamp(
+      "created_at"
+    ).defaultNow()
+
+  }
+);
+```
+
+---
+
+# 2. Deduplication
+
+## server/services/hashService.ts
+
+```ts
+import crypto from "crypto";
+import fs from "fs";
+
+export function generateHash(
+filePath:string
+){
+
+const buffer =
+fs.readFileSync(filePath);
+
+return crypto
+.createHash("sha256")
+.update(buffer)
+.digest("hex");
+
+}
+```
+
+---
+
+# 3. منع تكرار الملفات
+
+## storageService.ts
+
+```ts
+import { db } from "../db";
+import { caseDocuments } from "@shared/schema";
+import { eq } from "drizzle-orm";
+
+export async function checkDuplicate(
+hash:string
+){
+
+const file =
+await db.query.caseDocuments.findFirst({
+
+where:eq(
+caseDocuments.hash,
+hash
+)
+
+});
+
+return file;
+
+}
+```
+
+---
+
+# 4. ضغط الملفات
+
+## compressionService.ts
+
+```ts
+import sharp from "sharp";
+
+export async function compressImage(
+
+input:string,
+
+output:string
+
+){
+
+await sharp(input)
+
+.jpeg({
+quality:80
+})
+
+.toFile(output);
+
+}
+```
+
+---
+
+# 5. الأرشفة الذكية
+
+## archiveService.ts
+
+```ts
+import { db } from "../db";
+import { caseDocuments } from "@shared/schema";
+import { eq } from "drizzle-orm";
+
+export async function archiveFile(
+id:string
+){
+
+await db.update(
+caseDocuments
+)
+
+.set({
+
+archived:true
+
+})
+
+.where(
+eq(
+caseDocuments.id,
+id
+)
+);
+
+}
+```
+
+---
+
+# 6. سلة المحذوفات
+
+```ts
+export async function moveToTrash(
+id:string
+){
+
+await db.update(
+caseDocuments
+)
+
+.set({
+
+deleted:true
+
+})
+
+.where(
+eq(
+caseDocuments.id,
+id
+)
+);
+
+}
+```
+
+---
+
+# 7. النسخ الاحتياطي إلى Telegram
+
+## telegramBackupService.ts
+
+```ts
+import axios from "axios";
+import fs from "fs";
+import FormData from "form-data";
+
+export async function uploadBackup(
+
+filePath:string,
+
+chatId:string
+
+){
+
+const form =
+new FormData();
+
+form.append(
+"chat_id",
+chatId
+);
+
+form.append(
+"document",
+fs.createReadStream(
+filePath
+)
+);
+
+await axios.post(
+
+`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendDocument`,
+
+form,
+
+{
+headers:
+form.getHeaders()
+}
+
+);
+
+}
+```
+
+---
+
+# 8. Cloudflare R2
+
+## r2Service.ts
+
+```ts
+import {
+S3Client,
+PutObjectCommand
+}
+from "@aws-sdk/client-s3";
+
+export const r2 =
+new S3Client({
+
+region:"auto",
+
+endpoint:
+process.env.R2_ENDPOINT,
+
+credentials:{
+
+accessKeyId:
+process.env.R2_ACCESS_KEY!,
+
+secretAccessKey:
+process.env.R2_SECRET_KEY!
+
+}
+
+});
+```
+
+رفع الملفات:
+
+```ts
+export async function uploadFile(
+
+buffer:Buffer,
+
+fileName:string
+
+){
+
+await r2.send(
+
+new PutObjectCommand({
+
+Bucket:
+process.env.R2_BUCKET,
+
+Key:fileName,
+
+Body:buffer
+
+})
+
+);
+
+}
+```
+
+---
+
+# 9. حذف الملفات القديمة
+
+## cronJobs/storageCron.ts
+
+```ts
+import cron from "node-cron";
+
+cron.schedule(
+
+"0 2 * * *",
+
+async ()=>{
+
+// البحث عن الملفات المحذوفة
+
+// حذف الملفات بعد 30 يوم
+
+}
+);
+```
+
+---
+
+# 10. جدول استهلاك المساحة
+
+## officeStorageUsage.ts
+
+```ts
+export const officeStorageUsage = pgTable(
+"office_storage_usage",
+{
+
+id:uuid("id")
+.defaultRandom()
+.primaryKey(),
+
+officeId:uuid(
+"office_id"
+),
+
+usedSpace:bigint(
+"used_space",
+{
+mode:"number"
+}
+),
+
+maxSpace:bigint(
+"max_space",
+{
+mode:"number"
+}
+),
+
+updatedAt:timestamp(
+"updated_at"
+)
+.defaultNow()
+
+}
+);
+```
+
+---
+
+# 11. AI Storage Manager
+
+## aiStorageService.ts
+
+```ts
+export async function analyzeStorage(){
+
+// الملفات الكبيرة
+
+// الملفات المكررة
+
+// القضايا القديمة
+
+// اقتراح الأرشفة
+
+}
+```
+
+---
+
+# هيكل المشروع النهائي
+
+```text
+server/
+
+services/
+
+storageService.ts
+
+r2Service.ts
+
+archiveService.ts
+
+compressionService.ts
+
+telegramBackupService.ts
+
+hashService.ts
+
+aiStorageService.ts
+
+cronJobs/
+
+storageCron.ts
+
+routes/
+
+storage.ts
+
+shared/schema/
+
+caseDocuments.ts
+
+officeStorageUsage.ts
+```
+
+# البنية التي أوصي بها لعدالة AI
+
+```text
+PostgreSQL
+(بيانات النظام)
+
+↓
+
+Cloudflare R2
+(ملفات القضايا)
+
+↓
+
+Deduplication Engine
+
+↓
+
+Compression Engine
+
+↓
+
+Archive Engine
+
+↓
+
+Telegram Backup
+
+↓
+
+Backblaze B2
+(نسخة شهرية)
+
+↓
+
+AI Storage Manager
+```
+
+وهذه البنية قادرة على تشغيل آلاف المكاتب القانونية وتقليل تكلفة التخزين بشكل كبير جداً مقارنة بحفظ الملفات داخل الخادم الرئيسي.
