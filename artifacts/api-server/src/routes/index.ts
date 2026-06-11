@@ -113,6 +113,9 @@ router.use((req, _res, next) => {
   if (req.url === "/templates" || req.url.startsWith("/templates/") || req.url.startsWith("/templates?")) {
     req.url = "/document-templates" + req.url.slice("/templates".length);
   }
+  if (req.url === "/appointments" || req.url.startsWith("/appointments/") || req.url.startsWith("/appointments?")) {
+    req.url = "/calendar/events" + req.url.slice("/appointments".length);
+  }
   next();
 });
 router.use(documentTemplatesRouter);

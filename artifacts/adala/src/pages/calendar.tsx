@@ -14,12 +14,11 @@ import { toast } from "sonner";
 import {
   CalendarDays, ChevronRight, ChevronLeft, Plus, Trash2, Clock,
   MapPin, Scale, Bell, X, Loader2, CalendarCheck2, AlertCircle,
-  Users, Briefcase, Star, RefreshCw
+  Users, Briefcase, Star, RefreshCw, Download, Link2
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type CalEvent = {
   id: string; title: string; event_type: string;
   start_at: string; end_at?: string; all_day: boolean;
@@ -27,7 +26,6 @@ type CalEvent = {
   description?: string; status: string; user_id: string;
 };
 
-// ─── Config ──────────────────────────────────────────────────────────────────
 const EVENT_TYPES: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   court_session: { label: "جلسة محكمة",   color: "text-red-400",    bg: "bg-red-500/80",    icon: Scale },
   deadline:      { label: "موعد نهائي",   color: "text-orange-400", bg: "bg-orange-500/80", icon: AlertCircle },
@@ -38,61 +36,50 @@ const EVENT_TYPES: Record<string, { label: string; color: string; bg: string; ic
 };
 
 const REMINDER_OPTIONS = [
-  { label: "30 دقيقة قبل",  value: 30 },
-  { label: "ساعة واحدة قبل", value: 60 },
-  { label: "3 ساعات قبل",   value: 180 },
-  { label: "يوم قبل",        value: 1440 },
-  { label: "يومان قبل",      value: 2880 },
+  { label: "30 دقيقة",  value: 30 },
+  { label: "ساعة",       value: 60 },
+  { label: "3 ساعات",   value: 180 },
+  { label: "يوم",        value: 1440 },
+  { label: "يومان",      value: 2880 },
 ];
 
 const AR_MONTHS = [
   "يناير","فبراير","مارس","أبريل","مايو","يونيو",
   "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"
 ];
-const AR_DAYS = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 const AR_DAYS_SHORT = ["أح","اث","ثل","أر","خم","جم","سب"];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatHijri(date: Date): string {
   try {
-    return date.toLocaleDateString("ar-SA-u-ca-islamic", {
-      day: "numeric", month: "long", year: "numeric"
-    });
+    return date.toLocaleDateString("ar-SA-u-ca-islamic", { day: "numeric", month: "long", year: "numeric" });
   } catch { return ""; }
 }
-
 function toLocalDateStr(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 }
-
-function parseLocalDate(s: string): Date {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
 function isSameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() &&
-         a.getMonth() === b.getMonth() &&
-         a.getDate() === b.getDate();
+  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
 }
 
 // ─── New Event Dialog ─────────────────────────────────────────────────────────
 function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCreated: () => void }) {
   const { user } = useUser();
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [eventType, setEventType] = useState("other");
-  const [date, setDate] = useState(toLocalDateStr(selectedDate));
-  const [time, setTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("10:00");
-  const [allDay, setAllDay] = useState(false);
-  const [location, setLocation] = useState("");
+  const [open, setOpen]               = useState(false);
+  const [title, setTitle]             = useState("");
+  const [eventType, setEventType]     = useState("other");
+  const [date, setDate]               = useState(toLocalDateStr(selectedDate));
+  const [time, setTime]               = useState("09:00");
+  const [endTime, setEndTime]         = useState("10:00");
+  const [allDay, setAllDay]           = useState(false);
+  const [location, setLocation]       = useState("");
   const [description, setDescription] = useState("");
+  const [linkedCaseId, setLinkedCaseId]       = useState("none");
+  const [linkedClientId, setLinkedClientId]   = useState("none");
   const [selectedReminders, setSelectedReminders] = useState<number[]>([60]);
-  const [email, setEmail] = useState(user?.primaryEmailAddress?.emailAddress ?? "");
+  const [email, setEmail]             = useState(user?.primaryEmailAddress?.emailAddress ?? "");
+
+  const { data: cases = [] }   = useQuery<any[]>({ queryKey: ["cases-list"],   queryFn: () => fetch(`${BASE}api/cases`).then(r=>r.ok?r.json():[]) });
+  const { data: clients = [] } = useQuery<any[]>({ queryKey: ["clients-list"], queryFn: () => fetch(`${BASE}api/clients`).then(r=>r.ok?r.json():[]) });
 
   const create = useMutation({
     mutationFn: async () => {
@@ -102,36 +89,36 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: user?.id ?? "default",
           title, eventType, startAt, endAt, allDay,
+          caseId:   linkedCaseId   === "none" ? undefined : linkedCaseId,
+          clientId: linkedClientId === "none" ? undefined : linkedClientId,
           location: location || undefined,
           description: description || undefined,
           reminders: selectedReminders.map(m => ({ minutesBefore: m, email: email || undefined })),
         }),
       });
+      if (!r.ok) { const e = await r.json(); throw new Error(e.error || "فشل الإنشاء"); }
       return r.json();
     },
-    onSuccess: (data) => {
-      if (data?.error) { toast.error(data.error); return; }
+    onSuccess: () => {
       toast.success("تم إنشاء الحدث ✅");
       setOpen(false);
       setTitle(""); setLocation(""); setDescription("");
+      setLinkedCaseId("none"); setLinkedClientId("none");
       onCreated();
     },
-    onError: () => toast.error("فشل إنشاء الحدث"),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const toggleReminder = (v: number) =>
-    setSelectedReminders(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+    setSelectedReminders(prev => prev.includes(v) ? prev.filter(x=>x!==v) : [...prev, v]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5">
-          <Plus className="h-4 w-4" />إضافة حدث
-        </Button>
+        <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" />إضافة حدث</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md" dir="rtl">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarCheck2 className="h-5 w-5 text-primary" />إضافة حدث جديد
@@ -140,8 +127,7 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">
             <Label>عنوان الحدث *</Label>
-            <Input placeholder="مثال: جلسة استماع — قضية رقم 1234" value={title}
-              onChange={e => setTitle(e.target.value)} />
+            <Input placeholder="مثال: جلسة استماع — قضية رقم 1234" value={title} onChange={e=>setTitle(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -150,20 +136,18 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
               <Select value={eventType} onValueChange={setEventType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(EVENT_TYPES).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                  ))}
+                  {Object.entries(EVENT_TYPES).map(([k,v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label>التاريخ *</Label>
-              <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+              <Input type="date" value={date} onChange={e=>setDate(e.target.value)} />
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Checkbox id="allDay" checked={allDay} onCheckedChange={v => setAllDay(!!v)} />
+            <Checkbox id="allDay" checked={allDay} onCheckedChange={v=>setAllDay(!!v)} />
             <label htmlFor="allDay" className="text-sm cursor-pointer">طوال اليوم</label>
           </div>
 
@@ -171,37 +155,57 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>وقت البداية</Label>
-                <Input type="time" value={time} onChange={e => setTime(e.target.value)} />
+                <Input type="time" value={time} onChange={e=>setTime(e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label>وقت النهاية</Label>
-                <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
+                <Input type="time" value={endTime} onChange={e=>setEndTime(e.target.value)} />
               </div>
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <Label>المكان (اختياري)</Label>
-            <Input placeholder="محكمة الاستئناف، غرفة 3" value={location}
-              onChange={e => setLocation(e.target.value)} />
+          {/* Linking */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1"><Link2 className="h-3.5 w-3.5 text-muted-foreground" />ربط بقضية</Label>
+              <Select value={linkedCaseId} onValueChange={setLinkedCaseId}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="بدون ربط" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">بدون ربط</SelectItem>
+                  {(cases as any[]).map((c:any) => <SelectItem key={c.id} value={String(c.id)}>{c.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1"><Users className="h-3.5 w-3.5 text-muted-foreground" />ربط بعميل</Label>
+              <Select value={linkedClientId} onValueChange={setLinkedClientId}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="بدون ربط" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">بدون ربط</SelectItem>
+                  {(clients as any[]).map((c:any) => <SelectItem key={c.id} value={String(c.id)}>{c.fullName || c.full_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-1.5">
+            <Label>المكان (اختياري)</Label>
+            <Input placeholder="محكمة الاستئناف، غرفة 3" value={location} onChange={e=>setLocation(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
             <Label>ملاحظات (اختياري)</Label>
-            <Textarea placeholder="تفاصيل إضافية..." rows={2} value={description}
-              onChange={e => setDescription(e.target.value)} />
+            <Textarea placeholder="تفاصيل إضافية..." rows={2} value={description} onChange={e=>setDescription(e.target.value)} />
           </div>
 
           {/* Reminders */}
           <div className="space-y-2 bg-muted/30 rounded-xl p-3">
             <div className="flex items-center gap-2 mb-2">
               <Bell className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">التذكيرات بالبريد الإلكتروني</span>
+              <span className="text-sm font-medium">تذكيرات تلقائية</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {REMINDER_OPTIONS.map(opt => (
-                <button key={opt.value}
-                  onClick={() => toggleReminder(opt.value)}
+                <button key={opt.value} onClick={() => toggleReminder(opt.value)}
                   className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
                     selectedReminders.includes(opt.value)
                       ? "border-primary bg-primary/20 text-primary"
@@ -215,7 +219,7 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
               <div className="space-y-1.5 pt-1">
                 <Label className="text-xs text-muted-foreground">البريد الإلكتروني للتذكير</Label>
                 <Input type="email" placeholder="example@domain.com" value={email}
-                  onChange={e => setEmail(e.target.value)} className="h-8 text-sm" />
+                  onChange={e=>setEmail(e.target.value)} className="h-8 text-sm" />
               </div>
             )}
           </div>
@@ -230,7 +234,7 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
   );
 }
 
-// ─── Event Dot ────────────────────────────────────────────────────────────────
+// ─── Event Dot ─────────────────────────────────────────────────────────────
 function EventDot({ events }: { events: CalEvent[] }) {
   const shown = events.slice(0, 3);
   return (
@@ -239,12 +243,12 @@ function EventDot({ events }: { events: CalEvent[] }) {
         const cfg = EVENT_TYPES[e.event_type] ?? EVENT_TYPES.other;
         return <span key={e.id} className={`w-1.5 h-1.5 rounded-full ${cfg.bg}`} />;
       })}
-      {events.length > 3 && <span className="text-[8px] text-muted-foreground">+{events.length - 3}</span>}
+      {events.length > 3 && <span className="text-[8px] text-muted-foreground">+{events.length-3}</span>}
     </div>
   );
 }
 
-// ─── Day Events Panel ─────────────────────────────────────────────────────────
+// ─── Day Events Panel ───────────────────────────────────────────────────────
 function DayPanel({ date, events, onDelete, onRefresh }: {
   date: Date; events: CalEvent[]; onDelete: (id: string) => void; onRefresh: () => void;
 }) {
@@ -276,6 +280,8 @@ function DayPanel({ date, events, onDelete, onRefresh }: {
                   <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${cfg.color} border-current/30`}>
                     {cfg.label}
                   </Badge>
+                  {ev.case_id && <span className="text-[10px] text-blue-400 flex items-center gap-0.5"><Scale className="h-2.5 w-2.5" />قضية</span>}
+                  {ev.client_id && <span className="text-[10px] text-violet-400 flex items-center gap-0.5"><Users className="h-2.5 w-2.5" />عميل</span>}
                 </div>
                 {ev.description && <p className="text-xs text-muted-foreground mt-1 truncate">{ev.description}</p>}
               </div>
@@ -292,51 +298,69 @@ function DayPanel({ date, events, onDelete, onRefresh }: {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Main Page ──────────────────────────────────────────────────────────────
 export default function Calendar() {
   const { user } = useUser();
   const qc = useQueryClient();
   const today = new Date();
   const [curMonth, setCurMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(today);
+  const [view, setView] = useState<"month" | "week">("month");
 
   const year  = curMonth.getFullYear();
   const month = curMonth.getMonth() + 1;
 
   const { data: events = [], isLoading, refetch } = useQuery<CalEvent[]>({
     queryKey: ["calendar-events", year, month],
-    queryFn: () =>
-      fetch(`${BASE}api/calendar/events?year=${year}&month=${month}&userId=${user?.id ?? ""}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/calendar/events?year=${year}&month=${month}`).then(r => r.ok ? r.json() : []),
   });
 
   const { data: upcomingEvents = [] } = useQuery<CalEvent[]>({
     queryKey: ["calendar-upcoming"],
-    queryFn: () =>
-      fetch(`${BASE}api/calendar/events/upcoming?days=14&userId=${user?.id ?? ""}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/calendar/events/upcoming?days=14`).then(r => r.ok ? r.json() : []),
   });
 
   const deleteEvent = useMutation({
     mutationFn: (id: string) => fetch(`${BASE}api/calendar/events/${id}`, { method: "DELETE" }).then(r => r.json()),
-    onSuccess: () => { toast.success("تم حذف الحدث"); qc.invalidateQueries({ queryKey: ["calendar-events"] }); qc.invalidateQueries({ queryKey: ["calendar-upcoming"] }); },
+    onSuccess: () => {
+      toast.success("تم حذف الحدث");
+      qc.invalidateQueries({ queryKey: ["calendar-events"] });
+      qc.invalidateQueries({ queryKey: ["calendar-upcoming"] });
+    },
   });
 
-  const refresh = () => { qc.invalidateQueries({ queryKey: ["calendar-events"] }); qc.invalidateQueries({ queryKey: ["calendar-upcoming"] }); };
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["calendar-events"] });
+    qc.invalidateQueries({ queryKey: ["calendar-upcoming"] });
+  };
 
-  // Calendar grid
-  const firstDay = new Date(year, month - 1, 1).getDay(); // 0=Sun
+  const exportIcal = () => {
+    window.open(`${BASE}api/calendar/events/export.ics`, "_blank");
+  };
+
+  const firstDay = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
   const cells = useMemo(() => {
     const grid: (Date | null)[] = Array(firstDay).fill(null);
-    for (let d = 1; d <= daysInMonth; d++) {
-      grid.push(new Date(year, month - 1, d));
-    }
+    for (let d = 1; d <= daysInMonth; d++) grid.push(new Date(year, month - 1, d));
     while (grid.length % 7 !== 0) grid.push(null);
     return grid;
   }, [year, month, firstDay, daysInMonth]);
 
-  const eventsOnDay = (day: Date) =>
-    events.filter(e => isSameDay(new Date(e.start_at), day));
+  // Week view cells — current week
+  const weekStart = useMemo(() => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() - d.getDay());
+    return d;
+  }, [selectedDate]);
 
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  }), [weekStart]);
+
+  const eventsOnDay = (day: Date) => events.filter(e => isSameDay(new Date(e.start_at), day));
   const selectedDayEvents = eventsOnDay(selectedDate);
 
   const prevMonth = () => setCurMonth(new Date(year, month - 2, 1));
@@ -355,12 +379,20 @@ export default function Calendar() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <CalendarDays className="h-7 w-7 text-primary" />
-            التقويم والمواعيد
+            <CalendarDays className="h-7 w-7 text-primary" />التقويم والمواعيد
           </h1>
           <p className="text-muted-foreground mt-1">إدارة الجلسات والمواعيد والتذكيرات القانونية</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={exportIcal}>
+            <Download className="h-3.5 w-3.5" />تصدير iCal
+          </Button>
+          <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => {
+            const url = `webcal://${window.location.host}${BASE}api/calendar/events/export.ics`;
+            window.location.href = url;
+          }}>
+            <CalendarDays className="h-3.5 w-3.5" />Google Calendar
+          </Button>
           <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={goToday}>
             <RefreshCw className="h-3.5 w-3.5" />اليوم
           </Button>
@@ -371,18 +403,16 @@ export default function Calendar() {
       {/* Upcoming Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "جلسات قادمة", value: upcomingStats.court,    color: "text-red-400",    bg: "bg-red-500/10",    icon: Scale },
+          { label: "جلسات قادمة",   value: upcomingStats.court,    color: "text-red-400",    bg: "bg-red-500/10",    icon: Scale },
           { label: "مواعيد نهائية", value: upcomingStats.deadline, color: "text-orange-400", bg: "bg-orange-500/10", icon: AlertCircle },
-          { label: "اجتماعات",     value: upcomingStats.meeting,  color: "text-blue-400",   bg: "bg-blue-500/10",   icon: Users },
+          { label: "اجتماعات",      value: upcomingStats.meeting,  color: "text-blue-400",   bg: "bg-blue-500/10",   icon: Users },
         ].map(s => {
           const Icon = s.icon;
           return (
             <Card key={s.label}>
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${s.bg}`}>
-                    <Icon className={`h-4 w-4 ${s.color}`} />
-                  </div>
+                  <div className={`p-2 rounded-lg ${s.bg}`}><Icon className={`h-4 w-4 ${s.color}`} /></div>
                   <div>
                     <p className="text-xs text-muted-foreground">{s.label} (14 يوم)</p>
                     <p className={`font-bold text-2xl ${s.color}`}>{s.value}</p>
@@ -394,6 +424,16 @@ export default function Calendar() {
         })}
       </div>
 
+      {/* View Toggle */}
+      <div className="flex gap-1.5">
+        {(["month","week"] as const).map(v => (
+          <Button key={v} variant={view===v?"default":"outline"} size="sm" className="text-xs h-8"
+            onClick={()=>setView(v)}>
+            {v==="month" ? "عرض شهري" : "عرض أسبوعي"}
+          </Button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar Grid */}
         <Card className="lg:col-span-2">
@@ -403,12 +443,8 @@ export default function Calendar() {
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <div className="text-center">
-                <h2 className="font-bold text-lg">
-                  {AR_MONTHS[month - 1]} {year}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  {formatHijri(new Date(year, month - 1, 15))}
-                </p>
+                <h2 className="font-bold text-lg">{AR_MONTHS[month-1]} {year}</h2>
+                <p className="text-xs text-muted-foreground">{formatHijri(new Date(year, month-1, 15))}</p>
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextMonth}>
                 <ChevronLeft className="h-4 w-4" />
@@ -416,43 +452,93 @@ export default function Calendar() {
             </div>
           </CardHeader>
           <CardContent>
-            {/* Day Names */}
             <div className="grid grid-cols-7 mb-2">
               {AR_DAYS_SHORT.map(d => (
                 <div key={d} className="text-center text-xs text-muted-foreground font-medium py-1">{d}</div>
               ))}
             </div>
-            {/* Cells */}
             {isLoading ? (
               <div className="flex items-center justify-center h-48">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
-            ) : (
+            ) : view === "month" ? (
               <div className="grid grid-cols-7 gap-1">
                 {cells.map((day, idx) => {
-                  if (!day) return <div key={`empty-${idx}`} />;
-                  const dayEvents = eventsOnDay(day);
+                  if (!day) return <div key={`e-${idx}`} />;
+                  const dayEvs = eventsOnDay(day);
                   const isToday = isSameDay(day, today);
                   const isSelected = isSameDay(day, selectedDate);
                   const isFri = day.getDay() === 5;
                   const isSat = day.getDay() === 6;
                   return (
-                    <button key={day.toISOString()}
-                      onClick={() => setSelectedDate(day)}
+                    <button key={day.toISOString()} onClick={() => setSelectedDate(day)}
                       className={`relative flex flex-col items-center rounded-xl p-1.5 min-h-[52px] transition-all hover:bg-muted/50 ${
                         isSelected ? "bg-primary/20 border border-primary/40 ring-1 ring-primary/20" :
                         isToday    ? "bg-muted/70 border border-border" : ""
-                      } ${(isFri || isSat) ? "opacity-70" : ""}`}>
+                      } ${(isFri||isSat) ? "opacity-70" : ""}`}>
                       <span className={`text-sm font-medium leading-tight ${
                         isToday ? "text-primary font-black" :
-                        isFri || isSat ? "text-muted-foreground" : ""
+                        isFri||isSat ? "text-muted-foreground" : ""
                       }`}>
                         {day.getDate().toLocaleString("ar-SA")}
                       </span>
-                      <EventDot events={dayEvents} />
+                      <EventDot events={dayEvs} />
                     </button>
                   );
                 })}
+              </div>
+            ) : (
+              /* Weekly View */
+              <div className="space-y-1">
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {weekDays.map(day => {
+                    const isToday = isSameDay(day, today);
+                    const isSelected = isSameDay(day, selectedDate);
+                    const dayEvs = eventsOnDay(day);
+                    return (
+                      <button key={day.toISOString()} onClick={()=>setSelectedDate(day)}
+                        className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-muted/50 ${
+                          isSelected ? "bg-primary/20 border border-primary/40" :
+                          isToday    ? "bg-muted/50 border border-border" : ""
+                        }`}>
+                        <span className="text-[10px] text-muted-foreground">{AR_DAYS_SHORT[day.getDay()]}</span>
+                        <span className={`text-sm font-bold ${isToday?"text-primary":""}`}>
+                          {day.getDate().toLocaleString("ar-SA")}
+                        </span>
+                        {dayEvs.length > 0 && (
+                          <span className="text-[9px] bg-primary/20 text-primary rounded-full px-1.5">{dayEvs.length}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Time slots for week view */}
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {weekDays.map(day => {
+                    const dayEvs = eventsOnDay(day);
+                    if (dayEvs.length === 0) return null;
+                    return (
+                      <div key={day.toISOString()} className="flex gap-2 items-start">
+                        <span className="text-[10px] text-muted-foreground w-8 shrink-0 pt-1">
+                          {day.getDate().toLocaleString("ar-SA")} {AR_DAYS_SHORT[day.getDay()]}
+                        </span>
+                        <div className="flex-1 space-y-1">
+                          {dayEvs.map(ev => {
+                            const cfg = EVENT_TYPES[ev.event_type] ?? EVENT_TYPES.other;
+                            return (
+                              <div key={ev.id} className={`text-xs px-2 py-1 rounded-lg ${cfg.bg} bg-opacity-20 ${cfg.color} truncate`}>
+                                {ev.all_day ? "طوال اليوم" : new Date(ev.start_at).toLocaleTimeString("ar-SA",{hour:"2-digit",minute:"2-digit"})} — {ev.title}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {weekDays.every(d => eventsOnDay(d).length === 0) && (
+                    <p className="text-xs text-muted-foreground text-center py-6">لا توجد أحداث هذا الأسبوع</p>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
@@ -464,7 +550,7 @@ export default function Calendar() {
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <CalendarCheck2 className="h-4 w-4 text-primary" />
               <div>
-                <div>{selectedDate.toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long" })}</div>
+                <div>{selectedDate.toLocaleDateString("ar-SA", { weekday:"long", day:"numeric", month:"long" })}</div>
                 <div className="text-xs font-normal text-muted-foreground mt-0.5">{formatHijri(selectedDate)}</div>
               </div>
             </CardTitle>
@@ -485,8 +571,7 @@ export default function Calendar() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Bell className="h-4 w-4 text-primary" />
-              المواعيد القادمة (14 يوم)
+              <Bell className="h-4 w-4 text-primary" />المواعيد القادمة (14 يوم)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -504,10 +589,12 @@ export default function Calendar() {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{ev.title}</p>
                       <p className="text-xs text-muted-foreground">
-                        {startDate.toLocaleDateString("ar-SA", { weekday: "short", day: "numeric", month: "short" })}
+                        {startDate.toLocaleDateString("ar-SA", { weekday:"short", day:"numeric", month:"short" })}
                         {" · "}
-                        {ev.all_day ? "طوال اليوم" : startDate.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                        {ev.all_day ? "طوال اليوم" : startDate.toLocaleTimeString("ar-SA", { hour:"2-digit", minute:"2-digit" })}
                         {ev.location ? ` · ${ev.location}` : ""}
+                        {ev.case_id   ? " · 🔗قضية"  : ""}
+                        {ev.client_id ? " · 👤عميل"  : ""}
                       </p>
                     </div>
                     <div className="shrink-0 flex items-center gap-2">
