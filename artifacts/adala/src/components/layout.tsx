@@ -93,7 +93,9 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const userEmail = user?.emailAddresses[0]?.emailAddress ?? "";
   const ownerEmail = (import.meta.env.VITE_PLATFORM_OWNER_EMAIL ?? "").trim();
-  const isSuperAdmin = !!ownerEmail && userEmail === ownerEmail;
+  const isSuperAdminByEmail = !!ownerEmail && userEmail === ownerEmail;
+  const isSuperAdminByRole = user?.publicMetadata?.role === "super_admin";
+  const isSuperAdmin = isSuperAdminByEmail || isSuperAdminByRole;
 
   const visibleGroups = NAV_GROUPS.filter((g: any) => !g.superAdminOnly || isSuperAdmin);
 
