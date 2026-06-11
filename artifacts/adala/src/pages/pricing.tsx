@@ -1,14 +1,16 @@
 import { useState, useRef } from "react";
+import { Link } from "wouter";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import {
   Check, X, Minus, ChevronDown, Zap, Shield, Building2,
   Crown, Rocket, Star, Sparkles, ArrowLeft, MessageCircle,
   Users, HardDrive, Brain, Globe, ShoppingBag, Calendar,
-  Link, GitBranch, Code2, BarChart3, Headphones, Wifi,
+  GitBranch, Code2, BarChart3, Headphones, Wifi,
   BadgeCheck, Phone, Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 /* ═══════════════════════════════════════ DATA ══════════════════════════════════════ */
@@ -181,6 +183,7 @@ export default function PricingPage() {
   const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   return (
     <div
@@ -632,12 +635,29 @@ export default function PricingPage() {
             <p className="text-white/50 text-base mb-8 max-w-lg mx-auto leading-relaxed">
               انضم لأكثر من ٨٥٠ مكتباً قانونياً يستخدمون عدالة AI لتحسين كفاءتهم وتنمية أعمالهم.
             </p>
+            {/* Terms acceptance */}
+            <div className="flex items-start gap-3 max-w-sm mx-auto mb-6 text-right">
+              <Checkbox
+                id="terms-cta"
+                checked={acceptedTerms}
+                onCheckedChange={(v) => setAcceptedTerms(!!v)}
+                className="mt-0.5 shrink-0"
+              />
+              <label htmlFor="terms-cta" className="text-sm text-white/55 cursor-pointer leading-relaxed">
+                أقر بأنني اطلعت على{" "}
+                <Link href="/terms"><span className="text-[#C9A84C] hover:underline cursor-pointer">الشروط والأحكام</span></Link>
+                {" "}و{" "}
+                <Link href="/privacy"><span className="text-[#C9A84C] hover:underline cursor-pointer">سياسة الخصوصية</span></Link>
+                {" "}وأوافق عليهما
+              </label>
+            </div>
             <div className="flex flex-wrap gap-3 justify-center">
-              <a href="/sign-up">
+              <a href={acceptedTerms ? "/sign-up" : undefined} onClick={!acceptedTerms ? (e) => e.preventDefault() : undefined}>
                 <Button
                   size="lg"
-                  className="gap-2 px-8 py-6 text-base font-black shadow-2xl hover:opacity-90 transition-opacity"
-                  style={{ background: `linear-gradient(135deg, ${GOLD}, #f0d060)`, color: "#000" }}
+                  className="gap-2 px-8 py-6 text-base font-black shadow-2xl transition-opacity"
+                  style={{ background: acceptedTerms ? `linear-gradient(135deg, ${GOLD}, #f0d060)` : "rgba(255,255,255,0.1)", color: acceptedTerms ? "#000" : "rgba(255,255,255,0.3)" }}
+                  disabled={!acceptedTerms}
                 >
                   <Zap className="h-5 w-5" />
                   ابدأ مجاناً لمدة ١٤ يوماً
@@ -665,7 +685,14 @@ export default function PricingPage() {
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-8 text-center text-xs text-white/20">
-        <p>© ٢٠٢٦ عدالة AI · جميع الحقوق محفوظة</p>
+        <p className="mb-3">© ٢٠٢٦ عدالة AI · جميع الحقوق محفوظة</p>
+        <div className="flex items-center justify-center gap-4">
+          <Link href="/terms"><span className="text-white/30 hover:text-white/60 transition-colors cursor-pointer">الشروط والأحكام</span></Link>
+          <span className="text-white/15">•</span>
+          <Link href="/privacy"><span className="text-white/30 hover:text-white/60 transition-colors cursor-pointer">سياسة الخصوصية</span></Link>
+          <span className="text-white/15">•</span>
+          <Link href="/security"><span className="text-white/30 hover:text-white/60 transition-colors cursor-pointer">الأمان</span></Link>
+        </div>
       </footer>
 
       {/* WhatsApp float */}

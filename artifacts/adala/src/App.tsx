@@ -51,6 +51,9 @@ import PortalView from "@/pages/portal-view";
 import Marketplace from "@/pages/marketplace";
 import AIAssistant from "@/pages/ai-assistant";
 import Landing from "@/pages/landing";
+import TermsPage from "@/pages/terms";
+import PrivacyPage from "@/pages/privacy";
+import SecurityPage from "@/pages/security";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -214,6 +217,9 @@ function AppRoutes() {
           <Switch>
             <Route path="/" component={HomeRedirect} />
             <Route path="/pricing" component={PricingPage} />
+            <Route path="/terms" component={TermsPage} />
+            <Route path="/privacy" component={PrivacyPage} />
+            <Route path="/security" component={SecurityPage} />
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
             <Route path="/dashboard">

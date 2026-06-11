@@ -751,6 +751,43 @@ export default function Landing() {
         </FadeIn>
       </section>
 
+      {/* ── TRUST / SECURITY SECTION ──────────────────────────────────── */}
+      <section className="py-16 px-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-5"
+            style={{ background: "rgba(16,185,129,0.1)", color: "#10B981", border: "1px solid rgba(16,185,129,0.2)" }}>
+            🔒 الأمان والخصوصية
+          </div>
+          <h2 className="text-2xl md:text-3xl font-black text-white mb-4">
+            خصوصيتك وسرية ملفاتك أولوية لدينا
+          </h2>
+          <p className="text-white/50 text-base leading-relaxed mb-8 max-w-2xl mx-auto">
+            لا يمكن لأي مكتب الاطلاع على ملفات مكتب آخر، ولا يتم الوصول إلى بياناتك إلا من خلال المستخدمين المخوّلين داخل مكتبك. بياناتك محمية بتشفير AES-256 وتُخزَّن في بيئة معزولة تماماً.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {[
+              { icon: "🔐", label: "تشفير AES-256", desc: "لجميع البيانات المخزنة" },
+              { icon: "🏗️", label: "عزل كامل بين المكاتب", desc: "Multi-tenant isolation" },
+              { icon: "🛡️", label: "امتثال PDPL", desc: "نظام حماية البيانات السعودي" },
+              { icon: "💾", label: "نسخ احتياطية يومية", desc: "استرداد في أقل من ٤ ساعات" },
+            ].map((item, i) => (
+              <div key={i} className="rounded-2xl p-4 text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                <div className="text-2xl mb-2">{item.icon}</div>
+                <div className="text-sm font-bold text-white mb-1">{item.label}</div>
+                <div className="text-xs text-white/40">{item.desc}</div>
+              </div>
+            ))}
+          </div>
+          <Link href="/security">
+            <button className="inline-flex items-center gap-2 text-sm font-semibold px-6 py-3 rounded-xl transition-all hover:opacity-90"
+              style={{ background: "rgba(16,185,129,0.12)", color: "#10B981", border: "1px solid rgba(16,185,129,0.25)" }}>
+              تعرف على معايير الأمان وحماية البيانات
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          </Link>
+        </div>
+      </section>
+
       {/* ── FOOTER ────────────────────────────────────────────────────── */}
       <footer style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
         <div className="max-w-7xl mx-auto px-4 py-14">
@@ -776,13 +813,23 @@ export default function Landing() {
             {[
               { title: "المنصة",     links: ["المميزات", "الأسعار", "حالة النظام", "خارطة الطريق"] },
               { title: "الشركة",     links: ["عن عدالة AI", "المدونة", "الشراكات", "تواصل معنا"] },
-              { title: "الدعم",      links: ["مركز المساعدة", "سياسة الخصوصية", "الشروط والأحكام", "الأمان"] },
+              { title: "الدعم", links: [
+                  { label: "مركز المساعدة", href: "#" },
+                  { label: "سياسة الخصوصية", href: "/privacy" },
+                  { label: "الشروط والأحكام", href: "/terms" },
+                  { label: "الأمان وحماية البيانات", href: "/security" },
+              ]},
             ].map(col => (
               <div key={col.title}>
                 <h4 className="font-bold text-white text-sm mb-4">{col.title}</h4>
                 <ul className="space-y-2.5">
-                  {col.links.map(l => (
-                    <li key={l}><a href="#" className="text-white/45 text-sm hover:text-white transition-colors">{l}</a></li>
+                  {col.links.map((l: any) => (
+                    <li key={typeof l === "string" ? l : l.label}>
+                      {typeof l === "string"
+                        ? <a href="#" className="text-white/45 text-sm hover:text-white transition-colors">{l}</a>
+                        : <Link href={l.href}><span className="text-white/45 text-sm hover:text-white transition-colors cursor-pointer">{l.label}</span></Link>
+                      }
+                    </li>
                   ))}
                 </ul>
               </div>

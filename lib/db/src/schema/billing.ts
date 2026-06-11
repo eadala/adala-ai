@@ -1,4 +1,4 @@
-import { pgTable, text, real, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, real, integer, timestamp, boolean, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -10,12 +10,16 @@ export const invoicesTable = pgTable("invoices", {
 });
 
 export const subscriptionsTable = pgTable("subscriptions", {
-  id:        text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  planName:  text("plan_name").notNull(),
-  planPrice: real("plan_price").notNull(),
-  status:    text("status").notNull().default("active"),
-  startDate: timestamp("start_date").notNull().defaultNow(),
-  endDate:   timestamp("end_date").notNull(),
+  id:              text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  planName:        text("plan_name").notNull(),
+  planPrice:       real("plan_price").notNull(),
+  status:          text("status").notNull().default("active"),
+  startDate:       timestamp("start_date").notNull().defaultNow(),
+  endDate:         timestamp("end_date").notNull(),
+  acceptedTerms:   boolean("accepted_terms").default(false),
+  acceptedTermsAt: timestamp("accepted_terms_at"),
+  ipAddress:       varchar("ip_address", { length: 100 }),
+  userAgent:       text("user_agent"),
 });
 
 export const usageLogsTable = pgTable("usage_logs", {
