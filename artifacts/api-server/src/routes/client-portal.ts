@@ -168,7 +168,7 @@ router.get("/portal/:token", async (req: Request, res: Response) => {
     const [caseRows, invRows, timelineRows, uploadRows] = await Promise.all([
       db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} LIMIT 1`),
       showInvoices
-        ? db.execute(sql`SELECT * FROM invoices WHERE case_id = ${caseId} ORDER BY created_at DESC LIMIT 10`)
+        ? db.execute(sql`SELECT * FROM client_invoices WHERE case_id = ${caseId} ORDER BY created_at DESC LIMIT 10`)
         : Promise.resolve({ rows: [] }),
       showTimeline
         ? db.execute(sql`SELECT * FROM case_timeline WHERE case_id = ${caseId} AND is_shared = true ORDER BY happened_at ASC`)
