@@ -40,6 +40,7 @@ import subscriptionRouter from "./subscription";
 import backupRouter from "./backup";
 import accountingRouter from "./accounting";
 import developerRouter from "./developer";
+import paymentsRouter from "./payments";
 
 const router: IRouter = Router();
 
@@ -84,5 +85,6 @@ router.use(subscriptionRouter);
 router.use(backupRouter);
 router.use(accountingRouter);
 router.use(developerRouter);
+router.use(paymentsRouter);
 
 export default router;

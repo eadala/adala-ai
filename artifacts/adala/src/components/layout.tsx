@@ -47,8 +47,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "nav.groups.financial",
     items: [
-      { href: "/invoices", labelKey: "nav.items.invoices", icon: Receipt },
-      { href: "/billing",  labelKey: "nav.items.billing",  icon: CreditCard },
+      { href: "/invoices",        labelKey: "nav.items.invoices",        icon: Receipt },
+      { href: "/billing",         labelKey: "nav.items.billing",         icon: CreditCard },
+      { href: "/payment-center",  labelKey: "nav.items.payment_center",  icon: Landmark },
     ],
   },
   {

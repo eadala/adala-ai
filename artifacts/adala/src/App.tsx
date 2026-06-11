@@ -51,6 +51,7 @@ import FinancialReports from "@/pages/financial-reports";
 import Cashflow from "@/pages/cashflow";
 import BankAccounts from "@/pages/bank-accounts";
 import Advances from "@/pages/advances";
+import PaymentCenter from "@/pages/payment-center";
 import FirmAdmin from "@/pages/firm-admin";
 import CalendarPage from "@/pages/calendar";
 import ClientPortal from "@/pages/client-portal";
@@ -315,6 +316,9 @@ function AppRoutes() {
             </Route>
             <Route path="/advances">
               <ProtectedRoute><Advances /></ProtectedRoute>
+            </Route>
+            <Route path="/payment-center">
+              <ProtectedRoute><PaymentCenter /></ProtectedRoute>
             </Route>
             <Route path="/judge-prep">
               <ProtectedRoute><JudgePrep /></ProtectedRoute>
