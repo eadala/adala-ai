@@ -82,4 +82,30 @@ router.delete("/cases/:id", async (req, res) => {
   }
 });
 
+// ── GET /cases/:id/hub ── full case hub with related entities ──────────────
+router.get("/cases/:id/hub", async (req, res) => {
+  try {
+    const { sql } = await import("drizzle-orm");
+    const caseId = req.params.id;
+    const [caseRow, invoices, contracts, events, documents] = await Promise.all([
+      db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} LIMIT 1`),
+      db.execute(sql`SELECT id, invoice_number, title, total, status, due_date, created_at FROM client_invoices WHERE case_id = ${caseId} ORDER BY created_at DESC`),
+      db.execute(sql`SELECT id, title, type, status, expires_at, created_at FROM contracts WHERE case_id = ${caseId} ORDER BY created_at DESC`),
+      db.execute(sql`SELECT id, title, event_type, start_at, location, status FROM events WHERE case_id = ${caseId} ORDER BY start_at DESC`),
+      db.execute(sql`SELECT id, name, file_type, file_size, created_at FROM documents WHERE case_id = ${caseId} ORDER BY created_at DESC`),
+    ]);
+    const found = caseRow.rows?.[0];
+    if (!found) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({
+      case: found,
+      invoices: invoices.rows ?? [],
+      contracts: contracts.rows ?? [],
+      events: events.rows ?? [],
+      documents: documents.rows ?? [],
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;

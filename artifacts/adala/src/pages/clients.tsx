@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import {
   Users, Plus, Search, Building2, User, Landmark, Mail, Phone,
-  Loader2, Trash2, Edit3, MoreHorizontal, TrendingUp, Star
+  Loader2, Trash2, Edit3, MoreHorizontal, TrendingUp, Star, ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,6 +96,13 @@ function ClientCard({ client, onEdit, onDelete }: any) {
           <span>{typeConfig.label}</span>
           <span>مصدر: {SOURCES.find(s => s.value === client.source)?.label ?? client.source}</span>
         </div>
+
+        <Link href={`/clients/${client.id}`} onClick={(e: any) => e.stopPropagation()}>
+          <div className="mt-3 flex items-center justify-center gap-1 text-xs text-primary/70 hover:text-primary border border-primary/20 hover:border-primary/50 rounded-lg py-1.5 transition-colors">
+            <span>عرض الملف الكامل</span>
+            <ChevronLeft className="h-3 w-3" />
+          </div>
+        </Link>
       </CardContent>
     </Card>
   );
