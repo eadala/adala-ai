@@ -19,12 +19,20 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 /* ─── Plan visual config ──────────────────────────────── */
 const PLAN_ICONS: Record<string, any> = {
-  basic: Rocket, professional: Star, enterprise: Crown,
+  advisor:    BookOpen,
+  solo:       Star,
+  office:     Building2,
+  advanced:   Rocket,
+  corporate:  TrendingUp,
+  enterprise: Crown,
 };
 const PLAN_COLORS: Record<string, { border: string; badge: string; btn: string; glow: string }> = {
-  basic:        { border: "border-blue-500/30",   badge: "bg-blue-500/10 text-blue-400 border-blue-500/30",   btn: "bg-blue-600 hover:bg-blue-700 text-white",   glow: "" },
-  professional: { border: "border-[#C9A84C]/50",  badge: "bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/30", btn: "bg-[#C9A84C] hover:bg-[#b8943e] text-black", glow: "shadow-[0_0_30px_rgba(201,168,76,0.15)]" },
-  enterprise:   { border: "border-purple-500/30", badge: "bg-purple-500/10 text-purple-400 border-purple-500/30", btn: "bg-purple-600 hover:bg-purple-700 text-white", glow: "" },
+  advisor:    { border: "border-sky-500/30",      badge: "bg-sky-500/10 text-sky-400 border-sky-500/30",           btn: "bg-sky-600 hover:bg-sky-700 text-white",          glow: "" },
+  solo:       { border: "border-[#C9A84C]/50",    badge: "bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/30",     btn: "bg-[#C9A84C] hover:bg-[#b8943e] text-black",     glow: "shadow-[0_0_30px_rgba(201,168,76,0.15)]" },
+  office:     { border: "border-emerald-500/30",  badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30", btn: "bg-emerald-600 hover:bg-emerald-700 text-white",  glow: "" },
+  advanced:   { border: "border-violet-500/30",   badge: "bg-violet-500/10 text-violet-400 border-violet-500/30",   btn: "bg-violet-600 hover:bg-violet-700 text-white",    glow: "" },
+  corporate:  { border: "border-orange-500/30",   badge: "bg-orange-500/10 text-orange-400 border-orange-500/30",   btn: "bg-orange-600 hover:bg-orange-700 text-white",    glow: "" },
+  enterprise: { border: "border-slate-500/30",    badge: "bg-slate-500/10 text-slate-300 border-slate-500/30",      btn: "bg-slate-700 hover:bg-slate-600 text-white",      glow: "" },
 };
 
 /* ─── Entitlement key labels ──────────────────────────── */
@@ -246,42 +254,60 @@ export default function Billing() {
 
           {/* Plans grid */}
           {plansLoading ? (
-            <div className="grid md:grid-cols-3 gap-4">
-              {[1,2,3].map(i => <Skeleton key={i} className="h-80" />)}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-80" />)}
             </div>
           ) : (
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
               {plans.map((plan: any) => {
                 const Icon = PLAN_ICONS[plan.id] ?? Star;
-                const colors = PLAN_COLORS[plan.id] ?? PLAN_COLORS.basic;
-                const isPro = plan.id === "professional";
+                const colors = PLAN_COLORS[plan.id] ?? PLAN_COLORS.advisor;
+                const isPopular = plan.popular === true;
+                const isEnterprise = plan.contactOnly === true;
                 const isLoadingThis = loadingPlan === plan.id;
 
                 return (
                   <Card key={plan.id} className={cn(
-                    "relative border-2 transition-all duration-200",
+                    "relative border-2 transition-all duration-200 flex flex-col",
                     colors.border, colors.glow,
-                    isPro && "scale-[1.02]"
+                    isPopular && "ring-2 ring-[#C9A84C]/40 scale-[1.02] z-10"
                   )}>
-                    {isPro && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                        <Badge className="bg-[#C9A84C] text-black text-[10px] font-black px-3">الأكثر شيوعاً ⭐</Badge>
+                    {isPopular && (
+                      <div className="absolute -top-3 right-1/2 translate-x-1/2">
+                        <Badge className="bg-[#C9A84C] text-black text-[10px] font-black px-3 py-1">
+                          ⭐ الأكثر طلباً
+                        </Badge>
                       </div>
                     )}
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center border", colors.badge)}>
+
+                    <CardHeader className="pb-3 pt-5">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border-2", colors.badge)}>
                           <Icon className="h-4 w-4" />
                         </div>
-                        <Badge className={cn("text-[10px] border", colors.badge)}>{plan.name}</Badge>
+                        {plan.trialMonth && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            الشهر الأول مجاناً 🎁
+                          </span>
+                        )}
                       </div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-black">{plan.price.toLocaleString("ar-SA")}</span>
-                        <span className="text-sm text-muted-foreground">ر.س / شهر</span>
+
+                      <CardTitle className="text-base font-bold">{plan.name}</CardTitle>
+
+                      <div className="flex items-baseline gap-1 mt-1">
+                        {isEnterprise ? (
+                          <span className="text-lg font-bold text-muted-foreground">تواصل معنا</span>
+                        ) : (
+                          <>
+                            <span className="text-3xl font-black">{plan.price.toLocaleString("ar-SA")}</span>
+                            <span className="text-sm text-muted-foreground">ر.س / شهر</span>
+                          </>
+                        )}
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <ul className="space-y-2">
+
+                    <CardContent className="space-y-4 flex-1 flex flex-col">
+                      <ul className="space-y-2 flex-1">
                         {plan.features.map((f: string) => (
                           <li key={f} className="flex items-start gap-2 text-sm">
                             <Check className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" />
@@ -289,17 +315,30 @@ export default function Billing() {
                           </li>
                         ))}
                       </ul>
+
                       <div className="space-y-2 pt-2">
-                        <Button
-                          className={cn("w-full gap-2 font-bold", colors.btn)}
-                          disabled={isLoadingThis}
-                          onClick={() => handleSubscribe(plan.id)}
-                        >
-                          {isLoadingThis ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                          اشترك الآن
-                        </Button>
+                        {isEnterprise ? (
+                          <Button
+                            className={cn("w-full gap-2 font-bold", colors.btn)}
+                            onClick={() => window.open("mailto:sales@adalaai.com?subject=طلب عرض سعر - باقة المؤسسات", "_blank")}
+                          >
+                            <Sparkles className="h-4 w-4" />
+                            طلب عرض سعر
+                          </Button>
+                        ) : (
+                          <Button
+                            className={cn("w-full gap-2 font-bold", colors.btn)}
+                            disabled={isLoadingThis}
+                            onClick={() => handleSubscribe(plan.id)}
+                          >
+                            {isLoadingThis
+                              ? <Loader2 className="h-4 w-4 animate-spin" />
+                              : <CreditCard className="h-4 w-4" />}
+                            اشتراك إلكتروني
+                          </Button>
+                        )}
                         {/* Dev-mode: activate without payment */}
-                        {stripeStatus?.mode === "test" && (
+                        {!isEnterprise && stripeStatus?.mode === "test" && (
                           <Button
                             variant="outline"
                             size="sm"
