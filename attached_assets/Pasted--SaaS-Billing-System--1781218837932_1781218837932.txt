@@ -1,0 +1,291 @@
+تمام — الآن نضيف طبقة الربح الأساسية للمنصة (SaaS Billing System) داخل “عدالة”، بحيث تتحول من نظام إداري إلى منتج تجاري قابل للبيع لمكاتب المحاماة.
+
+سأبني لك نظام بسيط، احترافي، ومباشر بدون تعقيد زائد.
+
+⸻
+
+💰 🏛️ نظام الاشتراكات والفوترة لمنصة عدالة (SaaS Billing Engine)
+
+⸻
+
+🎯 الهدف
+
+تمكين المنصة من:
+
+* بيع اشتراكات لمكاتب المحاماة
+* تفعيل/إيقاف الخدمات حسب الباقة
+* إصدار فواتير تلقائية
+* تتبع الدفع
+* ربط الباقة بالميزات (Feature-based access)
+
+⸻
+
+🧱 1. هيكل النظام
+
+Firms (مكاتب المحاماة)
+        ↓
+Subscription Plan
+        ↓
+Billing Engine
+        ↓
+Invoices (اشتراك المنصة)
+        ↓
+Feature Access Control
+
+⸻
+
+🗄️ 2. قاعدة البيانات
+
+📌 خطط الاشتراك
+
+Plans (
+  id UUID,
+  name TEXT,              -- Basic / Pro / Enterprise
+  price DECIMAL,
+  billing_cycle TEXT,     -- monthly / yearly
+  features JSON,          -- المميزات المفعلة
+  created_at TIMESTAMP
+)
+
+⸻
+
+📌 اشتراك المكتب
+
+Subscriptions (
+  id UUID,
+  firm_id UUID,
+  plan_id UUID,
+  status TEXT, -- active / suspended / canceled
+  start_date DATE,
+  end_date DATE,
+  auto_renew BOOLEAN
+)
+
+⸻
+
+📌 فواتير الاشتراك
+
+Billing_Invoices (
+  id UUID,
+  firm_id UUID,
+  subscription_id UUID,
+  amount DECIMAL,
+  status TEXT, -- paid / unpaid / overdue
+  issue_date DATE,
+  due_date DATE
+)
+
+⸻
+
+⚙️ 3. إنشاء الاشتراك
+
+app.post("/api/billing/subscribe", async (req, res) => {
+  const { firm_id, plan_id } = req.body;
+  const plan = await db.plans.findUnique({ where: { id: plan_id } });
+  const subscription = await db.subscriptions.create({
+    data: {
+      firm_id,
+      plan_id,
+      status: "active",
+      start_date: new Date(),
+      end_date: addMonths(new Date(), 1),
+      auto_renew: true
+    }
+  });
+  await db.billingInvoices.create({
+    data: {
+      firm_id,
+      subscription_id: subscription.id,
+      amount: plan.price,
+      status: "unpaid",
+      issue_date: new Date(),
+      due_date: addDays(new Date(), 7)
+    }
+  });
+  res.json(subscription);
+});
+
+⸻
+
+💳 4. التحقق من الدفع
+
+app.post("/api/billing/pay", async (req, res) => {
+  const { invoice_id } = req.body;
+  await db.billingInvoices.update({
+    where: { id: invoice_id },
+    data: {
+      status: "paid"
+    }
+  });
+  res.json({ success: true });
+});
+
+⸻
+
+🔐 5. التحكم في الميزات (Feature Access Control)
+
+📌 مثال باقة
+
+{
+  "basic": {
+    "cases": true,
+    "invoices": true,
+    "financial_reports": false
+  },
+  "pro": {
+    "cases": true,
+    "invoices": true,
+    "financial_reports": true,
+    "ai_insights": true
+  }
+}
+
+⸻
+
+📌 Middleware للتحقق
+
+function featureGuard(feature) {
+  return async (req, res, next) => {
+    const subscription = await db.subscriptions.findFirst({
+      where: { firm_id: req.firm_id }
+    });
+    const plan = await db.plans.findUnique({
+      where: { id: subscription.plan_id }
+    });
+    if (!plan.features[feature]) {
+      return res.status(403).json({
+        error: "Feature not available in your plan"
+      });
+    }
+    next();
+  };
+}
+
+⸻
+
+📌 مثال استخدام
+
+app.get(
+  "/api/financial/report",
+  tenantMiddleware,
+  featureGuard("financial_reports"),
+  async (req, res) => {
+    const report = await generateReport(req.firm_id);
+    res.json(report);
+  }
+);
+
+⸻
+
+📊 6. لوحة الاشتراكات (Admin Panel)
+
+🎯 تعرض:
+
+* عدد المكاتب
+* الاشتراكات النشطة
+* الاشتراكات المتوقفة
+* الإيرادات الشهرية
+
+⸻
+
+app.get("/api/admin/billing/overview", async (req, res) => {
+  const active = await db.subscriptions.count({
+    where: { status: "active" }
+  });
+  const revenue = await db.billingInvoices.aggregate({
+    _sum: { amount: true },
+    where: { status: "paid" }
+  });
+  res.json({
+    active_subscriptions: active,
+    total_revenue: revenue._sum.amount
+  });
+});
+
+⸻
+
+📦 7. نموذج خطط الاشتراك
+
+🟢 Basic
+- إدارة القضايا
+- الفواتير
+- تقارير بسيطة
+= 199 SAR
+🟡 Pro
+- كل ما سبق +
+- القوائم المالية
+- AI Insights
+= 399 SAR
+🔴 Enterprise
+- كل الميزات
+- دعم مخصص
+- تخصيص كامل
+= 799 SAR
+
+⸻
+
+🔄 8. دورة النظام كاملة
+
+Client selects plan
+        ↓
+Create Subscription
+        ↓
+Generate Invoice
+        ↓
+Payment Status
+        ↓
+Activate Features
+        ↓
+Unlock Platform Modules
+
+⸻
+
+🧠 9. ربطه مع نظامك الحالي
+
+أنت الآن عندك:
+
+✔ Multi-Tenant System
+✔ Financial Engine
+✔ Support System
+
+نضيف فقط:
+
+👉 Billing Layer فوقهم
+
+⸻
+
+💰 10. ماذا أصبح لديك الآن؟
+
+🟢 منصة تجارية كاملة:
+
+✔ بيع اشتراكات
+✔ تفعيل ميزات حسب الباقة
+✔ فواتير تلقائية
+✔ تتبع الإيرادات
+✔ نظام SaaS حقيقي
+
+⸻
+
+🚀 11. التطوير القادم (لو تبغى تكمل مستوى عالمي)
+
+🔥 Stripe / Apple Pay / STC Pay
+
+🔥 Crypto payments
+
+🔥 Trial system (7 أيام مجانية)
+
+🔥 Coupon system
+
+🔥 Upgrade / downgrade plans
+
+🔥 Revenue analytics dashboard
+
+⸻
+
+⚡ الخطوة التالية (اختياري قوي جدًا)
+
+قل:
+
+“أضف نظام الدفع العالمي + البوابة المالية”
+
+وأبني لك نظام مدفوعات عالمي داخل عدالة جاهز للبيع الدولي.

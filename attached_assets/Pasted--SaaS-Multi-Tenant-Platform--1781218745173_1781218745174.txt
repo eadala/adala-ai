@@ -1,0 +1,298 @@
+تمام — الآن سنحوّل “عدالة” إلى مستوى أعلى: SaaS متعدد المكاتب (Multi-Tenant Platform) مع نفس لوحة المطور + الدعم الفني + القوائم المالية.
+
+سأعطيك تصميم + كود أساس + بنية جاهزة بدون تعقيد زائد.
+
+⸻
+
+🏛️ 🌐 عدالة كنظام SaaS متعدد المكاتب (Multi-Tenant)
+
+🎯 الهدف
+
+تشغيل نفس النظام لعدة مكاتب محاماة مع:
+
+* عزل كامل للبيانات (Data Isolation)
+* لوحة مطور مركزية
+* لوحة لكل مكتب
+* دعم فني داخلي بين الطرفين
+* تقارير مالية منفصلة لكل مكتب
+
+⸻
+
+🧱 1. المعمارية العامة
+
+                 Admin (Platform Owner)
+                          │
+        ┌─────────────────┴─────────────────┐
+        │                                   │
+ Developer Panel                    Support System
+        │                                   │
+        └──────────────┬────────────────────┘
+                       │
+            Multi-Tenant Core Engine
+                       │
+     ┌───────────────┬───────────────┬───────────────┐
+     │               │               │               │
+  Firm A         Firm B         Firm C         Firm N
+
+⸻
+
+🗄️ 2. أهم فكرة: Tenant Isolation
+
+كل البيانات مربوطة بـ:
+
+firm_id (مهم جدًا)
+
+⸻
+
+📌 أي جدول في النظام:
+
+Invoices
+Payments
+Expenses
+Tickets
+Users
+Settings
+
+يجب أن يحتوي:
+
+firm_id UUID
+
+⸻
+
+⚙️ 3. Middleware العزل (Core SaaS Layer)
+
+function tenantMiddleware(req, res, next) {
+  // استخراج المكتب من التوكن أو الدومين
+  const firm_id = req.headers["x-firm-id"];
+  if (!firm_id) {
+    return res.status(400).json({ error: "Missing firm context" });
+  }
+  req.firm_id = firm_id;
+  next();
+}
+
+⸻
+
+🧠 4. مثال API متعدد المكاتب
+
+app.get("/api/invoices", tenantMiddleware, async (req, res) => {
+  const invoices = await db.invoices.findMany({
+    where: {
+      firm_id: req.firm_id
+    }
+  });
+  res.json(invoices);
+});
+
+⸻
+
+🏛️ 5. لوحة المطور (Platform Owner)
+
+🎯 الصلاحيات:
+
+* إنشاء مكاتب جديدة
+* تعطيل مكتب
+* تغيير الخطط
+* تعديل الثيمات العامة
+* مراقبة الأداء
+
+⸻
+
+📌 إنشاء مكتب جديد:
+
+app.post("/api/platform/firm", async (req, res) => {
+  const firm = await db.firms.create({
+    data: {
+      name: req.body.name,
+      plan: "basic",
+      status: "active"
+    }
+  });
+  res.json(firm);
+});
+
+⸻
+
+🧑‍💼 6. لوحة المكتب (Firm Dashboard)
+
+كل مكتب يرى فقط بياناته:
+
+* قضاياه
+* فواتيره
+* تقاريره المالية
+* دعم فني خاص به
+
+⸻
+
+📊 7. القوائم المالية (Multi-Tenant Ready)
+
+app.post("/api/financial/report", tenantMiddleware, async (req, res) => {
+  const { startDate, endDate } = req.body;
+  const invoices = await db.invoices.findMany({
+    where: {
+      firm_id: req.firm_id,
+      date: { gte: startDate, lte: endDate }
+    }
+  });
+  const payments = await db.payments.findMany({
+    where: { firm_id: req.firm_id }
+  });
+  const revenue = payments.reduce((s, p) => s + p.amount, 0);
+  const receivables = invoices
+    .filter(i => !i.is_paid)
+    .reduce((s, i) => s + i.total, 0);
+  const report = {
+    firm_id: req.firm_id,
+    income_statement: {
+      revenue,
+      expenses: 0,
+      net_profit: revenue
+    },
+    balance_sheet: {
+      assets: {
+        cash: revenue,
+        receivables
+      },
+      equity: revenue + receivables
+    }
+  };
+  res.json(report);
+});
+
+⸻
+
+🎫 8. نظام الدعم الفني (Multi-Tenant)
+
+📌 كل تذكرة مربوطة بمكتب:
+
+Support_Tickets (
+  id,
+  firm_id,
+  title,
+  description,
+  status,
+  priority
+)
+
+⸻
+
+📌 إنشاء تذكرة:
+
+app.post("/api/support/ticket", tenantMiddleware, async (req, res) => {
+  const ticket = await db.supportTickets.create({
+    data: {
+      firm_id: req.firm_id,
+      title: req.body.title,
+      description: req.body.description,
+      status: "open"
+    }
+  });
+  res.json(ticket);
+});
+
+⸻
+
+🎨 9. Theme System لكل مكتب
+
+كل مكتب عنده شكل مستقل:
+
+{
+  "firm_id": "123",
+  "primary_color": "#1E3A8A",
+  "secondary_color": "#10B981",
+  "font": "Inter",
+  "layout": "modern"
+}
+
+⸻
+
+🧠 10. AI Insights (لكل مكتب بشكل منفصل)
+
+function analyzeFirm(report) {
+  const insights = [];
+  if (report.income_statement.revenue > 500000) {
+    insights.push("📈 أداء مالي قوي لهذا المكتب");
+  }
+  if (report.balance_sheet.assets.receivables > report.income_statement.revenue * 0.3) {
+    insights.push("⚠️ تأخر في تحصيل المستحقات");
+  }
+  return insights;
+}
+
+⸻
+
+🌐 11. Routing SaaS (مهم جدًا)
+
+خيارين:
+
+1️⃣ Subdomain (أفضل)
+
+firm1.adalah.com
+firm2.adalah.com
+
+2️⃣ Header-based
+
+x-firm-id: 123
+
+⸻
+
+🔐 12. نموذج المستخدم داخل SaaS
+
+Users (
+  id,
+  firm_id,
+  role (admin / lawyer / accountant),
+  permissions
+)
+
+⸻
+
+📦 13. النتيجة النهائية للنظام
+
+🟢 منصة واحدة تدير:
+
+✔ عدة مكاتب
+✔ بيانات معزولة
+✔ تقارير مالية لكل مكتب
+✔ دعم فني منفصل
+✔ ثيمات مستقلة
+✔ صلاحيات متعددة
+
+⸻
+
+🚀 14. ماذا أصبحت “عدالة” الآن؟
+
+👉 منصة قانونية SaaS كاملة:
+
+* Multi-Tenant System
+* Financial Engine
+* Qawaem Reports
+* Support System
+* Developer Panel
+* Theme Builder
+
+⸻
+
+💡 الخطوة القادمة (مهم جدًا)
+
+إذا تبغى نرفعها مستوى عالمي:
+
+🔥 Billing System (اشتراكات لكل مكتب)
+
+🔥 Stripe / Crypto payments
+
+🔥 Role-based access control متقدم
+
+🔥 Audit logs لكل عملية
+
+🔥 AI assistant لكل مكتب
+
+⸻
+
+⚡ إذا تبغى أكمل لك الآن
+
+قل:
+
+“أضف نظام الاشتراكات والفوترة للـ SaaS”
+
+وأبني لك نموذج ربح كامل للمنصة (Business Model + Billing Engine).

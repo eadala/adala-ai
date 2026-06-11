@@ -1,17 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ArrowRight, User, Building2, Landmark, Mail, Phone,
   Scale, Receipt, Handshake, CalendarDays, Loader2,
   TrendingUp, DollarSign, AlertCircle, ExternalLink,
   MessageSquare, Activity, CheckCircle2, Clock, FileText,
-  UserPlus, SmartphoneIcon, CheckCircle, XCircle
+  UserPlus, SmartphoneIcon, CheckCircle, XCircle,
+  TrendingDown, BarChart3, Printer, ArrowUpRight, ArrowDownRight,
 } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend,
+} from "recharts";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -201,31 +208,35 @@ export default function ClientDetail() {
 
       {/* ── Tabs ── */}
       <Tabs defaultValue="cases" dir="rtl">
-        <TabsList className="grid w-full grid-cols-7 h-9">
-          <TabsTrigger value="cases" className="text-xs px-2">
+        <TabsList className="grid w-full grid-cols-8 h-9">
+          <TabsTrigger value="cases" className="text-xs px-1.5">
             <Scale className="h-3.5 w-3.5 ml-1 hidden sm:block" />القضايا
             {cases.length > 0 && <span className="mr-1 text-[10px] bg-blue-500/20 text-blue-400 rounded px-1">{cases.length}</span>}
           </TabsTrigger>
-          <TabsTrigger value="invoices" className="text-xs px-2">
+          <TabsTrigger value="invoices" className="text-xs px-1.5">
             <Receipt className="h-3.5 w-3.5 ml-1 hidden sm:block" />الفواتير
             {invoices.length > 0 && <span className="mr-1 text-[10px] bg-amber-500/20 text-amber-400 rounded px-1">{invoices.length}</span>}
           </TabsTrigger>
-          <TabsTrigger value="contracts" className="text-xs px-2">
+          <TabsTrigger value="accounting" className="text-xs px-1.5">
+            <BarChart3 className="h-3.5 w-3.5 ml-1 hidden sm:block" />
+            <span className="text-[#C9A84C]">المالية</span>
+          </TabsTrigger>
+          <TabsTrigger value="contracts" className="text-xs px-1.5">
             <Handshake className="h-3.5 w-3.5 ml-1 hidden sm:block" />العقود
             {contracts.length > 0 && <span className="mr-1 text-[10px] bg-violet-500/20 text-violet-400 rounded px-1">{contracts.length}</span>}
           </TabsTrigger>
-          <TabsTrigger value="sessions" className="text-xs px-2">
+          <TabsTrigger value="sessions" className="text-xs px-1.5">
             <CalendarDays className="h-3.5 w-3.5 ml-1 hidden sm:block" />المواعيد
             {events.length > 0 && <span className="mr-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{events.length}</span>}
           </TabsTrigger>
-          <TabsTrigger value="messages" className="text-xs px-2">
+          <TabsTrigger value="messages" className="text-xs px-1.5">
             <MessageSquare className="h-3.5 w-3.5 ml-1 hidden sm:block" />المراسلات
             {messages.length > 0 && <span className="mr-1 text-[10px] bg-blue-500/20 text-blue-400 rounded px-1">{messages.length}</span>}
           </TabsTrigger>
-          <TabsTrigger value="activities" className="text-xs px-2">
+          <TabsTrigger value="activities" className="text-xs px-1.5">
             <Activity className="h-3.5 w-3.5 ml-1 hidden sm:block" />النشاطات
           </TabsTrigger>
-          <TabsTrigger value="whatsapp" className="text-xs px-2">
+          <TabsTrigger value="whatsapp" className="text-xs px-1.5">
             <SmartphoneIcon className="h-3.5 w-3.5 ml-1 hidden sm:block" />واتساب
             {waLogs.length > 0 && <span className="mr-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{waLogs.length}</span>}
           </TabsTrigger>
@@ -271,6 +282,11 @@ export default function ClientDetail() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ACCOUNTING TAB */}
+        <TabsContent value="accounting" className="mt-4">
+          <ClientAccountingTab clientId={id} />
         </TabsContent>
 
         {/* INVOICES TAB */}
@@ -536,6 +552,256 @@ export default function ClientDetail() {
             <p className="text-sm text-muted-foreground leading-relaxed">{client.notes}</p>
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+/* ─── Client Accounting Tab ──────────────────────────────────────────────── */
+const PERIOD_TYPES = [
+  { value: "annual",    label: "سنوي" },
+  { value: "semi",      label: "نصف سنوي" },
+  { value: "quarterly", label: "ربع سنوي" },
+  { value: "monthly",   label: "شهري" },
+];
+const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+
+function fmtSAR(n: number) {
+  return n.toLocaleString("ar-SA", { maximumFractionDigits: 2 }) + " ر.س";
+}
+
+function StatRow({ label, value, color }: { label: string; value: number; color?: string }) {
+  return (
+    <div className="flex items-center justify-between py-2.5 border-b border-border/30 last:border-0">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className={`text-sm font-bold tabular-nums ${color ?? "text-foreground"}`}>{fmtSAR(value)}</span>
+    </div>
+  );
+}
+
+function ClientAccountingTab({ clientId }: { clientId: string }) {
+  const [period, setPeriod] = useState("annual");
+  const [year, setYear] = useState(String(new Date().getFullYear()));
+  const [month, setMonth] = useState(String(new Date().getMonth() + 1));
+
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ["client-accounting", clientId, period, year, month],
+    queryFn: () => {
+      const params = new URLSearchParams({ period, year, month });
+      return fetch(`${BASE}/api/clients/${clientId}/accounting?${params}`).then(r => r.json());
+    },
+    enabled: !!clientId,
+  });
+
+  const acc = data?.accounting ?? {};
+  const fs = data?.financialStatements ?? {};
+  const monthly = data?.monthly ?? [];
+  const lbl = data?.period?.label ?? "";
+
+  const hasData = (acc.revenue ?? 0) > 0 || (acc.receivables ?? 0) > 0;
+
+  return (
+    <div className="space-y-5">
+      {/* Controls */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-[280px]">
+              <BarChart3 className="h-4 w-4 text-[#C9A84C]" />
+              <span className="text-sm font-semibold">التقارير المالية للعميل</span>
+              {lbl && <Badge variant="outline" className="text-[10px] border-[#C9A84C]/30 text-[#C9A84C]">{lbl}</Badge>}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={period} onValueChange={setPeriod}>
+                <SelectTrigger className="h-8 text-xs w-[110px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PERIOD_TYPES.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={year} onValueChange={setYear}>
+                <SelectTrigger className="h-8 text-xs w-[80px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {YEARS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {(period === "monthly" || period === "quarterly" || period === "semi") && (
+                <Select value={month} onValueChange={setMonth}>
+                  <SelectTrigger className="h-8 text-xs w-[100px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MONTHS_AR.map((m, i) => <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 print:hidden" onClick={() => window.print()}>
+                <Printer className="h-3.5 w-3.5" /> طباعة
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {isLoading ? (
+        <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-[#C9A84C]" /></div>
+      ) : (
+        <>
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "الإيرادات المحصّلة", value: acc.revenue ?? 0, icon: TrendingUp, color: "#10B981", trend: true },
+              { label: "المستحقات",           value: acc.receivables ?? 0, icon: AlertCircle, color: "#F59E0B", trend: null },
+              { label: "المصاريف",           value: acc.expenses ?? 0, icon: TrendingDown, color: "#EF4444", trend: false },
+              { label: "صافي الربح",         value: acc.netProfit ?? 0, icon: DollarSign, color: (acc.netProfit ?? 0) >= 0 ? "#C9A84C" : "#EF4444", trend: null },
+            ].map(k => (
+              <Card key={k.label} className="border-0 bg-card/60">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: k.color + "18" }}>
+                      <k.icon className="h-4 w-4" style={{ color: k.color }} />
+                    </div>
+                    {k.trend !== null && (
+                      k.trend
+                        ? <ArrowUpRight className="h-3.5 w-3.5 text-emerald-400" />
+                        : <ArrowDownRight className="h-3.5 w-3.5 text-red-400" />
+                    )}
+                  </div>
+                  <div className="text-lg font-black tabular-nums leading-tight" style={{ color: k.color }}>
+                    {fmtSAR(k.value)}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">{k.label}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Chart */}
+          {monthly.some((m: any) => m.revenue > 0 || m.receivables > 0) && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">الإيرادات الشهرية — {year}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={monthly} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#94a3b8" }} />
+                    <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} width={55} tickFormatter={v => v >= 1000 ? (v / 1000).toFixed(0) + "ك" : v} />
+                    <Tooltip
+                      contentStyle={{ background: "#1a2744", border: "1px solid #2d3d6b", borderRadius: "8px", fontSize: "11px", direction: "rtl" }}
+                      formatter={(v: any) => [fmtSAR(Number(v)), ""]}
+                    />
+                    <Legend wrapperStyle={{ fontSize: "11px" }} />
+                    <Bar dataKey="revenue"     name="محصّلة"    fill="#10B981" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="receivables" name="مستحقة"    fill="#F59E0B" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Financial Statements */}
+          <div className="grid sm:grid-cols-3 gap-4">
+            {/* Income Statement */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <div className="w-5 h-5 rounded bg-emerald-500/15 flex items-center justify-center">
+                    <TrendingUp className="h-3 w-3 text-emerald-400" />
+                  </div>
+                  قائمة الدخل
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <StatRow label="الإيرادات" value={fs.incomeStatement?.revenue ?? 0} color="text-emerald-400" />
+                <StatRow label="المصاريف" value={fs.incomeStatement?.expenses ?? 0} color="text-red-400" />
+                <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+                  <span className="text-xs font-bold">صافي الربح</span>
+                  <span className={`text-sm font-black tabular-nums ${(fs.incomeStatement?.netProfit ?? 0) >= 0 ? "text-[#C9A84C]" : "text-red-400"}`}>
+                    {fmtSAR(fs.incomeStatement?.netProfit ?? 0)}
+                  </span>
+                </div>
+                {(fs.incomeStatement?.margin ?? 0) > 0 && (
+                  <div className="mt-1 text-[11px] text-muted-foreground text-center">
+                    هامش الربح: {(fs.incomeStatement.margin).toFixed(1)}%
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Balance Sheet */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <div className="w-5 h-5 rounded bg-blue-500/15 flex items-center justify-center">
+                    <FileText className="h-3 w-3 text-blue-400" />
+                  </div>
+                  الميزانية العمومية
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-[10px] text-muted-foreground mb-2 font-semibold">الأصول</p>
+                <StatRow label="النقد المحصّل" value={fs.balanceSheet?.assets?.cash ?? 0} />
+                <StatRow label="المستحقات" value={fs.balanceSheet?.assets?.receivables ?? 0} />
+                <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+                  <span className="text-xs font-bold">حقوق الملكية</span>
+                  <span className={`text-sm font-black tabular-nums ${(fs.balanceSheet?.equity ?? 0) >= 0 ? "text-blue-400" : "text-red-400"}`}>
+                    {fmtSAR(fs.balanceSheet?.equity ?? 0)}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Cash Flow */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <div className="w-5 h-5 rounded bg-violet-500/15 flex items-center justify-center">
+                    <DollarSign className="h-3 w-3 text-violet-400" />
+                  </div>
+                  التدفقات النقدية
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <StatRow label="تدفقات داخلة" value={fs.cashFlow?.cashIn ?? 0} color="text-emerald-400" />
+                <StatRow label="تدفقات خارجة" value={fs.cashFlow?.cashOut ?? 0} color="text-red-400" />
+                <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+                  <span className="text-xs font-bold">صافي التدفق</span>
+                  <span className={`text-sm font-black tabular-nums ${(fs.cashFlow?.netCashFlow ?? 0) >= 0 ? "text-violet-400" : "text-red-400"}`}>
+                    {fmtSAR(fs.cashFlow?.netCashFlow ?? 0)}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Invoice Status Breakdown */}
+          {data?.byStatus && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">توزيع الفواتير</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-3 text-center">
+                  {[
+                    { key: "paid",    label: "مدفوعة",  color: "text-emerald-400", bg: "bg-emerald-500/10" },
+                    { key: "sent",    label: "مُرسَلة",  color: "text-blue-400",    bg: "bg-blue-500/10" },
+                    { key: "overdue", label: "متأخرة",  color: "text-red-400",     bg: "bg-red-500/10" },
+                    { key: "draft",   label: "مسودة",   color: "text-slate-400",   bg: "bg-slate-500/10" },
+                  ].map(s => (
+                    <div key={s.key} className={`rounded-xl p-3 ${s.bg}`}>
+                      <div className={`text-2xl font-black ${s.color}`}>{data.byStatus[s.key] ?? 0}</div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!hasData && (
+            <EmptyTab icon={<BarChart3 />} label="لا توجد فواتير لهذا العميل في الفترة المحددة" />
+          )}
+        </>
       )}
     </div>
   );
