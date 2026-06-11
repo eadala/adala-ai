@@ -109,6 +109,12 @@ router.use(emailNotificationsRouter);
 router.use(onboardingRouter);
 router.use(importDataRouter);
 router.use(whatsappRouter);
+router.use((req, _res, next) => {
+  if (req.url === "/templates" || req.url.startsWith("/templates/") || req.url.startsWith("/templates?")) {
+    req.url = "/document-templates" + req.url.slice("/templates".length);
+  }
+  next();
+});
 router.use(documentTemplatesRouter);
 
 export default router;

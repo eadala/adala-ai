@@ -197,8 +197,8 @@ export default function DocumentTemplates() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           filledData,
-          caseId: linkedCaseId || null,
-          clientId: linkedClientId || null,
+          caseId: linkedCaseId === "none" || !linkedCaseId ? null : linkedCaseId,
+          clientId: linkedClientId === "none" || !linkedClientId ? null : linkedClientId,
           documentName: docName || null,
         }),
       });
@@ -407,25 +407,25 @@ export default function DocumentTemplates() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium">ربط بقضية (اختياري)</Label>
-                    <Select value={linkedCaseId} onValueChange={setLinkedCaseId}>
+                    <Select value={linkedCaseId || "none"} onValueChange={v => setLinkedCaseId(v === "none" ? "" : v)}>
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue placeholder="اختر قضية" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">بدون ربط</SelectItem>
-                        {(cases as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
+                        <SelectItem value="none">بدون ربط</SelectItem>
+                        {(cases as any[]).map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.title}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium">ربط بعميل (اختياري)</Label>
-                    <Select value={linkedClientId} onValueChange={setLinkedClientId}>
+                    <Select value={linkedClientId || "none"} onValueChange={v => setLinkedClientId(v === "none" ? "" : v)}>
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue placeholder="اختر عميل" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">بدون ربط</SelectItem>
-                        {(clients as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.fullName || c.full_name}</SelectItem>)}
+                        <SelectItem value="none">بدون ربط</SelectItem>
+                        {(clients as any[]).map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.fullName || c.full_name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
