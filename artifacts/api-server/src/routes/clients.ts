@@ -97,6 +97,19 @@ router.delete("/clients/:id", async (req, res) => {
   }
 });
 
+/* ── Single client ────────────────────────────────── */
+router.get("/clients/:id", async (req, res) => {
+  try {
+    if (!requireAuth(req, res)) return;
+    const [client] = await db.select().from(clientsTable)
+      .where(eq(clientsTable.id, req.params.id));
+    if (!client) return res.status(404).json({ error: "الموكل غير موجود" });
+    res.json(client);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.get("/clients/:id/overview", async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
@@ -120,12 +133,13 @@ router.get("/clients/:id/overview", async (req, res) => {
       safeRows(sql`SELECT * FROM office_messages WHERE client_id = ${id} ORDER BY created_at DESC LIMIT 10`),
     ]);
 
+    /* Use `total` (stored in minor units as integer) matching DB schema */
     const paidTotal = invoices
       .filter((i: any) => i.status === "paid")
-      .reduce((s: number, i: any) => s + parseFloat(String(i.amount ?? 0)), 0);
+      .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0);
     const outstandingTotal = invoices
       .filter((i: any) => i.status !== "paid" && i.status !== "cancelled")
-      .reduce((s: number, i: any) => s + parseFloat(String(i.amount ?? 0)), 0);
+      .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0);
 
     /* Build lightweight activity log */
     const activities = [
