@@ -1,10 +1,18 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown, BrainCircuit, Lock } from "lucide-react";
-import { ReactNode, useState } from "react";
+import {
+  LayoutDashboard, Scale, FileText, Bot, Users, CreditCard, Menu, Search,
+  Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig,
+  AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign,
+  Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown,
+  BrainCircuit, Lock,
+} from "lucide-react";
+import { ReactNode, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useBranding } from "@/hooks/use-branding";
 import { useOfficePlan } from "@/hooks/use-office-plan";
 import { NotificationsPanel } from "@/components/notifications-panel";
 import { AccountMenu } from "@/components/account-menu";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,94 +21,94 @@ import { useUser, useClerk } from "@clerk/react";
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
   icon: React.ComponentType<any>;
   feature?: string;
 }
 interface NavGroup {
-  label: string;
+  labelKey: string;
   superAdminOnly?: boolean;
   items: NavItem[];
 }
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: "العمليات القانونية",
+    labelKey: "nav.groups.legal_ops",
     items: [
-      { href: "/dashboard",  label: "الرئيسية",          icon: LayoutDashboard },
-      { href: "/cases",      label: "القضايا",            icon: Scale },
-      { href: "/clients",    label: "العملاء (CRM)",      icon: UserCircle },
-      { href: "/contracts",  label: "العقود",             icon: FileText },
-      { href: "/documents",  label: "المستندات",          icon: BookOpen },
-      { href: "/letters",    label: "نماذج الخطابات",     icon: Mail },
+      { href: "/dashboard",  labelKey: "nav.items.dashboard",  icon: LayoutDashboard },
+      { href: "/cases",      labelKey: "nav.items.cases",      icon: Scale },
+      { href: "/clients",    labelKey: "nav.items.clients",    icon: UserCircle },
+      { href: "/contracts",  labelKey: "nav.items.contracts",  icon: FileText },
+      { href: "/documents",  labelKey: "nav.items.documents",  icon: BookOpen },
+      { href: "/letters",    labelKey: "nav.items.letters",    icon: Mail },
     ],
   },
   {
-    label: "الإدارة المالية",
+    labelKey: "nav.groups.financial",
     items: [
-      { href: "/invoices", label: "الفواتير",          icon: Receipt },
-      { href: "/billing",  label: "الاشتراك والفوترة", icon: CreditCard },
+      { href: "/invoices", labelKey: "nav.items.invoices", icon: Receipt },
+      { href: "/billing",  labelKey: "nav.items.billing",  icon: CreditCard },
     ],
   },
   {
-    label: "التواصل والجدول",
+    labelKey: "nav.groups.communication",
     items: [
-      { href: "/messages",      label: "المراسلات",           icon: MessageCircle },
-      { href: "/calendar",      label: "التقويم والمواعيد",   icon: CalendarDays,  feature: "calendar" },
-      { href: "/client-portal", label: "بوابة العملاء",       icon: Globe,         feature: "clientPortal" },
+      { href: "/messages",      labelKey: "nav.items.messages",      icon: MessageCircle },
+      { href: "/calendar",      labelKey: "nav.items.calendar",      icon: CalendarDays,  feature: "calendar" },
+      { href: "/client-portal", labelKey: "nav.items.client_portal", icon: Globe,         feature: "clientPortal" },
     ],
   },
   {
-    label: "الذكاء الاصطناعي",
+    labelKey: "nav.groups.ai",
     items: [
-      { href: "/command-center",     label: "مركز الأوامر",        icon: Zap,         feature: "ai" },
-      { href: "/ai-assistant",       label: "المساعد الإداري",     icon: BrainCircuit,feature: "ai" },
-      { href: "/ai-agents",          label: "الوكلاء الذكيون",     icon: Bot,         feature: "ai" },
-      { href: "/ai-chat",            label: "المساعد الذكي",       icon: Sparkles,    feature: "ai" },
-      { href: "/opponent-simulator", label: "محاكي الخصم",         icon: Swords,      feature: "ai" },
-      { href: "/judge-prep",         label: "توقع أسئلة القاضي",   icon: Gavel,       feature: "ai" },
-      { href: "/legal-research",     label: "البحث القانوني",      icon: LibraryBig,  feature: "ai" },
-      { href: "/arbitration",        label: "التحكيم والوساطة",    icon: Handshake,   feature: "ai" },
+      { href: "/command-center",     labelKey: "nav.items.command_center",     icon: Zap,         feature: "ai" },
+      { href: "/ai-assistant",       labelKey: "nav.items.ai_assistant",       icon: BrainCircuit,feature: "ai" },
+      { href: "/ai-agents",          labelKey: "nav.items.ai_agents",          icon: Bot,         feature: "ai" },
+      { href: "/ai-chat",            labelKey: "nav.items.ai_chat",            icon: Sparkles,    feature: "ai" },
+      { href: "/opponent-simulator", labelKey: "nav.items.opponent_simulator", icon: Swords,      feature: "ai" },
+      { href: "/judge-prep",         labelKey: "nav.items.judge_prep",         icon: Gavel,       feature: "ai" },
+      { href: "/legal-research",     labelKey: "nav.items.legal_research",     icon: LibraryBig,  feature: "ai" },
+      { href: "/arbitration",        labelKey: "nav.items.arbitration",        icon: Handshake,   feature: "ai" },
     ],
   },
   {
-    label: "الموارد البشرية",
+    labelKey: "nav.groups.hr",
     items: [
-      { href: "/employees",  label: "الموظفون",               icon: UserCog },
-      { href: "/attendance", label: "الحضور والانصراف",        icon: Clock },
-      { href: "/leaves",     label: "الإجازات",               icon: CalendarDays },
-      { href: "/payroll",    label: "الرواتب",                icon: DollarSign },
-      { href: "/warnings",   label: "الإنذارات والتحقيقات",   icon: AlertTriangle },
+      { href: "/employees",  labelKey: "nav.items.employees",  icon: UserCog },
+      { href: "/attendance", labelKey: "nav.items.attendance", icon: Clock },
+      { href: "/leaves",     labelKey: "nav.items.leaves",     icon: CalendarDays },
+      { href: "/payroll",    labelKey: "nav.items.payroll",    icon: DollarSign },
+      { href: "/warnings",   labelKey: "nav.items.warnings",   icon: AlertTriangle },
     ],
   },
   {
-    label: "التحليل والامتثال",
+    labelKey: "nav.groups.analytics",
     items: [
-      { href: "/analytics",       label: "تحليلات الأداء",    icon: BarChart3,     feature: "advancedReports" },
-      { href: "/risk-management", label: "إدارة المخاطر",     icon: AlertTriangle, feature: "advancedReports" },
-      { href: "/compliance",      label: "الامتثال القانوني", icon: Shield },
+      { href: "/analytics",       labelKey: "nav.items.performance_analytics", icon: BarChart3,     feature: "advancedReports" },
+      { href: "/risk-management", labelKey: "nav.items.risk_management",       icon: AlertTriangle, feature: "advancedReports" },
+      { href: "/compliance",      labelKey: "nav.items.compliance",            icon: Shield },
     ],
   },
   {
-    label: "الموقع القانوني",
+    labelKey: "nav.groups.website",
     items: [
-      { href: "/office-management", label: "الموقع الذكي للمكتب", icon: Globe,      feature: "officePage" },
-      { href: "/marketplace",       label: "السوق القانوني",       icon: ShoppingBag,feature: "legalStore" },
+      { href: "/office-management", labelKey: "nav.items.office_management", icon: Globe,       feature: "officePage" },
+      { href: "/marketplace",       labelKey: "nav.items.marketplace",       icon: ShoppingBag, feature: "legalStore" },
     ],
   },
   {
-    label: "الإدارة",
+    labelKey: "nav.groups.admin",
     items: [
-      { href: "/firm-admin",      label: "لوحة مدير المكتب", icon: Crown },
-      { href: "/users",           label: "فريق العمل",        icon: Users },
-      { href: "/office-settings", label: "إعدادات المكتب",    icon: Building2 },
+      { href: "/firm-admin",      labelKey: "nav.items.firm_admin",      icon: Crown },
+      { href: "/users",           labelKey: "nav.items.users",           icon: Users },
+      { href: "/office-settings", labelKey: "nav.items.office_settings", icon: Building2 },
     ],
   },
   {
-    label: "Super Admin",
+    labelKey: "nav.groups.super_admin",
     superAdminOnly: true,
     items: [
-      { href: "/super-admin", label: "لوحة التحكم العليا", icon: Shield },
+      { href: "/super-admin", labelKey: "nav.items.super_admin_panel", icon: Shield },
     ],
   },
 ];
@@ -109,21 +117,22 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function OfficeLogo() {
   const { data: branding } = useBranding();
+  const { t } = useTranslation();
   const primary = branding?.primaryColor || "#1e3a5f";
   return (
     <div className="flex h-16 items-center px-4 border-b border-sidebar-border gap-3 shrink-0">
       {branding?.logoUrl ? (
-        <img src={branding.logoUrl} alt={branding.officeName || "شعار المكتب"}
+        <img src={branding.logoUrl} alt={branding.officeName || t("appName")}
           className="h-9 w-9 object-contain rounded-md bg-white/10 p-0.5" />
       ) : (
         <div className="h-9 w-9 rounded-md flex items-center justify-center text-white font-bold text-base shrink-0"
           style={{ backgroundColor: primary }}>
-          {(branding?.officeName || "ع")[0]}
+          {(branding?.officeName || t("appName"))[0]}
         </div>
       )}
       <div className="flex flex-col min-w-0">
         <span className="text-sm font-bold tracking-tight text-white truncate leading-tight">
-          {branding?.officeName || "عدالة AI"}
+          {branding?.officeName || t("appName")}
         </span>
         {branding?.tagline && (
           <span className="text-[10px] text-sidebar-foreground/50 truncate leading-tight">
@@ -137,10 +146,12 @@ function OfficeLogo() {
 
 function NavItemLink({ item, isActive, onClick }: { item: NavItem; isActive: boolean; onClick?: () => void }) {
   const { hasFeature, isLoaded } = useOfficePlan();
+  const { t } = useTranslation();
   const isAI = ["/command-center", "/ai-agents", "/ai-chat", "/opponent-simulator", "/ai-assistant"].includes(item.href);
   const isLocked = isLoaded && item.feature ? !hasFeature(item.feature) : false;
+  const label = t(item.labelKey);
 
-  const baseClass = `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors w-full text-right`;
+  const baseClass = "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors w-full text-right";
   const activeClass = "bg-sidebar-accent text-sidebar-accent-foreground";
   const inactiveClass = "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground";
   const lockedClass = "text-sidebar-foreground/40 cursor-default";
@@ -151,12 +162,12 @@ function NavItemLink({ item, isActive, onClick }: { item: NavItem; isActive: boo
         <TooltipTrigger asChild>
           <Link href="/billing" className={`${baseClass} ${lockedClass}`} onClick={onClick}>
             <item.icon className="h-4 w-4 flex-shrink-0 opacity-40" />
-            <span className="truncate flex-1">{item.label}</span>
+            <span className="truncate flex-1">{label}</span>
             <Lock className="h-3 w-3 opacity-50 flex-shrink-0" />
           </Link>
         </TooltipTrigger>
         <TooltipContent side="left" className="text-xs max-w-48">
-          هذه الميزة غير متاحة في باقتك الحالية — <span className="text-primary font-semibold">قم بالترقية</span>
+          {t("featureLocked")}
         </TooltipContent>
       </Tooltip>
     );
@@ -165,7 +176,7 @@ function NavItemLink({ item, isActive, onClick }: { item: NavItem; isActive: boo
   return (
     <Link href={item.href} className={`${baseClass} ${isActive ? activeClass : inactiveClass}`} onClick={onClick}>
       <item.icon className={`h-4 w-4 flex-shrink-0 ${isAI ? "text-[#C9A84C]" : ""}`} />
-      <span className="truncate">{item.label}</span>
+      <span className="truncate">{label}</span>
     </Link>
   );
 }
@@ -175,13 +186,19 @@ export function Layout({ children }: { children: ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
+  const { t, i18n } = useTranslation();
+
+  /* Sync dir on language change */
+  useEffect(() => {
+    document.documentElement.dir  = i18n.language === "ar" ? "rtl" : "ltr";
+    document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
 
   const displayName = isLoaded && user
-    ? user.fullName || user.emailAddresses[0]?.emailAddress?.split("@")[0] || "مستخدم"
-    : "مستخدم";
+    ? user.fullName || user.emailAddresses[0]?.emailAddress?.split("@")[0] || t("systemAdmin")
+    : t("systemAdmin");
 
   const initials = displayName.slice(0, 2);
-  const role = "مدير النظام";
 
   const userEmail = user?.emailAddresses[0]?.emailAddress ?? "";
   const ownerEmail = (import.meta.env.VITE_PLATFORM_OWNER_EMAIL ?? "").trim();
@@ -193,20 +210,20 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* Sidebar - RTL */}
+      {/* Sidebar */}
       <aside className="hidden w-64 flex-col border-l border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
         <OfficeLogo />
         <div className="flex-1 overflow-y-auto py-3">
           <nav className="px-3 space-y-4">
             {visibleGroups.map((group) => (
-              <div key={group.label}>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40 px-2 mb-1">{group.label}</p>
+              <div key={group.labelKey}>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40 px-2 mb-1">
+                  {t(group.labelKey)}
+                </p>
                 <div className="space-y-0.5">
                   {group.items.map((item) => {
                     const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
-                    return (
-                      <NavItemLink key={item.href} item={item} isActive={isActive} />
-                    );
+                    return <NavItemLink key={item.href} item={item} isActive={isActive} />;
                   })}
                 </div>
               </div>
@@ -223,11 +240,12 @@ export function Layout({ children }: { children: ReactNode }) {
             </Avatar>
             <div className="flex flex-col flex-1 min-w-0">
               <span className="text-sm font-medium text-white truncate">{displayName}</span>
-              <span className="text-xs text-sidebar-foreground/60">{role}</span>
+              <span className="text-xs text-sidebar-foreground/60">{t("systemAdmin")}</span>
             </div>
             <Button variant="ghost" size="icon"
               className="h-7 w-7 text-sidebar-foreground/50 hover:text-white hover:bg-sidebar-accent/50"
-              onClick={() => signOut({ redirectUrl: basePath || "/" })} title="تسجيل الخروج">
+              onClick={() => signOut({ redirectUrl: basePath || "/" })}
+              title={t("logout")}>
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
@@ -242,14 +260,14 @@ export function Layout({ children }: { children: ReactNode }) {
             <OfficeLogo />
             <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-4">
               {visibleGroups.map((group) => (
-                <div key={group.label}>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40 px-2 mb-1">{group.label}</p>
+                <div key={group.labelKey}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40 px-2 mb-1">
+                    {t(group.labelKey)}
+                  </p>
                   <div className="space-y-0.5">
                     {group.items.map((item) => {
                       const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
-                      return (
-                        <NavItemLink key={item.href} item={item} isActive={isActive} onClick={() => setIsMobileMenuOpen(false)} />
-                      );
+                      return <NavItemLink key={item.href} item={item} isActive={isActive} onClick={() => setIsMobileMenuOpen(false)} />;
                     })}
                   </div>
                 </div>
@@ -269,19 +287,22 @@ export function Layout({ children }: { children: ReactNode }) {
             </Button>
             <div className="mr-4 flex items-center gap-2">
               <Scale className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold text-foreground">عدالة AI</span>
+              <span className="text-lg font-bold text-foreground">{t("appName")}</span>
             </div>
           </div>
 
           <div className="hidden md:flex flex-1 items-center max-w-md">
             <div className="relative w-full">
               <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="ابحث في القضايا والمستندات..."
-                className="w-full pl-4 pr-10 bg-muted/50 border-none focus-visible:ring-1" />
+              <Input
+                placeholder={t("search")}
+                className="w-full pl-4 pr-10 bg-muted/50 border-none focus-visible:ring-1"
+              />
             </div>
           </div>
 
-          <div className="flex items-center gap-2 mr-auto">
+          <div className="flex items-center gap-1 mr-auto">
+            <LanguageSwitcher />
             <NotificationsPanel />
             <AccountMenu />
           </div>
