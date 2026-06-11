@@ -23,7 +23,7 @@ function Skeleton({ className = "" }: { className?: string }) {
 }
 
 function formatCurrency(amount: number | string): string {
-  const n = Number(amount);
+  const n = Number(amount) / 100; // stored in halalas
   if (isNaN(n)) return "—";
   return n.toLocaleString("ar-SA", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " ر.س";
 }

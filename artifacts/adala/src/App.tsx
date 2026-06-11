@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient, useQuery } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
@@ -188,11 +188,32 @@ function HomeRedirect() {
   );
 }
 
+function OnboardingGate({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const skip = location === "/onboarding";
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["onboarding-state"],
+    queryFn: () => fetch(`${basePath}/api/onboarding/state`).then(r => r.json()),
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+    enabled: !skip,
+  });
+
+  if (!skip && !isLoading && data && data.completed === false && data.step === 0) {
+    return <Redirect to="/onboarding" />;
+  }
+
+  return <>{children}</>;
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Show when="signed-in">
-        <Layout>{children}</Layout>
+        <OnboardingGate>
+          <Layout>{children}</Layout>
+        </OnboardingGate>
       </Show>
       <Show when="signed-out">
         <Redirect to="/" />

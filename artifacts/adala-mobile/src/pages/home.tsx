@@ -1,188 +1,223 @@
 import { useQuery } from "@tanstack/react-query";
-import { Scale, Users, TrendingUp, AlertCircle, ChevronLeft, Clock, Briefcase } from "lucide-react";
+import {
+  Scale, Users, TrendingUp, AlertCircle, ChevronLeft,
+  Clock, Briefcase, Receipt, Bell, ArrowUpRight, CheckCircle2,
+} from "lucide-react";
+import { Link } from "wouter";
 
 const API = "/api";
-
-function fetchJson(path: string) {
-  return fetch(`${API}${path}`).then(r => r.json());
-}
-
-function StatCard({ label, value, icon: Icon, color, sub }: {
-  label: string; value: string | number; icon: any;
-  color: string; sub?: string;
-}) {
-  return (
-    <div className="bg-card rounded-2xl p-4 flex flex-col gap-2 border border-border/50">
-      <div className="flex items-center justify-between">
-        <span className="text-muted-foreground text-xs font-medium">{label}</span>
-        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${color}`}>
-          <Icon size={16} />
-        </div>
-      </div>
-      <div className="text-2xl font-bold text-foreground">{value}</div>
-      {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
-    </div>
-  );
-}
+const fetchJson = (p: string) => fetch(`${API}${p}`).then(r => r.json());
 
 function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`skeleton ${className}`} />;
 }
 
-export default function Home() {
-  const today = new Date();
-  const dateStr = today.toLocaleDateString("ar-SA", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric"
-  });
+function StatCard({
+  label, value, icon: Icon, colorClass, sub, trend,
+}: {
+  label: string; value: string | number; icon: any;
+  colorClass: string; sub?: string; trend?: "up" | "down" | "neutral";
+}) {
+  return (
+    <div className="bg-card rounded-2xl p-4 flex flex-col gap-1.5 border border-border/50 relative overflow-hidden">
+      <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full" style={{
+        background: colorClass.includes("blue") ? "#3b82f6"
+          : colorClass.includes("amber") ? "#f59e0b"
+          : colorClass.includes("green") ? "#22c55e"
+          : colorClass.includes("red") ? "#ef4444"
+          : "#c9a84c"
+      }} />
+      <div className="flex items-center justify-between mr-1">
+        <span className="text-muted-foreground text-xs font-medium">{label}</span>
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${colorClass}`}>
+          <Icon size={15} />
+        </div>
+      </div>
+      <div className="text-2xl font-bold text-foreground mr-1">{value}</div>
+      {sub && <div className="text-[11px] text-muted-foreground mr-1">{sub}</div>}
+    </div>
+  );
+}
 
+function QuickAction({ icon: Icon, label, href, color }: {
+  icon: any; label: string; href: string; color: string;
+}) {
+  return (
+    <Link href={href}>
+      <div className="bg-card rounded-2xl p-3 flex flex-col items-center gap-1.5 border border-border/50 tap-effect">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
+          <Icon size={18} />
+        </div>
+        <span className="text-[11px] text-muted-foreground font-medium text-center leading-tight">{label}</span>
+      </div>
+    </Link>
+  );
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  open: "مفتوحة", in_progress: "قيد التنفيذ", closed: "مغلقة",
+};
+const STATUS_DOT: Record<string, string> = {
+  open: "bg-blue-400", in_progress: "bg-amber-400", closed: "bg-green-400",
+};
+
+export default function Home() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: () => fetchJson("/dashboard/stats"),
   });
-
   const { data: overview, isLoading: overviewLoading } = useQuery({
     queryKey: ["dashboard-overview"],
     queryFn: () => fetchJson("/dashboard/overview"),
   });
-
-  const { data: activity, isLoading: activityLoading } = useQuery({
-    queryKey: ["recent-activity"],
-    queryFn: () => fetchJson("/dashboard/recent-activity"),
+  const { data: reminders = [], isLoading: reminderLoading } = useQuery<any[]>({
+    queryKey: ["reminders"],
+    queryFn: () => fetchJson("/reminders"),
   });
 
   const kpis = overview?.kpis ?? stats;
-  const recentCases = overview?.recentCases ?? [];
-  const activityItems = (Array.isArray(activity) ? activity : []).slice(0, 5);
-
-  const STATUS_LABEL: Record<string, string> = {
-    open: "مفتوحة", in_progress: "قيد التنفيذ", closed: "مغلقة",
-  };
-
-  const activityIcon: Record<string, string> = {
-    case: "⚖️", client: "👤", document: "📄", invoice: "🧾", reminder: "🔔",
-  };
+  const recentCases: any[] = (overview?.recentCases ?? []).slice(0, 4);
+  const dueReminders: any[] = (Array.isArray(reminders) ? reminders : [])
+    .filter(r => !r.isDone && !r.isCompleted && r.due_at && new Date(r.due_at) < new Date(Date.now() + 3 * 86400000))
+    .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime())
+    .slice(0, 3);
 
   return (
-    <div className="flex flex-col min-h-full">
-      {/* Header */}
-      <div className="bg-card border-b border-border px-5 pt-12 pb-5 safe-top">
-        <div className="flex items-center justify-between mb-1">
-          <div>
-            <h1 className="text-xl font-bold text-foreground">عدالة AI</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">{dateStr}</p>
-          </div>
-          <div className="w-10 h-10 rounded-2xl bg-primary/15 flex items-center justify-center">
-            <span className="text-primary font-bold text-lg">⚖</span>
-          </div>
-        </div>
-      </div>
+    <div className="p-4 space-y-5" dir="rtl">
 
-      <div className="flex-1 px-4 py-5 flex flex-col gap-5">
-        {/* Stats Grid */}
-        {statsLoading || overviewLoading ? (
+      {/* KPI Grid */}
+      <section>
+        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">نظرة عامة</h2>
+        {statsLoading ? (
           <div className="grid grid-cols-2 gap-3">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-24 rounded-2xl" />
-            ))}
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             <StatCard
               label="القضايا النشطة"
-              value={kpis?.activeCases ?? kpis?.openCases ?? 0}
+              value={kpis?.activeCases ?? kpis?.total_cases ?? 0}
               icon={Scale}
-              color="bg-blue-500/15 text-blue-300"
-              sub={`من ${kpis?.totalCases ?? 0} إجمالي`}
+              colorClass="bg-blue-500/20 text-blue-400"
+              sub="قضية مفتوحة"
             />
             <StatCard
               label="العملاء"
-              value={kpis?.totalClients ?? kpis?.activeUsers ?? 0}
+              value={kpis?.totalClients ?? kpis?.total_clients ?? 0}
               icon={Users}
-              color="bg-green-500/15 text-green-300"
-              sub={kpis?.clientsThisMonth ? `+${kpis.clientsThisMonth} هذا الشهر` : undefined}
+              colorClass="bg-violet-500/20 text-violet-400"
+              sub="عميل مسجّل"
             />
             <StatCard
               label="الإيرادات"
-              value={`${((kpis?.paidRevenue ?? kpis?.monthlyRevenue ?? 0) / 1000).toFixed(1)}ك`}
+              value={`${((kpis?.totalRevenue ?? kpis?.total_revenue ?? 0) / 100).toLocaleString("ar-SA")} ر.س`}
               icon={TrendingUp}
-              color="bg-primary/15 text-primary"
-              sub="ريال سعودي"
+              colorClass="bg-green-500/20 text-green-400"
+              sub="إجمالي الشهر"
             />
             <StatCard
-              label="المستحقة"
-              value={`${((kpis?.outstanding ?? 0) / 1000).toFixed(1)}ك`}
-              icon={AlertCircle}
-              color="bg-orange-500/15 text-orange-300"
-              sub="ريال سعودي"
+              label="الفواتير المعلقة"
+              value={kpis?.pendingInvoices ?? kpis?.pending_invoices ?? 0}
+              icon={Receipt}
+              colorClass="bg-amber-500/20 text-amber-400"
+              sub="فاتورة غير مسدودة"
             />
           </div>
         )}
+      </section>
 
-        {/* Recent Cases */}
+      {/* Quick Actions */}
+      <section>
+        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">وصول سريع</h2>
+        <div className="grid grid-cols-4 gap-2">
+          <QuickAction icon={Scale}   label="القضايا"    href="/cases"     color="bg-blue-500/20 text-blue-400" />
+          <QuickAction icon={Users}   label="العملاء"    href="/clients"   color="bg-violet-500/20 text-violet-400" />
+          <QuickAction icon={Receipt} label="الفواتير"   href="/invoices"  color="bg-amber-500/20 text-amber-400" />
+          <QuickAction icon={Bell}    label="التذكيرات"  href="/reminders" color="bg-rose-500/20 text-rose-400" />
+        </div>
+      </section>
+
+      {/* Upcoming Reminders */}
+      {!reminderLoading && dueReminders.length > 0 && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-bold text-foreground">أحدث القضايا</h2>
-            <a href="/adala-mobile/cases" className="flex items-center gap-1 text-primary text-xs font-semibold">
-              عرض الكل <ChevronLeft size={14} />
-            </a>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">تذكيرات قريبة</h2>
+            <Link href="/reminders">
+              <span className="text-[11px] text-primary flex items-center gap-0.5 tap-effect">
+                الكل <ChevronLeft size={12} />
+              </span>
+            </Link>
           </div>
-
-          {overviewLoading ? (
-            <div className="flex flex-col gap-2">
-              {[...Array(3)].map((_, i) => (
-                <Skeleton key={i} className="h-16 rounded-2xl" />
-              ))}
-            </div>
-          ) : recentCases.length === 0 ? (
-            <div className="bg-card rounded-2xl p-6 text-center border border-border/50">
-              <Briefcase size={32} className="text-muted-foreground/50 mx-auto mb-2" />
-              <p className="text-muted-foreground text-sm">لا توجد قضايا بعد</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {recentCases.slice(0, 4).map((c: any) => (
-                <div key={c.id} className="bg-card rounded-2xl p-4 border border-border/50 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                    <Scale size={18} className="text-primary" />
+          <div className="space-y-2">
+            {dueReminders.map((r: any) => {
+              const isOverdue = new Date(r.due_at) < new Date();
+              return (
+                <div key={r.id} className={`bg-card rounded-xl px-4 py-3 border flex items-center gap-3 ${
+                  isOverdue ? "border-red-500/30 bg-red-500/5" : "border-border/50"
+                }`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    isOverdue ? "bg-red-500/20" : "bg-amber-500/20"
+                  }`}>
+                    {isOverdue
+                      ? <AlertCircle size={15} className="text-red-400" />
+                      : <Clock size={15} className="text-amber-400" />
+                    }
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{c.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{c.clientName ?? "—"}</p>
+                    <div className="text-sm font-medium text-foreground truncate">{r.title}</div>
+                    <div className={`text-[11px] ${isOverdue ? "text-red-400" : "text-muted-foreground"}`}>
+                      {new Date(r.due_at).toLocaleDateString("ar-SA", { month: "short", day: "numeric" })}
+                      {isOverdue && " · متأخر"}
+                    </div>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium status-${c.status}`}>
-                    {STATUS_LABEL[c.status] ?? c.status}
-                  </span>
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </section>
+      )}
 
-        {/* Recent Activity */}
-        {!activityLoading && activityItems.length > 0 && (
-          <section>
-            <h2 className="text-base font-bold text-foreground mb-3">النشاط الأخير</h2>
-            <div className="flex flex-col gap-2">
-              {activityItems.map((a: any) => (
-                <div key={a.id} className="flex items-start gap-3 py-2">
-                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0 text-base">
-                    {activityIcon[a.type] ?? "📋"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground leading-snug">{a.description}</p>
-                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                      <Clock size={10} />
-                      {new Date(a.createdAt).toLocaleDateString("ar-SA")}
-                    </p>
-                  </div>
+      {/* Recent Cases */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">آخر القضايا</h2>
+          <Link href="/cases">
+            <span className="text-[11px] text-primary flex items-center gap-0.5 tap-effect">
+              الكل <ChevronLeft size={12} />
+            </span>
+          </Link>
+        </div>
+        {overviewLoading ? (
+          <div className="space-y-2">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
+          </div>
+        ) : recentCases.length === 0 ? (
+          <div className="bg-card rounded-2xl p-6 border border-border/50 text-center">
+            <Briefcase size={28} className="text-muted-foreground mx-auto mb-2 opacity-50" />
+            <p className="text-sm text-muted-foreground">لا توجد قضايا حتى الآن</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {recentCases.map((c: any) => (
+              <div key={c.id} className="bg-card rounded-xl px-4 py-3 border border-border/50 flex items-center gap-3 tap-effect">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
+                  <Scale size={14} className="text-blue-400" />
                 </div>
-              ))}
-            </div>
-          </section>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-foreground truncate">{c.title}</div>
+                  <div className="text-[11px] text-muted-foreground">{c.clientName ?? c.client_name ?? ""}</div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <div className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[c.status] ?? "bg-muted"}`} />
+                  <span className="text-[11px] text-muted-foreground">{STATUS_LABEL[c.status] ?? c.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
+      </section>
 
-        <div className="h-4" />
-      </div>
+      <div className="h-2" />
     </div>
   );
 }

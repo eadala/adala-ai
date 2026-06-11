@@ -336,7 +336,7 @@ export default function PortalView() {
             <CardContent className="space-y-2">
               {invoices.map((inv: any) => {
                 const invSt = INV_STATUS[inv.status] ?? INV_STATUS.draft;
-                const total = Number(inv.total ?? inv.amount ?? 0);
+                const total = Number(inv.total ?? inv.amount ?? 0) / 100;
                 const isPayable = (inv.status === "sent" || inv.status === "overdue") && inv.stripe_payment_link_url;
                 return (
                   <div key={inv.id} className={`rounded-xl overflow-hidden border ${invSt.color === "text-amber-400" || invSt.color === "text-red-400" ? "border-amber-500/20" : "border-border/30"}`}>

@@ -7,6 +7,7 @@ import Clients from "@/pages/clients";
 import Invoices from "@/pages/invoices";
 import Reminders from "@/pages/reminders";
 import BottomNav from "@/components/bottom-nav";
+import AppHeader from "@/components/app-header";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -14,9 +15,22 @@ const queryClient = new QueryClient({
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function PageTitle() {
+  const [location] = useLocation();
+  const titles: Record<string, string> = {
+    "/": "لوحة التحكم",
+    "/cases": "القضايا",
+    "/clients": "العملاء",
+    "/invoices": "الفواتير",
+    "/reminders": "التذكيرات",
+  };
+  return <AppHeader title={titles[location] ?? "عدالة AI"} />;
+}
+
 function AppLayout() {
   return (
     <div className="flex flex-col min-h-dvh bg-background">
+      <PageTitle />
       <main className="flex-1 overflow-y-auto pb-20">
         <Switch>
           <Route path="/" component={Home} />
