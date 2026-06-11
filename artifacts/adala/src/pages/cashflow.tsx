@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowRightLeft, TrendingUp, TrendingDown, Wallet } from "lucide-react";
@@ -37,8 +36,7 @@ export default function Cashflow() {
   const hasData = data.some(m => m.inflow > 0 || m.outflow > 0);
 
   return (
-    <Layout>
-      <div className="p-6 space-y-5 max-w-6xl mx-auto">
+    <div className="p-6 space-y-5 max-w-6xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
             <ArrowRightLeft className="h-5 w-5 text-blue-400" />
@@ -140,7 +138,6 @@ export default function Cashflow() {
             </div>
           </CardContent>
         </Card>
-      </div>
-    </Layout>
+    </div>
   );
 }
