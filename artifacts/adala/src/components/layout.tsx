@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { NotificationsPanel } from "@/components/notifications-panel";
+import { AccountMenu } from "@/components/account-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -225,13 +226,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
           <div className="flex items-center gap-2 mr-auto">
             <NotificationsPanel />
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50">
-              <Avatar className="h-7 w-7">
-                {user?.imageUrl && <AvatarImage src={user.imageUrl} />}
-                <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium text-foreground truncate max-w-[120px]">{displayName}</span>
-            </div>
+            <AccountMenu />
           </div>
         </header>
 
