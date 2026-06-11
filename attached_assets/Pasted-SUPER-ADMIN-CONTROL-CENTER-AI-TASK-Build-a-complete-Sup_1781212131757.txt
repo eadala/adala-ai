@@ -1,0 +1,352 @@
+SUPER ADMIN CONTROL CENTER
+
+عدالة AI
+
+TASK
+
+Build a complete Super Admin Control Center integrated into the existing Adalah AI platform.
+
+The Control Center must be available only for Super Admin users.
+
+Use:
+
+* React
+* TypeScript
+* TailwindCSS
+* PostgreSQL
+* Prisma ORM
+* Responsive Design
+* Arabic RTL Support
+* Dark / Light Mode
+
+⸻
+
+SIDEBAR STRUCTURE
+
+Dashboard
+
+Law Firms
+
+Users
+
+Cases
+
+Contracts
+
+Finance
+
+Reports
+
+AI Center
+
+Website Management
+
+Support Center
+
+Security Center
+
+System Settings
+
+⸻
+
+DASHBOARD
+
+Create Executive Dashboard with KPI Cards.
+
+Show:
+
+* Total Law Firms
+* Total Users
+* Total Cases
+* Total Contracts
+* Monthly Revenue
+* Active Subscriptions
+* Expired Subscriptions
+* Open Support Tickets
+
+Include:
+
+Revenue Chart
+
+Growth Chart
+
+Subscription Chart
+
+Recent Activity Feed
+
+⸻
+
+LAW FIRMS MANAGEMENT
+
+Create full CRUD.
+
+Fields:
+
+id
+name
+email
+phone
+plan
+status
+createdAt
+
+Actions:
+
+Create
+Edit
+Delete
+Suspend
+Activate
+Login As Firm
+
+⸻
+
+USERS MANAGEMENT
+
+Create Users Module.
+
+Fields:
+
+name
+email
+phone
+role
+status
+
+Roles:
+
+Super Admin
+Partner
+Manager
+Accountant
+Lawyer
+Employee
+
+Actions:
+
+Create
+Edit
+Delete
+Disable
+
+⸻
+
+FINANCE CENTER
+
+Create Financial Dashboard.
+
+Modules:
+
+Invoices
+Payments
+Expenses
+Expense Requests
+Revenue Analytics
+
+KPIs:
+
+Total Revenue
+Monthly Revenue
+Net Profit
+Overdue Invoices
+
+Export:
+
+PDF
+Excel
+
+⸻
+
+AI CENTER
+
+Create AI Usage Dashboard.
+
+Show:
+
+AI Requests
+AI Cost
+Cost Per Firm
+Most Used Features
+
+Controls:
+
+Usage Limits
+Monthly Quotas
+Feature Restrictions
+
+⸻
+
+WEBSITE MANAGEMENT
+
+Create CMS Module.
+
+Sections:
+
+Hero Section
+Services
+Pricing Plans
+Testimonials
+FAQ
+Footer
+Legal Pages
+
+Actions:
+
+Create
+Edit
+Delete
+Publish
+Unpublish
+
+Live Preview
+
+⸻
+
+SUPPORT CENTER
+
+Create Ticket System.
+
+Fields:
+
+Ticket Number
+Firm
+Priority
+Status
+Assigned To
+
+Actions:
+
+Reply
+Close
+Escalate
+
+⸻
+
+SECURITY CENTER
+
+Create Audit Log.
+
+Track:
+
+Login Events
+Failed Logins
+User Actions
+System Changes
+
+Display:
+
+User
+Action
+IP Address
+Device
+Timestamp
+
+⸻
+
+REPORTS CENTER
+
+Generate:
+
+Platform Revenue Report
+Subscription Report
+AI Cost Report
+Usage Report
+Growth Report
+
+Export:
+
+PDF
+Excel
+
+⸻
+
+SETTINGS
+
+General Settings
+
+Platform Name
+
+Logo
+
+SMTP
+
+WhatsApp API
+
+Telegram API
+
+Stripe Keys
+
+OpenAI Keys
+
+Domain Settings
+
+Maintenance Mode
+
+⸻
+
+DATABASE TABLES
+
+law_firms
+
+users
+
+subscriptions
+
+invoices
+
+payments
+
+expenses
+
+expense_requests
+
+tickets
+
+audit_logs
+
+website_content
+
+ai_usage
+
+system_settings
+
+⸻
+
+PERMISSIONS
+
+Super Admin:
+
+Full Access
+
+Partner:
+
+Firm Access Only
+
+Manager:
+
+Department Access
+
+Accountant:
+
+Financial Access
+
+Lawyer:
+
+Legal Access
+
+Employee:
+
+Limited Access
+
+⸻
+
+FINAL REQUIREMENT
+
+Build enterprise-grade SaaS admin panel with modern UI similar to:
+
+Stripe
+HubSpot
+ClickUp
+Notion
+
+All modules must be connected to PostgreSQL and support multi-tenant architecture.

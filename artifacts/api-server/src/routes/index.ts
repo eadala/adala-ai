@@ -53,6 +53,7 @@ import onboardingRouter from "./onboarding";
 import importDataRouter from "./importData";
 import whatsappRouter from "./whatsapp";
 import documentTemplatesRouter from "./document-templates";
+import financeCenterRouter from "./finance-center";
 
 const router: IRouter = Router();
 
@@ -119,5 +120,6 @@ router.use((req, _res, next) => {
   next();
 });
 router.use(documentTemplatesRouter);
+router.use(financeCenterRouter);
 
 export default router;
