@@ -4,7 +4,8 @@ import {
   Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig,
   AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign,
   Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown,
-  BrainCircuit, Lock, Database,
+  BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
+  Landmark, Wallet, BarChart2,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -48,6 +49,17 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/invoices", labelKey: "nav.items.invoices", icon: Receipt },
       { href: "/billing",  labelKey: "nav.items.billing",  icon: CreditCard },
+    ],
+  },
+  {
+    labelKey: "nav.groups.accounting",
+    items: [
+      { href: "/revenues",          labelKey: "nav.items.revenues",          icon: TrendingUp },
+      { href: "/expenses",          labelKey: "nav.items.expenses",          icon: TrendingDown },
+      { href: "/cashflow",          labelKey: "nav.items.cashflow",          icon: ArrowRightLeft },
+      { href: "/bank-accounts",     labelKey: "nav.items.bank_accounts",     icon: Landmark },
+      { href: "/advances",          labelKey: "nav.items.advances",          icon: Wallet },
+      { href: "/financial-reports", labelKey: "nav.items.financial_reports", icon: BarChart2 },
     ],
   },
   {

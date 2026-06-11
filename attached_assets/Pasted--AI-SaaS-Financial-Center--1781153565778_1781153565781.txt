@@ -1,0 +1,449 @@
+إذا كانت **عدالة AI** منصة SaaS متعددة المكاتب، فالطريقة الاحترافية هي بناء **Financial Center** وربطه بـ **Stripe Connect** بحيث:
+
+* العميل يدفع للمكتب.
+* عدالة AI تقتطع 10%.
+* Stripe يحول صافي المبلغ للمكتب.
+* يحتفظ النظام بسجل كامل للحوالات والمدفوعات.
+
+---
+
+# 1. جدول الحسابات البنكية
+
+## `shared/schema/officeBankAccounts.ts`
+
+```ts
+import {
+  pgTable,
+  uuid,
+  varchar,
+  timestamp
+} from "drizzle-orm/pg-core";
+
+export const officeBankAccounts = pgTable(
+  "office_bank_accounts",
+  {
+
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    officeId: uuid("office_id")
+      .notNull(),
+
+    beneficiaryName: varchar(
+      "beneficiary_name",
+      {
+        length: 255
+      }
+    ).notNull(),
+
+    bankName: varchar(
+      "bank_name",
+      {
+        length: 255
+      }
+    ),
+
+    iban: varchar(
+      "iban",
+      {
+        length: 50
+      }
+    ),
+
+    accountNumber: varchar(
+      "account_number",
+      {
+        length: 100
+      }
+    ),
+
+    swiftCode: varchar(
+      "swift_code",
+      {
+        length: 50
+      }
+    ),
+
+    currency: varchar(
+      "currency",
+      {
+        length: 10
+      }
+    ).default("SAR"),
+
+    createdAt: timestamp(
+      "created_at"
+    ).defaultNow()
+
+  }
+);
+```
+
+---
+
+# 2. تعديل جدول المكاتب
+
+## `shared/schema/offices.ts`
+
+أضف:
+
+```ts
+stripeAccountId: varchar(
+  "stripe_account_id",
+  {
+    length: 255
+  }
+),
+
+stripeOnboardingCompleted:
+boolean(
+  "stripe_onboarding_completed"
+)
+.default(false),
+
+paymentCommissionPercentage:
+integer(
+  "payment_commission_percentage"
+)
+.default(10),
+```
+
+---
+
+# 3. إعداد Stripe
+
+## `server/lib/stripe.ts`
+
+```ts
+import Stripe from "stripe";
+
+export const stripe = new Stripe(
+  process.env.STRIPE_SECRET_KEY!,
+  {
+    apiVersion: "2025-05-28.basil"
+  }
+);
+```
+
+---
+
+# 4. إنشاء حساب Stripe Connect للمكتب
+
+## `server/services/stripeConnectService.ts`
+
+```ts
+import { stripe } from "../lib/stripe";
+
+export async function createConnectedAccount(
+  email: string
+) {
+
+  const account =
+    await stripe.accounts.create({
+
+      type: "express",
+
+      email,
+
+      capabilities: {
+
+        transfers: {
+          requested: true
+        },
+
+        card_payments: {
+          requested: true
+        }
+
+      }
+
+    });
+
+  return account;
+
+}
+```
+
+---
+
+# 5. رابط إكمال البيانات البنكية
+
+```ts
+export async function createOnboardingLink(
+  accountId: string
+) {
+
+  return await stripe.accountLinks.create({
+
+    account: accountId,
+
+    refresh_url:
+      "https://adala-ai.com/reconnect",
+
+    return_url:
+      "https://adala-ai.com/dashboard",
+
+    type: "account_onboarding"
+
+  });
+
+}
+```
+
+---
+
+# 6. إنشاء عملية دفع
+
+## خصم 10%
+
+```ts
+export async function createPaymentIntent(
+
+amount: number,
+
+connectedAccountId: string
+
+) {
+
+  return await stripe.paymentIntents.create({
+
+    amount,
+
+    currency: "sar",
+
+    application_fee_amount:
+
+      Math.floor(amount * 0.10),
+
+    transfer_data: {
+
+      destination:
+        connectedAccountId
+
+    }
+
+  });
+
+}
+```
+
+---
+
+# 7. Routes
+
+## `server/routes/stripe.ts`
+
+```ts
+router.post(
+"/connect",
+async (
+req,
+res
+) => {
+
+const account =
+await createConnectedAccount(
+req.body.email
+);
+
+res.json(account);
+
+}
+);
+```
+
+---
+
+```ts
+router.post(
+"/onboarding",
+async (
+req,
+res
+) => {
+
+const link =
+await createOnboardingLink(
+req.body.accountId
+);
+
+res.json(link);
+
+}
+);
+```
+
+---
+
+```ts
+router.post(
+"/payment-intent",
+async (
+req,
+res
+) => {
+
+const payment =
+await createPaymentIntent(
+
+req.body.amount,
+
+req.body.connectedAccountId
+
+);
+
+res.json(payment);
+
+}
+);
+```
+
+---
+
+# 8. واجهة React
+
+## `PaymentSettingsPage.tsx`
+
+```tsx
+<Card>
+
+<CardHeader>
+
+الحساب البنكي
+
+</CardHeader>
+
+<CardContent>
+
+<Button>
+
+ربط Stripe
+
+</Button>
+
+</CardContent>
+
+</Card>
+```
+
+---
+
+إذا لم يربط المكتب حسابه:
+
+```tsx
+<Alert>
+
+<AlertDescription>
+
+يجب إكمال إعدادات Stripe
+قبل استقبال المدفوعات.
+
+</AlertDescription>
+
+</Alert>
+```
+
+---
+
+# 9. لوحة المكتب
+
+بطاقات:
+
+```tsx
+إجمالي المدفوعات
+
+250,000 ر.س
+```
+
+```tsx
+عمولة عدالة AI
+
+25,000 ر.س
+```
+
+```tsx
+صافي التحويلات
+
+225,000 ر.س
+```
+
+---
+
+# 10. القائمة الجانبية
+
+```ts
+{
+title:"المركز المالي",
+
+children:[
+
+{
+title:"المدفوعات"
+},
+
+{
+title:"الحساب البنكي"
+},
+
+{
+title:"Stripe Connect"
+},
+
+{
+title:"التحويلات"
+},
+
+{
+title:"العمولات"
+},
+
+{
+title:"التسويات"
+}
+
+]
+}
+```
+
+---
+
+# المعمارية الاحترافية التي أوصي بها
+
+```text
+server/
+
+services/
+
+stripeConnectService.ts
+
+paymentService.ts
+
+transferService.ts
+
+commissionService.ts
+
+webhooks/
+
+stripeWebhook.ts
+
+routes/
+
+stripe.ts
+
+payments.ts
+
+transfers.ts
+
+shared/
+
+schema/
+
+officeBankAccounts.ts
+
+paymentTransactions.ts
+
+payouts.ts
+```
+
+وهذا هو التصميم الذي يجعل عدالة AI تعمل كنظام Marketplace احترافي شبيه بـ Shopify وUpwork، مع تحويل المستحقات لكل مكتب محاماة تلقائياً بعد خصم عمولة المنصة.
