@@ -44,6 +44,43 @@ import {
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "") + "/";
 
+/**
+ * Robust clipboard copy — works on Chrome, Firefox, Safari, and Mobile iOS.
+ * Primary: navigator.clipboard.writeText (requires user gesture + HTTPS/localhost).
+ * Fallback: document.execCommand('copy') via a hidden textarea (iOS < 13.4, older Android).
+ */
+function copyToClipboard(text: string, onSuccess?: () => void): void {
+  const succeed = () => {
+    toast.success("تم نسخ الرابط ✓");
+    onSuccess?.();
+  };
+  const fail = () => toast.error("تعذّر نسخ الرابط، يرجى نسخه يدوياً");
+
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    navigator.clipboard.writeText(text).then(succeed).catch(() => execCommandFallback(text, succeed, fail));
+  } else {
+    execCommandFallback(text, succeed, fail);
+  }
+}
+
+function execCommandFallback(text: string, succeed: () => void, fail: () => void): void {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.cssText = "position:fixed;top:0;left:0;width:2em;height:2em;padding:0;border:none;outline:none;box-shadow:none;background:transparent;";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    /* iOS requires setSelectionRange */
+    if (typeof ta.setSelectionRange === "function") ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    ok ? succeed() : fail();
+  } catch {
+    fail();
+  }
+}
+
 type InvoiceItem = { description: string; quantity: number; unitPrice: number };
 type Invoice = {
   id: string; invoiceNumber: string; clientId?: string; caseId?: string;
@@ -323,9 +360,9 @@ function InvoiceSheet({
   });
 
   const copyLink = () => {
-    if (!invoice?.stripePaymentLinkUrl) return;
-    navigator.clipboard.writeText(invoice.stripePaymentLinkUrl);
-    setCopied(true); setTimeout(() => setCopied(false), 2000);
+    const url = invoice?.stripePaymentLinkUrl;
+    if (!url) return;
+    copyToClipboard(url, () => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
 
   const sendWhatsApp = () => {
@@ -695,7 +732,7 @@ export default function Invoices() {
                 </DropdownMenuItem>
               )}
               {inv.stripePaymentLinkUrl && (
-                <DropdownMenuItem onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(inv.stripePaymentLinkUrl!); toast.success("تم نسخ الرابط"); }}>
+                <DropdownMenuItem onClick={e => { e.stopPropagation(); copyToClipboard(inv.stripePaymentLinkUrl!); }}>
                   <Copy className="h-4 w-4 ml-2" />نسخ رابط الدفع
                 </DropdownMenuItem>
               )}
