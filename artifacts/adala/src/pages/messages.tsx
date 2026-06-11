@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,9 +143,31 @@ function ChannelBadge({ channel }: { channel: Channel }) {
 
 type FilterTab = "all" | "unread" | "starred" | "whatsapp" | "email" | "internal";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/";
+
 export default function Messages() {
-  const [convs, setConvs] = useState<Conversation[]>(INITIAL_CONVS);
-  const [selected, setSelected] = useState<string | null>("1");
+  const qc = useQueryClient();
+
+  // ── Load real conversations from DB ──────────────────────────────────────
+  const { data: dbConvs = [] } = useQuery<Conversation[]>({
+    queryKey: ["messages-conversations"],
+    queryFn: () => fetch(`${BASE}api/messages/conversations`).then(r => r.json()),
+    staleTime: 30_000,
+  });
+
+  // Merge: DB conversations take priority; fall back to demo data only when DB is empty
+  const [localConvs, setLocalConvs] = useState<Conversation[]>([]);
+  const convs: Conversation[] = useMemo(
+    () => dbConvs.length > 0 ? [...dbConvs, ...localConvs] : [...INITIAL_CONVS, ...localConvs],
+    [dbConvs, localConvs]
+  );
+
+  const [selected, setSelected] = useState<string | null>(null);
+
+  // Auto-select first conversation
+  useEffect(() => {
+    if (convs.length > 0 && !selected) setSelected(convs[0].id);
+  }, [convs.length]);
   const [search, setSearch] = useState("");
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [msgText, setMsgText] = useState("");
@@ -163,8 +186,8 @@ export default function Messages() {
 
   useEffect(() => {
     if (selected) {
-      setConvs(prev => prev.map(c => c.id === selected ? { ...c, unread: 0 } : c));
-      if (activeConv) setSendChannel(activeConv.channel);
+      setLocalConvs(prev => prev.map(c => c.id === selected ? { ...c, unread: 0 } : c));
+      if (activeConv) setSendChannel(activeConv.channel as Channel);
     }
   }, [selected]);
 
@@ -181,33 +204,46 @@ export default function Messages() {
 
   const totalUnread = convs.reduce((s, c) => s + c.unread, 0);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!msgText.trim() || !selected) return;
+    const text = msgText.trim();
     const now = new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
-    const newMsg: Message = { id: Date.now().toString(), from: "me", content: msgText.trim(), time: now, status: "sent", channel: sendChannel };
-    setConvs(prev => prev.map(c => c.id === selected
-      ? { ...c, messages: [...c.messages, newMsg], lastMsg: msgText.trim(), time: "الآن" }
-      : c
-    ));
+    const newMsg: Message = { id: Date.now().toString(), from: "me", content: text, time: now, status: "sent", channel: sendChannel };
+
+    // Optimistic UI update
+    setLocalConvs(prev => {
+      const existing = prev.find(c => c.id === selected);
+      if (existing) {
+        return prev.map(c => c.id === selected
+          ? { ...c, messages: [...c.messages, newMsg], lastMsg: text, time: "الآن" }
+          : c);
+      }
+      return prev;
+    });
     setMsgText("");
-    setTimeout(() => {
-      setConvs(prev => prev.map(c => c.id === selected
-        ? { ...c, messages: c.messages.map(m => m.id === newMsg.id ? { ...m, status: "delivered" } : m) }
-        : c
-      ));
-    }, 800);
+
+    // Persist to DB
+    try {
+      const activeConvCaseId = convs.find(c => c.id === selected)?.caseId ?? null;
+      await fetch(`${BASE}api/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: activeConvCaseId, channel: sendChannel, content: text }),
+      });
+      qc.invalidateQueries({ queryKey: ["messages-conversations"] });
+    } catch (_) {}
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const toggleStar = (id: string) => setConvs(prev => prev.map(c => c.id === id ? { ...c, starred: !c.starred } : c));
+  const toggleStar = (id: string) => setLocalConvs(prev => prev.map(c => c.id === id ? { ...c, starred: !c.starred } : c));
 
   const handleCreateConv = () => {
     if (!newName.trim()) return;
     const id = Date.now().toString();
-    setConvs(prev => [{
+    setLocalConvs(prev => [{
       id, name: newName.trim(), channel: newChannel, unread: 0, starred: false, online: true,
       lastMsg: "بدء محادثة جديدة", time: "الآن", messages: [],
     }, ...prev]);

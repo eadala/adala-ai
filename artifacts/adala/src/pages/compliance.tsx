@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Shield, CheckCircle2, XCircle, AlertTriangle, Clock, Plus,
@@ -91,17 +91,35 @@ const PRIORITY_CONFIG = {
   low: { label: "أولوية منخفضة", color: "#10B981" },
 };
 
-function FrameworkCard({ fw }: { fw: typeof FRAMEWORKS[0] }) {
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/";
+
+function FrameworkCard({ fw, savedStatuses, onStatusChange }: {
+  fw: typeof FRAMEWORKS[0];
+  savedStatuses: Record<string, string>;
+  onStatusChange: (frameworkKey: string, itemId: string, status: string) => void;
+}) {
   const [expanded, setExpanded] = useState(true);
-  const qc = useQueryClient();
   const { toast } = useToast();
 
-  const done = fw.items.filter(i => i.status === "done").length;
+  const getStatus = (item: typeof fw.items[0]) =>
+    savedStatuses[`${fw.key}:${item.id}`] ?? item.status;
+
+  const done = fw.items.filter(i => getStatus(i) === "done").length;
   const total = fw.items.length;
   const pct = Math.round((done / total) * 100);
 
   const updateItem = async (itemId: string, newStatus: string) => {
-    toast({ title: "تم تحديث حالة المتطلب" });
+    onStatusChange(fw.key, itemId, newStatus);
+    try {
+      await fetch(`${BASE}api/compliance/items/${fw.key}/${itemId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      toast({ title: "✅ تم تحديث الحالة وحفظها" });
+    } catch {
+      toast({ title: "⚠️ تعذّر الحفظ — تم التحديث محلياً", variant: "destructive" });
+    }
   };
 
   return (
@@ -134,7 +152,8 @@ function FrameworkCard({ fw }: { fw: typeof FRAMEWORKS[0] }) {
         <CardContent className="pt-0 pb-4">
           <div className="space-y-2">
             {fw.items.map(item => {
-              const s = STATUS_CONFIG[item.status as keyof typeof STATUS_CONFIG];
+              const currentStatus = getStatus(item);
+              const s = STATUS_CONFIG[currentStatus as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.pending;
               const p = PRIORITY_CONFIG[item.priority as keyof typeof PRIORITY_CONFIG];
               const StatusIcon = s.icon;
               return (
@@ -150,7 +169,7 @@ function FrameworkCard({ fw }: { fw: typeof FRAMEWORKS[0] }) {
                     </div>
                     {item.notes && <p className="text-[10px] text-muted-foreground mt-1">{item.notes}</p>}
                   </div>
-                  <Select defaultValue={item.status} onValueChange={v => updateItem(item.id, v)}>
+                  <Select value={currentStatus} onValueChange={v => updateItem(item.id, v)}>
                     <SelectTrigger className="h-6 w-[80px] text-[10px] flex-shrink-0">
                       <SelectValue />
                     </SelectTrigger>
@@ -172,16 +191,44 @@ function FrameworkCard({ fw }: { fw: typeof FRAMEWORKS[0] }) {
 
 export default function Compliance() {
   const [filterStatus, setFilterStatus] = useState("all");
+  // saved: { "framework_key:item_id" → status }
+  const [savedStatuses, setSavedStatuses] = useState<Record<string, string>>({});
 
-  const allItems = FRAMEWORKS.flatMap(fw => fw.items.map(i => ({ ...i, framework: fw.name, color: fw.color })));
-  const totalDone = allItems.filter(i => i.status === "done").length;
-  const totalPartial = allItems.filter(i => i.status === "partial").length;
-  const totalPending = allItems.filter(i => i.status === "pending").length;
-  const overallPct = Math.round((totalDone / allItems.length) * 100);
+  // Load saved statuses from DB on mount
+  const { data: dbItems = [] } = useQuery<{ framework_key: string; item_id: string; status: string }[]>({
+    queryKey: ["compliance-items"],
+    queryFn: () => fetch(`${BASE}api/compliance/items`).then(r => r.json()),
+    staleTime: 60_000,
+  });
+
+  // Merge DB statuses into savedStatuses map whenever dbItems changes
+  useEffect(() => {
+    if (dbItems.length === 0) return;
+    const map: Record<string, string> = {};
+    for (const row of dbItems) map[`${row.framework_key}:${row.item_id}`] = row.status;
+    setSavedStatuses(map);
+  }, [dbItems.length]);
+
+  // Optimistic update handler
+  const handleStatusChange = (frameworkKey: string, itemId: string, status: string) => {
+    setSavedStatuses(prev => ({ ...prev, [`${frameworkKey}:${itemId}`]: status }));
+  };
+
+  const getEffectiveStatus = (fw: typeof FRAMEWORKS[0], item: typeof fw.items[0]) =>
+    savedStatuses[`${fw.key}:${item.id}`] ?? item.status;
+
+  const allItems = FRAMEWORKS.flatMap(fw => fw.items.map(i => ({
+    ...i, framework: fw.name, color: fw.color,
+    effectiveStatus: getEffectiveStatus(fw, i),
+  })));
+  const totalDone    = allItems.filter(i => i.effectiveStatus === "done").length;
+  const totalPartial = allItems.filter(i => i.effectiveStatus === "partial").length;
+  const totalPending = allItems.filter(i => i.effectiveStatus === "pending").length;
+  const overallPct   = Math.round((totalDone / allItems.length) * 100);
 
   const filteredFrameworks = filterStatus === "all" ? FRAMEWORKS : FRAMEWORKS.map(fw => ({
     ...fw,
-    items: fw.items.filter(i => i.status === filterStatus),
+    items: fw.items.filter(i => getEffectiveStatus(fw, i) === filterStatus),
   })).filter(fw => fw.items.length > 0);
 
   return (
@@ -230,7 +277,7 @@ export default function Compliance() {
       {/* Framework scores */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {FRAMEWORKS.map(fw => {
-          const done = fw.items.filter(i => i.status === "done").length;
+          const done = fw.items.filter(i => getEffectiveStatus(fw, i) === "done").length;
           const pct = Math.round((done / fw.items.length) * 100);
           return (
             <div key={fw.key} className="p-3 bg-card/50 rounded-xl border border-border/50 text-center">
@@ -262,7 +309,9 @@ export default function Compliance() {
 
       {/* Frameworks */}
       <div className="space-y-4">
-        {filteredFrameworks.map(fw => <FrameworkCard key={fw.key} fw={fw} />)}
+        {filteredFrameworks.map(fw => (
+          <FrameworkCard key={fw.key} fw={fw} savedStatuses={savedStatuses} onStatusChange={handleStatusChange} />
+        ))}
       </div>
 
       {/* Pending highlights */}

@@ -4,6 +4,53 @@ import { ListMessagesQueryParams, SendMessageBody } from "@workspace/api-zod";
 
 const router = Router();
 
+// ── GET /messages/conversations  — grouped view ───────────────────────────────
+router.get("/messages/conversations", async (req, res) => {
+  try {
+    const msgs = await db.select().from(messagesTable).orderBy(messagesTable.createdAt);
+    const allCases = await db.select({ id: casesTable.id, title: casesTable.title }).from(casesTable);
+    const caseMap = Object.fromEntries(allCases.map((c) => [c.id, c.title]));
+
+    const groups: Record<string, typeof msgs> = {};
+    for (const m of msgs) {
+      const key = m.caseId ?? "__direct__";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(m);
+    }
+
+    const conversations = Object.entries(groups).map(([key, messages]) => {
+      const lastMsg = messages[messages.length - 1];
+      const unread = messages.filter(m => m.direction === "inbound" && m.status !== "read").length;
+      const name = key === "__direct__" ? "مراسلات مباشرة" : (caseMap[key] ?? `قضية ${key.slice(0, 8)}`);
+      return {
+        id: key,
+        caseId: key === "__direct__" ? null : key,
+        name,
+        channel: lastMsg.channel ?? "internal",
+        lastMsg: lastMsg.content,
+        time: lastMsg.createdAt.toISOString(),
+        unread,
+        starred: false,
+        online: false,
+        caseRef: key !== "__direct__" ? key.slice(0, 8).toUpperCase() : undefined,
+        messages: messages.map(m => ({
+          id: m.id,
+          from: m.direction === "inbound" ? "client" : "me",
+          content: m.content,
+          time: m.createdAt.toISOString(),
+          status: m.status ?? undefined,
+          channel: m.channel ?? "internal",
+        })),
+      };
+    });
+
+    res.json(conversations);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /messages  — flat list ────────────────────────────────────────────────
 router.get("/messages", async (req, res) => {
   try {
     const query = ListMessagesQueryParams.parse(req.query);
