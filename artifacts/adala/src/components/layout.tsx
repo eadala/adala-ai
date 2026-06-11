@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Bell, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2, Gavel, MessageCircle, Globe, Receipt, Mail } from "lucide-react";
+import { LayoutDashboard, Scale, FileText, Bot, Users, MessageSquare, CreditCard, Menu, Bell, Search, Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig, AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign, Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ const NAV_GROUPS = [
       { href: "/clients", label: "العملاء (CRM)", icon: UserCircle },
       { href: "/invoices", label: "الفواتير", icon: Receipt },
       { href: "/calendar", label: "التقويم والمواعيد", icon: CalendarDays },
+      { href: "/client-portal", label: "بوابة العملاء", icon: Globe },
       { href: "/documents", label: "المستندات", icon: BookOpen },
     ],
   },
@@ -55,6 +56,7 @@ const NAV_GROUPS = [
     label: "الموقع القانوني",
     items: [
       { href: "/office-management", label: "الموقع الذكي للمكتب", icon: Globe },
+      { href: "/marketplace", label: "السوق القانوني", icon: ShoppingBag },
     ],
   },
   {

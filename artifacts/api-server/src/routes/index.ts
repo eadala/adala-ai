@@ -26,6 +26,9 @@ import emailRouter from "./email";
 import officeRouter from "./office";
 import adminRouter from "./admin";
 import calendarRouter from "./calendar";
+import clientPortalRouter from "./client-portal";
+import marketplaceRouter from "./marketplace";
+import aiWorkflowRouter from "./ai-workflow";
 
 const router: IRouter = Router();
 
@@ -56,5 +59,8 @@ router.use(emailRouter);
 router.use(officeRouter);
 router.use(adminRouter);
 router.use(calendarRouter);
+router.use(clientPortalRouter);
+router.use(marketplaceRouter);
+router.use(aiWorkflowRouter);
 
 export default router;
