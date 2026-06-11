@@ -32,6 +32,7 @@ import aiWorkflowRouter from "./ai-workflow";
 import firmAdminRouter from "./firm-admin";
 import notificationsRouter from "./notifications";
 import complianceRouter from "./compliance";
+import aiAgentRouter from "./ai-agent";
 
 const router: IRouter = Router();
 
@@ -68,5 +69,6 @@ router.use(aiWorkflowRouter);
 router.use(firmAdminRouter);
 router.use(notificationsRouter);
 router.use(complianceRouter);
+router.use(aiAgentRouter);
 
 export default router;
