@@ -9,6 +9,7 @@ import {
   FileSignature,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useBranding } from "@/hooks/use-branding";
 import { useOfficePlan } from "@/hooks/use-office-plan";
@@ -165,7 +166,7 @@ function OfficeLogo() {
   );
 }
 
-function NavItemLink({ item, isActive, onClick }: { item: NavItem; isActive: boolean; onClick?: () => void }) {
+function NavItemLink({ item, isActive, onClick, badge }: { item: NavItem; isActive: boolean; onClick?: () => void; badge?: number }) {
   const { hasFeature, isLoaded } = useOfficePlan();
   const { t } = useTranslation();
   const isAI = ["/command-center", "/ai-agents", "/ai-chat", "/opponent-simulator", "/ai-assistant"].includes(item.href);
@@ -197,13 +198,18 @@ function NavItemLink({ item, isActive, onClick }: { item: NavItem; isActive: boo
   return (
     <Link href={item.href} className={`${baseClass} ${isActive ? activeClass : inactiveClass}`} onClick={onClick}>
       <item.icon className={`h-4 w-4 flex-shrink-0 ${isAI ? "text-[#C9A84C]" : ""}`} />
-      <span className="truncate">{label}</span>
+      <span className="truncate flex-1">{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="ml-auto bg-red-500 text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
@@ -229,6 +235,33 @@ export function Layout({ children }: { children: ReactNode }) {
 
   useLoginTracker();
 
+  /* ── Onboarding redirect (T002) ── */
+  const { data: onboardingState } = useQuery({
+    queryKey: ["onboarding-state"],
+    queryFn: () => fetch(`${basePath}/api/onboarding/state`).then(r => r.json()),
+    enabled: isLoaded && !!user,
+    staleTime: 5 * 60_000,
+  });
+  useEffect(() => {
+    if (
+      isLoaded && user && onboardingState &&
+      !onboardingState.completed &&
+      location !== "/onboarding"
+    ) {
+      navigate("/onboarding");
+    }
+  }, [isLoaded, user, onboardingState?.completed, location]);
+
+  /* ── Reminders count for badge (T003) ── */
+  const { data: remindersData } = useQuery({
+    queryKey: ["reminders-count"],
+    queryFn: () => fetch(`${basePath}/api/reminders/count`).then(r => r.json()),
+    enabled: isLoaded && !!user,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+  const pendingRemindersCount: number = remindersData?.count ?? 0;
+
   const visibleGroups = NAV_GROUPS.filter((g) => !g.superAdminOnly || isSuperAdmin);
 
   return (
@@ -246,7 +279,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <div className="space-y-0.5">
                   {group.items.map((item) => {
                     const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
-                    return <NavItemLink key={item.href} item={item} isActive={isActive} />;
+                    return <NavItemLink key={item.href} item={item} isActive={isActive} badge={item.href === "/reminders" ? pendingRemindersCount : undefined} />;
                   })}
                 </div>
               </div>
@@ -290,7 +323,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   <div className="space-y-0.5">
                     {group.items.map((item) => {
                       const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
-                      return <NavItemLink key={item.href} item={item} isActive={isActive} onClick={() => setIsMobileMenuOpen(false)} />;
+                      return <NavItemLink key={item.href} item={item} isActive={isActive} onClick={() => setIsMobileMenuOpen(false)} badge={item.href === "/reminders" ? pendingRemindersCount : undefined} />;
                     })}
                   </div>
                 </div>

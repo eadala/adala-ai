@@ -1,0 +1,81 @@
+/* ─── Print / PDF Styles ──────────────────────────────────────────────────── */
+@media print {
+  /* Hide non-printable UI */
+  .print\:hidden,
+  aside,
+  header,
+  nav,
+  .no-print,
+  [data-radix-popper-content-wrapper],
+  button:not(.print-show),
+  [role="dialog"],
+  [role="tooltip"],
+  .sonner-toaster {
+    display: none !important;
+  }
+
+  /* Reset page */
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+    direction: rtl;
+  }
+
+  /* Show hidden print-only elements */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Cards become flat boxes */
+  .bg-sidebar,
+  .bg-card,
+  [class*="bg-muted"] {
+    background: #fff !important;
+    border: 1px solid #ddd !important;
+  }
+
+  /* Fix colors for print */
+  .text-muted-foreground { color: #666 !important; }
+  .text-white            { color: #000 !important; }
+  .text-foreground       { color: #000 !important; }
+
+  /* Page breaks */
+  .page-break-before { page-break-before: always; }
+  .page-break-after  { page-break-after: always; }
+  .avoid-break       { page-break-inside: avoid; }
+
+  /* Invoice print layout */
+  .invoice-print-container {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 20mm !important;
+    box-shadow: none !important;
+  }
+
+  /* Table borders */
+  table { border-collapse: collapse; width: 100%; }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 6px 10px;
+    text-align: right;
+  }
+  thead { background: #f5f5f5 !important; }
+
+  /* Charts — hide for print (or they render blank) */
+  .recharts-responsive-container,
+  .recharts-wrapper {
+    display: none !important;
+  }
+
+  /* Show print-chart-fallback (table) instead */
+  .print-chart-fallback {
+    display: block !important;
+  }
+
+  /* Page settings */
+  @page {
+    size: A4;
+    margin: 15mm 20mm;
+  }
+}
