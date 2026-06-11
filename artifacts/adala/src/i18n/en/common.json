@@ -73,7 +73,8 @@
       "cashflow": "Cash Flow",
       "bank_accounts": "Bank Accounts",
       "advances": "Advances",
-      "financial_reports": "Financial Reports"
+      "financial_reports": "Financial Reports",
+      "login_tracking": "Login Tracking"
     }
   },
   "landing": {
