@@ -6,3 +6,4 @@
 - [Adala legal pages](adala-legal.md) — /terms /privacy /security pages exist; users.accepted_terms + billing.accepted_terms + ip_address + user_agent columns added to DB
 - [Adala branding system](adala-branding.md) — Multi-tenant branding: OfficeThemeProvider (CSS vars), OfficeLogo in sidebar, invoice templates, favicon/watermark/login-bg uploads; useBranding hook lives in hooks/use-branding.ts (NOT document-print-template)
 - [Adala messaging & AI assistant](adala-messaging-ai.md) — office_messages/recipients/attachments/ai_assistant_logs tables; routes at /api/internal-messages and /api/ai-assistant; new pages /messages (inbox) and /ai-assistant; must use db.execute(sql`...`) NOT direct pg Pool (esbuild can't resolve pg)
+- [Adala feature-gating](adala-feature-gating.md) — subscription plan gates UI/API; useOfficePlan hook + requireFeature middleware + plan_notifications table + layout.tsx locked nav items
