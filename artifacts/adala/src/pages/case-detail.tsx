@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useGetCase, getGetCaseQueryKey, useUpdateCase } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,10 +79,30 @@ export default function CaseDetail({ id }: { id: string }) {
   const { data: hub, isLoading: hubLoading } = useHubData(id);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<string | null>(null);
+  const [aiSource, setAiSource] = useState<"ai" | "rule_engine" | null>(null);
+  const [activeAiType, setActiveAiType] = useState<string | null>(null);
+  const [autoBrief, setAutoBrief] = useState<string | null>(null);
+  const [autoBriefLoading, setAutoBriefLoading] = useState(false);
+  const [autoBriefLoaded, setAutoBriefLoaded] = useState(false);
   const [activeStatus, setActiveStatus] = useState("");
   const updateCase = useUpdateCase();
   const qc = useQueryClient();
   const { toast } = useToast();
+
+  const loadAutoBrief = useCallback(async () => {
+    if (autoBriefLoaded) return;
+    setAutoBriefLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/ai/case-brief/${id}`);
+      if (r.ok) {
+        const d = await r.json();
+        setAutoBrief(d.brief);
+        setAiSource(d.source);
+      }
+    } catch {}
+    setAutoBriefLoading(false);
+    setAutoBriefLoaded(true);
+  }, [id, autoBriefLoaded]);
 
   const isLoading = caseLoading;
 
@@ -137,13 +157,32 @@ export default function CaseDetail({ id }: { id: string }) {
   const handleAiAnalysis = async (type: string) => {
     setAiLoading(true);
     setAiResult(null);
-    await new Promise(r => setTimeout(r, 1500));
-    const results: Record<string, string> = {
-      summarize: `**ملخص القضية: ${caseData.title}**\n\nالقضية من النوع ${TYPE_MAP[caseData.caseType] || caseData.caseType}. تم رفعها بتاريخ ${new Date(caseData.createdAt).toLocaleDateString("ar-EG")} للموكل ${caseData.clientName || "غير محدد"}. تحتوي على ${documents.length} مستنداً و${contracts.length} عقداً و${invoices.length} فاتورة.`,
-      risks: `**تحليل المخاطر:**\n\n• خطر تجاوز المواعيد: ${upcomingEvents.length === 0 ? "مرتفع — لا توجد جلسات مجدولة" : "منخفض"}\n• خطر مالي: ${totalInvoices > 0 && paidInvoices < totalInvoices ? "متوسط — يوجد مستحقات غير مسددة" : "منخفض"}\n• خطر التوثيق: ${documents.length < 3 ? "مرتفع — عدد المستندات قليل" : "منخفض"}`,
-      defenses: `**اقتراحات الدفوع المحتملة:**\n\n١. الدفع بعدم الاختصاص القضائي\n٢. الدفع بانقضاء مدة التقادم\n٣. الدفع ببطلان الإجراءات\n٤. طلب تأجيل الجلسة لاستيفاء المستندات`,
-    };
-    setAiResult(results[type] ?? "تعذّر إجراء التحليل حالياً، يرجى المحاولة لاحقاً.");
+    setActiveAiType(type);
+    try {
+      const r = await fetch(`${BASE}/api/ai/analyze-case`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseData: {
+            ...caseData,
+            documentsCount: documents.length,
+            contractsCount: contracts.length,
+            invoicesCount:  invoices.length,
+            eventsCount:    events.length,
+          },
+          type,
+        }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        setAiResult(d.result);
+        setAiSource(d.source);
+      } else {
+        setAiResult("تعذّر إجراء التحليل حالياً، يرجى المحاولة لاحقاً.");
+      }
+    } catch {
+      setAiResult("تعذّر الاتصال بمحرك الذكاء الاصطناعي.");
+    }
     setAiLoading(false);
   };
 
@@ -458,59 +497,17 @@ export default function CaseDetail({ id }: { id: string }) {
 
             {/* AI TAB */}
             <TabsContent value="ai" className="mt-4">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { key: "summarize", label: "تلخيص القضية", icon: <BookOpen className="h-4 w-4" />, color: "border-blue-500/30 hover:border-blue-500/60 hover:bg-blue-500/5" },
-                    { key: "risks",     label: "تحليل المخاطر",   icon: <AlertTriangle className="h-4 w-4 text-amber-400" />, color: "border-amber-500/30 hover:border-amber-500/60 hover:bg-amber-500/5" },
-                    { key: "defenses",  label: "اقتراح الدفوع",   icon: <Shield className="h-4 w-4 text-emerald-400" />, color: "border-emerald-500/30 hover:border-emerald-500/60 hover:bg-emerald-500/5" },
-                    { key: "judge",     label: "توقع أسئلة القاضي", icon: <Swords className="h-4 w-4 text-violet-400" />, color: "border-violet-500/30 hover:border-violet-500/60 hover:bg-violet-500/5" },
-                  ].map(btn => (
-                    <Button
-                      key={btn.key}
-                      variant="outline"
-                      className={`h-auto py-3 px-3 flex flex-col items-center gap-2 transition-all ${btn.color}`}
-                      disabled={aiLoading}
-                      onClick={() => handleAiAnalysis(btn.key)}
-                    >
-                      {btn.icon}
-                      <span className="text-xs">{btn.label}</span>
-                    </Button>
-                  ))}
-                </div>
-
-                {aiLoading && (
-                  <Card>
-                    <CardContent className="py-10 flex flex-col items-center gap-3">
-                      <Sparkles className="h-7 w-7 text-[#C9A84C] animate-pulse" />
-                      <p className="text-sm text-muted-foreground">يحلل الذكاء الاصطناعي القضية...</p>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {aiResult && !aiLoading && (
-                  <Card className="border-[#C9A84C]/20">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-[#C9A84C]" />
-                        نتيجة التحليل
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{aiResult}</div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {!aiLoading && !aiResult && (
-                  <Card className="border-dashed">
-                    <CardContent className="py-10 flex flex-col items-center gap-3 text-muted-foreground">
-                      <Bot className="h-10 w-10 opacity-20" />
-                      <p className="text-sm">اختر أحد الأزرار أعلاه لبدء التحليل الذكي للقضية</p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
+              <AiTab
+                onMount={loadAutoBrief}
+                autoBrief={autoBrief}
+                autoBriefLoading={autoBriefLoading}
+                autoBriefLoaded={autoBriefLoaded}
+                aiLoading={aiLoading}
+                aiResult={aiResult}
+                aiSource={aiSource}
+                activeAiType={activeAiType}
+                onAnalyze={handleAiAnalysis}
+              />
             </TabsContent>
           </Tabs>
         </div>
@@ -540,6 +537,117 @@ function EmptyState({ icon, label, action, href }: { icon: React.ReactNode; labe
         <Link href={href}><Button variant="outline" size="sm" className="text-xs">{action}</Button></Link>
       ) : (
         <Button variant="outline" size="sm" className="text-xs">{action}</Button>
+      )}
+    </div>
+  );
+}
+
+const AI_BUTTONS = [
+  { key: "summarize",       label: "تلخيص القضية",       icon: <BookOpen className="h-4 w-4" />,                       color: "border-blue-500/30 hover:border-blue-500/60 hover:bg-blue-500/5",    activeRing: "ring-blue-500/40" },
+  { key: "risks",           label: "تحليل المخاطر",       icon: <AlertTriangle className="h-4 w-4 text-amber-400" />,   color: "border-amber-500/30 hover:border-amber-500/60 hover:bg-amber-500/5",  activeRing: "ring-amber-500/40" },
+  { key: "defenses",        label: "اقتراح الدفوع",       icon: <Shield className="h-4 w-4 text-emerald-400" />,        color: "border-emerald-500/30 hover:border-emerald-500/60 hover:bg-emerald-500/5", activeRing: "ring-emerald-500/40" },
+  { key: "judge_questions", label: "توقع أسئلة القاضي",   icon: <Swords className="h-4 w-4 text-violet-400" />,         color: "border-violet-500/30 hover:border-violet-500/60 hover:bg-violet-500/5", activeRing: "ring-violet-500/40" },
+];
+
+function AiTab({
+  onMount, autoBrief, autoBriefLoading, autoBriefLoaded,
+  aiLoading, aiResult, aiSource, activeAiType, onAnalyze,
+}: {
+  onMount: () => void;
+  autoBrief: string | null;
+  autoBriefLoading: boolean;
+  autoBriefLoaded: boolean;
+  aiLoading: boolean;
+  aiResult: string | null;
+  aiSource: "ai" | "rule_engine" | null;
+  activeAiType: string | null;
+  onAnalyze: (type: string) => void;
+}) {
+  useEffect(() => { onMount(); }, []);
+
+  return (
+    <div className="space-y-4">
+      {/* Auto-brief banner */}
+      {(autoBriefLoading || autoBrief) && (
+        <Card className="border-[#C9A84C]/25 bg-[#C9A84C]/5">
+          <CardHeader className="pb-2 pt-3 px-4">
+            <CardTitle className="text-xs flex items-center gap-2 text-[#C9A84C]">
+              <Sparkles className="h-3.5 w-3.5" />
+              الإفادة الذكية التلقائية
+              {autoBrief && aiSource && (
+                <span className={`mr-auto text-[10px] px-2 py-0.5 rounded-full ${aiSource === "ai" ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-500/20 text-slate-400"}`}>
+                  {aiSource === "ai" ? "✦ AI" : "⚙ محرك القواعد"}
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-3">
+            {autoBriefLoading ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                يجهّز المحرك الذكي الإفادة...
+              </div>
+            ) : (
+              <div className="text-sm leading-relaxed whitespace-pre-line text-foreground/80">{autoBrief}</div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Analysis buttons */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {AI_BUTTONS.map(btn => (
+          <Button
+            key={btn.key}
+            variant="outline"
+            className={`h-auto py-3 px-3 flex flex-col items-center gap-2 transition-all ${btn.color} ${activeAiType === btn.key ? `ring-1 ${btn.activeRing}` : ""}`}
+            disabled={aiLoading}
+            onClick={() => onAnalyze(btn.key)}
+          >
+            {aiLoading && activeAiType === btn.key
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : btn.icon}
+            <span className="text-xs">{btn.label}</span>
+          </Button>
+        ))}
+      </div>
+
+      {/* Analysis result */}
+      {aiLoading && !aiResult && (
+        <Card>
+          <CardContent className="py-10 flex flex-col items-center gap-3">
+            <Sparkles className="h-7 w-7 text-[#C9A84C] animate-pulse" />
+            <p className="text-sm text-muted-foreground">يحلل المحرك الذكي القضية...</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {aiResult && !aiLoading && (
+        <Card className="border-[#C9A84C]/20">
+          <CardHeader className="pb-2 pt-3 px-4">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-[#C9A84C]" />
+              {AI_BUTTONS.find(b => b.key === activeAiType)?.label ?? "نتيجة التحليل"}
+              {aiSource && (
+                <span className={`mr-auto text-[10px] px-2 py-0.5 rounded-full ${aiSource === "ai" ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-500/20 text-slate-400"}`}>
+                  {aiSource === "ai" ? "✦ AI" : "⚙ محرك القواعد"}
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-sm leading-relaxed whitespace-pre-line text-foreground/80">{aiResult}</div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!aiLoading && !aiResult && !autoBriefLoading && !autoBrief && (
+        <Card className="border-dashed">
+          <CardContent className="py-10 flex flex-col items-center gap-3 text-muted-foreground">
+            <Bot className="h-10 w-10 opacity-20" />
+            <p className="text-sm">اختر أحد أزرار التحليل أعلاه</p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
