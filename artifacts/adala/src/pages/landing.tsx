@@ -187,7 +187,7 @@ export default function Landing() {
     { label: "المميزات", href: "#features" },
     { label: "كيف يعمل", href: "#how" },
     { label: "الأمان", href: "#security" },
-    { label: "الأسعار", href: "#pricing" },
+    { label: "الأسعار", href: "/pricing" },
     { label: "الأسئلة الشائعة", href: "#faq" },
   ];
 
@@ -671,6 +671,17 @@ export default function Landing() {
               </FadeIn>
             ))}
           </div>
+
+          {/* View all plans CTA */}
+          <FadeIn className="text-center mt-10">
+            <Link href="/pricing">
+              <button className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all hover:opacity-80"
+                style={{ background: "rgba(201,168,76,0.1)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.25)" }}>
+                عرض المقارنة الكاملة بين الباقات
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L1 7L7 13M13 7H1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            </Link>
+          </FadeIn>
         </div>
       </section>
 
