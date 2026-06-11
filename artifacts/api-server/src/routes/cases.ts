@@ -19,7 +19,11 @@ async function notifyWhatsAppCaseStatus(updatedCase: any) {
     if (!settings?.enabled) return;
 
     const clientRows = await db.execute(sql`
-      SELECT phone FROM clients WHERE full_name = ${updatedCase.clientName} LIMIT 1
+      SELECT phone FROM clients
+      WHERE full_name = ${updatedCase.clientName}
+        AND phone IS NOT NULL
+        AND phone <> ''
+      ORDER BY created_at DESC LIMIT 1
     `) as any;
     const cRows = Array.isArray(clientRows) ? clientRows : (clientRows?.rows ?? []);
     const phone = cRows[0]?.phone;
