@@ -65,6 +65,7 @@ import SecurityPage from "@/pages/security";
 import NotFound from "@/pages/not-found";
 import AdalaBuildStudio from "@/pages/studio";
 import StorageSettings from "@/pages/storage-settings";
+import DemoPage from "@/pages/demo";
 
 const queryClient = new QueryClient();
 
@@ -227,6 +228,7 @@ function AppRoutes() {
           <Switch>
             <Route path="/" component={HomeRedirect} />
             <Route path="/pricing" component={PricingPage} />
+            <Route path="/demo" component={DemoPage} />
             <Route path="/terms" component={TermsPage} />
             <Route path="/privacy" component={PrivacyPage} />
             <Route path="/security" component={SecurityPage} />
