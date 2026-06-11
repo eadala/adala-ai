@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRoute } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,30 +7,55 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
   Scale, FileText, Receipt, MessageSquare, CheckCircle2, Clock,
-  Download, Send, Loader2, Shield, AlertCircle, Globe,
-  Eye, Calendar, User
+  Send, Loader2, Shield, AlertCircle, User, Calendar,
+  Upload, CloudUpload, UploadCloud, FileCheck, ChevronDown,
+  GitCommitHorizontal, Gavel, FileSignature, BellRing,
+  FileUp, Banknote, X
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 
-const STATUS_AR: Record<string, { label: string; color: string }> = {
-  open:        { label: "مفتوحة",      color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  in_progress: { label: "قيد التنفيذ", color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
-  closed:      { label: "مغلقة",       color: "bg-green-500/10 text-green-400 border-green-500/20" },
+const STATUS_AR: Record<string, { label: string; color: string; bg: string }> = {
+  open:        { label: "مفتوحة",      color: "text-blue-400",   bg: "bg-blue-500/15 border-blue-500/30" },
+  in_progress: { label: "قيد التنفيذ", color: "text-amber-400",  bg: "bg-amber-500/15 border-amber-500/30" },
+  closed:      { label: "مغلقة",       color: "text-emerald-400", bg: "bg-emerald-500/15 border-emerald-500/30" },
 };
+
 const INV_STATUS: Record<string, { label: string; color: string }> = {
-  paid:    { label: "مدفوعة", color: "text-green-400" },
+  paid:    { label: "مدفوعة", color: "text-emerald-400" },
   sent:    { label: "مُرسَلة", color: "text-blue-400" },
   draft:   { label: "مسودة",  color: "text-gray-400" },
   overdue: { label: "متأخرة", color: "text-red-400" },
 };
+
 const CASE_TYPE: Record<string, string> = {
   criminal: "جنائية", civil: "مدنية", commercial: "تجارية",
   labor: "عمالية", real_estate: "عقارية",
+};
+
+const TIMELINE_ICONS: Record<string, React.ReactNode> = {
+  hearing:       <Gavel className="h-4 w-4" />,
+  meeting:       <User className="h-4 w-4" />,
+  document:      <FileText className="h-4 w-4" />,
+  note:          <FileSignature className="h-4 w-4" />,
+  status_change: <GitCommitHorizontal className="h-4 w-4" />,
+  upload:        <UploadCloud className="h-4 w-4" />,
+  reminder:      <BellRing className="h-4 w-4" />,
+  payment:       <Banknote className="h-4 w-4" />,
+};
+
+const TIMELINE_COLORS: Record<string, string> = {
+  hearing:       "bg-red-500/20 text-red-400 border-red-500/30",
+  meeting:       "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  document:      "bg-violet-500/20 text-violet-400 border-violet-500/30",
+  note:          "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  status_change: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  upload:        "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
+  reminder:      "bg-orange-500/20 text-orange-400 border-orange-500/30",
+  payment:       "bg-green-500/20 text-green-400 border-green-500/30",
 };
 
 export default function PortalView() {
@@ -40,8 +65,11 @@ export default function PortalView() {
   const [msgSender, setMsgSender] = useState("");
   const [msgEmail, setMsgEmail] = useState("");
   const [msgSent, setMsgSent] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["portal-view", token],
     queryFn: () => fetch(`${BASE}api/portal/${token}`).then(r => r.json()),
     enabled: !!token,
@@ -62,57 +90,114 @@ export default function PortalView() {
     onError: () => toast.error("فشل إرسال الرسالة"),
   });
 
-  // Error / expiry
+  const handleUpload = async () => {
+    if (!uploadFile) return;
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const fileData = (e.target?.result as string)?.split(",")[1];
+        const r = await fetch(`${BASE}api/portal/${token}/upload`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: uploadFile.name,
+            fileType: uploadFile.type,
+            fileSize: uploadFile.size,
+            fileData,
+          }),
+        });
+        const d = await r.json();
+        if (d?.error) { toast.error(d.error); }
+        else { toast.success("تم رفع المستند بنجاح ✅"); setUploadFile(null); refetch(); }
+        setUploading(false);
+      };
+      reader.readAsDataURL(uploadFile);
+    } catch {
+      toast.error("فشل رفع الملف");
+      setUploading(false);
+    }
+  };
+
   if (!token) return <ErrorPage msg="رابط غير صالح" />;
   if (isLoading) return <LoadingPage />;
   if (error || data?.error) return <ErrorPage msg={data?.error ?? "حدث خطأ"} />;
 
-  const { portal, case: c, invoices, documents } = data as any;
+  const { portal, case: c, invoices = [], documents = [], timeline = [], uploads = [] } = data as any;
   const status = STATUS_AR[c?.status] ?? STATUS_AR.open;
+  const unpaidInvoices = invoices.filter((i: any) => i.status === "sent" || i.status === "overdue");
+  const totalUnpaid = unpaidInvoices.reduce((s: number, i: any) => s + Number(i.total ?? i.amount ?? 0), 0);
 
   return (
     <div dir="rtl" className="min-h-screen bg-[#0d1b2a] text-foreground" style={{ fontFamily: "'Cairo', sans-serif" }}>
       {/* Header */}
-      <div className="bg-[#0d1b2a] border-b border-border/30 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="bg-[#0a1520] border-b border-[#C9A84C]/20 sticky top-0 z-10 backdrop-blur-sm">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Scale className="h-5 w-5 text-[#C9A84C]" />
             <span className="font-black text-[#C9A84C]">عدالة AI</span>
-            <span className="text-xs text-muted-foreground">| بوابة العميل</span>
+            <span className="text-xs text-muted-foreground mr-1">| بوابة العميل</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Shield className="h-3.5 w-3.5 text-green-500" />
-            <span className="text-xs text-green-400">رابط آمن ومشفر</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs text-emerald-400">رابط آمن ومشفر</span>
+            <Shield className="h-3 w-3 text-emerald-400" />
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-        {/* Welcome */}
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+
+        {/* Welcome Banner */}
         {portal?.clientName && (
-          <div className="bg-[#C9A84C]/10 border border-[#C9A84C]/30 rounded-2xl p-4">
-            <p className="font-semibold text-[#C9A84C]">مرحباً، {portal.clientName} 👋</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              يمكنك متابعة قضيتك وتواصل مع المكتب من خلال هذه الصفحة
-            </p>
+          <div className="bg-gradient-to-l from-[#C9A84C]/5 to-[#C9A84C]/15 border border-[#C9A84C]/30 rounded-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-[#C9A84C]/20 flex items-center justify-center">
+                <User className="h-5 w-5 text-[#C9A84C]" />
+              </div>
+              <div>
+                <p className="font-bold text-[#C9A84C] text-lg">مرحباً، {portal.clientName}</p>
+                <p className="text-xs text-muted-foreground">هذه بوابتك الآمنة لمتابعة قضيتك القانونية</p>
+              </div>
+            </div>
+            {portal.expiresAt && (
+              <div className="mt-3 pt-3 border-t border-[#C9A84C]/20 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                صلاحية الوصول حتى: {new Date(portal.expiresAt).toLocaleDateString("ar-SA")}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Case Status */}
-        <Card>
+        {/* Unpaid Invoice Alert */}
+        {unpaidInvoices.length > 0 && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-amber-400 shrink-0" />
+              <p className="text-sm text-amber-300">
+                لديك {unpaidInvoices.length === 1 ? "فاتورة" : `${unpaidInvoices.length} فواتير`} مستحقة بإجمالي{" "}
+                <span className="font-bold">{totalUnpaid.toLocaleString("ar-SA")} ر.س</span>
+              </p>
+            </div>
+            <ChevronDown className="h-4 w-4 text-amber-400 shrink-0" />
+          </div>
+        )}
+
+        {/* Case Card */}
+        <Card className="bg-card/50 border-border/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Scale className="h-4 w-4 text-[#C9A84C]" />تفاصيل القضية
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="font-bold text-xl">{c?.title}</h2>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <Badge variant="outline" className={`text-xs ${status.color}`}>{status.label}</Badge>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex-1">
+                <h2 className="font-bold text-xl leading-tight">{c?.title}</h2>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <Badge variant="outline" className={`text-xs ${status.bg} ${status.color}`}>{status.label}</Badge>
                   {c?.caseType && (
-                    <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                    <Badge variant="outline" className="text-xs border-[#C9A84C]/30 text-[#C9A84C]">
                       {CASE_TYPE[c.caseType] ?? c.caseType}
                     </Badge>
                   )}
@@ -120,114 +205,234 @@ export default function PortalView() {
               </div>
             </div>
             {c?.description && (
-              <p className="text-sm text-muted-foreground leading-relaxed">{c.description}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed border-r-2 border-[#C9A84C]/40 pr-3">{c.description}</p>
             )}
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="grid grid-cols-2 gap-3">
               {c?.clientName && (
-                <div className="bg-muted/30 rounded-xl p-3">
-                  <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-                    <User className="h-3 w-3" />المُوكّل
-                  </p>
-                  <p className="text-sm font-medium">{c.clientName}</p>
+                <div className="bg-muted/20 rounded-xl p-3">
+                  <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1"><User className="h-3 w-3" />المُوكّل</p>
+                  <p className="text-sm font-semibold">{c.clientName}</p>
                 </div>
               )}
               {c?.createdAt && (
-                <div className="bg-muted/30 rounded-xl p-3">
-                  <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />تاريخ الفتح
-                  </p>
-                  <p className="text-sm font-medium">{new Date(c.createdAt).toLocaleDateString("ar-SA")}</p>
+                <div className="bg-muted/20 rounded-xl p-3">
+                  <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1"><Calendar className="h-3 w-3" />تاريخ الفتح</p>
+                  <p className="text-sm font-semibold">{new Date(c.createdAt).toLocaleDateString("ar-SA")}</p>
                 </div>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Invoices */}
-        {invoices?.length > 0 && (
-          <Card>
+        {/* Timeline */}
+        {portal?.showTimeline !== false && timeline.length > 0 && (
+          <Card className="bg-card/50 border-border/50">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-[#C9A84C]" />الفواتير
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <GitCommitHorizontal className="h-4 w-4 text-[#C9A84C]" />مراحل القضية
+                <Badge variant="outline" className="text-[10px] mr-auto">{timeline.length} تحديث</Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {invoices.map((inv: any) => {
-                const invSt = INV_STATUS[inv.status] ?? INV_STATUS.draft;
-                const total = (inv.total ?? inv.amount ?? 0) / 100;
-                return (
-                  <div key={inv.id} className="flex items-center justify-between bg-muted/30 rounded-xl px-4 py-3">
-                    <div>
-                      <p className="text-sm font-medium">{inv.title}</p>
-                      <p className={`text-xs ${invSt.color}`}>{invSt.label}</p>
-                    </div>
-                    <div className="text-left">
-                      <p className="font-bold font-mono text-lg text-[#C9A84C]">{total.toLocaleString("ar-SA", { minimumFractionDigits: 2 })}</p>
-                      <p className="text-xs text-muted-foreground">ر.س</p>
-                    </div>
-                  </div>
-                );
-              })}
-              {invoices.some((i: any) => i.status === "sent" && i.stripe_payment_link_url) && (
-                <div className="pt-2">
-                  {invoices.filter((i: any) => i.status === "sent" && i.stripe_payment_link_url).map((inv: any) => (
-                    <Button key={inv.id} className="w-full gap-2" asChild>
-                      <a href={inv.stripe_payment_link_url} target="_blank" rel="noopener noreferrer">
-                        <Receipt className="h-4 w-4" />دفع الفاتورة الإلكترونية
-                      </a>
-                    </Button>
-                  ))}
+            <CardContent>
+              <div className="relative">
+                {/* Vertical line */}
+                <div className="absolute right-5 top-0 bottom-0 w-px bg-border/50" />
+                <div className="space-y-5">
+                  {timeline.map((event: any, idx: number) => {
+                    const colorClass = TIMELINE_COLORS[event.entry_type] ?? TIMELINE_COLORS.note;
+                    const icon = TIMELINE_ICONS[event.entry_type] ?? TIMELINE_ICONS.note;
+                    const isLast = idx === timeline.length - 1;
+                    return (
+                      <div key={event.id} className="flex items-start gap-4">
+                        {/* Icon dot */}
+                        <div className={`relative z-10 flex-shrink-0 w-10 h-10 rounded-full border flex items-center justify-center ${colorClass}`}>
+                          {icon}
+                        </div>
+                        {/* Content */}
+                        <div className={`flex-1 pb-5 ${isLast ? "" : "border-b border-border/30"}`}>
+                          <div className="flex items-start justify-between gap-2 flex-wrap">
+                            <p className="font-semibold text-sm">{event.title}</p>
+                            <p className="text-[10px] text-muted-foreground whitespace-nowrap">
+                              {new Date(event.happened_at).toLocaleDateString("ar-SA", {
+                                year: "numeric", month: "short", day: "numeric"
+                              })}
+                            </p>
+                          </div>
+                          {event.description && (
+                            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{event.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         )}
 
         {/* Documents */}
-        {documents?.length > 0 && (
-          <Card>
+        {documents.length > 0 && (
+          <Card className="bg-card/50 border-border/50">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4 text-[#C9A84C]" />المستندات
+                <Badge variant="outline" className="text-[10px] mr-auto">{documents.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {documents.map((doc: any) => (
+                  <div key={doc.id} className="flex items-center gap-3 bg-muted/20 rounded-xl px-4 py-3">
+                    <FileText className="h-4 w-4 text-violet-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{doc.file_name ?? doc.fileName ?? "مستند"}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(doc.created_at ?? doc.createdAt).toLocaleDateString("ar-SA")}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] shrink-0">
+                      {doc.file_type ?? doc.fileType ?? "—"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Client Uploads (previously uploaded by client) */}
+        {uploads.length > 0 && (
+          <Card className="bg-card/50 border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <FileCheck className="h-4 w-4 text-cyan-400" />مستنداتك المرفوعة
+                <Badge variant="outline" className="text-[10px] mr-auto border-cyan-500/30 text-cyan-400">{uploads.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {uploads.map((up: any) => (
+                  <div key={up.id} className="flex items-center gap-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl px-4 py-2.5">
+                    <FileUp className="h-4 w-4 text-cyan-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{up.file_name}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(up.uploaded_at).toLocaleDateString("ar-SA")}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Invoices */}
+        {portal?.showInvoices !== false && invoices.length > 0 && (
+          <Card className="bg-card/50 border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-[#C9A84C]" />الفواتير
+                <Badge variant="outline" className="text-[10px] mr-auto">{invoices.length}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {documents.map((doc: any) => (
-                <div key={doc.id} className="flex items-center justify-between bg-muted/30 rounded-xl px-4 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">{doc.file_name ?? doc.fileName ?? "مستند"}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(doc.created_at ?? doc.createdAt).toLocaleDateString("ar-SA")}</p>
+              {invoices.map((inv: any) => {
+                const invSt = INV_STATUS[inv.status] ?? INV_STATUS.draft;
+                const total = Number(inv.total ?? inv.amount ?? 0);
+                const isPayable = (inv.status === "sent" || inv.status === "overdue") && inv.stripe_payment_link_url;
+                return (
+                  <div key={inv.id} className={`rounded-xl overflow-hidden border ${invSt.color === "text-amber-400" || invSt.color === "text-red-400" ? "border-amber-500/20" : "border-border/30"}`}>
+                    <div className="flex items-center justify-between bg-muted/20 px-4 py-3">
+                      <div>
+                        <p className="text-sm font-semibold">{inv.title}</p>
+                        <p className={`text-xs ${invSt.color} mt-0.5`}>{invSt.label}</p>
+                      </div>
+                      <div className="text-left">
+                        <p className="font-black text-xl text-[#C9A84C] font-mono">{total.toLocaleString("ar-SA")}</p>
+                        <p className="text-xs text-muted-foreground">ريال سعودي</p>
+                      </div>
                     </div>
+                    {isPayable && (
+                      <a href={inv.stripe_payment_link_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 bg-[#C9A84C] hover:bg-[#b8933e] text-[#0d1b2a] font-bold text-sm py-2.5 transition-colors">
+                        <Banknote className="h-4 w-4" />
+                        ادفع الآن — {total.toLocaleString("ar-SA")} ر.س
+                      </a>
+                    )}
                   </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Client Upload Section */}
+        {portal?.allowedToUpload && (
+          <Card className="bg-card/50 border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <CloudUpload className="h-4 w-4 text-[#C9A84C]" />رفع مستند للمكتب
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground mb-4">يمكنك إرسال مستندات ووثائق مطلوبة منك مباشرة لمكتب المحاماة</p>
+              {uploadFile ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3">
+                    <FileText className="h-5 w-5 text-emerald-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{uploadFile.name}</p>
+                      <p className="text-xs text-muted-foreground">{(uploadFile.size / 1024).toFixed(0)} KB</p>
+                    </div>
+                    <button onClick={() => setUploadFile(null)} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <Button className="w-full bg-[#C9A84C] hover:bg-[#b8933e] text-[#0d1b2a] font-bold gap-2"
+                    onClick={handleUpload} disabled={uploading}>
+                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {uploading ? "جاري الرفع..." : "إرسال المستند"}
+                  </Button>
                 </div>
-              ))}
+              ) : (
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full border-2 border-dashed border-[#C9A84C]/30 rounded-xl py-8 flex flex-col items-center gap-3 text-muted-foreground hover:border-[#C9A84C]/60 hover:text-[#C9A84C] transition-all group">
+                  <CloudUpload className="h-10 w-10 group-hover:scale-110 transition-transform" />
+                  <div className="text-center">
+                    <p className="text-sm font-medium">اضغط لاختيار ملف</p>
+                    <p className="text-xs mt-0.5">PDF, Word, صور — حتى 5 ميغابايت</p>
+                  </div>
+                </button>
+              )}
+              <input ref={fileRef} type="file" className="hidden"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                onChange={e => setUploadFile(e.target.files?.[0] ?? null)} />
             </CardContent>
           </Card>
         )}
 
         {/* Contact Form */}
-        <Card>
+        <Card className="bg-card/50 border-border/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-[#C9A84C]" />تواصل مع المكتب
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-[#C9A84C]" />التواصل مع المكتب
             </CardTitle>
           </CardHeader>
           <CardContent>
             {msgSent ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-3">
-                <CheckCircle2 className="h-10 w-10 text-green-500" />
-                <p className="font-semibold text-green-400">تم إرسال رسالتك بنجاح</p>
-                <p className="text-xs text-muted-foreground">سيتواصل معك المكتب في أقرب وقت</p>
-                <Button variant="outline" size="sm" onClick={() => setMsgSent(false)}>إرسال رسالة أخرى</Button>
+              <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
+                <div className="w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                  <CheckCircle2 className="h-7 w-7 text-emerald-500" />
+                </div>
+                <p className="font-bold text-emerald-400">تم إرسال رسالتك بنجاح</p>
+                <p className="text-xs text-muted-foreground">سيتواصل معك المكتب في أقرب وقت ممكن</p>
+                <Button variant="outline" size="sm" onClick={() => setMsgSent(false)} className="mt-2">إرسال رسالة أخرى</Button>
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-xs">اسمك</Label>
-                    <Input placeholder="الاسم الكامل" value={msgSender} onChange={e => setMsgSender(e.target.value)} />
+                    <Label className="text-xs">اسمك الكامل</Label>
+                    <Input placeholder="الاسم" value={msgSender} onChange={e => setMsgSender(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">بريدك الإلكتروني</Label>
@@ -236,10 +441,11 @@ export default function PortalView() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">رسالتك</Label>
-                  <Textarea placeholder="اكتب استفسارك أو ملاحظتك هنا..." rows={3} value={msgText}
+                  <Textarea placeholder="اكتب استفسارك أو ملاحظتك..." rows={3} value={msgText}
                     onChange={e => setMsgText(e.target.value)} />
                 </div>
-                <Button className="w-full gap-2" onClick={() => sendMessage.mutate()} disabled={!msgText || sendMessage.isPending}>
+                <Button className="w-full gap-2 bg-[#C9A84C] hover:bg-[#b8933e] text-[#0d1b2a] font-bold"
+                  onClick={() => sendMessage.mutate()} disabled={!msgText || sendMessage.isPending}>
                   {sendMessage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   إرسال الرسالة
                 </Button>
@@ -249,15 +455,13 @@ export default function PortalView() {
         </Card>
 
         {/* Footer */}
-        <div className="text-center pt-4 pb-8">
+        <div className="text-center pt-2 pb-10 space-y-1">
           <p className="text-xs text-muted-foreground">
-            منصة <span className="text-[#C9A84C]">عدالة AI</span> — نظام التشغيل القانوني
+            مدعوم بـ <span className="text-[#C9A84C] font-bold">عدالة AI</span> — نظام التشغيل القانوني
           </p>
-          {portal?.expiresAt && (
-            <p className="text-[10px] text-muted-foreground mt-1">
-              صلاحية الرابط تنتهي: {new Date(portal.expiresAt).toLocaleDateString("ar-SA")}
-            </p>
-          )}
+          <p className="text-[10px] text-muted-foreground opacity-60">
+            هذا الرابط شخصي وخاص بك — لا تشاركه مع أحد
+          </p>
         </div>
       </div>
     </div>
@@ -267,10 +471,12 @@ export default function PortalView() {
 function LoadingPage() {
   return (
     <div dir="rtl" className="min-h-screen bg-[#0d1b2a] flex flex-col items-center justify-center gap-4">
-      <Scale className="h-10 w-10 text-[#C9A84C] animate-pulse" />
-      <p className="text-[#C9A84C] font-bold text-lg">عدالة AI</p>
+      <div className="relative">
+        <Scale className="h-12 w-12 text-[#C9A84C]" />
+        <Loader2 className="h-5 w-5 animate-spin text-[#C9A84C]/60 absolute -bottom-1 -left-1" />
+      </div>
+      <p className="text-[#C9A84C] font-black text-xl">عدالة AI</p>
       <p className="text-muted-foreground text-sm">جاري تحميل بيانات القضية...</p>
-      <Loader2 className="h-6 w-6 animate-spin text-primary" />
     </div>
   );
 }
@@ -278,10 +484,12 @@ function LoadingPage() {
 function ErrorPage({ msg }: { msg: string }) {
   return (
     <div dir="rtl" className="min-h-screen bg-[#0d1b2a] flex flex-col items-center justify-center gap-4 px-4 text-center">
-      <AlertCircle className="h-12 w-12 text-red-400" />
-      <p className="font-bold text-xl">الرابط غير صالح</p>
-      <p className="text-muted-foreground text-sm">{msg}</p>
-      <p className="text-xs text-muted-foreground">إذا كان الرابط صحيحاً، تواصل مع المكتب للحصول على رابط جديد.</p>
+      <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center">
+        <AlertCircle className="h-10 w-10 text-red-400" />
+      </div>
+      <p className="font-bold text-xl">تعذّر فتح البوابة</p>
+      <p className="text-muted-foreground text-sm max-w-xs">{msg}</p>
+      <p className="text-xs text-muted-foreground">تواصل مع مكتب المحاماة للحصول على رابط جديد</p>
     </div>
   );
 }

@@ -15,8 +15,10 @@ import {
   ArrowRight, FileText, MessageSquare, Bot, User, Clock, Scale,
   Receipt, Handshake, CalendarDays, Sparkles, AlertTriangle,
   ChevronLeft, TrendingUp, Upload, Plus, ExternalLink, Loader2,
-  Shield, Lightbulb, Swords, BookOpen, Send
+  Shield, Lightbulb, Swords, BookOpen, Send, Globe, GitCommitHorizontal
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -91,6 +93,12 @@ export default function CaseDetail({ id }: { id: string }) {
   const [waDialogOpen, setWaDialogOpen] = useState(false);
   const [waPhone, setWaPhone] = useState("");
   const [waSending, setWaSending] = useState(false);
+  const [portalDialogOpen, setPortalDialogOpen] = useState(false);
+  const [portalTitle, setPortalTitle] = useState("");
+  const [portalDesc, setPortalDesc] = useState("");
+  const [portalType, setPortalType] = useState("note");
+  const [portalShared, setPortalShared] = useState(true);
+  const [portalSending, setPortalSending] = useState(false);
   const updateCase = useUpdateCase();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -158,6 +166,22 @@ export default function CaseDetail({ id }: { id: string }) {
         },
       }
     );
+  };
+
+  const handlePortalShare = async () => {
+    if (!portalTitle.trim()) return;
+    setPortalSending(true);
+    try {
+      const r = await fetch(`${BASE}/api/portal/timeline/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: portalTitle, description: portalDesc, entryType: portalType, isShared: portalShared }),
+      });
+      const d = await r.json();
+      if (d?.error) { toast({ title: "فشل الإرسال", description: d.error, variant: "destructive" }); }
+      else { toast({ title: portalShared ? "✅ تم نشر التحديث في بوابة العميل" : "✅ تم حفظ الحدث" }); setPortalDialogOpen(false); setPortalTitle(""); setPortalDesc(""); }
+    } catch { toast({ title: "خطأ في الاتصال", variant: "destructive" }); }
+    setPortalSending(false);
   };
 
   const handleSendWhatsApp = async () => {
@@ -238,6 +262,9 @@ export default function CaseDetail({ id }: { id: string }) {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          <Button size="sm" variant="outline" onClick={() => setPortalDialogOpen(true)} className="h-8 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10">
+            <Globe className="h-3.5 w-3.5" />بوابة العميل
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setWaDialogOpen(true)} className="h-8 text-xs gap-1 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10">
             <MessageSquare className="h-3.5 w-3.5" />واتساب
           </Button>
@@ -281,6 +308,56 @@ export default function CaseDetail({ id }: { id: string }) {
             <Button onClick={handleSendWhatsApp} disabled={waSending || !waPhone.trim()} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
               {waSending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Send className="h-4 w-4 ml-2" />}
               إرسال
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Portal Share Dialog ── */}
+      <Dialog open={portalDialogOpen} onOpenChange={setPortalDialogOpen}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <Globe className="h-4 w-4" />نشر تحديث في بوابة العميل
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              أضف حدثاً أو تحديثاً للخط الزمني للقضية: <span className="font-medium text-foreground">{caseData?.title}</span>
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs">نوع الحدث</Label>
+              <Select value={portalType} onValueChange={setPortalType}>
+                <SelectTrigger dir="rtl" className="text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  {[
+                    { v: "note", l: "ملاحظة" }, { v: "hearing", l: "جلسة محكمة" },
+                    { v: "meeting", l: "اجتماع" }, { v: "document", l: "وثيقة مضافة" },
+                    { v: "status_change", l: "تغيير الحالة" }, { v: "payment", l: "دفعة مالية" },
+                  ].map(o => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">عنوان التحديث *</Label>
+              <Input placeholder="مثال: تمت جلسة المحكمة بنجاح" value={portalTitle} onChange={e => setPortalTitle(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">تفاصيل إضافية (اختياري)</Label>
+              <Textarea placeholder="أضف تفاصيل..." rows={2} value={portalDesc} onChange={e => setPortalDesc(e.target.value)} />
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/20 p-3">
+              <div>
+                <p className="text-xs font-medium">مرئي للعميل</p>
+                <p className="text-[10px] text-muted-foreground">يظهر في بوابة العميل ويُرسل إشعار بالبريد</p>
+              </div>
+              <Switch checked={portalShared} onCheckedChange={setPortalShared} />
+            </div>
+            <Button onClick={handlePortalShare} disabled={portalSending || !portalTitle.trim()} className="w-full gap-2">
+              {portalSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitCommitHorizontal className="h-4 w-4" />}
+              {portalShared ? "نشر التحديث للعميل" : "حفظ الحدث (داخلي)"}
             </Button>
           </div>
         </DialogContent>

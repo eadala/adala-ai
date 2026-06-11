@@ -1,37 +1,37 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useUser } from "@clerk/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Globe, Link2, Copy, CheckCircle2, Plus, Trash2, Clock,
-  Eye, Users, Scale, RefreshCw, Loader2, Shield, ExternalLink
+  Eye, Shield, ExternalLink, RefreshCw, Loader2, Settings,
+  GitCommitHorizontal
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 
 type PortalToken = {
   id: string; case_id: string; token: string; client_email: string;
-  client_name: string; expires_at: string; last_accessed: string; access_count: number; created_at: string;
+  client_name: string; expires_at: string; last_accessed: string;
+  access_count: number; created_at: string;
+  show_invoices: boolean; show_timeline: boolean; allowed_to_upload: boolean;
 };
 
 type Case = { id: string; title: string; status: string; caseType: string; clientName: string };
 
-// ─── Copy helper ─────────────────────────────────────────────────────────────
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true); setTimeout(() => setCopied(false), 2000);
-  };
   return (
-    <button onClick={copy} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+    <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
       {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
     </button>
   );
@@ -44,6 +44,9 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
   const [clientEmail, setClientEmail] = useState("");
   const [clientName, setClientName] = useState("");
   const [expiryDays, setExpiryDays] = useState(30);
+  const [showInvoices, setShowInvoices] = useState(true);
+  const [showTimeline, setShowTimeline] = useState(true);
+  const [allowedToUpload, setAllowedToUpload] = useState(false);
   const [result, setResult] = useState<{ url: string; token: string; expiresAt: string } | null>(null);
 
   const create = useMutation({
@@ -51,7 +54,7 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
       fetch(`${BASE}api/portal/create-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caseId, clientEmail, clientName, expiryDays }),
+        body: JSON.stringify({ caseId, clientEmail, clientName, expiryDays, showInvoices, showTimeline, allowedToUpload }),
       }).then(r => r.json()),
     onSuccess: (data) => {
       if (data?.error) { toast.error(data.error); return; }
@@ -61,8 +64,10 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
     onError: () => toast.error("فشل إنشاء الرابط"),
   });
 
+  const reset = () => { setResult(null); setCaseId(""); setClientEmail(""); setClientName(""); };
+
   return (
-    <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) setResult(null); }}>
+    <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) reset(); }}>
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" />رابط بوابة جديد</Button>
       </DialogTrigger>
@@ -72,7 +77,6 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
             <Globe className="h-5 w-5 text-primary" />إنشاء بوابة عميل
           </DialogTitle>
         </DialogHeader>
-
         {result ? (
           <div className="space-y-4 pt-2">
             <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center space-y-2">
@@ -80,7 +84,7 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
               <p className="font-semibold text-green-400">تم إنشاء الرابط بنجاح!</p>
             </div>
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">رابط البوابة</Label>
+              <Label className="text-xs text-muted-foreground">رابط البوابة (أرسله للعميل)</Label>
               <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2.5">
                 <span className="text-xs font-mono flex-1 truncate text-primary">{result.url}</span>
                 <CopyButton text={result.url} />
@@ -122,6 +126,23 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
               <Label>مدة الصلاحية (يوم)</Label>
               <Input type="number" min={1} max={365} value={expiryDays} onChange={e => setExpiryDays(Number(e.target.value))} />
             </div>
+            {/* Permissions */}
+            <div className="space-y-2.5 rounded-xl border border-border/50 bg-muted/20 p-3">
+              <p className="text-xs font-semibold text-muted-foreground">صلاحيات العميل في البوابة</p>
+              {[
+                { label: "إظهار الفواتير",        desc: "يرى الفواتير وروابط الدفع",        val: showInvoices,     set: setShowInvoices },
+                { label: "إظهار مراحل القضية",    desc: "يرى الخط الزمني للتحديثات",       val: showTimeline,     set: setShowTimeline },
+                { label: "السماح برفع مستندات",   desc: "يمكنه رفع ملفات مطلوبة منه",      val: allowedToUpload,  set: setAllowedToUpload },
+              ].map(item => (
+                <div key={item.label} className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium">{item.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                  </div>
+                  <Switch checked={item.val} onCheckedChange={item.set} />
+                </div>
+              ))}
+            </div>
             <Button className="w-full" onClick={() => create.mutate()} disabled={!caseId || create.isPending}>
               {create.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Link2 className="h-4 w-4 ml-2" />}
               إنشاء الرابط
@@ -133,24 +154,148 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
   );
 }
 
+// ─── Add Timeline Event Dialog ────────────────────────────────────────────────
+function AddTimelineDialog({ caseId, onAdded }: { caseId: string; onAdded: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [entryType, setEntryType] = useState("note");
+  const [happenedAt, setHappenedAt] = useState(new Date().toISOString().slice(0, 10));
+  const [isShared, setIsShared] = useState(true);
+
+  const add = useMutation({
+    mutationFn: () =>
+      fetch(`${BASE}api/portal/timeline/${caseId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description, entryType, happenedAt, isShared }),
+      }).then(r => r.json()),
+    onSuccess: (d) => {
+      if (d?.error) { toast.error(d.error); return; }
+      toast.success(isShared ? "تم إضافة التحديث وإشعار العميل ✅" : "تم إضافة الحدث ✅");
+      setOpen(false); setTitle(""); setDescription("");
+      onAdded();
+    },
+    onError: () => toast.error("فشل إضافة الحدث"),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10">
+          <GitCommitHorizontal className="h-3 w-3" />إضافة تحديث
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <GitCommitHorizontal className="h-4 w-4 text-primary" />إضافة حدث للخط الزمني
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div className="space-y-1.5">
+            <Label>نوع الحدث</Label>
+            <Select value={entryType} onValueChange={setEntryType}>
+              <SelectTrigger dir="rtl"><SelectValue /></SelectTrigger>
+              <SelectContent dir="rtl">
+                <SelectItem value="note">ملاحظة</SelectItem>
+                <SelectItem value="hearing">جلسة محكمة</SelectItem>
+                <SelectItem value="meeting">اجتماع</SelectItem>
+                <SelectItem value="document">وثيقة مضافة</SelectItem>
+                <SelectItem value="status_change">تغيير الحالة</SelectItem>
+                <SelectItem value="payment">دفعة مالية</SelectItem>
+                <SelectItem value="reminder">تذكير</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>عنوان التحديث *</Label>
+            <Input placeholder="مثال: تمت جلسة المحكمة بنجاح" value={title} onChange={e => setTitle(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>التفاصيل (اختياري)</Label>
+            <Textarea placeholder="أضف تفاصيل إضافية للعميل..." rows={2} value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>تاريخ الحدث</Label>
+            <Input type="date" value={happenedAt} onChange={e => setHappenedAt(e.target.value)} />
+          </div>
+          <div className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/20 p-3">
+            <div>
+              <p className="text-xs font-medium">مشاركة مع العميل</p>
+              <p className="text-[10px] text-muted-foreground">يظهر في بوابة العميل ويُرسل إشعار بالبريد</p>
+            </div>
+            <Switch checked={isShared} onCheckedChange={setIsShared} />
+          </div>
+          <Button className="w-full" onClick={() => add.mutate()} disabled={!title || add.isPending}>
+            {add.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <CheckCircle2 className="h-4 w-4 ml-2" />}
+            إضافة التحديث
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Settings Panel ───────────────────────────────────────────────────────────
+function TokenSettingsPanel({ token, onSaved }: { token: PortalToken; onSaved: () => void }) {
+  const [showInvoices, setShowInvoices] = useState(token.show_invoices !== false);
+  const [showTimeline, setShowTimeline] = useState(token.show_timeline !== false);
+  const [allowedToUpload, setAllowedToUpload] = useState(token.allowed_to_upload === true);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    const r = await fetch(`${BASE}api/portal/tokens/${token.id}/settings`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showInvoices, showTimeline, allowedToUpload }),
+    });
+    const d = await r.json();
+    if (d?.error) toast.error(d.error);
+    else { toast.success("تم حفظ الإعدادات"); onSaved(); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-border/30 space-y-2.5">
+      <p className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
+        <Settings className="h-3 w-3" />صلاحيات البوابة
+      </p>
+      {[
+        { label: "إظهار الفواتير",       val: showInvoices,    set: setShowInvoices },
+        { label: "إظهار مراحل القضية",   val: showTimeline,    set: setShowTimeline },
+        { label: "السماح برفع مستندات",  val: allowedToUpload, set: setAllowedToUpload },
+      ].map(item => (
+        <div key={item.label} className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">{item.label}</p>
+          <Switch checked={item.val} onCheckedChange={item.set} className="scale-75" />
+        </div>
+      ))}
+      <Button size="sm" className="w-full h-7 text-xs mt-1" onClick={save} disabled={saving}>
+        {saving && <Loader2 className="h-3 w-3 animate-spin ml-1" />}حفظ الإعدادات
+      </Button>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ClientPortal() {
-  const { user } = useUser();
   const qc = useQueryClient();
+  const [expandedToken, setExpandedToken] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState<string | null>(null);
 
   const { data: cases = [] } = useQuery<Case[]>({
     queryKey: ["cases-list"],
     queryFn: () => fetch(`${BASE}api/cases`).then(r => r.json()).then(d => Array.isArray(d) ? d : d.cases ?? []),
   });
 
-  // Collect all tokens for all cases
   const { data: allTokens = [], isLoading, refetch } = useQuery<PortalToken[]>({
     queryKey: ["portal-all-tokens"],
     queryFn: async () => {
-      const promises = cases.slice(0, 20).map(c =>
-        fetch(`${BASE}api/portal/tokens/${c.id}`).then(r => r.json())
+      const results = await Promise.all(
+        cases.slice(0, 30).map(c => fetch(`${BASE}api/portal/tokens/${c.id}`).then(r => r.json()))
       );
-      const results = await Promise.all(promises);
       return results.flat().filter(Boolean);
     },
     enabled: cases.length > 0,
@@ -162,12 +307,11 @@ export default function ClientPortal() {
   });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["portal-all-tokens"] });
-
   const getCaseName = (caseId: string) => cases.find(c => c.id === caseId)?.title ?? caseId;
 
   const stats = {
-    total: allTokens.length,
-    active: allTokens.filter(t => !t.expires_at || new Date(t.expires_at) > new Date()).length,
+    total:    allTokens.length,
+    active:   allTokens.filter(t => !t.expires_at || new Date(t.expires_at) > new Date()).length,
     accessed: allTokens.filter(t => t.access_count > 0).length,
   };
 
@@ -180,13 +324,11 @@ export default function ClientPortal() {
             <Globe className="h-7 w-7 text-primary" />بوابة العملاء
           </h1>
           <p className="text-muted-foreground mt-1">
-            أنشئ روابط آمنة لعملائك لمتابعة قضاياهم ورفع المستندات ودفع الفواتير
+            روابط آمنة • خط زمني للقضية • رفع مستندات • دفع إلكتروني
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={refresh}>
-            <RefreshCw className="h-3.5 w-3.5" />
-          </Button>
+          <Button variant="outline" size="sm" onClick={refresh}><RefreshCw className="h-3.5 w-3.5" /></Button>
           <NewTokenDialog cases={cases} onCreated={refresh} />
         </div>
       </div>
@@ -194,18 +336,16 @@ export default function ClientPortal() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "إجمالي الروابط", value: stats.total,    icon: Link2,        color: "text-primary",  bg: "bg-primary/10" },
-          { label: "روابط نشطة",    value: stats.active,   icon: Shield,       color: "text-green-400", bg: "bg-green-500/10" },
-          { label: "تم الوصول",     value: stats.accessed, icon: Eye,          color: "text-blue-400",  bg: "bg-blue-500/10" },
+          { label: "إجمالي الروابط", value: stats.total,    icon: Link2,  color: "text-primary",   bg: "bg-primary/10" },
+          { label: "روابط نشطة",    value: stats.active,   icon: Shield, color: "text-green-400", bg: "bg-green-500/10" },
+          { label: "تم الوصول",     value: stats.accessed, icon: Eye,    color: "text-blue-400",  bg: "bg-blue-500/10" },
         ].map(s => {
           const Icon = s.icon;
           return (
             <Card key={s.label}>
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-xl ${s.bg}`}>
-                    <Icon className={`h-4 w-4 ${s.color}`} />
-                  </div>
+                  <div className={`p-2 rounded-xl ${s.bg}`}><Icon className={`h-4 w-4 ${s.color}`} /></div>
                   <div>
                     <p className="text-xs text-muted-foreground">{s.label}</p>
                     <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
@@ -225,15 +365,13 @@ export default function ClientPortal() {
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { step: "1", text: "أنشئ رابطاً لأي قضية" },
-              { step: "2", text: "أرسله للعميل بالبريد" },
-              { step: "3", text: "يتابع قضيته مباشرة" },
-              { step: "4", text: "يرفع مستندات ويدفع" },
+              { step: "1", text: "أنشئ رابطاً مشفراً لقضية" },
+              { step: "2", text: "أضف تحديثات للخط الزمني" },
+              { step: "3", text: "العميل يتابع ويرفع مستندات" },
+              { step: "4", text: "يدفع فواتيره إلكترونياً" },
             ].map(s => (
               <div key={s.step} className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center font-bold shrink-0">
-                  {s.step}
-                </span>
+                <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center font-bold shrink-0">{s.step}</span>
                 {s.text}
               </div>
             ))}
@@ -243,7 +381,7 @@ export default function ClientPortal() {
 
       {/* Tokens List */}
       {isLoading ? (
-        <div className="space-y-3">{Array(3).fill(0).map((_, i) => <div key={i} className="h-20 rounded-xl bg-muted/30 animate-pulse" />)}</div>
+        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-24 rounded-xl bg-muted/30 animate-pulse" />)}</div>
       ) : allTokens.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
@@ -257,6 +395,8 @@ export default function ClientPortal() {
           {allTokens.map(token => {
             const isExpired = token.expires_at && new Date(token.expires_at) < new Date();
             const portalUrl = `${window.location.origin}/portal/${token.token}`;
+            const isExpanded = expandedToken === token.id;
+            const showSettings = settingsOpen === token.id;
             return (
               <Card key={token.id} className={isExpired ? "opacity-60 border-border/30" : "hover:border-primary/30 transition-all"}>
                 <CardContent className="pt-4 pb-4">
@@ -264,14 +404,12 @@ export default function ClientPortal() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="font-semibold text-sm truncate">{getCaseName(token.case_id)}</span>
-                        {token.client_name && (
-                          <Badge variant="outline" className="text-xs border-blue-500/30 text-blue-400">
-                            {token.client_name}
-                          </Badge>
-                        )}
+                        {token.client_name && <Badge variant="outline" className="text-xs border-blue-500/30 text-blue-400">{token.client_name}</Badge>}
                         <Badge variant="outline" className={`text-xs ${isExpired ? "border-red-500/30 text-red-400" : "border-green-500/30 text-green-400"}`}>
                           {isExpired ? "منتهي" : "نشط"}
                         </Badge>
+                        {token.show_timeline && <Badge variant="outline" className="text-[10px] border-amber-500/20 text-amber-400">خط زمني</Badge>}
+                        {token.allowed_to_upload && <Badge variant="outline" className="text-[10px] border-cyan-500/20 text-cyan-400">رفع ملفات</Badge>}
                       </div>
                       <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-1.5 mt-2">
                         <Link2 className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -280,31 +418,44 @@ export default function ClientPortal() {
                       </div>
                       <div className="flex items-center gap-4 mt-2 text-[10px] text-muted-foreground flex-wrap">
                         {token.client_email && <span>{token.client_email}</span>}
-                        <span className="flex items-center gap-1">
-                          <Eye className="h-3 w-3" />{token.access_count} مشاهدة
-                        </span>
-                        {token.last_accessed && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />آخر دخول: {new Date(token.last_accessed).toLocaleDateString("ar-SA")}
-                          </span>
-                        )}
-                        {token.expires_at && (
-                          <span>ينتهي: {new Date(token.expires_at).toLocaleDateString("ar-SA")}</span>
-                        )}
+                        <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{token.access_count} مشاهدة</span>
+                        {token.last_accessed && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />آخر دخول: {new Date(token.last_accessed).toLocaleDateString("ar-SA")}</span>}
+                        {token.expires_at && <span>ينتهي: {new Date(token.expires_at).toLocaleDateString("ar-SA")}</span>}
                       </div>
                     </div>
-                    <div className="flex gap-2 shrink-0">
-                      <Button size="sm" variant="outline" className="text-xs h-8 gap-1.5 px-3" asChild>
-                        <a href={portalUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-3 w-3" />معاينة
-                        </a>
+                    <div className="flex gap-1.5 shrink-0 items-start">
+                      <Button size="sm" variant="outline" className="text-xs h-7 gap-1 px-2" asChild>
+                        <a href={portalUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3" />معاينة</a>
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-8 w-8 p-0"
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-amber-400 hover:bg-amber-500/10"
+                        title="إضافة تحديث للخط الزمني"
+                        onClick={() => setExpandedToken(isExpanded ? null : token.id)}>
+                        <GitCommitHorizontal className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                        title="إعدادات البوابة"
+                        onClick={() => setSettingsOpen(showSettings ? null : token.id)}>
+                        <Settings className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 w-7 p-0"
                         onClick={() => deleteToken.mutate(token.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
+
+                  {showSettings && (
+                    <TokenSettingsPanel token={token} onSaved={() => { setSettingsOpen(null); refresh(); }} />
+                  )}
+
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-border/30">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-muted-foreground">أضف تحديثاً يظهر في بوابة العميل مباشرة</p>
+                        <AddTimelineDialog caseId={token.case_id} onAdded={refresh} />
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
