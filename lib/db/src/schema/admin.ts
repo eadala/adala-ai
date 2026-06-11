@@ -118,6 +118,7 @@ export const supportTicketsTable = pgTable("support_tickets", {
   status:       text("status").notNull().default("open"),
   priority:     text("priority").notNull().default("medium"),
   category:     text("category").notNull().default("technical"),
+  userId:       text("user_id"),
   userEmail:    text("user_email").notNull(),
   userName:     text("user_name").notNull(),
   officeName:   text("office_name"),
@@ -126,6 +127,16 @@ export const supportTicketsTable = pgTable("support_tickets", {
   resolvedAt:   timestamp("resolved_at"),
   createdAt:    timestamp("created_at").notNull().defaultNow(),
   updatedAt:    timestamp("updated_at").notNull().defaultNow(),
+});
+
+/* ── Support Messages (conversation threads) ──────── */
+export const supportMessagesTable = pgTable("support_messages", {
+  id:           text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  ticketId:     text("ticket_id").notNull(),
+  senderType:   text("sender_type").notNull().default("office"), // "office" | "admin"
+  senderName:   text("sender_name").notNull(),
+  message:      text("message").notNull(),
+  createdAt:    timestamp("created_at").notNull().defaultNow(),
 });
 
 /* ── Office Registry (for super admin view) ─────────── */

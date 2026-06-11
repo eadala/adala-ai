@@ -77,6 +77,7 @@ import ThemeBuilderPage from "@/pages/theme-builder";
 import DocumentTemplatesPage from "@/pages/document-templates";
 import FinanceCenter from "@/pages/finance-center";
 import Collections from "@/pages/collections";
+import SupportPage from "@/pages/support";
 
 const queryClient = new QueryClient();
 
@@ -385,6 +386,9 @@ function AppRoutes() {
             </Route>
             <Route path="/tasks">
               <ProtectedRoute><Tasks /></ProtectedRoute>
+            </Route>
+            <Route path="/support">
+              <ProtectedRoute><SupportPage /></ProtectedRoute>
             </Route>
             <Route path="/office-management">
               <ProtectedRoute><OfficeManagement /></ProtectedRoute>
