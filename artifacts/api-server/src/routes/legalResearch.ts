@@ -51,33 +51,47 @@ async function semanticSearch(query: string, category: string): Promise<{ result
     return { ...item, score };
   }).filter(i => i.score > 0).sort((a, b) => b.score - a.score);
 
+  const GEMINI_KEY = process.env.GEMINI_API_KEY;
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
   let summary = "";
-  if ((ANTHROPIC_KEY || OPENAI_KEY) && scored.length > 0) {
-    const context = scored.slice(0, 3).map(r => `${r.title}: ${r.summary}`).join("\n");
-    const prompt = `بناءً على هذه الأنظمة القانونية:\n${context}\n\nأجب على السؤال التالي بإيجاز (3-4 جمل بالعربية): ${query}`;
-    try {
-      if (ANTHROPIC_KEY) {
-        const r = await fetch("https://api.anthropic.com/v1/messages", {
+  const context = scored.slice(0, 3).map(r => `${r.title}: ${r.summary}`).join("\n");
+  const prompt = `بناءً على هذه الأنظمة القانونية:\n${context}\n\nأجب على السؤال التالي بإيجاز (3-4 جمل بالعربية): ${query}`;
+
+  try {
+    if (GEMINI_KEY && scored.length > 0) {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+        {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({ model: "claude-3-5-haiku-20241022", max_tokens: 512, messages: [{ role: "user", content: prompt }] }),
-        });
-        const d = await r.json() as any;
-        summary = d.content?.[0]?.text ?? "";
-      } else if (OPENAI_KEY) {
-        const r = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_KEY}` },
-          body: JSON.stringify({ model: "gpt-4o-mini", max_tokens: 512, messages: [{ role: "user", content: prompt }] }),
-        });
-        const d = await r.json() as any;
-        summary = d.choices?.[0]?.message?.content ?? "";
-      }
-    } catch {}
-  }
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 512 },
+          }),
+        }
+      );
+      const d = await r.json() as any;
+      summary = d.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    } else if (ANTHROPIC_KEY && scored.length > 0) {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({ model: "claude-3-5-haiku-20241022", max_tokens: 512, messages: [{ role: "user", content: prompt }] }),
+      });
+      const d = await r.json() as any;
+      summary = d.content?.[0]?.text ?? "";
+    } else if (OPENAI_KEY && scored.length > 0) {
+      const r = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_KEY}` },
+        body: JSON.stringify({ model: "gpt-4o-mini", max_tokens: 512, messages: [{ role: "user", content: prompt }] }),
+      });
+      const d = await r.json() as any;
+      summary = d.choices?.[0]?.message?.content ?? "";
+    }
+  } catch {}
 
   if (!summary && scored.length > 0) {
     summary = `بخصوص "${query}": ${scored[0].summary}. وفق ${scored[0].ref}.`;

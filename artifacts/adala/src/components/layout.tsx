@@ -6,7 +6,7 @@ import {
   Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown,
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
-  FileSignature, Palette,
+  FileSignature, Palette, ClipboardList,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -96,6 +96,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/leaves",     labelKey: "nav.items.leaves",     icon: CalendarDays },
       { href: "/payroll",    labelKey: "nav.items.payroll",    icon: DollarSign },
       { href: "/warnings",   labelKey: "nav.items.warnings",   icon: AlertTriangle },
+      { href: "/tasks",      labelKey: "nav.items.tasks",      icon: ClipboardList },
     ],
   },
   {

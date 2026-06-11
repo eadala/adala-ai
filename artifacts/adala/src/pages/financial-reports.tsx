@@ -10,6 +10,20 @@ import {
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
+const PRINT_CSS = `
+@media print {
+  body { background: #fff !important; color: #111 !important; font-family: 'Cairo', sans-serif; direction: rtl; }
+  .print\\:hidden { display: none !important; }
+  nav, aside, header { display: none !important; }
+  .recharts-wrapper, .recharts-surface { page-break-inside: avoid; }
+  * { box-shadow: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .bg-sidebar { background: #f8fafc !important; border: 1px solid #e2e8f0 !important; }
+  .text-white { color: #111 !important; }
+  .text-muted-foreground { color: #555 !important; }
+  h1, h2 { color: #0D1526 !important; }
+}
+`;
+
 function fmt(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "م ر.س";
   if (n >= 1_000) return (n / 1_000).toFixed(0) + "ك ر.س";
@@ -82,6 +96,7 @@ export default function FinancialReports() {
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
+      <style>{PRINT_CSS}</style>
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">

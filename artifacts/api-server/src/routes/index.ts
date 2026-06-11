@@ -56,6 +56,7 @@ import documentTemplatesRouter from "./document-templates";
 import financeCenterRouter from "./finance-center";
 import analyticsRouter from "./analytics";
 import themeBuilderRouter from "./themeBuilder";
+import tasksRouter from "./tasks";
 
 const router: IRouter = Router();
 
@@ -125,5 +126,6 @@ router.use(documentTemplatesRouter);
 router.use(financeCenterRouter);
 router.use(analyticsRouter);
 router.use(themeBuilderRouter);
+router.use(tasksRouter);
 
 export default router;

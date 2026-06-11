@@ -38,6 +38,7 @@ import SaudiSystems from "@/pages/saudi-systems";
 import Invoices from "@/pages/invoices";
 import Letters from "@/pages/letters";
 import Warnings from "@/pages/warnings";
+import Tasks from "@/pages/tasks";
 import PricingPage from "@/pages/pricing";
 import OfficePage from "@/pages/office-public";
 import OfficeStore from "@/pages/office-store";
@@ -381,6 +382,9 @@ function AppRoutes() {
             </Route>
             <Route path="/warnings">
               <ProtectedRoute><Warnings /></ProtectedRoute>
+            </Route>
+            <Route path="/tasks">
+              <ProtectedRoute><Tasks /></ProtectedRoute>
             </Route>
             <Route path="/office-management">
               <ProtectedRoute><OfficeManagement /></ProtectedRoute>
