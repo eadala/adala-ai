@@ -398,7 +398,101 @@ function InvoiceSheet({
   };
 
   const printInvoice = () => {
-    window.print();
+    if (!invoice) return;
+    const items: any[] = invoice.items ?? [];
+    const subtotal = items.reduce((s: number, it: any) => s + Number(it.total ?? (it.quantity * it.unitPrice) ?? 0), 0);
+    const vatAmount = Math.round(subtotal * (Number(invoice.vatRate ?? 15) / 100));
+    const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head>
+<meta charset="UTF-8"><title>فاتورة ${invoice.invoiceNumber ?? ""}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Cairo', Arial, sans-serif; color: #1a1a2e; background: #fff; font-size: 12pt; }
+  @page { size: A4; margin: 18mm 20mm; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #C9A84C; padding-bottom: 16px; margin-bottom: 20px; }
+  .brand { font-size: 22pt; font-weight: 900; color: #1A2744; }
+  .brand span { color: #C9A84C; }
+  .inv-meta { text-align: left; }
+  .inv-meta h2 { font-size: 14pt; font-weight: 700; color: #C9A84C; }
+  .inv-meta p { font-size: 10pt; color: #666; margin-top: 3px; }
+  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .party-box { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; }
+  .party-box h3 { font-size: 9pt; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .party-box p { font-size: 11pt; font-weight: 700; }
+  .party-box span { font-size: 10pt; color: #555; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  thead tr { background: #1A2744; color: #fff; }
+  th { padding: 10px 12px; text-align: right; font-size: 10pt; font-weight: 600; }
+  td { padding: 9px 12px; border-bottom: 1px solid #eee; font-size: 10pt; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .totals { width: 260px; margin-right: auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
+  .totals-row { display: flex; justify-content: space-between; padding: 9px 14px; font-size: 11pt; }
+  .totals-row:not(:last-child) { border-bottom: 1px solid #eee; }
+  .totals-row.grand { background: #1A2744; color: #C9A84C; font-weight: 900; font-size: 13pt; }
+  .notes { margin-top: 20px; background: #fffbf0; border: 1px solid #C9A84C40; border-radius: 8px; padding: 12px; }
+  .notes h3 { font-size: 9pt; color: #C9A84C; margin-bottom: 5px; }
+  .stamp { margin-top: 28px; padding-top: 20px; border-top: 1px dashed #ccc; display: flex; justify-content: space-between; align-items: center; }
+  .status-paid { color: #10B981; font-size: 20pt; font-weight: 900; border: 3px solid #10B981; padding: 4px 14px; border-radius: 8px; }
+  .status-overdue { color: #EF4444; font-size: 20pt; font-weight: 900; border: 3px solid #EF4444; padding: 4px 14px; border-radius: 8px; }
+  .footer { text-align: center; color: #aaa; font-size: 9pt; margin-top: 24px; border-top: 1px solid #eee; padding-top: 12px; }
+</style></head><body>
+<div class="header">
+  <div class="brand">عدالة <span>AI</span></div>
+  <div class="inv-meta">
+    <h2>فاتورة ضريبية</h2>
+    <p>رقم: ${invoice.invoiceNumber ?? "—"}</p>
+    <p>التاريخ: ${invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString("ar-SA") : "—"}</p>
+    <p>الاستحقاق: ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("ar-SA") : "—"}</p>
+  </div>
+</div>
+<div class="parties">
+  <div class="party-box">
+    <h3>من</h3>
+    <p>مكتب عدالة AI</p>
+    <span>المملكة العربية السعودية</span>
+  </div>
+  <div class="party-box">
+    <h3>إلى</h3>
+    <p>${invoice.clientName ?? invoice.title ?? "—"}</p>
+    ${invoice.clientEmail ? `<span>${invoice.clientEmail}</span>` : ""}
+  </div>
+</div>
+<table>
+  <thead><tr><th>#</th><th>البيان</th><th>الكمية</th><th>سعر الوحدة</th><th>المجموع</th></tr></thead>
+  <tbody>
+    ${items.length > 0 ? items.map((it: any, idx: number) => `
+      <tr>
+        <td>${idx + 1}</td>
+        <td>${it.description ?? it.name ?? "—"}</td>
+        <td>${it.quantity ?? 1}</td>
+        <td>${(Number(it.unitPrice ?? 0) / 100).toLocaleString("ar-SA")} ر.س</td>
+        <td>${(Number(it.total ?? ((it.quantity ?? 1) * (it.unitPrice ?? 0))) / 100).toLocaleString("ar-SA")} ر.س</td>
+      </tr>`).join("") : `<tr><td colspan="5" style="text-align:center;color:#999;padding:16px">${invoice.title ?? "—"}</td></tr>`}
+  </tbody>
+</table>
+<div class="totals">
+  <div class="totals-row"><span>المجموع قبل الضريبة</span><span>${(subtotal / 100).toLocaleString("ar-SA")} ر.س</span></div>
+  <div class="totals-row"><span>ضريبة القيمة المضافة (${invoice.vatRate ?? 15}%)</span><span>${(vatAmount / 100).toLocaleString("ar-SA")} ر.س</span></div>
+  <div class="totals-row grand"><span>الإجمالي</span><span>${(Number(invoice.total ?? 0) / 100).toLocaleString("ar-SA")} ر.س</span></div>
+</div>
+${invoice.notes ? `<div class="notes"><h3>ملاحظات</h3><p>${invoice.notes}</p></div>` : ""}
+<div class="stamp">
+  <div>
+    <p style="font-size:10pt;color:#888">التوقيع والختم</p>
+    <div style="margin-top:30px;border-top:1px solid #ccc;width:160px"></div>
+  </div>
+  <div class="${invoice.status === 'paid' ? 'status-paid' : invoice.status === 'overdue' ? 'status-overdue' : ''}">
+    ${invoice.status === 'paid' ? 'مدفوعة ✓' : invoice.status === 'overdue' ? 'متأخرة' : ''}
+  </div>
+</div>
+<div class="footer">عدالة AI · منصة إدارة المكاتب القانونية · المملكة العربية السعودية</div>
+</body></html>`;
+    const win = window.open("", "_blank", "width=850,height=1000");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      setTimeout(() => { win.focus(); win.print(); }, 500);
+    }
   };
 
   if (!invoice) return null;

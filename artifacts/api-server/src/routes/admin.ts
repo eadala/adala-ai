@@ -325,4 +325,207 @@ router.get("/admin/usage", adminOnly, async (_req, res) => {
   res.json({ logs, summary });
 });
 
+/* ══════════════════════════════════════════════════════
+   ENHANCED PLATFORM STATS (cases, contracts, revenue)
+══════════════════════════════════════════════════════ */
+router.get("/admin/enhanced-stats", adminOnly, async (_req, res) => {
+  try {
+    const ex = async (q: any) => {
+      const r = await db.execute(q) as any;
+      return (Array.isArray(r) ? r[0] : r?.rows?.[0]) ?? {};
+    };
+    const exAll = async (q: any) => {
+      const r = await db.execute(q) as any;
+      return Array.isArray(r) ? r : (r?.rows ?? []);
+    };
+
+    const year = new Date().getFullYear();
+    const thisMonth = new Date(); thisMonth.setDate(1); thisMonth.setHours(0,0,0,0);
+
+    const [totalCases, openCases, closedCases,
+           totalContracts, signedContracts,
+           totalRevenue, monthlyRevenue, overdueInvoices,
+           totalExpenses] = await Promise.all([
+      ex(sql`SELECT COUNT(*) AS cnt FROM cases`),
+      ex(sql`SELECT COUNT(*) AS cnt FROM cases WHERE status='open'`),
+      ex(sql`SELECT COUNT(*) AS cnt FROM cases WHERE status='closed'`),
+      ex(sql`SELECT COUNT(*) AS cnt FROM contracts`),
+      ex(sql`SELECT COUNT(*) AS cnt FROM contracts WHERE status='signed'`),
+      ex(sql`SELECT COALESCE(SUM(amount),0) AS total FROM revenues`),
+      ex(sql`SELECT COALESCE(SUM(total),0) AS total FROM client_invoices WHERE status='paid' AND created_at >= ${thisMonth.toISOString()}::timestamp`),
+      ex(sql`SELECT COUNT(*) AS cnt FROM client_invoices WHERE status IN ('overdue','sent') AND due_date < NOW()`),
+      ex(sql`SELECT COALESCE(SUM(amount),0) AS total FROM expenses`),
+    ]);
+
+    // Monthly revenue for current year (bar chart)
+    const MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+    const monthlyChart = await Promise.all(MONTHS.map(async (name, idx) => {
+      const m = String(idx + 1).padStart(2, "0");
+      const from = `${year}-${m}-01`;
+      const [rv, inv] = await Promise.all([
+        ex(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
+        ex(sql`SELECT COALESCE(SUM(total),0) AS v FROM client_invoices WHERE status='paid' AND created_at >= ${from}::timestamp AND created_at < ${from}::timestamp + interval '1 month'`),
+      ]);
+      return { month: name, revenue: parseFloat(String(rv.v||0)) + parseFloat(String(inv.v||0)) };
+    }));
+
+    // Recent activity
+    const recentActivity = await exAll(sql`
+      SELECT 'case' AS type, title AS label, status, created_at FROM cases
+      UNION ALL
+      SELECT 'contract' AS type, title AS label, status, created_at FROM contracts
+      ORDER BY created_at DESC LIMIT 10
+    `);
+
+    res.json({
+      cases: { total: Number(totalCases.cnt||0), open: Number(openCases.cnt||0), closed: Number(closedCases.cnt||0) },
+      contracts: { total: Number(totalContracts.cnt||0), signed: Number(signedContracts.cnt||0) },
+      revenue: { total: parseFloat(String(totalRevenue.total||0)), monthly: parseFloat(String(monthlyRevenue.total||0)) },
+      expenses: parseFloat(String(totalExpenses.total||0)),
+      overdueInvoices: Number(overdueInvoices.cnt||0),
+      monthlyChart,
+      recentActivity,
+    });
+  } catch (e: any) {
+    console.error("enhanced-stats:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   PLATFORM CASES
+══════════════════════════════════════════════════════ */
+router.get("/admin/cases", adminOnly, async (req, res) => {
+  try {
+    const { status, search } = req.query as any;
+    const exAll = async (q: any) => { const r = await db.execute(q) as any; return Array.isArray(r) ? r : (r?.rows ?? []); };
+
+    let rows = await exAll(sql`
+      SELECT id, title, case_type, status, client_name, assigned_to, created_at
+      FROM cases ORDER BY created_at DESC LIMIT 500
+    `);
+    if (status && status !== "all") rows = rows.filter((r: any) => r.status === status);
+    if (search) rows = rows.filter((r: any) => r.title?.includes(search) || r.client_name?.includes(search));
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════════════════════
+   PLATFORM CONTRACTS
+══════════════════════════════════════════════════════ */
+router.get("/admin/contracts", adminOnly, async (req, res) => {
+  try {
+    const { status, search } = req.query as any;
+    const exAll = async (q: any) => { const r = await db.execute(q) as any; return Array.isArray(r) ? r : (r?.rows ?? []); };
+
+    let rows = await exAll(sql`
+      SELECT id, title, type, status, ai_generated, risk_score, signed_at, created_at
+      FROM contracts ORDER BY created_at DESC LIMIT 500
+    `);
+    if (status && status !== "all") rows = rows.filter((r: any) => r.status === status);
+    if (search) rows = rows.filter((r: any) => r.title?.includes(search));
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════════════════════
+   PLATFORM FINANCE STATS
+══════════════════════════════════════════════════════ */
+router.get("/admin/finance-stats", adminOnly, async (req, res) => {
+  try {
+    const ex = async (q: any) => { const r = await db.execute(q) as any; return (Array.isArray(r) ? r[0] : r?.rows?.[0]) ?? {}; };
+    const exAll = async (q: any) => { const r = await db.execute(q) as any; return Array.isArray(r) ? r : (r?.rows ?? []); };
+    const n = (v: any) => parseFloat(String(v ?? 0)) || 0;
+
+    const [revRow, invRow, expRow, paidInv, overdueInv, pendingInv] = await Promise.all([
+      ex(sql`SELECT COALESCE(SUM(amount),0) AS total FROM revenues`),
+      ex(sql`SELECT COALESCE(SUM(total),0) AS total FROM client_invoices WHERE status='paid'`),
+      ex(sql`SELECT COALESCE(SUM(amount),0) AS total FROM expenses`),
+      ex(sql`SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS amt FROM client_invoices WHERE status='paid'`),
+      ex(sql`SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS amt FROM client_invoices WHERE status='overdue' OR (status='sent' AND due_date < NOW())`),
+      ex(sql`SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS amt FROM client_invoices WHERE status='sent' AND (due_date IS NULL OR due_date >= NOW())`),
+    ]);
+
+    // Monthly breakdown last 6 months
+    const monthly = await Promise.all(Array.from({length: 6}, (_, i) => {
+      const d = new Date(); d.setMonth(d.getMonth() - (5 - i)); d.setDate(1);
+      const from = d.toISOString().split("T")[0];
+      const name = d.toLocaleDateString("ar-SA", { month: "short" });
+      return Promise.all([
+        ex(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
+        ex(sql`SELECT COALESCE(SUM(total),0) AS v FROM client_invoices WHERE status='paid' AND created_at >= ${from}::timestamp AND created_at < ${from}::timestamp + interval '1 month'`),
+        ex(sql`SELECT COALESCE(SUM(amount),0) AS v FROM expenses WHERE date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
+      ]).then(([r, inv, exp]) => ({ month: name, revenue: n(r.v)+n(inv.v), expenses: n(exp.v) }));
+    }));
+
+    // Top expense categories
+    const expCats = await exAll(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses GROUP BY category ORDER BY total DESC LIMIT 6`);
+
+    // Recent invoices
+    const recentInvoices = await exAll(sql`SELECT id, invoice_number, total, status, due_date, created_at FROM client_invoices ORDER BY created_at DESC LIMIT 10`);
+
+    res.json({
+      kpi: {
+        totalRevenue: n(revRow.total) + n(invRow.total),
+        totalExpenses: n(expRow.total),
+        netProfit: n(revRow.total) + n(invRow.total) - n(expRow.total),
+        paidInvoices: { count: Number(paidInv.cnt||0), amount: n(paidInv.amt) },
+        overdueInvoices: { count: Number(overdueInv.cnt||0), amount: n(overdueInv.amt) },
+        pendingInvoices: { count: Number(pendingInv.cnt||0), amount: n(pendingInv.amt) },
+      },
+      monthly,
+      expenseCategories: expCats.map((r: any) => ({ name: r.category||"أخرى", value: n(r.total) })),
+      recentInvoices,
+    });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════════════════════
+   SECURITY / AUDIT LOGS
+══════════════════════════════════════════════════════ */
+router.get("/admin/audit-logs", adminOnly, async (req, res) => {
+  try {
+    const { type = "all", limit = "100" } = req.query as any;
+    const exAll = async (q: any) => { const r = await db.execute(q) as any; return Array.isArray(r) ? r : (r?.rows ?? []); };
+
+    const [auditRows, loginRows] = await Promise.all([
+      exAll(sql`SELECT id, user_id, user_full_name, action, resource, resource_id, details, created_at FROM audit_logs ORDER BY created_at DESC LIMIT 200`),
+      exAll(sql`SELECT id, user_id, email, full_name, ip_address, browser, os, device_type, status, created_at FROM login_logs ORDER BY created_at DESC LIMIT 200`),
+    ]);
+
+    const loginStats = await exAll(sql`
+      SELECT status, COUNT(*) AS cnt FROM login_logs GROUP BY status
+    `);
+
+    res.json({ auditLogs: auditRows, loginLogs: loginRows, loginStats });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════════════════════
+   WEBSITE CMS
+══════════════════════════════════════════════════════ */
+router.get("/admin/website", adminOnly, async (_req, res) => {
+  try {
+    const exAll = async (q: any) => { const r = await db.execute(q) as any; return Array.isArray(r) ? r : (r?.rows ?? []); };
+    const rows = await exAll(sql`SELECT key, value FROM platform_settings WHERE key LIKE 'website_%' ORDER BY key`);
+    const map: Record<string, any> = {};
+    rows.forEach((r: any) => { map[r.key] = r.value; });
+    res.json(map);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.put("/admin/website", adminOnly, async (req, res) => {
+  try {
+    const entries = Object.entries(req.body) as [string, any][];
+    for (const [key, value] of entries) {
+      const wKey = key.startsWith("website_") ? key : `website_${key}`;
+      await db.execute(sql`
+        INSERT INTO platform_settings (key, value, updated_at) VALUES (${wKey}, ${String(value)}, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = ${String(value)}, updated_at = NOW()
+      `);
+    }
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 export default router;

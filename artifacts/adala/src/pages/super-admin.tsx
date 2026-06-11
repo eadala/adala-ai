@@ -26,6 +26,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, PieChart, Pie, Cell, AreaChart, Area,
+} from "recharts";
+import {
+  FileBarChart2, Gavel, FileSignature, ShieldCheck as SecurityIcon,
+  Layout, AlertOctagon, Download, ChevronRight, Filter as FilterIcon,
+  User, Banknote, TrendingDown, CheckSquare, AlertCircle as ACircle,
+  Globe2, Newspaper, ListOrdered, HelpCircle, PenLine, Info,
+} from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -120,29 +130,25 @@ export default function SuperAdmin() {
 
         {/* ── OVERVIEW ── */}
         <TabsContent value="overview" className="mt-4">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            <StatCard icon={<Building2 className="h-4 w-4" />} label="إجمالي المكاتب" value={stats?.totalOffices} color="#C9A84C" />
-            <StatCard icon={<Users className="h-4 w-4" />} label="إجمالي المستخدمين" value={stats?.totalUsers} color="#3B82F6" />
-            <StatCard icon={<Activity className="h-4 w-4" />} label="استهلاك الذكاء الاصطناعي" value={stats?.totalAiUsage?.toLocaleString()} sub="وحدة" color="#8B5CF6" />
-            <StatCard icon={<DollarSign className="h-4 w-4" />} label="التكلفة الإجمالية" value={`$${Number(stats?.totalCost ?? 0).toFixed(2)}`} color="#10B981" />
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            <StatCard icon={<Package className="h-4 w-4" />} label="الباقات النشطة" value={stats?.activePlans} color="#F59E0B" />
-            <StatCard icon={<HeadphonesIcon className="h-4 w-4" />} label="تذاكر الدعم المفتوحة" value={stats?.openTickets} sub={`من ${stats?.totalTickets} إجمالي`} color="#EF4444" />
-            <StatCard icon={<TrendingUp className="h-4 w-4" />} label="حالة النظام" value="مستقر" color="#10B981" />
-          </div>
+          <OverviewTab stats={stats} />
         </TabsContent>
 
-        <TabsContent value="offices" className="mt-4"><OfficesTab qc={qc} toast={toast} /></TabsContent>
-        <TabsContent value="users" className="mt-4"><UsersTab qc={qc} toast={toast} /></TabsContent>
-        <TabsContent value="plans" className="mt-4"><PlansTab qc={qc} toast={toast} /></TabsContent>
+        <TabsContent value="offices"   className="mt-4"><OfficesTab qc={qc} toast={toast} /></TabsContent>
+        <TabsContent value="users"     className="mt-4"><UsersTab qc={qc} toast={toast} /></TabsContent>
+        <TabsContent value="cases"     className="mt-4"><PlatformCasesTab /></TabsContent>
+        <TabsContent value="contracts" className="mt-4"><PlatformContractsTab /></TabsContent>
+        <TabsContent value="finance"   className="mt-4"><PlatformFinanceTab /></TabsContent>
+        <TabsContent value="reports"   className="mt-4"><PlatformReportsTab /></TabsContent>
+        <TabsContent value="plans"     className="mt-4"><PlansTab qc={qc} toast={toast} /></TabsContent>
         <TabsContent value="discounts" className="mt-4"><DiscountsTab qc={qc} toast={toast} /></TabsContent>
-        <TabsContent value="ai-keys" className="mt-4"><AiKeysTab qc={qc} toast={toast} /></TabsContent>
-        <TabsContent value="usage" className="mt-4"><UsageTab /></TabsContent>
+        <TabsContent value="ai-keys"   className="mt-4"><AiKeysTab qc={qc} toast={toast} /></TabsContent>
+        <TabsContent value="usage"     className="mt-4"><UsageTab /></TabsContent>
         <TabsContent value="departments" className="mt-4"><DepartmentsTab qc={qc} toast={toast} /></TabsContent>
-        <TabsContent value="legal" className="mt-4"><LegalSystemsTab qc={qc} toast={toast} /></TabsContent>
-        <TabsContent value="support" className="mt-4"><SupportTab qc={qc} toast={toast} /></TabsContent>
-        <TabsContent value="settings" className="mt-4"><SettingsTab qc={qc} toast={toast} /></TabsContent>
+        <TabsContent value="legal"     className="mt-4"><LegalSystemsTab qc={qc} toast={toast} /></TabsContent>
+        <TabsContent value="support"   className="mt-4"><SupportTab qc={qc} toast={toast} /></TabsContent>
+        <TabsContent value="security"  className="mt-4"><PlatformSecurityTab /></TabsContent>
+        <TabsContent value="website"   className="mt-4"><PlatformWebsiteTab qc={qc} toast={toast} /></TabsContent>
+        <TabsContent value="settings"  className="mt-4"><SettingsTab qc={qc} toast={toast} /></TabsContent>
         <TabsContent value="developer" className="mt-4"><DevCenterTab toast={toast} /></TabsContent>
         <TabsContent value="hosting"   className="mt-4"><HostingCenterTab toast={toast} /></TabsContent>
       </Tabs>
@@ -151,19 +157,25 @@ export default function SuperAdmin() {
 }
 
 const TABS = [
-  { id: "overview",     label: "نظرة عامة",       icon: BarChart3 },
-  { id: "offices",      label: "المكاتب",           icon: Building2 },
-  { id: "users",        label: "المستخدمون",        icon: Users },
-  { id: "plans",        label: "الباقات",           icon: Package },
-  { id: "discounts",    label: "الخصومات",          icon: Tag },
-  { id: "ai-keys",      label: "مفاتيح AI",         icon: KeyRound },
-  { id: "usage",        label: "الاستهلاك",         icon: Activity },
-  { id: "departments",  label: "الأقسام",           icon: FolderTree },
-  { id: "legal",        label: "الأنظمة والأحكام",  icon: BookOpen },
-  { id: "support",      label: "الدعم الفني",       icon: HeadphonesIcon },
-  { id: "settings",     label: "الإعدادات",         icon: Settings },
-  { id: "developer",   label: "مركز المطور",        icon: Code2 },
-  { id: "hosting",     label: "مركز الاستضافة",     icon: Globe },
+  { id: "overview",     label: "نظرة عامة",        icon: BarChart3 },
+  { id: "offices",      label: "المكاتب",            icon: Building2 },
+  { id: "users",        label: "المستخدمون",         icon: Users },
+  { id: "cases",        label: "القضايا",            icon: Gavel },
+  { id: "contracts",    label: "العقود",             icon: FileSignature },
+  { id: "finance",      label: "المالية",            icon: Banknote },
+  { id: "reports",      label: "التقارير",           icon: FileBarChart2 },
+  { id: "plans",        label: "الباقات",            icon: Package },
+  { id: "discounts",    label: "الخصومات",           icon: Tag },
+  { id: "ai-keys",      label: "مفاتيح AI",          icon: KeyRound },
+  { id: "usage",        label: "الاستهلاك",          icon: Activity },
+  { id: "departments",  label: "الأقسام",            icon: FolderTree },
+  { id: "legal",        label: "الأنظمة",            icon: BookOpen },
+  { id: "support",      label: "الدعم الفني",        icon: HeadphonesIcon },
+  { id: "security",     label: "الأمن",              icon: SecurityIcon },
+  { id: "website",      label: "الموقع الإلكتروني",  icon: Layout },
+  { id: "settings",     label: "الإعدادات",          icon: Settings },
+  { id: "developer",    label: "مركز المطور",         icon: Code2 },
+  { id: "hosting",      label: "مركز الاستضافة",     icon: Globe },
 ];
 
 /* ═══════════════════════════════════════════════════
@@ -2521,6 +2533,790 @@ function HostingCenterTab({ toast }: { toast: any }) {
           </Card>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   OVERVIEW TAB (enhanced — with recharts + extended stats)
+═══════════════════════════════════════════════════ */
+const CHART_COLORS = ["#C9A84C","#3B82F6","#10B981","#8B5CF6","#EF4444","#F59E0B","#06B6D4","#F97316"];
+
+function OverviewTab({ stats }: { stats: any }) {
+  const { data: ext } = useQuery<any>({
+    queryKey: ["admin", "/enhanced-stats"],
+    queryFn: () => API("/enhanced-stats"),
+    staleTime: 60_000,
+  });
+
+  const fmtSAR = (n: number) => {
+    const r = n / 100;
+    if (r >= 1_000_000) return (r/1_000_000).toFixed(1) + "م ر.س";
+    if (r >= 1_000) return (r/1_000).toFixed(0) + "ك ر.س";
+    return r.toLocaleString("ar-SA", {maximumFractionDigits:0}) + " ر.س";
+  };
+
+  return (
+    <div className="space-y-6" dir="rtl">
+      {/* KPI row 1 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard icon={<Building2 className="h-4 w-4" />} label="إجمالي المكاتب" value={stats?.totalOffices ?? "—"} color="#C9A84C" />
+        <StatCard icon={<Users className="h-4 w-4" />} label="إجمالي المستخدمين" value={stats?.totalUsers ?? "—"} color="#3B82F6" />
+        <StatCard icon={<Gavel className="h-4 w-4" />} label="إجمالي القضايا" value={ext?.cases?.total ?? "—"} sub={`${ext?.cases?.open ?? 0} مفتوحة`} color="#8B5CF6" />
+        <StatCard icon={<FileSignature className="h-4 w-4" />} label="إجمالي العقود" value={ext?.contracts?.total ?? "—"} sub={`${ext?.contracts?.signed ?? 0} موقعة`} color="#10B981" />
+      </div>
+
+      {/* KPI row 2 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard icon={<Package className="h-4 w-4" />} label="الباقات النشطة" value={stats?.activePlans ?? "—"} color="#F59E0B" />
+        <StatCard icon={<HeadphonesIcon className="h-4 w-4" />} label="تذاكر الدعم" value={stats?.openTickets ?? "—"} sub={`من ${stats?.totalTickets ?? 0} إجمالي`} color="#EF4444" />
+        <StatCard icon={<Activity className="h-4 w-4" />} label="استهلاك AI" value={stats?.totalAiUsage?.toLocaleString() ?? "—"} sub="وحدة" color="#06B6D4" />
+        <StatCard icon={<AlertOctagon className="h-4 w-4" />} label="فواتير متأخرة" value={ext?.overdueInvoices ?? "—"} color="#EF4444" />
+      </div>
+
+      {/* Revenue chart + Activity feed */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Monthly Revenue Chart */}
+        <Card className="lg:col-span-2 bg-sidebar border-sidebar-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-[#C9A84C]" /> الإيرادات الشهرية
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!ext ? (
+              <div className="h-52 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={ext.monthlyChart} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                  <defs>
+                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#C9A84C" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#C9A84C" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border)/0.3)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? (v/1000).toFixed(0)+"ك" : String(v)} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px", direction: "rtl" }} formatter={(v: number) => [`${(v/100).toLocaleString("ar-SA")} ر.س`, "الإيرادات"]} />
+                  <Area type="monotone" dataKey="revenue" stroke="#C9A84C" strokeWidth={2} fill="url(#revGrad)" dot={{ fill: "#C9A84C", r: 2 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card className="bg-sidebar border-sidebar-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">النشاط الأخير</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {!ext?.recentActivity ? (
+              <div className="py-8 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : ext.recentActivity.length === 0 ? (
+              <div className="py-8 text-center text-xs text-muted-foreground">لا يوجد نشاط حديث</div>
+            ) : (
+              <div className="divide-y divide-border/30 max-h-52 overflow-y-auto">
+                {ext.recentActivity.map((item: any, i: number) => (
+                  <div key={i} className="flex items-start gap-2.5 p-3">
+                    <div className={`mt-0.5 h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${item.type === "case" ? "bg-violet-500/15" : "bg-blue-500/15"}`}>
+                      {item.type === "case" ? <Gavel className="h-3.5 w-3.5 text-violet-400" /> : <FileSignature className="h-3.5 w-3.5 text-blue-400" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium truncate">{item.label}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Badge className="text-[9px] px-1.5 py-0 bg-muted/50 text-muted-foreground border-0">{item.type === "case" ? "قضية" : "عقد"}</Badge>
+                        <span className="text-[10px] text-muted-foreground">{new Date(item.created_at).toLocaleDateString("ar-SA")}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   PLATFORM CASES TAB
+═══════════════════════════════════════════════════ */
+const CASE_STATUS: Record<string, {label: string; color: string}> = {
+  open:     { label: "مفتوحة",  color: "bg-blue-500/15 text-blue-400" },
+  closed:   { label: "مغلقة",   color: "bg-muted text-muted-foreground" },
+  pending:  { label: "معلقة",   color: "bg-amber-500/15 text-amber-400" },
+  archived: { label: "مؤرشفة",  color: "bg-gray-500/15 text-gray-400" },
+};
+
+function PlatformCasesTab() {
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const { data: cases = [], isLoading } = useQuery<any[]>({
+    queryKey: ["admin", "/cases", statusFilter, search],
+    queryFn: () => API(`/cases?status=${statusFilter}&search=${encodeURIComponent(search)}`),
+    staleTime: 30_000,
+  });
+
+  const filtered = (cases as any[]).filter(c =>
+    !search || c.title?.includes(search) || c.client_name?.includes(search)
+  );
+
+  return (
+    <div className="space-y-4" dir="rtl">
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في القضايا..." className="w-full h-9 pr-9 pl-3 rounded-lg bg-muted/40 text-sm border border-border/40 focus:outline-none focus:ring-1 focus:ring-[#C9A84C]" />
+        </div>
+        {["all","open","closed","pending"].map(s => (
+          <button key={s} onClick={() => setStatusFilter(s)} className={cn("text-xs px-3 py-1.5 rounded-lg border transition-colors", statusFilter===s ? "bg-[#C9A84C] text-black border-[#C9A84C] font-bold" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
+            {s==="all"?"الكل":CASE_STATUS[s]?.label??s}
+          </button>
+        ))}
+        <Badge variant="outline" className="text-xs mr-auto">{filtered.length} قضية</Badge>
+      </div>
+
+      <Card className="bg-sidebar border-sidebar-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableHead className="text-right text-xs">العنوان</TableHead>
+              <TableHead className="text-right text-xs">النوع</TableHead>
+              <TableHead className="text-right text-xs">العميل</TableHead>
+              <TableHead className="text-right text-xs">المسؤول</TableHead>
+              <TableHead className="text-right text-xs">الحالة</TableHead>
+              <TableHead className="text-right text-xs">تاريخ الإنشاء</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={6} className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">لا توجد قضايا</TableCell></TableRow>
+            ) : filtered.map((c: any) => {
+              const st = CASE_STATUS[c.status] ?? { label: c.status, color: "bg-muted text-muted-foreground" };
+              return (
+                <TableRow key={c.id} className="hover:bg-muted/20">
+                  <TableCell className="text-sm font-medium max-w-52 truncate">{c.title}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{c.case_type}</TableCell>
+                  <TableCell className="text-xs">{c.client_name ?? "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{c.assigned_to ?? "—"}</TableCell>
+                  <TableCell><Badge className={cn("text-[10px]", st.color)}>{st.label}</Badge></TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString("ar-SA")}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   PLATFORM CONTRACTS TAB
+═══════════════════════════════════════════════════ */
+const CONTRACT_STATUS: Record<string, {label: string; color: string}> = {
+  draft:     { label: "مسودة",  color: "bg-muted text-muted-foreground" },
+  review:    { label: "مراجعة", color: "bg-amber-500/15 text-amber-400" },
+  signed:    { label: "موقع",   color: "bg-green-500/15 text-green-400" },
+  expired:   { label: "منتهي",  color: "bg-red-500/15 text-red-400" },
+  cancelled: { label: "ملغي",   color: "bg-gray-500/15 text-gray-400" },
+};
+
+function PlatformContractsTab() {
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const { data: contracts = [], isLoading } = useQuery<any[]>({
+    queryKey: ["admin", "/contracts", statusFilter],
+    queryFn: () => API(`/contracts?status=${statusFilter}`),
+    staleTime: 30_000,
+  });
+
+  const filtered = (contracts as any[]).filter(c =>
+    !search || c.title?.includes(search)
+  );
+
+  return (
+    <div className="space-y-4" dir="rtl">
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في العقود..." className="w-full h-9 pr-9 pl-3 rounded-lg bg-muted/40 text-sm border border-border/40 focus:outline-none focus:ring-1 focus:ring-[#C9A84C]" />
+        </div>
+        {["all","draft","review","signed","expired"].map(s => (
+          <button key={s} onClick={() => setStatusFilter(s)} className={cn("text-xs px-3 py-1.5 rounded-lg border transition-colors", statusFilter===s ? "bg-[#C9A84C] text-black border-[#C9A84C] font-bold" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
+            {s==="all"?"الكل":CONTRACT_STATUS[s]?.label??s}
+          </button>
+        ))}
+        <Badge variant="outline" className="text-xs mr-auto">{filtered.length} عقد</Badge>
+      </div>
+
+      <Card className="bg-sidebar border-sidebar-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableHead className="text-right text-xs">العنوان</TableHead>
+              <TableHead className="text-right text-xs">النوع</TableHead>
+              <TableHead className="text-right text-xs">الحالة</TableHead>
+              <TableHead className="text-right text-xs">مولَّد بـ AI</TableHead>
+              <TableHead className="text-right text-xs">مستوى الخطورة</TableHead>
+              <TableHead className="text-right text-xs">تاريخ الإنشاء</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={6} className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">لا توجد عقود</TableCell></TableRow>
+            ) : filtered.map((c: any) => {
+              const st = CONTRACT_STATUS[c.status] ?? { label: c.status, color: "bg-muted text-muted-foreground" };
+              const risk = { low: { label: "منخفض", color: "text-green-400" }, medium: { label: "متوسط", color: "text-amber-400" }, high: { label: "عالٍ", color: "text-red-400" } } as any;
+              return (
+                <TableRow key={c.id} className="hover:bg-muted/20">
+                  <TableCell className="text-sm font-medium max-w-52 truncate">{c.title}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{c.type}</TableCell>
+                  <TableCell><Badge className={cn("text-[10px]", st.color)}>{st.label}</Badge></TableCell>
+                  <TableCell className="text-center">{c.ai_generated ? <CheckSquare className="h-4 w-4 text-[#C9A84C] mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                  <TableCell className={cn("text-xs font-medium", risk[c.risk_score]?.color ?? "text-muted-foreground")}>{risk[c.risk_score]?.label ?? (c.risk_score ?? "—")}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString("ar-SA")}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   PLATFORM FINANCE TAB
+═══════════════════════════════════════════════════ */
+function PlatformFinanceTab() {
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ["admin", "/finance-stats"],
+    queryFn: () => API("/finance-stats"),
+    staleTime: 60_000,
+  });
+
+  const kpi = data?.kpi ?? {};
+  const n = (v: any) => parseFloat(String(v ?? 0)) || 0;
+  const fmtSAR = (v: number) => {
+    const r = v / 100;
+    if (r >= 1_000_000) return (r/1_000_000).toFixed(1) + "م ر.س";
+    if (r >= 1_000) return (r/1_000).toFixed(0) + "ك ر.س";
+    return r.toLocaleString("ar-SA", {maximumFractionDigits:0}) + " ر.س";
+  };
+
+  return (
+    <div className="space-y-5" dir="rtl">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        {[
+          { label: "إجمالي الإيرادات", value: fmtSAR(n(kpi.totalRevenue)), icon: TrendingUp, color: "text-emerald-400 bg-emerald-500/15" },
+          { label: "إجمالي المصروفات", value: fmtSAR(n(kpi.totalExpenses)), icon: TrendingDown, color: "text-red-400 bg-red-500/15" },
+          { label: "صافي الربح",        value: fmtSAR(n(kpi.netProfit)),    icon: DollarSign, color: "text-[#C9A84C] bg-[#C9A84C]/15" },
+          { label: "فواتير مدفوعة",     value: `${kpi.paidInvoices?.count ?? 0} فاتورة`,   icon: CheckCircle2, color: "text-green-400 bg-green-500/15" },
+          { label: "فواتير متأخرة",     value: `${kpi.overdueInvoices?.count ?? 0} فاتورة`, icon: AlertOctagon, color: "text-red-400 bg-red-500/15" },
+          { label: "فواتير قيد التحصيل",value: `${kpi.pendingInvoices?.count ?? 0} فاتورة`, icon: Clock,        color: "text-amber-400 bg-amber-500/15" },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <Card key={label} className="bg-sidebar border-sidebar-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", color)}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <span className="text-xs text-muted-foreground">{label}</span>
+              </div>
+              {isLoading ? <div className="h-5 w-24 bg-muted/40 rounded animate-pulse" /> : <p className="text-xl font-bold">{value}</p>}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Monthly revenue/expenses bar chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2 bg-sidebar border-sidebar-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">الأداء المالي — آخر 6 أشهر</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? <div className="h-52 bg-muted/20 rounded-lg animate-pulse" /> : (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={data?.monthly ?? []} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border)/0.3)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? (v/1000).toFixed(0)+"ك" : String(v)} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px" }}
+                    formatter={(v: number, name: string) => [`${(v/100).toLocaleString("ar-SA")} ر.س`, name==="revenue"?"الإيرادات":"المصروفات"]} />
+                  <Legend formatter={v => v==="revenue"?"الإيرادات":"المصروفات"} />
+                  <Bar dataKey="revenue"  fill="#10B981" radius={[4,4,0,0]} maxBarSize={28} />
+                  <Bar dataKey="expenses" fill="#EF4444" radius={[4,4,0,0]} maxBarSize={28} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Expense Categories */}
+        <Card className="bg-sidebar border-sidebar-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">تصنيف المصروفات</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? <div className="h-52 bg-muted/20 rounded-lg animate-pulse" /> : (
+              <>
+                <ResponsiveContainer width="100%" height={140}>
+                  <PieChart>
+                    <Pie data={data?.expenseCategories ?? []} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value" paddingAngle={3}>
+                      {(data?.expenseCategories ?? []).map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip formatter={(v: number) => `${(v/100).toLocaleString("ar-SA")} ر.س`} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-1 mt-1">
+                  {(data?.expenseCategories ?? []).slice(0,5).map((c: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} /><span className="text-muted-foreground">{c.name}</span></div>
+                      <span className="font-medium">{(c.value/100).toLocaleString("ar-SA",{maximumFractionDigits:0})}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Invoices */}
+      <Card className="bg-sidebar border-sidebar-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">أحدث الفواتير</CardTitle>
+        </CardHeader>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableHead className="text-right text-xs">رقم الفاتورة</TableHead>
+              <TableHead className="text-right text-xs">المبلغ</TableHead>
+              <TableHead className="text-right text-xs">الحالة</TableHead>
+              <TableHead className="text-right text-xs">تاريخ الاستحقاق</TableHead>
+              <TableHead className="text-right text-xs">تاريخ الإنشاء</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5} className="text-center py-4"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></TableCell></TableRow>
+            ) : (data?.recentInvoices ?? []).map((inv: any) => {
+              const stMap: any = { paid: {l:"مدفوعة",c:"bg-green-500/15 text-green-400"}, sent: {l:"مُرسَلة",c:"bg-blue-500/15 text-blue-400"}, overdue: {l:"متأخرة",c:"bg-red-500/15 text-red-400"}, draft: {l:"مسودة",c:"bg-muted text-muted-foreground"} };
+              const st = stMap[inv.status] ?? stMap.draft;
+              return (
+                <TableRow key={inv.id} className="hover:bg-muted/20">
+                  <TableCell className="text-xs font-mono">{inv.invoice_number ?? inv.id.slice(0,8)}</TableCell>
+                  <TableCell className="text-xs font-medium">{(Number(inv.total||0)/100).toLocaleString("ar-SA")} ر.س</TableCell>
+                  <TableCell><Badge className={cn("text-[10px]", st.c)}>{st.l}</Badge></TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{inv.due_date ? new Date(inv.due_date).toLocaleDateString("ar-SA") : "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{new Date(inv.created_at).toLocaleDateString("ar-SA")}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   PLATFORM REPORTS TAB
+═══════════════════════════════════════════════════ */
+function PlatformReportsTab() {
+  const { data: finance } = useQuery<any>({ queryKey: ["admin", "/finance-stats"], queryFn: () => API("/finance-stats"), staleTime: 60_000 });
+  const { data: ext }     = useQuery<any>({ queryKey: ["admin", "/enhanced-stats"], queryFn: () => API("/enhanced-stats"), staleTime: 60_000 });
+  const { data: stats }   = useQuery<any>({ queryKey: ["admin", "/stats"], queryFn: () => API("/stats"), staleTime: 60_000 });
+
+  const exportCSV = (rows: any[], name: string) => {
+    if (!rows.length) return;
+    const headers = Object.keys(rows[0]).join(",");
+    const body = rows.map(r => Object.values(r).map(v => `"${String(v??"")}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF"+headers+"\n"+body], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${name}.csv`; a.click();
+  };
+
+  const reports = [
+    {
+      title: "تقرير إيرادات المنصة",
+      desc: "ملخص الإيرادات والمصروفات وصافي الربح",
+      icon: TrendingUp,
+      color: "text-emerald-400 bg-emerald-500/15",
+      rows: finance?.monthly ?? [],
+      name: "platform-revenue-report",
+    },
+    {
+      title: "تقرير القضايا",
+      desc: `${ext?.cases?.total ?? 0} قضية | ${ext?.cases?.open ?? 0} مفتوحة | ${ext?.cases?.closed ?? 0} مغلقة`,
+      icon: Gavel,
+      color: "text-violet-400 bg-violet-500/15",
+      rows: [],
+      name: "cases-report",
+    },
+    {
+      title: "تقرير العقود",
+      desc: `${ext?.contracts?.total ?? 0} عقد | ${ext?.contracts?.signed ?? 0} موقع`,
+      icon: FileSignature,
+      color: "text-blue-400 bg-blue-500/15",
+      rows: [],
+      name: "contracts-report",
+    },
+    {
+      title: "تقرير الاشتراكات",
+      desc: `${stats?.activePlans ?? 0} باقة نشطة`,
+      icon: Package,
+      color: "text-amber-400 bg-amber-500/15",
+      rows: [],
+      name: "subscriptions-report",
+    },
+    {
+      title: "تقرير الفواتير",
+      desc: `${finance?.kpi?.paidInvoices?.count ?? 0} مدفوعة | ${finance?.kpi?.overdueInvoices?.count ?? 0} متأخرة`,
+      icon: Banknote,
+      color: "text-[#C9A84C] bg-[#C9A84C]/15",
+      rows: finance?.recentInvoices ?? [],
+      name: "invoices-report",
+    },
+    {
+      title: "تقرير الدعم الفني",
+      desc: `${stats?.openTickets ?? 0} تذكرة مفتوحة من ${stats?.totalTickets ?? 0}`,
+      icon: HeadphonesIcon,
+      color: "text-red-400 bg-red-500/15",
+      rows: [],
+      name: "support-report",
+    },
+  ];
+
+  return (
+    <div className="space-y-4" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold">مركز التقارير</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">توليد وتصدير تقارير المنصة</p>
+        </div>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => window.print()}>
+          <Download className="h-3.5 w-3.5" /> تصدير PDF
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {reports.map((r) => (
+          <Card key={r.name} className="bg-sidebar border-sidebar-border hover:border-[#C9A84C]/30 transition-colors">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", r.color)}>
+                  <r.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{r.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{r.desc}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="flex-1 gap-1.5 text-xs h-8 bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold" onClick={() => r.rows.length ? exportCSV(r.rows, r.name) : window.print()}>
+                  <Download className="h-3 w-3" /> Excel / CSV
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-xs h-8" onClick={() => window.print()}>
+                  <Download className="h-3 w-3" /> PDF
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Financial Summary Table (printable) */}
+      <Card className="bg-sidebar border-sidebar-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">ملخص الأداء المالي الشهري</CardTitle>
+        </CardHeader>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableHead className="text-right text-xs">الشهر</TableHead>
+              <TableHead className="text-right text-xs">الإيرادات</TableHead>
+              <TableHead className="text-right text-xs">المصروفات</TableHead>
+              <TableHead className="text-right text-xs">صافي الربح</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(finance?.monthly ?? []).map((m: any) => (
+              <TableRow key={m.month} className="hover:bg-muted/20">
+                <TableCell className="text-xs font-medium">{m.month}</TableCell>
+                <TableCell className="text-xs text-emerald-400">{(Number(m.revenue||0)/100).toLocaleString("ar-SA")} ر.س</TableCell>
+                <TableCell className="text-xs text-red-400">{(Number(m.expenses||0)/100).toLocaleString("ar-SA")} ر.س</TableCell>
+                <TableCell className={cn("text-xs font-bold", (m.revenue-m.expenses)>=0?"text-[#C9A84C]":"text-red-400")}>
+                  {((Number(m.revenue||0)-Number(m.expenses||0))/100).toLocaleString("ar-SA")} ر.س
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   PLATFORM SECURITY TAB
+═══════════════════════════════════════════════════ */
+function PlatformSecurityTab() {
+  const [secTab, setSecTab] = useState<"audit"|"logins">("logins");
+  const [search, setSearch] = useState("");
+
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ["admin", "/audit-logs"],
+    queryFn: () => API("/audit-logs"),
+    staleTime: 30_000,
+  });
+
+  const loginLogs: any[] = data?.loginLogs ?? [];
+  const auditLogs: any[] = data?.auditLogs ?? [];
+  const loginStats: any[] = data?.loginStats ?? [];
+
+  const successCount = loginStats.find((s: any) => s.status === "success")?.cnt ?? 0;
+  const failedCount  = loginStats.find((s: any) => s.status === "failed")?.cnt ?? 0;
+
+  const filteredLogins = loginLogs.filter(l => !search || l.email?.includes(search) || l.full_name?.includes(search) || l.ip_address?.includes(search));
+  const filteredAudit  = auditLogs.filter(l => !search || l.user_full_name?.includes(search) || l.action?.includes(search) || l.resource?.includes(search));
+
+  return (
+    <div className="space-y-4" dir="rtl">
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: "إجمالي تسجيلات الدخول", value: loginLogs.length, icon: User, color: "text-blue-400 bg-blue-500/15" },
+          { label: "دخول ناجح", value: successCount, icon: CheckCircle2, color: "text-green-400 bg-green-500/15" },
+          { label: "دخول فاشل", value: failedCount, icon: XCircle, color: "text-red-400 bg-red-500/15" },
+          { label: "سجلات التدقيق", value: auditLogs.length, icon: Shield, color: "text-amber-400 bg-amber-500/15" },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <Card key={label} className="bg-sidebar border-sidebar-border">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", color)}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{label}</p>
+                <p className="text-xl font-bold">{value}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Sub tabs */}
+      <div className="flex gap-2">
+        <button onClick={() => setSecTab("logins")} className={cn("text-xs px-3 py-1.5 rounded-lg border transition-colors", secTab==="logins" ? "bg-[#C9A84C] text-black font-bold border-[#C9A84C]" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
+          سجل الدخول ({loginLogs.length})
+        </button>
+        <button onClick={() => setSecTab("audit")} className={cn("text-xs px-3 py-1.5 rounded-lg border transition-colors", secTab==="audit" ? "bg-[#C9A84C] text-black font-bold border-[#C9A84C]" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
+          سجل التدقيق ({auditLogs.length})
+        </button>
+        <div className="mr-auto relative">
+          <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث..." className="h-8 w-48 pr-8 pl-3 rounded-lg bg-muted/40 text-xs border border-border/40 focus:outline-none" />
+        </div>
+      </div>
+
+      {/* Login Logs Table */}
+      {secTab === "logins" && (
+        <Card className="bg-sidebar border-sidebar-border">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/30 hover:bg-muted/30">
+                <TableHead className="text-right text-xs">المستخدم</TableHead>
+                <TableHead className="text-right text-xs">البريد</TableHead>
+                <TableHead className="text-right text-xs">IP</TableHead>
+                <TableHead className="text-right text-xs">المتصفح</TableHead>
+                <TableHead className="text-right text-xs">الجهاز</TableHead>
+                <TableHead className="text-right text-xs">الحالة</TableHead>
+                <TableHead className="text-right text-xs">التوقيت</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={7} className="text-center py-6"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></TableCell></TableRow>
+              ) : filteredLogins.length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground text-sm">لا توجد سجلات</TableCell></TableRow>
+              ) : filteredLogins.slice(0, 50).map((l: any) => (
+                <TableRow key={l.id} className="hover:bg-muted/20">
+                  <TableCell className="text-xs font-medium">{l.full_name ?? "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground" dir="ltr">{l.email ?? "—"}</TableCell>
+                  <TableCell className="text-xs font-mono text-muted-foreground" dir="ltr">{l.ip_address ?? "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{l.browser ?? "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{l.device_type ?? "—"}</TableCell>
+                  <TableCell>
+                    <Badge className={cn("text-[10px]", l.status === "success" ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400")}>
+                      {l.status === "success" ? "نجح" : "فشل"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString("ar-SA")}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+
+      {/* Audit Logs Table */}
+      {secTab === "audit" && (
+        <Card className="bg-sidebar border-sidebar-border">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/30 hover:bg-muted/30">
+                <TableHead className="text-right text-xs">المستخدم</TableHead>
+                <TableHead className="text-right text-xs">الإجراء</TableHead>
+                <TableHead className="text-right text-xs">المورد</TableHead>
+                <TableHead className="text-right text-xs">التفاصيل</TableHead>
+                <TableHead className="text-right text-xs">التوقيت</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-6"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></TableCell></TableRow>
+              ) : filteredAudit.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-sm">لا توجد سجلات تدقيق</TableCell></TableRow>
+              ) : filteredAudit.slice(0, 50).map((l: any) => (
+                <TableRow key={l.id} className="hover:bg-muted/20">
+                  <TableCell className="text-xs font-medium">{l.user_full_name ?? "نظام"}</TableCell>
+                  <TableCell><Badge variant="outline" className="text-[10px]">{l.action}</Badge></TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{l.resource}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground max-w-48 truncate">{l.details ?? "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString("ar-SA")}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   PLATFORM WEBSITE TAB (CMS)
+═══════════════════════════════════════════════════ */
+const WEBSITE_SECTIONS = [
+  { key: "hero",     label: "القسم الرئيسي (Hero)",    icon: Globe2,      fields: ["hero_title", "hero_subtitle", "hero_cta"] },
+  { key: "features", label: "المميزات",                  icon: Layers,      fields: ["features_title", "features_subtitle"] },
+  { key: "pricing",  label: "الأسعار",                   icon: Banknote,    fields: ["pricing_title", "pricing_subtitle"] },
+  { key: "faq",      label: "الأسئلة الشائعة",           icon: HelpCircle,  fields: ["faq_title"] },
+  { key: "footer",   label: "التذييل (Footer)",          icon: Newspaper,   fields: ["footer_company_name", "footer_tagline", "footer_email", "footer_phone"] },
+  { key: "legal",    label: "الصفحات القانونية",          icon: Shield,      fields: ["terms_title", "privacy_title"] },
+];
+
+const FIELD_LABELS: Record<string, string> = {
+  hero_title: "العنوان الرئيسي", hero_subtitle: "العنوان الفرعي", hero_cta: "زر الدعوة للعمل",
+  features_title: "عنوان المميزات", features_subtitle: "وصف المميزات",
+  pricing_title: "عنوان الأسعار", pricing_subtitle: "وصف الأسعار",
+  faq_title: "عنوان الأسئلة الشائعة",
+  footer_company_name: "اسم الشركة", footer_tagline: "الشعار", footer_email: "البريد الإلكتروني", footer_phone: "رقم الهاتف",
+  terms_title: "عنوان شروط الاستخدام", privacy_title: "عنوان سياسة الخصوصية",
+};
+
+function PlatformWebsiteTab({ qc, toast }: any) {
+  const [activeSection, setActiveSection] = useState("hero");
+  const [localData, setLocalData] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  const { data: websiteData, isLoading } = useQuery<any>({
+    queryKey: ["admin", "/website"],
+    queryFn: () => API("/website"),
+    staleTime: 60_000,
+    onSuccess: (d: any) => setLocalData(d ?? {}),
+  });
+
+  const section = WEBSITE_SECTIONS.find(s => s.key === activeSection)!;
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await API("/website", { method: "PUT", body: JSON.stringify(localData) });
+      qc.invalidateQueries({ queryKey: ["admin", "/website"] });
+      toast({ title: "✅ تم حفظ إعدادات الموقع" });
+    } catch { toast({ title: "خطأ في الحفظ", variant: "destructive" }); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="space-y-4" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold">إدارة محتوى الموقع</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">تخصيص محتوى الصفحة الرئيسية للمنصة</p>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => window.open("/", "_blank")}>
+            <Globe className="h-3.5 w-3.5" /> معاينة
+          </Button>
+          <Button size="sm" className="gap-1.5 text-xs bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold" onClick={save} disabled={saving}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} حفظ
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Section selector */}
+        <div className="space-y-1.5">
+          {WEBSITE_SECTIONS.map(s => (
+            <button key={s.key} onClick={() => setActiveSection(s.key)}
+              className={cn("w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-right",
+                activeSection===s.key ? "bg-[#C9A84C]/15 text-[#C9A84C] border border-[#C9A84C]/30 font-semibold" : "hover:bg-muted/30 text-muted-foreground")}>
+              <s.icon className="h-4 w-4 shrink-0" />
+              <span>{s.label}</span>
+              <ChevronRight className="h-3.5 w-3.5 mr-auto" />
+            </button>
+          ))}
+        </div>
+
+        {/* Fields editor */}
+        <Card className="lg:col-span-3 bg-sidebar border-sidebar-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <section.icon className="h-4 w-4 text-[#C9A84C]" />
+              {section.label}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isLoading ? (
+              <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-12 bg-muted/30 rounded-lg animate-pulse" />)}</div>
+            ) : section.fields.map(field => {
+              const wKey = `website_${field}`;
+              return (
+                <div key={field} className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">{FIELD_LABELS[field] ?? field}</Label>
+                  <Textarea
+                    value={localData[wKey] ?? websiteData?.[wKey] ?? ""}
+                    onChange={e => setLocalData(prev => ({ ...prev, [wKey]: e.target.value }))}
+                    rows={2}
+                    className="resize-none text-sm bg-muted/20 border-border/40"
+                    placeholder={`أدخل ${FIELD_LABELS[field] ?? field}...`}
+                  />
+                </div>
+              );
+            })}
+
+            <div className="pt-2 flex justify-end">
+              <Button size="sm" className="gap-1.5 bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold" onClick={save} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                حفظ التغييرات
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

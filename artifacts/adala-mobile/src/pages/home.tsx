@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Scale, Users, TrendingUp, AlertCircle, ChevronLeft,
-  Clock, Briefcase, Receipt, Bell, ArrowUpRight, CheckCircle2,
+  Clock, Briefcase, Bell, Receipt,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -132,7 +132,7 @@ export default function Home() {
         <div className="grid grid-cols-4 gap-2">
           <QuickAction icon={Scale}   label="القضايا"    href="/cases"     color="bg-blue-500/20 text-blue-400" />
           <QuickAction icon={Users}   label="العملاء"    href="/clients"   color="bg-violet-500/20 text-violet-400" />
-          <QuickAction icon={Receipt} label="الفواتير"   href="/invoices"  color="bg-amber-500/20 text-amber-400" />
+          <QuickAction icon={Briefcase} label="العقود"   href="/contracts" color="bg-indigo-500/20 text-indigo-400" />
           <QuickAction icon={Bell}    label="التذكيرات"  href="/reminders" color="bg-rose-500/20 text-rose-400" />
         </div>
       </section>
