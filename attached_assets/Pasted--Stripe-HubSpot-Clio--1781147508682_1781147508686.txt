@@ -1,0 +1,397 @@
+إذا كنت تريد صفحة أسعار بمستوى **Stripe وHubSpot وClio**، فلا تجعلها مجرد بطاقات أسعار، بل اجعلها صفحة مبيعات كاملة تساعد العميل على اتخاذ القرار.
+
+## هيكل الصفحة
+
+```text
+PricingPage.tsx
+
+Hero Section
+Billing Toggle
+Pricing Cards
+Feature Comparison Table
+Add-ons
+FAQ
+CTA Section
+```
+
+---
+
+# Hero Section
+
+```tsx
+<section className="text-center py-20">
+
+<h1 className="text-5xl font-bold">
+
+خطط تناسب جميع المكاتب القانونية
+
+</h1>
+
+<p className="text-muted-foreground mt-5 text-lg">
+
+ابدأ مجاناً وقم بالترقية عندما ينمو مكتبك.
+
+</p>
+
+</section>
+```
+
+---
+
+# Monthly / Yearly Toggle
+
+```tsx
+<Card className="w-fit mx-auto p-1">
+
+<div className="flex gap-2">
+
+<Button
+variant={
+billingCycle === "monthly"
+? "default"
+: "ghost"
+}
+onClick={() =>
+setBillingCycle("monthly")
+}
+>
+شهري
+</Button>
+
+<Button
+variant={
+billingCycle === "yearly"
+? "default"
+: "ghost"
+}
+onClick={() =>
+setBillingCycle("yearly")
+}
+>
+سنوي
+<span className="mr-2 text-green-500">
+
+خصم 20%
+
+</span>
+
+</Button>
+
+</div>
+
+</Card>
+```
+
+---
+
+# بطاقات الأسعار
+
+```tsx
+<div
+className="
+grid
+md:grid-cols-2
+xl:grid-cols-4
+gap-8
+"
+>
+
+{subscriptionPlans.map(plan => (
+
+<PricingCard
+key={plan.id}
+plan={plan}
+/>
+
+))}
+
+</div>
+```
+
+---
+
+# PricingCard.tsx
+
+```tsx
+<Card
+className={cn(
+
+"relative",
+
+plan.recommended &&
+"border-primary shadow-xl"
+
+)}
+>
+
+{
+plan.recommended && (
+
+<Badge
+className="
+absolute
+top-4
+left-4
+"
+>
+
+الأكثر شعبية
+
+</Badge>
+
+)
+}
+
+<CardHeader>
+
+<CardTitle>
+
+{plan.name}
+
+</CardTitle>
+
+<CardDescription>
+
+{
+plan.customPlan
+
+? "حلول مخصصة"
+
+: `${price} ر.س`
+
+}
+
+</CardDescription>
+
+</CardHeader>
+
+<CardContent>
+
+{plan.features.map(feature => (
+
+<div
+className="
+flex
+items-center
+gap-3
+mb-3
+"
+>
+
+<Check />
+
+<span>
+
+{feature}
+
+</span>
+
+</div>
+
+))}
+
+</CardContent>
+
+<CardFooter>
+
+<Button
+className="w-full"
+>
+
+{
+plan.customPlan
+
+? "اطلب عرض سعر"
+
+: "اشترك الآن"
+
+}
+
+</Button>
+
+</CardFooter>
+
+</Card>
+```
+
+---
+
+# جدول مقارنة الباقات
+
+```tsx
+<Table>
+
+<TableHeader>
+
+<TableRow>
+
+<TableHead>
+
+الميزة
+
+</TableHead>
+
+<TableHead>
+
+Starter
+
+</TableHead>
+
+<TableHead>
+
+Professional
+
+</TableHead>
+
+<TableHead>
+
+Business
+
+</TableHead>
+
+<TableHead>
+
+Premium
+
+</TableHead>
+
+</TableRow>
+
+</TableHeader>
+
+</Table>
+```
+
+ويحتوي على:
+
+* الذكاء الاصطناعي.
+* بوابة العملاء.
+* متجر الخدمات.
+* الموقع الإلكتروني.
+* API.
+* النطاق الخاص.
+* الفروع.
+* SLA.
+
+---
+
+# Add-ons
+
+بطاقات مستقلة:
+
+### مستخدم إضافي
+
+25 ر.س
+
+---
+
+### 50 GB إضافية
+
+50 ر.س
+
+---
+
+### فرع إضافي
+
+199 ر.س
+
+---
+
+### WhatsApp Business
+
+299 ر.س
+
+---
+
+### AI Plus
+
+149 ر.س
+
+---
+
+# FAQ
+
+### هل توجد تجربة مجانية؟
+
+14 يوماً.
+
+---
+
+### هل أحتاج بطاقة ائتمانية؟
+
+لا.
+
+---
+
+### هل يمكن تغيير الخطة؟
+
+نعم.
+
+---
+
+### هل البيانات آمنة؟
+
+نعم.
+
+---
+
+# قسم أخير
+
+```tsx
+<section
+className="
+rounded-3xl
+bg-primary
+text-white
+py-20
+text-center
+"
+>
+
+<h2>
+
+ابدأ رحلتك نحو مكتب قانوني أكثر ذكاءً
+
+</h2>
+
+<Button>
+
+ابدأ مجاناً
+
+</Button>
+
+</section>
+```
+
+---
+
+# أوصي بإنشاء الملفات التالية:
+
+```text
+pages/
+
+PricingPage.tsx
+
+components/pricing/
+
+PricingCard.tsx
+
+BillingToggle.tsx
+
+PricingComparison.tsx
+
+AddonCard.tsx
+
+FAQSection.tsx
+
+PricingCTA.tsx
+```
+
+واستخدام:
+
+* TailwindCSS
+* shadcn/ui
+* Framer Motion
+* Lucide Icons
+
+للحصول على صفحة أسعار بمستوى Stripe وHubSpot، ومتوافقة بالكامل مع Replit وReact + TypeScript.
