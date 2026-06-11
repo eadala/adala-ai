@@ -31,6 +31,7 @@ import marketplaceRouter from "./marketplace";
 import aiWorkflowRouter from "./ai-workflow";
 import firmAdminRouter from "./firm-admin";
 import notificationsRouter from "./notifications";
+import complianceRouter from "./compliance";
 
 const router: IRouter = Router();
 
@@ -66,5 +67,6 @@ router.use(marketplaceRouter);
 router.use(aiWorkflowRouter);
 router.use(firmAdminRouter);
 router.use(notificationsRouter);
+router.use(complianceRouter);
 
 export default router;
