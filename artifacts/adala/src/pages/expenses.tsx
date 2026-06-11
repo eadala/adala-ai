@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Layout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,8 +57,7 @@ export default function Expenses() {
   const thisMonth=rows.filter(r=>r.date?.startsWith(today().slice(0,7))).reduce((s,r)=>s+parseFloat(String(r.amount||0)),0);
 
   return (
-    <Layout>
-      <div className="p-6 space-y-5 max-w-6xl mx-auto">
+    <div className="p-6 space-y-5 max-w-6xl mx-auto">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-red-500/20 flex items-center justify-center">
@@ -172,7 +170,6 @@ export default function Expenses() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </Layout>
+    </div>
   );
 }

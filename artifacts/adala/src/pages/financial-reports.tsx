@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, TrendingUp, TrendingDown, DollarSign, BarChart2, ArrowUpRight, ArrowDownRight } from "lucide-react";
@@ -68,11 +67,9 @@ export default function FinancialReports() {
   });
 
   if (isLoading) return (
-    <Layout>
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        <Loader2 className="h-6 w-6 animate-spin ml-2" /> جارٍ تحميل التقارير...
-      </div>
-    </Layout>
+    <div className="flex items-center justify-center h-64 text-muted-foreground">
+      <Loader2 className="h-6 w-6 animate-spin ml-2" /> جارٍ تحميل التقارير...
+    </div>
   );
 
   const d = data ?? {};
@@ -83,8 +80,7 @@ export default function FinancialReports() {
   const hasMonthlyData = monthly.some((m: any) => m.revenue > 0 || m.expenses > 0);
 
   return (
-    <Layout>
-      <div className="p-6 space-y-6 max-w-6xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-[#C9A84C]/20 flex items-center justify-center">
@@ -243,7 +239,6 @@ export default function FinancialReports() {
             </div>
           </CardContent>
         </Card>
-      </div>
-    </Layout>
+    </div>
   );
 }

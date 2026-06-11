@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Layout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,8 +51,7 @@ export default function BankAccounts() {
   const totalBalance = rows.reduce((s, r) => s + parseFloat(String(r.currentBalance || 0)), 0);
 
   return (
-    <Layout>
-      <div className="p-6 space-y-5 max-w-5xl mx-auto">
+    <div className="p-6 space-y-5 max-w-5xl mx-auto">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-blue-500/20 flex items-center justify-center"><Landmark className="h-5 w-5 text-blue-400" /></div>
@@ -144,7 +142,6 @@ export default function BankAccounts() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </Layout>
+    </div>
   );
 }
