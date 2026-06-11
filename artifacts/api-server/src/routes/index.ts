@@ -41,6 +41,7 @@ import backupRouter from "./backup";
 import accountingRouter from "./accounting";
 import developerRouter from "./developer";
 import paymentsRouter from "./payments";
+import hostingRouter from "./hosting";
 
 const router: IRouter = Router();
 
@@ -86,5 +87,6 @@ router.use(backupRouter);
 router.use(accountingRouter);
 router.use(developerRouter);
 router.use(paymentsRouter);
+router.use(hostingRouter);
 
 export default router;
