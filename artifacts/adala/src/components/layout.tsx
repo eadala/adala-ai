@@ -47,14 +47,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "nav.groups.financial",
     items: [
-      { href: "/invoices",        labelKey: "nav.items.invoices",        icon: Receipt },
-      { href: "/billing",         labelKey: "nav.items.billing",         icon: CreditCard },
-      { href: "/payment-center",  labelKey: "nav.items.payment_center",  icon: Landmark },
-    ],
-  },
-  {
-    labelKey: "nav.groups.accounting",
-    items: [
+      { href: "/invoices",          labelKey: "nav.items.invoices",          icon: Receipt },
+      { href: "/billing",           labelKey: "nav.items.billing",           icon: CreditCard },
+      { href: "/payment-center",    labelKey: "nav.items.payment_center",    icon: Landmark },
       { href: "/revenues",          labelKey: "nav.items.revenues",          icon: TrendingUp },
       { href: "/expenses",          labelKey: "nav.items.expenses",          icon: TrendingDown },
       { href: "/cashflow",          labelKey: "nav.items.cashflow",          icon: ArrowRightLeft },
