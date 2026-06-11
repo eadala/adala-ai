@@ -1,0 +1,374 @@
+هذه من أهم أجزاء عدالة AI، لأنك لا تريد أن تكون الباقات مجرد أسعار، بل تريد أن تتحكم فعلياً في خدمات كل مكتب حسب اشتراكه، تماماً مثل HubSpot وClio وShopify.
+
+## المعمارية التي أوصي بها
+
+```text
+plans
+plan_features
+office_subscriptions
+offices
+```
+
+بحيث:
+
+* الباقة تحدد الخدمات المتاحة.
+* المكتب يرث الخدمات من الباقة.
+* عند ترقية الاشتراك تتفعل الخدمات تلقائياً.
+* عند تخفيض الاشتراك تتعطل الخدمات غير المشمولة.
+
+---
+
+# 1. جدول الخدمات
+
+## shared/schema/features.ts
+
+```ts
+export const features = pgTable("features", {
+
+  id: uuid("id")
+    .defaultRandom()
+    .primaryKey(),
+
+  code: varchar("code", {
+    length: 100
+  }).notNull(),
+
+  name: varchar("name", {
+    length: 255
+  }).notNull()
+
+});
+```
+
+---
+
+# بيانات أولية
+
+```ts
+[
+{
+code:"ai",
+name:"الذكاء الاصطناعي"
+},
+
+{
+code:"client_portal",
+name:"بوابة العملاء"
+},
+
+{
+code:"website",
+name:"الموقع الإلكتروني"
+},
+
+{
+code:"service_store",
+name:"متجر الخدمات القانونية"
+},
+
+{
+code:"api",
+name:"API"
+},
+
+{
+code:"whatsapp",
+name:"واتساب الأعمال"
+},
+
+{
+code:"branches",
+name:"الفروع"
+},
+
+{
+code:"workflow",
+name:"Workflow"
+},
+
+{
+code:"sla",
+name:"SLA"
+}
+]
+```
+
+---
+
+# 2. جدول ربط الخدمات بالباقات
+
+## shared/schema/planFeatures.ts
+
+```ts
+export const planFeatures = pgTable(
+"plan_features",
+{
+
+id: uuid("id")
+.defaultRandom()
+.primaryKey(),
+
+planId: uuid("plan_id")
+.notNull(),
+
+featureCode: varchar(
+"feature_code",
+{
+length:100
+}
+)
+
+});
+```
+
+---
+
+# 3. جدول اشتراكات المكاتب
+
+## officeSubscriptions
+
+```ts
+export const officeSubscriptions =
+pgTable(
+"office_subscriptions",
+{
+
+id: uuid("id")
+.defaultRandom()
+.primaryKey(),
+
+officeId: uuid("office_id"),
+
+planId: uuid("plan_id"),
+
+status: varchar(
+"status",
+{
+length:30
+}
+)
+
+});
+```
+
+---
+
+# دالة التحقق من الخدمة
+
+## shared/utils/hasFeature.ts
+
+```ts
+export function hasFeature(
+
+officeFeatures: string[],
+
+featureCode: string
+
+) {
+
+return officeFeatures.includes(
+featureCode
+);
+
+}
+```
+
+---
+
+# الاستخدام
+
+```ts
+hasFeature(
+office.features,
+"ai"
+);
+```
+
+إذا رجعت:
+
+```ts
+true
+```
+
+فالمكتب يملك الذكاء الاصطناعي.
+
+---
+
+# إظهار أو إخفاء الصفحات
+
+## Sidebar.tsx
+
+```tsx
+{
+hasFeature(
+office.features,
+"ai"
+)
+
+&&
+
+(
+
+<MenuItem>
+
+الذكاء الاصطناعي
+
+</MenuItem>
+
+)
+}
+```
+
+---
+
+## متجر الخدمات
+
+```tsx
+{
+hasFeature(
+office.features,
+"service_store"
+)
+
+&&
+
+(
+
+<MenuItem>
+
+متجر الخدمات
+
+</MenuItem>
+
+)
+}
+```
+
+---
+
+## API
+
+```tsx
+{
+hasFeature(
+office.features,
+"api"
+)
+
+&&
+
+(
+
+<MenuItem>
+
+API
+
+</MenuItem>
+
+)
+}
+```
+
+---
+
+# حماية الـ API
+
+```ts
+if (
+
+!hasFeature(
+office.features,
+"ai"
+)
+
+)
+
+{
+
+return res.status(403)
+.json({
+
+message:
+
+"هذه الخدمة غير متاحة في باقتك"
+
+});
+
+}
+```
+
+---
+
+# لوحة مالك المنصة
+
+داخل تعديل الباقة:
+
+```text
+☑ الذكاء الاصطناعي
+
+☑ بوابة العملاء
+
+☑ الموقع الإلكتروني
+
+☑ متجر الخدمات
+
+☑ الدفع الإلكتروني
+
+☑ المقالات
+
+☑ SEO
+
+☑ API
+
+☑ WhatsApp
+
+☑ الفروع
+
+☑ Workflow
+
+☑ SLA
+```
+
+كل خدمة عبارة عن:
+
+```tsx
+<Switch />
+```
+
+---
+
+# عند ترقية مكتب من Professional إلى Premium
+
+يتفعل تلقائياً:
+
+```text
+API
+واتساب الأعمال
+النطاق الخاص
+النسخ الاحتياطية
+صلاحيات متقدمة
+```
+
+بدون تعديل يدوي.
+
+---
+
+## الأفضل مستقبلاً
+
+أن تجعل جميع أجزاء عدالة AI مبنية على:
+
+```ts
+hasFeature()
+```
+
+وليس على أسماء الباقات.
+
+وبذلك تستطيع:
+
+* إنشاء باقات جديدة.
+* تعديل الخدمات.
+* إضافة مزايا جديدة.
+* منح مزايا خاصة لمكتب معين.
+* إنشاء باقات مخصصة Enterprise.
+
+بدون تعديل الكود الأساسي للمنصة، وهو نفس الأسلوب المستخدم في Shopify وStripe وHubSpot.
