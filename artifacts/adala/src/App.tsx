@@ -41,6 +41,9 @@ import OfficeStore from "@/pages/office-store";
 import OfficeManagement from "@/pages/office-management";
 import SuperAdmin from "@/pages/super-admin";
 import CalendarPage from "@/pages/calendar";
+import ClientPortal from "@/pages/client-portal";
+import PortalView from "@/pages/portal-view";
+import Marketplace from "@/pages/marketplace";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -306,6 +309,15 @@ function AppRoutes() {
             </Route>
             <Route path="/calendar">
               <ProtectedRoute><CalendarPage /></ProtectedRoute>
+            </Route>
+            <Route path="/client-portal">
+              <ProtectedRoute><ClientPortal /></ProtectedRoute>
+            </Route>
+            <Route path="/marketplace">
+              <ProtectedRoute><Marketplace /></ProtectedRoute>
+            </Route>
+            <Route path="/portal/:token">
+              <PortalView />
             </Route>
             <Route>
               <Layout><NotFound /></Layout>
