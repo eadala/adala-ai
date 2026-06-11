@@ -400,98 +400,403 @@ function InvoiceSheet({
   const printInvoice = () => {
     if (!invoice) return;
     const items: any[] = invoice.items ?? [];
-    const subtotal = items.reduce((s: number, it: any) => s + Number(it.total ?? (it.quantity * it.unitPrice) ?? 0), 0);
-    const vatAmount = Math.round(subtotal * (Number(invoice.vatRate ?? 15) / 100));
-    const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head>
-<meta charset="UTF-8"><title>فاتورة ${invoice.invoiceNumber ?? ""}</title>
+    const subtotal = items.reduce((s: number, it: any) => s + Number(it.total ?? ((it.quantity ?? 1) * (it.unitPrice ?? 0))), 0);
+    const vatRate = Number(invoice.vatRate ?? 15);
+    const vatAmount = Math.round(subtotal * (vatRate / 100));
+    const grandTotal = Number(invoice.total ?? (subtotal + vatAmount));
+    const isPaid = invoice.status === "paid";
+    const isOverdue = invoice.status === "overdue";
+    const issueDate = invoice.createdAt ? new Date(invoice.createdAt) : new Date();
+    const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
+    const fmt = (n: number) => (n / 100).toLocaleString("en-SA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtDate = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const fmtDateAr = (d: Date) => d.toLocaleDateString("ar-SA-u-nu-latn", { day: "2-digit", month: "long", year: "numeric" });
+
+    const html = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>فاتورة ضريبية / Tax Invoice — ${invoice.invoiceNumber ?? ""}</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Cairo', Arial, sans-serif; color: #1a1a2e; background: #fff; font-size: 12pt; }
-  @page { size: A4; margin: 18mm 20mm; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #C9A84C; padding-bottom: 16px; margin-bottom: 20px; }
-  .brand { font-size: 22pt; font-weight: 900; color: #1A2744; }
-  .brand span { color: #C9A84C; }
-  .inv-meta { text-align: left; }
-  .inv-meta h2 { font-size: 14pt; font-weight: 700; color: #C9A84C; }
-  .inv-meta p { font-size: 10pt; color: #666; margin-top: 3px; }
-  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-  .party-box { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; }
-  .party-box h3 { font-size: 9pt; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-  .party-box p { font-size: 11pt; font-weight: 700; }
-  .party-box span { font-size: 10pt; color: #555; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-  thead tr { background: #1A2744; color: #fff; }
-  th { padding: 10px 12px; text-align: right; font-size: 10pt; font-weight: 600; }
-  td { padding: 9px 12px; border-bottom: 1px solid #eee; font-size: 10pt; }
-  tr:nth-child(even) td { background: #fafafa; }
-  .totals { width: 260px; margin-right: auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
-  .totals-row { display: flex; justify-content: space-between; padding: 9px 14px; font-size: 11pt; }
-  .totals-row:not(:last-child) { border-bottom: 1px solid #eee; }
-  .totals-row.grand { background: #1A2744; color: #C9A84C; font-weight: 900; font-size: 13pt; }
-  .notes { margin-top: 20px; background: #fffbf0; border: 1px solid #C9A84C40; border-radius: 8px; padding: 12px; }
-  .notes h3 { font-size: 9pt; color: #C9A84C; margin-bottom: 5px; }
-  .stamp { margin-top: 28px; padding-top: 20px; border-top: 1px dashed #ccc; display: flex; justify-content: space-between; align-items: center; }
-  .status-paid { color: #10B981; font-size: 20pt; font-weight: 900; border: 3px solid #10B981; padding: 4px 14px; border-radius: 8px; }
-  .status-overdue { color: #EF4444; font-size: 20pt; font-weight: 900; border: 3px solid #EF4444; padding: 4px 14px; border-radius: 8px; }
-  .footer { text-align: center; color: #aaa; font-size: 9pt; margin-top: 24px; border-top: 1px solid #eee; padding-top: 12px; }
-</style></head><body>
-<div class="header">
-  <div class="brand">عدالة <span>AI</span></div>
-  <div class="inv-meta">
-    <h2>فاتورة ضريبية</h2>
-    <p>رقم: ${invoice.invoiceNumber ?? "—"}</p>
-    <p>التاريخ: ${invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString("ar-SA") : "—"}</p>
-    <p>الاستحقاق: ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("ar-SA") : "—"}</p>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Montserrat:wght@400;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+@page{size:A4;margin:0}
+body{font-family:'Cairo',Arial,sans-serif;background:#fff;color:#1a1a2e;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+/* ═══ WATERMARK ═══ */
+.watermark{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);
+  font-size:88pt;font-weight:900;letter-spacing:4px;pointer-events:none;z-index:0;
+  ${isPaid ? "color:rgba(16,185,129,0.07);content:'PAID'" : isOverdue ? "color:rgba(239,68,68,0.07)" : "color:rgba(201,168,76,0.05)"}
+}
+
+/* ═══ WRAPPER ═══ */
+.page{
+  width:210mm;min-height:297mm;margin:0 auto;position:relative;z-index:1;
+  display:flex;flex-direction:column;
+}
+
+/* ═══ TOP ACCENT BAR ═══ */
+.accent-bar{
+  height:6px;
+  background:linear-gradient(90deg,#1A2744 0%,#1A2744 40%,#C9A84C 40%,#C9A84C 60%,#1A2744 60%,#1A2744 100%);
+}
+
+/* ═══ HEADER ═══ */
+.header{
+  background:linear-gradient(135deg,#0f1c35 0%,#1A2744 60%,#243560 100%);
+  padding:28px 32px 24px;
+  display:flex;justify-content:space-between;align-items:flex-start;
+  position:relative;overflow:hidden;
+}
+.header::before{
+  content:'';position:absolute;top:-40px;left:-40px;
+  width:180px;height:180px;border-radius:50%;
+  background:rgba(201,168,76,0.08);
+}
+.header::after{
+  content:'';position:absolute;bottom:-50px;right:10%;
+  width:240px;height:240px;border-radius:50%;
+  background:rgba(201,168,76,0.05);
+}
+
+.brand-block{position:relative;z-index:1}
+.brand-ar{font-size:28pt;font-weight:900;color:#fff;line-height:1;letter-spacing:-0.5px}
+.brand-ar span{color:#C9A84C}
+.brand-en{font-family:'Montserrat',Arial,sans-serif;font-size:10pt;font-weight:600;color:rgba(201,168,76,0.8);letter-spacing:3px;text-transform:uppercase;margin-top:3px}
+.brand-tagline{font-size:8pt;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:300}
+
+.inv-badge{
+  position:relative;z-index:1;text-align:left;
+}
+.inv-badge .inv-type-ar{font-size:16pt;font-weight:900;color:#C9A84C;line-height:1.1}
+.inv-badge .inv-type-en{font-family:'Montserrat',Arial,sans-serif;font-size:9pt;color:rgba(201,168,76,0.7);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.inv-badge .inv-num{
+  background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.4);
+  border-radius:6px;padding:6px 12px;display:inline-block;
+  font-family:'Montserrat',Arial,sans-serif;font-size:11pt;font-weight:700;
+  color:#fff;letter-spacing:1px;
+}
+
+/* ═══ STATUS RIBBON ═══ */
+.status-ribbon{
+  padding:8px 32px;
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:'Montserrat',Arial,sans-serif;font-size:8.5pt;
+  ${isPaid
+    ? "background:#f0fdf4;border-bottom:2px solid #86efac;"
+    : isOverdue
+    ? "background:#fef2f2;border-bottom:2px solid #fca5a5;"
+    : "background:#fffbf0;border-bottom:2px solid #C9A84C40;"}
+}
+.status-ribbon .dates{display:flex;gap:24px;color:#555}
+.status-ribbon .dates span{display:flex;align-items:center;gap:6px}
+.status-ribbon .dates label{font-weight:700;color:#333}
+.status-pill{
+  display:flex;align-items:center;gap:7px;
+  font-weight:700;font-size:9pt;padding:4px 14px;border-radius:20px;
+  ${isPaid
+    ? "background:#dcfce7;color:#15803d;border:1.5px solid #86efac;"
+    : isOverdue
+    ? "background:#fee2e2;color:#b91c1c;border:1.5px solid #fca5a5;"
+    : "background:#fff7ed;color:#b45309;border:1.5px solid #fcd34d;"}
+}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;
+  ${isPaid ? "background:#22c55e" : isOverdue ? "background:#ef4444" : "background:#f59e0b"}
+}
+
+/* ═══ BODY ═══ */
+.body{padding:22px 32px;flex:1}
+
+/* ═══ PARTIES GRID ═══ */
+.parties{display:grid;grid-template-columns:1fr 1px 1fr;gap:0;margin-bottom:20px;
+  border:1px solid #e8e8e8;border-radius:10px;overflow:hidden}
+.party{padding:16px 20px}
+.party:first-child{background:#fafbfd}
+.party-divider{background:#e8e8e8}
+.party:last-child{background:#fff}
+.party-label{
+  font-size:7.5pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:#C9A84C;margin-bottom:8px;display:flex;align-items:center;gap:5px;
+}
+.party-label .dot{width:5px;height:5px;border-radius:50%;background:#C9A84C}
+.party-name{font-size:13pt;font-weight:900;color:#1A2744;margin-bottom:4px}
+.party-detail{font-size:9pt;color:#666;line-height:1.7}
+.party-detail strong{color:#444}
+
+/* ═══ TABLE ═══ */
+.tbl-wrap{border-radius:10px;overflow:hidden;border:1px solid #e8e8e8;margin-bottom:20px}
+table{width:100%;border-collapse:collapse}
+.tbl-head{background:linear-gradient(90deg,#1A2744,#243560)}
+th{
+  padding:11px 14px;font-size:9pt;font-weight:700;color:#fff;
+  text-align:right;
+}
+th.en{font-family:'Montserrat',Arial,sans-serif;font-size:7pt;color:rgba(201,168,76,0.8);font-weight:600;display:block;letter-spacing:1px}
+td{padding:10px 14px;font-size:10pt;border-bottom:1px solid #f0f0f0;color:#333;text-align:right}
+tr:last-child td{border-bottom:none}
+tr:nth-child(even) td{background:#f9fafb}
+td.idx{width:36px;color:#aaa;font-size:9pt;font-family:'Montserrat',Arial,sans-serif}
+td.num{font-family:'Montserrat',Arial,sans-serif;font-weight:600;color:#1A2744}
+td.desc-en{font-size:8pt;color:#aaa;font-family:'Montserrat',Arial,sans-serif}
+td.service-cell .svc-ar{font-weight:700;color:#1A2744}
+td.service-cell .svc-en{font-size:8pt;color:#aaa;font-family:'Montserrat',Arial,sans-serif;margin-top:2px}
+
+/* ═══ BOTTOM ROW ═══ */
+.bottom-row{display:grid;grid-template-columns:1fr 280px;gap:20px;margin-bottom:20px}
+
+/* ═══ PAYMENT INFO ═══ */
+.payment-box{
+  border:1px solid #e8e8e8;border-radius:10px;padding:16px;
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+.payment-box h4{
+  font-size:8pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:#C9A84C;margin-bottom:10px;display:flex;align-items:center;gap:5px;
+}
+.payment-methods{display:flex;flex-wrap:wrap;gap:6px}
+.pm-chip{
+  padding:4px 10px;border-radius:20px;font-size:8pt;font-weight:600;
+  background:#f4f4f5;color:#555;border:1px solid #e4e4e7;
+  font-family:'Montserrat',Arial,sans-serif;
+}
+.pm-chip.primary{background:#1A2744;color:#C9A84C;border-color:#1A2744}
+.due-notice{
+  margin-top:10px;padding:7px 10px;border-radius:6px;
+  background:#fffbf0;border:1px dashed #C9A84C60;
+  font-size:8.5pt;color:#92400e;
+}
+.due-notice strong{color:#C9A84C}
+
+/* ═══ TOTALS ═══ */
+.totals-box{border:1px solid #e8e8e8;border-radius:10px;overflow:hidden}
+.tot-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 16px;border-bottom:1px solid #f0f0f0;
+  font-size:10pt;
+}
+.tot-row:last-child{border-bottom:none}
+.tot-row .lbl{color:#666}
+.tot-row .lbl-en{font-family:'Montserrat',Arial,sans-serif;font-size:7.5pt;color:#aaa;display:block}
+.tot-row .val{font-weight:700;color:#1A2744;font-family:'Montserrat',Arial,sans-serif;font-size:11pt}
+.tot-row.vat .val{color:#555}
+.tot-row.grand{background:linear-gradient(90deg,#1A2744,#243560);padding:14px 16px}
+.tot-row.grand .lbl{color:rgba(255,255,255,0.8);font-weight:700;font-size:11pt}
+.tot-row.grand .lbl-en{color:rgba(201,168,76,0.7)}
+.tot-row.grand .val{color:#C9A84C;font-size:15pt;font-weight:900}
+.tot-row.grand .currency{font-size:10pt;font-weight:600;opacity:.8}
+
+/* ═══ NOTES ═══ */
+.notes-box{
+  border:1px solid #e8e8e8;border-radius:10px;padding:14px 16px;
+  margin-bottom:20px;background:#fafbfd;
+}
+.notes-box h4{font-size:8pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C9A84C;margin-bottom:6px}
+.notes-box p{font-size:9.5pt;color:#555;line-height:1.7}
+
+/* ═══ SIGNATURE ROW ═══ */
+.sig-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px}
+.sig-box{border-top:1.5px solid #d0d0d0;padding-top:8px}
+.sig-box .sig-label{font-size:8pt;color:#aaa;font-weight:600;letter-spacing:1px}
+.sig-box .sig-name{font-size:9.5pt;color:#444;margin-top:16px;font-weight:700}
+
+/* ═══ FOOTER ═══ */
+.footer-bar{
+  background:linear-gradient(90deg,#0f1c35,#1A2744);
+  padding:14px 32px;
+  display:flex;justify-content:space-between;align-items:center;
+  margin-top:auto;
+}
+.footer-bar .f-brand{color:#C9A84C;font-weight:900;font-size:10pt}
+.footer-bar .f-brand span{color:rgba(255,255,255,0.5);font-weight:400;font-size:8pt}
+.footer-bar .f-meta{font-family:'Montserrat',Arial,sans-serif;font-size:7.5pt;color:rgba(255,255,255,0.4);text-align:left;line-height:1.7}
+
+/* ═══ PRINT OVERRIDES ═══ */
+@media print{
+  body{margin:0}
+  .page{width:100%;min-height:100vh}
+  .no-print{display:none!important}
+}
+</style>
+</head>
+<body>
+
+${isPaid ? `<div class="watermark">PAID ✓</div>` : isOverdue ? `<div class="watermark">OVERDUE</div>` : ""}
+
+<div class="page">
+
+  <!-- TOP ACCENT -->
+  <div class="accent-bar"></div>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="brand-block">
+      <div class="brand-ar">عدالة <span>AI</span></div>
+      <div class="brand-en">Adalah AI · Legal OS</div>
+      <div class="brand-tagline">منصة إدارة المكاتب القانونية · Kingdom of Saudi Arabia</div>
+    </div>
+    <div class="inv-badge">
+      <div class="inv-type-ar">فاتورة ضريبية</div>
+      <div class="inv-type-en">Tax Invoice</div>
+      <div class="inv-num">${invoice.invoiceNumber ?? "INV-0000"}</div>
+    </div>
   </div>
-</div>
-<div class="parties">
-  <div class="party-box">
-    <h3>من</h3>
-    <p>مكتب عدالة AI</p>
-    <span>المملكة العربية السعودية</span>
+
+  <!-- STATUS RIBBON -->
+  <div class="status-ribbon">
+    <div class="dates">
+      <span>
+        <label>تاريخ الإصدار:</label>
+        ${fmtDateAr(issueDate)} &nbsp;·&nbsp; ${fmtDate(issueDate)}
+      </span>
+      ${dueDate ? `<span><label>تاريخ الاستحقاق / Due:</label> ${fmtDateAr(dueDate)} &nbsp;·&nbsp; ${fmtDate(dueDate)}</span>` : ""}
+    </div>
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      ${isPaid ? "مدفوعة / PAID" : isOverdue ? "متأخرة / OVERDUE" : "قيد الانتظار / PENDING"}
+    </div>
   </div>
-  <div class="party-box">
-    <h3>إلى</h3>
-    <p>${invoice.clientName ?? invoice.title ?? "—"}</p>
-    ${invoice.clientEmail ? `<span>${invoice.clientEmail}</span>` : ""}
+
+  <!-- BODY -->
+  <div class="body">
+
+    <!-- PARTIES -->
+    <div class="parties">
+      <div class="party">
+        <div class="party-label"><div class="dot"></div> المُصدِر / ISSUED BY</div>
+        <div class="party-name">مكتب عدالة AI للمحاماة</div>
+        <div class="party-detail">
+          Adalah AI Law Firm<br>
+          <strong>📍</strong> المملكة العربية السعودية · KSA<br>
+          <strong>✉</strong> info@adalah-ai.sa<br>
+          <strong>🌐</strong> adalah-ai.sa
+        </div>
+      </div>
+      <div class="party-divider"></div>
+      <div class="party">
+        <div class="party-label"><div class="dot"></div> العميل / BILLED TO</div>
+        <div class="party-name">${invoice.clientName ?? invoice.title ?? "—"}</div>
+        <div class="party-detail">
+          ${invoice.clientEmail ? `<strong>✉</strong> ${invoice.clientEmail}<br>` : ""}
+          ${invoice.caseTitle ? `<strong>⚖️</strong> القضية: ${invoice.caseTitle}` : ""}
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="tbl-wrap">
+      <table>
+        <thead class="tbl-head">
+          <tr>
+            <th style="width:36px">#</th>
+            <th>الخدمة / Service <span class="en">DESCRIPTION</span></th>
+            <th style="width:70px">الكمية <span class="en">QTY</span></th>
+            <th style="width:120px">سعر الوحدة <span class="en">UNIT PRICE</span></th>
+            <th style="width:130px">الإجمالي <span class="en">TOTAL</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.length > 0
+            ? items.map((it: any, idx: number) => {
+                const qty = Number(it.quantity ?? 1);
+                const up = Number(it.unitPrice ?? 0);
+                const tot = Number(it.total ?? (qty * up));
+                return `<tr>
+                  <td class="idx">${idx + 1}</td>
+                  <td class="service-cell">
+                    <div class="svc-ar">${it.description ?? it.name ?? "—"}</div>
+                    ${it.nameEn ? `<div class="svc-en">${it.nameEn}</div>` : ""}
+                  </td>
+                  <td class="num" style="text-align:center">${qty}</td>
+                  <td class="num">${fmt(up)} <small style="color:#aaa;font-size:8pt">SAR</small></td>
+                  <td class="num">${fmt(tot)} <small style="color:#aaa;font-size:8pt">SAR</small></td>
+                </tr>`;
+              }).join("")
+            : `<tr><td colspan="5" style="text-align:center;padding:24px;color:#bbb;font-size:10pt">${invoice.title ?? "لا توجد بنود"}</td></tr>`
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- BOTTOM ROW -->
+    <div class="bottom-row">
+      <!-- PAYMENT INFO -->
+      <div class="payment-box">
+        <div>
+          <h4>💳 طرق الدفع / Payment Methods</h4>
+          <div class="payment-methods">
+            <span class="pm-chip primary">تحويل بنكي / Bank Transfer</span>
+            <span class="pm-chip">بطاقة ائتمانية / Card</span>
+            <span class="pm-chip">رابط دفع / Payment Link</span>
+            <span class="pm-chip">مدى / MADA</span>
+          </div>
+        </div>
+        <div class="due-notice">
+          ⏰ الدفع مستحق خلال <strong>14 يوماً</strong> من تاريخ الإصدار<br>
+          <span style="font-family:'Montserrat',Arial,sans-serif;font-size:7.5pt">Payment due within 14 days of issue</span>
+        </div>
+      </div>
+
+      <!-- TOTALS -->
+      <div class="totals-box">
+        <div class="tot-row">
+          <span class="lbl">المجموع قبل الضريبة<span class="lbl-en">Subtotal</span></span>
+          <span class="val">${fmt(subtotal)} <small class="currency">SAR</small></span>
+        </div>
+        <div class="tot-row vat">
+          <span class="lbl">ضريبة القيمة المضافة (${vatRate}%)<span class="lbl-en">VAT</span></span>
+          <span class="val">${fmt(vatAmount)} <small class="currency">SAR</small></span>
+        </div>
+        <div class="tot-row grand">
+          <span class="lbl">الإجمالي النهائي<span class="lbl-en">Grand Total</span></span>
+          <span class="val">${fmt(grandTotal)} <small class="currency">SAR</small></span>
+        </div>
+      </div>
+    </div>
+
+    ${invoice.notes ? `
+    <div class="notes-box">
+      <h4>📋 ملاحظات / Notes</h4>
+      <p>${invoice.notes}</p>
+    </div>` : ""}
+
+    <!-- SIGNATURES -->
+    <div class="sig-row">
+      <div class="sig-box">
+        <div class="sig-label">توقيع المسؤول / Authorized Signature</div>
+        <div class="sig-name">&nbsp;</div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-label">ختم المكتب / Office Stamp</div>
+        <div class="sig-name">&nbsp;</div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-label">توقيع العميل / Client Signature</div>
+        <div class="sig-name">&nbsp;</div>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+
+  <!-- FOOTER -->
+  <div class="footer-bar">
+    <div class="f-brand">عدالة AI <span>· منصة إدارة المكاتب القانونية</span></div>
+    <div class="f-meta">
+      adalah-ai.sa &nbsp;·&nbsp; VAT: 300XXXXXXXX &nbsp;·&nbsp; CR: 1234567890<br>
+      Generated: ${new Date().toLocaleDateString("en-GB")} &nbsp;·&nbsp; Adalah AI Legal OS v2
+    </div>
   </div>
-</div>
-<table>
-  <thead><tr><th>#</th><th>البيان</th><th>الكمية</th><th>سعر الوحدة</th><th>المجموع</th></tr></thead>
-  <tbody>
-    ${items.length > 0 ? items.map((it: any, idx: number) => `
-      <tr>
-        <td>${idx + 1}</td>
-        <td>${it.description ?? it.name ?? "—"}</td>
-        <td>${it.quantity ?? 1}</td>
-        <td>${(Number(it.unitPrice ?? 0) / 100).toLocaleString("ar-SA")} ر.س</td>
-        <td>${(Number(it.total ?? ((it.quantity ?? 1) * (it.unitPrice ?? 0))) / 100).toLocaleString("ar-SA")} ر.س</td>
-      </tr>`).join("") : `<tr><td colspan="5" style="text-align:center;color:#999;padding:16px">${invoice.title ?? "—"}</td></tr>`}
-  </tbody>
-</table>
-<div class="totals">
-  <div class="totals-row"><span>المجموع قبل الضريبة</span><span>${(subtotal / 100).toLocaleString("ar-SA")} ر.س</span></div>
-  <div class="totals-row"><span>ضريبة القيمة المضافة (${invoice.vatRate ?? 15}%)</span><span>${(vatAmount / 100).toLocaleString("ar-SA")} ر.س</span></div>
-  <div class="totals-row grand"><span>الإجمالي</span><span>${(Number(invoice.total ?? 0) / 100).toLocaleString("ar-SA")} ر.س</span></div>
-</div>
-${invoice.notes ? `<div class="notes"><h3>ملاحظات</h3><p>${invoice.notes}</p></div>` : ""}
-<div class="stamp">
-  <div>
-    <p style="font-size:10pt;color:#888">التوقيع والختم</p>
-    <div style="margin-top:30px;border-top:1px solid #ccc;width:160px"></div>
-  </div>
-  <div class="${invoice.status === 'paid' ? 'status-paid' : invoice.status === 'overdue' ? 'status-overdue' : ''}">
-    ${invoice.status === 'paid' ? 'مدفوعة ✓' : invoice.status === 'overdue' ? 'متأخرة' : ''}
-  </div>
-</div>
-<div class="footer">عدالة AI · منصة إدارة المكاتب القانونية · المملكة العربية السعودية</div>
-</body></html>`;
-    const win = window.open("", "_blank", "width=850,height=1000");
+
+</div><!-- /page -->
+
+<script>window.addEventListener('load',()=>{setTimeout(()=>window.print(),600)})</script>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank", "width=900,height=1100,scrollbars=yes");
     if (win) {
       win.document.write(html);
       win.document.close();
-      setTimeout(() => { win.focus(); win.print(); }, 500);
     }
   };
 
