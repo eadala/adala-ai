@@ -321,6 +321,18 @@ export function Layout({ children }: { children: ReactNode }) {
             <LanguageSwitcher />
             <NotificationsPanel />
             <AccountMenu />
+            {/* ── زر الخروج الظاهر ── */}
+            <button
+              onClick={() => signOut({ redirectUrl: basePath || "/" })}
+              title="تسجيل الخروج"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
+                text-red-400 border border-red-500/20 bg-red-500/5
+                hover:bg-red-500/15 hover:border-red-500/40 hover:text-red-300
+                transition-all duration-150 mr-1 shrink-0"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">خروج</span>
+            </button>
           </div>
         </header>
 
