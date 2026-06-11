@@ -89,26 +89,27 @@
     "startFreeNow": "Start Free Now",
     "bookDemo": "Book a Live Demo",
     "hero": {
-      "badge": "The #1 Smart Legal Platform in Saudi Arabia",
-      "titleLine1": "The Future of",
-      "titleLine2": "Legal Office Management",
+      "badge": "The all-in-one Legal SaaS platform for firms worldwide",
+      "titleLine1": "Smarter",
+      "titleLine2": "Legal Management",
       "titleHighlight": "Powered by Artificial Intelligence",
-      "subtitle": "Everything your law firm needs in one platform. Manage cases, contracts, clients, invoices, and communications — with AI-powered document analysis.",
+      "subtitle": "Adala AI is a full-stack legal SaaS for law firms and companies. Cases, clients, contracts, documents, billing, financials, HR, and AI — all in one secure, globally scalable platform.",
       "noCard": "No credit card",
-      "quickSetup": "Setup in 2 minutes",
-      "arabicSupport": "Full Arabic support"
+      "quickSetup": "Setup in minutes",
+      "arabicSupport": "Arabic & English support",
+      "interactive": "Full interactive demo"
     },
     "trust": {
-      "tagline": "Trusted by hundreds of lawyers and law firms across Saudi Arabia",
+      "tagline": "Trusted by thousands of lawyers and law firms worldwide",
       "offices": "Law Firms",
       "cases": "Cases Managed",
-      "satisfaction": "Client Satisfaction",
+      "satisfaction": "System Uptime",
       "timeSaving": "Time Saved"
     },
     "features": {
       "label": "Features",
-      "title": "Everything Your Law Firm Needs",
-      "subtitle": "An integrated platform covering every aspect of law firm management in one place",
+      "title": "Everything Your Firm Needs in One Platform",
+      "subtitle": "Integrated solutions to run your legal practice more efficiently and scale faster",
       "items": [
         {
           "title": "Case Management",
@@ -175,7 +176,7 @@
         },
         {
           "title": "Smart Legal Research",
-          "desc": "Precise search in Saudi laws and regulations in Arabic"
+          "desc": "Precise search in laws and legal regulations in Arabic and English"
         }
       ]
     },
@@ -243,17 +244,17 @@
       "items": [
         {
           "name": "Khalid Al-Saidi",
-          "role": "Lawyer — Riyadh",
+          "role": "Lawyer — Law Firm",
           "text": "The platform saved me at least 6 hours a week in file and correspondence management. The AI assistant answers with amazing accuracy in Arabic."
         },
         {
           "name": "Al-Barqi Law Office",
-          "role": "Jeddah",
+          "role": "Law Office — 20 Staff",
           "text": "The best Arabic platform for managing law offices. Transitioning from traditional methods to Adala AI completely transformed how we work."
         },
         {
           "name": "Noura Al-Shamri",
-          "role": "Legal Consultant — Dammam",
+          "role": "Legal Consultant — Advisory Firm",
           "text": "The client portal has significantly elevated our firm's professionalism. Clients are very happy with the ability to follow their cases directly."
         }
       ]
@@ -364,8 +365,8 @@
         },
         {
           "icon": "🛡️",
-          "label": "PDPL Compliance",
-          "desc": "Saudi Data Protection Law"
+          "label": "Data Privacy Compliance",
+          "desc": "International data protection standards"
         },
         {
           "icon": "💾",
@@ -375,7 +376,7 @@
       ]
     },
     "footer": {
-      "tagline": "The #1 Smart Legal Platform in Saudi Arabia",
+      "tagline": "The all-in-one Legal Operating System for firms worldwide",
       "platform": "Platform",
       "company": "Company",
       "support": "Support",
