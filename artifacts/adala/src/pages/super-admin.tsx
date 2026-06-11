@@ -396,19 +396,29 @@ function UsersTab({ qc, toast }: any) {
 ═══════════════════════════════════════════════════ */
 /* ── Plan Feature Flags catalogue ── */
 const PLAN_FEATURE_FLAGS = [
-  { key: "ai",              label: "الذكاء الاصطناعي",         icon: "🤖", desc: "تحليل قانوني وتوليد وثائق" },
-  { key: "clientPortal",    label: "بوابة العملاء",             icon: "👥", desc: "منصة متابعة مخصصة للعملاء" },
-  { key: "officePage",      label: "الصفحة الخارجية",          icon: "🌐", desc: "صفحة تعريفية عامة للمكتب" },
-  { key: "legalStore",      label: "متجر الخدمات",             icon: "🛒", desc: "بيع الخدمات والاستشارات أونلاين" },
-  { key: "apiAccess",       label: "API Access",                icon: "⚡", desc: "ربط التطبيقات والأنظمة الخارجية" },
+  /* ── Core ── */
+  { key: "website",         label: "الموقع الإلكتروني",        icon: "🌐", desc: "صفحة تعريفية عامة للمكتب" },
+  { key: "serviceStore",    label: "متجر الخدمات",             icon: "🛒", desc: "بيع الخدمات والاستشارات أونلاين" },
+  { key: "payments",        label: "الدفع الإلكتروني",         icon: "💳", desc: "استقبال المدفوعات من العملاء" },
+  { key: "booking",         label: "الحجوزات",                  icon: "📆", desc: "نظام حجز المواعيد الاستشارية" },
+  { key: "calendar",        label: "التقويم القانوني",         icon: "📅", desc: "جدولة المواعيد والجلسات" },
+  /* ── Marketing ── */
+  { key: "blog",            label: "المدونة القانونية",         icon: "📝", desc: "نشر مقالات ومحتوى قانوني" },
   { key: "seo",             label: "تحسين SEO",                 icon: "🔍", desc: "تحسين الظهور في محركات البحث" },
+  { key: "customDomain",    label: "دومين خاص",                icon: "🔗", desc: "نطاق إنترنت مخصص للمكتب" },
+  /* ── Intelligence ── */
+  { key: "ai",              label: "الذكاء الاصطناعي",         icon: "🤖", desc: "تحليل قانوني وتوليد وثائق" },
+  { key: "ocr",             label: "OCR المستندات",             icon: "📄", desc: "استخراج نصوص من المستندات الممسوحة" },
+  { key: "assistant",       label: "المساعد الإداري",          icon: "🧠", desc: "مساعد ذكي للمهام الإدارية اليومية" },
+  /* ── Portal ── */
+  { key: "clientPortal",    label: "بوابة العملاء",             icon: "👥", desc: "منصة متابعة مخصصة للعملاء" },
+  { key: "advancedReports", label: "تقارير متقدمة",            icon: "📊", desc: "تحليلات وتقارير تفصيلية" },
+  /* ── Enterprise ── */
+  { key: "api",             label: "API Access",                icon: "⚡", desc: "ربط التطبيقات والأنظمة الخارجية" },
   { key: "whatsapp",        label: "واتساب أعمال",             icon: "💬", desc: "تواصل تلقائي عبر واتساب" },
   { key: "branches",        label: "فروع متعددة",              icon: "🏢", desc: "إدارة عدة فروع للمكتب" },
   { key: "workflow",        label: "Workflow آلي",              icon: "⚙️", desc: "مسارات عمل تلقائية متقدمة" },
   { key: "sla",             label: "SLA مميّز",                 icon: "🛡️", desc: "ضمان مستوى خدمة مميّز" },
-  { key: "customDomain",    label: "دومين خاص",                icon: "🔗", desc: "نطاق إنترنت مخصص للمكتب" },
-  { key: "advancedReports", label: "تقارير متقدمة",            icon: "📊", desc: "تحليلات وتقارير تفصيلية" },
-  { key: "calendar",        label: "التقويم القانوني",         icon: "📅", desc: "جدولة المواعيد والجلسات" },
   { key: "whiteLabel",      label: "White Label",               icon: "🏷️", desc: "إزالة علامة عدالة AI من الواجهة" },
 ];
 const PLAN_COLORS = ["#6B7280","#C9A84C","#3B82F6","#8B5CF6","#EF4444","#10B981","#F59E0B","#EC4899"];
