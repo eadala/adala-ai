@@ -16,6 +16,16 @@ import { Button } from "@/components/ui/button";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
+/** Escape user-controlled strings before injecting into HTML to prevent XSS */
+function escHtml(s: unknown): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
 const COLORS = ["#C9A84C", "#6366F1", "#10B981", "#3B82F6", "#EC4899", "#F59E0B", "#8B5CF6", "#06B6D4"];
 
 type Period = "30d" | "3m" | "6m" | "1y";
@@ -185,14 +195,14 @@ tr:nth-child(even) td{background:#fafafa}
   </div>
   <table>
     <thead><tr><th>نوع القضية</th><th>العدد</th></tr></thead>
-    <tbody>${(cas.byType ?? []).map((r: any) => `<tr><td>${r.name}</td><td>${r.value}</td></tr>`).join("")}</tbody>
+    <tbody>${(cas.byType ?? []).map((r: any) => `<tr><td>${escHtml(r.name)}</td><td>${escHtml(r.value)}</td></tr>`).join("")}</tbody>
   </table>
 </div>
 <div class="section">
   <h2>👥 أبرز العملاء</h2>
   <table>
     <thead><tr><th>اسم العميل</th><th>عدد القضايا</th><th>الإيرادات (ر.س)</th></tr></thead>
-    <tbody>${(cl.topClients ?? []).map((r: any) => `<tr><td>${r.name}</td><td>${r.قضايا}</td><td>${r.إيرادات.toLocaleString()}</td></tr>`).join("")}</tbody>
+    <tbody>${(cl.topClients ?? []).map((r: any) => `<tr><td>${escHtml(r.name)}</td><td>${escHtml(r.قضايا)}</td><td>${escHtml((r.إيرادات ?? 0).toLocaleString())}</td></tr>`).join("")}</tbody>
   </table>
 </div>
 <div class="footer">عدالة AI · تقرير مُولَّد تلقائياً · ${new Date().toLocaleString("ar-SA")}</div>

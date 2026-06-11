@@ -299,8 +299,8 @@ router.get("/email-notifications/settings", async (req, res) => {
     
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const row = await sqlOne2(sql`SELECT * FROM notification_settings WHERE user_id = ${userId}`);
-    res.json(row ?? { enabled: false });
+    const row = await sqlOne2(sql`SELECT id, user_id, email_enabled, smtp_host, smtp_port, smtp_user, smtp_from, notify_new_case, notify_invoice_due, notify_reminder, notify_team_activity, updated_at FROM notification_settings WHERE user_id = ${userId}`);
+    res.json(row ?? { enabled: false }); // smtp_pass intentionally excluded
   } catch (e: any) { res.json({ enabled: false }); }
 });
 
