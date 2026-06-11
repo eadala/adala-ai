@@ -14,7 +14,6 @@ const NAV_GROUPS = [
     items: [
       { href: "/dashboard", label: "الرئيسية", icon: LayoutDashboard },
       { href: "/messages", label: "مراسلات", icon: MessageCircle },
-      { href: "/letters", label: "نماذج الخطابات", icon: Mail },
       { href: "/cases", label: "القضايا", icon: Scale },
       { href: "/contracts", label: "العقود", icon: FileText },
       { href: "/clients", label: "العملاء (CRM)", icon: UserCircle },
@@ -22,6 +21,7 @@ const NAV_GROUPS = [
       { href: "/calendar", label: "التقويم والمواعيد", icon: CalendarDays },
       { href: "/client-portal", label: "بوابة العملاء", icon: Globe },
       { href: "/documents", label: "المستندات", icon: BookOpen },
+      { href: "/letters", label: "نماذج الخطابات", icon: Mail },
     ],
   },
   {
