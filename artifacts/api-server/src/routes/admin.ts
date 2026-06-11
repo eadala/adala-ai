@@ -552,4 +552,83 @@ router.put("/admin/website", adminOnly, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+/* ══════════════════════════════════════════════════════
+   PLATFORM SAAS BILLING OVERVIEW
+══════════════════════════════════════════════════════ */
+router.get("/admin/billing/overview", adminOnly, async (_req, res) => {
+  try {
+    const stats = await db.execute(sql`
+      SELECT
+        COUNT(*)::int                                           AS total_invoices,
+        COUNT(*) FILTER (WHERE status = 'paid')::int           AS paid_count,
+        COUNT(*) FILTER (WHERE status = 'unpaid')::int         AS unpaid_count,
+        COUNT(*) FILTER (WHERE status = 'overdue')::int        AS overdue_count,
+        COALESCE(SUM(amount) FILTER (WHERE status='paid'),0)   AS total_revenue,
+        COALESCE(SUM(amount) FILTER (WHERE status='unpaid'),0) AS pending_revenue,
+        COALESCE(SUM(amount) FILTER (WHERE status='overdue'),0) AS overdue_revenue
+      FROM platform_billing_invoices
+    `);
+
+    const byPlan = await db.execute(sql`
+      SELECT plan_id, plan_name,
+             COUNT(*)::int                                      AS invoice_count,
+             COALESCE(SUM(amount) FILTER (WHERE status='paid'),0) AS revenue,
+             COUNT(*) FILTER (WHERE status='paid')::int        AS paid_count,
+             COUNT(*) FILTER (WHERE status='unpaid')::int      AS unpaid_count
+      FROM platform_billing_invoices
+      GROUP BY plan_id, plan_name
+      ORDER BY revenue DESC
+    `);
+
+    const monthly = await db.execute(sql`
+      SELECT TO_CHAR(issue_date,'YYYY-MM') AS month,
+             COALESCE(SUM(amount) FILTER (WHERE status='paid'),0) AS revenue,
+             COUNT(*)::int AS invoices
+      FROM platform_billing_invoices
+      WHERE issue_date >= NOW() - INTERVAL '6 months'
+      GROUP BY TO_CHAR(issue_date,'YYYY-MM')
+      ORDER BY month ASC
+    `);
+
+    const recent = await db.execute(sql`
+      SELECT id, plan_id, plan_name, amount, currency, status, issue_date, due_date, paid_at
+      FROM platform_billing_invoices
+      ORDER BY created_at DESC
+      LIMIT 15
+    `);
+
+    const statsRow = ((stats as any)?.rows ?? [])[0] ?? {};
+    res.json({
+      total_invoices:  parseInt(statsRow.total_invoices  ?? 0),
+      paid_count:      parseInt(statsRow.paid_count      ?? 0),
+      unpaid_count:    parseInt(statsRow.unpaid_count    ?? 0),
+      overdue_count:   parseInt(statsRow.overdue_count   ?? 0),
+      total_revenue:   parseFloat(statsRow.total_revenue   ?? 0),
+      pending_revenue: parseFloat(statsRow.pending_revenue ?? 0),
+      overdue_revenue: parseFloat(statsRow.overdue_revenue ?? 0),
+      by_plan: (byPlan  as any)?.rows ?? [],
+      monthly: (monthly as any)?.rows ?? [],
+      recent:  (recent  as any)?.rows ?? [],
+    });
+  } catch (e: any) {
+    console.error("[admin/billing/overview]", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ── تسديد فاتورة من لوحة الإدارة ──────────────────── */
+router.post("/admin/billing/pay/:id", adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.execute(sql`
+      UPDATE platform_billing_invoices
+      SET status = 'paid', paid_at = NOW()
+      WHERE id = ${id}
+    `);
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
