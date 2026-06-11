@@ -1,7 +1,62 @@
 import { Router } from "express";
 import { db, casesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace/api-zod";
+
+const STATUS_LABELS: Record<string, string> = {
+  open: "مفتوحة",
+  in_progress: "قيد التنفيذ",
+  closed: "مغلقة",
+};
+
+async function notifyWhatsAppCaseStatus(updatedCase: any) {
+  try {
+    const settingsRows = await db.execute(sql`
+      SELECT * FROM whatsapp_settings WHERE office_id = 'default' LIMIT 1
+    `) as any;
+    const rows = Array.isArray(settingsRows) ? settingsRows : (settingsRows?.rows ?? []);
+    const settings = rows[0];
+    if (!settings?.enabled) return;
+
+    const clientRows = await db.execute(sql`
+      SELECT phone FROM clients WHERE full_name = ${updatedCase.clientName} LIMIT 1
+    `) as any;
+    const cRows = Array.isArray(clientRows) ? clientRows : (clientRows?.rows ?? []);
+    const phone = cRows[0]?.phone;
+    if (!phone) return;
+
+    const statusLabel = STATUS_LABELS[updatedCase.status] ?? updatedCase.status;
+    const message = `السلام عليكم،\nتم تحديث حالة قضيتكم "${updatedCase.title}" إلى: ${statusLabel}.\nشكراً لثقتكم.`;
+
+    let sent = false;
+    let errorMsg = "";
+    try {
+      if (settings.provider === "twilio" && settings.account_sid && settings.auth_token && settings.from_number) {
+        const encoded = Buffer.from(`${settings.account_sid}:${settings.auth_token}`).toString("base64");
+        const body = new URLSearchParams({ From: `whatsapp:${settings.from_number}`, To: `whatsapp:${phone}`, Body: message });
+        const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${settings.account_sid}/Messages.json`, {
+          method: "POST", headers: { Authorization: `Basic ${encoded}`, "Content-Type": "application/x-www-form-urlencoded" },
+          body: body.toString(),
+        });
+        sent = r.ok;
+        if (!r.ok) errorMsg = await r.text();
+      } else if (settings.provider === "meta" && settings.meta_token && settings.meta_phone_id) {
+        const r = await fetch(`https://graph.facebook.com/v18.0/${settings.meta_phone_id}/messages`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${settings.meta_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ messaging_product: "whatsapp", to: phone, type: "text", text: { body: message } }),
+        });
+        sent = r.ok;
+        if (!r.ok) errorMsg = await r.text();
+      }
+    } catch (e: any) { errorMsg = e.message; }
+
+    await db.execute(sql`
+      INSERT INTO whatsapp_logs (office_id, to_number, message, template, status, error)
+      VALUES ('default', ${phone}, ${message}, 'case_update', ${sent ? "sent" : "failed"}, ${errorMsg || null})
+    `);
+  } catch { }
+}
 
 const router = Router();
 
@@ -57,6 +112,7 @@ router.get("/cases/:id", async (req, res) => {
 router.patch("/cases/:id", async (req, res) => {
   try {
     const body = UpdateCaseBody.parse(req.body);
+    const [before] = await db.select().from(casesTable).where(eq(casesTable.id, req.params.id));
     const [updated] = await db.update(casesTable).set({
       ...(body.title !== undefined && { title: body.title }),
       ...(body.description !== undefined && { description: body.description }),
@@ -67,6 +123,11 @@ router.patch("/cases/:id", async (req, res) => {
       updatedAt: new Date(),
     }).where(eq(casesTable.id, req.params.id)).returning();
     if (!updated) return res.status(404).json({ error: "Not found" });
+
+    if (body.status && before && before.status !== body.status) {
+      notifyWhatsAppCaseStatus(updated).catch(() => {});
+    }
+
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt?.toISOString() ?? null });
   } catch (e: any) {
     res.status(400).json({ error: e.message });

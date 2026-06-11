@@ -8,11 +8,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   ArrowRight, FileText, MessageSquare, Bot, User, Clock, Scale,
   Receipt, Handshake, CalendarDays, Sparkles, AlertTriangle,
   ChevronLeft, TrendingUp, Upload, Plus, ExternalLink, Loader2,
-  Shield, Lightbulb, Swords, BookOpen
+  Shield, Lightbulb, Swords, BookOpen, Send
 } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -85,6 +88,9 @@ export default function CaseDetail({ id }: { id: string }) {
   const [autoBriefLoading, setAutoBriefLoading] = useState(false);
   const [autoBriefLoaded, setAutoBriefLoaded] = useState(false);
   const [activeStatus, setActiveStatus] = useState("");
+  const [waDialogOpen, setWaDialogOpen] = useState(false);
+  const [waPhone, setWaPhone] = useState("");
+  const [waSending, setWaSending] = useState(false);
   const updateCase = useUpdateCase();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -154,6 +160,30 @@ export default function CaseDetail({ id }: { id: string }) {
     );
   };
 
+  const handleSendWhatsApp = async () => {
+    if (!waPhone.trim()) return;
+    setWaSending(true);
+    const message = `السلام عليكم،\nبخصوص قضيتكم "${caseData.title}" — حالتها الحالية: ${STATUS_MAP[caseData.status]?.label ?? caseData.status}.\nللاستفسار يرجى التواصل مع مكتبنا.`;
+    try {
+      const r = await fetch(`${BASE}/api/whatsapp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: waPhone, message, template: "case_update" }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast({ title: "تم الإرسال عبر واتساب ✅" });
+        setWaDialogOpen(false);
+        setWaPhone("");
+      } else {
+        toast({ title: "فشل الإرسال", description: d.error || "تحقق من إعدادات واتساب", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "خطأ في الاتصال", variant: "destructive" });
+    }
+    setWaSending(false);
+  };
+
   const handleAiAnalysis = async (type: string) => {
     setAiLoading(true);
     setAiResult(null);
@@ -208,6 +238,9 @@ export default function CaseDetail({ id }: { id: string }) {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          <Button size="sm" variant="outline" onClick={() => setWaDialogOpen(true)} className="h-8 text-xs gap-1 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10">
+            <MessageSquare className="h-3.5 w-3.5" />واتساب
+          </Button>
           <Select value={activeStatus} onValueChange={setActiveStatus}>
             <SelectTrigger className="w-36 h-8 text-xs">
               <SelectValue placeholder="تغيير الحالة" />
@@ -224,6 +257,34 @@ export default function CaseDetail({ id }: { id: string }) {
           </Button>
         </div>
       </div>
+
+      {/* WhatsApp Dialog */}
+      <Dialog open={waDialogOpen} onOpenChange={setWaDialogOpen}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-400">
+              <MessageSquare className="h-4 w-4" />إرسال إشعار واتساب
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">أرسل إشعاراً للعميل بخصوص القضية: <span className="font-medium text-foreground">{caseData?.title}</span></p>
+            <div className="space-y-1.5">
+              <Label className="text-xs">رقم الهاتف (مع رمز الدولة)</Label>
+              <Input
+                dir="ltr"
+                placeholder="+966501234567"
+                value={waPhone}
+                onChange={e => setWaPhone(e.target.value)}
+                className="text-left"
+              />
+            </div>
+            <Button onClick={handleSendWhatsApp} disabled={waSending || !waPhone.trim()} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+              {waSending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Send className="h-4 w-4 ml-2" />}
+              إرسال
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── KPI Strip ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
