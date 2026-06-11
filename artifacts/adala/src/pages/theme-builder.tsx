@@ -483,9 +483,10 @@ export default function ThemeBuilderPage() {
       body: JSON.stringify({ tokens, name: themeName }),
     }).then(r => r.json()),
     onSuccess: () => {
-      toast.success("تم حفظ الثيم بنجاح ✨");
+      toast.success("تم حفظ الثيم وتطبيقه على التطبيق ✨");
       setDirty(false);
       qc.invalidateQueries({ queryKey: ["theme-builder-tokens"] });
+      qc.invalidateQueries({ queryKey: ["office-theme-tokens"] });
     },
     onError: () => toast.error("حدث خطأ أثناء الحفظ"),
   });
