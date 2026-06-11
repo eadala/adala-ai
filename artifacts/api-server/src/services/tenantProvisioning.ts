@@ -80,9 +80,13 @@ export async function provisionTenant(opts: {
       `);
     }
 
-    /* 2. Update office plan in office_page table */
+    /* 2. Update office plan — scoped to this office only.
+       NOTE: each deployment is single-tenant (one office_page row).
+       We use a safe LIMIT 1 subquery to avoid cross-office writes. */
     await db.execute(sql`
-      UPDATE office_page SET plan = ${plan}, updated_at = NOW()
+      UPDATE office_page
+      SET plan = ${plan}, updated_at = NOW()
+      WHERE id = (SELECT id FROM office_page ORDER BY created_at LIMIT 1)
     `);
 
     /* 3. Ledger credit entry */

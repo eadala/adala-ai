@@ -3,11 +3,15 @@
  * GET  /api/entitlements          — current office entitlements + usage
  * POST /api/entitlements/check    — check if within limit
  * POST /api/entitlements/increment — track usage
- * POST /api/entitlements/provision — manually provision (super admin)
+ * POST /api/entitlements/provision — manually provision (authenticated)
+ *
+ * Security: officeId is resolved server-side from Clerk auth, not from
+ * user-supplied headers, preventing cross-tenant data access.
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { provisionTenant, incrementUsage, checkEntitlement, PLAN_LIMITS } from "../services/tenantProvisioning";
 
 const router = Router();
@@ -19,10 +23,24 @@ async function rows(q: any): Promise<any[]> {
   } catch { return []; }
 }
 
+/**
+ * Resolve officeId from the authenticated user's Clerk session.
+ * Each deployment is single-tenant — we use "default" as the office ID.
+ * The userId check ensures only authenticated users can read/mutate.
+ */
+function resolveOfficeId(req: any): string | null {
+  const auth = getAuth(req);
+  if (!auth?.userId) return null;
+  // Single-tenant: one office per deployment
+  return "default";
+}
+
 /* GET /api/entitlements */
 router.get("/entitlements", async (req, res) => {
+  const officeId = resolveOfficeId(req);
+  if (!officeId) return res.status(401).json({ error: "غير مصرح" });
+
   try {
-    const officeId = (req.headers["x-office-id"] as string) ?? "default";
     const data = await rows(sql`
       SELECT key, plan, "limit", used, reset_at, updated_at
       FROM office_entitlements
@@ -47,26 +65,37 @@ router.get("/entitlements", async (req, res) => {
   }
 });
 
-/* POST /api/entitlements/check */
+/* POST /api/entitlements/check — server-side check only, no cross-tenant */
 router.post("/entitlements/check", async (req, res) => {
-  const { key, officeId = "default" } = req.body as { key: string; officeId?: string };
+  const officeId = resolveOfficeId(req);
+  if (!officeId) return res.status(401).json({ error: "غير مصرح" });
+
+  const { key } = req.body as { key: string };
   if (!key) return res.status(400).json({ error: "key مطلوب" });
+
   const allowed = await checkEntitlement(officeId, key);
   res.json({ allowed, key, officeId });
 });
 
 /* POST /api/entitlements/increment */
 router.post("/entitlements/increment", async (req, res) => {
-  const { key, officeId = "default", amount = 1 } = req.body as { key: string; officeId?: string; amount?: number };
+  const officeId = resolveOfficeId(req);
+  if (!officeId) return res.status(401).json({ error: "غير مصرح" });
+
+  const { key, amount = 1 } = req.body as { key: string; amount?: number };
   if (!key) return res.status(400).json({ error: "key مطلوب" });
+
   await incrementUsage(officeId, key, amount);
   res.json({ ok: true, key, amount });
 });
 
-/* POST /api/entitlements/provision — manual provisioning */
+/* POST /api/entitlements/provision — manual provisioning (authenticated) */
 router.post("/entitlements/provision", async (req, res) => {
+  const officeId = resolveOfficeId(req);
+  if (!officeId) return res.status(401).json({ error: "غير مصرح" });
+
   try {
-    const { officeId = "default", plan = "basic", email = "admin@office.com", amountPaid } = req.body;
+    const { plan = "basic", email = "admin@office.com", amountPaid } = req.body;
     const result = await provisionTenant({ officeId, plan, email, amountPaid });
     res.json(result);
   } catch (err: any) {

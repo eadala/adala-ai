@@ -13,22 +13,28 @@ export class WebhookHandlers {
       );
     }
 
-    /* ── Parse event first (before StripeSync) ── */
+    /* ── Parse event — ONLY accept verified Stripe signatures ── */
     let event: any;
-    try {
-      const sync = await getStripeSync();
-      // @ts-ignore — access internal stripe instance
-      const stripeRaw = (sync as any)._stripe ?? (sync as any).stripe;
-      if (stripeRaw && process.env.STRIPE_WEBHOOK_SECRET) {
-        event = stripeRaw.webhooks.constructEvent(
-          payload,
-          signature,
-          process.env.STRIPE_WEBHOOK_SECRET
-        );
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (webhookSecret) {
+      /* Production path: strict signature verification */
+      try {
+        const sync = await getStripeSync();
+        // @ts-ignore — access internal stripe instance
+        const stripeRaw = (sync as any)._stripe ?? (sync as any).stripe;
+        if (stripeRaw) {
+          event = stripeRaw.webhooks.constructEvent(payload, signature, webhookSecret);
+        }
+      } catch (err) {
+        console.error('[Webhook] Signature verification failed — rejecting event');
+        throw new Error('Webhook signature verification failed');
       }
-    } catch {
-      // If we can't verify, parse the JSON directly (dev mode without webhook secret)
-      try { event = JSON.parse(payload.toString()); } catch { /* ignore */ }
+    } else {
+      /* No webhook secret configured — skip custom provisioning entirely.
+         StripeSync will still run below, but we do NOT parse unsigned payloads
+         for privileged operations like tenant provisioning. */
+      console.warn('[Webhook] STRIPE_WEBHOOK_SECRET not set — skipping event-based provisioning');
     }
 
     /* ── Handle checkout.session.completed ──────── */
