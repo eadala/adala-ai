@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/adala-mobile/"
+title = "عدالة AI Mobile"
+version = "1.0.0"
+id = "artifacts/adala-mobile"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/adala-mobile/" ]
+localPort = 8082
+
+[services.development]
+run = "pnpm --filter @workspace/adala-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/adala-mobile", "run", "build" ]
+publicDir = "artifacts/adala-mobile/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "8082"
+BASE_PATH = "/adala-mobile/"
