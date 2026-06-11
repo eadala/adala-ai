@@ -17,9 +17,37 @@ const CASE_TYPE_CONTEXTS: Record<string, string> = {
   real_estate: "القضية عقارية (ملكية، إيجار، حدود). المرجع: نظام الأراضي ونظام الإيجار.",
 };
 
+async function callGemini(systemPrompt: string, messages: { role: string; content: string }[], maxTokens = 1024): Promise<string | null> {
+  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  if (!GEMINI_KEY) return null;
+  try {
+    const contents = messages.map(m => ({
+      role: m.role === "opponent" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents,
+          generationConfig: { maxOutputTokens: maxTokens },
+        }),
+      }
+    );
+    const d = await r.json() as any;
+    return d.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+  } catch { return null; }
+}
+
 async function callAI(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
+
+  const geminiText = await callGemini(systemPrompt, messages);
+  if (geminiText) return geminiText;
 
   if (ANTHROPIC_KEY) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -61,7 +89,6 @@ async function callAI(systemPrompt: string, messages: { role: string; content: s
 }
 
 function generateOpponentResponse(messages: { role: string; content: string }[]): string {
-  const lastMsg = messages[messages.length - 1]?.content?.toLowerCase() ?? "";
   const round = messages.filter(m => m.role === "opponent").length + 1;
 
   const openings = [
@@ -123,11 +150,26 @@ ${userMessages}
 
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
+  const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
   try {
     let raw = "";
 
-    if (ANTHROPIC_KEY) {
+    if (GEMINI_KEY) {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
+            generationConfig: { maxOutputTokens: 1024, responseMimeType: "application/json" },
+          }),
+        }
+      );
+      const d = await r.json() as any;
+      raw = d.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    } else if (ANTHROPIC_KEY) {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01" },

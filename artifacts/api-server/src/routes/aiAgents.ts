@@ -35,6 +35,32 @@ const AGENTS: Record<string, { name: string; systemPrompt: string; fallback: (in
   },
 };
 
+async function callGemini(systemPrompt: string, messages: { role: string; content: string }[], maxTokens = 1500): Promise<string | null> {
+  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  if (!GEMINI_KEY) return null;
+  try {
+    const history = messages.slice(0, -1).map(m => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+    const lastMsg = messages[messages.length - 1];
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [...history, { role: "user", parts: [{ text: lastMsg.content }] }],
+          generationConfig: { maxOutputTokens: maxTokens },
+        }),
+      }
+    );
+    const d = await r.json() as any;
+    return d.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+  } catch { return null; }
+}
+
 router.post("/ai-agents/run", async (req, res) => {
   const { agentType, input, history = [] } = req.body as { agentType: string; input: string; history: {role:string;content:string}[] };
 
@@ -47,6 +73,9 @@ router.post("/ai-agents/run", async (req, res) => {
   const messages = [...history, { role: "user", content: input }];
 
   try {
+    const geminiText = await callGemini(agent.systemPrompt, messages, 1500);
+    if (geminiText) return res.json({ response: geminiText, agent: agentType });
+
     if (ANTHROPIC_KEY) {
       const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",

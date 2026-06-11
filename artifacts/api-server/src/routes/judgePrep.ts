@@ -19,8 +19,30 @@ const JUDGE_STYLE_DESC: Record<string, string> = {
 };
 
 async function callAI(prompt: string): Promise<string> {
+  const GEMINI_KEY = process.env.GEMINI_API_KEY;
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
+
+  const systemInstruction = "أنت مساعد قانوني متخصص في القانون السعودي. تجيب دائماً بالعربية الفصحى. أجوبتك دقيقة واحترافية ومفيدة للمحامين. أجب بـ JSON فقط بدون أي نص إضافي.";
+
+  if (GEMINI_KEY) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `${systemInstruction}\n\n${prompt}` }] }],
+            generationConfig: { maxOutputTokens: 4096, responseMimeType: "application/json" },
+          }),
+        }
+      );
+      const data = await res.json() as any;
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+    } catch {}
+  }
 
   if (ANTHROPIC_KEY) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -33,7 +55,7 @@ async function callAI(prompt: string): Promise<string> {
       body: JSON.stringify({
         model: "claude-3-5-haiku-20241022",
         max_tokens: 4096,
-        system: "أنت مساعد قانوني متخصص في القانون السعودي. تجيب دائماً بالعربية الفصحى. أجوبتك دقيقة واحترافية ومفيدة للمحامين.",
+        system: systemInstruction,
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -49,7 +71,7 @@ async function callAI(prompt: string): Promise<string> {
         model: "gpt-4o-mini",
         max_tokens: 4096,
         messages: [
-          { role: "system", content: "أنت مساعد قانوني متخصص في القانون السعودي. تجيب دائماً بالعربية الفصحى." },
+          { role: "system", content: systemInstruction },
           { role: "user", content: prompt },
         ],
       }),

@@ -15,4 +15,5 @@
 - [Adala Studio](adala-studio.md) — 7 DB tables (studio_custom_tables/fields/forms/workflows/plugins/api_keys/ai_tasks); /api/studio/* routes; standalone /studio page (7 sections); Clerk import must be @clerk/react NOT @clerk/clerk-react
 - [Adala Storage Manager](adala-storage.md) — 3 DB tables (storage_files, office_storage_quota, storage_settings); routes appended to existing storage.ts (not a separate file); /storage-settings page with 4 tabs; Copy2 not valid in lucide-react, use Copy
 - [Adala Finance Center](adala-finance-center.md) — /finance dashboard + /collections page; finance-center.ts routes (/finance/dashboard, /finance/collections, /finance/collections/:id/payment, /finance/collections/:id/reminder); Button size="xs" NOT valid — use size="sm"; toast from @/hooks/use-toast (NOT @/components/ui/use-toast)
-- [Adala Mobile App](adala-mobile.md) — React+Vite PWA at /adala-mobile/; uses port 8082 (not 24009 scaffold default); port must be in .replit [[ports]] for workflow to start
+- [Adala Mobile App](adala-mobile.md) — React+Vite PWA at /adala-mobile/; WouterRouter base=BASE_URL required; pages: home/cases/clients/contracts/reminders + BottomNav + AppHeader
+- [Adala core features](adala-core-features.md) — onboarding/reminders/CSV-import/email-notifications all fully built; tasks page in HR section; Gemini AI as primary in 5 routes

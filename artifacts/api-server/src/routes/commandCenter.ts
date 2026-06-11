@@ -47,6 +47,26 @@ const COMMAND_CONFIGS: Record<CommandType, { label: string; systemPrompt: string
   },
 };
 
+async function callGemini(systemPrompt: string, input: string, maxTokens = 1500): Promise<string | null> {
+  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  if (!GEMINI_KEY) return null;
+  try {
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${systemPrompt}\n\n${input}` }] }],
+          generationConfig: { maxOutputTokens: maxTokens },
+        }),
+      }
+    );
+    const d = await r.json() as any;
+    return d.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+  } catch { return null; }
+}
+
 router.post("/command-center/execute", async (req, res) => {
   const { command, input } = req.body as { command: CommandType; input: string };
   const config = COMMAND_CONFIGS[command];
@@ -56,6 +76,9 @@ router.post("/command-center/execute", async (req, res) => {
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
   try {
+    const geminiText = await callGemini(config.systemPrompt, input, 1500);
+    if (geminiText) return res.json({ result: geminiText, command });
+
     if (ANTHROPIC_KEY) {
       const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
