@@ -92,8 +92,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "nav.groups.website",
     items: [
-      { href: "/office-management", labelKey: "nav.items.office_management", icon: Globe,       feature: "officePage" },
-      { href: "/marketplace",       labelKey: "nav.items.marketplace",       icon: ShoppingBag, feature: "legalStore" },
+      { href: "/office-management", labelKey: "nav.items.office_management", icon: Globe,       feature: "website" },
+      { href: "/marketplace",       labelKey: "nav.items.marketplace",       icon: ShoppingBag, feature: "serviceStore" },
     ],
   },
   {
