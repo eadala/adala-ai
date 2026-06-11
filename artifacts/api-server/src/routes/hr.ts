@@ -2,6 +2,13 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { employeesTable, attendanceTable, leavesTable, payrollTable, officeLocationTable, employeeWarningsTable, employeeInvestigationsTable } from "@workspace/db/schema";
 import { eq, desc, and } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
+
+function requireAuth(req: any, res: any): boolean {
+  const { userId } = getAuth(req);
+  if (!userId) { res.status(401).json({ error: "غير مصرح" }); return false; }
+  return true;
+}
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -23,20 +30,52 @@ router.get("/hr/employees", async (_req, res) => {
 });
 
 router.post("/hr/employees", async (req, res) => {
-  const [row] = await db.insert(employeesTable).values(req.body).returning();
-  res.json(row);
+  try {
+    if (!requireAuth(req, res)) return;
+    const { fullName, jobTitle, department, salary, phone, email,
+            nationalId, hireDate, status = "active", bankIban, bankName } = req.body;
+    if (!fullName) return res.status(400).json({ error: "اسم الموظف مطلوب" });
+    const [row] = await db.insert(employeesTable).values({
+      fullName, jobTitle: jobTitle ?? null, department: department ?? null,
+      salary: salary ?? "0", phone: phone ?? null, email: email ?? null,
+      nationalId: nationalId ?? null, hireDate: hireDate ?? null,
+      status, bankIban: bankIban ?? null, bankName: bankName ?? null,
+    }).returning();
+    res.json(row);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.patch("/hr/employees/:id", async (req, res) => {
-  const [row] = await db.update(employeesTable)
-    .set({ ...req.body, updatedAt: new Date() })
-    .where(eq(employeesTable.id, req.params.id)).returning();
-  res.json(row);
+  try {
+    if (!requireAuth(req, res)) return;
+    const { fullName, jobTitle, department, salary, phone, email,
+            nationalId, hireDate, status, bankIban, bankName } = req.body;
+    const [row] = await db.update(employeesTable)
+      .set({
+        ...(fullName   !== undefined && { fullName }),
+        ...(jobTitle   !== undefined && { jobTitle }),
+        ...(department !== undefined && { department }),
+        ...(salary     !== undefined && { salary: String(salary) }),
+        ...(phone      !== undefined && { phone }),
+        ...(email      !== undefined && { email }),
+        ...(nationalId !== undefined && { nationalId }),
+        ...(hireDate   !== undefined && { hireDate }),
+        ...(status     !== undefined && { status }),
+        ...(bankIban   !== undefined && { bankIban }),
+        ...(bankName   !== undefined && { bankName }),
+        updatedAt: new Date(),
+      })
+      .where(eq(employeesTable.id, req.params.id)).returning();
+    res.json(row);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.delete("/hr/employees/:id", async (req, res) => {
-  await db.delete(employeesTable).where(eq(employeesTable.id, req.params.id));
-  res.json({ success: true });
+  try {
+    if (!requireAuth(req, res)) return;
+    await db.delete(employeesTable).where(eq(employeesTable.id, req.params.id));
+    res.json({ success: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.get("/hr/employees/stats", async (_req, res) => {
@@ -141,11 +180,18 @@ router.post("/hr/office-location", async (req, res) => {
 });
 
 router.post("/hr/attendance", async (req, res) => {
-  const body = { ...req.body };
-  if (body.checkIn && typeof body.checkIn === "string") body.checkIn = new Date(body.checkIn);
-  if (body.checkOut && typeof body.checkOut === "string") body.checkOut = new Date(body.checkOut);
-  const [row] = await db.insert(attendanceTable).values(body).returning();
-  res.json(row);
+  try {
+    if (!requireAuth(req, res)) return;
+    const { employeeId, workDate, checkIn, checkOut, status, notes } = req.body;
+    if (!employeeId) return res.status(400).json({ error: "employeeId مطلوب" });
+    const [row] = await db.insert(attendanceTable).values({
+      employeeId, workDate: workDate ?? new Date().toISOString().split("T")[0],
+      checkIn:  checkIn  ? new Date(checkIn)  : new Date(),
+      checkOut: checkOut ? new Date(checkOut) : null,
+      status: status ?? "present", notes: notes ?? null,
+    }).returning();
+    res.json(row);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.get("/hr/attendance/stats", async (_req, res) => {
@@ -184,10 +230,17 @@ router.get("/hr/leaves", async (_req, res) => {
 });
 
 router.post("/hr/leaves", async (req, res) => {
-  const { startDate, endDate } = req.body;
-  const days = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1;
-  const [row] = await db.insert(leavesTable).values({ ...req.body, days }).returning();
-  res.json(row);
+  try {
+    if (!requireAuth(req, res)) return;
+    const { employeeId, type, startDate, endDate, reason } = req.body;
+    if (!employeeId || !startDate || !endDate) return res.status(400).json({ error: "employeeId وstartDate وendDate مطلوبة" });
+    const days = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1;
+    const [row] = await db.insert(leavesTable).values({
+      employeeId, type: type ?? "annual", startDate, endDate,
+      days, reason: reason ?? null, status: "pending",
+    }).returning();
+    res.json(row);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.patch("/hr/leaves/:id", async (req, res) => {
@@ -293,21 +346,38 @@ router.get("/hr/warnings", async (_req, res) => {
 });
 
 router.post("/hr/warnings", async (req, res) => {
-  const [row] = await db.insert(employeeWarningsTable).values(req.body).returning();
-  res.json(row);
+  try {
+    if (!requireAuth(req, res)) return;
+    const { employeeId, type, reason, description, issuedBy } = req.body;
+    if (!employeeId || !type || !reason) return res.status(400).json({ error: "employeeId وtype وreason مطلوبة" });
+    const [row] = await db.insert(employeeWarningsTable).values({
+      employeeId, type, reason, description: description ?? null,
+      issuedBy: issuedBy ?? null, status: "active",
+    }).returning();
+    res.json(row);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.patch("/hr/warnings/:id", async (req, res) => {
-  const updates: any = { ...req.body };
-  if (updates.status === "resolved" && !updates.resolvedAt) updates.resolvedAt = new Date();
-  const [row] = await db.update(employeeWarningsTable).set(updates)
-    .where(eq(employeeWarningsTable.id, req.params.id)).returning();
-  res.json(row);
+  try {
+    if (!requireAuth(req, res)) return;
+    const { status, appealNotes } = req.body;
+    const updates: any = {};
+    if (status      !== undefined) updates.status      = status;
+    if (appealNotes !== undefined) updates.appealNotes = appealNotes;
+    if (status === "resolved") updates.resolvedAt = new Date();
+    const [row] = await db.update(employeeWarningsTable).set(updates)
+      .where(eq(employeeWarningsTable.id, req.params.id)).returning();
+    res.json(row);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.delete("/hr/warnings/:id", async (req, res) => {
-  await db.delete(employeeWarningsTable).where(eq(employeeWarningsTable.id, req.params.id));
-  res.json({ success: true });
+  try {
+    if (!requireAuth(req, res)) return;
+    await db.delete(employeeWarningsTable).where(eq(employeeWarningsTable.id, req.params.id));
+    res.json({ success: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 /* ─── INVESTIGATIONS ─────────────────────────────────────── */
@@ -337,21 +407,43 @@ router.get("/hr/investigations", async (_req, res) => {
 });
 
 router.post("/hr/investigations", async (req, res) => {
-  const [row] = await db.insert(employeeInvestigationsTable).values(req.body).returning();
-  res.json(row);
+  try {
+    if (!requireAuth(req, res)) return;
+    const { employeeId, subject, description, openedBy, committee, sessionDate } = req.body;
+    if (!employeeId || !subject) return res.status(400).json({ error: "employeeId وsubject مطلوبان" });
+    const [row] = await db.insert(employeeInvestigationsTable).values({
+      employeeId, subject, description: description ?? null,
+      openedBy: openedBy ?? null, committee: committee ?? null,
+      sessionDate: sessionDate ?? null, status: "open",
+    }).returning();
+    res.json(row);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.patch("/hr/investigations/:id", async (req, res) => {
-  const updates: any = { ...req.body, updatedAt: new Date() };
-  if (updates.status === "closed" && !updates.closedAt) updates.closedAt = new Date();
-  const [row] = await db.update(employeeInvestigationsTable).set(updates)
-    .where(eq(employeeInvestigationsTable.id, req.params.id)).returning();
-  res.json(row);
+  try {
+    if (!requireAuth(req, res)) return;
+    const { status, outcome, notes, committee, sessionDate } = req.body;
+    const updates: any = { updatedAt: new Date() };
+    if (status      !== undefined) updates.status      = status;
+    if (outcome     !== undefined) updates.outcome     = outcome;
+    if (notes       !== undefined) updates.notes       = notes;
+    if (committee   !== undefined) updates.committee   = committee;
+    if (sessionDate !== undefined) updates.sessionDate = sessionDate;
+    if (status === "closed") updates.closedAt = new Date();
+    const [row] = await db.update(employeeInvestigationsTable).set(updates)
+      .where(eq(employeeInvestigationsTable.id, req.params.id)).returning();
+    res.json(row);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.delete("/hr/investigations/:id", async (req, res) => {
-  await db.delete(employeeInvestigationsTable).where(eq(employeeInvestigationsTable.id, req.params.id));
-  res.json({ success: true });
+  try {
+    if (!requireAuth(req, res)) return;
+    await db.delete(employeeInvestigationsTable)
+      .where(eq(employeeInvestigationsTable.id, req.params.id));
+    res.json({ success: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.get("/hr/payroll/stats", async (_req, res) => {
