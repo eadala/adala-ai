@@ -7,6 +7,7 @@ import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
+import { OfficeThemeProvider } from "@/components/office-theme-provider";
 import Dashboard from "@/pages/dashboard";
 import Cases from "@/pages/cases";
 import CaseDetail from "@/pages/case-detail";
@@ -206,6 +207,7 @@ function AppRoutes() {
     >
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
+        <OfficeThemeProvider />
         <TooltipProvider>
           <Switch>
             <Route path="/" component={HomeRedirect} />

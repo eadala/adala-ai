@@ -1,26 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-
-const BASE_URL = import.meta.env.BASE_URL ?? "/";
-
-type Branding = {
-  officeName?: string;
-  officeNameEn?: string;
-  tagline?: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  website?: string;
-  licenseNo?: string;
-  logoUrl?: string;
-  stampUrl?: string;
-  signatureUrl?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
-  showAdalalahLogo?: boolean;
-  showAdalalahFooter?: boolean;
-  subscriptionTier?: string;
-};
+import { useBranding } from "@/hooks/use-branding";
+import type { OfficeBranding as Branding } from "@/hooks/use-branding";
 
 type PrintTemplateProps = {
   title: string;
@@ -31,18 +11,6 @@ type PrintTemplateProps = {
   showStamp?: boolean;
   showSignature?: boolean;
 };
-
-export function useBranding() {
-  return useQuery<Branding | null>({
-    queryKey: ["branding"],
-    queryFn: async () => {
-      const r = await fetch(`${BASE_URL}api/branding`);
-      if (!r.ok) return null;
-      return r.json();
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-}
 
 export function DocumentPrintTemplate({
   title,
