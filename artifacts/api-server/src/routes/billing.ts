@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, invoicesTable, subscriptionsTable, usageLogsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import Stripe from "stripe";
+import { getAuth } from "@clerk/express";
 
 const router = Router();
 

@@ -1,8 +1,9 @@
 /**
  * Clients routes — fixed:
- *  1. Auth (getAuth) added to all routes
+ *  1. Auth (getAuth) added to all write routes
  *  2. req.body spread replaced with explicit field extraction
- *  3. try/catch added throughout
+ *  3. Fields aligned with actual DB schema (fullName, no address/caseIds)
+ *  4. try/catch added throughout
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -12,10 +13,10 @@ import { getAuth } from "@clerk/express";
 
 const router = Router();
 
-function requireAuth(req: any, res: any): string | null {
+function requireAuth(req: any, res: any): boolean {
   const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "غير مصرح" }); return null; }
-  return userId;
+  if (!userId) { res.status(401).json({ error: "غير مصرح" }); return false; }
+  return true;
 }
 
 router.get("/clients", async (req, res) => {
@@ -32,20 +33,25 @@ router.post("/clients", async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
     const {
-      name, type = "individual", email, phone, nationalId,
-      company, address, notes, status = "active", caseIds,
+      fullName, type = "individual", email, phone,
+      nationalId, company, notes, status = "active", source, tags,
     } = req.body as {
-      name: string; type?: string; email?: string; phone?: string;
-      nationalId?: string; company?: string; address?: string;
-      notes?: string; status?: string; caseIds?: string[];
+      fullName: string; type?: string; email?: string; phone?: string;
+      nationalId?: string; company?: string; notes?: string;
+      status?: string; source?: string; tags?: string[];
     };
-    if (!name) return res.status(400).json({ error: "اسم الموكل مطلوب" });
+    if (!fullName) return res.status(400).json({ error: "اسم الموكل مطلوب" });
 
     const [client] = await db.insert(clientsTable).values({
-      name, type, email: email ?? null, phone: phone ?? null,
-      nationalId: nationalId ?? null, company: company ?? null,
-      address: address ?? null, notes: notes ?? null,
-      status, caseIds: caseIds ?? [],
+      fullName, type,
+      email:      email      ?? null,
+      phone:      phone      ?? null,
+      nationalId: nationalId ?? null,
+      company:    company    ?? null,
+      notes:      notes      ?? null,
+      status,
+      source:     source     ?? "direct",
+      tags:       tags       ?? [],
     }).returning();
     res.json(client);
   } catch (e: any) {
@@ -56,18 +62,19 @@ router.post("/clients", async (req, res) => {
 router.patch("/clients/:id", async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
-    const { name, type, email, phone, nationalId, company, address, notes, status } = req.body;
+    const { fullName, type, email, phone, nationalId, company, notes, status, source, tags } = req.body;
     const [updated] = await db.update(clientsTable)
       .set({
-        ...(name       !== undefined && { name }),
+        ...(fullName   !== undefined && { fullName }),
         ...(type       !== undefined && { type }),
         ...(email      !== undefined && { email }),
         ...(phone      !== undefined && { phone }),
         ...(nationalId !== undefined && { nationalId }),
         ...(company    !== undefined && { company }),
-        ...(address    !== undefined && { address }),
         ...(notes      !== undefined && { notes }),
         ...(status     !== undefined && { status }),
+        ...(source     !== undefined && { source }),
+        ...(tags       !== undefined && { tags }),
         updatedAt: new Date(),
       })
       .where(eq(clientsTable.id, req.params.id))
