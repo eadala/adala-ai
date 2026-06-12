@@ -19,8 +19,9 @@ import {
   Search, Upload, File, FileText, Download, MoreVertical,
   Share2, Globe, Loader2, CheckCircle2, Link2, Sparkles,
   FileImage, Archive, Sheet, Trash2, RefreshCw,
-  Folder, FolderOpen, FolderPlus, ChevronLeft, ChevronRight,
-  Pencil, Home, FolderInput,
+  Folder, FolderOpen, FolderPlus, ChevronLeft,
+  Pencil, Home, FolderInput, ShieldCheck, LockKeyhole,
+  Users, Eye, EyeOff, Settings2, UserPlus, X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/hooks/use-lang";
@@ -199,6 +200,188 @@ function renderTreeForMove(nodes: any[], selected: string | null, setSelected: (
   ]);
 }
 
+/* ── Visibility helpers ──────────────────────────────────────────────────── */
+const VISIBILITY_OPTIONS = [
+  { value: "everyone",    label: "الكل",             desc: "جميع أعضاء المكتب",          icon: <Users className="h-4 w-4 text-green-400" /> },
+  { value: "admins_only", label: "المديرون فقط",      desc: "مالك المكتب والمديرون",        icon: <ShieldCheck className="h-4 w-4 text-blue-400" /> },
+  { value: "owner_only",  label: "أنا فقط",           desc: "منشئ المجلد والمديرون",        icon: <LockKeyhole className="h-4 w-4 text-amber-400" /> },
+  { value: "custom",      label: "مخصص",              desc: "أشخاص محددون بصلاحيات دقيقة", icon: <Settings2 className="h-4 w-4 text-purple-400" /> },
+];
+function VisibilityBadge({ v }: { v?: string }) {
+  if (!v || v === "everyone") return null;
+  const opt = VISIBILITY_OPTIONS.find(o => o.value === v);
+  if (!opt) return null;
+  return (
+    <span className="shrink-0 opacity-60" title={opt.label}>{opt.icon}</span>
+  );
+}
+
+/* ── Folder Permissions Dialog ───────────────────────────────────────────── */
+function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open: boolean; onClose: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [vis, setVis] = React.useState(folder?.visibility ?? "everyone");
+  const [savingVis, setSavingVis] = React.useState(false);
+  const [addUserId, setAddUserId] = React.useState("");
+  const [addCanWrite, setAddCanWrite] = React.useState(false);
+
+  const { data, isLoading, refetch } = useQuery<any>({
+    queryKey: ["folder-permissions", folder?.id],
+    queryFn: () => fetch(`${BASE}/api/storage/folders/${folder.id}/permissions`).then(r => r.json()),
+    enabled: open && !!folder?.id,
+    staleTime: 10_000,
+  });
+
+  // Sync vis when data loads
+  React.useEffect(() => { if (data?.folder?.visibility) setVis(data.folder.visibility); }, [data]);
+
+  const saveVis = async () => {
+    setSavingVis(true);
+    try {
+      const r = await fetch(`${BASE}/api/storage/folders/${folder.id}/permissions`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visibility: vis }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "خطأ");
+      toast({ title: "✅ تم حفظ إعدادات الرؤية" });
+      qc.invalidateQueries({ queryKey: ["storage-folders"] });
+      refetch();
+    } catch (e: any) {
+      toast({ title: `❌ ${e.message}`, variant: "destructive" });
+    } finally { setSavingVis(false); }
+  };
+
+  const grantMut = useMutation({
+    mutationFn: ({ userId, userName, canWrite }: { userId: string; userName: string; canWrite: boolean }) =>
+      fetch(`${BASE}/api/storage/folders/${folder.id}/permissions/users`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, userName, canRead: true, canWrite, canDelete: false }),
+      }).then(r => r.json()),
+    onSuccess: () => { toast({ title: "✅ تم منح الصلاحية" }); refetch(); setAddUserId(""); setAddCanWrite(false); },
+    onError: () => toast({ title: "❌ فشل منح الصلاحية", variant: "destructive" }),
+  });
+
+  const revokeMut = useMutation({
+    mutationFn: (userId: string) =>
+      fetch(`${BASE}/api/storage/folders/${folder.id}/permissions/users/${userId}`, { method: "DELETE" }).then(r => r.json()),
+    onSuccess: () => { toast({ title: "تم سحب الصلاحية" }); refetch(); },
+  });
+
+  const members: any[] = data?.members ?? [];
+  const grants: any[] = data?.grants ?? [];
+  const grantedIds = new Set(grants.map((g: any) => g.user_id));
+  const availableMembers = members.filter((m: any) => !grantedIds.has(m.user_id));
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="sm:max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-right">
+            <ShieldCheck className="h-5 w-5 text-[#C9A84C]" />
+            صلاحيات المجلد
+          </DialogTitle>
+          <DialogDescription className="text-right font-medium text-foreground/80">
+            📁 {folder?.name}
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="py-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+        ) : (
+          <div className="space-y-5">
+            {/* ── Visibility selector ── */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">مستوى الرؤية</p>
+              <div className="space-y-1.5">
+                {VISIBILITY_OPTIONS.map(opt => (
+                  <button key={opt.value}
+                    onClick={() => setVis(opt.value)}
+                    className={cn(
+                      "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-right transition-all",
+                      vis === opt.value
+                        ? "border-[#C9A84C]/50 bg-[#C9A84C]/8"
+                        : "border-border/40 hover:border-border hover:bg-muted/30"
+                    )}>
+                    {opt.icon}
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold">{opt.label}</p>
+                      <p className="text-[11px] text-muted-foreground">{opt.desc}</p>
+                    </div>
+                    {vis === opt.value && <CheckCircle2 className="h-4 w-4 text-[#C9A84C] shrink-0" />}
+                  </button>
+                ))}
+              </div>
+              <Button size="sm" className="w-full h-8 text-xs font-bold mt-1"
+                style={{ background:"linear-gradient(135deg,#C9A84C,#D4A843)", color:"#0D1626" }}
+                disabled={savingVis || vis === (data?.folder?.visibility ?? "everyone")}
+                onClick={saveVis}>
+                {savingVis ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "حفظ مستوى الرؤية"}
+              </Button>
+            </div>
+
+            {/* ── Custom user grants (only shown in custom mode) ── */}
+            {vis === "custom" && (
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">الأشخاص المصرح لهم</p>
+
+                {grants.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-3">لا يوجد أشخاص مضافون بعد</p>
+                )}
+
+                {grants.map((g: any) => (
+                  <div key={g.user_id} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 bg-muted/20">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{g.user_name ?? g.user_id}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {g.can_write ? "قراءة + كتابة" : "قراءة فقط"}
+                      </p>
+                    </div>
+                    <button onClick={() => revokeMut.mutate(g.user_id)}
+                      className="p-1 rounded hover:bg-red-500/15 text-red-400 transition-colors" title="سحب الصلاحية">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Add user */}
+                {availableMembers.length > 0 && (
+                  <div className="pt-1 space-y-2">
+                    <p className="text-[11px] text-muted-foreground">إضافة شخص:</p>
+                    <select value={addUserId} onChange={e => setAddUserId(e.target.value)}
+                      className="w-full h-8 rounded-lg border border-border/50 bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#C9A84C]/50">
+                      <option value="">— اختر عضوًا —</option>
+                      {availableMembers.map((m: any) => (
+                        <option key={m.user_id} value={m.user_id}>{m.name} ({m.role})</option>
+                      ))}
+                    </select>
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1.5 text-xs cursor-pointer flex-1">
+                        <Switch checked={addCanWrite} onCheckedChange={setAddCanWrite} />
+                        {addCanWrite ? "قراءة + كتابة" : "قراءة فقط"}
+                      </label>
+                      <Button size="sm" className="h-8 px-3 text-xs gap-1 font-bold"
+                        style={{ background:"linear-gradient(135deg,#C9A84C,#D4A843)", color:"#0D1626" }}
+                        disabled={!addUserId || grantMut.isPending}
+                        onClick={() => {
+                          const m = members.find((x:any) => x.user_id === addUserId);
+                          grantMut.mutate({ userId: addUserId, userName: m?.name ?? addUserId, canWrite: addCanWrite });
+                        }}>
+                        <UserPlus className="h-3 w-3" />
+                        إضافة
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ── Folder tree helpers ─────────────────────────────────────────────────── */
 function buildTree(folders: any[]): any[] {
   const map: Record<string, any> = {};
@@ -212,7 +395,7 @@ function buildTree(folders: any[]): any[] {
 }
 
 function FolderTree({
-  tree, currentId, onNavigate, onCreateSub, onRename, onDelete,
+  tree, currentId, onNavigate, onCreateSub, onRename, onDelete, onPermissions,
 }: {
   tree: any[];
   currentId: string | null;
@@ -220,6 +403,7 @@ function FolderTree({
   onCreateSub: (parentId: string | null) => void;
   onRename: (folder: any) => void;
   onDelete: (folder: any) => void;
+  onPermissions: (folder: any) => void;
 }) {
   return (
     <div className="space-y-0.5">
@@ -227,14 +411,14 @@ function FolderTree({
         <FolderNode
           key={n.id} node={n} currentId={currentId}
           onNavigate={onNavigate} onCreateSub={onCreateSub}
-          onRename={onRename} onDelete={onDelete} depth={0}
+          onRename={onRename} onDelete={onDelete} onPermissions={onPermissions} depth={0}
         />
       ))}
     </div>
   );
 }
 
-function FolderNode({ node, currentId, onNavigate, onCreateSub, onRename, onDelete, depth }: any) {
+function FolderNode({ node, currentId, onNavigate, onCreateSub, onRename, onDelete, onPermissions, depth }: any) {
   const isActive = currentId === node.id;
   return (
     <>
@@ -250,31 +434,39 @@ function FolderNode({ node, currentId, onNavigate, onCreateSub, onRename, onDele
           ? <FolderOpen className="h-4 w-4 shrink-0" />
           : <Folder className="h-4 w-4 shrink-0 opacity-70" />}
         <span className="flex-1 text-sm truncate font-medium">{node.name}</span>
+        {/* Visibility badge */}
+        <VisibilityBadge v={node.visibility} />
         {node.file_count > 0 && (
           <span className="text-[10px] text-muted-foreground tabular-nums">{node.file_count}</span>
         )}
-        {/* Actions — visible on hover */}
-        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
-          <button className="p-0.5 rounded hover:bg-muted" title="مجلد فرعي"
-            onClick={e => { e.stopPropagation(); onCreateSub(node.id); }}>
-            <FolderPlus className="h-3 w-3" />
-          </button>
-          <button className="p-0.5 rounded hover:bg-muted" title="إعادة تسمية"
-            onClick={e => { e.stopPropagation(); onRename(node); }}>
-            <Pencil className="h-3 w-3" />
-          </button>
-          <button className="p-0.5 rounded hover:bg-red-500/20 text-red-400" title="حذف"
-            onClick={e => { e.stopPropagation(); onDelete(node); }}>
-            <Trash2 className="h-3 w-3" />
-          </button>
-        </div>
+        {/* Actions — visible on hover, only if canManage */}
+        {node.canManage !== false && (
+          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
+            <button className="p-0.5 rounded hover:bg-muted" title="مجلد فرعي"
+              onClick={e => { e.stopPropagation(); onCreateSub(node.id); }}>
+              <FolderPlus className="h-3 w-3" />
+            </button>
+            <button className="p-0.5 rounded hover:bg-muted" title="إعادة تسمية"
+              onClick={e => { e.stopPropagation(); onRename(node); }}>
+              <Pencil className="h-3 w-3" />
+            </button>
+            <button className="p-0.5 rounded hover:bg-blue-500/15 text-blue-400" title="الصلاحيات"
+              onClick={e => { e.stopPropagation(); onPermissions(node); }}>
+              <ShieldCheck className="h-3 w-3" />
+            </button>
+            <button className="p-0.5 rounded hover:bg-red-500/20 text-red-400" title="حذف"
+              onClick={e => { e.stopPropagation(); onDelete(node); }}>
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        )}
       </div>
       {node.children?.length > 0 && (
         <div>
           {node.children.map((child: any) => (
             <FolderNode key={child.id} node={child} currentId={currentId}
               onNavigate={onNavigate} onCreateSub={onCreateSub}
-              onRename={onRename} onDelete={onDelete} depth={depth + 1} />
+              onRename={onRename} onDelete={onDelete} onPermissions={onPermissions} depth={depth + 1} />
           ))}
         </div>
       )}
@@ -391,6 +583,7 @@ export default function Documents() {
   const [uploadOpen, setUploadOpen]     = useState(false);
   const [newFolderParent, setNewFolderParent] = useState<string | null | "NONE">("NONE"); // "NONE"=hidden
   const [renameFolder, setRenameFolder] = useState<any>(null);
+  const [permFolder, setPermFolder]     = useState<any>(null);
   const qc = useQueryClient();
   const { tx, dateLocale, dir } = useLang();
 
@@ -417,8 +610,11 @@ export default function Documents() {
 
   const renameFolderMut = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) =>
-      fetch(`${BASE}/api/storage/folders/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["storage-folders"] }); setRenameFolder(null); },
+      fetch(`${BASE}/api/storage/folders/${id}/rename`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).then(r => r.json()),
+    onSuccess: (d) => {
+      if (d?.error) { toast({ title: `❌ ${d.error}`, variant: "destructive" }); return; }
+      qc.invalidateQueries({ queryKey: ["storage-folders"] }); setRenameFolder(null);
+    },
   });
 
   const deleteFolderMut = useMutation({
@@ -520,6 +716,7 @@ export default function Documents() {
                   onNavigate={navigate}
                   onCreateSub={parentId => setNewFolderParent(parentId)}
                   onRename={setRenameFolder}
+                  onPermissions={setPermFolder}
                   onDelete={f => {
                     if (confirm(`حذف المجلد "${f.name}"؟ سيتم نقل محتوياته للمجلد الأعلى.`))
                       deleteFolderMut.mutate(f.id);
@@ -745,6 +942,15 @@ export default function Documents() {
       {/* ── Move to Folder Dialog ── */}
       {moveFile && (
         <MoveDialog file={moveFile} folders={allFolders} open={!!moveFile} onClose={() => setMoveFile(null)} />
+      )}
+
+      {/* ── Folder Permissions Dialog ── */}
+      {permFolder && (
+        <FolderPermissionsDialog
+          folder={permFolder}
+          open={!!permFolder}
+          onClose={() => setPermFolder(null)}
+        />
       )}
     </div>
   );
