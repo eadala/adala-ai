@@ -14,6 +14,7 @@ import CaseDetail from "@/pages/case-detail";
 import Documents from "@/pages/documents";
 import AiTasks from "@/pages/ai-tasks";
 import Users from "@/pages/users";
+import OrgStructure from "@/pages/org-structure";
 import Messages from "@/pages/messages";
 import Billing from "@/pages/billing";
 import AiChat from "@/pages/ai-chat";
@@ -420,6 +421,9 @@ function AppRoutes() {
             </Route>
             <Route path="/users">
               <ProtectedRoute><Users /></ProtectedRoute>
+            </Route>
+            <Route path="/org-structure">
+              <ProtectedRoute><OrgStructure /></ProtectedRoute>
             </Route>
             <Route path="/messages">
               <ProtectedRoute><Messages /></ProtectedRoute>

@@ -59,6 +59,7 @@ import themeBuilderRouter from "./themeBuilder";
 import tasksRouter from "./tasks";
 import supportRouter from "./support";
 import mediatorsRouter from "./mediators";
+import orgStructureRouter from "./orgStructure";
 
 const router: IRouter = Router();
 
@@ -131,5 +132,6 @@ router.use(themeBuilderRouter);
 router.use(tasksRouter);
 router.use(supportRouter);
 router.use(mediatorsRouter);
+router.use(orgStructureRouter);
 
 export default router;
