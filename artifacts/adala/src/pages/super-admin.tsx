@@ -155,6 +155,7 @@ export default function SuperAdmin() {
         <TabsContent value="hosting"    className="mt-4"><HostingCenterTab toast={toast} /></TabsContent>
         <TabsContent value="saas-billing" className="mt-4"><PlatformBillingTab toast={toast} /></TabsContent>
         <TabsContent value="mobile-app"   className="mt-4"><MobileAppTab qc={qc} toast={toast} /></TabsContent>
+        <TabsContent value="global-control" className="mt-4"><GlobalControlTab toast={toast} /></TabsContent>
       </Tabs>
     </div>
   );
@@ -183,6 +184,7 @@ const TABS = [
   { id: "hosting",      label: "مركز الاستضافة",     icon: Globe },
   { id: "saas-billing", label: "فواتير المنصة",      icon: CreditCard },
   { id: "mobile-app",   label: "تطبيق الجوال",       icon: Smartphone },
+  { id: "global-control", label: "الإدارة العالمية",  icon: Globe2 },
 ];
 
 /* ═══════════════════════════════════════════════════
@@ -4119,6 +4121,501 @@ function AiCreditsTab({ qc, toast }: any) {
               className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold">
               {addOfficeMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               إضافة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   GLOBAL CONTROL CENTER TAB
+   لوحة الإدارة العالمية — Multi-Tenant Control Center
+═══════════════════════════════════════════════════════════════════ */
+
+const RISK_COLOR: Record<string, string> = {
+  HIGH:   "text-red-400 bg-red-400/10 border-red-400/20",
+  MEDIUM: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
+  LOW:    "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+};
+const RISK_LABEL: Record<string, string> = {
+  HIGH: "خطر مرتفع", MEDIUM: "خطر متوسط", LOW: "آمن",
+};
+const GOLD = "#C9A84C";
+const PLAN_COLORS_GC: Record<string, string> = {
+  free:"#64748B", basic:"#3B82F6", pro:"#C9A84C",
+  growth:"#8B5CF6", advanced:"#EC4899", enterprise:"#10B981", elite:"#F59E0B",
+};
+
+function fmtSAR(n: number) {
+  return n.toLocaleString("ar-SA", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " ر.س";
+}
+
+function GlobalControlTab({ toast }: { toast: any }) {
+  const [activeSection, setActiveSection] = useState<"overview"|"tenants"|"ai"|"risk"|"growth">("overview");
+  const [changingPlan, setChangingPlan] = useState<{ id: string; name: string } | null>(null);
+  const [newPlan, setNewPlan] = useState("pro");
+  const [planChanging, setPlanChanging] = useState(false);
+  const { getToken } = useAuth();
+
+  async function authFetch(path: string, opts?: RequestInit) {
+    const token = await getToken();
+    const BASE2 = (import.meta.env.BASE_URL ?? "").replace(/\/$/, "");
+    const r = await fetch(`${BASE2}/api/admin${path}`, {
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      ...opts,
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  const { data: rev,    isLoading: lRev  } = useQuery({ queryKey: ["gc","revenue"],      queryFn: () => authFetch("/tenants/revenue"), retry: false });
+  const { data: tenants,isLoading: lTen  } = useQuery({ queryKey: ["gc","tenants"],      queryFn: () => authFetch("/tenants"),         retry: false });
+  const { data: risk,   isLoading: lRisk } = useQuery({ queryKey: ["gc","risk"],         queryFn: () => authFetch("/risk"),            retry: false });
+  const { data: growth, isLoading: lGrow } = useQuery({ queryKey: ["gc","growth"],       queryFn: () => authFetch("/growth"),          retry: false });
+  const { data: ai,     isLoading: lAI   } = useQuery({ queryKey: ["gc","ai-analytics"], queryFn: () => authFetch("/ai-analytics"),    retry: false });
+  const qc = useQueryClient();
+
+  async function doChangePlan() {
+    if (!changingPlan) return;
+    setPlanChanging(true);
+    try {
+      await authFetch(`/tenants/${changingPlan.id}/plan`, {
+        method: "POST", body: JSON.stringify({ plan: newPlan }),
+      });
+      toast({ title: "تم تغيير الباقة", description: `${changingPlan.name} → ${newPlan}` });
+      qc.invalidateQueries({ queryKey: ["gc"] });
+      setChangingPlan(null);
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally { setPlanChanging(false); }
+  }
+
+  const PLAN_OPTIONS = ["free","basic","pro","growth","advanced","enterprise","elite"];
+  const SECTIONS = [
+    { id: "overview", label: "نظرة عامة",    icon: <BarChart3 className="h-3.5 w-3.5"/> },
+    { id: "tenants",  label: "المكاتب",       icon: <Building2 className="h-3.5 w-3.5"/> },
+    { id: "ai",       label: "AI Analytics", icon: <Zap className="h-3.5 w-3.5"/> },
+    { id: "risk",     label: "محرك المخاطر", icon: <ShieldAlert className="h-3.5 w-3.5"/> },
+    { id: "growth",   label: "النمو",         icon: <TrendingUp className="h-3.5 w-3.5"/> },
+  ] as const;
+
+  const isLoading = lRev || lTen || lRisk || lGrow || lAI;
+
+  return (
+    <div className="space-y-5" dir="rtl">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-black flex items-center gap-2">
+            <Globe2 className="h-5 w-5 text-[#C9A84C]" />
+            لوحة الإدارة العالمية
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">مركز التحكم الكامل بكل المكاتب والإيرادات والمخاطر</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => qc.invalidateQueries({ queryKey: ["gc"] })} className="gap-1.5 text-xs">
+          <RefreshCw className="h-3.5 w-3.5" /> تحديث
+        </Button>
+      </div>
+
+      {/* Section Pills */}
+      <div className="flex gap-2 flex-wrap">
+        {SECTIONS.map(s => (
+          <button key={s.id} onClick={() => setActiveSection(s.id as any)}
+            className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+              activeSection === s.id
+                ? "bg-[#C9A84C] text-black border-[#C9A84C]"
+                : "bg-muted/40 border-border/50 text-muted-foreground hover:text-foreground hover:border-border")}>
+            {s.icon}{s.label}
+          </button>
+        ))}
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> جاري تحميل البيانات...
+        </div>
+      )}
+
+      {/* ── OVERVIEW ── */}
+      {activeSection === "overview" && (
+        <div className="space-y-5">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard icon={<DollarSign className="h-4 w-4"/>} label="إجمالي الإيرادات" color="#C9A84C"
+              value={rev ? fmtSAR(rev.totals?.gross ?? 0) : "—"} sub="إجمالي كل المدفوعات" />
+            <StatCard icon={<TrendingUp className="h-4 w-4"/>} label="صافي المنصة" color="#10B981"
+              value={rev ? fmtSAR(rev.totals?.net ?? 0) : "—"} sub={`بعد رسوم Stripe وعمولة المنصة`} />
+            <StatCard icon={<Building2 className="h-4 w-4"/>} label="مكاتب مدفوعة" color="#8B5CF6"
+              value={growth ? growth.summary?.paidOffices ?? 0 : "—"} sub={`من ${growth?.summary?.totalOffices ?? "?"} مكتب إجمالاً`} />
+            <StatCard icon={<Activity className="h-4 w-4"/>} label="معدل التحويل" color="#3B82F6"
+              value={growth ? `${growth.summary?.conversionRate ?? 0}%` : "—"} sub="من مجاني إلى مدفوع" />
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard icon={<Zap className="h-4 w-4"/>} label="استدعاءات AI (30 يوم)" color="#F59E0B"
+              value={ai ? (ai.summary?.totalCalls ?? 0).toLocaleString() : "—"} sub="مجموع كل المكاتب" />
+            <StatCard icon={<ShieldAlert className="h-4 w-4"/>} label="مكاتب خطر مرتفع" color="#EF4444"
+              value={risk ? risk.summary?.high ?? 0 : "—"} sub="تحتاج مراجعة فورية" />
+            <StatCard icon={<Receipt className="h-4 w-4"/>} label="إجمالي المعاملات" color="#C9A84C"
+              value={rev ? rev.totals?.transactions ?? 0 : "—"} sub="دفعات ناجحة" />
+            <StatCard icon={<CreditCard className="h-4 w-4"/>} label="رسوم Stripe" color="#64748B"
+              value={rev ? fmtSAR(rev.totals?.stripeFee ?? 0) : "—"} sub="2.9% + 1 ر.س / معاملة" />
+          </div>
+
+          {/* Revenue Chart */}
+          {rev?.monthly?.length > 0 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-bold">الإيرادات الشهرية (12 شهراً)</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={rev.monthly}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                    <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={v => `${v}`} />
+                    <Tooltip formatter={(v: any, n: string) => [`${Number(v).toLocaleString()} ر.س`, n === "gross" ? "الإجمالي" : n === "net" ? "الصافي" : "رسوم Stripe"]}
+                      contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }} />
+                    <Area type="monotone" dataKey="gross"    stroke={GOLD}      fill={`${GOLD}20`}      strokeWidth={2} name="gross" />
+                    <Area type="monotone" dataKey="net"      stroke="#10B981"   fill="#10B98120"         strokeWidth={2} name="net" />
+                    <Area type="monotone" dataKey="stripeFee" stroke="#64748B"  fill="#64748B20"         strokeWidth={1} name="stripeFee" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Top Tenants + Plan Dist side by side */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Top Tenants */}
+            {rev?.topTenants?.length > 0 && (
+              <Card className="border-border/50">
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-bold">أعلى المكاتب إيراداً</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {rev.topTenants.slice(0,6).map((t: any, i: number) => (
+                    <div key={t.officeId} className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-4">{i+1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold truncate">{t.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{t.plan}</p>
+                      </div>
+                      <span className="text-xs font-bold" style={{ color: GOLD }}>{fmtSAR(t.gross)}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+            {/* Plan Distribution */}
+            {growth?.planDistribution?.length > 0 && (
+              <Card className="border-border/50">
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-bold">توزيع الباقات</CardTitle></CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <PieChart>
+                      <Pie data={growth.planDistribution} dataKey="count" nameKey="plan"
+                        cx="50%" cy="50%" outerRadius={60} label={({ plan, pct }) => `${plan} ${pct}%`} labelLine={false}
+                        fontSize={9}>
+                        {growth.planDistribution.map((p: any) => (
+                          <Cell key={p.plan} fill={PLAN_COLORS_GC[p.plan] ?? "#64748B"} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(v: any, n: string) => [v, n]} contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TENANTS ── */}
+      {activeSection === "tenants" && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-[#C9A84C]" />
+              جميع المكاتب ({tenants?.total ?? 0})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border/30 hover:bg-transparent">
+                  <TableHead className="text-xs">المكتب</TableHead>
+                  <TableHead className="text-xs">الباقة</TableHead>
+                  <TableHead className="text-xs">الإيرادات</TableHead>
+                  <TableHead className="text-xs">الصافي</TableHead>
+                  <TableHead className="text-xs">المعاملات</TableHead>
+                  <TableHead className="text-xs">المخاطرة</TableHead>
+                  <TableHead className="text-xs">تغيير الباقة</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(tenants?.tenants ?? []).map((t: any) => {
+                  const riskRow = (risk?.tenants ?? []).find((r: any) => r.officeId === t.id);
+                  return (
+                    <TableRow key={t.id} className="border-border/20 hover:bg-muted/20">
+                      <TableCell className="py-2">
+                        <div className="text-xs font-semibold truncate max-w-[140px]">{t.name ?? t.id}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">{t.email}</div>
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Badge className="text-[10px] px-1.5 py-0.5 border-0"
+                          style={{ background: `${PLAN_COLORS_GC[t.plan] ?? "#64748B"}20`, color: PLAN_COLORS_GC[t.plan] ?? "#64748B" }}>
+                          {t.plan}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-2 text-xs font-bold" style={{ color: GOLD }}>{fmtSAR(t.revenue?.gross ?? 0)}</TableCell>
+                      <TableCell className="py-2 text-xs text-emerald-400">{fmtSAR(t.revenue?.net ?? 0)}</TableCell>
+                      <TableCell className="py-2 text-xs text-muted-foreground">{t.revenue?.transactions ?? 0}</TableCell>
+                      <TableCell className="py-2">
+                        {riskRow && (
+                          <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded border", RISK_COLOR[riskRow.riskLevel])}>
+                            {RISK_LABEL[riskRow.riskLevel]} {riskRow.riskScore}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Button size="sm" variant="outline" className="h-6 text-[10px] px-2"
+                          onClick={() => { setChangingPlan({ id: t.id, name: t.name ?? t.id }); setNewPlan(t.plan ?? "pro"); }}>
+                          تغيير
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── AI ANALYTICS ── */}
+      {activeSection === "ai" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <StatCard icon={<Zap className="h-4 w-4"/>} label="إجمالي الاستدعاءات (30 يوم)" color="#F59E0B"
+              value={ai?.summary?.totalCalls?.toLocaleString() ?? "—"} />
+            <StatCard icon={<Database className="h-4 w-4"/>} label="إجمالي الوحدات" color="#8B5CF6"
+              value={ai?.summary?.totalUnits?.toLocaleString() ?? "—"} />
+            <StatCard icon={<DollarSign className="h-4 w-4"/>} label="التكلفة التقديرية" color="#EF4444"
+              value={ai?.summary?.totalCostUSD ? `$${ai.summary.totalCostUSD.toFixed(2)}` : "—"} />
+          </div>
+
+          {/* Daily Trend */}
+          {(ai?.dailyTrend?.length ?? 0) > 0 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-bold">الاستخدام اليومي (14 يوماً)</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={ai.dailyTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                    <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                    <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }} />
+                    <Bar dataKey="calls" fill={GOLD} radius={[3,3,0,0]} name="استدعاءات" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* By Feature */}
+            {(ai?.byFeature?.length ?? 0) > 0 && (
+              <Card className="border-border/50">
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-bold">الاستخدام حسب الميزة</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {ai.byFeature.map((f: any) => (
+                    <div key={f.feature} className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between text-xs mb-0.5">
+                          <span className="truncate font-medium">{f.feature}</span>
+                          <span className="text-muted-foreground shrink-0">{f.calls.toLocaleString()}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full" style={{ background: GOLD, width: `${Math.min((f.calls / (ai.byFeature[0]?.calls || 1)) * 100, 100)}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+            {/* Top AI Spenders */}
+            {(ai?.officeCredits?.length ?? 0) > 0 && (
+              <Card className="border-border/50">
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-bold">أعلى المكاتب استهلاكاً</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {ai.officeCredits.slice(0,8).map((o: any) => (
+                    <div key={o.officeId} className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between text-xs mb-0.5">
+                          <span className="truncate">{o.officeName}</span>
+                          <span className="text-[#C9A84C] font-bold shrink-0">{o.usagePct}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full transition-all"
+                            style={{ background: o.usagePct >= 90 ? "#EF4444" : o.usagePct >= 70 ? "#F59E0B" : "#10B981", width: `${Math.min(o.usagePct, 100)}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── RISK ENGINE ── */}
+      {activeSection === "risk" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <StatCard icon={<ShieldAlert className="h-4 w-4"/>} label="خطر مرتفع" color="#EF4444" value={risk?.summary?.high ?? 0} />
+            <StatCard icon={<AlertTriangle className="h-4 w-4"/>} label="خطر متوسط" color="#F59E0B" value={risk?.summary?.medium ?? 0} />
+            <StatCard icon={<CheckCircle className="h-4 w-4"/>} label="آمن" color="#10B981" value={risk?.summary?.low ?? 0} />
+          </div>
+
+          <Card className="border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-red-400" />
+                تقرير المخاطر لجميع المكاتب
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border/30 hover:bg-transparent">
+                    <TableHead className="text-xs">المكتب</TableHead>
+                    <TableHead className="text-xs">الباقة</TableHead>
+                    <TableHead className="text-xs">الإيرادات</TableHead>
+                    <TableHead className="text-xs">AI استخدام</TableHead>
+                    <TableHead className="text-xs">فشل الدفع</TableHead>
+                    <TableHead className="text-xs">درجة المخاطرة</TableHead>
+                    <TableHead className="text-xs">الأسباب</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(risk?.tenants ?? []).map((t: any) => (
+                    <TableRow key={t.officeId} className="border-border/20 hover:bg-muted/20">
+                      <TableCell className="py-2">
+                        <div className="text-xs font-semibold truncate max-w-[120px]">{t.name}</div>
+                        <div className="text-[10px] text-muted-foreground">{t.email}</div>
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Badge className="text-[10px] px-1 border-0" style={{ background: `${PLAN_COLORS_GC[t.plan]??"#64748B"}20`, color: PLAN_COLORS_GC[t.plan]??"#64748B" }}>
+                          {t.plan}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-2 text-xs">{fmtSAR(t.revenue)}</TableCell>
+                      <TableCell className="py-2 text-xs">{t.aiUsed}</TableCell>
+                      <TableCell className="py-2 text-xs text-center">
+                        {t.paymentFailures > 0 ? <span className="text-red-400 font-bold">{t.paymentFailures}</span> : <span className="text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full" style={{ background: t.riskLevel === "HIGH" ? "#EF4444" : t.riskLevel === "MEDIUM" ? "#F59E0B" : "#10B981", width: `${t.riskScore}%` }} />
+                          </div>
+                          <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border", RISK_COLOR[t.riskLevel])}>
+                            {t.riskScore}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <div className="flex flex-wrap gap-1">
+                          {t.reasons.map((r: string, i: number) => (
+                            <span key={i} className="text-[9px] bg-red-400/10 text-red-300 px-1.5 py-0.5 rounded">{r}</span>
+                          ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── GROWTH ── */}
+      {activeSection === "growth" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard icon={<Building2 className="h-4 w-4"/>} label="إجمالي المكاتب" color="#3B82F6"
+              value={growth?.summary?.totalOffices ?? "—"} />
+            <StatCard icon={<Crown className="h-4 w-4"/>} label="اشتراكات مدفوعة" color={GOLD}
+              value={growth?.summary?.paidOffices ?? "—"} />
+            <StatCard icon={<Users className="h-4 w-4"/>} label="مكاتب مجانية" color="#64748B"
+              value={growth?.summary?.freeOffices ?? "—"} />
+            <StatCard icon={<TrendingUp className="h-4 w-4"/>} label="معدل التحويل" color="#10B981"
+              value={growth?.summary?.conversionRatePct ?? "—"} />
+          </div>
+
+          {/* MRR Trend */}
+          {(growth?.mrrTrend?.length ?? 0) > 0 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-bold">نمو الإيرادات الشهرية (MRR)</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={growth.mrrTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                    <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                    <Tooltip formatter={(v: any) => [`${Number(v).toLocaleString()} ر.س`]}
+                      contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }} />
+                    <Line type="monotone" dataKey="mrr" stroke={GOLD}     strokeWidth={2} dot={{ r: 3, fill: GOLD }} name="الإجمالي" />
+                    <Line type="monotone" dataKey="net" stroke="#10B981" strokeWidth={2} dot={{ r: 3, fill: "#10B981" }} name="الصافي" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* New Offices monthly */}
+          {(growth?.monthlyNewOffices?.length ?? 0) > 0 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-bold">مكاتب جديدة شهرياً</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={growth.monthlyNewOffices}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                    <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} allowDecimals={false} />
+                    <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }} />
+                    <Bar dataKey="new_offices" fill="#8B5CF6" radius={[3,3,0,0]} name="مكاتب جديدة" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* ── Plan Change Dialog ── */}
+      <Dialog open={!!changingPlan} onOpenChange={o => !o && setChangingPlan(null)}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-sm">تغيير باقة: {changingPlan?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <Label className="text-xs mb-1 block">الباقة الجديدة</Label>
+            <Select value={newPlan} onValueChange={setNewPlan}>
+              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PLAN_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setChangingPlan(null)}>إلغاء</Button>
+            <Button size="sm" onClick={doChangePlan} disabled={planChanging}
+              className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold">
+              {planChanging && <Loader2 className="h-3.5 w-3.5 animate-spin ml-1" />}
+              تطبيق
             </Button>
           </DialogFooter>
         </DialogContent>
