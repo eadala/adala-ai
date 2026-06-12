@@ -93,8 +93,10 @@ function ruleBasedAnalysis(caseData: any, type: string): string {
   const events     = Number(caseData.eventsCount ?? 0);
   const contracts  = Number(caseData.contractsCount ?? 0);
 
-  const statusAr = { open: "مفتوحة", in_progress: "قيد التنفيذ", closed: "مغلقة" }[status] ?? status;
-  const typeAr   = { criminal: "جنائية", civil: "مدنية", commercial: "تجارية", labor: "عمالية", real_estate: "عقارية" }[caseType] ?? caseType;
+  const STATUS_MAP: Record<string,string> = { open: "مفتوحة", in_progress: "قيد التنفيذ", closed: "مغلقة" };
+  const TYPE_MAP: Record<string,string>   = { criminal: "جنائية", civil: "مدنية", commercial: "تجارية", labor: "عمالية", real_estate: "عقارية" };
+  const statusAr = STATUS_MAP[status] ?? status;
+  const typeAr   = TYPE_MAP[caseType] ?? caseType;
 
   switch (type) {
     case "summarize":

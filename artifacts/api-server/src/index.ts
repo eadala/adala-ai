@@ -22,7 +22,7 @@ async function initStripe() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) { logger.warn("DATABASE_URL missing — skipping Stripe init"); return; }
   try {
-    await runMigrations({ databaseUrl, schema: "stripe" });
+    await runMigrations({ databaseUrl, schema: "stripe" } as any);
     const stripeSync = await getStripeSync();
     const webhookBase = `https://${(process.env.REPLIT_DOMAINS ?? "").split(",")[0]}`;
     await stripeSync.findOrCreateManagedWebhook(`${webhookBase}/api/stripe/webhook`);

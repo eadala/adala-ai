@@ -24,7 +24,7 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
         messages: [{ role: "user", content: prompt }],
       }),
     });
-    const d = await r.json();
+    const d: any = await r.json();
     return d.content?.[0]?.text ?? "تعذّر توليد التحليل";
   }
 
@@ -38,7 +38,7 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
         generationConfig: { maxOutputTokens: 1024 },
       }),
     });
-    const d = await r.json();
+    const d: any = await r.json();
     return d.candidates?.[0]?.content?.parts?.[0]?.text ?? "تعذّر توليد التحليل";
   }
 

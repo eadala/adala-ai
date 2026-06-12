@@ -38,7 +38,7 @@ router.post("/hr/employees", async (req, res) => {
     const [row] = await db.insert(employeesTable).values({
       fullName, jobTitle: jobTitle ?? null, department: department ?? null,
       salary: salary ?? "0", phone: phone ?? null, email: email ?? null,
-      nationalId: nationalId ?? null, hireDate: hireDate ?? null,
+      nationalId: nationalId ?? null, hireDate: hireDate ? new Date(hireDate) : null,
       status, bankIban: bankIban ?? null, bankName: bankName ?? null,
     }).returning();
     res.json(row);

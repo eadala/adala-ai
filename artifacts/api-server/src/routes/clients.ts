@@ -136,10 +136,10 @@ router.get("/clients/:id/overview", async (req, res) => {
     /* Use `total` (stored in minor units as integer) matching DB schema */
     const paidTotal = invoices
       .filter((i: any) => i.status === "paid")
-      .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0);
+      .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0 as number);
     const outstandingTotal = invoices
       .filter((i: any) => i.status !== "paid" && i.status !== "cancelled")
-      .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0);
+      .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0 as number);
 
     /* Build lightweight activity log */
     const activities = [
@@ -229,12 +229,12 @@ router.get("/clients/:id/accounting", async (req, res) => {
     // Revenue = paid invoices (total stored in minor units ÷ 100)
     const revenue = invoices
       .filter((i: any) => i.status === "paid")
-      .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0);
+      .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0 as number);
 
     // Receivables = unpaid (sent / draft / overdue)
     const receivables = invoices
       .filter((i: any) => i.status !== "paid" && i.status !== "cancelled")
-      .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0);
+      .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0 as number);
 
     // Expenses
     const totalExpenses = expenses.reduce((s: number, e: any) => s + (parseFloat(String(e.amount ?? 0))), 0);

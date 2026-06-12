@@ -13,7 +13,7 @@ const router = Router();
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) return null;
-  return new Stripe(key, { apiVersion: "2025-04-30.basil" });
+  return new Stripe(key, { apiVersion: "2026-05-27.dahlia" as any });
 }
 
 /* ═══ PUBLIC ROUTES (no auth) ═══════════════════════════════ */

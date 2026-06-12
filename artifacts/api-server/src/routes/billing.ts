@@ -9,7 +9,7 @@ const router = Router();
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) return null;
-  return new Stripe(key, { apiVersion: "2025-04-30.basil" });
+  return new Stripe(key, { apiVersion: "2026-05-27.dahlia" as any });
 }
 
 /* ── 7 Subscription Plans (matches DB plans) ──────── */
@@ -119,8 +119,8 @@ router.get("/billing/overview", async (req, res) => {
           stripeSubscription = {
             id: s.id,
             status: s.status,
-            currentPeriodStart: s.current_period_start,
-            currentPeriodEnd: s.current_period_end,
+            currentPeriodStart: (s as any).current_period_start,
+            currentPeriodEnd: (s as any).current_period_end,
             cancelAtPeriodEnd: s.cancel_at_period_end,
             latestInvoiceStatus: (s.latest_invoice as any)?.status ?? null,
           };
@@ -221,7 +221,7 @@ router.post("/billing/checkout", async (req, res) => {
       metadata: { plan: planId, planName: plan.name },
       success_url: successUrl ?? `${req.headers.origin}/billing?success=1`,
       cancel_url:  cancelUrl  ?? `${req.headers.origin}/billing?canceled=1`,
-      locale: "ar",
+      locale: "ar" as any,
     });
     return res.json({ url: session.url, sessionId: session.id });
   } catch (err: any) {
@@ -266,8 +266,8 @@ router.get("/billing/stripe-subscription", async (req, res) => {
       configured: true,
       subscription: {
         id: s.id, status: s.status,
-        currentPeriodStart: s.current_period_start,
-        currentPeriodEnd: s.current_period_end,
+        currentPeriodStart: (s as any).current_period_start,
+        currentPeriodEnd: (s as any).current_period_end,
         cancelAtPeriodEnd: s.cancel_at_period_end,
         amount: (s.items.data[0]?.price?.unit_amount ?? 0) / 100,
         interval: s.items.data[0]?.price?.recurring?.interval ?? "month",
