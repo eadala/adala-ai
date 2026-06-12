@@ -368,6 +368,117 @@ router.post("/storage/analyze", async (req, res) => {
   }
 });
 
+/* ══════════════════════════════════════════════════
+   POST /storage/import-url — استيراد ملف من رابط خارجي
+   يدعم: Google Drive, Dropbox, OneDrive, أي رابط مباشر
+   Body: { url, caseId?, clientId? }
+══════════════════════════════════════════════════ */
+
+/** تحويل روابط المشاركة إلى روابط تحميل مباشر */
+function resolveDirectUrl(raw: string): string {
+  // Google Drive: /file/d/{ID}/view  أو  /open?id={ID}
+  const gdFile = raw.match(/drive\.google\.com\/file\/d\/([^/?&#]+)/);
+  if (gdFile) return `https://drive.google.com/uc?export=download&id=${gdFile[1]}`;
+  const gdOpen = raw.match(/drive\.google\.com\/open\?id=([^&]+)/);
+  if (gdOpen) return `https://drive.google.com/uc?export=download&id=${gdOpen[1]}`;
+
+  // Dropbox: dl=0 → dl=1 + استخدام CDN مباشر
+  if (raw.includes("dropbox.com")) {
+    return raw
+      .replace("www.dropbox.com", "dl.dropboxusercontent.com")
+      .replace(/[?&]dl=0/, m => m.replace("dl=0", "dl=1"));
+  }
+
+  // OneDrive share links (best-effort)
+  if (raw.includes("1drv.ms") || raw.includes("onedrive.live.com")) {
+    const encoded = Buffer.from(raw).toString("base64")
+      .replace(/=/g, "").replace(/\//g, "_").replace(/\+/g, "-");
+    return `https://api.onedrive.com/v1.0/shares/u!${encoded}/root/content`;
+  }
+
+  return raw;
+}
+
+router.post("/storage/import-url", async (req, res) => {
+  const u = await getMgmtUser(req);
+  if (!u) return res.status(401).json({ error: "غير مصادق" });
+
+  const { url: rawUrl, caseId, clientId } = req.body;
+  if (!rawUrl || typeof rawUrl !== "string") return res.status(400).json({ error: "الرابط مطلوب" });
+
+  const url = resolveDirectUrl(rawUrl.trim());
+
+  try {
+    /* 1 ── جلب الملف */
+    const fetchRes = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; Adala/1.0)" },
+      redirect: "follow",
+    });
+    if (!fetchRes.ok) throw new Error(`فشل تحميل الملف — HTTP ${fetchRes.status}`);
+
+    const contentType = (fetchRes.headers.get("content-type") ?? "application/octet-stream").split(";")[0].trim();
+    const contentDisp = fetchRes.headers.get("content-disposition") ?? "";
+
+    /* استخراج اسم الملف */
+    let fileName = "مستند_مستورد";
+    const cdMatch = contentDisp.match(/filename\*?=(?:UTF-8''|"?)([^;"]+)/i);
+    if (cdMatch) {
+      fileName = decodeURIComponent(cdMatch[1].replace(/"/g, ""));
+    } else {
+      try { fileName = decodeURIComponent(new URL(url).pathname.split("/").pop() ?? "") || fileName; } catch {}
+    }
+
+    const buffer = Buffer.from(await fetchRes.arrayBuffer());
+    if (buffer.length === 0) throw new Error("الملف فارغ");
+    if (buffer.length > 10 * 1024 * 1024) throw new Error("الملف أكبر من 10 MB");
+
+    /* 2 ── رفع لمنظومة التخزين */
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+
+    const putRes = await fetch(uploadURL, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: buffer,
+    });
+    if (!putRes.ok) throw new Error("فشل حفظ الملف في التخزين");
+
+    /* 3 ── تسجيل في قاعدة البيانات */
+    const fileHash = crypto.createHash("sha256").update(objectPath).digest("hex");
+    const dup = await dbRows(sql`SELECT id, original_name FROM storage_files WHERE file_hash=${fileHash} AND office_id=${u.officeId} AND NOT is_deleted`);
+    if (dup.length > 0) return res.status(409).json({ duplicate: true, existing: dup[0], message: "هذا الملف موجود بالفعل" });
+
+    const category = contentType.startsWith("image/") ? "image"
+      : contentType === "application/pdf" ? "pdf"
+      : contentType.includes("word") ? "word"
+      : contentType.includes("sheet") || contentType.includes("excel") ? "excel"
+      : "document";
+
+    const rows = await dbRows(sql`
+      INSERT INTO storage_files
+        (office_id, case_id, client_id, uploaded_by, original_name, file_name, mime_type,
+         file_size, file_hash, file_url, storage_key, category)
+      VALUES
+        (${u.officeId}, ${caseId ?? null}, ${clientId ?? null}, ${u.userId},
+         ${fileName}, ${objectPath}, ${contentType}, ${buffer.length}, ${fileHash},
+         ${`/api/storage/objects${objectPath}`}, ${objectPath}, ${category})
+      RETURNING *`);
+
+    await db.execute(sql`
+      INSERT INTO office_storage_quota (office_id, used_bytes, files_count)
+      VALUES (${u.officeId}, ${buffer.length}, 1)
+      ON CONFLICT (office_id) DO UPDATE
+        SET used_bytes = office_storage_quota.used_bytes + ${buffer.length},
+            files_count = office_storage_quota.files_count + 1,
+            updated_at = NOW()`);
+
+    res.json({ ok: true, record: rows[0] });
+  } catch (e: any) {
+    console.error("[storage/import-url]", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /* AI ANALYSIS */
 router.get("/storage/ai-analysis", async (req, res) => {
   const u = await getMgmtUser(req);
