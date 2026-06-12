@@ -1,15 +1,32 @@
 ---
-name: Adala AI integration approach
-description: AI integration strategy for عدالة AI — Replit AI unavailable, using direct API calls
+name: Adala AI integration
+description: How AI model calls work in عدالة AI — callAI() architecture, model selection, and env key fallback
 ---
 
-Replit AI integrations (OpenAI, Anthropic) require phone number verification and cannot be used on this account.
+## Architecture
+`artifacts/api-server/src/routes/aiChat.ts` exports:
+- `callGeminiAI()`, `callClaudeAI()`, `callOpenAI()` — individual model callers
+- `callAI(systemPrompt, userMessage, history?, preferredModel?)` → `{reply, modelUsed}`
+  - preferredModel: "auto" | "gemini" | "claude" | "openai"
+  - auto falls through: Gemini → Claude → OpenAI → template fallback
+- `getAvailableModels()` → `{gemini: bool, claude: bool, openai: bool}`
+- `GET /api/ai-models/available` — frontend uses this to show/lock model options
 
-**Solution:** Direct HTTP fetch to Anthropic/OpenAI APIs using env vars:
-- `ANTHROPIC_API_KEY` → Claude 3.5 Haiku
-- `OPENAI_API_KEY` → GPT-4o-mini (fallback)
-- Neither set → Smart Arabic legal template responses (keyword matching)
+## Models
+- gemini-2.5-flash (GEMINI_API_KEY) — free, default
+- claude-3-5-haiku-20241022 (ANTHROPIC_API_KEY) — paid
+- gpt-4o-mini (OPENAI_API_KEY) — paid
+- template fallback — no API key needed
 
-**Why:** Provides real AI when user adds their own API key, gracefully degrades to template-based Arabic legal responses otherwise. Templates cover major legal topics: تقادم, عقود, أسرة, جرائم, تجارة.
+## Frontend (ai-hub.tsx)
+- ModelKey type + MODEL_OPTIONS array + MODEL_USED_LABELS map defined at top
+- selectedModel state (default "auto") + modelPickerOpen state
+- Model picker dropdown shown only for chat/command modes (they use /ai-chat/message)
+- Passes body.model = selectedModel to /api/ai-chat/message
 
-**How to apply:** Route is `/api/ai-chat/message` (POST). `/api/ai-tasks/:id/process` processes AI tasks in DB. `/api/ai-search` for document/case search with AI analysis.
+## Key rule
+Use `db.execute(sql\`...\`)` + `(r as any)?.rows ?? []` for raw SQL — never Drizzle ORM
+select/update with integer IDs on TEXT-typed columns (causes TS2769 overload errors).
+
+**Why:** casesTable.id and aiTasksTable.id are TEXT in schema but code passes number IDs.
+Raw SQL sidesteps the type mismatch.

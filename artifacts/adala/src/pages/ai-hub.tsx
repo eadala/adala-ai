@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -8,14 +8,35 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   BrainCircuit, Send, Sparkles, Bot, Gavel, Swords,
-  BookOpen, Zap, RotateCcw, Copy, ChevronLeft, ChevronRight,
-  Scale, Receipt, Handshake, CalendarDays, Database, FileText,
-  Loader2, Terminal, MessageSquare, Shield, Lightbulb,
-  BadgeDollarSign, User, Check, Search, ArrowRight, Star,
+  BookOpen, RotateCcw, Copy, ChevronLeft, ChevronRight,
+  Loader2, Terminal, MessageSquare, User, Check, ArrowRight,
+  ChevronDown, Cpu, Zap, Lock,
 } from "lucide-react";
 import { Link } from "wouter";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+/* ══════════════════════════════════════════════
+   MODEL OPTIONS
+══════════════════════════════════════════════ */
+type ModelKey = "auto" | "gemini" | "claude" | "openai";
+
+const MODEL_OPTIONS: {
+  key: ModelKey; label: string; shortLabel: string; color: string;
+  badgeLabel: string; free: boolean; desc: string; icon: any;
+}[] = [
+  { key: "auto",   label: "تلقائي",       shortLabel: "Auto",   color: "#6B7280", badgeLabel: "", free: true,  desc: "يختار الأفضل المتاح تلقائياً",  icon: Zap },
+  { key: "gemini", label: "Gemini Flash", shortLabel: "Gemini", color: "#4285F4", badgeLabel: "مجاني", free: true,  desc: "سريع ومجاني · Gemini 2.5 Flash", icon: Sparkles },
+  { key: "claude", label: "Claude Haiku", shortLabel: "Claude", color: "#D97706", badgeLabel: "مدفوع", free: false, desc: "دقيق وموثوق · Claude 3.5 Haiku", icon: Cpu },
+  { key: "openai", label: "GPT-4o mini",  shortLabel: "GPT-4o", color: "#10A37F", badgeLabel: "مدفوع", free: false, desc: "قوي وشامل · GPT-4o mini",          icon: Cpu },
+];
+
+const MODEL_USED_LABELS: Record<string, { label: string; color: string }> = {
+  gemini:   { label: "Gemini",     color: "#4285F4" },
+  claude:   { label: "Claude",     color: "#D97706" },
+  openai:   { label: "GPT-4o",     color: "#10A37F" },
+  fallback: { label: "محلي",       color: "#6B7280" },
+};
 
 /* ══════════════════════════════════════════════
    MODES CONFIG
@@ -238,6 +259,8 @@ export default function AIHub() {
   const { toast } = useToast();
   const [modeKey, setModeKey] = useState<ModeKey>("assistant");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [selectedModel, setSelectedModel] = useState<ModelKey>("auto");
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [messages, setMessages] = useState<Map<ModeKey, Msg[]>>(new Map([
     ["assistant", []],
     ["chat",      []],
@@ -247,6 +270,13 @@ export default function AIHub() {
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  /* Fetch which models have API keys configured */
+  const { data: availableModels } = useQuery<{ gemini: boolean; claude: boolean; openai: boolean }>({
+    queryKey: ["ai-models-available"],
+    queryFn: () => fetch(`${BASE}/api/ai-models/available`).then(r => r.json()),
+    staleTime: 60_000,
+  });
 
   const mode = MODES.find(m => m.key === modeKey)!;
   const msgs = messages.get(modeKey) ?? [];
@@ -276,6 +306,8 @@ export default function AIHub() {
       /* pass history for chat modes */
       if (modeKey === "chat") body.history = msgs.slice(-6).map(m => ({ role: m.role === "ai" ? "assistant" : "user", content: m.content }));
       if (modeKey === "assistant") body.context = msgs.slice(-6).map(m => ({ role: m.role === "ai" ? "assistant" : "user", content: m.content }));
+      /* pass selected model for /ai-chat/message */
+      if (modeKey === "chat" || modeKey === "command") body.model = selectedModel;
 
       const res = await fetch(mode.api, {
         method: "POST",
@@ -502,6 +534,64 @@ export default function AIHub() {
                 );
               })}
             </div>
+
+            {/* Model Picker (only for chat/command modes that use /ai-chat/message) */}
+            {(modeKey === "chat" || modeKey === "command") && (
+              <div className="relative mb-2.5">
+                <button
+                  onClick={() => setModelPickerOpen(v => !v)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border/60 bg-muted/30 hover:bg-muted/60 transition-all text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {(() => {
+                    const m = MODEL_OPTIONS.find(x => x.key === selectedModel)!;
+                    const MIcon = m.icon;
+                    return <>
+                      <MIcon className="h-3 w-3" style={{ color: m.color }} />
+                      <span style={{ color: m.color }}>{m.label}</span>
+                      {m.badgeLabel && (
+                        <span className="px-1 py-0 rounded text-[9px] font-bold" style={{ background: `${m.color}20`, color: m.color }}>{m.badgeLabel}</span>
+                      )}
+                      <ChevronDown className="h-3 w-3 opacity-50" />
+                    </>;
+                  })()}
+                </button>
+
+                {modelPickerOpen && (
+                  <div className="absolute bottom-full mb-1 right-0 bg-card border border-border rounded-xl shadow-xl z-50 min-w-[220px] p-1.5">
+                    {MODEL_OPTIONS.map(m => {
+                      const MIcon = m.icon;
+                      const isAvailable = m.key === "auto" || (availableModels?.[m.key as keyof typeof availableModels] ?? false);
+                      const isSelected = selectedModel === m.key;
+                      return (
+                        <button
+                          key={m.key}
+                          onClick={() => { if (isAvailable) { setSelectedModel(m.key); setModelPickerOpen(false); } }}
+                          disabled={!isAvailable}
+                          className={cn(
+                            "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-right transition-all",
+                            isSelected ? "bg-muted" : "hover:bg-muted/60",
+                            !isAvailable && "opacity-40 cursor-not-allowed"
+                          )}
+                        >
+                          <MIcon className="h-3.5 w-3.5 shrink-0" style={{ color: m.color }} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-semibold">{m.label}</span>
+                              {m.badgeLabel && (
+                                <span className="text-[9px] px-1 rounded font-bold" style={{ background: `${m.color}20`, color: m.color }}>{m.badgeLabel}</span>
+                              )}
+                              {!isAvailable && <Lock className="h-2.5 w-2.5 text-muted-foreground" />}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">{m.desc}</p>
+                          </div>
+                          {isSelected && <Check className="h-3 w-3 text-foreground shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Input Box */}
             <div className="relative rounded-2xl border transition-all" style={{ borderColor: loading ? `${mode.color}50` : undefined }}>
