@@ -100,6 +100,7 @@ const ClientPortal         = lazy(() => import("@/pages/client-portal"));
 const PortalView           = lazy(() => import("@/pages/portal-view"));
 const PortalLogin          = lazy(() => import("@/pages/portal-login"));
 const PortalMyCases        = lazy(() => import("@/pages/portal-my-cases"));
+const SignPage              = lazy(() => import("@/pages/sign"));
 
 // Marketplace & Public
 const Marketplace          = lazy(() => import("@/pages/marketplace"));
@@ -335,6 +336,7 @@ function AppRoutes() {
             <Route path="/onboarding"><PublicPage><OnboardingPage /></PublicPage></Route>
 
             {/* ── Portal (public, before /:token catch-all) ── */}
+            <Route path="/sign/:token">{({ token }: { token: string }) => <PublicPage><SignPage token={token} /></PublicPage>}</Route>
             <Route path="/portal/login"><PublicPage><PortalLogin /></PublicPage></Route>
             <Route path="/portal/my-cases"><PublicPage><PortalMyCases /></PublicPage></Route>
             <Route path="/portal/:token"><PublicPage><PortalView /></PublicPage></Route>

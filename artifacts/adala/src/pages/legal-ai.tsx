@@ -71,7 +71,25 @@ export default function LegalAIPage() {
   const [refineText, setRefineText] = useState("");
   const [model, setModel] = useState("auto");
   const [viewMode, setViewMode] = useState<"generate" | "history">("generate");
+  const [linkedCaseId, setLinkedCaseId] = useState("");
+  const [linkedClientId, setLinkedClientId] = useState("");
+  const [signDialog, setSignDialog] = useState(false);
+  const [signerName, setSignerName] = useState("");
+  const [signerEmail, setSignerEmail] = useState("");
+  const [signUrl, setSignUrl] = useState("");
+  const [signLoading, setSignLoading] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
+
+  const { data: casesList = [] } = useQuery<any[]>({
+    queryKey: ["cases-list"],
+    queryFn: () => fetch(`${BASE}/api/cases`).then(r => r.json()),
+    staleTime: 60_000,
+  });
+  const { data: clientsList = [] } = useQuery<any[]>({
+    queryKey: ["clients-list"],
+    queryFn: () => fetch(`${BASE}/api/clients`).then(r => r.json()),
+    staleTime: 60_000,
+  });
 
   const { data: templates = {} } = useQuery<Record<string, TemplateInfo>>({
     queryKey: ["legal-ai-templates"],
@@ -90,14 +108,18 @@ export default function LegalAIPage() {
       const res = await fetch(`${BASE}/api/legal-ai/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docType: selectedType, variables: formVars, model }),
+        body: JSON.stringify({
+          docType: selectedType, variables: formVars, model,
+          caseId: linkedCaseId || undefined,
+          clientId: linkedClientId || undefined,
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       return res.json();
     },
     onSuccess: (data) => {
       setGeneratedContent(data.content);
-      setGeneratedId(null);
+      setGeneratedId(data.id ?? null);
       qc.invalidateQueries({ queryKey: ["legal-ai-history"] });
       setTimeout(() => outputRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     },
@@ -327,6 +349,38 @@ export default function LegalAIPage() {
                     </div>
                   </div>
 
+                  {/* link to case/client */}
+                  <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-white/[0.03] border border-white/10">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-white/50">ربط بقضية (اختياري)</Label>
+                      <Select value={linkedCaseId} onValueChange={setLinkedCaseId}>
+                        <SelectTrigger className="bg-white/5 border-white/10 text-white text-xs h-8">
+                          <SelectValue placeholder="اختر قضية..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">— بدون ربط —</SelectItem>
+                          {(casesList as any[]).map((c: any) => (
+                            <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-white/50">ربط بعميل (اختياري)</Label>
+                      <Select value={linkedClientId} onValueChange={setLinkedClientId}>
+                        <SelectTrigger className="bg-white/5 border-white/10 text-white text-xs h-8">
+                          <SelectValue placeholder="اختر عميل..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">— بدون ربط —</SelectItem>
+                          {(clientsList as any[]).map((c: any) => (
+                            <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
                   {/* fields */}
                   <div className="grid grid-cols-1 gap-4">
                     {currentTemplate?.fields.map((field) => (
@@ -397,6 +451,15 @@ export default function LegalAIPage() {
                           >
                             <Wand2 className="w-3 h-3" />تحسين
                           </Button>
+                          {generatedId && (
+                            <Button
+                              size="sm" variant="ghost"
+                              className="h-7 px-2 text-xs text-emerald-400 hover:bg-emerald-500/10 gap-1"
+                              onClick={() => { setSignerName(""); setSignerEmail(""); setSignUrl(""); setSignDialog(true); }}
+                            >
+                              <FileSignature className="w-3 h-3" />توقيع
+                            </Button>
+                          )}
                         </div>
                       </div>
 
@@ -447,5 +510,79 @@ export default function LegalAIPage() {
         </div>
       )}
     </div>
+
+    {/* Signature Request Dialog */}
+    {signDialog && (
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => !signLoading && setSignDialog(false)}>
+        <div className="bg-[#1A2744] border border-white/10 rounded-2xl p-6 w-full max-w-sm space-y-4" onClick={e => e.stopPropagation()} dir="rtl">
+          <div className="flex items-center gap-3">
+            <FileSignature className="w-5 h-5 text-emerald-400" />
+            <h3 className="font-bold text-white text-base">طلب توقيع إلكتروني</h3>
+          </div>
+          {signUrl ? (
+            <div className="space-y-3">
+              <p className="text-sm text-emerald-400">✓ تم إنشاء رابط التوقيع بنجاح</p>
+              <div className="bg-white/5 rounded-lg p-3 text-xs text-white/70 break-all border border-white/10">
+                {signUrl}
+              </div>
+              <button
+                className="w-full bg-emerald-500/20 text-emerald-400 rounded-xl py-2.5 text-sm font-semibold hover:bg-emerald-500/30 transition"
+                onClick={() => { navigator.clipboard.writeText(signUrl); }}
+              >
+                نسخ الرابط
+              </button>
+              <button className="w-full text-white/40 text-xs" onClick={() => setSignDialog(false)}>إغلاق</button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs text-white/60">اسم الموقّع *</label>
+                <input
+                  value={signerName}
+                  onChange={e => setSignerName(e.target.value)}
+                  placeholder="الاسم الكامل..."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-white/60">البريد الإلكتروني (اختياري)</label>
+                <input
+                  value={signerEmail}
+                  onChange={e => setSignerEmail(e.target.value)}
+                  placeholder="example@domain.com"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50"
+                  dir="ltr"
+                />
+              </div>
+              <button
+                disabled={!signerName.trim() || signLoading}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white rounded-xl py-2.5 text-sm font-bold transition"
+                onClick={async () => {
+                  if (!generatedId || !signerName.trim()) return;
+                  setSignLoading(true);
+                  try {
+                    const r = await fetch(`${BASE}/api/signatures/request`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ documentId: generatedId, signerName, signerEmail }),
+                    });
+                    const data = await r.json();
+                    if (data.signUrl) setSignUrl(data.signUrl);
+                    else toast({ title: "خطأ", description: data.error, variant: "destructive" });
+                  } catch {
+                    toast({ title: "خطأ في الاتصال", variant: "destructive" });
+                  } finally {
+                    setSignLoading(false);
+                  }
+                }}
+              >
+                {signLoading ? "جاري الإنشاء..." : "إنشاء رابط التوقيع"}
+              </button>
+              <button className="w-full text-white/40 text-xs" onClick={() => setSignDialog(false)}>إلغاء</button>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
   );
 }

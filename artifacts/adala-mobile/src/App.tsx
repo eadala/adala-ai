@@ -4,6 +4,7 @@ import BottomNav from "@/components/bottom-nav";
 import AppHeader from "@/components/app-header";
 import HomePage from "@/pages/home";
 import CasesPage from "@/pages/cases";
+import CaseDetailPage from "@/pages/case-detail";
 import ClientsPage from "@/pages/clients";
 import ContractsPage from "@/pages/contracts";
 import InvoicesPage from "@/pages/invoices";
@@ -74,6 +75,7 @@ function AppShell() {
         <Switch>
           <Route path="/" component={HomePage} />
           <Route path="/cases" component={CasesPage} />
+          <Route path="/cases/:id">{({ id }: { id: string }) => <CaseDetailPage id={id} />}</Route>
           <Route path="/clients" component={ClientsPage} />
           <Route path="/contracts" component={ContractsPage} />
           <Route path="/invoices" component={InvoicesPage} />

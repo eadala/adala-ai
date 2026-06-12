@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, Scale, FileText, Users, DollarSign,
   Clock, Award, Target, BarChart3, Printer, RefreshCw,
   CheckCircle2, AlertCircle, Building2, ArrowUpRight, ArrowDownRight,
-  BrainCircuit, Sparkles, Loader2, Zap,
+  BrainCircuit, Sparkles, Loader2, Zap, Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -232,6 +232,34 @@ tr:nth-child(even) td{background:#fafafa}
     if (win) { win.document.write(html); win.document.close(); }
   }, [financial, cases, clients, period]);
 
+  const exportCsv = useCallback(() => {
+    const fin = financial as any;
+    const cas = cases as any;
+    const cl  = clients as any;
+    const rows: string[][] = [
+      ["المؤشر", "القيمة"],
+      ["إجمالي الإيرادات", fmt(fin.totalRevenue ?? 0)],
+      ["صافي الربح", fmt(fin.netProfit ?? 0)],
+      ["هامش الربح %", `${(fin.profitMargin ?? 0).toFixed(1)}%`],
+      ["معدل التحصيل %", `${(fin.collectionRate ?? 0).toFixed(0)}%`],
+      [],
+      ["إجمالي القضايا", cas.total ?? 0],
+      ["قضايا مفتوحة", cas.open ?? 0],
+      ["قضايا مغلقة", cas.closed ?? 0],
+      ["قيد التنفيذ", cas.inProgress ?? 0],
+      ["معدل النجاح %", cas.successRate ?? 0],
+      ["متوسط أيام القضية", cas.avgDays ?? 0],
+      [],
+      ...(fin.monthly ?? []).map((m: any) => [m.name, m.revenue ?? 0, m.expenses ?? 0]),
+    ];
+    const csv = rows.map(r => r.join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `adala-analytics-${period}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }, [financial, cases, clients, period]);
+
   const fin = financial as any;
   const cas = cases as any;
   const tm = team as any;
@@ -262,6 +290,9 @@ tr:nth-child(even) td{background:#fafafa}
               </button>
             ))}
           </div>
+          <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5">
+            <Download className="h-3.5 w-3.5" /> CSV
+          </Button>
           <Button variant="outline" size="sm" onClick={printReport} className="gap-1.5">
             <Printer className="h-3.5 w-3.5" /> PDF
           </Button>
