@@ -273,7 +273,7 @@ export default function Landing() {
   const textAlign = isAr ? "text-right" : "text-left";
 
   return (
-    <div dir={isAr ? "rtl" : "ltr"} className="min-h-screen overflow-x-hidden" style={{ background: "#080F1E", fontFamily: "Cairo, sans-serif" }}>
+    <div dir={isAr ? "rtl" : "ltr"} className="min-h-screen overflow-x-hidden" style={{ background: "var(--lp-bg, #080F1E)", fontFamily: "Cairo, sans-serif" }}>
 
       {/* ── Announcement Bar (CMS-driven) ─────────────────────────────── */}
       {cms?.announcement?.enabled && cms.announcement.text && (
@@ -290,33 +290,33 @@ export default function Landing() {
       <header
         className="fixed top-0 right-0 left-0 z-50 transition-all duration-300"
         style={{
-          background: scrolled ? "rgba(8,15,30,0.95)" : "transparent",
+          background: scrolled ? "var(--lp-navbar-bg, rgba(8,15,30,0.95))" : "transparent",
           backdropFilter: scrolled ? "blur(12px)" : "none",
-          borderBottom: scrolled ? "1px solid rgba(255,255,255,0.07)" : "none",
+          borderBottom: scrolled ? `1px solid var(--lp-navbar-border, rgba(255,255,255,0.07))` : "none",
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #C9A84C, #E0C060)" }}>
-              <Scale className="w-4 h-4 text-[#0D1626]" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, var(--lp-accent, #C9A84C), var(--lp-accent-end, #E0C060))" }}>
+              <Scale className="w-4 h-4" style={{ color: "var(--lp-accent-text, #0D1626)" }} />
             </div>
-            <span className="text-lg font-black text-white">عدالة AI</span>
+            <span className="text-lg font-black text-white lp-t">عدالة AI</span>
           </div>
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-6">
             {NAV.map(n => (
-              <a key={n.href} href={n.href} className="text-sm text-white/60 hover:text-white transition-colors">{n.label}</a>
+              <a key={n.href} href={n.href} className="text-sm text-white/60 hover:text-white transition-colors lp-nav-link">{n.label}</a>
             ))}
           </nav>
           {/* CTA */}
           <div className="hidden md:flex items-center gap-3">
             <LanguageSwitcher />
             <Link href={`${BASE}/sign-in`}>
-              <button className="text-sm text-white/70 hover:text-white transition-colors px-3 py-1.5">{t("landing.signIn")}</button>
+              <button className="text-sm text-white/70 hover:text-white transition-colors px-3 py-1.5 lp-tm">{t("landing.signIn")}</button>
             </Link>
             <Link href={`${BASE}/sign-up`}>
-              <button className="text-sm font-bold px-4 py-2 rounded-xl transition-all hover:opacity-90 active:scale-95" style={{ background: "linear-gradient(135deg, #C9A84C, #E0C060)", color: "#0D1626" }}>
+              <button className="text-sm font-bold px-4 py-2 rounded-xl transition-all hover:opacity-90 active:scale-95" style={{ background: "linear-gradient(135deg, var(--lp-accent, #C9A84C), var(--lp-accent-end, #E0C060))", color: "var(--lp-accent-text, #0D1626)" }}>
                 {t("landing.startFree")}
               </button>
             </Link>
@@ -357,7 +357,7 @@ export default function Landing() {
       {/* ── HERO ───────────────────────────────────────────────────────── */}
       <section className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-24 pb-16 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full blur-[120px] opacity-20" style={{ background: "#C9A84C" }} />
+          <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full blur-[120px] opacity-20" style={{ background: "var(--lp-accent, #C9A84C)" }} />
           <div className="absolute bottom-1/4 left-1/4 w-64 h-64 rounded-full blur-[100px] opacity-15" style={{ background: "#6366F1" }} />
         </div>
 
@@ -369,7 +369,7 @@ export default function Landing() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-6"
-              style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", color: "#C9A84C" }}
+              style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", color: "var(--lp-accent, #C9A84C)" }}
             >
               <Sparkles className="w-3.5 h-3.5" />
               {c("hero", "badge", t("landing.hero.badge"))}
@@ -379,7 +379,7 @@ export default function Landing() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight mb-6"
+              className="text-4xl sm:text-5xl lg:text-6xl font-black text-white lp-t leading-tight mb-6"
             >
               {c("hero", "titleLine1", t("landing.hero.titleLine1"))}<br />
               {c("hero", "titleLine2", t("landing.hero.titleLine2"))}<br />
@@ -390,7 +390,7 @@ export default function Landing() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-lg text-white/60 mb-8 leading-relaxed max-w-lg"
+              className="text-lg text-white/60 lp-tm mb-8 leading-relaxed max-w-lg"
             >
               {c("hero", "subtitle", t("landing.hero.subtitle"))}
             </motion.p>
@@ -403,14 +403,14 @@ export default function Landing() {
             >
               <Link href={`${BASE}/sign-up`}>
                 <button className="flex items-center gap-2 font-bold px-7 py-3.5 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95 shadow-lg"
-                  style={{ background: "linear-gradient(135deg, #C9A84C, #E0C060)", color: "#0D1626", boxShadow: "0 8px 32px rgba(201,168,76,0.35)" }}>
+                  style={{ background: "linear-gradient(135deg, var(--lp-accent, #C9A84C), var(--lp-accent-end, #E0C060))", color: "var(--lp-accent-text, #0D1626)", boxShadow: "0 8px 32px rgba(201,168,76,0.35)" }}>
                   {t("landing.startFree")}
                   {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
                 </button>
               </Link>
               <Link href={`${BASE}/demo`}>
                 <button className="flex items-center gap-2 font-semibold px-7 py-3.5 rounded-xl text-base border transition-all hover:bg-white/5 hover:scale-[1.02]"
-                  style={{ borderColor: "rgba(201,168,76,0.4)", color: "#E0C060", background: "rgba(201,168,76,0.06)" }}>
+                  style={{ borderColor: "rgba(201,168,76,0.4)", color: "var(--lp-accent, #E0C060)", background: "rgba(201,168,76,0.06)" }}>
                   <Sparkles className="w-4 h-4" />
                   {t("landing.hero.explore")}
                 </button>
@@ -446,7 +446,7 @@ export default function Landing() {
       {/* ── TRUST STRIP ────────────────────────────────────────────────── */}
       <section className="py-14 px-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
         <FadeIn className="max-w-5xl mx-auto">
-          <p className="text-center text-white/30 text-sm mb-10">
+          <p className="text-center text-white/30 lp-ts text-sm mb-10">
             {c("trust", "tagline", t("landing.trust.tagline"))}
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
@@ -457,10 +457,10 @@ export default function Landing() {
               { to: Number(c("stats","timeSaving","40").replace(/[^0-9]/g,"")||"40"),    suffix: "%",    labelKey: "landing.trust.timeSaving",   icon: Clock },
             ].map(s => (
               <div key={s.labelKey} className="space-y-1">
-                <div className="text-4xl font-black" style={{ color: "#C9A84C" }}>
+                <div className="text-4xl font-black" style={{ color: "var(--lp-accent, #C9A84C)" }}>
                   <Counter to={s.to} suffix={s.suffix} locale={counterLocale} />
                 </div>
-                <p className="text-white/50 text-sm">{t(s.labelKey)}</p>
+                <p className="text-white/50 lp-stat-label text-sm">{t(s.labelKey)}</p>
               </div>
             ))}
           </div>
@@ -477,8 +477,8 @@ export default function Landing() {
             <span className="text-sm font-semibold px-4 py-1.5 rounded-full mb-4 inline-block" style={{ background: "rgba(99,102,241,0.15)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.3)" }}>
               {t("landing.features.label")}
             </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white mt-3 mb-4">{c("features","title",t("landing.features.title"))}</h2>
-            <p className="text-white/50 max-w-xl mx-auto">{c("features","subtitle",t("landing.features.subtitle"))}</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-white lp-t mt-3 mb-4">{c("features","title",t("landing.features.title"))}</h2>
+            <p className="text-white/50 lp-tm max-w-xl mx-auto">{c("features","subtitle",t("landing.features.subtitle"))}</p>
           </FadeIn>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
