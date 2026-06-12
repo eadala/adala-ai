@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { useRoute } from "wouter";
+import { useState, useRef, useEffect } from "react";
+import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,10 +13,74 @@ import {
   Send, Loader2, Shield, AlertCircle, User, Calendar,
   Upload, CloudUpload, UploadCloud, FileCheck, ChevronDown,
   GitCommitHorizontal, Gavel, FileSignature, BellRing,
-  FileUp, Banknote, X
+  FileUp, Banknote, X, UserCircle2, LogIn, Sparkles,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
+
+// ─── Client Account Banner ─────────────────────────────────────────────────────
+function ClientAccountBanner({ portalToken }: { portalToken: string }) {
+  const [, nav] = useLocation();
+  const [linked, setLinked] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const sessionToken = typeof window !== "undefined" ? localStorage.getItem("client_session_token") : null;
+  const clientInfo = typeof window !== "undefined" ? localStorage.getItem("client_info") : null;
+  const client = clientInfo ? JSON.parse(clientInfo) : null;
+
+  // Auto-link token to account if logged in
+  useEffect(() => {
+    if (!sessionToken || !portalToken || linked) return;
+    fetch(`${BASE}api/client-auth/link-token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ portalToken }),
+    }).then(r => r.json()).then(d => { if (!d.error) setLinked(true); }).catch(() => {});
+  }, [sessionToken, portalToken]);
+
+  if (sessionToken && client) {
+    return (
+      <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-2xl p-3.5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+            <UserCircle2 className="h-4 w-4 text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-emerald-400">
+              {linked ? "✓ تم ربط القضية بحسابك" : "مسجّل دخول كـ " + (client.name ?? client.email)}
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              يمكنك متابعة جميع قضاياك من حسابك
+            </p>
+          </div>
+        </div>
+        <button onClick={() => nav("/portal/my-cases")}
+          className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl px-3 py-1.5 hover:bg-emerald-500/30 transition-colors font-medium whitespace-nowrap">
+          قضاياي
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[#C9A84C]/5 border border-[#C9A84C]/20 rounded-2xl p-3.5 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-full bg-[#C9A84C]/15 flex items-center justify-center shrink-0">
+          <Sparkles className="h-4 w-4 text-[#C9A84C]" />
+        </div>
+        <div>
+          <p className="text-xs font-bold text-[#C9A84C]">احفظ قضيتك في حسابك</p>
+          <p className="text-[10px] text-muted-foreground">
+            سجّل الدخول لتتابع جميع قضاياك من مكان واحد
+          </p>
+        </div>
+      </div>
+      <button onClick={() => nav("/portal/login")}
+        className="text-xs bg-[#C9A84C] text-[#0d1b2a] font-bold rounded-xl px-3 py-1.5 hover:bg-[#b8933e] transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0">
+        <LogIn className="h-3.5 w-3.5" />دخول / تسجيل
+      </button>
+    </div>
+  );
+}
 
 const STATUS_AR: Record<string, { label: string; color: string; bg: string }> = {
   open:        { label: "مفتوحة",      color: "text-blue-400",   bg: "bg-blue-500/15 border-blue-500/30" },
@@ -168,6 +232,9 @@ export default function PortalView() {
             )}
           </div>
         )}
+
+        {/* Client Account Banner */}
+        <ClientAccountBanner portalToken={token} />
 
         {/* Unpaid Invoice Alert */}
         {unpaidInvoices.length > 0 && (

@@ -63,6 +63,8 @@ import FirmAdmin from "@/pages/firm-admin";
 import CalendarPage from "@/pages/calendar";
 import ClientPortal from "@/pages/client-portal";
 import PortalView from "@/pages/portal-view";
+import PortalLogin from "@/pages/portal-login";
+import PortalMyCases from "@/pages/portal-my-cases";
 import Marketplace from "@/pages/marketplace";
 import AIAssistant from "@/pages/ai-assistant";
 import Landing from "@/pages/landing";
@@ -484,6 +486,12 @@ function AppRoutes() {
             </Route>
             <Route path="/marketplace">
               <ProtectedRoute><Marketplace /></ProtectedRoute>
+            </Route>
+            <Route path="/portal/login">
+              <PortalLogin />
+            </Route>
+            <Route path="/portal/my-cases">
+              <PortalMyCases />
             </Route>
             <Route path="/portal/:token">
               <PortalView />
