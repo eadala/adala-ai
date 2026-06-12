@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { getUncachableStripeClient } from "../stripeClient";
+import { resolveTenantId } from "../middlewares/tenantMiddleware";
 
 const router = Router();
 
@@ -91,13 +92,16 @@ router.get("/billing/overview", async (req, res) => {
     const planSlug = ((officeRows as any)?.rows ?? [])[0]?.plan ?? "free";
     const planMeta = PLANS.find(p => p.id === planSlug) ?? PLANS[0];
 
+    /* 0. Resolve tenant */
+    const tenantId = await resolveTenantId(userId) ?? "default";
+
     /* 2. Entitlements / usage */
     const entRows = await db.execute(sql`
       SELECT key, "limit", used,
              CASE WHEN "limit" > 0 THEN LEAST(ROUND((used::numeric/"limit")*100),100) ELSE 0 END AS percent,
              CASE WHEN "limit" > 0 THEN GREATEST("limit"-used,0) ELSE 999999 END AS remaining
       FROM office_entitlements
-      WHERE office_id = 'default'
+      WHERE office_id = ${tenantId}
       ORDER BY key
     `);
     const entitlements = ((entRows as any)?.rows ?? []).map((e: any) => ({
@@ -207,9 +211,39 @@ router.post("/billing/checkout", async (req, res) => {
   if (plan.isFree || plan.isContactOnly) return res.status(400).json({ error: "هذه الباقة لا تتطلب دفعاً" });
 
   try {
+    /* Resolve tenant + user email for this checkout */
+    const { userId } = getAuth(req as any);
+    const tenantId = userId ? (await resolveTenantId(userId) ?? "default") : "default";
+
+    /* Get or create Stripe customer for this tenant */
+    let customerId: string | undefined;
+    try {
+      const officeRow = await db.execute(sql`
+        SELECT stripe_customer_id, email, name FROM office_page
+        WHERE id::text = ${tenantId} OR (${tenantId} = 'default')
+        ORDER BY created_at LIMIT 1
+      `);
+      const office = ((officeRow as any)?.rows ?? [])[0];
+      if (office?.stripe_customer_id) {
+        customerId = office.stripe_customer_id;
+      } else if (office?.email) {
+        const customer = await stripe.customers.create({
+          email: office.email,
+          name:  office.name ?? "عدالة AI Office",
+          metadata: { officeId: tenantId },
+        });
+        customerId = customer.id;
+        await db.execute(sql`
+          UPDATE office_page SET stripe_customer_id = ${customerId}
+          WHERE id::text = ${tenantId} OR (${tenantId} = 'default')
+        `).catch(() => {});
+      }
+    } catch { /* non-critical — proceed without customer */ }
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
+      ...(customerId ? { customer: customerId } : {}),
       line_items: [{
         price_data: {
           currency: "sar",
@@ -219,7 +253,8 @@ router.post("/billing/checkout", async (req, res) => {
         },
         quantity: 1,
       }],
-      metadata: { plan: planId, planName: plan.name },
+      metadata: { plan: planId, planName: plan.name, officeId: tenantId },
+      subscription_data: { metadata: { officeId: tenantId, plan: planId } },
       success_url: successUrl ?? `${req.headers.origin}/billing?success=1`,
       cancel_url:  cancelUrl  ?? `${req.headers.origin}/billing?canceled=1`,
       locale: "ar" as any,
@@ -394,7 +429,7 @@ router.post("/billing/change-plan", async (req, res) => {
     const plan = PLANS.find(p => p.id === planId);
     if (!plan) return res.status(400).json({ error: "الباقة غير موجودة" });
 
-    const officeId = "default";
+    const officeId = await resolveTenantId(userId) ?? "default";
     const currentRows = await db.execute(sql`SELECT plan FROM office_page ORDER BY created_at LIMIT 1`);
     const oldPlan = ((currentRows as any)?.rows ?? [])[0]?.plan ?? "free";
 
@@ -442,7 +477,7 @@ router.post("/billing/activate-plan", async (req, res) => {
     if (!isSuperAdmin) return res.status(403).json({ error: "يتطلب صلاحية المشرف العام" });
 
     const { plan = "pro" } = req.body as { plan: string };
-    const officeId = "default";
+    const officeId = await resolveTenantId(userId) ?? "default";
     const { provisionTenant } = await import("../services/tenantProvisioning");
     const result = await provisionTenant({ officeId, plan, email: userEmail });
     res.json({ ok: true, data: result });
@@ -458,9 +493,11 @@ router.get("/billing/ledger", async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const tenantId = await resolveTenantId(userId) ?? "default";
     const r = await db.execute(sql`
-      SELECT id, type, amount, currency, ref, description, stripe_id, created_at
-      FROM office_ledger WHERE office_id = 'default'
+      SELECT id, type, amount, currency, ref, description, stripe_id,
+             platform_fee, stripe_fee, net_amount, created_at
+      FROM office_ledger WHERE office_id = ${tenantId}
       ORDER BY created_at DESC LIMIT 100
     `);
     res.json((r as any)?.rows ?? []);
@@ -564,7 +601,8 @@ router.get("/billing/alerts", async (req, res) => {
     /* Check usage > 80% */
     const highUsageRows = await db.execute(sql`
       SELECT key, "limit", used FROM office_entitlements
-      WHERE office_id='default' AND "limit">0 AND (used::numeric/"limit") >= 0.8
+      WHERE office_id=(SELECT COALESCE((SELECT office_id FROM office_members WHERE user_id=(SELECT id FROM users ORDER BY created_at LIMIT 1) LIMIT 1),'default'))
+        AND "limit">0 AND (used::numeric/"limit") >= 0.8
     `);
     for (const row of (highUsageRows as any)?.rows ?? []) {
       const pct = Math.round((Number(row.used) / Number(row.limit)) * 100);
