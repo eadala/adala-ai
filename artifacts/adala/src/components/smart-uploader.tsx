@@ -26,8 +26,12 @@ const ALLOWED: Record<string, string> = {
   "image/heic": "HEIC", "image/heif": "HEIF",
   "application/zip": "ZIP",
 };
-const MAX_BYTES    = 10 * 1024 * 1024;   // 10 MB
-const COMPRESS_AT  = 900 * 1024;         // compress images > 900 KB
+const MAX_BYTES      = 10 * 1024 * 1024;  // 10 MB hard limit
+const IMG_TARGET     = 350 * 1024;        // 350 KB target after compression
+const IMG_MAX_DIM    = 1400;              // max width/height in pixels
+const IMG_QUALITY_0  = 0.78;             // starting JPEG quality
+const IMG_QUALITY_MIN = 0.28;            // floor — never go below this
+const IMG_QUALITY_STEP = 0.08;           // step down per iteration
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 type UpStatus = "queued"|"compressing"|"uploading"|"registering"|"analyzing"|"done"|"error";
@@ -38,6 +42,7 @@ interface FItem {
   previewUrl?: string;
   status: UpStatus;
   progress: number;
+  savedBytes?: number;   // bytes saved by compression
   error?: string;
   record?: any;
   analysis?: any;
@@ -71,30 +76,64 @@ function FileIcon({ mime }: { mime: string }) {
   return <File className="h-4 w-4 text-purple-400" />;
 }
 
-async function compressImage(file: File): Promise<File> {
-  if (!file.type.startsWith("image/") || file.size <= COMPRESS_AT) return file;
+/**
+ * Aggressive image compression with iterative quality loop.
+ * Always converts to JPEG (best compression ratio).
+ * Tries to reach IMG_TARGET bytes; stops at IMG_QUALITY_MIN floor.
+ * Returns { file, savedBytes }.
+ */
+async function compressImage(file: File): Promise<{ file: File; savedBytes: number }> {
+  if (!file.type.startsWith("image/")) return { file, savedBytes: 0 };
+
   return new Promise(resolve => {
     const img = document.createElement("img") as HTMLImageElement;
     const url = URL.createObjectURL(file);
+
+    img.onerror = () => { URL.revokeObjectURL(url); resolve({ file, savedBytes: 0 }); };
+
     img.onload = () => {
       URL.revokeObjectURL(url);
       const canvas = document.createElement("canvas");
+
+      /* Resize to max dimension */
       let { width, height } = img;
-      const MAX = 2048;
-      if (width > MAX || height > MAX) {
-        const r = Math.min(MAX/width, MAX/height);
-        width = Math.round(width*r); height = Math.round(height*r);
+      if (width > IMG_MAX_DIM || height > IMG_MAX_DIM) {
+        const r = Math.min(IMG_MAX_DIM / width, IMG_MAX_DIM / height);
+        width  = Math.round(width  * r);
+        height = Math.round(height * r);
       }
-      canvas.width = width; canvas.height = height;
+      canvas.width = width;
+      canvas.height = height;
       canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
-      canvas.toBlob(blob => {
-        if (!blob) { resolve(file); return; }
-        const compressed = new Blob([blob], { type: "image/jpeg" });
-        const out = Object.assign(compressed, { name: file.name.replace(/\.[^.]+$/, ".jpg"), lastModified: Date.now() }) as File;
-        resolve(out);
-      }, "image/jpeg", 0.82);
+
+      const baseName = file.name.replace(/\.[^.]+$/, ".jpg");
+
+      /* Iterative quality reduction until target reached */
+      let quality = IMG_QUALITY_0;
+
+      const tryQuality = () => {
+        canvas.toBlob(blob => {
+          if (!blob) { resolve({ file, savedBytes: 0 }); return; }
+
+          if (blob.size <= IMG_TARGET || quality <= IMG_QUALITY_MIN) {
+            /* Accept this blob */
+            const out = Object.assign(
+              new Blob([blob], { type: "image/jpeg" }),
+              { name: baseName, lastModified: Date.now() }
+            ) as File;
+            const savedBytes = Math.max(0, file.size - blob.size);
+            resolve({ file: out, savedBytes });
+          } else {
+            /* Try lower quality */
+            quality = Math.max(IMG_QUALITY_MIN, quality - IMG_QUALITY_STEP);
+            tryQuality();
+          }
+        }, "image/jpeg", quality);
+      };
+
+      tryQuality();
     };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+
     img.src = url;
   });
 }
@@ -174,12 +213,13 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
 
     for (const item of pending) {
       try {
-        /* 1 ── Compress */
+        /* 1 ── Compress ALL images automatically */
         let f = item.original;
-        if (f.type.startsWith("image/") && f.size > COMPRESS_AT) {
+        if (f.type.startsWith("image/")) {
           upd(item.id, { status: "compressing", progress: 5 });
-          f = await compressImage(f);
-          upd(item.id, { processed: f });
+          const { file: compressed, savedBytes } = await compressImage(f);
+          f = compressed;
+          upd(item.id, { processed: f, savedBytes });
         }
         upd(item.id, { status: "uploading", progress: 10 });
 
@@ -245,8 +285,9 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
     }
   };
 
-  const queuedCount = items.filter(i => i.status === "queued").length;
-  const allDone     = items.length > 0 && items.every(i => i.status === "done" || i.status === "error");
+  const queuedCount  = items.filter(i => i.status === "queued").length;
+  const allDone      = items.length > 0 && items.every(i => i.status === "done" || i.status === "error");
+  const totalSaved   = items.reduce((s, i) => s + (i.savedBytes ?? 0), 0);
 
   return (
     <div className="space-y-3" dir="rtl">
@@ -307,7 +348,17 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium truncate">{item.original.name}</span>
                     <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-[11px] text-muted-foreground">{fmtBytes(item.original.size)}</span>
+                      {/* Size: show original → compressed */}
+                      {item.savedBytes && item.savedBytes > 0 ? (
+                        <span className="text-[10px] flex items-center gap-0.5">
+                          <span className="line-through text-muted-foreground/50">{fmtBytes(item.original.size)}</span>
+                          <span className="text-emerald-400 font-semibold">
+                            {fmtBytes(item.original.size - item.savedBytes)}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">{fmtBytes(item.original.size)}</span>
+                      )}
                       {item.status === "queued" && (
                         <button onClick={() => remove(item.id)}
                           className="p-0.5 text-muted-foreground hover:text-red-400 transition-colors rounded">
@@ -316,6 +367,16 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
                       )}
                     </div>
                   </div>
+
+                  {/* Compression savings badge */}
+                  {item.savedBytes && item.savedBytes > 5000 && (
+                    <div className="mt-1 flex items-center gap-1">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+                        style={{ background:"rgba(16,185,129,0.12)", color:"#34d399", border:"1px solid rgba(16,185,129,0.25)" }}>
+                        ✂️ وفّرنا {fmtBytes(item.savedBytes)} ({Math.round(item.savedBytes/item.original.size*100)}%)
+                      </span>
+                    </div>
+                  )}
 
                   {item.status !== "queued" && (
                     <div className="mt-1.5 space-y-1">
@@ -417,9 +478,16 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
       </div>
 
       {allDone && (
-        <p className="text-center text-sm text-emerald-400 py-1.5 font-medium">
-          ✅ تم بنجاح — {items.filter(i=>i.status==="done").length} ملف مرفوع
-        </p>
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-4 py-3 text-center space-y-1">
+          <p className="text-sm text-emerald-400 font-semibold">
+            ✅ تم بنجاح — {items.filter(i => i.status === "done").length} ملف مرفوع
+          </p>
+          {totalSaved > 10000 && (
+            <p className="text-xs text-emerald-400/80">
+              ✂️ وفّرنا <strong>{fmtBytes(totalSaved)}</strong> من مساحة التخزين تلقائياً
+            </p>
+          )}
+        </div>
       )}
 
       {/* Hidden inputs */}
