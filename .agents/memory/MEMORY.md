@@ -17,3 +17,4 @@
 - [Adala Finance Center](adala-finance-center.md) — /finance dashboard + /collections page; finance-center.ts routes (/finance/dashboard, /finance/collections, /finance/collections/:id/payment, /finance/collections/:id/reminder); Button size="xs" NOT valid — use size="sm"; toast from @/hooks/use-toast (NOT @/components/ui/use-toast)
 - [Adala Mobile App](adala-mobile.md) — React+Vite PWA at /adala-mobile/; WouterRouter base=BASE_URL required; pages: home/cases/clients/contracts/reminders + BottomNav + AppHeader
 - [Adala core features](adala-core-features.md) — onboarding/reminders/CSV-import/email-notifications all fully built; tasks page in HR section; Gemini AI as primary in 5 routes
+- [Adala org structure](adala-org-structure.md) — organization_units table (ensureTables); /api/org-units/* routes in orgStructure.ts; /org-structure page (4 tabs: tree/list/stats/scope); nav in admin group with Network icon; ?? mixed with || needs parens
