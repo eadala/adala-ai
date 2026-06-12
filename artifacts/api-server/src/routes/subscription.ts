@@ -1,18 +1,80 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { plansTable, officePageTable } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
+import { getUncachableStripeClient } from "../stripeClient";
 
 const router = Router();
+
+/* ─────────────────────────────────────────────────────
+   Full-access feature flags for the 30-day trial period.
+   Every boolean feature is true; numeric limits are generous.
+───────────────────────────────────────────────────── */
+const TRIAL_FEATURE_FLAGS: Record<string, boolean> = {
+  cases: true, invoices: true, reminders: true, calendar: true,
+  exportPdf: true, aiBasic: true, reportsBasic: true,
+  website: true, serviceStore: true, payments: true,
+  contractsAi: true, mobileApp: true, documentTemplates: true,
+  ai: true, aiAnalytics: true, reportsAdvanced: true, ocr: true, backup: true,
+  clientPortal: true, branches: true, whatsapp: true, workflow: true,
+  customDomain: true, apiAccess: true, aiCfo: true, whiteLabel: true,
+  sla: true, dedicatedManager: true, customAiTraining: true, priorityInfrastructure: true,
+  api: true, assistant: true,
+};
+
+const TRIAL_LIMITS = {
+  maxUsers: 999, maxCases: 99999, maxClients: 99999,
+  maxAiCalls: 9999, maxStorageGb: 1000, maxBranches: 99,
+};
 
 /* ─────────────────────────────────────────────────────
    GET /office/subscription
    Returns current office plan, feature flags, and limits.
    Used by the frontend to gate UI elements.
+   During the 30-day Stripe trial → returns full access.
 ───────────────────────────────────────────────────── */
 router.get("/office/subscription", async (_req, res) => {
   try {
+    /* ── 1. Check Stripe for active trial ── */
+    let isTrial = false;
+    let trialEndsAt: number | null = null;
+    let trialDaysLeft: number | null = null;
+
+    try {
+      const stripe = await getUncachableStripeClient();
+      const subs = await stripe.subscriptions.list({ limit: 5, status: "trialing" });
+      const trialing = subs.data[0];
+      if (trialing) {
+        isTrial = true;
+        trialEndsAt = (trialing as any).trial_end ?? null;
+        if (trialEndsAt) {
+          const msLeft = trialEndsAt * 1000 - Date.now();
+          trialDaysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+        }
+      }
+    } catch { /* Stripe not configured — skip trial check */ }
+
+    /* ── 2. If in trial → return full access immediately ── */
+    if (isTrial) {
+      const offices = await db.select().from(officePageTable).limit(1);
+      const officePlan = offices[0]?.plan ?? "free";
+      const plans = await db.select().from(plansTable).where(eq(plansTable.slug, officePlan)).limit(1);
+      const plan = plans[0];
+      return res.json({
+        planSlug: plan?.slug ?? officePlan,
+        planName: plan?.name ?? "مجاني",
+        planColor: plan?.color ?? "#C9A84C",
+        featureFlags: TRIAL_FEATURE_FLAGS,
+        limits: TRIAL_LIMITS,
+        isActive: true,
+        isTrial: true,
+        trialEndsAt,
+        trialDaysLeft,
+      });
+    }
+
+    /* ── 3. Normal path: return plan from DB ── */
     const offices = await db.select().from(officePageTable).limit(1);
     const officePlan = offices[0]?.plan ?? "free";
 
@@ -22,7 +84,6 @@ router.get("/office/subscription", async (_req, res) => {
     const plan = plans[0];
 
     if (!plan) {
-      // Default "free" plan flags when no matching plan row found in DB
       return res.json({
         planSlug: "free",
         planName: "مجاني",
@@ -39,6 +100,9 @@ router.get("/office/subscription", async (_req, res) => {
         },
         limits: { maxUsers: 1, maxCases: 5, maxClients: 10, maxAiCalls: 5, maxStorageGb: 1, maxBranches: 0 },
         isActive: true,
+        isTrial: false,
+        trialEndsAt: null,
+        trialDaysLeft: null,
       });
     }
 
@@ -56,6 +120,9 @@ router.get("/office/subscription", async (_req, res) => {
         maxBranches:  plan.maxBranches ?? 0,
       },
       isActive: plan.isActive,
+      isTrial: false,
+      trialEndsAt: null,
+      trialDaysLeft: null,
     });
   } catch (err) {
     console.error("Error fetching office subscription:", err);
