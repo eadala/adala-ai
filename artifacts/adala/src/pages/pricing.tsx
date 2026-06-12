@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import {
   Check, X, Minus, ChevronDown, Zap, Shield, Building2,
@@ -200,6 +201,31 @@ const PLANS = [
   },
 ];
 
+/* ═══════════════════════════════════════ ICON MAP (by plan ID) ══════════════════ */
+const PLAN_ICONS: Record<string, any> = {
+  free: Zap, basic: Rocket, pro: Star, growth: TrendingUp,
+  advanced: Shield, enterprise: Building2, elite: Crown,
+};
+
+/* normalize API response → component shape */
+function normalizePlan(p: any) {
+  return {
+    ...p,
+    icon:        PLAN_ICONS[p.id] ?? Zap,
+    monthly:     p.monthlyPrice ?? p.monthly ?? 0,
+    yearly:      p.yearlyPrice  ?? p.yearly  ?? 0,
+    desc:        p.description  ?? p.desc    ?? "",
+    cta:         p.isContactOnly ? "تواصل معنا" : (p.monthlyPrice === 0 ? "ابدأ مجاناً" : "اشترك الآن"),
+    enterprise:  !!p.isContactOnly,
+    recommended: !!p.recommended,
+    nameAr:      p.nameAr ?? p.name ?? "",
+    nameEn:      p.nameEn ?? "",
+    color:       p.color ?? "#64748B",
+    badge:       p.badge ?? null,
+    features:    p.features ?? [],
+  };
+}
+
 /* ═══════════════════════════════════════ COMPARISON DATA ════════════════════════ */
 
 type FeatureVal = string | boolean | null;
@@ -286,11 +312,22 @@ function Counter({ to, suffix = "" }: { to: number; suffix?: string }) {
 
 /* ═══════════════════════════════════════ PAGE ═══════════════════════════════════ */
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 export default function PricingPage() {
   const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  /* fetch live plans from DB (falls back to hardcoded PLANS) */
+  const { data: apiPlans } = useQuery({
+    queryKey: ["billing-plans"],
+    queryFn: () => fetch(`${BASE}/api/billing/plans`).then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+  const PLANS_LIVE = (apiPlans && apiPlans.length > 0 ? apiPlans : PLANS).map(normalizePlan);
 
   return (
     <div
@@ -390,7 +427,7 @@ export default function PricingPage() {
       {/* ── PRICING CARDS ── */}
       <section className="max-w-7xl mx-auto px-6 pb-20">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {PLANS.map((plan, i) => {
+          {PLANS_LIVE.map((plan, i) => {
             const price = cycle === "monthly" ? plan.monthly : plan.yearly;
             const Icon = plan.icon;
             return (
@@ -564,7 +601,7 @@ export default function PricingPage() {
               {/* Table header */}
               <div className="grid border-b border-white/7" style={{ gridTemplateColumns: "220px repeat(7, 1fr)" }}>
                 <div className="p-4 text-sm font-bold text-white/40">الميزة</div>
-                {PLANS.map((p, i) => (
+                {PLANS_LIVE.map((p, i) => (
                   <div
                     key={p.id}
                     className="p-3 text-center cursor-pointer transition-all"
@@ -606,7 +643,7 @@ export default function PricingPage() {
                       <div
                         key={vi}
                         className="p-3 flex items-center justify-center transition-all"
-                        style={hoveredCol === vi ? { background: `${PLANS[vi].color}08` } : {}}
+                        style={hoveredCol === vi ? { background: `${PLANS_LIVE[vi]?.color ?? "#64748B"}08` } : {}}
                         onMouseEnter={() => setHoveredCol(vi)}
                         onMouseLeave={() => setHoveredCol(null)}
                       >
@@ -623,9 +660,9 @@ export default function PricingPage() {
                 style={{ display: "grid", gridTemplateColumns: "220px repeat(7, 1fr)" }}
               >
                 <div />
-                {PLANS.map((plan, i) => (
+                {PLANS_LIVE.map((plan, i) => (
                   <div key={i} className="px-1.5">
-                    <a href={plan.id === "elite" ? "mailto:sales@adalah-ai.sa" : "/sign-up"}>
+                    <a href={plan.enterprise ? "mailto:sales@adalah-ai.sa" : "/sign-up"}>
                       <Button
                         size="sm"
                         className="w-full text-[10px] font-bold py-3"
