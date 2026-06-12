@@ -89,6 +89,32 @@ const TABS = [
   { id: "analytics",         label: "تحليلات الإيرادات",  icon: BarChart3 },
 ];
 
+/* ─── Discount / Promo constants ────────────────────── */
+const ANNUAL_DISCOUNT_PCT = 20;
+
+const PLAN_PROMOS: Record<string, { badge: string; color: string }> = {
+  basic:      { badge: "🎁 شهر مجاناً",       color: "bg-green-500/15 text-green-400 border-green-500/30"    },
+  pro:        { badge: "🔥 الأكثر اختياراً",    color: "bg-orange-500/15 text-orange-400 border-orange-500/30" },
+  growth:     { badge: "⚡ قيمة استثنائية",     color: "bg-violet-500/15 text-violet-400 border-violet-500/30" },
+  advanced:   { badge: "💎 للمحترفين",          color: "bg-pink-500/15 text-pink-400 border-pink-500/30"       },
+  enterprise: { badge: "🏆 شهران مجاناً",        color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  elite:      { badge: "👑 مخصص لك",            color: "bg-amber-500/15 text-amber-400 border-amber-500/30"   },
+};
+
+const PROMO_END_DATE = (() => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1, 0);
+  d.setHours(23, 59, 59, 0);
+  return d;
+})();
+
+function getAnnualPricing(monthlyPrice: number) {
+  const perMonth    = Math.round(monthlyPrice * (1 - ANNUAL_DISCOUNT_PCT / 100));
+  const annualTotal = perMonth * 12;
+  const savings     = monthlyPrice * 12 - annualTotal;
+  return { perMonth, annualTotal, savings };
+}
+
 /* ─── Alert Banner ──────────────────────────────────── */
 function AlertBanner({ alerts }: { alerts: { type: "error"|"warning"|"info"; message: string; action?: string }[] }) {
   if (!alerts || alerts.length === 0) return null;
@@ -296,6 +322,24 @@ export default function Billing() {
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [changingPlan, setChangingPlan] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
+  const [timeLeft, setTimeLeft] = useState({ d: 0, h: 0, m: 0, s: 0 });
+
+  useEffect(() => {
+    function tick() {
+      const diff = PROMO_END_DATE.getTime() - Date.now();
+      if (diff <= 0) { setTimeLeft({ d: 0, h: 0, m: 0, s: 0 }); return; }
+      setTimeLeft({
+        d: Math.floor(diff / 86_400_000),
+        h: Math.floor((diff % 86_400_000) / 3_600_000),
+        m: Math.floor((diff % 3_600_000) / 60_000),
+        s: Math.floor((diff % 60_000) / 1_000),
+      });
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const { planSlug: currentPlanSlug } = useOfficePlan();
 
@@ -629,6 +673,7 @@ export default function Billing() {
       ════════════════════════════════════════════ */}
       {tab === "plans" && (
         <div className="space-y-6">
+          {/* Stripe warning */}
           {stripeStatus && !stripeStatus.configured && (
             <div className="flex items-start gap-3 p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20">
               <AlertCircle className="h-5 w-5 text-yellow-400 mt-0.5 shrink-0" />
@@ -641,12 +686,101 @@ export default function Billing() {
             </div>
           )}
 
+          {/* ── 🔥 Marketing Countdown Banner ─────────────── */}
+          <div className="relative overflow-hidden rounded-2xl border border-orange-500/30"
+            style={{ background: "linear-gradient(135deg,rgba(239,68,68,0.07) 0%,rgba(245,158,11,0.07) 100%)" }}>
+            <div className="absolute top-0 left-0 w-64 h-full bg-gradient-to-r from-transparent to-amber-500/5 pointer-events-none" />
+            <div className="relative p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center text-xl shrink-0 border border-orange-500/25">🔥</div>
+                <div className="min-w-0">
+                  <p className="font-black text-sm text-orange-300 flex items-center gap-2 flex-wrap">
+                    عرض خاص لفترة محدودة
+                    <span className="text-[10px] bg-red-500/20 text-red-300 border border-red-500/30 px-2 py-0.5 rounded-full font-bold animate-pulse">
+                      حصري
+                    </span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
+                      ينتهي {new Intl.DateTimeFormat("ar-SA",{day:"numeric",month:"long"}).format(PROMO_END_DATE)}
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    اشترك سنوياً ووفّر 20% — يعادل <span className="text-orange-300 font-semibold">شهرين ونصف مجاناً</span> كل عام. ينتهي العرض خلال:
+                  </p>
+                </div>
+              </div>
+              {/* Countdown clock */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {[
+                  { v: timeLeft.d, label: "يوم" },
+                  { v: timeLeft.h, label: "ساعة" },
+                  { v: timeLeft.m, label: "دقيقة" },
+                  { v: timeLeft.s, label: "ثانية" },
+                ].map(({ v, label }, i, arr) => (
+                  <div key={label} className="flex items-center gap-1.5">
+                    <div className="flex flex-col items-center">
+                      <span className="bg-black/40 border border-orange-500/40 px-2 py-1 rounded-lg font-black font-mono text-orange-300 text-sm min-w-[2.2rem] text-center shadow-inner tabular-nums">
+                        {String(v).padStart(2, "0")}
+                      </span>
+                      <span className="text-[9px] text-muted-foreground mt-0.5 text-center leading-none">{label}</span>
+                    </div>
+                    {i < arr.length - 1 && <span className="text-orange-500/50 font-black text-base mb-3">:</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Billing Period Toggle ──────────────────────── */}
+          <div className="flex items-center justify-center gap-3 py-1">
+            <button onClick={() => setBillingPeriod("monthly")}
+              className={cn("px-5 py-2 rounded-xl text-sm font-semibold transition-all",
+                billingPeriod === "monthly"
+                  ? "bg-background border border-border/80 text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30")}>
+              شهري
+            </button>
+            <button
+              onClick={() => setBillingPeriod(p => p === "monthly" ? "annual" : "monthly")}
+              className={cn("relative w-14 h-7 rounded-full transition-colors border-2 focus:outline-none flex-shrink-0",
+                billingPeriod === "annual" ? "bg-[#C9A84C] border-[#C9A84C]" : "bg-muted/50 border-border")}
+              aria-label="تبديل دورة الفوترة">
+              <span className={cn(
+                "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all duration-200",
+                billingPeriod === "annual" ? "right-0.5" : "left-0.5"
+              )} />
+            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setBillingPeriod("annual")}
+                className={cn("px-5 py-2 rounded-xl text-sm font-semibold transition-all",
+                  billingPeriod === "annual"
+                    ? "bg-background border border-border/80 text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30")}>
+                سنوي
+              </button>
+              <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-black border border-emerald-500/30 flex items-center gap-1 animate-pulse">
+                ✦ وفّر 20%
+              </span>
+            </div>
+          </div>
+
+          {/* Annual savings strip */}
+          {billingPeriod === "annual" && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <p className="text-sm text-emerald-300 font-medium">
+                رائع! أنت تدفع مقابل 12 شهراً وتحصل على ما يعادل <span className="font-black">14.4 شهراً</span> — خصم 20% فعلي على كل الباقات عند الاشتراك السنوي
+              </p>
+            </div>
+          )}
+
           {/* Current plan banner */}
           {currentPlanSlug && (() => {
             const cur = plans.find((p: any) => p.id === currentPlanSlug);
             const Icon = PLAN_ICONS[currentPlanSlug] ?? Zap;
             const cols = PLAN_COLORS[currentPlanSlug] ?? PLAN_COLORS.free;
-            return cur ? (
+            if (!cur) return null;
+            const pricing = !cur.isFree && !cur.isContactOnly ? getAnnualPricing(cur.price) : null;
+            return (
               <div className="flex items-center gap-3 p-4 rounded-xl border"
                 style={{ background: `${cols.color}10`, borderColor: `${cols.color}40` }}>
                 <div className={cn("w-9 h-9 rounded-xl border-2 flex items-center justify-center shrink-0", cols.badge)}>
@@ -655,28 +789,34 @@ export default function Billing() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold" style={{ color: cols.color }}>باقتك الحالية: {cur.name}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {cur.isFree ? "مجاني" : cur.isContactOnly ? "تواصل معنا" : `${cur.price.toLocaleString("ar-SA")} ر.س / شهر`}
+                    {cur.isFree ? "مجاني" : cur.isContactOnly ? "تواصل معنا"
+                      : billingPeriod === "annual" && pricing
+                        ? `${pricing.perMonth.toLocaleString("ar-SA")} ر.س / شهر (سنوياً) — توفّر ${pricing.savings.toLocaleString("ar-SA")} ر.س / سنة`
+                        : `${cur.price.toLocaleString("ar-SA")} ر.س / شهر`}
                     {" — "}اختر باقة أخرى للترقية أو التخفيض
                   </p>
                 </div>
                 <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] border">نشطة ✓</Badge>
               </div>
-            ) : null;
+            );
           })()}
 
           {/* Plans grid */}
           {plansLoading ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {[1,2,3,4,5,6,7].map(i => <Skeleton key={i} className="h-80" />)}
+              {[1,2,3,4,5,6,7].map(i => <Skeleton key={i} className="h-96" />)}
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
               {plans.map((plan: any) => {
-                const Icon   = PLAN_ICONS[plan.id] ?? Star;
-                const colors = PLAN_COLORS[plan.id] ?? PLAN_COLORS.free;
+                const Icon       = PLAN_ICONS[plan.id] ?? Star;
+                const colors     = PLAN_COLORS[plan.id] ?? PLAN_COLORS.free;
+                const promo      = PLAN_PROMOS[plan.id];
+                const pricing    = !plan.isFree && !plan.isContactOnly ? getAnnualPricing(plan.price) : null;
                 const isLoadingThis = loadingPlan === plan.id;
-                const action = getPlanAction(plan);
-                const isCurrent = action === "current";
+                const action     = getPlanAction(plan);
+                const isCurrent  = action === "current";
+                const showAnnual = billingPeriod === "annual" && !!pricing;
 
                 return (
                   <Card key={plan.id} className={cn(
@@ -685,12 +825,18 @@ export default function Billing() {
                     !isCurrent && colors.glow,
                     plan.popular && !isCurrent && "scale-[1.02] z-10"
                   )}>
-                    <div className="absolute -top-3 right-1/2 translate-x-1/2 flex gap-1.5">
-                      {isCurrent && <Badge className="bg-[#C9A84C] text-black text-[10px] font-black px-3 py-1">✓ باقتك الحالية</Badge>}
-                      {plan.popular && !isCurrent && <Badge className="bg-[#C9A84C] text-black text-[10px] font-black px-3 py-1">⭐ الأكثر طلباً</Badge>}
+                    {/* Top badges row */}
+                    <div className="absolute -top-3.5 right-1/2 translate-x-1/2 flex gap-1.5 z-10 whitespace-nowrap">
+                      {isCurrent && <Badge className="bg-[#C9A84C] text-black text-[10px] font-black px-3 py-1 shadow">✓ باقتك الحالية</Badge>}
+                      {!isCurrent && plan.popular && <Badge className="bg-[#C9A84C] text-black text-[10px] font-black px-3 py-1 shadow">⭐ الأكثر طلباً</Badge>}
+                      {showAnnual && !isCurrent && pricing && (
+                        <Badge className="bg-emerald-500 text-white text-[9px] font-black px-2 py-1 shadow">
+                          🎉 وفّر {pricing.savings.toLocaleString("ar-SA")} ر.س
+                        </Badge>
+                      )}
                     </div>
 
-                    <CardHeader className="pb-3 pt-5">
+                    <CardHeader className="pb-3 pt-6">
                       <div className="flex items-center justify-between mb-2">
                         <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border-2", colors.badge)}>
                           <Icon className="h-4 w-4" />
@@ -708,19 +854,53 @@ export default function Billing() {
                           )}
                         </div>
                       </div>
+
                       <CardTitle className="text-base font-bold">{plan.name}</CardTitle>
-                      <div className="flex items-baseline gap-1 mt-1">
+
+                      {/* ── Price block ── */}
+                      <div className="mt-2 space-y-0.5">
                         {plan.isFree ? (
                           <span className="text-3xl font-black text-slate-300">مجاني</span>
                         ) : plan.isContactOnly ? (
                           <span className="text-lg font-bold text-muted-foreground">تواصل معنا</span>
-                        ) : (
+                        ) : showAnnual && pricing ? (
                           <>
-                            <span className="text-3xl font-black" style={{ color: colors.color }}>{plan.price.toLocaleString("ar-SA")}</span>
-                            <span className="text-sm text-muted-foreground">ر.س / شهر</span>
+                            {/* Old price strikethrough */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm line-through text-muted-foreground/50">
+                                {plan.price.toLocaleString("ar-SA")} ر.س/شهر
+                              </span>
+                              <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/25">
+                                -{ANNUAL_DISCOUNT_PCT}%
+                              </span>
+                            </div>
+                            {/* New discounted price */}
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-3xl font-black" style={{ color: colors.color }}>
+                                {pricing.perMonth.toLocaleString("ar-SA")}
+                              </span>
+                              <span className="text-sm text-muted-foreground">ر.س / شهر</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              يُفاتَر <span className="font-semibold text-foreground/70">{pricing.annualTotal.toLocaleString("ar-SA")} ر.س</span> سنوياً
+                            </p>
                           </>
+                        ) : (
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-3xl font-black" style={{ color: colors.color }}>
+                              {plan.price.toLocaleString("ar-SA")}
+                            </span>
+                            <span className="text-sm text-muted-foreground">ر.س / شهر</span>
+                          </div>
                         )}
                       </div>
+
+                      {/* Promo badge */}
+                      {promo && !plan.isFree && !plan.isContactOnly && (
+                        <div className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border mt-2", promo.color)}>
+                          {promo.badge}
+                        </div>
+                      )}
                     </CardHeader>
 
                     <CardContent className="space-y-4 flex-1 flex flex-col">
@@ -748,10 +928,12 @@ export default function Billing() {
                             <ArrowDown className="h-4 w-4" /> الرجوع للمجاني
                           </Button>
                         ) : action === "upgrade" ? (
-                          <Button className={cn("w-full gap-2 font-bold", colors.btn)} disabled={isLoadingThis}
+                          <Button className={cn("w-full gap-2 font-bold text-xs", colors.btn)} disabled={isLoadingThis}
                             onClick={() => setSelectedPlan(plan)}>
                             {isLoadingThis ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
-                            ترقية
+                            {showAnnual && pricing
+                              ? `ترقية — وفّر ${pricing.savings.toLocaleString("ar-SA")} ر.س`
+                              : "ترقية الآن"}
                           </Button>
                         ) : (
                           <Button variant="outline" className="w-full gap-2 font-bold border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
@@ -768,10 +950,90 @@ export default function Billing() {
             </div>
           )}
 
-          {/* Comparison table */}
+          {/* ── Annual Savings Comparison Table ───────────── */}
+          {!plansLoading && plans.filter((p: any) => !p.isFree && !p.isContactOnly).length > 0 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-[#C9A84C]" /> مقارنة التوفير — شهري مقابل سنوي
+                  </CardTitle>
+                  <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 border text-xs gap-1">
+                    ✦ وفّر حتى 20% مع الاشتراك السنوي
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">كل الأسعار بالريال السعودي. الاشتراك السنوي يُفاتَر مرة واحدة في السنة.</p>
+              </CardHeader>
+              <CardContent className="p-0 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right font-bold">الباقة</TableHead>
+                      <TableHead className="text-center text-xs">السعر الشهري</TableHead>
+                      <TableHead className="text-center text-xs">السنوي / شهر</TableHead>
+                      <TableHead className="text-center text-xs">الفاتورة السنوية</TableHead>
+                      <TableHead className="text-center text-emerald-400 font-bold text-xs">💰 التوفير / سنة</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(() => {
+                      const paidPlans = plans.filter((p: any) => !p.isFree && !p.isContactOnly);
+                      const maxSavings = Math.max(...paidPlans.map((p: any) => getAnnualPricing(p.price).savings), 1);
+                      return paidPlans.map((plan: any) => {
+                        const pr    = getAnnualPricing(plan.price);
+                        const isCur = plan.id === currentPlanSlug;
+                        const cols  = PLAN_COLORS[plan.id] ?? PLAN_COLORS.free;
+                        const Icon  = PLAN_ICONS[plan.id] ?? Star;
+                        const bar   = Math.round((pr.savings / maxSavings) * 100);
+                        return (
+                          <TableRow key={plan.id} className={cn(isCur && "bg-[#C9A84C]/5")}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center border shrink-0", cols.badge)}>
+                                  <Icon className="h-3 w-3" />
+                                </div>
+                                <span className={cn("font-semibold text-sm", isCur && "text-[#C9A84C]")}>{plan.name}</span>
+                                {isCur && <Badge className="text-[9px] bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/30 border px-1.5">✓</Badge>}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className={cn("text-sm", billingPeriod === "annual" ? "line-through text-muted-foreground/50 text-xs" : "font-medium")}>
+                                {plan.price.toLocaleString("ar-SA")} ر.س
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="font-bold text-emerald-400 text-sm">{pr.perMonth.toLocaleString("ar-SA")} ر.س</span>
+                            </TableCell>
+                            <TableCell className="text-center text-sm text-muted-foreground">
+                              {pr.annualTotal.toLocaleString("ar-SA")} ر.س
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex flex-col items-center gap-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-black text-emerald-400 text-sm">{pr.savings.toLocaleString("ar-SA")} ر.س</span>
+                                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                                    -{ANNUAL_DISCOUNT_PCT}%
+                                  </span>
+                                </div>
+                                <div className="w-20 bg-muted/40 rounded-full h-1.5 overflow-hidden">
+                                  <div className="h-full rounded-full bg-emerald-500/70" style={{ width: `${bar}%` }} />
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      });
+                    })()}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Original Feature Comparison Table ─────────── */}
           <Card className="border-border/50">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">مقارنة الباقات</CardTitle>
+              <CardTitle className="text-base">مقارنة الميزات</CardTitle>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <Table>
@@ -781,7 +1043,7 @@ export default function Billing() {
                     {PLAN_ORDER.map(id => (
                       <TableHead key={id} className="text-center px-2">
                         <span className={cn("text-xs font-bold", id === currentPlanSlug && "text-[#C9A84C]")}>
-                          {plans.find((p:any)=>p.id===id)?.name ?? id}
+                          {plans.find((p: any) => p.id === id)?.name ?? id}
                           {id === currentPlanSlug && " ✓"}
                         </span>
                       </TableHead>
@@ -789,6 +1051,40 @@ export default function Billing() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {/* Price row */}
+                  <TableRow className="bg-muted/10">
+                    <TableCell className="font-medium text-sm text-right">
+                      <span className="mr-1">💳</span>
+                      {billingPeriod === "annual" ? "السعر السنوي/شهر" : "السعر الشهري"}
+                    </TableCell>
+                    {PLAN_ORDER.map(id => {
+                      const plan = plans.find((p: any) => p.id === id);
+                      const isCur = id === currentPlanSlug;
+                      if (!plan) return <TableCell key={id} />;
+                      const pr = !plan.isFree && !plan.isContactOnly ? getAnnualPricing(plan.price) : null;
+                      const dispPrice = billingPeriod === "annual" && pr ? pr.perMonth : (plan.isFree ? 0 : plan.price);
+                      return (
+                        <TableCell key={id} className={cn("text-center text-xs px-2", isCur && "bg-[#C9A84C]/5")}>
+                          {plan.isFree ? (
+                            <span className={cn("font-bold", isCur && "text-[#C9A84C]")}>مجاني</span>
+                          ) : plan.isContactOnly ? (
+                            <span className="text-muted-foreground text-[10px]">تواصل</span>
+                          ) : (
+                            <div className="flex flex-col items-center gap-0.5">
+                              {billingPeriod === "annual" && pr && (
+                                <span className="text-[9px] line-through text-muted-foreground/45">
+                                  {plan.price.toLocaleString("ar-SA")}
+                                </span>
+                              )}
+                              <span className={cn("font-bold", isCur ? "text-[#C9A84C]" : billingPeriod === "annual" ? "text-emerald-400" : "text-foreground")}>
+                                {dispPrice.toLocaleString("ar-SA")} ر.س
+                              </span>
+                            </div>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
                   {COMPARE_ROWS.map(row => (
                     <TableRow key={row.key}>
                       <TableCell className="font-medium text-sm text-right">
@@ -799,9 +1095,10 @@ export default function Billing() {
                         const isCur = id === currentPlanSlug;
                         return (
                           <TableCell key={id} className={cn("text-center text-xs px-2", isCur && "bg-[#C9A84C]/5")}>
-                            {row.isBool ? (val ? <Check className="h-3.5 w-3.5 text-emerald-400 mx-auto" /> : <Minus className="h-3 w-3 text-muted-foreground/40 mx-auto" />) : (
-                              <span className={cn(isCur && "text-[#C9A84C] font-bold")}>{String(val ?? "—")}</span>
-                            )}
+                            {row.isBool
+                              ? (val ? <Check className="h-3.5 w-3.5 text-emerald-400 mx-auto" /> : <Minus className="h-3 w-3 text-muted-foreground/40 mx-auto" />)
+                              : <span className={cn(isCur && "text-[#C9A84C] font-bold")}>{String(val ?? "—")}</span>
+                            }
                           </TableCell>
                         );
                       })}
