@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { motion, useInView } from "framer-motion";
 import { Link } from "wouter";
 import {
@@ -84,6 +85,7 @@ function JourneyStep({
 
 /* ── Problem card ─────────────────────────────────────────────── */
 function ProblemCard({ icon: Icon, problem, solution, delay }: { icon: React.ElementType; problem: string; solution: string; delay: number }) {
+  const { t } = useTranslation();
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -99,7 +101,7 @@ function ProblemCard({ icon: Icon, problem, solution, delay }: { icon: React.Ele
           <Icon className="w-4 h-4 text-red-400" />
         </div>
         <div>
-          <div className="text-xs font-bold text-red-400 mb-0.5">المشكلة</div>
+          <div className="text-xs font-bold text-red-400 mb-0.5">{t("landing.payment.problemLabel")}</div>
           <div className="text-sm text-white/70">{problem}</div>
         </div>
       </div>
@@ -111,7 +113,7 @@ function ProblemCard({ icon: Icon, problem, solution, delay }: { icon: React.Ele
           <Check className="w-4 h-4 text-emerald-400" />
         </div>
         <div>
-          <div className="text-xs font-bold text-emerald-400 mb-0.5">حل عدالة</div>
+          <div className="text-xs font-bold text-emerald-400 mb-0.5">{t("landing.payment.solutionLabel")}</div>
           <div className="text-sm text-white/70">{solution}</div>
         </div>
       </div>
@@ -123,51 +125,35 @@ function ProblemCard({ icon: Icon, problem, solution, delay }: { icon: React.Ele
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════════ */
 export default function PaymentShowcase() {
+  const { t } = useTranslation();
   const heroRef = useRef<HTMLDivElement>(null);
   const heroInView = useInView(heroRef, { once: true });
 
-  const JOURNEY = [
-    { icon: "👤", label: "عميل جديد",        desc: "استقبال وتسجيل بيانات الموكل",      color: "#6366F1" },
-    { icon: "📋", label: "عرض/عقد",          desc: "إنشاء العرض والعقد القانوني",       color: "#8B5CF6" },
-    { icon: "🧾", label: "فاتورة إلكترونية", desc: "إصدار فاتورة ZATCA في ثوانٍ",       color: G },
-    { icon: "🔗", label: "رابط الدفع",        desc: "إرسال رابط مباشر عبر واتساب",      color: "#10B981" },
-    { icon: "💳", label: "سداد فوري",         desc: "بطاقة / Mada / Apple Pay",         color: "#06B6D4" },
-    { icon: "✅", label: "تحديث تلقائي",     desc: "حالة الفاتورة تتغير فوراً",         color: "#22C55E" },
-    { icon: "📊", label: "لوحة مالية",        desc: "الإيراد يظهر في التقارير لحظياً",  color: G },
+  const JOURNEY_ICONS = [
+    { icon: "👤", color: "#6366F1" }, { icon: "📋", color: "#8B5CF6" },
+    { icon: "🧾", color: G },         { icon: "🔗", color: "#10B981" },
+    { icon: "💳", color: "#06B6D4" }, { icon: "✅", color: "#22C55E" },
+    { icon: "📊", color: G },
   ];
+  const journeyT = t("landing.payment.journeySteps", { returnObjects: true }) as { label: string; desc: string }[];
+  const JOURNEY = JOURNEY_ICONS.map((j, i) => ({ ...j, ...journeyT[i] }));
 
-  const FEATURES = [
-    "إنشاء فاتورة خلال أقل من دقيقة",
-    "إرسال رابط دفع مباشر بضغطة",
-    "استقبال المدفوعات إلكترونياً",
-    "متابعة الفواتير المتأخرة تلقائياً",
-    "تذكيرات دفع آلية للعملاء",
-    "تقارير مالية لحظية شاملة",
-    "إدارة الإيرادات من لوحة واحدة",
-  ];
+  const FEATURES = t("landing.payment.features", { returnObjects: true }) as string[];
 
-  const PROBLEMS = [
-    {
-      icon: Bell,
-      problem: "نسيان متابعة الفواتير المعلقة يُضيّع آلاف الريالات شهرياً",
-      solution: "تذكيرات تلقائية للعملاء ومتابعة ذكية لكل فاتورة حتى السداد",
-    },
-    {
-      icon: AlertCircle,
-      problem: "تأخر التحصيل يؤثر على السيولة ويُعيق نمو المكتب",
-      solution: "روابط دفع فورية تُرسل للعميل تقلّص متوسط وقت السداد من 30 يوماً إلى 3 أيام",
-    },
-    {
-      icon: FileText,
-      problem: "لا توجد تقارير مالية واضحة — لا تعرف أين تذهب إيراداتك",
-      solution: "لوحة مالية لحظية: كل ريال مُسجّل، كل فاتورة مُتتبّعة، كل تقرير جاهز بنقرة",
-    },
-    {
-      icon: Users,
-      problem: "عدم وجود نظام تحصيل يجعل مطاردة العملاء مُضنية وغير مهنية",
-      solution: "نظام تحصيل احترافي بالكامل: من إصدار الفاتورة حتى إرسال إيصال السداد",
-    },
-  ];
+  const PROBLEM_ICONS = [Bell, AlertCircle, FileText, Users];
+  const problemsT = t("landing.payment.problems", { returnObjects: true }) as { problem: string; solution: string }[];
+  const PROBLEMS = PROBLEM_ICONS.map((icon, i) => ({ icon, ...problemsT[i] }));
+
+  const statsT = t("landing.payment.stats", { returnObjects: true }) as { label: string; sub: string }[];
+  const STATS = [
+    { icon: Receipt,    value: "121",  color: "#6366F1", delay: 0 },
+    { icon: Check,      value: "89",   color: "#10B981", delay: 0.08 },
+    { icon: TrendingUp, value: "1.8M", color: G,         delay: 0.16 },
+    { icon: BarChart3,  value: "96%",  color: "#22C55E", delay: 0.24 },
+  ].map((s, i) => ({ ...s, ...statsT[i] }));
+
+  const GLOBAL_METHOD_ICONS = ["🌍", "🇸🇦", "⚡", "🔒"];
+  const globalMethods = t("landing.payment.globalMethods", { returnObjects: true }) as { label: string; desc: string }[];
 
   return (
     <section
@@ -202,7 +188,7 @@ export default function PaymentShowcase() {
             style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", color: "#10B981" }}
           >
             <Globe className="w-4 h-4" />
-            دفع إلكتروني عالمي
+            {t("landing.payment.badge")}
             <ShieldCheck className="w-4 h-4" />
           </motion.div>
 
@@ -213,7 +199,7 @@ export default function PaymentShowcase() {
             className="text-sm font-bold mb-3"
             style={{ color: "#10B981" }}
           >
-            لا تدِر قضاياك فقط…
+            {t("landing.payment.tagline")}
           </motion.p>
 
           <motion.h2
@@ -222,10 +208,10 @@ export default function PaymentShowcase() {
             transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
             className="text-4xl sm:text-5xl lg:text-6xl font-black text-white mb-5 leading-tight"
           >
-            استلم أتعابك القانونية{" "}
+            {t("landing.payment.title")}{" "}
             <br className="hidden sm:block" />
             <span style={{ background: `linear-gradient(135deg, ${G}, #F0D060, #10B981)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              من أي مكان في العالم
+              {t("landing.payment.titleHighlight")}
             </span>
           </motion.h2>
 
@@ -235,8 +221,7 @@ export default function PaymentShowcase() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-lg text-white/55 max-w-2xl mx-auto mb-8 leading-relaxed"
           >
-            حوّل الاستشارات والعقود والقضايا إلى إيرادات فعلية عبر الفواتير الإلكترونية
-            وروابط الدفع المباشرة — كل ذلك داخل منصة عدالة.
+            {t("landing.payment.subtitle")}
           </motion.p>
 
           {/* Tagline badge */}
@@ -248,18 +233,13 @@ export default function PaymentShowcase() {
             style={{ background: `${G}12`, border: `1px solid ${G}30`, color: G }}
           >
             <Sparkles className="w-4 h-4 shrink-0" />
-            <span className="font-bold">من أول استشارة إلى تحصيل الأتعاب… كل شيء يتم داخل عدالة</span>
+            <span className="font-bold">{t("landing.payment.tagline2")}</span>
           </motion.div>
         </div>
 
         {/* ── STATS ROW ───────────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-20">
-          {[
-            { icon: Receipt,   value: "121", label: "إجمالي الفواتير",     sub: "فاتورة هذا الشهر",      color: "#6366F1", delay: 0 },
-            { icon: Check,     value: "89",  label: "الفواتير المسددة",    sub: "بنسبة 96% معدل تحصيل", color: "#10B981", delay: 0.08 },
-            { icon: TrendingUp,value: "1.8M",label: "الإيرادات المحصلة",  sub: "ريال سعودي هذا الشهر",  color: G,         delay: 0.16 },
-            { icon: BarChart3, value: "96%", label: "معدل التحصيل",       sub: "الأعلى في القطاع",       color: "#22C55E", delay: 0.24 },
-          ].map(s => <StatCard key={s.label} {...s} />)}
+          {STATS.map(s => <StatCard key={s.label} {...s} />)}
         </div>
 
         {/* ── JOURNEY ─────────────────────────────────────────────── */}
@@ -273,10 +253,10 @@ export default function PaymentShowcase() {
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-3"
               style={{ background: `${G}12`, border: `1px solid ${G}25`, color: G }}>
-              رحلة التحصيل الكاملة
+              {t("landing.payment.journeyBadge")}
             </div>
             <h3 className="text-2xl sm:text-3xl font-black text-white">
-              من استقبال العميل إلى استلام الأتعاب في 7 خطوات
+              {t("landing.payment.journeyTitle")}
             </h3>
           </div>
 
@@ -288,7 +268,7 @@ export default function PaymentShowcase() {
 
             <div className="grid grid-cols-3 md:grid-cols-7 gap-6 md:gap-2">
               {JOURNEY.map((j, i) => (
-                <JourneyStep key={j.label} {...j} delay={i * 0.07} isLast={i === JOURNEY.length - 1} />
+                <JourneyStep key={i} {...j} delay={i * 0.07} isLast={i === JOURNEY.length - 1} />
               ))}
             </div>
           </div>
@@ -304,12 +284,12 @@ export default function PaymentShowcase() {
           >
             <div className="text-4xl shrink-0">💰</div>
             <div className="flex-1">
-              <div className="font-black text-white text-lg mb-0.5">النتيجة: أتعابك في حسابك</div>
-              <div className="text-white/50 text-sm">في الوقت الذي تُركّز فيه على القضية، تُدير عدالة عملية التحصيل بالكامل نيابةً عنك</div>
+              <div className="font-black text-white text-lg mb-0.5">{t("landing.payment.resultTitle")}</div>
+              <div className="text-white/50 text-sm">{t("landing.payment.resultDesc")}</div>
             </div>
             <div className="shrink-0">
               <div className="text-3xl font-black" style={{ color: "#10B981" }}>96%</div>
-              <div className="text-xs text-white/40">معدل تحصيل</div>
+              <div className="text-xs text-white/40">{t("landing.payment.collectionRate")}</div>
             </div>
           </motion.div>
         </motion.div>
@@ -321,12 +301,12 @@ export default function PaymentShowcase() {
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold mb-5"
               style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)", color: "#818CF8" }}>
               <Zap className="w-3.5 h-3.5" />
-              ماذا تحصل عليه
+              {t("landing.payment.featuresBadge")}
             </div>
             <h3 className="text-2xl sm:text-3xl font-black text-white mb-6">
-              نظام تحصيل متكامل{" "}
+              {t("landing.payment.featuresTitle")}{" "}
               <span style={{ background: `linear-gradient(135deg, ${G}, #F0D060)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                بداخل عدالة
+                {t("landing.payment.featuresTitleHighlight")}
               </span>
             </h3>
             <div className="space-y-3">
@@ -367,7 +347,7 @@ export default function PaymentShowcase() {
                   <span className="text-sm font-black text-white">عدالة — فاتورة إلكترونية</span>
                 </div>
                 <span className="text-xs px-2.5 py-1 rounded-full font-bold" style={{ background: "rgba(16,185,129,0.15)", color: "#10B981" }}>
-                  ● نشطة
+                  {t("landing.payment.invoiceActive")}
                 </span>
               </div>
 
@@ -412,21 +392,21 @@ export default function PaymentShowcase() {
                 <div className="rounded-xl p-4" style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)" }}>
                   <div className="flex items-center gap-2 mb-2">
                     <CreditCard className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span className="text-xs font-bold text-emerald-300">رابط الدفع الإلكتروني</span>
+                    <span className="text-xs font-bold text-emerald-300">{t("landing.payment.paymentLink")}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 px-3 py-2 rounded-lg text-[10px] text-white/40 truncate" style={{ background: "rgba(255,255,255,0.05)" }}>
                       pay.adalah-ai.sa/inv/2025-093
                     </div>
                     <div className="px-3 py-2 rounded-lg text-[10px] font-bold text-[#0D1626] shrink-0" style={{ background: "#10B981" }}>
-                      إرسال عبر واتساب
+                      {t("landing.payment.sendWhatsapp")}
                     </div>
                   </div>
                 </div>
 
                 {/* Payment methods */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] text-white/30">يقبل:</span>
+                  <span className="text-[10px] text-white/30">{t("landing.payment.accepts")}</span>
                   {["Visa", "Mastercard", "Mada", "Apple Pay", "STC Pay"].map(m => (
                     <span key={m} className="text-[9px] px-2 py-0.5 rounded-md font-bold text-white/50" style={{ background: "rgba(255,255,255,0.06)" }}>{m}</span>
                   ))}
@@ -448,12 +428,12 @@ export default function PaymentShowcase() {
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold mb-4"
               style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#F87171" }}>
               <AlertCircle className="w-3.5 h-3.5" />
-              لماذا يخسر كثير من المكاتب القانونية أتعابها؟
+              {t("landing.payment.problemsBadge")}
             </div>
             <h3 className="text-2xl sm:text-3xl font-black text-white max-w-2xl mx-auto">
-              المشاكل التي تواجه{" "}
-              <span className="text-red-400">كل مكتب قانوني</span>
-              {" "}… وكيف تحلّها عدالة
+              {t("landing.payment.problemsTitle")}{" "}
+              <span className="text-red-400">{t("landing.payment.problemsTitleRed")}</span>
+              {" "}{t("landing.payment.problemsTitleSuffix")}
             </h3>
           </div>
 
@@ -481,25 +461,20 @@ export default function PaymentShowcase() {
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-black mb-5"
                 style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.35)", color: "#10B981" }}>
                 <Globe className="w-4 h-4" />
-                دفع إلكتروني عالمي
+                {t("landing.payment.globalBadge")}
               </div>
               <h3 className="text-2xl sm:text-3xl font-black text-white mb-4">
-                يمكن للمكتب إصدار الفواتير وإرسال روابط الدفع للعملاء ومتابعة حالة السداد إلكترونياً من داخل عدالة
+                {t("landing.payment.globalTitle")}
               </h3>
               <p className="text-white/50 leading-relaxed">
-                سواء كان العميل في الرياض أو دبي أو لندن — رابط الدفع يصله لحظياً ويسدد في ثوانٍ.
+                {t("landing.payment.globalSubtitle")}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {[
-                { icon: "🌍", label: "مدفوعات عالمية", desc: "Visa / Mastercard / SWIFT" },
-                { icon: "🇸🇦", label: "مدفوعات محلية", desc: "Mada / STC Pay / Apple Pay" },
-                { icon: "⚡", label: "تحويل فوري", desc: "للحساب البنكي خلال 24 ساعة" },
-                { icon: "🔒", label: "أمان PCI DSS", desc: "معيار الأمان المصرفي العالمي" },
-              ].map(({ icon, label, desc }) => (
-                <div key={label} className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  <div className="text-2xl mb-2">{icon}</div>
+              {globalMethods.map(({ label, desc }, i) => (
+                <div key={i} className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div className="text-2xl mb-2">{GLOBAL_METHOD_ICONS[i]}</div>
                   <div className="text-sm font-bold text-white mb-0.5">{label}</div>
                   <div className="text-xs text-white/40 leading-tight">{desc}</div>
                 </div>
@@ -527,7 +502,7 @@ export default function PaymentShowcase() {
                 }}
               >
                 <CreditCard className="w-5 h-5" />
-                ابدأ التحصيل الإلكتروني الآن
+                {t("landing.payment.ctaStart")}
               </button>
             </Link>
             <Link href={`${BASE}/sign-up`}>
@@ -540,12 +515,12 @@ export default function PaymentShowcase() {
                 }}
               >
                 <ArrowLeft className="w-5 h-5" />
-                شاهد كيف تعمل عدالة
+                {t("landing.payment.ctaView")}
               </button>
             </Link>
           </div>
           <p className="text-white/30 text-sm mt-5">
-            بدون بطاقة ائتمانية · إعداد في 3 دقائق · دعم عربي كامل
+            {t("landing.payment.ctaFooter")}
           </p>
         </motion.div>
 

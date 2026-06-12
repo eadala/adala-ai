@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import {
@@ -877,11 +878,28 @@ const JOURNEY = [
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════════════ */
 export default function PlatformShowcase() {
+  const { t } = useTranslation();
   const [active, setActive] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [modal, setModal] = useState<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStart = useRef<number | null>(null);
+
+  const screensT = t("landing.showcase.screens", { returnObjects: true }) as { title: string; subtitle: string; features: string[] }[];
+  const journeyLabels = t("landing.showcase.journeySteps", { returnObjects: true }) as string[];
+  const paymentFeatures = t("landing.showcase.paymentFeatures", { returnObjects: true }) as string[];
+
+  const SCREENS_T = SCREENS.map((s, i) => ({
+    ...s,
+    title: screensT[i]?.title ?? s.title,
+    subtitle: screensT[i]?.subtitle ?? s.subtitle,
+    features: screensT[i]?.features ?? s.features,
+  }));
+
+  const JOURNEY_T = JOURNEY.map((j, i) => ({
+    ...j,
+    label: journeyLabels[i] ?? j.label,
+  }));
 
   const goNext = useCallback(() => setActive(p => (p + 1) % SCREENS.length), []);
   const goPrev = useCallback(() => setActive(p => (p - 1 + SCREENS.length) % SCREENS.length), []);
@@ -900,7 +918,7 @@ export default function PlatformShowcase() {
     touchStart.current = null;
   };
 
-  const screen = SCREENS[active];
+  const screen = SCREENS_T[active];
   const Screen = screen.component;
 
   return (
@@ -913,14 +931,14 @@ export default function PlatformShowcase() {
         {/* Header */}
         <motion.div className="text-center mb-12" initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold mb-4" style={{ background: `${G}18`, border: `1px solid ${G}35`, color: G }}>
-            <Play className="w-3.5 h-3.5 fill-current" />عدالة في 60 ثانية
+            <Play className="w-3.5 h-3.5 fill-current" />{t("landing.showcase.badge")}
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white mb-4">
-            شاهد كيف تعمل{" "}
-            <span style={{ background: `linear-gradient(135deg, ${G}, #F0D060)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>عدالة</span>
+            {t("landing.showcase.title")}{" "}
+            <span style={{ background: `linear-gradient(135deg, ${G}, #F0D060)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{t("landing.showcase.titleHighlight")}</span>
           </h2>
           <p className="text-white/50 text-lg max-w-2xl mx-auto">
-            تصفّح 15 وحدة حقيقية من المنصة وشاهد كيف تُدار القضية كاملةً من الاستقبال حتى التحصيل
+            {t("landing.showcase.subtitle")}
           </p>
         </motion.div>
 
@@ -929,7 +947,7 @@ export default function PlatformShowcase() {
 
           {/* Left: screen list */}
           <div className="hidden lg:block rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
-            {SCREENS.map((s, i) => (
+            {SCREENS_T.map((s, i) => (
               <button key={s.id} onClick={() => { setActive(i); setPlaying(false); }}
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-right transition-all"
                 style={{ background: active === i ? `${s.color}12` : "transparent", borderRight: active === i ? `3px solid ${s.color}` : "3px solid transparent", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
@@ -968,7 +986,7 @@ export default function PlatformShowcase() {
                   className="absolute inset-0 w-full h-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
                   style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(3px)" }}>
                   <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-[#0D1626]" style={{ background: G }}>
-                    <Zap className="w-4 h-4" />عرض التفاصيل الكاملة
+                    <Zap className="w-4 h-4" />{t("landing.showcase.viewDetails")}
                   </div>
                 </button>
               </div>
@@ -993,7 +1011,7 @@ export default function PlatformShowcase() {
 
             {/* Progress dots */}
             <div className="flex items-center justify-center gap-1.5 mt-4 flex-wrap">
-              {SCREENS.map((s, i) => (
+              {SCREENS_T.map((s, i) => (
                 <button key={s.id} onClick={() => { setActive(i); setPlaying(false); }} className="rounded-full transition-all"
                   style={{ width: active === i ? 22 : 6, height: 6, background: active === i ? screen.color : "rgba(255,255,255,0.15)" }} />
               ))}
@@ -1003,7 +1021,7 @@ export default function PlatformShowcase() {
 
         {/* Mobile: horizontal scrollable tabs */}
         <div className="lg:hidden flex gap-2 mt-5 overflow-x-auto pb-2">
-          {SCREENS.map((s, i) => (
+          {SCREENS_T.map((s, i) => (
             <button key={s.id} onClick={() => { setActive(i); setPlaying(false); }}
               className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
               style={{ background: active === i ? s.color : "rgba(255,255,255,0.07)", color: active === i ? "#0D1626" : "rgba(255,255,255,0.5)" }}>
@@ -1017,12 +1035,12 @@ export default function PlatformShowcase() {
           style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}
           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
           <div className="text-center mb-6">
-            <div className="text-sm font-bold mb-1" style={{ color: G }}>رحلة العمل الكاملة</div>
-            <div className="text-white font-black text-lg">من استقبال العميل حتى استلام الأتعاب</div>
+            <div className="text-sm font-bold mb-1" style={{ color: G }}>{t("landing.showcase.journeyLabel")}</div>
+            <div className="text-white font-black text-lg">{t("landing.showcase.journeyTitle")}</div>
           </div>
           <div className="flex flex-wrap justify-center gap-2 md:gap-0">
-            {JOURNEY.map((j, i) => (
-              <div key={j.label} className="flex items-center">
+            {JOURNEY_T.map((j, i) => (
+              <div key={i} className="flex items-center">
                 <div className="flex flex-col items-center mx-1">
                   <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl mb-1.5"
                     style={{ background: `rgba(201,168,76,${0.06 + i * 0.04})`, border: "1px solid rgba(201,168,76,0.15)" }}>
@@ -1030,7 +1048,7 @@ export default function PlatformShowcase() {
                   </div>
                   <span className="text-[9px] text-white/45 text-center max-w-[70px] leading-tight">{j.label}</span>
                 </div>
-                {i < JOURNEY.length - 1 && (
+                {i < JOURNEY_T.length - 1 && (
                   <div className="hidden md:block mb-4 text-white/20 mx-0.5">
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </div>
@@ -1049,12 +1067,12 @@ export default function PlatformShowcase() {
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <CreditCard className="w-5 h-5" style={{ color: G }} />
-                <span className="font-black text-white text-lg">استلم أتعابك من أي مكان في العالم</span>
+                <span className="font-black text-white text-lg">{t("landing.showcase.paymentTitle")}</span>
               </div>
-              <p className="text-white/50 text-sm">بوابة دفع مدمجة تدعم البطاقات الائتمانية وMada وApple Pay وSTC Pay</p>
+              <p className="text-white/50 text-sm">{t("landing.showcase.paymentSubtitle")}</p>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 flex-shrink-0">
-              {["إصدار فاتورة خلال ثوانٍ","روابط دفع مباشرة","بطاقات ائتمانية عالمية","تتبع حالة السداد","إشعارات تلقائية","تقارير مالية لحظية"].map(f => (
+              {paymentFeatures.map(f => (
                 <div key={f} className="flex items-center gap-1.5 text-xs text-white/70">
                   <Check className="w-3.5 h-3.5 shrink-0" style={{ color: G }} />{f}
                 </div>
@@ -1069,13 +1087,13 @@ export default function PlatformShowcase() {
             <Link href={`${BASE}/sign-up`}>
               <button className="flex items-center gap-2 font-black px-8 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] shadow-xl"
                 style={{ background: `linear-gradient(135deg, ${G}, #E0C060)`, color: "#0D1626", boxShadow: `0 8px 32px ${G}40` }}>
-                ابدأ تجربتك المجانية الآن<ArrowLeft className="w-4 h-4" />
+                {t("landing.showcase.startFree")}<ArrowLeft className="w-4 h-4" />
               </button>
             </Link>
             <button onClick={() => { setModal(active); setPlaying(false); }}
               className="flex items-center gap-2 font-bold px-8 py-4 rounded-xl text-base transition-all hover:bg-white/5"
               style={{ border: `1px solid ${G}40`, color: G, background: `${G}08` }}>
-              <BarChart3 className="w-4 h-4" />شاهد جميع إمكانيات عدالة
+              <BarChart3 className="w-4 h-4" />{t("landing.showcase.viewAll")}
             </button>
           </div>
         </motion.div>
@@ -1096,8 +1114,8 @@ export default function PlatformShowcase() {
               {/* Modal header */}
               <div className="flex items-center justify-between px-5 py-4" style={{ background: "#070E1C", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                 <div>
-                  <div className="font-black text-white">{SCREENS[modal].title}</div>
-                  <div className="text-sm text-white/40">{SCREENS[modal].subtitle}</div>
+                  <div className="font-black text-white">{SCREENS_T[modal].title}</div>
+                  <div className="text-sm text-white/40">{SCREENS_T[modal].subtitle}</div>
                 </div>
                 <button onClick={() => setModal(null)} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.07)" }}>
                   <X className="w-4 h-4 text-white/60" />
@@ -1106,23 +1124,23 @@ export default function PlatformShowcase() {
               <div className="grid md:grid-cols-[1fr_260px]">
                 {/* Screen preview */}
                 <div style={{ height: 460, borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
-                  {(() => { const C = SCREENS[modal].component; return <C />; })()}
+                  {(() => { const C = SCREENS_T[modal].component; return <C />; })()}
                 </div>
                 {/* Features */}
                 <div className="p-6 flex flex-col justify-center">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-4"
-                    style={{ background: `${SCREENS[modal].color}18`, color: SCREENS[modal].color, border: `1px solid ${SCREENS[modal].color}30` }}>
-                    الوحدة {SCREENS[modal].id} من 15
+                    style={{ background: `${SCREENS_T[modal].color}18`, color: SCREENS_T[modal].color, border: `1px solid ${SCREENS_T[modal].color}30` }}>
+                    {t("landing.showcase.moduleOf")} {SCREENS_T[modal].id} {t("landing.showcase.of15")}
                   </div>
-                  <h3 className="text-xl font-black text-white mb-2">{SCREENS[modal].title}</h3>
-                  <p className="text-white/50 text-sm mb-5">{SCREENS[modal].subtitle}</p>
+                  <h3 className="text-xl font-black text-white mb-2">{SCREENS_T[modal].title}</h3>
+                  <p className="text-white/50 text-sm mb-5">{SCREENS_T[modal].subtitle}</p>
                   <div className="space-y-3">
-                    {SCREENS[modal].features.map((f, i) => (
+                    {SCREENS_T[modal].features.map((f, i) => (
                       <motion.div key={f} className="flex items-start gap-2.5"
                         initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.07 }}>
                         <div className="w-5 h-5 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                          style={{ background: `${SCREENS[modal].color}18`, border: `1px solid ${SCREENS[modal].color}30` }}>
-                          <Check className="w-3 h-3" style={{ color: SCREENS[modal].color }} />
+                          style={{ background: `${SCREENS_T[modal].color}18`, border: `1px solid ${SCREENS_T[modal].color}30` }}>
+                          <Check className="w-3 h-3" style={{ color: SCREENS_T[modal].color }} />
                         </div>
                         <span className="text-sm text-white/70">{f}</span>
                       </motion.div>
@@ -1130,20 +1148,20 @@ export default function PlatformShowcase() {
                   </div>
                   <div className="flex gap-2 mt-6">
                     <button onClick={() => setModal((modal - 1 + SCREENS.length) % SCREENS.length)}
-                      className="flex-1 py-2.5 rounded-xl text-sm font-bold" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)" }}>السابق</button>
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)" }}>{t("landing.showcase.prev")}</button>
                     <button onClick={() => setModal((modal + 1) % SCREENS.length)}
                       className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90"
-                      style={{ background: SCREENS[modal].color, color: "#0D1626" }}>التالي</button>
+                      style={{ background: SCREENS_T[modal].color, color: "#0D1626" }}>{t("landing.showcase.next")}</button>
                   </div>
                 </div>
               </div>
               {/* Modal footer */}
               <div className="px-5 py-4 flex items-center justify-between" style={{ background: "#070E1C", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                <span className="text-xs text-white/30">ابدأ مجاناً — لا بطاقة ائتمانية مطلوبة</span>
+                <span className="text-xs text-white/30">{t("landing.showcase.noCardRequired")}</span>
                 <Link href={`${BASE}/sign-up`}>
                   <button className="flex items-center gap-1.5 font-bold px-5 py-2 rounded-xl text-sm text-[#0D1626]"
                     style={{ background: `linear-gradient(135deg, ${G}, #E0C060)` }}>
-                    ابدأ مجاناً<ArrowLeft className="w-3.5 h-3.5" />
+                    {t("landing.showcase.startFreeShort")}<ArrowLeft className="w-3.5 h-3.5" />
                   </button>
                 </Link>
               </div>

@@ -212,7 +212,7 @@ export default function Landing() {
   }, []);
 
   const NAV = [
-    { label: "عرض المنصة",              href: "#showcase" },
+    { label: t("landing.nav.showcase"),   href: "#showcase" },
     { label: t("landing.nav.features"), href: "#features" },
     { label: t("landing.nav.how"),      href: "#how" },
     { label: t("landing.nav.security"), href: "#security" },
@@ -374,7 +374,7 @@ export default function Landing() {
                 <button className="flex items-center gap-2 font-semibold px-7 py-3.5 rounded-xl text-base border transition-all hover:bg-white/5 hover:scale-[1.02]"
                   style={{ borderColor: "rgba(201,168,76,0.4)", color: "#E0C060", background: "rgba(201,168,76,0.06)" }}>
                   <Sparkles className="w-4 h-4" />
-                  استكشف المنصة
+                  {t("landing.hero.explore")}
                 </button>
               </Link>
             </motion.div>
@@ -680,7 +680,7 @@ export default function Landing() {
                     )}
                     {isOpen && (
                       <div className="absolute top-4 left-4 text-xs font-bold px-3 py-1 rounded-full" style={{ background: "linear-gradient(135deg,#C9A84C,#6366F1)", color: "#fff" }}>
-                        كل الخدمات
+                        {t("landing.pricing.allServices")}
                       </div>
                     )}
                     <p className={`font-bold text-sm mb-3 ${isOpen ? "text-amber-400 mt-6" : highlight ? "text-white/60 mt-6" : "text-white/60"}`}>{p.name}</p>
