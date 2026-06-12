@@ -92,7 +92,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "nav.groups.hr",
     items: [
-      { href: "/hr-center",  labelKey: "nav.items.hr_center",  icon: Award },
+      { href: "/hr-center",   labelKey: "nav.items.hr_center",   icon: Award },
+      { href: "/hr-systems",  labelKey: "nav.items.hr_systems",  icon: Building2 },
       { href: "/employees",  labelKey: "nav.items.employees",  icon: UserCog },
       { href: "/attendance", labelKey: "nav.items.attendance", icon: Clock },
       { href: "/leaves",     labelKey: "nav.items.leaves",     icon: CalendarDays },

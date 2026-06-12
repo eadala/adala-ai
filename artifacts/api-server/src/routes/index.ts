@@ -61,6 +61,7 @@ import supportRouter from "./support";
 import mediatorsRouter from "./mediators";
 import orgStructureRouter from "./orgStructure";
 import hrPerformanceRouter from "./hrPerformance";
+import hrInternalRouter from "./hrInternal";
 
 const router: IRouter = Router();
 
@@ -135,5 +136,6 @@ router.use(supportRouter);
 router.use(mediatorsRouter);
 router.use(orgStructureRouter);
 router.use(hrPerformanceRouter);
+router.use(hrInternalRouter);
 
 export default router;
