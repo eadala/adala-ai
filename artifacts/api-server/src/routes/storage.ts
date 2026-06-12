@@ -195,13 +195,17 @@ router.get("/storage/stats", async (req, res) => {
 router.get("/storage/files", async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const { category, archived, deleted, search, caseId, limit = "50", offset = "0" } = req.query as any;
+  const { category, archived, deleted, search, caseId, folderId, limit = "100", offset = "0" } = req.query as any;
   const of2 = u.isSA ? sql`1=1` : sql`office_id=${u.officeId}`;
   const cf  = category ? sql`AND category=${category}` : sql``;
   const af  = archived === "true" ? sql`AND is_archived=true AND NOT is_deleted` : deleted === "true" ? sql`AND is_deleted=true` : sql`AND NOT is_deleted`;
   const sf  = search ? sql`AND original_name ILIKE ${'%' + search + '%'}` : sql``;
   const csf = caseId ? sql`AND case_id=${caseId}` : sql``;
-  const rows = await dbRows(sql`SELECT id,office_id,case_id,original_name,file_name,mime_type,file_size,category,is_archived,is_deleted,deleted_at,archived_at,created_at,file_url FROM storage_files WHERE ${of2} ${af} ${cf} ${sf} ${csf} ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`);
+  // folderId="root" → files with folder_id IS NULL; folderId=uuid → files in that folder; absent → all
+  const fof = folderId === "root" ? sql`AND folder_id IS NULL`
+            : folderId ? sql`AND folder_id=${folderId}::uuid`
+            : sql``;
+  const rows = await dbRows(sql`SELECT id,office_id,case_id,folder_id,original_name,file_name,mime_type,file_size,category,is_archived,is_deleted,deleted_at,archived_at,created_at,file_url FROM storage_files WHERE ${of2} ${af} ${cf} ${sf} ${csf} ${fof} ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`);
   res.json(rows);
 });
 
@@ -496,6 +500,67 @@ router.get("/storage/ai-analysis", async (req, res) => {
   if (dupHashes.length > 0) suggestions.push(`${dupHashes.length} مجموعات ملفات مكررة — يمكن توفير ${fmtB(wastedBytes)}`);
   if (oldFiles.length > 0) suggestions.push(`${oldFiles.length} ملف أقدم من 180 يوم — يُنصح بأرشفتها`);
   res.json({ largeFiles, oldFiles, duplicates: dupHashes, summary: { wastedFmt: fmtB(wastedBytes), archivableFmt: fmtB(archivableBytes), suggestions } });
+});
+
+/* ══════════════════════════════════════════════════
+   FOLDER MANAGEMENT
+══════════════════════════════════════════════════ */
+
+/* LIST folders (tree) */
+router.get("/storage/folders", async (req, res) => {
+  const u = await getMgmtUser(req);
+  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const rows = await dbRows(sql`
+    SELECT id, parent_id, name, created_at,
+           (SELECT COUNT(*)::int FROM storage_files sf WHERE sf.folder_id=f.id AND NOT sf.is_deleted) AS file_count
+    FROM storage_folders f
+    WHERE office_id=${u.officeId}
+    ORDER BY name ASC`);
+  res.json(rows);
+});
+
+/* CREATE folder */
+router.post("/storage/folders", async (req, res) => {
+  const u = await getMgmtUser(req);
+  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const { name, parentId } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: "اسم المجلد مطلوب" });
+  const dup = await dbRows(sql`SELECT id FROM storage_folders WHERE office_id=${u.officeId} AND COALESCE(parent_id::text,'root')=COALESCE(${parentId ?? null},'root') AND LOWER(name)=LOWER(${name.trim()})`);
+  if (dup.length) return res.status(409).json({ error: "مجلد بهذا الاسم موجود بالفعل" });
+  const rows = await dbRows(sql`INSERT INTO storage_folders (office_id,parent_id,name,created_by) VALUES (${u.officeId},${parentId??null},${name.trim()},${u.userId}) RETURNING *`);
+  res.json(rows[0]);
+});
+
+/* RENAME folder */
+router.patch("/storage/folders/:id", async (req, res) => {
+  const u = await getMgmtUser(req);
+  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const { name } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: "الاسم مطلوب" });
+  const rows = await dbRows(sql`UPDATE storage_folders SET name=${name.trim()}, updated_at=NOW() WHERE id=${req.params.id}::uuid AND office_id=${u.officeId} RETURNING *`);
+  if (!rows.length) return res.status(404).json({ error: "المجلد غير موجود" });
+  res.json(rows[0]);
+});
+
+/* DELETE folder (files move to parent) */
+router.delete("/storage/folders/:id", async (req, res) => {
+  const u = await getMgmtUser(req);
+  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const folder = await dbRows(sql`SELECT parent_id FROM storage_folders WHERE id=${req.params.id}::uuid AND office_id=${u.officeId}`);
+  if (!folder.length) return res.status(404).json({ error: "المجلد غير موجود" });
+  await db.execute(sql`UPDATE storage_files SET folder_id=${folder[0].parent_id??null} WHERE folder_id=${req.params.id}::uuid`);
+  await db.execute(sql`DELETE FROM storage_folders WHERE id=${req.params.id}::uuid AND office_id=${u.officeId}`);
+  res.json({ ok: true });
+});
+
+/* MOVE file to folder (or root) */
+router.patch("/storage/files/:id/folder", async (req, res) => {
+  const u = await getMgmtUser(req);
+  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const { folderId } = req.body; // null = root
+  const rows = await dbRows(sql`UPDATE storage_files SET folder_id=${folderId??null}, updated_at=NOW() WHERE id=${req.params.id}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING id`);
+  if (!rows.length) return res.status(404).json({ error: "الملف غير موجود" });
+  res.json({ ok: true });
 });
 
 export default router;
