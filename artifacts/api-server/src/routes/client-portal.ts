@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { getAuth } from "@clerk/express";
+import { createClerkClient } from "@clerk/express";
 import { requireAuth } from "../middlewares/requireAuth";
 import nodemailer from "nodemailer";
 import { objectStorageClient, parseObjectPath } from "../lib/objectStorage";
@@ -67,6 +68,48 @@ ensureTables().catch(console.error);
 function sqlOne(res: any) { return (res?.rows ?? res)?.[0] ?? null; }
 function sqlAll(res: any) { return res?.rows ?? res ?? []; }
 
+// ─── Permission helpers ───────────────────────────────────────────────────────
+let _clerkPortal: ReturnType<typeof createClerkClient> | null = null;
+const getClerkPortal = () => {
+  if (!_clerkPortal) _clerkPortal = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+  return _clerkPortal;
+};
+
+const DEFAULT_COMM_ROLES: Record<string, string[]> = {
+  reply:    ["firm_owner", "office_manager", "lawyer", "secretary"],
+  portal:   ["firm_owner", "office_manager", "lawyer"],
+  timeline: ["firm_owner", "office_manager", "lawyer"],
+  intake:   ["firm_owner", "office_manager", "lawyer"],
+};
+
+async function getOfficeUser(req: any) {
+  const auth = getAuth(req);
+  if (!auth?.userId) return null;
+  try {
+    const user = await getClerkPortal().users.getUser(auth.userId);
+    const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
+    const owner = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
+    const isSA = (!!owner && email === owner) || user.publicMetadata?.role === "super_admin";
+    const officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
+    const mRows = sqlAll(await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`));
+    const officeRole: string = mRows[0]?.role ?? (user.publicMetadata?.role as string) ?? "lawyer";
+    const isAdmin = isSA || officeRole === "firm_owner" || officeRole === "office_manager";
+    return { userId: auth.userId, officeId, email, isSA, officeRole, isAdmin };
+  } catch { return null; }
+}
+
+async function checkCommPerm(u: NonNullable<Awaited<ReturnType<typeof getOfficeUser>>>, action: string): Promise<boolean> {
+  if (u.isAdmin || u.isSA) return true;
+  try {
+    const rows = sqlAll(await db.execute(sql`SELECT reply_roles, portal_roles, timeline_roles, intake_roles FROM client_comm_settings WHERE office_id=${u.officeId}`));
+    const s = rows[0];
+    if (!s) return (DEFAULT_COMM_ROLES[action] ?? []).includes(u.officeRole);
+    const col = action + "_roles";
+    const allowed: string[] = s[col] ?? DEFAULT_COMM_ROLES[action] ?? [];
+    return allowed.includes(u.officeRole);
+  } catch { return (DEFAULT_COMM_ROLES[action] ?? []).includes(u.officeRole); }
+}
+
 function getEmailTransporter() {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
@@ -114,8 +157,13 @@ async function notifyClientByEmail(clientEmail: string, clientName: string | nul
   }
 }
 
-// ─── POST /portal/create-token ────────────────────────────────────────────────
+// ─── POST /portal/create-token ─── requires: portal perm ─────────────────────
 router.post("/portal/create-token", requireAuth, async (req: Request, res: Response) => {
+  const u = await getOfficeUser(req);
+  if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
+  if (!await checkCommPerm(u, "portal")) {
+    res.status(403).json({ error: "ليس لديك صلاحية إنشاء بوابة العملاء — تواصل مع مدير المكتب", code: "NO_PORTAL_PERM" }); return;
+  }
   try {
     const { caseId, clientEmail, clientName, expiryDays = 30,
             showInvoices = true, showTimeline = true, allowedToUpload = false } = req.body;
@@ -231,8 +279,13 @@ router.get("/portal/tokens/:caseId", requireAuth, async (req: Request, res: Resp
   }
 });
 
-// ─── DELETE /portal/tokens/:id ────────────────────────────────────────────────
+// ─── DELETE /portal/tokens/:id ─── requires: portal perm ─────────────────────
 router.delete("/portal/tokens/:id", requireAuth, async (req: Request, res: Response) => {
+  const u = await getOfficeUser(req);
+  if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
+  if (!await checkCommPerm(u, "portal")) {
+    res.status(403).json({ error: "ليس لديك صلاحية إلغاء بوابة العملاء", code: "NO_PORTAL_PERM" }); return;
+  }
   try {
     await db.execute(sql`DELETE FROM client_portal_tokens WHERE id = ${req.params.id}`);
     res.json({ success: true });
@@ -241,8 +294,13 @@ router.delete("/portal/tokens/:id", requireAuth, async (req: Request, res: Respo
   }
 });
 
-// ─── PUT /portal/tokens/:id/settings ─────────────────────────────────────────
+// ─── PUT /portal/tokens/:id/settings ─── requires: portal perm ───────────────
 router.put("/portal/tokens/:id/settings", requireAuth, async (req: Request, res: Response) => {
+  const u = await getOfficeUser(req);
+  if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
+  if (!await checkCommPerm(u, "portal")) {
+    res.status(403).json({ error: "ليس لديك صلاحية تعديل إعدادات البوابة", code: "NO_PORTAL_PERM" }); return;
+  }
   try {
     const { showInvoices, showTimeline, allowedToUpload } = req.body;
     await db.execute(sql`
@@ -258,9 +316,13 @@ router.put("/portal/tokens/:id/settings", requireAuth, async (req: Request, res:
   }
 });
 
-// ─── POST /portal/tokens/:id/share-doc ───────────────────────────────────────
-// Add a document ID to the shared_documents list for this portal token
+// ─── POST /portal/tokens/:id/share-doc ─── requires: reply perm ──────────────
 router.post("/portal/tokens/:id/share-doc", requireAuth, async (req: Request, res: Response) => {
+  const u = await getOfficeUser(req);
+  if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
+  if (!await checkCommPerm(u, "reply")) {
+    res.status(403).json({ error: "ليس لديك صلاحية مشاركة مستندات مع العملاء", code: "NO_REPLY_PERM" }); return;
+  }
   try {
     const { docId } = req.body;
     if (!docId) { res.status(400).json({ error: "docId مطلوب" }); return; }
@@ -285,8 +347,13 @@ router.post("/portal/tokens/:id/share-doc", requireAuth, async (req: Request, re
   }
 });
 
-// ─── DELETE /portal/tokens/:id/share-doc/:docId ───────────────────────────────
+// ─── DELETE /portal/tokens/:id/share-doc/:docId ─── requires: reply perm ──────
 router.delete("/portal/tokens/:id/share-doc/:docId", requireAuth, async (req: Request, res: Response) => {
+  const u = await getOfficeUser(req);
+  if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
+  if (!await checkCommPerm(u, "reply")) {
+    res.status(403).json({ error: "ليس لديك صلاحية إدارة مشاركة المستندات", code: "NO_REPLY_PERM" }); return;
+  }
   try {
     const rows = await db.execute(sql`SELECT shared_documents FROM client_portal_tokens WHERE id = ${req.params.id}`);
     const row = sqlOne(rows) as any;
@@ -317,8 +384,15 @@ router.get("/portal/timeline/:caseId", requireAuth, async (req: Request, res: Re
   }
 });
 
-// ─── POST /portal/timeline/:caseId ────────────────────────────────────────────
+// ─── POST /portal/timeline/:caseId ─── requires: timeline perm ────────────────
 router.post("/portal/timeline/:caseId", requireAuth, async (req: Request, res: Response) => {
+  const u = await getOfficeUser(req);
+  if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
+  const { isShared: isSharedCheck = true } = req.body;
+  // Only enforce if the entry will be shared with the client
+  if (isSharedCheck && !await checkCommPerm(u, "timeline")) {
+    res.status(403).json({ error: "ليس لديك صلاحية إرسال تحديثات للعملاء", code: "NO_TIMELINE_PERM" }); return;
+  }
   try {
     const { title, description, entryType = "note", happenedAt, isShared = true } = req.body;
     if (!title) { res.status(400).json({ error: "العنوان مطلوب" }); return; }
@@ -455,6 +529,79 @@ router.post("/portal/:token/message", async (req: Request, res: Response) => {
     `);
     res.json({ success: true });
   } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  COMMUNICATION PERMISSIONS SETTINGS
+// ═══════════════════════════════════════════════════════════════
+
+const ROLE_LABELS: Record<string, string> = {
+  firm_owner: "مالك المكتب", office_manager: "مدير المكتب",
+  lawyer: "محامي", trainee_lawyer: "محامي متدرب",
+  accountant: "محاسب", secretary: "سكرتير",
+  broker: "وسيط", collaborator: "متعاون",
+};
+
+/* GET /api/comm-settings — returns current settings for the office */
+router.get("/comm-settings", requireAuth, async (req: Request, res: Response) => {
+  const u = await getOfficeUser(req);
+  if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
+  try {
+    const rows = sqlAll(await db.execute(sql`SELECT * FROM client_comm_settings WHERE office_id=${u.officeId}`));
+    const s = rows[0] ?? {
+      reply_roles:    DEFAULT_COMM_ROLES.reply,
+      portal_roles:   DEFAULT_COMM_ROLES.portal,
+      timeline_roles: DEFAULT_COMM_ROLES.timeline,
+      intake_roles:   DEFAULT_COMM_ROLES.intake,
+      require_reply_approval: false,
+    };
+    res.json({
+      ...s,
+      allRoles: Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label })),
+      currentUserRole: u.officeRole,
+      isAdmin: u.isAdmin,
+    });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* PATCH /api/comm-settings — admin only: update role settings */
+router.patch("/comm-settings", requireAuth, async (req: Request, res: Response) => {
+  const u = await getOfficeUser(req);
+  if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
+  if (!u.isAdmin) { res.status(403).json({ error: "يجب أن تكون مديراً أو مالك مكتب لتعديل إعدادات التواصل" }); return; }
+  try {
+    const { reply_roles, portal_roles, timeline_roles, intake_roles, require_reply_approval } = req.body;
+    const validRoles = Object.keys(ROLE_LABELS);
+    const clean = (arr: any, def: string[]) =>
+      Array.isArray(arr) ? arr.filter((r: any) => validRoles.includes(r)) : def;
+    // Postgres text[] literal: {firm_owner,lawyer} — values are whitelisted so safe
+    const toArr = (arr: string[]) => "{" + arr.join(",") + "}";
+
+    const rr = toArr(clean(reply_roles,    DEFAULT_COMM_ROLES.reply));
+    const pr = toArr(clean(portal_roles,   DEFAULT_COMM_ROLES.portal));
+    const tr = toArr(clean(timeline_roles, DEFAULT_COMM_ROLES.timeline));
+    const ir = toArr(clean(intake_roles,   DEFAULT_COMM_ROLES.intake));
+    const approval = !!(require_reply_approval ?? false);
+
+    const existing = sqlAll(await db.execute(sql`SELECT id FROM client_comm_settings WHERE office_id=${u.officeId}`));
+    if (existing.length > 0) {
+      await db.execute(sql`
+        UPDATE client_comm_settings SET
+          reply_roles=${rr}::text[], portal_roles=${pr}::text[],
+          timeline_roles=${tr}::text[], intake_roles=${ir}::text[],
+          require_reply_approval=${approval}, updated_at=NOW()
+        WHERE office_id=${u.officeId}`);
+    } else {
+      await db.execute(sql`
+        INSERT INTO client_comm_settings (office_id,reply_roles,portal_roles,timeline_roles,intake_roles,require_reply_approval)
+        VALUES (${u.officeId},${rr}::text[],${pr}::text[],${tr}::text[],${ir}::text[],${approval})`);
+    }
+    const updated = sqlAll(await db.execute(sql`SELECT * FROM client_comm_settings WHERE office_id=${u.officeId}`));
+    res.json(updated[0] ?? { ok: true });
+  } catch (e: any) {
+    console.error("comm-settings PATCH:", e);
     res.status(500).json({ error: e.message });
   }
 });

@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import {
   Globe, Link2, Copy, CheckCircle2, Plus, Trash2, Clock,
   Eye, Shield, ExternalLink, RefreshCw, Loader2, Settings,
-  GitCommitHorizontal
+  GitCommitHorizontal, ShieldCheck, Users, Lock,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
@@ -279,6 +279,157 @@ function TokenSettingsPanel({ token, onSaved }: { token: PortalToken; onSaved: (
   );
 }
 
+// ─── Comm Settings Dialog ─────────────────────────────────────────────────────
+const ACTION_LABELS: Record<string, { label: string; desc: string }> = {
+  reply:    { label: "الرد على العملاء",        desc: "إرسال رسائل ومشاركة وثائق عبر بوابة العميل" },
+  portal:   { label: "إدارة بوابة العملاء",     desc: "إنشاء وإلغاء وتعديل روابط البوابة" },
+  timeline: { label: "إرسال تحديثات للعملاء",  desc: "إضافة أحداث مشتركة في الخط الزمني" },
+  intake:   { label: "استقبال قضايا جديدة",    desc: "إنشاء قضايا من طلبات العملاء الواردة" },
+};
+
+type CommSettings = {
+  reply_roles: string[];
+  portal_roles: string[];
+  timeline_roles: string[];
+  intake_roles: string[];
+  require_reply_approval: boolean;
+  allRoles: { value: string; label: string }[];
+  isAdmin: boolean;
+  currentUserRole: string;
+};
+
+function CommSettingsDialog() {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<Partial<CommSettings>>({});
+
+  const { data: settings, isLoading, refetch } = useQuery<CommSettings>({
+    queryKey: ["comm-settings"],
+    queryFn: () => fetch(`${BASE}api/comm-settings`).then(r => r.json()),
+    enabled: open,
+  });
+
+  const merged = { ...settings, ...draft } as CommSettings;
+  const allRoles = settings?.allRoles ?? [];
+
+  const toggleRole = (action: string, role: string) => {
+    const key = `${action}_roles` as keyof CommSettings;
+    const current: string[] = (merged[key] as string[]) ?? [];
+    const next = current.includes(role)
+      ? current.filter(r => r !== role)
+      : [...current, role];
+    setDraft(d => ({ ...d, [key]: next }));
+  };
+
+  const save = async () => {
+    setSaving(true);
+    const body = {
+      reply_roles:    merged.reply_roles,
+      portal_roles:   merged.portal_roles,
+      timeline_roles: merged.timeline_roles,
+      intake_roles:   merged.intake_roles,
+      require_reply_approval: merged.require_reply_approval,
+    };
+    const r = await fetch(`${BASE}api/comm-settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d?.error) { toast.error(d.error); }
+    else { toast.success("تم حفظ إعدادات صلاحيات التواصل ✅"); setDraft({}); setOpen(false); refetch(); }
+    setSaving(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) setDraft({}); }}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5" />صلاحيات التواصل
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" />إعدادات صلاحيات التواصل مع العملاء
+          </DialogTitle>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : !settings?.isAdmin ? (
+          <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-600 flex gap-2 items-start">
+            <Lock className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">عرض فقط</p>
+              <p className="text-xs text-muted-foreground mt-0.5">يجب أن تكون مدير أو مالك المكتب لتعديل الصلاحيات.</p>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="space-y-5 pt-1">
+          {Object.entries(ACTION_LABELS).map(([action, { label, desc }]) => {
+            const key = `${action}_roles` as keyof CommSettings;
+            const selected: string[] = (merged[key] as string[]) ?? [];
+            return (
+              <div key={action} className="rounded-xl border border-border/40 p-3.5 space-y-2.5">
+                <div className="flex items-start gap-2">
+                  <Users className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold">{label}</p>
+                    <p className="text-xs text-muted-foreground">{desc}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {allRoles.map(role => {
+                    const active = selected.includes(role.value);
+                    return (
+                      <button
+                        key={role.value}
+                        disabled={!settings?.isAdmin}
+                        onClick={() => toggleRole(action, role.value)}
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                          active
+                            ? "bg-primary text-primary-foreground border-primary font-medium"
+                            : "bg-muted/40 text-muted-foreground border-border/50 hover:border-primary/40"
+                        } ${!settings?.isAdmin ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+                      >
+                        {role.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {settings?.isAdmin && (
+            <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/20 p-3.5">
+              <div>
+                <p className="text-sm font-medium">طلب موافقة المدير على الردود</p>
+                <p className="text-xs text-muted-foreground">يتطلب مراجعة ردود السكرتير والمتدربين قبل إرسالها</p>
+              </div>
+              <Switch
+                checked={merged.require_reply_approval ?? false}
+                onCheckedChange={v => setDraft(d => ({ ...d, require_reply_approval: v }))}
+              />
+            </div>
+          )}
+        </div>
+
+        {settings?.isAdmin && (
+          <Button className="w-full mt-2" onClick={save} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <CheckCircle2 className="h-4 w-4 ml-2" />}
+            حفظ الإعدادات
+          </Button>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ClientPortal() {
   const qc = useQueryClient();
@@ -329,6 +480,7 @@ export default function ClientPortal() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={refresh}><RefreshCw className="h-3.5 w-3.5" /></Button>
+          <CommSettingsDialog />
           <NewTokenDialog cases={cases} onCreated={refresh} />
         </div>
       </div>

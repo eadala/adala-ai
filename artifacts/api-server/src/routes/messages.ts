@@ -1,8 +1,43 @@
 import { Router } from "express";
 import { db, messagesTable, casesTable } from "@workspace/db";
 import { ListMessagesQueryParams, SendMessageBody } from "@workspace/api-zod";
+import { getAuth, createClerkClient } from "@clerk/express";
+import { sql } from "drizzle-orm";
 
 const router = Router();
+
+// ── Auth + comm-perm helper (mirrors client-portal.ts) ───────────────────────
+let _clerkMsg: ReturnType<typeof createClerkClient> | null = null;
+const getClerkMsg = () => {
+  if (!_clerkMsg) _clerkMsg = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+  return _clerkMsg;
+};
+async function getMsgUser(req: any) {
+  const auth = getAuth(req);
+  if (!auth?.userId) return null;
+  try {
+    const user = await getClerkMsg().users.getUser(auth.userId);
+    const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
+    const owner = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
+    const isSA = (!!owner && email === owner) || user.publicMetadata?.role === "super_admin";
+    const officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
+    const rows = await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`);
+    const rowArr = Array.isArray(rows) ? rows : ((rows as any)?.rows ?? []);
+    const officeRole: string = rowArr[0]?.role ?? (user.publicMetadata?.role as string) ?? "lawyer";
+    const isAdmin = isSA || officeRole === "firm_owner" || officeRole === "office_manager";
+    return { userId: auth.userId, officeId, email, isSA, officeRole, isAdmin };
+  } catch { return null; }
+}
+const DEFAULT_REPLY_ROLES = ["firm_owner", "office_manager", "lawyer", "secretary"];
+async function canReplyToClient(u: NonNullable<Awaited<ReturnType<typeof getMsgUser>>>): Promise<boolean> {
+  if (u.isAdmin || u.isSA) return true;
+  try {
+    const rows = await db.execute(sql`SELECT reply_roles FROM client_comm_settings WHERE office_id=${u.officeId}`);
+    const arr = Array.isArray(rows) ? rows : ((rows as any)?.rows ?? []);
+    const allowed: string[] = arr[0]?.reply_roles ?? DEFAULT_REPLY_ROLES;
+    return allowed.includes(u.officeRole);
+  } catch { return DEFAULT_REPLY_ROLES.includes(u.officeRole); }
+}
 
 // ── GET /messages/conversations  — grouped view ───────────────────────────────
 router.get("/messages/conversations", async (req, res) => {
@@ -75,6 +110,15 @@ router.get("/messages", async (req, res) => {
 });
 
 router.post("/messages", async (req, res) => {
+  // Outbound messages (to clients) require reply permission
+  const u = await getMsgUser(req);
+  if (!u) { res.status(401).json({ error: "يجب تسجيل الدخول لإرسال رسائل" }); return; }
+  if (!await canReplyToClient(u)) {
+    res.status(403).json({
+      error: "ليس لديك صلاحية الرد على العملاء — تواصل مع مدير المكتب لمنحك الصلاحية",
+      code: "NO_REPLY_PERM",
+    }); return;
+  }
   try {
     const body = SendMessageBody.parse(req.body);
     const [created] = await db.insert(messagesTable).values({
