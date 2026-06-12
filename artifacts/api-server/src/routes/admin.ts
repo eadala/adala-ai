@@ -879,4 +879,252 @@ router.post("/admin/tenants/:id/members", adminOnly, async (req, res) => {
   }
 });
 
+/* ══════════════════════════════════════════════════════════════════
+   GLOBAL CONTROL CENTER — RISK ENGINE
+   GET /api/admin/risk
+   Returns a risk score for every tenant (office) based on:
+   • No revenue + high AI usage  → HIGH RISK
+   • Free plan + any AI spend    → MEDIUM RISK
+   • Past-due notifications       → HIGH RISK
+   • Paid plan + no usage         → LOW/CHURNING
+══════════════════════════════════════════════════════════════════ */
+router.get("/admin/risk", adminOnly, async (_req, res) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT
+        op.id::text               AS office_id,
+        op.name                   AS name,
+        op.plan                   AS plan,
+        op.email                  AS email,
+        COALESCE(l.gross,0)       AS revenue,
+        COALESCE(l.tx_count,0)    AS tx_count,
+        COALESCE(c.balance,0)     AS ai_credits_used,
+        COALESCE(pn.fail_count,0) AS payment_failures
+      FROM office_page op
+      LEFT JOIN (
+        SELECT office_id,
+               SUM(amount)::numeric AS gross,
+               COUNT(*)::int        AS tx_count
+        FROM office_ledger WHERE type='credit' GROUP BY office_id
+      ) l ON l.office_id = op.id::text
+      LEFT JOIN (
+        SELECT office_id,
+               GREATEST(0, monthly_allowance - balance)::int AS balance
+        FROM office_ai_credits
+      ) c ON c.office_id = op.id::text
+      LEFT JOIN (
+        SELECT office_id, COUNT(*)::int AS fail_count
+        FROM plan_notifications
+        WHERE type='downgrade' AND title ILIKE '%فشل%'
+        GROUP BY office_id
+      ) pn ON pn.office_id = op.id::text
+      ORDER BY op.created_at DESC
+    `);
+
+    const tenants = ((rows as any)?.rows ?? []).map((r: any) => {
+      const revenue       = parseFloat(r.revenue ?? "0");
+      const aiUsed        = Number(r.ai_credits_used ?? 0);
+      const failures      = Number(r.payment_failures ?? 0);
+      const plan          = (r.plan ?? "free") as string;
+
+      let risk = 0;
+      const reasons: string[] = [];
+
+      if (revenue === 0 && aiUsed > 20)  { risk += 70; reasons.push("استخدام AI بلا إيرادات"); }
+      if (plan === "free" && aiUsed > 50) { risk += 40; reasons.push("خطة مجانية + استهلاك AI مرتفع"); }
+      if (plan !== "free" && revenue < 50){ risk += 30; reasons.push("اشتراك مدفوع + إيرادات منخفضة"); }
+      if (failures >= 3)                  { risk += 60; reasons.push(`${failures} محاولات دفع فاشلة`); }
+      if (failures >= 1 && failures < 3)  { risk += 20; reasons.push("محاولة دفع فاشلة"); }
+
+      const level = risk >= 70 ? "HIGH" : risk >= 40 ? "MEDIUM" : "LOW";
+
+      return {
+        officeId:        r.office_id,
+        name:            r.name ?? r.office_id,
+        plan,
+        email:           r.email,
+        revenue,
+        txCount:         Number(r.tx_count),
+        aiUsed,
+        paymentFailures: failures,
+        riskScore:       Math.min(risk, 100),
+        riskLevel:       level,
+        reasons,
+      };
+    });
+
+    const summary = {
+      high:   tenants.filter((t: any) => t.riskLevel === "HIGH").length,
+      medium: tenants.filter((t: any) => t.riskLevel === "MEDIUM").length,
+      low:    tenants.filter((t: any) => t.riskLevel === "LOW").length,
+    };
+
+    res.json({ summary, tenants: tenants.sort((a: any, b: any) => b.riskScore - a.riskScore) });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   GLOBAL CONTROL CENTER — GROWTH INSIGHTS
+   GET /api/admin/growth
+══════════════════════════════════════════════════════════════════ */
+router.get("/admin/growth", adminOnly, async (_req, res) => {
+  try {
+    /* Plan distribution */
+    const planDist = await db.execute(sql`
+      SELECT plan, COUNT(*)::int AS cnt FROM office_page GROUP BY plan ORDER BY cnt DESC
+    `);
+    const planRows = (planDist as any)?.rows ?? [];
+    const total = planRows.reduce((s: number, r: any) => s + Number(r.cnt), 0);
+    const paid  = planRows.filter((r: any) => r.plan && r.plan !== "free").reduce((s: number, r: any) => s + Number(r.cnt), 0);
+    const free  = total - paid;
+    const conversionRate = total > 0 ? parseFloat(((paid / total) * 100).toFixed(1)) : 0;
+
+    /* Monthly new offices (last 12 months) */
+    const monthlyNew = await db.execute(sql`
+      SELECT TO_CHAR(created_at,'YYYY-MM') AS month, COUNT(*)::int AS new_offices
+      FROM office_page
+      WHERE created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY month ORDER BY month ASC
+    `);
+
+    /* MRR trend (from ledger, last 12 months) */
+    const mrrTrend = await db.execute(sql`
+      SELECT TO_CHAR(created_at,'YYYY-MM') AS month,
+             SUM(amount)::numeric          AS mrr,
+             SUM(net_amount)::numeric      AS net,
+             COUNT(DISTINCT office_id)::int AS paying_offices
+      FROM office_ledger
+      WHERE type='credit' AND created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY month ORDER BY month ASC
+    `);
+
+    /* Plan upgrade/downgrade events */
+    const planChanges = await db.execute(sql`
+      SELECT type, COUNT(*)::int AS cnt
+      FROM plan_notifications
+      WHERE created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY type
+    `);
+
+    res.json({
+      summary: {
+        totalOffices:      total,
+        paidOffices:       paid,
+        freeOffices:       free,
+        conversionRate,
+        conversionRatePct: `${conversionRate}%`,
+      },
+      planDistribution: planRows.map((r: any) => ({
+        plan: r.plan ?? "free",
+        count: Number(r.cnt),
+        pct: total > 0 ? parseFloat(((Number(r.cnt) / total) * 100).toFixed(1)) : 0,
+      })),
+      monthlyNewOffices: (monthlyNew as any)?.rows ?? [],
+      mrrTrend: ((mrrTrend as any)?.rows ?? []).map((r: any) => ({
+        month:         r.month,
+        mrr:           parseFloat(r.mrr ?? "0"),
+        net:           parseFloat(r.net ?? "0"),
+        payingOffices: Number(r.paying_offices),
+      })),
+      recentPlanChanges: ((planChanges as any)?.rows ?? []),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   GLOBAL CONTROL CENTER — AI ANALYTICS
+   GET /api/admin/ai-analytics
+══════════════════════════════════════════════════════════════════ */
+router.get("/admin/ai-analytics", adminOnly, async (_req, res) => {
+  try {
+    /* Global AI usage totals from usage_logs */
+    const totals = await db.execute(sql`
+      SELECT
+        COUNT(*)::int          AS total_calls,
+        COALESCE(SUM(units),0)::int  AS total_units,
+        COALESCE(SUM(cost),0)::numeric AS total_cost
+      FROM usage_logs
+      WHERE created_at >= NOW() - INTERVAL '30 days'
+    `);
+    const t = ((totals as any)?.rows ?? [])[0] ?? {};
+
+    /* Per-feature breakdown */
+    const byFeature = await db.execute(sql`
+      SELECT feature,
+             COUNT(*)::int         AS calls,
+             SUM(units)::int       AS units,
+             SUM(cost)::numeric    AS cost
+      FROM usage_logs
+      WHERE created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY feature ORDER BY calls DESC LIMIT 10
+    `);
+
+    /* Daily trend (last 14 days) */
+    const dailyTrend = await db.execute(sql`
+      SELECT TO_CHAR(created_at,'MM-DD') AS day,
+             COUNT(*)::int               AS calls,
+             SUM(units)::int             AS units
+      FROM usage_logs
+      WHERE created_at >= NOW() - INTERVAL '14 days'
+      GROUP BY day ORDER BY day ASC
+    `);
+
+    /* Per-office AI credits remaining */
+    const officeCredits = await db.execute(sql`
+      SELECT oc.office_id, oc.office_name, oc.balance,
+             oc.monthly_allowance,
+             CASE WHEN oc.monthly_allowance > 0
+               THEN ROUND(((oc.monthly_allowance - oc.balance)::numeric / oc.monthly_allowance) * 100)
+               ELSE 0 END AS usage_pct
+      FROM office_ai_credits oc
+      ORDER BY usage_pct DESC LIMIT 20
+    `);
+
+    /* AI credit transactions — recent spend */
+    const recentSpend = await db.execute(sql`
+      SELECT at2.office_id,
+             COUNT(*)::int                         AS tx_count,
+             COALESCE(SUM(ABS(at2.amount)),0)::int AS total_spent
+      FROM ai_credit_transactions at2
+      WHERE at2.created_at >= NOW() - INTERVAL '30 days'
+        AND at2.amount < 0
+      GROUP BY at2.office_id
+      ORDER BY total_spent DESC LIMIT 10
+    `);
+
+    res.json({
+      summary: {
+        totalCalls:  Number(t.total_calls ?? 0),
+        totalUnits:  Number(t.total_units ?? 0),
+        totalCostUSD: parseFloat(t.total_cost ?? "0"),
+      },
+      byFeature:    ((byFeature  as any)?.rows ?? []).map((r: any) => ({
+        feature: r.feature,
+        calls:   Number(r.calls),
+        units:   Number(r.units),
+        cost:    parseFloat(r.cost ?? "0"),
+      })),
+      dailyTrend:   ((dailyTrend as any)?.rows ?? []),
+      officeCredits: ((officeCredits as any)?.rows ?? []).map((r: any) => ({
+        officeId:    r.office_id,
+        officeName:  r.office_name ?? r.office_id,
+        balance:     Number(r.balance),
+        allowance:   Number(r.monthly_allowance),
+        usagePct:    Number(r.usage_pct),
+      })),
+      topSpenders: ((recentSpend as any)?.rows ?? []).map((r: any) => ({
+        officeId:   r.office_id,
+        txCount:    Number(r.tx_count),
+        totalSpent: Number(r.total_spent),
+      })),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
