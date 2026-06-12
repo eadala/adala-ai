@@ -236,6 +236,34 @@ router.get("/security/login-stats", async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════
+   GET /api/security/my-sessions — Current user's own sessions
+══════════════════════════════════════════════════ */
+router.get("/security/my-sessions", async (req, res) => {
+  const auth = getAuth(req as any);
+  if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
+
+  try {
+    const data = await rows(sql`
+      SELECT id, ip_address, browser, os, device_type, status, created_at
+      FROM login_logs
+      WHERE user_id = ${auth.userId}
+      ORDER BY created_at DESC
+      LIMIT 50
+    `);
+
+    const uniqueIps   = new Set(data.map((r: any) => r.ip_address)).size;
+    const deviceBreak = data.reduce((acc: any, r: any) => {
+      acc[r.device_type] = (acc[r.device_type] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({ sessions: data, uniqueIps, deviceBreakdown: deviceBreak, total: data.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════
    DELETE /api/security/logins/:id — Remove log entry
 ══════════════════════════════════════════════════ */
 router.delete("/security/logins/:id", async (req, res) => {

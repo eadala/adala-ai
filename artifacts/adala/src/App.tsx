@@ -74,6 +74,7 @@ import AdalaBuildStudio from "@/pages/studio";
 import StorageSettings from "@/pages/storage-settings";
 import DemoPage from "@/pages/demo";
 import LoginTrackingPage from "@/pages/login-tracking";
+import MySessionsPage from "@/pages/my-sessions";
 import FinancialIntelligence from "@/pages/financial-intelligence";
 import RemindersPage from "@/pages/reminders";
 import OnboardingPage from "@/pages/onboarding";
@@ -336,6 +337,9 @@ function AppRoutes() {
             </Route>
             <Route path="/login-tracking">
               <ProtectedRoute><LoginTrackingPage /></ProtectedRoute>
+            </Route>
+            <Route path="/my-sessions">
+              <ProtectedRoute><MySessionsPage /></ProtectedRoute>
             </Route>
             <Route path="/financial-intelligence">
               <ProtectedRoute><FinancialIntelligence /></ProtectedRoute>

@@ -265,8 +265,8 @@ export function AccountMenu() {
               color="#F59E0B" onClick={() => { setOpen(false); openUserProfile({ initialPage: "security" } as any); }}
             />
             <MenuItem
-              icon={Smartphone} label="الأجهزة النشطة" desc="إدارة جلسات تسجيل الدخول"
-              color="#8B5CF6" onClick={() => { setOpen(false); openUserProfile({ initialPage: "security" } as any); }}
+              icon={Smartphone} label="جلساتي وأجهزتي" desc="عرض وتتبع جميع عمليات الدخول"
+              color="#8B5CF6" href="/my-sessions" onClick={() => setOpen(false)}
             />
           </div>
 
