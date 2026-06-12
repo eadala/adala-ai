@@ -642,4 +642,241 @@ router.post("/admin/billing/pay/:id", adminOnly, async (req, res) => {
   }
 });
 
+/* ══════════════════════════════════════════════════════════════════
+   MULTI-TENANT GLOBAL DASHBOARD
+   —————————————————————————————————————————————————————————————————
+   All endpoints below are super-admin only.
+   They aggregate across ALL tenants (law offices).
+══════════════════════════════════════════════════════════════════ */
+
+/* ── GET /api/admin/tenants — list all offices + plan + revenue ── */
+router.get("/admin/tenants", adminOnly, async (_req, res) => {
+  try {
+    const tenants = await db.execute(sql`
+      SELECT
+        op.id::text              AS id,
+        op.name                  AS name,
+        op.email                 AS email,
+        op.plan                  AS plan,
+        op.stripe_customer_id    AS stripe_customer_id,
+        op.created_at            AS created_at,
+        COALESCE(m.member_count, 0)::int AS member_count,
+        COALESCE(l.gross_total, 0)::numeric AS gross_total,
+        COALESCE(l.net_total,   0)::numeric AS net_total,
+        COALESCE(l.stripe_fee_total, 0)::numeric AS stripe_fee_total,
+        COALESCE(l.platform_fee_total, 0)::numeric AS platform_fee_total,
+        COALESCE(l.tx_count, 0)::int AS tx_count
+      FROM office_page op
+      LEFT JOIN (
+        SELECT office_id, COUNT(*) AS member_count
+        FROM office_members WHERE status = 'active'
+        GROUP BY office_id
+      ) m ON m.office_id = op.id::text
+      LEFT JOIN (
+        SELECT
+          office_id,
+          SUM(amount)       AS gross_total,
+          SUM(net_amount)   AS net_total,
+          SUM(stripe_fee)   AS stripe_fee_total,
+          SUM(platform_fee) AS platform_fee_total,
+          COUNT(*)          AS tx_count
+        FROM office_ledger WHERE type = 'credit'
+        GROUP BY office_id
+      ) l ON l.office_id = op.id::text
+      ORDER BY op.created_at DESC
+    `);
+
+    const rows = (tenants as any)?.rows ?? [];
+    return res.json({
+      total: rows.length,
+      tenants: rows.map((r: any) => ({
+        id:               r.id,
+        name:             r.name,
+        email:            r.email,
+        plan:             r.plan ?? "free",
+        stripeCustomerId: r.stripe_customer_id,
+        createdAt:        r.created_at,
+        memberCount:      Number(r.member_count),
+        revenue: {
+          gross:       parseFloat(r.gross_total ?? "0"),
+          net:         parseFloat(r.net_total ?? "0"),
+          stripeFee:   parseFloat(r.stripe_fee_total ?? "0"),
+          platformFee: parseFloat(r.platform_fee_total ?? "0"),
+          transactions: Number(r.tx_count),
+        },
+      })),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ── GET /api/admin/tenants/revenue — global revenue breakdown ── */
+router.get("/admin/tenants/revenue", adminOnly, async (_req, res) => {
+  try {
+    /* Platform-wide totals */
+    const totals = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(amount),0)::numeric       AS gross,
+        COALESCE(SUM(platform_fee),0)::numeric AS platform_fee,
+        COALESCE(SUM(stripe_fee),0)::numeric   AS stripe_fee,
+        COALESCE(SUM(net_amount),0)::numeric   AS net,
+        COUNT(*)::int                          AS transactions,
+        COUNT(DISTINCT office_id)::int         AS paying_offices
+      FROM office_ledger WHERE type = 'credit'
+    `);
+    const t = ((totals as any)?.rows ?? [])[0] ?? {};
+
+    /* Top 10 tenants by revenue */
+    const topTenants = await db.execute(sql`
+      SELECT
+        l.office_id,
+        op.name,
+        op.plan,
+        SUM(l.amount)::numeric       AS gross,
+        SUM(l.net_amount)::numeric   AS net,
+        COUNT(*)::int                AS transactions
+      FROM office_ledger l
+      LEFT JOIN office_page op ON op.id::text = l.office_id
+      WHERE l.type = 'credit'
+      GROUP BY l.office_id, op.name, op.plan
+      ORDER BY gross DESC
+      LIMIT 10
+    `);
+
+    /* Monthly trend (last 12 months) across all tenants */
+    const monthly = await db.execute(sql`
+      SELECT
+        TO_CHAR(created_at, 'YYYY-MM')     AS month,
+        SUM(amount)::numeric               AS gross,
+        SUM(platform_fee)::numeric         AS platform_fee,
+        SUM(stripe_fee)::numeric           AS stripe_fee,
+        SUM(net_amount)::numeric           AS net,
+        COUNT(*)::int                      AS transactions,
+        COUNT(DISTINCT office_id)::int     AS active_offices
+      FROM office_ledger
+      WHERE type = 'credit'
+        AND created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY month
+      ORDER BY month ASC
+    `);
+
+    /* Plan distribution */
+    const planDist = await db.execute(sql`
+      SELECT plan, COUNT(*)::int AS count
+      FROM office_page
+      GROUP BY plan ORDER BY count DESC
+    `);
+
+    return res.json({
+      totals: {
+        gross:          parseFloat(t.gross ?? "0"),
+        platformFee:    parseFloat(t.platform_fee ?? "0"),
+        stripeFee:      parseFloat(t.stripe_fee ?? "0"),
+        net:            parseFloat(t.net ?? "0"),
+        transactions:   Number(t.transactions ?? 0),
+        payingOffices:  Number(t.paying_offices ?? 0),
+      },
+      topTenants: ((topTenants as any)?.rows ?? []).map((r: any) => ({
+        officeId:     r.office_id,
+        name:         r.name ?? r.office_id,
+        plan:         r.plan ?? "free",
+        gross:        parseFloat(r.gross),
+        net:          parseFloat(r.net),
+        transactions: Number(r.transactions),
+      })),
+      monthly: ((monthly as any)?.rows ?? []).map((r: any) => ({
+        month:         r.month,
+        gross:         parseFloat(r.gross),
+        platformFee:   parseFloat(r.platform_fee),
+        stripeFee:     parseFloat(r.stripe_fee),
+        net:           parseFloat(r.net),
+        transactions:  Number(r.transactions),
+        activeOffices: Number(r.active_offices),
+      })),
+      planDistribution: ((planDist as any)?.rows ?? []),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ── GET /api/admin/tenants/:id — single tenant detail ── */
+router.get("/admin/tenants/:id", adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const office = await db.execute(sql`
+      SELECT id::text, name, email, plan, stripe_customer_id, domain,
+             owner_user_id, created_at, updated_at
+      FROM office_page WHERE id::text = ${id} LIMIT 1
+    `);
+    const officeRow = ((office as any)?.rows ?? [])[0];
+    if (!officeRow) return res.status(404).json({ error: "المكتب غير موجود" });
+
+    const members = await db.execute(sql`
+      SELECT om.user_id, om.role, om.status, om.created_at,
+             u.email, u.full_name
+      FROM office_members om
+      LEFT JOIN users u ON u.id = om.user_id
+      WHERE om.office_id = ${id}
+      ORDER BY om.created_at ASC
+    `);
+
+    const entitlements = await db.execute(sql`
+      SELECT key, plan, "limit", used FROM office_entitlements
+      WHERE office_id = ${id} ORDER BY key
+    `);
+
+    const ledger = await db.execute(sql`
+      SELECT amount, platform_fee, stripe_fee, net_amount, ref, created_at
+      FROM office_ledger WHERE office_id = ${id} AND type='credit'
+      ORDER BY created_at DESC LIMIT 10
+    `);
+
+    return res.json({
+      office:       officeRow,
+      members:      (members as any)?.rows ?? [],
+      entitlements: (entitlements as any)?.rows ?? [],
+      recentLedger: (ledger as any)?.rows ?? [],
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ── POST /api/admin/tenants/:id/plan — change tenant plan ── */
+router.post("/admin/tenants/:id/plan", adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { plan } = req.body as { plan: string };
+    if (!plan) return res.status(400).json({ error: "الباقة مطلوبة" });
+
+    const { provisionTenant } = await import("../services/tenantProvisioning");
+    await provisionTenant({ officeId: id, plan, email: "admin@adala.ai" });
+
+    res.json({ ok: true, officeId: id, plan });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ── POST /api/admin/tenants/:id/members — add user to office ── */
+router.post("/admin/tenants/:id/members", adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, role = "member" } = req.body as { userId: string; role?: string };
+    if (!userId) return res.status(400).json({ error: "userId مطلوب" });
+
+    await db.execute(sql`
+      INSERT INTO office_members (office_id, user_id, role, status)
+      VALUES (${id}, ${userId}, ${role}, 'active')
+      ON CONFLICT (office_id, user_id) DO UPDATE SET role = EXCLUDED.role, status = 'active'
+    `);
+    res.json({ ok: true, officeId: id, userId, role });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
