@@ -215,6 +215,31 @@ function NavItemLink({ item, isActive, onClick, badge }: { item: NavItem; isActi
   );
 }
 
+function TrialBanner() {
+  const { isTrial, trialDaysLeft, planName } = useOfficePlan();
+  if (!isTrial) return null;
+
+  const urgent = (trialDaysLeft ?? 30) <= 7;
+  return (
+    <div className={`flex items-center justify-between gap-2 px-4 py-2 text-xs font-medium z-50 shrink-0 ${urgent ? "bg-amber-500/20 border-b border-amber-500/30 text-amber-300" : "bg-blue-500/15 border-b border-blue-500/25 text-blue-200"}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-base">🎁</span>
+        <span>
+          فترة تجريبية مجانية — جميع الميزات مفعّلة
+          {trialDaysLeft != null && (
+            <span className={`mr-1 font-bold ${urgent ? "text-amber-300" : "text-white"}`}>
+              ({trialDaysLeft} {trialDaysLeft === 1 ? "يوم" : "أيام"} متبقية)
+            </span>
+          )}
+        </span>
+      </div>
+      <a href="/billing" className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${urgent ? "border-amber-400/50 text-amber-300 hover:bg-amber-500/20" : "border-blue-400/40 text-blue-200 hover:bg-blue-500/20"}`}>
+        اشترك الآن
+      </a>
+    </div>
+  );
+}
+
 export function Layout({ children }: { children: ReactNode }) {
   const [location, navigate] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -382,6 +407,9 @@ export function Layout({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
+
+        {/* Trial Banner */}
+        <TrialBanner />
 
         {/* Page Content */}
         <div className="flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-8">
