@@ -6,7 +6,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Upload, Camera, X, FileText, FileImage, File,
   CheckCircle2, AlertCircle, Loader2, Sparkles,
-  Archive, Sheet, Plus
+  Archive, Sheet, Plus, Globe, Clipboard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -176,10 +176,14 @@ const STATUS_LABEL: Record<UpStatus, string> = {
 export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUploaderProps) {
   const { toast } = useToast();
   const [items, setItems]       = useState<FItem[]>([]);
-  const [dragging, setDragging] = useState(false);
-  const [busy, setBusy]         = useState(false);
+  const [dragging, setDragging]       = useState(false);
+  const [busy, setBusy]               = useState(false);
+  const [showUrlBox, setShowUrlBox]   = useState(false);
+  const [urlValue, setUrlValue]       = useState("");
+  const [urlLoading, setUrlLoading]   = useState(false);
   const fileRef   = useRef<HTMLInputElement>(null);
   const camRef    = useRef<HTMLInputElement>(null);
+  const urlRef    = useRef<HTMLInputElement>(null);
 
   const upd = useCallback((id: string, p: Partial<FItem>) =>
     setItems(prev => prev.map(i => i.id === id ? {...i,...p} : i)), []);
@@ -292,6 +296,53 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
     }
   };
 
+  /** استيراد ملف من رابط خارجي (Google Drive / Dropbox / OneDrive / رابط مباشر) */
+  const importFromUrl = async () => {
+    const raw = urlValue.trim();
+    if (!raw) return;
+    setUrlLoading(true);
+    const fakeId = crypto.randomUUID();
+    const fakeName = raw.split("/").pop()?.split("?")[0] ?? "مستند_مستورد";
+    setItems(prev => [...prev, {
+      id: fakeId,
+      original: { name: fakeName, type: "application/octet-stream", size: 0 } as any,
+      status: "uploading",
+      progress: 30,
+    }]);
+    setShowUrlBox(false);
+    setUrlValue("");
+    try {
+      const r = await fetch(`${BASE}/api/storage/import-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: raw, caseId: caseId ?? null, clientId: clientId ?? null }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        if (data.duplicate) {
+          setItems(prev => prev.map(i => i.id === fakeId ? {
+            ...i, status: "done", progress: 100, record: data.existing, error: "مرفوع مسبقاً",
+            original: { ...i.original, name: data.existing?.original_name ?? fakeName } as any,
+          } : i));
+          return;
+        }
+        throw new Error(data.error ?? "فشل الاستيراد");
+      }
+      const rec = data.record;
+      setItems(prev => prev.map(i => i.id === fakeId ? {
+        ...i, status: "done", progress: 100, record: rec,
+        original: { ...i.original, name: rec.original_name ?? fakeName, size: rec.file_size ?? 0 } as any,
+      } : i));
+      toast({ title: "✅ تم استيراد الملف بنجاح" });
+      onSuccess?.([rec]);
+    } catch (e: any) {
+      setItems(prev => prev.map(i => i.id === fakeId ? { ...i, status: "error", error: e.message } : i));
+      toast({ title: "❌ فشل الاستيراد", description: e.message, variant: "destructive" });
+    } finally {
+      setUrlLoading(false);
+    }
+  };
+
   const queuedCount  = items.filter(i => i.status === "queued").length;
   const allDone      = items.length > 0 && items.every(i => i.status === "done" || i.status === "error");
   const totalSaved   = items.reduce((s, i) => s + (i.savedBytes ?? 0), 0);
@@ -319,7 +370,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
             </div>
             <div>
               <p className="font-semibold">اسحب ملفاتك هنا</p>
-              <p className="text-sm text-muted-foreground mt-0.5">أو اضغط لاختيار من الجهاز</p>
+              <p className="text-sm text-muted-foreground mt-0.5">أو اختر من الجهاز • الجوال • Google Drive • Dropbox</p>
             </div>
             <div className="flex flex-wrap justify-center gap-1.5">
               {["PDF","DOCX","XLSX","JPG","PNG","ZIP"].map(t => (
@@ -456,6 +507,53 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
         </div>
       )}
 
+      {/* ── URL Import Box ── */}
+      {showUrlBox && (
+        <div className="rounded-xl border border-[#C9A84C]/30 bg-[#C9A84C]/5 p-3 space-y-2">
+          <p className="text-xs font-semibold text-[#C9A84C] flex items-center gap-1.5">
+            <Globe className="h-3.5 w-3.5" />
+            استيراد من رابط
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            يدعم روابط Google Drive • Dropbox • OneDrive • أي رابط تحميل مباشر
+          </p>
+          <div className="flex gap-2">
+            <input
+              ref={urlRef}
+              value={urlValue}
+              onChange={e => setUrlValue(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && importFromUrl()}
+              placeholder="الصق الرابط هنا..."
+              dir="ltr"
+              className="flex-1 h-9 rounded-lg border border-border/50 bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-[#C9A84C]/50 placeholder:text-muted-foreground/40"
+            />
+            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 shrink-0"
+              onClick={async () => {
+                try {
+                  const t = await navigator.clipboard.readText();
+                  setUrlValue(t);
+                  setTimeout(() => urlRef.current?.focus(), 50);
+                } catch {}
+              }}
+              title="لصق">
+              <Clipboard className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="sm" onClick={importFromUrl}
+              disabled={!urlValue.trim() || urlLoading}
+              className="h-9 px-4 text-xs font-bold shrink-0"
+              style={{ background:"linear-gradient(135deg,#C9A84C,#D4A843)", color:"#0D1626" }}>
+              {urlLoading
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : "استيراد"}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 shrink-0 text-muted-foreground"
+              onClick={() => { setShowUrlBox(false); setUrlValue(""); }}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ── Actions ── */}
       <div className="flex flex-col sm:flex-row gap-2">
         <Button variant="outline" size="sm" disabled={busy}
@@ -470,7 +568,14 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
           onClick={() => camRef.current?.click()}
           className="gap-2 flex-1 sm:flex-none text-xs h-9">
           <Camera className="h-3.5 w-3.5" />
-          تصوير مستند
+          تصوير
+        </Button>
+
+        <Button variant="outline" size="sm" disabled={busy || urlLoading}
+          onClick={() => { setShowUrlBox(v => !v); setTimeout(() => urlRef.current?.focus(), 80); }}
+          className="gap-2 flex-1 sm:flex-none text-xs h-9">
+          <Globe className="h-3.5 w-3.5" />
+          من رابط
         </Button>
 
         {queuedCount > 0 && (
