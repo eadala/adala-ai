@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, casesTable, documentsTable, aiTasksTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -8,71 +8,114 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-async function callAI(systemPrompt: string, userMessage: string, history: { role: string; content: string }[] = []): Promise<string> {
+export type ModelKey = "auto" | "gemini" | "claude" | "openai";
+
+export function getAvailableModels() {
+  return {
+    gemini: !!GEMINI_API_KEY,
+    claude: !!ANTHROPIC_API_KEY,
+    openai: !!OPENAI_API_KEY,
+  };
+}
+
+async function callGeminiAI(systemPrompt: string, userMessage: string, history: { role: string; content: string }[] = []): Promise<string> {
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY غير متوفر");
+  const contents = [
+    ...history.map(h => ({
+      role: h.role === "assistant" ? "model" : "user",
+      parts: [{ text: h.content }],
+    })),
+    { role: "user", parts: [{ text: userMessage }] },
+  ];
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents,
+        generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
+      }),
+    }
+  );
+  const data = await res.json() as any;
+  if (data.error) throw new Error(data.error.message ?? "خطأ Gemini");
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "عذراً، لم أتمكن من معالجة الطلب.";
+}
+
+async function callClaudeAI(systemPrompt: string, userMessage: string, history: { role: string; content: string }[] = []): Promise<string> {
+  if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY غير متوفر");
+  const messages = [
+    ...history.map(h => ({ role: h.role as "user" | "assistant", content: h.content })),
+    { role: "user" as const, content: userMessage },
+  ];
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-3-5-haiku-20241022",
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages,
+    }),
+  });
+  const data = await res.json() as any;
+  if (data.error) throw new Error(data.error.message ?? "خطأ Claude");
+  return data.content?.[0]?.text ?? "عذراً، لم أتمكن من معالجة الطلب.";
+}
+
+async function callOpenAI(systemPrompt: string, userMessage: string, history: { role: string; content: string }[] = []): Promise<string> {
+  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY غير متوفر");
+  const messages = [
+    { role: "system" as const, content: systemPrompt },
+    ...history.map(h => ({ role: h.role as "user" | "assistant", content: h.content })),
+    { role: "user" as const, content: userMessage },
+  ];
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
+    body: JSON.stringify({ model: "gpt-4o-mini", max_tokens: 2048, messages }),
+  });
+  const data = await res.json() as any;
+  if (data.error) throw new Error(data.error.message ?? "خطأ OpenAI");
+  return data.choices?.[0]?.message?.content ?? "عذراً، لم أتمكن من معالجة الطلب.";
+}
+
+async function callAI(
+  systemPrompt: string,
+  userMessage: string,
+  history: { role: string; content: string }[] = [],
+  preferredModel: ModelKey = "auto"
+): Promise<{ reply: string; modelUsed: string }> {
+
+  /* forced model */
+  if (preferredModel === "gemini" && GEMINI_API_KEY) {
+    return { reply: await callGeminiAI(systemPrompt, userMessage, history), modelUsed: "gemini" };
+  }
+  if (preferredModel === "claude" && ANTHROPIC_API_KEY) {
+    return { reply: await callClaudeAI(systemPrompt, userMessage, history), modelUsed: "claude" };
+  }
+  if (preferredModel === "openai" && OPENAI_API_KEY) {
+    return { reply: await callOpenAI(systemPrompt, userMessage, history), modelUsed: "openai" };
+  }
+  /* requested model not available → fall through to auto */
+
+  /* auto: priority Gemini → Claude → OpenAI → fallback */
   if (GEMINI_API_KEY) {
-    const contents = [
-      ...history.map(h => ({
-        role: h.role === "assistant" ? "model" : "user",
-        parts: [{ text: h.content }],
-      })),
-      { role: "user", parts: [{ text: userMessage }] },
-    ];
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents,
-          generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
-        }),
-      }
-    );
-    const data = await res.json() as any;
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "عذراً، لم أتمكن من معالجة الطلب.";
+    return { reply: await callGeminiAI(systemPrompt, userMessage, history), modelUsed: "gemini" };
   }
-
   if (ANTHROPIC_API_KEY) {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-3-5-haiku-20241022",
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-    });
-    const data = await res.json() as any;
-    return data.content?.[0]?.text ?? "عذراً، لم أتمكن من معالجة الطلب.";
+    return { reply: await callClaudeAI(systemPrompt, userMessage, history), modelUsed: "claude" };
   }
-
   if (OPENAI_API_KEY) {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        max_tokens: 2048,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
-      }),
-    });
-    const data = await res.json() as any;
-    return data.choices?.[0]?.message?.content ?? "عذراً، لم أتمكن من معالجة الطلب.";
+    return { reply: await callOpenAI(systemPrompt, userMessage, history), modelUsed: "openai" };
   }
-
-  return generateSmartResponse(userMessage);
+  return { reply: generateSmartResponse(userMessage), modelUsed: "fallback" };
 }
 
 function generateSmartResponse(query: string): string {
@@ -181,14 +224,21 @@ async function processAiTask(taskType: string, content: string): Promise<string>
   };
 
   const prompt = prompts[taskType] ?? `حلل المستند القانوني التالي:\n\n${content}`;
-  return callAI(systemPrompt, prompt);
+  const { reply } = await callAI(systemPrompt, prompt);
+  return reply;
 }
 
+/* ── Available models endpoint ── */
+router.get("/ai-models/available", (_req, res) => {
+  res.json(getAvailableModels());
+});
+
 router.post("/ai-chat/message", async (req, res) => {
-  const { message, caseId, history = [] } = req.body as {
+  const { message, caseId, history = [], model = "auto" } = req.body as {
     message: string;
     caseId?: number;
     history?: { role: string; content: string }[];
+    model?: ModelKey;
   };
 
   if (!message) {
@@ -197,52 +247,51 @@ router.post("/ai-chat/message", async (req, res) => {
 
   let context = "";
   if (caseId) {
-    const caseData = await db.select().from(casesTable).where(eq(casesTable.id, caseId)).limit(1);
-    if (caseData.length > 0) {
-      const c = caseData[0];
-      context = `\n\n[سياق القضية: ${c.title} - ${c.caseType} - الحالة: ${c.status}]`;
-    }
+    try {
+      const caseRows = await db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} LIMIT 1`) as any;
+      const caseArr = Array.isArray(caseRows) ? caseRows : (caseRows?.rows ?? []);
+      if (caseArr.length > 0) {
+        const c = caseArr[0];
+        context = `\n\n[سياق القضية: ${c.title} - ${c.case_type ?? c.caseType ?? ""} - الحالة: ${c.status}]`;
+      }
+    } catch { /* ignore */ }
   }
 
   const systemPrompt = `أنت مساعد قانوني ذكي لمنصة عدالة AI. متخصص في القانون السعودي والفقه الإسلامي. تجيب بالعربية الفصحى بأسلوب مهني ودقيق. تقدم تحليلات قانونية، ترشيح مراجع نظامية، وخطوات عملية للمحامين.${context}`;
 
-  const fullMessage = history.length > 0
-    ? `${history.map(h => `${h.role === "user" ? "المستخدم" : "المساعد"}: ${h.content}`).join("\n")}\nالمستخدم: ${message}`
-    : message;
-
-  const reply = await callAI(systemPrompt, message, history as { role: string; content: string }[]);
-  return res.json({ reply });
+  const { reply, modelUsed } = await callAI(systemPrompt, message, history as { role: string; content: string }[], model);
+  return res.json({ reply, modelUsed });
 });
 
 router.post("/ai-tasks/:id/process", async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: "معرف غير صالح" });
 
-  const task = await db.select().from(aiTasksTable).where(eq(aiTasksTable.id, id)).limit(1);
-  if (!task.length) return res.status(404).json({ error: "المهمة غير موجودة" });
+  try {
+    const taskRows = await db.execute(sql`SELECT * FROM ai_tasks WHERE id = ${id} LIMIT 1`) as any;
+    const taskArr = Array.isArray(taskRows) ? taskRows : (taskRows?.rows ?? []);
+    if (!taskArr.length) return res.status(404).json({ error: "المهمة غير موجودة" });
+    const t = taskArr[0];
 
-  const t = task[0];
+    await db.execute(sql`UPDATE ai_tasks SET status = 'running' WHERE id = ${id}`);
 
-  await db.update(aiTasksTable).set({ status: "running" }).where(eq(aiTasksTable.id, id));
+    let docContent = "";
+    if (t.document_id) {
+      const docRows = await db.execute(sql`SELECT * FROM documents WHERE id = ${t.document_id} LIMIT 1`) as any;
+      const docArr = Array.isArray(docRows) ? docRows : (docRows?.rows ?? []);
+      if (docArr.length) docContent = docArr[0].ocr_text ?? docArr[0].file_name ?? "";
+    }
+    if (!docContent) docContent = "مستند قانوني للتحليل";
 
-  let docContent = "";
-  if (t.documentId) {
-    const doc = await db.select().from(documentsTable).where(eq(documentsTable.id, t.documentId)).limit(1);
-    if (doc.length) docContent = doc[0].content ?? doc[0].title;
-  }
+    const result = await processAiTask(t.type ?? t.task_type ?? "summarize", docContent);
 
-  if (!docContent) {
-    const relatedDocs = await db.select().from(documentsTable).limit(1);
-    docContent = relatedDocs[0]?.content ?? relatedDocs[0]?.title ?? "مستند قانوني للتحليل";
-  }
+    await db.execute(sql`
+      UPDATE ai_tasks SET status = 'done', output_text = ${result}, updated_at = NOW()
+      WHERE id = ${id}
+    `);
 
-  const result = await processAiTask(t.taskType, docContent);
-
-  await db.update(aiTasksTable)
-    .set({ status: "done", result, completedAt: new Date() })
-    .where(eq(aiTasksTable.id, id));
-
-  return res.json({ success: true, result });
+    return res.json({ success: true, result });
+  } catch (e: any) { return res.status(500).json({ error: e.message }); }
 });
 
 router.post("/ai-search", async (req, res) => {
@@ -250,20 +299,17 @@ router.post("/ai-search", async (req, res) => {
   if (!query) return res.status(400).json({ error: "استعلام البحث مطلوب" });
 
   const systemPrompt = `أنت محرك بحث قانوني ذكي. عند تلقي استفسار، حدد المفاهيم القانونية المرتبطة به في القانون السعودي وقدم نتائج بحث منظمة.`;
-  const analysis = await callAI(systemPrompt, `ابحث عن: ${query}`);
+  const { reply: analysis } = await callAI(systemPrompt, `ابحث عن: ${query}`);
 
-  const allDocs = await db.select().from(documentsTable).limit(10);
-  const allCases = await db.select().from(casesTable).limit(10);
-
-  const queryLower = query.toLowerCase();
-  const matchedDocs = allDocs.filter(d =>
-    d.title.includes(query) || (d.content ?? "").includes(query) ||
-    d.title.toLowerCase().includes(queryLower)
-  );
-  const matchedCases = allCases.filter(c =>
-    c.title.includes(query) || (c.description ?? "").includes(query) ||
-    c.title.toLowerCase().includes(queryLower)
-  );
+  const like = `%${query}%`;
+  const docsRaw = await db.execute(sql`
+    SELECT id, file_name as title, file_type FROM documents WHERE file_name ILIKE ${like} LIMIT 10
+  `) as any;
+  const casesRaw = await db.execute(sql`
+    SELECT id, title, status FROM cases WHERE title ILIKE ${like} OR description ILIKE ${like} LIMIT 10
+  `) as any;
+  const matchedDocs = Array.isArray(docsRaw) ? docsRaw : (docsRaw?.rows ?? []);
+  const matchedCases = Array.isArray(casesRaw) ? casesRaw : (casesRaw?.rows ?? []);
 
   return res.json({
     analysis,
