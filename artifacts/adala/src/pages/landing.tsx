@@ -872,8 +872,14 @@ export default function Landing() {
               </div>
               <p className="text-white/40 text-sm leading-relaxed mb-4">{t("landing.footer.tagline")}</p>
               <div className="flex gap-3">
-                {[Twitter, Linkedin, Youtube].map((Icon, i) => (
-                  <a key={i} href="#" className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:bg-white/10" style={{ background: "rgba(255,255,255,0.06)" }}>
+                {([
+                  { Icon: Twitter,  href: cms?.contact?.twitter  as string },
+                  { Icon: Linkedin, href: cms?.contact?.linkedin as string },
+                  { Icon: Youtube,  href: cms?.contact?.youtube  as string },
+                ] as { Icon: (p: { className?: string }) => JSX.Element; href: string }[]).map(({ Icon, href }, i) => (
+                  <a key={i} href={href || "#"} target={href ? "_blank" : undefined} rel="noopener noreferrer"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:bg-white/10"
+                    style={{ background: "rgba(255,255,255,0.06)" }}>
                     <Icon className="w-4 h-4 text-white/50 hover:text-white" />
                   </a>
                 ))}
@@ -922,17 +928,19 @@ export default function Landing() {
         </div>
       </footer>
 
-      {/* ── WhatsApp floating button ────────────────────────────────────── */}
-      <a
-        href="https://wa.me/966500000000"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-6 left-6 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all hover:scale-110 z-40"
-        style={{ background: "#25D366", boxShadow: "0 4px 20px rgba(37,211,102,0.4)" }}
-        title="تواصل عبر واتساب"
-      >
-        <Phone className="w-6 h-6 text-white" />
-      </a>
+      {/* ── WhatsApp floating button (CMS-driven) ───────────────────────── */}
+      {cms?.contact?.showWhatsappButton !== false && cms?.contact?.whatsapp && (
+        <a
+          href={`https://wa.me/${(cms.contact.whatsapp as string).replace(/[^0-9]/g, "")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-6 left-6 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all hover:scale-110 z-40"
+          style={{ background: "#25D366", boxShadow: "0 4px 20px rgba(37,211,102,0.4)" }}
+          title="تواصل عبر واتساب"
+        >
+          <Phone className="w-6 h-6 text-white" />
+        </a>
+      )}
     </div>
   );
 }

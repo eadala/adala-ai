@@ -4976,6 +4976,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
     cta_section: { title: "", titleHighlight: "", subtitle: "" },
     announcement: { enabled: false, text: "", link: "", bgColor: "#C9A84C", textColor: "#0D1626" },
     seo: { metaTitle: "", metaDescription: "", ogImage: "" },
+    contact: { whatsapp: "", email: "", twitter: "", linkedin: "", youtube: "", showWhatsappButton: true },
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -5047,6 +5048,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
     { id: "features",     label: "الميزات",             icon: "✨" },
     { id: "cta_section",  label: "دعوة للعمل (CTA)",    icon: "🎯" },
     { id: "announcement", label: "شريط الإعلانات",       icon: "📢" },
+    { id: "contact",      label: "التواصل والروابط",     icon: "📞" },
     { id: "seo",          label: "SEO",                  icon: "🔍" },
   ];
 
@@ -5246,6 +5248,105 @@ function HomeCmsTab({ toast }: { toast: any }) {
                         className="text-sm font-mono" />
                     </div>
                   </div>
+                </div>
+              </>
+            )}
+
+            {/* ── CONTACT ── */}
+            {activeSection === "contact" && (
+              <>
+                <h3 className="font-semibold text-sm text-muted-foreground mb-4">بيانات التواصل — واتساب، البريد الإلكتروني، وروابط السوشيال ميديا</h3>
+
+                {/* WhatsApp */}
+                <div className="p-4 rounded-lg border border-border bg-muted/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#25D366" }}>
+                        <Phone className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="font-semibold text-sm">واتساب</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground">إظهار زر الواتساب</label>
+                      <input type="checkbox" checked={!!form.contact.showWhatsappButton}
+                        onChange={e => setField("contact", "showWhatsappButton", e.target.checked)}
+                        className="w-4 h-4 rounded accent-[#25D366]" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">رقم الواتساب (مع رمز الدولة بدون + أو مسافات)</Label>
+                    <div className="relative">
+                      <Input
+                        value={form.contact.whatsapp || ""}
+                        onChange={e => setField("contact", "whatsapp", e.target.value)}
+                        placeholder="966512345678"
+                        className="text-sm ltr pl-16"
+                        dir="ltr"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">+</span>
+                    </div>
+                  </div>
+                  {form.contact.whatsapp && (
+                    <a
+                      href={`https://wa.me/${(form.contact.whatsapp as string).replace(/[^0-9]/g, "")}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-green-400 hover:text-green-300 underline underline-offset-2">
+                      <Phone className="h-3 w-3" />
+                      معاينة الرابط: wa.me/{(form.contact.whatsapp as string).replace(/[^0-9]/g, "")}
+                    </a>
+                  )}
+                </div>
+
+                {/* Email */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5" /> البريد الإلكتروني للتواصل
+                  </Label>
+                  <Input value={form.contact.email || ""} onChange={e => setField("contact", "email", e.target.value)}
+                    placeholder="info@adalah-ai.com" className="text-sm" dir="ltr" />
+                </div>
+
+                {/* Social Links */}
+                <div className="space-y-3">
+                  <Label className="text-xs text-muted-foreground">روابط السوشيال ميديا (في الفوتر)</Label>
+                  {[
+                    { key: "twitter",  label: "تويتر / X",   placeholder: "https://x.com/adalahAI",          color: "#1DA1F2" },
+                    { key: "linkedin", label: "لينكدإن",      placeholder: "https://linkedin.com/company/...", color: "#0077B5" },
+                    { key: "youtube",  label: "يوتيوب",        placeholder: "https://youtube.com/@...",         color: "#FF0000" },
+                  ].map(s => (
+                    <div key={s.key} className="space-y-1.5">
+                      <Label className="text-xs flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: s.color }} />
+                        {s.label}
+                      </Label>
+                      <Input value={(form.contact as any)[s.key] || ""} onChange={e => setField("contact", s.key, e.target.value)}
+                        placeholder={s.placeholder} className="text-sm" dir="ltr" />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Live preview */}
+                <div className="p-3 rounded-lg border border-border bg-[#080F1E] flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">معاينة الأيقونات في الفوتر:</span>
+                  <div className="flex gap-2">
+                    {[
+                      { href: form.contact.twitter,  bg: "#1DA1F2" },
+                      { href: form.contact.linkedin, bg: "#0077B5" },
+                      { href: form.contact.youtube,  bg: "#FF0000" },
+                    ].map((s, i) => (
+                      <div key={i} className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${s.href ? "opacity-100" : "opacity-25"}`}
+                        style={{ background: s.href ? s.bg : "rgba(255,255,255,0.06)" }}>
+                        {i === 0 && <Twitter className="w-3.5 h-3.5 text-white" />}
+                        {i === 1 && <Linkedin className="w-3.5 h-3.5 text-white" />}
+                        {i === 2 && <Youtube className="w-3.5 h-3.5 text-white" />}
+                      </div>
+                    ))}
+                  </div>
+                  {form.contact.whatsapp && form.contact.showWhatsappButton && (
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "#25D366" }}>
+                      <Phone className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  )}
                 </div>
               </>
             )}

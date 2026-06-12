@@ -24,9 +24,14 @@ async function ensureTable() {
       announcement JSONB NOT NULL DEFAULT '{}',
       stats        JSONB NOT NULL DEFAULT '{}',
       seo          JSONB NOT NULL DEFAULT '{}',
+      contact      JSONB NOT NULL DEFAULT '{}',
       updated_at   TIMESTAMPTZ DEFAULT NOW(),
       updated_by   TEXT
     )
+  `);
+  /* add contact column to existing tables */
+  await db.execute(sql`
+    ALTER TABLE home_cms ADD COLUMN IF NOT EXISTS contact JSONB NOT NULL DEFAULT '{}'
   `);
   /* seed default row if missing */
   await db.execute(sql`
@@ -85,6 +90,14 @@ const DEFAULT_CONTENT = {
     keywords:    "محاماة، قانون، برنامج محاماة، إدارة قضايا، SaaS قانوني",
     ogImage:     "",
   },
+  contact: {
+    whatsapp:   "",
+    email:      "",
+    twitter:    "",
+    linkedin:   "",
+    youtube:    "",
+    showWhatsappButton: true,
+  },
 };
 
 /* ══════════════════════════════════════════════════════
@@ -116,7 +129,7 @@ router.get("/home/content", async (_req, res) => {
 router.put("/home/content", async (req, res) => {
   try {
     await ensureTable();
-    const { hero, trust, features, cta_section, announcement, stats, seo, updatedBy } = req.body;
+    const { hero, trust, features, cta_section, announcement, stats, seo, contact, updatedBy } = req.body;
 
     await db.execute(sql`
       UPDATE home_cms SET
@@ -127,6 +140,7 @@ router.put("/home/content", async (req, res) => {
         announcement = COALESCE(${JSON.stringify(announcement ?? {})}::jsonb, announcement),
         stats        = COALESCE(${JSON.stringify(stats ?? {})}::jsonb,        stats),
         seo          = COALESCE(${JSON.stringify(seo ?? {})}::jsonb,          seo),
+        contact      = COALESCE(${JSON.stringify(contact ?? {})}::jsonb,      contact),
         updated_at   = NOW(),
         updated_by   = ${updatedBy ?? null}
       WHERE id = 1
@@ -152,6 +166,7 @@ router.post("/home/content/reset", async (_req, res) => {
         announcement = ${JSON.stringify(DEFAULT_CONTENT.announcement)}::jsonb,
         stats        = ${JSON.stringify(DEFAULT_CONTENT.stats)}::jsonb,
         seo          = ${JSON.stringify(DEFAULT_CONTENT.seo)}::jsonb,
+        contact      = ${JSON.stringify(DEFAULT_CONTENT.contact)}::jsonb,
         updated_at   = NOW()
       WHERE id = 1
     `);
