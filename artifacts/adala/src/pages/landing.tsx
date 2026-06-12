@@ -354,11 +354,18 @@ export default function Landing() {
                 {NAV.map(n => (
                   <a key={n.href} href={n.href} className="block text-white/70 hover:text-white py-2" onClick={() => setNavOpen(false)}>{n.label}</a>
                 ))}
-                <Link href={`${BASE}/sign-up`}>
-                  <button className="w-full font-bold py-3 rounded-xl mt-2" style={{ background: "linear-gradient(135deg, #C9A84C, #E0C060)", color: "#0D1626" }}>
-                    {t("landing.startFree")}
-                  </button>
-                </Link>
+                <div className="flex flex-col gap-2 mt-2">
+                  <Link href={`${BASE}/sign-in`} onClick={() => setNavOpen(false)}>
+                    <button className="w-full text-sm font-semibold py-3 rounded-xl border border-white/15 text-white/80 hover:text-white hover:border-white/30 transition-colors">
+                      {t("landing.signIn")}
+                    </button>
+                  </Link>
+                  <Link href={`${BASE}/sign-up`} onClick={() => setNavOpen(false)}>
+                    <button className="w-full font-bold py-3 rounded-xl" style={{ background: "linear-gradient(135deg, #C9A84C, #E0C060)", color: "#0D1626" }}>
+                      {t("landing.startFree")}
+                    </button>
+                  </Link>
+                </div>
               </div>
             </motion.div>
           )}
