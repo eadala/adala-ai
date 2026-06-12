@@ -860,7 +860,10 @@ export default function Billing() {
                       {/* ── Price block ── */}
                       <div className="mt-2 space-y-0.5">
                         {plan.isFree ? (
-                          <span className="text-3xl font-black text-slate-300">مجاني</span>
+                          <div>
+                            <span className="text-3xl font-black text-slate-300">مجاني</span>
+                            <p className="text-[10px] text-emerald-400/80 mt-0.5 font-medium">للأبد · بدون انتهاء</p>
+                          </div>
                         ) : plan.isContactOnly ? (
                           <span className="text-lg font-bold text-muted-foreground">تواصل معنا</span>
                         ) : showAnnual && pricing ? (
@@ -895,6 +898,12 @@ export default function Billing() {
                         )}
                       </div>
 
+                      {/* Trial badge for paid plans */}
+                      {!plan.isFree && !plan.isContactOnly && (
+                        <div className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border mt-2 bg-blue-500/10 text-blue-300 border-blue-500/25">
+                          🎁 ٣٠ يوم تجربة مجانية
+                        </div>
+                      )}
                       {/* Promo badge */}
                       {promo && !plan.isFree && !plan.isContactOnly && (
                         <div className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border mt-2", promo.color)}>

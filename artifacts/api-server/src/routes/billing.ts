@@ -254,7 +254,10 @@ router.post("/billing/checkout", async (req, res) => {
         quantity: 1,
       }],
       metadata: { plan: planId, planName: plan.name, officeId: tenantId },
-      subscription_data: { metadata: { officeId: tenantId, plan: planId } },
+      subscription_data: {
+        trial_period_days: 30,
+        metadata: { officeId: tenantId, plan: planId },
+      },
       success_url: successUrl ?? `${req.headers.origin}/billing?success=1`,
       cancel_url:  cancelUrl  ?? `${req.headers.origin}/billing?canceled=1`,
       locale: "ar" as any,
