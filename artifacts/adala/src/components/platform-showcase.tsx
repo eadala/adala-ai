@@ -2,561 +2,845 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import {
-  X, ChevronLeft, ChevronRight, Play, Pause,
+  X, ChevronLeft, Play, Pause,
   Scale, ArrowLeft, Check, CreditCard, Globe, Zap,
-  TrendingUp, Bell, BarChart3,
+  TrendingUp, Bell, BarChart3, FileText, Users, Calendar,
+  Receipt, Briefcase, Building2, Clock, Brain, DollarSign,
+  Shield, Activity, Search, Home,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-/* ── Colour palette ────────────────────────────────────────────── */
 const G = "#C9A84C";
 
 /* ══════════════════════════════════════════════════════════════════
-   15 SCREEN MOCK-UPs
-   Each returns a styled div that looks like a real UI screenshot
+   SHARED DESKTOP SHELL
+   Wraps every screen mock in a realistic app layout:
+   narrow icon-sidebar  +  collapsible nav panel  +  main content
+═══════════════════════════════════════════════════════════════════ */
+const NAV_ITEMS = [
+  { icon: Home,      label: "الرئيسية" },
+  { icon: Briefcase, label: "القضايا" },
+  { icon: Users,     label: "الموكلون" },
+  { icon: FileText,  label: "المستندات" },
+  { icon: Brain,     label: "الذكاء الاصطناعي" },
+  { icon: Calendar,  label: "الجلسات" },
+  { icon: Receipt,   label: "الفواتير" },
+  { icon: CreditCard,label: "الدفع" },
+  { icon: DollarSign,label: "المالية" },
+  { icon: Users,     label: "الموارد البشرية" },
+  { icon: Shield,    label: "الأمان" },
+];
+
+function AppShell({ activeNav, children }: { activeNav: number; children: React.ReactNode }) {
+  return (
+    <div className="flex w-full h-full overflow-hidden" style={{ background: "#080F1E", fontFamily: "Cairo, sans-serif" }}>
+      {/* ── Sidebar ──────────────────────────────────────────────── */}
+      <div className="flex-shrink-0 flex flex-col" style={{ width: 52, background: "#070E1C", borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
+        {/* Logo */}
+        <div className="flex items-center justify-center py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${G}, #E0C060)` }}>
+            <Scale className="w-3.5 h-3.5 text-[#0D1626]" />
+          </div>
+        </div>
+        {/* Nav icons */}
+        <div className="flex-1 py-2 space-y-0.5 overflow-hidden">
+          {NAV_ITEMS.slice(0, 10).map((item, i) => {
+            const Icon = item.icon;
+            const isActive = i === activeNav;
+            return (
+              <div key={i}
+                className="flex items-center justify-center w-full py-2 cursor-pointer relative group"
+                style={{ background: isActive ? `${G}15` : "transparent" }}
+              >
+                {isActive && <div className="absolute right-0 top-0 bottom-0 w-0.5 rounded-l-full" style={{ background: G }} />}
+                <Icon className="w-4 h-4" style={{ color: isActive ? G : "rgba(255,255,255,0.3)" }} />
+              </div>
+            );
+          })}
+        </div>
+        {/* Avatar */}
+        <div className="flex items-center justify-center py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-[#0D1626]" style={{ background: G }}>م</div>
+        </div>
+      </div>
+
+      {/* ── Main area ─────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Top bar */}
+        <div className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0" style={{ background: "#0B1323", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="flex items-center gap-1.5 flex-1 px-3 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <Search className="w-3 h-3 text-white/25 shrink-0" />
+            <span className="text-[10px] text-white/25">بحث سريع...</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Bell className="w-4 h-4 text-white/30" />
+              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ background: "#EF4444" }} />
+            </div>
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-[#0D1626]" style={{ background: G }}>م</div>
+          </div>
+        </div>
+        {/* Page content */}
+        <div className="flex-1 overflow-hidden">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   15 SCREEN MOCKS  (desktop-scale, sidebar-first layout)
 ═══════════════════════════════════════════════════════════════════ */
 
 function ScreenDashboard() {
   return (
-    <div className="w-full h-full p-3 space-y-2 overflow-hidden" style={{ background: "#0D1626" }}>
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-xs font-black text-white">لوحة التحكم</div>
-        <div className="flex gap-1">
-          {["#EF4444","#F59E0B","#10B981"].map(c=><div key={c} className="w-2 h-2 rounded-full" style={{background:c}}/>)}
-        </div>
-      </div>
-      {/* KPI row */}
-      <div className="grid grid-cols-4 gap-1.5">
-        {[
-          {l:"القضايا النشطة",v:"152",c:"#6366F1"},
-          {l:"الإيرادات",v:"1.8M",c:G},
-          {l:"الموظفون",v:"38",c:"#10B981"},
-          {l:"التحصيل",v:"96%",c:"#EC4899"},
-        ].map(({l,v,c})=>(
-          <div key={l} className="rounded-lg p-2 flex flex-col gap-0.5" style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${c}30`}}>
-            <span className="text-[8px] text-white/40 leading-none">{l}</span>
-            <span className="text-sm font-black leading-none" style={{color:c}}>{v}</span>
+    <AppShell activeNav={0}>
+      <div className="p-4 h-full overflow-hidden space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-black text-white">مرحباً، محمد الأحمدي ✦</div>
+            <div className="text-[10px] text-white/40">الأحد، 15 مارس 2025</div>
           </div>
-        ))}
-      </div>
-      {/* Chart */}
-      <div className="rounded-lg p-2" style={{background:"rgba(255,255,255,0.03)"}}>
-        <div className="text-[8px] text-white/40 mb-1.5">الإيرادات الشهرية (ريال)</div>
-        <div className="flex items-end gap-1 h-12">
-          {[55,70,45,90,65,100,80,95,60,85,75,100].map((h,i)=>(
-            <div key={i} className="flex-1 rounded-sm transition-all" style={{height:`${h}%`,background:i===11?G:`rgba(201,168,76,${0.2+i*0.03})`}}/>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#0D1626]" style={{ background: G }}>
+            + إضافة قضية
+          </div>
+        </div>
+        {/* KPIs */}
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { l: "القضايا النشطة", v: "152", c: "#6366F1", icon: Briefcase },
+            { l: "الإيرادات الشهرية", v: "1.8M", c: G, icon: TrendingUp },
+            { l: "الموظفون", v: "38", c: "#10B981", icon: Users },
+            { l: "معدل التحصيل", v: "96%", c: "#EC4899", icon: Activity },
+          ].map(({ l, v, c, icon: Icon }) => (
+            <div key={l} className="rounded-xl p-3 flex flex-col gap-1" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${c}25` }}>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] text-white/45 leading-tight">{l}</span>
+                <Icon className="w-3 h-3" style={{ color: c }} />
+              </div>
+              <span className="text-xl font-black leading-none" style={{ color: c }}>{v}</span>
+              <span className="text-[8px] text-green-400">↑ +12% هذا الشهر</span>
+            </div>
+          ))}
+        </div>
+        {/* Chart + list */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="col-span-2 rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="text-[10px] text-white/50 mb-2 font-bold">الإيرادات الشهرية (ريال سعودي)</div>
+            <div className="flex items-end gap-1.5" style={{ height: 72 }}>
+              {[42, 58, 38, 75, 55, 90, 68, 88, 50, 78, 65, 100].map((h, i) => (
+                <div key={i} className="flex-1 rounded-sm" style={{ height: `${h}%`, background: i === 11 ? G : `rgba(201,168,76,${0.15 + i * 0.05})` }} />
+              ))}
+            </div>
+            <div className="flex justify-between text-[8px] text-white/25 mt-1.5">
+              {["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"].map(m => (
+                <span key={m} className="text-[7px]">{m.slice(0,3)}</span>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="text-[10px] text-white/50 mb-2 font-bold">القضايا الأخيرة</div>
+            <div className="space-y-1.5">
+              {[
+                ["قضية العقار #091", "مفتوحة", "#10B981"],
+                ["نزاع تجاري #085", "جلسة قريبة", "#6366F1"],
+                ["استشارة #080", "مكتملة", G],
+                ["قضية عمالية #079", "قيد التنفيذ", "#F59E0B"],
+              ].map(([n, s, c]) => (
+                <div key={n as string} className="flex items-center justify-between">
+                  <span className="text-[9px] text-white/65 truncate ml-1">{(n as string).split(" ").slice(0, 2).join(" ")}</span>
+                  <span className="text-[8px] px-1.5 py-0.5 rounded-full shrink-0" style={{ background: `${c}22`, color: c as string }}>{s as string}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        {/* Bottom row */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "جلسات هذا الأسبوع", val: "3", color: "#6366F1" },
+            { label: "فواتير معلقة", val: "8", color: "#F59E0B" },
+            { label: "مهام متأخرة", val: "2", color: "#EF4444" },
+          ].map(({ label, val, color }) => (
+            <div key={label} className="rounded-xl p-3 flex items-center gap-3" style={{ background: `${color}0D`, border: `1px solid ${color}20` }}>
+              <div className="text-2xl font-black" style={{ color }}>{val}</div>
+              <div className="text-[10px] text-white/55 leading-tight">{label}</div>
+            </div>
           ))}
         </div>
       </div>
-      {/* Recent cases */}
-      <div className="space-y-1">
-        {[
-          ["قضية العقار - شركة الأمل","مفتوحة","#10B981"],
-          ["نزاع تجاري - حمدان","جلسة قريبة","#6366F1"],
-          ["استشارة قانونية","مكتملة","#C9A84C"],
-        ].map(([n,s,c])=>(
-          <div key={n as string} className="flex items-center justify-between px-2 py-1 rounded" style={{background:"rgba(255,255,255,0.03)"}}>
-            <span className="text-[9px] text-white/60">{n as string}</span>
-            <span className="text-[8px] px-1.5 py-0.5 rounded-full" style={{background:`${c}22`,color:c as string}}>{s as string}</span>
-          </div>
-        ))}
-      </div>
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenCases() {
   return (
-    <div className="w-full h-full p-3 overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-black text-white">إدارة القضايا</span>
-        <div className="flex items-center gap-1">
-          <div className="text-[8px] px-2 py-0.5 rounded-full font-bold" style={{background:`${G}22`,color:G}}>152 قضية</div>
-          <div className="text-[8px] px-2 py-0.5 rounded-full" style={{background:"rgba(99,102,241,0.2)",color:"#818CF8"}}>+ إضافة</div>
+    <AppShell activeNav={1}>
+      <div className="p-4 h-full overflow-hidden">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-sm font-black text-white">إدارة القضايا</div>
+            <div className="text-[10px] text-white/40">152 قضية نشطة</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {["الكل", "مفتوحة", "جلسة قريبة", "مغلقة"].map((f, i) => (
+                <div key={f} className="text-[9px] px-2.5 py-1 rounded-lg cursor-pointer font-medium" style={{ background: i === 0 ? G : "rgba(255,255,255,0.06)", color: i === 0 ? "#0D1626" : "rgba(255,255,255,0.5)" }}>{f}</div>
+              ))}
+            </div>
+            <div className="text-[9px] px-3 py-1 rounded-lg font-bold text-[#0D1626]" style={{ background: G }}>+ قضية جديدة</div>
+          </div>
+        </div>
+        {/* Table header */}
+        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-2 px-3 py-2 mb-1 text-[9px] text-white/30 font-bold" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <span>القضية</span><span>النوع</span><span>الموكل</span><span>الجلسة القادمة</span><span>الحالة</span>
+        </div>
+        <div className="space-y-1 overflow-hidden">
+          {[
+            { n: "قضية العقار #2024-091", t: "عقاري", c: "شركة الأمل", d: "15 مارس", s: "مفتوحة", sc: "#10B981" },
+            { n: "نزاع تجاري #2024-085", t: "تجاري", c: "حمدان المطيري", d: "18 مارس", s: "جلسة قريبة", sc: "#6366F1" },
+            { n: "قضية عمالية #2024-079", t: "عمالي", c: "مصنع الخليج", d: "20 مارس", s: "تحت التنفيذ", sc: "#F59E0B" },
+            { n: "أحوال شخصية #2024-078", t: "أسري", c: "سارة الشمري", d: "22 مارس", s: "مفتوحة", sc: "#10B981" },
+            { n: "استئناف حكم #2024-071", t: "جنائي", c: "فهد القحطاني", d: "—", s: "مكتملة", sc: "#6B7280" },
+          ].map(({ n, t, c, d, s, sc }) => (
+            <div key={n} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-2 items-center px-3 py-2 rounded-xl cursor-pointer transition-all hover:bg-white/[0.04]" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <span className="text-xs font-medium text-white/85 truncate">{n}</span>
+              <span className="text-[10px] text-white/45">{t}</span>
+              <span className="text-[10px] text-white/60 truncate">{c}</span>
+              <span className="text-[10px] text-white/45">{d}</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full inline-block text-center" style={{ background: `${sc}20`, color: sc }}>{s}</span>
+            </div>
+          ))}
+        </div>
+        {/* Pagination */}
+        <div className="flex items-center justify-between mt-2 text-[9px] text-white/30">
+          <span>عرض 5 من 152</span>
+          <div className="flex gap-1">
+            {[1,2,3,"...","30"].map((p, i) => (
+              <div key={i} className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: p === 1 ? G : "rgba(255,255,255,0.06)", color: p === 1 ? "#0D1626" : "rgba(255,255,255,0.5)" }}>{p}</div>
+            ))}
+          </div>
         </div>
       </div>
-      {/* Filter row */}
-      <div className="flex gap-1 mb-2">
-        {["الكل","مفتوحة","جلسة قريبة","مغلقة"].map((f,i)=>(
-          <div key={f} className="text-[7px] px-2 py-0.5 rounded-full" style={{background:i===0?G:"rgba(255,255,255,0.06)",color:i===0?"#0D1626":"rgba(255,255,255,0.5)"}}>{f}</div>
-        ))}
-      </div>
-      {/* Table */}
-      <div className="space-y-1">
-        {[
-          {n:"قضية العقار #2024-091",t:"عقاري",s:"مفتوحة",c:"#10B981",d:"15 مارس"},
-          {n:"نزاع تجاري #2024-085",t:"تجاري",s:"جلسة قريبة",c:"#6366F1",d:"18 مارس"},
-          {n:"قضية عمالية #2024-079",t:"عمالي",s:"تحت التنفيذ",c:"#F59E0B",d:"20 مارس"},
-          {n:"قضية أحوال شخصية #078",t:"أسري",s:"مفتوحة",c:"#10B981",d:"22 مارس"},
-          {n:"استئناف حكم #2024-071",t:"جنائي",s:"مكتملة",c:"#6B7280",d:"1 مارس"},
-        ].map(({n,t,s,c,d})=>(
-          <div key={n} className="flex items-center gap-2 px-2 py-1.5 rounded" style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.05)"}}>
-            <div className="flex-1 min-w-0">
-              <div className="text-[8px] text-white/80 truncate">{n}</div>
-              <div className="text-[7px] text-white/30">{t} • {d}</div>
-            </div>
-            <div className="text-[7px] px-1.5 py-0.5 rounded-full shrink-0" style={{background:`${c}22`,color:c}}>{s}</div>
-          </div>
-        ))}
-      </div>
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenCaseDetail() {
   return (
-    <div className="w-full h-full p-3 overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="flex items-center gap-1.5 mb-2">
-        <div className="text-[8px] text-white/30">القضايا</div>
-        <ChevronLeft className="w-2.5 h-2.5 text-white/30"/>
-        <div className="text-[8px] text-white font-bold">قضية العقار #2024-091</div>
-      </div>
-      <div className="grid grid-cols-3 gap-1.5 mb-2">
-        {[{l:"رقم القضية",v:"#2024-091"},{l:"المحكمة",v:"العامة الرياض"},{l:"الجلسة القادمة",v:"15 مارس"}].map(({l,v})=>(
-          <div key={l} className="rounded-lg p-1.5" style={{background:"rgba(255,255,255,0.04)"}}>
-            <div className="text-[7px] text-white/30">{l}</div>
-            <div className="text-[8px] text-white font-bold mt-0.5">{v}</div>
+    <AppShell activeNav={1}>
+      <div className="p-4 h-full overflow-hidden space-y-2">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-1.5 text-[10px] text-white/30">
+          <span>القضايا</span><ChevronLeft className="w-3 h-3" /><span className="text-white/70 font-bold">قضية العقار #2024-091</span>
+          <div className="mr-auto flex gap-1">
+            <div className="px-2.5 py-1 rounded-lg text-[9px] text-white/50" style={{ background: "rgba(255,255,255,0.06)" }}>تعديل</div>
+            <div className="px-2.5 py-1 rounded-lg text-[9px] font-bold text-[#0D1626]" style={{ background: G }}>إصدار فاتورة</div>
           </div>
-        ))}
-      </div>
-      {/* AI Analysis card */}
-      <div className="rounded-lg p-2 mb-2" style={{background:"rgba(99,102,241,0.1)",border:"1px solid rgba(99,102,241,0.2)"}}>
-        <div className="flex items-center gap-1 mb-1">
-          <div className="w-3 h-3 rounded flex items-center justify-center" style={{background:"#6366F1"}}><Scale className="w-1.5 h-1.5 text-white"/></div>
-          <span className="text-[8px] text-indigo-300 font-bold">تحليل الذكاء الاصطناعي</span>
-          <span className="mr-auto text-[7px] px-1 rounded-full" style={{background:"rgba(16,185,129,0.2)",color:"#10B981"}}>85% فرصة نجاح</span>
         </div>
-        <p className="text-[7px] text-white/50 leading-relaxed">بناءً على تحليل المستندات والسوابق القضائية، الموقف القانوني قوي. يُنصح بتقديم مستندات الملكية إضافياً.</p>
-      </div>
-      {/* Timeline */}
-      <div className="space-y-1">
-        {[["تقديم الدعوى","✓","#10B981"],["جلسة أولى","✓","#10B981"],["رفع المذكرة","✓","#C9A84C"],["جلسة قادمة","●","#6366F1"]].map(([l,ic,c])=>(
-          <div key={l as string} className="flex items-center gap-2">
-            <div className="text-[8px] font-bold" style={{color:c as string}}>{ic as string}</div>
-            <div className="text-[8px] text-white/60">{l as string}</div>
+        {/* Info strip */}
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { l: "رقم القضية", v: "#2024-091" },
+            { l: "المحكمة", v: "المحكمة العامة — الرياض" },
+            { l: "الجلسة القادمة", v: "السبت 15 مارس" },
+            { l: "المحامي المسؤول", v: "أحمد المنصوري" },
+          ].map(({ l, v }) => (
+            <div key={l} className="rounded-xl p-2.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="text-[9px] text-white/35 mb-0.5">{l}</div>
+              <div className="text-xs font-bold text-white">{v}</div>
+            </div>
+          ))}
+        </div>
+        {/* Main 2-col */}
+        <div className="grid grid-cols-3 gap-2 flex-1">
+          {/* Timeline */}
+          <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="text-[10px] text-white/50 font-bold mb-2">مراحل القضية</div>
+            <div className="space-y-2">
+              {[
+                ["تقديم الدعوى", "مكتملة", "#10B981", "5 يناير"],
+                ["الجلسة الأولى", "مكتملة", "#10B981", "20 يناير"],
+                ["رفع المذكرة", "مكتملة", G, "8 فبراير"],
+                ["جلسة الحكم", "قادمة", "#6366F1", "15 مارس"],
+                ["إغلاق الملف", "قيد الانتظار", "#6B7280", "—"],
+              ].map(([step, status, color, date]) => (
+                <div key={step as string} className="flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ background: `${color}20`, border: `1px solid ${color}50` }}>
+                    <div className="w-2 h-2 rounded-full" style={{ background: color as string }} />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold text-white/80">{step as string}</div>
+                    <div className="text-[9px] text-white/30">{date as string}</div>
+                  </div>
+                  <div className="mr-auto text-[8px] px-1.5 py-0.5 rounded-full" style={{ background: `${color}20`, color: color as string }}>{status as string}</div>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
+          {/* AI analysis */}
+          <div className="col-span-2 space-y-2">
+            <div className="rounded-xl p-3" style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)" }}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: "#6366F120" }}><Brain className="w-3 h-3 text-indigo-400" /></div>
+                <span className="text-xs font-bold text-indigo-300">تحليل الذكاء الاصطناعي</span>
+                <div className="mr-auto flex items-center gap-1 px-2 py-1 rounded-full" style={{ background: "rgba(16,185,129,0.15)" }}>
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                  <span className="text-[9px] text-green-400 font-bold">85% فرصة نجاح</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-white/60 leading-relaxed">بناءً على تحليل 12 مستنداً والسوابق القضائية المشابهة، الموقف القانوني قوي. يُنصح بتقديم شهادة خبير عقاري إضافية لتعزيز الموقف.</p>
+            </div>
+            <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="text-[10px] text-white/50 font-bold mb-2">المستندات المرفقة (7)</div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {["عقد بيع العقار.pdf","صورة الهوية.pdf","سجل الملكية.pdf","تقرير الخبير.docx"].map(f => (
+                  <div key={f} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)" }}>
+                    <div className="w-4 h-5 rounded text-[7px] font-black text-white flex items-center justify-center shrink-0" style={{ background: f.includes(".pdf") ? "#EF4444" : "#3B82F6" }}>{f.includes(".pdf") ? "PDF" : "DOC"}</div>
+                    <span className="text-[9px] text-white/60 truncate">{f}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenClients() {
   return (
-    <div className="w-full h-full p-3 overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-black text-white">إدارة الموكلين</span>
-        <div className="text-[8px] px-2 py-0.5 rounded-full font-bold" style={{background:`${G}22`,color:G}}>183 موكل</div>
-      </div>
-      <div className="grid grid-cols-3 gap-1 mb-2">
-        {[{l:"نشط",v:"147",c:"#10B981"},{l:"محتمل",v:"23",c:"#6366F1"},{l:"شركات",v:"41",c:G}].map(({l,v,c})=>(
-          <div key={l} className="rounded-lg p-1.5 text-center" style={{background:`${c}12`,border:`1px solid ${c}25`}}>
-            <div className="text-sm font-black" style={{color:c}}>{v}</div>
-            <div className="text-[7px] text-white/40">{l}</div>
+    <AppShell activeNav={2}>
+      <div className="p-4 h-full overflow-hidden space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-black text-white">إدارة الموكلين</div>
+            <div className="text-[10px] text-white/40">183 موكل إجمالاً</div>
           </div>
-        ))}
-      </div>
-      <div className="space-y-1">
-        {[
-          {n:"شركة الأمل التجارية",t:"شركة",c:"#10B981",v:"42,000 ر"},
-          {n:"حمدان المطيري",t:"فرد",c:"#6366F1",v:"8,500 ر"},
-          {n:"مجموعة النور العقارية",t:"شركة",c:"#10B981",v:"125,000 ر"},
-          {n:"سارة الشمري",t:"فرد",c:"#F59E0B",v:"3,200 ر"},
-        ].map(({n,t,c,v})=>(
-          <div key={n} className="flex items-center gap-2 px-2 py-1.5 rounded" style={{background:"rgba(255,255,255,0.03)"}}>
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-black text-[#0D1626] shrink-0" style={{background:c}}>{n[0]}</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[8px] text-white/80 truncate">{n}</div>
-              <div className="text-[7px] text-white/30">{t}</div>
+          <div className="text-[9px] px-3 py-1 rounded-lg font-bold text-[#0D1626]" style={{ background: G }}>+ موكل جديد</div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[{ l: "موكلون نشطون", v: "147", c: "#10B981" }, { l: "موكلون محتملون", v: "23", c: "#6366F1" }, { l: "شركات وجهات", v: "41", c: G }].map(({ l, v, c }) => (
+            <div key={l} className="rounded-xl p-3 text-center" style={{ background: `${c}10`, border: `1px solid ${c}25` }}>
+              <div className="text-2xl font-black mb-0.5" style={{ color: c }}>{v}</div>
+              <div className="text-[10px] text-white/50">{l}</div>
             </div>
-            <div className="text-[8px] font-bold" style={{color:G}}>{v}</div>
-          </div>
-        ))}
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { n: "شركة الأمل التجارية", t: "شركة", c: "#10B981", v: "42,500 ر", cases: 4 },
+            { n: "حمدان المطيري", t: "فرد — رجل أعمال", c: "#6366F1", v: "8,500 ر", cases: 2 },
+            { n: "مجموعة النور العقارية", t: "شركة عقارية", c: "#10B981", v: "125,000 ر", cases: 6 },
+            { n: "سارة الشمري", t: "فرد — موظفة", c: "#F59E0B", v: "3,200 ر", cases: 1 },
+          ].map(({ n, t, c, v, cases }) => (
+            <div key={n} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-[#0D1626] shrink-0" style={{ background: c }}>{n[0]}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-white/90 truncate">{n}</div>
+                <div className="text-[10px] text-white/40">{t}</div>
+                <div className="text-[10px] text-white/30 mt-0.5">{cases} قضايا نشطة</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs font-black" style={{ color: G }}>{v}</div>
+                <div className="text-[9px] text-white/30">إيرادات</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenDocuments() {
   return (
-    <div className="w-full h-full p-3 overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-black text-white">المستندات</span>
-        <div className="text-[8px] text-white/40">784 مستند</div>
-      </div>
-      {/* AI search */}
-      <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg mb-2" style={{background:"rgba(99,102,241,0.1)",border:"1px solid rgba(99,102,241,0.25)"}}>
-        <Scale className="w-3 h-3 text-indigo-400 shrink-0"/>
-        <span className="text-[8px] text-white/40">ابحث بالذكاء الاصطناعي... "عقود الإيجار 2024"</span>
-        <div className="mr-auto text-[7px] px-1.5 py-0.5 rounded-full" style={{background:"#6366F1",color:"white"}}>بحث</div>
-      </div>
-      <div className="space-y-1">
-        {[
-          {n:"عقد بيع عقار - الأمل.pdf",s:"2.4 MB",d:"15 مارس",c:"#EF4444"},
-          {n:"مذكرة قانونية #091.docx",s:"380 KB",d:"12 مارس",c:"#3B82F6"},
-          {n:"صور الملكية.zip",s:"8.1 MB",d:"10 مارس",c:"#F59E0B"},
-          {n:"حكم ابتدائي.pdf",s:"1.2 MB",d:"5 مارس",c:"#EF4444"},
-          {n:"تقرير خبير عقاري.docx",s:"540 KB",d:"1 مارس",c:"#3B82F6"},
-        ].map(({n,s,d,c})=>(
-          <div key={n} className="flex items-center gap-2 px-2 py-1.5 rounded" style={{background:"rgba(255,255,255,0.03)"}}>
-            <div className="w-4 h-5 rounded flex items-center justify-center text-[6px] font-black text-white" style={{background:c}}>
-              {n.includes(".pdf")?"PDF":n.includes(".docx")?"DOC":"ZIP"}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[8px] text-white/80 truncate">{n}</div>
-              <div className="text-[7px] text-white/30">{s} • {d}</div>
-            </div>
+    <AppShell activeNav={3}>
+      <div className="p-4 h-full overflow-hidden space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-black text-white">المستندات والملفات</div>
+            <div className="text-[10px] text-white/40">784 مستند</div>
           </div>
-        ))}
+          <div className="text-[9px] px-3 py-1 rounded-lg font-bold text-[#0D1626]" style={{ background: G }}>رفع ملف جديد</div>
+        </div>
+        {/* AI search */}
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl" style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)" }}>
+          <Brain className="w-4 h-4 text-indigo-400 shrink-0" />
+          <span className="text-[10px] text-white/40 flex-1">ابحث بالذكاء الاصطناعي... مثال: "عقود الإيجار التي انتهت صلاحيتها في 2024"</span>
+          <div className="px-3 py-1 rounded-lg text-[9px] font-bold" style={{ background: "#6366F1", color: "white" }}>بحث ذكي</div>
+        </div>
+        {/* Grid view */}
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { n: "عقد بيع عقار — شركة الأمل.pdf", s: "2.4 MB", d: "15 مارس", c: "#EF4444", type: "PDF" },
+            { n: "مذكرة قانونية #091 — نزاع تجاري.docx", s: "380 KB", d: "12 مارس", c: "#3B82F6", type: "DOC" },
+            { n: "صور ووثائق الملكية.zip", s: "8.1 MB", d: "10 مارس", c: "#F59E0B", type: "ZIP" },
+            { n: "حكم المحكمة الابتدائية.pdf", s: "1.2 MB", d: "5 مارس", c: "#EF4444", type: "PDF" },
+          ].map(({ n, s, d, c, type }) => (
+            <div key={n} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="w-10 h-12 rounded-lg flex items-center justify-center text-[10px] font-black text-white shrink-0" style={{ background: c }}>{type}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] font-medium text-white/80 leading-tight mb-1">{n}</div>
+                <div className="text-[9px] text-white/30">{s} • رُفع {d}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenLegalAI() {
   return (
-    <div className="w-full h-full p-3 flex flex-col overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="flex items-center gap-1.5 mb-2">
-        <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#C9A84C,#E0C060)"}}><Scale className="w-2.5 h-2.5 text-[#0D1626]"/></div>
-        <span className="text-xs font-black text-white">الذكاء الاصطناعي القانوني</span>
-        <span className="mr-auto text-[7px] px-1.5 py-0.5 rounded-full text-green-400" style={{background:"rgba(16,185,129,0.15)"}}>متاح</span>
+    <AppShell activeNav={4}>
+      <div className="flex h-full overflow-hidden">
+        {/* Sidebar chat history */}
+        <div className="w-40 flex-shrink-0 p-3 space-y-1 overflow-hidden" style={{ borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="text-[9px] text-white/30 font-bold mb-2 px-1">المحادثات الأخيرة</div>
+          {["قضية العقار #091", "تحليل عقد الخليج", "تلخيص حكم الاستئناف", "مذكرة رد على الدعوى"].map((c, i) => (
+            <div key={c} className="px-2 py-1.5 rounded-lg text-[9px] cursor-pointer truncate" style={{ background: i === 0 ? `${G}18` : "rgba(255,255,255,0.04)", color: i === 0 ? G : "rgba(255,255,255,0.5)", border: i === 0 ? `1px solid ${G}30` : "1px solid transparent" }}>{c}</div>
+          ))}
+        </div>
+        {/* Chat area */}
+        <div className="flex-1 flex flex-col p-3 overflow-hidden">
+          <div className="flex items-center gap-2 mb-3 pb-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${G}, #E0C060)` }}><Scale className="w-4 h-4 text-[#0D1626]" /></div>
+            <div>
+              <div className="text-xs font-black text-white">المساعد القانوني الذكي</div>
+              <div className="text-[9px] text-green-400">متاح ٢٤/٧</div>
+            </div>
+          </div>
+          <div className="flex-1 space-y-3 overflow-hidden">
+            <div className="flex justify-start">
+              <div className="max-w-[75%] px-3 py-2 rounded-2xl text-[10px] text-white/75 leading-relaxed" style={{ background: "rgba(255,255,255,0.07)" }}>
+                ما هي نقاط الضعف في دعوى الخصم في قضية العقار؟
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <div className="max-w-[80%] px-3 py-2.5 rounded-2xl text-[10px] leading-relaxed" style={{ background: "rgba(201,168,76,0.1)", color: "#F0D060", border: "1px solid rgba(201,168,76,0.2)" }}>
+                <div className="font-bold mb-1.5 text-[11px]">✦ تحليل الذكاء الاصطناعي</div>
+                حددت ٣ نقاط ضعف رئيسية في موقف الخصم:<br />
+                ١. غياب وثيقة التسجيل الرسمية<br />
+                ٢. تعارض في شهادات الشهود<br />
+                ٣. انتهاء مدة التقادم القانونية<br />
+                <span style={{ color: "#10B981" }}>فرصة النجاح: 85%</span>
+              </div>
+            </div>
+            <div className="flex justify-start">
+              <div className="max-w-[75%] px-3 py-2 rounded-2xl text-[10px] text-white/75" style={{ background: "rgba(255,255,255,0.07)" }}>
+                اكتب مذكرة رد احترافية على ادعاءاتهم
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <div className="px-3 py-2 rounded-2xl text-[10px] flex items-center gap-1.5" style={{ background: "rgba(99,102,241,0.15)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.2)" }}>
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                جاري صياغة المذكرة القانونية...
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <input type="text" placeholder="اسأل المساعد القانوني..." readOnly className="flex-1 px-3 py-2 rounded-xl outline-none text-[10px]" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }} />
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: G }}><ArrowLeft className="w-3.5 h-3.5 text-[#0D1626]" /></div>
+          </div>
+        </div>
       </div>
-      <div className="flex-1 space-y-2 overflow-hidden">
-        <div className="flex justify-start">
-          <div className="max-w-[75%] px-2 py-1.5 rounded-xl text-[8px] text-white/70" style={{background:"rgba(255,255,255,0.06)"}}>
-            ما هي نقاط الضعف في دعوى الخصم؟
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <div className="max-w-[75%] px-2 py-1.5 rounded-xl text-[8px] leading-relaxed" style={{background:"rgba(201,168,76,0.12)",color:"#F0D060",border:"1px solid rgba(201,168,76,0.2)"}}>
-            حددت ٣ نقاط ضعف رئيسية:<br/>
-            ١. غياب وثيقة التسجيل<br/>
-            ٢. تعارض في الشهادات<br/>
-            ٣. انتهاء مدة التقادم
-          </div>
-        </div>
-        <div className="flex justify-start">
-          <div className="max-w-[75%] px-2 py-1.5 rounded-xl text-[8px] text-white/70" style={{background:"rgba(255,255,255,0.06)"}}>
-            اكتب مذكرة رد على ادعاءاتهم
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <div className="px-2 py-1.5 rounded-xl text-[8px]" style={{background:"rgba(99,102,241,0.15)",color:"#818CF8",border:"1px solid rgba(99,102,241,0.2)"}}>
-            ✦ جاري صياغة المذكرة...
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center gap-1 mt-1.5 px-2 py-1 rounded-lg" style={{background:"rgba(255,255,255,0.05)"}}>
-        <span className="text-[8px] text-white/30 flex-1">اسأل المساعد القانوني...</span>
-        <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{background:G}}><ArrowLeft className="w-2.5 h-2.5 text-[#0D1626]"/></div>
-      </div>
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenOpponentSim() {
   return (
-    <div className="w-full h-full p-3 overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="text-xs font-black text-white mb-2">محاكي الخصم</div>
-      <div className="grid grid-cols-2 gap-1.5 mb-2">
-        <div className="rounded-lg p-2" style={{background:"rgba(99,102,241,0.1)",border:"1px solid rgba(99,102,241,0.2)"}}>
-          <div className="text-[7px] text-indigo-300 mb-1 font-bold">موقفك</div>
-          <div className="text-[8px] text-white/70 leading-relaxed">الملكية مسجلة قانونياً منذ 2018، والعقد موثق لدى الجهات الرسمية</div>
-        </div>
-        <div className="rounded-lg p-2" style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)"}}>
-          <div className="text-[7px] text-red-400 mb-1 font-bold">⚔ الخصم يحتج بـ</div>
-          <div className="text-[8px] text-white/70 leading-relaxed">وثائق مزورة وتواريخ متناقضة في عقد البيع الأصلي</div>
-        </div>
-      </div>
-      <div className="rounded-lg p-2 mb-1.5" style={{background:"rgba(201,168,76,0.08)",border:"1px solid rgba(201,168,76,0.2)"}}>
-        <div className="text-[7px] text-amber-400 font-bold mb-1">⚡ ردود مقترحة للمحاكمة</div>
-        {["تقديم سجل الملكية الرسمي كدليل دامغ","طلب تحقيق خبير مستقل","الاستناد إلى الفقرة ١٢٣ نظام التسجيل"].map((r,i)=>(
-          <div key={i} className="flex items-center gap-1 mb-0.5">
-            <div className="w-3 h-3 rounded flex items-center justify-center text-[6px] font-black" style={{background:G,color:"#0D1626"}}>{i+1}</div>
-            <span className="text-[7px] text-white/60">{r}</span>
+    <AppShell activeNav={4}>
+      <div className="p-4 h-full overflow-hidden space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-black text-white">محاكي الخصم</div>
+            <div className="text-[10px] text-white/40">قضية العقار #2024-091</div>
           </div>
-        ))}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)" }}>
+            <TrendingUp className="w-3.5 h-3.5 text-green-400" />
+            <span className="text-[10px] font-bold text-green-400">فرصة النجاح: 87%</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl p-3" style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)" }}>
+            <div className="text-[10px] text-indigo-300 font-bold mb-2">⚖ موقفك القانوني</div>
+            <div className="text-[10px] text-white/70 leading-relaxed">الملكية مسجلة قانونياً منذ عام 2018، والعقد موثق رسمياً لدى الجهات المختصة. جميع الوثائق متوفرة وصالحة.</div>
+          </div>
+          <div className="rounded-xl p-3" style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)" }}>
+            <div className="text-[10px] text-red-400 font-bold mb-2">⚔ حجج الخصم المتوقعة</div>
+            <div className="text-[10px] text-white/70 leading-relaxed">يدّعون وجود وثائق مزورة وتواريخ متناقضة في عقد البيع الأصلي، مع التشكيك في صلاحية التوثيق.</div>
+          </div>
+        </div>
+        <div className="rounded-xl p-3" style={{ background: "rgba(201,168,76,0.07)", border: "1px solid rgba(201,168,76,0.2)" }}>
+          <div className="text-[10px] text-amber-400 font-bold mb-2">⚡ ردود مقترحة من الذكاء الاصطناعي</div>
+          <div className="space-y-2">
+            {[
+              "تقديم سجل الملكية الرسمي الموثق كدليل دامغ لا يقبل الطعن",
+              "طلب تعيين خبير مستقل للتحقق من صحة الوثائق",
+              "الاستناد إلى الفقرة ١٢٣ من نظام التسجيل العقاري",
+            ].map((r, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <div className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-black text-[#0D1626] shrink-0" style={{ background: G }}>{i + 1}</div>
+                <span className="text-[10px] text-white/65 leading-relaxed">{r}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-      <div className="flex items-center gap-1 px-2 py-1 rounded-lg" style={{background:"rgba(16,185,129,0.1)"}}>
-        <TrendingUp className="w-3 h-3 text-green-400 shrink-0"/>
-        <span className="text-[8px] text-green-400 font-bold">فرصة النجاح: 87%</span>
-      </div>
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenSessionPrep() {
   return (
-    <div className="w-full h-full p-3 overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="text-xs font-black text-white mb-2">التحضير للجلسات</div>
-      {/* Mini calendar */}
-      <div className="rounded-lg p-2 mb-2" style={{background:"rgba(255,255,255,0.03)"}}>
-        <div className="text-[8px] text-white/50 mb-1.5 font-bold">مارس 2025</div>
-        <div className="grid grid-cols-7 gap-0.5">
-          {["أح","إث","ثل","أر","خم","جم","سب"].map(d=><div key={d} className="text-[6px] text-white/30 text-center">{d}</div>)}
-          {Array.from({length:31},(_, i)=>i+1).map(d=>(
-            <div key={d} className={`text-[7px] rounded text-center py-0.5 ${d===15?"font-black text-[#0D1626]":d===18||d===20?"text-indigo-300":"text-white/30"}`}
-              style={{background:d===15?G:d===18||d===20?"rgba(99,102,241,0.2)":"transparent"}}>
-              {d}
-            </div>
-          ))}
+    <AppShell activeNav={5}>
+      <div className="p-4 h-full overflow-hidden space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-black text-white">التحضير للجلسات</div>
+            <div className="text-[10px] text-white/40">3 جلسات هذا الأسبوع</div>
+          </div>
         </div>
-      </div>
-      <div className="space-y-1">
-        {[
-          {d:"السبت 15 مارس",t:"قضية العقار #091","q":"10:00 ص","s":"#10B981"},
-          {d:"الثلاثاء 18 مارس",t:"نزاع تجاري #085","q":"2:00 م","s":"#6366F1"},
-          {d:"الخميس 20 مارس",t:"قضية عمالية #079","q":"11:00 ص","s":"#F59E0B"},
-        ].map(({d,t,q,s})=>(
-          <div key={t} className="flex items-center gap-2 px-2 py-1.5 rounded" style={{background:"rgba(255,255,255,0.03)"}}>
-            <div className="w-1 h-8 rounded-full shrink-0" style={{background:s}}/>
-            <div>
-              <div className="text-[8px] text-white/80 font-bold">{t}</div>
-              <div className="text-[7px] text-white/30">{d} • {q}</div>
+        <div className="grid grid-cols-3 gap-2">
+          {/* Calendar */}
+          <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="text-[10px] text-white/50 font-bold mb-2">مارس 2025</div>
+            <div className="grid grid-cols-7 gap-0.5 mb-1">
+              {["أح","إث","ثل","أر","خم","جم","سب"].map(d => <div key={d} className="text-[7px] text-white/25 text-center">{d}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-0.5">
+              {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                <div key={d} className="text-[8px] rounded text-center py-0.5 font-medium"
+                  style={{ background: d === 15 ? G : d === 18 || d === 20 ? "rgba(99,102,241,0.3)" : "transparent", color: d === 15 ? "#0D1626" : d === 18 || d === 20 ? "#818CF8" : "rgba(255,255,255,0.3)" }}>
+                  {d}
+                </div>
+              ))}
             </div>
           </div>
-        ))}
+          {/* Upcoming sessions */}
+          <div className="col-span-2 space-y-2">
+            {[
+              { d: "السبت 15 مارس", t: "قضية العقار #091", q: "10:00 ص", c: "المحكمة العامة الرياض", s: "#10B981" },
+              { d: "الثلاثاء 18 مارس", t: "نزاع تجاري #085", q: "2:00 م", c: "محكمة التجارة", s: "#6366F1" },
+              { d: "الخميس 20 مارس", t: "قضية عمالية #079", q: "11:00 ص", c: "محكمة العمل", s: "#F59E0B" },
+            ].map(({ d, t, q, c, s }) => (
+              <div key={t} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${s}25` }}>
+                <div className="w-1 h-full min-h-[40px] rounded-full shrink-0" style={{ background: s }} />
+                <div className="flex-1">
+                  <div className="text-xs font-bold text-white/90">{t}</div>
+                  <div className="text-[9px] text-white/40">{d} • {q}</div>
+                  <div className="text-[9px] text-white/30">{c}</div>
+                </div>
+                <div className="text-[9px] px-2 py-1 rounded-lg font-bold" style={{ background: `${s}18`, color: s }}>تحضير</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenInvoices() {
   return (
-    <div className="w-full h-full p-3 overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-black text-white">الفواتير</span>
-        <div className="text-[8px] font-bold" style={{color:G}}>2.1M إجمالي</div>
-      </div>
-      <div className="grid grid-cols-3 gap-1 mb-2">
-        {[{l:"مدفوعة",v:"89",c:"#10B981"},{l:"معلقة",v:"24",c:"#F59E0B"},{l:"متأخرة",v:"8",c:"#EF4444"}].map(({l,v,c})=>(
-          <div key={l} className="rounded-lg p-1.5 text-center" style={{background:`${c}12`}}>
-            <div className="text-sm font-black" style={{color:c}}>{v}</div>
-            <div className="text-[7px] text-white/40">{l}</div>
+    <AppShell activeNav={6}>
+      <div className="p-4 h-full overflow-hidden space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-black text-white">الفواتير الإلكترونية</div>
+            <div className="text-[10px] text-white/40">إجمالي 2.1M ريال</div>
           </div>
-        ))}
-      </div>
-      <div className="space-y-1">
-        {[
-          {id:"INV-2024-091",c:"شركة الأمل",a:"42,500",s:"مدفوعة",sc:"#10B981"},
-          {id:"INV-2024-092",c:"حمدان المطيري",a:"8,200",s:"معلقة",sc:"#F59E0B"},
-          {id:"INV-2024-093",c:"مجموعة النور",a:"125,000",s:"رابط دفع",sc:"#6366F1"},
-          {id:"INV-2024-094",c:"سارة الشمري",a:"3,800",s:"متأخرة",sc:"#EF4444"},
-        ].map(({id,c,a,s,sc})=>(
-          <div key={id} className="flex items-center gap-2 px-2 py-1.5 rounded" style={{background:"rgba(255,255,255,0.03)"}}>
-            <div className="flex-1 min-w-0">
-              <div className="text-[8px] text-white/70">{id}</div>
-              <div className="text-[7px] text-white/30">{c}</div>
+          <div className="text-[9px] px-3 py-1 rounded-lg font-bold text-[#0D1626]" style={{ background: G }}>+ فاتورة جديدة</div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[{ l: "مدفوعة", v: "89", c: "#10B981" }, { l: "معلقة", v: "24", c: "#F59E0B" }, { l: "متأخرة", v: "8", c: "#EF4444" }].map(({ l, v, c }) => (
+            <div key={l} className="rounded-xl p-3 flex items-center gap-3" style={{ background: `${c}0D`, border: `1px solid ${c}25` }}>
+              <div className="text-2xl font-black" style={{ color: c }}>{v}</div>
+              <div className="text-[10px] text-white/60">{l}</div>
             </div>
-            <div className="text-[8px] font-bold text-white">{a} ر</div>
-            <div className="text-[7px] px-1.5 py-0.5 rounded-full" style={{background:`${sc}22`,color:sc}}>{s}</div>
-          </div>
-        ))}
+          ))}
+        </div>
+        <div className="space-y-1.5">
+          {[
+            { id: "INV-2024-091", c: "شركة الأمل التجارية", a: "42,500", s: "مدفوعة", sc: "#10B981" },
+            { id: "INV-2024-092", c: "حمدان المطيري", a: "8,200", s: "معلقة", sc: "#F59E0B" },
+            { id: "INV-2024-093", c: "مجموعة النور العقارية", a: "125,000", s: "رابط دفع أُرسل", sc: "#6366F1" },
+            { id: "INV-2024-094", c: "سارة الشمري", a: "3,800", s: "متأخرة 15 يوم", sc: "#EF4444" },
+          ].map(({ id, c, a, s, sc }) => (
+            <div key={id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div>
+                <div className="text-xs font-bold text-white/80">{id}</div>
+                <div className="text-[10px] text-white/40">{c}</div>
+              </div>
+              <div className="mr-auto text-sm font-black" style={{ color: G }}>{a} ر</div>
+              <div className="text-[10px] px-2.5 py-1 rounded-full" style={{ background: `${sc}18`, color: sc }}>{s}</div>
+              <div className="text-[9px] px-2 py-1 rounded-lg" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>عرض</div>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenPaymentCenter() {
   return (
-    <div className="w-full h-full p-3 overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="text-xs font-black text-white mb-2">مركز الدفع الإلكتروني</div>
-      {/* Stripe-like balance card */}
-      <div className="rounded-xl p-3 mb-2 relative overflow-hidden" style={{background:"linear-gradient(135deg,rgba(201,168,76,0.15),rgba(99,102,241,0.1))",border:`1px solid ${G}30`}}>
-        <div className="text-[7px] text-white/40 mb-0.5">الرصيد المتاح</div>
-        <div className="text-2xl font-black" style={{color:G}}>184,250</div>
-        <div className="text-[7px] text-white/40">ريال سعودي</div>
-        <div className="flex gap-2 mt-2">
-          <div className="text-[7px] px-2 py-1 rounded-lg font-bold text-[#0D1626]" style={{background:G}}>سحب</div>
-          <div className="text-[7px] px-2 py-1 rounded-lg" style={{background:"rgba(255,255,255,0.1)",color:"white"}}>إرسال رابط</div>
+    <AppShell activeNav={7}>
+      <div className="p-4 h-full overflow-hidden space-y-3">
+        <div className="text-sm font-black text-white mb-1">مركز الدفع الإلكتروني</div>
+        {/* Balance card */}
+        <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(201,168,76,0.15), rgba(16,185,129,0.08))", border: `1px solid ${G}30` }}>
+          <div className="absolute top-0 left-0 w-32 h-32 rounded-full blur-3xl opacity-20" style={{ background: G }} />
+          <div className="relative">
+            <div className="text-[10px] text-white/40 mb-1">الرصيد المتاح للسحب</div>
+            <div className="text-3xl font-black mb-1" style={{ color: G }}>184,250</div>
+            <div className="text-[10px] text-white/40 mb-3">ريال سعودي</div>
+            <div className="flex gap-2">
+              <div className="px-4 py-1.5 rounded-xl text-xs font-bold text-[#0D1626]" style={{ background: G }}>سحب للحساب</div>
+              <div className="px-4 py-1.5 rounded-xl text-xs font-bold" style={{ background: "rgba(255,255,255,0.1)", color: "white" }}>إرسال رابط دفع</div>
+            </div>
+          </div>
+        </div>
+        {/* Payment links */}
+        <div>
+          <div className="text-[10px] text-white/50 font-bold mb-2">روابط الدفع النشطة</div>
+          <div className="space-y-1.5">
+            {[
+              { c: "مجموعة النور العقارية", a: "125,000", s: "بانتظار السداد", sc: "#F59E0B" },
+              { c: "عبدالله القحطاني", a: "18,500", s: "تم الفتح", sc: "#6366F1" },
+              { c: "شركة التقنية المتقدمة", a: "45,000", s: "مدفوعة ✓", sc: "#10B981" },
+            ].map(({ c, a, s, sc }) => (
+              <div key={c} className="flex items-center gap-3 px-4 py-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <CreditCard className="w-4 h-4 shrink-0" style={{ color: G }} />
+                <div className="flex-1">
+                  <div className="text-xs font-medium text-white/80">{c}</div>
+                  <div className="text-[9px] px-2 py-0.5 rounded-full inline-block mt-0.5" style={{ background: `${sc}18`, color: sc }}>{s}</div>
+                </div>
+                <div className="text-sm font-black" style={{ color: G }}>{a} ر</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-      {/* Payment links */}
-      <div className="text-[8px] text-white/50 mb-1 font-bold">روابط الدفع النشطة</div>
-      <div className="space-y-1">
-        {[
-          {c:"مجموعة النور",a:"125,000",s:"بانتظار السداد"},
-          {c:"عبدالله القحطاني",a:"18,500",s:"تم الفتح"},
-          {c:"شركة التقنية",a:"45,000",s:"مدفوعة ✓"},
-        ].map(({c,a,s})=>(
-          <div key={c} className="flex items-center gap-2 px-2 py-1.5 rounded" style={{background:"rgba(255,255,255,0.03)"}}>
-            <CreditCard className="w-3 h-3 shrink-0" style={{color:G}}/>
-            <div className="flex-1 min-w-0">
-              <div className="text-[8px] text-white/70">{c}</div>
-              <div className="text-[7px] text-white/30">{s}</div>
-            </div>
-            <div className="text-[8px] font-bold" style={{color:G}}>{a} ر</div>
-          </div>
-        ))}
-      </div>
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenCollections() {
   return (
-    <div className="w-full h-full p-3 overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="text-xs font-black text-white mb-2">التحصيل المالي</div>
-      <div className="rounded-lg p-2 mb-2" style={{background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)"}}>
-        <div className="flex justify-between text-[8px] mb-1">
-          <span className="text-white/50">معدل التحصيل</span>
-          <span className="font-black text-green-400">96%</span>
+    <AppShell activeNav={8}>
+      <div className="p-4 h-full overflow-hidden space-y-3">
+        <div className="text-sm font-black text-white">التحصيل المالي</div>
+        {/* Progress */}
+        <div className="rounded-xl p-4" style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)" }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-white/60">معدل التحصيل الشهري</span>
+            <span className="text-2xl font-black text-green-400">96%</span>
+          </div>
+          <div className="h-2.5 rounded-full overflow-hidden mb-2" style={{ background: "rgba(255,255,255,0.07)" }}>
+            <div className="h-full rounded-full" style={{ width: "96%", background: "linear-gradient(90deg, #10B981, #34D399)" }} />
+          </div>
+          <div className="grid grid-cols-2 gap-4 text-[10px] text-white/40">
+            <span>المحصّل: <strong className="text-white/70">1,840,000 ر</strong></span>
+            <span>المتبقي: <strong className="text-white/70">76,000 ر</strong></span>
+          </div>
         </div>
-        <div className="h-1.5 rounded-full overflow-hidden" style={{background:"rgba(255,255,255,0.08)"}}>
-          <div className="h-full rounded-full" style={{width:"96%",background:"linear-gradient(90deg,#10B981,#34D399)"}}/>
-        </div>
-        <div className="flex justify-between text-[7px] mt-1 text-white/30">
-          <span>المحصّل: 1.84M ر</span>
-          <span>المتبقي: 76K ر</span>
+        <div className="text-[10px] text-white/50 font-bold">متابعة التحصيل</div>
+        <div className="space-y-1.5">
+          {[
+            { c: "شركة الخليج الصناعية", a: "45,000", d: "30 يوم", col: "#EF4444", act: "إرسال تنبيه قانوني" },
+            { c: "فهد العتيبي", a: "12,500", d: "15 يوم", col: "#F59E0B", act: "تذكير تلقائي" },
+            { c: "مؤسسة النجاح", a: "8,200", d: "5 أيام", col: "#10B981", act: "متابعة عادية" },
+          ].map(({ c, a, d, col, act }) => (
+            <div key={c} className="flex items-center gap-3 px-4 py-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="flex-1">
+                <div className="text-xs font-medium text-white/80">{c}</div>
+                <div className="text-[9px] mt-0.5" style={{ color: col }}>متأخر {d}</div>
+              </div>
+              <div className="text-sm font-black text-white/80">{a} ر</div>
+              <div className="text-[9px] px-2.5 py-1 rounded-xl font-medium" style={{ background: `${col}18`, color: col }}>{act}</div>
+            </div>
+          ))}
         </div>
       </div>
-      <div className="text-[8px] text-white/50 mb-1 font-bold">متابعة التحصيل</div>
-      {[
-        {c:"شركة الخليج",a:"45,000",d:"30 يوم",col:"#EF4444",act:"إرسال تنبيه"},
-        {c:"فهد العتيبي",a:"12,500",d:"15 يوم",col:"#F59E0B",act:"تذكير تلقائي"},
-        {c:"مؤسسة النجاح",a:"8,200",d:"5 أيام",col:"#10B981",act:"متابعة"},
-      ].map(({c,a,d,col,act})=>(
-        <div key={c} className="flex items-center gap-2 px-2 py-1.5 rounded mb-1" style={{background:"rgba(255,255,255,0.03)"}}>
-          <div className="flex-1 min-w-0">
-            <div className="text-[8px] text-white/80">{c}</div>
-            <div className="text-[7px]" style={{color:col}}>متأخر {d}</div>
-          </div>
-          <div className="text-[8px] font-bold text-white">{a} ر</div>
-          <div className="text-[7px] px-1.5 py-0.5 rounded-full" style={{background:`${col}22`,color:col}}>{act}</div>
-        </div>
-      ))}
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenHR() {
   return (
-    <div className="w-full h-full p-3 overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-black text-white">الموارد البشرية</span>
-        <span className="text-[8px]" style={{color:G}}>38 موظف</span>
-      </div>
-      <div className="grid grid-cols-3 gap-1 mb-2">
-        {[{l:"المحامون",v:"12",c:"#6366F1"},{l:"المساعدون",v:"18",c:"#10B981"},{l:"الإداريون",v:"8",c:G}].map(({l,v,c})=>(
-          <div key={l} className="rounded-lg p-1.5 text-center" style={{background:`${c}12`}}>
-            <div className="text-sm font-black" style={{color:c}}>{v}</div>
-            <div className="text-[7px] text-white/40">{l}</div>
+    <AppShell activeNav={9}>
+      <div className="p-4 h-full overflow-hidden space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-black text-white">الموارد البشرية</div>
+            <div className="text-[10px] text-white/40">38 موظف</div>
           </div>
-        ))}
-      </div>
-      {[
-        {n:"أحمد المنصوري",r:"محامي أول",s:"8,500",c:"#6366F1"},
-        {n:"سارة القحطاني",r:"مساعد قانوني",s:"4,200",c:"#10B981"},
-        {n:"محمد العمري",r:"إداري",s:"3,800",c:G},
-        {n:"فاطمة الشهري",r:"محامية",s:"7,200",c:"#6366F1"},
-      ].map(({n,r,s,c})=>(
-        <div key={n} className="flex items-center gap-2 px-2 py-1.5 rounded mb-1" style={{background:"rgba(255,255,255,0.03)"}}>
-          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-black text-[#0D1626] shrink-0" style={{background:c}}>{n[0]}</div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[8px] text-white/80">{n}</div>
-            <div className="text-[7px] text-white/30">{r}</div>
-          </div>
-          <div className="text-[8px] font-bold" style={{color:G}}>{s} ر</div>
+          <div className="text-[9px] px-3 py-1 rounded-lg font-bold text-[#0D1626]" style={{ background: G }}>+ إضافة موظف</div>
         </div>
-      ))}
-    </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[{ l: "المحامون", v: "12", c: "#6366F1" }, { l: "المساعدون", v: "18", c: "#10B981" }, { l: "الإداريون", v: "8", c: G }].map(({ l, v, c }) => (
+            <div key={l} className="rounded-xl p-3 text-center" style={{ background: `${c}10`, border: `1px solid ${c}25` }}>
+              <div className="text-2xl font-black mb-0.5" style={{ color: c }}>{v}</div>
+              <div className="text-[10px] text-white/50">{l}</div>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-1.5">
+          {[
+            { n: "أحمد المنصوري", r: "محامي أول", s: "8,500 ر", c: "#6366F1", status: "حاضر" },
+            { n: "سارة القحطاني", r: "مساعد قانوني أول", s: "4,200 ر", c: "#10B981", status: "حاضر" },
+            { n: "محمد العمري", r: "مدير إداري", s: "3,800 ر", c: G, status: "إجازة" },
+            { n: "فاطمة الشهري", r: "محامية", s: "7,200 ر", c: "#6366F1", status: "حاضر" },
+          ].map(({ n, r, s, c, status }) => (
+            <div key={n} className="flex items-center gap-3 px-4 py-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black text-[#0D1626] shrink-0" style={{ background: c }}>{n[0]}</div>
+              <div className="flex-1">
+                <div className="text-xs font-bold text-white/85">{n}</div>
+                <div className="text-[10px] text-white/40">{r}</div>
+              </div>
+              <div className="text-xs font-black" style={{ color: G }}>{s}</div>
+              <div className="text-[9px] px-2 py-0.5 rounded-full" style={{ background: status === "حاضر" ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)", color: status === "حاضر" ? "#10B981" : "#F59E0B" }}>{status}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </AppShell>
   );
 }
 
 function ScreenAttendance() {
   return (
-    <div className="w-full h-full p-3 overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="text-xs font-black text-white mb-2">الحضور والانصراف</div>
-      {/* Clock in card */}
-      <div className="rounded-xl p-3 mb-2 text-center" style={{background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)"}}>
-        <div className="text-2xl font-black text-white mb-0.5">09:24</div>
-        <div className="text-[7px] text-white/40 mb-2">الأحد، 15 مارس 2025</div>
-        <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[8px] font-bold" style={{background:"#10B981",color:"white"}}>
-          <Check className="w-2.5 h-2.5"/> حاضر
+    <AppShell activeNav={9}>
+      <div className="p-4 h-full overflow-hidden space-y-3">
+        <div className="text-sm font-black text-white">الحضور والانصراف</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl p-4 text-center" style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)" }}>
+            <div className="text-3xl font-black text-white mb-0.5">09:24</div>
+            <div className="text-[10px] text-white/40 mb-2">الأحد، 15 مارس 2025</div>
+            <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold" style={{ background: "#10B981", color: "white" }}>
+              <Check className="w-3 h-3" /> حاضر الآن
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {[{ l: "حضروا اليوم", v: "31", c: "#10B981" }, { l: "غائبون", v: "4", c: "#EF4444" }, { l: "إجازة", v: "3", c: "#F59E0B" }, { l: "خارج المكتب", v: "2", c: "#6366F1" }].map(({ l, v, c }) => (
+              <div key={l} className="rounded-xl p-2.5 text-center" style={{ background: `${c}0D`, border: `1px solid ${c}20` }}>
+                <div className="text-lg font-black" style={{ color: c }}>{v}</div>
+                <div className="text-[8px] text-white/40 leading-tight">{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="text-[10px] text-white/50 font-bold">سجل الحضور اليوم</div>
+        <div className="space-y-1.5">
+          {[
+            { n: "أحمد المنصوري", i: "08:55", o: "—", s: "حاضر", c: "#10B981" },
+            { n: "سارة القحطاني", i: "09:10", o: "—", s: "حاضر", c: "#10B981" },
+            { n: "محمد العمري", i: "—", o: "—", s: "إجازة", c: "#F59E0B" },
+            { n: "فاطمة الشهري", i: "08:30", o: "17:00", s: "انصرف", c: "#6366F1" },
+          ].map(({ n, i, o, s, c }) => (
+            <div key={n} className="flex items-center gap-3 px-4 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <div className="text-xs font-medium text-white/75 flex-1">{n}</div>
+              <div className="text-[10px] text-white/35">{i} ← {o}</div>
+              <div className="text-[9px] px-2 py-0.5 rounded-full" style={{ background: `${c}18`, color: c }}>{s}</div>
+            </div>
+          ))}
         </div>
       </div>
-      <div className="text-[8px] text-white/50 mb-1 font-bold">سجل الحضور اليوم</div>
-      {[
-        {n:"أحمد المنصوري",in:"08:55",out:"—",s:"حاضر","sc":"#10B981"},
-        {n:"سارة القحطاني",in:"09:10",out:"—",s:"حاضر",sc:"#10B981"},
-        {n:"محمد العمري",in:"—",out:"—",s:"غائب",sc:"#EF4444"},
-        {n:"فاطمة الشهري",in:"08:30",out:"17:00",s:"انصرف",sc:"#6366F1"},
-      ].map(({n,in:i,out:o,s,sc})=>(
-        <div key={n} className="flex items-center gap-2 px-2 py-1 rounded mb-0.5" style={{background:"rgba(255,255,255,0.03)"}}>
-          <div className="text-[8px] text-white/70 flex-1">{n}</div>
-          <div className="text-[7px] text-white/30">{i} → {o}</div>
-          <div className="text-[7px] px-1 rounded" style={{color:sc}}>{s}</div>
-        </div>
-      ))}
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenOfficeWebsite() {
   return (
-    <div className="w-full h-full overflow-hidden" style={{background:"#0D1626"}}>
-      {/* Mini website header */}
-      <div className="px-3 py-2 flex items-center gap-2" style={{background:"rgba(255,255,255,0.03)",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
-        <div className="w-4 h-4 rounded flex items-center justify-center" style={{background:G}}><Scale className="w-2 h-2 text-[#0D1626]"/></div>
-        <span className="text-[9px] font-black text-white">مكتب الأحمدي للمحاماة</span>
-        <Globe className="w-3 h-3 text-white/20 mr-auto"/>
-      </div>
-      <div className="p-3">
-        {/* Hero */}
-        <div className="rounded-xl p-3 mb-2 text-center" style={{background:"linear-gradient(135deg,rgba(201,168,76,0.12),rgba(99,102,241,0.08))"}}>
-          <div className="text-[10px] font-black text-white mb-0.5">مكتب الأحمدي للمحاماة</div>
-          <div className="text-[7px] text-white/40 mb-1.5">خبرة 15 عاماً في القانون السعودي</div>
-          <div className="flex justify-center gap-1">
-            <div className="text-[7px] px-2 py-0.5 rounded-full font-bold text-[#0D1626]" style={{background:G}}>احجز استشارة</div>
-            <div className="text-[7px] px-2 py-0.5 rounded-full" style={{background:"rgba(255,255,255,0.1)",color:"white"}}>تواصل معنا</div>
+    <AppShell activeNav={9}>
+      <div className="h-full overflow-hidden flex flex-col">
+        {/* Website preview bar */}
+        <div className="px-4 py-2 flex items-center gap-2 shrink-0" style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <Globe className="w-3.5 h-3.5 text-white/30" />
+          <span className="text-[10px] text-white/30 flex-1">الموقع العام للمكتب</span>
+          <div className="text-[9px] px-2 py-0.5 rounded-full font-bold text-green-400" style={{ background: "rgba(16,185,129,0.12)" }}>● منشور</div>
+        </div>
+        {/* Website preview */}
+        <div className="flex-1 overflow-hidden" style={{ background: "#0A0F1C" }}>
+          {/* Site header */}
+          <div className="px-6 py-3 flex items-center justify-between" style={{ background: "#060C18", borderBottom: "1px solid rgba(201,168,76,0.15)" }}>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${G}, #E0C060)` }}><Scale className="w-3.5 h-3.5 text-[#0D1626]" /></div>
+              <span className="text-sm font-black text-white">مكتب الأحمدي للمحاماة</span>
+            </div>
+            <div className="flex gap-3 text-[10px] text-white/50">
+              {["الرئيسية", "خدماتنا", "فريقنا", "تواصل معنا"].map(l => <span key={l} className="cursor-pointer hover:text-white">{l}</span>)}
+            </div>
+          </div>
+          {/* Hero */}
+          <div className="px-6 py-5 text-center" style={{ background: "linear-gradient(135deg, rgba(201,168,76,0.08), rgba(99,102,241,0.06))" }}>
+            <div className="text-base font-black text-white mb-1">مكتب الأحمدي للمحاماة والاستشارات القانونية</div>
+            <div className="text-[10px] text-white/45 mb-3">خبرة 15 عاماً في القانون السعودي — الرياض، المملكة العربية السعودية</div>
+            <div className="flex justify-center gap-2">
+              <div className="px-4 py-1.5 rounded-xl text-xs font-bold text-[#0D1626]" style={{ background: G }}>احجز استشارة مجانية</div>
+              <div className="px-4 py-1.5 rounded-xl text-xs font-bold" style={{ background: "rgba(255,255,255,0.1)", color: "white" }}>خدماتنا</div>
+            </div>
+          </div>
+          {/* Services */}
+          <div className="px-6 py-3">
+            <div className="grid grid-cols-3 gap-2">
+              {[["⚖", "قانون تجاري", "#6366F1"], ["🏠", "قانون عقاري", "#10B981"], ["👨‍👩‍👧", "أحوال شخصية", G]].map(([icon, label, color]) => (
+                <div key={label as string} className="rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${color}20` }}>
+                  <div className="text-xl mb-1">{icon as string}</div>
+                  <div className="text-[10px] font-bold text-white/70">{label as string}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        {/* Services */}
-        <div className="grid grid-cols-3 gap-1">
-          {["قانون تجاري","قانون عقاري","أحوال شخصية"].map((s,i)=>(
-            <div key={s} className="rounded-lg p-1.5 text-center" style={{background:"rgba(255,255,255,0.04)"}}>
-              <div className="w-4 h-4 rounded mx-auto mb-0.5 flex items-center justify-center" style={{background:["#6366F1","#10B981",G][i]+"22"}}>
-                <Scale className="w-2 h-2" style={{color:["#6366F1","#10B981",G][i]}}/>
-              </div>
-              <div className="text-[7px] text-white/60">{s}</div>
-            </div>
-          ))}
-        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
 function ScreenLegalStore() {
   return (
-    <div className="w-full h-full p-3 overflow-hidden" style={{background:"#0D1626"}}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-black text-white">متجر الخدمات القانونية</span>
-        <span className="text-[7px]" style={{color:G}}>12 خدمة</span>
-      </div>
-      <div className="space-y-1.5">
-        {[
-          {s:"استشارة قانونية سريعة",p:"199",d:"30 دقيقة مع محامي متخصص",c:"#6366F1",sold:124},
-          {s:"صياغة عقد تجاري",p:"899",d:"عقد احترافي خلال 48 ساعة",c:"#10B981",sold:56},
-          {s:"مراجعة قانونية",p:"399",d:"تدقيق كامل لأي وثيقة",c:G,sold:89},
-          {s:"تمثيل قضائي",p:"التواصل",d:"دفاع احترافي أمام المحاكم",c:"#EC4899",sold:31},
-        ].map(({s,p,d,c,sold})=>(
-          <div key={s} className="flex items-center gap-2 p-2 rounded-lg" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.06)"}}>
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background:`${c}18`}}>
-              <Scale className="w-3.5 h-3.5" style={{color:c}}/>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[8px] text-white/80 font-bold">{s}</div>
-              <div className="text-[7px] text-white/30">{d}</div>
-              <div className="text-[7px] text-white/20">{sold} طلب مكتمل</div>
-            </div>
-            <div className="text-[9px] font-black shrink-0" style={{color:G}}>{p} {p!=="التواصل"?"ر":""}</div>
+    <AppShell activeNav={9}>
+      <div className="p-4 h-full overflow-hidden space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-black text-white">متجر الخدمات القانونية</div>
+            <div className="text-[10px] text-white/40">12 خدمة منشورة</div>
           </div>
-        ))}
+          <div className="text-[9px] px-3 py-1 rounded-lg font-bold text-[#0D1626]" style={{ background: G }}>+ خدمة جديدة</div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { s: "استشارة قانونية سريعة", p: "199 ر", d: "30 دقيقة مع محامي متخصص", c: "#6366F1", sold: 124, rating: "4.9" },
+            { s: "صياغة عقد تجاري", p: "899 ر", d: "عقد احترافي خلال 48 ساعة", c: "#10B981", sold: 56, rating: "4.8" },
+            { s: "مراجعة قانونية شاملة", p: "399 ر", d: "تدقيق كامل لأي وثيقة قانونية", c: G, sold: 89, rating: "4.9" },
+            { s: "تمثيل قضائي", p: "تواصل", d: "دفاع احترافي أمام المحاكم السعودية", c: "#EC4899", sold: 31, rating: "5.0" },
+          ].map(({ s, p, d, c, sold, rating }) => (
+            <div key={s} className="p-3 rounded-xl cursor-pointer" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <div className="flex items-start gap-2 mb-2">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${c}18` }}>
+                  <Scale className="w-4 h-4" style={{ color: c }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-white/90 leading-tight">{s}</div>
+                  <div className="text-[9px] text-white/35 mt-0.5 leading-tight">{d}</div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-black" style={{ color: G }}>{p}</div>
+                <div className="text-[9px] text-white/30">⭐ {rating} · {sold} طلب</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
@@ -564,142 +848,29 @@ function ScreenLegalStore() {
    SCREENS CONFIG
 ═══════════════════════════════════════════════════════════════════ */
 const SCREENS = [
-  {
-    id: 1, key: "dashboard",
-    title: "لوحة التحكم الرئيسية",
-    subtitle: "نظرة شاملة على كامل المكتب في لحظة",
-    color: "#C9A84C",
-    features: ["152 قضية نشطة بلمسة واحدة", "1.8 مليون ريال إيرادات محدّثة لحظياً", "رسوم بيانية ذكية وتحليلات فورية", "تنبيهات الجلسات والمواعيد الحرجة"],
-    component: ScreenDashboard,
-  },
-  {
-    id: 2, key: "cases",
-    title: "إدارة القضايا",
-    subtitle: "تتبع كل قضية من الفتح حتى الإغلاق",
-    color: "#6366F1",
-    features: ["تصفية القضايا حسب النوع والحالة", "جدول احترافي مع بيانات كاملة", "ربط المستندات والموكلين تلقائياً", "تحليل ذكي لأولويات القضايا"],
-    component: ScreenCases,
-  },
-  {
-    id: 3, key: "case-detail",
-    title: "تفاصيل القضية",
-    subtitle: "كل تفصيل عن القضية في شاشة واحدة",
-    color: "#10B981",
-    features: ["تحليل ذكاء اصطناعي بنسبة نجاح 85%", "جدول زمني لمراحل القضية", "مستندات مرفقة مصنّفة تلقائياً", "ملاحظات وتعليقات الفريق القانوني"],
-    component: ScreenCaseDetail,
-  },
-  {
-    id: 4, key: "clients",
-    title: "إدارة الموكلين (CRM)",
-    subtitle: "قاعدة بيانات موكليك بالكامل",
-    color: "#F59E0B",
-    features: ["183 موكل مصنّف حسب النوع", "تتبع إيرادات كل موكل", "سجل تواصل كامل وتاريخ القضايا", "بطاقات موكلين احترافية قابلة للطباعة"],
-    component: ScreenClients,
-  },
-  {
-    id: 5, key: "documents",
-    title: "المستندات والبحث الذكي",
-    subtitle: "بحث في 784 مستند بلغة طبيعية",
-    color: "#3B82F6",
-    features: ["بحث ذكي بالعربية في ثوانٍ", "تصنيف تلقائي للمستندات", "معاينة سريعة بدون تحميل", "مشاركة آمنة مع الفريق"],
-    component: ScreenDocuments,
-  },
-  {
-    id: 6, key: "legal-ai",
-    title: "الذكاء الاصطناعي القانوني",
-    subtitle: "مساعدك القانوني الذكي على مدار الساعة",
-    color: "#8B5CF6",
-    features: ["تحليل نقاط قوة وضعف القضية", "صياغة مذكرات قانونية احترافية", "اقتراح استراتيجيات الدفاع", "بحث في السوابق القضائية السعودية"],
-    component: ScreenLegalAI,
-  },
-  {
-    id: 7, key: "opponent",
-    title: "محاكي الخصم",
-    subtitle: "تدرّب على المواجهة قبل يوم المحاكمة",
-    color: "#EF4444",
-    features: ["توقع حجج الخصم بدقة 87%", "اقتراح ردود قانونية فعّالة", "تحليل نقاط الضعف في موقفهم", "تمرين كامل لسيناريوهات المحاكمة"],
-    component: ScreenOpponentSim,
-  },
-  {
-    id: 8, key: "sessions",
-    title: "التحضير للجلسات",
-    subtitle: "لا تدخل قاعة المحكمة غير مستعد",
-    color: "#EC4899",
-    features: ["تقويم تفاعلي بجميع الجلسات", "قائمة تحضير لكل جلسة", "تذكيرات تلقائية قبل الجلسة", "ملف إحاطة شامل لكل قضية"],
-    component: ScreenSessionPrep,
-  },
-  {
-    id: 9, key: "invoices",
-    title: "الفواتير الإلكترونية",
-    subtitle: "فاتورة احترافية في ثوانٍ",
-    color: "#C9A84C",
-    features: ["فاتورة متوافقة مع ZATCA", "إرسال فوري عبر البريد والواتساب", "متابعة حالة السداد لحظياً", "تقارير مالية تلقائية شهرية"],
-    component: ScreenInvoices,
-  },
-  {
-    id: 10, key: "payment",
-    title: "مركز الدفع الإلكتروني",
-    subtitle: "استلم أتعابك من أي مكان في العالم",
-    color: "#10B981",
-    features: ["روابط دفع مباشرة بضغطة واحدة", "قبول بطاقات ائتمانية عالمية", "تتبع حالة السداد لحظياً", "تحويل فوري للحساب البنكي"],
-    component: ScreenPaymentCenter,
-  },
-  {
-    id: 11, key: "collections",
-    title: "التحصيل المالي",
-    subtitle: "معدل تحصيل 96% مع متابعة ذكية",
-    color: "#34D399",
-    features: ["تذكيرات تلقائية للمتأخرين", "جدولة مدفوعات مرنة", "تقارير عمر الديون التفصيلية", "إشعارات فورية عند كل سداد"],
-    component: ScreenCollections,
-  },
-  {
-    id: 12, key: "hr",
-    title: "الموارد البشرية",
-    subtitle: "إدارة فريقك القانوني باحترافية",
-    color: "#A855F7",
-    features: ["ملفات 38 موظف مكتملة", "رواتب ومكافآت وعمولات آلية", "تقييمات أداء دورية", "هيكل تنظيمي تفاعلي"],
-    component: ScreenHR,
-  },
-  {
-    id: 13, key: "attendance",
-    title: "الحضور والانصراف",
-    subtitle: "حضور بصمة أو GPS مع تقارير فورية",
-    color: "#06B6D4",
-    features: ["حضور رقمي بدون بصمة تقليدية", "تقارير حضور يومية وشهرية", "حساب الإجازات والغيابات تلقائياً", "تنبيهات الغياب المتكرر"],
-    component: ScreenAttendance,
-  },
-  {
-    id: 14, key: "website",
-    title: "موقع المكتب العام",
-    subtitle: "احضور رقمي احترافي لمكتبك",
-    color: "#F97316",
-    features: ["موقع جاهز لمكتبك في دقائق", "صفحة خدمات وتخصصات", "نموذج تواصل واستشارة أولية", "ظهور في محركات البحث"],
-    component: ScreenOfficeWebsite,
-  },
-  {
-    id: 15, key: "store",
-    title: "متجر الخدمات القانونية",
-    subtitle: "حوّل خبرتك القانونية إلى دخل رقمي",
-    color: "#D946EF",
-    features: ["بيع خدماتك للعملاء مباشرة", "استشارات مدفوعة إلكترونياً", "عقود جاهزة قابلة للتخصيص", "تقييمات وآراء العملاء"],
-    component: ScreenLegalStore,
-  },
+  { id: 1,  key: "dashboard",   title: "لوحة التحكم الرئيسية",    subtitle: "نظرة شاملة على كامل المكتب في لحظة",          color: G,         features: ["152 قضية نشطة بلمسة واحدة","1.8 مليون ريال إيرادات محدّثة لحظياً","رسوم بيانية ذكية وتحليلات فورية","تنبيهات الجلسات والمواعيد الحرجة"], component: ScreenDashboard },
+  { id: 2,  key: "cases",       title: "إدارة القضايا",            subtitle: "تتبع كل قضية من الفتح حتى الإغلاق",           color: "#6366F1", features: ["جدول احترافي مع فلترة متقدمة","ربط المستندات والموكلين تلقائياً","تحليل ذكي لأولويات القضايا","تصدير التقارير بصيغ متعددة"], component: ScreenCases },
+  { id: 3,  key: "case-detail", title: "تفاصيل القضية",            subtitle: "كل تفصيل عن القضية في شاشة واحدة",            color: "#10B981", features: ["تحليل ذكاء اصطناعي بنسبة نجاح 85%","جدول زمني لمراحل القضية","مستندات مرفقة مصنّفة تلقائياً","ملاحظات وتعليقات الفريق القانوني"], component: ScreenCaseDetail },
+  { id: 4,  key: "clients",     title: "إدارة الموكلين",           subtitle: "قاعدة بيانات موكليك بالكامل",                color: "#F59E0B", features: ["183 موكل مصنّف حسب النوع","تتبع إيرادات كل موكل","سجل تواصل كامل وتاريخ القضايا","بطاقات موكلين احترافية"], component: ScreenClients },
+  { id: 5,  key: "documents",   title: "المستندات والبحث الذكي",  subtitle: "بحث في 784 مستند بلغة طبيعية",               color: "#3B82F6", features: ["بحث ذكي بالعربية في ثوانٍ","تصنيف تلقائي للمستندات","معاينة سريعة بدون تحميل","مشاركة آمنة مع الفريق"], component: ScreenDocuments },
+  { id: 6,  key: "legal-ai",    title: "الذكاء الاصطناعي القانوني",subtitle: "مساعدك القانوني الذكي على مدار الساعة",       color: "#8B5CF6", features: ["تحليل نقاط قوة وضعف القضية","صياغة مذكرات قانونية احترافية","اقتراح استراتيجيات الدفاع","بحث في السوابق القضائية"], component: ScreenLegalAI },
+  { id: 7,  key: "opponent",    title: "محاكي الخصم",              subtitle: "تدرّب على المواجهة قبل يوم المحاكمة",         color: "#EF4444", features: ["توقع حجج الخصم بدقة 87%","اقتراح ردود قانونية فعّالة","تحليل نقاط الضعف في موقفهم","تمرين كامل لسيناريوهات المحاكمة"], component: ScreenOpponentSim },
+  { id: 8,  key: "sessions",    title: "التحضير للجلسات",          subtitle: "لا تدخل قاعة المحكمة غير مستعد",              color: "#EC4899", features: ["تقويم تفاعلي بجميع الجلسات","قائمة تحضير لكل جلسة","تذكيرات تلقائية قبل الجلسة","ملف إحاطة شامل لكل قضية"], component: ScreenSessionPrep },
+  { id: 9,  key: "invoices",    title: "الفواتير الإلكترونية",     subtitle: "فاتورة احترافية متوافقة مع ZATCA في ثوانٍ",   color: G,         features: ["فاتورة متوافقة مع ZATCA","إرسال فوري عبر البريد والواتساب","متابعة حالة السداد لحظياً","تقارير مالية تلقائية شهرية"], component: ScreenInvoices },
+  { id: 10, key: "payment",     title: "مركز الدفع الإلكتروني",   subtitle: "استلم أتعابك من أي مكان في العالم",           color: "#10B981", features: ["روابط دفع مباشرة بضغطة واحدة","قبول بطاقات ائتمانية عالمية","تتبع حالة السداد لحظياً","تحويل فوري للحساب البنكي"], component: ScreenPaymentCenter },
+  { id: 11, key: "collections", title: "التحصيل المالي",           subtitle: "معدل تحصيل 96% مع متابعة ذكية",              color: "#34D399", features: ["تذكيرات تلقائية للمتأخرين","جدولة مدفوعات مرنة","تقارير عمر الديون التفصيلية","إشعارات فورية عند كل سداد"], component: ScreenCollections },
+  { id: 12, key: "hr",          title: "الموارد البشرية",          subtitle: "إدارة فريقك القانوني باحترافية",             color: "#A855F7", features: ["ملفات 38 موظف مكتملة","رواتب ومكافآت وعمولات آلية","تقييمات أداء دورية","هيكل تنظيمي تفاعلي"], component: ScreenHR },
+  { id: 13, key: "attendance",  title: "الحضور والانصراف",         subtitle: "حضور رقمي مع تقارير فورية",                  color: "#06B6D4", features: ["حضور رقمي بدون بصمة تقليدية","تقارير حضور يومية وشهرية","حساب الإجازات تلقائياً","تنبيهات الغياب المتكرر"], component: ScreenAttendance },
+  { id: 14, key: "website",     title: "موقع المكتب العام",        subtitle: "احضور رقمي احترافي لمكتبك",                 color: "#F97316", features: ["موقع جاهز لمكتبك في دقائق","صفحة خدمات وتخصصات","نموذج تواصل واستشارة أولية","ظهور في محركات البحث"], component: ScreenOfficeWebsite },
+  { id: 15, key: "store",       title: "متجر الخدمات القانونية",  subtitle: "حوّل خبرتك القانونية إلى دخل رقمي",         color: "#D946EF", features: ["بيع خدماتك للعملاء مباشرة","استشارات مدفوعة إلكترونياً","عقود جاهزة قابلة للتخصيص","تقييمات وآراء العملاء"], component: ScreenLegalStore },
 ];
 
-/* ══════════════════════════════════════════════════════════════════
-   WORKFLOW JOURNEY
-═══════════════════════════════════════════════════════════════════ */
 const JOURNEY = [
-  { icon: "👤", label: "استقبال العميل" },
-  { icon: "📁", label: "فتح القضية" },
-  { icon: "📄", label: "رفع المستندات" },
-  { icon: "🤖", label: "تحليل الذكاء الاصطناعي" },
-  { icon: "📝", label: "إنشاء العقد" },
-  { icon: "🧾", label: "إصدار الفاتورة" },
-  { icon: "🔗", label: "رابط الدفع" },
-  { icon: "💳", label: "سداد العميل" },
-  { icon: "📊", label: "متابعة القضية" },
-  { icon: "✅", label: "إغلاق الملف" },
+  { icon: "👤", label: "استقبال العميل" }, { icon: "📁", label: "فتح القضية" },
+  { icon: "📄", label: "رفع المستندات" }, { icon: "🤖", label: "تحليل الذكاء الاصطناعي" },
+  { icon: "📝", label: "إنشاء العقد" },   { icon: "🧾", label: "إصدار الفاتورة" },
+  { icon: "🔗", label: "رابط الدفع" },    { icon: "💳", label: "سداد العميل" },
+  { icon: "📊", label: "متابعة القضية" }, { icon: "✅", label: "إغلاق الملف" },
 ];
 
 /* ══════════════════════════════════════════════════════════════════
@@ -711,19 +882,16 @@ export default function PlatformShowcase() {
   const [modal, setModal] = useState<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStart = useRef<number | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const goNext = useCallback(() => setActive(p => (p + 1) % SCREENS.length), []);
   const goPrev = useCallback(() => setActive(p => (p - 1 + SCREENS.length) % SCREENS.length), []);
 
-  /* Auto-play */
   useEffect(() => {
     if (!playing) { if (intervalRef.current) clearInterval(intervalRef.current); return; }
-    intervalRef.current = setInterval(goNext, 3000);
+    intervalRef.current = setInterval(goNext, 3500);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [playing, goNext]);
 
-  /* Touch swipe */
   const onTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchStart.current === null) return;
@@ -737,126 +905,84 @@ export default function PlatformShowcase() {
 
   return (
     <section id="showcase" className="py-24 px-4 relative overflow-hidden">
-      {/* Background glow */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full blur-[160px] opacity-[0.06]" style={{ background: G }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] rounded-full blur-[180px] opacity-[0.05]" style={{ background: G }} />
       </div>
 
       <div className="max-w-7xl mx-auto">
-        {/* Section header */}
-        <motion.div
-          className="text-center mb-12"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold mb-4"
-            style={{ background: `${G}18`, border: `1px solid ${G}35`, color: G }}>
-            <Play className="w-3.5 h-3.5 fill-current" />
-            عدالة في 60 ثانية
+        {/* Header */}
+        <motion.div className="text-center mb-12" initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold mb-4" style={{ background: `${G}18`, border: `1px solid ${G}35`, color: G }}>
+            <Play className="w-3.5 h-3.5 fill-current" />عدالة في 60 ثانية
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white mb-4">
             شاهد كيف تعمل{" "}
-            <span style={{ background: `linear-gradient(135deg, ${G}, #F0D060)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              عدالة
-            </span>
+            <span style={{ background: `linear-gradient(135deg, ${G}, #F0D060)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>عدالة</span>
           </h2>
           <p className="text-white/50 text-lg max-w-2xl mx-auto">
-            لا وصف أقوى من الواقع — تصفّح 15 وحدة حقيقية من المنصة وشاهد كيف تُدار القضية كاملةً من الاستقبال حتى التحصيل
+            تصفّح 15 وحدة حقيقية من المنصة وشاهد كيف تُدار القضية كاملةً من الاستقبال حتى التحصيل
           </p>
         </motion.div>
 
-        {/* Main showcase grid */}
-        <div className="grid lg:grid-cols-[280px_1fr_280px] gap-6 items-start">
+        {/* Main layout: tabs left + screen right */}
+        <div className="grid lg:grid-cols-[220px_1fr] gap-5 items-start">
 
-          {/* Left thumbnails (desktop) */}
-          <div className="hidden lg:flex flex-col gap-1.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
-            {SCREENS.slice(0, 8).map((s, i) => (
-              <button
-                key={s.id}
-                onClick={() => { setActive(i); setPlaying(false); }}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-right transition-all"
-                style={{
-                  background: active === i ? `${s.color}18` : "rgba(255,255,255,0.03)",
-                  border: `1px solid ${active === i ? s.color + "40" : "rgba(255,255,255,0.06)"}`,
-                }}
-              >
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: active === i ? s.color : "rgba(255,255,255,0.15)" }} />
-                <span className="text-xs font-medium truncate" style={{ color: active === i ? s.color : "rgba(255,255,255,0.5)" }}>
-                  {s.title}
-                </span>
+          {/* Left: screen list */}
+          <div className="hidden lg:block rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
+            {SCREENS.map((s, i) => (
+              <button key={s.id} onClick={() => { setActive(i); setPlaying(false); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-right transition-all"
+                style={{ background: active === i ? `${s.color}12` : "transparent", borderRight: active === i ? `3px solid ${s.color}` : "3px solid transparent", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <div className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[9px] font-black" style={{ background: active === i ? s.color : "rgba(255,255,255,0.08)", color: active === i ? "#0D1626" : "rgba(255,255,255,0.4)" }}>{s.id}</div>
+                <span className="text-xs font-medium truncate" style={{ color: active === i ? s.color : "rgba(255,255,255,0.5)" }}>{s.title}</span>
               </button>
             ))}
           </div>
 
-          {/* Center: main screen */}
-          <div
-            ref={containerRef}
-            onTouchStart={onTouchStart}
-            onTouchEnd={onTouchEnd}
-            className="relative"
-          >
+          {/* Right: browser + screen */}
+          <div>
             {/* Browser chrome */}
             <div className="rounded-2xl overflow-hidden shadow-2xl" style={{ border: "1px solid rgba(255,255,255,0.1)" }}>
-              {/* Top bar */}
-              <div className="flex items-center gap-2 px-4 py-3" style={{ background: "#070E1C", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                <div className="flex gap-1.5">
-                  {["#EF4444","#F59E0B","#10B981"].map(c=><div key={c} className="w-3 h-3 rounded-full" style={{background:c}}/>)}
+              {/* Browser top */}
+              <div className="flex items-center gap-2 px-4 py-3" style={{ background: "#060D1A", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <div className="flex gap-1.5">{["#EF4444","#F59E0B","#10B981"].map(c => <div key={c} className="w-3 h-3 rounded-full" style={{ background: c }} />)}</div>
+                <div className="flex-1 mx-3 px-3 py-1.5 rounded-lg text-xs text-white/30 text-center" style={{ background: "rgba(255,255,255,0.04)" }}>
+                  app.adalah-ai.sa/{screen.key}
                 </div>
-                <div className="flex-1 mx-4 px-3 py-1.5 rounded-lg text-xs text-white/30 text-center" style={{ background: "rgba(255,255,255,0.04)" }}>
-                  app.adalah-ai.sa / {screen.key}
-                </div>
-                {/* Playback controls */}
-                <button
-                  onClick={() => setPlaying(p => !p)}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-80"
-                  style={{ background: playing ? `${G}25` : "rgba(255,255,255,0.08)" }}
-                >
-                  {playing
-                    ? <Pause className="w-3 h-3" style={{ color: G }} />
-                    : <Play className="w-3 h-3 text-white/60" />
-                  }
+                <button onClick={() => setPlaying(p => !p)} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: playing ? `${G}20` : "rgba(255,255,255,0.07)" }}>
+                  {playing ? <Pause className="w-3 h-3" style={{ color: G }} /> : <Play className="w-3 h-3 text-white/50" />}
                 </button>
               </div>
 
-              {/* Screen content */}
-              <div className="relative overflow-hidden" style={{ height: 340, background: "#0D1626" }}>
+              {/* Screen area */}
+              <div className="relative overflow-hidden" style={{ height: 440 }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
                 <AnimatePresence mode="wait">
-                  <motion.div
-                    key={active}
-                    className="absolute inset-0"
-                    initial={{ opacity: 0, x: 30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -30 }}
-                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                  >
+                  <motion.div key={active} className="absolute inset-0"
+                    initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}>
                     <Screen />
                   </motion.div>
                 </AnimatePresence>
-
-                {/* Click overlay */}
-                <button
-                  onClick={() => setModal(active)}
+                {/* Hover overlay */}
+                <button onClick={() => setModal(active)}
                   className="absolute inset-0 w-full h-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-                  style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(2px)" }}
-                >
-                  <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-[#0D1626]" style={{ background: G }}>
-                    <Zap className="w-4 h-4" />
-                    عرض التفاصيل
+                  style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(3px)" }}>
+                  <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-[#0D1626]" style={{ background: G }}>
+                    <Zap className="w-4 h-4" />عرض التفاصيل الكاملة
                   </div>
                 </button>
               </div>
 
-              {/* Bottom info bar */}
-              <div className="px-4 py-3 flex items-center justify-between" style={{ background: "#070E1C", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              {/* Bottom info */}
+              <div className="px-5 py-3 flex items-center justify-between" style={{ background: "#060D1A", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                 <div>
                   <div className="text-sm font-bold text-white">{screen.title}</div>
                   <div className="text-xs text-white/40">{screen.subtitle}</div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <span className="text-xs text-white/30">{active + 1}/{SCREENS.length}</span>
                   <button onClick={() => { goPrev(); setPlaying(false); }} className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:bg-white/10" style={{ background: "rgba(255,255,255,0.06)" }}>
-                    <ChevronRight className="w-4 h-4 text-white/60" />
+                    <ChevronLeft className="w-4 h-4 rotate-180 text-white/60" />
                   </button>
                   <button onClick={() => { goNext(); setPlaying(false); }} className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:bg-white/10" style={{ background: "rgba(255,255,255,0.06)" }}>
                     <ChevronLeft className="w-4 h-4 text-white/60" />
@@ -868,75 +994,28 @@ export default function PlatformShowcase() {
             {/* Progress dots */}
             <div className="flex items-center justify-center gap-1.5 mt-4 flex-wrap">
               {SCREENS.map((s, i) => (
-                <button
-                  key={s.id}
-                  onClick={() => { setActive(i); setPlaying(false); }}
-                  className="rounded-full transition-all"
-                  style={{
-                    width: active === i ? 20 : 6,
-                    height: 6,
-                    background: active === i ? screen.color : "rgba(255,255,255,0.15)",
-                  }}
-                />
+                <button key={s.id} onClick={() => { setActive(i); setPlaying(false); }} className="rounded-full transition-all"
+                  style={{ width: active === i ? 22 : 6, height: 6, background: active === i ? screen.color : "rgba(255,255,255,0.15)" }} />
               ))}
             </div>
-
-            {/* Screen counter */}
-            <div className="text-center mt-2">
-              <span className="text-xs text-white/30">{active + 1} / {SCREENS.length}</span>
-            </div>
-          </div>
-
-          {/* Right thumbnails (desktop) */}
-          <div className="hidden lg:flex flex-col gap-1.5 max-h-[500px] overflow-y-auto pl-1 scrollbar-thin">
-            {SCREENS.slice(8).map((s, i) => {
-              const idx = i + 8;
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => { setActive(idx); setPlaying(false); }}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-right transition-all"
-                  style={{
-                    background: active === idx ? `${s.color}18` : "rgba(255,255,255,0.03)",
-                    border: `1px solid ${active === idx ? s.color + "40" : "rgba(255,255,255,0.06)"}`,
-                  }}
-                >
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ background: active === idx ? s.color : "rgba(255,255,255,0.15)" }} />
-                  <span className="text-xs font-medium truncate" style={{ color: active === idx ? s.color : "rgba(255,255,255,0.5)" }}>
-                    {s.title}
-                  </span>
-                </button>
-              );
-            })}
           </div>
         </div>
 
-        {/* Mobile: horizontal scroll thumbnails */}
-        <div className="lg:hidden flex gap-2 mt-4 overflow-x-auto pb-2">
+        {/* Mobile: horizontal scrollable tabs */}
+        <div className="lg:hidden flex gap-2 mt-5 overflow-x-auto pb-2">
           {SCREENS.map((s, i) => (
-            <button
-              key={s.id}
-              onClick={() => { setActive(i); setPlaying(false); }}
-              className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
-              style={{
-                background: active === i ? s.color : "rgba(255,255,255,0.06)",
-                color: active === i ? "#0D1626" : "rgba(255,255,255,0.5)",
-              }}
-            >
-              {s.title.split(" ")[0]}
+            <button key={s.id} onClick={() => { setActive(i); setPlaying(false); }}
+              className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+              style={{ background: active === i ? s.color : "rgba(255,255,255,0.07)", color: active === i ? "#0D1626" : "rgba(255,255,255,0.5)" }}>
+              {s.id}. {s.title.split(" ")[0]}
             </button>
           ))}
         </div>
 
-        {/* ── WORKFLOW JOURNEY ───────────────────────────────────────── */}
-        <motion.div
-          className="mt-16 rounded-2xl p-6 md:p-8 overflow-hidden"
+        {/* Journey strip */}
+        <motion.div className="mt-14 rounded-2xl p-6 md:p-8"
           style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
+          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
           <div className="text-center mb-6">
             <div className="text-sm font-bold mb-1" style={{ color: G }}>رحلة العمل الكاملة</div>
             <div className="text-white font-black text-lg">من استقبال العميل حتى استلام الأتعاب</div>
@@ -944,17 +1023,16 @@ export default function PlatformShowcase() {
           <div className="flex flex-wrap justify-center gap-2 md:gap-0">
             {JOURNEY.map((j, i) => (
               <div key={j.label} className="flex items-center">
-                <div className="flex flex-col items-center">
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-lg mb-1.5 transition-all"
+                <div className="flex flex-col items-center mx-1">
+                  <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl mb-1.5"
                     style={{ background: `rgba(201,168,76,${0.06 + i * 0.04})`, border: "1px solid rgba(201,168,76,0.15)" }}>
                     {j.icon}
                   </div>
-                  <span className="text-[9px] text-white/50 text-center max-w-[60px] leading-tight">{j.label}</span>
+                  <span className="text-[9px] text-white/45 text-center max-w-[70px] leading-tight">{j.label}</span>
                 </div>
                 {i < JOURNEY.length - 1 && (
-                  <div className="hidden md:flex items-center mx-1 mb-4">
-                    <div className="h-px w-6" style={{ background: `rgba(201,168,76,${0.15 + i * 0.03})` }} />
-                    <ChevronLeft className="w-3 h-3 -mr-2" style={{ color: `rgba(201,168,76,${0.2 + i * 0.04})` }} />
+                  <div className="hidden md:block mb-4 text-white/20 mx-0.5">
+                    <ChevronLeft className="w-3.5 h-3.5" />
                   </div>
                 )}
               </div>
@@ -962,135 +1040,88 @@ export default function PlatformShowcase() {
           </div>
         </motion.div>
 
-        {/* ── PAYMENT STRIP ──────────────────────────────────────────── */}
-        <motion.div
-          className="mt-6 rounded-2xl p-5 md:p-7 overflow-hidden relative"
+        {/* Payment strip */}
+        <motion.div className="mt-5 rounded-2xl p-5 md:p-7 relative overflow-hidden"
           style={{ background: "linear-gradient(135deg, rgba(201,168,76,0.1), rgba(16,185,129,0.06))", border: "1px solid rgba(201,168,76,0.2)" }}
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-        >
-          <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-[60px] opacity-20" style={{ background: G }} />
-          <div className="relative">
-            <div className="flex flex-col md:flex-row items-center gap-5">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <CreditCard className="w-5 h-5" style={{ color: G }} />
-                  <span className="font-black text-white text-lg">استلم أتعابك من أي مكان في العالم</span>
+          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.1 }}>
+          <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-[60px] opacity-15" style={{ background: G }} />
+          <div className="relative flex flex-col md:flex-row items-center gap-5">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <CreditCard className="w-5 h-5" style={{ color: G }} />
+                <span className="font-black text-white text-lg">استلم أتعابك من أي مكان في العالم</span>
+              </div>
+              <p className="text-white/50 text-sm">بوابة دفع مدمجة تدعم البطاقات الائتمانية وMada وApple Pay وSTC Pay</p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 flex-shrink-0">
+              {["إصدار فاتورة خلال ثوانٍ","روابط دفع مباشرة","بطاقات ائتمانية عالمية","تتبع حالة السداد","إشعارات تلقائية","تقارير مالية لحظية"].map(f => (
+                <div key={f} className="flex items-center gap-1.5 text-xs text-white/70">
+                  <Check className="w-3.5 h-3.5 shrink-0" style={{ color: G }} />{f}
                 </div>
-                <p className="text-white/50 text-sm">بوابة دفع مدمجة تدعم البطاقات الائتمانية العالمية وMada وApple Pay</p>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 flex-shrink-0">
-                {[
-                  "إصدار فاتورة خلال ثوانٍ",
-                  "روابط دفع مباشرة",
-                  "بطاقات ائتمانية عالمية",
-                  "تتبع حالة السداد",
-                  "إشعارات تلقائية",
-                  "تقارير مالية لحظية",
-                ].map(f => (
-                  <div key={f} className="flex items-center gap-1.5 text-xs text-white/70">
-                    <Check className="w-3.5 h-3.5 shrink-0" style={{ color: G }} />
-                    {f}
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
           </div>
         </motion.div>
 
-        {/* ── CTA ────────────────────────────────────────────────────── */}
-        <motion.div
-          className="mt-10 text-center"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
+        {/* CTA */}
+        <motion.div className="mt-10 text-center" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.2 }}>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link href={`${BASE}/sign-up`}>
-              <button
-                className="flex items-center gap-2 font-black px-8 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] shadow-xl"
-                style={{ background: `linear-gradient(135deg, ${G}, #E0C060)`, color: "#0D1626", boxShadow: `0 8px 32px ${G}40` }}
-              >
-                ابدأ تجربتك المجانية الآن
-                <ArrowLeft className="w-4 h-4" />
+              <button className="flex items-center gap-2 font-black px-8 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] shadow-xl"
+                style={{ background: `linear-gradient(135deg, ${G}, #E0C060)`, color: "#0D1626", boxShadow: `0 8px 32px ${G}40` }}>
+                ابدأ تجربتك المجانية الآن<ArrowLeft className="w-4 h-4" />
               </button>
             </Link>
-            <button
-              onClick={() => { setModal(active); setPlaying(false); }}
+            <button onClick={() => { setModal(active); setPlaying(false); }}
               className="flex items-center gap-2 font-bold px-8 py-4 rounded-xl text-base transition-all hover:bg-white/5"
-              style={{ border: `1px solid ${G}40`, color: G, background: `${G}08` }}
-            >
-              <BarChart3 className="w-4 h-4" />
-              شاهد جميع إمكانيات عدالة
+              style={{ border: `1px solid ${G}40`, color: G, background: `${G}08` }}>
+              <BarChart3 className="w-4 h-4" />شاهد جميع إمكانيات عدالة
             </button>
           </div>
         </motion.div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════
-           MODAL / LIGHTBOX
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* MODAL */}
       <AnimatePresence>
         {modal !== null && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setModal(null)}
-          >
-            {/* Backdrop */}
-            <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)" }} />
-
-            <motion.div
-              className="relative w-full max-w-3xl rounded-2xl overflow-hidden"
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setModal(null)}>
+            <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.88)", backdropFilter: "blur(14px)" }} />
+            <motion.div className="relative w-full max-w-4xl rounded-2xl overflow-hidden"
               style={{ background: "#0D1626", border: "1px solid rgba(255,255,255,0.1)" }}
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              onClick={e => e.stopPropagation()}
-            >
+              onClick={e => e.stopPropagation()}>
               {/* Modal header */}
-              <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "#070E1C" }}>
+              <div className="flex items-center justify-between px-5 py-4" style={{ background: "#070E1C", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                 <div>
                   <div className="font-black text-white">{SCREENS[modal].title}</div>
                   <div className="text-sm text-white/40">{SCREENS[modal].subtitle}</div>
                 </div>
-                <button onClick={() => setModal(null)} className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-white/10" style={{ background: "rgba(255,255,255,0.06)" }}>
+                <button onClick={() => setModal(null)} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.07)" }}>
                   <X className="w-4 h-4 text-white/60" />
                 </button>
               </div>
-
-              <div className="grid md:grid-cols-2 gap-0">
+              <div className="grid md:grid-cols-[1fr_260px]">
                 {/* Screen preview */}
-                <div className="relative" style={{ height: 340, background: "#0D1626", borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
-                  {(() => { const Comp = SCREENS[modal].component; return <Comp />; })()}
+                <div style={{ height: 460, borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
+                  {(() => { const C = SCREENS[modal].component; return <C />; })()}
                 </div>
-
-                {/* Features list */}
+                {/* Features */}
                 <div className="p-6 flex flex-col justify-center">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-4"
                     style={{ background: `${SCREENS[modal].color}18`, color: SCREENS[modal].color, border: `1px solid ${SCREENS[modal].color}30` }}>
-                    <Bell className="w-3 h-3" />
                     الوحدة {SCREENS[modal].id} من 15
                   </div>
                   <h3 className="text-xl font-black text-white mb-2">{SCREENS[modal].title}</h3>
                   <p className="text-white/50 text-sm mb-5">{SCREENS[modal].subtitle}</p>
-                  <div className="space-y-2.5">
+                  <div className="space-y-3">
                     {SCREENS[modal].features.map((f, i) => (
-                      <motion.div
-                        key={f}
-                        className="flex items-start gap-2.5"
-                        initial={{ opacity: 0, x: 10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.08 }}
-                      >
+                      <motion.div key={f} className="flex items-start gap-2.5"
+                        initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.07 }}>
                         <div className="w-5 h-5 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                          style={{ background: `${SCREENS[modal].color}20`, border: `1px solid ${SCREENS[modal].color}30` }}>
+                          style={{ background: `${SCREENS[modal].color}18`, border: `1px solid ${SCREENS[modal].color}30` }}>
                           <Check className="w-3 h-3" style={{ color: SCREENS[modal].color }} />
                         </div>
                         <span className="text-sm text-white/70">{f}</span>
@@ -1098,32 +1129,21 @@ export default function PlatformShowcase() {
                     ))}
                   </div>
                   <div className="flex gap-2 mt-6">
-                    <button
-                      onClick={() => { setModal((modal - 1 + SCREENS.length) % SCREENS.length); }}
-                      className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-80"
-                      style={{ background: "rgba(255,255,255,0.06)", color: "white/60" }}
-                    >
-                      السابق
-                    </button>
-                    <button
-                      onClick={() => { setModal((modal + 1) % SCREENS.length); }}
+                    <button onClick={() => setModal((modal - 1 + SCREENS.length) % SCREENS.length)}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)" }}>السابق</button>
+                    <button onClick={() => setModal((modal + 1) % SCREENS.length)}
                       className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90"
-                      style={{ background: SCREENS[modal].color, color: "#0D1626" }}
-                    >
-                      التالي
-                    </button>
+                      style={{ background: SCREENS[modal].color, color: "#0D1626" }}>التالي</button>
                   </div>
                 </div>
               </div>
-
-              {/* Modal footer CTA */}
-              <div className="px-5 py-4 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", background: "#070E1C" }}>
+              {/* Modal footer */}
+              <div className="px-5 py-4 flex items-center justify-between" style={{ background: "#070E1C", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                 <span className="text-xs text-white/30">ابدأ مجاناً — لا بطاقة ائتمانية مطلوبة</span>
                 <Link href={`${BASE}/sign-up`}>
-                  <button className="flex items-center gap-1.5 font-bold px-5 py-2 rounded-xl text-sm text-[#0D1626] transition-all hover:opacity-90"
+                  <button className="flex items-center gap-1.5 font-bold px-5 py-2 rounded-xl text-sm text-[#0D1626]"
                     style={{ background: `linear-gradient(135deg, ${G}, #E0C060)` }}>
-                    ابدأ مجاناً الآن
-                    <ArrowLeft className="w-3.5 h-3.5" />
+                    ابدأ مجاناً<ArrowLeft className="w-3.5 h-3.5" />
                   </button>
                 </Link>
               </div>
