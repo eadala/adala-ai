@@ -4214,9 +4214,86 @@ function GlobalControlTab({ toast }: { toast: any }) {
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">مركز التحكم الكامل بكل المكاتب والإيرادات والمخاطر</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => qc.invalidateQueries({ queryKey: ["gc"] })} className="gap-1.5 text-xs">
-          <RefreshCw className="h-3.5 w-3.5" /> تحديث
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => {
+            const d = new Date().toLocaleDateString("ar-SA");
+            const revData = rev as any;
+            const growthData = growth as any;
+            const riskData = risk as any;
+            const aiData2 = ai as any;
+            const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>تقرير الإدارة العالمية — عدالة AI</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}@page{size:A4;margin:15mm 18mm}
+body{font-family:'Cairo',Arial,sans-serif;color:#1a1a2e;background:#fff;font-size:10.5pt}
+.cover{background:linear-gradient(135deg,#080F1E,#1A2744);color:#fff;padding:28px;margin-bottom:20px;border-radius:8px;display:flex;justify-content:space-between;align-items:center}
+.cover h1{font-size:20pt;font-weight:900;color:#C9A84C;margin-bottom:4px}.cover p{color:rgba(255,255,255,0.55);font-size:9pt}
+.section{margin-bottom:18px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:8px;break-inside:avoid}
+.section h2{font-size:11pt;font-weight:800;color:#1A2744;border-bottom:2.5px solid #C9A84C;padding-bottom:6px;margin-bottom:12px}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.kpi{background:#f8fafc;border-radius:6px;padding:10px 8px;text-align:center;border:1px solid #e5e7eb}
+.kpi .val{font-size:14pt;font-weight:900;color:#C9A84C}.kpi .lbl{font-size:7.5pt;color:#64748b;margin-top:2px}
+table{width:100%;border-collapse:collapse;font-size:8.5pt}
+th{background:#1A2744;color:#C9A84C;padding:7px 8px;text-align:right;font-weight:700}
+td{padding:6px 8px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{background:#f8fafc}
+.risk-h{background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:8pt;font-weight:700}
+.risk-m{background:#fef9c3;color:#d97706;padding:2px 6px;border-radius:4px;font-size:8pt;font-weight:700}
+.risk-l{background:#dcfce7;color:#16a34a;padding:2px 6px;border-radius:4px;font-size:8pt;font-weight:700}
+.footer{text-align:center;color:#94a3b8;font-size:7.5pt;margin-top:18px;border-top:1px solid #e5e7eb;padding-top:10px}
+</style></head><body>
+<div class="cover">
+  <div><h1>تقرير الإدارة العالمية</h1><p>عدالة AI · منصة SaaS قانونية · ${d}</p></div>
+  <div style="text-align:center"><div style="font-size:28pt;font-weight:900;color:#C9A84C">${growthData?.summary?.totalOffices ?? 0}</div><div style="color:rgba(255,255,255,0.6);font-size:9pt">مكتب مسجّل</div></div>
+</div>
+<div class="section">
+  <h2>📊 مؤشرات الإيرادات الرئيسية</h2>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="val">${(revData?.totals?.gross ?? 0).toLocaleString("ar-SA")} ر.س</div><div class="lbl">إجمالي الإيرادات</div></div>
+    <div class="kpi"><div class="val">${(revData?.totals?.net ?? 0).toLocaleString("ar-SA")} ر.س</div><div class="lbl">صافي المنصة</div></div>
+    <div class="kpi"><div class="val">${growthData?.summary?.paidOffices ?? 0}</div><div class="lbl">مكاتب مدفوعة</div></div>
+    <div class="kpi"><div class="val">${growthData?.summary?.conversionRatePct ?? "0%"}</div><div class="lbl">معدل التحويل</div></div>
+  </div>
+</div>
+<div class="section">
+  <h2>🏢 أعلى المكاتب إيراداً</h2>
+  <table><thead><tr><th>#</th><th>اسم المكتب</th><th>الباقة</th><th>الإيرادات (ر.س)</th><th>الصافي (ر.س)</th></tr></thead>
+  <tbody>${(revData?.topTenants ?? []).slice(0,10).map((t: any, i: number) => `<tr><td>${i+1}</td><td>${t.name ?? t.officeId}</td><td>${t.plan ?? ""}</td><td><strong>${(t.gross ?? 0).toLocaleString("ar-SA")}</strong></td><td>${(t.net ?? 0).toLocaleString("ar-SA")}</td></tr>`).join("")}</tbody>
+  </table>
+</div>
+<div class="section">
+  <h2>⚠️ تقرير المخاطر</h2>
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="kpi"><div class="val" style="color:#dc2626">${riskData?.summary?.high ?? 0}</div><div class="lbl">خطر مرتفع</div></div>
+    <div class="kpi"><div class="val" style="color:#d97706">${riskData?.summary?.medium ?? 0}</div><div class="lbl">خطر متوسط</div></div>
+    <div class="kpi"><div class="val" style="color:#16a34a">${riskData?.summary?.low ?? 0}</div><div class="lbl">آمن</div></div>
+  </div>
+  <table><thead><tr><th>المكتب</th><th>الباقة</th><th>الإيرادات</th><th>AI استخدام</th><th>مستوى الخطر</th><th>الأسباب</th></tr></thead>
+  <tbody>${(riskData?.tenants ?? []).filter((t: any) => t.riskLevel !== "LOW").slice(0,15).map((t: any) => `<tr><td>${t.name}</td><td>${t.plan}</td><td>${(t.revenue ?? 0).toLocaleString("ar-SA")} ر.س</td><td>${t.aiUsed}</td><td><span class="${t.riskLevel === "HIGH" ? "risk-h" : t.riskLevel === "MEDIUM" ? "risk-m" : "risk-l"}">${t.riskLevel === "HIGH" ? "مرتفع" : t.riskLevel === "MEDIUM" ? "متوسط" : "منخفض"} (${t.riskScore})</span></td><td style="font-size:8pt;color:#64748b">${(t.reasons ?? []).join(" · ")}</td></tr>`).join("")}</tbody>
+  </table>
+</div>
+<div class="section">
+  <h2>🤖 تحليلات الذكاء الاصطناعي (30 يوماً)</h2>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="val">${(aiData2?.summary?.totalCalls ?? 0).toLocaleString()}</div><div class="lbl">إجمالي الطلبات</div></div>
+    <div class="kpi"><div class="val">${(aiData2?.summary?.totalUnits ?? 0).toLocaleString()}</div><div class="lbl">الوحدات المستهلكة</div></div>
+    <div class="kpi"><div class="val">$${(aiData2?.summary?.totalCostUSD ?? 0).toFixed(2)}</div><div class="lbl">التكلفة التقديرية</div></div>
+    <div class="kpi"><div class="val">${growthData?.summary?.paidOffices ?? 0}</div><div class="lbl">مكاتب نشطة</div></div>
+  </div>
+</div>
+<div class="footer">عدالة AI · تقرير مُولَّد تلقائياً · ${new Date().toLocaleString("ar-SA")} · سري وخاص بالإدارة العليا</div>
+<script>setTimeout(()=>window.print(),600)</script>
+</body></html>`;
+            const win = window.open("", "_blank", "width=950,height=1200");
+            if (win) { win.document.write(html); win.document.close(); }
+          }} className="gap-1.5 text-xs border-[#C9A84C]/40 text-[#C9A84C] hover:bg-[#C9A84C]/10">
+            <Receipt className="h-3.5 w-3.5" /> تصدير PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => qc.invalidateQueries({ queryKey: ["gc"] })} className="gap-1.5 text-xs">
+            <RefreshCw className="h-3.5 w-3.5" /> تحديث
+          </Button>
+        </div>
       </div>
 
       {/* Section Pills */}

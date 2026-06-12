@@ -264,6 +264,56 @@ router.get("/notifications", async (_req, res) => {
     }
   } catch {}
 
+  /* 11. Low AI credits warning (< 20% remaining) */
+  try {
+    const aiCrRows = await db.execute(sql`
+      SELECT office_id, office_name, balance, monthly_allowance
+      FROM office_ai_credits
+      WHERE monthly_allowance > 0
+        AND balance::numeric / NULLIF(monthly_allowance,0) < 0.20
+      ORDER BY balance ASC
+      LIMIT 5
+    `);
+    for (const cr of (aiCrRows.rows ?? []) as any[]) {
+      const pct = Math.round((Number(cr.balance) / Number(cr.monthly_allowance)) * 100);
+      notifications.push({
+        id: `ai-credits-low-${cr.office_id}`,
+        type: pct <= 5 ? "error" : "warning",
+        category: "رصيد AI",
+        title: `رصيد AI منخفض — ${pct}% متبقٍ`,
+        body: `رصيد ${cr.office_name ?? cr.office_id}: ${cr.balance} من ${cr.monthly_allowance} وحدة`,
+        href: "/ai-credits",
+        createdAt: now.toISOString(),
+        read: false,
+      });
+    }
+  } catch {}
+
+  /* 12. Payment failure / forced downgrade alerts (last 7 days, unread) */
+  try {
+    const failRows = await db.execute(sql`
+      SELECT id, type, old_plan, new_plan, title, message, created_at
+      FROM plan_notifications
+      WHERE is_read = FALSE
+        AND type IN ('downgrade','failed_payment')
+        AND created_at >= NOW() - INTERVAL '7 days'
+      ORDER BY created_at DESC
+      LIMIT 3
+    `);
+    for (const n of (failRows.rows ?? []) as any[]) {
+      notifications.push({
+        id: `plan-fail-${n.id}`,
+        type: "error",
+        category: "الاشتراك",
+        title: n.title ?? "فشل في الدفع",
+        body: n.message ?? `تم تخفيض الباقة من ${n.old_plan} إلى ${n.new_plan}`,
+        href: "/billing",
+        createdAt: n.created_at instanceof Date ? n.created_at.toISOString() : String(n.created_at),
+        read: false,
+      });
+    }
+  } catch {}
+
   /* Sort: errors first, then warnings, then info — then by date */
   const ORDER = { error: 0, warning: 1, info: 2, success: 3 };
   notifications.sort((a, b) => {
@@ -279,3 +329,17 @@ router.get("/notifications", async (_req, res) => {
 });
 
 export default router;
+
+/* POST /api/notifications/mark-read — mark plan notification as read */
+router.post("/notifications/mark-read/:planId", async (req, res) => {
+  try {
+    const { planId } = req.params;
+    if (planId.startsWith("plan-notif-")) {
+      const realId = planId.replace("plan-notif-", "");
+      await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE WHERE id = ${realId}`);
+    }
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: false });
+  }
+});

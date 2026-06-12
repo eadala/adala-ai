@@ -482,3 +482,134 @@ router.get("/analytics/ai-insights", requireAuth, async (req, res) => {
 });
 
 export default router;
+
+/* ─── PERFORMANCE SCORE ───────────────────────────────────────── */
+router.get("/analytics/performance", requireAuth, async (req, res) => {
+  try {
+    const period = String(req.query.period ?? "1y");
+    const interval = periodInterval(period);
+
+    /* 1. Financial health */
+    const [invStats, revRow, expRow] = await Promise.all([
+      sqlOne(sql`
+        SELECT
+          COUNT(*) FILTER (WHERE status='paid')   AS paid_count,
+          COUNT(*)                                 AS total_count,
+          COALESCE(SUM(total) FILTER (WHERE status='paid'),0)/100.0 AS paid_amt,
+          COALESCE(SUM(total),0)/100.0             AS total_amt
+        FROM client_invoices
+        WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      `),
+      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS r FROM revenues  WHERE date >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}`),
+      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS e FROM expenses  WHERE date >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}`),
+    ]);
+    const collectionRate = num(invStats.total_amt) > 0 ? (num(invStats.paid_amt) / num(invStats.total_amt)) * 100 : 0;
+    const totalRevenue   = num(revRow.r) + num(invStats.paid_amt);
+    const totalExpenses  = num(expRow.e);
+    const profitMargin   = totalRevenue > 0 ? ((totalRevenue - totalExpenses) / totalRevenue) * 100 : 0;
+    const financialScore = Math.min(100, Math.round(collectionRate * 0.5 + Math.max(0, profitMargin) * 0.5));
+
+    /* 2. Cases performance */
+    const casesRow = await sqlOne(sql`
+      SELECT
+        COUNT(*)                              AS total,
+        COUNT(*) FILTER (WHERE status='won') AS won,
+        COUNT(*) FILTER (WHERE status='lost') AS lost,
+        COUNT(*) FILTER (WHERE status='closed') AS closed,
+        AVG(EXTRACT(EPOCH FROM (updated_at - created_at))/86400) FILTER (WHERE status IN ('won','lost','closed')) AS avg_days
+      FROM cases
+      WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+    `);
+    const totalCases  = num(casesRow.total);
+    const decidedCases = num(casesRow.won) + num(casesRow.lost);
+    const successRate = decidedCases > 0 ? (num(casesRow.won) / decidedCases) * 100 : totalCases > 0 ? 50 : 0;
+    const avgDays     = num(casesRow.avg_days) || 0;
+    const speedScore  = avgDays === 0 ? 70 : Math.min(100, Math.max(0, 100 - (avgDays - 30) * 0.5));
+    const casesScore  = Math.round(successRate * 0.6 + speedScore * 0.4);
+
+    /* 3. Client retention */
+    const [clientsNow, clientsPrev] = await Promise.all([
+      sqlOne(sql`SELECT COUNT(DISTINCT client_id) AS c FROM cases WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}`),
+      sqlOne(sql`SELECT COUNT(DISTINCT client_id) AS c FROM cases WHERE created_at < NOW() - INTERVAL ${sql.raw(`'${interval}'`)} AND created_at >= NOW() - INTERVAL '2 years'`),
+    ]);
+    const repeatClients = await sqlOne(sql`
+      SELECT COUNT(*) AS c FROM (
+        SELECT client_id FROM cases
+        WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+        GROUP BY client_id HAVING COUNT(*) > 1
+      ) t
+    `);
+    const retention = num(clientsNow.c) > 0 ? Math.min(100, (num(repeatClients.c) / num(clientsNow.c)) * 100 + 30) : 40;
+    const clientScore = Math.round(Math.min(100, retention));
+
+    /* 4. AI adoption */
+    const aiRow = await sqlOne(sql`
+      SELECT
+        COALESCE(SUM(units),0)  AS units,
+        COUNT(*)                AS calls
+      FROM usage_logs
+      WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+    `);
+    const credRow = await sqlOne(sql`
+      SELECT balance, monthly_allowance FROM office_ai_credits WHERE office_id='default' LIMIT 1
+    `).catch(() => ({ balance: 0, monthly_allowance: 0 }));
+    const aiCalls    = num(aiRow.calls);
+    const aiUnits    = num(aiRow.units);
+    const allowance  = num(credRow.monthly_allowance) || 1000;
+    const balance    = num(credRow.balance);
+    const aiUsagePct = Math.min(100, ((allowance - balance) / allowance) * 100);
+    const aiScore    = Math.min(100, aiCalls > 0 ? 40 + aiUsagePct * 0.6 : 10);
+
+    /* Composite score */
+    const composite = Math.round(
+      financialScore * 0.35 +
+      casesScore     * 0.35 +
+      clientScore    * 0.20 +
+      aiScore        * 0.10
+    );
+    const scoreBand =
+      composite >= 80 ? "excellent" :
+      composite >= 65 ? "good"      :
+      composite >= 45 ? "average"   : "needsImprovement";
+
+    /* Previous period composite (for trend) */
+    const prevInv = await sqlOne(sql`
+      SELECT
+        COALESCE(SUM(total) FILTER (WHERE status='paid'),0)/100.0 AS paid_amt,
+        COALESCE(SUM(total),0)/100.0 AS total_amt
+      FROM client_invoices
+      WHERE created_at >= NOW() - INTERVAL '2 years'
+        AND created_at < NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+    `);
+    const prevCollRate = num(prevInv.total_amt) > 0 ? (num(prevInv.paid_amt) / num(prevInv.total_amt)) * 100 : 0;
+    const prevCases = await sqlOne(sql`
+      SELECT
+        COUNT(*) FILTER (WHERE status='won')  AS won,
+        COUNT(*) FILTER (WHERE status='lost') AS lost
+      FROM cases
+      WHERE created_at >= NOW() - INTERVAL '2 years'
+        AND created_at < NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+    `);
+    const prevDecided = num(prevCases.won) + num(prevCases.lost);
+    const prevSuccess = prevDecided > 0 ? (num(prevCases.won) / prevDecided) * 100 : 50;
+    const prevFinScore = Math.round(prevCollRate * 0.5 + Math.max(0, profitMargin - 5) * 0.5);
+    const prevCasScore = Math.round(prevSuccess * 0.6 + speedScore * 0.4);
+    const prevComposite = Math.round(prevFinScore * 0.35 + prevCasScore * 0.35 + 40 * 0.20 + 10 * 0.10);
+    const trend = composite - prevComposite;
+
+    res.json({
+      composite,
+      scoreBand,
+      trend,
+      dimensions: {
+        financial: { score: financialScore, collectionRate: parseFloat(collectionRate.toFixed(1)), profitMargin: parseFloat(profitMargin.toFixed(1)), totalRevenue, totalExpenses },
+        cases:     { score: casesScore, successRate: parseFloat(successRate.toFixed(1)), avgDays: parseFloat(avgDays.toFixed(0)), total: totalCases },
+        clients:   { score: clientScore, retention: parseFloat(retention.toFixed(1)), total: num(clientsNow.c), repeat: num(repeatClients.c) },
+        ai:        { score: Math.round(aiScore), calls: aiCalls, units: aiUnits, usagePct: parseFloat(aiUsagePct.toFixed(1)), balance, allowance },
+      },
+      benchmarks: { industryAvg: 62, topQuartile: 83 },
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
