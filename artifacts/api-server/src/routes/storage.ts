@@ -310,6 +310,64 @@ router.patch("/storage/settings", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+/* ══════════════════════════════════════════════════
+   POST /storage/analyze — Gemini Vision document analysis
+   Body: { base64: string, mimeType: string }
+   Returns: { ok, docType, parties, dates, caseType, court, summary, tags, text }
+══════════════════════════════════════════════════ */
+router.post("/storage/analyze", async (req, res) => {
+  const u = await getMgmtUser(req);
+  if (!u) return res.status(401).json({ error: "غير مصادق" });
+
+  const { base64, mimeType } = req.body;
+  if (!base64 || !mimeType) return res.status(400).json({ error: "base64 و mimeType مطلوبان" });
+
+  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  if (!GEMINI_KEY) return res.json({ ok: false, error: "Gemini غير متاح" });
+
+  const prompt = `أنت محلل مستندات قانوني خبير. حلل هذا المستند وأرجع JSON فقط بدون أي markdown أو نص إضافي:
+{
+  "text": "أول 200 كلمة من النص المستخرج",
+  "docType": "نوع المستند: صحيفة دعوى | وكالة | عقد | حكم | مذكرة | شهادة | عقد عمل | رسالة رسمية | أخرى",
+  "parties": ["الطرف الأول", "الطرف الثاني"],
+  "dates": ["التاريخ 1"],
+  "caseType": "مدني | جنائي | تجاري | أحوال شخصية | عمالي | إداري | أخرى | غير محدد",
+  "court": "اسم المحكمة أو الجهة المصدرة",
+  "summary": "ملخص الوثيقة في جملة واحدة واضحة",
+  "tags": ["وسم1", "وسم2", "وسم3"]
+}`;
+
+  try {
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [
+            { inline_data: { mime_type: mimeType, data: base64 } },
+            { text: prompt },
+          ]}],
+          generationConfig: { maxOutputTokens: 1024, temperature: 0.1 },
+        }),
+      }
+    );
+    const data = await r.json() as any;
+    if (data.error) throw new Error(data.error.message ?? "خطأ Gemini");
+
+    const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}") as string;
+    const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+    let result: any = {};
+    try { result = JSON.parse(cleaned); } catch { result = { summary: cleaned.slice(0, 200) }; }
+
+    res.json({ ok: true, ...result });
+  } catch (err: any) {
+    console.error("[storage/analyze]", err.message);
+    res.json({ ok: false, error: err.message });
+  }
+});
+
 /* AI ANALYSIS */
 router.get("/storage/ai-analysis", async (req, res) => {
   const u = await getMgmtUser(req);
