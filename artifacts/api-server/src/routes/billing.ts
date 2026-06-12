@@ -1,16 +1,12 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import Stripe from "stripe";
 import { getAuth } from "@clerk/express";
+import { getUncachableStripeClient } from "../stripeClient";
 
 const router = Router();
 
-function getStripe(): Stripe | null {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) return null;
-  return new Stripe(key, { apiVersion: "2026-05-27.dahlia" as any });
-}
+type StripeClient = Awaited<ReturnType<typeof getUncachableStripeClient>>;
 
 /* ── 7 Subscription Plans (matches DB plans) ──────── */
 const PLANS = [
@@ -72,12 +68,14 @@ const KEY_LABELS: Record<string, string> = {
 
 router.get("/billing/plans", (_req, res) => res.json(PLANS));
 
-router.get("/billing/stripe-status", (_req, res) => {
-  const hasSecret = !!process.env.STRIPE_SECRET_KEY;
-  res.json({
-    configured: hasSecret,
-    mode: hasSecret && process.env.STRIPE_SECRET_KEY?.startsWith("sk_test") ? "test" : "live",
-  });
+router.get("/billing/stripe-status", async (_req, res) => {
+  try {
+    await getUncachableStripeClient();
+    const key = process.env.STRIPE_SECRET_KEY ?? "";
+    res.json({ configured: true, mode: key.startsWith("sk_test") ? "test" : "live" });
+  } catch {
+    res.json({ configured: false, mode: "none" });
+  }
 });
 
 /* ══════════════════════════════════════════════════════
@@ -110,7 +108,8 @@ router.get("/billing/overview", async (req, res) => {
     /* 3. Stripe subscription details */
     let stripeSubscription: any = null;
     let stripeCustomerId: string | null = null;
-    const stripe = getStripe();
+    let stripe: StripeClient | null = null;
+    try { stripe = await getUncachableStripeClient(); } catch { }
     if (stripe) {
       try {
         const subs = await stripe.subscriptions.list({ limit: 1, expand: ["data.latest_invoice"] });
@@ -197,8 +196,10 @@ router.get("/billing/overview", async (req, res) => {
    CHECKOUT + PAYMENT LINK
 ══════════════════════════════════════════════════════ */
 router.post("/billing/checkout", async (req, res) => {
-  const stripe = getStripe();
-  if (!stripe) return res.status(503).json({ error: "Stripe غير مهيأ", hint: "أضف STRIPE_SECRET_KEY في Secrets" });
+  let stripe: StripeClient;
+  try { stripe = await getUncachableStripeClient(); } catch {
+    return res.status(503).json({ error: "Stripe غير مهيأ", hint: "أضف STRIPE_SECRET_KEY أو فعّل تكامل Stripe" });
+  }
 
   const { planId, successUrl, cancelUrl } = req.body as { planId: string; successUrl?: string; cancelUrl?: string };
   const plan = PLANS.find(p => p.id === planId);
@@ -230,8 +231,10 @@ router.post("/billing/checkout", async (req, res) => {
 });
 
 router.post("/billing/payment-link", async (req, res) => {
-  const stripe = getStripe();
-  if (!stripe) return res.status(503).json({ error: "Stripe غير مهيأ", hint: "أضف STRIPE_SECRET_KEY في Secrets" });
+  let stripe: StripeClient;
+  try { stripe = await getUncachableStripeClient(); } catch {
+    return res.status(503).json({ error: "Stripe غير مهيأ", hint: "أضف STRIPE_SECRET_KEY أو فعّل تكامل Stripe" });
+  }
 
   const { planId } = req.body as { planId: string };
   const plan = PLANS.find(p => p.id === planId);
@@ -254,7 +257,8 @@ router.post("/billing/payment-link", async (req, res) => {
    STRIPE SUBSCRIPTION DETAILS
 ══════════════════════════════════════════════════════ */
 router.get("/billing/stripe-subscription", async (req, res) => {
-  const stripe = getStripe();
+  let stripe: StripeClient | null = null;
+  try { stripe = await getUncachableStripeClient(); } catch { }
   if (!stripe) return res.json({ configured: false, subscription: null });
   try {
     const { userId } = getAuth(req as any);
@@ -282,7 +286,8 @@ router.get("/billing/stripe-subscription", async (req, res) => {
    STRIPE INVOICES
 ══════════════════════════════════════════════════════ */
 router.get("/billing/stripe-invoices", async (req, res) => {
-  const stripe = getStripe();
+  let stripe: StripeClient | null = null;
+  try { stripe = await getUncachableStripeClient(); } catch { }
   if (!stripe) return res.json([]);
   try {
     const { userId } = getAuth(req as any);
@@ -311,7 +316,8 @@ router.get("/billing/revenue", async (req, res) => {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
-    const stripe = getStripe();
+    let stripe: StripeClient | null = null;
+    try { stripe = await getUncachableStripeClient(); } catch { }
     let stripeRevenue = { total: 0, transactions: 0, recent: [] as any[] };
 
     if (stripe) {
@@ -439,7 +445,7 @@ router.post("/billing/activate-plan", async (req, res) => {
     const officeId = "default";
     const { provisionTenant } = await import("../services/tenantProvisioning");
     const result = await provisionTenant({ officeId, plan, email: userEmail });
-    res.json({ ok: true, ...result });
+    res.json({ ok: true, data: result });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
