@@ -278,6 +278,14 @@ export default function AIHub() {
     staleTime: 60_000,
   });
 
+  /* Fetch AI credits balance */
+  const { data: credits, refetch: refetchCredits } = useQuery<{ balance: number; monthly_allowance: number; used_this_month: number }>({
+    queryKey: ["office-ai-credits"],
+    queryFn: () => fetch(`${BASE}/api/office/ai-credits`).then(r => r.json()),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
   const mode = MODES.find(m => m.key === modeKey)!;
   const msgs = messages.get(modeKey) ?? [];
 
@@ -319,6 +327,8 @@ export default function AIHub() {
         ?? data.reply ?? data.answer ?? data.result
         ?? data.message ?? "عذراً، لم أتمكن من المعالجة.";
       addMsg(modeKey, { role: "ai", content: typeof reply === "object" ? JSON.stringify(reply, null, 2) : String(reply), ts: new Date() });
+      /* refresh credit balance after each AI call */
+      refetchCredits();
     } catch (e: any) {
       toast({ title: "خطأ في الاتصال", description: e.message, variant: "destructive" });
     } finally {
@@ -413,6 +423,51 @@ export default function AIHub() {
               </Link>
             );
           })}
+        </div>
+
+        {/* AI Credits Balance */}
+        <div className={cn("p-2 border-t border-border/50 shrink-0", !sidebarOpen && "flex justify-center")}>
+          {sidebarOpen ? (
+            <div className="rounded-xl bg-amber-500/8 border border-amber-500/20 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-amber-400" />
+                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wide">رصيد AI</span>
+                </div>
+                <button onClick={() => refetchCredits()} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <RotateCcw className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="flex items-end gap-1 mb-2">
+                <span className={cn("text-2xl font-black", (credits?.balance ?? 100) <= 10 ? "text-red-400" : "text-foreground")}>{(credits?.balance ?? 100).toLocaleString("ar-SA")}</span>
+                <span className="text-[10px] text-muted-foreground mb-1">/ {(credits?.monthly_allowance ?? 100).toLocaleString("ar-SA")} نقطة</span>
+              </div>
+              {/* progress bar */}
+              {(() => {
+                const used = credits?.used_this_month ?? 0;
+                const total = credits?.monthly_allowance ?? 100;
+                const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                return (
+                  <div className="space-y-1">
+                    <div className="w-full h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                      <div className={cn("h-full rounded-full transition-all", pct >= 90 ? "bg-red-500" : pct >= 60 ? "bg-amber-500" : "bg-emerald-500")} style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-[9px] text-muted-foreground">استُهلك {used} نقطة هذا الشهر ({pct}%)</p>
+                  </div>
+                );
+              })()}
+              {(credits?.balance ?? 100) <= 10 && (
+                <p className="text-[9px] text-red-400 mt-1.5 flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                  رصيد منخفض — تواصل مع الإدارة
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center border", (credits?.balance ?? 100) <= 10 ? "bg-red-500/10 border-red-500/30" : "bg-amber-500/10 border-amber-500/20")}>
+              <Zap className={cn("h-3.5 w-3.5", (credits?.balance ?? 100) <= 10 ? "text-red-400" : "text-amber-400")} />
+            </div>
+          )}
         </div>
       </aside>
 

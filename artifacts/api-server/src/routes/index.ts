@@ -51,6 +51,7 @@ import remindersRouter from "./reminders";
 import emailNotificationsRouter from "./emailNotifications";
 import onboardingRouter from "./onboarding";
 import importDataRouter from "./importData";
+import aiCreditsRouter from "./aiCredits";
 import whatsappRouter from "./whatsapp";
 import documentTemplatesRouter from "./document-templates";
 import financeCenterRouter from "./finance-center";
@@ -117,6 +118,7 @@ router.use(remindersRouter);
 router.use(emailNotificationsRouter);
 router.use(onboardingRouter);
 router.use(importDataRouter);
+router.use(aiCreditsRouter);
 router.use(whatsappRouter);
 router.use((req, _res, next) => {
   if (req.url === "/templates" || req.url.startsWith("/templates/") || req.url.startsWith("/templates?")) {
