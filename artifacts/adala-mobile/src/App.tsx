@@ -6,6 +6,7 @@ import HomePage from "@/pages/home";
 import CasesPage from "@/pages/cases";
 import ClientsPage from "@/pages/clients";
 import ContractsPage from "@/pages/contracts";
+import InvoicesPage from "@/pages/invoices";
 import RemindersPage from "@/pages/reminders";
 import NotFoundPage from "@/pages/not-found";
 
@@ -75,6 +76,7 @@ function AppShell() {
           <Route path="/cases" component={CasesPage} />
           <Route path="/clients" component={ClientsPage} />
           <Route path="/contracts" component={ContractsPage} />
+          <Route path="/invoices" component={InvoicesPage} />
           <Route path="/reminders" component={RemindersPage} />
           <Route component={NotFoundPage} />
         </Switch>

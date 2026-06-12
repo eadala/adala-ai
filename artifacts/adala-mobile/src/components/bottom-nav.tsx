@@ -1,13 +1,13 @@
 import { useLocation, Link } from "wouter";
-import { Home, Scale, Users, FileText, Bell } from "lucide-react";
+import { Home, Scale, Users, Receipt, Bell } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 const tabs = [
-  { path: "/",          label: "الرئيسية",  icon: Home     },
-  { path: "/cases",     label: "القضايا",   icon: Scale    },
-  { path: "/clients",   label: "العملاء",   icon: Users    },
-  { path: "/contracts", label: "العقود",    icon: FileText },
-  { path: "/reminders", label: "التذكيرات", icon: Bell     },
+  { path: "/",          label: "الرئيسية",  icon: Home    },
+  { path: "/cases",     label: "القضايا",   icon: Scale   },
+  { path: "/clients",   label: "العملاء",   icon: Users   },
+  { path: "/invoices",  label: "الفواتير",  icon: Receipt },
+  { path: "/reminders", label: "التذكيرات", icon: Bell    },
 ];
 
 const API = "/api";
