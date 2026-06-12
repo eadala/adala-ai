@@ -1,0 +1,264 @@
+تمام — هذا نسخة مطوّرة “Enterprise-Level Prompt” أقوى بكثير، مصممة تخلي Replit/Liplit يتعامل مع مشروعك كأنه نظام قانوني إنتاجي متعدد المكاتب + ذكاء اصطناعي + أمان عالي + قابلية توسّع.
+
+⸻
+
+🧠 🔥 PROMPT احترافي مطوّر — منصة “عدالة AI” (Production + AI + Security)
+
+استخدمه كما هو داخل Replit / Liplit AI Agent:
+
+⸻
+
+⚙️ ROLE
+
+أنت Principal Software Architect + Security Engineer + AI Systems Designer مسؤول عن منصة قانونية إنتاجية اسمها “عدالة AI”.
+
+المطلوب ليس مجرد تحسين كود، بل إعادة هندسة النظام ليصبح SaaS قانوني عالمي متعدد المكاتب (Multi-Tenant Legal Platform).
+
+⸻
+
+🎯 الهدف النهائي
+
+تحويل المشروع إلى:
+
+* نظام قانوني SaaS جاهز للإنتاج
+* متعدد المكاتب (Multi-Tenant)
+* مدعوم بذكاء اصطناعي قانوني
+* آمن ضد الهجمات
+* عالي الأداء وقابل للتوسع
+* نظيف ومقسّم Modular Architecture
+
+⸻
+
+🧱 المرحلة 1: تحليل عميق شامل (Deep System Audit)
+
+قم بعمل تحليل كامل يشمل:
+
+* جميع modules
+* جميع APIs
+* قاعدة البيانات
+* تدفق المستخدم (User Flow)
+* صلاحيات المستخدمين
+* نقاط الضعف الأمنية
+* الأداء والاختناقات
+
+📌 الناتج:
+
+* خريطة كاملة للنظام الحالي
+* تحديد نقاط الفشل (Single Points of Failure)
+* تحديد الكود غير المستخدم
+
+⸻
+
+🏗️ المرحلة 2: إعادة هندسة البنية (Architecture Redesign)
+
+حوّل النظام إلى Modular Clean Architecture:
+
+🔷 Layers:
+
+1. Presentation Layer
+
+* UI / Dashboard
+* Client Portal
+* Admin Panel
+
+2. Application Layer
+
+* Use Cases
+* Business workflows
+* Orchestration logic
+
+3. Domain Layer
+
+* Entities (Case, Client, Invoice, Court, Branch)
+* Business rules
+
+4. Infrastructure Layer
+
+* Database
+* External APIs
+* AI services
+* Stripe / Payments
+
+⸻
+
+🧠 المرحلة 3: دمج الذكاء الاصطناعي (Legal AI Core)
+
+ابنِ وحدة AI داخل النظام باسم:
+
+⚖️ Legal AI Engine
+
+وظائفه:
+
+1. تحليل القضايا
+
+* تلخيص القضية تلقائيًا
+* استخراج الأطراف
+* تحديد نوع الدعوى
+* اقتراح استراتيجية قانونية
+
+2. مساعد المحامي
+
+* كتابة مسودات مذكرات
+* اقتراح دفوع قانونية
+* توليد ردود على الخصوم
+
+3. إدخال ذكي
+
+* “كلم خالد يرسل ملخص القضية”
+* تحويل أوامر طبيعية إلى إجراءات داخل النظام
+
+4. تنبيهات ذكية
+
+* مواعيد الجلسات
+* انتهاء مهلة
+* تأخر إجراء
+
+⸻
+
+🧑‍⚖️ المرحلة 4: Multi-Tenant Architecture (مهم جداً)
+
+كل مكتب محاماة يجب أن يكون:
+
+* معزول بياناتياً (Data Isolation)
+* له:
+    * Users
+    * Cases
+    * Branches
+    * Billing
+    * AI context خاص به
+
+📌 ممنوع أي تداخل بيانات بين المكاتب
+
+⸻
+
+💳 المرحلة 5: نظام الدفع والاشتراكات
+
+دمج:
+
+* Stripe + Crypto Hybrid System
+
+الباقات:
+
+* Free → محدود
+* Basic → مكتب صغير
+* Pro → مكتب متوسط
+* Enterprise → مكاتب كبيرة
+* Custom → تسعير خاص
+
+📌 Features Flags لكل باقة:
+
+* AI access
+* عدد القضايا
+* عدد المستخدمين
+* عدد الفروع
+* API access
+* Domain custom
+
+⸻
+
+🔐 المرحلة 6: الأمن السيبراني (Critical)
+
+نفّذ:
+
+* JWT + Refresh Tokens
+* RBAC (Role-Based Access Control)
+* MFA optional
+* Rate limiting
+* Input validation (strict)
+* SQL/NoSQL injection protection
+* XSS protection
+* Audit logs لكل العمليات
+* Session monitoring
+
+📌 أضف Security Layer مستقل
+
+⸻
+
+⚡ المرحلة 7: الأداء (Performance Engineering)
+
+* caching (Redis أو equivalent)
+* lazy loading
+* pagination لكل البيانات
+* debounce للعمليات الثقيلة
+* تقليل API calls
+* تحسين DB indexes
+* async processing للـ AI tasks
+
+⸻
+
+📊 المرحلة 8: لوحة تحكم إدارية (Admin Intelligence Dashboard)
+
+يجب إنشاء لوحة تحتوي:
+
+* عدد القضايا لكل مكتب
+* أداء المحامين
+* الذكاء الاصطناعي المستخدم
+* الإيرادات
+* الأخطاء النظامية
+* النشاطات المشبوهة
+
+⸻
+
+🧪 المرحلة 9: الاختبارات (Testing Strategy)
+
+* Unit Tests للـ core logic
+* Integration Tests للـ APIs
+* Security tests (basic penetration simulation)
+* AI output validation tests
+
+⸻
+
+🧹 المرحلة 10: تنظيف شامل (Final Refactor Pass)
+
+* حذف كل الكود غير المستخدم
+* توحيد naming conventions
+* إزالة التعقيد غير الضروري
+* تحسين readability
+* توثيق فقط الضروري (no over-commenting)
+
+⸻
+
+📦 المطلوب النهائي (Output)
+
+بعد التنفيذ، أعطني:
+
+1. 🧾 تقرير شامل عن حالة النظام قبل وبعد
+2. 🔥 الثغرات التي تم إصلاحها
+3. 🏗️ architecture النهائي
+4. 🧠 كيف يعمل Legal AI Engine
+5. 💳 نظام الباقات والـ feature flags
+6. ⚠️ المخاطر المتبقية إن وجدت
+7. 🚀 خطة تطوير المرحلة القادمة
+
+⸻
+
+🚨 قيود صارمة
+
+* لا تعيد بناء المشروع من الصفر
+* لا تكسر أي API موجود إلا للضرورة
+* لا تحذف ميزات بدون تحقق أنها غير مستخدمة
+* حافظ على استقرار النظام أثناء التعديل
+* اعمل Incremental Refactoring فقط
+
+⸻
+
+🧠 مستوى التنفيذ المطلوب
+
+هذا مشروع:
+
+Legal SaaS Platform with AI + Multi-Tenant + Enterprise Security
+
+تعامل معه كنظام بنكي / قضائي وليس تطبيق بسيط.
+
+⸻
+
+إذا تبغى أقوى خطوة بعدها 👇
+
+أقدر أبني لك:
+
+* 🔥 Legal AI Prompt Engine جاهز للإنتاج
+* 🧠 نظام “المساعد القانوني داخل كل قضية”
+* 📊 Dashboard تحليلي بالذكاء الاصطناعي
+* 💰 نموذج تسعير استثماري جاهز Pitch Deck
+
+قلّي: “المرحلة التالية”
