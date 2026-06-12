@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import PlatformShowcase from "@/components/platform-showcase";
+import PaymentShowcase from "@/components/payment-showcase";
 import {
   Scale, Shield, Bot, FileText, Users, ArrowLeft, CheckCircle, Star,
   ChevronDown, ChevronUp, Play, Zap, Clock, BarChart3, MessageSquare,
@@ -547,6 +548,9 @@ export default function Landing() {
           </FadeIn>
         </div>
       </section>
+
+      {/* ── PAYMENT SHOWCASE ───────────────────────────────────────────── */}
+      <PaymentShowcase />
 
       {/* ── HOW IT WORKS ───────────────────────────────────────────────── */}
       <section id="how" className="py-24 px-4">
