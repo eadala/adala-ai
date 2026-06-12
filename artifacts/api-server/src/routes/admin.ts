@@ -8,6 +8,7 @@ import {
 import { eq, desc, count, sum } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
+import { getUncachableStripeClient } from "../stripeClient";
 
 const router = Router();
 
@@ -1122,6 +1123,110 @@ router.get("/admin/ai-analytics", adminOnly, async (_req, res) => {
         totalSpent: Number(r.total_spent),
       })),
     });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   TRIAL MANAGEMENT
+══════════════════════════════════════════════════════ */
+
+/* GET /api/admin/trials — list all trialing (+ recently expired) subscriptions */
+router.get("/admin/trials", adminOnly, async (_req, res) => {
+  try {
+    let stripe: any;
+    try { stripe = await getUncachableStripeClient(); } catch {
+      return res.json({ configured: false, trials: [], stats: {} });
+    }
+
+    /* Fetch trialing subs */
+    const [trialingSubs, activeSubs] = await Promise.all([
+      stripe.subscriptions.list({ status: "trialing", limit: 100, expand: ["data.customer"] }),
+      stripe.subscriptions.list({ status: "active",   limit: 100, expand: ["data.customer"] }),
+    ]);
+
+    /* Office lookup by customer_id */
+    const offices = await db.execute(sql`
+      SELECT id, name, plan, stripe_customer_id FROM office_page
+    `);
+    const officeMap: Record<string, any> = {};
+    for (const o of ((offices as any)?.rows ?? [])) {
+      if (o.stripe_customer_id) officeMap[o.stripe_customer_id] = o;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+
+    const mapSub = (s: any, status: "trialing" | "converted" | "active") => {
+      const custId = typeof s.customer === "string" ? s.customer : s.customer?.id;
+      const office = officeMap[custId] ?? null;
+      const trialEnd = s.trial_end ?? null;
+      const trialStart = s.trial_start ?? s.start_date ?? null;
+      const daysLeft = trialEnd ? Math.max(0, Math.ceil((trialEnd - now) / 86400)) : null;
+      return {
+        subId:       s.id,
+        status,
+        customerId:  custId,
+        officeName:  office?.name ?? s.customer?.email ?? custId ?? "—",
+        officePlan:  office?.plan ?? (s.metadata?.plan ?? "—"),
+        trialStart,
+        trialEnd,
+        daysLeft,
+        cancelAtPeriodEnd: s.cancel_at_period_end,
+        amount:      (s.items?.data?.[0]?.price?.unit_amount ?? 0) / 100,
+        currency:    s.items?.data?.[0]?.price?.currency ?? "sar",
+      };
+    };
+
+    const trialing = trialingSubs.data.map((s: any) => mapSub(s, "trialing"));
+
+    /* Active subs that recently came out of trial (had trial_end in past 30 days) */
+    const converted = activeSubs.data
+      .filter((s: any) => s.trial_end && s.trial_end < now && s.trial_end > now - 30 * 86400)
+      .map((s: any) => mapSub(s, "converted"));
+
+    const urgentCount    = trialing.filter((t: any) => t.daysLeft !== null && t.daysLeft <= 7).length;
+    const conversionRate = trialing.length + converted.length > 0
+      ? Math.round((converted.length / (trialing.length + converted.length)) * 100) : 0;
+
+    res.json({
+      configured: true,
+      trials: [...trialing, ...converted],
+      stats: {
+        active:         trialing.length,
+        urgent:         urgentCount,
+        converted:      converted.length,
+        conversionRate,
+      },
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* POST /api/admin/trials/:subId/extend — extend trial by N days */
+router.post("/admin/trials/:subId/extend", adminOnly, async (req, res) => {
+  const { subId } = req.params;
+  const { days = 14 } = req.body as { days?: number };
+  try {
+    const stripe = await getUncachableStripeClient();
+    const sub = await stripe.subscriptions.retrieve(subId);
+    const currentEnd = (sub as any).trial_end ?? Math.floor(Date.now() / 1000);
+    const newEnd = Math.max(currentEnd, Math.floor(Date.now() / 1000)) + days * 86400;
+    await stripe.subscriptions.update(subId, { trial_end: newEnd } as any);
+    res.json({ ok: true, newTrialEnd: newEnd, daysAdded: days });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* POST /api/admin/trials/:subId/cancel — end trial immediately */
+router.post("/admin/trials/:subId/cancel", adminOnly, async (req, res) => {
+  const { subId } = req.params;
+  try {
+    const stripe = await getUncachableStripeClient();
+    await stripe.subscriptions.update(subId, { trial_end: "now" } as any);
+    res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
