@@ -98,3 +98,9 @@
 
 /* Tap effect */
 .tap-effect { @apply active:scale-95 transition-transform duration-100; }
+
+/* Slide-up sheet animation */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}

@@ -78,8 +78,15 @@ export default function Home() {
   const kpis = overview?.kpis ?? stats;
   const recentCases: any[] = (overview?.recentCases ?? []).slice(0, 4);
   const dueReminders: any[] = (Array.isArray(reminders) ? reminders : [])
-    .filter(r => !r.isDone && !r.isCompleted && r.due_at && new Date(r.due_at) < new Date(Date.now() + 3 * 86400000))
-    .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime())
+    .filter(r => {
+      const dt = r.dueDate ?? r.due_date ?? r.due_at;
+      return !r.isDone && !r.isCompleted && dt && new Date(dt) < new Date(Date.now() + 3 * 86400000);
+    })
+    .sort((a, b) => {
+      const da = a.dueDate ?? a.due_date ?? a.due_at;
+      const db = b.dueDate ?? b.due_date ?? b.due_at;
+      return new Date(da).getTime() - new Date(db).getTime();
+    })
     .slice(0, 3);
 
   return (
@@ -130,10 +137,10 @@ export default function Home() {
       <section>
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">وصول سريع</h2>
         <div className="grid grid-cols-4 gap-2">
-          <QuickAction icon={Scale}   label="القضايا"    href="/cases"     color="bg-blue-500/20 text-blue-400" />
-          <QuickAction icon={Users}   label="العملاء"    href="/clients"   color="bg-violet-500/20 text-violet-400" />
-          <QuickAction icon={Briefcase} label="العقود"   href="/contracts" color="bg-indigo-500/20 text-indigo-400" />
-          <QuickAction icon={Bell}    label="التذكيرات"  href="/reminders" color="bg-rose-500/20 text-rose-400" />
+          <QuickAction icon={Scale}     label="القضايا"    href="/cases"     color="bg-blue-500/20 text-blue-400" />
+          <QuickAction icon={Users}     label="العملاء"    href="/clients"   color="bg-violet-500/20 text-violet-400" />
+          <QuickAction icon={Receipt}   label="الفواتير"   href="/invoices"  color="bg-green-500/20 text-green-400" />
+          <QuickAction icon={Bell}      label="التذكيرات"  href="/reminders" color="bg-rose-500/20 text-rose-400" />
         </div>
       </section>
 
@@ -166,7 +173,7 @@ export default function Home() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-foreground truncate">{r.title}</div>
                     <div className={`text-[11px] ${isOverdue ? "text-red-400" : "text-muted-foreground"}`}>
-                      {new Date(r.due_at).toLocaleDateString("ar-SA", { month: "short", day: "numeric" })}
+                      {new Date(r.dueDate ?? r.due_date ?? r.due_at).toLocaleDateString("ar-SA", { month: "short", day: "numeric" })}
                       {isOverdue && " · متأخر"}
                     </div>
                   </div>

@@ -15,9 +15,10 @@ export default function AppHeader({ title }: { title?: string }) {
     staleTime: 60_000,
   });
 
-  const overdueCount = (Array.isArray(reminders) ? reminders : []).filter(
-    r => !r.isDone && !r.isCompleted && r.due_at && new Date(r.due_at) < new Date()
-  ).length;
+  const overdueCount = (Array.isArray(reminders) ? reminders : []).filter(r => {
+    const dt = r.dueDate ?? r.due_date ?? r.due_at;
+    return !r.isDone && !r.isCompleted && dt && new Date(dt) < new Date();
+  }).length;
 
   function goDesktop() {
     const origin = window.location.origin;
