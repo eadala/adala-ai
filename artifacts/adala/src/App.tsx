@@ -25,6 +25,7 @@ import OpponentSimulator from "@/pages/opponent-simulator";
 import AiAgents from "@/pages/ai-agents";
 import CommandCenter from "@/pages/command-center";
 import LegalAIPage from "@/pages/legal-ai";
+import AuditLogsPage from "@/pages/audit-logs";
 import Contracts from "@/pages/contracts";
 import Clients from "@/pages/clients";
 import ClientDetail from "@/pages/client-detail";
@@ -302,6 +303,9 @@ function AppRoutes() {
             </Route>
             <Route path="/command-center">
               <ProtectedRoute><CommandCenter /></ProtectedRoute>
+            </Route>
+            <Route path="/audit-logs">
+              <ProtectedRoute><AuditLogsPage /></ProtectedRoute>
             </Route>
             <Route path="/legal-ai">
               <ProtectedRoute><LegalAIPage /></ProtectedRoute>

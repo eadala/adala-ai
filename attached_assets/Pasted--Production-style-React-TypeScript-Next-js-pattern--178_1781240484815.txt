@@ -1,0 +1,214 @@
+سأعطيك تنفيذ عملي Production-style (React + TypeScript + Next.js pattern) لقسم “استكشف المنصة” مع:
+
+* ربط API حقيقي
+* فصل Demo عن Real Data
+* نماذج قضايا + موظفين
+* منع التداخل مع النظام
+
+⸻
+
+🧱 1. Service Layer (مصدر البيانات الحقيقي)
+
+services/platformExplorer.ts
+
+export interface PlatformModule {
+  id: string;
+  title: string;
+  description: string;
+  route: string;
+  enabled: boolean;
+}
+export async function fetchPlatformModules(): Promise<PlatformModule[]> {
+  const res = await fetch("/api/platform/modules");
+  if (!res.ok) throw new Error("Failed to fetch modules");
+  return res.json();
+}
+
+⸻
+
+🧱 2. Demo Data (معزول 100%)
+
+explorer/demoData.ts
+
+export const demoCases = [
+  {
+    id: "case_demo_1",
+    title: "قضية نزاع تجاري",
+    type: "تجارية",
+    status: "قيد المراجعة",
+    client: "عميل تجريبي",
+    description: "نزاع بين شركتين على عقد توريد",
+    demo: true,
+  },
+  {
+    id: "case_demo_2",
+    title: "قضية عمالية",
+    type: "عمالية",
+    status: "مفتوحة",
+    client: "شركة افتراضية",
+    description: "مطالبة مستحقات موظف",
+    demo: true,
+  },
+];
+export const demoEmployees = [
+  {
+    id: "emp_demo_1",
+    name: "أحمد (تجريبي)",
+    role: "محامي",
+    department: "القضايا",
+    status: "نشط",
+    performance: 87,
+    demo: true,
+  },
+  {
+    id: "emp_demo_2",
+    name: "سارة (تجريبي)",
+    role: "إدارية",
+    department: "الإدارة",
+    status: "دوام جزئي",
+    performance: 92,
+    demo: true,
+  },
+];
+
+⸻
+
+🧱 3. Explorer Component (الواجهة الرئيسية)
+
+components/ExplorerHome.tsx
+
+"use client";
+import { useEffect, useState } from "react";
+import { fetchPlatformModules, PlatformModule } from "@/services/platformExplorer";
+import { demoCases, demoEmployees } from "@/explorer/demoData";
+export default function ExplorerHome() {
+  const [modules, setModules] = useState<PlatformModule[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await fetchPlatformModules();
+        setModules(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+  return (
+    <div className="p-6 space-y-8">
+      {/* 🔷 Real System Modules */}
+      <section>
+        <h2 className="text-xl font-bold">استكشف النظام الحقيقي</h2>
+        {loading ? (
+          <p>جاري التحميل...</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            {modules.map((m) => (
+              <a
+                key={m.id}
+                href={m.route}
+                className="border rounded-lg p-4 hover:shadow"
+              >
+                <h3 className="font-semibold">{m.title}</h3>
+                <p className="text-sm text-gray-500">{m.description}</p>
+                <span
+                  className={`text-xs px-2 py-1 rounded ${
+                    m.enabled ? "bg-green-100" : "bg-red-100"
+                  }`}
+                >
+                  {m.enabled ? "متاح" : "مقيد"}
+                </span>
+              </a>
+            ))}
+          </div>
+        )}
+      </section>
+      {/* 🧾 Demo Cases */}
+      <section>
+        <h2 className="text-xl font-bold">نماذج القضايا (تجريبي)</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          {demoCases.map((c) => (
+            <div key={c.id} className="border p-4 rounded-lg bg-gray-50">
+              <div className="text-xs text-purple-600 mb-2">DEMO</div>
+              <h3 className="font-semibold">{c.title}</h3>
+              <p className="text-sm">{c.description}</p>
+              <div className="mt-2 text-xs text-gray-600">
+                <p>النوع: {c.type}</p>
+                <p>الحالة: {c.status}</p>
+                <p>العميل: {c.client}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+      {/* 👥 Demo Employees */}
+      <section>
+        <h2 className="text-xl font-bold">نماذج الموظفين (تجريبي)</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          {demoEmployees.map((e) => (
+            <div key={e.id} className="border p-4 rounded-lg bg-gray-50">
+              <div className="text-xs text-blue-600 mb-2">DEMO</div>
+              <h3 className="font-semibold">{e.name}</h3>
+              <div className="text-sm mt-2">
+                <p>الدور: {e.role}</p>
+                <p>القسم: {e.department}</p>
+                <p>الحالة: {e.status}</p>
+                <p>الأداء: {e.performance}%</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+⸻
+
+🧱 4. API مثال (Backend Contract)
+
+pages/api/platform/modules.ts
+
+export default function handler(req, res) {
+  res.status(200).json([
+    {
+      id: "cases",
+      title: "إدارة القضايا",
+      description: "إدارة كاملة للقضايا القانونية",
+      route: "/cases",
+      enabled: true,
+    },
+    {
+      id: "employees",
+      title: "الموظفين",
+      description: "إدارة فريق العمل",
+      route: "/employees",
+      enabled: true,
+    },
+  ]);
+}
+
+⸻
+
+🧠 النتيجة
+
+هذا الكود يحقق:
+
+* ✔ Explorer مربوط بالنظام الحقيقي
+* ✔ أي تطوير جديد يظهر تلقائيًا
+* ✔ Demo Cases + Employees معزولة تمامًا
+* ✔ لا يوجد تداخل مع الإنتاج
+* ✔ تجربة onboarding واضحة للعملاء الجدد
+
+⸻
+
+إذا تبغى الخطوة التالية أقدر أطور لك:
+
+* 🔥 ￼ نظام Feature Registry كامل (زي Stripe / Notion)
+* 🔥 أو ￼ “Interactive onboarding tour” خطوة بخطوة داخل المنصة
+* 🔥 أو ￼ تحويله إلى SaaS-grade architecture حقيقية
+
+بس قلّي.

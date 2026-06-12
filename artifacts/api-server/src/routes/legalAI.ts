@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { callAI } from "./aiChat";
+import { auditLog } from "../lib/auditLogger";
 
 const router = Router();
 
@@ -333,6 +334,8 @@ router.post("/legal-ai/generate", async (req, res) => {
       )
     `);
 
+    const auth = (req as any).auth;
+    auditLog({ userId: auth?.userId, action: "generate", resource: "legal_documents", details: `${docType}: ${title}` }).catch(() => {});
     res.json({ content: reply, modelUsed, title, docType, category: template.category });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
