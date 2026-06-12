@@ -578,4 +578,107 @@ router.get("/billing/alerts", async (req, res) => {
   }
 });
 
+/* ══════════════════════════════════════════════════════
+   FEE CALCULATOR — شفافية الرسوم قبل الدفع
+   GET /api/billing/calc-fee?amount=500
+══════════════════════════════════════════════════════ */
+router.get("/billing/calc-fee", (req, res) => {
+  const amount = parseFloat(String(req.query.amount ?? "0"));
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ error: "يجب إدخال مبلغ صالح أكبر من الصفر" });
+  }
+  const PLATFORM_FEE_PCT = 0.10;   // 10% عمولة المنصة
+  const STRIPE_FEE_PCT   = 0.029;  // 2.9% رسوم Stripe
+  const STRIPE_FIXED     = 1.00;   // 1 SAR ثابت لكل معاملة
+
+  const platformFee = parseFloat((amount * PLATFORM_FEE_PCT).toFixed(2));
+  const stripeFee   = parseFloat((amount * STRIPE_FEE_PCT + STRIPE_FIXED).toFixed(2));
+  const net         = parseFloat((amount - platformFee - stripeFee).toFixed(2));
+  const totalFees   = parseFloat((platformFee + stripeFee).toFixed(2));
+
+  return res.json({
+    gross:          amount,
+    platformFee,
+    stripeFee,
+    totalFees,
+    net,
+    currency:       "SAR",
+    breakdown: {
+      platformFeePct: "10%",
+      stripeFeePct:   "2.9% + 1 SAR",
+    },
+  });
+});
+
+/* ══════════════════════════════════════════════════════
+   REVENUE REPORT — تقرير الإيرادات التفصيلي
+   GET /api/billing/revenue-report
+══════════════════════════════════════════════════════ */
+router.get("/billing/revenue-report", async (req, res) => {
+  try {
+    const { userId } = getAuth(req as any);
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+
+    /* Totals with breakdown */
+    const totals = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(amount),0)::numeric         AS gross_total,
+        COALESCE(SUM(platform_fee),0)::numeric   AS platform_fee_total,
+        COALESCE(SUM(stripe_fee),0)::numeric     AS stripe_fee_total,
+        COALESCE(SUM(net_amount),0)::numeric     AS net_total,
+        COUNT(*)::int                            AS transaction_count
+      FROM office_ledger
+      WHERE type = 'credit'
+    `);
+    const t = ((totals as any)?.rows ?? [])[0] ?? {};
+
+    /* Monthly chart — last 12 months */
+    const monthly = await db.execute(sql`
+      SELECT
+        TO_CHAR(created_at, 'YYYY-MM')             AS month,
+        COALESCE(SUM(amount),0)::numeric           AS gross,
+        COALESCE(SUM(platform_fee),0)::numeric     AS platform_fee,
+        COALESCE(SUM(stripe_fee),0)::numeric       AS stripe_fee,
+        COALESCE(SUM(net_amount),0)::numeric       AS net,
+        COUNT(*)::int                              AS transactions
+      FROM office_ledger
+      WHERE type = 'credit'
+        AND created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY month
+      ORDER BY month ASC
+    `);
+
+    /* Recent transactions */
+    const recent = await db.execute(sql`
+      SELECT id, ref, description, amount, platform_fee, stripe_fee, net_amount,
+             stripe_id, stripe_event_id, created_at
+      FROM office_ledger
+      WHERE type = 'credit'
+      ORDER BY created_at DESC
+      LIMIT 20
+    `);
+
+    return res.json({
+      totals: {
+        gross:        parseFloat(t.gross_total    ?? "0"),
+        platformFee:  parseFloat(t.platform_fee_total ?? "0"),
+        stripeFee:    parseFloat(t.stripe_fee_total   ?? "0"),
+        net:          parseFloat(t.net_total      ?? "0"),
+        transactions: Number(t.transaction_count ?? 0),
+      },
+      monthly: ((monthly as any)?.rows ?? []).map((r: any) => ({
+        month:        r.month,
+        gross:        parseFloat(r.gross),
+        platformFee:  parseFloat(r.platform_fee),
+        stripeFee:    parseFloat(r.stripe_fee),
+        net:          parseFloat(r.net),
+        transactions: Number(r.transactions),
+      })),
+      recent: ((recent as any)?.rows ?? []),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
