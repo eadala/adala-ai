@@ -312,7 +312,7 @@ export default function Landing() {
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, var(--lp-accent, #C9A84C), var(--lp-accent-end, #E0C060))" }}>
               <Scale className="w-4 h-4" style={{ color: "var(--lp-accent-text, #0D1626)" }} />
             </div>
-            <span className="text-lg font-black text-white lp-t">عدالة AI</span>
+            <span className="text-lg font-black text-white lp-t">{isAr ? "عدالة AI" : "ADALAH AI"}</span>
           </div>
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-6">
@@ -879,7 +879,7 @@ export default function Landing() {
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)" }}>
                   <Scale className="w-4 h-4 text-[#0D1626]" />
                 </div>
-                <span className="text-lg font-black text-white">عدالة AI</span>
+                <span className="text-lg font-black text-white">{isAr ? "عدالة AI" : "ADALAH AI"}</span>
               </div>
               <p className="text-white/40 text-sm leading-relaxed mb-4">{cmsFooter?.tagline || t("landing.footer.tagline")}</p>
               <div className="flex gap-3">
