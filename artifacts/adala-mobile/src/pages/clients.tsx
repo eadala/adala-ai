@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Users, Search, X, Phone, Mail, User } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Users, Search, X, Phone, Mail, Plus, ChevronDown } from "lucide-react";
+import { toast } from "sonner";
 
 const API = "/api";
 const fetchJson = (path: string) => fetch(`${API}${path}`).then(r => r.json());
@@ -25,14 +26,41 @@ const AVATAR_COLORS = [
   "bg-teal-500/20 text-teal-300",
 ];
 
+const EMPTY_FORM = { fullName: "", type: "individual", phone: "", email: "", notes: "" };
+
 export default function Clients() {
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["clients"],
     queryFn: () => fetchJson("/clients"),
   });
+
+  const addMutation = useMutation({
+    mutationFn: (body: object) =>
+      fetch(`${API}/clients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).then(r => r.json()),
+    onSuccess: (data) => {
+      if (data?.error) { toast.error(data.error); return; }
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      setShowAdd(false);
+      setForm(EMPTY_FORM);
+      toast.success("تم إضافة العميل بنجاح");
+    },
+    onError: () => toast.error("حدث خطأ أثناء الإضافة"),
+  });
+
+  const handleAdd = () => {
+    if (!form.fullName.trim()) { toast.error("أدخل اسم العميل"); return; }
+    addMutation.mutate(form);
+  };
 
   const filtered = (Array.isArray(clients) ? clients : []).filter((c: any) =>
     !search ||
@@ -48,7 +76,7 @@ export default function Clients() {
   ];
 
   const byType = typeFilter
-    ? filtered.filter((c: any) => c.clientType === typeFilter)
+    ? filtered.filter((c: any) => (c.clientType ?? c.type) === typeFilter)
     : filtered;
 
   return (
@@ -57,9 +85,19 @@ export default function Clients() {
       <div className="bg-card border-b border-border px-5 pt-12 pb-4 safe-top">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-bold text-foreground">العملاء</h1>
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-            {byType.length} عميل
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+              {byType.length} عميل
+            </span>
+            <button
+              onClick={() => setShowAdd(v => !v)}
+              className="w-9 h-9 rounded-2xl bg-primary flex items-center justify-center tap-effect"
+            >
+              {showAdd
+                ? <X size={16} className="text-primary-foreground" />
+                : <Plus size={16} className="text-primary-foreground" />}
+            </button>
+          </div>
         </div>
         <div className="relative">
           <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -76,6 +114,82 @@ export default function Clients() {
           )}
         </div>
       </div>
+
+      {/* Add Form (collapsible) */}
+      {showAdd && (
+        <div className="px-4 py-4 border-b border-border bg-card/50">
+          <p className="text-sm font-bold text-foreground mb-3">عميل جديد</p>
+          <div className="flex flex-col gap-3">
+            <input
+              value={form.fullName}
+              onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+              placeholder="الاسم الكامل *"
+              className="w-full bg-muted border border-border rounded-xl py-2.5 px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50"
+            />
+
+            {/* Type toggle */}
+            <div className="flex gap-2">
+              {[
+                { value: "individual", label: "👤 فرد" },
+                { value: "company",    label: "🏢 شركة" },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setForm(f => ({ ...f, type: opt.value }))}
+                  className={`flex-1 py-2 rounded-xl text-sm font-medium tap-effect transition-colors border ${
+                    form.type === opt.value
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted text-muted-foreground border-border"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                value={form.phone}
+                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                placeholder="رقم الهاتف"
+                type="tel"
+                className="w-full bg-muted border border-border rounded-xl py-2.5 px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50"
+              />
+              <input
+                value={form.email}
+                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="البريد الإلكتروني"
+                type="email"
+                className="w-full bg-muted border border-border rounded-xl py-2.5 px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50"
+              />
+            </div>
+
+            <textarea
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              placeholder="ملاحظات (اختياري)"
+              rows={2}
+              className="w-full bg-muted border border-border rounded-xl py-2.5 px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 resize-none"
+            />
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowAdd(false); setForm(EMPTY_FORM); }}
+                className="flex-1 border border-border text-muted-foreground rounded-xl py-2.5 text-sm font-medium tap-effect"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={addMutation.isPending}
+                className="flex-[2] bg-primary text-primary-foreground rounded-xl py-2.5 text-sm font-semibold tap-effect disabled:opacity-60"
+              >
+                {addMutation.isPending ? "جاري الإضافة..." : "إضافة العميل"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filter Chips */}
       <div className="px-4 py-3 flex gap-2 overflow-x-auto border-b border-border/50">
@@ -107,7 +221,7 @@ export default function Clients() {
             <Users size={48} className="text-muted-foreground/30 mb-4" />
             <p className="text-muted-foreground font-medium">لا توجد عملاء</p>
             <p className="text-muted-foreground/60 text-sm mt-1">
-              {search ? "جرب كلمة بحث مختلفة" : "لم يتم إضافة أي عملاء بعد"}
+              {search ? "جرب كلمة بحث مختلفة" : "اضغط + لإضافة أول عميل"}
             </p>
           </div>
         ) : (
@@ -115,6 +229,7 @@ export default function Clients() {
             {byType.map((client: any, idx: number) => {
               const colorClass = AVATAR_COLORS[idx % AVATAR_COLORS.length];
               const initials = getInitials(client.fullName ?? "");
+              const clientType = client.clientType ?? client.type;
               return (
                 <div key={client.id} className="bg-card rounded-2xl p-4 border border-border/50 tap-effect">
                   <div className="flex items-center gap-3">
@@ -126,9 +241,9 @@ export default function Clients() {
                         <p className="text-sm font-semibold text-foreground truncate">
                           {client.fullName ?? "—"}
                         </p>
-                        {client.clientType && (
+                        {clientType && (
                           <span className="shrink-0 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                            {client.clientType === "company" ? "🏢 شركة" : "👤 فرد"}
+                            {clientType === "company" ? "🏢 شركة" : "👤 فرد"}
                           </span>
                         )}
                       </div>
@@ -149,7 +264,7 @@ export default function Clients() {
                     </div>
                   </div>
                   {(client.caseCount !== undefined) && (
-                    <div className="mr-15 mt-2 pt-2 border-t border-border/50">
+                    <div className="mt-2 pt-2 border-t border-border/50">
                       <span className="text-xs text-muted-foreground">
                         📂 {client.caseCount ?? 0} قضية
                       </span>
