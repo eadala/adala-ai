@@ -206,6 +206,17 @@ router.delete("/admin/ai-keys/:id", adminOnly, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    PLATFORM SETTINGS
 ══════════════════════════════════════════════════════ */
+/* ── Public mobile-status check (no auth) ── */
+router.get("/mobile-status", async (_req, res) => {
+  try {
+    const rows = await db.select().from(platformSettingsTable).where(sql`key = 'mobile_app_enabled'`);
+    const val = rows[0]?.value;
+    res.json({ enabled: val !== "false" });
+  } catch {
+    res.json({ enabled: true });
+  }
+});
+
 router.get("/admin/settings", adminOnly, async (_req, res) => {
   const settings = await db.select().from(platformSettingsTable).orderBy(platformSettingsTable.group, platformSettingsTable.key);
   res.json(settings);
