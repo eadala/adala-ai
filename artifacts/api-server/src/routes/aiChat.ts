@@ -86,34 +86,98 @@ async function callOpenAI(systemPrompt: string, userMessage: string, history: { 
   return data.choices?.[0]?.message?.content ?? "عذراً، لم أتمكن من معالجة الطلب.";
 }
 
+const MODEL_CREDIT_COST: Record<string, number> = { gemini: 1, claude: 3, openai: 3, fallback: 0 };
+
+async function deductCredits(officeId: string, model: string): Promise<void> {
+  try {
+    const cost = MODEL_CREDIT_COST[model] ?? 1;
+    if (cost === 0) return;
+    const r = await db.execute(sql`SELECT balance FROM office_ai_credits WHERE office_id = ${officeId}`) as any;
+    const rows = Array.isArray(r) ? r : (r?.rows ?? []);
+    const balance = rows[0]?.balance ?? 0;
+    if (balance < cost) return; /* allow call but don't go negative */
+    await db.execute(sql`
+      UPDATE office_ai_credits SET balance = balance - ${cost}, updated_at = NOW()
+      WHERE office_id = ${officeId}
+    `);
+    await db.execute(sql`
+      INSERT INTO ai_credit_transactions (office_id, amount, type, description, model)
+      VALUES (${officeId}, ${-cost}, 'usage', ${'استخدام AI - ' + model}, ${model})
+    `);
+  } catch { /* non-blocking — don't fail the AI call */ }
+}
+
+async function ensureCreditTables(): Promise<void> {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS office_ai_credits (
+        id SERIAL PRIMARY KEY, office_id TEXT NOT NULL UNIQUE DEFAULT 'default',
+        office_name TEXT NOT NULL DEFAULT 'المكتب الافتراضي',
+        balance INTEGER NOT NULL DEFAULT 100, monthly_allowance INTEGER NOT NULL DEFAULT 100,
+        auto_renew BOOLEAN NOT NULL DEFAULT TRUE, renew_day INTEGER NOT NULL DEFAULT 1,
+        last_renewed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS ai_credit_transactions (
+        id SERIAL PRIMARY KEY, office_id TEXT NOT NULL DEFAULT 'default',
+        amount INTEGER NOT NULL, type TEXT NOT NULL DEFAULT 'usage',
+        description TEXT, model TEXT, created_by TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      INSERT INTO office_ai_credits (office_id, office_name, balance, monthly_allowance)
+      VALUES ('default','المكتب الافتراضي',100,100) ON CONFLICT (office_id) DO NOTHING
+    `);
+  } catch { /* tables may already exist */ }
+}
+
+/* run once on load */
+ensureCreditTables();
+
 async function callAI(
   systemPrompt: string,
   userMessage: string,
   history: { role: string; content: string }[] = [],
-  preferredModel: ModelKey = "auto"
+  preferredModel: ModelKey = "auto",
+  officeId: string = "default"
 ): Promise<{ reply: string; modelUsed: string }> {
 
   /* forced model */
   if (preferredModel === "gemini" && GEMINI_API_KEY) {
-    return { reply: await callGeminiAI(systemPrompt, userMessage, history), modelUsed: "gemini" };
+    const reply = await callGeminiAI(systemPrompt, userMessage, history);
+    deductCredits(officeId, "gemini");
+    return { reply, modelUsed: "gemini" };
   }
   if (preferredModel === "claude" && ANTHROPIC_API_KEY) {
-    return { reply: await callClaudeAI(systemPrompt, userMessage, history), modelUsed: "claude" };
+    const reply = await callClaudeAI(systemPrompt, userMessage, history);
+    deductCredits(officeId, "claude");
+    return { reply, modelUsed: "claude" };
   }
   if (preferredModel === "openai" && OPENAI_API_KEY) {
-    return { reply: await callOpenAI(systemPrompt, userMessage, history), modelUsed: "openai" };
+    const reply = await callOpenAI(systemPrompt, userMessage, history);
+    deductCredits(officeId, "openai");
+    return { reply, modelUsed: "openai" };
   }
   /* requested model not available → fall through to auto */
 
   /* auto: priority Gemini → Claude → OpenAI → fallback */
   if (GEMINI_API_KEY) {
-    return { reply: await callGeminiAI(systemPrompt, userMessage, history), modelUsed: "gemini" };
+    const reply = await callGeminiAI(systemPrompt, userMessage, history);
+    deductCredits(officeId, "gemini");
+    return { reply, modelUsed: "gemini" };
   }
   if (ANTHROPIC_API_KEY) {
-    return { reply: await callClaudeAI(systemPrompt, userMessage, history), modelUsed: "claude" };
+    const reply = await callClaudeAI(systemPrompt, userMessage, history);
+    deductCredits(officeId, "claude");
+    return { reply, modelUsed: "claude" };
   }
   if (OPENAI_API_KEY) {
-    return { reply: await callOpenAI(systemPrompt, userMessage, history), modelUsed: "openai" };
+    const reply = await callOpenAI(systemPrompt, userMessage, history);
+    deductCredits(officeId, "openai");
+    return { reply, modelUsed: "openai" };
   }
   return { reply: generateSmartResponse(userMessage), modelUsed: "fallback" };
 }
