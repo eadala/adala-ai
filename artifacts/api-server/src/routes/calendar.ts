@@ -312,9 +312,9 @@ router.get("/calendar/reminders", async (req: Request, res: Response) => {
 });
 
 // ─── /api/appointments aliases (task contract) ───────────────────────────────
-router.get("/appointments",              async (req, res, next) => { (req as any).url = "/calendar/events";             return router.handle(req as any, res, next); });
-router.post("/appointments",             async (req, res, next) => { (req as any).url = "/calendar/events";             return router.handle(req as any, res, next); });
-router.put("/appointments/:id",          async (req, res, next) => { (req as any).url = `/calendar/events/${(req as any).params.id}`; return router.handle(req as any, res, next); });
-router.delete("/appointments/:id",       async (req, res, next) => { (req as any).url = `/calendar/events/${(req as any).params.id}`; return router.handle(req as any, res, next); });
+router.get("/appointments",              async (req, res, next) => { (req as any).url = "/calendar/events";             return (router as any).handle(req, res, next); });
+router.post("/appointments",             async (req, res, next) => { (req as any).url = "/calendar/events";             return (router as any).handle(req, res, next); });
+router.put("/appointments/:id",          async (req, res, next) => { (req as any).url = `/calendar/events/${(req as any).params.id}`; return (router as any).handle(req, res, next); });
+router.delete("/appointments/:id",       async (req, res, next) => { (req as any).url = `/calendar/events/${(req as any).params.id}`; return (router as any).handle(req, res, next); });
 
 export default router;

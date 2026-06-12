@@ -54,7 +54,7 @@ router.post("/arbitration/cases", async (req, res) => {
     const [newCase] = await db.insert(arbitrationCasesTable).values({
       title, type, claimant, respondent,
       description: description ?? null,
-      claimAmount: claimAmount ?? null,
+      claimAmount: claimAmount != null ? String(claimAmount) : null,
       arbitrator:  arbitrator  ?? null,
       status,
     }).returning();

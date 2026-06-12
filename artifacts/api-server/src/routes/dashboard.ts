@@ -13,7 +13,7 @@ router.get("/dashboard/overview", async (req, res) => {
     const in7Days      = new Date(now); in7Days.setDate(now.getDate() + 7);
     const in30Days     = new Date(now); in30Days.setDate(now.getDate() + 30);
 
-    const [cases, docs, tasks, users, invoices, clients, contracts] = await Promise.all([
+    const [cases, docs, tasks, users, _inv, clients, _con] = await Promise.all([
       db.select().from(casesTable),
       db.select().from(documentsTable),
       db.select().from(aiTasksTable),
@@ -22,6 +22,8 @@ router.get("/dashboard/overview", async (req, res) => {
       db.select().from(clientsTable),
       db.select().from(contractsTable),
     ]);
+    const invoices = _inv as any[];
+    const contracts = _con as any[];
 
     // KPI Stats
     const activeCases    = cases.filter(c => ["open","in_progress"].includes(c.status)).length;
@@ -136,13 +138,14 @@ router.get("/dashboard/overview", async (req, res) => {
 // Keep old endpoints for backward compatibility
 router.get("/dashboard/stats", async (req, res) => {
   try {
-    const [cases, docs, tasks, users, invoices] = await Promise.all([
+    const [cases, docs, tasks, users, _inv2] = await Promise.all([
       db.select().from(casesTable),
       db.select().from(documentsTable),
       db.select().from(aiTasksTable),
       db.select().from(usersTable),
       db.select().from(invoicesTable),
     ]);
+    const invoices = _inv2 as any[];
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     res.json({
       totalCases: cases.length,

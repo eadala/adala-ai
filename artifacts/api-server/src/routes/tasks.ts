@@ -15,7 +15,7 @@ function sqlOne(r: any): any {
   return rows[0] ?? null;
 }
 
-router.get("/tasks", async (_req, res) => {
+router.get("/office-tasks", async (_req, res) => {
   try {
     const r = await db.execute(sql`
       SELECT * FROM tasks ORDER BY
@@ -29,7 +29,7 @@ router.get("/tasks", async (_req, res) => {
   }
 });
 
-router.get("/tasks/stats", async (_req, res) => {
+router.get("/office-tasks/stats", async (_req, res) => {
   try {
     const r = await db.execute(sql`
       SELECT
@@ -46,7 +46,7 @@ router.get("/tasks/stats", async (_req, res) => {
   }
 });
 
-router.post("/tasks", async (req, res) => {
+router.post("/office-tasks", async (req, res) => {
   try {
     const { title, description, status = "todo", priority = "medium", assigneeName, dueDate, caseTitle, tags, createdBy } = req.body;
     if (!title) return res.status(400).json({ error: "عنوان المهمة مطلوب" });
@@ -66,7 +66,7 @@ router.post("/tasks", async (req, res) => {
   }
 });
 
-router.patch("/tasks/:id", async (req, res) => {
+router.patch("/office-tasks/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, status, priority, assigneeName, dueDate, caseTitle, tags } = req.body;
@@ -89,7 +89,7 @@ router.patch("/tasks/:id", async (req, res) => {
   }
 });
 
-router.delete("/tasks/:id", async (req, res) => {
+router.delete("/office-tasks/:id", async (req, res) => {
   try {
     await db.execute(sql`DELETE FROM tasks WHERE id = ${req.params.id}::uuid`);
     res.json({ ok: true });

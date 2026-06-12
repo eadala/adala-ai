@@ -51,12 +51,12 @@ export default function Tasks() {
 
   const { data: tasks = [], isLoading } = useQuery<any[]>({
     queryKey: ["tasks"],
-    queryFn: () => fetch("/api/tasks").then(r => r.json()),
+    queryFn: () => fetch("/api/office-tasks").then(r => r.json()),
   });
 
   const { data: stats } = useQuery<any>({
     queryKey: ["tasks-stats"],
-    queryFn: () => fetch("/api/tasks/stats").then(r => r.json()),
+    queryFn: () => fetch("/api/office-tasks/stats").then(r => r.json()),
   });
 
   const { data: employees = [] } = useQuery<any[]>({
@@ -65,7 +65,7 @@ export default function Tasks() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => fetch("/api/tasks", {
+    mutationFn: (data: any) => fetch("/api/office-tasks", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
     }).then(r => r.json()),
     onSuccess: () => {
@@ -78,7 +78,7 @@ export default function Tasks() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }: any) => fetch(`/api/tasks/${id}`, {
+    mutationFn: ({ id, ...data }: any) => fetch(`/api/office-tasks/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
     }).then(r => r.json()),
     onSuccess: () => {
@@ -90,7 +90,7 @@ export default function Tasks() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetch(`/api/tasks/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => fetch(`/api/office-tasks/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["tasks-stats"] });

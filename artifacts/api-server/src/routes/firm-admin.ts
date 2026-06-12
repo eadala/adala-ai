@@ -16,7 +16,7 @@ router.get("/firm-admin/overview", async (_req, res) => {
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-    const [cases, users, invoices, clients, contracts, aiTasks, docs, messages] = await Promise.all([
+    const [cases, users, _inv, clients, contracts, aiTasks, docs, messages] = await Promise.all([
       db.select().from(casesTable),
       db.select().from(usersTable),
       db.select().from(invoicesTable),
@@ -26,6 +26,7 @@ router.get("/firm-admin/overview", async (_req, res) => {
       db.select().from(documentsTable),
       db.select().from(messagesTable).orderBy(desc(messagesTable.createdAt)).limit(20),
     ]);
+    const invoices = _inv as any[];
 
     // KPIs
     const activeCases = cases.filter(c => ["open","in_progress"].includes(c.status)).length;
@@ -94,9 +95,9 @@ router.get("/firm-admin/overview", async (_req, res) => {
     // Per-lawyer performance
     const ROLE_LABELS: Record<string, string> = { admin: "مدير", lawyer: "محامٍ", paralegal: "مساعد", viewer: "مراقب" };
     const lawyerStats = users.map(u => {
-      const userCases = cases.filter(c => c.assignedTo === u.id || c.assignedTo === u.clerkId);
+      const userCases = cases.filter(c => c.assignedTo === u.id || c.assignedTo === (u as any).clerkId);
       const userInvoices = invoices.filter(i => i.status === "paid");
-      const userAI = aiTasks.filter(t => t.userId === u.id || t.userId === u.clerkId);
+      const userAI = aiTasks.filter(t => (t as any).userId === u.id || (t as any).userId === (u as any).clerkId);
       return {
         id: u.id, name: u.fullName ?? u.email, email: u.email,
         role: u.role, roleLabel: ROLE_LABELS[u.role ?? "viewer"] ?? u.role,
