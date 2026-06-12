@@ -9,90 +9,81 @@ import * as crypto from "crypto";
 
 /* ── Plan → limits mapping ─────────────────────────────── */
 export const PLAN_LIMITS: Record<string, Record<string, number>> = {
-  /* ── الباقات الجديدة ── */
-  advisor: {
-    AI_CALLS:    50,
+  /* ── FREE ── */
+  free: {
+    AI_CALLS:     5,
+    CASES:        5,
+    CLIENTS:     10,
+    USERS:        1,
+    STORAGE_GB:   1,
+    DOCUMENTS:   20,
+    INVOICES:    10,
+  },
+  /* ── BASIC ── */
+  basic: {
+    AI_CALLS:    20,
     CASES:       20,
-    CLIENTS:     30,
+    CLIENTS:     50,
     USERS:        2,
     STORAGE_GB:   5,
-    DOCUMENTS:  100,
-    INVOICES:    30,
+    DOCUMENTS:  200,
+    INVOICES:    50,
   },
-  solo: {
-    AI_CALLS:   200,
+  /* ── PRO ── */
+  pro: {
+    AI_CALLS:   100,
     CASES:      100,
-    CLIENTS:    150,
+    CLIENTS:    200,
     USERS:        5,
-    STORAGE_GB:  20,
+    STORAGE_GB:  25,
     DOCUMENTS: 1_000,
-    INVOICES:   200,
+    INVOICES:   500,
   },
-  office: {
-    AI_CALLS:  1_000,
-    CASES:      9_999,
-    CLIENTS:    9_999,
-    USERS:        15,
-    STORAGE_GB:   50,
-    DOCUMENTS: 10_000,
-    INVOICES:  1_000,
+  /* ── GROWTH ── */
+  growth: {
+    AI_CALLS:   300,
+    CASES:      500,
+    CLIENTS:  1_000,
+    USERS:       15,
+    STORAGE_GB: 100,
+    DOCUMENTS: 5_000,
+    INVOICES: 2_000,
   },
+  /* ── ADVANCED ── */
   advanced: {
-    AI_CALLS:   5_000,
-    CASES:      9_999,
-    CLIENTS:    9_999,
+    AI_CALLS:  1_000,
+    CASES:     2_000,
+    CLIENTS:   5_000,
     USERS:        30,
-    STORAGE_GB:  100,
-    DOCUMENTS:  50_000,
-    INVOICES:   5_000,
+    STORAGE_GB:  200,
+    DOCUMENTS: 50_000,
+    INVOICES: 10_000,
   },
-  corporate: {
-    AI_CALLS:  99_999,
-    CASES:      99_999,
-    CLIENTS:    99_999,
-    USERS:        99_999,
-    STORAGE_GB:   500,
-    DOCUMENTS:   99_999,
-    INVOICES:    99_999,
-  },
-  /* enterprise = fully custom, use open limits as fallback */
+  /* ── ENTERPRISE ── */
   enterprise: {
     AI_CALLS:  99_999,
-    CASES:      99_999,
-    CLIENTS:    99_999,
-    USERS:      99_999,
-    STORAGE_GB: 9_999,
-    DOCUMENTS:  99_999,
-    INVOICES:   99_999,
-  },
-  /* ── الباقات القديمة (للتوافق الخلفي) ── */
-  basic: {
-    AI_CALLS:    100,
-    CASES:        20,
-    CLIENTS:      50,
-    USERS:         3,
-    STORAGE_GB:    2,
-    DOCUMENTS:   200,
-    INVOICES:     50,
-  },
-  professional: {
-    AI_CALLS:  1_000,
-    CASES:       500,
-    CLIENTS:     300,
-    USERS:        15,
-    STORAGE_GB:   20,
-    DOCUMENTS: 5_000,
-    INVOICES:    500,
-  },
-  open: {
-    AI_CALLS:  99_999,
-    CASES:      99_999,
-    CLIENTS:    99_999,
-    USERS:      99_999,
+    CASES:     99_999,
+    CLIENTS:   99_999,
+    USERS:        100,
     STORAGE_GB: 1_000,
-    DOCUMENTS:  99_999,
-    INVOICES:   99_999,
+    DOCUMENTS: 99_999,
+    INVOICES:  99_999,
   },
+  /* ── ELITE ── */
+  elite: {
+    AI_CALLS:  999_999,
+    CASES:     999_999,
+    CLIENTS:   999_999,
+    USERS:     999_999,
+    STORAGE_GB: 999_999,
+    DOCUMENTS: 999_999,
+    INVOICES:  999_999,
+  },
+  /* ── Legacy slugs (backward compat) ── */
+  starter:      { AI_CALLS:20,  CASES:20,  CLIENTS:50,  USERS:2,  STORAGE_GB:5,   DOCUMENTS:200,   INVOICES:50  },
+  professional: { AI_CALLS:100, CASES:100, CLIENTS:200, USERS:5,  STORAGE_GB:25,  DOCUMENTS:1_000, INVOICES:500 },
+  business:     { AI_CALLS:300, CASES:500, CLIENTS:1000,USERS:15, STORAGE_GB:100, DOCUMENTS:5_000, INVOICES:2000},
+  open:         { AI_CALLS:99_999, CASES:99_999, CLIENTS:99_999, USERS:99_999, STORAGE_GB:1_000, DOCUMENTS:99_999, INVOICES:99_999 },
 };
 
 /* ── Generate a secure API Key ─────────────────────────── */
