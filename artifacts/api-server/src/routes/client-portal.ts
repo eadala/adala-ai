@@ -110,7 +110,7 @@ async function checkCommPerm(u: NonNullable<Awaited<ReturnType<typeof getOfficeU
   } catch { return (DEFAULT_COMM_ROLES[action] ?? []).includes(u.officeRole); }
 }
 
-function getEmailTransporter() {
+export function getEmailTransporter() {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;

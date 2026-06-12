@@ -27,6 +27,7 @@ import officeRouter from "./office";
 import adminRouter from "./admin";
 import calendarRouter from "./calendar";
 import clientPortalRouter from "./client-portal";
+import clientAuthRouter from "./client-auth";
 import marketplaceRouter from "./marketplace";
 import aiWorkflowRouter from "./ai-workflow";
 import firmAdminRouter from "./firm-admin";
@@ -149,5 +150,6 @@ router.use(auditLogsRouter);
 router.use(platformModulesRouter);
 router.use(homeCmsRouter);
 router.use(planCmsRouter);
+router.use(clientAuthRouter);
 
 export default router;
