@@ -18,3 +18,4 @@
 - [Adala Mobile App](adala-mobile.md) — React+Vite PWA at /adala-mobile/; WouterRouter base=BASE_URL required; pages: home/cases/clients/contracts/reminders + BottomNav + AppHeader
 - [Adala core features](adala-core-features.md) — onboarding/reminders/CSV-import/email-notifications all fully built; tasks page in HR section; Gemini AI as primary in 5 routes
 - [Adala org structure](adala-org-structure.md) — organization_units table (ensureTables); /api/org-units/* routes in orgStructure.ts; /org-structure page (4 tabs: tree/list/stats/scope); nav in admin group with Network icon; ?? mixed with || needs parens
+- [Adala HR Center](adala-hr-center.md) — performance_evaluations + employee_incentives + hr_settings tables; hrPerformance.ts routes; /hr-center page (6 tabs); Award icon must be imported in layout.tsx
