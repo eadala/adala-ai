@@ -28,3 +28,4 @@
 - [Adala Legal AI Engine](adala-legal-ai.md) — legal_documents table; /api/legal-ai/* routes in legalAI.ts; callAI() exported from aiChat.ts; /legal-ai page (2-col: type tree + form + output); 11 doc types across 6 categories
 - [Adala Audit Logs](adala-audit-logs.md) — audit_logs table (id/user_id/user_full_name/action/resource/resource_id/details/created_at); auditLogger.ts helper; /api/audit-logs + /api/audit-logs/stats routes; /audit-logs page; Activity icon needed in layout.tsx
 - [Adala AI Analytics](adala-ai-analytics.md) — GET /api/analytics/ai-insights caches in ai_analytics_cache (6h); "تحليل ذكي" 5th tab in analytics.tsx; force=1 param busts cache; renderBold() for **markdown**
+- [Adala Plan CMS](adala-plan-cms.md) — plan_cms DB table; getDbPlans() in planCms.ts; billing.ts GET /billing/plans uses DB+fallback; pricing.tsx PLANS_LIVE via useQuery; PlansCmsTab in super-admin (plans-cms tab)

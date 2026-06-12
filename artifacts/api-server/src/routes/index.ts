@@ -67,6 +67,7 @@ import legalAIRouter from "./legalAI";
 import auditLogsRouter from "./auditLogs";
 import platformModulesRouter from "./platformModules";
 import homeCmsRouter from "./homeCms";
+import planCmsRouter from "./planCms";
 
 const router: IRouter = Router();
 
@@ -147,5 +148,6 @@ router.use(legalAIRouter);
 router.use(auditLogsRouter);
 router.use(platformModulesRouter);
 router.use(homeCmsRouter);
+router.use(planCmsRouter);
 
 export default router;

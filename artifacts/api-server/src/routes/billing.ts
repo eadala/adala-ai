@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { getUncachableStripeClient } from "../stripeClient";
 import { resolveTenantId } from "../middlewares/tenantMiddleware";
+import { getDbPlans } from "./planCms";
 
 const router = Router();
 
@@ -67,7 +68,14 @@ const KEY_LABELS: Record<string, string> = {
    PUBLIC ROUTES
 ══════════════════════════════════════════════════════ */
 
-router.get("/billing/plans", (_req, res) => res.json(PLANS));
+router.get("/billing/plans", async (_req, res) => {
+  try {
+    const plans = await getDbPlans();
+    return res.json(plans);
+  } catch {
+    return res.json(PLANS);
+  }
+});
 
 router.get("/billing/stripe-status", async (_req, res) => {
   try {
