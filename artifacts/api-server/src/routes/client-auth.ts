@@ -3,6 +3,8 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { randomBytes, scrypt, timingSafeEqual } from "crypto";
 import { promisify } from "util";
+import { getAuth, createClerkClient } from "@clerk/express";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router = Router();
 const scryptAsync = promisify(scrypt);
@@ -280,6 +282,116 @@ router.post("/client-auth/link-token", async (req: Request, res: Response) => {
       ON CONFLICT (client_id, case_id) DO UPDATE SET portal_token = ${portalToken}, portal_token_id = ${pt.id}
     `);
     res.json({ ok: true, caseId: pt.case_id });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN ROUTES — create/list/reset client accounts
+// ═══════════════════════════════════════════════════════════════
+
+let _clerkCA: ReturnType<typeof createClerkClient> | null = null;
+const getClerkCA = () => {
+  if (!_clerkCA) _clerkCA = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+  return _clerkCA;
+};
+
+async function getAdminUser(req: Request) {
+  const auth = getAuth(req);
+  if (!auth?.userId) return null;
+  try {
+    const user = await getClerkCA().users.getUser(auth.userId);
+    const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
+    const owner = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
+    const isSA = (!!owner && email === owner) || user.publicMetadata?.role === "super_admin";
+    const officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
+    const mRows = sqlAll(await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`));
+    const officeRole: string = mRows[0]?.role ?? (user.publicMetadata?.role as string) ?? "lawyer";
+    const isAdmin = isSA || officeRole === "firm_owner" || officeRole === "office_manager";
+    return { userId: auth.userId, officeId, email, isSA, officeRole, isAdmin };
+  } catch { return null; }
+}
+
+/* POST /api/client-auth/admin-create
+   Admin creates a client account and optionally links it to a case/portal token */
+router.post("/client-auth/admin-create", requireAuth, async (req: Request, res: Response) => {
+  const admin = await getAdminUser(req);
+  if (!admin) { res.status(401).json({ error: "غير مصادق" }); return; }
+  if (!admin.isAdmin) { res.status(403).json({ error: "يجب أن تكون مديراً لإنشاء حسابات العملاء" }); return; }
+
+  const { email, password, name, phone, caseId, portalToken } = req.body;
+  if (!email || !password) { res.status(400).json({ error: "البريد الإلكتروني وكلمة المرور مطلوبان" }); return; }
+  if (password.length < 6) { res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" }); return; }
+
+  try {
+    const existing = sqlOne(await db.execute(sql`SELECT id FROM client_accounts WHERE email=${email.toLowerCase()} LIMIT 1`));
+    if (existing) { res.status(409).json({ error: "هذا البريد مسجّل مسبقاً — يمكن للعميل تسجيل الدخول مباشرة" }); return; }
+
+    const hash = await hashPassword(password);
+    const id = randomBytes(16).toString("hex");
+    await db.execute(sql`
+      INSERT INTO client_accounts (id, email, password_hash, name, phone, email_verified)
+      VALUES (${id}, ${email.toLowerCase()}, ${hash}, ${name ?? null}, ${phone ?? null}, true)
+    `);
+
+    // Link to case if provided
+    if (caseId) {
+      let ptToken = portalToken ?? null;
+      let ptId: string | null = null;
+      if (ptToken) {
+        const pt = sqlOne(await db.execute(sql`SELECT id FROM client_portal_tokens WHERE token=${ptToken} LIMIT 1`));
+        ptId = pt?.id ?? null;
+      }
+      await db.execute(sql`
+        INSERT INTO client_case_links (client_id, case_id, portal_token_id, portal_token, office_id)
+        VALUES (${id}, ${caseId}, ${ptId}, ${ptToken}, ${admin.officeId})
+        ON CONFLICT (client_id, case_id) DO NOTHING
+      `);
+    }
+
+    res.status(201).json({
+      ok: true,
+      client: { id, email: email.toLowerCase(), name: name ?? null, phone: phone ?? null },
+    });
+  } catch (e: any) {
+    console.error("admin-create client:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* PATCH /api/client-auth/admin-reset-password/:clientId  — admin resets a client's password */
+router.patch("/client-auth/admin-reset-password/:clientId", requireAuth, async (req: Request, res: Response) => {
+  const admin = await getAdminUser(req);
+  if (!admin) { res.status(401).json({ error: "غير مصادق" }); return; }
+  if (!admin.isAdmin) { res.status(403).json({ error: "يجب أن تكون مديراً" }); return; }
+  const { password } = req.body;
+  if (!password || password.length < 6) { res.status(400).json({ error: "كلمة مرور جديدة (6 أحرف+) مطلوبة" }); return; }
+  try {
+    const hash = await hashPassword(password);
+    await db.execute(sql`UPDATE client_accounts SET password_hash=${hash}, updated_at=NOW() WHERE id=${req.params.clientId}`);
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* GET /api/client-auth/admin-clients — list all client accounts linked to this office */
+router.get("/client-auth/admin-clients", requireAuth, async (req: Request, res: Response) => {
+  const admin = await getAdminUser(req);
+  if (!admin) { res.status(401).json({ error: "غير مصادق" }); return; }
+  try {
+    const rows = sqlAll(await db.execute(sql`
+      SELECT ca.id, ca.email, ca.name, ca.phone, ca.email_verified, ca.created_at,
+             COUNT(ccl.case_id) as case_count,
+             MAX(ccl.linked_at) as last_linked
+      FROM client_accounts ca
+      LEFT JOIN client_case_links ccl ON ccl.client_id = ca.id AND ccl.office_id = ${admin.officeId}
+      GROUP BY ca.id
+      ORDER BY ca.created_at DESC
+      LIMIT 100
+    `));
+    res.json(rows);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

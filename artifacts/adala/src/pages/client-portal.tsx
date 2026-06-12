@@ -14,6 +14,7 @@ import {
   Globe, Link2, Copy, CheckCircle2, Plus, Trash2, Clock,
   Eye, Shield, ExternalLink, RefreshCw, Loader2, Settings,
   GitCommitHorizontal, ShieldCheck, Users, Lock,
+  UserPlus, KeyRound, Mail, Phone, EyeOff, ClipboardCopy, UserCheck,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
@@ -279,6 +280,203 @@ function TokenSettingsPanel({ token, onSaved }: { token: PortalToken; onSaved: (
   );
 }
 
+// ─── Create Client Account Dialog ────────────────────────────────────────────
+function CreateClientAccountDialog({ cases, onCreated }: { cases: Case[]; onCreated?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"form" | "done">("form");
+  const [email, setEmail]   = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName]     = useState("");
+  const [phone, setPhone]   = useState("");
+  const [caseId, setCaseId] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [created, setCreated] = useState<{ email: string; password: string; name: string | null } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // auto-generate a strong readable password
+  const genPassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#!";
+    const pw = Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+    setPassword(pw); setShowPw(true);
+  };
+
+  const reset = () => {
+    setStep("form"); setEmail(""); setPassword(""); setName(""); setPhone(""); setCaseId(""); setShowPw(false); setCreated(null); setCopied(false);
+  };
+
+  const submit = async () => {
+    if (!email) { toast.error("البريد الإلكتروني مطلوب"); return; }
+    if (!password || password.length < 6) { toast.error("كلمة مرور 6 أحرف على الأقل"); return; }
+    setLoading(true);
+
+    // If a case is selected, get the portal token for it if available
+    let portalToken: string | undefined;
+    if (caseId) {
+      const r = await fetch(`${BASE}api/portal/tokens/${caseId}`).then(r => r.json()).catch(() => []);
+      const tokens: any[] = Array.isArray(r) ? r : [];
+      portalToken = tokens[0]?.token;
+    }
+
+    const r = await fetch(`${BASE}api/client-auth/admin-create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, name: name || null, phone: phone || null, caseId: caseId || null, portalToken }),
+    });
+    const d = await r.json();
+    setLoading(false);
+
+    if (d.error) { toast.error(d.error); return; }
+    setCreated({ email, password, name: name || null });
+    setStep("done");
+    onCreated?.();
+  };
+
+  const credText = `بوابة عدالة AI — بيانات دخولك\n\nالرابط: ${window.location.origin}${BASE.replace(/\/$/, "")}/portal/login\nالبريد: ${created?.email}\nكلمة المرور: ${created?.password}\n\nيمكنك تغيير كلمة المرور بعد الدخول.`;
+
+  const copyAll = () => {
+    navigator.clipboard.writeText(credText);
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
+    toast.success("تم نسخ بيانات الدخول");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) reset(); }}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <UserPlus className="h-3.5 w-3.5" />إنشاء حساب عميل
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {step === "form"
+              ? <><UserPlus className="h-5 w-5 text-primary" />إنشاء حساب لعميل</>
+              : <><UserCheck className="h-5 w-5 text-green-500" />تم إنشاء الحساب بنجاح</>}
+          </DialogTitle>
+        </DialogHeader>
+
+        {step === "form" ? (
+          <div className="space-y-4 pt-1">
+            {/* Email */}
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-muted-foreground" />البريد الإلكتروني *</Label>
+              <Input type="email" placeholder="client@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+            </div>
+
+            {/* Password */}
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1.5"><Lock className="h-3.5 w-3.5 text-muted-foreground" />كلمة المرور *</Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type={showPw ? "text" : "password"}
+                    placeholder="6 أحرف على الأقل"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="pl-9"
+                  />
+                  <button type="button" onClick={() => setShowPw(p => !p)}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={genPassword} className="shrink-0 text-xs px-3">
+                  <KeyRound className="h-3.5 w-3.5 ml-1" />توليد
+                </Button>
+              </div>
+            </div>
+
+            {/* Name */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">الاسم الكامل (اختياري)</Label>
+              <Input placeholder="محمد الأحمدي" value={name} onChange={e => setName(e.target.value)} />
+            </div>
+
+            {/* Phone */}
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-muted-foreground" />رقم الجوال (اختياري)</Label>
+              <Input placeholder="05xxxxxxxx" value={phone} onChange={e => setPhone(e.target.value)} />
+            </div>
+
+            {/* Link to case */}
+            {cases.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">ربط بقضية (اختياري)</Label>
+                <Select value={caseId} onValueChange={setCaseId}>
+                  <SelectTrigger dir="rtl"><SelectValue placeholder="اختر قضية — سيُربط الحساب بها تلقائياً" /></SelectTrigger>
+                  <SelectContent dir="rtl">
+                    <SelectItem value="">بدون ربط بقضية</SelectItem>
+                    {cases.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.title} — {c.clientName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <Button className="w-full" onClick={submit} disabled={loading || !email || !password}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <UserPlus className="h-4 w-4 ml-2" />}
+              إنشاء الحساب
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4 pt-1">
+            {/* Success banner */}
+            <div className="rounded-xl bg-green-500/10 border border-green-500/20 p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
+                <UserCheck className="h-5 w-5 text-green-400" />
+              </div>
+              <div>
+                <p className="font-bold text-green-400 text-sm">تم إنشاء الحساب بنجاح!</p>
+                <p className="text-xs text-muted-foreground">شارك بيانات الدخول أدناه مع العميل مرة واحدة فقط</p>
+              </div>
+            </div>
+
+            {/* Credentials box */}
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+              <p className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5" />بيانات دخول العميل — احتفظ بها بأمان
+              </p>
+              <div className="space-y-2">
+                {[
+                  { label: "رابط الدخول", value: `${window.location.origin}${BASE.replace(/\/$/, "")}/portal/login` },
+                  { label: "البريد",       value: created?.email ?? "" },
+                  { label: "كلمة المرور", value: created?.password ?? "", mono: true },
+                ].map(row => (
+                  <div key={row.label} className="flex items-center justify-between gap-2 bg-background/40 rounded-lg px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-muted-foreground">{row.label}</p>
+                      <p className={`text-xs truncate ${row.mono ? "font-mono font-bold tracking-wide" : ""}`}>{row.value}</p>
+                    </div>
+                    <button onClick={() => { navigator.clipboard.writeText(row.value); toast.success("تم النسخ"); }}
+                      className="text-muted-foreground hover:text-foreground shrink-0">
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <Button className="w-full gap-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30" variant="outline" onClick={copyAll}>
+                {copied ? <CheckCircle2 className="h-4 w-4" /> : <ClipboardCopy className="h-4 w-4" />}
+                نسخ جميع بيانات الدخول
+              </Button>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground text-center">
+              ⚠️ لن تظهر كلمة المرور مرة أخرى — شاركها الآن أو اطبعها
+            </p>
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={reset}>إنشاء حساب آخر</Button>
+              <Button className="flex-1" onClick={() => { setOpen(false); reset(); }}>تم</Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Comm Settings Dialog ─────────────────────────────────────────────────────
 const ACTION_LABELS: Record<string, { label: string; desc: string }> = {
   reply:    { label: "الرد على العملاء",        desc: "إرسال رسائل ومشاركة وثائق عبر بوابة العميل" },
@@ -478,8 +676,9 @@ export default function ClientPortal() {
             روابط آمنة • خط زمني للقضية • رفع مستندات • دفع إلكتروني
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
           <Button variant="outline" size="sm" onClick={refresh}><RefreshCw className="h-3.5 w-3.5" /></Button>
+          <CreateClientAccountDialog cases={cases} onCreated={refresh} />
           <CommSettingsDialog />
           <NewTokenDialog cases={cases} onCreated={refresh} />
         </div>
