@@ -7,7 +7,7 @@ import {
   Users, HardDrive, Brain, Globe, ShoppingBag, Calendar,
   GitBranch, Code2, BarChart3, Headphones, Wifi,
   BadgeCheck, Phone, Plus, TrendingUp, FileText, Smartphone,
-  Database, ScanText, CloudUpload, Layers, Bot, Lock, Award
+  Database, ScanText, CloudUpload, Layers, Bot, Lock, Award, CreditCard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,9 @@ const PLANS = [
       "فواتير إلكترونية",
       "تذكيرات وتقويم",
       "تصدير PDF",
+      "موقع فرعي من عدالة",
+      "متجر خدمات قانونية",
+      "بوابة دفع إلكترونية",
     ],
   },
   {
@@ -62,8 +65,9 @@ const PLANS = [
       "مستخدمان",
       "٥ جيجا تخزين",
       "٢٠ طلب AI يومياً",
-      "صفحة مكتب عامة",
-      "متجر قانوني + مدفوعات",
+      "موقع فرعي من عدالة",
+      "متجر خدمات قانونية",
+      "بوابة دفع إلكترونية",
       "عقود ذكية بالذكاء الاصطناعي",
       "قوالب مستندات قانونية",
       "تطبيق جوال",
@@ -207,8 +211,9 @@ const COMPARISON: CompRow[] = [
   { label: "المستخدمون",          icon: Users,        vals: ["١",       "٢",      "٥",      "١٥",     "٣٠",      "١٠٠",     "∞"      ] },
   { label: "التخزين",             icon: HardDrive,    vals: ["١ GB",    "٥ GB",   "٢٥ GB",  "١٠٠ GB", "٢٠٠ GB",  "١ TB",    "∞"      ] },
   { label: "الذكاء الاصطناعي",    icon: Brain,        vals: ["٥/يوم",  "٢٠/يوم","١٠٠/يوم","٣٠٠/يوم","١٠٠٠/يوم","∞",       "∞"      ] },
-  { label: "صفحة المكتب العامة",  icon: Globe,        vals: [false,     true,     true,     true,     true,      true,      true     ] },
-  { label: "المتجر القانوني",      icon: ShoppingBag,  vals: [false,     true,     true,     true,     true,      true,      true     ] },
+  { label: "موقع فرعي من عدالة", icon: Globe,        vals: [true,      true,     true,     true,     true,      true,      true     ] },
+  { label: "متجر الخدمات القانونية", icon: ShoppingBag, vals: [true,    true,     true,     true,     true,      true,      true     ] },
+  { label: "بوابة الدفع الإلكتروني", icon: CreditCard,  vals: [true,    true,     true,     true,     true,      true,      true     ] },
   { label: "عقود ذكية AI",        icon: FileText,     vals: [false,     true,     true,     true,     true,      true,      true     ] },
   { label: "قوالب المستندات",     icon: Layers,       vals: [false,     true,     true,     true,     true,      true,      true     ] },
   { label: "تطبيق جوال",          icon: Smartphone,   vals: [false,     true,     true,     true,     true,      true,      true     ] },
@@ -220,7 +225,7 @@ const COMPARISON: CompRow[] = [
   { label: "الفروع",              icon: GitBranch,    vals: [false,     false,    false,    "٣",      "١٠",      "∞",       "∞"      ] },
   { label: "WhatsApp Business",   icon: MessageCircle,vals: [false,     false,    false,    true,     true,      true,      true     ] },
   { label: "محرك سير العمل",      icon: Zap,          vals: [false,     false,    false,    true,     true,      true,      true     ] },
-  { label: "النطاق الخاص",        icon: Lock,         vals: [false,     false,    false,    false,    true,      true,      true     ] },
+  { label: "نطاق خاص مخصص (Custom Domain)", icon: Lock, vals: [false,  false,    false,    false,    true,      true,      true     ] },
   { label: "وصول API",            icon: Code2,        vals: [false,     false,    false,    false,    true,      true,      true     ] },
   { label: "مساعد مالي AI (CFO)", icon: TrendingUp,   vals: [false,     false,    false,    false,    true,      true,      true     ] },
   { label: "White Label",         icon: Award,        vals: [false,     false,    false,    false,    true,      true,      true     ] },

@@ -53,7 +53,7 @@ export const PLAN_FEATURES: Record<PlanSlug, PlanFeatures> = {
     label: "مجاني", labelEn: "Free", color: "#64748B",
     cases: true, invoices: true, reminders: true, calendar: true,
     exportPdf: true, aiBasic: true, reportsBasic: true,
-    website: false, serviceStore: false, payments: false,
+    website: true, serviceStore: true, payments: true,
     contractsAi: false, mobileApp: false, documentTemplates: false,
     ai: false, aiAnalytics: false, reportsAdvanced: false, ocr: false, backup: false,
     clientPortal: false, branches: 0, whatsapp: false, workflow: false,
