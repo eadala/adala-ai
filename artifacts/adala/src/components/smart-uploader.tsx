@@ -26,12 +26,19 @@ const ALLOWED: Record<string, string> = {
   "image/heic": "HEIC", "image/heif": "HEIF",
   "application/zip": "ZIP",
 };
-const MAX_BYTES      = 10 * 1024 * 1024;  // 10 MB hard limit
-const IMG_TARGET     = 350 * 1024;        // 350 KB target after compression
-const IMG_MAX_DIM    = 1400;              // max width/height in pixels
-const IMG_QUALITY_0  = 0.78;             // starting JPEG quality
-const IMG_QUALITY_MIN = 0.28;            // floor — never go below this
-const IMG_QUALITY_STEP = 0.08;           // step down per iteration
+const MAX_BYTES       = 10 * 1024 * 1024;  // 10 MB hard limit
+/*
+ * Compression targets — tuned for legal documents:
+ * • 600 KB keeps text sharp and readable on screen/print
+ * • 1600px preserves fine detail (signatures, stamps, small text)
+ * • Min quality 42% is the floor below which JPEG artifacts degrade text
+ * • Typical savings: phone-camera docs 10-15 MB → 500-600 KB (90%+ reduction)
+ */
+const IMG_TARGET      = 600 * 1024;       // 600 KB — readable legal docs
+const IMG_MAX_DIM     = 1600;             // px — keeps fine detail intact
+const IMG_QUALITY_0   = 0.82;            // starting JPEG quality (crisp)
+const IMG_QUALITY_MIN = 0.42;            // floor — below this text degrades
+const IMG_QUALITY_STEP = 0.06;           // step down per iteration
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 type UpStatus = "queued"|"compressing"|"uploading"|"registering"|"analyzing"|"done"|"error";
