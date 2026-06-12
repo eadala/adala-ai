@@ -18,10 +18,10 @@ import {
   Share2, Users, Globe, Loader2, CheckCircle2, Link2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLang } from "@/hooks/use-lang";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-/* ── helpers ──────────────────────────────────────────────── */
 function fmtSize(bytes?: number) {
   if (!bytes) return "";
   if (bytes < 1024) return `${bytes} B`;
@@ -29,7 +29,6 @@ function fmtSize(bytes?: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-/* ── Portal tokens for a case ────────────────────────────── */
 function usePortalTokens(caseId: string | null | undefined, enabled: boolean) {
   return useQuery<any[]>({
     queryKey: ["portal-tokens", caseId],
@@ -39,8 +38,7 @@ function usePortalTokens(caseId: string | null | undefined, enabled: boolean) {
   });
 }
 
-/* ── Share dialog ─────────────────────────────────────────── */
-function ShareDialog({ doc, open, onClose }: { doc: any; open: boolean; onClose: () => void }) {
+function ShareDialog({ doc, open, onClose, tx, dir }: { doc: any; open: boolean; onClose: () => void; tx: any; dir: "rtl" | "ltr" }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: tokens = [], isLoading } = usePortalTokens(doc?.caseId, open);
@@ -60,32 +58,32 @@ function ShareDialog({ doc, open, onClose }: { doc: any; open: boolean; onClose:
       }
     },
     onSuccess: (d, vars) => {
-      if (d?.error) { toast({ title: "خطأ", description: d.error, variant: "destructive" }); return; }
-      toast({ title: vars.shared ? "✅ تمت المشاركة" : "تم إلغاء المشاركة" });
+      if (d?.error) { toast({ title: tx("خطأ", "Error"), description: d.error, variant: "destructive" }); return; }
+      toast({ title: vars.shared ? tx("✅ تمت المشاركة", "✅ Shared") : tx("تم إلغاء المشاركة", "Unshared") });
       qc.invalidateQueries({ queryKey: ["portal-tokens", doc?.caseId] });
     },
-    onError: () => toast({ title: "خطأ في المشاركة", variant: "destructive" }),
+    onError: () => toast({ title: tx("خطأ في المشاركة", "Sharing error"), variant: "destructive" }),
   });
 
   const docId = doc?.id ?? "";
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="sm:max-w-md" dir="rtl">
+      <DialogContent className="sm:max-w-md" dir={dir}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5 text-[#C9A84C]" />
-            مشاركة مع بوابة العميل
+            {tx("مشاركة مع بوابة العميل", "Share with Client Portal")}
           </DialogTitle>
           <DialogDescription>
-            اختر بوابات العملاء التي تريد مشاركة <strong className="text-foreground">{doc?.fileName}</strong> معها
+            {tx("اختر بوابات العملاء التي تريد مشاركة", "Choose client portals to share")} <strong className="text-foreground">{doc?.fileName}</strong> {tx("معها", "with")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-2 space-y-3">
           {!doc?.caseId ? (
             <div className="text-center py-8 text-sm text-muted-foreground">
-              هذا المستند غير مرتبط بقضية — لا يمكن مشاركته عبر البوابة
+              {tx("هذا المستند غير مرتبط بقضية — لا يمكن مشاركته عبر البوابة", "This document is not linked to a case — cannot share via portal")}
             </div>
           ) : isLoading ? (
             <div className="space-y-2">
@@ -94,8 +92,8 @@ function ShareDialog({ doc, open, onClose }: { doc: any; open: boolean; onClose:
           ) : tokens.length === 0 ? (
             <div className="text-center py-8">
               <Globe className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">لا توجد بوابات عميل مفعَّلة لهذه القضية</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">أنشئ بوابة من صفحة القضية أولاً</p>
+              <p className="text-sm text-muted-foreground">{tx("لا توجد بوابات عميل مفعَّلة لهذه القضية", "No active client portals for this case")}</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">{tx("أنشئ بوابة من صفحة القضية أولاً", "Create a portal from the case page first")}</p>
             </div>
           ) : (
             tokens.map((token: any) => {
@@ -114,11 +112,11 @@ function ShareDialog({ doc, open, onClose }: { doc: any; open: boolean; onClose:
                       <Users className={`h-4 w-4 ${isShared ? "text-[#C9A84C]" : "text-muted-foreground"}`} />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{token.client_name ?? "عميل"}</p>
+                      <p className="font-medium text-sm truncate">{token.client_name ?? tx("عميل", "Client")}</p>
                       <p className="text-xs text-muted-foreground truncate">{token.client_email ?? "—"}</p>
                       {isShared && (
                         <span className="text-[10px] text-[#C9A84C] flex items-center gap-0.5 mt-0.5">
-                          <CheckCircle2 className="h-3 w-3" />مُشارَك
+                          <CheckCircle2 className="h-3 w-3" />{tx("مُشارَك", "Shared")}
                         </span>
                       )}
                     </div>
@@ -143,11 +141,11 @@ function ShareDialog({ doc, open, onClose }: { doc: any; open: boolean; onClose:
   );
 }
 
-/* ── Main page ────────────────────────────────────────────── */
 export default function Documents() {
   const { data: documents, isLoading } = useListDocuments();
   const [search, setSearch] = useState("");
   const [shareDoc, setShareDoc] = useState<any>(null);
+  const { tx, dateLocale, dir } = useLang();
 
   const filtered = (documents ?? []).filter((d: any) =>
     !search ||
@@ -160,12 +158,12 @@ export default function Documents() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">مكتبة المستندات</h1>
-          <p className="text-muted-foreground mt-1">إدارة جميع الملفات والمرفقات القانونية</p>
+          <h1 className="text-3xl font-bold tracking-tight">{tx("مكتبة المستندات", "Document Library")}</h1>
+          <p className="text-muted-foreground mt-1">{tx("إدارة جميع الملفات والمرفقات القانونية", "Manage all legal files and attachments")}</p>
         </div>
         <Button className="hover-elevate">
           <Upload className="ml-2 h-4 w-4" />
-          رفع مستند جديد
+          {tx("رفع مستند جديد", "Upload Document")}
         </Button>
       </div>
 
@@ -174,7 +172,7 @@ export default function Documents() {
         <div className="relative w-full max-w-md">
           <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="البحث في المستندات..."
+            placeholder={tx("البحث في المستندات...", "Search documents...")}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="pl-4 pr-10"
@@ -192,9 +190,9 @@ export default function Documents() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 bg-card rounded-xl border border-dashed">
           <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-          <h3 className="text-lg font-medium">لا توجد مستندات</h3>
+          <h3 className="text-lg font-medium">{tx("لا توجد مستندات", "No Documents")}</h3>
           <p className="text-muted-foreground">
-            {search ? "لا توجد نتائج مطابقة للبحث" : "لم تقم برفع أي مستندات حتى الآن."}
+            {search ? tx("لا توجد نتائج مطابقة للبحث", "No matching results") : tx("لم تقم برفع أي مستندات حتى الآن.", "You haven't uploaded any documents yet.")}
           </p>
         </div>
       ) : (
@@ -207,17 +205,16 @@ export default function Documents() {
                     <File className="h-6 w-6" />
                   </div>
 
-                  {/* Actions dropdown */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" dir="rtl" className="w-44">
+                    <DropdownMenuContent align="end" dir={dir} className="w-44">
                       <DropdownMenuItem className="gap-2 cursor-pointer">
                         <Download className="h-4 w-4" />
-                        تحميل
+                        {tx("تحميل", "Download")}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -226,19 +223,18 @@ export default function Documents() {
                         disabled={!doc.caseId}
                       >
                         <Share2 className="h-4 w-4" />
-                        مشاركة مع العميل
+                        {tx("مشاركة مع العميل", "Share with Client")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
 
-                {/* File info */}
                 <div>
                   <h3 className="font-semibold text-base line-clamp-1" title={doc.fileName || ""}>{doc.fileName}</h3>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <Badge variant="outline" className="text-xs font-normal">{doc.fileType}</Badge>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(doc.createdAt).toLocaleDateString("ar-EG")}
+                      {new Date(doc.createdAt).toLocaleDateString(dateLocale)}
                     </span>
                     {doc.fileSize && (
                       <span className="text-xs text-muted-foreground">{fmtSize(doc.fileSize)}</span>
@@ -247,18 +243,17 @@ export default function Documents() {
 
                   {doc.caseName && (
                     <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
-                      <span className="font-medium text-foreground">القضية:</span> {doc.caseName}
+                      <span className="font-medium text-foreground">{tx("القضية:", "Case:")}</span> {doc.caseName}
                     </p>
                   )}
 
-                  {/* Sharing indicator */}
                   {doc.caseId && (
                     <button
                       onClick={() => setShareDoc(doc)}
                       className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-[#C9A84C] transition-colors"
                     >
                       <Link2 className="h-3.5 w-3.5" />
-                      مشاركة مع بوابة العميل
+                      {tx("مشاركة مع بوابة العميل", "Share with Client Portal")}
                     </button>
                   )}
 
@@ -275,11 +270,12 @@ export default function Documents() {
         </div>
       )}
 
-      {/* Share dialog */}
       <ShareDialog
         doc={shareDoc}
         open={!!shareDoc}
         onClose={() => setShareDoc(null)}
+        tx={tx}
+        dir={dir}
       />
     </div>
   );

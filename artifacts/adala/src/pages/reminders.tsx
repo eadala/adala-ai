@@ -15,24 +15,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/hooks/use-lang";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-
-const PRIORITIES = [
-  { value: "low",    label: "منخفضة",  color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
-  { value: "medium", label: "متوسطة",  color: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
-  { value: "high",   label: "عالية",   color: "bg-red-500/15 text-red-400 border-red-500/20" },
-];
-
-const CATEGORIES = [
-  { value: "general",   label: "عام" },
-  { value: "case",      label: "قضية" },
-  { value: "client",    label: "عميل" },
-  { value: "invoice",   label: "فاتورة" },
-  { value: "session",   label: "جلسة" },
-  { value: "deadline",  label: "موعد نهائي" },
-  { value: "meeting",   label: "اجتماع" },
-];
 
 const empty = () => ({ title: "", body: "", dueDate: "", dueTime: "", priority: "medium", category: "general", caseId: "" });
 
@@ -42,6 +27,23 @@ export default function RemindersPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState(empty());
+  const { tx, dateLocale, dir } = useLang();
+
+  const PRIORITIES = [
+    { value: "low",    label: tx("منخفضة", "Low"),    color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
+    { value: "medium", label: tx("متوسطة", "Medium"), color: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
+    { value: "high",   label: tx("عالية", "High"),   color: "bg-red-500/15 text-red-400 border-red-500/20" },
+  ];
+
+  const CATEGORIES = [
+    { value: "general",  label: tx("عام", "General") },
+    { value: "case",     label: tx("قضية", "Case") },
+    { value: "client",   label: tx("عميل", "Client") },
+    { value: "invoice",  label: tx("فاتورة", "Invoice") },
+    { value: "session",  label: tx("جلسة", "Session") },
+    { value: "deadline", label: tx("موعد نهائي", "Deadline") },
+    { value: "meeting",  label: tx("اجتماع", "Meeting") },
+  ];
 
   const { data: rows = [], isLoading } = useQuery<any[]>({
     queryKey: ["reminders", filter],
@@ -58,19 +60,31 @@ export default function RemindersPage() {
       const method = editing ? "PATCH" : "POST";
       return fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json());
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["reminders"] }); qc.invalidateQueries({ queryKey: ["reminders-count"] }); setOpen(false); toast.success(editing ? "تم تعديل التذكير" : "تم إضافة التذكير"); },
-    onError: () => toast.error("حدث خطأ"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reminders"] });
+      qc.invalidateQueries({ queryKey: ["reminders-count"] });
+      setOpen(false);
+      toast.success(editing ? tx("تم تعديل التذكير", "Reminder updated") : tx("تم إضافة التذكير", "Reminder added"));
+    },
+    onError: () => toast.error(tx("حدث خطأ", "An error occurred")),
   });
 
   const doneMut = useMutation({
     mutationFn: ({ id, done }: { id: number; done: boolean }) =>
       fetch(`${BASE}/api/reminders/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done }) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["reminders"] }); qc.invalidateQueries({ queryKey: ["reminders-count"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reminders"] });
+      qc.invalidateQueries({ queryKey: ["reminders-count"] });
+    },
   });
 
   const delMut = useMutation({
     mutationFn: (id: number) => fetch(`${BASE}/api/reminders/${id}`, { method: "DELETE" }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["reminders"] }); qc.invalidateQueries({ queryKey: ["reminders-count"] }); toast.success("تم الحذف"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reminders"] });
+      qc.invalidateQueries({ queryKey: ["reminders-count"] });
+      toast.success(tx("تم الحذف", "Deleted"));
+    },
   });
 
   function openCreate() { setEditing(null); setForm(empty()); setOpen(true); }
@@ -81,7 +95,7 @@ export default function RemindersPage() {
   }
   function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
   function submit() {
-    if (!form.title.trim()) return toast.error("العنوان مطلوب");
+    if (!form.title.trim()) return toast.error(tx("العنوان مطلوب", "Title is required"));
     saveMut.mutate({ ...form, caseId: form.caseId ? parseInt(form.caseId) : undefined, dueDate: form.dueDate || undefined, dueTime: form.dueTime || undefined });
   }
 
@@ -99,21 +113,21 @@ export default function RemindersPage() {
             <Bell className="h-5 w-5 text-amber-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">التذكيرات</h1>
-            <p className="text-xs text-muted-foreground">{pending} تذكير معلق</p>
+            <h1 className="text-xl font-bold text-white">{tx("التذكيرات", "Reminders")}</h1>
+            <p className="text-xs text-muted-foreground">{pending} {tx("تذكير معلق", "pending reminder(s)")}</p>
           </div>
         </div>
         <Button onClick={openCreate} className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold gap-1.5">
-          <Plus className="h-4 w-4" /> تذكير جديد
+          <Plus className="h-4 w-4" /> {tx("تذكير جديد", "New Reminder")}
         </Button>
       </div>
 
       {/* Filter Tabs */}
       <div className="flex gap-2 border-b border-border pb-1">
         {[
-          { key: "pending", label: "معلقة" },
-          { key: "done",    label: "مكتملة" },
-          { key: "all",     label: "الكل" },
+          { key: "pending", label: tx("معلقة", "Pending") },
+          { key: "done",    label: tx("مكتملة", "Completed") },
+          { key: "all",     label: tx("الكل", "All") },
         ].map(tab => (
           <button
             key={tab.key}
@@ -129,12 +143,12 @@ export default function RemindersPage() {
       {/* List */}
       {isLoading ? (
         <div className="flex items-center justify-center h-40 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin ml-2" /> جارٍ التحميل...
+          <Loader2 className="h-5 w-5 animate-spin ml-2" /> {tx("جارٍ التحميل...", "Loading...")}
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">
           <Bell className="h-10 w-10 opacity-20" />
-          <p>لا توجد تذكيرات</p>
+          <p>{tx("لا توجد تذكيرات", "No reminders")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -186,10 +200,10 @@ export default function RemindersPage() {
                             overdue ? "text-red-400" : today ? "text-amber-400" : "text-muted-foreground"
                           )}>
                             {overdue ? <AlertTriangle className="h-2.5 w-2.5" /> : <Calendar className="h-2.5 w-2.5" />}
-                            {new Date(r.due_date).toLocaleDateString("ar-SA")}
-                            {r.due_time && ` • ${r.due_time}`}
-                            {overdue && " (متأخر)"}
-                            {today && !overdue && " (اليوم)"}
+                            {new Date(r.due_date).toLocaleDateString(dateLocale)}
+                            {r.due_time && ` · ${r.due_time}`}
+                            {overdue && ` (${tx("متأخر", "Overdue")})`}
+                            {today && !overdue && ` (${tx("اليوم", "Today")})`}
                           </span>
                         )}
                         {r.case_title && (
@@ -209,37 +223,37 @@ export default function RemindersPage() {
 
       {/* Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="bg-card border-border max-w-md" dir="rtl">
-          <DialogHeader><DialogTitle>{editing ? "تعديل التذكير" : "تذكير جديد"}</DialogTitle></DialogHeader>
+        <DialogContent className="bg-card border-border max-w-md" dir={dir}>
+          <DialogHeader><DialogTitle>{editing ? tx("تعديل التذكير", "Edit Reminder") : tx("تذكير جديد", "New Reminder")}</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
             <div>
-              <Label>العنوان *</Label>
-              <Input value={form.title} onChange={e => set("title", e.target.value)} placeholder="عنوان التذكير" className="mt-1" />
+              <Label>{tx("العنوان *", "Title *")}</Label>
+              <Input value={form.title} onChange={e => set("title", e.target.value)} placeholder={tx("عنوان التذكير", "Reminder title")} className="mt-1" />
             </div>
             <div>
-              <Label>التفاصيل</Label>
-              <Textarea value={form.body} onChange={e => set("body", e.target.value)} placeholder="وصف اختياري..." rows={2} className="mt-1" />
+              <Label>{tx("التفاصيل", "Details")}</Label>
+              <Textarea value={form.body} onChange={e => set("body", e.target.value)} placeholder={tx("وصف اختياري...", "Optional description...")} rows={2} className="mt-1" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>التاريخ</Label>
+                <Label>{tx("التاريخ", "Date")}</Label>
                 <Input type="date" value={form.dueDate} onChange={e => set("dueDate", e.target.value)} className="mt-1" />
               </div>
               <div>
-                <Label>الوقت</Label>
+                <Label>{tx("الوقت", "Time")}</Label>
                 <Input type="time" value={form.dueTime} onChange={e => set("dueTime", e.target.value)} className="mt-1" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>الأولوية</Label>
+                <Label>{tx("الأولوية", "Priority")}</Label>
                 <Select value={form.priority} onValueChange={v => set("priority", v)}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>{PRIORITIES.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>الفئة</Label>
+                <Label>{tx("الفئة", "Category")}</Label>
                 <Select value={form.category} onValueChange={v => set("category", v)}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>{CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
@@ -248,10 +262,10 @@ export default function RemindersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>{tx("إلغاء", "Cancel")}</Button>
             <Button onClick={submit} disabled={saveMut.isPending} className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold">
               {saveMut.isPending && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}
-              {editing ? "حفظ التعديلات" : "إضافة"}
+              {editing ? tx("حفظ التعديلات", "Save Changes") : tx("إضافة", "Add")}
             </Button>
           </DialogFooter>
         </DialogContent>

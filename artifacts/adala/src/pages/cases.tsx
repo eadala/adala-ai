@@ -18,20 +18,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getListCasesQueryKey } from "@workspace/api-client-react";
 import { DocumentPrintTemplate, PrintButton } from "@/components/document-print-template";
 import { useBranding } from "@/hooks/use-branding";
-
-const STATUS_MAP: Record<string, string> = {
-  open: "مفتوحة",
-  in_progress: "قيد التنفيذ",
-  closed: "مغلقة"
-};
-
-const TYPE_MAP: Record<string, string> = {
-  criminal: "جنائية",
-  civil: "مدنية",
-  commercial: "تجارية",
-  labor: "عمالية",
-  real_estate: "عقارية",
-};
+import { useLang } from "@/hooks/use-lang";
 
 export default function Cases() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -42,6 +29,21 @@ export default function Cases() {
   const createCase = useCreateCase();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { tx, dateLocale, dir } = useLang();
+
+  const STATUS_MAP: Record<string, string> = {
+    open: tx("مفتوحة", "Open"),
+    in_progress: tx("قيد التنفيذ", "In Progress"),
+    closed: tx("مغلقة", "Closed"),
+  };
+
+  const TYPE_MAP: Record<string, string> = {
+    criminal:    tx("جنائية", "Criminal"),
+    civil:       tx("مدنية", "Civil"),
+    commercial:  tx("تجارية", "Commercial"),
+    labor:       tx("عمالية", "Labor"),
+    real_estate: tx("عقارية", "Real Estate"),
+  };
 
   const handleCreate = () => {
     if (!newCase.title) return;
@@ -52,14 +54,14 @@ export default function Cases() {
           setIsNewDialogOpen(false);
           setNewCase({ title: "", caseType: "civil", clientName: "" });
           queryClient.invalidateQueries({ queryKey: getListCasesQueryKey() });
-          toast({ title: "تم إنشاء القضية", description: "تمت إضافة القضية الجديدة بنجاح." });
+          toast({ title: tx("تم إنشاء القضية", "Case Created"), description: tx("تمت إضافة القضية الجديدة بنجاح.", "New case added successfully.") });
         }
       }
     );
   };
 
-  const filteredCases = cases?.filter(c => 
-    c.title.includes(searchTerm) || 
+  const filteredCases = cases?.filter(c =>
+    c.title.includes(searchTerm) ||
     (c.clientName && c.clientName.includes(searchTerm))
   );
 
@@ -67,26 +69,32 @@ export default function Cases() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">إدارة القضايا</h1>
-          <p className="text-muted-foreground mt-1">عرض وإدارة جميع القضايا النشطة والمغلقة</p>
+          <h1 className="text-3xl font-bold tracking-tight">{tx("إدارة القضايا", "Case Management")}</h1>
+          <p className="text-muted-foreground mt-1">{tx("عرض وإدارة جميع القضايا النشطة والمغلقة", "View and manage all active and closed cases")}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1.5">
-            <Upload className="h-4 w-4" /> استيراد CSV
+            <Upload className="h-4 w-4" /> {tx("استيراد CSV", "Import CSV")}
           </Button>
           <ImportDialog open={importOpen} onOpenChange={setImportOpen} type="cases" queryKey={getListCasesQueryKey()} />
-          <PrintButton label="تصدير PDF">
+          <PrintButton label={tx("تصدير PDF", "Export PDF")}>
             <DocumentPrintTemplate
-              title="كشف القضايا"
-              subtitle={`إجمالي القضايا: ${filteredCases?.length ?? 0}`}
-              date={new Date().toLocaleDateString("ar-EG")}
+              title={tx("كشف القضايا", "Cases Report")}
+              subtitle={tx(`إجمالي القضايا: ${filteredCases?.length ?? 0}`, `Total cases: ${filteredCases?.length ?? 0}`)}
+              date={new Date().toLocaleDateString(dateLocale)}
               showStamp
               showSignature
             >
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                 <thead>
                   <tr style={{ background: "#f5f5f5" }}>
-                    {["عنوان القضية", "الموكل", "النوع", "الحالة", "تاريخ الإضافة"].map(h => (
+                    {[
+                      tx("عنوان القضية", "Case Title"),
+                      tx("الموكل", "Client"),
+                      tx("النوع", "Type"),
+                      tx("الحالة", "Status"),
+                      tx("تاريخ الإضافة", "Date Added"),
+                    ].map(h => (
                       <th key={h} style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>{h}</th>
                     ))}
                   </tr>
@@ -98,7 +106,7 @@ export default function Cases() {
                       <td style={{ border: "1px solid #ddd", padding: "8px" }}>{c.clientName || "—"}</td>
                       <td style={{ border: "1px solid #ddd", padding: "8px" }}>{TYPE_MAP[c.caseType] || c.caseType}</td>
                       <td style={{ border: "1px solid #ddd", padding: "8px" }}>{STATUS_MAP[c.status] || c.status}</td>
-                      <td style={{ border: "1px solid #ddd", padding: "8px" }}>{new Date(c.createdAt).toLocaleDateString("ar-EG")}</td>
+                      <td style={{ border: "1px solid #ddd", padding: "8px" }}>{new Date(c.createdAt).toLocaleDateString(dateLocale)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -106,47 +114,47 @@ export default function Cases() {
             </DocumentPrintTemplate>
           </PrintButton>
           <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="hover-elevate">
-              <Plus className="ml-2 h-4 w-4" />
-              قضية جديدة
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>إضافة قضية جديدة</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">عنوان القضية</Label>
-                <Input id="title" value={newCase.title} onChange={e => setNewCase({...newCase, title: e.target.value})} placeholder="مثال: قضية نزاع تجاري لشركة الرواد" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="clientName">اسم الموكل</Label>
-                <Input id="clientName" value={newCase.clientName} onChange={e => setNewCase({...newCase, clientName: e.target.value})} placeholder="اسم العميل أو الشركة" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="type">نوع القضية</Label>
-                <Select value={newCase.caseType} onValueChange={v => setNewCase({...newCase, caseType: v})}>
-                  <SelectTrigger dir="rtl">
-                    <SelectValue placeholder="اختر نوع القضية" />
-                  </SelectTrigger>
-                  <SelectContent dir="rtl">
-                    {Object.entries(TYPE_MAP).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsNewDialogOpen(false)}>إلغاء</Button>
-              <Button onClick={handleCreate} disabled={createCase.isPending}>
-                {createCase.isPending ? "جاري الإنشاء..." : "إنشاء القضية"}
+            <DialogTrigger asChild>
+              <Button className="hover-elevate">
+                <Plus className="ml-2 h-4 w-4" />
+                {tx("قضية جديدة", "New Case")}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent dir={dir}>
+              <DialogHeader>
+                <DialogTitle>{tx("إضافة قضية جديدة", "Add New Case")}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">{tx("عنوان القضية", "Case Title")}</Label>
+                  <Input id="title" value={newCase.title} onChange={e => setNewCase({...newCase, title: e.target.value})} placeholder={tx("مثال: قضية نزاع تجاري لشركة الرواد", "e.g., Commercial dispute – Al-Ruwad Co.")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientName">{tx("اسم الموكل", "Client Name")}</Label>
+                  <Input id="clientName" value={newCase.clientName} onChange={e => setNewCase({...newCase, clientName: e.target.value})} placeholder={tx("اسم العميل أو الشركة", "Client or company name")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="type">{tx("نوع القضية", "Case Type")}</Label>
+                  <Select value={newCase.caseType} onValueChange={v => setNewCase({...newCase, caseType: v})}>
+                    <SelectTrigger dir={dir}>
+                      <SelectValue placeholder={tx("اختر نوع القضية", "Select case type")} />
+                    </SelectTrigger>
+                    <SelectContent dir={dir}>
+                      {Object.entries(TYPE_MAP).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsNewDialogOpen(false)}>{tx("إلغاء", "Cancel")}</Button>
+                <Button onClick={handleCreate} disabled={createCase.isPending}>
+                  {createCase.isPending ? tx("جاري الإنشاء...", "Creating...") : tx("إنشاء القضية", "Create Case")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -155,9 +163,9 @@ export default function Cases() {
           <div className="flex items-center gap-2 max-w-sm w-full">
             <div className="relative w-full">
               <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input 
-                placeholder="ابحث برقم أو عنوان القضية..." 
-                className="w-full pl-4 pr-10" 
+              <Input
+                placeholder={tx("ابحث برقم أو عنوان القضية...", "Search by number or case title...")}
+                className="w-full pl-4 pr-10"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
@@ -171,11 +179,11 @@ export default function Cases() {
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead className="text-right">عنوان القضية</TableHead>
-                <TableHead className="text-right">الموكل</TableHead>
-                <TableHead className="text-right">النوع</TableHead>
-                <TableHead className="text-right">الحالة</TableHead>
-                <TableHead className="text-right">تاريخ الإضافة</TableHead>
+                <TableHead className="text-right">{tx("عنوان القضية", "Case Title")}</TableHead>
+                <TableHead className="text-right">{tx("الموكل", "Client")}</TableHead>
+                <TableHead className="text-right">{tx("النوع", "Type")}</TableHead>
+                <TableHead className="text-right">{tx("الحالة", "Status")}</TableHead>
+                <TableHead className="text-right">{tx("تاريخ الإضافة", "Date Added")}</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -194,7 +202,7 @@ export default function Cases() {
               ) : filteredCases?.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
-                    لم يتم العثور على قضايا
+                    {tx("لم يتم العثور على قضايا", "No cases found")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -218,7 +226,7 @@ export default function Cases() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(c.createdAt).toLocaleDateString('ar-EG')}
+                      {new Date(c.createdAt).toLocaleDateString(dateLocale)}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -229,10 +237,10 @@ export default function Cases() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                            <Link href={`/cases/${c.id}`}>عرض التفاصيل</Link>
+                            <Link href={`/cases/${c.id}`}>{tx("عرض التفاصيل", "View Details")}</Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem>تعديل القضية</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">أرشفة</DropdownMenuItem>
+                          <DropdownMenuItem>{tx("تعديل القضية", "Edit Case")}</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive">{tx("أرشفة", "Archive")}</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
