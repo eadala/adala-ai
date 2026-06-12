@@ -20,6 +20,7 @@ import HRSystems from "@/pages/hr-systems";
 import Messages from "@/pages/messages";
 import Billing from "@/pages/billing";
 import AiChat from "@/pages/ai-chat";
+import AIHub from "@/pages/ai-hub";
 import OpponentSimulator from "@/pages/opponent-simulator";
 import AiAgents from "@/pages/ai-agents";
 import CommandCenter from "@/pages/command-center";
@@ -285,6 +286,9 @@ function AppRoutes() {
             </Route>
             <Route path="/ai-tasks">
               <ProtectedRoute><AiTasks /></ProtectedRoute>
+            </Route>
+            <Route path="/ai-hub">
+              <ProtectedRoute><AIHub /></ProtectedRoute>
             </Route>
             <Route path="/ai-chat">
               <ProtectedRoute><AiChat /></ProtectedRoute>
