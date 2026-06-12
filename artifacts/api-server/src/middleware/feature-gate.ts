@@ -10,7 +10,7 @@ export async function getOfficeFeatureFlags(): Promise<Record<string, boolean>> 
   if (_cache && Date.now() - _cache.ts < TTL) return _cache.flags;
   try {
     const offices = await db.select({ plan: officePageTable.plan }).from(officePageTable).limit(1);
-    const slug = offices[0]?.plan ?? "starter";
+    const slug = offices[0]?.plan ?? "free";
     const plans = await db.select({ featureFlags: plansTable.featureFlags }).from(plansTable).where(eq(plansTable.slug, slug)).limit(1);
     const flags = (plans[0]?.featureFlags ?? {}) as Record<string, boolean>;
     _cache = { flags, ts: Date.now() };

@@ -14,7 +14,7 @@ const router = Router();
 router.get("/office/subscription", async (_req, res) => {
   try {
     const offices = await db.select().from(officePageTable).limit(1);
-    const officePlan = offices[0]?.plan ?? "starter";
+    const officePlan = offices[0]?.plan ?? "free";
 
     const plans = await db.select().from(plansTable)
       .where(eq(plansTable.slug, officePlan))
@@ -22,18 +22,22 @@ router.get("/office/subscription", async (_req, res) => {
     const plan = plans[0];
 
     if (!plan) {
+      // Default "free" plan flags when no matching plan row found in DB
       return res.json({
-        planSlug: officePlan,
-        planName: officePlan,
-        planColor: "#C9A84C",
+        planSlug: "free",
+        planName: "مجاني",
+        planColor: "#64748B",
         featureFlags: {
-          website: true, serviceStore: true, payments: true, booking: true,
-          blog: false, seo: false, clientPortal: false, ai: false,
-          ocr: false, api: false, whatsapp: false, branches: false,
-          workflow: false, sla: false, assistant: false,
-          customDomain: false, calendar: true, advancedReports: false, whiteLabel: false,
+          cases: true, invoices: true, reminders: true, calendar: true,
+          exportPdf: true, aiBasic: true, reportsBasic: true,
+          website: false, serviceStore: false, payments: false, contractsAi: false,
+          mobileApp: false, ai: false, aiAnalytics: false, reportsAdvanced: false,
+          ocr: false, backup: false, clientPortal: false, branches: false,
+          whatsapp: false, workflow: false, customDomain: false,
+          api: false, assistant: false, aiCfo: false, whiteLabel: false,
+          sla: false, dedicatedManager: false, customAiTraining: false,
         },
-        limits: { maxUsers: 5, maxCases: 100, maxClients: 50, maxAiCalls: 500, maxStorageGb: 5, maxBranches: 0 },
+        limits: { maxUsers: 1, maxCases: 5, maxClients: 10, maxAiCalls: 5, maxStorageGb: 1, maxBranches: 0 },
         isActive: true,
       });
     }

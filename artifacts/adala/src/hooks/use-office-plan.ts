@@ -48,8 +48,8 @@ export function useOfficePlan() {
   return {
     plan:       data ?? null,
     isLoaded:   !isLoading,
-    planSlug:   data?.planSlug ?? "starter",
-    planName:   data?.planName ?? "مبتدئ",
+    planSlug:   data?.planSlug ?? "free",
+    planName:   data?.planName ?? "مجاني",
     planColor:  data?.planColor ?? "#C9A84C",
     limits:     data?.limits,
     hasFeature: (code: string): boolean => flags[code] === true,

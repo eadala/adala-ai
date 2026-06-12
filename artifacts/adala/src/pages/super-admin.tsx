@@ -189,16 +189,30 @@ const TABS = [
    OFFICES TAB
 ═══════════════════════════════════════════════════ */
 const PLAN_SLUG_COLORS: Record<string, string> = {
-  free:         "#6B7280",
+  free:         "#64748B",
+  basic:        "#3B82F6",
+  pro:          "#C9A84C",
+  growth:       "#8B5CF6",
+  advanced:     "#EC4899",
+  enterprise:   "#10B981",
+  elite:        "#F59E0B",
+  /* legacy */
   starter:      "#3B82F6",
   professional: "#C9A84C",
-  enterprise:   "#8B5CF6",
+  business:     "#8B5CF6",
 };
 const PLAN_SLUG_LABELS: Record<string, string> = {
   free:         "مجاني",
-  starter:      "مبتدئ",
-  professional: "احترافي",
+  basic:        "مبتدئ",
+  pro:          "احترافي",
+  growth:       "نمو",
+  advanced:     "متقدم",
   enterprise:   "مؤسسي",
+  elite:        "النخبة",
+  /* legacy */
+  starter:      "مبتدئ (قديم)",
+  professional: "احترافي (قديم)",
+  business:     "أعمال (قديم)",
 };
 
 function OfficesTab({ qc, toast }: any) {
