@@ -152,6 +152,7 @@ export default function Analytics() {
   const { data: cases = {},    isFetching: cLoading } = useQuery<any>(qOpts(["cases"]));
   const { data: team = {},     isFetching: tLoading } = useQuery<any>(qOpts(["team"]));
   const { data: clients = {},  isFetching: clLoading } = useQuery<any>(qOpts(["clients"]));
+  const { data: perf = {},     isFetching: pLoading } = useQuery<any>(qOpts(["performance"]));
 
   const { data: aiData, isFetching: aiLoading } = useQuery<{ insights: string; modelUsed: string; cached: boolean }>({
     queryKey: ["ai-insights", period, aiForce],
@@ -160,7 +161,7 @@ export default function Analytics() {
     staleTime: Infinity,
   });
 
-  const isLoading = fLoading || cLoading || tLoading || clLoading;
+  const isLoading = fLoading || cLoading || tLoading || clLoading || pLoading;
 
   const printReport = useCallback(() => {
     const fin = financial as any;
@@ -286,10 +287,13 @@ tr:nth-child(even) td{background:#fafafa}
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="financial">
-        <TabsList className="w-full md:w-auto bg-muted/40 p-1">
+      <Tabs defaultValue="performance">
+        <TabsList className="w-full md:w-auto bg-muted/40 p-1 flex-wrap h-auto">
+          <TabsTrigger value="performance" className="gap-1.5 text-xs">
+            <Target className="h-3.5 w-3.5" /> درجة الأداء
+          </TabsTrigger>
           <TabsTrigger value="financial" className="gap-1.5 text-xs">
-            <DollarSign className="h-3.5 w-3.5" /> الأداء المالي
+            <DollarSign className="h-3.5 w-3.5" /> المالية
           </TabsTrigger>
           <TabsTrigger value="cases" className="gap-1.5 text-xs">
             <Scale className="h-3.5 w-3.5" /> القضايا
@@ -304,6 +308,152 @@ tr:nth-child(even) td{background:#fafafa}
             <BrainCircuit className="h-3.5 w-3.5" /> تحليل ذكي
           </TabsTrigger>
         </TabsList>
+
+        {/* ── PERFORMANCE TAB ──────────────────────────────── */}
+        <TabsContent value="performance" className="mt-4 space-y-4">
+          {(() => {
+            const p = perf as any;
+            const score = p.composite ?? 0;
+            const band = p.scoreBand ?? "average";
+            const dim  = p.dimensions ?? {};
+            const benchmarks = p.benchmarks ?? { industryAvg: 62, topQuartile: 83 };
+
+            const BAND_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+              excellent:        { label: "ممتاز",     color: "#10B981", bg: "#10B98115" },
+              good:             { label: "جيد جداً",  color: "#C9A84C", bg: "#C9A84C15" },
+              average:          { label: "متوسط",     color: "#6366F1", bg: "#6366F115" },
+              needsImprovement: { label: "يحتاج تطوير", color: "#EF4444", bg: "#EF444415" },
+            };
+            const cfg = BAND_CONFIG[band] ?? BAND_CONFIG.average;
+
+            /* SVG Gauge */
+            const GaugeArc = ({ pct, color }: { pct: number; color: string }) => {
+              const r = 60, cx = 80, cy = 80;
+              const startAngle = Math.PI;
+              const endAngle   = startAngle + (Math.PI * Math.min(pct, 100)) / 100;
+              const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
+              const x2 = cx + r * Math.cos(endAngle),   y2 = cy + r * Math.sin(endAngle);
+              const large = endAngle - startAngle > Math.PI ? 1 : 0;
+              return (
+                <svg width="160" height="100" className="mx-auto">
+                  <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke="#ffffff10" strokeWidth="14" strokeLinecap="round" />
+                  {pct > 0 && <path d={`M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`} fill="none" stroke={color} strokeWidth="14" strokeLinecap="round" />}
+                  <text x={cx} y={cy + 4} textAnchor="middle" fontSize="22" fontWeight="900" fill={color}>{score}</text>
+                  <text x={cx} y={cy + 18} textAnchor="middle" fontSize="9" fill="#94a3b8">/100</text>
+                </svg>
+              );
+            };
+
+            const DimCard = ({ label, score: s, sub, color }: { label: string; score: number; sub: string; color: string }) => (
+              <div className="p-4 rounded-xl border border-border/40 bg-muted/20 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+                  <span className="text-sm font-black" style={{ color }}>{s}</span>
+                </div>
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${s}%`, background: color }} />
+                </div>
+                <p className="text-[10px] text-muted-foreground">{sub}</p>
+              </div>
+            );
+
+            return (
+              <div className="space-y-5">
+                {/* Score Hero */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Card className="border-0 bg-card/60">
+                    <CardContent className="p-6 flex flex-col items-center gap-3">
+                      <GaugeArc pct={score} color={cfg.color} />
+                      <div className="text-center">
+                        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold" style={{ background: cfg.bg, color: cfg.color }}>
+                          {cfg.label}
+                        </span>
+                        {p.trend !== undefined && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {p.trend >= 0 ? "▲" : "▼"} {Math.abs(p.trend)} نقطة مقارنة بالفترة السابقة
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground text-center">درجة أداء المكتب الشاملة</p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Benchmark Comparison */}
+                  <Card className="border-0 bg-card/60">
+                    <CardContent className="p-5 space-y-4">
+                      <p className="text-sm font-bold">مقارنة بالمعايير</p>
+                      {[
+                        { label: "درجتك", val: score, color: cfg.color },
+                        { label: "متوسط السوق", val: benchmarks.industryAvg, color: "#6366F1" },
+                        { label: "أفضل ربع", val: benchmarks.topQuartile, color: "#10B981" },
+                      ].map(b => (
+                        <div key={b.label} className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">{b.label}</span>
+                            <span className="font-bold" style={{ color: b.color }}>{b.val}</span>
+                          </div>
+                          <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${b.val}%`, background: b.color }} />
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* 4 Dimensions */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <DimCard label="الأداء المالي" score={dim.financial?.score ?? 0} color="#10B981"
+                    sub={`تحصيل ${dim.financial?.collectionRate ?? 0}% · هامش ${dim.financial?.profitMargin ?? 0}%`} />
+                  <DimCard label="القضايا" score={dim.cases?.score ?? 0} color="#6366F1"
+                    sub={`نجاح ${dim.cases?.successRate ?? 0}% · متوسط ${dim.cases?.avgDays ?? 0} يوم`} />
+                  <DimCard label="العملاء" score={dim.clients?.score ?? 0} color="#C9A84C"
+                    sub={`احتفاظ ${dim.clients?.retention?.toFixed(0) ?? 0}% · ${dim.clients?.repeat ?? 0} عميل متكرر`} />
+                  <DimCard label="الذكاء الاصطناعي" score={dim.ai?.score ?? 0} color="#F59E0B"
+                    sub={`${dim.ai?.calls ?? 0} طلب · ${dim.ai?.usagePct ?? 0}% مستهلك`} />
+                </div>
+
+                {/* AI Usage Detail */}
+                {dim.ai && (
+                  <Card className="border-0 bg-card/60">
+                    <CardContent className="p-5">
+                      <p className="text-sm font-bold mb-3 flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-[#F59E0B]" /> تفاصيل استخدام الذكاء الاصطناعي
+                      </p>
+                      <div className="grid grid-cols-4 gap-3">
+                        {[
+                          { label: "الطلبات", val: (dim.ai.calls ?? 0).toLocaleString(), color: "#F59E0B" },
+                          { label: "الوحدات", val: (dim.ai.units ?? 0).toLocaleString(), color: "#C9A84C" },
+                          { label: "الرصيد المتبقي", val: dim.ai.balance ?? 0, color: "#10B981" },
+                          { label: "المخصص الشهري", val: dim.ai.allowance ?? 0, color: "#6366F1" },
+                        ].map(s => (
+                          <div key={s.label} className="text-center p-2 bg-muted/30 rounded-lg">
+                            <div className="text-lg font-black" style={{ color: s.color }}>{s.val}</div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5">{s.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {dim.ai.allowance > 0 && (
+                        <div className="mt-3">
+                          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                            <span>الاستهلاك</span>
+                            <span>{dim.ai.usagePct ?? 0}%</span>
+                          </div>
+                          <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{
+                              width: `${dim.ai.usagePct ?? 0}%`,
+                              background: (dim.ai.usagePct ?? 0) >= 90 ? "#EF4444" : (dim.ai.usagePct ?? 0) >= 70 ? "#F59E0B" : "#10B981"
+                            }} />
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            );
+          })()}
+        </TabsContent>
 
         {/* ── FINANCIAL TAB ────────────────────────────────── */}
         <TabsContent value="financial" className="mt-4 space-y-4">
