@@ -17,32 +17,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-
-const CLIENT_TYPES = [
-  { value: "individual", label: "فرد", icon: User, color: "#6366F1" },
-  { value: "company", label: "شركة", icon: Building2, color: "#10B981" },
-  { value: "government", label: "جهة حكومية", icon: Landmark, color: "#F59E0B" },
-];
-
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  active: { label: "نشط", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
-  inactive: { label: "غير نشط", color: "bg-muted text-muted-foreground border-border" },
-  potential: { label: "محتمل", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
-};
-
-const SOURCES = [
-  { value: "direct", label: "مباشر" },
-  { value: "referral", label: "إحالة" },
-  { value: "website", label: "الموقع" },
-  { value: "marketplace", label: "السوق الإلكتروني" },
-  { value: "other", label: "أخرى" },
-];
+import { useLang } from "@/hooks/use-lang";
 
 const EMPTY_FORM = { fullName: "", type: "individual", email: "", phone: "", company: "", nationalId: "", notes: "", status: "active", source: "direct" };
 
-function ClientCard({ client, onEdit, onDelete }: any) {
-  const typeConfig = CLIENT_TYPES.find(t => t.value === client.type) ?? CLIENT_TYPES[0];
-  const statusConfig = STATUS_CONFIG[client.status] ?? STATUS_CONFIG.active;
+function ClientCard({ client, onEdit, onDelete, tx, dir }: any) {
+  const CLIENT_TYPES_LOCAL = [
+    { value: "individual", label: tx("فرد", "Individual"), icon: User, color: "#6366F1" },
+    { value: "company",    label: tx("شركة", "Company"),   icon: Building2, color: "#10B981" },
+    { value: "government", label: tx("جهة حكومية", "Government"), icon: Landmark, color: "#F59E0B" },
+  ];
+  const STATUS_CONFIG_LOCAL: Record<string, { label: string; color: string }> = {
+    active:    { label: tx("نشط", "Active"),      color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
+    inactive:  { label: tx("غير نشط", "Inactive"), color: "bg-muted text-muted-foreground border-border" },
+    potential: { label: tx("محتمل", "Potential"),  color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
+  };
+  const SOURCES_LOCAL = [
+    { value: "direct",      label: tx("مباشر", "Direct") },
+    { value: "referral",    label: tx("إحالة", "Referral") },
+    { value: "website",     label: tx("الموقع", "Website") },
+    { value: "marketplace", label: tx("السوق الإلكتروني", "Marketplace") },
+    { value: "other",       label: tx("أخرى", "Other") },
+  ];
+
+  const typeConfig = CLIENT_TYPES_LOCAL.find(t => t.value === client.type) ?? CLIENT_TYPES_LOCAL[0];
+  const statusConfig = STATUS_CONFIG_LOCAL[client.status] ?? STATUS_CONFIG_LOCAL.active;
   const TypeIcon = typeConfig.icon;
 
   return (
@@ -67,8 +66,8 @@ function ClientCard({ client, onEdit, onDelete }: any) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => onEdit(client)}><Edit3 className="h-4 w-4 ml-2" /> تعديل</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDelete(client.id)} className="text-red-400"><Trash2 className="h-4 w-4 ml-2" /> حذف</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onEdit(client)}><Edit3 className="h-4 w-4 ml-2" /> {tx("تعديل", "Edit")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDelete(client.id)} className="text-red-400"><Trash2 className="h-4 w-4 ml-2" /> {tx("حذف", "Delete")}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -95,12 +94,12 @@ function ClientCard({ client, onEdit, onDelete }: any) {
 
         <div className="mt-3 pt-2 flex items-center justify-between text-[10px] text-muted-foreground">
           <span>{typeConfig.label}</span>
-          <span>مصدر: {SOURCES.find(s => s.value === client.source)?.label ?? client.source}</span>
+          <span>{tx("مصدر:", "Source:")} {SOURCES_LOCAL.find(s => s.value === client.source)?.label ?? client.source}</span>
         </div>
 
         <Link href={`/clients/${client.id}`} onClick={(e: any) => e.stopPropagation()}>
           <div className="mt-3 flex items-center justify-center gap-1 text-xs text-primary/70 hover:text-primary border border-primary/20 hover:border-primary/50 rounded-lg py-1.5 transition-colors">
-            <span>عرض الملف الكامل</span>
+            <span>{tx("عرض الملف الكامل", "View Full Profile")}</span>
             <ChevronLeft className="h-3 w-3" />
           </div>
         </Link>
@@ -119,6 +118,25 @@ export default function Clients() {
   const [importOpen, setImportOpen] = useState(false);
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { tx, dir } = useLang();
+
+  const CLIENT_TYPES = [
+    { value: "individual", label: tx("فرد", "Individual"),           icon: User,      color: "#6366F1" },
+    { value: "company",    label: tx("شركة", "Company"),             icon: Building2, color: "#10B981" },
+    { value: "government", label: tx("جهة حكومية", "Government"),    icon: Landmark,  color: "#F59E0B" },
+  ];
+  const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+    active:    { label: tx("نشط", "Active"),       color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
+    inactive:  { label: tx("غير نشط", "Inactive"), color: "bg-muted text-muted-foreground border-border" },
+    potential: { label: tx("محتمل", "Potential"),  color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
+  };
+  const SOURCES = [
+    { value: "direct",      label: tx("مباشر", "Direct") },
+    { value: "referral",    label: tx("إحالة", "Referral") },
+    { value: "website",     label: tx("الموقع", "Website") },
+    { value: "marketplace", label: tx("السوق الإلكتروني", "Marketplace") },
+    { value: "other",       label: tx("أخرى", "Other") },
+  ];
 
   const { data: clients = [], isLoading } = useQuery<any[]>({
     queryKey: ["clients"],
@@ -127,17 +145,17 @@ export default function Clients() {
 
   const createMutation = useMutation({
     mutationFn: (data: any) => fetch("/api/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); closeForm(); toast({ title: "تم إضافة العميل" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); closeForm(); toast({ title: tx("تم إضافة العميل", "Client added") }); },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, ...data }: any) => fetch(`/api/clients/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); closeForm(); toast({ title: "تم التحديث" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); closeForm(); toast({ title: tx("تم التحديث", "Updated") }); },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => fetch(`/api/clients/${id}`, { method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); toast({ title: "تم الحذف" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); toast({ title: tx("تم الحذف", "Deleted") }); },
   });
 
   const openEdit = (client: any) => { setEditing(client); setForm({ ...client }); setShowForm(true); };
@@ -156,8 +174,8 @@ export default function Clients() {
   );
 
   const stats = {
-    total: clients.length,
-    active: clients.filter(c => c.status === "active").length,
+    total:     clients.length,
+    active:    clients.filter(c => c.status === "active").length,
     companies: clients.filter(c => c.type === "company").length,
     potential: clients.filter(c => c.status === "potential").length,
   };
@@ -166,15 +184,15 @@ export default function Clients() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black">إدارة العملاء</h1>
-          <p className="text-muted-foreground text-sm">قاعدة بيانات عملائك الكاملة</p>
+          <h1 className="text-2xl font-black">{tx("إدارة العملاء", "Client Management")}</h1>
+          <p className="text-muted-foreground text-sm">{tx("قاعدة بيانات عملائك الكاملة", "Your complete client database")}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1.5 text-sm">
-            <Upload className="h-4 w-4" /> استيراد CSV
+            <Upload className="h-4 w-4" /> {tx("استيراد CSV", "Import CSV")}
           </Button>
           <Button onClick={() => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); }} className="gap-2">
-            <Plus className="h-4 w-4" /> عميل جديد
+            <Plus className="h-4 w-4" /> {tx("عميل جديد", "New Client")}
           </Button>
         </div>
       </div>
@@ -183,10 +201,10 @@ export default function Clients() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: "إجمالي العملاء", value: stats.total, icon: Users, color: "#6366F1" },
-          { label: "عملاء نشطون", value: stats.active, icon: Star, color: "#10B981" },
-          { label: "شركات", value: stats.companies, icon: Building2, color: "#F59E0B" },
-          { label: "عملاء محتملون", value: stats.potential, icon: TrendingUp, color: "#3B82F6" },
+          { label: tx("إجمالي العملاء", "Total Clients"),    value: stats.total,     icon: Users,      color: "#6366F1" },
+          { label: tx("عملاء نشطون", "Active Clients"),      value: stats.active,    icon: Star,       color: "#10B981" },
+          { label: tx("شركات", "Companies"),                  value: stats.companies, icon: Building2,  color: "#F59E0B" },
+          { label: tx("عملاء محتملون", "Potential Clients"),  value: stats.potential, icon: TrendingUp, color: "#3B82F6" },
         ].map(s => (
           <Card key={s.label}>
             <CardContent className="p-4 flex items-center gap-3">
@@ -206,19 +224,19 @@ export default function Clients() {
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="بحث بالاسم أو البريد أو الشركة..." className="pr-10" value={search} onChange={e => setSearch(e.target.value)} />
+          <Input placeholder={tx("بحث بالاسم أو البريد أو الشركة...", "Search by name, email or company...")} className="pr-10" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-36"><SelectValue placeholder="النوع" /></SelectTrigger>
+          <SelectTrigger className="w-36"><SelectValue placeholder={tx("النوع", "Type")} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">جميع الأنواع</SelectItem>
+            <SelectItem value="all">{tx("جميع الأنواع", "All Types")}</SelectItem>
             {CLIENT_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-36"><SelectValue placeholder="الحالة" /></SelectTrigger>
+          <SelectTrigger className="w-36"><SelectValue placeholder={tx("الحالة", "Status")} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">جميع الحالات</SelectItem>
+            <SelectItem value="all">{tx("جميع الحالات", "All Statuses")}</SelectItem>
             {Object.entries(STATUS_CONFIG).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -230,28 +248,28 @@ export default function Clients() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <Users className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p>لا يوجد عملاء — أضف عميلك الأول</p>
+          <p>{tx("لا يوجد عملاء — أضف عميلك الأول", "No clients — add your first client")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(c => <ClientCard key={c.id} client={c} onEdit={openEdit} onDelete={(id: string) => deleteMutation.mutate(id)} />)}
+          {filtered.map(c => <ClientCard key={c.id} client={c} onEdit={openEdit} onDelete={(id: string) => deleteMutation.mutate(id)} tx={tx} dir={dir} />)}
         </div>
       )}
 
       {/* Form Dialog */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) closeForm(); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editing ? "تعديل العميل" : "إضافة عميل جديد"}</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-md" dir={dir}>
+          <DialogHeader><DialogTitle>{editing ? tx("تعديل العميل", "Edit Client") : tx("إضافة عميل جديد", "Add New Client")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div><Label>الاسم الكامل *</Label><Input value={form.fullName} onChange={e => setForm(p => ({ ...p, fullName: e.target.value }))} placeholder="اسم العميل أو الشركة" /></div>
+            <div><Label>{tx("الاسم الكامل *", "Full Name *")}</Label><Input value={form.fullName} onChange={e => setForm(p => ({ ...p, fullName: e.target.value }))} placeholder={tx("اسم العميل أو الشركة", "Client or company name")} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>النوع</Label>
+              <div><Label>{tx("النوع", "Type")}</Label>
                 <Select value={form.type} onValueChange={v => setForm(p => ({ ...p, type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{CLIENT_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>الحالة</Label>
+              <div><Label>{tx("الحالة", "Status")}</Label>
                 <Select value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{Object.entries(STATUS_CONFIG).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}</SelectContent>
@@ -259,26 +277,26 @@ export default function Clients() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>البريد الإلكتروني</Label><Input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} /></div>
-              <div><Label>رقم الجوال</Label><Input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="05xxxxxxxx" /></div>
+              <div><Label>{tx("البريد الإلكتروني", "Email")}</Label><Input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} /></div>
+              <div><Label>{tx("رقم الجوال", "Phone")}</Label><Input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="05xxxxxxxx" /></div>
             </div>
-            {form.type === "company" && <div><Label>اسم الشركة</Label><Input value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))} /></div>}
+            {form.type === "company" && <div><Label>{tx("اسم الشركة", "Company Name")}</Label><Input value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))} /></div>}
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>رقم الهوية/السجل</Label><Input value={form.nationalId} onChange={e => setForm(p => ({ ...p, nationalId: e.target.value }))} /></div>
-              <div><Label>مصدر العميل</Label>
+              <div><Label>{tx("رقم الهوية/السجل", "ID / Registration")}</Label><Input value={form.nationalId} onChange={e => setForm(p => ({ ...p, nationalId: e.target.value }))} /></div>
+              <div><Label>{tx("مصدر العميل", "Client Source")}</Label>
                 <Select value={form.source} onValueChange={v => setForm(p => ({ ...p, source: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{SOURCES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
-            <div><Label>ملاحظات</Label><Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} className="resize-none min-h-[70px]" /></div>
+            <div><Label>{tx("ملاحظات", "Notes")}</Label><Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} className="resize-none min-h-[70px]" /></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeForm}>إلغاء</Button>
+            <Button variant="outline" onClick={closeForm}>{tx("إلغاء", "Cancel")}</Button>
             <Button onClick={handleSubmit} disabled={!form.fullName || createMutation.isPending || updateMutation.isPending} className="gap-2">
               {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 animate-spin" />}
-              {editing ? "حفظ التعديلات" : "إضافة العميل"}
+              {editing ? tx("حفظ التعديلات", "Save Changes") : tx("إضافة العميل", "Add Client")}
             </Button>
           </DialogFooter>
         </DialogContent>

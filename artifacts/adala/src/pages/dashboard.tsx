@@ -12,6 +12,7 @@ import {
   Activity, Bell, BarChart3, MapPin, Plus, ExternalLink
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useLang } from "@/hooks/use-lang";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 
@@ -37,93 +38,102 @@ const EVENT_COLORS: Record<string, string> = {
   task:           "border-purple-500/40 bg-purple-500/5 text-purple-300",
   other:          "border-border/50 bg-muted/30 text-muted-foreground",
 };
-const EVENT_TYPE_LABEL: Record<string, string> = {
-  court_session: "جلسة محكمة", deadline: "موعد نهائي",
-  client_meeting: "اجتماع عميل", team_meeting: "اجتماع فريق",
-  task: "مهمة", other: "حدث",
-};
-
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  open:        { label: "مفتوحة",       color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  in_progress: { label: "قيد التنفيذ",  color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
-  closed:      { label: "مغلقة",        color: "bg-green-500/10 text-green-400 border-green-500/20" },
-};
-const INV_STATUS: Record<string, { label: string; color: string }> = {
-  draft:    { label: "مسودة",  color: "text-gray-400" },
-  sent:     { label: "مُرسَلة", color: "text-blue-400" },
-  paid:     { label: "مدفوعة", color: "text-green-400" },
-  overdue:  { label: "متأخرة", color: "text-red-400" },
-  cancelled:{ label: "ملغاة",  color: "text-orange-400" },
-};
-
-function getGreeting(user: any): { greeting: string; sub: string } {
-  const hr = new Date().getHours();
-  const name = user?.firstName ?? "المحامي";
-  if (hr < 12) return { greeting: `صباح الخير، ${name} ⚖️`, sub: "ابدأ يومك بمراجعة القضايا الجديدة ومواعيد الجلسات" };
-  if (hr < 17) return { greeting: `مساء الخير، ${name}`, sub: "تابع قضاياك الجارية واطلع على آخر التحديثات" };
-  return { greeting: `مساء النور، ${name}`, sub: "راجع ملخص يومك وتأكد من الاستعداد لجلسات الغد" };
-}
 
 export default function Dashboard() {
   const { user } = useUser();
+  const { tx, isAr, dateLocale } = useLang();
+
   const { data, isLoading } = useQuery<Overview>({
     queryKey: ["dashboard-overview"],
     queryFn: () => fetch(`${BASE}api/dashboard/overview`).then(r => r.json()),
     refetchInterval: 60_000,
   });
 
-  const { greeting, sub } = getGreeting(user);
+  const EVENT_TYPE_LABEL: Record<string, string> = {
+    court_session:  tx("جلسة محكمة", "Court Session"),
+    deadline:       tx("موعد نهائي", "Deadline"),
+    client_meeting: tx("اجتماع عميل", "Client Meeting"),
+    team_meeting:   tx("اجتماع فريق", "Team Meeting"),
+    task:           tx("مهمة", "Task"),
+    other:          tx("حدث", "Event"),
+  };
+
+  const STATUS_MAP: Record<string, { label: string; color: string }> = {
+    open:        { label: tx("مفتوحة", "Open"),         color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+    in_progress: { label: tx("قيد التنفيذ", "In Progress"), color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
+    closed:      { label: tx("مغلقة", "Closed"),         color: "bg-green-500/10 text-green-400 border-green-500/20" },
+  };
+
+  const INV_STATUS: Record<string, { label: string; color: string }> = {
+    draft:    { label: tx("مسودة", "Draft"),      color: "text-gray-400" },
+    sent:     { label: tx("مُرسَلة", "Sent"),      color: "text-blue-400" },
+    paid:     { label: tx("مدفوعة", "Paid"),       color: "text-green-400" },
+    overdue:  { label: tx("متأخرة", "Overdue"),    color: "text-red-400" },
+    cancelled:{ label: tx("ملغاة", "Cancelled"),   color: "text-orange-400" },
+  };
+
+  const hr = new Date().getHours();
+  const name = user?.firstName ?? (isAr ? "المحامي" : "Counselor");
+  const greeting = isAr
+    ? hr < 12 ? `صباح الخير، ${name} ⚖️` : hr < 17 ? `مساء الخير، ${name}` : `مساء النور، ${name}`
+    : hr < 12 ? `Good morning, ${name} ⚖️` : hr < 17 ? `Good afternoon, ${name}` : `Good evening, ${name}`;
+  const greetingSub = isAr
+    ? hr < 12 ? "ابدأ يومك بمراجعة القضايا الجديدة ومواعيد الجلسات" : hr < 17 ? "تابع قضاياك الجارية واطلع على آخر التحديثات" : "راجع ملخص يومك وتأكد من الاستعداد لجلسات الغد"
+    : hr < 12 ? "Start your day by reviewing new cases and upcoming sessions" : hr < 17 ? "Follow up on active cases and check latest updates" : "Review your day summary and prepare for tomorrow's sessions";
+
   const kpis = data?.kpis ?? {};
 
   const kpiCards = [
     {
-      label: "القضايا النشطة", value: kpis.activeCases ?? 0,
-      sub: `${kpis.totalCases ?? 0} إجمالي | +${kpis.casesThisMonth ?? 0} هذا الشهر`,
+      label: tx("القضايا النشطة", "Active Cases"), value: kpis.activeCases ?? 0,
+      sub: tx(`${kpis.totalCases ?? 0} إجمالي | +${kpis.casesThisMonth ?? 0} هذا الشهر`, `${kpis.totalCases ?? 0} total | +${kpis.casesThisMonth ?? 0} this month`),
       icon: Scale, color: "text-primary", bg: "bg-primary/10", href: "/cases",
     },
     {
-      label: "العملاء", value: kpis.totalClients ?? 0,
-      sub: `+${kpis.clientsThisMonth ?? 0} عميل جديد هذا الشهر`,
+      label: tx("العملاء", "Clients"), value: kpis.totalClients ?? 0,
+      sub: tx(`+${kpis.clientsThisMonth ?? 0} عميل جديد هذا الشهر`, `+${kpis.clientsThisMonth ?? 0} new clients this month`),
       icon: Users, color: "text-blue-400", bg: "bg-blue-500/10", href: "/clients",
     },
     {
-      label: "الإيرادات المحصّلة", value: `${((kpis.paidRevenue ?? 0) / 100).toLocaleString("ar-SA", { maximumFractionDigits: 0 })} ر.س`,
-      sub: `${((kpis.outstanding ?? 0) / 100).toLocaleString("ar-SA", { maximumFractionDigits: 0 })} ر.س مستحقة`,
+      label: tx("الإيرادات المحصّلة", "Collected Revenue"),
+      value: `${((kpis.paidRevenue ?? 0) / 100).toLocaleString(dateLocale, { maximumFractionDigits: 0 })} ${tx("ر.س", "SAR")}`,
+      sub: tx(`${((kpis.outstanding ?? 0) / 100).toLocaleString(dateLocale, { maximumFractionDigits: 0 })} ر.س مستحقة`,
+               `${((kpis.outstanding ?? 0) / 100).toLocaleString(dateLocale, { maximumFractionDigits: 0 })} SAR outstanding`),
       icon: TrendingUp, color: "text-green-400", bg: "bg-green-500/10", href: "/invoices",
     },
     {
-      label: "مهام الذكاء الاصطناعي", value: kpis.aiCompleted ?? 0,
-      sub: `نسبة إنجاز القضايا ${kpis.successRate ?? 0}%`,
+      label: tx("مهام الذكاء الاصطناعي", "AI Tasks"), value: kpis.aiCompleted ?? 0,
+      sub: tx(`نسبة إنجاز القضايا ${kpis.successRate ?? 0}%`, `Case success rate ${kpis.successRate ?? 0}%`),
       icon: Bot, color: "text-purple-400", bg: "bg-purple-500/10", href: "/ai-agents",
     },
   ];
 
   const quickActions = [
-    { label: "قضية جديدة",    icon: Scale,     href: "/cases",         color: "border-primary/30 hover:bg-primary/10" },
-    { label: "عميل جديد",     icon: Users,     href: "/clients",       color: "border-blue-500/30 hover:bg-blue-500/10" },
-    { label: "فاتورة جديدة",  icon: Receipt,   href: "/invoices",      color: "border-green-500/30 hover:bg-green-500/10" },
-    { label: "عقد جديد",      icon: FileText,  href: "/contracts",     color: "border-yellow-500/30 hover:bg-yellow-500/10" },
-    { label: "المساعد الذكي", icon: Zap,        href: "/ai-chat",       color: "border-purple-500/30 hover:bg-purple-500/10" },
-    { label: "التقويم",       icon: CalendarDays, href: "/calendar",    color: "border-orange-500/30 hover:bg-orange-500/10" },
+    { label: tx("قضية جديدة", "New Case"),     icon: Scale,        href: "/cases",     color: "border-primary/30 hover:bg-primary/10" },
+    { label: tx("عميل جديد", "New Client"),    icon: Users,        href: "/clients",   color: "border-blue-500/30 hover:bg-blue-500/10" },
+    { label: tx("فاتورة جديدة", "New Invoice"), icon: Receipt,      href: "/invoices",  color: "border-green-500/30 hover:bg-green-500/10" },
+    { label: tx("عقد جديد", "New Contract"),   icon: FileText,     href: "/contracts", color: "border-yellow-500/30 hover:bg-yellow-500/10" },
+    { label: tx("المساعد الذكي", "AI Assistant"), icon: Zap,        href: "/ai-chat",   color: "border-purple-500/30 hover:bg-purple-500/10" },
+    { label: tx("التقويم", "Calendar"),         icon: CalendarDays, href: "/calendar",  color: "border-orange-500/30 hover:bg-orange-500/10" },
   ];
 
   return (
     <div className="space-y-6 max-w-7xl">
-      {/* ── Greeting ─────────────────────────────────────────────────────── */}
+      {/* ── Greeting */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-black tracking-tight">{greeting}</h1>
-          <p className="text-muted-foreground text-sm mt-1">{sub}</p>
+          <p className="text-muted-foreground text-sm mt-1">{greetingSub}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {new Date().toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+            {new Date().toLocaleDateString(dateLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
         </div>
       </div>
 
-      {/* ── Executive Assistant Widget ────────────────────────────────────── */}
+      {/* ── Executive Assistant Widget */}
       <ExecutiveAssistant />
 
-      {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
+      {/* ── KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {isLoading
           ? Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
@@ -150,7 +160,7 @@ export default function Dashboard() {
             })}
       </div>
 
-      {/* ── Smart Alerts ─────────────────────────────────────────────────── */}
+      {/* ── Smart Alerts */}
       {(data?.alerts ?? []).length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {(data?.alerts ?? []).map((alert, i) => (
@@ -176,11 +186,12 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ── Revenue Chart ───────────────────────────────────────────────── */}
+        {/* ── Revenue Chart */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />الإيرادات (6 أشهر)
+              <BarChart3 className="h-4 w-4 text-primary" />
+              {tx("الإيرادات (6 أشهر)", "Revenue (6 months)")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -197,10 +208,10 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                     <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
                     <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false}
-                      tickFormatter={v => `${v.toLocaleString("ar-SA")} ر.س`} width={75} />
+                      tickFormatter={v => `${v.toLocaleString(dateLocale)} ${tx("ر.س","SAR")}`} width={75} />
                     <Tooltip
                       contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }}
-                      formatter={(v: any) => [`${Number(v).toLocaleString("ar-SA")} ر.س`, "الإيرادات"]}
+                      formatter={(v: any) => [`${Number(v).toLocaleString(dateLocale)} ${tx("ر.س","SAR")}`, tx("الإيرادات","Revenue")]}
                     />
                     <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))"
                       strokeWidth={2} fill="url(#revGrad)" />
@@ -211,15 +222,16 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* ── Today Schedule ──────────────────────────────────────────────── */}
+        {/* ── Today Schedule */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-primary" />جدول اليوم
+                <CalendarDays className="h-4 w-4 text-primary" />
+                {tx("جدول اليوم", "Today's Schedule")}
               </CardTitle>
               <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" asChild>
-                <Link href="/calendar"><ExternalLink className="h-3 w-3" />الكل</Link>
+                <Link href="/calendar"><ExternalLink className="h-3 w-3" />{tx("الكل", "All")}</Link>
               </Button>
             </div>
           </CardHeader>
@@ -229,16 +241,16 @@ export default function Dashboard() {
             ) : (data?.todayEvents ?? []).length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 gap-2">
                 <CalendarDays className="h-8 w-8 text-muted-foreground/30" />
-                <p className="text-xs text-muted-foreground">لا توجد مواعيد اليوم</p>
+                <p className="text-xs text-muted-foreground">{tx("لا توجد مواعيد اليوم", "No appointments today")}</p>
                 <Button size="sm" variant="outline" className="text-xs gap-1 h-7 mt-1" asChild>
-                  <Link href="/calendar"><Plus className="h-3 w-3" />إضافة موعد</Link>
+                  <Link href="/calendar"><Plus className="h-3 w-3" />{tx("إضافة موعد", "Add appointment")}</Link>
                 </Button>
               </div>
             ) : (
               <div className="space-y-2">
                 {(data?.todayEvents ?? []).map((ev: any) => {
                   const colorClass = EVENT_COLORS[ev.event_type] ?? EVENT_COLORS.other;
-                  const time = ev.all_day ? "طوال اليوم" : new Date(ev.start_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+                  const time = ev.all_day ? tx("طوال اليوم","All day") : new Date(ev.start_at).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" });
                   return (
                     <div key={ev.id} className={`rounded-xl border p-2.5 ${colorClass}`}>
                       <p className="text-xs font-semibold leading-tight truncate">{ev.title}</p>
@@ -251,7 +263,7 @@ export default function Dashboard() {
                             <MapPin className="h-2.5 w-2.5" />{ev.location}
                           </span>
                         )}
-                        <span className="text-[10px] opacity-70">{EVENT_TYPE_LABEL[ev.event_type] ?? "حدث"}</span>
+                        <span className="text-[10px] opacity-70">{EVENT_TYPE_LABEL[ev.event_type] ?? tx("حدث","Event")}</span>
                       </div>
                     </div>
                   );
@@ -263,22 +275,22 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ── Recent Cases ────────────────────────────────────────────────── */}
+        {/* ── Recent Cases */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Scale className="h-4 w-4 text-primary" />آخر القضايا
+                <Scale className="h-4 w-4 text-primary" />{tx("آخر القضايا", "Recent Cases")}
               </CardTitle>
               <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" asChild>
-                <Link href="/cases"><ArrowLeft className="h-3 w-3" />الكل</Link>
+                <Link href="/cases"><ArrowLeft className="h-3 w-3" />{tx("الكل", "All")}</Link>
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
             {isLoading ? Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-12" />) :
               (data?.recentCases ?? []).length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">لا توجد قضايا بعد</p>
+                <p className="text-xs text-muted-foreground text-center py-6">{tx("لا توجد قضايا بعد", "No cases yet")}</p>
               ) : (
                 (data?.recentCases ?? []).map((c: any) => {
                   const st = STATUS_MAP[c.status] ?? STATUS_MAP.open;
@@ -290,7 +302,7 @@ export default function Dashboard() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{c.title}</p>
-                          <p className="text-[10px] text-muted-foreground">{new Date(c.createdAt).toLocaleDateString("ar-SA")}</p>
+                          <p className="text-[10px] text-muted-foreground">{new Date(c.createdAt).toLocaleDateString(dateLocale)}</p>
                         </div>
                         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${st.color}`}>{st.label}</Badge>
                       </div>
@@ -302,22 +314,22 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* ── Recent Invoices ─────────────────────────────────────────────── */}
+        {/* ── Recent Invoices */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-primary" />آخر الفواتير
+                <Receipt className="h-4 w-4 text-primary" />{tx("آخر الفواتير", "Recent Invoices")}
               </CardTitle>
               <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" asChild>
-                <Link href="/invoices"><ArrowLeft className="h-3 w-3" />الكل</Link>
+                <Link href="/invoices"><ArrowLeft className="h-3 w-3" />{tx("الكل", "All")}</Link>
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
             {isLoading ? Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-12" />) :
               (data?.recentInvoices ?? []).length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">لا توجد فواتير بعد</p>
+                <p className="text-xs text-muted-foreground text-center py-6">{tx("لا توجد فواتير بعد", "No invoices yet")}</p>
               ) : (
                 (data?.recentInvoices ?? []).map((inv: any) => {
                   const st = INV_STATUS[inv.status] ?? INV_STATUS.draft;
@@ -329,7 +341,7 @@ export default function Dashboard() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{inv.title}</p>
-                          <p className={`text-[10px] font-mono ${st.color}`}>{((inv.total ?? 0) / 100).toLocaleString("ar-SA")} ر.س</p>
+                          <p className={`text-[10px] font-mono ${st.color}`}>{((inv.total ?? 0) / 100).toLocaleString(dateLocale)} {tx("ر.س","SAR")}</p>
                         </div>
                         <span className={`text-[10px] ${st.color}`}>{st.label}</span>
                       </div>
@@ -341,11 +353,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* ── Quick Actions ───────────────────────────────────────────────── */}
+        {/* ── Quick Actions */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" />إجراءات سريعة
+              <Activity className="h-4 w-4 text-primary" />{tx("إجراءات سريعة", "Quick Actions")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -366,16 +378,17 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* ── Upcoming Events ──────────────────────────────────────────────── */}
+      {/* ── Upcoming Events */}
       {(data?.upcomingEvents ?? []).length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Bell className="h-4 w-4 text-primary" />المواعيد القادمة (7 أيام)
+                <Bell className="h-4 w-4 text-primary" />
+                {tx("المواعيد القادمة (7 أيام)", "Upcoming Events (7 days)")}
               </CardTitle>
               <Button variant="ghost" size="sm" className="text-xs h-7" asChild>
-                <Link href="/calendar">عرض التقويم</Link>
+                <Link href="/calendar">{tx("عرض التقويم", "View Calendar")}</Link>
               </Button>
             </div>
           </CardHeader>
@@ -391,16 +404,16 @@ export default function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold leading-tight truncate">{ev.title}</p>
                         <p className="text-[10px] mt-1 opacity-80">
-                          {date.toLocaleDateString("ar-SA", { weekday: "short", day: "numeric", month: "short" })}
+                          {date.toLocaleDateString(dateLocale, { weekday: "short", day: "numeric", month: "short" })}
                           {" · "}
-                          {ev.all_day ? "طوال اليوم" : date.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                          {ev.all_day ? tx("طوال اليوم","All day") : date.toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" })}
                         </p>
                       </div>
                       <Badge variant="outline" className={`text-[9px] px-1 py-0 shrink-0 ${
                         diffDays <= 1 ? "border-red-500/40 text-red-400" :
                         diffDays <= 3 ? "border-orange-500/40 text-orange-400" : "border-current/20"
                       }`}>
-                        {diffDays <= 0 ? "اليوم" : diffDays === 1 ? "غداً" : `${diffDays}د`}
+                        {diffDays <= 0 ? tx("اليوم","Today") : diffDays === 1 ? tx("غداً","Tomorrow") : `${diffDays}${tx("د","d")}`}
                       </Badge>
                     </div>
                   </div>
