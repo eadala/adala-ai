@@ -30,3 +30,4 @@
 - [Adala AI Analytics](adala-ai-analytics.md) — GET /api/analytics/ai-insights caches in ai_analytics_cache (6h); "تحليل ذكي" 5th tab in analytics.tsx; force=1 param busts cache; renderBold() for **markdown**
 - [Adala Plan CMS](adala-plan-cms.md) — plan_cms DB table; getDbPlans() in planCms.ts; billing.ts GET /billing/plans uses DB+fallback; pricing.tsx PLANS_LIVE via useQuery; PlansCmsTab in super-admin (plans-cms tab)
 - [Adala Theme System](adala-theme-system.md) — 12 Arabic presets (6 dark/6 light); white theme fixed via accent-luminance primary-foreground; --lp-* CSS vars for landing page; scope="platform|landing|both"; LandingCanvas preview in theme-builder
+- [Adala Sessions & Devices](adala-sessions.md) — login_logs table + useLoginTracker hook already existed; GET /security/my-sessions added (userId-scoped); /my-sessions page; Layout is named export not default
