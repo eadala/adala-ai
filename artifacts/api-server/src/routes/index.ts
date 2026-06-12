@@ -66,6 +66,7 @@ import hrInternalRouter from "./hrInternal";
 import legalAIRouter from "./legalAI";
 import auditLogsRouter from "./auditLogs";
 import platformModulesRouter from "./platformModules";
+import homeCmsRouter from "./homeCms";
 
 const router: IRouter = Router();
 
@@ -145,5 +146,6 @@ router.use(hrInternalRouter);
 router.use(legalAIRouter);
 router.use(auditLogsRouter);
 router.use(platformModulesRouter);
+router.use(homeCmsRouter);
 
 export default router;

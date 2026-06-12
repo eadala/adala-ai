@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { motion, useInView, AnimatePresence } from "framer-motion";
@@ -205,6 +206,32 @@ export default function Landing() {
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
+  /* ── CMS data (public — no auth needed) ─────────────────────────── */
+  const { data: cms } = useQuery({
+    queryKey: ["home-cms"],
+    queryFn: () => fetch(`${BASE}/api/home/content`).then(r => r.json()),
+    staleTime: 5 * 60 * 1000, /* 5 min cache */
+    retry: false,
+  });
+
+  /* helper: return CMS value or fall back to translated string */
+  function c(section: string, key: string, fallback: string): string {
+    return (cms?.[section]?.[key] as string | undefined) || fallback;
+  }
+
+  /* ── SEO meta injection from CMS ────────────────────────── */
+  useEffect(() => {
+    if (!cms?.seo) return;
+    const { metaTitle, metaDescription, ogImage } = cms.seo as any;
+    if (metaTitle) document.title = metaTitle;
+    let desc = document.querySelector("meta[name='description']");
+    if (!desc) { desc = document.createElement("meta"); (desc as HTMLMetaElement).name = "description"; document.head.appendChild(desc); }
+    if (metaDescription) (desc as HTMLMetaElement).content = metaDescription;
+    let og = document.querySelector("meta[property='og:image']");
+    if (!og) { og = document.createElement("meta"); (og as HTMLMetaElement).setAttribute("property", "og:image"); document.head.appendChild(og); }
+    if (ogImage) (og as HTMLMetaElement).content = ogImage;
+  }, [cms]);
+
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 30);
     window.addEventListener("scroll", fn, { passive: true });
@@ -247,6 +274,17 @@ export default function Landing() {
 
   return (
     <div dir={isAr ? "rtl" : "ltr"} className="min-h-screen overflow-x-hidden" style={{ background: "#080F1E", fontFamily: "Cairo, sans-serif" }}>
+
+      {/* ── Announcement Bar (CMS-driven) ─────────────────────────────── */}
+      {cms?.announcement?.enabled && cms.announcement.text && (
+        <div className="w-full py-2 px-4 text-center text-sm font-bold flex items-center justify-center gap-2 relative"
+          style={{ background: cms.announcement.bgColor || "#C9A84C", color: cms.announcement.textColor || "#0D1626" }}>
+          <span>{cms.announcement.text}</span>
+          {cms.announcement.link && (
+            <a href={cms.announcement.link} className="underline underline-offset-2 opacity-80 hover:opacity-100">←</a>
+          )}
+        </div>
+      )}
 
       {/* ── Sticky Navbar ──────────────────────────────────────────────── */}
       <header
@@ -334,7 +372,7 @@ export default function Landing() {
               style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", color: "#C9A84C" }}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              {t("landing.hero.badge")}
+              {c("hero", "badge", t("landing.hero.badge"))}
             </motion.div>
 
             <motion.h1
@@ -343,9 +381,9 @@ export default function Landing() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight mb-6"
             >
-              {t("landing.hero.titleLine1")}<br />
-              {t("landing.hero.titleLine2")}<br />
-              <GoldText>{t("landing.hero.titleHighlight")}</GoldText>
+              {c("hero", "titleLine1", t("landing.hero.titleLine1"))}<br />
+              {c("hero", "titleLine2", t("landing.hero.titleLine2"))}<br />
+              <GoldText>{c("hero", "titleHighlight", t("landing.hero.titleHighlight"))}</GoldText>
             </motion.h1>
 
             <motion.p
@@ -354,7 +392,7 @@ export default function Landing() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-lg text-white/60 mb-8 leading-relaxed max-w-lg"
             >
-              {t("landing.hero.subtitle")}
+              {c("hero", "subtitle", t("landing.hero.subtitle"))}
             </motion.p>
 
             <motion.div
@@ -408,13 +446,15 @@ export default function Landing() {
       {/* ── TRUST STRIP ────────────────────────────────────────────────── */}
       <section className="py-14 px-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
         <FadeIn className="max-w-5xl mx-auto">
-          <p className="text-center text-white/30 text-sm mb-10">{t("landing.trust.tagline")}</p>
+          <p className="text-center text-white/30 text-sm mb-10">
+            {c("trust", "tagline", t("landing.trust.tagline"))}
+          </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { to: 1000,   suffix: "+", labelKey: "landing.trust.offices",      icon: Building2 },
-              { to: 100000, suffix: "+", labelKey: "landing.trust.cases",        icon: Briefcase },
-              { to: 99,    suffix: ".9%", labelKey: "landing.trust.satisfaction", icon: Award },
-              { to: 40,    suffix: "%", labelKey: "landing.trust.timeSaving",   icon: Clock },
+              { to: Number(c("stats","offices","1000").replace(/[^0-9]/g,"")||"1000"),   suffix: "+",    labelKey: "landing.trust.offices",      icon: Building2 },
+              { to: Number(c("stats","cases","100000").replace(/[^0-9]/g,"")||"100000"), suffix: "+",    labelKey: "landing.trust.cases",        icon: Briefcase },
+              { to: Number(c("stats","satisfaction","99").replace(/[^0-9.]/g,"")||"99"), suffix: ".9%",  labelKey: "landing.trust.satisfaction", icon: Award },
+              { to: Number(c("stats","timeSaving","40").replace(/[^0-9]/g,"")||"40"),    suffix: "%",    labelKey: "landing.trust.timeSaving",   icon: Clock },
             ].map(s => (
               <div key={s.labelKey} className="space-y-1">
                 <div className="text-4xl font-black" style={{ color: "#C9A84C" }}>
@@ -437,8 +477,8 @@ export default function Landing() {
             <span className="text-sm font-semibold px-4 py-1.5 rounded-full mb-4 inline-block" style={{ background: "rgba(99,102,241,0.15)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.3)" }}>
               {t("landing.features.label")}
             </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white mt-3 mb-4">{t("landing.features.title")}</h2>
-            <p className="text-white/50 max-w-xl mx-auto">{t("landing.features.subtitle")}</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-white mt-3 mb-4">{c("features","title",t("landing.features.title"))}</h2>
+            <p className="text-white/50 max-w-xl mx-auto">{c("features","subtitle",t("landing.features.subtitle"))}</p>
           </FadeIn>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -758,11 +798,11 @@ export default function Landing() {
             <div className="relative">
               <Sparkles className="w-10 h-10 mx-auto mb-5" style={{ color: "#C9A84C" }} />
               <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
-                {t("landing.cta.title")}<br />
-                <GoldText>{t("landing.cta.titleHighlight")}</GoldText>
+                {c("cta_section","title",t("landing.cta.title"))}<br />
+                <GoldText>{c("cta_section","titleHighlight",t("landing.cta.titleHighlight"))}</GoldText>
               </h2>
               <p className="text-white/60 text-lg mb-8 max-w-xl mx-auto">
-                {t("landing.cta.subtitle")}
+                {c("cta_section","subtitle",t("landing.cta.subtitle"))}
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link href={`${BASE}/sign-up`}>
