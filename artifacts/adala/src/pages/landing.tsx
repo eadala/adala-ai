@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { motion, useInView, AnimatePresence } from "framer-motion";
+import PlatformShowcase from "@/components/platform-showcase";
 import {
   Scale, Shield, Bot, FileText, Users, ArrowLeft, CheckCircle, Star,
   ChevronDown, ChevronUp, Play, Zap, Clock, BarChart3, MessageSquare,
@@ -210,6 +211,7 @@ export default function Landing() {
   }, []);
 
   const NAV = [
+    { label: "عرض المنصة",              href: "#showcase" },
     { label: t("landing.nav.features"), href: "#features" },
     { label: t("landing.nav.how"),      href: "#how" },
     { label: t("landing.nav.security"), href: "#security" },
@@ -423,6 +425,9 @@ export default function Landing() {
           </div>
         </FadeIn>
       </section>
+
+      {/* ── PLATFORM SHOWCASE ──────────────────────────────────────────── */}
+      <PlatformShowcase />
 
       {/* ── FEATURES ───────────────────────────────────────────────────── */}
       <section id="features" className="py-24 px-4">
