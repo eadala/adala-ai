@@ -324,7 +324,7 @@
           "name": "Professional",
           "price": "299",
           "period": "SAR/month",
-          "cta": "Start Trial",
+          "cta": "Try Free for 30 Days",
           "features": [
             "15 users",
             "Unlimited cases",
@@ -339,7 +339,7 @@
           "name": "Enterprise",
           "price": "999",
           "period": "SAR/month",
-          "cta": "Start Trial",
+          "cta": "Try Free for 30 Days",
           "features": [
             "50 users",
             "Full White Label",
@@ -386,7 +386,7 @@
       "items": [
         {
           "q": "Is there a free trial?",
-          "a": "Yes, the Basic plan is permanently free for up to 3 users and 20 cases. You also get a 14-day free trial on the Professional plan."
+          "a": "Yes, the free plan is available forever with no expiry. All paid plans come with a full 30-day free trial — all features unlocked, no restrictions, no credit card required."
         },
         {
           "q": "Does the platform fully support Arabic?",
