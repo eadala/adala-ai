@@ -17,6 +17,7 @@
 - [Adala Finance Center](adala-finance-center.md) — /finance dashboard + /collections page; finance-center.ts routes (/finance/dashboard, /finance/collections, /finance/collections/:id/payment, /finance/collections/:id/reminder); Button size="xs" NOT valid — use size="sm"; toast from @/hooks/use-toast (NOT @/components/ui/use-toast)
 - [Adala Mobile App](adala-mobile.md) — React+Vite PWA at /adala-mobile/; WouterRouter base=BASE_URL required; pages: home/cases/clients/contracts/reminders + BottomNav + AppHeader
 - [Adala core features](adala-core-features.md) — onboarding/reminders/CSV-import/email-notifications all fully built; tasks page in HR section; Gemini AI as primary in 5 routes
+- [Adala email cron](adala-email-cron.md) — node-cron hourly job in src/cron/emailCron.ts; triggers: invoice_due/case_session/reminder_due; dedup via recipient_ref col; /email-notifications/run-now for manual trigger
 - [Adala org structure](adala-org-structure.md) — organization_units table (ensureTables); /api/org-units/* routes in orgStructure.ts; /org-structure page (4 tabs: tree/list/stats/scope); nav in admin group with Network icon; ?? mixed with || needs parens
 - [Adala HR Center](adala-hr-center.md) — performance_evaluations + employee_incentives + hr_settings tables; hrPerformance.ts routes; /hr-center page (6 tabs); Award icon must be imported in layout.tsx
 - [Adala AI Hub](adala-ai-hub.md) — 7 AI pages unified into /ai-hub; 3 chat modes + 4 tool cards; nav collapsed from 7→4 items; existing AI pages still accessible
