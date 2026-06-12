@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,10 +29,16 @@ const STEPS = [
 
 export default function OnboardingPage() {
   const [, nav] = useLocation();
+  const qc = useQueryClient();
   const [step, setStep] = useState(0);
   const [officeName, setOfficeName] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [size, setSize] = useState("");
+
+  const afterComplete = () => {
+    qc.setQueryData(["onboarding-state"], { completed: true, step: 4, data: {} });
+    nav("/dashboard");
+  };
 
   const completeMut = useMutation({
     mutationFn: () =>
@@ -41,7 +47,7 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed: true, step: 4, data: { officeName, specialty, size } }),
       }).then(r => r.json()),
-    onSuccess: () => nav("/dashboard"),
+    onSuccess: afterComplete,
   });
 
   const skipMut = useMutation({
@@ -51,7 +57,7 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed: true, step: 4, data: {} }),
       }).then(r => r.json()),
-    onSuccess: () => nav("/dashboard"),
+    onSuccess: afterComplete,
   });
 
   const cur = STEPS[step];
