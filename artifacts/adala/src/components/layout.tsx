@@ -79,13 +79,11 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "nav.groups.ai",
     items: [
-      { href: "/command-center",     labelKey: "nav.items.command_center",     icon: Zap,         feature: "ai" },
-      { href: "/ai-assistant",       labelKey: "nav.items.ai_assistant",       icon: BrainCircuit,feature: "ai" },
+      { href: "/ai-hub",             labelKey: "nav.items.ai_hub",             icon: Sparkles,    feature: "ai" },
       { href: "/ai-agents",          labelKey: "nav.items.ai_agents",          icon: Bot,         feature: "ai" },
-      { href: "/ai-chat",            labelKey: "nav.items.ai_chat",            icon: Sparkles,    feature: "ai" },
-      { href: "/opponent-simulator", labelKey: "nav.items.opponent_simulator", icon: Swords,      feature: "ai" },
-      { href: "/judge-prep",         labelKey: "nav.items.judge_prep",         icon: Gavel,       feature: "ai" },
       { href: "/legal-research",     labelKey: "nav.items.legal_research",     icon: LibraryBig,  feature: "ai" },
+      { href: "/judge-prep",         labelKey: "nav.items.judge_prep",         icon: Gavel,       feature: "ai" },
+      { href: "/opponent-simulator", labelKey: "nav.items.opponent_simulator", icon: Swords,      feature: "ai" },
       { href: "/arbitration",        labelKey: "nav.items.arbitration",        icon: Handshake,   feature: "ai" },
     ],
   },
@@ -176,7 +174,7 @@ function OfficeLogo() {
 function NavItemLink({ item, isActive, onClick, badge }: { item: NavItem; isActive: boolean; onClick?: () => void; badge?: number }) {
   const { hasFeature, isLoaded } = useOfficePlan();
   const { t } = useTranslation();
-  const isAI = ["/command-center", "/ai-agents", "/ai-chat", "/opponent-simulator", "/ai-assistant"].includes(item.href);
+  const isAI = ["/ai-hub", "/command-center", "/ai-agents", "/ai-chat", "/opponent-simulator", "/ai-assistant", "/legal-research", "/judge-prep", "/arbitration"].includes(item.href);
   const isLocked = isLoaded && item.feature ? !hasFeature(item.feature) : false;
   const label = t(item.labelKey);
 
