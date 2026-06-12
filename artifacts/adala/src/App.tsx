@@ -78,6 +78,7 @@ import DocumentTemplatesPage from "@/pages/document-templates";
 import FinanceCenter from "@/pages/finance-center";
 import Collections from "@/pages/collections";
 import SupportPage from "@/pages/support";
+import MediatorsPage from "@/pages/mediators";
 
 const queryClient = new QueryClient();
 
@@ -389,6 +390,9 @@ function AppRoutes() {
             </Route>
             <Route path="/support">
               <ProtectedRoute><SupportPage /></ProtectedRoute>
+            </Route>
+            <Route path="/mediators">
+              <ProtectedRoute><MediatorsPage /></ProtectedRoute>
             </Route>
             <Route path="/office-management">
               <ProtectedRoute><OfficeManagement /></ProtectedRoute>

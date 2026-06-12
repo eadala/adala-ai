@@ -115,6 +115,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/office-management", labelKey: "nav.items.office_management", icon: Globe,       feature: "website" },
       { href: "/marketplace",       labelKey: "nav.items.marketplace",       icon: ShoppingBag, feature: "serviceStore" },
+      { href: "/mediators",         labelKey: "nav.items.mediators",         icon: Handshake },
     ],
   },
   {

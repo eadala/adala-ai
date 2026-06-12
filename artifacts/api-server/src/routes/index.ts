@@ -58,6 +58,7 @@ import analyticsRouter from "./analytics";
 import themeBuilderRouter from "./themeBuilder";
 import tasksRouter from "./tasks";
 import supportRouter from "./support";
+import mediatorsRouter from "./mediators";
 
 const router: IRouter = Router();
 
@@ -129,5 +130,6 @@ router.use(analyticsRouter);
 router.use(themeBuilderRouter);
 router.use(tasksRouter);
 router.use(supportRouter);
+router.use(mediatorsRouter);
 
 export default router;
