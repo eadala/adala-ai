@@ -8,6 +8,7 @@ import {
   TrendingUp, TrendingDown, Scale, FileText, Users, DollarSign,
   Clock, Award, Target, BarChart3, Printer, RefreshCw,
   CheckCircle2, AlertCircle, Building2, ArrowUpRight, ArrowDownRight,
+  BrainCircuit, Sparkles, Loader2, Zap,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -128,8 +129,18 @@ function PieLegend({ data }: { data: { name: string; value: number }[] }) {
 }
 
 /* ═══════════════════════════════════════════════════════════ */
+/* ── simple markdown bold renderer ── */
+function renderBold(text: string) {
+  const parts = text.split(/\*\*(.*?)\*\*/g);
+  return parts.map((p, i) =>
+    i % 2 === 1 ? <strong key={i} className="text-primary font-semibold">{p}</strong> : <span key={i}>{p}</span>
+  );
+}
+
 export default function Analytics() {
   const [period, setPeriod] = useState<Period>("1y");
+  const [aiRequested, setAiRequested] = useState(false);
+  const [aiForce, setAiForce]         = useState(0);
 
   const qOpts = (key: string[]) => ({
     queryKey: [...key, period],
@@ -141,6 +152,13 @@ export default function Analytics() {
   const { data: cases = {},    isFetching: cLoading } = useQuery<any>(qOpts(["cases"]));
   const { data: team = {},     isFetching: tLoading } = useQuery<any>(qOpts(["team"]));
   const { data: clients = {},  isFetching: clLoading } = useQuery<any>(qOpts(["clients"]));
+
+  const { data: aiData, isFetching: aiLoading } = useQuery<{ insights: string; modelUsed: string; cached: boolean }>({
+    queryKey: ["ai-insights", period, aiForce],
+    queryFn: () => fetch(`${BASE}/api/analytics/ai-insights?period=${period}${aiForce > 0 ? "&force=1" : ""}`).then(r => r.json()),
+    enabled: aiRequested,
+    staleTime: Infinity,
+  });
 
   const isLoading = fLoading || cLoading || tLoading || clLoading;
 
@@ -281,6 +299,9 @@ tr:nth-child(even) td{background:#fafafa}
           </TabsTrigger>
           <TabsTrigger value="clients" className="gap-1.5 text-xs">
             <Building2 className="h-3.5 w-3.5" /> العملاء
+          </TabsTrigger>
+          <TabsTrigger value="ai-insights" className="gap-1.5 text-xs">
+            <BrainCircuit className="h-3.5 w-3.5" /> تحليل ذكي
           </TabsTrigger>
         </TabsList>
 
@@ -656,6 +677,89 @@ tr:nth-child(even) td{background:#fafafa}
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── AI INSIGHTS TAB ──────────────────────────────── */}
+        <TabsContent value="ai-insights" className="mt-4">
+          {!aiRequested ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-6">
+              <div className="relative">
+                <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                  <BrainCircuit className="w-10 h-10 text-primary" />
+                </div>
+                <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5 text-white" />
+                </div>
+              </div>
+              <div className="text-center max-w-sm">
+                <h3 className="text-lg font-bold text-white mb-2">التحليل الذكي لأداء مكتبك</h3>
+                <p className="text-sm text-white/50 leading-relaxed">
+                  يحلل الذكاء الاصطناعي بيانات الإيرادات والقضايا والفريق ويولد تقريراً تنفيذياً
+                  شاملاً مع رؤى وتوصيات استراتيجية.
+                </p>
+              </div>
+              <Button onClick={() => setAiRequested(true)} className="gap-2 h-10 px-8 text-sm font-semibold">
+                <Sparkles className="w-4 h-4" />
+                توليد التحليل الذكي
+              </Button>
+            </div>
+          ) : aiLoading ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-4">
+              <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
+              </div>
+              <div className="text-center">
+                <p className="text-base font-medium text-white/70">يحلل الذكاء الاصطناعي بيانات مكتبك...</p>
+                <p className="text-xs text-white/30 mt-1">قد يستغرق ذلك بضع ثوانٍ</p>
+              </div>
+            </div>
+          ) : aiData?.insights ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {aiData.modelUsed && (
+                    <Badge variant="outline" className="text-xs border-primary/30 text-primary gap-1">
+                      <Zap className="w-3 h-3" />{aiData.modelUsed}
+                    </Badge>
+                  )}
+                  {aiData.cached && (
+                    <Badge variant="outline" className="text-xs border-white/20 text-white/40">محفوظ مؤقتاً</Badge>
+                  )}
+                </div>
+                <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs text-white/50 hover:text-white"
+                  onClick={() => setAiForce(f => f + 1)}>
+                  <RefreshCw className="w-3.5 h-3.5" />تحديث التحليل
+                </Button>
+              </div>
+
+              <div className="bg-gradient-to-br from-primary/8 via-transparent to-transparent border border-primary/20 rounded-2xl p-6">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <BrainCircuit className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    {aiData.insights.split("\n").filter((l: string) => l.trim()).map((line: string, i: number) => (
+                      <p key={i} className="text-sm leading-relaxed text-white/80">
+                        {renderBold(line)}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-white/25 text-center">
+                التحليل مبني على بيانات {PERIODS.find(p => p.value === period)?.label} — يُحدَّث تلقائياً كل 6 ساعات
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center py-12 text-white/30 gap-2">
+              <AlertCircle className="w-8 h-8" />
+              <p className="text-sm">تعذّر توليد التحليل — حاول مرة أخرى</p>
+              <Button variant="ghost" size="sm" className="text-xs mt-1" onClick={() => setAiForce(f => f + 1)}>
+                إعادة المحاولة
+              </Button>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

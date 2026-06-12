@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, casesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace/api-zod";
+import { auditLog } from "../lib/auditLogger";
 
 const STATUS_LABELS: Record<string, string> = {
   open: "مفتوحة",
@@ -67,9 +68,27 @@ const router = Router();
 router.get("/cases", async (req, res) => {
   try {
     const query = ListCasesQueryParams.parse(req.query);
+    const page  = req.query.page  ? Math.max(1, parseInt(String(req.query.page)))  : null;
+    const limit = req.query.limit ? Math.min(200, parseInt(String(req.query.limit))) : null;
+
     let cases = await db.select().from(casesTable).orderBy(casesTable.createdAt);
-    if (query.status) cases = cases.filter((c) => c.status === query.status);
+    if (query.status)   cases = cases.filter((c) => c.status   === query.status);
     if (query.caseType) cases = cases.filter((c) => c.caseType === query.caseType);
+
+    const total = cases.length;
+    if (page && limit) {
+      cases = cases.slice((page - 1) * limit, page * limit);
+      const mapped = cases.map((c) => ({
+        id: c.id, title: c.title, description: c.description,
+        caseType: c.caseType, status: c.status, clientName: c.clientName,
+        assignedTo: c.assignedTo,
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt?.toISOString() ?? null,
+      }));
+      res.json({ data: mapped, total, page, limit, pages: Math.ceil(total / limit) });
+      return;
+    }
+
     res.json(cases.map((c) => ({
       id: c.id, title: c.title, description: c.description,
       caseType: c.caseType, status: c.status, clientName: c.clientName,
@@ -93,6 +112,8 @@ router.post("/cases", async (req, res) => {
       clientName: body.clientName ?? null,
       assignedTo: body.assignedTo ?? null,
     }).returning();
+    const auth = (req as any).auth;
+    auditLog({ userId: auth?.userId, action: "create", resource: "cases", resourceId: created.id, details: created.title }).catch(() => {});
     res.status(201).json({
       ...created,
       createdAt: created.createdAt.toISOString(),
@@ -131,7 +152,8 @@ router.patch("/cases/:id", async (req, res) => {
     if (body.status && before && before.status !== body.status) {
       notifyWhatsAppCaseStatus(updated).catch(() => {});
     }
-
+    const auth = (req as any).auth;
+    auditLog({ userId: auth?.userId, action: "update", resource: "cases", resourceId: req.params.id, details: updated.title }).catch(() => {});
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt?.toISOString() ?? null });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -140,7 +162,9 @@ router.patch("/cases/:id", async (req, res) => {
 
 router.delete("/cases/:id", async (req, res) => {
   try {
+    const auth = (req as any).auth;
     await db.delete(casesTable).where(eq(casesTable.id, req.params.id));
+    auditLog({ userId: auth?.userId, action: "delete", resource: "cases", resourceId: req.params.id }).catch(() => {});
     res.status(204).end();
   } catch (e: any) {
     res.status(500).json({ error: e.message });

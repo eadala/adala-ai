@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/requireAuth";
+import { callAI } from "./aiChat";
 
 const router = Router();
 
@@ -393,6 +394,88 @@ router.get("/analytics/clients", requireAuth, async (req, res) => {
       activeClients: num(totals.active),
       newInPeriod: num(totals.new_in_period),
     });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ── AI INSIGHTS ──────────────────────────────────────────── */
+router.get("/analytics/ai-insights", requireAuth, async (req, res) => {
+  try {
+    const period = String(req.query.period ?? "1y");
+    const force  = req.query.force === "1";
+    const cacheKey = `ai_insights_${period}`;
+
+    if (!force) {
+      const cached = await sqlOne(sql`
+        SELECT content, model_used FROM ai_analytics_cache
+        WHERE cache_key = ${cacheKey} AND expires_at > NOW() LIMIT 1
+      `);
+      if (cached?.content) {
+        return res.json({ insights: cached.content, modelUsed: cached.model_used, cached: true });
+      }
+    }
+
+    const interval = periodInterval(period);
+
+    const [rev, exp, casesRow, topLawyer, invRow] = await Promise.all([
+      sqlOne(sql`SELECT COALESCE(SUM(amount)/100.0,0)::numeric AS total FROM revenues WHERE date >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}`),
+      sqlOne(sql`SELECT COALESCE(SUM(amount)/100.0,0)::numeric AS total FROM expenses WHERE date >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}`),
+      sqlOne(sql`
+        SELECT COUNT(*) AS total,
+          COUNT(*) FILTER (WHERE status='open')   AS open,
+          COUNT(*) FILTER (WHERE status='closed') AS closed
+        FROM cases WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      `),
+      sqlOne(sql`
+        SELECT assigned_to AS name, COUNT(*) AS cnt FROM cases
+        WHERE assigned_to IS NOT NULL AND created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+        GROUP BY assigned_to ORDER BY cnt DESC LIMIT 1
+      `),
+      sqlOne(sql`
+        SELECT COUNT(*) AS total,
+          COUNT(*) FILTER (WHERE status='paid') AS paid,
+          COALESCE(SUM(total) FILTER (WHERE status='paid')/100.0,0)::numeric AS collected
+        FROM client_invoices WHERE created_at >= NOW() - INTERVAL ${sql.raw(`'${interval}'`)}
+      `),
+    ]);
+
+    const totalRevenue  = num(rev.total);
+    const totalExpenses = num(exp.total);
+    const netProfit     = totalRevenue - totalExpenses;
+    const profitMargin  = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : "0";
+    const collRate      = num(invRow.total) > 0
+      ? ((num(invRow.paid) / num(invRow.total)) * 100).toFixed(1)
+      : "0";
+
+    const ctx = [
+      `الفترة الزمنية: ${period === "30d" ? "آخر 30 يوم" : period === "3m" ? "3 أشهر" : period === "6m" ? "6 أشهر" : "سنة كاملة"}`,
+      `الإيرادات: ${totalRevenue.toLocaleString("ar-SA")} ر.س`,
+      `المصروفات: ${totalExpenses.toLocaleString("ar-SA")} ر.س`,
+      `صافي الربح: ${netProfit.toLocaleString("ar-SA")} ر.س (هامش ${profitMargin}%)`,
+      `القضايا الجديدة: ${num(casesRow.total)} (${num(casesRow.open)} مفتوحة، ${num(casesRow.closed)} مغلقة)`,
+      `الفواتير: ${num(invRow.total)} فاتورة — معدل التحصيل ${collRate}% — محصّل: ${num(invRow.collected).toLocaleString("ar-SA")} ر.س`,
+      topLawyer.name ? `أعلى أداء: ${topLawyer.name} (${topLawyer.cnt} قضية)` : "",
+    ].filter(Boolean).join("\n");
+
+    const system = `أنت مستشار استراتيجي متخصص في تحليل أداء المكاتب القانونية. حلّل البيانات وأنتج تقريراً تحليلياً احترافياً موجزاً باللغة العربية يشمل:
+1. **ملخص الأداء** — جملة تلخص الوضع العام
+2. **نقاط القوة** — 2-3 مؤشرات إيجابية
+3. **فرص التحسين** — 2-3 توصيات عملية
+4. **تنبيهات** — أنماط تستحق الانتباه
+استخدم الأرقام بدقة. أبقِ الرد بين 200-300 كلمة. استخدم ** للعناوين.`;
+
+    const { reply, modelUsed } = await callAI(system, ctx);
+
+    await db.execute(sql`
+      INSERT INTO ai_analytics_cache (cache_key, content, model_used, expires_at)
+      VALUES (${cacheKey}, ${reply}, ${modelUsed}, NOW() + INTERVAL '6 hours')
+      ON CONFLICT (cache_key) DO UPDATE
+        SET content = ${reply}, model_used = ${modelUsed},
+            created_at = NOW(), expires_at = NOW() + INTERVAL '6 hours'
+    `);
+
+    res.json({ insights: reply, modelUsed, cached: false });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

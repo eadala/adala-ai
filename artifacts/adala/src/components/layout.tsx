@@ -6,7 +6,7 @@ import {
   Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown,
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
-  FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award,
+  FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -107,6 +107,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/analytics",                labelKey: "nav.items.performance_analytics",   icon: BarChart3,     feature: "advancedReports" },
       { href: "/financial-intelligence",   labelKey: "nav.items.financial_intelligence",  icon: BrainCircuit },
       { href: "/risk-management",          labelKey: "nav.items.risk_management",         icon: AlertTriangle, feature: "advancedReports" },
+      { href: "/audit-logs",               labelKey: "nav.items.audit_logs",             icon: Activity },
       { href: "/compliance",               labelKey: "nav.items.compliance",              icon: Shield },
       { href: "/login-tracking",           labelKey: "nav.items.login_tracking",          icon: Lock },
     ],

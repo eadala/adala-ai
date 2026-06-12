@@ -64,6 +64,7 @@ import orgStructureRouter from "./orgStructure";
 import hrPerformanceRouter from "./hrPerformance";
 import hrInternalRouter from "./hrInternal";
 import legalAIRouter from "./legalAI";
+import auditLogsRouter from "./auditLogs";
 
 const router: IRouter = Router();
 
@@ -141,5 +142,6 @@ router.use(orgStructureRouter);
 router.use(hrPerformanceRouter);
 router.use(hrInternalRouter);
 router.use(legalAIRouter);
+router.use(auditLogsRouter);
 
 export default router;
