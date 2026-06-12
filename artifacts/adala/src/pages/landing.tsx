@@ -9,6 +9,7 @@ import {
   Calendar, Receipt, Briefcase, Globe, Lock, Database, Activity,
   Building2, CreditCard, Phone, Mail, Twitter, Linkedin, Youtube,
   Menu, X, ArrowRight, Sparkles, TrendingUp, Award, Check,
+  Brain, Layers, HardDrive, Palette, DollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -217,8 +218,8 @@ export default function Landing() {
   ];
 
   // ── Icon/color arrays (non-translatable) ────────────────────────────
-  const FEATURE_ICONS  = [Scale, Bot, FileText, Users, Calendar, Receipt, Database, Globe, Shield, Activity, BarChart3, Briefcase, Clock, Building2, Mail, CreditCard];
-  const FEATURE_COLORS = ["#C9A84C","#6366F1","#10B981","#F59E0B","#EC4899","#8B5CF6","#06B6D4","#F97316","#EF4444","#3B82F6","#22C55E","#14B8A6","#A855F7","#F43F5E","#60A5FA","#D946EF"];
+  const FEATURE_ICONS  = [Scale, Bot, FileText, Users, Calendar, Receipt, Database, Globe, Shield, Activity, BarChart3, Briefcase, Clock, Building2, Mail, CreditCard, Sparkles, Brain, DollarSign, Award, Layers, HardDrive, Palette, MessageSquare];
+  const FEATURE_COLORS = ["#C9A84C","#6366F1","#10B981","#F59E0B","#EC4899","#8B5CF6","#06B6D4","#F97316","#EF4444","#3B82F6","#22C55E","#14B8A6","#A855F7","#F43F5E","#60A5FA","#D946EF","#A78BFA","#8B5CF6","#34D399","#FBBF24","#6366F1","#3B82F6","#F472B6","#10B981"];
   const AI_ICONS       = [FileText, BarChart3, Zap, TrendingUp];
   const STEP_COLORS    = ["#C9A84C","#6366F1","#10B981","#F59E0B"];
   const SEC_ICONS      = [Lock, Building2, Database, Activity, Shield, Globe];
