@@ -205,10 +205,17 @@ router.post("/billing/checkout", async (req, res) => {
     return res.status(503).json({ error: "Stripe غير مهيأ", hint: "أضف STRIPE_SECRET_KEY أو فعّل تكامل Stripe" });
   }
 
-  const { planId, successUrl, cancelUrl } = req.body as { planId: string; successUrl?: string; cancelUrl?: string };
+  const { planId, successUrl, cancelUrl, billingPeriod } = req.body as {
+    planId: string; successUrl?: string; cancelUrl?: string;
+    billingPeriod?: "monthly" | "annual";
+  };
   const plan = PLANS.find(p => p.id === planId);
   if (!plan) return res.status(400).json({ error: "الخطة غير موجودة" });
   if (plan.isFree || plan.isContactOnly) return res.status(400).json({ error: "هذه الباقة لا تتطلب دفعاً" });
+
+  const isAnnual   = billingPeriod === "annual";
+  const unitAmount = isAnnual ? plan.yearlyPrice * 12 * 100 : plan.price * 100;
+  const interval   = isAnnual ? ("year" as const) : ("month" as const);
 
   try {
     /* Resolve tenant + user email for this checkout */
@@ -240,6 +247,10 @@ router.post("/billing/checkout", async (req, res) => {
       }
     } catch { /* non-critical — proceed without customer */ }
 
+    const planLabel = isAnnual
+      ? `عدالة AI — باقة ${plan.name} (سنوي — وفّر ${Math.round((1 - plan.yearlyPrice * 12 / (plan.price * 12)) * 100)}%)`
+      : `عدالة AI — باقة ${plan.name}`;
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
@@ -247,16 +258,16 @@ router.post("/billing/checkout", async (req, res) => {
       line_items: [{
         price_data: {
           currency: "sar",
-          unit_amount: plan.price * 100,
-          recurring: { interval: "month" },
-          product_data: { name: `عدالة AI — باقة ${plan.name}`, description: plan.features.join(" • ") },
+          unit_amount: unitAmount,
+          recurring: { interval },
+          product_data: { name: planLabel, description: plan.features.join(" • ") },
         },
         quantity: 1,
       }],
-      metadata: { plan: planId, planName: plan.name, officeId: tenantId },
+      metadata: { plan: planId, planName: plan.name, officeId: tenantId, billingPeriod: billingPeriod ?? "monthly" },
       subscription_data: {
         trial_period_days: 30,
-        metadata: { officeId: tenantId, plan: planId },
+        metadata: { officeId: tenantId, plan: planId, billingPeriod: billingPeriod ?? "monthly" },
       },
       success_url: successUrl ?? `${req.headers.origin}/billing?success=1`,
       cancel_url:  cancelUrl  ?? `${req.headers.origin}/billing?canceled=1`,

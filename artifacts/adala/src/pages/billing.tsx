@@ -198,10 +198,11 @@ function UsageMeter({ ent, compact = false }: { ent: any; compact?: boolean }) {
 
 /* ─── Upgrade / Downgrade Modal ─────────────────────── */
 function UpgradeModal({
-  open, onClose, currentPlanId, targetPlan, plans, onConfirmStripe, onConfirmDirect, isLoading, stripeConfigured,
+  open, onClose, currentPlanId, targetPlan, plans, onConfirmStripe, onConfirmDirect, isLoading, stripeConfigured, billingPeriod,
 }: {
   open: boolean; onClose: () => void; currentPlanId: string; targetPlan: any | null; plans: any[];
   onConfirmStripe: (id: string) => void; onConfirmDirect: (id: string) => void; isLoading: boolean; stripeConfigured: boolean;
+  billingPeriod: "monthly" | "annual";
 }) {
   if (!targetPlan) return null;
   const currentPlan = plans.find((p: any) => p.id === currentPlanId);
@@ -212,6 +213,10 @@ function UpgradeModal({
   const isUpgrade   = tgtOrder > curOrder;
   const isDowngrade = tgtOrder < curOrder;
   const priceDiff = targetPlan.isContactOnly ? null : (targetPlan.price ?? 0) - (currentPlan?.price ?? 0);
+  const isAnnualModal = billingPeriod === "annual" && !targetPlan.isFree && !targetPlan.isContactOnly;
+  const annualPerMonth = isAnnualModal ? Math.round(targetPlan.price * 0.8) : null;
+  const annualTotal    = annualPerMonth ? annualPerMonth * 12 : null;
+  const annualSavings  = isAnnualModal ? targetPlan.price * 12 - (annualTotal ?? 0) : null;
   const Icon   = PLAN_ICONS[targetPlan.id] ?? Star;
   const colors = PLAN_COLORS[targetPlan.id] ?? PLAN_COLORS.free;
 
@@ -240,13 +245,28 @@ function UpgradeModal({
                 </DialogDescription>
               </div>
             </div>
-            {priceDiff !== null && priceDiff !== 0 && (
-              <div className={cn("inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border",
-                priceDiff > 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-400 border-red-500/30")}>
-                {priceDiff > 0 ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
-                {priceDiff > 0 ? "+" : ""}{priceDiff.toLocaleString("ar-SA")} ر.س/شهر
-              </div>
-            )}
+            {/* Billing period + price summary */}
+            <div className="flex flex-wrap gap-2 mt-1">
+              {isAnnualModal && annualPerMonth && annualTotal && annualSavings ? (
+                <>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/30">
+                    ✦ سنوي — {annualPerMonth.toLocaleString("ar-SA")} ر.س/شهر
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                    🎉 توفير {annualSavings.toLocaleString("ar-SA")} ر.س/سنة
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5 w-full">
+                    يُفاتَر {annualTotal.toLocaleString("ar-SA")} ر.س مرة واحدة سنوياً
+                  </div>
+                </>
+              ) : priceDiff !== null && priceDiff !== 0 ? (
+                <div className={cn("inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border",
+                  priceDiff > 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-400 border-red-500/30")}>
+                  {priceDiff > 0 ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                  {priceDiff > 0 ? "+" : ""}{priceDiff.toLocaleString("ar-SA")} ر.س/شهر
+                </div>
+              ) : null}
+            </div>
           </DialogHeader>
         </div>
 
@@ -322,7 +342,7 @@ export default function Billing() {
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [changingPlan, setChangingPlan] = useState(false);
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("annual");
   const [timeLeft, setTimeLeft] = useState({ d: 0, h: 0, m: 0, s: 0 });
 
   useEffect(() => {
@@ -413,9 +433,11 @@ export default function Billing() {
     },
   });
   const checkoutMutation = useMutation({
-    mutationFn: async (planId: string) => fetch(`${BASE}/api/billing/checkout`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId }),
-    }).then(r => r.json()),
+    mutationFn: async ({ planId, period }: { planId: string; period: "monthly" | "annual" }) =>
+      fetch(`${BASE}/api/billing/checkout`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId, billingPeriod: period }),
+      }).then(r => r.json()),
     onSuccess: (data) => {
       if (data.url) window.open(data.url, "_blank");
       else toast({ title: "خطأ", description: data.error ?? data.hint ?? "فشل إنشاء جلسة الدفع", variant: "destructive" });
@@ -473,7 +495,7 @@ export default function Billing() {
     return tgt > cur ? "upgrade" : "downgrade";
   };
   const handleConfirmDirect  = (planId: string) => { setChangingPlan(true); changePlanMutation.mutate(planId); };
-  const handleConfirmStripe  = (planId: string) => { setSelectedPlan(null); setLoadingPlan(planId); checkoutMutation.mutate(planId); };
+  const handleConfirmStripe  = (planId: string) => { setSelectedPlan(null); setLoadingPlan(planId); checkoutMutation.mutate({ planId, period: billingPeriod }); };
 
   /* ── Stripe sub status label ───────────────────────── */
   const subStatus = overview?.stripeSubscription?.status;
@@ -731,47 +753,60 @@ export default function Billing() {
           </div>
 
           {/* ── Billing Period Toggle ──────────────────────── */}
-          <div className="flex items-center justify-center gap-3 py-1">
-            <button onClick={() => setBillingPeriod("monthly")}
-              className={cn("px-5 py-2 rounded-xl text-sm font-semibold transition-all",
-                billingPeriod === "monthly"
-                  ? "bg-background border border-border/80 text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30")}>
-              شهري
-            </button>
-            <button
-              onClick={() => setBillingPeriod(p => p === "monthly" ? "annual" : "monthly")}
-              className={cn("relative w-14 h-7 rounded-full transition-colors border-2 focus:outline-none flex-shrink-0",
-                billingPeriod === "annual" ? "bg-[#C9A84C] border-[#C9A84C]" : "bg-muted/50 border-border")}
-              aria-label="تبديل دورة الفوترة">
-              <span className={cn(
-                "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all duration-200",
-                billingPeriod === "annual" ? "right-0.5" : "left-0.5"
-              )} />
-            </button>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setBillingPeriod("annual")}
-                className={cn("px-5 py-2 rounded-xl text-sm font-semibold transition-all",
-                  billingPeriod === "annual"
-                    ? "bg-background border border-border/80 text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30")}>
-                سنوي
-              </button>
-              <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-black border border-emerald-500/30 flex items-center gap-1 animate-pulse">
-                ✦ وفّر 20%
-              </span>
-            </div>
-          </div>
+          <div className="flex flex-col items-center gap-3 py-1">
+            {/* Toggle row */}
+            <div className="relative flex items-center p-1 rounded-2xl gap-1"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)" }}>
 
-          {/* Annual savings strip */}
-          {billingPeriod === "annual" && (
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-              <p className="text-sm text-emerald-300 font-medium">
-                رائع! أنت تدفع مقابل 12 شهراً وتحصل على ما يعادل <span className="font-black">14.4 شهراً</span> — خصم 20% فعلي على كل الباقات عند الاشتراك السنوي
-              </p>
+              {/* Monthly button */}
+              <button onClick={() => setBillingPeriod("monthly")}
+                className={cn(
+                  "relative px-6 py-2 rounded-xl text-sm font-bold transition-all duration-200 flex items-center gap-2",
+                  billingPeriod === "monthly"
+                    ? "bg-background border border-border/70 text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}>
+                شهري
+              </button>
+
+              {/* Annual button — highlighted */}
+              <button onClick={() => setBillingPeriod("annual")}
+                className={cn(
+                  "relative px-6 py-2 rounded-xl text-sm font-bold transition-all duration-200 flex items-center gap-2",
+                  billingPeriod === "annual"
+                    ? "text-black shadow-lg"
+                    : "text-muted-foreground hover:text-white"
+                )}
+                style={billingPeriod === "annual" ? { background: "#C9A84C" } : {}}>
+                سنوي
+                <span className={cn(
+                  "text-[10px] font-black px-1.5 py-0.5 rounded-md transition-all",
+                  billingPeriod === "annual"
+                    ? "bg-black/20 text-black"
+                    : "bg-emerald-500/20 text-emerald-400"
+                )}>
+                  وفّر ٢٠٪
+                </span>
+              </button>
             </div>
-          )}
+
+            {/* Annual savings confirmation strip */}
+            {billingPeriod === "annual" ? (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/8 border border-emerald-500/25 w-full max-w-lg">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <p className="text-sm text-emerald-300 font-medium">
+                  ✦ تدفع مقابل ١٢ شهراً وتحصل على ما يعادل{" "}
+                  <span className="font-black text-white">١٤.٤ شهراً</span> — يُفاتَر مرة واحدة سنوياً
+                </p>
+              </div>
+            ) : (
+              <button
+                onClick={() => setBillingPeriod("annual")}
+                className="text-[11px] text-[#C9A84C] hover:text-[#C9A84C]/80 underline underline-offset-2 transition-colors font-semibold">
+                💡 انتقل للسنوي ووفّر حتى ٢٠٪ — أذكى وأوفر
+              </button>
+            )}
+          </div>
 
           {/* Current plan banner */}
           {currentPlanSlug && (() => {
@@ -1125,6 +1160,7 @@ export default function Billing() {
             onConfirmDirect={handleConfirmDirect}
             isLoading={changingPlan || changePlanMutation.isPending}
             stripeConfigured={!!stripeStatus?.configured}
+            billingPeriod={billingPeriod}
           />
         </div>
       )}
