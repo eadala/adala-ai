@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient";
+import { startEmailCron } from "./cron/emailCron";
 
 const rawPort = process.env["PORT"];
 
@@ -34,6 +35,7 @@ async function initStripe() {
 }
 
 initStripe();
+startEmailCron();
 
 app.listen(port, (err) => {
   if (err) {

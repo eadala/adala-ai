@@ -137,6 +137,14 @@ router.post("/email-notifications/test", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+router.post("/email-notifications/run-now", async (_req, res) => {
+  try {
+    const { runEmailCron } = await import("../cron/emailCron");
+    const result = await runEmailCron();
+    res.json({ ok: true, ...result });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 router.get("/email-notifications/logs", async (_req, res) => {
   await ensureTables();
   try {

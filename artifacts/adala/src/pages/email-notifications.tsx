@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
   Mail, Settings, Send, CheckCircle2, XCircle, Loader2,
-  Bell, AlertTriangle, Clock, FileText, CreditCard
+  Bell, AlertTriangle, Clock, FileText, CreditCard, PlayCircle, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -78,6 +78,19 @@ export default function EmailNotificationsPage() {
       else { qc.invalidateQueries({ queryKey: ["email-notif-logs"] }); toast.success(d.message ?? "تم الإرسال"); }
     },
     onError: () => toast.error("فشل الإرسال"),
+  });
+
+  const runNowMut = useMutation({
+    mutationFn: () =>
+      fetch(`${BASE}/api/email-notifications/run-now`, { method: "POST" }).then(r => r.json()),
+    onSuccess: (d) => {
+      if (d.error) toast.error(d.error);
+      else {
+        qc.invalidateQueries({ queryKey: ["email-notif-logs"] });
+        toast.success(`تم التشغيل — فواتير: ${d.invoices ?? 0} · جلسات: ${d.sessions ?? 0} · تذكيرات: ${d.reminders ?? 0}`);
+      }
+    },
+    onError: () => toast.error("فشل التشغيل"),
   });
 
   function setF(k: string, v: any) { setForm((f: any) => ({ ...f, [k]: v })); }
@@ -174,27 +187,53 @@ export default function EmailNotificationsPage() {
         </Card>
       </div>
 
-      {/* Test Email */}
-      <Card className="bg-sidebar border-sidebar-border">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" /> اختبار الإرسال</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <Input
-              value={testEmail}
-              onChange={e => setTestEmail(e.target.value)}
-              placeholder="أدخل بريد الاختبار..."
-              className="flex-1"
-              dir="ltr"
-            />
-            <Button onClick={() => testMut.mutate()} disabled={testMut.isPending || !testEmail} variant="outline">
-              {testMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              إرسال
+      {/* Test + Run Now */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card className="bg-sidebar border-sidebar-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" /> اختبار الإرسال</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Input
+                value={testEmail}
+                onChange={e => setTestEmail(e.target.value)}
+                placeholder="أدخل بريد الاختبار..."
+                className="flex-1"
+                dir="ltr"
+              />
+              <Button onClick={() => testMut.mutate()} disabled={testMut.isPending || !testEmail} variant="outline">
+                {testMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                إرسال
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-sidebar border-sidebar-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><PlayCircle className="h-4 w-4 text-primary" /> تشغيل الإشعارات الآن</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              يفحص الفواتير المستحقة خلال 3 أيام، وجلسات الغد، والتذكيرات المستحقة اليوم — ويُرسل الإشعارات الإلكترونية فوراً.
+            </p>
+            <Button
+              onClick={() => runNowMut.mutate()}
+              disabled={runNowMut.isPending || !form.enabled}
+              className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30"
+              variant="outline"
+            >
+              {runNowMut.isPending
+                ? <><Loader2 className="h-4 w-4 ml-1 animate-spin" /> جارٍ الفحص والإرسال...</>
+                : <><RefreshCw className="h-4 w-4 ml-1" /> تشغيل الآن</>}
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+            {!form.enabled && (
+              <p className="text-[11px] text-muted-foreground mt-2 text-center">فعّل الإشعارات أولاً لتتمكن من التشغيل</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Logs */}
       {logs.length > 0 && (
