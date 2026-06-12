@@ -151,8 +151,51 @@ async function getMgmtUser(req: any) {
     const owner = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
     const isSA = (!!owner && email === owner) || user.publicMetadata?.role === "super_admin";
     const officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
-    return { userId: auth.userId, officeId, email, isSA };
+    // Resolve office role from office_members
+    const memberRows = await dbRows(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`);
+    const officeRole: string = memberRows[0]?.role ?? (user.publicMetadata?.role as string ?? "lawyer");
+    const isAdmin = isSA || officeRole === "firm_owner" || officeRole === "office_manager";
+    return { userId: auth.userId, officeId, email, isSA, officeRole, isAdmin };
   } catch { return null; }
+}
+
+/**
+ * Permission levels for a folder:
+ *   everyone    — all office members can read; only owner/admin can rename/delete
+ *   admins_only — only firm_owner, office_manager, super_admin can read/write/delete
+ *   owner_only  — only the creator (+ admins) can read/write/delete
+ *   custom      — per-user grants in folder_permissions table
+ *
+ * For 'read': can the user see this folder and its files?
+ * For 'write': can the user upload files / create sub-folders in it?
+ * For 'manage': can the user rename, delete, change permissions of this folder?
+ */
+async function getFolderAccess(folderId: string, u: NonNullable<Awaited<ReturnType<typeof getMgmtUser>>>, need: "read" | "write" | "manage"): Promise<boolean> {
+  if (u.isSA) return true;
+  const rows = await dbRows(sql`SELECT visibility, created_by FROM storage_folders WHERE id=${folderId}::uuid AND office_id=${u.officeId}`);
+  if (!rows.length) return false;
+  const { visibility, created_by } = rows[0];
+  const isOwner = created_by === u.userId;
+  const isAdmin = u.isAdmin;
+
+  if (need === "manage") return isOwner || isAdmin;
+
+  switch (visibility as string) {
+    case "owner_only":  return isOwner || isAdmin;
+    case "admins_only": return isAdmin;
+    case "custom": {
+      if (isOwner || isAdmin) return true;
+      const p = await dbRows(sql`SELECT can_read, can_write FROM folder_permissions WHERE folder_id=${folderId}::uuid AND user_id=${u.userId}`);
+      if (!p.length) return false;
+      if (need === "read")  return !!p[0].can_read;
+      if (need === "write") return !!p[0].can_write;
+      return false;
+    }
+    default: // 'everyone'
+      if (need === "read")  return true;
+      if (need === "write") return true; // all members can upload/create sub-folders
+      return false;
+  }
 }
 
 async function dbRows(q: any): Promise<any[]> {
@@ -503,20 +546,29 @@ router.get("/storage/ai-analysis", async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════
-   FOLDER MANAGEMENT
+   FOLDER MANAGEMENT  (permissions-enforced)
 ══════════════════════════════════════════════════ */
 
-/* LIST folders (tree) */
+/* LIST folders — returns only folders the user can read */
 router.get("/storage/folders", async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const rows = await dbRows(sql`
-    SELECT id, parent_id, name, created_at,
-           (SELECT COUNT(*)::int FROM storage_files sf WHERE sf.folder_id=f.id AND NOT sf.is_deleted) AS file_count
+
+  const all = await dbRows(sql`
+    SELECT f.id, f.parent_id, f.name, f.visibility, f.created_by, f.created_at,
+           (SELECT COUNT(*)::int FROM storage_files sf
+            WHERE sf.folder_id=f.id AND NOT sf.is_deleted) AS file_count
     FROM storage_folders f
-    WHERE office_id=${u.officeId}
-    ORDER BY name ASC`);
-  res.json(rows);
+    WHERE f.office_id=${u.officeId}
+    ORDER BY f.name ASC`);
+
+  // Filter by read permission
+  const visible: any[] = [];
+  for (const f of all) {
+    const ok = await getFolderAccess(f.id, u, "read");
+    if (ok) visible.push({ ...f, isOwner: f.created_by === u.userId, canManage: f.created_by === u.userId || u.isAdmin });
+  }
+  res.json(visible);
 });
 
 /* CREATE folder */
@@ -525,16 +577,26 @@ router.post("/storage/folders", async (req, res) => {
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const { name, parentId } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: "اسم المجلد مطلوب" });
+
+  // Check write permission on parent folder (if nested)
+  if (parentId) {
+    const ok = await getFolderAccess(parentId, u, "write");
+    if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إنشاء مجلدات هنا" });
+  }
+
   const dup = await dbRows(sql`SELECT id FROM storage_folders WHERE office_id=${u.officeId} AND COALESCE(parent_id::text,'root')=COALESCE(${parentId ?? null},'root') AND LOWER(name)=LOWER(${name.trim()})`);
   if (dup.length) return res.status(409).json({ error: "مجلد بهذا الاسم موجود بالفعل" });
+
   const rows = await dbRows(sql`INSERT INTO storage_folders (office_id,parent_id,name,created_by) VALUES (${u.officeId},${parentId??null},${name.trim()},${u.userId}) RETURNING *`);
   res.json(rows[0]);
 });
 
-/* RENAME folder */
-router.patch("/storage/folders/:id", async (req, res) => {
+/* RENAME folder — requires manage permission */
+router.patch("/storage/folders/:id/rename", async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const ok = await getFolderAccess(req.params.id, u, "manage");
+  if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية تعديل هذا المجلد" });
   const { name } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: "الاسم مطلوب" });
   const rows = await dbRows(sql`UPDATE storage_folders SET name=${name.trim()}, updated_at=NOW() WHERE id=${req.params.id}::uuid AND office_id=${u.officeId} RETURNING *`);
@@ -542,10 +604,12 @@ router.patch("/storage/folders/:id", async (req, res) => {
   res.json(rows[0]);
 });
 
-/* DELETE folder (files move to parent) */
+/* DELETE folder — requires manage permission */
 router.delete("/storage/folders/:id", async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const ok = await getFolderAccess(req.params.id, u, "manage");
+  if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية حذف هذا المجلد" });
   const folder = await dbRows(sql`SELECT parent_id FROM storage_folders WHERE id=${req.params.id}::uuid AND office_id=${u.officeId}`);
   if (!folder.length) return res.status(404).json({ error: "المجلد غير موجود" });
   await db.execute(sql`UPDATE storage_files SET folder_id=${folder[0].parent_id??null} WHERE folder_id=${req.params.id}::uuid`);
@@ -553,14 +617,96 @@ router.delete("/storage/folders/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
-/* MOVE file to folder (or root) */
+/* MOVE file to folder — requires write on target */
 router.patch("/storage/files/:id/folder", async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const { folderId } = req.body; // null = root
+  const { folderId } = req.body;
+  if (folderId) {
+    const ok = await getFolderAccess(folderId, u, "write");
+    if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية النقل إلى هذا المجلد" });
+  }
   const rows = await dbRows(sql`UPDATE storage_files SET folder_id=${folderId??null}, updated_at=NOW() WHERE id=${req.params.id}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING id`);
   if (!rows.length) return res.status(404).json({ error: "الملف غير موجود" });
   res.json({ ok: true });
+});
+
+/* ══════════════════════════════════════════════════
+   FOLDER PERMISSIONS MANAGEMENT
+══════════════════════════════════════════════════ */
+
+/* GET /storage/folders/:id/permissions — folder info + user grants */
+router.get("/storage/folders/:id/permissions", async (req, res) => {
+  const u = await getMgmtUser(req);
+  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const ok = await getFolderAccess(req.params.id, u, "manage");
+  if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إدارة هذا المجلد" });
+
+  const [folder, grants, members] = await Promise.all([
+    dbRows(sql`SELECT id, name, visibility, created_by FROM storage_folders WHERE id=${req.params.id}::uuid AND office_id=${u.officeId}`),
+    dbRows(sql`SELECT fp.user_id, fp.user_name, fp.can_read, fp.can_write, fp.can_delete, fp.granted_at FROM folder_permissions fp WHERE fp.folder_id=${req.params.id}::uuid`),
+    dbRows(sql`SELECT om.user_id, om.role, COALESCE(u2.full_name, om.user_id) AS name FROM office_members om LEFT JOIN users u2 ON u2.id=om.user_id WHERE om.office_id=${u.officeId} AND om.status='active' ORDER BY name`),
+  ]);
+  if (!folder.length) return res.status(404).json({ error: "المجلد غير موجود" });
+  res.json({ folder: folder[0], grants, members });
+});
+
+/* PATCH /storage/folders/:id/permissions — update visibility */
+router.patch("/storage/folders/:id/permissions", async (req, res) => {
+  const u = await getMgmtUser(req);
+  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const ok = await getFolderAccess(req.params.id, u, "manage");
+  if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إدارة هذا المجلد" });
+
+  const { visibility } = req.body;
+  const allowed = ["everyone", "admins_only", "owner_only", "custom"];
+  if (!allowed.includes(visibility)) return res.status(400).json({ error: "قيمة الرؤية غير صالحة" });
+
+  const rows = await dbRows(sql`UPDATE storage_folders SET visibility=${visibility}, updated_at=NOW() WHERE id=${req.params.id}::uuid AND office_id=${u.officeId} RETURNING id, name, visibility`);
+  res.json(rows[0] ?? { ok: true });
+});
+
+/* POST /storage/folders/:id/permissions/users — grant/update user access */
+router.post("/storage/folders/:id/permissions/users", async (req, res) => {
+  const u = await getMgmtUser(req);
+  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const ok = await getFolderAccess(req.params.id, u, "manage");
+  if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إدارة هذا المجلد" });
+
+  const { userId, userName, canRead = true, canWrite = false, canDelete = false } = req.body;
+  if (!userId) return res.status(400).json({ error: "userId مطلوب" });
+  const rows = await dbRows(sql`
+    INSERT INTO folder_permissions (folder_id, user_id, user_name, can_read, can_write, can_delete)
+    VALUES (${req.params.id}::uuid, ${userId}, ${userName??null}, ${canRead}, ${canWrite}, ${canDelete})
+    ON CONFLICT (folder_id, user_id) DO UPDATE
+      SET can_read=${canRead}, can_write=${canWrite}, can_delete=${canDelete}, user_name=COALESCE(${userName??null}, folder_permissions.user_name)
+    RETURNING *`);
+  res.json(rows[0]);
+});
+
+/* DELETE /storage/folders/:id/permissions/users/:userId — revoke user access */
+router.delete("/storage/folders/:id/permissions/users/:userId", async (req, res) => {
+  const u = await getMgmtUser(req);
+  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const ok = await getFolderAccess(req.params.id, u, "manage");
+  if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إدارة هذا المجلد" });
+  await db.execute(sql`DELETE FROM folder_permissions WHERE folder_id=${req.params.id}::uuid AND user_id=${req.params.userId}`);
+  res.json({ ok: true });
+});
+
+/* GET /storage/team — office members list (for permissions UI) */
+router.get("/storage/team", async (req, res) => {
+  const u = await getMgmtUser(req);
+  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const rows = await dbRows(sql`
+    SELECT om.user_id, om.role,
+           COALESCE(u2.full_name, om.user_id) AS name,
+           COALESCE(u2.email, '') AS email
+    FROM office_members om
+    LEFT JOIN users u2 ON u2.id = om.user_id
+    WHERE om.office_id=${u.officeId} AND om.status='active'
+    ORDER BY name ASC`);
+  res.json(rows);
 });
 
 export default router;
