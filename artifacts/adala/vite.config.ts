@@ -55,6 +55,47 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // Raise warning threshold — we expect larger per-chunk sizes with splitting
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React core — cached forever, rarely changes
+          "vendor-react": ["react", "react-dom", "react/jsx-runtime"],
+          // Clerk auth — large, changes independently
+          "vendor-clerk": ["@clerk/react", "@clerk/themes"],
+          // Query & routing
+          "vendor-query": ["@tanstack/react-query"],
+          "vendor-router": ["wouter"],
+          // UI primitives (Radix)
+          "vendor-ui": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-select",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-tooltip",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-popover",
+            "@radix-ui/react-accordion",
+            "@radix-ui/react-checkbox",
+            "@radix-ui/react-label",
+            "@radix-ui/react-switch",
+            "@radix-ui/react-slider",
+            "@radix-ui/react-progress",
+            "@radix-ui/react-avatar",
+            "@radix-ui/react-separator",
+            "@radix-ui/react-scroll-area",
+          ],
+          // Charts — heavy, only needed on analytics pages
+          "vendor-charts": ["recharts"],
+          // Icons — large, but shared
+          "vendor-icons": ["lucide-react"],
+          // Date utils
+          "vendor-date": ["date-fns"],
+          // Table
+          "vendor-table": ["@tanstack/react-table"],
+        },
+      },
+    },
   },
   server: {
     port,
