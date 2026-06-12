@@ -82,6 +82,23 @@ export default function CaseDetail({ id }: { id: string }) {
     query: { enabled: !!id, queryKey: getGetCaseQueryKey(id) },
   });
   const { data: hub, isLoading: hubLoading } = useHubData(id);
+
+  const { data: portalTokens = [] } = useQuery<any[]>({
+    queryKey: ["portal-tokens", id],
+    queryFn: () => fetch(`${BASE}/api/portal/tokens/${id}`).then(r => r.json()),
+    enabled: !!id,
+  });
+  const { data: portalTimeline = [], refetch: refetchTimeline } = useQuery<any[]>({
+    queryKey: ["portal-timeline", id],
+    queryFn: () => fetch(`${BASE}/api/portal/timeline/${id}`).then(r => r.json()),
+    enabled: !!id,
+  });
+  const { data: portalUploads = [] } = useQuery<any[]>({
+    queryKey: ["portal-uploads", id],
+    queryFn: () => fetch(`${BASE}/api/portal/uploads/${id}`).then(r => r.json()),
+    enabled: !!id,
+  });
+
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [aiSource, setAiSource] = useState<"ai" | "rule_engine" | null>(null);
@@ -421,7 +438,7 @@ export default function CaseDetail({ id }: { id: string }) {
         {/* Main Tabs */}
         <div className="lg:col-span-3">
           <Tabs defaultValue="documents" dir="rtl">
-            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto gap-0.5">
+            <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 h-auto gap-0.5">
               <TabsTrigger value="documents" className="text-xs py-2">
                 <FileText className="h-3.5 w-3.5 ml-1" />المستندات
                 {!hubLoading && documents.length > 0 && <span className="mr-1 text-[10px] bg-blue-500/20 text-blue-400 rounded px-1">{documents.length}</span>}
@@ -438,12 +455,17 @@ export default function CaseDetail({ id }: { id: string }) {
                 <CalendarDays className="h-3.5 w-3.5 ml-1" />الجلسات
                 {!hubLoading && events.length > 0 && <span className="mr-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{events.length}</span>}
               </TabsTrigger>
+              <TabsTrigger value="portal" className="text-xs py-2">
+                <Globe className="h-3.5 w-3.5 ml-1 text-emerald-400" />
+                <span className="text-emerald-400">البوابة</span>
+                {portalUploads.length > 0 && <span className="mr-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{portalUploads.length}</span>}
+              </TabsTrigger>
               <TabsTrigger value="messages" className="text-xs py-2">
                 <MessageSquare className="h-3.5 w-3.5 ml-1" />المراسلات
               </TabsTrigger>
               <TabsTrigger value="ai" className="text-xs py-2">
                 <Bot className="h-3.5 w-3.5 ml-1 text-[#C9A84C]" />
-                <span className="text-[#C9A84C]">تحليل AI</span>
+                <span className="text-[#C9A84C]">AI</span>
               </TabsTrigger>
             </TabsList>
 
@@ -631,6 +653,120 @@ export default function CaseDetail({ id }: { id: string }) {
                   <EmptyState icon={<MessageSquare className="h-10 w-10" />} label="المراسلات المرتبطة بهذه القضية ستظهر هنا" action="فتح المراسلات" href="/messages" />
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* PORTAL TAB */}
+            <TabsContent value="portal" className="mt-4">
+              <div className="space-y-4">
+                {/* Portal Links */}
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-emerald-400" />روابط بوابة العميل
+                    </CardTitle>
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                      onClick={() => setPortalDialogOpen(true)}>
+                      <Plus className="h-3 w-3" />نشر تحديث
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    {portalTokens.length === 0 ? (
+                      <EmptyState icon={<Globe className="h-10 w-10" />} label="لا توجد روابط بوابة لهذه القضية بعد" action="إنشاء رابط" href="/client-portal" />
+                    ) : (
+                      <div className="space-y-2">
+                        {(portalTokens as any[]).map((t: any) => (
+                          <div key={t.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                            <div>
+                              <p className="text-sm font-medium">{t.client_name || "عميل"}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {t.client_email || "لا يوجد بريد"} •{" "}
+                                آخر دخول: {t.last_accessed ? new Date(t.last_accessed).toLocaleDateString("ar-EG") : "لم يُفتح بعد"}
+                              </p>
+                            </div>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1"
+                              onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${BASE}/portal/${t.token}`); toast({ title: "تم نسخ الرابط" }); }}>
+                              <Send className="h-3 w-3" />نسخ الرابط
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Timeline */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <GitCommitHorizontal className="h-4 w-4 text-blue-400" />خط الأحداث
+                      <span className="text-[10px] bg-blue-500/20 text-blue-400 rounded px-1.5">{portalTimeline.length}</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {portalTimeline.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-6">لا توجد أحداث مسجلة بعد</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {(portalTimeline as any[]).map((entry: any) => (
+                          <div key={entry.id} className="flex gap-3 items-start">
+                            <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${entry.is_shared ? "bg-emerald-400" : "bg-slate-500"}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium truncate">{entry.title}</p>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${entry.is_shared ? "bg-emerald-500/15 text-emerald-400" : "bg-slate-500/15 text-slate-400"}`}>
+                                  {entry.is_shared ? "مشارك" : "داخلي"}
+                                </span>
+                              </div>
+                              {entry.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{entry.description}</p>}
+                              <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(entry.happened_at).toLocaleDateString("ar-EG")}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Client Uploads */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Upload className="h-4 w-4 text-purple-400" />ملفات العميل
+                      {portalUploads.length > 0 && <span className="text-[10px] bg-purple-500/20 text-purple-400 rounded px-1.5">{portalUploads.length}</span>}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {portalUploads.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-6">لم يرفع العميل أي ملفات بعد</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {(portalUploads as any[]).map((file: any) => (
+                          <div key={file.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <FileText className="h-4 w-4 text-purple-400 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate">{file.file_name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {file.client_name || "عميل"} • {file.file_size ? `${Math.round(Number(file.file_size) / 1024)} KB` : ""}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <p className="text-xs text-muted-foreground">{new Date(file.uploaded_at).toLocaleDateString("ar-EG")}</p>
+                              {file.file_data && (
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                                  onClick={() => { const a = document.createElement("a"); a.href = file.file_data; a.download = file.file_name; a.click(); }}>
+                                  <ExternalLink className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* AI TAB */}

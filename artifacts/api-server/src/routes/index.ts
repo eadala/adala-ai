@@ -69,6 +69,7 @@ import auditLogsRouter from "./auditLogs";
 import platformModulesRouter from "./platformModules";
 import homeCmsRouter from "./homeCms";
 import planCmsRouter from "./planCms";
+import signaturesRouter from "./signatures";
 
 const router: IRouter = Router();
 
@@ -151,5 +152,6 @@ router.use(platformModulesRouter);
 router.use(homeCmsRouter);
 router.use(planCmsRouter);
 router.use(clientAuthRouter);
+router.use(signaturesRouter);
 
 export default router;

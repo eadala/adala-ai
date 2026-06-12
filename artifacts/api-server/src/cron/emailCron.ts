@@ -262,22 +262,82 @@ async function remindersDue(settings: any, tr: any) {
   return sent;
 }
 
-export async function runEmailCron(): Promise<{ invoices: number; sessions: number; reminders: number }> {
+async function caseDeadlineReminders(settings: any, tr: any) {
+  const triggers = settings.triggers ?? {};
+  if (triggers.case_deadline === false) return 0;
+
+  const rows = await sqlAll(sql`
+    SELECT c.id, c.title, c.case_type, c.next_hearing,
+           cl.email AS client_email, cl.full_name AS client_name
+    FROM cases c
+    LEFT JOIN clients cl ON cl.id::text = c.client_id::text
+    WHERE c.next_hearing IS NOT NULL
+      AND c.next_hearing::date BETWEEN CURRENT_DATE + INTERVAL '1 day'
+                                   AND CURRENT_DATE + INTERVAL '3 days'
+      AND c.status != 'closed'
+  `);
+
+  const typeLabels: Record<string, string> = {
+    criminal: "جنائية", civil: "مدنية", commercial: "تجارية",
+    labor: "عمالية", real_estate: "عقارية", family: "أسرية", other: "أخرى",
+  };
+
+  const officeEmail = settings.from_email ?? settings.smtp_user;
+  let sent = 0;
+
+  for (const cas of rows) {
+    const email = cas.client_email || officeEmail;
+    if (!email) continue;
+    const refId = `case_${cas.id}_hearing`;
+    if (await alreadySent("case_deadline", refId)) continue;
+
+    const daysLeft = Math.round(
+      (new Date(cas.next_hearing).getTime() - Date.now()) / 86_400_000,
+    );
+    const subject = `تذكير: جلسة قضية "${cas.title}" خلال ${daysLeft} ${daysLeft === 1 ? "يوم" : "أيام"}`;
+    const body = html(
+      `جلسة مقبلة — ${cas.title}`,
+      "#6366F1",
+      [
+        ["عنوان القضية",  cas.title],
+        ["نوع القضية",   typeLabels[cas.case_type] ?? cas.case_type ?? "—"],
+        ["تاريخ الجلسة",  new Date(cas.next_hearing).toLocaleDateString("ar-SA")],
+        ["الأيام المتبقية", `${daysLeft} ${daysLeft === 1 ? "يوم" : "أيام"}`],
+      ],
+      "يُرجى التحضير الكافي قبل موعد الجلسة.",
+    );
+
+    try {
+      await tr.sendMail({
+        from: `"${settings.from_name ?? "عدالة AI"}" <${settings.from_email ?? settings.smtp_user}>`,
+        to: email, subject, html: body,
+      });
+      await logSend("case_deadline", email, subject, "sent", null, refId);
+      sent++;
+    } catch (e: any) {
+      await logSend("case_deadline", email, subject, "failed", e.message, refId);
+    }
+  }
+  return sent;
+}
+
+export async function runEmailCron(): Promise<{ invoices: number; sessions: number; reminders: number; caseDeadlines: number }> {
   await ensureSchema();
   const settings = await getSettings();
-  if (!settings?.enabled) return { invoices: 0, sessions: 0, reminders: 0 };
+  if (!settings?.enabled) return { invoices: 0, sessions: 0, reminders: 0, caseDeadlines: 0 };
 
   const tr = makeTransporter(settings);
-  if (!tr) return { invoices: 0, sessions: 0, reminders: 0 };
+  if (!tr) return { invoices: 0, sessions: 0, reminders: 0, caseDeadlines: 0 };
 
-  const [invoices, sessions, reminders] = await Promise.all([
+  const [invoices, sessions, reminders, caseDeadlines] = await Promise.all([
     invoiceReminders(settings, tr),
     sessionReminders(settings, tr),
     remindersDue(settings, tr),
+    caseDeadlineReminders(settings, tr),
   ]);
 
-  logger.info({ invoices, sessions, reminders }, "Email cron run complete");
-  return { invoices, sessions, reminders };
+  logger.info({ invoices, sessions, reminders, caseDeadlines }, "Email cron run complete");
+  return { invoices, sessions, reminders, caseDeadlines };
 }
 
 export function startEmailCron() {

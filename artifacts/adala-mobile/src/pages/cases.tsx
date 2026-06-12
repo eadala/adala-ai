@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Scale, Search, Plus, X, Filter, Briefcase, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
@@ -37,6 +38,7 @@ const EMPTY_FORM = { title: "", clientName: "", caseType: "", description: "" };
 
 export default function Cases() {
   const qc = useQueryClient();
+  const [, nav] = useLocation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -204,7 +206,7 @@ export default function Cases() {
         ) : (
           <div className="flex flex-col gap-3">
             {filtered.map((c: any) => (
-              <div key={c.id} className="bg-card rounded-2xl p-4 border border-border/50 tap-effect">
+              <div key={c.id} onClick={() => nav(`/cases/${c.id}`)} className="bg-card rounded-2xl p-4 border border-border/50 tap-effect cursor-pointer active:scale-[0.98] transition-transform">
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">

@@ -501,6 +501,23 @@ router.post("/portal/:token/upload", async (req: Request, res: Response) => {
   }
 });
 
+// ─── GET /portal/uploads/:caseId — lawyer view of client uploads ──────────────
+router.get("/portal/uploads/:caseId", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT pu.id, pu.file_name, pu.file_type, pu.file_size, pu.uploaded_at,
+             pu.is_read, pu.file_data, cpt.client_name, cpt.token
+      FROM portal_uploads pu
+      JOIN client_portal_tokens cpt ON cpt.token = pu.portal_token
+      WHERE cpt.case_id = ${req.params.caseId}
+      ORDER BY pu.uploaded_at DESC
+    `);
+    res.json(sqlAll(rows));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── GET /portal/:token/uploads ───────────────────────────────────────────────
 router.get("/portal/:token/uploads", async (req: Request, res: Response) => {
   try {
