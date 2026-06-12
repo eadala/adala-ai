@@ -123,11 +123,11 @@ router.post("/invoices/:id/payment-link", async (req: Request, res: Response) =>
       res.json({ url: invoice.stripePaymentLinkUrl, existing: true }); return;
     }
 
-    // unit_amount: amounts stored in halalas (SAR smallest unit = 1/100 riyal)
-    const unitAmount = Math.round(invoice.total);
-    const STRIPE_MAX = 99_999_999;
+    // invoice.total is stored in SAR → multiply × 100 to convert to halalas (Stripe smallest unit)
+    const unitAmount = Math.round(invoice.total * 100);
+    const STRIPE_MAX = 99_999_999; // 999,999.99 SAR in halalas
     if (unitAmount > STRIPE_MAX) {
-      const sarDisplay = (invoice.total / 100).toLocaleString("ar-SA", { maximumFractionDigits: 2 });
+      const sarDisplay = invoice.total.toLocaleString("ar-SA", { maximumFractionDigits: 2 });
       res.status(400).json({
         error: `المبلغ (${sarDisplay} ر.س) يتجاوز الحد الأقصى لـ Stripe (999,999.99 ر.س). يُرجى تقسيم الفاتورة أو تحصيل المبلغ خارج المنصة.`,
         hint: "stripe_max_exceeded",
