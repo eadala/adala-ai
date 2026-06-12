@@ -158,6 +158,7 @@ export default function SuperAdmin() {
         <TabsContent value="mobile-app"   className="mt-4"><MobileAppTab qc={qc} toast={toast} /></TabsContent>
         <TabsContent value="global-control" className="mt-4"><GlobalControlTab toast={toast} /></TabsContent>
         <TabsContent value="trials"         className="mt-4"><TrialsDashTab toast={toast} /></TabsContent>
+        <TabsContent value="home-cms"       className="mt-4"><HomeCmsTab toast={toast} /></TabsContent>
       </Tabs>
     </div>
   );
@@ -188,6 +189,7 @@ const TABS = [
   { id: "mobile-app",   label: "تطبيق الجوال",       icon: Smartphone },
   { id: "global-control", label: "الإدارة العالمية",  icon: Globe2 },
   { id: "trials",         label: "التجارب المجانية",   icon: Gift },
+  { id: "home-cms",       label: "محتوى الصفحة الرئيسية", icon: Layout },
 ];
 
 /* ═══════════════════════════════════════════════════
@@ -4950,6 +4952,338 @@ function TrialsDashTab({ toast }: { toast: any }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   HOME CMS TAB
+═══════════════════════════════════════════════════ */
+function HomeCmsTab({ toast }: { toast: any }) {
+  const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+  const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [activeSection, setActiveSection] = useState("hero");
+
+  const [form, setForm] = useState<any>({
+    hero: {
+      badge: "", titleLine1: "", titleLine2: "", titleHighlight: "", subtitle: "",
+    },
+    trust: { tagline: "" },
+    stats: { offices: "", cases: "", satisfaction: "", timeSaving: "" },
+    features: { title: "", subtitle: "" },
+    cta_section: { title: "", titleHighlight: "", subtitle: "" },
+    announcement: { enabled: false, text: "", link: "", bgColor: "#C9A84C", textColor: "#0D1626" },
+    seo: { metaTitle: "", metaDescription: "", ogImage: "" },
+  });
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/api/home/content`)
+      .then(r => r.json())
+      .then(data => {
+        setForm((prev: any) => {
+          const merged: any = {};
+          for (const section of Object.keys(prev)) {
+            merged[section] = { ...prev[section], ...(data[section] || {}) };
+          }
+          return merged;
+        });
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  function setField(section: string, key: string, val: any) {
+    setForm((prev: any) => ({
+      ...prev,
+      [section]: { ...prev[section], [key]: val },
+    }));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const r = await fetch(`${BASE_URL}/api/home/content`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      toast({ title: "تم الحفظ", description: "تم تحديث محتوى الصفحة الرئيسية." });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    }
+    setSaving(false);
+  }
+
+  async function handleReset() {
+    if (!confirm("هل تريد إعادة ضبط المحتوى إلى الإعدادات الافتراضية؟")) return;
+    setResetting(true);
+    try {
+      const r = await fetch(`${BASE_URL}/api/home/content/reset`, { method: "POST" });
+      if (!r.ok) throw new Error(await r.text());
+      /* re-fetch the updated defaults */
+      const fresh = await fetch(`${BASE_URL}/api/home/content`).then(x => x.json());
+      setForm((prev: any) => {
+        const merged: any = {};
+        for (const section of Object.keys(prev)) {
+          merged[section] = { ...prev[section], ...(fresh[section] || {}) };
+        }
+        return merged;
+      });
+      toast({ title: "تم الإعادة", description: "تمت استعادة المحتوى الافتراضي." });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    }
+    setResetting(false);
+  }
+
+  const SECTIONS = [
+    { id: "hero",         label: "قسم Hero",           icon: "🏠" },
+    { id: "trust",        label: "شريط الثقة",          icon: "⭐" },
+    { id: "stats",        label: "الإحصائيات",          icon: "📊" },
+    { id: "features",     label: "الميزات",             icon: "✨" },
+    { id: "cta_section",  label: "دعوة للعمل (CTA)",    icon: "🎯" },
+    { id: "announcement", label: "شريط الإعلانات",       icon: "📢" },
+    { id: "seo",          label: "SEO",                  icon: "🔍" },
+  ];
+
+  if (!loaded) return (
+    <div className="flex items-center justify-center h-40">
+      <Loader2 className="h-6 w-6 animate-spin text-[#C9A84C]" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold">محتوى الصفحة الرئيسية</h2>
+          <p className="text-sm text-muted-foreground">تعديل النصوص والمحتوى المعروض على الصفحة الرئيسية مباشرةً</p>
+        </div>
+        <div className="flex gap-2">
+          <a href={`${BASE_URL}/`} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" className="gap-1">
+              <Globe className="h-3.5 w-3.5" /> معاينة
+            </Button>
+          </a>
+          <Button variant="outline" size="sm" onClick={handleReset} disabled={resetting} className="gap-1 text-orange-400 border-orange-400/30 hover:bg-orange-400/10">
+            {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            إعادة الضبط
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={saving} className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold gap-1">
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            حفظ التغييرات
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-[200px_1fr] gap-6">
+        {/* Sidebar nav */}
+        <div className="space-y-1">
+          {SECTIONS.map(s => (
+            <button key={s.id} onClick={() => setActiveSection(s.id)}
+              className={`w-full text-right px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${activeSection === s.id ? "bg-[#C9A84C]/10 text-[#C9A84C] border border-[#C9A84C]/20" : "text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
+              <span>{s.icon}</span>
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Section editor */}
+        <Card className="border-border bg-card/50">
+          <CardContent className="pt-6 space-y-4">
+
+            {/* ── HERO ── */}
+            {activeSection === "hero" && (
+              <>
+                <h3 className="font-semibold text-sm text-muted-foreground mb-4">محتوى قسم Hero (الجزء العلوي من الصفحة)</h3>
+                {[
+                  { key: "badge",         label: "نص الشارة (Badge)",        placeholder: "✦ النظام القانوني الأكثر ذكاءً" },
+                  { key: "titleLine1",    label: "سطر العنوان الأول",         placeholder: "أدر مكتبك القانوني" },
+                  { key: "titleLine2",    label: "سطر العنوان الثاني",        placeholder: "بكفاءة لا مثيل لها" },
+                  { key: "titleHighlight",label: "السطر المميز (ذهبي)",       placeholder: "بقوة الذكاء الاصطناعي" },
+                  { key: "subtitle",      label: "النص الوصفي",               placeholder: "منصة متكاملة..." },
+                ].map(f => (
+                  <div key={f.key} className="space-y-1.5">
+                    <Label className="text-xs">{f.label}</Label>
+                    {f.key === "subtitle" ? (
+                      <textarea rows={3} value={form.hero[f.key] || ""} onChange={e => setField("hero", f.key, e.target.value)}
+                        placeholder={f.placeholder}
+                        className="w-full px-3 py-2 text-sm rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-[#C9A84C] resize-none" />
+                    ) : (
+                      <Input value={form.hero[f.key] || ""} onChange={e => setField("hero", f.key, e.target.value)} placeholder={f.placeholder} className="text-sm" />
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* ── TRUST ── */}
+            {activeSection === "trust" && (
+              <>
+                <h3 className="font-semibold text-sm text-muted-foreground mb-4">شريط الثقة (النص أعلى الإحصائيات)</h3>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">عبارة الثقة (Tagline)</Label>
+                  <Input value={form.trust.tagline || ""} onChange={e => setField("trust", "tagline", e.target.value)}
+                    placeholder="موثوق من مكاتب المحاماة في المنطقة العربية" className="text-sm" />
+                </div>
+              </>
+            )}
+
+            {/* ── STATS ── */}
+            {activeSection === "stats" && (
+              <>
+                <h3 className="font-semibold text-sm text-muted-foreground mb-4">الأرقام والإحصائيات (تُعرض كعدّادات متحركة)</h3>
+                {[
+                  { key: "offices",       label: "عدد المكاتب",        placeholder: "1000" },
+                  { key: "cases",         label: "عدد القضايا",         placeholder: "100000" },
+                  { key: "satisfaction",  label: "نسبة الرضا",          placeholder: "99" },
+                  { key: "timeSaving",    label: "نسبة توفير الوقت %",  placeholder: "40" },
+                ].map(f => (
+                  <div key={f.key} className="space-y-1.5">
+                    <Label className="text-xs">{f.label}</Label>
+                    <Input type="number" value={form.stats[f.key] || ""} onChange={e => setField("stats", f.key, e.target.value)}
+                      placeholder={f.placeholder} className="text-sm" />
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* ── FEATURES ── */}
+            {activeSection === "features" && (
+              <>
+                <h3 className="font-semibold text-sm text-muted-foreground mb-4">قسم الميزات — العنوان والوصف</h3>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">العنوان الرئيسي</Label>
+                  <Input value={form.features.title || ""} onChange={e => setField("features", "title", e.target.value)}
+                    placeholder="كل ما يحتاجه مكتبك القانوني" className="text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">النص الوصفي</Label>
+                  <textarea rows={3} value={form.features.subtitle || ""} onChange={e => setField("features", "subtitle", e.target.value)}
+                    placeholder="منصة شاملة تجمع إدارة القضايا والعملاء والمستندات..."
+                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-[#C9A84C] resize-none" />
+                </div>
+              </>
+            )}
+
+            {/* ── CTA ── */}
+            {activeSection === "cta_section" && (
+              <>
+                <h3 className="font-semibold text-sm text-muted-foreground mb-4">قسم دعوة للعمل (CTA) — في أسفل الصفحة</h3>
+                {[
+                  { key: "title",          label: "السطر الأول من العنوان",   placeholder: "ابدأ رحلتك نحو" },
+                  { key: "titleHighlight", label: "الجزء المميز (ذهبي)",      placeholder: "مكتب قانوني رقمي" },
+                  { key: "subtitle",       label: "النص الوصفي",               placeholder: "جرّب المنصة مجاناً لمدة 30 يوماً..." },
+                ].map(f => (
+                  <div key={f.key} className="space-y-1.5">
+                    <Label className="text-xs">{f.label}</Label>
+                    {f.key === "subtitle" ? (
+                      <textarea rows={3} value={form.cta_section[f.key] || ""} onChange={e => setField("cta_section", f.key, e.target.value)}
+                        placeholder={f.placeholder}
+                        className="w-full px-3 py-2 text-sm rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-[#C9A84C] resize-none" />
+                    ) : (
+                      <Input value={form.cta_section[f.key] || ""} onChange={e => setField("cta_section", f.key, e.target.value)} placeholder={f.placeholder} className="text-sm" />
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* ── ANNOUNCEMENT ── */}
+            {activeSection === "announcement" && (
+              <>
+                <h3 className="font-semibold text-sm text-muted-foreground mb-4">شريط الإعلانات — يظهر في أعلى الصفحة</h3>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="ann-enabled" checked={!!form.announcement.enabled}
+                      onChange={e => setField("announcement", "enabled", e.target.checked)}
+                      className="w-4 h-4 rounded accent-[#C9A84C]" />
+                    <label htmlFor="ann-enabled" className="text-sm font-medium">تفعيل شريط الإعلانات</label>
+                  </div>
+                  {form.announcement.enabled && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">نشط</span>
+                  )}
+                </div>
+                {form.announcement.enabled && (
+                  <div className="p-3 rounded-lg border text-sm text-center font-bold"
+                    style={{ background: form.announcement.bgColor || "#C9A84C", color: form.announcement.textColor || "#0D1626" }}>
+                    {form.announcement.text || "معاينة الشريط..."}
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">نص الإعلان</Label>
+                  <Input value={form.announcement.text || ""} onChange={e => setField("announcement", "text", e.target.value)}
+                    placeholder="🎉 خصم 20% لمدة محدودة — سجّل الآن!" className="text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">رابط (اختياري)</Label>
+                  <Input value={form.announcement.link || ""} onChange={e => setField("announcement", "link", e.target.value)}
+                    placeholder="https://..." className="text-sm" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">لون الخلفية</Label>
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={form.announcement.bgColor || "#C9A84C"}
+                        onChange={e => setField("announcement", "bgColor", e.target.value)}
+                        className="w-10 h-8 rounded border border-border cursor-pointer bg-transparent" />
+                      <Input value={form.announcement.bgColor || "#C9A84C"} onChange={e => setField("announcement", "bgColor", e.target.value)}
+                        className="text-sm font-mono" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">لون النص</Label>
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={form.announcement.textColor || "#0D1626"}
+                        onChange={e => setField("announcement", "textColor", e.target.value)}
+                        className="w-10 h-8 rounded border border-border cursor-pointer bg-transparent" />
+                      <Input value={form.announcement.textColor || "#0D1626"} onChange={e => setField("announcement", "textColor", e.target.value)}
+                        className="text-sm font-mono" />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── SEO ── */}
+            {activeSection === "seo" && (
+              <>
+                <h3 className="font-semibold text-sm text-muted-foreground mb-4">إعدادات SEO — للمحركات البحثية ومشاركة الروابط</h3>
+                {[
+                  { key: "metaTitle",       label: "عنوان الصفحة (Meta Title)",       placeholder: "عدالة AI — نظام إدارة المكاتب القانونية" },
+                  { key: "metaDescription", label: "وصف الصفحة (Meta Description)",   placeholder: "منصة متكاملة لإدارة المكاتب القانونية..." },
+                  { key: "ogImage",         label: "صورة المشاركة (OG Image URL)",     placeholder: "https://..." },
+                ].map(f => (
+                  <div key={f.key} className="space-y-1.5">
+                    <Label className="text-xs">{f.label}</Label>
+                    {f.key === "metaDescription" ? (
+                      <textarea rows={3} value={form.seo[f.key] || ""} onChange={e => setField("seo", f.key, e.target.value)}
+                        placeholder={f.placeholder}
+                        className="w-full px-3 py-2 text-sm rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-[#C9A84C] resize-none" />
+                    ) : (
+                      <Input value={form.seo[f.key] || ""} onChange={e => setField("seo", f.key, e.target.value)} placeholder={f.placeholder} className="text-sm" />
+                    )}
+                  </div>
+                ))}
+                {form.seo.metaTitle && (
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                    <p className="text-xs text-muted-foreground mb-2">معاينة نتيجة Google:</p>
+                    <p className="text-blue-400 text-sm font-medium truncate">{form.seo.metaTitle}</p>
+                    <p className="text-green-600 text-xs">{BASE_URL}/</p>
+                    {form.seo.metaDescription && <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{form.seo.metaDescription}</p>}
+                  </div>
+                )}
+              </>
+            )}
+
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
