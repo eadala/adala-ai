@@ -16,6 +16,9 @@ export interface OfficePlan {
     maxBranches:  number;
   };
   isActive: boolean;
+  isTrial: boolean;
+  trialEndsAt: number | null;
+  trialDaysLeft: number | null;
 }
 
 export interface PlanNotification {
@@ -46,14 +49,17 @@ export function useOfficePlan() {
   const flags = data?.featureFlags ?? {};
 
   return {
-    plan:       data ?? null,
-    isLoaded:   !isLoading,
-    planSlug:   data?.planSlug ?? "free",
-    planName:   data?.planName ?? "مجاني",
-    planColor:  data?.planColor ?? "#C9A84C",
-    limits:     data?.limits,
-    hasFeature: (code: string): boolean => flags[code] === true,
-    featureFlags: flags,
+    plan:          data ?? null,
+    isLoaded:      !isLoading,
+    planSlug:      data?.planSlug ?? "free",
+    planName:      data?.planName ?? "مجاني",
+    planColor:     data?.planColor ?? "#C9A84C",
+    limits:        data?.limits,
+    hasFeature:    (code: string): boolean => flags[code] === true,
+    featureFlags:  flags,
+    isTrial:       data?.isTrial ?? false,
+    trialDaysLeft: data?.trialDaysLeft ?? null,
+    trialEndsAt:   data?.trialEndsAt ?? null,
   };
 }
 
