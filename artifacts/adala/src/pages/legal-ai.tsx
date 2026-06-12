@@ -187,6 +187,7 @@ export default function LegalAIPage() {
   );
 
   return (
+    <>
     <div className="h-full flex flex-col gap-0">
       {/* header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
@@ -584,5 +585,6 @@ export default function LegalAIPage() {
         </div>
       </div>
     )}
+    </>
   );
 }
