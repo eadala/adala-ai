@@ -18,6 +18,26 @@ import { cn } from "@/lib/utils";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
+/* ── Color helpers ── */
+function getLuminance(hex: string): number {
+  const clean = hex.replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return 0;
+  const lin = (c: number) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  const r = lin(parseInt(clean.slice(0, 2), 16) / 255);
+  const g = lin(parseInt(clean.slice(2, 4), 16) / 255);
+  const b = lin(parseInt(clean.slice(4, 6), 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function lightenHex(hex: string, amount = 0.15): string {
+  const clean = hex.replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return hex;
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  const m = (v: number) => Math.round(v + (255 - v) * amount).toString(16).padStart(2, "0");
+  return `#${m(r)}${m(g)}${m(b)}`;
+}
+
 /* ── Types ── */
 interface DesignTokens {
   colors: {
@@ -32,6 +52,7 @@ interface DesignTokens {
   radius: { card: string; button: string; input: string; badge: string };
   spacing: { sm: string; md: string; lg: string; xl: string };
   shadows: { card: string; button: string };
+  scope?: "platform" | "landing" | "both";
 }
 
 const DEFAULT_TOKENS: DesignTokens = {
@@ -45,6 +66,7 @@ const DEFAULT_TOKENS: DesignTokens = {
   radius: { card: "12", button: "8", input: "8", badge: "6" },
   spacing: { sm: "8", md: "16", lg: "24", xl: "32" },
   shadows: { card: "0 4px 24px rgba(0,0,0,0.3)", button: "0 2px 8px rgba(201,168,76,0.25)" },
+  scope: "both",
 };
 
 const FONTS = ["Cairo", "Tajawal", "Noto Kufi Arabic", "IBM Plex Sans Arabic", "Inter", "Roboto", "Poppins"];
@@ -376,6 +398,113 @@ function LiveCanvas({ tokens, viewport }: { tokens: DesignTokens; viewport: "des
 }
 
 /* ──────────────────────────────────────────────────────────────────
+   LANDING PAGE PREVIEW CANVAS
+────────────────────────────────────────────────────────────────── */
+function LandingCanvas({ tokens, viewport }: { tokens: DesignTokens; viewport: "desktop" | "mobile" }) {
+  const c = tokens.colors;
+  const accent = c.accent;
+  const accentEnd = lightenHex(accent, 0.18);
+  const bg = c.background;
+  const isLight = getLuminance(bg) > 0.35;
+  const text = c.text;
+  const textMuted = c.textMuted;
+  const accentOnBg = getLuminance(accent) > 0.35 ? "#0D1626" : "#FFFFFF";
+  const navBg = isLight ? "rgba(248,250,252,0.96)" : "rgba(8,15,30,0.95)";
+  const navBorder = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.07)";
+  const cardBg = isLight ? "rgba(0,0,0,0.035)" : "rgba(255,255,255,0.04)";
+  const cardBorder = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)";
+  const fontStack = `'${tokens.typography.fontFamily}', Cairo, sans-serif`;
+  const r = tokens.radius;
+
+  return (
+    <div style={{ background: bg, fontFamily: fontStack, color: text, height: "100%", overflow: "auto" }}>
+      {/* Navbar */}
+      <div style={{ background: navBg, borderBottom: `1px solid ${navBorder}`, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div style={{ width: "28px", height: "28px", borderRadius: `${r.button}px`, background: `linear-gradient(135deg, ${accent}, ${accentEnd})`, display: "flex", alignItems: "center", justifyContent: "center", color: accentOnBg, fontWeight: 900, fontSize: "12px" }}>ع</div>
+          <span style={{ fontWeight: 900, fontSize: "13px", color: text }}>عدالة AI</span>
+        </div>
+        {viewport !== "mobile" && (
+          <div style={{ display: "flex", gap: "14px", fontSize: "11px", color: textMuted }}>
+            {["المميزات", "الأسعار", "عن المنصة"].map(n => <span key={n} style={{ cursor: "pointer" }}>{n}</span>)}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <span style={{ fontSize: "11px", color: textMuted, cursor: "pointer" }}>دخول</span>
+          <button style={{ background: `linear-gradient(135deg, ${accent}, ${accentEnd})`, color: accentOnBg, border: "none", borderRadius: `${r.button}px`, padding: "5px 12px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}>ابدأ مجاناً</button>
+        </div>
+      </div>
+
+      {/* Hero */}
+      <div style={{ padding: viewport === "mobile" ? "30px 14px 20px" : "40px 20px 30px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: "30px", left: "50%", transform: "translateX(-50%)", width: "300px", height: "200px", borderRadius: "50%", background: accent, opacity: isLight ? 0.08 : 0.12, filter: "blur(80px)", pointerEvents: "none" }} />
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "4px 12px", borderRadius: "20px", fontSize: "10px", fontWeight: 600, background: `${accent}18`, border: `1px solid ${accent}30`, color: accent, marginBottom: "12px" }}>
+          ✦ النظام القانوني الذكي الأول بالعربية
+        </div>
+        <div style={{ fontSize: viewport === "mobile" ? "20px" : "26px", fontWeight: 900, color: text, lineHeight: 1.3, marginBottom: "10px" }}>
+          أتمتة إدارة المكتب القانوني<br />
+          <span style={{ background: `linear-gradient(135deg, ${accent}, ${accentEnd})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>بقوة الذكاء الاصطناعي</span>
+        </div>
+        <div style={{ fontSize: "11px", color: textMuted, marginBottom: "16px", lineHeight: 1.6 }}>
+          ادارة القضايا والعملاء والفواتير والتقارير — كل شيء في مكان واحد
+        </div>
+        <div style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" as const }}>
+          <button style={{ background: `linear-gradient(135deg, ${accent}, ${accentEnd})`, color: accentOnBg, border: "none", borderRadius: `${r.button}px`, padding: "9px 18px", fontSize: "11px", fontWeight: 700, cursor: "pointer", boxShadow: `0 6px 20px ${accent}30` }}>
+            ابدأ مجاناً ←
+          </button>
+          <button style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: `${r.button}px`, padding: "9px 14px", fontSize: "11px", color: text, cursor: "pointer" }}>
+            معرفة المزيد
+          </button>
+        </div>
+      </div>
+
+      {/* Stats strip */}
+      <div style={{ borderTop: `1px solid ${cardBorder}`, borderBottom: `1px solid ${cardBorder}`, padding: "14px 16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px", textAlign: "center" }}>
+          {[["1000+","مكتب"],["100K+","قضية"],["99.9%","رضا"],["40%","توفير"]].map(([v,l]) => (
+            <div key={l}>
+              <div style={{ fontSize: "16px", fontWeight: 900, color: accent }}>{v}</div>
+              <div style={{ fontSize: "9px", color: textMuted }}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Features grid */}
+      <div style={{ padding: "20px 14px" }}>
+        <div style={{ textAlign: "center", marginBottom: "14px" }}>
+          <span style={{ fontSize: "10px", fontWeight: 600, color: accent, background: `${accent}14`, border: `1px solid ${accent}25`, padding: "3px 10px", borderRadius: "20px" }}>المميزات</span>
+          <div style={{ fontSize: "14px", fontWeight: 900, color: text, marginTop: "8px" }}>كل ما تحتاجه في منصة واحدة</div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: viewport === "mobile" ? "1fr 1fr" : "1fr 1fr 1fr", gap: "8px" }}>
+          {[
+            { icon: "⚖️", title: "إدارة القضايا", desc: "تتبع كل قضية بذكاء" },
+            { icon: "👥", title: "ملفات العملاء", desc: "بيانات منظمة وسهلة" },
+            { icon: "🧾", title: "الفوترة الذكية", desc: "فواتير ضريبية تلقائية" },
+            { icon: "🤖", title: "مساعد AI", desc: "ذكاء اصطناعي قانوني" },
+            { icon: "📊", title: "تقارير متقدمة", desc: "تحليلات فورية" },
+            { icon: "📅", title: "التقويم", desc: "إدارة الجلسات" },
+          ].map(f => (
+            <div key={f.title} style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: `${r.card}px`, padding: "10px" }}>
+              <div style={{ fontSize: "16px", marginBottom: "4px" }}>{f.icon}</div>
+              <div style={{ fontSize: "10px", fontWeight: 700, color: text, marginBottom: "2px" }}>{f.title}</div>
+              <div style={{ fontSize: "9px", color: textMuted }}>{f.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div style={{ margin: "0 14px 20px", background: `linear-gradient(135deg, ${accent}20, ${accentEnd}10)`, border: `1px solid ${accent}25`, borderRadius: `${r.card}px`, padding: "18px", textAlign: "center" }}>
+        <div style={{ fontSize: "13px", fontWeight: 900, color: text, marginBottom: "6px" }}>ابدأ تجربتك المجانية اليوم</div>
+        <div style={{ fontSize: "10px", color: textMuted, marginBottom: "12px" }}>١٤ يوماً مجاناً • بدون بطاقة ائتمان</div>
+        <button style={{ background: `linear-gradient(135deg, ${accent}, ${accentEnd})`, color: accentOnBg, border: "none", borderRadius: `${r.button}px`, padding: "8px 20px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}>سجّل الآن مجاناً</button>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
    COLOR SWATCH
 ────────────────────────────────────────────────────────────────── */
 function ColorSwatch({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
@@ -452,6 +581,7 @@ export default function ThemeBuilderPage() {
   const [tokens, setTokens] = useState<DesignTokens>(DEFAULT_TOKENS);
   const [dirty, setDirty] = useState(false);
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
+  const [previewMode, setPreviewMode] = useState<"platform" | "landing">("platform");
   const [activePreset, setActivePreset] = useState<string | null>("dark-navy");
   const [themeName, setThemeName] = useState("الثيم المخصص");
   const [copied, setCopied] = useState(false);
@@ -554,6 +684,31 @@ export default function ThemeBuilderPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Preview mode toggle */}
+          <div className="flex items-center bg-muted/40 rounded-lg p-0.5 border border-border/30">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setPreviewMode("platform")}
+                  className={cn("px-2 py-1 rounded-md transition-colors text-[10px] font-medium", previewMode === "platform" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                >
+                  المنصة
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>معاينة لوحة التحكم</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setPreviewMode("landing")}
+                  className={cn("px-2 py-1 rounded-md transition-colors text-[10px] font-medium", previewMode === "landing" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                >
+                  الرئيسية
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>معاينة الصفحة الرئيسية</TooltipContent>
+            </Tooltip>
+          </div>
           {/* Viewport toggle */}
           <div className="flex items-center bg-muted/40 rounded-lg p-0.5 border border-border/30">
             <Tooltip>
@@ -755,10 +910,11 @@ export default function ThemeBuilderPage() {
 
             {/* Presets Tab */}
             <TabsContent value="presets" className="p-3 space-y-2 mt-0">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> ثيمات جاهزة
+              {/* Dark category */}
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+                🌙 ثيمات داكنة
               </p>
-              {presets.map((preset: any) => (
+              {(presets as any[]).filter((p: any) => p.category === "dark").map((preset: any) => (
                 <PresetCard
                   key={preset.id}
                   preset={preset}
@@ -766,6 +922,20 @@ export default function ThemeBuilderPage() {
                   onClick={() => applyPreset(preset)}
                 />
               ))}
+
+              {/* Light category */}
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-2 flex items-center gap-1">
+                ☀️ ثيمات فاتحة
+              </p>
+              {(presets as any[]).filter((p: any) => p.category === "light").map((preset: any) => (
+                <PresetCard
+                  key={preset.id}
+                  preset={preset}
+                  isActive={activePreset === preset.id}
+                  onClick={() => applyPreset(preset)}
+                />
+              ))}
+
               <div className="mt-4 pt-3 border-t border-border/30">
                 <Label className="text-xs text-muted-foreground mb-1.5 block">اسم الثيم</Label>
                 <Input
@@ -774,6 +944,32 @@ export default function ThemeBuilderPage() {
                   className="h-7 text-xs"
                   placeholder="الثيم المخصص..."
                 />
+              </div>
+
+              {/* Scope selector */}
+              <div className="mt-3 pt-3 border-t border-border/30">
+                <Label className="text-xs text-muted-foreground mb-2 block">نطاق الثيم</Label>
+                <div className="flex gap-1">
+                  {(["both", "platform", "landing"] as const).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => { setTokens(prev => ({ ...prev, scope: s })); setDirty(true); }}
+                      className={cn(
+                        "flex-1 text-[10px] py-1.5 rounded border transition-all",
+                        tokens.scope === s
+                          ? "border-accent/60 bg-accent/10 text-accent"
+                          : "border-border/40 text-muted-foreground hover:border-border"
+                      )}
+                    >
+                      {s === "both" ? "الكل" : s === "platform" ? "المنصة" : "الرئيسية"}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[9px] text-muted-foreground mt-1.5">
+                  {tokens.scope === "both" ? "يُطبَّق على المنصة والصفحة الرئيسية معاً"
+                    : tokens.scope === "platform" ? "يُطبَّق فقط على لوحة التحكم"
+                    : "يُطبَّق فقط على الصفحة الرئيسية"}
+                </p>
               </div>
             </TabsContent>
           </Tabs>
@@ -784,7 +980,9 @@ export default function ThemeBuilderPage() {
           <div className="flex items-center justify-between px-4 py-2 border-b border-border/30 flex-shrink-0">
             <div className="flex items-center gap-2">
               <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground">معاينة حية</span>
+              <span className="text-xs font-medium text-muted-foreground">
+                {previewMode === "landing" ? "معاينة الصفحة الرئيسية" : "معاينة لوحة التحكم"}
+              </span>
               {dirty && (
                 <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-accent/40 text-accent">
                   تغييرات غير محفوظة
@@ -808,7 +1006,10 @@ export default function ThemeBuilderPage() {
                 border: "1px solid rgba(255,255,255,0.08)",
               }}
             >
-              <LiveCanvas tokens={tokens} viewport={viewport} />
+              {previewMode === "landing"
+                ? <LandingCanvas tokens={tokens} viewport={viewport} />
+                : <LiveCanvas tokens={tokens} viewport={viewport} />
+              }
             </div>
           </div>
         </div>
