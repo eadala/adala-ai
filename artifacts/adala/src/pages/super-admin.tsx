@@ -4979,6 +4979,13 @@ function HomeCmsTab({ toast }: { toast: any }) {
     announcement: { enabled: false, text: "", link: "", bgColor: "#C9A84C", textColor: "#0D1626" },
     seo: { metaTitle: "", metaDescription: "", ogImage: "" },
     contact: { whatsapp: "", email: "", twitter: "", linkedin: "", youtube: "", showWhatsappButton: true },
+    footer: {
+      tagline: "", copyright: "", showStatus: true, statusText: "",
+      showPlatformCol: true, showCompanyCol: true, showSupportCol: true,
+      platformLinks: [{ label: "", href: "" }, { label: "", href: "" }, { label: "", href: "" }, { label: "", href: "" }],
+      companyLinks:  [{ label: "", href: "" }, { label: "", href: "" }, { label: "", href: "" }],
+      supportLinks:  [{ label: "", href: "" }, { label: "", href: "" }, { label: "", href: "" }, { label: "", href: "" }],
+    },
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -5052,6 +5059,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
     { id: "announcement", label: "شريط الإعلانات",       icon: "📢" },
     { id: "contact",      label: "التواصل والروابط",     icon: "📞" },
     { id: "seo",          label: "SEO",                  icon: "🔍" },
+    { id: "footer",       label: "التذييل (Footer)",      icon: "🦶" },
   ];
 
   if (!loaded) return (
@@ -5381,6 +5389,141 @@ function HomeCmsTab({ toast }: { toast: any }) {
                     {form.seo.metaDescription && <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{form.seo.metaDescription}</p>}
                   </div>
                 )}
+              </>
+            )}
+
+            {/* ── FOOTER ── */}
+            {activeSection === "footer" && (
+              <>
+                <h3 className="font-semibold text-sm text-muted-foreground mb-4">لوحة التحكم في التذييل (Footer)</h3>
+
+                {/* Basic info */}
+                <div className="space-y-3 p-3 rounded-lg bg-muted/20 border border-border">
+                  <p className="text-xs font-bold text-[#C9A84C]">المعلومات الأساسية</p>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">شعار الشركة (tagline)</Label>
+                    <Input value={form.footer.tagline || ""} onChange={e => setField("footer", "tagline", e.target.value)}
+                      placeholder="أول نظام تشغيل قانوني متكامل للمكاتب حول العالم" className="text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">نص حقوق النشر (Copyright)</Label>
+                    <Input value={form.footer.copyright || ""} onChange={e => setField("footer", "copyright", e.target.value)}
+                      placeholder="© ٢٠٢٦ عدالة AI — جميع الحقوق محفوظة" className="text-sm" />
+                  </div>
+                </div>
+
+                {/* Status badge */}
+                <div className="space-y-3 p-3 rounded-lg bg-muted/20 border border-border">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-[#C9A84C]">بادج حالة الأنظمة</p>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-muted-foreground">إظهار</Label>
+                      <Switch checked={form.footer.showStatus !== false}
+                        onCheckedChange={v => setField("footer", "showStatus", v)} />
+                    </div>
+                  </div>
+                  {form.footer.showStatus !== false && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">نص البادج</Label>
+                        <Input value={form.footer.statusText || ""} onChange={e => setField("footer", "statusText", e.target.value)}
+                          placeholder="جميع الأنظمة تعمل" className="text-sm" />
+                      </div>
+                      <div className="px-3 py-1.5 rounded-full text-green-400 text-xs self-start inline-flex"
+                        style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                        ● {form.footer.statusText || "جميع الأنظمة تعمل"}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Column visibility */}
+                <div className="p-3 rounded-lg bg-muted/20 border border-border">
+                  <p className="text-xs font-bold text-[#C9A84C] mb-3">إظهار أعمدة الروابط</p>
+                  <div className="grid grid-cols-3 gap-4">
+                    {[
+                      { key: "showPlatformCol", label: "عمود المنصة" },
+                      { key: "showCompanyCol",  label: "عمود الشركة" },
+                      { key: "showSupportCol",  label: "عمود الدعم"  },
+                    ].map(col => (
+                      <div key={col.key} className="flex items-center gap-2">
+                        <Switch checked={form.footer[col.key] !== false}
+                          onCheckedChange={v => setField("footer", col.key, v)} />
+                        <Label className="text-xs">{col.label}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Links editor */}
+                {[
+                  { key: "platformLinks", label: "روابط المنصة",  count: 4 },
+                  { key: "companyLinks",  label: "روابط الشركة",  count: 3 },
+                  { key: "supportLinks",  label: "روابط الدعم",    count: 4 },
+                ].map(col => (
+                  <div key={col.key} className="space-y-2 p-3 rounded-lg bg-muted/20 border border-border">
+                    <p className="text-xs font-bold text-[#C9A84C] mb-1">{col.label}</p>
+                    <div className="grid grid-cols-2 gap-1 mb-1">
+                      <span className="text-xs text-muted-foreground px-1">النص</span>
+                      <span className="text-xs text-muted-foreground px-1">الرابط (href)</span>
+                    </div>
+                    {Array.from({ length: col.count }).map((_, i) => {
+                      const links: any[] = form.footer[col.key] || [];
+                      const link = links[i] || { label: "", href: "" };
+                      const updateLink = (field: string, val: string) => {
+                        const updated = [...(form.footer[col.key] || [])];
+                        while (updated.length <= i) updated.push({ label: "", href: "" });
+                        updated[i] = { ...updated[i], [field]: val };
+                        setField("footer", col.key, updated);
+                      };
+                      return (
+                        <div key={i} className="grid grid-cols-2 gap-2">
+                          <Input value={link.label || ""} onChange={e => updateLink("label", e.target.value)}
+                            placeholder={`رابط ${i + 1}`} className="text-sm h-8" />
+                          <Input value={link.href || ""} onChange={e => updateLink("href", e.target.value)}
+                            placeholder="#anchor أو /page" className="text-sm h-8 font-mono text-xs" dir="ltr" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+
+                {/* Live preview */}
+                <div className="p-4 rounded-xl border border-white/10 text-xs" style={{ background: "#080F1E" }}>
+                  <p className="text-white/40 text-xs mb-3">معاينة الفوتر:</p>
+                  <div className="flex gap-6 flex-wrap">
+                    {form.footer.showPlatformCol !== false && (
+                      <div>
+                        <p className="text-white text-xs font-bold mb-2">المنصة</p>
+                        {(form.footer.platformLinks || []).filter((l: any) => l.label).map((l: any, i: number) => (
+                          <p key={i} className="text-white/40 text-xs mb-1">{l.label}</p>
+                        ))}
+                      </div>
+                    )}
+                    {form.footer.showCompanyCol !== false && (
+                      <div>
+                        <p className="text-white text-xs font-bold mb-2">الشركة</p>
+                        {(form.footer.companyLinks || []).filter((l: any) => l.label).map((l: any, i: number) => (
+                          <p key={i} className="text-white/40 text-xs mb-1">{l.label}</p>
+                        ))}
+                      </div>
+                    )}
+                    {form.footer.showSupportCol !== false && (
+                      <div>
+                        <p className="text-white text-xs font-bold mb-2">الدعم</p>
+                        {(form.footer.supportLinks || []).filter((l: any) => l.label).map((l: any, i: number) => (
+                          <p key={i} className="text-white/40 text-xs mb-1">{l.label}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between">
+                    <p className="text-white/30 text-xs">{form.footer.copyright || "© ٢٠٢٦ عدالة AI"}</p>
+                    {form.footer.showStatus !== false && (
+                      <span className="text-green-400 text-xs">● {form.footer.statusText || "جميع الأنظمة تعمل"}</span>
+                    )}
+                  </div>
+                </div>
               </>
             )}
 
