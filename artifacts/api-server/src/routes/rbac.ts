@@ -4,71 +4,167 @@ import { eq, desc } from "drizzle-orm";
 
 const router = Router();
 
-const ALL_PERMISSIONS = [
-  "cases:view", "cases:create", "cases:edit", "cases:delete",
-  "documents:view", "documents:create", "documents:edit", "documents:delete",
-  "ai:view", "ai:run",
-  "users:view", "users:manage",
+/* ══════════════════════════════════════════════════════
+   FULL PERMISSIONS MATRIX (Adalah RBAC v2)
+══════════════════════════════════════════════════════ */
+export const ALL_PERMISSIONS = [
+  // Cases
+  "cases:view", "cases:create", "cases:edit", "cases:delete", "cases:assign", "cases:close",
+  // Clients
+  "clients:view", "clients:create", "clients:edit", "clients:delete",
+  // Contracts
+  "contracts:view", "contracts:create", "contracts:edit", "contracts:delete",
+  // Documents
+  "documents:view", "documents:upload", "documents:edit", "documents:delete",
+  // Financial
+  "invoices:view", "invoices:create", "invoices:edit", "invoices:delete",
+  "payments:view", "payments:create",
+  "reports:view", "financial:view",
+  // Users & Roles
+  "users:view", "users:create", "users:edit", "users:delete",
+  "roles:view", "roles:create", "roles:edit",
+  // Settings
+  "settings:view", "settings:edit",
+  // AI
+  "ai:access",
+  // Messaging
   "messages:view", "messages:send",
-  "billing:view", "billing:manage",
+  // Support
+  "support:view", "support:reply",
+  // Referral & Collaboration
+  "referral:create", "referral:view",
+  "collaborator:access",
+  // Audit
+  "audit:view",
+  // Dashboard
   "dashboard:view",
 ];
 
+/* ══════════════════════════════════════════════════════
+   DEFAULT ROLES — Adalah Smart Office
+══════════════════════════════════════════════════════ */
 const DEFAULT_ROLES = [
   {
-    name: "admin",
-    displayName: "مدير النظام",
-    description: "صلاحيات كاملة على جميع وظائف المنصة",
-    permissions: JSON.stringify(ALL_PERMISSIONS),
+    name: "firm_owner",
+    displayName: "مالك المكتب",
+    description: "صلاحيات كاملة على جميع وظائف المنصة والمكتب",
+    permissions: JSON.stringify(["*"]),
+    isSystem: true,
+  },
+  {
+    name: "office_manager",
+    displayName: "مدير المكتب",
+    description: "إدارة كاملة للعمليات اليومية والفريق والتقارير",
+    permissions: JSON.stringify([
+      "dashboard:view",
+      "cases:view", "cases:create", "cases:edit", "cases:assign",
+      "clients:view", "clients:create", "clients:edit",
+      "contracts:view", "contracts:create", "contracts:edit",
+      "documents:view", "documents:upload",
+      "users:view", "users:create", "users:edit",
+      "roles:view",
+      "reports:view", "financial:view",
+      "settings:view",
+      "ai:access",
+      "messages:view", "messages:send",
+    ]),
     isSystem: true,
   },
   {
     name: "lawyer",
     displayName: "محامي",
-    description: "إدارة القضايا والمستندات وتشغيل مهام الذكاء الاصطناعي",
+    description: "إدارة القضايا والعقود والمستندات وأدوات الذكاء الاصطناعي",
     permissions: JSON.stringify([
       "dashboard:view",
       "cases:view", "cases:create", "cases:edit",
-      "documents:view", "documents:create", "documents:edit",
-      "ai:view", "ai:run",
+      "clients:view",
+      "contracts:view", "contracts:create", "contracts:edit",
+      "documents:view", "documents:upload", "documents:edit",
+      "ai:access",
       "messages:view", "messages:send",
-      "billing:view",
+      "invoices:view",
       "users:view",
     ]),
     isSystem: true,
   },
   {
-    name: "paralegal",
-    displayName: "مساعد قانوني",
-    description: "مساعدة في إعداد الملفات والمستندات",
-    permissions: JSON.stringify([
-      "dashboard:view",
-      "cases:view", "cases:create",
-      "documents:view", "documents:create",
-      "ai:view",
-      "messages:view",
-      "users:view",
-    ]),
-    isSystem: true,
-  },
-  {
-    name: "viewer",
-    displayName: "مراقب",
-    description: "قراءة فقط — لا يمكن إجراء أي تعديلات",
+    name: "trainee_lawyer",
+    displayName: "محامي متدرب",
+    description: "صلاحيات محدودة للاطلاع والمساعدة في الملفات",
     permissions: JSON.stringify([
       "dashboard:view",
       "cases:view",
-      "documents:view",
+      "clients:view",
+      "documents:view", "documents:upload",
+      "ai:access",
       "messages:view",
+    ]),
+    isSystem: true,
+  },
+  {
+    name: "accountant",
+    displayName: "محاسب",
+    description: "الإدارة المالية الكاملة — الفواتير والمدفوعات والتقارير المالية",
+    permissions: JSON.stringify([
+      "dashboard:view",
+      "invoices:view", "invoices:create", "invoices:edit",
+      "payments:view", "payments:create",
+      "reports:view", "financial:view",
+      "clients:view",
+    ]),
+    isSystem: true,
+  },
+  {
+    name: "secretary",
+    displayName: "سكرتير",
+    description: "إدارة العملاء والوثائق والمواعيد",
+    permissions: JSON.stringify([
+      "dashboard:view",
+      "clients:view", "clients:create",
+      "documents:view", "documents:upload",
+      "messages:view", "messages:send",
+    ]),
+    isSystem: true,
+  },
+  {
+    name: "broker",
+    displayName: "وسيط",
+    description: "إحالة القضايا وتتبع العمولات والإحالات",
+    permissions: JSON.stringify([
+      "referral:create", "referral:view",
+    ]),
+    isSystem: true,
+  },
+  {
+    name: "collaborator",
+    displayName: "متعاون",
+    description: "الوصول إلى المهام المُشتركة والوثائق المحددة",
+    permissions: JSON.stringify([
+      "collaborator:access",
+      "documents:view", "documents:upload",
+    ]),
+    isSystem: true,
+  },
+  {
+    name: "client",
+    displayName: "عميل",
+    description: "الاطلاع على القضايا الخاصة والفواتير والوثائق",
+    permissions: JSON.stringify([
+      "cases:view",
+      "documents:view",
+      "invoices:view",
     ]),
     isSystem: true,
   },
 ];
 
-async function seedRolesIfEmpty() {
-  const existing = await db.select().from(rolesTable).limit(1);
-  if (existing.length === 0) {
-    await db.insert(rolesTable).values(DEFAULT_ROLES);
+/* ── Sync roles: insert missing without touching existing ── */
+async function syncDefaultRoles() {
+  const existing = await db.select().from(rolesTable);
+  const existingNames = new Set(existing.map(r => r.name));
+  const toInsert = DEFAULT_ROLES.filter(r => !existingNames.has(r.name));
+  if (toInsert.length > 0) {
+    await db.insert(rolesTable).values(toInsert);
   }
 }
 
@@ -87,7 +183,7 @@ async function logAudit(
 
 router.get("/rbac/roles", async (_req, res) => {
   try {
-    await seedRolesIfEmpty();
+    await syncDefaultRoles();
     const roles = await db.select().from(rolesTable).orderBy(rolesTable.createdAt);
     res.json(roles.map(r => ({
       ...r,
@@ -226,7 +322,7 @@ router.get("/rbac/audit-logs", async (_req, res) => {
   }
 });
 
-// ─── USER ROLE UPDATE ────────────────────────────────────────────────────────
+// ─── USER ROLE / STATUS UPDATE ───────────────────────────────────────────────
 
 router.patch("/rbac/users/:id/role", async (req, res) => {
   try {
