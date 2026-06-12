@@ -137,7 +137,7 @@ async function ensureCreditTables(): Promise<void> {
 /* run once on load */
 ensureCreditTables();
 
-async function callAI(
+export async function callAI(
   systemPrompt: string,
   userMessage: string,
   history: { role: string; content: string }[] = [],

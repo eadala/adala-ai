@@ -85,6 +85,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/judge-prep",         labelKey: "nav.items.judge_prep",         icon: Gavel,       feature: "ai" },
       { href: "/opponent-simulator", labelKey: "nav.items.opponent_simulator", icon: Swords,      feature: "ai" },
       { href: "/arbitration",        labelKey: "nav.items.arbitration",        icon: Handshake,   feature: "ai" },
+      { href: "/legal-ai",           labelKey: "nav.items.legal_ai",           icon: Scale,       feature: "ai" },
     ],
   },
   {
@@ -174,7 +175,7 @@ function OfficeLogo() {
 function NavItemLink({ item, isActive, onClick, badge }: { item: NavItem; isActive: boolean; onClick?: () => void; badge?: number }) {
   const { hasFeature, isLoaded } = useOfficePlan();
   const { t } = useTranslation();
-  const isAI = ["/ai-hub", "/command-center", "/ai-agents", "/ai-chat", "/opponent-simulator", "/ai-assistant", "/legal-research", "/judge-prep", "/arbitration"].includes(item.href);
+  const isAI = ["/ai-hub", "/command-center", "/ai-agents", "/ai-chat", "/opponent-simulator", "/ai-assistant", "/legal-research", "/judge-prep", "/arbitration", "/legal-ai"].includes(item.href);
   const isLocked = isLoaded && item.feature ? !hasFeature(item.feature) : false;
   const label = t(item.labelKey);
 
