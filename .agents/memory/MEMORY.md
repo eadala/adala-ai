@@ -21,3 +21,4 @@
 - [Adala HR Center](adala-hr-center.md) — performance_evaluations + employee_incentives + hr_settings tables; hrPerformance.ts routes; /hr-center page (6 tabs); Award icon must be imported in layout.tsx
 - [Adala AI Hub](adala-ai-hub.md) — 7 AI pages unified into /ai-hub; 3 chat modes + 4 tool cards; nav collapsed from 7→4 items; existing AI pages still accessible
 - [Adala AI Credits](adala-ai-credits.md) — per-office credit balance (gemini=1pt, claude/openai=3pt); deduction non-blocking in callAI(); super-admin tab + ai-hub sidebar widget
+- [Adala Legal AI Engine](adala-legal-ai.md) — legal_documents table; /api/legal-ai/* routes in legalAI.ts; callAI() exported from aiChat.ts; /legal-ai page (2-col: type tree + form + output); 11 doc types across 6 categories
