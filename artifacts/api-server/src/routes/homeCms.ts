@@ -33,6 +33,10 @@ async function ensureTable() {
   await db.execute(sql`
     ALTER TABLE home_cms ADD COLUMN IF NOT EXISTS contact JSONB NOT NULL DEFAULT '{}'
   `);
+  /* add footer column */
+  await db.execute(sql`
+    ALTER TABLE home_cms ADD COLUMN IF NOT EXISTS footer JSONB NOT NULL DEFAULT '{}'
+  `);
   /* seed default row if missing */
   await db.execute(sql`
     INSERT INTO home_cms (id) VALUES (1) ON CONFLICT DO NOTHING
@@ -98,6 +102,32 @@ const DEFAULT_CONTENT = {
     youtube:    "",
     showWhatsappButton: true,
   },
+  footer: {
+    tagline:        "أول نظام تشغيل قانوني متكامل للمكاتب حول العالم",
+    copyright:      "© ٢٠٢٦ عدالة AI — جميع الحقوق محفوظة",
+    showStatus:     true,
+    statusText:     "جميع الأنظمة تعمل",
+    showPlatformCol: true,
+    showCompanyCol:  true,
+    showSupportCol:  true,
+    platformLinks: [
+      { label: "المميزات",     href: "#features" },
+      { label: "الأسعار",      href: "#pricing"  },
+      { label: "حالة الخدمة", href: "#"         },
+      { label: "الأمان",       href: "/security" },
+    ],
+    companyLinks: [
+      { label: "عن عدالة AI",  href: "#" },
+      { label: "المدونة",      href: "#" },
+      { label: "الشراكات",     href: "#" },
+    ],
+    supportLinks: [
+      { label: "الدعم الفني",         href: "#"          },
+      { label: "سياسة الخصوصية",      href: "/privacy"   },
+      { label: "شروط الاستخدام",       href: "/terms"     },
+      { label: "الأمان",               href: "/security"  },
+    ],
+  },
 };
 
 /* ══════════════════════════════════════════════════════
@@ -129,7 +159,7 @@ router.get("/home/content", async (_req, res) => {
 router.put("/home/content", async (req, res) => {
   try {
     await ensureTable();
-    const { hero, trust, features, cta_section, announcement, stats, seo, contact, updatedBy } = req.body;
+    const { hero, trust, features, cta_section, announcement, stats, seo, contact, footer, updatedBy } = req.body;
 
     await db.execute(sql`
       UPDATE home_cms SET
@@ -141,6 +171,7 @@ router.put("/home/content", async (req, res) => {
         stats        = COALESCE(${JSON.stringify(stats ?? {})}::jsonb,        stats),
         seo          = COALESCE(${JSON.stringify(seo ?? {})}::jsonb,          seo),
         contact      = COALESCE(${JSON.stringify(contact ?? {})}::jsonb,      contact),
+        footer       = COALESCE(${JSON.stringify(footer ?? {})}::jsonb,       footer),
         updated_at   = NOW(),
         updated_by   = ${updatedBy ?? null}
       WHERE id = 1
@@ -167,6 +198,7 @@ router.post("/home/content/reset", async (_req, res) => {
         stats        = ${JSON.stringify(DEFAULT_CONTENT.stats)}::jsonb,
         seo          = ${JSON.stringify(DEFAULT_CONTENT.seo)}::jsonb,
         contact      = ${JSON.stringify(DEFAULT_CONTENT.contact)}::jsonb,
+        footer       = ${JSON.stringify(DEFAULT_CONTENT.footer)}::jsonb,
         updated_at   = NOW()
       WHERE id = 1
     `);

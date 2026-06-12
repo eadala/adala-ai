@@ -264,10 +264,21 @@ export default function Landing() {
   const pricingPlans   = (t("landing.pricing.plans",    { returnObjects: true }) as { name: string; price: string; period: string; cta: string; features: string[] }[]);
   const faqItems       = (t("landing.faq.items",        { returnObjects: true }) as { q: string; a: string }[]);
   const privacyItems   = (t("landing.privacy.items",    { returnObjects: true }) as { icon: string; label: string; desc: string }[]);
-  const platformLinks  = (t("landing.footer.platformLinks", { returnObjects: true }) as string[]);
-  const companyLinks   = (t("landing.footer.companyLinks",  { returnObjects: true }) as string[]);
-  const supportLabels  = (t("landing.footer.supportLinks",  { returnObjects: true }) as string[]);
-  const supportHrefs   = ["#", "/privacy", "/terms", "/security"];
+  const cmsFooter = (cms as any)?.footer as any;
+  const _plI18n = (t("landing.footer.platformLinks", { returnObjects: true }) as string[]);
+  const _coI18n = (t("landing.footer.companyLinks",  { returnObjects: true }) as string[]);
+  const _suI18n = (t("landing.footer.supportLinks",  { returnObjects: true }) as string[]);
+  const _suHref = ["#", "/privacy", "/terms", "/security"];
+  type FooterLink = { label: string; href: string };
+  const platformLinks: FooterLink[] = (cmsFooter?.platformLinks?.some((l: any) => l.label))
+    ? (cmsFooter.platformLinks as any[]).filter((l: any) => l.label).map((l: any) => ({ label: l.label, href: l.href || "#" }))
+    : _plI18n.map((label) => ({ label, href: "#" }));
+  const companyLinks: FooterLink[] = (cmsFooter?.companyLinks?.some((l: any) => l.label))
+    ? (cmsFooter.companyLinks as any[]).filter((l: any) => l.label).map((l: any) => ({ label: l.label, href: l.href || "#" }))
+    : _coI18n.map((label) => ({ label, href: "#" }));
+  const supportLinks: FooterLink[] = (cmsFooter?.supportLinks?.some((l: any) => l.label))
+    ? (cmsFooter.supportLinks as any[]).filter((l: any) => l.label).map((l: any) => ({ label: l.label, href: l.href || "#" }))
+    : _suI18n.map((label, i) => ({ label, href: _suHref[i] || "#" }));
 
   const counterLocale = isAr ? "ar-SA" : "en-US";
   const textAlign = isAr ? "text-right" : "text-left";
@@ -870,7 +881,7 @@ export default function Landing() {
                 </div>
                 <span className="text-lg font-black text-white">عدالة AI</span>
               </div>
-              <p className="text-white/40 text-sm leading-relaxed mb-4">{t("landing.footer.tagline")}</p>
+              <p className="text-white/40 text-sm leading-relaxed mb-4">{cmsFooter?.tagline || t("landing.footer.tagline")}</p>
               <div className="flex gap-3">
                 {([
                   { Icon: Twitter,  href: cms?.contact?.twitter  as string },
@@ -886,44 +897,48 @@ export default function Landing() {
               </div>
             </div>
             {/* Platform links */}
-            <div>
-              <h4 className="font-bold text-white text-sm mb-4">{t("landing.footer.platform")}</h4>
-              <ul className="space-y-2.5">
-                {platformLinks.map((l, i) => (
-                  <li key={i}><a href="#" className="text-white/45 text-sm hover:text-white transition-colors">{l}</a></li>
-                ))}
-              </ul>
-            </div>
+            {(!cmsFooter || cmsFooter.showPlatformCol !== false) && (
+              <div>
+                <h4 className="font-bold text-white text-sm mb-4">{t("landing.footer.platform")}</h4>
+                <ul className="space-y-2.5">
+                  {platformLinks.map((l, i) => (
+                    <li key={i}><a href={l.href} className="text-white/45 text-sm hover:text-white transition-colors">{l.label}</a></li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {/* Company links */}
-            <div>
-              <h4 className="font-bold text-white text-sm mb-4">{t("landing.footer.company")}</h4>
-              <ul className="space-y-2.5">
-                {companyLinks.map((l, i) => (
-                  <li key={i}><a href="#" className="text-white/45 text-sm hover:text-white transition-colors">{l}</a></li>
-                ))}
-              </ul>
-            </div>
+            {(!cmsFooter || cmsFooter.showCompanyCol !== false) && (
+              <div>
+                <h4 className="font-bold text-white text-sm mb-4">{t("landing.footer.company")}</h4>
+                <ul className="space-y-2.5">
+                  {companyLinks.map((l, i) => (
+                    <li key={i}><a href={l.href} className="text-white/45 text-sm hover:text-white transition-colors">{l.label}</a></li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {/* Support links */}
-            <div>
-              <h4 className="font-bold text-white text-sm mb-4">{t("landing.footer.support")}</h4>
-              <ul className="space-y-2.5">
-                {supportLabels.map((l, i) => (
-                  <li key={i}>
-                    <Link href={supportHrefs[i]}>
-                      <span className="text-white/45 text-sm hover:text-white transition-colors cursor-pointer">{l}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {(!cmsFooter || cmsFooter.showSupportCol !== false) && (
+              <div>
+                <h4 className="font-bold text-white text-sm mb-4">{t("landing.footer.support")}</h4>
+                <ul className="space-y-2.5">
+                  {supportLinks.map((l, i) => (
+                    <li key={i}><a href={l.href} className="text-white/45 text-sm hover:text-white transition-colors">{l.label}</a></li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
           <div className="flex flex-col md:flex-row items-center justify-between pt-8 gap-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            <p className="text-white/30 text-sm">{t("landing.footer.copyright")}</p>
-            <div className="flex items-center gap-2">
-              <span className="text-xs px-2.5 py-1 rounded-full text-green-400" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)" }}>
-                {t("landing.footer.allSystemsNormal")}
-              </span>
-            </div>
+            <p className="text-white/30 text-sm">{cmsFooter?.copyright || t("landing.footer.copyright")}</p>
+            {(!cmsFooter || cmsFooter.showStatus !== false) && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-2.5 py-1 rounded-full text-green-400" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                  {cmsFooter?.statusText || t("landing.footer.allSystemsNormal")}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </footer>
