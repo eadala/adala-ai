@@ -231,7 +231,7 @@ router.get("/portal/:token", async (req: Request, res: Response) => {
       docRows = await db.execute(sql`
         SELECT id, file_name, file_type, file_size, created_at
         FROM documents
-        WHERE case_id = ${caseId} AND id = ANY(${sql.raw(`ARRAY[${sharedDocIds.map(id => `'${id.replace(/'/g, "''")}'`).join(",")}]::text[]`)})
+        WHERE case_id = ${caseId} AND id::text = ANY(string_to_array(${sharedDocIds.join(",")}, ','))
         ORDER BY created_at DESC
       `);
     }

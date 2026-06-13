@@ -330,11 +330,14 @@ export default function Landing() {
     "lg:col-span-1",
     "lg:col-span-1",
     "lg:col-span-1",
+    "lg:col-span-1",
     "lg:col-span-2 md:col-span-2",
     "lg:col-span-1",
     "lg:col-span-1",
+    "lg:col-span-1",
   ];
-  const bentoFeatures = featureItems.slice(0, 8);
+  const BENTO_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11];
+  const bentoFeatures = BENTO_INDICES.map(i => featureItems[i]).filter(Boolean);
 
   const STATS = [
     { to: Number(c("stats","offices","1000").replace(/[^0-9]/g,"")||"1000"),    suffix: "+",   labelKey: "landing.trust.offices",      color: "#C9A84C" },
@@ -549,9 +552,10 @@ export default function Landing() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-fr">
             {bentoFeatures.map((f, i) => {
-              const Icon   = FEATURE_ICONS[i];
-              const color  = FEATURE_COLORS[i];
-              const isWide = i === 0 || i === 5;
+              const origIdx = BENTO_INDICES[i];
+              const Icon   = FEATURE_ICONS[origIdx];
+              const color  = FEATURE_COLORS[origIdx];
+              const isWide = i === 0 || i === 6;
               return (
                 <FadeIn key={i} delay={Math.min(i * 0.06, 0.35)} className={BENTO_SPANS[i]}>
                   <div
@@ -582,9 +586,9 @@ export default function Landing() {
                       {isWide && (
                         <div className="mt-auto flex items-center gap-2">
                           <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: `${color}18`, color }}>
-                            {i === 0 ? (isAr ? "إدارة متكاملة" : "Full management") : (isAr ? "دفع آمن" : "Secure payments")}
+                            {i === 0 ? (isAr ? "إدارة متكاملة" : "Full management") : (isAr ? "OCR + بحث ذكي" : "Smart OCR search")}
                           </span>
-                          <span className="text-xs text-white/30">{i === 0 ? (isAr ? "٤٧+ قضية نشطة" : "47+ active cases") : (isAr ? "Visa · Mada · Apple Pay" : "Visa · Mada · Apple Pay")}</span>
+                          <span className="text-xs text-white/30">{i === 0 ? (isAr ? "٤٧+ قضية نشطة" : "47+ active cases") : (isAr ? "٢٠٠+ وثيقة مؤرشفة" : "200+ archived docs")}</span>
                         </div>
                       )}
                     </div>
