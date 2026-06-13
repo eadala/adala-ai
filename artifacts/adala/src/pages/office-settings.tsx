@@ -557,6 +557,34 @@ export default function OfficeSettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                ترويسة الورق الرسمي (الكليسة)
+              </CardTitle>
+              <CardDescription>صورة تصميم الورق الرسمي للمكتب — تُستخدم كخلفية كاملة لصفحة الخطابات والمستندات</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <UploadZone
+                label="ترويسة الورق الرسمي (A4)"
+                icon={FileText}
+                value={(form as any).letterheadUrl}
+                onUpload={url => set("letterheadUrl" as any, url)}
+                description="صورة A4 للكليسة الرسمية — تُطبع كاملة خلف المحتوى في الخطابات"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+              />
+              <div className="mt-4 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-sm text-amber-700 dark:text-amber-400">
+                <p className="font-semibold mb-1">⚠️ تعليمات الترويسة:</p>
+                <ul className="list-disc list-inside space-y-1 text-xs opacity-80">
+                  <li>ارفع صورة بحجم A4 (210 × 297 مم) أو نسبة 1:1.41</li>
+                  <li>صيغة PNG شفافة إذا أردت تداخل المحتوى معها</li>
+                  <li>الترويسة تظهر تلقائياً في الخطابات والمستندات المُصدَّرة</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
                 <Monitor className="h-5 w-5 text-primary" />
                 أصول الهوية الرقمية
               </CardTitle>

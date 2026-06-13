@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useBranding } from "@/hooks/use-branding";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -416,6 +417,7 @@ const TODAY = new Date().toLocaleDateString("ar-SA-u-ca-islamic", {
 });
 
 export default function Letters() {
+  const { data: branding } = useBranding();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<LetterTemplate | null>(null);
@@ -496,22 +498,93 @@ export default function Letters() {
   function handlePrint() {
     const win = window.open("", "_blank");
     if (!win) return;
-    win.document.write(`
-      <html dir="rtl"><head>
-        <meta charset="utf-8"/>
-        <title>${selected?.title}</title>
-        <style>
-          body { font-family: 'Cairo', Arial, sans-serif; padding: 60px; line-height: 2; color: #111; font-size: 14pt; }
-          h1 { text-align: center; margin-bottom: 30px; font-size: 16pt; }
-          pre { white-space: pre-wrap; font-family: inherit; }
-          strong { font-weight: bold; }
-        </style>
-      </head><body>
-        <pre>${previewText.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")}</pre>
-      </body></html>
-    `);
+    const br = branding;
+    const letterhead = (br as any)?.letterheadUrl as string | undefined;
+    const primary = br?.primaryColor || "#1e3a5f";
+    const secondary = br?.secondaryColor || "#c9a84c";
+    const officeName = br?.officeName || "مكتب المحاماة";
+    const showFooter = br?.showAdalalahFooter !== false;
+
+    win.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<title>${selected?.title ?? "خطاب"}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+@page{size:A4;margin:0}
+body{font-family:'Cairo',Arial,sans-serif;background:#fff;color:#111;direction:rtl}
+.page{
+  width:210mm;min-height:297mm;margin:0 auto;position:relative;
+  display:flex;flex-direction:column;
+  ${letterhead ? `background-image:url(${letterhead});background-size:100% 100%;background-repeat:no-repeat;` : ""}
+}
+.page-inner{padding:22mm 20mm;flex:1;position:relative;z-index:1}
+${letterhead ? ".page-inner{background:rgba(255,255,255,0.88);}" : ""}
+.office-header{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  padding-bottom:14px;margin-bottom:18px;
+  border-bottom:3px solid ${secondary};
+}
+.office-brand{display:flex;align-items:center;gap:12px}
+.office-logo{height:60px;width:auto;object-fit:contain}
+.office-name{font-size:20pt;font-weight:900;color:${primary};line-height:1.1}
+.office-name-en{font-size:9pt;color:#888;margin-top:2px}
+.office-contact{font-size:8pt;color:#666;margin-top:6px;line-height:1.8}
+.doc-title{
+  text-align:center;font-size:16pt;font-weight:900;
+  color:${primary};margin:16px 0 24px;
+  padding-bottom:8px;border-bottom:1.5px solid ${secondary}40;
+}
+.body-text{font-size:13pt;line-height:2.2;white-space:pre-wrap}
+.body-text strong{font-weight:700}
+.footer{
+  margin-top:auto;padding-top:10px;
+  border-top:2px solid ${secondary};
+  text-align:center;font-size:8pt;color:#888;
+}
+@media print{.page{width:100%;min-height:100vh}}
+</style>
+</head><body>
+<div class="page">
+<div class="page-inner">
+  <div class="office-header">
+    <div class="office-brand">
+      ${br?.logoUrl ? `<img src="${br.logoUrl}" alt="شعار" class="office-logo"/>` : `<div style="width:50px;height:50px;border-radius:10px;background:${primary};display:flex;align-items:center;justify-content:center;color:#fff;font-size:18pt;font-weight:900">${officeName[0]}</div>`}
+      <div>
+        <div class="office-name">${officeName}</div>
+        ${br?.officeNameEn ? `<div class="office-name-en">${br.officeNameEn}</div>` : ""}
+        <div class="office-contact">
+          ${br?.phone ? `📞 ${br.phone}` : ""}${br?.email ? ` &nbsp;|&nbsp; ✉ ${br.email}` : ""}${br?.address ? `<br>📍 ${br.address}` : ""}
+          ${br?.licenseNo ? `<br>🪪 رقم الترخيص: ${br.licenseNo}` : ""}
+        </div>
+      </div>
+    </div>
+    <div style="text-align:left;font-size:9pt;color:#888;margin-top:4px">
+      التاريخ: ${new Date().toLocaleDateString("ar-SA-u-nu-latn", { day: "2-digit", month: "long", year: "numeric" })}
+    </div>
+  </div>
+  <div class="doc-title">${selected?.title ?? ""}</div>
+  <div class="body-text">${previewText.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "\n")}</div>
+
+  <div style="display:flex;justify-content:space-between;margin-top:48px;padding-top:16px;border-top:1px solid #ddd">
+    <div style="text-align:center;width:160px">
+      ${br?.signatureUrl ? `<img src="${br.signatureUrl}" alt="توقيع" style="height:56px;object-fit:contain;margin-bottom:4px;display:block;margin-inline:auto"/>` : `<div style="height:56px"></div>`}
+      <div style="border-top:1.5px solid #aaa;padding-top:4px;font-size:8pt;color:#888">توقيع المسؤول</div>
+      <div style="font-size:9pt;font-weight:700;margin-top:4px;color:${primary}">${officeName}</div>
+    </div>
+    <div style="text-align:center;width:100px">
+      ${br?.stampUrl ? `<img src="${br.stampUrl}" alt="ختم" style="height:64px;width:64px;object-fit:contain;margin:0 auto 4px;display:block"/>` : `<div style="height:64px;width:64px;border:2px dashed #ccc;border-radius:50%;margin:0 auto"></div>`}
+      <div style="border-top:1.5px solid #aaa;padding-top:4px;font-size:8pt;color:#888">ختم المكتب</div>
+    </div>
+  </div>
+
+  ${showFooter ? `<div class="footer" style="margin-top:20px">تم إنشاء هذا الخطاب بواسطة منصة عدالة AI · ${br?.website || ""}</div>` : (br?.website ? `<div class="footer" style="margin-top:20px">${br.website}</div>` : "")}
+</div>
+</div>
+<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500))</script>
+</body></html>`);
     win.document.close();
-    win.print();
   }
 
   return (

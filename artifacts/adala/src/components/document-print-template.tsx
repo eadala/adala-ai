@@ -27,8 +27,18 @@ export function DocumentPrintTemplate({
   const showAdalah = branding?.showAdalalahLogo !== false;
   const showFooter = branding?.showAdalalahFooter !== false;
 
+  const letterhead = (branding as any)?.letterheadUrl as string | undefined;
+
   return (
-    <div className="font-[Cairo,sans-serif] bg-white text-gray-900" dir="rtl" style={{ fontFamily: "Cairo, sans-serif" }}>
+    <div className="font-[Cairo,sans-serif] bg-white text-gray-900" dir="rtl" style={{ fontFamily: "Cairo, sans-serif", position: "relative" }}>
+      {letterhead && (
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+          backgroundImage: `url(${letterhead})`,
+          backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
+          opacity: 0.12, pointerEvents: "none", zIndex: 0,
+        }} />
+      )}
       {/* ══ HEADER ══ */}
       <div className="flex items-start justify-between pb-4 mb-6" style={{ borderBottom: `3px solid ${secondary}` }}>
         <div className="flex items-center gap-4">

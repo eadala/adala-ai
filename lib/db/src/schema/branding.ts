@@ -17,6 +17,7 @@ export const officeBrandingTable = pgTable("office_branding", {
   faviconUrl: text("favicon_url"),
   loginBackgroundUrl: text("login_background_url"),
   watermarkUrl: text("watermark_url"),
+  letterheadUrl: text("letterhead_url"),
   invoiceTemplate: text("invoice_template").default("classic_legal"),
   primaryColor: text("primary_color").default("#1e3a5f"),
   secondaryColor: text("secondary_color").default("#c9a84c"),
