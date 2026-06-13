@@ -205,6 +205,38 @@ async function dbRows(q: any): Promise<any[]> {
   } catch { return []; }
 }
 
+const GB = 1024 * 1024 * 1024;
+const PLAN_STORAGE_BYTES: Record<string, number> = {
+  free:         1   * GB,
+  starter:      5   * GB,
+  professional: 25  * GB,
+  growth:       100 * GB,
+  premium:      200 * GB,
+  enterprise:   1024 * GB,
+  custom:       10 * 1024 * GB,
+};
+const DEFAULT_MAX_BYTES = 1 * GB;
+
+async function getPlanMaxBytes(officeId: string): Promise<number> {
+  try {
+    const rows = await dbRows(sql`SELECT plan FROM office_page WHERE id=${officeId} LIMIT 1`);
+    const plan = rows[0]?.plan ?? "free";
+    return PLAN_STORAGE_BYTES[plan] ?? DEFAULT_MAX_BYTES;
+  } catch { return DEFAULT_MAX_BYTES; }
+}
+
+async function syncQuota(officeId: string): Promise<void> {
+  try {
+    const maxBytes = await getPlanMaxBytes(officeId);
+    await db.execute(sql`
+      INSERT INTO office_storage_quota (office_id, max_bytes)
+      VALUES (${officeId}, ${maxBytes})
+      ON CONFLICT (office_id) DO UPDATE
+        SET max_bytes = ${maxBytes}, updated_at = NOW()
+    `);
+  } catch {}
+}
+
 function fmtB(b: number) {
   if (!b || b === 0) return "0 B";
   const k = 1024, s = ["B","KB","MB","GB","TB"];
@@ -216,6 +248,7 @@ function fmtB(b: number) {
 router.get("/storage/stats", async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
+  if (!u.isSA) syncQuota(u.officeId).catch(() => {});
   const f = u.isSA ? sql`1=1` : sql`office_id=${u.officeId}`;
   const [tot, byCat, recent, large, trash, quota] = await Promise.all([
     dbRows(sql`SELECT COUNT(*)::int AS total_files, COALESCE(SUM(file_size),0)::bigint AS total_bytes, COUNT(*) FILTER (WHERE is_archived)::int AS archived_count, COUNT(*) FILTER (WHERE is_deleted)::int AS trash_count FROM storage_files WHERE ${f}`),
@@ -258,6 +291,16 @@ router.post("/storage/files", async (req, res) => {
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const { originalName, mimeType, fileSize, fileUrl, storageKey, category = "document", caseId, clientId } = req.body;
   if (!originalName) return res.status(400).json({ error: "اسم الملف مطلوب" });
+
+  if (!u.isSA) {
+    const quotaRows = await dbRows(sql`SELECT used_bytes, max_bytes FROM office_storage_quota WHERE office_id=${u.officeId}`);
+    const usedBytes  = Number(quotaRows[0]?.used_bytes ?? 0);
+    const maxBytes   = Number(quotaRows[0]?.max_bytes  ?? await getPlanMaxBytes(u.officeId));
+    if (usedBytes + (fileSize ?? 0) > maxBytes) {
+      return res.status(413).json({ error: "تجاوزت الحصة التخزينية المسموحة لباقتك. يرجى الترقية أو حذف ملفات قديمة.", quotaExceeded: true, usedBytes, maxBytes });
+    }
+  }
+
   const fileHash = storageKey ? crypto.createHash("sha256").update(storageKey).digest("hex") : null;
   if (fileHash) {
     const dup = await dbRows(sql`SELECT id, original_name FROM storage_files WHERE file_hash=${fileHash} AND office_id=${u.officeId} AND NOT is_deleted`);
