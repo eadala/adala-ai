@@ -1,0 +1,239 @@
+تمام—خلّنا نبنيها بشكل احترافي فعلاً (Production-grade Multi-Role Frontend Architecture) بدون خلط بين الإدارة والمكاتب القانونية والعملاء.
+
+سأعطيك تصميم + كود هيكلي جاهز لـ Replit / Next.js / React بحيث ينتهي تمامًا مشكلة “أدخل كمدير وأشوف مكتب محاماة”.
+
+⸻
+
+🧠 1. الفكرة الاحترافية (Core Principle)
+
+أنت تحتاج تتحول من:
+
+❌ Dashboard واحد لكل شيء
+إلى:
+
+✅ Role-Isolated Applications داخل نفس النظام
+
+يعني:
+
+نفس المشروع، لكن 3 عوالم منفصلة تماماً
+
+⸻
+
+🏗️ 2. الهيكل الاحترافي للواجهة
+
+src/
+ ├── app/
+ │    ├── admin/
+ │    │     ├── layout.tsx
+ │    │     ├── dashboard/
+ │    │     └── users/
+ │    │
+ │    ├── workspace/
+ │    │     ├── layout.tsx
+ │    │     ├── cases/
+ │    │     ├── clients/
+ │    │     └── billing/
+ │    │
+ │    ├── client/
+ │    │     ├── layout.tsx
+ │    │     ├── requests/
+ │    │     ├── payments/
+ │    │     └── documents/
+ │
+ ├── middleware.ts
+ ├── lib/
+ │    ├── auth.ts
+ │    ├── roles.ts
+ │    └── permissions.ts
+
+⸻
+
+🔐 3. طبقة الحماية (Role Middleware) — أهم جزء
+
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+export function middleware(req: NextRequest) {
+  const token = req.cookies.get("token")?.value;
+  const role = req.cookies.get("role")?.value;
+  const path = req.nextUrl.pathname;
+  // حماية لوحة الأدمن
+  if (path.startsWith("/admin")) {
+    if (role !== "platform_admin") {
+      return NextResponse.redirect(new URL("/not-authorized", req.url));
+    }
+  }
+  // حماية مساحة المكتب القانوني
+  if (path.startsWith("/workspace")) {
+    if (!["law_firm_owner", "lawyer"].includes(role || "")) {
+      return NextResponse.redirect(new URL("/not-authorized", req.url));
+    }
+  }
+  // حماية العميل
+  if (path.startsWith("/client")) {
+    if (role !== "client") {
+      return NextResponse.redirect(new URL("/not-authorized", req.url));
+    }
+  }
+  return NextResponse.next();
+}
+
+⸻
+
+🧭 4. نظام توجيه ذكي بعد تسجيل الدخول
+
+بدل ما كل المستخدمين يذهبون لنفس الصفحة:
+
+export function redirectByRole(role: string) {
+  switch (role) {
+    case "platform_admin":
+      return "/admin";
+    case "law_firm_owner":
+    case "lawyer":
+      return "/workspace";
+    case "client":
+      return "/client";
+    default:
+      return "/login";
+  }
+}
+
+⸻
+
+🎛️ 5. Sidebar احترافي حسب الدور
+
+🟣 Admin Sidebar
+
+export const adminMenu = [
+  "System Overview",
+  "Users Management",
+  "Subscriptions",
+  "Payments Gateway",
+  "Revenue Analytics",
+  "Logs & Security",
+];
+
+⸻
+
+🟢 Law Firm Sidebar
+
+export const workspaceMenu = [
+  "Cases",
+  "Clients",
+  "Contracts",
+  "Invoices",
+  "Team",
+  "Calendar",
+];
+
+⸻
+
+🔵 Client Sidebar
+
+export const clientMenu = [
+  "My Requests",
+  "My Cases",
+  "Payments",
+  "Documents",
+  "Support",
+];
+
+⸻
+
+🧩 6. Layout فصل كامل (Critical Fix)
+
+Admin Layout
+
+export default function AdminLayout({ children }) {
+  return (
+    <div className="admin-shell">
+      <AdminSidebar />
+      <main>{children}</main>
+    </div>
+  );
+}
+
+⸻
+
+Workspace Layout (المكاتب)
+
+export default function WorkspaceLayout({ children }) {
+  return (
+    <div className="workspace-shell">
+      <LawFirmSidebar />
+      <main>{children}</main>
+    </div>
+  );
+}
+
+⸻
+
+Client Layout
+
+export default function ClientLayout({ children }) {
+  return (
+    <div className="client-shell">
+      <ClientSidebar />
+      <main>{children}</main>
+    </div>
+  );
+}
+
+⸻
+
+🚨 7. إصلاح خطأك الحالي (Root Cause Fix)
+
+أنت حالياً عندك:
+
+❌ Shared Dashboard State
+❌ Shared Sidebar
+❌ No Role Segregation in UI Tree
+
+⸻
+
+الحل النهائي:
+
+🔥 Rule واحدة فقط:
+
+كل Route = Role واحد فقط
+وكل Layout = عالم مستقل بالكامل
+
+⸻
+
+🧠 8. النتيجة بعد الإصلاح
+
+بعد تطبيق هذا:
+
+✔ مدير النظام لا يرى قضايا
+✔ المحامي لا يرى إعدادات النظام
+✔ العميل لا يرى أدوات المكتب
+✔ اختفاء “تداخل الهوية” بالكامل
+✔ النظام يصبح SaaS حقيقي Multi-Tenant + Multi-Role
+
+⸻
+
+🚀 9. مستوى الاحتراف الذي وصلت له الآن
+
+أنت الآن تتحول من:
+
+❌ منصة إدارة قانونية
+إلى:
+
+✅ Legal Operating System (LOS) حقيقي
+
+⸻
+
+👉 الخطوة التالية (مهمة جداً)
+
+إذا تريد رفع النظام لمستوى عالمي فعلي، أقدر أبني لك:
+
+🔥 “Design System كامل + UI Architecture احترافية”
+
+يشمل:
+
+* Design tokens
+* Dark/Light mode
+* Role-based UI theming
+* Component system موحد
+* إعادة بناء واجهة كاملة بشكل Stripe-level
+
+فقط قل: ابني التصميم النظامي الكامل للواجهة

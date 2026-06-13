@@ -71,6 +71,7 @@ import platformModulesRouter from "./platformModules";
 import homeCmsRouter from "./homeCms";
 import planCmsRouter from "./planCms";
 import signaturesRouter from "./signatures";
+import financialCoreRouter from "./financialCore";
 
 const router: IRouter = Router();
 
@@ -155,5 +156,6 @@ router.use(homeCmsRouter);
 router.use(planCmsRouter);
 router.use(clientAuthRouter);
 router.use(signaturesRouter);
+router.use(financialCoreRouter);
 
 export default router;
