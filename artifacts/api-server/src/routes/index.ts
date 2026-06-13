@@ -54,6 +54,7 @@ import onboardingRouter from "./onboarding";
 import importDataRouter from "./importData";
 import aiCreditsRouter from "./aiCredits";
 import whatsappRouter from "./whatsapp";
+import telegramRouter from "./telegram";
 import promoRouter from "./promo";
 import documentTemplatesRouter from "./document-templates";
 import financeCenterRouter from "./finance-center";
@@ -129,6 +130,7 @@ router.use(onboardingRouter);
 router.use(importDataRouter);
 router.use(aiCreditsRouter);
 router.use(whatsappRouter);
+router.use(telegramRouter);
 router.use(promoRouter);
 router.use((req, _res, next) => {
   if (req.url === "/templates" || req.url.startsWith("/templates/") || req.url.startsWith("/templates?")) {

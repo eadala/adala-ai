@@ -6,7 +6,7 @@ import {
   Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown,
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
-  FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity,
+  FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity, Send,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -75,6 +75,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/client-portal",        labelKey: "nav.items.client_portal",         icon: Globe,         feature: "clientPortal" },
       { href: "/email-notifications",  labelKey: "nav.items.email_notifications",   icon: MailIcon },
       { href: "/whatsapp-settings",    labelKey: "nav.items.whatsapp",              icon: MessageSquare },
+      { href: "/telegram-settings",    labelKey: "nav.items.telegram",              icon: Send },
     ],
   },
   {
