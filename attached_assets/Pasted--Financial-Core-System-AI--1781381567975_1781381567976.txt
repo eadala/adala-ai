@@ -1,0 +1,329 @@
+تمام. سنبني الآن النظام المالي الكامل (Financial Core System) لمنصة عدالة AI بحيث يتحول من “نظام دفع” إلى نظام محاسبي + Fintech Ledger + تسويات تلقائية.
+
+هذا هو القلب الحقيقي لأي منصة سوق محامين + SaaS قانوني.
+
+⸻
+
+🧠 1. ما الذي نبنيه هنا؟
+
+نظام مالي متكامل يشمل:
+
+* Ledger محاسبي مزدوج (Double-entry accounting)
+* Wallets لكل مستخدم
+* Revenue split (عمولة المنصة + المحامي)
+* تسويات دورية (Settlement Engine)
+* تقارير مالية لحظية
+* سجل تدقيق (Audit Log)
+* دعم الاشتراكات + الفواتير + السوق
+
+⸻
+
+🏗️ 2. المعمارية المالية (Financial Architecture)
+
+               ┌──────────────┐
+               │  Payments    │
+               │ (Checkout...)│
+               └──────┬───────┘
+                      │ Webhook
+                      v
+         ┌──────────────────────────┐
+         │ Transaction Processor    │
+         └─────────┬───────────────┘
+                   v
+     ┌──────────────────────────────┐
+     │ Double-Entry Ledger System   │
+     └───────┬───────────┬─────────┘
+             v           v
+      Wallet System   Revenue Split
+             │           │
+             └─────┬─────┘
+                   v
+        Settlement & Payout Engine
+                   │
+                   v
+            Bank / Provider
+
+⸻
+
+🧾 3. قاعدة البيانات المالية (Core Schema)
+
+🔷 Accounts (الحسابات المالية)
+
+Account {
+  id: string;
+  ownerId: string;
+  type: "user" | "lawyer" | "platform";
+  balance: number;
+  currency: "SAR" | "USD";
+}
+
+⸻
+
+🔷 Ledger Entries (قلب النظام المحاسبي)
+
+LedgerEntry {
+  id: string;
+  transactionId: string;
+  debitAccountId: string;
+  creditAccountId: string;
+  amount: number;
+  currency: string;
+  description: string;
+  createdAt: Date;
+}
+
+⸻
+
+🔷 Transactions (المعاملات)
+
+Transaction {
+  id: string;
+  type: "subscription" | "invoice" | "marketplace";
+  amount: number;
+  currency: string;
+  status: "pending" | "paid" | "failed" | "refunded";
+  provider: "checkout" | "stripe" | "moyasar";
+  userId: string;
+  lawyerId?: string;
+  platformFee: number;
+}
+
+⸻
+
+🔷 Wallets (محافظ المستخدمين)
+
+Wallet {
+  id: string;
+  userId: string;
+  availableBalance: number;
+  pendingBalance: number;
+}
+
+⸻
+
+🔷 Payouts (تحويلات المحامين)
+
+Payout {
+  id: string;
+  lawyerId: string;
+  amount: number;
+  status: "pending" | "processing" | "sent" | "failed";
+  bankReference?: string;
+}
+
+⸻
+
+⚙️ 4. محرك الـ Ledger (الأهم)
+
+📌 قاعدة ذهبية:
+
+أي عملية مالية = قيد مزدوج (Debit / Credit)
+
+⸻
+
+🔧 تنفيذ Ledger Engine
+
+export class LedgerService {
+  async createEntry(data: {
+    debitAccountId: string;
+    creditAccountId: string;
+    amount: number;
+    transactionId: string;
+    description: string;
+  }) {
+    // 1. إنشاء القيد
+    const entry = await db.ledgerEntry.create({
+      data: {
+        ...data,
+        currency: "SAR",
+        createdAt: new Date(),
+      },
+    });
+    // 2. تحديث الأرصدة
+    await this.updateBalances(data);
+    return entry;
+  }
+  async updateBalances(data: any) {
+    await db.account.update({
+      where: { id: data.debitAccountId },
+      data: { balance: { decrement: data.amount } },
+    });
+    await db.account.update({
+      where: { id: data.creditAccountId },
+      data: { balance: { increment: data.amount } },
+    });
+  }
+}
+
+⸻
+
+💳 5. معالجة الدفع (Webhook Processor)
+
+app.post("/webhooks/payment", async (req, res) => {
+  const event = req.body;
+  if (event.type === "payment.succeeded") {
+    const tx = await db.transaction.findById(event.data.reference);
+    // 1. تحديث الحالة
+    await db.transaction.update({
+      where: { id: tx.id },
+      data: { status: "paid" },
+    });
+    // 2. توزيع الأموال
+    await FinancialEngine.processTransaction(tx);
+  }
+  res.sendStatus(200);
+});
+
+⸻
+
+⚖️ 6. نظام توزيع الأرباح (Marketplace Split)
+
+export class FinancialEngine {
+  static async processTransaction(tx: any) {
+    const platformFee = tx.amount * 0.10;
+    const lawyerAmount = tx.amount - platformFee;
+    const platformAccount = "platform_main";
+    const lawyerAccount = tx.lawyerId;
+    // قيد 1: العميل → المنصة
+    await ledger.createEntry({
+      debitAccountId: tx.userId,
+      creditAccountId: platformAccount,
+      amount: tx.amount,
+      transactionId: tx.id,
+      description: "Client payment",
+    });
+    // قيد 2: المنصة → المحامي
+    await ledger.createEntry({
+      debitAccountId: platformAccount,
+      creditAccountId: lawyerAccount,
+      amount: lawyerAmount,
+      transactionId: tx.id,
+      description: "Lawyer payout",
+    });
+    // تسجيل الأرباح
+    await db.payout.create({
+      lawyerId: tx.lawyerId,
+      amount: lawyerAmount,
+      status: "pending",
+    });
+  }
+}
+
+⸻
+
+💰 7. محرك التسويات (Settlement Engine)
+
+export class SettlementEngine {
+  static async runDailySettlement() {
+    const payouts = await db.payout.findMany({
+      where: { status: "pending" },
+    });
+    for (const payout of payouts) {
+      await this.processPayout(payout);
+    }
+  }
+  static async processPayout(payout: any) {
+    // إرسال إلى البنك أو مزود الدفع
+    const result = await PaymentProvider.payout({
+      amount: payout.amount,
+      recipient: payout.lawyerId,
+    });
+    if (result.success) {
+      await db.payout.update({
+        where: { id: payout.id },
+        data: { status: "sent" },
+      });
+    }
+  }
+}
+
+⸻
+
+📊 8. لوحة التقارير المالية (Dashboard Metrics)
+
+KPIs الأساسية:
+
+* إجمالي الإيرادات
+* أرباح المنصة
+* أرباح كل محامٍ
+* المعاملات اليومية
+* معدل التحويل
+* المدفوعات المعلقة
+
+export async function getFinancialReport() {
+  return {
+    totalRevenue: await sumTransactions(),
+    platformProfit: await sumPlatformFees(),
+    pendingPayouts: await sumPendingPayouts(),
+    activeLawyers: await countLawyers(),
+  };
+}
+
+⸻
+
+🔐 9. نظام التدقيق (Audit Log)
+
+AuditLog {
+  id;
+  action;
+  userId;
+  metadata;
+  createdAt;
+}
+
+أي حركة مالية يتم تسجيلها هنا لضمان:
+
+* الشفافية
+* الامتثال القانوني
+* مكافحة الاحتيال
+
+⸻
+
+🚀 10. ماذا أصبحت “عدالة AI” الآن؟
+
+بعد هذا النظام:
+
+✔ ليست منصة إدارة
+✔ ليست SaaS فقط
+✔ بل:
+
+🧠 Legal Fintech Operating System
+
+يدير:
+
+* الأموال
+* القضايا
+* المحامين
+* الاشتراكات
+* الفواتير
+* التسويات
+
+⸻
+
+🔥 أهم نقطة استراتيجية
+
+بدون هذا النظام:
+
+أنت تبني “منصة محاماة”
+
+معه:
+
+أنت تبني “بنك قانوني رقمي + سوق خدمات قانونية”
+
+⸻
+
+👉 الخطوة التالية (اختياري لكن مهم جداً)
+
+إذا تريد، أبني لك:
+
+🔥 “لوحة تحكم مالية احترافية (Admin + Lawyer + Client)”
+
+تشمل:
+
+* داشبورد أرباح لحظي
+* رسوم بيانية
+* كشف حساب لكل محامٍ
+* نظام سحب الأموال
+* تقارير شهرية PDF
+
+فقط قل: ￼ ابني لوحة التحكم المالية

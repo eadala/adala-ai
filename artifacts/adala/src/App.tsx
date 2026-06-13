@@ -58,6 +58,7 @@ const PaymentCenter        = lazy(() => import("@/pages/payment-center"));
 const FinanceCenter        = lazy(() => import("@/pages/finance-center"));
 const Collections          = lazy(() => import("@/pages/collections"));
 const FinancialIntelligence = lazy(() => import("@/pages/financial-intelligence"));
+const FinancialCore        = lazy(() => import("@/pages/financial-core"));
 
 // HR
 const Employees            = lazy(() => import("@/pages/employees"));
@@ -397,6 +398,7 @@ function AppRoutes() {
             <Route path="/finance"><ProtectedRoute><FinanceCenter /></ProtectedRoute></Route>
             <Route path="/collections"><ProtectedRoute><Collections /></ProtectedRoute></Route>
             <Route path="/financial-intelligence"><ProtectedRoute><FinancialIntelligence /></ProtectedRoute></Route>
+            <Route path="/financial-core"><ProtectedRoute><FinancialCore /></ProtectedRoute></Route>
 
             {/* HR */}
             <Route path="/employees"><ProtectedRoute><Employees /></ProtectedRoute></Route>

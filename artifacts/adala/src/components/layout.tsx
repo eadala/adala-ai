@@ -56,6 +56,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/collections",       labelKey: "nav.items.collections",       icon: TrendingUp },
       { href: "/billing",           labelKey: "nav.items.billing",           icon: CreditCard },
       { href: "/payment-center",    labelKey: "nav.items.payment_center",    icon: Landmark },
+      { href: "/financial-core",    labelKey: "nav.items.financial_core",    icon: BarChart3 },
       { href: "/revenues",          labelKey: "nav.items.revenues",          icon: TrendingUp },
       { href: "/expenses",          labelKey: "nav.items.expenses",          icon: TrendingDown },
       { href: "/cashflow",          labelKey: "nav.items.cashflow",          icon: ArrowRightLeft },

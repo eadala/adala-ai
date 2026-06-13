@@ -1,0 +1,291 @@
+تمام. هذه طبقة الدفع الكاملة (Payment Layer Architecture) لمنصة عدالة AI بشكل Production-ready، مصممة لتدعم:
+
+* اشتراكات SaaS
+* سوق محامين (Marketplace)
+* فواتير قانونية
+* تعدد بوابات الدفع
+* قابلية التوسع العالمي
+
+⸻
+
+🧠 أولاً: الفكرة الأساسية (Core Concept)
+
+بدل ربط الدفع مباشرة، نبني:
+
+🔷 Payment Abstraction Layer
+
+النظام لا يعرف Checkout أو Stripe مباشرة
+بل يتعامل مع واجهة واحدة:
+
+PaymentService.createPayment()
+PaymentService.createSubscription()
+PaymentService.refund()
+PaymentService.payout()
+
+والتنفيذ يتم عبر “Adapters”.
+
+⸻
+
+🏗️ المعمارية الكاملة (System Design)
+
+1. طبقات النظام
+
+[ Frontend - React / Next ]
+          |
+          v
+[ API Gateway - Express ]
+          |
+          v
+[ Payment Orchestrator Layer ]
+          |
+   -------------------------
+   |          |            |
+   v          v            v
+Checkout   Stripe     Moyasar (KSA)
+ Adapter    Adapter     Adapter
+   |
+   v
+[ Webhooks Handler Service ]
+   |
+   v
+[ Ledger System (Financial DB) ]
+   |
+   v
+[ Payout Engine (Lawyers) ]
+
+⸻
+
+💳 2. الكيانات الأساسية (Database Schema)
+
+Users
+
+User {
+  id
+  name
+  email
+  role: "client | lawyer | admin"
+}
+
+Transactions
+
+Transaction {
+  id
+  userId
+  amount
+  currency
+  status: "pending | paid | failed | refunded"
+  provider: "checkout | stripe | moyasar"
+  providerRef
+  type: "subscription | invoice | marketplace"
+}
+
+Wallet (Ledger System)
+
+Wallet {
+  id
+  ownerId
+  balance
+  pendingBalance
+}
+
+Marketplace Split
+
+Payout {
+  id
+  lawyerId
+  transactionId
+  platformFee
+  lawyerAmount
+  status: "pending | sent | failed"
+}
+
+⸻
+
+⚙️ 3. Payment Adapter Interface
+
+export interface PaymentProvider {
+  createPayment(data: any): Promise<any>;
+  verifyPayment(data: any): Promise<any>;
+  refund(paymentId: string): Promise<any>;
+}
+
+⸻
+
+🔌 4. Checkout.com Adapter
+
+import axios from "axios";
+export class CheckoutAdapter {
+  private apiKey = process.env.CHECKOUT_SECRET_KEY;
+  async createPayment(data: any) {
+    const res = await axios.post(
+      "https://api.checkout.com/payments",
+      {
+        amount: data.amount * 100,
+        currency: data.currency,
+        source: {
+          type: "token",
+          token: data.token,
+        },
+        reference: data.reference,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return res.data;
+  }
+  async refund(paymentId: string) {
+    return axios.post(
+      `https://api.checkout.com/payments/${paymentId}/refunds`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+      }
+    );
+  }
+}
+
+⸻
+
+💳 5. Stripe Adapter (للمستقبل العالمي)
+
+Stripe
+
+import Stripe from "stripe";
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+export class StripeAdapter {
+  async createPayment(data: any) {
+    return stripe.paymentIntents.create({
+      amount: data.amount * 100,
+      currency: data.currency,
+      automatic_payment_methods: { enabled: true },
+    });
+  }
+  async refund(paymentId: string) {
+    return stripe.refunds.create({
+      payment_intent: paymentId,
+    });
+  }
+}
+
+⸻
+
+🧠 6. Payment Orchestrator (القلب الحقيقي)
+
+import { CheckoutAdapter } from "./checkout";
+import { StripeAdapter } from "./stripe";
+class PaymentOrchestrator {
+  private providers = {
+    checkout: new CheckoutAdapter(),
+    stripe: new StripeAdapter(),
+  };
+  async createPayment(provider: string, data: any) {
+    return this.providers[provider].createPayment(data);
+  }
+  async refund(provider: string, paymentId: string) {
+    return this.providers[provider].refund(paymentId);
+  }
+}
+export const PaymentService = new PaymentOrchestrator();
+
+⸻
+
+⚖️ 7. منطق سوق المحاماة (أهم جزء)
+
+export async function handleMarketplacePayment(tx) {
+  const platformFee = tx.amount * 0.10;
+  const lawyerAmount = tx.amount - platformFee;
+  // تسجيل في ledger
+  await Wallet.credit("platform", platformFee);
+  await Wallet.credit(tx.lawyerId, lawyerAmount);
+  // إنشاء payout
+  await Payout.create({
+    lawyerId: tx.lawyerId,
+    transactionId: tx.id,
+    platformFee,
+    lawyerAmount,
+    status: "pending",
+  });
+}
+
+⸻
+
+🔔 8. Webhooks (ضروري جداً)
+
+app.post("/webhooks/payment", async (req, res) => {
+  const event = req.body;
+  if (event.type === "payment.succeeded") {
+    await Transaction.updateStatus(event.data.id, "paid");
+    if (event.data.type === "marketplace") {
+      await handleMarketplacePayment(event.data);
+    }
+  }
+  res.sendStatus(200);
+});
+
+⸻
+
+💰 9. الاشتراكات (SaaS Core)
+
+async function createSubscription(userId, planId) {
+  return PaymentService.createPayment("checkout", {
+    amount: planPrice(planId),
+    currency: "SAR",
+    reference: `sub_${userId}`,
+    type: "subscription",
+  });
+}
+
+⸻
+
+🧾 10. الفواتير القانونية
+
+* رابط دفع مباشر
+* QR Code
+* PDF Invoice
+* Web payment link
+
+⸻
+
+🚀 النتيجة النهائية
+
+منصة عدالة AI بعد هذه الطبقة تصبح:
+
+✔ نظام مالي كامل (Fintech-grade)
+✔ يدعم الاشتراكات
+✔ يدعم سوق محامين
+✔ يدعم فواتير قانونية
+✔ متعدد بوابات الدفع
+✔ جاهز للتوسع العالمي
+
+⸻
+
+🔥 أهم نقطة استراتيجية
+
+بدون هذه الطبقة:
+
+المنصة “تطبيق إدارة”
+
+مع هذه الطبقة:
+
+المنصة تتحول إلى نظام تشغيل قانوني + Fintech Marketplace
+
+⸻
+
+إذا تريد الخطوة التالية، أقدر أبني لك مباشرة:
+
+🔥 “Ledger System احترافي + Dashboard مالي للمحامين والإدارة”
+
+يشمل:
+
+* أرباح كل محامٍ
+* عمولات المنصة
+* تقارير شهرية
+* تسويات مالية تلقائية
+
+فقط قل: ￼ ابني النظام المالي الكامل
