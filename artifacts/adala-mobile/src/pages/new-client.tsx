@@ -40,7 +40,7 @@ export default function NewClient() {
     <div className="flex flex-col min-h-full" dir="rtl">
       {/* Header */}
       <div className="bg-card border-b border-border px-5 pt-12 pb-4 safe-top flex items-center gap-3">
-        <button onClick={() => nav(-1)} className="w-9 h-9 rounded-2xl bg-muted flex items-center justify-center tap-effect">
+        <button onClick={() => window.history.back()} className="w-9 h-9 rounded-2xl bg-muted flex items-center justify-center tap-effect">
           <ArrowRight size={18} className="text-foreground" />
         </button>
         <div className="flex items-center gap-2">
