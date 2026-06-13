@@ -1,0 +1,47 @@
+رائع! بما أنك وافقت، سنبدأ بتطوير **هيكل لوحة التحكم (Dashboard)** الذي سيغير تجربة العميل (المحامي) تماماً. سنركز على تصميم نظيف وعملي يسهل الإدارة.
+إليك تصميم مقترح للوحة التحكم يعتمد على **Sidebar (قائمة جانبية)** و **Main Content (محتوى رئيسي)**، وهو التصميم الأكثر استخداماً في منصات SaaS الاحترافية.
+### 1. هيكل لوحة التحكم (التصور البرمجي)
+سأقوم بتصميم الواجهة بحيث تكون مقسمة إلى:
+ * **القائمة الجانبية:** للوصول السريع لـ (الرئيسية، المتجر، الخدمات، الطلبات، الإعدادات).
+ * **منطقة المحتوى:** حيث يتم عرض الخيارات وتعديل بيانات المتجر.
+### 2. الكود البرمجي للوحة التحكم (Tailwind CSS)
+يمكنك استخدام هذا الكود كبداية للوحة التحكم الخاصة بك. هذا الكود يوفر لك الهيكل الأساسي المتجاوب:
+```html
+<div class="flex h-screen bg-gray-100">
+  <aside class="w-64 bg-slate-900 text-white p-6">
+    <h1 class="text-2xl font-bold mb-10 text-blue-400">منصة عدالة</h1>
+    <nav class="space-y-4">
+      <a href="#" class="block p-2 hover:bg-slate-700 rounded">لوحة التحكم</a>
+      <a href="#" class="block p-2 hover:bg-slate-700 rounded">تخصيص المتجر</a>
+      <a href="#" class="block p-2 hover:bg-slate-700 rounded">خدماتي القانونية</a>
+      <a href="#" class="block p-2 hover:bg-slate-700 rounded">الطلبات الواردة</a>
+    </nav>
+  </aside>
+
+  <main class="flex-1 p-8">
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <h2 class="text-xl font-semibold mb-6">تفعيل رابط المتجر الخاص بك</h2>
+      
+      <div class="grid grid-cols-1 gap-6">
+        <div>
+          <label class="block text-sm font-medium text-gray-700">النطاق الفرعي (Subdomain)</label>
+          <div class="mt-1 flex rounded-md shadow-sm">
+            <input type="text" class="flex-1 border p-2 rounded-l-md" placeholder="مثال: ahmed-law">
+            <span class="inline-flex items-center px-3 bg-gray-200 border border-l-0 rounded-r-md text-gray-500">.adala.com</span>
+          </div>
+        </div>
+        
+        <button class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition">حفظ وتفعيل المتجر</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+```
+### 3. خارطة طريق التطوير (الخطوات القادمة)
+لتحويل هذه الواجهة إلى حقيقة تعمل، نحتاج للقيام بالخطوات التالية بالترتيب:
+ 1. **الربط مع قاعدة البيانات (Database):** نحتاج لإنشاء جدول (Table) في قاعدة البيانات لتخزين إعدادات كل عميل (الرابط، اللون، الشعار، وصف المتجر).
+ 2. **خادم الاستقبال (Request Handler):** سنبرمج سيرفر (على Replit) يقوم عند وصول أي رابط (مثلاً ahmed.adala.com) بالاستعلام من قاعدة البيانات وإرجاع بيانات "أحمد" فقط.
+ 3. **القالب الديناميكي (Dynamic Template):** بدلاً من إنشاء موقع لكل محامي، سنصمم "قالب واحد" يقوم بتغيير النصوص والألوان بناءً على البيانات المسترجعة من قاعدة البيانات.
+**سؤالي لك:**
+هل نركز الآن على **كتابة كود الـ Backend** (كيف نربط الرابط بقاعدة البيانات في Replit) لتبدأ بالتجربة الفعلية، أم نركز على **تحسين شكل الواجهة (UI)** وإضافة المزيد من الخيارات للمحامين؟

@@ -8,7 +8,8 @@ import {
   Copy, Check, Camera, Image, MapPin,
   FileText, Pencil, BookOpen, Calendar, ExternalLink,
   Link2, Shield, ShieldCheck, Wifi, WifiOff, Lock, Unlock,
-  ArrowUpRight, Crown, Zap, AlertCircle, RefreshCw
+  ArrowUpRight, Crown, Zap, AlertCircle, RefreshCw,
+  Palette, LayoutDashboard, QrCode, Sparkles, ToggleRight
 } from "lucide-react";
 import { getPlanFeatures, canUseFeature, generateSubdomain, PLAN_FEATURES } from "@/lib/plan-features";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,9 @@ export default function OfficeManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [slugEdit, setSlugEdit] = useState("");
+  const [slugEditing, setSlugEditing] = useState(false);
+  const [appearanceForm, setAppearanceForm] = useState<any>(null);
 
   /* ── Office data ── */
   const { data: office, isLoading } = useQuery<any>({
@@ -186,9 +190,13 @@ export default function OfficeManagement() {
   const logoUpload = useUpload({ onSuccess: (r) => updateOfficeMutation.mutate({ id: office?.id, logo: r.objectPath }) });
   const coverUpload = useUpload({ onSuccess: (r) => updateOfficeMutation.mutate({ id: office?.id, coverImage: r.objectPath }) });
   const teamPhotoUpload = useUpload({ onSuccess: (r) => setTeamForm(f => ({ ...f, photoUrl: r.objectPath })) });
+  const appLogoUpload = useUpload({ onSuccess: (r) => { updateOfficeMutation.mutate({ id: office?.id, logo: r.objectPath }); setAppearanceForm((f: any) => ({ ...(f ?? {}), logo: r.objectPath })); } });
+  const appCoverUpload = useUpload({ onSuccess: (r) => { updateOfficeMutation.mutate({ id: office?.id, coverImage: r.objectPath }); setAppearanceForm((f: any) => ({ ...(f ?? {}), coverImage: r.objectPath })); } });
   const logoRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef<HTMLInputElement>(null);
   const teamPhotoRef = useRef<HTMLInputElement>(null);
+  const appLogoRef = useRef<HTMLInputElement>(null);
+  const appCoverRef = useRef<HTMLInputElement>(null);
 
   function imgSrc(path: string | null | undefined): string | undefined {
     if (!path) return undefined;
@@ -276,33 +284,347 @@ export default function OfficeManagement() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-5 gap-3">
-        {[
-          { label: "الطلبات", val: orders.length, color: "#C9A84C" },
-          { label: "الخدمات", val: services.length, color: "#3B82F6" },
-          { label: "الفريق", val: team.length, color: "#8B5CF6" },
-          { label: "التقييمات", val: reviews.length, color: "#10B981" },
-          { label: "المقالات", val: articles.length, color: "#F97316" },
-        ].map(s => (
-          <Card key={s.label} className="border-border/50">
-            <CardContent className="p-3 text-center">
-              <div className="text-2xl font-black" style={{ color: s.color }}>{s.val}</div>
-              <div className="text-[10px] text-muted-foreground">{s.label}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Tabs defaultValue="orders">
+      <Tabs defaultValue="overview">
         <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="orders" className="gap-1.5 text-xs"><Package className="h-3.5 w-3.5" /> الطلبات</TabsTrigger>
+          <TabsTrigger value="overview" className="gap-1.5 text-xs"><LayoutDashboard className="h-3.5 w-3.5" /> نظرة عامة</TabsTrigger>
+          <TabsTrigger value="appearance" className="gap-1.5 text-xs"><Palette className="h-3.5 w-3.5" /> المظهر</TabsTrigger>
+          <TabsTrigger value="orders" className="gap-1.5 text-xs">
+            <Package className="h-3.5 w-3.5" /> الطلبات
+            {(orders as any[]).filter((o: any) => o.status === "pending").length > 0 && (
+              <span className="mr-1 bg-primary text-primary-foreground text-[9px] rounded-full px-1.5 py-0.5 font-bold">
+                {(orders as any[]).filter((o: any) => o.status === "pending").length}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="services" className="gap-1.5 text-xs"><ShoppingBag className="h-3.5 w-3.5" /> الخدمات</TabsTrigger>
           <TabsTrigger value="team" className="gap-1.5 text-xs"><Users className="h-3.5 w-3.5" /> الفريق</TabsTrigger>
           <TabsTrigger value="reviews" className="gap-1.5 text-xs"><Star className="h-3.5 w-3.5" /> التقييمات</TabsTrigger>
           <TabsTrigger value="articles" className="gap-1.5 text-xs"><FileText className="h-3.5 w-3.5" /> المقالات</TabsTrigger>
           <TabsTrigger value="domains" className="gap-1.5 text-xs"><Link2 className="h-3.5 w-3.5" /> النطاق</TabsTrigger>
         </TabsList>
+
+        {/* ══════════════════════════════════════════════════
+            OVERVIEW TAB
+        ══════════════════════════════════════════════════ */}
+        <TabsContent value="overview" className="space-y-4 mt-4">
+
+          {/* ── Store URL Card ── */}
+          <Card className="border-primary/20 bg-gradient-to-l from-primary/5 to-transparent">
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Globe className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold">رابط موقع مكتبك</p>
+                  <p className="text-[11px] text-muted-foreground">شاركه مع عملائك ليزوروا صفحتك الإلكترونية</p>
+                </div>
+                <Badge className={`mr-auto text-[10px] ${office.isPublished ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"}`}>
+                  {office.isPublished ? "● منشور" : "○ مسودة"}
+                </Badge>
+              </div>
+
+              {/* Slug editor + URL display */}
+              {slugEditing ? (
+                <div className="space-y-2">
+                  <Label className="text-xs">الرابط المختصر (بالإنجليزية)</Label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground font-mono shrink-0">adalah.sa/firms/</span>
+                    <Input
+                      value={slugEdit}
+                      onChange={e => setSlugEdit(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""))}
+                      className="flex-1 font-mono text-sm h-8 dir-ltr"
+                      placeholder="law-firm-name"
+                      autoFocus
+                    />
+                    <Button size="sm" className="h-8 gap-1 text-xs"
+                      disabled={!slugEdit.trim() || updateOfficeMutation.isPending}
+                      onClick={() => { updateOfficeMutation.mutate({ id: office.id, slug: slugEdit.trim() }); setSlugEditing(false); }}>
+                      {updateOfficeMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                      حفظ
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setSlugEditing(false)}>إلغاء</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/50 border border-border/50">
+                  <span className="font-mono text-sm flex-1 select-all dir-ltr text-left text-foreground">
+                    adalah.sa/firms/<span className="text-primary font-bold">{office.slug}</span>
+                  </span>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="تعديل الرابط"
+                    onClick={() => { setSlugEdit(office.slug); setSlugEditing(true); }}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="نسخ الرابط"
+                    onClick={() => { navigator.clipboard.writeText(window.location.origin + `/firms/${office.slug}`); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
+                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  </Button>
+                  <a href={`/firms/${office.slug}`} target="_blank" rel="noreferrer">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="فتح الموقع">
+                      <ExternalLink className="h-3.5 w-3.5 text-primary" />
+                    </Button>
+                  </a>
+                </div>
+              )}
+
+              {/* Publish toggle */}
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-background/50">
+                <div>
+                  <p className="text-xs font-semibold">{office.isPublished ? "الموقع منشور ومرئي للعملاء" : "الموقع مسودة — غير مرئي للعملاء"}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {office.isPublished ? "عملاؤك يستطيعون زيارة موقعك الآن" : "فعّل النشر لتظهر صفحتك للعملاء"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {office.isPublished && (
+                    <a href={`/firms/${office.slug}`} target="_blank" rel="noreferrer">
+                      <Button size="sm" className="h-7 text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20">
+                        <Eye className="h-3 w-3" /> معاينة
+                      </Button>
+                    </a>
+                  )}
+                  <Switch
+                    checked={office.isPublished}
+                    onCheckedChange={v => updateOfficeMutation.mutate({ id: office.id, isPublished: v })}
+                  />
+                </div>
+              </div>
+
+              {/* Store link specifically */}
+              <div className="flex items-center gap-2 p-3 rounded-xl border border-border/30 bg-muted/20 text-xs text-muted-foreground">
+                <ShoppingBag className="h-3.5 w-3.5 text-[#C9A84C] shrink-0" />
+                <span>رابط المتجر المباشر:</span>
+                <a href={`/firms/${office.slug}/store`} target="_blank" rel="noreferrer" className="font-mono text-primary hover:underline flex-1 dir-ltr text-left">
+                  adalah.sa/firms/{office.slug}/store
+                </a>
+                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0"
+                  onClick={() => navigator.clipboard.writeText(window.location.origin + `/firms/${office.slug}/store`)}>
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Stats ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {[
+              { label: "الطلبات",    val: orders.length,   color: "#C9A84C",  tab: "orders",   pending: (orders as any[]).filter((o: any) => o.status === "pending").length },
+              { label: "الخدمات",   val: services.length,  color: "#3B82F6",  tab: "services" },
+              { label: "الفريق",    val: team.length,      color: "#8B5CF6",  tab: "team"     },
+              { label: "التقييمات", val: reviews.length,   color: "#10B981",  tab: "reviews"  },
+              { label: "المقالات",  val: articles.length,  color: "#F97316",  tab: "articles" },
+            ].map(s => (
+              <Card key={s.label} className="border-border/50 cursor-pointer hover:border-border transition-colors group">
+                <CardContent className="p-3 text-center relative">
+                  <div className="text-2xl font-black" style={{ color: s.color }}>{s.val}</div>
+                  <div className="text-[10px] text-muted-foreground">{s.label}</div>
+                  {(s as any).pending > 0 && (
+                    <span className="absolute top-2 left-2 h-4 w-4 bg-primary text-primary-foreground text-[9px] rounded-full flex items-center justify-center font-bold">
+                      {(s as any).pending}
+                    </span>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* ── Quick Actions ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {[
+              { icon: ShoppingBag, label: "إضافة خدمة",      color: "text-blue-400",    href: `?tab=services`, desc: "أضف خدماتك القانونية" },
+              { icon: Users,       label: "إضافة عضو فريق",  color: "text-purple-400",  href: `?tab=team`,     desc: "أعضاء مكتبك" },
+              { icon: FileText,    label: "كتابة مقال",       color: "text-orange-400",  href: `?tab=articles`, desc: "محتوى جذب العملاء" },
+              { icon: Palette,     label: "تخصيص المظهر",    color: "text-pink-400",    href: `?tab=appearance`, desc: "الألوان والشعار" },
+              { icon: Link2,       label: "إعدادات النطاق",  color: "text-[#C9A84C]",   href: `?tab=domains`,  desc: "دومين مخصص" },
+              { icon: Edit2,       label: "تعديل محتوى الصفحة", color: "text-emerald-400", action: () => setPageForm({ ...office }), desc: "النصوص والمعلومات" },
+            ].map(action => (
+              <Card key={action.label} className="border-border/50 hover:border-border cursor-pointer transition-colors"
+                onClick={action.action ?? undefined}>
+                <CardContent className="p-3 flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                    <action.icon className={`h-4 w-4 ${action.color}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold">{action.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{action.desc}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* ══════════════════════════════════════════════════
+            APPEARANCE TAB
+        ══════════════════════════════════════════════════ */}
+        <TabsContent value="appearance" className="space-y-4 mt-4">
+          <Card className="border-border/50">
+            <CardContent className="p-5 space-y-5">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                <Palette className="h-4 w-4 text-primary" /> مظهر الموقع والمتجر
+              </h3>
+
+              {/* Logo + Cover */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold">شعار المكتب</Label>
+                  <div className="flex items-center gap-3">
+                    {(appearanceForm?.logo ?? office.logo) ? (
+                      <img src={imgSrc(appearanceForm?.logo ?? office.logo)} alt="" className="h-12 w-12 rounded-xl object-contain border border-border/50 bg-muted" />
+                    ) : (
+                      <div className="h-12 w-12 rounded-xl bg-muted border border-border/50 flex items-center justify-center">
+                        <Image className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs"
+                      onClick={() => appLogoRef.current?.click()} disabled={appLogoUpload.isUploading}>
+                      {appLogoUpload.isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                      رفع شعار
+                    </Button>
+                    <input ref={appLogoRef} type="file" accept="image/*" className="hidden"
+                      onChange={async e => { const f = e.target.files?.[0]; if (f) await appLogoUpload.uploadFile(f); }} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold">صورة الخلفية (هيرو)</Label>
+                  <div className="flex items-center gap-3">
+                    {(appearanceForm?.coverImage ?? office.coverImage) ? (
+                      <img src={imgSrc(appearanceForm?.coverImage ?? office.coverImage)} alt="" className="h-12 w-20 rounded-xl object-cover border border-border/50" />
+                    ) : (
+                      <div className="h-12 w-20 rounded-xl bg-muted border border-border/50 flex items-center justify-center">
+                        <Image className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs"
+                      onClick={() => appCoverRef.current?.click()} disabled={appCoverUpload.isUploading}>
+                      {appCoverUpload.isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Image className="h-3.5 w-3.5" />}
+                      رفع صورة
+                    </Button>
+                    <input ref={appCoverRef} type="file" accept="image/*" className="hidden"
+                      onChange={async e => { const f = e.target.files?.[0]; if (f) await appCoverUpload.uploadFile(f); }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Brand Color */}
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold flex items-center gap-2">
+                  <Palette className="h-3.5 w-3.5" /> لون المكتب الرئيسي
+                </Label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={appearanceForm?.primaryColor ?? office.primaryColor ?? "#C9A84C"}
+                    onChange={e => setAppearanceForm((f: any) => ({ ...(f ?? { primaryColor: office.primaryColor, name: office.name, nameEn: office.nameEn, tagline: office.tagline, taglineEn: office.taglineEn, about: office.about, aboutEn: office.aboutEn }), primaryColor: e.target.value }))}
+                    className="h-10 w-16 rounded-lg border border-border/50 cursor-pointer bg-transparent p-1"
+                  />
+                  <div className="flex gap-2 flex-wrap">
+                    {["#C9A84C", "#1E40AF", "#059669", "#7C3AED", "#DC2626", "#0F172A", "#EA580C"].map(c => (
+                      <button
+                        key={c}
+                        className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${(appearanceForm?.primaryColor ?? office.primaryColor ?? "#C9A84C") === c ? "border-foreground scale-110" : "border-transparent"}`}
+                        style={{ background: c }}
+                        onClick={() => setAppearanceForm((f: any) => ({ ...(f ?? { name: office.name, nameEn: office.nameEn, tagline: office.tagline, taglineEn: office.taglineEn, about: office.about, aboutEn: office.aboutEn }), primaryColor: c }))}
+                      />
+                    ))}
+                  </div>
+                  <div className="h-8 w-8 rounded-lg border border-border/50 flex-shrink-0"
+                    style={{ background: appearanceForm?.primaryColor ?? office.primaryColor ?? "#C9A84C" }} />
+                </div>
+              </div>
+
+              {/* Name + Tagline */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">اسم المكتب (عربي)</Label>
+                  <Input
+                    value={appearanceForm?.name ?? office.name ?? ""}
+                    onChange={e => setAppearanceForm((f: any) => ({ ...(f ?? { primaryColor: office.primaryColor, nameEn: office.nameEn, tagline: office.tagline, taglineEn: office.taglineEn, about: office.about, aboutEn: office.aboutEn }), name: e.target.value }))}
+                    placeholder="مكتب عبدالله للمحاماة"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Office Name (English)</Label>
+                  <Input
+                    value={appearanceForm?.nameEn ?? office.nameEn ?? ""}
+                    onChange={e => setAppearanceForm((f: any) => ({ ...(f ?? { primaryColor: office.primaryColor, name: office.name, tagline: office.tagline, taglineEn: office.taglineEn, about: office.about, aboutEn: office.aboutEn }), nameEn: e.target.value }))}
+                    dir="ltr" placeholder="Abdullah Law Firm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">الشعار النصي (عربي)</Label>
+                  <Input
+                    value={appearanceForm?.tagline ?? office.tagline ?? ""}
+                    onChange={e => setAppearanceForm((f: any) => ({ ...(f ?? { primaryColor: office.primaryColor, name: office.name, nameEn: office.nameEn, taglineEn: office.taglineEn, about: office.about, aboutEn: office.aboutEn }), tagline: e.target.value }))}
+                    placeholder="متخصصون في القانون التجاري"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Tagline (English)</Label>
+                  <Input
+                    value={appearanceForm?.taglineEn ?? office.taglineEn ?? ""}
+                    onChange={e => setAppearanceForm((f: any) => ({ ...(f ?? { primaryColor: office.primaryColor, name: office.name, nameEn: office.nameEn, tagline: office.tagline, about: office.about, aboutEn: office.aboutEn }), taglineEn: e.target.value }))}
+                    dir="ltr" placeholder="Specialists in Commercial Law"
+                  />
+                </div>
+              </div>
+
+              {/* About */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">من نحن (عربي)</Label>
+                  <Textarea
+                    value={appearanceForm?.about ?? office.about ?? ""}
+                    onChange={e => setAppearanceForm((f: any) => ({ ...(f ?? { primaryColor: office.primaryColor, name: office.name, nameEn: office.nameEn, tagline: office.tagline, taglineEn: office.taglineEn, aboutEn: office.aboutEn }), about: e.target.value }))}
+                    rows={3} className="resize-none text-sm" placeholder="نبذة عن مكتبك ومجالات تخصصه..."
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">About Us (English)</Label>
+                  <Textarea
+                    value={appearanceForm?.aboutEn ?? office.aboutEn ?? ""}
+                    onChange={e => setAppearanceForm((f: any) => ({ ...(f ?? { primaryColor: office.primaryColor, name: office.name, nameEn: office.nameEn, tagline: office.tagline, taglineEn: office.taglineEn, about: office.about }), aboutEn: e.target.value }))}
+                    rows={3} className="resize-none text-sm" dir="ltr" placeholder="About your law firm..."
+                  />
+                </div>
+              </div>
+
+              {/* Save button */}
+              {appearanceForm && (
+                <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                    التغييرات لم تُحفظ بعد
+                  </p>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="text-xs" onClick={() => setAppearanceForm(null)}>تراجع</Button>
+                    <Button size="sm" className="gap-1.5 text-xs"
+                      disabled={updateOfficeMutation.isPending}
+                      onClick={() => { updateOfficeMutation.mutate({ id: office.id, ...appearanceForm }); setAppearanceForm(null); }}>
+                      {updateOfficeMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                      حفظ التغييرات
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Preview link */}
+          <Card className="border-dashed border-border/40 bg-muted/10">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold">معاينة الموقع العام</p>
+                <p className="text-[11px] text-muted-foreground">شاهد كيف يبدو موقعك للزوار</p>
+              </div>
+              <a href={`/firms/${office.slug}`} target="_blank" rel="noreferrer">
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                  <Eye className="h-3.5 w-3.5" /> معاينة
+                </Button>
+              </a>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* ── ORDERS ── */}
         <TabsContent value="orders" className="space-y-2 mt-4">
