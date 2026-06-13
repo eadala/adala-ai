@@ -93,6 +93,13 @@ export default function SuperAdmin() {
 
   const { data: stats, error: statsError } = useAdmin<any>("/stats");
 
+  const { data: ghostStatus, refetch: refetchGhost } = useQuery<any>({
+    queryKey: ["ghost", "status"],
+    queryFn: () => DEV_API("/impersonate/status"),
+    retry: false,
+    refetchInterval: 30_000,
+  });
+
   if (statsError?.message?.includes("403") || statsError?.message?.includes("غير مصرح")) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 py-24">
@@ -121,6 +128,16 @@ export default function SuperAdmin() {
         <Badge className="mr-auto bg-yellow-500/10 text-yellow-500 border-yellow-500/20 text-xs font-bold gap-1">
           <Crown className="h-3 w-3" /> Super Admin
         </Badge>
+        {ghostStatus?.active && (
+          <button
+            onClick={() => setTab("ghost-access")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-xs cursor-pointer hover:bg-violet-500/15 transition-colors animate-pulse"
+          >
+            <Fingerprint className="h-3.5 w-3.5" />
+            <span className="font-bold">{ghostStatus.officeName}</span>
+            <span className="text-violet-400/60">• جلسة خفية</span>
+          </button>
+        )}
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -163,6 +180,7 @@ export default function SuperAdmin() {
         <TabsContent value="home-cms"       className="mt-4"><HomeCmsTab toast={toast} /></TabsContent>
         <TabsContent value="plans-cms"      className="mt-4"><PlansCmsTab toast={toast} /></TabsContent>
         <TabsContent value="promo-codes"   className="mt-4"><PromoCodesTab qc={qc} toast={toast} /></TabsContent>
+        <TabsContent value="ghost-access"  className="mt-4"><GhostCenterTab toast={toast} onRefreshHeader={refetchGhost} /></TabsContent>
       </Tabs>
     </div>
   );
@@ -196,6 +214,7 @@ const TABS = [
   { id: "home-cms",       label: "محتوى الصفحة الرئيسية", icon: Layout },
   { id: "plans-cms",      label: "باقات الأسعار",         icon: Tag },
   { id: "promo-codes",    label: "اشتراكات مجانية",       icon: Percent },
+  { id: "ghost-access",   label: "الوصول الخفي",           icon: Fingerprint },
 ];
 
 /* ═══════════════════════════════════════════════════
@@ -6432,6 +6451,305 @@ function PromoCodesTab({ qc, toast }: any) {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   GHOST CENTER TAB — وصول خفي لأي مكتب بدون أثر
+═══════════════════════════════════════════════════════════════════ */
+function GhostCenterTab({ toast, onRefreshHeader }: { toast: any; onRefreshHeader?: () => void }) {
+  const qc = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [planFilter, setPlanFilter] = useState("all");
+
+  const { data: offices = [], isLoading: officesLoad, refetch: refetchOffices } = useQuery<any[]>({
+    queryKey: ["ghost", "offices"],
+    queryFn: () => DEV_API("/offices"),
+    retry: false,
+    refetchInterval: 60_000,
+  });
+
+  const { data: ghostStatus, refetch: refetchStatus } = useQuery<any>({
+    queryKey: ["ghost", "status"],
+    queryFn: () => DEV_API("/impersonate/status"),
+    retry: false,
+    refetchInterval: 20_000,
+  });
+
+  const startGhost = useMutation({
+    mutationFn: (officeId: string) => DEV_API(`/impersonate/${officeId}`, { method: "POST" }),
+    onSuccess: () => {
+      refetchStatus();
+      onRefreshHeader?.();
+      qc.invalidateQueries({ queryKey: ["ghost"] });
+      toast({ title: "🔮 تم الدخول الخفي — جارٍ فتح لوحة التحكم" });
+      setTimeout(() => window.open(`${BASE}/dashboard`, "_blank"), 500);
+    },
+    onError: () => toast({ title: "فشل الدخول الخفي", variant: "destructive" }),
+  });
+
+  const stopGhost = useMutation({
+    mutationFn: () => DEV_API("/impersonate", { method: "DELETE" }),
+    onSuccess: () => {
+      refetchStatus();
+      onRefreshHeader?.();
+      qc.invalidateQueries({ queryKey: ["ghost"] });
+      toast({ title: "✅ انتهت الجلسة الخفية بنجاح" });
+    },
+  });
+
+  const getTimeLeft = (startedAt: string) => {
+    if (!startedAt) return "—";
+    const expires = new Date(startedAt).getTime() + 4 * 3600 * 1000;
+    const left = expires - Date.now();
+    if (left <= 0) return "منتهية";
+    const h = Math.floor(left / 3600000);
+    const m = Math.floor((left % 3600000) / 60000);
+    return `${h}س ${m}د`;
+  };
+
+  const getProgressPct = (startedAt: string) => {
+    if (!startedAt) return 0;
+    const elapsed = Date.now() - new Date(startedAt).getTime();
+    return Math.min(100, Math.round((elapsed / (4 * 3600000)) * 100));
+  };
+
+  const uniquePlans = [...new Set((offices as any[]).map((o: any) => o.plan).filter(Boolean))];
+  const filtered = (offices as any[]).filter((o: any) => {
+    const matchSearch = !search || (o.office_name ?? "").toLowerCase().includes(search.toLowerCase());
+    const matchPlan = planFilter === "all" || o.plan === planFilter;
+    return matchSearch && matchPlan;
+  });
+
+  return (
+    <div className="space-y-5" dir="rtl">
+
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-base font-black flex items-center gap-2">
+            <Fingerprint className="h-5 w-5 text-violet-400" />
+            مركز الوصول الخفي
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+            ادخل أي مكتب كمدير فعلي بشكل غير مرئي تاماً — بدون إشعار، بدون أثر للمكتب، انتهاء تلقائي بعد{" "}
+            <strong className="text-violet-400">4 ساعات</strong>
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/20 gap-1.5">
+            <EyeOff className="h-3 w-3" /> وضع خفي كامل
+          </Badge>
+          {ghostStatus?.active && (
+            <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 gap-1 animate-pulse">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              جلسة نشطة
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Warning */}
+      <Card className="border-dashed border-amber-500/30 bg-amber-500/5">
+        <CardContent className="p-3 flex gap-3 items-start">
+          <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            <span className="font-semibold text-amber-400">صلاحيات حقيقية:</span>{" "}
+            جميع التغييرات تؤثر فعلياً على بيانات المكتب. المكتب لن يرى أي تنبيه أو إشعار. السجلات تُحفظ على الخادم فقط ولا يمكن للمكتب رؤيتها.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Active Session Card */}
+      {ghostStatus?.active && (
+        <Card className="border-violet-500/40 bg-gradient-to-l from-violet-500/8 to-transparent">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center flex-shrink-0">
+                  <Fingerprint className="h-6 w-6 text-violet-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-violet-400 font-bold tracking-widest uppercase mb-0.5">جلسة خفية نشطة</p>
+                  <p className="text-base font-black">{ghostStatus.officeName}</p>
+                  <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      بدأت: {ghostStatus.startedAt
+                        ? new Date(ghostStatus.startedAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })
+                        : "—"}
+                    </span>
+                    <span className="text-violet-400 flex items-center gap-1">
+                      <Timer className="h-3 w-3" />
+                      متبقي: {getTimeLeft(ghostStatus.startedAt)}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1 w-48 bg-violet-500/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-violet-500 rounded-full transition-all"
+                      style={{ width: `${getProgressPct(ghostStatus.startedAt)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <Button size="sm" className="h-8 text-xs bg-violet-600 hover:bg-violet-700 gap-1.5"
+                  onClick={() => window.open(`${BASE}/dashboard`, "_blank")}>
+                  <Globe className="h-3.5 w-3.5" /> فتح اللوحة
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 text-xs border-red-400/30 text-red-300 hover:bg-red-500/10 gap-1.5"
+                  onClick={() => stopGhost.mutate()} disabled={stopGhost.isPending}>
+                  {stopGhost.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                  إنهاء الجلسة
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-muted/30 border border-border/50 rounded-xl p-4 text-center">
+          <p className="text-2xl font-black text-[#C9A84C]">{(offices as any[]).length}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">إجمالي المكاتب</p>
+        </div>
+        <div className="bg-muted/30 border border-border/50 rounded-xl p-4 text-center">
+          <p className="text-2xl font-black text-violet-400">{ghostStatus?.active ? "1" : "0"}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">جلسات نشطة</p>
+        </div>
+        <div className="bg-muted/30 border border-border/50 rounded-xl p-4 text-center">
+          <p className="text-2xl font-black text-emerald-400">4h</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">انتهاء تلقائي</p>
+        </div>
+      </div>
+
+      {/* Office list */}
+      <div className="space-y-3">
+        {/* Search + Filter bar */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="ابحث بالاسم..." className="pr-9 text-sm" />
+          </div>
+          <Select value={planFilter} onValueChange={setPlanFilter}>
+            <SelectTrigger className="w-36 text-xs">
+              <SelectValue placeholder="كل الباقات" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الباقات</SelectItem>
+              {uniquePlans.map((p: string) => (
+                <SelectItem key={p} value={p}>{PLAN_SLUG_LABELS[p] ?? p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="ghost" className="h-9 w-9 p-0" title="تحديث"
+            onClick={() => { refetchOffices(); refetchStatus(); }}>
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        {!officesLoad && (
+          <p className="text-xs text-muted-foreground">
+            {filtered.length === (offices as any[]).length
+              ? `${filtered.length} مكتب`
+              : `${filtered.length} من ${(offices as any[]).length} مكتب`}
+          </p>
+        )}
+
+        {officesLoad ? (
+          <div className="space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-[72px] w-full rounded-xl" />)}</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <Fingerprint className="h-10 w-10 mx-auto mb-3 opacity-20" />
+            <p className="text-sm">لا توجد مكاتب مطابقة</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filtered.map((office: any) => {
+              const isActive = ghostStatus?.active && ghostStatus.officeId === office.id;
+              const planColor = PLAN_SLUG_COLORS[office.plan] ?? "#64748B";
+              const planLabel = PLAN_SLUG_LABELS[office.plan] ?? office.plan ?? "—";
+              return (
+                <Card
+                  key={office.id}
+                  className={cn(
+                    "border-border/50 transition-all duration-200",
+                    isActive
+                      ? "border-violet-500/50 bg-violet-500/5 shadow-sm shadow-violet-500/10"
+                      : "hover:border-border hover:bg-muted/20"
+                  )}
+                >
+                  <CardContent className="p-4 flex items-center justify-between gap-4">
+                    {/* Left: icon + info */}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div
+                        className="h-10 w-10 rounded-xl flex-shrink-0 flex items-center justify-center border"
+                        style={{ background: `${planColor}12`, borderColor: `${planColor}30` }}
+                      >
+                        <Building2 className="h-5 w-5" style={{ color: planColor }} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold truncate">{office.office_name || "مكتب بلا اسم"}</p>
+                          {isActive && (
+                            <Badge className="bg-violet-500/15 text-violet-400 border-violet-500/20 text-[10px] px-1.5 gap-1 shrink-0">
+                              <span className="h-1.5 w-1.5 rounded-full bg-violet-400 inline-block animate-pulse" />
+                              نشطة
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-[11px] font-semibold" style={{ color: planColor }}>{planLabel}</span>
+                          <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                            <Users className="h-3 w-3" /> {office.member_count ?? 0} أعضاء
+                          </span>
+                          <span className="text-[10px] text-muted-foreground/50 font-mono hidden lg:block">
+                            {String(office.id).slice(0, 8)}…
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: actions */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {isActive ? (
+                        <>
+                          <Button size="sm" className="h-8 text-xs bg-violet-600 hover:bg-violet-700 gap-1.5"
+                            onClick={() => window.open(`${BASE}/dashboard`, "_blank")}>
+                            <Globe className="h-3.5 w-3.5" /> فتح
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-8 w-8 p-0 border-red-400/30 text-red-300 hover:bg-red-500/10"
+                            onClick={() => stopGhost.mutate()} disabled={stopGhost.isPending}>
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button size="sm" className="h-8 text-xs bg-violet-600/80 hover:bg-violet-600 text-white gap-1.5"
+                          onClick={() => startGhost.mutate(office.id)}
+                          disabled={startGhost.isPending}>
+                          {startGhost.isPending
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <Fingerprint className="h-3.5 w-3.5" />
+                          }
+                          دخول خفي
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Footer note */}
+      <p className="text-[11px] text-muted-foreground/50 text-center leading-relaxed pt-2">
+        🔒 السجلات محفوظة على الخادم فقط وغير متاحة للمكاتب · لا يُرسل أي إشعار للمكتب · الجلسة تنتهي تلقائياً بعد 4 ساعات
+      </p>
     </div>
   );
 }

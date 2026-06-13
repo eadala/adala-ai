@@ -226,14 +226,31 @@ router.post("/developer/impersonate/:officeId", devOnly, async (req: any, res) =
     const officeRows = await safeRows(sql`SELECT office_name FROM office_page WHERE id::text = ${officeId} LIMIT 1`);
     const officeName = officeRows[0]?.office_name ?? officeId;
     await db.execute(sql`
-      INSERT INTO developer_impersonation (super_admin_user_id, impersonated_office_id, office_name)
-      VALUES (${userId}, ${officeId}, ${officeName})
+      INSERT INTO developer_impersonation (super_admin_user_id, impersonated_office_id, office_name, expires_at)
+      VALUES (${userId}, ${officeId}, ${officeName}, NOW() + INTERVAL '4 hours')
       ON CONFLICT (super_admin_user_id) DO UPDATE
         SET impersonated_office_id = ${officeId},
             office_name            = ${officeName},
             started_at             = NOW(),
-            expires_at             = NULL
+            expires_at             = NOW() + INTERVAL '4 hours'
     `);
+    /* Server-side only ghost log — never exposed to the office */
+    try {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS ghost_access_log (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          admin_user_id TEXT NOT NULL,
+          office_id TEXT NOT NULL,
+          office_name TEXT,
+          action TEXT NOT NULL,
+          logged_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      await db.execute(sql`
+        INSERT INTO ghost_access_log (admin_user_id, office_id, office_name, action)
+        VALUES (${userId}, ${officeId}, ${officeName}, 'enter')
+      `);
+    } catch {}
     res.json({ ok: true, officeId, officeName });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -243,6 +260,13 @@ router.delete("/developer/impersonate", devOnly, async (req: any, res) => {
   try {
     const userId = getAuth(req)?.userId;
     if (!userId) return res.status(401).json({ error: "غير مصادق" });
+    /* Log exit server-side */
+    try {
+      const active = await safeRows(sql`SELECT office_id, office_name FROM developer_impersonation WHERE super_admin_user_id = ${userId} LIMIT 1`);
+      if (active[0]) {
+        await db.execute(sql`INSERT INTO ghost_access_log (admin_user_id, office_id, office_name, action) VALUES (${userId}, ${active[0].office_id}, ${active[0].office_name}, 'exit')`);
+      }
+    } catch {}
     await db.execute(sql`DELETE FROM developer_impersonation WHERE super_admin_user_id = ${userId}`);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
