@@ -3,6 +3,7 @@ import { db, casesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace/api-zod";
 import { auditLog } from "../lib/auditLogger";
+import { notifyTelegramCaseStatus } from "./telegram";
 
 const STATUS_LABELS: Record<string, string> = {
   open: "مفتوحة",
@@ -151,6 +152,7 @@ router.patch("/cases/:id", async (req, res) => {
 
     if (body.status && before && before.status !== body.status) {
       notifyWhatsAppCaseStatus(updated).catch(() => {});
+      notifyTelegramCaseStatus(updated).catch(() => {});
     }
     const auth = (req as any).auth;
     auditLog({ userId: auth?.userId, action: "update", resource: "cases", resourceId: req.params.id, details: updated.title }).catch(() => {});
