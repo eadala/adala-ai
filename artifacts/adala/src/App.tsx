@@ -7,6 +7,8 @@ import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
+import { AdminLayout } from "@/components/admin-layout";
+import { useRole } from "@/hooks/use-role";
 import { OfficeThemeProvider } from "@/components/office-theme-provider";
 
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────────
@@ -242,12 +244,20 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+// ── Smart redirect: sends each role to its own world ───────────────────────────
+function RoleAwareRedirect() {
+  const { role, isLoaded } = useRole();
+  if (!isLoaded) return <PageLoader />;
+  if (role === "platform_admin") return <Redirect to="/super-admin" />;
+  return <Redirect to="/dashboard" />;
+}
+
 // ── Home redirect ──────────────────────────────────────────────────────────────
 function HomeRedirect() {
   return (
     <>
       <Show when="signed-in">
-        <Redirect to="/dashboard" />
+        <RoleAwareRedirect />
       </Show>
       <Show when="signed-out">
         <Suspense fallback={<div className="min-h-screen bg-[#0F1B35]" />}>
@@ -278,7 +288,54 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// ── Platform Admin route ────────────────────────────────────────────────────────
+// Only platform_admin can enter — others go to /dashboard
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { role, isLoaded } = useRole();
+  return (
+    <>
+      <Show when="signed-in">
+        {!isLoaded ? <PageLoader /> : role === "platform_admin" ? (
+          <AdminLayout>
+            <Suspense fallback={<PageLoader />}>{children}</Suspense>
+          </AdminLayout>
+        ) : (
+          <Redirect to="/dashboard" />
+        )}
+      </Show>
+      <Show when="signed-out">
+        <Redirect to="/" />
+      </Show>
+    </>
+  );
+}
+
+// ── Workspace route ─────────────────────────────────────────────────────────────
+// Law firm users only — platform_admin is redirected to their own world
+function WorkspaceRoute({ children }: { children: React.ReactNode }) {
+  const { role, isLoaded } = useRole();
+  return (
+    <>
+      <Show when="signed-in">
+        {!isLoaded ? <PageLoader /> : role === "platform_admin" ? (
+          <Redirect to="/super-admin" />
+        ) : (
+          <OnboardingGate>
+            <Layout>
+              <Suspense fallback={<PageLoader />}>{children}</Suspense>
+            </Layout>
+          </OnboardingGate>
+        )}
+      </Show>
+      <Show when="signed-out">
+        <Redirect to="/" />
+      </Show>
+    </>
+  );
+}
+
 // ── Protected route wrapper ────────────────────────────────────────────────────
+// Generic — any authenticated user (both roles can access)
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return (
     <>
@@ -349,16 +406,16 @@ function AppRoutes() {
             <Route path="/firms/:slug/book"><PublicPage><OfficeBook /></PublicPage></Route>
             <Route path="/firms/:slug"><PublicPage><OfficePage /></PublicPage></Route>
 
-            {/* ── Protected ── */}
-            <Route path="/dashboard"><ProtectedRoute><Dashboard /></ProtectedRoute></Route>
+            {/* ── Workspace (law firm users only) ── */}
+            <Route path="/dashboard"><WorkspaceRoute><Dashboard /></WorkspaceRoute></Route>
 
             {/* Cases */}
-            <Route path="/cases"><ProtectedRoute><Cases /></ProtectedRoute></Route>
-            <Route path="/cases/:id">{p => <ProtectedRoute><CaseDetail id={p.id} /></ProtectedRoute>}</Route>
+            <Route path="/cases"><WorkspaceRoute><Cases /></WorkspaceRoute></Route>
+            <Route path="/cases/:id">{p => <WorkspaceRoute><CaseDetail id={p.id} /></WorkspaceRoute>}</Route>
 
             {/* Clients */}
-            <Route path="/clients"><ProtectedRoute><Clients /></ProtectedRoute></Route>
-            <Route path="/clients/:id"><ProtectedRoute><ClientDetail /></ProtectedRoute></Route>
+            <Route path="/clients"><WorkspaceRoute><Clients /></WorkspaceRoute></Route>
+            <Route path="/clients/:id"><WorkspaceRoute><ClientDetail /></WorkspaceRoute></Route>
 
             {/* Documents */}
             <Route path="/documents"><ProtectedRoute><Documents /></ProtectedRoute></Route>
@@ -398,7 +455,6 @@ function AppRoutes() {
             <Route path="/finance"><ProtectedRoute><FinanceCenter /></ProtectedRoute></Route>
             <Route path="/collections"><ProtectedRoute><Collections /></ProtectedRoute></Route>
             <Route path="/financial-intelligence"><ProtectedRoute><FinancialIntelligence /></ProtectedRoute></Route>
-            <Route path="/financial-core"><ProtectedRoute><FinancialCore /></ProtectedRoute></Route>
 
             {/* HR */}
             <Route path="/employees"><ProtectedRoute><Employees /></ProtectedRoute></Route>
@@ -414,17 +470,20 @@ function AppRoutes() {
             <Route path="/tasks"><ProtectedRoute><Tasks /></ProtectedRoute></Route>
             <Route path="/calendar"><ProtectedRoute><CalendarPage /></ProtectedRoute></Route>
 
-            {/* Admin & Settings */}
+            {/* ── Platform Admin (platform_admin only) ── */}
+            <Route path="/super-admin"><AdminRoute><SuperAdmin /></AdminRoute></Route>
+            <Route path="/studio"><AdminRoute><AdalaBuildStudio /></AdminRoute></Route>
+            <Route path="/financial-core"><AdminRoute><FinancialCore /></AdminRoute></Route>
+            <Route path="/audit-logs"><AdminRoute><AuditLogsPage /></AdminRoute></Route>
+
+            {/* Admin & Settings (law firm admins) */}
             <Route path="/users"><ProtectedRoute><Users /></ProtectedRoute></Route>
             <Route path="/office-settings"><ProtectedRoute><OfficeSettings /></ProtectedRoute></Route>
             <Route path="/office-management"><ProtectedRoute><OfficeManagement /></ProtectedRoute></Route>
-            <Route path="/super-admin"><ProtectedRoute><SuperAdmin /></ProtectedRoute></Route>
-            <Route path="/studio"><ProtectedRoute><AdalaBuildStudio /></ProtectedRoute></Route>
             <Route path="/storage-settings"><ProtectedRoute><StorageSettings /></ProtectedRoute></Route>
             <Route path="/firm-admin"><ProtectedRoute><FirmAdmin /></ProtectedRoute></Route>
             <Route path="/backup"><ProtectedRoute><BackupCenter /></ProtectedRoute></Route>
             <Route path="/theme-builder"><ProtectedRoute><ThemeBuilderPage /></ProtectedRoute></Route>
-            <Route path="/audit-logs"><ProtectedRoute><AuditLogsPage /></ProtectedRoute></Route>
             <Route path="/login-tracking"><ProtectedRoute><LoginTrackingPage /></ProtectedRoute></Route>
             <Route path="/my-sessions"><ProtectedRoute><MySessionsPage /></ProtectedRoute></Route>
 
