@@ -9,8 +9,8 @@ import {
   Calendar, Receipt, Briefcase, Globe, Lock, Database, Activity,
   Building2, CreditCard, Phone, Mail, Twitter, Linkedin, Youtube,
   Menu, X, ArrowRight, Sparkles, TrendingUp, Award, Check,
-  Brain, Layers, HardDrive, Palette, DollarSign, Gift, Copy, Share2,
-  XCircle, Minus, ThumbsUp, TrendingDown,
+  Brain, Layers, HardDrive, Palette, DollarSign, Gift,
+  ThumbsUp,
   PenLine, Smartphone, UserCheck, Archive, ClipboardCheck, BellRing,
 } from "lucide-react";
 
@@ -300,6 +300,49 @@ export default function Landing() {
   const counterLocale = isAr ? "ar-SA" : "en-US";
   const textAlign = isAr ? "text-right" : "text-left";
 
+  const [howTab,       setHowTab]       = useState(0);
+  const [activeSection,setActiveSection] = useState("hero");
+
+  useEffect(() => {
+    const ids = ["hero","features","ai","how","pricing","faq"];
+    const obs = ids.map(id => {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      const o = new IntersectionObserver(([e]) => { if (e.isIntersecting) setActiveSection(id); }, { threshold: 0.25 });
+      o.observe(el);
+      return o;
+    });
+    return () => obs.forEach(o => o?.disconnect());
+  }, []);
+
+  const SIDE_DOTS = [
+    { id: "hero",     label: isAr ? "الرئيسية" : "Home" },
+    { id: "features", label: isAr ? "المميزات" : "Features" },
+    { id: "ai",       label: isAr ? "الذكاء الاصطناعي" : "AI" },
+    { id: "how",      label: isAr ? "كيف يعمل" : "How it works" },
+    { id: "pricing",  label: isAr ? "الأسعار" : "Pricing" },
+    { id: "faq",      label: isAr ? "الأسئلة" : "FAQ" },
+  ];
+
+  const BENTO_SPANS = [
+    "lg:col-span-2 md:col-span-2",
+    "lg:col-span-1",
+    "lg:col-span-1",
+    "lg:col-span-1",
+    "lg:col-span-1",
+    "lg:col-span-2 md:col-span-2",
+    "lg:col-span-1",
+    "lg:col-span-1",
+  ];
+  const bentoFeatures = featureItems.slice(0, 8);
+
+  const STATS = [
+    { to: Number(c("stats","offices","1000").replace(/[^0-9]/g,"")||"1000"),    suffix: "+",   labelKey: "landing.trust.offices",      color: "#C9A84C" },
+    { to: Number(c("stats","cases","100000").replace(/[^0-9]/g,"")||"100000"),  suffix: "+",   labelKey: "landing.trust.cases",        color: "#6366F1" },
+    { to: Number(c("stats","satisfaction","99").replace(/[^0-9.]/g,"")||"99"),  suffix: ".9%", labelKey: "landing.trust.satisfaction", color: "#10B981" },
+    { to: Number(c("stats","timeSaving","40").replace(/[^0-9]/g,"")||"40"),     suffix: "%",   labelKey: "landing.trust.timeSaving",   color: "#F59E0B" },
+  ];
+
   return (
     <div dir={isAr ? "rtl" : "ltr"} className="min-h-screen overflow-x-hidden lp-root" style={{ background: "var(--lp-bg, #080F1E)", fontFamily: "Cairo, sans-serif" }}>
 
@@ -395,8 +438,29 @@ export default function Landing() {
         </div>
       </header>
 
+      {/* ── Sticky side-nav dots ─────────────────────────────────────────── */}
+      <nav className="fixed right-5 top-1/2 -translate-y-1/2 z-40 hidden xl:flex flex-col gap-4" aria-label="page sections">
+        {SIDE_DOTS.map(({ id, label }) => (
+          <button key={id} title={label}
+            onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="relative group flex items-center justify-end">
+            <span className="block rounded-full transition-all duration-300 ease-out"
+              style={{
+                width:  activeSection === id ? "10px" : "7px",
+                height: activeSection === id ? "10px" : "7px",
+                background: activeSection === id ? "var(--lp-accent,#C9A84C)" : "rgba(255,255,255,0.22)",
+                boxShadow: activeSection === id ? "0 0 8px rgba(201,168,76,0.6)" : "none",
+              }} />
+            <span className="absolute left-full ml-3 whitespace-nowrap text-xs text-white/75 px-2.5 py-1 rounded-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              style={{ background: "rgba(8,15,30,0.92)", border: "1px solid rgba(255,255,255,0.09)" }}>
+              {label}
+            </span>
+          </button>
+        ))}
+      </nav>
+
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-24 pb-16 overflow-hidden">
+      <section id="hero" className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-24 pb-16 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full blur-[120px] opacity-20" style={{ background: "var(--lp-accent, #C9A84C)" }} />
           <div className="absolute bottom-1/4 left-1/4 w-64 h-64 rounded-full blur-[100px] opacity-15" style={{ background: "#6366F1" }} />
@@ -451,24 +515,16 @@ export default function Landing() {
             <DashboardMock />
           </div>
         </div>
-      </section>
 
-      {/* ── TRUST STRIP ──────────────────────────────────────────────────── */}
-      <section className="py-14 px-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-        <FadeIn className="max-w-5xl mx-auto">
-          <p className="text-center text-white/30 lp-ts text-sm mb-10">{c("trust", "tagline", t("landing.trust.tagline"))}</p>
+        {/* ── Stats strip — inline at hero bottom ── */}
+        <FadeIn delay={0.55} className="w-full max-w-5xl mx-auto mt-16 pt-8 border-t border-white/[0.07]">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            {[
-              { to: Number(c("stats","offices","1000").replace(/[^0-9]/g,"")||"1000"),   suffix: "+",   labelKey: "landing.trust.offices",      icon: Building2 },
-              { to: Number(c("stats","cases","100000").replace(/[^0-9]/g,"")||"100000"), suffix: "+",   labelKey: "landing.trust.cases",        icon: Briefcase },
-              { to: Number(c("stats","satisfaction","99").replace(/[^0-9.]/g,"")||"99"), suffix: ".9%", labelKey: "landing.trust.satisfaction", icon: Award },
-              { to: Number(c("stats","timeSaving","40").replace(/[^0-9]/g,"")||"40"),    suffix: "%",   labelKey: "landing.trust.timeSaving",   icon: Clock },
-            ].map(s => (
+            {STATS.map(s => (
               <div key={s.labelKey} className="space-y-1">
-                <div className="text-4xl font-black" style={{ color: "var(--lp-accent, #C9A84C)" }}>
+                <div className="text-3xl font-black" style={{ color: s.color }}>
                   <Counter to={s.to} suffix={s.suffix} locale={counterLocale} />
                 </div>
-                <p className="text-white/50 lp-stat-label text-sm">{t(s.labelKey)}</p>
+                <p className="text-white/45 text-sm">{t(s.labelKey)}</p>
               </div>
             ))}
           </div>
@@ -480,10 +536,10 @@ export default function Landing() {
         <PlatformShowcase />
       </Suspense>
 
-      {/* ── FEATURES ─────────────────────────────────────────────────────── */}
+      {/* ── FEATURES BENTO ───────────────────────────────────────────────── */}
       <section id="features" className="py-24 px-4">
-        <div className="max-w-7xl mx-auto">
-          <FadeIn className="text-center mb-16">
+        <div className="max-w-6xl mx-auto">
+          <FadeIn className="text-center mb-14">
             <span className="text-sm font-semibold px-4 py-1.5 rounded-full mb-4 inline-block" style={{ background: "rgba(99,102,241,0.15)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.3)" }}>
               {t("landing.features.label")}
             </span>
@@ -491,23 +547,47 @@ export default function Landing() {
             <p className="text-white/50 lp-tm max-w-xl mx-auto">{c("features","subtitle",t("landing.features.subtitle"))}</p>
           </FadeIn>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {featureItems.map((f, i) => {
-              const Icon = FEATURE_ICONS[i];
-              const color = FEATURE_COLORS[i];
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-fr">
+            {bentoFeatures.map((f, i) => {
+              const Icon   = FEATURE_ICONS[i];
+              const color  = FEATURE_COLORS[i];
+              const isWide = i === 0 || i === 5;
               return (
-                <FadeIn key={i} delay={Math.min(i * 0.04, 0.4)}>
+                <FadeIn key={i} delay={Math.min(i * 0.06, 0.35)} className={BENTO_SPANS[i]}>
                   <div
-                    className="p-5 rounded-2xl h-full transition-all duration-300 cursor-default"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                    className="group relative h-full rounded-2xl overflow-hidden cursor-default transition-all duration-300"
+                    style={{
+                      background: isWide ? `linear-gradient(135deg, ${color}12, rgba(255,255,255,0.02))` : "rgba(255,255,255,0.03)",
+                      border: `1px solid ${isWide ? color+"35" : "rgba(255,255,255,0.07)"}`,
+                      minHeight: isWide ? "160px" : "140px",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = isWide ? `linear-gradient(135deg, ${color}20, rgba(255,255,255,0.04))` : "rgba(255,255,255,0.055)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = isWide ? `linear-gradient(135deg, ${color}12, rgba(255,255,255,0.02))` : "rgba(255,255,255,0.03)"; }}
                   >
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
-                      <Icon className="w-5 h-5" style={{ color }} />
+                    {/* Glow on wide cards */}
+                    {isWide && (
+                      <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full blur-[50px] opacity-25 pointer-events-none" style={{ background: color }} />
+                    )}
+                    <div className="relative p-6 h-full flex flex-col">
+                      <div className="flex items-start gap-4 mb-3">
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110"
+                          style={{ background: `${color}18`, border: `1px solid ${color}35` }}>
+                          <Icon className="w-5 h-5" style={{ color }} />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-white text-sm mb-1">{f.title}</h3>
+                          <p className="text-white/50 text-xs leading-relaxed">{f.desc}</p>
+                        </div>
+                      </div>
+                      {isWide && (
+                        <div className="mt-auto flex items-center gap-2">
+                          <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: `${color}18`, color }}>
+                            {i === 0 ? (isAr ? "إدارة متكاملة" : "Full management") : (isAr ? "دفع آمن" : "Secure payments")}
+                          </span>
+                          <span className="text-xs text-white/30">{i === 0 ? (isAr ? "٤٧+ قضية نشطة" : "47+ active cases") : (isAr ? "Visa · Mada · Apple Pay" : "Visa · Mada · Apple Pay")}</span>
+                        </div>
+                      )}
                     </div>
-                    <h3 className="font-bold text-white mb-1.5 text-sm">{f.title}</h3>
-                    <p className="text-white/45 text-xs leading-relaxed">{f.desc}</p>
                   </div>
                 </FadeIn>
               );
@@ -595,88 +675,76 @@ export default function Landing() {
         <PaymentShowcase />
       </Suspense>
 
-      {/* ── HOW IT WORKS ─────────────────────────────────────────────────── */}
+      {/* ── HOW IT WORKS + SECURITY — tabbed ─────────────────────────────── */}
       <section id="how" className="py-24 px-4">
         <div className="max-w-5xl mx-auto">
-          <FadeIn className="text-center mb-16">
-            <span className="text-sm font-semibold px-4 py-1.5 rounded-full mb-4 inline-block" style={{ background: "rgba(201,168,76,0.12)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.3)" }}>
-              {t("landing.how.label")}
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white mt-3 mb-4">{t("landing.how.title")}</h2>
-            <p className="text-white/50">{t("landing.how.subtitle")}</p>
+          <FadeIn className="text-center mb-10">
+            <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
+              {howTab === 0 ? t("landing.how.title") : t("landing.security.title")}
+            </h2>
+            <p className="text-white/50">{howTab === 0 ? t("landing.how.subtitle") : t("landing.security.subtitle")}</p>
           </FadeIn>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {steps.map((s, i) => (
-              <FadeIn key={i} delay={i * 0.1}>
-                <div className="relative p-6 rounded-2xl h-full" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  {i < 3 && (
-                    <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 text-white/15">
-                      {isAr ? <ArrowLeft className="w-5 h-5" /> : <ArrowRight className="w-5 h-5" />}
-                    </div>
-                  )}
-                  <div className="text-4xl font-black mb-4" style={{ color: STEP_COLORS[i] }}>{s.n}</div>
-                  <h3 className="font-bold text-white mb-2">{s.title}</h3>
-                  <p className="text-white/50 text-sm leading-relaxed">{s.desc}</p>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* ── SECURITY ─────────────────────────────────────────────────────── */}
-      <section id="security" className="py-24 px-4">
-        <div className="max-w-6xl mx-auto">
-          <FadeIn className="text-center mb-16">
-            <span className="text-sm font-semibold px-4 py-1.5 rounded-full mb-4 inline-block" style={{ background: "rgba(16,185,129,0.12)", color: "#34D399", border: "1px solid rgba(16,185,129,0.3)" }}>
-              {t("landing.security.label")}
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white mt-3 mb-4">{t("landing.security.title")}</h2>
-            <p className="text-white/50 max-w-xl mx-auto">{t("landing.security.subtitle")}</p>
+          {/* Tab switcher */}
+          <FadeIn delay={0.1} className="flex justify-center mb-12">
+            <div className="inline-flex rounded-xl p-1 gap-1" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {[
+                { label: isAr ? "كيف يعمل" : "How it works", color: "#C9A84C" },
+                { label: isAr ? "الأمان والخصوصية" : "Security & Privacy", color: "#10B981" },
+              ].map((tab, i) => (
+                <button key={i} onClick={() => setHowTab(i)}
+                  className="px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-200"
+                  style={{
+                    background: howTab === i ? `${tab.color}18` : "transparent",
+                    color: howTab === i ? tab.color : "rgba(255,255,255,0.45)",
+                    border: howTab === i ? `1px solid ${tab.color}40` : "1px solid transparent",
+                  }}>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </FadeIn>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {secItems.map((s, i) => {
-              const Icon = SEC_ICONS[i];
-              const color = SEC_COLORS[i];
-              return (
-                <FadeIn key={i} delay={i * 0.07}>
-                  <div className="flex gap-4 p-5 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
-                      <Icon className="w-5 h-5" style={{ color }} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-white text-sm mb-1">{s.title}</h3>
-                      <p className="text-white/45 text-xs leading-relaxed">{s.desc}</p>
-                    </div>
+
+          {howTab === 0 ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {steps.map((s, i) => (
+                <FadeIn key={i} delay={i * 0.08}>
+                  <div className="relative p-6 rounded-2xl h-full" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    {i < steps.length - 1 && (
+                      <div className="hidden lg:block absolute left-0 top-8 -translate-x-3 text-white/15">
+                        {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+                      </div>
+                    )}
+                    <div className="text-3xl font-black mb-3" style={{ color: STEP_COLORS[i] }}>{s.n}</div>
+                    <h3 className="font-bold text-white mb-1.5 text-sm">{s.title}</h3>
+                    <p className="text-white/50 text-xs leading-relaxed">{s.desc}</p>
                   </div>
                 </FadeIn>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {secItems.map((s, i) => {
+                const Icon  = SEC_ICONS[i];
+                const color = SEC_COLORS[i];
+                return (
+                  <FadeIn key={i} delay={i * 0.06}>
+                    <div className="flex gap-4 p-5 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
+                        <Icon className="w-4 h-4" style={{ color }} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-white text-sm mb-1">{s.title}</h3>
+                        <p className="text-white/45 text-xs leading-relaxed">{s.desc}</p>
+                      </div>
+                    </div>
+                  </FadeIn>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
-
-      {/* ── URGENCY BAR ──────────────────────────────────────────────────── */}
-      <FadeIn>
-        <div className="mx-4 rounded-2xl px-6 py-4 mb-0 flex flex-col sm:flex-row items-center justify-between gap-4 max-w-5xl mx-auto"
-          style={{ background: "linear-gradient(135deg,rgba(201,168,76,0.13),rgba(99,102,241,0.10))", border: "1px solid rgba(201,168,76,0.28)" }}>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(201,168,76,0.18)" }}>
-              <Zap className="w-4 h-4" style={{ color: "#C9A84C" }} />
-            </div>
-            <div>
-              <p className="text-white font-bold text-sm">🎉 {isAr ? "عرض الإطلاق — أول ٥٠ مكتب يحصلون على ٦٠ يوماً مجاناً" : "Launch offer — first 50 offices get 60 days free"}</p>
-              <p className="text-white/50 text-xs">{isAr ? "سارع قبل امتلاء الأماكن المحدودة" : "Limited spots available"}</p>
-            </div>
-          </div>
-          <Link href={`${BASE}/sign-up`}>
-            <button className="shrink-0 font-bold text-sm px-5 py-2.5 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02]"
-              style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626" }}>
-              {isAr ? "احجز مكانك الآن" : "Reserve your spot"}
-            </button>
-          </Link>
-        </div>
-      </FadeIn>
 
       {/* ── TESTIMONIALS ─────────────────────────────────────────────────── */}
       <section className="py-24 px-4">
@@ -689,7 +757,7 @@ export default function Landing() {
             <p className="text-white/50">{t("landing.testimonials.subtitle")}</p>
           </FadeIn>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {testimonials.map((item, i) => (
+            {testimonials.slice(0, 3).map((item, i) => (
               <FadeIn key={i} delay={i * 0.1}>
                 <div className="p-6 rounded-2xl h-full flex flex-col relative overflow-hidden"
                   style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -724,140 +792,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── COMPETITOR COMPARISON ─────────────────────────────────────────── */}
-      <section className="py-24 px-4">
-        <div className="max-w-5xl mx-auto">
-          <FadeIn className="text-center mb-14">
-            <span className="text-sm font-semibold px-4 py-1.5 rounded-full mb-4 inline-block" style={{ background: "rgba(99,102,241,0.15)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.3)" }}>
-              {isAr ? "لماذا عدالة AI؟" : "Why Adalah AI?"}
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white mt-3 mb-4">
-              {isAr ? "مقارنة مع" : "Compare with"} <GoldText>{isAr ? "البدائل الأخرى" : "other options"}</GoldText>
-            </h2>
-            <p className="text-white/50">{isAr ? "شاهد الفارق الحقيقي بالأرقام والميزات" : "See the real difference in numbers and features"}</p>
-          </FadeIn>
-
-          <FadeIn>
-            <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)" }}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                      <th className="text-right px-5 py-4 font-bold text-white/60">{isAr ? "الميزة" : "Feature"}</th>
-                      <th className="px-5 py-4 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex items-center gap-1.5">
-                            <Scale className="w-3.5 h-3.5" style={{ color: "#C9A84C" }} />
-                            <span className="font-black text-white">{isAr ? "عدالة AI" : "Adalah AI"}</span>
-                          </div>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: "rgba(201,168,76,0.2)", color: "#C9A84C" }}>
-                            {isAr ? "الأفضل" : "Best"}
-                          </span>
-                        </div>
-                      </th>
-                      <th className="px-5 py-4 text-center font-semibold text-white/40">{isAr ? "برامج تقليدية" : "Traditional SW"}</th>
-                      <th className="px-5 py-4 text-center font-semibold text-white/40">{isAr ? "Excel / يدوي" : "Excel / Manual"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { feature: isAr ? "ذكاء اصطناعي قانوني عربي" : "Arabic Legal AI", us: true, trad: false, excel: false },
-                      { feature: isAr ? "بوابة العميل الإلكترونية" : "Client Portal", us: true, trad: false, excel: false },
-                      { feature: isAr ? "توقيع إلكتروني" : "E-Signature", us: true, trad: "partial", excel: false },
-                      { feature: isAr ? "تحليلات مالية متقدمة" : "Financial Analytics", us: true, trad: "partial", excel: false },
-                      { feature: isAr ? "إدارة الفريق (RBAC)" : "Team RBAC", us: true, trad: "partial", excel: false },
-                      { feature: isAr ? "متعدد المكاتب (Multi-tenant)" : "Multi-tenant", us: true, trad: false, excel: false },
-                      { feature: isAr ? "تطبيق جوال" : "Mobile App", us: true, trad: false, excel: false },
-                      { feature: isAr ? "إشعارات تلقائية" : "Auto Notifications", us: true, trad: "partial", excel: false },
-                      { feature: isAr ? "السعر / شهر" : "Price / month", us: isAr ? "من ١٤٩ ريال" : "From 149 SAR", trad: isAr ? "+٨٠٠ ريال" : "+800 SAR", excel: isAr ? "مجاني لكنه خطر" : "Free but risky" },
-                    ].map((row, i) => (
-                      <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
-                        <td className="px-5 py-3.5 font-medium text-white/70">{row.feature}</td>
-                        <td className="px-5 py-3.5 text-center">
-                          {row.us === true ? (
-                            <CheckCircle className="w-5 h-5 text-green-400 mx-auto" />
-                          ) : (
-                            <span className="font-bold text-xs" style={{ color: "#C9A84C" }}>{row.us as string}</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5 text-center">
-                          {row.trad === true ? <CheckCircle className="w-5 h-5 text-green-400 mx-auto" />
-                            : row.trad === false ? <XCircle className="w-5 h-5 text-red-400/60 mx-auto" />
-                            : row.trad === "partial" ? <Minus className="w-5 h-5 text-yellow-400/60 mx-auto" />
-                            : <span className="text-xs text-white/40">{row.trad as string}</span>}
-                        </td>
-                        <td className="px-5 py-3.5 text-center">
-                          {row.excel === true ? <CheckCircle className="w-5 h-5 text-green-400 mx-auto" />
-                            : row.excel === false ? <XCircle className="w-5 h-5 text-red-400/60 mx-auto" />
-                            : <span className="text-xs text-white/40">{row.excel as string}</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </FadeIn>
-
-          <FadeIn className="text-center mt-8">
-            <Link href={`${BASE}/sign-up`}>
-              <button className="inline-flex items-center gap-2 font-bold px-8 py-3.5 rounded-xl text-sm transition-all hover:opacity-90 hover:scale-[1.02]"
-                style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626", boxShadow: "0 6px 24px rgba(201,168,76,0.3)" }}>
-                {isAr ? "جرّب عدالة AI مجاناً الآن" : "Try Adalah AI free now"}
-                {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
-              </button>
-            </Link>
-          </FadeIn>
-        </div>
-      </section>
-
-      {/* ── REFERRAL BANNER ──────────────────────────────────────────────── */}
-      <section className="py-16 px-4">
-        <FadeIn>
-          <div className="max-w-4xl mx-auto rounded-3xl p-8 md:p-12 relative overflow-hidden"
-            style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.15),rgba(201,168,76,0.10))", border: "1px solid rgba(99,102,241,0.3)" }}>
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-[70px] opacity-20" style={{ background: "#6366F1" }} />
-              <div className="absolute bottom-0 left-0 w-36 h-36 rounded-full blur-[60px] opacity-15" style={{ background: "#C9A84C" }} />
-            </div>
-            <div className="relative flex flex-col md:flex-row items-center gap-8">
-              <div className="flex-1 text-center md:text-right">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-4"
-                  style={{ background: "rgba(99,102,241,0.2)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.35)" }}>
-                  <Gift className="w-4 h-4" />
-                  {isAr ? "برنامج الإحالة" : "Referral Program"}
-                </div>
-                <h3 className="text-2xl md:text-3xl font-black text-white mb-3">
-                  {isAr ? "أحِل زميلاً واحصل على" : "Refer a colleague and get"}<br />
-                  <GoldText>{isAr ? "شهر مجاني لكليكما" : "one free month for both of you"}</GoldText>
-                </h3>
-                <p className="text-white/55 text-sm leading-relaxed max-w-md mx-auto md:mx-0">
-                  {isAr
-                    ? "شارك رابط الإحالة الخاص بك مع محامين آخرين. عند اشتراكهم تحصل أنت وزميلك على شهر مجاني إضافي على خطتكم الحالية."
-                    : "Share your referral link with other lawyers. When they subscribe, both of you get one free month added."}
-                </p>
-              </div>
-              <div className="shrink-0 flex flex-col items-center gap-4">
-                <div className="w-20 h-20 rounded-2xl flex items-center justify-center"
-                  style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.3),rgba(201,168,76,0.2))", border: "1px solid rgba(99,102,241,0.4)" }}>
-                  <Gift className="w-9 h-9 text-indigo-300" />
-                </div>
-                <Link href={`${BASE}/sign-up?ref=landing`}>
-                  <button className="font-bold text-sm px-6 py-3 rounded-xl transition-all hover:opacity-90"
-                    style={{ background: "linear-gradient(135deg,#6366F1,#818CF8)", color: "#fff" }}>
-                    {isAr ? "انضم وابدأ الإحالة" : "Join & start referring"}
-                  </button>
-                </Link>
-                <Link href={`${BASE}/referral`}>
-                  <span className="text-xs text-white/40 hover:text-white/70 transition-colors cursor-pointer underline underline-offset-2">
-                    {isAr ? "تعرّف على البرنامج" : "Learn more"}
-                  </span>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </FadeIn>
-      </section>
 
       {/* ── PRICING ──────────────────────────────────────────────────────── */}
       <section id="pricing" className="py-24 px-4">
@@ -986,34 +920,6 @@ export default function Landing() {
             </div>
           </div>
         </FadeIn>
-      </section>
-
-      {/* ── PRIVACY TRUST ────────────────────────────────────────────────── */}
-      <section className="py-16 px-4" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-5"
-            style={{ background: "rgba(16,185,129,0.1)", color: "#10B981", border: "1px solid rgba(16,185,129,0.2)" }}>
-            {t("landing.privacy.badge")}
-          </div>
-          <h2 className="text-2xl md:text-3xl font-black text-white mb-4">{t("landing.privacy.title")}</h2>
-          <p className="text-white/50 text-base leading-relaxed mb-8 max-w-2xl mx-auto">{t("landing.privacy.subtitle")}</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {privacyItems.map((item, i) => (
-              <div key={i} className="rounded-2xl p-4 text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <div className="text-2xl mb-2">{item.icon}</div>
-                <div className="text-sm font-bold text-white mb-1">{item.label}</div>
-                <div className="text-xs text-white/40">{item.desc}</div>
-              </div>
-            ))}
-          </div>
-          <Link href="/security">
-            <button className="inline-flex items-center gap-2 text-sm font-semibold px-6 py-3 rounded-xl transition-all hover:opacity-90"
-              style={{ background: "rgba(16,185,129,0.12)", color: "#10B981", border: "1px solid rgba(16,185,129,0.25)" }}>
-              {t("landing.privacy.learnMore")}
-              {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
-            </button>
-          </Link>
-        </div>
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────────────────────── */}
