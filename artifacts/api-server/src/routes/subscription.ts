@@ -63,7 +63,7 @@ router.get("/office/subscription", async (_req, res) => {
         WHERE gs.status = 'active' AND gs.end_date > NOW()
         ORDER BY gs.end_date DESC LIMIT 1
       `);
-      const gift = (giftRows.rows ?? giftRows as any[])[0] ?? null;
+      const gift = ((giftRows as any).rows ?? (giftRows as unknown as any[]))[0] ?? null;
       if (gift) {
         const giftPlanSlug = gift.plan_slug as string;
         const plans = await db.select().from(plansTable).where(eq(plansTable.slug, giftPlanSlug)).limit(1);

@@ -237,7 +237,7 @@ router.get("/clients/:id/accounting", async (req, res) => {
       .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0 as number);
 
     // Expenses
-    const totalExpenses = expenses.reduce((s: number, e: any) => s + (parseFloat(String(e.amount ?? 0))), 0);
+    const totalExpenses = (expenses as any[]).reduce((s: number, e: any) => s + (parseFloat(String(e.amount ?? 0))), 0);
     const netProfit = revenue - totalExpenses;
 
     // Monthly breakdown for the chart (always show 12 months of the year)

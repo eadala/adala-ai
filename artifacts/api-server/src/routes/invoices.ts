@@ -26,7 +26,7 @@ router.get("/invoices", async (_req: Request, res: Response) => {
 // ─── GET /invoices/:id ───
 router.get("/invoices/:id", async (req: Request, res: Response) => {
   try {
-    const [invoice] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, req.params.id));
+    const [invoice] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, String(req.params.id)));
     if (!invoice) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
     res.json(invoice);
   } catch (err: any) {
@@ -94,7 +94,7 @@ router.put("/invoices/:id", async (req: Request, res: Response) => {
     }
 
     const [updated] = await db.update(invoicesTable).set(updates)
-      .where(eq(invoicesTable.id, req.params.id)).returning();
+      .where(eq(invoicesTable.id, String(req.params.id))).returning();
 
     if (!updated) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
     res.json(updated);
@@ -106,7 +106,7 @@ router.put("/invoices/:id", async (req: Request, res: Response) => {
 // ─── DELETE /invoices/:id ───
 router.delete("/invoices/:id", async (req: Request, res: Response) => {
   try {
-    await db.delete(invoicesTable).where(eq(invoicesTable.id, req.params.id));
+    await db.delete(invoicesTable).where(eq(invoicesTable.id, String(req.params.id)));
     res.json({ ok: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -116,7 +116,7 @@ router.delete("/invoices/:id", async (req: Request, res: Response) => {
 // ─── POST /invoices/:id/payment-link ─── Create Stripe Payment Link
 router.post("/invoices/:id/payment-link", async (req: Request, res: Response) => {
   try {
-    const [invoice] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, req.params.id));
+    const [invoice] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, String(req.params.id)));
     if (!invoice) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
 
     if (invoice.stripePaymentLinkUrl) {
@@ -196,7 +196,7 @@ router.post("/invoices/:id/mark-paid", async (req: Request, res: Response) => {
   try {
     const [updated] = await db.update(invoicesTable)
       .set({ status: "paid", paidAt: new Date(), updatedAt: new Date() })
-      .where(eq(invoicesTable.id, req.params.id)).returning();
+      .where(eq(invoicesTable.id, String(req.params.id))).returning();
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

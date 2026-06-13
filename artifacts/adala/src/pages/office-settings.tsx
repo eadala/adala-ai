@@ -421,7 +421,7 @@ export default function OfficeSettingsPage() {
       const r = await fetch(`${BASE_URL}api/branding`);
       return r.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       if (data && !loaded) {
         setForm(data);
         setLoaded(true);

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react";
+import React, { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -1033,7 +1033,7 @@ export default function Landing() {
                   { Icon: Twitter,  href: cms?.contact?.twitter  as string },
                   { Icon: Linkedin, href: cms?.contact?.linkedin as string },
                   { Icon: Youtube,  href: cms?.contact?.youtube  as string },
-                ] as { Icon: (p: { className?: string }) => JSX.Element; href: string }[]).map(({ Icon, href }, i) => (
+                ] as { Icon: (p: { className?: string }) => React.ReactElement; href: string }[]).map(({ Icon, href }, i) => (
                   <a key={i} href={href || "#"} target={href ? "_blank" : undefined} rel="noopener noreferrer"
                     className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:bg-white/10"
                     style={{ background: "rgba(255,255,255,0.06)" }}>

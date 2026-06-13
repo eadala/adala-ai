@@ -377,7 +377,7 @@ function AiAnalysisTab() {
         <Card className="bg-white/5 border-white/10">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-white/70 flex items-center gap-2">
-              <Copy2 className="w-4 h-4" /> ملفات مكررة
+              <Copy className="w-4 h-4" /> ملفات مكررة
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">

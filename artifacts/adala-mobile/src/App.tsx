@@ -9,6 +9,8 @@ import ClientsPage from "@/pages/clients";
 import ContractsPage from "@/pages/contracts";
 import InvoicesPage from "@/pages/invoices";
 import RemindersPage from "@/pages/reminders";
+import NewCasePage from "@/pages/new-case";
+import NewClientPage from "@/pages/new-client";
 import NotFoundPage from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -80,6 +82,8 @@ function AppShell() {
           <Route path="/contracts" component={ContractsPage} />
           <Route path="/invoices" component={InvoicesPage} />
           <Route path="/reminders" component={RemindersPage} />
+          <Route path="/new-case" component={NewCasePage} />
+          <Route path="/new-client" component={NewClientPage} />
           <Route component={NotFoundPage} />
         </Switch>
       </main>
