@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import { useTranslation } from "react-i18next";
-import { Layout } from "@/components/layout";
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -323,8 +323,7 @@ export default function BackupCenter() {
   const successJobs = jobs.filter(j => j.status === "completed").length;
 
   return (
-    <Layout>
-      <div className="p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="p-6 space-y-6 max-w-5xl mx-auto">
 
         {/* ─── Header ─── */}
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -975,6 +974,5 @@ export default function BackupCenter() {
           </TabsContent>
         </Tabs>
       </div>
-    </Layout>
   );
 }
