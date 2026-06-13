@@ -785,20 +785,20 @@ export default function OfficePage() {
                 </a>
               )}
               {office.address && (
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/4 border border-white/8">
+                <a
+                  href={office.googleMapsUrl ?? (office.address ? `https://maps.google.com/?q=${encodeURIComponent(office.address)}` : undefined)}
+                  target="_blank" rel="noreferrer"
+                  className="flex items-center gap-4 p-4 rounded-2xl bg-white/4 border border-white/8 hover:bg-white/8 transition-colors group"
+                >
                   <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${gold}15` }}>
                     <MapPin className="h-5 w-5" style={{ color: gold }} />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <div className="text-[10px] text-white/40 mb-0.5">{lang === "ar" ? "العنوان" : "Address"}</div>
                     <div className="font-semibold text-sm">{office.address}</div>
                   </div>
-                </div>
-              )}
-              {office.mapsEmbedUrl && (
-                <div className="rounded-2xl overflow-hidden border border-white/10 h-48">
-                  <iframe src={office.mapsEmbedUrl} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="office location" />
-                </div>
+                  <ExternalLink className="h-4 w-4 text-white/20 group-hover:text-white/50 transition-colors shrink-0" />
+                </a>
               )}
             </div>
 
@@ -809,6 +809,63 @@ export default function OfficePage() {
                 onOrder={() => { setOrderDialog({ name: lang === "ar" ? "استشارة قانونية" : "Legal Consultation", isCustomQuote: true }); }} />
             </div>
           </div>
+
+          {/* ── Google Maps Section ── */}
+          {(office.mapsEmbedUrl || office.googleMapsUrl || office.address) && (
+            <div className="mt-8 rounded-2xl overflow-hidden border border-white/10 relative group">
+              {office.mapsEmbedUrl ? (
+                <>
+                  <iframe
+                    src={office.mapsEmbedUrl}
+                    width="100%"
+                    height="340"
+                    style={{ border: 0, display: "block" }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title={lang === "ar" ? "موقع المكتب" : "Office Location"}
+                  />
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {(office.googleMapsUrl || office.address) && (
+                      <a
+                        href={office.googleMapsUrl ?? `https://maps.google.com/?q=${encodeURIComponent(office.address)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <Button size="sm" className="gap-2 text-xs font-bold shadow-2xl shadow-black/60 bg-white text-black hover:bg-white/90">
+                          <MapPin className="h-3.5 w-3.5" style={{ color: "#EA4335" }} />
+                          {lang === "ar" ? "فتح في خرائط جوجل" : "Open in Google Maps"}
+                          <ExternalLink className="h-3 w-3 text-black/40" />
+                        </Button>
+                      </a>
+                    )}
+                  </div>
+                </>
+              ) : (office.googleMapsUrl || office.address) && (
+                <a
+                  href={office.googleMapsUrl ?? `https://maps.google.com/?q=${encodeURIComponent(office.address)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between gap-4 p-5 bg-white/4 hover:bg-white/7 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${gold}15`, color: gold }}>
+                      <MapPin className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold mb-0.5">{lang === "ar" ? "موقع المكتب" : "Office Location"}</div>
+                      {office.address && <div className="text-xs text-white/50">{office.address}</div>}
+                    </div>
+                  </div>
+                  <Button size="sm" className="gap-1.5 text-xs font-bold shrink-0" style={{ background: gold, color: "#000" }}>
+                    <MapPin className="h-3.5 w-3.5" />
+                    {lang === "ar" ? "فتح في الخريطة" : "Open Map"}
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </a>
+              )}
+            </div>
+          )}
 
           {(office.twitter || office.linkedin || office.facebook || office.website || office.instagram) && (
             <div className="mt-8 p-5 rounded-2xl bg-white/3 border border-white/8 flex flex-wrap gap-3 items-center justify-center">
