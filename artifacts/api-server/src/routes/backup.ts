@@ -188,6 +188,50 @@ router.delete("/backup/jobs/:id", async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════════════
+   LOCAL DEVICE BACKUP — free for all plans
+   Streams full JSON directly to browser, nothing stored on server
+══════════════════════════════════════════════════════════ */
+
+/* GET /api/backup/local-download */
+router.get("/backup/local-download", async (req, res) => {
+  try {
+    const [cases, clients, invoices, contracts, docs, users] = await Promise.all([
+      db.select().from(casesTable).limit(10000),
+      db.select().from(clientsTable).limit(10000),
+      db.select().from(clientInvoicesTable).limit(10000),
+      db.select().from(contractsTable).limit(10000),
+      db.select({
+        id: documentsTable.id,
+        fileName: documentsTable.fileName,
+        fileType: documentsTable.fileType,
+        caseId: documentsTable.caseId,
+        createdAt: documentsTable.createdAt,
+      }).from(documentsTable).limit(10000),
+      db.select({
+        id: usersTable.id,
+        email: usersTable.email,
+        fullName: usersTable.fullName,
+        role: usersTable.role,
+        status: usersTable.status,
+      }).from(usersTable).limit(500),
+    ]);
+
+    const payload = {
+      meta: { platform: "عدالة AI", version: "2.0", exportedAt: new Date().toISOString(), type: "local_device" },
+      cases, clients, invoices, contracts, documents: docs, users,
+    };
+
+    const fileName = `adala-backup-${dateStr()}.json`;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.json(payload);
+  } catch (err) {
+    console.error("Local backup error:", err);
+    res.status(500).json({ error: "خطأ في إنشاء النسخة الاحتياطية" });
+  }
+});
+
+/* ══════════════════════════════════════════════════════════
    EXPORT ENDPOINTS
 ══════════════════════════════════════════════════════════ */
 
