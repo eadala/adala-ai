@@ -7,8 +7,9 @@ import {
   Plus, Copy, Eye, EyeOff, Trash2, ToggleLeft, ToggleRight,
   ArrowUpRight, ArrowDownRight, RefreshCw, CheckCircle2, XCircle,
   ArrowUp, ArrowDown, X, Phone, Minus, ChevronRight, Bell, BellRing,
-  Calendar, DollarSign, Users, Database, Gauge, Clock, Info
+  Calendar, DollarSign, Users, Database, Gauge, Clock, Info, Gift, Tag
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -82,6 +83,7 @@ const KEY_LABELS: Record<string, { ar: string; icon: string }> = {
 const TABS = [
   { id: "overview",          label: "نظرة عامة",         icon: Gauge },
   { id: "plans",             label: "الباقات",            icon: CreditCard },
+  { id: "gift",              label: "كوبون مجاني",        icon: Gift },
   { id: "usage",             label: "الاستخدام",          icon: Activity },
   { id: "invoices",          label: "الفواتير",           icon: FileText },
   { id: "ledger",            label: "السجل المالي",       icon: BookOpen },
@@ -405,6 +407,30 @@ export default function Billing() {
     queryKey: ["platform-invoice-stats"],
     queryFn: () => fetch(`${BASE}/api/billing/platform-invoices/stats`).then(r => r.json()),
     enabled: tab === "invoices",
+  });
+  const { data: myGift, refetch: refetchGift } = useQuery<any>({
+    queryKey: ["my-gift"],
+    queryFn: () => fetch(`${BASE}/api/promo/my-gift`).then(r => r.json()),
+  });
+  const [promoCode, setPromoCode] = useState("");
+  const redeemMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const r = await fetch(`${BASE}/api/promo/redeem`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      return r.json();
+    },
+    onSuccess: (data) => {
+      if (data.ok) {
+        toast({ title: "🎁 تم تفعيل الاشتراك المجاني!", description: `باقة ${data.planSlug} فعّالة حتى ${new Date(data.endsAt).toLocaleDateString("ar-SA")}` });
+        setPromoCode("");
+        refetchGift();
+        qc.invalidateQueries({ queryKey: ["office-plan"] });
+      } else {
+        toast({ title: "خطأ", description: data.error, variant: "destructive" });
+      }
+    },
   });
   const { data: revenueData, isLoading: revenueLoading } = useQuery<any>({
     queryKey: ["billing-revenue"],
@@ -1162,6 +1188,103 @@ export default function Billing() {
             stripeConfigured={!!stripeStatus?.configured}
             billingPeriod={billingPeriod}
           />
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════
+          TAB: GIFT / PROMO CODE
+      ════════════════════════════════════════════ */}
+      {tab === "gift" && (
+        <div className="space-y-6 max-w-2xl mx-auto">
+          {/* Active gift banner */}
+          {myGift ? (
+            <Card className="border-[#C9A84C]/40 bg-[#C9A84C]/5">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-[#C9A84C]/15 flex items-center justify-center shrink-0">
+                    <Gift className="h-6 w-6 text-[#C9A84C]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-lg font-black text-[#C9A84C]">اشتراك مجاني نشط 🎁</h3>
+                      <Badge className="bg-[#C9A84C]/15 text-[#C9A84C] border-[#C9A84C]/30 text-xs font-bold">
+                        {myGift.plan_slug}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      هذا الاشتراك المجاني سيتجدد حتى{" "}
+                      <span className="text-foreground font-bold">
+                        {new Date(myGift.end_date).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })}
+                      </span>
+                    </p>
+                    <div className="flex items-center gap-2 mt-3">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        {Math.max(0, Math.ceil((new Date(myGift.end_date).getTime() - Date.now()) / 86400000))} يوم متبقي
+                      </span>
+                      {myGift.promo_code_text && (
+                        <>
+                          <Tag className="h-3.5 w-3.5 text-muted-foreground mr-2" />
+                          <span className="text-xs text-muted-foreground font-mono">{myGift.promo_code_text}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-border/50">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">لا يوجد اشتراك مجاني نشط حالياً</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Redeem code card */}
+          <Card className="border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Tag className="h-4 w-4 text-primary" /> استرداد كود اشتراك مجاني
+              </CardTitle>
+              <CardDescription>أدخل الكود الذي حصلت عليه من إدارة المنصة لتفعيل باقتك المجانية</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  value={promoCode}
+                  onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                  placeholder="ADALA-FREE-30D"
+                  className="font-mono text-sm tracking-widest flex-1"
+                  onKeyDown={e => e.key === "Enter" && promoCode && redeemMutation.mutate(promoCode)}
+                  disabled={redeemMutation.isPending}
+                />
+                <Button
+                  onClick={() => promoCode && redeemMutation.mutate(promoCode)}
+                  disabled={!promoCode || redeemMutation.isPending}
+                  className="gap-2 bg-[#C9A84C] hover:bg-[#b8943d] text-black font-bold"
+                >
+                  {redeemMutation.isPending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Gift className="h-4 w-4" />}
+                  تفعيل
+                </Button>
+              </div>
+              <div className="rounded-lg bg-muted/40 border border-border/40 p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-muted-foreground">كيف يعمل؟</p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li className="flex items-start gap-1.5"><Check className="h-3 w-3 mt-0.5 text-emerald-400 shrink-0" /> احصل على كود من إدارة المنصة</li>
+                  <li className="flex items-start gap-1.5"><Check className="h-3 w-3 mt-0.5 text-emerald-400 shrink-0" /> أدخله هنا لتفعيل الباقة المجانية فوراً</li>
+                  <li className="flex items-start gap-1.5"><Check className="h-3 w-3 mt-0.5 text-emerald-400 shrink-0" /> يمكن تمديد الباقة بكود جديد عند انتهاء المدة</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 

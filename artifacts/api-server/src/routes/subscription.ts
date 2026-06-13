@@ -55,6 +55,44 @@ router.get("/office/subscription", async (_req, res) => {
       }
     } catch { /* Stripe not configured — skip trial check */ }
 
+    /* ── 2a. Check for active gift subscription ── */
+    try {
+      const giftRows = await db.execute(sql`
+        SELECT gs.plan_slug, gs.end_date, gs.id
+        FROM gift_subscriptions gs
+        WHERE gs.status = 'active' AND gs.end_date > NOW()
+        ORDER BY gs.end_date DESC LIMIT 1
+      `);
+      const gift = (giftRows.rows ?? giftRows as any[])[0] ?? null;
+      if (gift) {
+        const giftPlanSlug = gift.plan_slug as string;
+        const plans = await db.select().from(plansTable).where(eq(plansTable.slug, giftPlanSlug)).limit(1);
+        const giftPlan = plans[0];
+        const daysLeft = Math.max(0, Math.ceil((new Date(gift.end_date as string).getTime() - Date.now()) / 86400000));
+        return res.json({
+          planSlug:     giftPlan?.slug ?? giftPlanSlug,
+          planName:     giftPlan?.name ?? giftPlanSlug,
+          planColor:    giftPlan?.color ?? "#C9A84C",
+          featureFlags: giftPlan ? ((giftPlan.featureFlags ?? {}) as Record<string, boolean>) : TRIAL_FEATURE_FLAGS,
+          limits: giftPlan ? {
+            maxUsers:     giftPlan.maxUsers,
+            maxCases:     giftPlan.maxCases,
+            maxClients:   giftPlan.maxClients ?? 50,
+            maxAiCalls:   giftPlan.maxAiCalls,
+            maxStorageGb: giftPlan.maxStorageGb ?? 5,
+            maxBranches:  giftPlan.maxBranches ?? 0,
+          } : TRIAL_LIMITS,
+          isActive:   true,
+          isTrial:    false,
+          isGift:     true,
+          giftEndsAt: gift.end_date,
+          giftDaysLeft: daysLeft,
+          trialEndsAt:  null,
+          trialDaysLeft: null,
+        });
+      }
+    } catch { /* gift table may not exist yet — skip */ }
+
     /* ── 2. If in trial → return full access immediately ── */
     if (isTrial) {
       const offices = await db.select().from(officePageTable).limit(1);
