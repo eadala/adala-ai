@@ -11,6 +11,7 @@ import {
   Menu, X, ArrowRight, Sparkles, TrendingUp, Award, Check,
   Brain, Layers, HardDrive, Palette, DollarSign, Gift, Copy, Share2,
   XCircle, Minus, ThumbsUp, TrendingDown,
+  PenLine, Smartphone, UserCheck, Archive, ClipboardCheck, BellRing,
 } from "lucide-react";
 
 // ── Lazy load heavy below-fold components ─────────────────────────────────────
@@ -264,8 +265,8 @@ export default function Landing() {
     { label: t("landing.nav.faq"),      href: "#faq" },
   ];
 
-  const FEATURE_ICONS  = [Scale, Bot, FileText, Users, Calendar, Receipt, Database, Globe, Shield, Activity, BarChart3, Briefcase, Clock, Building2, Mail, CreditCard, Sparkles, Brain, DollarSign, Award, Layers, HardDrive, Palette, MessageSquare];
-  const FEATURE_COLORS = ["#C9A84C","#6366F1","#10B981","#F59E0B","#EC4899","#8B5CF6","#06B6D4","#F97316","#EF4444","#3B82F6","#22C55E","#14B8A6","#A855F7","#F43F5E","#60A5FA","#D946EF","#A78BFA","#8B5CF6","#34D399","#FBBF24","#6366F1","#3B82F6","#F472B6","#10B981"];
+  const FEATURE_ICONS  = [Scale, Bot, FileText, Users, Calendar, Receipt, Database, Globe, Shield, Activity, BarChart3, Briefcase, Clock, Building2, Mail, CreditCard, Sparkles, Brain, DollarSign, Award, Layers, HardDrive, Palette, MessageSquare, PenLine, Smartphone, UserCheck, Archive, ClipboardCheck, BellRing];
+  const FEATURE_COLORS = ["#C9A84C","#6366F1","#10B981","#F59E0B","#EC4899","#8B5CF6","#06B6D4","#F97316","#EF4444","#3B82F6","#22C55E","#14B8A6","#A855F7","#F43F5E","#60A5FA","#D946EF","#A78BFA","#8B5CF6","#34D399","#FBBF24","#6366F1","#3B82F6","#F472B6","#10B981","#7C3AED","#0EA5E9","#059669","#D97706","#475569","#22C55E"];
   const AI_ICONS       = [FileText, BarChart3, Zap, TrendingUp];
   const STEP_COLORS    = ["#C9A84C","#6366F1","#10B981","#F59E0B"];
   const SEC_ICONS      = [Lock, Building2, Database, Activity, Shield, Globe];

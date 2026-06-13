@@ -190,6 +190,30 @@
         {
           "title": "Payment Center",
           "desc": "Secure electronic payment processing with bank and escrow account management"
+        },
+        {
+          "title": "E-Signature",
+          "desc": "Sign and certify legal documents electronically with a secure link for each party — no printing needed"
+        },
+        {
+          "title": "Mobile App",
+          "desc": "Full access from your phone to manage cases, clients, contracts and create new files anywhere"
+        },
+        {
+          "title": "Client Self-Service Accounts",
+          "desc": "Client self-registration via OTP to track their cases, message you and upload documents directly"
+        },
+        {
+          "title": "Auto Backup Center",
+          "desc": "Automated cloud backup scheduling with full encryption and one-click recovery"
+        },
+        {
+          "title": "Audit Log & Security",
+          "desc": "Comprehensive tracking of all team actions with a full change history for compliance and accountability"
+        },
+        {
+          "title": "WhatsApp Notifications",
+          "desc": "Instant client updates via WhatsApp when case status changes or a hearing is approaching"
         }
       ]
     },
@@ -493,10 +517,28 @@
       "viewDetails": "View Full Details",
       "journeyLabel": "Complete Workflow",
       "journeyTitle": "From client intake to collecting your legal fees",
-      "journeySteps": ["Client Intake","Open Case","Upload Documents","AI Analysis","Draft Contract","Issue Invoice","Payment Link","Client Pays","Case Follow-up","Close File"],
+      "journeySteps": [
+        "Client Intake",
+        "Open Case",
+        "Upload Documents",
+        "AI Analysis",
+        "Draft Contract",
+        "Issue Invoice",
+        "Payment Link",
+        "Client Pays",
+        "Case Follow-up",
+        "Close File"
+      ],
       "paymentTitle": "Collect Your Legal Fees From Anywhere",
       "paymentSubtitle": "Integrated payment gateway supporting credit cards, Mada, Apple Pay, and STC Pay",
-      "paymentFeatures": ["Issue invoice in seconds","Direct payment links","International credit cards","Real-time payment tracking","Automated notifications","Live financial reports"],
+      "paymentFeatures": [
+        "Issue invoice in seconds",
+        "Direct payment links",
+        "International credit cards",
+        "Real-time payment tracking",
+        "Automated notifications",
+        "Live financial reports"
+      ],
       "startFree": "Start Your Free Trial Now",
       "viewAll": "View All Adala Features",
       "moduleOf": "Module",
@@ -506,21 +548,156 @@
       "startFreeShort": "Start Free",
       "noCardRequired": "Start free — no credit card required",
       "screens": [
-        { "title": "Main Dashboard", "subtitle": "Full firm overview at a glance", "features": ["152 active cases at a glance","1.8M revenue updated in real time","Smart charts and instant analytics","Session and critical deadline alerts"] },
-        { "title": "Case Management", "subtitle": "Track every case from open to close", "features": ["Professional table with advanced filtering","Auto-link documents and clients","Smart case priority analysis","Export reports in multiple formats"] },
-        { "title": "Case Details", "subtitle": "Every detail about the case in one screen", "features": ["AI analysis with 85% success probability","Visual timeline of case stages","Auto-categorized attachments","Team notes and legal comments"] },
-        { "title": "Client Management", "subtitle": "Your complete client database", "features": ["183 clients categorized by type","Track revenue per client","Full contact history and case log","Professional client profiles"] },
-        { "title": "Documents & Smart Search", "subtitle": "Search 784 documents in natural language", "features": ["AI-powered Arabic search in seconds","Automatic document classification","Quick preview without downloading","Secure sharing with the team"] },
-        { "title": "Legal AI Assistant", "subtitle": "Your smart legal assistant around the clock", "features": ["Analyze case strengths and weaknesses","Draft professional legal briefs","Suggest defense strategies","Search judicial precedents"] },
-        { "title": "Opponent Simulator", "subtitle": "Practice the confrontation before court day", "features": ["Predict opponent arguments with 87% accuracy","Suggest effective legal rebuttals","Analyze weaknesses in their position","Full trial scenario practice"] },
-        { "title": "Session Preparation", "subtitle": "Never enter the courtroom unprepared", "features": ["Interactive calendar of all hearings","Preparation checklist per session","Automatic reminders before hearings","Comprehensive briefing file per case"] },
-        { "title": "Electronic Invoices", "subtitle": "ZATCA-compliant invoice in seconds", "features": ["ZATCA-compliant invoices","Instant delivery via email and WhatsApp","Real-time payment status tracking","Automated monthly financial reports"] },
-        { "title": "Payment Center", "subtitle": "Collect your legal fees from anywhere", "features": ["Direct payment links in one click","Accept international credit cards","Real-time payment status tracking","Instant transfer to bank account"] },
-        { "title": "Financial Collections", "subtitle": "96% collection rate with smart follow-up", "features": ["Automatic reminders for overdue clients","Flexible payment scheduling","Detailed aging reports","Instant payment notifications"] },
-        { "title": "Human Resources", "subtitle": "Manage your legal team professionally", "features": ["Complete files for 38 employees","Automated salaries, bonuses, and commissions","Periodic performance reviews","Interactive organizational chart"] },
-        { "title": "Attendance Tracking", "subtitle": "Digital attendance with instant reports", "features": ["Digital attendance without biometrics","Daily and monthly attendance reports","Automatic leave calculation","Repeated absence alerts"] },
-        { "title": "Office Website", "subtitle": "Professional digital presence for your firm", "features": ["Ready-made website in minutes","Services and specializations page","Contact and initial consultation form","Search engine visibility"] },
-        { "title": "Legal Services Store", "subtitle": "Turn your legal expertise into digital income", "features": ["Sell services directly to clients","Paid online consultations","Ready-made customizable contracts","Client ratings and reviews"] }
+        {
+          "title": "Main Dashboard",
+          "subtitle": "Full firm overview at a glance",
+          "features": [
+            "152 active cases at a glance",
+            "1.8M revenue updated in real time",
+            "Smart charts and instant analytics",
+            "Session and critical deadline alerts"
+          ]
+        },
+        {
+          "title": "Case Management",
+          "subtitle": "Track every case from open to close",
+          "features": [
+            "Professional table with advanced filtering",
+            "Auto-link documents and clients",
+            "Smart case priority analysis",
+            "Export reports in multiple formats"
+          ]
+        },
+        {
+          "title": "Case Details",
+          "subtitle": "Every detail about the case in one screen",
+          "features": [
+            "AI analysis with 85% success probability",
+            "Visual timeline of case stages",
+            "Auto-categorized attachments",
+            "Team notes and legal comments"
+          ]
+        },
+        {
+          "title": "Client Management",
+          "subtitle": "Your complete client database",
+          "features": [
+            "183 clients categorized by type",
+            "Track revenue per client",
+            "Full contact history and case log",
+            "Professional client profiles"
+          ]
+        },
+        {
+          "title": "Documents & Smart Search",
+          "subtitle": "Search 784 documents in natural language",
+          "features": [
+            "AI-powered Arabic search in seconds",
+            "Automatic document classification",
+            "Quick preview without downloading",
+            "Secure sharing with the team"
+          ]
+        },
+        {
+          "title": "Legal AI Assistant",
+          "subtitle": "Your smart legal assistant around the clock",
+          "features": [
+            "Analyze case strengths and weaknesses",
+            "Draft professional legal briefs",
+            "Suggest defense strategies",
+            "Search judicial precedents"
+          ]
+        },
+        {
+          "title": "Opponent Simulator",
+          "subtitle": "Practice the confrontation before court day",
+          "features": [
+            "Predict opponent arguments with 87% accuracy",
+            "Suggest effective legal rebuttals",
+            "Analyze weaknesses in their position",
+            "Full trial scenario practice"
+          ]
+        },
+        {
+          "title": "Session Preparation",
+          "subtitle": "Never enter the courtroom unprepared",
+          "features": [
+            "Interactive calendar of all hearings",
+            "Preparation checklist per session",
+            "Automatic reminders before hearings",
+            "Comprehensive briefing file per case"
+          ]
+        },
+        {
+          "title": "Electronic Invoices",
+          "subtitle": "ZATCA-compliant invoice in seconds",
+          "features": [
+            "ZATCA-compliant invoices",
+            "Instant delivery via email and WhatsApp",
+            "Real-time payment status tracking",
+            "Automated monthly financial reports"
+          ]
+        },
+        {
+          "title": "Payment Center",
+          "subtitle": "Collect your legal fees from anywhere",
+          "features": [
+            "Direct payment links in one click",
+            "Accept international credit cards",
+            "Real-time payment status tracking",
+            "Instant transfer to bank account"
+          ]
+        },
+        {
+          "title": "Financial Collections",
+          "subtitle": "96% collection rate with smart follow-up",
+          "features": [
+            "Automatic reminders for overdue clients",
+            "Flexible payment scheduling",
+            "Detailed aging reports",
+            "Instant payment notifications"
+          ]
+        },
+        {
+          "title": "Human Resources",
+          "subtitle": "Manage your legal team professionally",
+          "features": [
+            "Complete files for 38 employees",
+            "Automated salaries, bonuses, and commissions",
+            "Periodic performance reviews",
+            "Interactive organizational chart"
+          ]
+        },
+        {
+          "title": "Attendance Tracking",
+          "subtitle": "Digital attendance with instant reports",
+          "features": [
+            "Digital attendance without biometrics",
+            "Daily and monthly attendance reports",
+            "Automatic leave calculation",
+            "Repeated absence alerts"
+          ]
+        },
+        {
+          "title": "Office Website",
+          "subtitle": "Professional digital presence for your firm",
+          "features": [
+            "Ready-made website in minutes",
+            "Services and specializations page",
+            "Contact and initial consultation form",
+            "Search engine visibility"
+          ]
+        },
+        {
+          "title": "Legal Services Store",
+          "subtitle": "Turn your legal expertise into digital income",
+          "features": [
+            "Sell services directly to clients",
+            "Paid online consultations",
+            "Ready-made customizable contracts",
+            "Client ratings and reviews"
+          ]
+        }
       ]
     },
     "payment": {
@@ -531,21 +708,54 @@
       "subtitle": "Turn consultations, contracts, and cases into real revenue through electronic invoices and direct payment links — all inside Adala.",
       "tagline2": "From first consultation to collecting fees… everything happens inside Adala",
       "stats": [
-        { "label": "Total Invoices", "sub": "invoices this month" },
-        { "label": "Paid Invoices", "sub": "96% collection rate" },
-        { "label": "Revenue Collected", "sub": "SAR this month" },
-        { "label": "Collection Rate", "sub": "Highest in the industry" }
+        {
+          "label": "Total Invoices",
+          "sub": "invoices this month"
+        },
+        {
+          "label": "Paid Invoices",
+          "sub": "96% collection rate"
+        },
+        {
+          "label": "Revenue Collected",
+          "sub": "SAR this month"
+        },
+        {
+          "label": "Collection Rate",
+          "sub": "Highest in the industry"
+        }
       ],
       "journeyBadge": "Complete Collection Journey",
       "journeyTitle": "From client intake to collecting fees in 7 steps",
       "journeySteps": [
-        { "label": "New Client", "desc": "Receive and register client data" },
-        { "label": "Proposal/Contract", "desc": "Create the legal proposal and contract" },
-        { "label": "E-Invoice", "desc": "Issue ZATCA invoice in seconds" },
-        { "label": "Payment Link", "desc": "Send direct link via WhatsApp" },
-        { "label": "Instant Payment", "desc": "Card / Mada / Apple Pay" },
-        { "label": "Auto Update", "desc": "Invoice status changes instantly" },
-        { "label": "Dashboard", "desc": "Revenue appears in reports in real time" }
+        {
+          "label": "New Client",
+          "desc": "Receive and register client data"
+        },
+        {
+          "label": "Proposal/Contract",
+          "desc": "Create the legal proposal and contract"
+        },
+        {
+          "label": "E-Invoice",
+          "desc": "Issue ZATCA invoice in seconds"
+        },
+        {
+          "label": "Payment Link",
+          "desc": "Send direct link via WhatsApp"
+        },
+        {
+          "label": "Instant Payment",
+          "desc": "Card / Mada / Apple Pay"
+        },
+        {
+          "label": "Auto Update",
+          "desc": "Invoice status changes instantly"
+        },
+        {
+          "label": "Dashboard",
+          "desc": "Revenue appears in reports in real time"
+        }
       ],
       "resultTitle": "Result: Your Fees in Your Account",
       "resultDesc": "While you focus on the case, Adala manages the entire collection process on your behalf",
@@ -573,19 +783,43 @@
       "problemLabel": "Problem",
       "solutionLabel": "Adala's Solution",
       "problems": [
-        { "problem": "Forgetting to follow up on pending invoices loses thousands in revenue every month", "solution": "Automatic client reminders and smart tracking for every invoice until payment" },
-        { "problem": "Delayed collections affect cash flow and hinder firm growth", "solution": "Instant payment links sent to clients reduce average payment time from 30 days to 3 days" },
-        { "problem": "No clear financial reports — you don't know where your revenue is going", "solution": "Real-time financial dashboard: every dollar recorded, every invoice tracked, every report ready in one click" },
-        { "problem": "Without a collection system, chasing clients is exhausting and unprofessional", "solution": "Fully professional collection system: from issuing the invoice to sending the payment receipt" }
+        {
+          "problem": "Forgetting to follow up on pending invoices loses thousands in revenue every month",
+          "solution": "Automatic client reminders and smart tracking for every invoice until payment"
+        },
+        {
+          "problem": "Delayed collections affect cash flow and hinder firm growth",
+          "solution": "Instant payment links sent to clients reduce average payment time from 30 days to 3 days"
+        },
+        {
+          "problem": "No clear financial reports — you don't know where your revenue is going",
+          "solution": "Real-time financial dashboard: every dollar recorded, every invoice tracked, every report ready in one click"
+        },
+        {
+          "problem": "Without a collection system, chasing clients is exhausting and unprofessional",
+          "solution": "Fully professional collection system: from issuing the invoice to sending the payment receipt"
+        }
       ],
       "globalBadge": "Global Electronic Payment",
       "globalTitle": "Firms can issue invoices, send payment links, and track payment status electronically — all from inside Adala",
       "globalSubtitle": "Whether the client is in Riyadh, Dubai, or London — the payment link reaches them instantly and they pay in seconds.",
       "globalMethods": [
-        { "label": "Global Payments", "desc": "Visa / Mastercard / SWIFT" },
-        { "label": "Local Payments", "desc": "Mada / STC Pay / Apple Pay" },
-        { "label": "Instant Transfer", "desc": "To bank account within 24 hours" },
-        { "label": "PCI DSS Security", "desc": "Global banking security standard" }
+        {
+          "label": "Global Payments",
+          "desc": "Visa / Mastercard / SWIFT"
+        },
+        {
+          "label": "Local Payments",
+          "desc": "Mada / STC Pay / Apple Pay"
+        },
+        {
+          "label": "Instant Transfer",
+          "desc": "To bank account within 24 hours"
+        },
+        {
+          "label": "PCI DSS Security",
+          "desc": "Global banking security standard"
+        }
       ],
       "ctaStart": "Start Collecting Electronically Now",
       "ctaView": "See How Adala Works",
