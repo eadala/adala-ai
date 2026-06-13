@@ -150,12 +150,30 @@ async function getMgmtUser(req: any) {
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
     const owner = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
     const isSA = (!!owner && email === owner) || user.publicMetadata?.role === "super_admin";
-    const officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
+    let officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
+
+    // Developer impersonation: SA viewing as a specific office
+    let isImpersonating = false;
+    if (isSA) {
+      const impRows = await dbRows(sql`
+        SELECT impersonated_office_id, office_name FROM developer_impersonation
+        WHERE super_admin_user_id = ${auth.userId}
+          AND (expires_at IS NULL OR expires_at > NOW())
+        LIMIT 1
+      `);
+      if (impRows[0]?.impersonated_office_id) {
+        officeId = impRows[0].impersonated_office_id;
+        isImpersonating = true;
+      }
+    }
+
     // Resolve office role from office_members
     const memberRows = await dbRows(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`);
     const officeRole: string = memberRows[0]?.role ?? (user.publicMetadata?.role as string ?? "lawyer");
-    const isAdmin = isSA || officeRole === "firm_owner" || officeRole === "office_manager";
-    return { userId: auth.userId, officeId, email, isSA, officeRole, isAdmin };
+    // When impersonating, act as firm_owner (full access) but not global SA
+    const effectiveSA = isSA && !isImpersonating;
+    const isAdmin = effectiveSA || officeRole === "firm_owner" || officeRole === "office_manager" || isImpersonating;
+    return { userId: auth.userId, officeId, email, isSA: effectiveSA, officeRole: isImpersonating ? "firm_owner" : officeRole, isAdmin, isImpersonating };
   } catch { return null; }
 }
 
