@@ -296,6 +296,21 @@ export function Layout({ children }: { children: ReactNode }) {
   });
   const pendingRemindersCount: number = remindersData?.count ?? 0;
 
+  /* ── Close mobile menu on route change ── */
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location]);
+
+  /* ── Lock body scroll when mobile menu is open ── */
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isMobileMenuOpen]);
+
   const visibleGroups = NAV_GROUPS.filter((g) => !g.superAdminOnly || isSuperAdmin);
 
   return (
@@ -344,10 +359,28 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setIsMobileMenuOpen(false)} />
-          <aside className="absolute right-0 top-0 bottom-0 w-64 bg-sidebar border-l border-sidebar-border flex flex-col">
-            <OfficeLogo />
+        <div className="fixed inset-0 z-[200] md:hidden">
+          {/* Dark backdrop — tap to close */}
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          {/* Drawer sliding in from the right */}
+          <aside
+            className="absolute right-0 top-0 bottom-0 w-[280px] max-w-[85vw] bg-sidebar border-l border-sidebar-border flex flex-col shadow-2xl"
+            style={{ animation: "slideInFromRight 0.22s ease-out" }}
+          >
+            {/* Close button row */}
+            <div className="flex items-center justify-between px-3 pt-3 pb-1 border-b border-sidebar-border/50">
+              <OfficeLogo />
+              <Button
+                variant="ghost" size="icon"
+                className="h-8 w-8 text-sidebar-foreground/60 hover:text-white hover:bg-sidebar-accent/60 shrink-0"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <span className="text-lg leading-none">✕</span>
+              </Button>
+            </div>
             <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-4">
               {visibleGroups.map((group) => (
                 <div key={group.labelKey}>
@@ -363,6 +396,22 @@ export function Layout({ children }: { children: ReactNode }) {
                 </div>
               ))}
             </nav>
+            {/* Bottom user row */}
+            <div className="border-t border-sidebar-border p-3">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-8 w-8 border border-sidebar-border">
+                  {user?.imageUrl && <AvatarImage src={user.imageUrl} alt={displayName} />}
+                  <AvatarFallback className="bg-sidebar-primary text-primary-foreground text-xs">{initials}</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-sm font-medium text-white truncate">{displayName}</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400/70 hover:text-red-400"
+                  onClick={() => signOut({ redirectUrl: basePath || "/" })}>
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </aside>
         </div>
       )}
