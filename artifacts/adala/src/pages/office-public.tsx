@@ -326,8 +326,18 @@ export default function OfficePage() {
   const reviewPages = Math.ceil(reviews.length / REVIEWS_PER_PAGE);
   const visibleReviews = reviews.slice(reviewPage * REVIEWS_PER_PAGE, (reviewPage + 1) * REVIEWS_PER_PAGE);
 
+  const toWaNumber = (raw: string) => {
+    const d = raw.replace(/\D/g, "");
+    if (!d) return "";
+    if (d.startsWith("00966")) return d.slice(2);
+    if (d.startsWith("966"))   return d;
+    if (d.startsWith("0"))     return "966" + d.slice(1);
+    if (d.length <= 9)         return "966" + d;
+    return d;
+  };
+
   const whatsappUrl = (msg?: string) => {
-    const num = (office.whatsapp ?? office.phone ?? "").replace(/\D/g, "");
+    const num = toWaNumber(office.whatsapp ?? office.phone ?? "");
     const text = encodeURIComponent(msg ?? (lang === "ar" ? `مرحباً، أود الاستفسار عن خدمات ${officeName}` : `Hello, I'd like to inquire about ${officeName} services`));
     return `https://wa.me/${num}?text=${text}`;
   };
