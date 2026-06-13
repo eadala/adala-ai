@@ -92,42 +92,42 @@ export default function FinancialCore() {
   /* ── Queries ─────────────────────────────────────────── */
   const { data: dashboard, isLoading: dashLoading, refetch: refetchDash } = useQuery({
     queryKey: ["fincore-dashboard"],
-    queryFn: () => fetcher(`${BASE}/api/fincore/dashboard`),
+    queryFn: () => fetcher(`/api/fincore/dashboard`),
     enabled: tab === "dashboard",
     staleTime: 30_000,
   });
 
   const { data: ledgerData, isLoading: ledgerLoading, refetch: refetchLedger } = useQuery({
     queryKey: ["fincore-ledger", ledgerLimit],
-    queryFn: () => fetcher(`${BASE}/api/fincore/ledger?limit=${ledgerLimit}`),
+    queryFn: () => fetcher(`/api/fincore/ledger?limit=${ledgerLimit}`),
     enabled: tab === "ledger",
     staleTime: 30_000,
   });
 
   const { data: wallets = [], isLoading: walletsLoading } = useQuery<any[]>({
     queryKey: ["fincore-wallets"],
-    queryFn: () => fetcher(`${BASE}/api/fincore/wallets`),
+    queryFn: () => fetcher(`/api/fincore/wallets`),
     enabled: tab === "wallets",
     staleTime: 60_000,
   });
 
   const { data: allPayouts = [], isLoading: payoutsLoading, refetch: refetchPayouts } = useQuery<any[]>({
     queryKey: ["fincore-payouts", payoutFilter],
-    queryFn: () => fetcher(`${BASE}/api/fincore/payouts${payoutFilter !== "all" ? `?status=${payoutFilter}` : ""}`),
+    queryFn: () => fetcher(`/api/fincore/payouts${payoutFilter !== "all" ? `?status=${payoutFilter}` : ""}`),
     enabled: tab === "payouts",
     staleTime: 30_000,
   });
 
   const { data: reports, isLoading: reportsLoading } = useQuery({
     queryKey: ["fincore-reports", period],
-    queryFn: () => fetcher(`${BASE}/api/fincore/reports?period=${period}`),
+    queryFn: () => fetcher(`/api/fincore/reports?period=${period}`),
     enabled: tab === "reports",
     staleTime: 60_000,
   });
 
   const { data: providers = [] } = useQuery<any[]>({
     queryKey: ["fincore-providers"],
-    queryFn: () => fetcher(`${BASE}/api/fincore/providers`),
+    queryFn: () => fetcher(`/api/fincore/providers`),
     enabled: tab === "gateways",
   });
 
