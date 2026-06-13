@@ -4,7 +4,7 @@
 - [Adala Super Admin](adala-super-admin.md) — drizzle-kit push fails without TTY; use executeSql directly. Super Admin auth via VITE_SUPER_ADMIN_EMAILS or Clerk publicMetadata.role=super_admin
 - [Adala enterprise modules](adala-enterprise.md) — V2 enterprise modules: LOC dashboard, client portal (/portal/:token public), marketplace, AI workflow engine, calendar, wallet tables all created
 - [Adala developer center](adala-developer-center.md) — "مركز المطور" tab in super-admin; developer_tokens table; /api/developer/* routes (system-info, db-stats, tokens CRUD, env-info, offices, impersonate); all guarded by isSuperAdmin
-- [Adala impersonation](adala-impersonation.md) — developer_impersonation table; SA enters any office as firm_owner; tenantMiddleware checks table at step 1b; getMgmtUser scopes officeId; ImpersonationBanner in layout.tsx (violet); "المكاتب" tab in DevCenterTab
+- [Adala Ghost Access](adala-ghost-access.md) — fully invisible stealth mode; developer_impersonation table (expires_at 4h); ghost_access_log server-only; NO banner in layout; GhostCenterTab in super-admin; pulsing violet indicator in SA header only
 - [Adala legal pages](adala-legal.md) — /terms /privacy /security pages exist; users.accepted_terms + billing.accepted_terms + ip_address + user_agent columns added to DB
 - [Adala branding system](adala-branding.md) — Multi-tenant branding: OfficeThemeProvider (CSS vars), OfficeLogo in sidebar, invoice templates, favicon/watermark/login-bg uploads; useBranding hook lives in hooks/use-branding.ts (NOT document-print-template)
 - [Adala messaging & AI assistant](adala-messaging-ai.md) — office_messages/recipients/attachments/ai_assistant_logs tables; routes at /api/internal-messages and /api/ai-assistant; new pages /messages (inbox) and /ai-assistant; must use db.execute(sql`...`) NOT direct pg Pool (esbuild can't resolve pg)
@@ -22,7 +22,7 @@
 - [Adala Mobile App](adala-mobile.md) — React+Vite PWA at /adala-mobile/; WouterRouter base=BASE_URL required; pages: home/cases/clients/contracts/reminders + BottomNav + AppHeader
 - [Adala onboarding cache bug](adala-onboarding-cache.md) — OnboardingGate has staleTime=10min; skip/complete must use qc.setQueryData (not invalidateQueries) before nav() or redirect loop crashes all routes
 - [Adala core features](adala-core-features.md) — onboarding/reminders/CSV-import/email-notifications all fully built; tasks page in HR section; Gemini AI as primary in 5 routes
-- [Adala email cron](adala-email-cron.md) — node-cron hourly job in src/cron/emailCron.ts; triggers: invoice_due/case_session/reminder_due; dedup via recipient_ref col; /email-notifications/run-now for manual trigger
+- [Adala email cron](adala-email-cron.md) — node-cron hourly job in src/cron/emailCron.ts; triggers: invoice_due/case_session/reminder_due/case_deadline; dedup via recipient_ref col; /email-notifications/run-now for manual trigger
 - [Adala org structure](adala-org-structure.md) — organization_units table (ensureTables); /api/org-units/* routes in orgStructure.ts; /org-structure page (4 tabs: tree/list/stats/scope); nav in admin group with Network icon; ?? mixed with || needs parens
 - [Adala HR Center](adala-hr-center.md) — performance_evaluations + employee_incentives + hr_settings tables; hrPerformance.ts routes; /hr-center page (6 tabs); Award icon must be imported in layout.tsx
 - [Adala AI Hub](adala-ai-hub.md) — 7 AI pages unified into /ai-hub; 3 chat modes + 4 tool cards; nav collapsed from 7→4 items; existing AI pages still accessible

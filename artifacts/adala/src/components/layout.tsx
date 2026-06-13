@@ -215,33 +215,6 @@ function NavItemLink({ item, isActive, onClick, badge }: { item: NavItem; isActi
   );
 }
 
-function ImpersonationBanner() {
-  const { data } = useQuery<any>({
-    queryKey: ["impersonation-status"],
-    queryFn: () => fetch(`${basePath}/api/developer/impersonate/status`).then(r => r.json()),
-    refetchInterval: 60_000,
-    retry: false,
-  });
-  if (!data?.active) return null;
-  const exit = async () => {
-    await fetch(`${basePath}/api/developer/impersonate`, { method: "DELETE" });
-    window.location.href = `${basePath}/super-admin`;
-  };
-  return (
-    <div className="flex items-center justify-between gap-2 px-4 py-2 text-xs font-medium z-50 shrink-0 bg-violet-600/20 border-b border-violet-500/40 text-violet-200">
-      <div className="flex items-center gap-2">
-        <span className="text-sm">🔮</span>
-        <span>وضع الاستعراض كمدير — <strong className="text-white">{data.officeName}</strong></span>
-        <span className="text-violet-400/60">|</span>
-        <span className="text-violet-300/70 text-[10px]">كل تغييراتك ستؤثر على بيانات هذا المكتب فعلياً</span>
-      </div>
-      <button onClick={exit} className="shrink-0 px-3 py-1 rounded-full text-[10px] font-bold border border-violet-400/50 text-violet-200 hover:bg-violet-500/20 transition-colors">
-        خروج من وضع الاستعراض ✕
-      </button>
-    </div>
-  );
-}
-
 function TrialBanner() {
   const { isTrial, trialDaysLeft, planName } = useOfficePlan();
   if (!isTrial) return null;
@@ -436,7 +409,6 @@ export function Layout({ children }: { children: ReactNode }) {
         </header>
 
         {/* Trial Banner */}
-        <ImpersonationBanner />
         <TrialBanner />
 
         {/* Page Content */}

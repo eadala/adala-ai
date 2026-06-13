@@ -114,8 +114,8 @@ export default function BackupCenter() {
 
   const isSuperAdmin =
     user?.publicMetadata?.role === "super_admin" ||
-    (process.env.VITE_SUPER_ADMIN_EMAILS ?? "")
-      .split(",").map(e => e.trim())
+    (import.meta.env.VITE_SUPER_ADMIN_EMAILS ?? "")
+      .split(",").map((e: string) => e.trim())
       .includes(user?.primaryEmailAddress?.emailAddress ?? "");
 
   const features = getFeatures(planSlug, isSuperAdmin);
