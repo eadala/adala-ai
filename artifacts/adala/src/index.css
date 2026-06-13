@@ -318,3 +318,11 @@ html[data-theme="light"] .lp-nav-link:hover { color: var(--lp-text, #0F172A) !im
 html[data-theme="light"] .lp-section-border { border-color: rgba(0,0,0,0.06) !important; }
 html[data-theme="light"] .lp-stat-label     { color: var(--lp-text-muted, rgba(15,23,42,0.55)) !important; }
 html[data-theme="light"] .lp-trust-tag      { color: var(--lp-text-subtle, rgba(15,23,42,0.35)) !important; }
+
+/* ═══════════════════════════════════════════════════════
+   MOBILE SIDEBAR DRAWER ANIMATION
+═══════════════════════════════════════════════════════ */
+@keyframes slideInFromRight {
+  from { transform: translateX(100%); opacity: 0.6; }
+  to   { transform: translateX(0);    opacity: 1;   }
+}
