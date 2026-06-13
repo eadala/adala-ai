@@ -25,6 +25,14 @@ const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 /* ── Plan feature matrix ────────────────────────────────── */
 type PlanKey = "starter" | "basic" | "professional" | "business" | "premium" | "ultimate";
 
+/* ─────────────────────────────────────────────────────────
+   POLICY:
+   • Local device export (JSON / CSV / full backup file)
+     → FREE for ALL plans — user owns their data
+   • Platform backup (server-stored, scheduled, cloud sync,
+     restore from server, extended retention)
+     → gated by subscription plan
+   ───────────────────────────────────────────────────────── */
 const PLAN_MATRIX: Record<PlanKey, {
   schedules: string[];
   retention: number[];
@@ -36,11 +44,12 @@ const PLAN_MATRIX: Record<PlanKey, {
   instantBackup: boolean;
   unlimitedRetention: boolean;
 }> = {
-  starter:      { schedules: ["daily"],                              retention: [7, 30],          csv: false, fullExport: false, cloudStorage: false, importData: false, restore: false, instantBackup: false, unlimitedRetention: false },
-  basic:        { schedules: ["daily"],                              retention: [7, 30, 90],       csv: true,  fullExport: false, cloudStorage: false, importData: false, restore: false, instantBackup: false, unlimitedRetention: false },
-  professional: { schedules: ["daily", "weekly"],                    retention: [7, 30, 90],       csv: true,  fullExport: true,  cloudStorage: false, importData: false, restore: false, instantBackup: false, unlimitedRetention: false },
-  business:     { schedules: ["daily", "weekly"],                    retention: [7, 30, 90, 365],  csv: true,  fullExport: true,  cloudStorage: true,  importData: true,  restore: false, instantBackup: false, unlimitedRetention: false },
-  premium:      { schedules: ["daily", "weekly", "monthly"],         retention: [7, 30, 90, 365],  csv: true,  fullExport: true,  cloudStorage: true,  importData: true,  restore: true,  instantBackup: false, unlimitedRetention: false },
+  // csv + fullExport = true on ALL plans (local export is always free)
+  starter:      { schedules: ["daily"],                                 retention: [7, 30],          csv: true, fullExport: true, cloudStorage: false, importData: false, restore: false, instantBackup: false, unlimitedRetention: false },
+  basic:        { schedules: ["daily"],                                 retention: [7, 30, 90],       csv: true, fullExport: true, cloudStorage: false, importData: false, restore: false, instantBackup: false, unlimitedRetention: false },
+  professional: { schedules: ["daily", "weekly"],                       retention: [7, 30, 90],       csv: true, fullExport: true, cloudStorage: false, importData: false, restore: false, instantBackup: false, unlimitedRetention: false },
+  business:     { schedules: ["daily", "weekly"],                       retention: [7, 30, 90, 365],  csv: true, fullExport: true, cloudStorage: true,  importData: true,  restore: false, instantBackup: false, unlimitedRetention: false },
+  premium:      { schedules: ["daily", "weekly", "monthly"],            retention: [7, 30, 90, 365],  csv: true, fullExport: true, cloudStorage: true,  importData: true,  restore: true,  instantBackup: false, unlimitedRetention: false },
   ultimate:     { schedules: ["daily", "weekly", "monthly", "instant"], retention: [7, 30, 90, 365, 0], csv: true, fullExport: true, cloudStorage: true, importData: true, restore: true, instantBackup: true, unlimitedRetention: true },
 };
 
@@ -202,13 +211,36 @@ export default function BackupCenter() {
     }
   }
 
-  /* ── Download backup ── */
+  /* ── Download backup (from server history) ── */
   function downloadBackup(job: BackupJob) {
     const url = `${BASE}/api/backup/jobs/${job.id}/download`;
     const a = document.createElement("a");
     a.href = url;
     a.download = job.fileName ?? "backup.json";
     a.click();
+  }
+
+  /* ── Local device backup — free for all plans ── */
+  const [isLocalDownloading, setIsLocalDownloading] = useState(false);
+  async function localDeviceBackup() {
+    setIsLocalDownloading(true);
+    try {
+      const res = await fetch(`${BASE}/api/backup/local-download`);
+      if (!res.ok) throw new Error("فشل التحميل");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const date = new Date().toISOString().split("T")[0];
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `adala-backup-${date}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("✅ تم تحميل النسخة الاحتياطية على جهازك");
+    } catch {
+      toast.error("خطأ في تحميل النسخة الاحتياطية");
+    } finally {
+      setIsLocalDownloading(false);
+    }
   }
 
   /* ── Export section ── */
@@ -367,13 +399,17 @@ export default function BackupCenter() {
         </div>
 
         {/* ─── Main Tabs ─── */}
-        <Tabs defaultValue="settings" dir="rtl">
+        <Tabs defaultValue="local" dir="rtl">
           <TabsList className="bg-sidebar border border-sidebar-border flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger value="local" className="gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+              <HardDrive className="h-3.5 w-3.5" /> النسخ المحلي
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 rounded px-1 py-0 mr-0.5">مجاني</span>
+            </TabsTrigger>
             <TabsTrigger value="settings"  className="gap-1.5 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-black">
-              <Settings2 className="h-3.5 w-3.5" /> الإعدادات
+              <Settings2 className="h-3.5 w-3.5" /> نسخ المنصة
             </TabsTrigger>
             <TabsTrigger value="export"    className="gap-1.5 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-black">
-              <ArrowDownToLine className="h-3.5 w-3.5" /> التصدير
+              <ArrowDownToLine className="h-3.5 w-3.5" /> تصدير الأقسام
             </TabsTrigger>
             <TabsTrigger value="history"   className="gap-1.5 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-black">
               <History className="h-3.5 w-3.5" /> السجل
@@ -386,14 +422,134 @@ export default function BackupCenter() {
             </TabsTrigger>
           </TabsList>
 
-          {/* ══ TAB: SETTINGS ══ */}
-          <TabsContent value="settings" className="mt-4 space-y-4">
+          {/* ══ TAB: LOCAL DEVICE BACKUP (FREE FOR ALL) ══ */}
+          <TabsContent value="local" className="mt-4 space-y-4">
+
+            {/* Free badge banner */}
+            <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/8 p-4">
+              <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-emerald-300">النسخ الاحتياطي المحلي — مجاني لجميع الباقات</p>
+                <p className="text-xs text-emerald-300/60 mt-0.5">
+                  بياناتك ملكك. حمّل نسخة كاملة على جهازك في أي وقت بدون قيود.
+                </p>
+              </div>
+              <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 shrink-0">🆓 مجاني</Badge>
+            </div>
+
+            {/* One-click full backup */}
             <Card className="bg-sidebar border-sidebar-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base text-white flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4 text-[#C9A84C]" /> النسخ التلقائي
+                  <Download className="h-4 w-4 text-emerald-400" /> نسخة احتياطية كاملة للجهاز
                 </CardTitle>
-                <CardDescription>تحديد جدول النسخ الاحتياطي التلقائي</CardDescription>
+                <CardDescription>ملف JSON شامل لجميع بيانات المكتب — يُحفظ على جهازك مباشرةً</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-lg border border-sidebar-border bg-background/30 p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                      <Shield className="h-5 w-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">محتويات النسخة الاحتياطية</p>
+                      <p className="text-xs text-muted-foreground">ملف JSON — يمكن استيراده لاحقاً</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["القضايا", "العملاء", "الفواتير", "العقود", "المستندات", "المستخدمون"].map(item => (
+                      <span key={item} className="text-xs bg-emerald-500/10 text-emerald-300/70 rounded-full px-2 py-0.5">
+                        ✓ {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <Button onClick={localDeviceBackup} disabled={isLocalDownloading}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base h-11 gap-2">
+                  {isLocalDownloading
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> جارٍ إعداد الملف...</>
+                    : <><Download className="h-5 w-5" /> تحميل نسخة احتياطية كاملة على جهازي</>
+                  }
+                </Button>
+
+                <div className="grid grid-cols-3 gap-3 text-center text-xs text-muted-foreground">
+                  <div className="rounded-lg border border-sidebar-border p-2">
+                    <p className="font-medium text-white">لا قيود</p>
+                    <p>عدد مرات التحميل</p>
+                  </div>
+                  <div className="rounded-lg border border-sidebar-border p-2">
+                    <p className="font-medium text-white">فوري</p>
+                    <p>بدون جدولة</p>
+                  </div>
+                  <div className="rounded-lg border border-sidebar-border p-2">
+                    <p className="font-medium text-white">آمن</p>
+                    <p>لا يُخزَّن على السيرفر</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Section-by-section exports */}
+            <Card className="bg-sidebar border-sidebar-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base text-white flex items-center gap-2">
+                  <FileJson className="h-4 w-4 text-[#C9A84C]" /> تصدير أقسام محددة
+                </CardTitle>
+                <CardDescription>تحميل بيانات قسم معين بصيغة JSON أو CSV</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {[
+                  { key: "clients",   label: "العملاء (CRM)",  icon: "👤" },
+                  { key: "cases",     label: "القضايا",         icon: "⚖️" },
+                  { key: "invoices",  label: "الفواتير",        icon: "📄" },
+                  { key: "contracts", label: "العقود",          icon: "📝" },
+                ].map(section => (
+                  <div key={section.key}
+                    className="flex items-center justify-between rounded-lg border border-sidebar-border p-3 hover:border-emerald-500/30 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{section.icon}</span>
+                      <span className="text-sm text-white font-medium">{section.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline"
+                        className="text-xs border-sidebar-border hover:border-emerald-500/50 hover:text-emerald-400"
+                        onClick={() => exportSection(section.key, "json")}>
+                        <FileJson className="h-3.5 w-3.5 ml-1" /> JSON
+                      </Button>
+                      <Button size="sm" variant="outline"
+                        className="text-xs border-sidebar-border hover:border-emerald-500/50 hover:text-emerald-400"
+                        onClick={() => exportSection(section.key, "csv")}>
+                        <FileSpreadsheet className="h-3.5 w-3.5 ml-1" /> CSV
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ══ TAB: PLATFORM BACKUP (plan-gated) ══ */}
+          <TabsContent value="settings" className="mt-4 space-y-4">
+
+            {/* Plan-gated notice */}
+            <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/8 p-4">
+              <Crown className="h-5 w-5 text-amber-400 shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-amber-300">نسخ المنصة — الجدولة والسحابي حسب الباقة</p>
+                <p className="text-xs text-amber-300/60 mt-0.5">
+                  النسخ اليدوي (حفظ على السيرفر) متاح للكل · الجدولة التلقائية وتخزين السحابة تتطلب ترقية الباقة
+                </p>
+              </div>
+              <Badge style={{ backgroundColor: `${planColor}22`, color: planColor, borderColor: `${planColor}44` }}>{planName}</Badge>
+            </div>
+
+            <Card className="bg-sidebar border-sidebar-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base text-white flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 text-[#C9A84C]" /> النسخ التلقائي المجدوَل
+                </CardTitle>
+                <CardDescription>تحديد جدول النسخ الاحتياطي التلقائي على سيرفر المنصة</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 {/* Enable toggle */}
@@ -510,21 +666,29 @@ export default function BackupCenter() {
             </Card>
           </TabsContent>
 
-          {/* ══ TAB: EXPORT ══ */}
+          {/* ══ TAB: SECTION EXPORTS (all free) ══ */}
           <TabsContent value="export" className="mt-4 space-y-4">
+
+            <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/8 p-3">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <p className="text-xs text-emerald-300">
+                تصدير الأقسام مجاني لجميع الباقات — JSON و CSV متاحان دون قيود
+              </p>
+            </div>
+
             <Card className="bg-sidebar border-sidebar-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base text-white flex items-center gap-2">
-                  <ArrowDownToLine className="h-4 w-4 text-[#C9A84C]" /> تصدير البيانات
+                  <ArrowDownToLine className="h-4 w-4 text-[#C9A84C]" /> تصدير أقسام محددة
                 </CardTitle>
-                <CardDescription>تنزيل بيانات المكتب بتنسيقات متعددة</CardDescription>
+                <CardDescription>تنزيل بيانات قسم معين بصيغة JSON أو CSV — مجاني لجميع الباقات</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {[
-                  { key: "clients",   label: "العملاء (CRM)",      icon: "👤" },
-                  { key: "cases",     label: "القضايا",             icon: "⚖️" },
-                  { key: "invoices",  label: "الفواتير",            icon: "📄" },
-                  { key: "contracts", label: "العقود",              icon: "📝" },
+                  { key: "clients",   label: "العملاء (CRM)",  icon: "👤" },
+                  { key: "cases",     label: "القضايا",         icon: "⚖️" },
+                  { key: "invoices",  label: "الفواتير",        icon: "📄" },
+                  { key: "contracts", label: "العقود",          icon: "📝" },
                 ].map(section => (
                   <div key={section.key}
                     className="flex items-center justify-between rounded-lg border border-sidebar-border p-3 hover:border-[#C9A84C]/30 transition-colors">
@@ -538,49 +702,38 @@ export default function BackupCenter() {
                         onClick={() => exportSection(section.key, "json")}>
                         <FileJson className="h-3.5 w-3.5 ml-1" /> JSON
                       </Button>
-                      {features.csv ? (
-                        <Button size="sm" variant="outline"
-                          className="text-xs border-sidebar-border hover:border-[#C9A84C]/50 hover:text-[#C9A84C]"
-                          onClick={() => exportSection(section.key, "csv")}>
-                          <FileSpreadsheet className="h-3.5 w-3.5 ml-1" /> CSV
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="outline" disabled
-                          className="text-xs border-sidebar-border/30 text-muted-foreground/30 cursor-not-allowed">
-                          <Lock className="h-3 w-3 ml-1" /> CSV
-                        </Button>
-                      )}
+                      <Button size="sm" variant="outline"
+                        className="text-xs border-sidebar-border hover:border-[#C9A84C]/50 hover:text-[#C9A84C]"
+                        onClick={() => exportSection(section.key, "csv")}>
+                        <FileSpreadsheet className="h-3.5 w-3.5 ml-1" /> CSV
+                      </Button>
                     </div>
                   </div>
                 ))}
 
                 <Separator className="bg-sidebar-border" />
 
-                {/* Full office export */}
-                {features.fullExport ? (
-                  <div className="rounded-xl border border-[#C9A84C]/30 bg-[#C9A84C]/5 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-[#C9A84C]">تصدير كامل المكتب</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          ملف JSON شامل يحتوي على كل بيانات المكتب
-                        </p>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {["clients.json", "cases.json", "invoices.json", "contracts.json"].map(f => (
-                            <span key={f} className="text-[10px] bg-[#C9A84C]/10 text-[#C9A84C]/70 rounded px-1.5 py-0.5">{f}</span>
-                          ))}
-                        </div>
+                {/* Full office export — now free for all */}
+                <div className="rounded-xl border border-[#C9A84C]/30 bg-[#C9A84C]/5 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-[#C9A84C]">تصدير كامل المكتب</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        ملف JSON شامل يحتوي على كل بيانات المكتب
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {["clients.json", "cases.json", "invoices.json", "contracts.json"].map(f => (
+                          <span key={f} className="text-[10px] bg-[#C9A84C]/10 text-[#C9A84C]/70 rounded px-1.5 py-0.5">{f}</span>
+                        ))}
                       </div>
-                      <Button onClick={exportAll}
-                        className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold shrink-0">
-                        <Download className="h-4 w-4 ml-1.5" />
-                        تصدير الكل
-                      </Button>
                     </div>
+                    <Button onClick={exportAll}
+                      className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold shrink-0">
+                      <Download className="h-4 w-4 ml-1.5" />
+                      تصدير الكل
+                    </Button>
                   </div>
-                ) : (
-                  <LockedBanner requiredPlan="Professional" />
-                )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
