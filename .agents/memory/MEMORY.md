@@ -38,3 +38,4 @@
 - [Adala analytics sql-safety](adala-analytics-sql.md) — analytics.ts uses periodStartDate(period):string (JS Date → ISO) instead of sql.raw(INTERVAL); SAST scanner flags sql.raw even when whitelisted — always use parameterized dates
 - [Adala promo codes](adala-promo.md) — promo_codes + gift_subscriptions tables; /api/admin/promo-codes + /api/admin/gift-subscriptions (admin) + /api/promo/redeem + /api/promo/my-gift (office); gift check in subscription.ts step 2a; PromoCodesTab in super-admin; Gift tab in billing
 - [Adala Landing Redesign](adala-landing-redesign.md) — bento grid (8 features), side-nav dots, tabbed How+Security, stats merged into Hero; privacyItems still in state but section removed
+- [Adala Checkout.com](adala-checkout.md) — user requested Checkout.com+Mada+Apple Pay as MENA payment gateway alongside Stripe; Tabby/Tamara for installments
