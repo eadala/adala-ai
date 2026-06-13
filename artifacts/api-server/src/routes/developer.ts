@@ -161,6 +161,94 @@ router.delete("/developer/tokens/:id", devOnly, async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════
+   OFFICE IMPERSONATION (دخول كمدير المكتب)
+══════════════════════════════════════════════════ */
+
+/* Ensure table exists */
+(async () => {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS developer_impersonation (
+        id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        super_admin_user_id TEXT NOT NULL UNIQUE,
+        impersonated_office_id TEXT NOT NULL,
+        office_name      TEXT DEFAULT '',
+        started_at       TIMESTAMPTZ DEFAULT NOW(),
+        expires_at       TIMESTAMPTZ
+      )
+    `);
+  } catch {}
+})();
+
+/* GET /api/developer/offices — list all offices */
+router.get("/developer/offices", devOnly, async (_req, res) => {
+  try {
+    const offices = await safeRows(sql`
+      SELECT
+        op.id::text AS id,
+        op.office_name,
+        op.plan,
+        op.created_at,
+        (SELECT COUNT(*)::int FROM office_members om WHERE om.office_id = op.id::text) AS member_count
+      FROM office_page op
+      ORDER BY op.created_at DESC
+    `);
+    res.json(offices);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* GET /api/developer/impersonate/status */
+router.get("/developer/impersonate/status", devOnly, async (req: any, res) => {
+  try {
+    const userId = getAuth(req)?.userId;
+    if (!userId) return res.json({ active: false });
+    const rows = await safeRows(sql`
+      SELECT impersonated_office_id, office_name, started_at
+      FROM developer_impersonation
+      WHERE super_admin_user_id = ${userId}
+        AND (expires_at IS NULL OR expires_at > NOW())
+      LIMIT 1
+    `);
+    if (rows[0]) {
+      res.json({ active: true, officeId: rows[0].impersonated_office_id, officeName: rows[0].office_name, startedAt: rows[0].started_at });
+    } else {
+      res.json({ active: false });
+    }
+  } catch { res.json({ active: false }); }
+});
+
+/* POST /api/developer/impersonate/:officeId — start impersonation */
+router.post("/developer/impersonate/:officeId", devOnly, async (req: any, res) => {
+  try {
+    const userId = getAuth(req)?.userId;
+    if (!userId) return res.status(401).json({ error: "غير مصادق" });
+    const { officeId } = req.params;
+    const officeRows = await safeRows(sql`SELECT office_name FROM office_page WHERE id::text = ${officeId} LIMIT 1`);
+    const officeName = officeRows[0]?.office_name ?? officeId;
+    await db.execute(sql`
+      INSERT INTO developer_impersonation (super_admin_user_id, impersonated_office_id, office_name)
+      VALUES (${userId}, ${officeId}, ${officeName})
+      ON CONFLICT (super_admin_user_id) DO UPDATE
+        SET impersonated_office_id = ${officeId},
+            office_name            = ${officeName},
+            started_at             = NOW(),
+            expires_at             = NULL
+    `);
+    res.json({ ok: true, officeId, officeName });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* DELETE /api/developer/impersonate — stop impersonation */
+router.delete("/developer/impersonate", devOnly, async (req: any, res) => {
+  try {
+    const userId = getAuth(req)?.userId;
+    if (!userId) return res.status(401).json({ error: "غير مصادق" });
+    await db.execute(sql`DELETE FROM developer_impersonation WHERE super_admin_user_id = ${userId}`);
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════════════════
    ENVIRONMENT INFO  (non-sensitive)
 ══════════════════════════════════════════════════ */
 router.get("/developer/env-info", devOnly, (_req, res) => {

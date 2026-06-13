@@ -1638,6 +1638,38 @@ function DevCenterTab({ toast }: any) {
     retry: false,
   });
 
+  const { data: officesList = [], isLoading: officesLoad, refetch: refetchOffices } = useQuery<any[]>({
+    queryKey: ["dev", "offices"],
+    queryFn: () => DEV_API("/offices"),
+    retry: false,
+  });
+
+  const { data: impStatus, refetch: refetchImpStatus } = useQuery<any>({
+    queryKey: ["dev", "impersonate-status"],
+    queryFn: () => DEV_API("/impersonate/status"),
+    retry: false,
+    refetchInterval: 15_000,
+  });
+
+  const startImpersonate = useMutation({
+    mutationFn: (officeId: string) => DEV_API(`/impersonate/${officeId}`, { method: "POST" }),
+    onSuccess: (_, officeId) => {
+      refetchImpStatus();
+      toast({ title: "✅ تم الدخول كمدير المكتب — انتقل للوحة التحكم" });
+      qc.invalidateQueries({ queryKey: ["impersonation-status"] });
+    },
+    onError: () => toast({ title: "خطأ في الدخول", variant: "destructive" }),
+  });
+
+  const stopImpersonate = useMutation({
+    mutationFn: () => DEV_API("/impersonate", { method: "DELETE" }),
+    onSuccess: () => {
+      refetchImpStatus();
+      qc.invalidateQueries({ queryKey: ["impersonation-status"] });
+      toast({ title: "✅ تم الخروج من وضع الاستعراض" });
+    },
+  });
+
   const createTok = useMutation({
     mutationFn: (body: any) => DEV_API("/tokens", { method: "POST", body: JSON.stringify(body) }),
     onSuccess: (data) => {
@@ -1688,6 +1720,7 @@ function DevCenterTab({ toast }: any) {
           <TabsTrigger value="database" className="gap-1.5 text-xs data-[state=active]:bg-background rounded-lg px-3 py-1.5"><Database className="h-3.5 w-3.5" /> قاعدة البيانات</TabsTrigger>
           <TabsTrigger value="tokens"   className="gap-1.5 text-xs data-[state=active]:bg-background rounded-lg px-3 py-1.5"><KeySquare className="h-3.5 w-3.5" /> توكنات المطورين</TabsTrigger>
           <TabsTrigger value="env"      className="gap-1.5 text-xs data-[state=active]:bg-background rounded-lg px-3 py-1.5"><Terminal className="h-3.5 w-3.5" /> متغيرات البيئة</TabsTrigger>
+          <TabsTrigger value="offices"  className="gap-1.5 text-xs data-[state=active]:bg-background rounded-lg px-3 py-1.5 text-violet-400 data-[state=active]:text-violet-400"><Building2 className="h-3.5 w-3.5" /> المكاتب</TabsTrigger>
         </TabsList>
 
         {/* ── SYSTEM ── */}
@@ -2028,6 +2061,89 @@ function DevCenterTab({ toast }: any) {
               </CardContent></Card>
             </div>
           )}
+        </TabsContent>
+
+        {/* ── OFFICES (IMPERSONATION) ── */}
+        <TabsContent value="offices" className="mt-4">
+          <div className="space-y-4">
+            {/* Active impersonation banner */}
+            {impStatus?.active && (
+              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-violet-500/10 border border-violet-500/30">
+                <div className="flex items-center gap-2 text-sm">
+                  <span>🔮</span>
+                  <span className="text-violet-300">تستعرض حالياً مكتب <strong className="text-white">{impStatus.officeName}</strong> كمدير المكتب</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="h-7 text-xs border-violet-400/30 text-violet-300 hover:bg-violet-500/10"
+                    onClick={() => { window.location.href = (import.meta.env.BASE_URL || "/").replace(/\/$/, "") + "/dashboard"; }}>
+                    انتقل للوحة التحكم
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs border-red-400/30 text-red-300 hover:bg-red-500/10"
+                    onClick={() => stopImpersonate.mutate()} disabled={stopImpersonate.isPending}>
+                    خروج ✕
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Info card */}
+            <Card className="border-dashed border-violet-500/30 bg-violet-500/5">
+              <CardContent className="p-4 flex gap-3">
+                <ShieldAlert className="h-5 w-5 text-violet-400 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  عند الدخول كمدير مكتب، ستتمكن من عرض البيانات وإجراء التعديلات كأنك مدير ذلك المكتب. <strong className="text-violet-300">جميع التغييرات حقيقية وتؤثر على البيانات الفعلية.</strong>
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Offices list */}
+            {officesLoad ? (
+              <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : officesList.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">لا توجد مكاتب</div>
+            ) : (
+              <div className="space-y-2">
+                {officesList.map((office: any) => {
+                  const isActive = impStatus?.active && impStatus.officeId === office.id;
+                  const PLAN_LABELS: Record<string, string> = { free: "مجاني", starter: "مبتدئ", professional: "احترافي", growth: "نمو", premium: "متميز", enterprise: "مؤسسي" };
+                  return (
+                    <Card key={office.id} className={`border-border/50 transition-colors ${isActive ? "border-violet-500/50 bg-violet-500/5" : ""}`}>
+                      <CardContent className="p-4 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-9 w-9 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+                            <Building2 className="h-4 w-4 text-violet-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold truncate">{office.office_name || "مكتب بلا اسم"}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground font-mono">{office.id}</span>
+                              <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{PLAN_LABELS[office.plan] ?? office.plan ?? "—"}</span>
+                              <span className="text-[10px] text-muted-foreground">{office.member_count} عضو</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 flex-shrink-0">
+                          {isActive ? (
+                            <Button size="sm" variant="outline" className="h-7 text-xs border-red-400/30 text-red-300 hover:bg-red-500/10"
+                              onClick={() => stopImpersonate.mutate()} disabled={stopImpersonate.isPending}>
+                              خروج ✕
+                            </Button>
+                          ) : (
+                            <Button size="sm" className="h-7 text-xs bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
+                              onClick={() => startImpersonate.mutate(office.id)}
+                              disabled={startImpersonate.isPending}>
+                              <Building2 className="h-3 w-3" />
+                              دخول كمدير
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

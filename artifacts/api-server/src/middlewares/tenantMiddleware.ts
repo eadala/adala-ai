@@ -23,6 +23,18 @@ export async function resolveTenantId(userId: string, headerTenantId?: string): 
   /* 1. Explicit header (API keys, dev access) */
   if (headerTenantId) return headerTenantId;
 
+  /* 1b. Developer impersonation — SA viewing as another office */
+  try {
+    const imp = await db.execute(sql`
+      SELECT impersonated_office_id FROM developer_impersonation
+      WHERE super_admin_user_id = ${userId}
+        AND (expires_at IS NULL OR expires_at > NOW())
+      LIMIT 1
+    `);
+    const impOffice = ((imp as any)?.rows ?? [])[0]?.impersonated_office_id as string | undefined;
+    if (impOffice) return impOffice;
+  } catch {}
+
   /* 2. Cache */
   const cached = CACHE.get(userId);
   if (cached && Date.now() - cached.ts < TTL_MS) return cached.officeId;
