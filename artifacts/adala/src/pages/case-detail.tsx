@@ -409,7 +409,7 @@ export default function CaseDetail({ id }: { id: string }) {
               <CardTitle className="text-sm font-semibold">معلومات القضية</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-3">
-              <InfoRow icon={<User className="h-4 w-4 text-muted-foreground" />} label="الموكل" value={caseData.clientName || "غير محدد"} />
+              <InfoRow icon={<User className="h-4 w-4 text-muted-foreground" />} label="العميل" value={caseData.clientName || "غير محدد"} />
               <Separator />
               <InfoRow icon={<Scale className="h-4 w-4 text-muted-foreground" />} label="نوع القضية" value={TYPE_MAP[caseData.caseType] || caseData.caseType} />
               <Separator />

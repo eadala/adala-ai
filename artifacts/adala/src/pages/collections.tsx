@@ -174,7 +174,7 @@ export default function Collections() {
   const TABS = [
     { id: "dashboard"     as Tab, label: "لوحة التحليلات", icon: BarChart3 },
     { id: "invoices"      as Tab, label: "الفواتير",        icon: Receipt   },
-    { id: "profitability" as Tab, label: "ربحية الموكلين",  icon: Users     },
+    { id: "profitability" as Tab, label: "ربحية العملاء",  icon: Users     },
   ];
 
   return (
@@ -187,7 +187,7 @@ export default function Collections() {
             <DollarSign className="h-6 w-6 text-[#C9A84C]" />
             نظام التحصيل الذكي
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">تحليلات متقدمة · مراحل التحصيل · ربحية الموكلين</p>
+          <p className="text-sm text-muted-foreground mt-0.5">تحليلات متقدمة · مراحل التحصيل · ربحية العملاء</p>
         </div>
         <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => { refetch(); qc.invalidateQueries({ queryKey: ["collections-analytics"] }); }}>
           <RefreshCw className="h-3.5 w-3.5" /> تحديث
@@ -546,7 +546,7 @@ export default function Collections() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="h-4 w-4 text-[#C9A84C]" />
-              ربحية الموكلين — تحليل شامل
+              ربحية العملاء — تحليل شامل
             </CardTitle>
             <p className="text-xs text-muted-foreground">مقارنة الفوترة والتحصيل ومعدل الدفع لكل موكل</p>
           </CardHeader>
@@ -559,7 +559,7 @@ export default function Collections() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/40">
-                    {["الموكل", "الفواتير", "الإجمالي", "المحصّل", "المتبقي", "معدل التحصيل", "متوسط أيام الدفع"].map(h => (
+                    {["العميل", "الفواتير", "الإجمالي", "المحصّل", "المتبقي", "معدل التحصيل", "متوسط أيام الدفع"].map(h => (
                       <th key={h} className="px-4 py-3 text-right text-xs font-bold text-muted-foreground whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
