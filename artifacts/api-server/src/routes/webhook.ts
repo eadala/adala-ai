@@ -1,8 +1,16 @@
 import { Router, type Request, type Response } from "express";
 import { db, messagesTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
+import crypto from "crypto";
 
 const router = Router();
+
+/* ── helpers ── */
+async function dbRows(q: any): Promise<any[]> {
+  try { const r = await db.execute(q) as any; return Array.isArray(r) ? r : (r?.rows ?? []); }
+  catch { return []; }
+}
 
 // ─── GET: Meta Webhook Verification ───
 router.get("/webhook/whatsapp", (req: Request, res: Response) => {
@@ -161,6 +169,114 @@ router.post("/webhook/whatsapp/send", async (req: Request, res: Response) => {
     res.json({ ok: true, messageId: msgs?.[0]?.id });
   } catch (err: any) {
     res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+/* ══════════════════════════════════════════════════
+   MOYASAR PAYMENT WEBHOOK
+══════════════════════════════════════════════════ */
+
+/* POST /webhook/moyasar — Moyasar sends payment events here */
+router.post("/webhook/moyasar", async (req: Request, res: Response) => {
+  try {
+    const body = req.body as Record<string, any>;
+
+    /* Optional: verify Moyasar signature if webhook_secret is set */
+    const officeId = body.metadata?.office_id ?? "default";
+    const settings = await dbRows(sql`
+      SELECT webhook_secret FROM moyasar_settings WHERE office_id = ${officeId} LIMIT 1
+    `);
+    const secret = settings[0]?.webhook_secret;
+    if (secret) {
+      const sig = req.headers["x-moyasar-signature"] as string ?? "";
+      const raw = JSON.stringify(body);
+      const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
+      if (sig && sig !== expected) {
+        res.status(403).json({ error: "توقيع غير صحيح" });
+        return;
+      }
+    }
+
+    const { id: moyasarId, status, amount, currency, description, metadata } = body;
+    const txRef = metadata?.ref as string | undefined;
+    const txId  = metadata?.tx_id as string | undefined;
+
+    if (!moyasarId) { res.json({ ok: true, skipped: true }); return; }
+
+    /* Map Moyasar status → our status */
+    const statusMap: Record<string, string> = {
+      paid: "completed", initiated: "pending", captured: "completed",
+      refunded: "refunded", voided: "cancelled", failed: "failed",
+    };
+    const newStatus = statusMap[status] ?? "pending";
+    const amountSAR = typeof amount === "number" ? amount / 100 : parseFloat(amount ?? "0") / 100;
+
+    /* Find transaction by ref or moyasar id */
+    let updated = false;
+    if (txId) {
+      await db.execute(sql`
+        UPDATE payment_transactions
+        SET status = ${newStatus},
+            gateway_payment_id = ${moyasarId},
+            updated_at = NOW()
+        WHERE id = ${txId}::uuid
+      `).catch(() => {});
+      updated = true;
+    } else if (txRef) {
+      await db.execute(sql`
+        UPDATE payment_transactions
+        SET status = ${newStatus},
+            gateway_payment_id = ${moyasarId},
+            updated_at = NOW()
+        WHERE gateway_payment_id = ${txRef} AND gateway = 'moyasar'
+      `).catch(() => {});
+      updated = true;
+    }
+
+    /* If no existing transaction, create one */
+    if (!updated && moyasarId && amountSAR > 0) {
+      const commission = 10;
+      const platformFee = parseFloat((amountSAR * commission / 100).toFixed(2));
+      const netAmount   = parseFloat((amountSAR - platformFee).toFixed(2));
+      await db.execute(sql`
+        INSERT INTO payment_transactions
+          (office_id, description, amount, platform_fee, net_amount,
+           status, payment_method, gateway, gateway_payment_id)
+        VALUES
+          (${officeId}, ${description ?? "دفع Moyasar"}, ${amountSAR}, ${platformFee},
+           ${netAmount}, ${newStatus}, 'moyasar', 'moyasar', ${moyasarId})
+        ON CONFLICT DO NOTHING
+      `).catch(() => {});
+    }
+
+    console.log(`✅ Moyasar Webhook: ${moyasarId} → ${newStatus} (${amountSAR} SAR)`);
+    res.json({ ok: true, received: moyasarId, status: newStatus });
+  } catch (err: any) {
+    console.error("Moyasar webhook error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* GET /webhook/moyasar/callback — Moyasar redirect after payment */
+router.get("/webhook/moyasar/callback", async (req: Request, res: Response) => {
+  try {
+    const { tx, id: moyasarId, status: mStatus } = req.query as any;
+    if (tx) {
+      const finalStatus = mStatus === "paid" ? "completed" : "pending";
+      await db.execute(sql`
+        UPDATE payment_transactions
+        SET status = ${finalStatus},
+            gateway_payment_id = COALESCE(gateway_payment_id, ${moyasarId ?? null}),
+            updated_at = NOW()
+        WHERE id = ${tx}::uuid
+      `).catch(() => {});
+    }
+    const base = process.env.REPLIT_DEV_DOMAIN
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+      : "https://adala-ai.app";
+    res.redirect(`${base}/payment-center?gateway=moyasar&result=${mStatus ?? "unknown"}`);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
 });
 
