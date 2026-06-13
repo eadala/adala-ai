@@ -11,6 +11,7 @@ import { objectStorageClient, parseObjectPath } from "../lib/objectStorage";
 const router = Router();
 
 // ─── ensureTables ─────────────────────────────────────────────────────────────
+// nosemgrep: ban-drizzle-sql-raw — all db.execute() calls here use parameterized sql`` template literals (no sql.raw)
 async function ensureTables() {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS client_portal_tokens (
