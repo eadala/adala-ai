@@ -113,6 +113,7 @@ const OfficeBook           = lazy(() => import("@/pages/office-book"));
 const TermsPage            = lazy(() => import("@/pages/terms"));
 const PrivacyPage          = lazy(() => import("@/pages/privacy"));
 const SecurityPage         = lazy(() => import("@/pages/security"));
+const ReferralPage         = lazy(() => import("@/pages/referral"));
 const NotFound             = lazy(() => import("@/pages/not-found"));
 
 // ── Query client ───────────────────────────────────────────────────────────────
@@ -331,6 +332,7 @@ function AppRoutes() {
             <Route path="/terms"><PublicPage><TermsPage /></PublicPage></Route>
             <Route path="/privacy"><PublicPage><PrivacyPage /></PublicPage></Route>
             <Route path="/security"><PublicPage><SecurityPage /></PublicPage></Route>
+            <Route path="/referral"><PublicPage><ReferralPage /></PublicPage></Route>
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
             <Route path="/onboarding"><PublicPage><OnboardingPage /></PublicPage></Route>

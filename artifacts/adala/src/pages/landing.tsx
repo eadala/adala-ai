@@ -9,7 +9,8 @@ import {
   Calendar, Receipt, Briefcase, Globe, Lock, Database, Activity,
   Building2, CreditCard, Phone, Mail, Twitter, Linkedin, Youtube,
   Menu, X, ArrowRight, Sparkles, TrendingUp, Award, Check,
-  Brain, Layers, HardDrive, Palette, DollarSign,
+  Brain, Layers, HardDrive, Palette, DollarSign, Gift, Copy, Share2,
+  XCircle, Minus, ThumbsUp, TrendingDown,
 } from "lucide-react";
 
 // ── Lazy load heavy below-fold components ─────────────────────────────────────
@@ -654,30 +655,65 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── URGENCY BAR ──────────────────────────────────────────────────── */}
+      <FadeIn>
+        <div className="mx-4 rounded-2xl px-6 py-4 mb-0 flex flex-col sm:flex-row items-center justify-between gap-4 max-w-5xl mx-auto"
+          style={{ background: "linear-gradient(135deg,rgba(201,168,76,0.13),rgba(99,102,241,0.10))", border: "1px solid rgba(201,168,76,0.28)" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(201,168,76,0.18)" }}>
+              <Zap className="w-4 h-4" style={{ color: "#C9A84C" }} />
+            </div>
+            <div>
+              <p className="text-white font-bold text-sm">🎉 {isAr ? "عرض الإطلاق — أول ٥٠ مكتب يحصلون على ٦٠ يوماً مجاناً" : "Launch offer — first 50 offices get 60 days free"}</p>
+              <p className="text-white/50 text-xs">{isAr ? "سارع قبل امتلاء الأماكن المحدودة" : "Limited spots available"}</p>
+            </div>
+          </div>
+          <Link href={`${BASE}/sign-up`}>
+            <button className="shrink-0 font-bold text-sm px-5 py-2.5 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02]"
+              style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626" }}>
+              {isAr ? "احجز مكانك الآن" : "Reserve your spot"}
+            </button>
+          </Link>
+        </div>
+      </FadeIn>
+
       {/* ── TESTIMONIALS ─────────────────────────────────────────────────── */}
       <section className="py-24 px-4">
         <div className="max-w-6xl mx-auto">
           <FadeIn className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">{t("landing.testimonials.title")}</h2>
+            <span className="text-sm font-semibold px-4 py-1.5 rounded-full mb-4 inline-block" style={{ background: "rgba(201,168,76,0.12)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.3)" }}>
+              {isAr ? "آراء المحامين" : "Lawyer reviews"}
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black text-white mt-3 mb-4">{t("landing.testimonials.title")}</h2>
             <p className="text-white/50">{t("landing.testimonials.subtitle")}</p>
           </FadeIn>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {testimonials.map((item, i) => (
               <FadeIn key={i} delay={i * 0.1}>
-                <div className="p-6 rounded-2xl h-full flex flex-col" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <div className="flex gap-1 mb-4">
+                <div className="p-6 rounded-2xl h-full flex flex-col relative overflow-hidden"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div className="absolute top-4 left-4 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style={{ background: "rgba(16,185,129,0.15)", color: "#34D399", border: "1px solid rgba(16,185,129,0.25)" }}>
+                    {isAr ? "عميل موثّق" : "Verified client"}
+                  </div>
+                  <div className="flex gap-1 mb-4 mt-6">
                     {Array.from({ length: 5 }).map((_, j) => (
                       <Star key={j} className="w-4 h-4 fill-[#C9A84C]" style={{ color: "#C9A84C" }} />
                     ))}
                   </div>
-                  <p className="text-white/65 text-sm leading-relaxed flex-1 mb-5">"{item.text}"</p>
+                  <p className="text-white/70 text-sm leading-relaxed flex-1 mb-5">"{item.text}"</p>
                   <div className="flex items-center gap-3 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-[#0D1626]" style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)" }}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black text-[#0D1626] shrink-0"
+                      style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)" }}>
                       {item.name[0]}
                     </div>
                     <div>
-                      <p className="text-white text-sm font-semibold">{item.name}</p>
+                      <p className="text-white text-sm font-bold">{item.name}</p>
                       <p className="text-white/40 text-xs">{item.role}</p>
+                    </div>
+                    <div className="mr-auto flex items-center gap-1 text-xs text-white/30">
+                      <ThumbsUp className="w-3 h-3" />
+                      <span>{[24,18,31,15,27,22][i % 6]}</span>
                     </div>
                   </div>
                 </div>
@@ -685,6 +721,141 @@ export default function Landing() {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* ── COMPETITOR COMPARISON ─────────────────────────────────────────── */}
+      <section className="py-24 px-4">
+        <div className="max-w-5xl mx-auto">
+          <FadeIn className="text-center mb-14">
+            <span className="text-sm font-semibold px-4 py-1.5 rounded-full mb-4 inline-block" style={{ background: "rgba(99,102,241,0.15)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.3)" }}>
+              {isAr ? "لماذا عدالة AI؟" : "Why Adalah AI?"}
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black text-white mt-3 mb-4">
+              {isAr ? "مقارنة مع" : "Compare with"} <GoldText>{isAr ? "البدائل الأخرى" : "other options"}</GoldText>
+            </h2>
+            <p className="text-white/50">{isAr ? "شاهد الفارق الحقيقي بالأرقام والميزات" : "See the real difference in numbers and features"}</p>
+          </FadeIn>
+
+          <FadeIn>
+            <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)" }}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                      <th className="text-right px-5 py-4 font-bold text-white/60">{isAr ? "الميزة" : "Feature"}</th>
+                      <th className="px-5 py-4 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <Scale className="w-3.5 h-3.5" style={{ color: "#C9A84C" }} />
+                            <span className="font-black text-white">{isAr ? "عدالة AI" : "Adalah AI"}</span>
+                          </div>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: "rgba(201,168,76,0.2)", color: "#C9A84C" }}>
+                            {isAr ? "الأفضل" : "Best"}
+                          </span>
+                        </div>
+                      </th>
+                      <th className="px-5 py-4 text-center font-semibold text-white/40">{isAr ? "برامج تقليدية" : "Traditional SW"}</th>
+                      <th className="px-5 py-4 text-center font-semibold text-white/40">{isAr ? "Excel / يدوي" : "Excel / Manual"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { feature: isAr ? "ذكاء اصطناعي قانوني عربي" : "Arabic Legal AI", us: true, trad: false, excel: false },
+                      { feature: isAr ? "بوابة العميل الإلكترونية" : "Client Portal", us: true, trad: false, excel: false },
+                      { feature: isAr ? "توقيع إلكتروني" : "E-Signature", us: true, trad: "partial", excel: false },
+                      { feature: isAr ? "تحليلات مالية متقدمة" : "Financial Analytics", us: true, trad: "partial", excel: false },
+                      { feature: isAr ? "إدارة الفريق (RBAC)" : "Team RBAC", us: true, trad: "partial", excel: false },
+                      { feature: isAr ? "متعدد المكاتب (Multi-tenant)" : "Multi-tenant", us: true, trad: false, excel: false },
+                      { feature: isAr ? "تطبيق جوال" : "Mobile App", us: true, trad: false, excel: false },
+                      { feature: isAr ? "إشعارات تلقائية" : "Auto Notifications", us: true, trad: "partial", excel: false },
+                      { feature: isAr ? "السعر / شهر" : "Price / month", us: isAr ? "من ١٤٩ ريال" : "From 149 SAR", trad: isAr ? "+٨٠٠ ريال" : "+800 SAR", excel: isAr ? "مجاني لكنه خطر" : "Free but risky" },
+                    ].map((row, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
+                        <td className="px-5 py-3.5 font-medium text-white/70">{row.feature}</td>
+                        <td className="px-5 py-3.5 text-center">
+                          {row.us === true ? (
+                            <CheckCircle className="w-5 h-5 text-green-400 mx-auto" />
+                          ) : (
+                            <span className="font-bold text-xs" style={{ color: "#C9A84C" }}>{row.us as string}</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          {row.trad === true ? <CheckCircle className="w-5 h-5 text-green-400 mx-auto" />
+                            : row.trad === false ? <XCircle className="w-5 h-5 text-red-400/60 mx-auto" />
+                            : row.trad === "partial" ? <Minus className="w-5 h-5 text-yellow-400/60 mx-auto" />
+                            : <span className="text-xs text-white/40">{row.trad as string}</span>}
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          {row.excel === true ? <CheckCircle className="w-5 h-5 text-green-400 mx-auto" />
+                            : row.excel === false ? <XCircle className="w-5 h-5 text-red-400/60 mx-auto" />
+                            : <span className="text-xs text-white/40">{row.excel as string}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </FadeIn>
+
+          <FadeIn className="text-center mt-8">
+            <Link href={`${BASE}/sign-up`}>
+              <button className="inline-flex items-center gap-2 font-bold px-8 py-3.5 rounded-xl text-sm transition-all hover:opacity-90 hover:scale-[1.02]"
+                style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626", boxShadow: "0 6px 24px rgba(201,168,76,0.3)" }}>
+                {isAr ? "جرّب عدالة AI مجاناً الآن" : "Try Adalah AI free now"}
+                {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+              </button>
+            </Link>
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ── REFERRAL BANNER ──────────────────────────────────────────────── */}
+      <section className="py-16 px-4">
+        <FadeIn>
+          <div className="max-w-4xl mx-auto rounded-3xl p-8 md:p-12 relative overflow-hidden"
+            style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.15),rgba(201,168,76,0.10))", border: "1px solid rgba(99,102,241,0.3)" }}>
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-[70px] opacity-20" style={{ background: "#6366F1" }} />
+              <div className="absolute bottom-0 left-0 w-36 h-36 rounded-full blur-[60px] opacity-15" style={{ background: "#C9A84C" }} />
+            </div>
+            <div className="relative flex flex-col md:flex-row items-center gap-8">
+              <div className="flex-1 text-center md:text-right">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-4"
+                  style={{ background: "rgba(99,102,241,0.2)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.35)" }}>
+                  <Gift className="w-4 h-4" />
+                  {isAr ? "برنامج الإحالة" : "Referral Program"}
+                </div>
+                <h3 className="text-2xl md:text-3xl font-black text-white mb-3">
+                  {isAr ? "أحِل زميلاً واحصل على" : "Refer a colleague and get"}<br />
+                  <GoldText>{isAr ? "شهر مجاني لكليكما" : "one free month for both of you"}</GoldText>
+                </h3>
+                <p className="text-white/55 text-sm leading-relaxed max-w-md mx-auto md:mx-0">
+                  {isAr
+                    ? "شارك رابط الإحالة الخاص بك مع محامين آخرين. عند اشتراكهم تحصل أنت وزميلك على شهر مجاني إضافي على خطتكم الحالية."
+                    : "Share your referral link with other lawyers. When they subscribe, both of you get one free month added."}
+                </p>
+              </div>
+              <div className="shrink-0 flex flex-col items-center gap-4">
+                <div className="w-20 h-20 rounded-2xl flex items-center justify-center"
+                  style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.3),rgba(201,168,76,0.2))", border: "1px solid rgba(99,102,241,0.4)" }}>
+                  <Gift className="w-9 h-9 text-indigo-300" />
+                </div>
+                <Link href={`${BASE}/sign-up?ref=landing`}>
+                  <button className="font-bold text-sm px-6 py-3 rounded-xl transition-all hover:opacity-90"
+                    style={{ background: "linear-gradient(135deg,#6366F1,#818CF8)", color: "#fff" }}>
+                    {isAr ? "انضم وابدأ الإحالة" : "Join & start referring"}
+                  </button>
+                </Link>
+                <Link href={`${BASE}/referral`}>
+                  <span className="text-xs text-white/40 hover:text-white/70 transition-colors cursor-pointer underline underline-offset-2">
+                    {isAr ? "تعرّف على البرنامج" : "Learn more"}
+                  </span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
       </section>
 
       {/* ── PRICING ──────────────────────────────────────────────────────── */}
@@ -887,6 +1058,14 @@ export default function Landing() {
                   {companyLinks.map((l, i) => (
                     <li key={i}><a href={l.href} className="text-white/45 text-sm hover:text-white transition-colors">{l.label}</a></li>
                   ))}
+                  <li>
+                    <Link href={`${BASE}/referral`}>
+                      <span className="flex items-center gap-1.5 text-sm transition-colors cursor-pointer" style={{ color: "#C9A84C" }}>
+                        <Gift className="w-3.5 h-3.5" />
+                        {isAr ? "برنامج الإحالة 🎁" : "Referral Program 🎁"}
+                      </span>
+                    </Link>
+                  </li>
                 </ul>
               </div>
             )}

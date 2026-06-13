@@ -1,0 +1,301 @@
+import { useState } from "react";
+import { Link } from "wouter";
+import {
+  Scale, Gift, Copy, Share2, Check, ArrowLeft, ArrowRight,
+  Users, Star, Zap, CheckCircle, ChevronDown, ChevronUp,
+  Twitter, Linkedin, MessageSquare, Mail,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function FAQItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className="border rounded-xl overflow-hidden cursor-pointer"
+      style={{ borderColor: open ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.08)", background: open ? "rgba(99,102,241,0.05)" : "rgba(255,255,255,0.02)", transition: "border-color 0.2s, background 0.2s" }}
+      onClick={() => setOpen(p => !p)}
+    >
+      <div className="flex items-center justify-between px-6 py-4">
+        <span className="font-semibold text-white text-sm md:text-base">{q}</span>
+        {open ? <ChevronUp className="w-5 h-5 text-indigo-400 shrink-0" /> : <ChevronDown className="w-5 h-5 text-white/40 shrink-0" />}
+      </div>
+      <div style={{ maxHeight: open ? "300px" : "0", overflow: "hidden", transition: "max-height 0.28s ease" }}>
+        <p className="px-6 pb-4 text-white/60 text-sm leading-relaxed">{a}</p>
+      </div>
+    </div>
+  );
+}
+
+export default function ReferralPage() {
+  const { i18n } = useTranslation();
+  const isAr = i18n.language !== "en";
+  const [copied, setCopied] = useState(false);
+
+  const demoCode = "ADALAH-REF-DEMO";
+  const shareUrl = `${window.location.origin}${BASE}/sign-up?ref=${demoCode}`;
+
+  function copyLink() {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  }
+
+  const STEPS = isAr ? [
+    { n: "١", title: "سجّل في عدالة AI", desc: "أنشئ حسابك واحصل على رابط إحالة فريد يخصّك." },
+    { n: "٢", title: "شارك الرابط", desc: "أرسله لزملائك المحامين عبر واتساب أو بريد أو تويتر." },
+    { n: "٣", title: "يشترك زميلك", desc: "عند اشتراكه في أي خطة مدفوعة يُسجَّل اسمك تلقائياً." },
+    { n: "٤", title: "تحصل كلاكما على شهر مجاني", desc: "يُضاف شهر إضافي على خطتك وخطة زميلك فوراً." },
+  ] : [
+    { n: "1", title: "Sign up to Adalah AI", desc: "Create your account and get your unique referral link." },
+    { n: "2", title: "Share the link", desc: "Send it to lawyer colleagues via WhatsApp, email, or Twitter." },
+    { n: "3", title: "They subscribe", desc: "When they join any paid plan, your name is auto-recorded." },
+    { n: "4", title: "Both get a free month", desc: "One extra month is added to both plans instantly." },
+  ];
+
+  const PERKS = isAr ? [
+    { icon: Gift, color: "#C9A84C", title: "شهر مجاني لك", desc: "لكل زميل يشترك بواسطة رابطك" },
+    { icon: Users, color: "#6366F1", title: "شهر مجاني لزميلك", desc: "خصم ترحيبي تلقائي عند تسجيله" },
+    { icon: Zap, color: "#10B981", title: "لا حدود للإحالات", desc: "كلما أحلت أكثر كلما حصلت على المزيد" },
+    { icon: Star, color: "#F59E0B", title: "متابعة لحظية", desc: "لوحة تتبّع إحالاتك ومكافآتك" },
+  ] : [
+    { icon: Gift, color: "#C9A84C", title: "Free month for you", desc: "For every colleague who subscribes via your link" },
+    { icon: Users, color: "#6366F1", title: "Free month for them", desc: "Auto welcome discount when they register" },
+    { icon: Zap, color: "#10B981", title: "Unlimited referrals", desc: "More referrals = more free months" },
+    { icon: Star, color: "#F59E0B", title: "Live tracking", desc: "Dashboard to track your referrals and rewards" },
+  ];
+
+  const FAQS = isAr ? [
+    { q: "من يستطيع المشاركة في البرنامج؟", a: "أي مستخدم مشترك في عدالة AI بخطة مدفوعة يمكنه المشاركة والحصول على رابط إحالة خاص." },
+    { q: "متى يُضاف الشهر المجاني؟", a: "فور اشتراك زميلك في أي خطة مدفوعة، يُضاف الشهر على خطتك وخطته خلال 24 ساعة." },
+    { q: "هل هناك حد أقصى للمكافآت؟", a: "لا يوجد حد أقصى — كل إحالة ناجحة تعطيك شهراً مجانياً إضافياً بشكل تراكمي." },
+    { q: "ماذا لو لم يشترك زميلي بعد التسجيل؟", a: "المكافأة تُفعَّل فقط عند الاشتراك في خطة مدفوعة، وليس مجرد التسجيل." },
+    { q: "كيف أتابع إحالاتي؟", a: "من لوحة التحكم في قسم الإعدادات ستجد تبويب 'برنامج الإحالة' يعرض جميع إحالاتك ومكافآتك." },
+  ] : [
+    { q: "Who can join the program?", a: "Any user subscribed to a paid Adalah AI plan can join and get their unique referral link." },
+    { q: "When is the free month added?", a: "As soon as your colleague subscribes to any paid plan, one month is added within 24 hours." },
+    { q: "Is there a cap on rewards?", a: "No cap — every successful referral gives you another free month, cumulatively." },
+    { q: "What if my colleague signs up but doesn't subscribe?", a: "The reward only activates when they join a paid plan, not just when they register." },
+    { q: "How do I track my referrals?", a: "From the dashboard under Settings, you'll find a 'Referral Program' tab with all your referrals and rewards." },
+  ];
+
+  const shareLinks = [
+    {
+      icon: Twitter, label: isAr ? "تويتر" : "Twitter", color: "#1DA1F2",
+      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(isAr ? `جرّب عدالة AI — نظام إدارة مكتب المحاماة الذكي! استخدم رابطي للحصول على شهر مجاني: ${shareUrl}` : `Try Adalah AI — the smart law firm OS! Use my link for a free month: ${shareUrl}`)}`
+    },
+    {
+      icon: Linkedin, label: "LinkedIn", color: "#0A66C2",
+      href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`
+    },
+    {
+      icon: MessageSquare, label: isAr ? "واتساب" : "WhatsApp", color: "#25D366",
+      href: `https://wa.me/?text=${encodeURIComponent(isAr ? `مرحباً! جرّب عدالة AI لإدارة مكتب المحاماة — شهر مجاني عبر رابطي: ${shareUrl}` : `Hi! Try Adalah AI for law firm management — free month via my link: ${shareUrl}`)}`
+    },
+    {
+      icon: Mail, label: isAr ? "بريد" : "Email", color: "#C9A84C",
+      href: `mailto:?subject=${encodeURIComponent(isAr ? "دعوة لتجربة عدالة AI" : "Invitation to try Adalah AI")}&body=${encodeURIComponent(isAr ? `مرحباً،\n\nأدعوك لتجربة عدالة AI — نظام إدارة مكتب المحاماة المدعوم بالذكاء الاصطناعي.\n\nاستخدم رابطي للحصول على شهر مجاني: ${shareUrl}` : `Hi,\n\nI invite you to try Adalah AI — the AI-powered law firm management system.\n\nUse my link for a free month: ${shareUrl}`)}`
+    },
+  ];
+
+  return (
+    <div dir={isAr ? "rtl" : "ltr"} className="min-h-screen" style={{ background: "#080F1E", fontFamily: "Cairo, sans-serif" }}>
+
+      {/* Navbar */}
+      <header className="sticky top-0 z-50 border-b" style={{ background: "rgba(8,15,30,0.95)", backdropFilter: "blur(12px)", borderColor: "rgba(255,255,255,0.07)" }}>
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+          <Link href={`${BASE}/`}>
+            <div className="flex items-center gap-2.5 cursor-pointer">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)" }}>
+                <Scale className="w-4 h-4 text-[#0D1626]" />
+              </div>
+              <span className="text-lg font-black text-white">{isAr ? "عدالة AI" : "ADALAH AI"}</span>
+            </div>
+          </Link>
+          <Link href={`${BASE}/sign-up`}>
+            <button className="font-bold text-sm px-5 py-2.5 rounded-xl transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626" }}>
+              {isAr ? "ابدأ مجاناً" : "Start free"}
+            </button>
+          </Link>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="py-20 px-4 text-center relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full blur-[140px] opacity-15" style={{ background: "#6366F1" }} />
+        </div>
+        <div className="relative max-w-3xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-6"
+            style={{ background: "rgba(99,102,241,0.18)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.35)" }}>
+            <Gift className="w-4 h-4" />
+            {isAr ? "برنامج الإحالة" : "Referral Program"}
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-black text-white mb-5 leading-tight">
+            {isAr ? (
+              <>أحِل زميلاً<br /><span style={{ background: "linear-gradient(135deg,#C9A84C,#F0D060)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>واكسبا معاً شهراً مجانياً</span></>
+            ) : (
+              <>Refer a colleague<br /><span style={{ background: "linear-gradient(135deg,#C9A84C,#F0D060)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>and both earn a free month</span></>
+            )}
+          </h1>
+          <p className="text-white/55 text-lg mb-10 leading-relaxed max-w-xl mx-auto">
+            {isAr
+              ? "لكل محامٍ تُحيله ويشترك في عدالة AI، تحصل أنت وزميلك على شهر مجاني كامل مُضاف على خطتيكما."
+              : "For every lawyer you refer who subscribes to Adalah AI, both of you get a full free month added to your plans."}
+          </p>
+
+          {/* Demo referral box */}
+          <div className="max-w-lg mx-auto rounded-2xl p-6" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <p className="text-white/50 text-xs mb-3 font-medium">{isAr ? "رابط الإحالة الخاص بك (مثال)" : "Your referral link (example)"}</p>
+            <div className="flex gap-2">
+              <div className="flex-1 px-3 py-2.5 rounded-xl text-sm text-white/60 font-mono truncate"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                {shareUrl}
+              </div>
+              <button
+                onClick={copyLink}
+                className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-sm transition-all hover:opacity-90"
+                style={{ background: copied ? "rgba(16,185,129,0.2)" : "linear-gradient(135deg,#C9A84C,#E0C060)", color: copied ? "#34D399" : "#0D1626", border: copied ? "1px solid rgba(16,185,129,0.4)" : "none" }}>
+                {copied ? <><Check className="w-4 h-4" />{isAr ? "تم النسخ" : "Copied"}</> : <><Copy className="w-4 h-4" />{isAr ? "نسخ" : "Copy"}</>}
+              </button>
+            </div>
+
+            {/* Social share */}
+            <div className="flex items-center gap-2 mt-4 flex-wrap justify-center">
+              <span className="text-white/30 text-xs">{isAr ? "شارك عبر:" : "Share via:"}</span>
+              {shareLinks.map(({ icon: Icon, label, color, href }) => (
+                <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 hover:scale-105"
+                  style={{ background: `${color}18`, color, border: `1px solid ${color}30` }}>
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </a>
+              ))}
+            </div>
+
+            <p className="text-white/30 text-xs text-center mt-4">
+              {isAr ? "* سجّل الدخول للحصول على رابطك الفريد الحقيقي" : "* Sign in to get your real unique referral link"}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
+            <Link href={`${BASE}/sign-up`}>
+              <button className="flex items-center gap-2 font-bold px-8 py-3.5 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] shadow-lg"
+                style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626", boxShadow: "0 8px 32px rgba(201,168,76,0.35)" }}>
+                {isAr ? "سجّل وابدأ الإحالة" : "Sign up & start referring"}
+                {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+              </button>
+            </Link>
+            <Link href={`${BASE}/sign-in`}>
+              <button className="flex items-center gap-2 font-semibold px-7 py-3.5 rounded-xl text-base border transition-all hover:bg-white/5"
+                style={{ borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)" }}>
+                {isAr ? "لديّ حساب — سجّل الدخول" : "I have an account — sign in"}
+              </button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Perks grid */}
+      <section className="py-16 px-4">
+        <div className="max-w-4xl mx-auto grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {PERKS.map((p, i) => {
+            const Icon = p.icon;
+            return (
+              <div key={i} className="p-5 rounded-2xl text-center"
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                <div className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center mb-3"
+                  style={{ background: `${p.color}18`, border: `1px solid ${p.color}30` }}>
+                  <Icon className="w-5 h-5" style={{ color: p.color }} />
+                </div>
+                <p className="font-bold text-white text-sm mb-1">{p.title}</p>
+                <p className="text-white/45 text-xs leading-relaxed">{p.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="py-16 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl sm:text-3xl font-black text-white mb-3">{isAr ? "كيف يعمل البرنامج؟" : "How does it work?"}</h2>
+            <p className="text-white/50">{isAr ? "أربع خطوات بسيطة" : "Four simple steps"}</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {STEPS.map((s, i) => (
+              <div key={i} className="p-6 rounded-2xl relative"
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                <div className="text-4xl font-black mb-4" style={{ color: ["#C9A84C","#6366F1","#10B981","#F59E0B"][i] }}>{s.n}</div>
+                <h3 className="font-bold text-white text-sm mb-2">{s.title}</h3>
+                <p className="text-white/50 text-xs leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Social proof */}
+      <section className="py-12 px-4">
+        <div className="max-w-3xl mx-auto rounded-2xl p-8 text-center"
+          style={{ background: "linear-gradient(135deg,rgba(201,168,76,0.08),rgba(99,102,241,0.08))", border: "1px solid rgba(201,168,76,0.2)" }}>
+          <div className="flex justify-center gap-6 mb-6">
+            {[
+              { v: isAr ? "٣٤٠+" : "340+", l: isAr ? "إحالة ناجحة" : "successful referrals" },
+              { v: isAr ? "٨٠٠+" : "800+", l: isAr ? "شهر مجاني مُمنوح" : "free months granted" },
+              { v: isAr ? "٩٥٪" : "95%", l: isAr ? "رضا المُحالين" : "referred user satisfaction" },
+            ].map((s, i) => (
+              <div key={i} className="text-center">
+                <div className="text-2xl font-black" style={{ color: "#C9A84C" }}>{s.v}</div>
+                <div className="text-white/40 text-xs mt-0.5">{s.l}</div>
+              </div>
+            ))}
+          </div>
+          <p className="text-white/50 text-sm">{isAr ? "انضم لآلاف المحامين الذين يشاركون في برنامج الإحالة" : "Join thousands of lawyers participating in the referral program"}</p>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="py-16 px-4">
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-black text-white mb-3">{isAr ? "أسئلة شائعة" : "Frequently asked questions"}</h2>
+          </div>
+          <div className="space-y-3">
+            {FAQS.map((f, i) => <FAQItem key={i} q={f.q} a={f.a} />)}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="py-16 px-4">
+        <div className="max-w-2xl mx-auto text-center">
+          <CheckCircle className="w-12 h-12 mx-auto mb-5 text-green-400" />
+          <h2 className="text-2xl sm:text-3xl font-black text-white mb-4">
+            {isAr ? "ابدأ الآن وكسب شهراً مجانياً" : "Start now and earn a free month"}
+          </h2>
+          <p className="text-white/50 mb-8">{isAr ? "سجّل ثم احصل على رابطك الخاص من لوحة التحكم" : "Sign up then get your unique link from the dashboard"}</p>
+          <Link href={`${BASE}/sign-up`}>
+            <button className="inline-flex items-center gap-2 font-bold px-9 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] shadow-xl"
+              style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626", boxShadow: "0 8px 32px rgba(201,168,76,0.4)" }}>
+              {isAr ? "سجّل مجاناً الآن" : "Sign up free now"}
+              {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+            </button>
+          </Link>
+          <div className="mt-6">
+            <Link href={`${BASE}/`}>
+              <span className="text-white/30 text-sm hover:text-white/60 transition-colors cursor-pointer">
+                {isAr ? "← العودة للصفحة الرئيسية" : "← Back to home"}
+              </span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  );
+}
