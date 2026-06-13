@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useBranding } from "@/hooks/use-branding";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useReactTable, getCoreRowModel, getSortedRowModel, getFilteredRowModel,
@@ -327,6 +328,7 @@ function InvoiceSheet({
   invoice, open, onClose, onRefresh,
 }: { invoice: Invoice | null; open: boolean; onClose: () => void; onRefresh: () => void }) {
   const qc = useQueryClient();
+  const { data: branding } = useBranding();
   const [loadingLink, setLoadingLink] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -631,9 +633,10 @@ ${isPaid ? `<div class="watermark">PAID ✓</div>` : isOverdue ? `<div class="wa
   <!-- HEADER -->
   <div class="header">
     <div class="brand-block">
-      <div class="brand-ar">عدالة <span>AI</span></div>
-      <div class="brand-en">Adalah AI · Legal OS</div>
-      <div class="brand-tagline">منصة إدارة المكاتب القانونية · Kingdom of Saudi Arabia</div>
+      ${branding?.logoUrl ? `<img src="${branding.logoUrl}" alt="شعار المكتب" style="height:54px;width:auto;object-fit:contain;margin-bottom:6px;display:block;filter:brightness(0) invert(1)"/>` : ""}
+      <div class="brand-ar">${branding?.officeName ? `${branding.officeName}` : `مكتب <span>المحاماة</span>`}</div>
+      ${branding?.officeNameEn ? `<div class="brand-en">${branding.officeNameEn}</div>` : ""}
+      ${branding?.tagline ? `<div class="brand-tagline">${branding.tagline}</div>` : (branding?.licenseNo ? `<div class="brand-tagline">رقم الترخيص: ${branding.licenseNo}</div>` : "")}
     </div>
     <div class="inv-badge">
       <div class="inv-type-ar">فاتورة ضريبية</div>
@@ -664,12 +667,14 @@ ${isPaid ? `<div class="watermark">PAID ✓</div>` : isOverdue ? `<div class="wa
     <div class="parties">
       <div class="party">
         <div class="party-label"><div class="dot"></div> المُصدِر / ISSUED BY</div>
-        <div class="party-name">مكتب عدالة AI للمحاماة</div>
+        <div class="party-name">${branding?.officeName || "مكتب المحاماة"}</div>
         <div class="party-detail">
-          Adalah AI Law Firm<br>
-          <strong>📍</strong> المملكة العربية السعودية · KSA<br>
-          <strong>✉</strong> info@adalah-ai.sa<br>
-          <strong>🌐</strong> adalah-ai.sa
+          ${branding?.officeNameEn ? `${branding.officeNameEn}<br>` : ""}
+          ${branding?.address ? `<strong>📍</strong> ${branding.address}<br>` : ""}
+          ${branding?.phone ? `<strong>📞</strong> ${branding.phone}<br>` : ""}
+          ${branding?.email ? `<strong>✉</strong> ${branding.email}<br>` : ""}
+          ${branding?.website ? `<strong>🌐</strong> ${branding.website}<br>` : ""}
+          ${branding?.licenseNo ? `<strong>🪪</strong> رقم الترخيص: ${branding.licenseNo}` : ""}
         </div>
       </div>
       <div class="party-divider"></div>
@@ -763,14 +768,17 @@ ${isPaid ? `<div class="watermark">PAID ✓</div>` : isOverdue ? `<div class="wa
     <!-- SIGNATURES -->
     <div class="sig-row">
       <div class="sig-box">
+        ${branding?.signatureUrl ? `<img src="${branding.signatureUrl}" alt="توقيع" style="height:56px;max-width:140px;object-fit:contain;margin-bottom:4px;display:block"/>` : `<div style="height:56px"></div>`}
         <div class="sig-label">توقيع المسؤول / Authorized Signature</div>
-        <div class="sig-name">&nbsp;</div>
+        <div class="sig-name">${branding?.officeName || "&nbsp;"}</div>
       </div>
       <div class="sig-box">
+        ${branding?.stampUrl ? `<img src="${branding.stampUrl}" alt="ختم" style="height:60px;width:60px;object-fit:contain;margin:0 auto 4px;display:block"/>` : `<div style="height:60px"></div>`}
         <div class="sig-label">ختم المكتب / Office Stamp</div>
         <div class="sig-name">&nbsp;</div>
       </div>
       <div class="sig-box">
+        <div style="height:60px"></div>
         <div class="sig-label">توقيع العميل / Client Signature</div>
         <div class="sig-name">&nbsp;</div>
       </div>
@@ -780,10 +788,10 @@ ${isPaid ? `<div class="watermark">PAID ✓</div>` : isOverdue ? `<div class="wa
 
   <!-- FOOTER -->
   <div class="footer-bar">
-    <div class="f-brand">عدالة AI <span>· منصة إدارة المكاتب القانونية</span></div>
+    <div class="f-brand">${branding?.officeName || "مكتب المحاماة"} ${branding?.showAdalalahFooter !== false ? `<span>· Adalah AI</span>` : ""}</div>
     <div class="f-meta">
-      adalah-ai.sa &nbsp;·&nbsp; VAT: 300XXXXXXXX &nbsp;·&nbsp; CR: 1234567890<br>
-      Generated: ${new Date().toLocaleDateString("en-GB")} &nbsp;·&nbsp; Adalah AI Legal OS v2
+      ${branding?.website ? `${branding.website} &nbsp;·&nbsp; ` : ""}${branding?.phone || ""}${branding?.email ? ` &nbsp;·&nbsp; ${branding.email}` : ""}<br>
+      Generated: ${new Date().toLocaleDateString("en-GB")}${branding?.licenseNo ? ` &nbsp;·&nbsp; رخصة: ${branding.licenseNo}` : ""}
     </div>
   </div>
 

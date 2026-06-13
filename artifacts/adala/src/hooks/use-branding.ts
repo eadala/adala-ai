@@ -19,6 +19,7 @@ export type OfficeBranding = {
   faviconUrl?: string | null;
   loginBackgroundUrl?: string | null;
   watermarkUrl?: string | null;
+  letterheadUrl?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
   invoiceTemplate?: "classic_legal" | "modern_blue" | "minimal" | null;
