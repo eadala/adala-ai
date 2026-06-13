@@ -9,7 +9,8 @@ import {
   FileText, Pencil, BookOpen, Calendar, ExternalLink,
   Link2, Shield, ShieldCheck, Wifi, WifiOff, Lock, Unlock,
   ArrowUpRight, Crown, Zap, AlertCircle, RefreshCw,
-  Palette, LayoutDashboard, QrCode, Sparkles, ToggleRight
+  Palette, LayoutDashboard, QrCode, Sparkles, ToggleRight,
+  MessageCircle, Send
 } from "lucide-react";
 import { getPlanFeatures, canUseFeature, generateSubdomain, PLAN_FEATURES } from "@/lib/plan-features";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,19 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   completed:  { label: "مكتمل",   color: "text-emerald-400" },
   cancelled:  { label: "ملغي",    color: "text-red-400" },
 };
+
+/* ── WhatsApp number normaliser ─────────────────────────────────────────────
+   Accepts: 0501234567 | +966501234567 | 00966501234567 | 966501234567
+   Returns: 966501234567 (digits only, ready for wa.me)                      */
+function toWaNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("00966")) return digits.slice(2);          // 00966… → 966…
+  if (digits.startsWith("966"))   return digits;                    // already intl
+  if (digits.startsWith("0"))     return "966" + digits.slice(1);  // 05… → 9665…
+  if (digits.length <= 9)         return "966" + digits;            // 5… (Saudi)
+  return digits;
+}
 
 /* ═══════════════════════════════════════════════════════════ */
 export default function OfficeManagement() {
@@ -1080,8 +1094,43 @@ export default function OfficeManagement() {
               <div className="grid grid-cols-2 gap-3">
                 <div><Label className="text-xs font-semibold mb-1 block">الهاتف</Label>
                   <Input value={pageForm.phone ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, phone: e.target.value }))} dir="ltr" /></div>
-                <div><Label className="text-xs font-semibold mb-1 block">واتساب <span className="text-muted-foreground font-normal">(966xxxxxxxxx)</span></Label>
-                  <Input value={pageForm.whatsapp ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, whatsapp: e.target.value }))} dir="ltr" placeholder="9665xxxxxxxx" /></div>
+                <div>
+                  <Label className="text-xs font-semibold mb-1 flex items-center gap-1.5">
+                    <MessageCircle className="h-3.5 w-3.5 text-emerald-500" />واتساب
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      value={pageForm.whatsapp ?? ""}
+                      onChange={e => {
+                        const raw = e.target.value;
+                        const converted = toWaNumber(raw);
+                        setPageForm((f: any) => ({ ...f, whatsapp: converted || raw }));
+                      }}
+                      dir="ltr"
+                      placeholder="0501234567 أو +966501234567"
+                      className="pr-3"
+                    />
+                  </div>
+                  {(() => {
+                    const wa = toWaNumber(pageForm.whatsapp ?? "");
+                    if (!wa) return (
+                      <p className="text-[10px] text-muted-foreground mt-1">أدخل الرقم بأي صيغة — يُحوَّل تلقائياً للصيغة الدولية</p>
+                    );
+                    const url = `https://wa.me/${wa}`;
+                    return (
+                      <div className="mt-1.5 flex items-center gap-2 p-2 rounded-lg bg-emerald-500/8 border border-emerald-500/20">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                        <span className="text-[10px] text-emerald-300 font-mono flex-1 truncate" dir="ltr">{url}</span>
+                        <a href={url} target="_blank" rel="noreferrer">
+                          <Button type="button" size="sm" variant="ghost"
+                            className="h-6 px-2 text-[10px] gap-1 text-emerald-400 hover:bg-emerald-500/15">
+                            <Send className="h-3 w-3" />اختبار
+                          </Button>
+                        </a>
+                      </div>
+                    );
+                  })()}
+                </div>
                 <div><Label className="text-xs font-semibold mb-1 block">البريد الإلكتروني</Label>
                   <Input value={pageForm.email ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, email: e.target.value }))} dir="ltr" /></div>
                 <div><Label className="text-xs font-semibold mb-1 block">العنوان</Label>
