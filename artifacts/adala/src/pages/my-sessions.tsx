@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Layout } from "@/components/layout";
+
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -75,8 +75,7 @@ export default function MySessionsPage() {
   };
 
   return (
-    <Layout>
-      <div className="p-6 max-w-4xl mx-auto space-y-6" dir="rtl">
+    <div className="p-6 max-w-4xl mx-auto space-y-6" dir="rtl">
 
         {/* ── Header ── */}
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -254,6 +253,5 @@ export default function MySessionsPage() {
         </Card>
 
       </div>
-    </Layout>
   );
 }

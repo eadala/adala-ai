@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { Layout } from "@/components/layout";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -527,8 +527,7 @@ function SettingsTab() {
 /* ────────────── MAIN PAGE ────────────── */
 export default function StorageSettings() {
   return (
-    <Layout>
-      <div className="min-h-screen bg-gradient-to-br from-[#0B1B2B] via-[#0D2137] to-[#0B1B2B] p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#0B1B2B] via-[#0D2137] to-[#0B1B2B] p-4 md:p-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -564,6 +563,5 @@ export default function StorageSettings() {
           <TabsContent value="settings"><SettingsTab /></TabsContent>
         </Tabs>
       </div>
-    </Layout>
   );
 }
