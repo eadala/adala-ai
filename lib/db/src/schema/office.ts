@@ -25,6 +25,8 @@ export const officePageTable = pgTable("office_page", {
   successRate: integer("success_rate").default(0),
   showStats: boolean("show_stats").default(true),
   isPublished: boolean("is_published").default(false),
+  mapsEmbedUrl: text("maps_embed_url"),
+  googleMapsUrl: text("google_maps_url"),
   primaryColor: text("primary_color").default("#C9A84C"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

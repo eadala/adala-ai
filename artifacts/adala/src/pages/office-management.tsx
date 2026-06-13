@@ -1089,13 +1089,29 @@ export default function OfficeManagement() {
               </div>
 
               {/* Maps */}
-              <div>
-                <Label className="text-xs font-semibold mb-1 block flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5" /> رابط تضمين خريطة جوجل
-                </Label>
-                <Input value={pageForm.mapsEmbedUrl ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, mapsEmbedUrl: e.target.value }))} dir="ltr"
-                  placeholder="https://www.google.com/maps/embed?pb=..." />
-                <p className="text-[10px] text-muted-foreground mt-1">من Google Maps: مشاركة → تضمين خريطة → انسخ رابط src من iframe</p>
+              <div className="space-y-3 p-4 rounded-xl border border-border/50 bg-muted/20">
+                <h4 className="text-xs font-bold flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5 text-primary" /> موقع المكتب على الخريطة
+                </h4>
+                <div>
+                  <Label className="text-xs font-semibold mb-1 block">رابط التضمين (iframe embed)</Label>
+                  <Input value={pageForm.mapsEmbedUrl ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, mapsEmbedUrl: e.target.value }))} dir="ltr"
+                    placeholder="https://www.google.com/maps/embed?pb=..." />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Google Maps ← مشاركة ← تضمين خريطة ← انسخ الرابط من خاصية <code className="bg-muted px-1 rounded">src</code>
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold mb-1 block">رابط خرائط جوجل العادي (للزوار)</Label>
+                  <Input value={pageForm.googleMapsUrl ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, googleMapsUrl: e.target.value }))} dir="ltr"
+                    placeholder="https://maps.google.com/?q=..." />
+                  <p className="text-[10px] text-muted-foreground mt-1">يظهر زر "فتح في خرائط جوجل" للزوار للحصول على الاتجاهات</p>
+                </div>
+                {pageForm.mapsEmbedUrl && (
+                  <div className="rounded-xl overflow-hidden border border-border h-40">
+                    <iframe src={pageForm.mapsEmbedUrl} width="100%" height="100%" style={{ border: 0 }} loading="lazy" title="معاينة الخريطة" />
+                  </div>
+                )}
               </div>
 
               {/* Social */}
