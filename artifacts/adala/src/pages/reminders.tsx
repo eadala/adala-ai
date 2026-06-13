@@ -95,7 +95,7 @@ export default function RemindersPage() {
   }
   function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
   function submit() {
-    if (!form.title.trim()) return toast.error(tx("العنوان مطلوب", "Title is required"));
+    if (!form.title.trim()) { toast.error(tx("العنوان مطلوب", "Title is required")); return; }
     saveMut.mutate({ ...form, caseId: form.caseId ? parseInt(form.caseId) : undefined, dueDate: form.dueDate || undefined, dueTime: form.dueTime || undefined });
   }
 

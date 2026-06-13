@@ -228,7 +228,7 @@ export default function BackupCenter() {
 
   /* ── Import ── */
   async function handleImport() {
-    if (!importFile) return toast.warning("الرجاء اختيار ملف أولاً");
+    if (!importFile) { toast.warning("الرجاء اختيار ملف أولاً"); return; }
     try {
       const text = await importFile.text();
       const parsed = JSON.parse(text);

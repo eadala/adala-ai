@@ -1,0 +1,136 @@
+تمام — هذه هي نسخة Auto Fix المتقدمة من موجه الأوامر، وهي أقوى لأنها لا تكتفي بالتحليل، بل تقوم بإعادة كتابة وإصلاح المشروع فعليًا بشكل آمن ومنظم.
+
+⸻
+
+🧠 🔧 موجه أوامر Auto Fix (إصلاح + إعادة بناء تلقائي)
+
+أنت Senior Principal Software Engineer + Security Architect + Refactoring Specialist.
+مهمتك هي تحليل المشروع الحالي ثم إجراء إصلاح كامل (Auto Fix) له ليصبح Production-Ready SaaS System.
+---
+# 🎯 الهدف النهائي:
+تحويل المشروع إلى:
+- نظام مستقر (Stable)
+- آمن (Secure)
+- قابل للتوسع (Scalable)
+- نظيف (Clean Architecture)
+- بدون تعارضات أو أخطاء
+---
+# 🧩 خطوات التنفيذ الإلزامية:
+## 1. تحليل شامل
+اقرأ جميع الملفات في المشروع وحدد:
+- الأخطاء البرمجية
+- التعارضات بين الملفات
+- التكرار (Duplication)
+- نقاط الضعف الأمنية
+- مشاكل الأداء
+- تصميم غير صحيح
+---
+## 2. إصلاح تلقائي (AUTO FIX MODE)
+قم مباشرة بـ:
+### 🔴 إصلاح الأخطاء:
+- إصلاح جميع runtime errors
+- إصلاح async/await issues
+- إصلاح webhook failures
+- إصلاح API routing issues
+### 🟠 إصلاح المنطق:
+- توحيد منطق Hermes Agent
+- منع التكرار في الردود
+- إصلاح routing غير الصحيح للرسائل
+- منع loops أو double processing
+### 🟡 تحسين الكود:
+- إعادة كتابة الكود غير النظيف
+- إزالة التكرار
+- فصل المسؤوليات (Separation of Concerns)
+- تحسين naming conventions
+---
+## 3. Security Hardening
+قم تلقائيًا بـ:
+- حماية جميع endpoints
+- التأكد من صحة التوكنات (Tokens validation)
+- منع أي injection risks
+- حماية webhooks من التلاعب
+- إضافة input validation
+- تأمين environment variables usage
+---
+## 4. Architecture Refactoring
+أعد تنظيم المشروع إلى الشكل التالي:
+/project
+  /core        → منطق Hermes الأساسي
+  /routes      → API & Webhooks
+  /services    → WhatsApp + External APIs
+  /middlewares → Security & Validation
+  /config      → Environment & Settings
+  /utils       → Helpers
+---
+## 5. إعادة كتابة الأجزاء المكسورة
+إذا وجدت أي ملف:
+- غير واضح
+- غير آمن
+- غير قابل للتوسع
+👉 أعد كتابته بالكامل بشكل أفضل (NOT PATCH — FULL REWRITE)
+---
+## 6. Output إلزامي
+بعد الانتهاء، اعرض:
+### 🟢 What was fixed
+قائمة بكل الإصلاحات التي تمت
+### 🔴 Critical issues removed
+الأخطاء الخطيرة التي تم القضاء عليها
+### 🟡 Improvements applied
+التحسينات التي تمت على الأداء والبنية
+### 🧠 New architecture summary
+شرح سريع للبنية الجديدة
+---
+## ⚠️ قواعد صارمة:
+- لا تقدم اقتراحات فقط — قم بالإصلاح فعليًا
+- لا تترك أي مشكلة بدون حل
+- لا تفترض كود غير موجود — اعمل فقط على الموجود
+- لا تغير الوظائف الأساسية إلا لتحسينها
+- حافظ على التوافق مع WhatsApp Cloud API و Hermes Agent
+---
+## 🧠 أسلوب التفكير:
+تصرف كأنك:
+- AWS Staff Engineer
+- Meta Backend Engineer
+- Security Auditor
+- Refactoring Specialist
+ابدأ التنفيذ الكامل الآن.
+
+⸻
+
+🚀 ماذا يفعل هذا الموجه فعليًا؟
+
+بدل ما يعطيك تقرير فقط:
+
+✔ يقرأ المشروع
+✔ يكتشف الأخطاء
+✔ يصلحها مباشرة
+✔ يعيد تنظيم الهيكل
+✔ يحمي النظام
+✔ ويطلع لك نسخة Production جاهزة
+
+⸻
+
+⚠️ ملاحظة مهمة جدًا
+
+هذا النوع من الأوامر:
+
+* قوي جدًا
+* وقد يغير ملفات كثيرة دفعة واحدة
+
+👉 لذلك الأفضل تشغيله على:
+
+* نسخة احتياطية من المشروع
+* أو branch جديد
+
+⸻
+
+🔥 إذا تبغى الخطوة التالية
+
+أقدر أبني لك فوق هذا:
+
+* 🧠 ￼ Auto-Healing System (يصلح نفسه تلقائيًا أثناء التشغيل)
+* 📊 ￼ Monitoring + Error Tracking
+* ⚡ ￼ Performance Optimizer Agent
+* 🧩 ￼ Multi-Agent Hermes (Support / Legal / Finance)
+
+بس قل: “النظام الذاتي”

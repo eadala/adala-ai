@@ -427,7 +427,7 @@ export default function PricingPage() {
       {/* ── PRICING CARDS ── */}
       <section className="max-w-7xl mx-auto px-6 pb-20">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {PLANS_LIVE.map((plan, i) => {
+          {PLANS_LIVE.map((plan: any, i: number) => {
             const price = cycle === "monthly" ? plan.monthly : plan.yearly;
             const Icon = plan.icon;
             return (
@@ -535,7 +535,7 @@ export default function PricingPage() {
 
                   {/* Features */}
                   <div className="space-y-2 flex-1 mb-5">
-                    {plan.features.map((f, fi) => (
+                    {plan.features.map((f: any, fi: number) => (
                       <div key={fi} className="flex items-start gap-2">
                         <div className="h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
                           style={{ background: `${plan.color}20` }}>
@@ -601,7 +601,7 @@ export default function PricingPage() {
               {/* Table header */}
               <div className="grid border-b border-white/7" style={{ gridTemplateColumns: "220px repeat(7, 1fr)" }}>
                 <div className="p-4 text-sm font-bold text-white/40">الميزة</div>
-                {PLANS_LIVE.map((p, i) => (
+                {PLANS_LIVE.map((p: any, i: number) => (
                   <div
                     key={p.id}
                     className="p-3 text-center cursor-pointer transition-all"
@@ -660,7 +660,7 @@ export default function PricingPage() {
                 style={{ display: "grid", gridTemplateColumns: "220px repeat(7, 1fr)" }}
               >
                 <div />
-                {PLANS_LIVE.map((plan, i) => (
+                {PLANS_LIVE.map((plan: any, i: number) => (
                   <div key={i} className="px-1.5">
                     <a href={plan.enterprise ? "mailto:sales@adalah-ai.sa" : "/sign-up"}>
                       <Button

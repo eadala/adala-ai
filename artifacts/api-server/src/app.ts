@@ -1,6 +1,9 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import helmet from "helmet";
+import compression from "compression";
+import rateLimit from "express-rate-limit";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
 import {
@@ -13,6 +16,9 @@ import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./webhookHandlers";
 
 const app: Express = express();
+
+// Trust Replit's reverse proxy so rate-limit reads the real client IP
+app.set("trust proxy", 1);
 
 // ─── Stripe Webhook MUST be before express.json() ───
 app.post(
@@ -51,6 +57,37 @@ app.use(
     },
   }),
 );
+
+// ─── Security & Performance middleware ───
+app.use(helmet({
+  contentSecurityPolicy: false,   // handled by frontend
+  crossOriginEmbedderPolicy: false,
+}));
+app.use(compression());
+
+// Global rate limit: 300 req / 1min per IP
+const globalLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طلبات كثيرة — حاول مجدداً خلال دقيقة" },
+  skip: (req) => req.path.startsWith("/api/stripe/webhook"),
+});
+
+// Strict limit for auth/AI endpoints: 30 req / 1min
+const strictLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "تجاوزت حد الطلبات المسموح به" },
+});
+
+app.use(globalLimiter);
+app.use("/api/ai-chat", strictLimiter);
+app.use("/api/legal-ai", strictLimiter);
+app.use("/api/portal/create-token", strictLimiter);
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,7 +12,8 @@ import {
   Server, Copy, Fingerprint, Wifi, Database, ShieldAlert,
   CircleCheck, CircleX, KeySquare, Cloud, Link2,
   Shield, CheckCircle, XCircle, Layers, PlugZap, Smartphone,
-  Gift, CalendarClock, Ban, PlusCircle, Timer, TrendingDown, Percent
+  Gift, CalendarClock, Ban, PlusCircle, Timer, TrendingDown, Percent,
+  Phone, Mail, Twitter, Linkedin, Youtube,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -3378,8 +3379,8 @@ function PlatformWebsiteTab({ qc, toast }: any) {
     queryKey: ["admin", "/website"],
     queryFn: () => API("/website"),
     staleTime: 60_000,
-    onSuccess: (d: any) => setLocalData(d ?? {}),
   });
+  useEffect(() => { if (websiteData) setLocalData(websiteData); }, [websiteData]);
 
   const section = WEBSITE_SECTIONS.find(s => s.key === activeSection)!;
 
@@ -3441,7 +3442,7 @@ function PlatformWebsiteTab({ qc, toast }: any) {
                 <div key={field} className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground">{FIELD_LABELS[field] ?? field}</Label>
                   <Textarea
-                    value={localData[wKey] ?? websiteData?.[wKey] ?? ""}
+                    value={(localData as Record<string, string>)[wKey] ?? websiteData?.[wKey] ?? ""}
                     onChange={e => setLocalData(prev => ({ ...prev, [wKey]: e.target.value }))}
                     rows={2}
                     className="resize-none text-sm bg-muted/20 border-border/40"

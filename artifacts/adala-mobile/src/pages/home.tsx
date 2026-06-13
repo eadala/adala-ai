@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Scale, Users, TrendingUp, AlertCircle, ChevronLeft,
-  Clock, Briefcase, Bell, Receipt,
+  Clock, Briefcase, Bell, Receipt, Plus,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -141,6 +141,35 @@ export default function Home() {
           <QuickAction icon={Users}     label="العملاء"    href="/clients"   color="bg-violet-500/20 text-violet-400" />
           <QuickAction icon={Receipt}   label="الفواتير"   href="/invoices"  color="bg-green-500/20 text-green-400" />
           <QuickAction icon={Bell}      label="التذكيرات"  href="/reminders" color="bg-rose-500/20 text-rose-400" />
+        </div>
+      </section>
+
+      {/* Quick Create */}
+      <section>
+        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">إنشاء سريع</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/new-case">
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 flex items-center gap-3 tap-effect">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
+                <Plus size={18} className="text-blue-400" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-foreground">قضية جديدة</div>
+                <div className="text-[11px] text-muted-foreground">أضف قضية</div>
+              </div>
+            </div>
+          </Link>
+          <Link href="/new-client">
+            <div className="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-4 flex items-center gap-3 tap-effect">
+              <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
+                <Plus size={18} className="text-violet-400" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-foreground">موكل جديد</div>
+                <div className="text-[11px] text-muted-foreground">أضف موكلاً</div>
+              </div>
+            </div>
+          </Link>
         </div>
       </section>
 

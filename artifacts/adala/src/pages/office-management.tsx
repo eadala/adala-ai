@@ -481,8 +481,8 @@ export default function OfficeManagement() {
             <div className="flex items-center gap-2">
               <Crown className="h-4 w-4 text-yellow-400" />
               <span className="text-sm font-semibold">
-                خطة <span style={{ color: PLAN_FEATURES[(office?.plan as any) ?? "starter"]?.color }}>
-                  {PLAN_FEATURES[(office?.plan as any) ?? "starter"]?.label ?? "مبتدئ"}
+                خطة <span style={{ color: (PLAN_FEATURES as any)[(office?.plan ?? "starter")]?.color }}>
+                  {(PLAN_FEATURES as any)[(office?.plan ?? "starter")]?.label ?? "مبتدئ"}
                 </span>
               </span>
             </div>

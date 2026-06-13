@@ -76,7 +76,7 @@ export default function Cases() {
           <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1.5">
             <Upload className="h-4 w-4" /> {tx("استيراد CSV", "Import CSV")}
           </Button>
-          <ImportDialog open={importOpen} onOpenChange={setImportOpen} type="cases" queryKey={getListCasesQueryKey()} />
+          <ImportDialog open={importOpen} onOpenChange={setImportOpen} type="cases" queryKey={[...getListCasesQueryKey()] as string[]} />
           <PrintButton label={tx("تصدير PDF", "Export PDF")}>
             <DocumentPrintTemplate
               title={tx("كشف القضايا", "Cases Report")}

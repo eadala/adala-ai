@@ -123,7 +123,7 @@ export default function Tasks() {
   };
 
   const handleSubmit = () => {
-    if (!form.title.trim()) return toast({ title: "العنوان مطلوب", variant: "destructive" });
+    if (!form.title.trim()) { toast({ title: "العنوان مطلوب", variant: "destructive" }); return; }
     if (editTask) {
       updateMutation.mutate({ id: editTask.id, ...form });
     } else {

@@ -81,7 +81,7 @@ export default function Dashboard() {
     ? hr < 12 ? "ابدأ يومك بمراجعة القضايا الجديدة ومواعيد الجلسات" : hr < 17 ? "تابع قضاياك الجارية واطلع على آخر التحديثات" : "راجع ملخص يومك وتأكد من الاستعداد لجلسات الغد"
     : hr < 12 ? "Start your day by reviewing new cases and upcoming sessions" : hr < 17 ? "Follow up on active cases and check latest updates" : "Review your day summary and prepare for tomorrow's sessions";
 
-  const kpis = data?.kpis ?? {};
+  const kpis = (data?.kpis ?? {}) as any;
 
   const kpiCards = [
     {

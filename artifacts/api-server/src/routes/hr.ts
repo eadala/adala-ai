@@ -36,11 +36,11 @@ router.post("/hr/employees", async (req, res) => {
             nationalId, hireDate, status = "active", bankIban, bankName } = req.body;
     if (!fullName) return res.status(400).json({ error: "اسم الموظف مطلوب" });
     const [row] = await db.insert(employeesTable).values({
-      fullName, jobTitle: jobTitle ?? null, department: department ?? null,
+      fullName, jobTitle: jobTitle ?? fullName, department: department ?? null,
       salary: salary ?? "0", phone: phone ?? null, email: email ?? null,
-      nationalId: nationalId ?? null, hireDate: hireDate ? new Date(hireDate) : null,
+      nationalId: nationalId ?? null, hireDate: hireDate ? String(hireDate) : null,
       status, bankIban: bankIban ?? null, bankName: bankName ?? null,
-    }).returning();
+    } as any).returning();
     res.json(row);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

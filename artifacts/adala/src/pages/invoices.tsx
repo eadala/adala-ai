@@ -401,7 +401,8 @@ function InvoiceSheet({
 
   const printInvoice = () => {
     if (!invoice) return;
-    const items: any[] = invoice.items ?? [];
+    const inv = invoice as any;
+    const items: any[] = (typeof inv.items === "string" ? JSON.parse(inv.items || "[]") : inv.items) ?? [];
     const subtotal = items.reduce((s: number, it: any) => s + Number(it.total ?? ((it.quantity ?? 1) * (it.unitPrice ?? 0))), 0);
     const vatRate = Number(invoice.vatRate ?? 15);
     const vatAmount = Math.round(subtotal * (vatRate / 100));
@@ -680,10 +681,10 @@ ${isPaid ? `<div class="watermark">PAID ✓</div>` : isOverdue ? `<div class="wa
       <div class="party-divider"></div>
       <div class="party">
         <div class="party-label"><div class="dot"></div> العميل / BILLED TO</div>
-        <div class="party-name">${invoice.clientName ?? invoice.title ?? "—"}</div>
+        <div class="party-name">${(invoice as any).clientName ?? invoice.title ?? "—"}</div>
         <div class="party-detail">
-          ${invoice.clientEmail ? `<strong>✉</strong> ${invoice.clientEmail}<br>` : ""}
-          ${invoice.caseTitle ? `<strong>⚖️</strong> القضية: ${invoice.caseTitle}` : ""}
+          ${(invoice as any).clientEmail ? `<strong>✉</strong> ${(invoice as any).clientEmail}<br>` : ""}
+          ${(invoice as any).caseTitle ? `<strong>⚖️</strong> القضية: ${(invoice as any).caseTitle}` : ""}
         </div>
       </div>
     </div>
@@ -1182,7 +1183,7 @@ export default function Invoices() {
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48" dir="rtl">
+            <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuItem onClick={e => { e.stopPropagation(); setSelectedInvoice(inv); setSheetOpen(true); }}>
                 <Eye className="h-4 w-4 ml-2" />عرض التفاصيل
               </DropdownMenuItem>
