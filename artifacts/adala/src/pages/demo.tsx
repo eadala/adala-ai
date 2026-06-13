@@ -964,7 +964,7 @@ function LegalAISection() {
           <p className="text-xs text-white/60 leading-6">
             بسم الله الرحمن الرحيم — المملكة العربية السعودية<br/>
             {LEGAL_AI_TYPES.find(t => t.id === selected)?.label}<br/>
-            الأطراف: [يُعبأ تلقائياً من ملف الموكل]<br/>
+            الأطراف: [يُعبأ تلقائياً من ملف العميل]<br/>
             بناءً على الوقائع والمستندات المتوفرة في النظام، يتشرف المحامي بتقديم هذه الوثيقة...
             <span className="text-white/30"> [تُستكمل الصياغة تلقائياً من بيانات المكتب]</span>
           </p>
@@ -1254,7 +1254,7 @@ function LegalResearchSection() {
 function ClientPortalSection() {
   return (
     <div>
-      <SectionHeader title="بوابة الموكلين الذاتية" count={CLIENTS.length} icon={Globe} />
+      <SectionHeader title="بوابة العملاء الذاتية" count={CLIENTS.length} icon={Globe} />
       <div className="bg-gradient-to-l from-indigo-900/20 to-transparent border border-indigo-500/15 rounded-xl p-4 mb-4">
         <p className="text-xs text-indigo-400 mb-2">كل موكل لديه رابط خاص ومشفر للوصول لملفه في أي وقت — بدون حاجة لحساب</p>
         <div className="flex items-center gap-2 bg-black/20 rounded-lg p-2.5">
@@ -1292,7 +1292,7 @@ function ClientPortalSection() {
 const TABS = [
   { id: "overview",   label: "نظرة عامة",       icon: LayoutGrid,    component: PlatformOverviewSection, isNew: true },
   { id: "cases",      label: "القضايا",          icon: Scale,         component: CasesSection,            isNew: false },
-  { id: "clients",    label: "الموكلين",          icon: Users,         component: ClientsSection,          isNew: false },
+  { id: "clients",    label: "العملاء",          icon: Users,         component: ClientsSection,          isNew: false },
   { id: "contracts",  label: "العقود",            icon: FileCheck,     component: ContractsSection,        isNew: false },
   { id: "documents",  label: "المستندات",         icon: FileText,      component: DocumentsSection,        isNew: false },
   { id: "calendar",   label: "المواعيد",          icon: Calendar,      component: CalendarSection,         isNew: false },
@@ -1310,7 +1310,7 @@ const TABS = [
   { id: "audit",      label: "سجل الأمان",        icon: Activity,      component: AuditSection,            isNew: true },
   { id: "opponent",   label: "محاكي الخصم",       icon: Shield,        component: OpponentSection,         isNew: false },
   { id: "research",   label: "البحث القانوني",    icon: Search,        component: LegalResearchSection,    isNew: false },
-  { id: "portal",     label: "بوابة الموكلين",    icon: Globe,         component: ClientPortalSection,     isNew: false },
+  { id: "portal",     label: "بوابة العملاء",    icon: Globe,         component: ClientPortalSection,     isNew: false },
 ];
 
 /* ── PAGE ─────────────────────────────────────── */

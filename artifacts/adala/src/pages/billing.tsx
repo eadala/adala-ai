@@ -64,7 +64,7 @@ const COMPARE_ROWS: { key: keyof PlanMeta; label: string; icon: string; isBool?:
   { key: "cases",   label: "القضايا",                  icon: "⚖️" },
   { key: "users",   label: "المستخدمون",               icon: "👥" },
   { key: "storage", label: "التخزين",                  icon: "💾" },
-  { key: "portal",  label: "بوابة الموكل",             icon: "🌐", isBool: true },
+  { key: "portal",  label: "بوابة العميل",             icon: "🌐", isBool: true },
   { key: "ai",      label: "أدوات الذكاء الاصطناعي",  icon: "✨", isBool: true },
   { key: "reports", label: "تقارير متقدمة",            icon: "📊", isBool: true },
   { key: "support", label: "مستوى الدعم",              icon: "🎧" },
@@ -73,7 +73,7 @@ const COMPARE_ROWS: { key: keyof PlanMeta; label: string; icon: string; isBool?:
 const KEY_LABELS: Record<string, { ar: string; icon: string }> = {
   AI_CALLS:   { ar: "استدعاءات الذكاء الاصطناعي", icon: "🤖" },
   CASES:      { ar: "القضايا",                    icon: "⚖️" },
-  CLIENTS:    { ar: "الموكلون",                   icon: "👥" },
+  CLIENTS:    { ar: "العميلون",                   icon: "👥" },
   USERS:      { ar: "المستخدمون",                 icon: "🧑‍💼" },
   STORAGE_GB: { ar: "التخزين (GB)",               icon: "💾" },
   DOCUMENTS:  { ar: "المستندات",                  icon: "📄" },

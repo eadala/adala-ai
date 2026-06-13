@@ -21,7 +21,7 @@ const G = "#C9A84C";
 const NAV_ITEMS = [
   { icon: Home,      label: "الرئيسية" },
   { icon: Briefcase, label: "القضايا" },
-  { icon: Users,     label: "الموكلون" },
+  { icon: Users,     label: "العميلون" },
   { icon: FileText,  label: "المستندات" },
   { icon: Brain,     label: "الذكاء الاصطناعي" },
   { icon: Calendar,  label: "الجلسات" },
@@ -195,7 +195,7 @@ function ScreenCases() {
         </div>
         {/* Table header */}
         <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-2 px-3 py-2 mb-1 text-[9px] text-white/30 font-bold" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-          <span>القضية</span><span>النوع</span><span>الموكل</span><span>الجلسة القادمة</span><span>الحالة</span>
+          <span>القضية</span><span>النوع</span><span>العميل</span><span>الجلسة القادمة</span><span>الحالة</span>
         </div>
         <div className="space-y-1 overflow-hidden">
           {[
@@ -317,7 +317,7 @@ function ScreenClients() {
       <div className="p-4 h-full overflow-hidden space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-black text-white">إدارة الموكلين</div>
+            <div className="text-sm font-black text-white">إدارة العملاء</div>
             <div className="text-[10px] text-white/40">183 موكل إجمالاً</div>
           </div>
           <div className="text-[9px] px-3 py-1 rounded-lg font-bold text-[#0D1626]" style={{ background: G }}>+ موكل جديد</div>
@@ -850,9 +850,9 @@ function ScreenLegalStore() {
 ═══════════════════════════════════════════════════════════════════ */
 const SCREENS = [
   { id: 1,  key: "dashboard",   title: "لوحة التحكم الرئيسية",    subtitle: "نظرة شاملة على كامل المكتب في لحظة",          color: G,         features: ["152 قضية نشطة بلمسة واحدة","1.8 مليون ريال إيرادات محدّثة لحظياً","رسوم بيانية ذكية وتحليلات فورية","تنبيهات الجلسات والمواعيد الحرجة"], component: ScreenDashboard },
-  { id: 2,  key: "cases",       title: "إدارة القضايا",            subtitle: "تتبع كل قضية من الفتح حتى الإغلاق",           color: "#6366F1", features: ["جدول احترافي مع فلترة متقدمة","ربط المستندات والموكلين تلقائياً","تحليل ذكي لأولويات القضايا","تصدير التقارير بصيغ متعددة"], component: ScreenCases },
+  { id: 2,  key: "cases",       title: "إدارة القضايا",            subtitle: "تتبع كل قضية من الفتح حتى الإغلاق",           color: "#6366F1", features: ["جدول احترافي مع فلترة متقدمة","ربط المستندات والعملاء تلقائياً","تحليل ذكي لأولويات القضايا","تصدير التقارير بصيغ متعددة"], component: ScreenCases },
   { id: 3,  key: "case-detail", title: "تفاصيل القضية",            subtitle: "كل تفصيل عن القضية في شاشة واحدة",            color: "#10B981", features: ["تحليل ذكاء اصطناعي بنسبة نجاح 85%","جدول زمني لمراحل القضية","مستندات مرفقة مصنّفة تلقائياً","ملاحظات وتعليقات الفريق القانوني"], component: ScreenCaseDetail },
-  { id: 4,  key: "clients",     title: "إدارة الموكلين",           subtitle: "قاعدة بيانات موكليك بالكامل",                color: "#F59E0B", features: ["183 موكل مصنّف حسب النوع","تتبع إيرادات كل موكل","سجل تواصل كامل وتاريخ القضايا","بطاقات موكلين احترافية"], component: ScreenClients },
+  { id: 4,  key: "clients",     title: "إدارة العملاء",           subtitle: "قاعدة بيانات موكليك بالكامل",                color: "#F59E0B", features: ["183 موكل مصنّف حسب النوع","تتبع إيرادات كل موكل","سجل تواصل كامل وتاريخ القضايا","بطاقات موكلين احترافية"], component: ScreenClients },
   { id: 5,  key: "documents",   title: "المستندات والبحث الذكي",  subtitle: "بحث في 784 مستند بلغة طبيعية",               color: "#3B82F6", features: ["بحث ذكي بالعربية في ثوانٍ","تصنيف تلقائي للمستندات","معاينة سريعة بدون تحميل","مشاركة آمنة مع الفريق"], component: ScreenDocuments },
   { id: 6,  key: "legal-ai",    title: "الذكاء الاصطناعي القانوني",subtitle: "مساعدك القانوني الذكي على مدار الساعة",       color: "#8B5CF6", features: ["تحليل نقاط قوة وضعف القضية","صياغة مذكرات قانونية احترافية","اقتراح استراتيجيات الدفاع","بحث في السوابق القضائية"], component: ScreenLegalAI },
   { id: 7,  key: "opponent",    title: "محاكي الخصم",              subtitle: "تدرّب على المواجهة قبل يوم المحاكمة",         color: "#EF4444", features: ["توقع حجج الخصم بدقة 87%","اقتراح ردود قانونية فعّالة","تحليل نقاط الضعف في موقفهم","تمرين كامل لسيناريوهات المحاكمة"], component: ScreenOpponentSim },

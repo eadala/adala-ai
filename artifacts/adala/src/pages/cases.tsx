@@ -90,7 +90,7 @@ export default function Cases() {
                   <tr style={{ background: "#f5f5f5" }}>
                     {[
                       tx("عنوان القضية", "Case Title"),
-                      tx("الموكل", "Client"),
+                      tx("العميل", "Client"),
                       tx("النوع", "Type"),
                       tx("الحالة", "Status"),
                       tx("تاريخ الإضافة", "Date Added"),
@@ -130,7 +130,7 @@ export default function Cases() {
                   <Input id="title" value={newCase.title} onChange={e => setNewCase({...newCase, title: e.target.value})} placeholder={tx("مثال: قضية نزاع تجاري لشركة الرواد", "e.g., Commercial dispute – Al-Ruwad Co.")} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="clientName">{tx("اسم الموكل", "Client Name")}</Label>
+                  <Label htmlFor="clientName">{tx("اسم العميل", "Client Name")}</Label>
                   <Input id="clientName" value={newCase.clientName} onChange={e => setNewCase({...newCase, clientName: e.target.value})} placeholder={tx("اسم العميل أو الشركة", "Client or company name")} />
                 </div>
                 <div className="space-y-2">
@@ -180,7 +180,7 @@ export default function Cases() {
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead className="text-right">{tx("عنوان القضية", "Case Title")}</TableHead>
-                <TableHead className="text-right">{tx("الموكل", "Client")}</TableHead>
+                <TableHead className="text-right">{tx("العميل", "Client")}</TableHead>
                 <TableHead className="text-right">{tx("النوع", "Type")}</TableHead>
                 <TableHead className="text-right">{tx("الحالة", "Status")}</TableHead>
                 <TableHead className="text-right">{tx("تاريخ الإضافة", "Date Added")}</TableHead>
