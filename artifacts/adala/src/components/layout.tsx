@@ -49,6 +49,18 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    labelKey: "nav.groups.ai",
+    items: [
+      { href: "/ai-hub",             labelKey: "nav.items.ai_hub",             icon: Sparkles,    feature: "ai" },
+      { href: "/ai-agents",          labelKey: "nav.items.ai_agents",          icon: Bot,         feature: "ai" },
+      { href: "/legal-research",     labelKey: "nav.items.legal_research",     icon: LibraryBig,  feature: "ai" },
+      { href: "/judge-prep",         labelKey: "nav.items.judge_prep",         icon: Gavel,       feature: "ai" },
+      { href: "/opponent-simulator", labelKey: "nav.items.opponent_simulator", icon: Swords,      feature: "ai" },
+      { href: "/arbitration",        labelKey: "nav.items.arbitration",        icon: Handshake,   feature: "ai" },
+      { href: "/legal-ai",           labelKey: "nav.items.legal_ai",           icon: Scale,       feature: "ai" },
+    ],
+  },
+  {
     labelKey: "nav.groups.financial",
     items: [
       { href: "/finance",           labelKey: "nav.items.finance_center",    icon: DollarSign },
@@ -76,18 +88,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/email-notifications",  labelKey: "nav.items.email_notifications",   icon: MailIcon },
       { href: "/whatsapp-settings",    labelKey: "nav.items.whatsapp",              icon: MessageSquare },
       { href: "/telegram-settings",    labelKey: "nav.items.telegram",              icon: Send },
-    ],
-  },
-  {
-    labelKey: "nav.groups.ai",
-    items: [
-      { href: "/ai-hub",             labelKey: "nav.items.ai_hub",             icon: Sparkles,    feature: "ai" },
-      { href: "/ai-agents",          labelKey: "nav.items.ai_agents",          icon: Bot,         feature: "ai" },
-      { href: "/legal-research",     labelKey: "nav.items.legal_research",     icon: LibraryBig,  feature: "ai" },
-      { href: "/judge-prep",         labelKey: "nav.items.judge_prep",         icon: Gavel,       feature: "ai" },
-      { href: "/opponent-simulator", labelKey: "nav.items.opponent_simulator", icon: Swords,      feature: "ai" },
-      { href: "/arbitration",        labelKey: "nav.items.arbitration",        icon: Handshake,   feature: "ai" },
-      { href: "/legal-ai",           labelKey: "nav.items.legal_ai",           icon: Scale,       feature: "ai" },
     ],
   },
   {
