@@ -5,10 +5,11 @@ import {
   Bell, X, AlertTriangle, Info, CheckCircle, AlertCircle,
   FileText, Scale, Calendar, Users, MessageSquare, RefreshCw,
   ChevronRight, Receipt, Briefcase, Clock, Activity,
-  CreditCard, Zap, BrainCircuit,
+  CreditCard, Zap, BrainCircuit, BellRing, BellOff, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -92,6 +93,7 @@ export function NotificationsPanel() {
   const panelRef  = useRef<HTMLDivElement>(null);
   const esRef     = useRef<EventSource | null>(null);
   const [, setLocation] = useLocation();
+  const push = usePushNotifications();
 
   // ── SSE connection ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -378,13 +380,35 @@ export function NotificationsPanel() {
           </div>
 
           {/* Footer */}
-          <div className="border-t px-4 py-2.5 flex items-center justify-between flex-shrink-0"
+          <div className="border-t px-3 py-2.5 flex items-center justify-between flex-shrink-0 gap-2"
             style={{ borderColor: "#2D3D6B", background: "rgba(26,39,68,0.95)" }}>
-            <span className="text-[10px] text-muted-foreground">
-              {connected ? "متصل — تحديث فوري" : "يتجدد كل دقيقة"}
-            </span>
+
+            {/* Push toggle */}
+            {push.state !== "unsupported" && (
+              <button
+                disabled={push.state === "loading"}
+                onClick={() => push.state === "subscribed" ? push.unsubscribe() : push.subscribe()}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all hover:opacity-90 disabled:opacity-50"
+                style={{
+                  background: push.state === "subscribed" ? "rgba(16,185,129,0.12)" : "rgba(99,102,241,0.12)",
+                  border: `1px solid ${push.state === "subscribed" ? "rgba(16,185,129,0.3)" : "rgba(99,102,241,0.3)"}`,
+                  color: push.state === "subscribed" ? "#10B981" : push.state === "denied" ? "#EF4444" : "#818CF8",
+                }}
+                title={push.state === "subscribed" ? "إيقاف إشعارات المتصفح" : "تفعيل إشعارات المتصفح"}
+              >
+                {push.state === "loading" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : push.state === "subscribed" ? (
+                  <BellRing className="h-3 w-3" />
+                ) : (
+                  <BellOff className="h-3 w-3" />
+                )}
+                {push.state === "subscribed" ? "إشعارات المتصفح ✓" : push.state === "denied" ? "محظور" : "تفعيل الإشعارات"}
+              </button>
+            )}
+
             <button
-              className="text-xs font-medium flex items-center gap-1 hover:opacity-80 transition-opacity"
+              className="text-xs font-medium flex items-center gap-1 hover:opacity-80 transition-opacity mr-auto"
               style={{ color: GOLD }}
               onClick={() => navigate("/activity-stream")}
             >

@@ -75,6 +75,7 @@ import planCmsRouter from "./planCms";
 import signaturesRouter from "./signatures";
 import financialCoreRouter from "./financialCore";
 import eventsRouter from "./events";
+import pushRouter from "./push";
 
 const router: IRouter = Router();
 
@@ -163,5 +164,6 @@ router.use(clientAuthRouter);
 router.use(signaturesRouter);
 router.use(financialCoreRouter);
 router.use(eventsRouter);
+router.use(pushRouter);
 
 export default router;
