@@ -1,0 +1,300 @@
+تمام — سأبدأ من الأساس الصحيح لأي نظام بهذا الحجم: قاعدة البيانات + الـ Domain Model لأن كل شيء (Marketplace + Deals + Contracts + Cases) يعتمد عليها.
+
+سأبنيها لك كـ Production-ready Multi-tenant Legal Platform Schema.
+
+⸻
+
+🗄️ ⚖️ عدالة AI — Database Architecture (Core Foundation)
+
+🧠 التصميم العام
+
+النظام قائم على 4 طبقات بيانات رئيسية:
+
+1. Tenancy Layer (المكاتب)
+2. Marketplace Layer (الخدمات + الطلبات)
+3. Deal Layer (التفاوض)
+4. Legal Core Layer (العقود + القضايا)
+
+⸻
+
+🏢 1) Multi-Tenant Core
+
+🏛️ tenants (المكاتب القانونية)
+
+CREATE TABLE tenants (
+    id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    plan TEXT DEFAULT 'basic',
+    status TEXT DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+👤 users
+
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES tenants(id),
+    name TEXT,
+    email TEXT UNIQUE,
+    password_hash TEXT,
+    role TEXT, -- owner / lawyer / clerk / admin / client
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+🛒 2) Marketplace Layer (مثل خمسات)
+
+⚖️ services
+
+CREATE TABLE services (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES tenants(id),
+    title TEXT,
+    description TEXT,
+    price NUMERIC,
+    delivery_time_hours INT,
+    type TEXT, -- fixed / negotiation / quote
+    creates_case BOOLEAN DEFAULT TRUE,
+    case_type TEXT, -- contract_review, litigation, etc
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+📦 orders
+
+CREATE TABLE orders (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES tenants(id),
+    user_id UUID REFERENCES users(id),
+    service_id UUID REFERENCES services(id),
+    status TEXT, -- pending / paid / in_progress / completed
+    payment_status TEXT,
+    total_price NUMERIC,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+💬 3) Deal Room (التفاوض)
+
+🤝 deals
+
+CREATE TABLE deals (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES tenants(id),
+    order_id UUID REFERENCES orders(id),
+    client_id UUID REFERENCES users(id),
+    lawyer_id UUID REFERENCES users(id),
+    status TEXT, -- open / negotiating / agreed / closed
+    final_price NUMERIC,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+💰 offers
+
+CREATE TABLE offers (
+    id UUID PRIMARY KEY,
+    deal_id UUID REFERENCES deals(id),
+    sender_id UUID REFERENCES users(id),
+    price NUMERIC,
+    message TEXT,
+    status TEXT, -- pending / accepted / rejected
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+📄 4) Contracts Engine (العقد الإلكتروني)
+
+📑 contracts
+
+CREATE TABLE contracts (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES tenants(id),
+    deal_id UUID REFERENCES deals(id),
+    content JSONB, -- العقد الديناميكي
+    status TEXT, -- draft / signed / active / expired
+    signed_by_client BOOLEAN DEFAULT FALSE,
+    signed_by_lawyer BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+⚖️ 5) Case Management (عدالة AI Core)
+
+📁 cases
+
+CREATE TABLE cases (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES tenants(id),
+    client_id UUID REFERENCES users(id),
+    lawyer_id UUID REFERENCES users(id),
+    order_id UUID REFERENCES orders(id),
+    contract_id UUID REFERENCES contracts(id),
+    title TEXT,
+    type TEXT,
+    status TEXT, -- open / active / closed
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+💬 6) Case Workspace (التشغيل)
+
+💬 messages
+
+CREATE TABLE messages (
+    id UUID PRIMARY KEY,
+    case_id UUID REFERENCES cases(id),
+    sender_id UUID REFERENCES users(id),
+    message TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+📎 documents
+
+CREATE TABLE documents (
+    id UUID PRIMARY KEY,
+    case_id UUID REFERENCES cases(id),
+    file_url TEXT,
+    file_type TEXT,
+    uploaded_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+📌 tasks
+
+CREATE TABLE tasks (
+    id UUID PRIMARY KEY,
+    case_id UUID REFERENCES cases(id),
+    title TEXT,
+    status TEXT, -- pending / done
+    assigned_to UUID REFERENCES users(id),
+    due_date TIMESTAMP
+);
+
+⸻
+
+🔐 7) RBAC (صلاحيات النظام)
+
+roles
+
+CREATE TABLE roles (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES tenants(id),
+    name TEXT
+);
+
+⸻
+
+permissions
+
+CREATE TABLE permissions (
+    id UUID PRIMARY KEY,
+    key TEXT UNIQUE
+);
+
+⸻
+
+role_permissions
+
+CREATE TABLE role_permissions (
+    role_id UUID,
+    permission_id UUID
+);
+
+⸻
+
+user_roles
+
+CREATE TABLE user_roles (
+    user_id UUID,
+    role_id UUID
+);
+
+⸻
+
+🔁 8) أهم جدول في النظام (Event Tracking)
+
+🧠 audit_logs
+
+CREATE TABLE audit_logs (
+    id UUID PRIMARY KEY,
+    tenant_id UUID,
+    user_id UUID,
+    action TEXT,
+    entity_type TEXT,
+    entity_id UUID,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+⚡ 9) أهم Flow في قاعدة البيانات
+
+🧠 من خدمة إلى قضية
+
+services
+   ↓
+orders
+   ↓
+deals (optional)
+   ↓
+contracts
+   ↓
+cases
+
+⸻
+
+🔥 10) القاعدة الذهبية للنظام
+
+🧩 كل شيء يبدأ من Service وينتهي بـ Case
+
+⸻
+
+🚀 ماذا حققنا الآن؟
+
+أنت الآن عندك:
+
+🗄️ Database كامل احترافي
+
+⚖️ Legal Marketplace Model
+
+💬 Negotiation System Data Layer
+
+📄 Contract Engine Structure
+
+🧠 Case Management Core
+
+🔐 RBAC Enterprise Model
+
+⸻
+
+💡 الخطوة التالية (مهم جداً)
+
+الآن لدينا 3 مسارات قوية:
+
+1️⃣ ⚙️ نبني NestJS Backend فوق هذا مباشرة (Controllers + Services)
+
+2️⃣ 🎨 نبني Frontend (Marketplace + Deal Room UI)
+
+3️⃣ 🔌 نربط Checkout.com + Webhooks + Orchestration Engine
+
+⸻
+
+قلّي الآن:
+
+نبني الـ Backend NestJS فوق هذا schema مباشرة؟

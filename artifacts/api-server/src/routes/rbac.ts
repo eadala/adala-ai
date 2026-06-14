@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { db, rolesTable, invitationsTable, auditLogsTable, usersTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { sql } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
+import { resolveTenantId } from "../middlewares/tenantMiddleware";
 
 const router = Router();
 
@@ -360,6 +363,120 @@ router.patch("/rbac/users/:id/status", async (req, res) => {
 export const ALL_PERMISSIONS_LIST = ALL_PERMISSIONS;
 router.get("/rbac/permissions", (_req, res) => {
   res.json(ALL_PERMISSIONS);
+});
+
+// ─── MY PERMISSIONS (current user) ──────────────────────────────────────────
+router.get("/rbac/my-permissions", async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    const userId = auth?.userId;
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+
+    const officeId = await resolveTenantId(userId);
+    if (!officeId) return res.json({ role: "guest", displayName: "زائر", permissions: [] });
+
+    const memberRows = await db.execute(sql`
+      SELECT role FROM office_members
+      WHERE user_id = ${userId} AND office_id = ${officeId} AND status = 'active'
+      LIMIT 1
+    `) as any;
+    const mArr = Array.isArray(memberRows) ? memberRows : (memberRows?.rows ?? []);
+    const roleName: string = mArr[0]?.role ?? "lawyer";
+
+    await syncDefaultRoles();
+    const roleRows = await db.select().from(rolesTable).where(eq(rolesTable.name, roleName)).limit(1);
+    const roleData = roleRows[0];
+    const permissions: string[] = roleData ? JSON.parse(roleData.permissions) : [];
+
+    res.json({ role: roleName, displayName: roleData?.displayName ?? roleName, permissions, officeId });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── OFFICE MEMBERS LIST ─────────────────────────────────────────────────────
+router.get("/rbac/members", async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    const userId = auth?.userId;
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+
+    const officeId = await resolveTenantId(userId);
+    if (!officeId) return res.json([]);
+
+    const rows = await db.execute(sql`
+      SELECT
+        om.user_id, om.role, om.status, om.created_at AS joined_at,
+        u.full_name, u.email, u.avatar_url
+      FROM office_members om
+      LEFT JOIN users u ON u.clerk_id = om.user_id
+      WHERE om.office_id = ${officeId}
+      ORDER BY om.created_at ASC
+    `) as any;
+    const members = Array.isArray(rows) ? rows : (rows?.rows ?? []);
+
+    await syncDefaultRoles();
+    const allRoles = await db.select().from(rolesTable);
+    const roleMap = Object.fromEntries(allRoles.map(r => [r.name, r.displayName]));
+
+    res.json(members.map((m: any) => ({
+      ...m,
+      roleDisplayName: roleMap[m.role] ?? m.role,
+    })));
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── UPDATE MEMBER ROLE ───────────────────────────────────────────────────────
+router.patch("/rbac/members/:memberId/role", async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    const currentUserId = auth?.userId;
+    if (!currentUserId) return res.status(401).json({ error: "غير مصرح" });
+
+    const officeId = await resolveTenantId(currentUserId);
+    if (!officeId) return res.status(404).json({ error: "المكتب غير موجود" });
+
+    const { role } = req.body as { role: string };
+    if (!role) return res.status(400).json({ error: "الدور مطلوب" });
+
+    await db.execute(sql`
+      UPDATE office_members SET role = ${role}
+      WHERE user_id = ${req.params.memberId} AND office_id = ${officeId}
+    `);
+
+    await logAudit("update_role", "member", req.params.memberId, `تغيير الدور إلى ${role}`, currentUserId);
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── REMOVE MEMBER ────────────────────────────────────────────────────────────
+router.delete("/rbac/members/:memberId", async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    const currentUserId = auth?.userId;
+    if (!currentUserId) return res.status(401).json({ error: "غير مصرح" });
+
+    if (req.params.memberId === currentUserId) {
+      return res.status(400).json({ error: "لا يمكنك إزالة نفسك من المكتب" });
+    }
+
+    const officeId = await resolveTenantId(currentUserId);
+    if (!officeId) return res.status(404).json({ error: "المكتب غير موجود" });
+
+    await db.execute(sql`
+      UPDATE office_members SET status = 'inactive'
+      WHERE user_id = ${req.params.memberId} AND office_id = ${officeId}
+    `);
+
+    await logAudit("remove_member", "member", req.params.memberId, "إزالة عضو من المكتب", currentUserId);
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 export default router;

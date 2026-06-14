@@ -73,6 +73,7 @@ const OrgStructure         = lazy(() => import("@/pages/org-structure"));
 
 // Admin & Settings
 const Users                = lazy(() => import("@/pages/users"));
+const Team                 = lazy(() => import("@/pages/team"));
 const OfficeSettings       = lazy(() => import("@/pages/office-settings"));
 const OfficeManagement     = lazy(() => import("@/pages/office-management"));
 const SuperAdmin           = lazy(() => import("@/pages/super-admin"));
@@ -488,6 +489,7 @@ function AppRoutes() {
 
             {/* Admin & Settings (law firm admins) */}
             <Route path="/users"><ProtectedRoute><Users /></ProtectedRoute></Route>
+            <Route path="/team"><ProtectedRoute><Team /></ProtectedRoute></Route>
             <Route path="/office-settings"><ProtectedRoute><OfficeSettings /></ProtectedRoute></Route>
             <Route path="/office-management"><ProtectedRoute><OfficeManagement /></ProtectedRoute></Route>
             <Route path="/storage-settings"><ProtectedRoute><StorageSettings /></ProtectedRoute></Route>

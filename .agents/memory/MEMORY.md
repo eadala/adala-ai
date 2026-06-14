@@ -52,3 +52,4 @@
 - [Adala Command Bar](adala-command-bar.md) — ⌘K global palette; window.__openCommandBar(); routes at /search/global; router mounted at /api so no /api prefix in route files
 - [Adala PCC & Agent Runtime](adala-pcc-agents.md) — PCC tab: /pcc/system-health|tenant-matrix|event-stream|ai-ops; Agents tab: /agents/status|run|actions; tables: ai_agents+agent_actions; pccOnly+agentOnly guards
 - [Adala query performance](adala-query-perf.md) — QueryClient: staleTime=5min, gcTime=30min, refetchOnWindowFocus=false; vite manualChunks as function (not object); don't add babel plugins to vite react() without installing them first
+- [Adala RBAC frontend](adala-rbac-frontend.md) — use-permissions.ts hook + Can.tsx guard + team.tsx page; routes: /rbac/my-permissions /rbac/members /rbac/members/:id/role
