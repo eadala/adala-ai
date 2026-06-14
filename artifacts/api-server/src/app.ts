@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import path from "path";
+import { existsSync } from "fs";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import helmet from "helmet";
@@ -107,23 +108,24 @@ app.use(
 
 app.use("/api", router);
 
-/* ── SPA fallback — production only ──
+/* ── SPA fallback ──
    Serves the built React frontend for any route not handled by /api.
-   This fixes direct-link navigation (e.g. /firms/slug, /dashboard).    */
-if (process.env.NODE_ENV === "production") {
-  const frontendDist = path.resolve("artifacts/adala/dist/public");
-  const mobileDist   = path.resolve("artifacts/adala-mobile/dist/public");
+   Activates whenever the dist folder exists (i.e. after a production build).
+   This fixes direct-link navigation (e.g. /firms/slug, /dashboard).         */
+const frontendDist = path.resolve("artifacts/adala/dist/public");
+const mobileDist   = path.resolve("artifacts/adala-mobile/dist/public");
 
-  // Static assets for each app
+if (existsSync(path.join(frontendDist, "index.html"))) {
+  // Static assets (JS/CSS/images) — served before the catch-all
   app.use("/adala-mobile", express.static(mobileDist));
   app.use(express.static(frontendDist));
 
-  // /adala-mobile/* → mobile index.html
+  // /adala-mobile/* → mobile SPA index
   app.use("/adala-mobile", (_req, res) => {
     res.sendFile(path.join(mobileDist, "index.html"));
   });
 
-  // All other routes → main app index.html
+  // Everything else → main React app (React Router handles client-side routing)
   app.use((_req, res) => {
     res.sendFile(path.join(frontendDist, "index.html"));
   });
