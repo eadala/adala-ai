@@ -86,9 +86,9 @@ router.post("/office/public/:slug/checkout", async (req, res) => {
       },
       quantity: 1,
     }],
-    success_url: `${origin}/firms/${req.params.slug}?paid=1`,
+    success_url: `${origin}/firms/${req.params.slug}?paid=1&session={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/firms/${req.params.slug}`,
-    metadata: { officeSlug: req.params.slug, serviceId, clientName, clientPhone },
+    metadata: { officeSlug: req.params.slug, serviceId, clientName, clientPhone, clientEmail: clientEmail ?? "" },
   });
 
   // save order
@@ -99,6 +99,48 @@ router.post("/office/public/:slug/checkout", async (req, res) => {
   });
 
   res.json({ url: session.url });
+});
+
+/* GET: check order success & retrieve portal token (public — called after Stripe redirect) */
+router.get("/office/public/:slug/order-success", async (req, res) => {
+  const { sessionId } = req.query as { sessionId?: string };
+  if (!sessionId) { res.status(400).json({ error: "sessionId مطلوب" }); return; }
+  try {
+    const db2 = db as any;
+    const sql2 = (await import("drizzle-orm")).sql;
+
+    const rows = await db2.execute(sql2`
+      SELECT oo.auto_case_id, oo.portal_token, oo.client_name, oo.client_email,
+             oo.status, os.name AS service_name, op.name AS office_name
+      FROM   office_orders oo
+      JOIN   office_page   op ON op.id = oo.office_id
+      LEFT JOIN office_services os ON os.id::text = oo.service_id::text
+      WHERE  oo.stripe_session_id = ${sessionId}
+      LIMIT  1
+    `);
+    const row = (rows?.rows ?? rows)?.[0] ?? null;
+
+    if (!row) {
+      /* Might still be processing — return pending */
+      res.json({ status: "pending" });
+      return;
+    }
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    res.json({
+      status:       row.status ?? "paid",
+      caseId:       row.auto_case_id ?? null,
+      portalToken:  row.portal_token ?? null,
+      portalUrl:    row.portal_token ? `${baseUrl}/portal/${row.portal_token}` : null,
+      clientName:   row.client_name ?? null,
+      clientEmail:  row.client_email ?? null,
+      serviceName:  row.service_name ?? null,
+      officeName:   row.office_name ?? null,
+    });
+  } catch (e: any) {
+    console.error("order-success:", e);
+    res.json({ status: "pending" });
+  }
 });
 
 /* POST: submit review (public) */

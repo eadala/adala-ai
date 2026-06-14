@@ -2,6 +2,8 @@ import { getStripeSync, getUncachableStripeClient } from './stripeClient';
 import { provisionTenant } from './services/tenantProvisioning';
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { randomBytes, randomUUID } from "crypto";
+import nodemailer from "nodemailer";
 
 /* ── Revenue calculation (mirrors the document spec) ──────────────
    Platform fee : 10%
@@ -265,9 +267,303 @@ export class WebhookHandlers {
       } catch { /* non-critical */ }
     }
 
+    /* ══════════════════════════════════════════════════════════════
+       7. Office service payment → auto-create case + client + portal
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'checkout.session.completed') {
+      const session = event.data.object as any;
+      const officeSlug  = session?.metadata?.officeSlug;
+      const serviceName = session?.metadata?.serviceName ?? "";
+      const clientName  = session?.metadata?.clientName  ?? "";
+      const clientPhone = session?.metadata?.clientPhone ?? "";
+      const clientEmail = session?.metadata?.clientEmail
+        ?? session?.customer_email
+        ?? session?.customer_details?.email
+        ?? "";
+
+      if (officeSlug && !session?.metadata?.plan) {
+        console.log(`[Webhook] Office service checkout — slug=${officeSlug} client=${clientName}`);
+        try {
+          await handleOfficeServicePayment({
+            stripeSessionId: session.id as string,
+            officeSlug, clientName, clientPhone, clientEmail, serviceName,
+          });
+        } catch (err) {
+          console.error('[Webhook] handleOfficeServicePayment error:', err);
+        }
+      }
+    }
+
     /* ── StripeSync (handles low-level DB sync) ─────────────── */
     await runStripeSync(payload, signature);
   }
+}
+
+/* ── Office service payment: auto-provision client + case + portal ── */
+async function handleOfficeServicePayment(opts: {
+  stripeSessionId: string;
+  officeSlug: string;
+  clientName: string;
+  clientPhone: string;
+  clientEmail: string;
+  serviceName: string;
+}) {
+  const { stripeSessionId, officeSlug, clientName, clientPhone, clientEmail, serviceName } = opts;
+
+  function sqlOne(r: any) { return (r?.rows ?? r)?.[0] ?? null; }
+
+  /* 1 ─ Make sure extra columns exist on office_orders */
+  await db.execute(sql`
+    ALTER TABLE office_orders
+      ADD COLUMN IF NOT EXISTS status        TEXT DEFAULT 'pending',
+      ADD COLUMN IF NOT EXISTS auto_case_id  TEXT,
+      ADD COLUMN IF NOT EXISTS portal_token  TEXT
+  `).catch(() => {});
+
+  /* 2 ─ Get the order & office */
+  const orderRow = sqlOne(await db.execute(sql`
+    SELECT oo.*, op.id AS office_page_id, op.name AS office_name, op.email AS office_email
+    FROM office_orders oo
+    JOIN office_page   op ON op.id = oo.office_id
+    WHERE oo.stripe_session_id = ${stripeSessionId}
+    LIMIT 1
+  `));
+  if (!orderRow) {
+    console.warn('[Webhook] No order found for session', stripeSessionId);
+    return;
+  }
+  const officeId = orderRow.office_page_id as string;
+
+  /* 3 ─ Mark order as paid */
+  await db.execute(sql`
+    UPDATE office_orders SET status = 'paid', updated_at = NOW()
+    WHERE stripe_session_id = ${stripeSessionId}
+  `).catch(() => {});
+
+  /* 4 ─ Ensure client_accounts table exists */
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS client_accounts (
+      id             TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      email          TEXT UNIQUE NOT NULL,
+      password_hash  TEXT,
+      name           TEXT,
+      phone          TEXT,
+      email_verified BOOLEAN DEFAULT false,
+      otp            TEXT,
+      otp_expires    TIMESTAMPTZ,
+      created_at     TIMESTAMPTZ DEFAULT NOW(),
+      updated_at     TIMESTAMPTZ DEFAULT NOW()
+    )
+  `).catch(() => {});
+
+  /* 5 ─ Get or create client account */
+  let clientId: string;
+  if (clientEmail) {
+    const existing = sqlOne(await db.execute(sql`
+      SELECT id FROM client_accounts WHERE email = ${clientEmail.toLowerCase()} LIMIT 1
+    `));
+    if (existing) {
+      clientId = existing.id as string;
+      /* Update name/phone if missing */
+      await db.execute(sql`
+        UPDATE client_accounts
+        SET name  = COALESCE(name,  ${clientName  || null}),
+            phone = COALESCE(phone, ${clientPhone || null}),
+            updated_at = NOW()
+        WHERE id = ${clientId}
+      `).catch(() => {});
+    } else {
+      clientId = randomBytes(16).toString("hex");
+      await db.execute(sql`
+        INSERT INTO client_accounts (id, email, name, phone, email_verified)
+        VALUES (${clientId}, ${clientEmail.toLowerCase()}, ${clientName || null}, ${clientPhone || null}, true)
+      `);
+    }
+  } else {
+    /* No email — create anonymous account keyed by phone */
+    clientId = randomBytes(16).toString("hex");
+    const fakeEmail = `${clientId}@noemail.adala.sa`;
+    await db.execute(sql`
+      INSERT INTO client_accounts (id, email, name, phone)
+      VALUES (${clientId}, ${fakeEmail}, ${clientName || null}, ${clientPhone || null})
+    `).catch(() => {});
+  }
+
+  /* 6 ─ Auto-create a case */
+  const svcLabel = serviceName || orderRow.service_name || "خدمة قانونية";
+  const caseTitle = `${svcLabel} — ${clientName || clientPhone || "عميل جديد"}`;
+  const caseId = randomUUID();
+
+  await db.execute(sql`
+    INSERT INTO cases (id, title, description, case_type, status, client_name, created_by)
+    VALUES (
+      ${caseId},
+      ${caseTitle},
+      ${'تم إنشاء هذه القضية تلقائياً عند اكتمال الدفع الإلكتروني عبر بوابة المكتب.'},
+      'civil',
+      'open',
+      ${clientName || null},
+      ${officeId}
+    )
+  `).catch(() => {});
+
+  /* 7 ─ Create portal token */
+  const portalToken = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 365 * 86400000); // 1 year
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS client_portal_tokens (
+      id               TEXT PRIMARY KEY,
+      case_id          TEXT NOT NULL,
+      token            TEXT NOT NULL UNIQUE,
+      client_email     TEXT,
+      client_name      TEXT,
+      expires_at       TIMESTAMPTZ,
+      last_accessed    TIMESTAMPTZ,
+      access_count     INTEGER DEFAULT 0,
+      show_invoices    BOOLEAN DEFAULT true,
+      show_timeline    BOOLEAN DEFAULT true,
+      allowed_to_upload BOOLEAN DEFAULT false,
+      shared_documents JSONB DEFAULT '[]',
+      created_at       TIMESTAMPTZ DEFAULT NOW()
+    )
+  `).catch(() => {});
+
+  const portalId = randomUUID();
+  await db.execute(sql`
+    INSERT INTO client_portal_tokens
+      (id, case_id, token, client_email, client_name, expires_at,
+       show_invoices, show_timeline, allowed_to_upload, shared_documents, created_at)
+    VALUES
+      (${portalId}, ${caseId}, ${portalToken},
+       ${clientEmail || null}, ${clientName || null},
+       ${expiresAt.toISOString()},
+       true, true, true, '[]', NOW())
+    ON CONFLICT DO NOTHING
+  `).catch(() => {});
+
+  /* 8 ─ Link case to client account */
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS client_case_links (
+      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      client_id       TEXT NOT NULL,
+      case_id         TEXT NOT NULL,
+      portal_token_id TEXT,
+      portal_token    TEXT,
+      office_id       TEXT,
+      linked_at       TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(client_id, case_id)
+    )
+  `).catch(() => {});
+
+  await db.execute(sql`
+    INSERT INTO client_case_links (client_id, case_id, portal_token_id, portal_token, office_id)
+    VALUES (${clientId}, ${caseId}, ${portalId}, ${portalToken}, ${officeId})
+    ON CONFLICT (client_id, case_id) DO NOTHING
+  `).catch(() => {});
+
+  /* 9 ─ Store portal token on the order for frontend retrieval */
+  await db.execute(sql`
+    UPDATE office_orders
+    SET auto_case_id = ${caseId}, portal_token = ${portalToken}
+    WHERE stripe_session_id = ${stripeSessionId}
+  `).catch(() => {});
+
+  /* 10 ─ Add initial timeline entry */
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS case_timeline (
+      id          TEXT PRIMARY KEY,
+      case_id     TEXT NOT NULL,
+      entry_type  TEXT NOT NULL DEFAULT 'note',
+      title       TEXT NOT NULL,
+      description TEXT,
+      happened_at TIMESTAMPTZ DEFAULT NOW(),
+      is_shared   BOOLEAN DEFAULT true,
+      created_by  TEXT,
+      created_at  TIMESTAMPTZ DEFAULT NOW()
+    )
+  `).catch(() => {});
+
+  await db.execute(sql`
+    INSERT INTO case_timeline (id, case_id, entry_type, title, description, is_shared, created_by)
+    VALUES (
+      ${randomUUID()}, ${caseId}, 'note',
+      'تم استلام الطلب والدفع بنجاح ✅',
+      ${'تم استلام طلبك وسيتم التواصل معك في أقرب وقت ممكن. يمكنك متابعة تفاصيل قضيتك من خلال بوابتك الإلكترونية.'},
+      true, 'system'
+    )
+  `).catch(() => {});
+
+  /* 11 ─ Send welcome email with portal link */
+  if (clientEmail) {
+    try {
+      const baseUrl = process.env.REPLIT_DOMAINS
+        ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+        : "https://adala.sa";
+      const portalUrl = `${baseUrl}/portal/${portalToken}`;
+      const officeName = orderRow.office_name ?? "مكتب المحاماة";
+      await sendAcquisitionEmail({ clientEmail, clientName, officeName, svcLabel, portalUrl });
+    } catch (e) {
+      console.error('[Webhook] Welcome email error:', e);
+    }
+  }
+
+  console.log(`[Webhook] Client acquisition done — case=${caseId} portal=${portalToken.slice(0, 8)}...`);
+}
+
+async function sendAcquisitionEmail(opts: {
+  clientEmail: string; clientName: string; officeName: string; svcLabel: string; portalUrl: string;
+}) {
+  const { clientEmail, clientName, officeName, svcLabel, portalUrl } = opts;
+
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    console.log('[Webhook] SMTP not configured — skipping welcome email');
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port: parseInt(process.env.SMTP_PORT ?? "587"),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: { user: smtpUser, pass: smtpPass },
+  });
+
+  const greeting = clientName ? `مرحباً ${clientName}،` : "مرحباً،";
+  const html = `
+  <div dir="rtl" style="font-family:'Cairo',Arial,sans-serif;line-height:1.8;color:#111;max-width:600px;margin:0 auto;padding:32px 24px;border:1px solid #e5e7eb;border-radius:12px">
+    <div style="background:linear-gradient(135deg,#0f1c35,#1A2744);padding:24px 28px;border-radius:10px;margin-bottom:24px">
+      <div style="color:#C9A84C;font-size:22px;font-weight:900">⚖️ ${officeName}</div>
+      <div style="color:rgba(255,255,255,.6);font-size:13px;margin-top:4px">تأكيد الطلب والدفع</div>
+    </div>
+    <p style="font-size:15px">${greeting}</p>
+    <p>شكراً على ثقتك بـ <strong>${officeName}</strong>. تم استلام طلبك بنجاح وسيتواصل معك فريق المكتب في أقرب وقت.</p>
+    <div style="background:#f8f9fa;border-right:4px solid #C9A84C;padding:16px;border-radius:8px;margin:20px 0">
+      <strong>📋 الخدمة المطلوبة:</strong> ${svcLabel}
+    </div>
+    <p>يمكنك متابعة حالة قضيتك وجميع التحديثات من خلال <strong>بوابتك الإلكترونية الخاصة</strong>:</p>
+    <div style="text-align:center;margin:24px 0">
+      <a href="${portalUrl}"
+         style="display:inline-block;background:#C9A84C;color:#0d1b2a;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px">
+        🔗 فتح بوابتك الإلكترونية
+      </a>
+    </div>
+    <p style="font-size:12px;color:#9ca3af;text-align:center">
+      إذا لم تطلب هذه الخدمة، يمكنك تجاهل هذا البريد.
+    </p>
+    <hr style="margin-top:28px;border-color:#e5e7eb"/>
+    <p style="color:#9ca3af;font-size:11px;text-align:center">منصة عدالة AI — نظام التشغيل القانوني الذكي</p>
+  </div>`;
+
+  await transporter.sendMail({
+    from: `"${officeName}" <${process.env.SMTP_FROM ?? smtpUser}>`,
+    to: clientEmail,
+    subject: `✅ تأكيد طلبك — ${svcLabel}`,
+    text: `${greeting}\nتم استلام طلبك (${svcLabel}) بنجاح.\n\nبوابتك الإلكترونية: ${portalUrl}`,
+    html,
+  });
 }
 
 async function runStripeSync(payload: Buffer, signature: string) {
