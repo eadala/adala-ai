@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient, useQuery } from "@tanstack/react-query";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk, useAuth } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, useClerk, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
@@ -270,22 +270,28 @@ function RoleAwareRedirect() {
 }
 
 // ── Home redirect ──────────────────────────────────────────────────────────────
-// Renders Landing immediately (no Clerk wait) — redirects signed-in users after Clerk loads
+// Production-grade: Landing renders immediately regardless of Clerk state.
+// Clerk hanging/failing/slow never causes a blank screen.
 function HomeRedirect() {
   const { isLoaded, isSignedIn } = useAuth();
 
-  if (isLoaded && isSignedIn) {
+  // Clerk still initializing → show Landing (never blank)
+  if (!isLoaded) {
+    return (
+      <Suspense fallback={<div className="min-h-screen" style={{ background: "#0F1B35" }} />}>
+        <Landing />
+      </Suspense>
+    );
+  }
+
+  // Clerk ready + signed in → go to their dashboard
+  if (isSignedIn) {
     return <RoleAwareRedirect />;
   }
 
+  // Clerk ready + signed out → show Landing
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center" style={{ background: "#0F1B35" }}>
-          <div className="w-10 h-10 rounded-full border-2 border-[#C9A84C] border-t-transparent animate-spin" />
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="min-h-screen" style={{ background: "#0F1B35" }} />}>
       <Landing />
     </Suspense>
   );
@@ -313,68 +319,55 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
 
 // ── Platform Admin route ────────────────────────────────────────────────────────
 // Only platform_admin can enter — others go to /dashboard
+// Uses useAuth directly so Clerk loading state never produces a blank screen
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { role, isLoaded } = useRole();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { role } = useRole();
+
+  if (!isLoaded)    return <PageLoader />;
+  if (!isSignedIn)  return <Redirect to="/" />;
+  if (role !== "platform_admin") return <Redirect to="/dashboard" />;
+
   return (
-    <>
-      <Show when="signed-in">
-        {!isLoaded ? <PageLoader /> : role === "platform_admin" ? (
-          <AdminLayout>
-            <Suspense fallback={<PageLoader />}>{children}</Suspense>
-          </AdminLayout>
-        ) : (
-          <Redirect to="/dashboard" />
-        )}
-      </Show>
-      <Show when="signed-out">
-        <Redirect to="/" />
-      </Show>
-    </>
+    <AdminLayout>
+      <Suspense fallback={<PageLoader />}>{children}</Suspense>
+    </AdminLayout>
   );
 }
 
 // ── Workspace route ─────────────────────────────────────────────────────────────
 // Law firm users only — platform_admin is redirected to their own world
 function WorkspaceRoute({ children }: { children: React.ReactNode }) {
-  const { role, isLoaded } = useRole();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { role } = useRole();
+
+  if (!isLoaded)   return <PageLoader />;
+  if (!isSignedIn) return <Redirect to="/" />;
+  if (role === "platform_admin") return <Redirect to="/super-admin" />;
+
   return (
-    <>
-      <Show when="signed-in">
-        {!isLoaded ? <PageLoader /> : role === "platform_admin" ? (
-          <Redirect to="/super-admin" />
-        ) : (
-          <OnboardingGate>
-            <Layout>
-              <Suspense fallback={<PageLoader />}>{children}</Suspense>
-            </Layout>
-          </OnboardingGate>
-        )}
-      </Show>
-      <Show when="signed-out">
-        <Redirect to="/" />
-      </Show>
-    </>
+    <OnboardingGate>
+      <Layout>
+        <Suspense fallback={<PageLoader />}>{children}</Suspense>
+      </Layout>
+    </OnboardingGate>
   );
 }
 
 // ── Protected route wrapper ────────────────────────────────────────────────────
 // Generic — any authenticated user (both roles can access)
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (!isLoaded)   return <PageLoader />;
+  if (!isSignedIn) return <Redirect to="/" />;
+
   return (
-    <>
-      <Show when="signed-in">
-        <OnboardingGate>
-          <Layout>
-            <Suspense fallback={<PageLoader />}>
-              {children}
-            </Suspense>
-          </Layout>
-        </OnboardingGate>
-      </Show>
-      <Show when="signed-out">
-        <Redirect to="/" />
-      </Show>
-    </>
+    <OnboardingGate>
+      <Layout>
+        <Suspense fallback={<PageLoader />}>{children}</Suspense>
+      </Layout>
+    </OnboardingGate>
   );
 }
 
