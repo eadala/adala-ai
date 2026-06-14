@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 
 const router = Router();
@@ -61,7 +62,7 @@ async function callGemini(systemPrompt: string, messages: { role: string; conten
   } catch { return null; }
 }
 
-router.post("/ai-agents/run", async (req, res) => {
+router.post("/ai-agents/run", requireAuth, async (req, res) => {
   const { agentType, input, history = [] } = req.body as { agentType: string; input: string; history: {role:string;content:string}[] };
 
   const agent = AGENTS[agentType];

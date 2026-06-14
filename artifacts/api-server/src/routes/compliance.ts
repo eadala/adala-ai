@@ -1,11 +1,13 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
 // GET /compliance/items — all saved statuses
-router.get("/compliance/items", async (req, res) => {
+router.get("/compliance/items", requireAuthWithTenant, async (req, res) => {
   try {
     const rows = await db.execute(sql`
       SELECT framework_key, item_id, status, notes, updated_at, updated_by
@@ -18,7 +20,7 @@ router.get("/compliance/items", async (req, res) => {
 });
 
 // PUT /compliance/items/:frameworkKey/:itemId — upsert status
-router.put("/compliance/items/:frameworkKey/:itemId", async (req, res) => {
+router.put("/compliance/items/:frameworkKey/:itemId", requireAuthWithTenant, async (req, res) => {
   try {
     const { frameworkKey, itemId } = req.params;
     const { status, notes, updatedBy } = req.body as { status: string; notes?: string; updatedBy?: string };

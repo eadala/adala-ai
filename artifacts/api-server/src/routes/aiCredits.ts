@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -181,7 +182,7 @@ router.post("/admin/ai-credits/renew", adminOnly, async (req, res) => {
 });
 
 /* ── POST /api/ai-credits/deduct  (internal — called by callAI) ── */
-router.post("/ai-credits/deduct", async (req, res) => {
+router.post("/ai-credits/deduct", requireAuth, async (req, res) => {
   await ensureTables();
   try {
     const { officeId = "default", model = "gemini", cost = 1 } = req.body;
@@ -201,7 +202,7 @@ router.post("/ai-credits/deduct", async (req, res) => {
 });
 
 /* ── GET /api/office/ai-credits  (for office users to check their balance) ── */
-router.get("/office/ai-credits", async (_req, res) => {
+router.get("/office/ai-credits", requireAuth, async (_req, res) => {
   await ensureTables();
   try {
     const credit = await one(sql`SELECT * FROM office_ai_credits WHERE office_id = 'default'`);

@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 /**
  * Marketplace routes — Legal Services Marketplace
  * Full flow: Browse → Order / Negotiate → Deal Room → Auto Case
@@ -7,6 +8,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { getAuth } from "@clerk/express";
+import { resolveTenantId } from "../middlewares/tenantMiddleware";
 
 const router = Router();
 
@@ -146,7 +148,7 @@ router.get("/marketplace/services", async (req: Request, res: Response) => {
 });
 
 // ─── GET /marketplace/services/my ─────────────────────────────────────────────
-router.get("/marketplace/services/my", async (req: Request, res: Response) => {
+router.get("/marketplace/services/my", requireAuth, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -177,7 +179,7 @@ router.get("/marketplace/stats", async (_req, res) => {
 });
 
 // ─── POST /marketplace/services ───────────────────────────────────────────────
-router.post("/marketplace/services", async (req: Request, res: Response) => {
+router.post("/marketplace/services", requireAuth, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -204,7 +206,7 @@ router.post("/marketplace/services", async (req: Request, res: Response) => {
 });
 
 // ─── PUT /marketplace/services/:id ────────────────────────────────────────────
-router.put("/marketplace/services/:id", async (req: Request, res: Response) => {
+router.put("/marketplace/services/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -237,7 +239,7 @@ router.put("/marketplace/services/:id", async (req: Request, res: Response) => {
 });
 
 // ─── DELETE /marketplace/services/:id ─────────────────────────────────────────
-router.delete("/marketplace/services/:id", async (req: Request, res: Response) => {
+router.delete("/marketplace/services/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -263,7 +265,7 @@ router.get("/marketplace/categories", (_req, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // POST /marketplace/orders — place a direct order
-router.post("/marketplace/orders", async (req: Request, res: Response) => {
+router.post("/marketplace/orders", requireAuth, async (req: Request, res: Response) => {
   try {
     const { serviceId, buyerName, buyerEmail, buyerPhone, notes } = req.body;
     if (!serviceId || !buyerName) return res.status(400).json({ error: "serviceId وbuyerName مطلوبان" });
@@ -290,7 +292,7 @@ router.post("/marketplace/orders", async (req: Request, res: Response) => {
 });
 
 // GET /marketplace/orders/my — seller's orders
-router.get("/marketplace/orders/my", async (req: Request, res: Response) => {
+router.get("/marketplace/orders/my", requireAuth, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -304,7 +306,7 @@ router.get("/marketplace/orders/my", async (req: Request, res: Response) => {
 });
 
 // PATCH /marketplace/orders/:id — update order status
-router.patch("/marketplace/orders/:id", async (req: Request, res: Response) => {
+router.patch("/marketplace/orders/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -318,12 +320,13 @@ router.patch("/marketplace/orders/:id", async (req: Request, res: Response) => {
       if (order) {
         try {
           const caseId = randomUUID();
+          const sellerOfficeId = await resolveTenantId(userId).catch(() => "default");
           await db.execute(sql`
-            INSERT INTO cases (id, title, case_type, client_name, status, notes, created_at, updated_at)
+            INSERT INTO cases (id, title, case_type, client_name, status, notes, office_id, created_at, updated_at)
             VALUES (${caseId}, ${"خدمة: " + (order.service_title ?? "خدمة قانونية")}, 'other',
                    ${order.buyer_name}, 'open',
                    ${"طلب عبر المتجر · " + (order.buyer_email ?? "") + " · " + (order.buyer_phone ?? "")},
-                   NOW(), NOW())
+                   ${sellerOfficeId}, NOW(), NOW())
           `);
           await db.execute(sql`UPDATE marketplace_orders SET case_id = ${caseId} WHERE id = ${req.params.id}`);
         } catch {}
@@ -340,7 +343,7 @@ router.patch("/marketplace/orders/:id", async (req: Request, res: Response) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // POST /marketplace/deals — open a deal
-router.post("/marketplace/deals", async (req: Request, res: Response) => {
+router.post("/marketplace/deals", requireAuth, async (req: Request, res: Response) => {
   try {
     const { serviceId, buyerName, buyerEmail, buyerPhone, initialPrice, notes } = req.body;
     if (!serviceId || !buyerName || !initialPrice) return res.status(400).json({ error: "serviceId وbuyerName وinitialPrice مطلوبة" });
@@ -372,7 +375,7 @@ router.post("/marketplace/deals", async (req: Request, res: Response) => {
 });
 
 // GET /marketplace/deals/my — seller's deals
-router.get("/marketplace/deals/my", async (req: Request, res: Response) => {
+router.get("/marketplace/deals/my", requireAuth, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -386,7 +389,7 @@ router.get("/marketplace/deals/my", async (req: Request, res: Response) => {
 });
 
 // GET /marketplace/deals/:id — get deal with offers
-router.get("/marketplace/deals/:id", async (req: Request, res: Response) => {
+router.get("/marketplace/deals/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const [deal] = await dbRows(sql`SELECT * FROM marketplace_deals WHERE id = ${req.params.id}`);
     if (!deal) return res.status(404).json({ error: "الصفقة غير موجودة" });
@@ -401,7 +404,7 @@ router.get("/marketplace/deals/:id", async (req: Request, res: Response) => {
 });
 
 // POST /marketplace/deals/:id/offer — add counter-offer
-router.post("/marketplace/deals/:id/offer", async (req: Request, res: Response) => {
+router.post("/marketplace/deals/:id/offer", requireAuth, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -425,7 +428,7 @@ router.post("/marketplace/deals/:id/offer", async (req: Request, res: Response) 
 });
 
 // POST /marketplace/deals/:id/accept — accept deal → auto case
-router.post("/marketplace/deals/:id/accept", async (req: Request, res: Response) => {
+router.post("/marketplace/deals/:id/accept", requireAuth, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -445,12 +448,13 @@ router.post("/marketplace/deals/:id/accept", async (req: Request, res: Response)
     let caseId: string | null = null;
     try {
       caseId = randomUUID();
+      const dealOfficeId = await resolveTenantId(userId).catch(() => "default");
       await db.execute(sql`
-        INSERT INTO cases (id, title, case_type, client_name, status, notes, created_at, updated_at)
+        INSERT INTO cases (id, title, case_type, client_name, status, notes, office_id, created_at, updated_at)
         VALUES (${caseId}, ${"صفقة: " + (deal.service_title ?? "خدمة قانونية")}, 'other',
                ${deal.buyer_name}, 'open',
                ${"صفقة متفق عليها · " + finalPrice + " ر.س · " + (deal.buyer_email ?? "") + " · " + (deal.buyer_phone ?? "")},
-               NOW(), NOW())
+               ${dealOfficeId}, NOW(), NOW())
       `);
       await db.execute(sql`UPDATE marketplace_deals SET case_id = ${caseId} WHERE id = ${req.params.id}`);
     } catch {}
@@ -462,7 +466,7 @@ router.post("/marketplace/deals/:id/accept", async (req: Request, res: Response)
 });
 
 // POST /marketplace/deals/:id/reject — reject deal
-router.post("/marketplace/deals/:id/reject", async (req: Request, res: Response) => {
+router.post("/marketplace/deals/:id/reject", requireAuth, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });

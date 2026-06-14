@@ -1,7 +1,9 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -27,34 +29,34 @@ function getTransporter() {
 }
 
 /* ─── GET /finance/dashboard ────────────────────────────────────────── */
-router.get("/finance/dashboard", async (_req, res) => {
+router.get("/finance/dashboard", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const year = new Date().getFullYear();
     const MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
     const [revRow, invRow, expRow, payRow, advRow,
            paidInvRow, overdueInvRow, pendingInvRow, pendingAdvRow] = await Promise.all([
       sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM revenues`),
-      sqlOne(sql`SELECT COALESCE(SUM(total),0) AS total FROM client_invoices WHERE status='paid'`),
+      sqlOne(sql`SELECT COALESCE(SUM(total),0) AS total FROM client_invoices WHERE status='paid' AND office_id=${tenantId}`),
       sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM expenses`),
       sqlOne(sql`SELECT COALESCE(SUM(net_salary),0) AS total FROM payroll WHERE status='paid'`),
       sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM cash_advances WHERE status NOT IN ('repaid','rejected')`),
-      sqlOne(sql`SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS amt FROM client_invoices WHERE status='paid'`),
-      sqlOne(sql`SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS amt FROM client_invoices WHERE status='overdue' OR (status='sent' AND due_date < NOW())`),
-      sqlOne(sql`SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS amt FROM client_invoices WHERE status='sent' AND (due_date IS NULL OR due_date >= NOW())`),
+      sqlOne(sql`SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS amt FROM client_invoices WHERE status='paid' AND office_id=${tenantId}`),
+      sqlOne(sql`SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS amt FROM client_invoices WHERE (status='overdue' OR (status='sent' AND due_date < NOW())) AND office_id=${tenantId}`),
+      sqlOne(sql`SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS amt FROM client_invoices WHERE status='sent' AND (due_date IS NULL OR due_date >= NOW()) AND office_id=${tenantId}`),
       sqlOne(sql`SELECT COUNT(*) AS cnt FROM cash_advances WHERE status='pending'`),
     ]);
 
     const totalRevenue  = num(revRow.total) + num(invRow.total);
     const totalExpenses = num(expRow.total) + num(payRow.total);
 
-    /* Monthly bar chart — current year */
     const monthly = await Promise.all(MONTHS.map(async (name, idx) => {
       const m = String(idx + 1).padStart(2, "0");
       const from = `${year}-${m}-01`;
       const [mr, ir, me] = await Promise.all([
         sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
-        sqlOne(sql`SELECT COALESCE(SUM(total),0) AS v FROM client_invoices WHERE status='paid' AND created_at >= ${from}::timestamp AND created_at < ${from}::timestamp + interval '1 month'`),
+        sqlOne(sql`SELECT COALESCE(SUM(total),0) AS v FROM client_invoices WHERE status='paid' AND office_id=${tenantId} AND created_at >= ${from}::timestamp AND created_at < ${from}::timestamp + interval '1 month'`),
         sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM expenses WHERE date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
       ]);
       const rev = num(mr.v) + num(ir.v);
@@ -62,19 +64,17 @@ router.get("/finance/dashboard", async (_req, res) => {
       return { month: name, revenue: rev, expenses: exp, profit: rev - exp };
     }));
 
-    /* Expense categories */
     const expCats = await sqlAll(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses GROUP BY category ORDER BY total DESC LIMIT 8`);
     const revCats = await sqlAll(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM revenues GROUP BY category ORDER BY total DESC LIMIT 8`);
 
     res.json({
       kpi: {
-        totalRevenue,
-        totalExpenses,
+        totalRevenue, totalExpenses,
         netProfit: totalRevenue - totalExpenses,
         profitMargin: totalRevenue > 0 ? Math.round((totalRevenue - totalExpenses) / totalRevenue * 1000) / 10 : 0,
-        paidInvoices:   { count: Number(paidInvRow.cnt ?? 0),    amount: num(paidInvRow.amt) },
-        overdueInvoices:{ count: Number(overdueInvRow.cnt ?? 0), amount: num(overdueInvRow.amt) },
-        pendingInvoices:{ count: Number(pendingInvRow.cnt ?? 0), amount: num(pendingInvRow.amt) },
+        paidInvoices:    { count: Number(paidInvRow.cnt ?? 0),    amount: num(paidInvRow.amt) },
+        overdueInvoices: { count: Number(overdueInvRow.cnt ?? 0), amount: num(overdueInvRow.amt) },
+        pendingInvoices: { count: Number(pendingInvRow.cnt ?? 0), amount: num(pendingInvRow.amt) },
         pendingAdvances: Number(pendingAdvRow.cnt ?? 0),
         outstandingAdvances: num(advRow.total),
       },
@@ -89,13 +89,14 @@ router.get("/finance/dashboard", async (_req, res) => {
 });
 
 /* ─── GET /finance/collections ─────────────────────────────────────── */
-router.get("/finance/collections", async (req, res) => {
+router.get("/finance/collections", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const { status = "all" } = req.query as any;
 
-    let whereClause = sql`WHERE i.status IN ('sent','overdue')`;
-    if (status === "overdue") whereClause = sql`WHERE i.status='overdue' OR (i.status='sent' AND i.due_date < NOW())`;
-    else if (status === "pending") whereClause = sql`WHERE i.status='sent' AND (i.due_date IS NULL OR i.due_date >= NOW())`;
+    let statusClause = sql`i.status IN ('sent','overdue')`;
+    if (status === "overdue") statusClause = sql`(i.status='overdue' OR (i.status='sent' AND i.due_date < NOW()))`;
+    else if (status === "pending") statusClause = sql`(i.status='sent' AND (i.due_date IS NULL OR i.due_date >= NOW()))`;
 
     const rows = await sqlAll(sql`
       SELECT
@@ -104,9 +105,9 @@ router.get("/finance/collections", async (req, res) => {
         c.full_name AS client_name, c.email AS client_email, c.phone AS client_phone,
         cs.title AS case_title
       FROM client_invoices i
-      LEFT JOIN clients c ON i.client_id = c.id
-      LEFT JOIN cases cs  ON i.case_id  = cs.id
-      ${whereClause}
+      LEFT JOIN clients c ON i.client_id = c.id AND c.office_id = ${tenantId}
+      LEFT JOIN cases cs  ON i.case_id  = cs.id  AND cs.office_id = ${tenantId}
+      WHERE ${statusClause} AND i.office_id = ${tenantId}
       ORDER BY i.due_date ASC NULLS LAST, i.created_at DESC
       LIMIT 200
     `);
@@ -118,7 +119,7 @@ router.get("/finance/collections", async (req, res) => {
         COUNT(*) FILTER (WHERE status='sent' AND (due_date IS NULL OR due_date >= NOW())) AS pending_count,
         COALESCE(SUM(total) FILTER (WHERE status='sent' AND (due_date IS NULL OR due_date >= NOW())),0) AS pending_amount
       FROM client_invoices
-      WHERE status IN ('sent','overdue')
+      WHERE status IN ('sent','overdue') AND office_id = ${tenantId}
     `);
 
     res.json({ invoices: rows, summary });
@@ -128,8 +129,9 @@ router.get("/finance/collections", async (req, res) => {
 });
 
 /* ─── GET /finance/collections/analytics ──────────────────────────── */
-router.get("/finance/collections/analytics", async (_req, res) => {
+router.get("/finance/collections/analytics", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const [aging, rateRow, avgRow] = await Promise.all([
       sqlOne(sql`
         SELECT
@@ -144,7 +146,7 @@ router.get("/finance/collections/analytics", async (_req, res) => {
         FROM (
           SELECT total, GREATEST(0, EXTRACT(DAY FROM NOW() - due_date)::integer) AS over_days
           FROM client_invoices
-          WHERE status IN ('sent','overdue') AND due_date IS NOT NULL
+          WHERE status IN ('sent','overdue') AND due_date IS NOT NULL AND office_id = ${tenantId}
         ) t
       `),
       sqlOne(sql`
@@ -154,11 +156,12 @@ router.get("/finance/collections/analytics", async (_req, res) => {
           COALESCE(SUM(total) FILTER (WHERE status='paid'),0) AS paid_amt,
           COALESCE(SUM(total),0) AS total_amt
         FROM client_invoices
+        WHERE office_id = ${tenantId}
       `),
       sqlOne(sql`
         SELECT ROUND(AVG(GREATEST(0, EXTRACT(DAY FROM NOW() - due_date))))::integer AS avg_days
         FROM client_invoices
-        WHERE status IN ('sent','overdue') AND due_date IS NOT NULL
+        WHERE status IN ('sent','overdue') AND due_date IS NOT NULL AND office_id = ${tenantId}
       `),
     ]);
 
@@ -170,8 +173,8 @@ router.get("/finance/collections/analytics", async (_req, res) => {
           COALESCE(SUM(i.total),0) AS outstanding,
           MAX(GREATEST(0, EXTRACT(DAY FROM NOW() - i.due_date)::integer)) AS max_days_overdue
         FROM client_invoices i
-        LEFT JOIN clients c ON i.client_id = c.id
-        WHERE i.status IN ('sent','overdue')
+        LEFT JOIN clients c ON i.client_id = c.id AND c.office_id = ${tenantId}
+        WHERE i.status IN ('sent','overdue') AND i.office_id = ${tenantId}
         GROUP BY c.full_name, c.phone
         ORDER BY outstanding DESC LIMIT 5
       `),
@@ -182,7 +185,7 @@ router.get("/finance/collections/analytics", async (_req, res) => {
           COUNT(*) AS inv_count,
           COALESCE(SUM(total),0) AS collected
         FROM client_invoices
-        WHERE status='paid' AND paid_at >= NOW() - interval '6 months'
+        WHERE status='paid' AND paid_at >= NOW() - interval '6 months' AND office_id = ${tenantId}
         GROUP BY TO_CHAR(paid_at,'YYYY-MM'), TO_CHAR(paid_at,'Mon')
         ORDER BY month ASC
       `),
@@ -190,8 +193,8 @@ router.get("/finance/collections/analytics", async (_req, res) => {
 
     const paidCount = Number(rateRow.paid_count ?? 0);
     const totalCount = Number(rateRow.total_count ?? 0);
-    const paidAmt = num(rateRow.paid_amt);
-    const totalAmt = num(rateRow.total_amt);
+    const paidAmt   = num(rateRow.paid_amt);
+    const totalAmt  = num(rateRow.total_amt);
 
     res.json({
       aging: {
@@ -204,11 +207,11 @@ router.get("/finance/collections/analytics", async (_req, res) => {
       amtCollectionRate: totalAmt  > 0 ? Math.round((paidAmt  / totalAmt)  * 100) : 0,
       avgDaysOverdue:    Number(avgRow.avg_days ?? 0),
       topDebtors: topDebtors.map(d => ({
-        clientName:      d.client_name ?? "غير محدد",
-        clientPhone:     d.client_phone ?? null,
-        invCount:        Number(d.inv_count ?? 0),
-        outstanding:     num(d.outstanding),
-        maxDaysOverdue:  Number(d.max_days_overdue ?? 0),
+        clientName:     d.client_name ?? "غير محدد",
+        clientPhone:    d.client_phone ?? null,
+        invCount:       Number(d.inv_count ?? 0),
+        outstanding:    num(d.outstanding),
+        maxDaysOverdue: Number(d.max_days_overdue ?? 0),
       })),
       monthlyCollections: monthlyCollections.map(m => ({
         month:     m.month_label ?? m.month,
@@ -220,8 +223,9 @@ router.get("/finance/collections/analytics", async (_req, res) => {
 });
 
 /* ─── GET /finance/collections/profitability ──────────────────────── */
-router.get("/finance/collections/profitability", async (_req, res) => {
+router.get("/finance/collections/profitability", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const rows = await sqlAll(sql`
       SELECT
         c.id AS client_id, c.full_name AS client_name, c.phone AS client_phone,
@@ -232,7 +236,8 @@ router.get("/finance/collections/profitability", async (_req, res) => {
         COUNT(i.id) FILTER (WHERE i.status='paid') AS paid_count,
         ROUND(AVG(EXTRACT(DAY FROM i.paid_at - i.created_at)) FILTER (WHERE i.status='paid'))::integer AS avg_days_to_pay
       FROM clients c
-      LEFT JOIN client_invoices i ON i.client_id = c.id
+      LEFT JOIN client_invoices i ON i.client_id = c.id AND i.office_id = ${tenantId}
+      WHERE c.office_id = ${tenantId}
       GROUP BY c.id, c.full_name, c.phone
       HAVING COUNT(i.id) > 0
       ORDER BY total_billed DESC LIMIT 50
@@ -253,9 +258,36 @@ router.get("/finance/collections/profitability", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-/* ─── POST /finance/collections/bulk-reminder ────────────────────── */
-router.post("/finance/collections/bulk-reminder", async (req, res) => {
+/* ─── GET /finance/intelligence ─────────────────────────────────────── */
+router.get("/finance/intelligence", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
+    const [invSummary, topClients] = await Promise.all([
+      sqlOne(sql`
+        SELECT
+          COUNT(*) FILTER (WHERE status='paid') AS paid,
+          COUNT(*) FILTER (WHERE status='overdue') AS overdue,
+          COUNT(*) FILTER (WHERE status='sent') AS sent,
+          COALESCE(SUM(total) FILTER (WHERE status='paid'),0) AS paid_amt,
+          COALESCE(SUM(total) FILTER (WHERE status='overdue'),0) AS overdue_amt
+        FROM client_invoices WHERE office_id = ${tenantId}
+      `),
+      sqlAll(sql`
+        SELECT c.full_name, COALESCE(SUM(i.total) FILTER (WHERE i.status='paid'),0) AS revenue
+        FROM clients c
+        LEFT JOIN client_invoices i ON i.client_id = c.id AND i.office_id = ${tenantId}
+        WHERE c.office_id = ${tenantId}
+        GROUP BY c.full_name ORDER BY revenue DESC LIMIT 5
+      `),
+    ]);
+    res.json({ summary: invSummary, topClients });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ─── POST /finance/collections/bulk-reminder ────────────────────── */
+router.post("/finance/collections/bulk-reminder", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
     const { invoiceIds } = req.body as { invoiceIds: string[] };
     if (!invoiceIds?.length) { res.status(400).json({ error: "لا توجد فواتير محددة" }); return; }
     const transporter = getTransporter();
@@ -264,7 +296,7 @@ router.post("/finance/collections/bulk-reminder", async (req, res) => {
       const rows = await sqlAll(sql`
         SELECT i.*, c.full_name AS client_name, c.email AS client_email
         FROM client_invoices i LEFT JOIN clients c ON i.client_id=c.id
-        WHERE i.id=${id} LIMIT 1
+        WHERE i.id=${id} AND i.office_id=${tenantId} LIMIT 1
       `);
       const inv = rows[0];
       if (!inv || !inv.client_email || !transporter) { skipped++; continue; }
@@ -276,8 +308,7 @@ router.post("/finance/collections/bulk-reminder", async (req, res) => {
         <div style="background:#f8f9fa;border-right:4px solid #C9A84C;padding:16px;border-radius:8px;margin:16px 0">
           <p><strong>رقم الفاتورة:</strong> ${inv.invoice_number ?? inv.id}</p>
           <p><strong>المبلغ الإجمالي:</strong> ${totalSAR} ر.س</p>
-          <p><strong>تاريخ الاستحقاق:</strong> ${dueStr}</p>
-        </div>
+          <p><strong>تاريخ الاستحقاق:</strong> ${dueStr}</p></div>
         ${inv.stripe_payment_link_url ? `<a href="${inv.stripe_payment_link_url}" style="display:inline-block;background:#C9A84C;color:#0d1b2a;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold">ادفع الآن</a>` : ""}
         <hr style="margin-top:32px;border-color:#e5e7eb"/>
         <p style="color:#9ca3af;font-size:12px;text-align:center">عدالة AI — نظام التشغيل القانوني</p>
@@ -298,31 +329,34 @@ router.post("/finance/collections/bulk-reminder", async (req, res) => {
 });
 
 /* ─── POST /finance/collections/:id/payment ─────────────────────────── */
-router.post("/finance/collections/:id/payment", async (req, res) => {
+router.post("/finance/collections/:id/payment", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const { amount, paymentMethod = "bank_transfer", notes } = req.body;
     const { id } = req.params;
 
-    await db.execute(sql`
-      UPDATE client_invoices SET status='paid', paid_at=NOW() WHERE id=${id}
+    // CRITICAL: always scope to tenant to prevent cross-office invoice manipulation
+    const updated = await sqlOne(sql`
+      UPDATE client_invoices SET status='paid', paid_at=NOW()
+      WHERE id=${id} AND office_id=${tenantId}
+      RETURNING id, invoice_number, total, client_id
     `);
-
-    // Insert into revenues for accounting
-    const inv = (await sqlAll(sql`SELECT * FROM client_invoices WHERE id=${id} LIMIT 1`))[0];
-    if (inv) {
-      await db.execute(sql`
-        INSERT INTO revenues (title, category, amount, payment_method, date, client_id, notes)
-        VALUES (
-          ${'تحصيل فاتورة: ' + (inv.invoice_number ?? inv.id)},
-          ${'invoice_collection'},
-          ${String(amount ?? (num(inv.total) / 100))},
-          ${paymentMethod},
-          ${new Date().toISOString().split("T")[0]},
-          ${inv.client_id ?? null},
-          ${notes ?? null}
-        )
-      `).catch(() => {});
+    if (!updated?.id) {
+      res.status(404).json({ error: "الفاتورة غير موجودة أو لا تنتمي لهذا المكتب" }); return;
     }
+
+    await db.execute(sql`
+      INSERT INTO revenues (title, category, amount, payment_method, date, client_id, notes)
+      VALUES (
+        ${'تحصيل فاتورة: ' + (updated.invoice_number ?? updated.id)},
+        ${'invoice_collection'},
+        ${String(amount ?? (num(updated.total) / 100))},
+        ${paymentMethod},
+        ${new Date().toISOString().split("T")[0]},
+        ${updated.client_id ?? null},
+        ${notes ?? null}
+      )
+    `).catch(() => {});
 
     res.json({ success: true });
   } catch (e: any) {
@@ -331,13 +365,14 @@ router.post("/finance/collections/:id/payment", async (req, res) => {
 });
 
 /* ─── POST /finance/collections/:id/reminder ────────────────────────── */
-router.post("/finance/collections/:id/reminder", async (req, res) => {
+router.post("/finance/collections/:id/reminder", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const { id } = req.params;
     const rows = await sqlAll(sql`
       SELECT i.*, c.full_name AS client_name, c.email AS client_email
       FROM client_invoices i LEFT JOIN clients c ON i.client_id=c.id
-      WHERE i.id=${id} LIMIT 1
+      WHERE i.id=${id} AND i.office_id=${tenantId} LIMIT 1
     `);
     const inv = rows[0];
     if (!inv) { res.status(404).json({ error: "فاتورة غير موجودة" }); return; }
@@ -381,10 +416,15 @@ router.post("/finance/collections/:id/reminder", async (req, res) => {
 });
 
 /* ─── POST /finance/collections/:id/stage ────────────────────────── */
-router.post("/finance/collections/:id/stage", async (req, res) => {
+router.post("/finance/collections/:id/stage", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const { id } = req.params;
     const { stage, notes } = req.body;
+    // Verify invoice belongs to this tenant before updating
+    const inv = await sqlOne(sql`SELECT id FROM client_invoices WHERE id=${id} AND office_id=${tenantId} LIMIT 1`);
+    if (!inv?.id) { res.status(404).json({ error: "فاتورة غير موجودة" }); return; }
+
     await db.execute(sql`
       INSERT INTO collection_stages (id, invoice_id, stage, notes)
       VALUES (gen_random_uuid()::text, ${id}, ${stage}, ${notes ?? null})
@@ -398,11 +438,17 @@ router.post("/finance/collections/:id/stage", async (req, res) => {
 });
 
 /* ─── POST /finance/collections/:id/partial-payment ──────────────── */
-router.post("/finance/collections/:id/partial-payment", async (req, res) => {
+router.post("/finance/collections/:id/partial-payment", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const { id } = req.params;
     const { amount, paymentMethod = "bank_transfer", referenceNumber, notes } = req.body;
     const amtHalalas = Math.round(Number(amount) * 100);
+
+    // Verify invoice belongs to this tenant
+    const inv = await sqlOne(sql`SELECT id, total FROM client_invoices WHERE id=${id} AND office_id=${tenantId} LIMIT 1`);
+    if (!inv?.id) { res.status(404).json({ error: "فاتورة غير موجودة" }); return; }
+
     await db.execute(sql`
       INSERT INTO partial_payments (id, invoice_id, amount, payment_method, reference_number, notes)
       VALUES (gen_random_uuid()::text, ${id}, ${amtHalalas}, ${paymentMethod}, ${referenceNumber ?? null}, ${notes ?? null})
@@ -411,20 +457,25 @@ router.post("/finance/collections/:id/partial-payment", async (req, res) => {
       INSERT INTO collection_activities (id, invoice_id, type, amount, note)
       VALUES (gen_random_uuid()::text, ${id}, ${'partial_payment'}, ${amtHalalas}, ${'دفعة جزئية: ' + amount + ' ر.س'})
     `).catch(() => {});
-    // Auto mark paid if total partials >= invoice total
-    const inv = (await sqlAll(sql`SELECT total FROM client_invoices WHERE id=${id} LIMIT 1`))[0];
+
     const totRow = await sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM partial_payments WHERE invoice_id=${id}`);
-    if (inv && num(totRow.total) >= num(inv.total)) {
-      await db.execute(sql`UPDATE client_invoices SET status='paid', paid_at=NOW() WHERE id=${id}`);
+    const autoMarkedPaid = num(totRow.total) >= num(inv.total);
+    if (autoMarkedPaid) {
+      await db.execute(sql`UPDATE client_invoices SET status='paid', paid_at=NOW() WHERE id=${id} AND office_id=${tenantId}`);
     }
-    res.json({ success: true, autoMarkedPaid: inv && num(totRow.total) >= num(inv.total) });
+    res.json({ success: true, autoMarkedPaid });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 /* ─── GET /finance/collections/:id/activities ────────────────────── */
-router.get("/finance/collections/:id/activities", async (req, res) => {
+router.get("/finance/collections/:id/activities", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const { id } = req.params;
+    // Verify invoice belongs to tenant
+    const inv = await sqlOne(sql`SELECT id FROM client_invoices WHERE id=${id} AND office_id=${tenantId} LIMIT 1`);
+    if (!inv?.id) { res.status(404).json({ error: "فاتورة غير موجودة" }); return; }
+
     const [activities, stages, partials] = await Promise.all([
       sqlAll(sql`SELECT * FROM collection_activities WHERE invoice_id=${id} ORDER BY created_at DESC`),
       sqlAll(sql`SELECT * FROM collection_stages      WHERE invoice_id=${id} ORDER BY created_at DESC LIMIT 1`),

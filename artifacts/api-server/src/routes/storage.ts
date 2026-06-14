@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import {
@@ -17,7 +18,7 @@ const objectStorageService = new ObjectStorageService();
  * The client sends JSON metadata (name, size, contentType) — NOT the file.
  * Then uploads the file directly to the returned presigned URL.
  */
-router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
+router.post("/storage/uploads/request-url", requireAuthWithTenant, async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });
@@ -50,7 +51,7 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
  * These are unconditionally public — no authentication or ACL checks.
  * IMPORTANT: Always provide this endpoint when object storage is set up.
  */
-router.get("/storage/public-objects/*filePath", async (req: Request, res: Response) => {
+router.get("/storage/public-objects/*filePath", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const raw = req.params.filePath;
     const filePath = Array.isArray(raw) ? raw.join("/") : raw;
@@ -84,7 +85,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * These are served from a separate path from /public-objects and can optionally
  * be protected with authentication or ACL checks based on the use case.
  */
-router.get("/storage/objects/*path", async (req: Request, res: Response) => {
+router.get("/storage/objects/*path", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
@@ -263,7 +264,7 @@ function fmtB(b: number) {
 }
 
 /* STATS */
-router.get("/storage/stats", async (req, res) => {
+router.get("/storage/stats", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   if (!u.isSA) syncQuota(u.officeId).catch(() => {});
@@ -286,7 +287,7 @@ router.get("/storage/stats", async (req, res) => {
 });
 
 /* FILE LIST */
-router.get("/storage/files", async (req, res) => {
+router.get("/storage/files", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const { category, archived, deleted, search, caseId, folderId, limit = "100", offset = "0" } = req.query as any;
@@ -304,7 +305,7 @@ router.get("/storage/files", async (req, res) => {
 });
 
 /* REGISTER FILE (metadata) */
-router.post("/storage/files", async (req, res) => {
+router.post("/storage/files", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const { originalName, mimeType, fileSize, fileUrl, storageKey, category = "document", caseId, clientId } = req.body;
@@ -332,7 +333,7 @@ router.post("/storage/files", async (req, res) => {
 });
 
 /* ARCHIVE TOGGLE */
-router.patch("/storage/files/:id/archive", async (req, res) => {
+router.patch("/storage/files/:id/archive", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const rows = await dbRows(sql`UPDATE storage_files SET is_archived=NOT is_archived, archived_at=CASE WHEN NOT is_archived THEN NOW() ELSE NULL END, updated_at=NOW() WHERE id=${req.params.id}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING *`);
@@ -340,7 +341,7 @@ router.patch("/storage/files/:id/archive", async (req, res) => {
 });
 
 /* MOVE TO TRASH */
-router.patch("/storage/files/:id/trash", async (req, res) => {
+router.patch("/storage/files/:id/trash", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const rows = await dbRows(sql`UPDATE storage_files SET is_deleted=true, deleted_at=NOW(), updated_at=NOW() WHERE id=${req.params.id}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING *`);
@@ -348,7 +349,7 @@ router.patch("/storage/files/:id/trash", async (req, res) => {
 });
 
 /* RESTORE FROM TRASH */
-router.patch("/storage/files/:id/restore", async (req, res) => {
+router.patch("/storage/files/:id/restore", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const rows = await dbRows(sql`UPDATE storage_files SET is_deleted=false, deleted_at=NULL, updated_at=NOW() WHERE id=${req.params.id}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING *`);
@@ -356,7 +357,7 @@ router.patch("/storage/files/:id/restore", async (req, res) => {
 });
 
 /* PERMANENT DELETE */
-router.delete("/storage/files/:id", async (req, res) => {
+router.delete("/storage/files/:id", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const file = await dbRows(sql`SELECT file_size, office_id FROM storage_files WHERE id=${req.params.id}::uuid`);
@@ -369,7 +370,7 @@ router.delete("/storage/files/:id", async (req, res) => {
 });
 
 /* EMPTY TRASH */
-router.delete("/storage/trash/empty", async (req, res) => {
+router.delete("/storage/trash/empty", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   try {
@@ -382,7 +383,7 @@ router.delete("/storage/trash/empty", async (req, res) => {
 });
 
 /* QUOTA LIST (SA) */
-router.get("/storage/quotas", async (req, res) => {
+router.get("/storage/quotas", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u?.isSA) return res.status(403).json({ error: "غير مصرح" });
   const rows = await dbRows(sql`SELECT * FROM office_storage_quota ORDER BY used_bytes DESC`);
@@ -390,7 +391,7 @@ router.get("/storage/quotas", async (req, res) => {
 });
 
 /* UPDATE QUOTA (SA) */
-router.patch("/storage/quotas/:officeId", async (req, res) => {
+router.patch("/storage/quotas/:officeId", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u?.isSA) return res.status(403).json({ error: "غير مصرح" });
   const { maxBytes } = req.body;
@@ -399,14 +400,14 @@ router.patch("/storage/quotas/:officeId", async (req, res) => {
 });
 
 /* SETTINGS (SA) */
-router.get("/storage/settings", async (req, res) => {
+router.get("/storage/settings", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u?.isSA) return res.status(403).json({ error: "غير مصرح" });
   const rows = await dbRows(sql`SELECT * FROM storage_settings ORDER BY setting_key`);
   res.json(rows);
 });
 
-router.patch("/storage/settings", async (req, res) => {
+router.patch("/storage/settings", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u?.isSA) return res.status(403).json({ error: "غير مصرح" });
   const { settings } = req.body;
@@ -423,7 +424,7 @@ router.patch("/storage/settings", async (req, res) => {
    Body: { base64: string, mimeType: string }
    Returns: { ok, docType, parties, dates, caseType, court, summary, tags, text }
 ══════════════════════════════════════════════════ */
-router.post("/storage/analyze", async (req, res) => {
+router.post("/storage/analyze", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
 
@@ -507,7 +508,7 @@ function resolveDirectUrl(raw: string): string {
   return raw;
 }
 
-router.post("/storage/import-url", async (req, res) => {
+router.post("/storage/import-url", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
 
@@ -588,7 +589,7 @@ router.post("/storage/import-url", async (req, res) => {
 });
 
 /* AI ANALYSIS */
-router.get("/storage/ai-analysis", async (req, res) => {
+router.get("/storage/ai-analysis", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const of2 = u.isSA ? sql`1=1` : sql`office_id=${u.officeId}`;
@@ -611,7 +612,7 @@ router.get("/storage/ai-analysis", async (req, res) => {
 ══════════════════════════════════════════════════ */
 
 /* LIST folders — returns only folders the user can read */
-router.get("/storage/folders", async (req, res) => {
+router.get("/storage/folders", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
 
@@ -633,7 +634,7 @@ router.get("/storage/folders", async (req, res) => {
 });
 
 /* CREATE folder */
-router.post("/storage/folders", async (req, res) => {
+router.post("/storage/folders", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const { name, parentId } = req.body;
@@ -653,7 +654,7 @@ router.post("/storage/folders", async (req, res) => {
 });
 
 /* RENAME folder — requires manage permission */
-router.patch("/storage/folders/:id/rename", async (req, res) => {
+router.patch("/storage/folders/:id/rename", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const ok = await getFolderAccess(req.params.id, u, "manage");
@@ -666,7 +667,7 @@ router.patch("/storage/folders/:id/rename", async (req, res) => {
 });
 
 /* DELETE folder — requires manage permission */
-router.delete("/storage/folders/:id", async (req, res) => {
+router.delete("/storage/folders/:id", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const ok = await getFolderAccess(req.params.id, u, "manage");
@@ -679,7 +680,7 @@ router.delete("/storage/folders/:id", async (req, res) => {
 });
 
 /* MOVE file to folder — requires write on target */
-router.patch("/storage/files/:id/folder", async (req, res) => {
+router.patch("/storage/files/:id/folder", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const { folderId } = req.body;
@@ -697,7 +698,7 @@ router.patch("/storage/files/:id/folder", async (req, res) => {
 ══════════════════════════════════════════════════ */
 
 /* GET /storage/folders/:id/permissions — folder info + user grants */
-router.get("/storage/folders/:id/permissions", async (req, res) => {
+router.get("/storage/folders/:id/permissions", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const ok = await getFolderAccess(req.params.id, u, "manage");
@@ -713,7 +714,7 @@ router.get("/storage/folders/:id/permissions", async (req, res) => {
 });
 
 /* PATCH /storage/folders/:id/permissions — update visibility */
-router.patch("/storage/folders/:id/permissions", async (req, res) => {
+router.patch("/storage/folders/:id/permissions", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const ok = await getFolderAccess(req.params.id, u, "manage");
@@ -728,7 +729,7 @@ router.patch("/storage/folders/:id/permissions", async (req, res) => {
 });
 
 /* POST /storage/folders/:id/permissions/users — grant/update user access */
-router.post("/storage/folders/:id/permissions/users", async (req, res) => {
+router.post("/storage/folders/:id/permissions/users", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const ok = await getFolderAccess(req.params.id, u, "manage");
@@ -746,7 +747,7 @@ router.post("/storage/folders/:id/permissions/users", async (req, res) => {
 });
 
 /* DELETE /storage/folders/:id/permissions/users/:userId — revoke user access */
-router.delete("/storage/folders/:id/permissions/users/:userId", async (req, res) => {
+router.delete("/storage/folders/:id/permissions/users/:userId", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const ok = await getFolderAccess(req.params.id, u, "manage");
@@ -756,7 +757,7 @@ router.delete("/storage/folders/:id/permissions/users/:userId", async (req, res)
 });
 
 /* GET /storage/team — office members list (for permissions UI) */
-router.get("/storage/team", async (req, res) => {
+router.get("/storage/team", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const rows = await dbRows(sql`

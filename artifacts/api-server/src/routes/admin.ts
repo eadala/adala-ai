@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
@@ -310,7 +311,7 @@ router.get("/admin/support", adminOnly, async (_req, res) => {
   res.json(tickets);
 });
 
-router.post("/admin/support", async (req, res) => {
+router.post("/admin/support", requireAuth, async (req, res) => {
   const ticket = await db.insert(supportTicketsTable).values(req.body).returning();
   res.json(ticket[0]);
 });

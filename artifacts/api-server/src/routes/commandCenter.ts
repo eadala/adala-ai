@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 
 const router = Router();
@@ -67,7 +68,7 @@ async function callGemini(systemPrompt: string, input: string, maxTokens = 1500)
   } catch { return null; }
 }
 
-router.post("/command-center/execute", async (req, res) => {
+router.post("/command-center/execute", requireAuth, async (req, res) => {
   const { command, input } = req.body as { command: CommandType; input: string };
   const config = COMMAND_CONFIGS[command];
   if (!config) return res.status(400).json({ error: "أمر غير معروف" });

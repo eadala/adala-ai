@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db, rolesTable, invitationsTable, auditLogsTable, usersTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
@@ -184,7 +185,7 @@ async function logAudit(
 
 // ─── ROLES ──────────────────────────────────────────────────────────────────
 
-router.get("/rbac/roles", async (_req, res) => {
+router.get("/rbac/roles", requireAuthWithTenant, async (_req, res) => {
   try {
     await syncDefaultRoles();
     const roles = await db.select().from(rolesTable).orderBy(rolesTable.createdAt);
@@ -199,7 +200,7 @@ router.get("/rbac/roles", async (_req, res) => {
   }
 });
 
-router.post("/rbac/roles", async (req, res) => {
+router.post("/rbac/roles", requireAuthWithTenant, async (req, res) => {
   try {
     const { name, displayName, description, permissions } = req.body as {
       name: string; displayName: string; description?: string; permissions: string[];
@@ -219,7 +220,7 @@ router.post("/rbac/roles", async (req, res) => {
   }
 });
 
-router.patch("/rbac/roles/:id", async (req, res) => {
+router.patch("/rbac/roles/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { displayName, description, permissions } = req.body as {
       displayName?: string; description?: string; permissions?: string[];
@@ -245,7 +246,7 @@ router.patch("/rbac/roles/:id", async (req, res) => {
   }
 });
 
-router.delete("/rbac/roles/:id", async (req, res) => {
+router.delete("/rbac/roles/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const existing = await db.select().from(rolesTable).where(eq(rolesTable.id, req.params.id)).limit(1);
     if (!existing.length) return res.status(404).json({ error: "الدور غير موجود" });
@@ -261,7 +262,7 @@ router.delete("/rbac/roles/:id", async (req, res) => {
 
 // ─── INVITATIONS ────────────────────────────────────────────────────────────
 
-router.get("/rbac/invitations", async (_req, res) => {
+router.get("/rbac/invitations", requireAuthWithTenant, async (_req, res) => {
   try {
     const invitations = await db.select().from(invitationsTable).orderBy(desc(invitationsTable.createdAt));
     res.json(invitations.map(i => ({
@@ -274,7 +275,7 @@ router.get("/rbac/invitations", async (_req, res) => {
   }
 });
 
-router.post("/rbac/invitations", async (req, res) => {
+router.post("/rbac/invitations", requireAuthWithTenant, async (req, res) => {
   try {
     const { email, role, invitedBy } = req.body as { email: string; role: string; invitedBy?: string };
     if (!email || !role) return res.status(400).json({ error: "البريد الإلكتروني والدور مطلوبان" });
@@ -291,7 +292,7 @@ router.post("/rbac/invitations", async (req, res) => {
   }
 });
 
-router.patch("/rbac/invitations/:id/resend", async (req, res) => {
+router.patch("/rbac/invitations/:id/resend", requireAuthWithTenant, async (req, res) => {
   try {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const [updated] = await db.update(invitationsTable)
@@ -305,7 +306,7 @@ router.patch("/rbac/invitations/:id/resend", async (req, res) => {
   }
 });
 
-router.delete("/rbac/invitations/:id", async (req, res) => {
+router.delete("/rbac/invitations/:id", requireAuthWithTenant, async (req, res) => {
   try {
     await db.delete(invitationsTable).where(eq(invitationsTable.id, req.params.id));
     res.status(204).end();
@@ -316,7 +317,7 @@ router.delete("/rbac/invitations/:id", async (req, res) => {
 
 // ─── AUDIT LOGS ─────────────────────────────────────────────────────────────
 
-router.get("/rbac/audit-logs", async (_req, res) => {
+router.get("/rbac/audit-logs", requireAuthWithTenant, async (_req, res) => {
   try {
     const logs = await db.select().from(auditLogsTable).orderBy(desc(auditLogsTable.createdAt)).limit(100);
     res.json(logs.map(l => ({ ...l, createdAt: l.createdAt.toISOString() })));
@@ -327,7 +328,7 @@ router.get("/rbac/audit-logs", async (_req, res) => {
 
 // ─── USER ROLE / STATUS UPDATE ───────────────────────────────────────────────
 
-router.patch("/rbac/users/:id/role", async (req, res) => {
+router.patch("/rbac/users/:id/role", requireAuthWithTenant, async (req, res) => {
   try {
     const { role } = req.body as { role: string };
     if (!role) return res.status(400).json({ error: "الدور مطلوب" });
@@ -345,7 +346,7 @@ router.patch("/rbac/users/:id/role", async (req, res) => {
   }
 });
 
-router.patch("/rbac/users/:id/status", async (req, res) => {
+router.patch("/rbac/users/:id/status", requireAuthWithTenant, async (req, res) => {
   try {
     const { status } = req.body as { status: string };
     const [updated] = await db.update(usersTable)
@@ -366,7 +367,7 @@ router.get("/rbac/permissions", (_req, res) => {
 });
 
 // ─── MY PERMISSIONS (current user) ──────────────────────────────────────────
-router.get("/rbac/my-permissions", async (req, res) => {
+router.get("/rbac/my-permissions", requireAuthWithTenant, async (req, res) => {
   try {
     const auth = getAuth(req);
     const userId = auth?.userId;
@@ -395,7 +396,7 @@ router.get("/rbac/my-permissions", async (req, res) => {
 });
 
 // ─── OFFICE MEMBERS LIST ─────────────────────────────────────────────────────
-router.get("/rbac/members", async (req, res) => {
+router.get("/rbac/members", requireAuthWithTenant, async (req, res) => {
   try {
     const auth = getAuth(req);
     const userId = auth?.userId;
@@ -429,7 +430,7 @@ router.get("/rbac/members", async (req, res) => {
 });
 
 // ─── UPDATE MEMBER ROLE ───────────────────────────────────────────────────────
-router.patch("/rbac/members/:memberId/role", async (req, res) => {
+router.patch("/rbac/members/:memberId/role", requireAuthWithTenant, async (req, res) => {
   try {
     const auth = getAuth(req);
     const currentUserId = auth?.userId;
@@ -454,7 +455,7 @@ router.patch("/rbac/members/:memberId/role", async (req, res) => {
 });
 
 // ─── REMOVE MEMBER ────────────────────────────────────────────────────────────
-router.delete("/rbac/members/:memberId", async (req, res) => {
+router.delete("/rbac/members/:memberId", requireAuthWithTenant, async (req, res) => {
   try {
     const auth = getAuth(req);
     const currentUserId = auth?.userId;

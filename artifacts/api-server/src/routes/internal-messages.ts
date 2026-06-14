@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -28,7 +29,7 @@ function getDeviceInfo(req: Request): string {
 }
 
 // GET /api/internal-messages?folder=inbox|sent|drafts|archive
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const { folder = "inbox", search = "" } = req.query as any;
     const userId = (req as any).auth?.userId ?? "anonymous";
@@ -129,7 +130,7 @@ router.get("/", async (req: Request, res: Response) => {
 });
 
 // GET /api/internal-messages/stats/counts
-router.get("/stats/counts", async (req: Request, res: Response) => {
+router.get("/stats/counts", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).auth?.userId ?? "anonymous";
 
@@ -160,7 +161,7 @@ router.get("/stats/counts", async (req: Request, res: Response) => {
 });
 
 // GET /api/internal-messages/:id
-router.get("/:id", async (req: Request, res: Response) => {
+router.get("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = (req as any).auth?.userId ?? "anonymous";
@@ -202,7 +203,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 });
 
 // GET /api/internal-messages/case/:caseId — messages for a specific case
-router.get("/case/:caseId", async (req: Request, res: Response) => {
+router.get("/case/:caseId", requireAuth, async (req: Request, res: Response) => {
   try {
     const { caseId } = req.params;
     const userId = (req as any).auth?.userId ?? "anonymous";
@@ -231,7 +232,7 @@ router.get("/case/:caseId", async (req: Request, res: Response) => {
 });
 
 // POST /api/internal-messages
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const { subject, body, recipients = [], attachments = [], folder = "sent", tags = [], caseId } = req.body;
     const userId = (req as any).auth?.userId ?? "anonymous";
@@ -270,7 +271,7 @@ router.post("/", async (req: Request, res: Response) => {
 });
 
 // PUT /api/internal-messages/:id/archive
-router.put("/:id/archive", async (req: Request, res: Response) => {
+router.put("/:id/archive", requireAuth, async (req: Request, res: Response) => {
   try {
     await db.execute(sql`UPDATE office_messages SET folder = 'archive' WHERE id = ${req.params.id}::uuid`);
     res.json({ ok: true });
@@ -280,7 +281,7 @@ router.put("/:id/archive", async (req: Request, res: Response) => {
 });
 
 // DELETE /api/internal-messages/:id
-router.delete("/:id", async (req: Request, res: Response) => {
+router.delete("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     await db.execute(sql`DELETE FROM office_messages WHERE id = ${req.params.id}::uuid`);
     res.json({ ok: true });

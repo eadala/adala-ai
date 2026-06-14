@@ -1,11 +1,13 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { CreateUserBody, UpdateUserBody } from "@workspace/api-zod";
 
 const router = Router();
 
-router.get("/users", async (req, res) => {
+router.get("/users", requireAuthWithTenant, async (req, res) => {
   try {
     const users = await db.select().from(usersTable).orderBy(usersTable.createdAt);
     res.json(users.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() })));
@@ -14,7 +16,7 @@ router.get("/users", async (req, res) => {
   }
 });
 
-router.post("/users", async (req, res) => {
+router.post("/users", requireAuthWithTenant, async (req, res) => {
   try {
     const body = CreateUserBody.parse(req.body);
     const [created] = await db.insert(usersTable).values({
@@ -30,7 +32,7 @@ router.post("/users", async (req, res) => {
   }
 });
 
-router.patch("/users/:id", async (req, res) => {
+router.patch("/users/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const body = UpdateUserBody.parse(req.body);
     const [updated] = await db.update(usersTable).set({
@@ -46,7 +48,7 @@ router.patch("/users/:id", async (req, res) => {
   }
 });
 
-router.delete("/users/:id", async (req, res) => {
+router.delete("/users/:id", requireAuthWithTenant, async (req, res) => {
   try {
     await db.delete(usersTable).where(eq(usersTable.id, req.params.id));
     res.status(204).end();

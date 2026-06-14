@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -63,7 +64,7 @@ function toIcalDate(dateStr: string, allDay = false): string {
 }
 
 // ─── GET /calendar/events ───────────────────────────────────────────────────
-router.get("/calendar/events", async (req: Request, res: Response) => {
+router.get("/calendar/events", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
@@ -97,7 +98,7 @@ router.get("/calendar/events", async (req: Request, res: Response) => {
 });
 
 // ─── GET /calendar/events/export.ics ────────────────────────────────────────
-router.get("/calendar/events/export.ics", async (req: Request, res: Response) => {
+router.get("/calendar/events/export.ics", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
@@ -156,7 +157,7 @@ router.get("/calendar/events/export.ics", async (req: Request, res: Response) =>
 });
 
 // ─── GET /calendar/events/upcoming ─────────────────────────────────────────
-router.get("/calendar/events/upcoming", async (req: Request, res: Response) => {
+router.get("/calendar/events/upcoming", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
@@ -180,7 +181,7 @@ router.get("/calendar/events/upcoming", async (req: Request, res: Response) => {
 });
 
 // ─── POST /calendar/events ──────────────────────────────────────────────────
-router.post("/calendar/events", async (req: Request, res: Response) => {
+router.post("/calendar/events", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
@@ -228,7 +229,7 @@ router.post("/calendar/events", async (req: Request, res: Response) => {
 });
 
 // ─── PUT /calendar/events/:id ───────────────────────────────────────────────
-router.put("/calendar/events/:id", async (req: Request, res: Response) => {
+router.put("/calendar/events/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
@@ -268,7 +269,7 @@ router.put("/calendar/events/:id", async (req: Request, res: Response) => {
 });
 
 // ─── DELETE /calendar/events/:id ────────────────────────────────────────────
-router.delete("/calendar/events/:id", async (req: Request, res: Response) => {
+router.delete("/calendar/events/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
@@ -288,7 +289,7 @@ router.delete("/calendar/events/:id", async (req: Request, res: Response) => {
 });
 
 // ─── GET /calendar/reminders ─────────────────────────────────────────────────
-router.get("/calendar/reminders", async (req: Request, res: Response) => {
+router.get("/calendar/reminders", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });

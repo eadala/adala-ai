@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -267,7 +268,7 @@ async function ensureTable() {
 ═══════════════════════════════════════════════════ */
 
 /* GET /theme-builder/tokens — current user's active theme */
-router.get("/theme-builder/tokens", async (req, res) => {
+router.get("/theme-builder/tokens", requireAuth, async (req, res) => {
   try {
     await ensureTable();
     const { userId } = getAuth(req as any);

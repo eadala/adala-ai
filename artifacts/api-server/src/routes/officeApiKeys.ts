@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 /**
  * Office API Keys Routes
  * GET    /api/office/api-keys        — list keys for office
@@ -13,6 +14,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { generateApiKey } from "../services/tenantProvisioning";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 
 const router = Router();
@@ -40,7 +42,7 @@ function resolveOfficeId(req: any): string | null {
 }
 
 /* GET /api/office/api-keys */
-router.get("/office/api-keys", async (req, res) => {
+router.get("/office/api-keys", requireAuthWithTenant, async (req, res) => {
   const officeId = resolveOfficeId(req);
   if (!officeId) return res.status(401).json({ error: "غير مصرح" });
 
@@ -58,7 +60,7 @@ router.get("/office/api-keys", async (req, res) => {
 });
 
 /* POST /api/office/api-keys */
-router.post("/office/api-keys", async (req, res) => {
+router.post("/office/api-keys", requireAuthWithTenant, async (req, res) => {
   const officeId = resolveOfficeId(req);
   if (!officeId) return res.status(401).json({ error: "غير مصرح" });
 
@@ -94,7 +96,7 @@ router.post("/office/api-keys", async (req, res) => {
 });
 
 /* PATCH /api/office/api-keys/:id/revoke */
-router.patch("/office/api-keys/:id/revoke", async (req, res) => {
+router.patch("/office/api-keys/:id/revoke", requireAuthWithTenant, async (req, res) => {
   const officeId = resolveOfficeId(req);
   if (!officeId) return res.status(401).json({ error: "غير مصرح" });
 
@@ -115,7 +117,7 @@ router.patch("/office/api-keys/:id/revoke", async (req, res) => {
 });
 
 /* PATCH /api/office/api-keys/:id/activate */
-router.patch("/office/api-keys/:id/activate", async (req, res) => {
+router.patch("/office/api-keys/:id/activate", requireAuthWithTenant, async (req, res) => {
   const officeId = resolveOfficeId(req);
   if (!officeId) return res.status(401).json({ error: "غير مصرح" });
 
@@ -135,7 +137,7 @@ router.patch("/office/api-keys/:id/activate", async (req, res) => {
 });
 
 /* DELETE /api/office/api-keys/:id */
-router.delete("/office/api-keys/:id", async (req, res) => {
+router.delete("/office/api-keys/:id", requireAuthWithTenant, async (req, res) => {
   const officeId = resolveOfficeId(req);
   if (!officeId) return res.status(401).json({ error: "غير مصرح" });
 

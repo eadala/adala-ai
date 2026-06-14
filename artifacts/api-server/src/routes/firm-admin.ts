@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import {
   db, casesTable, documentsTable, aiTasksTable, usersTable,
@@ -9,7 +10,7 @@ import { desc, eq, and, gte, sql, count, sum } from "drizzle-orm";
 const router = Router();
 
 /* ── Full Firm Overview ───────────────────────────── */
-router.get("/firm-admin/overview", async (_req, res) => {
+router.get("/firm-admin/overview", requireAuthWithTenant, async (_req, res) => {
   try {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

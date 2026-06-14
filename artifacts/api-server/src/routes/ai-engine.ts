@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 
 const router = Router();
@@ -166,7 +167,7 @@ function ruleBasedAnalysis(caseData: any, type: string): string {
 }
 
 // ── POST /ai/analyze-case ─────────────────────────────────────────────────
-router.post("/ai/analyze-case", async (req, res) => {
+router.post("/ai/analyze-case", requireAuthWithTenant, async (req, res) => {
   try {
     const { caseData, type = "summarize" } = req.body as {
       caseData: Record<string, any>;
@@ -211,7 +212,7 @@ router.post("/ai/analyze-case", async (req, res) => {
 });
 
 // ── POST /ai/emit-event ── event bus with AI insight ─────────────────────
-router.post("/ai/emit-event", async (req, res) => {
+router.post("/ai/emit-event", requireAuthWithTenant, async (req, res) => {
   try {
     const { type, payload, caseId, clientId } = req.body as {
       type: string;
@@ -246,7 +247,7 @@ router.post("/ai/emit-event", async (req, res) => {
 });
 
 // ── GET /ai/case-brief/:id ── quick brief for case detail auto-load ───────
-router.get("/ai/case-brief/:id", async (req, res) => {
+router.get("/ai/case-brief/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { sql } = await import("drizzle-orm");
     const { db } = await import("@workspace/db");

@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -292,7 +293,7 @@ router.get("/legal-ai/templates", (_req, res) => {
 });
 
 /* ── Route: generate document ── */
-router.post("/legal-ai/generate", async (req, res) => {
+router.post("/legal-ai/generate", requireAuth, async (req, res) => {
   try {
     const { docType, variables = {}, caseId, clientId, model = "auto" } = req.body as {
       docType: string;
@@ -343,7 +344,7 @@ router.post("/legal-ai/generate", async (req, res) => {
 });
 
 /* ── Route: refine existing document ── */
-router.post("/legal-ai/:id/refine", async (req, res) => {
+router.post("/legal-ai/:id/refine", requireAuth, async (req, res) => {
   try {
     const { instruction, model = "auto" } = req.body as { instruction: string; model?: string };
     const rows = await sqlAll(sql`SELECT * FROM legal_documents WHERE id = ${req.params.id} LIMIT 1`);
@@ -363,7 +364,7 @@ router.post("/legal-ai/:id/refine", async (req, res) => {
 });
 
 /* ── Route: history ── */
-router.get("/legal-ai/history", async (_req, res) => {
+router.get("/legal-ai/history", requireAuth, async (_req, res) => {
   try {
     const rows = await sqlAll(sql`
       SELECT id, doc_type, doc_category, title, model_used, created_at,
@@ -377,7 +378,7 @@ router.get("/legal-ai/history", async (_req, res) => {
 });
 
 /* ── Route: get single document ── */
-router.get("/legal-ai/:id", async (req, res) => {
+router.get("/legal-ai/:id", requireAuth, async (req, res) => {
   try {
     const rows = await sqlAll(sql`SELECT * FROM legal_documents WHERE id = ${req.params.id} LIMIT 1`);
     if (!rows[0]) { res.status(404).json({ error: "الوثيقة غير موجودة" }); return; }
@@ -388,7 +389,7 @@ router.get("/legal-ai/:id", async (req, res) => {
 });
 
 /* ── Route: delete document ── */
-router.delete("/legal-ai/:id", async (req, res) => {
+router.delete("/legal-ai/:id", requireAuth, async (req, res) => {
   try {
     await db.execute(sql`DELETE FROM legal_documents WHERE id = ${req.params.id}`);
     res.json({ success: true });

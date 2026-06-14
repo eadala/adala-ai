@@ -1,7 +1,10 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { callAI } from "./aiChat";
+import { requireAuth } from "../middlewares/requireAuth";
+import { getTenantSafe } from "../core/tenantContext";
 
 const router = Router();
 
@@ -81,13 +84,14 @@ async function executeAction(action: any): Promise<string> {
     }
     if (action.type === "create_case") {
       await db.execute(sql`
-        INSERT INTO cases (title, case_type, status, client_name, description)
+        INSERT INTO cases (title, case_type, status, client_name, description, office_id)
         VALUES (
           ${action.title ?? "قضية جديدة"},
           ${action.caseType ?? "other"},
           'open',
           ${action.clientName ?? null},
-          ${action.description ?? null}
+          ${action.description ?? null},
+          ${getTenantSafe()?.officeId ?? "default"}
         )
       `);
       return `✅ تم إنشاء القضية: **${action.title}**`;
@@ -99,7 +103,7 @@ async function executeAction(action: any): Promise<string> {
 }
 
 /* ── POST /api/copilot/chat ── */
-router.post("/chat", async (req: Request, res: Response) => {
+router.post("/chat", requireAuth, async (req: Request, res: Response) => {
   try {
     const { message, history = [], pageContext = "" } = req.body as {
       message: string;
@@ -174,7 +178,7 @@ ${snapshot}
 });
 
 /* ── GET /api/copilot/snapshot ── quick office summary ── */
-router.get("/snapshot", async (_req: Request, res: Response) => {
+router.get("/snapshot", requireAuth, async (_req: Request, res: Response) => {
   try {
     const [cases, invoices, events] = await Promise.all([
       db.execute(sql`SELECT COUNT(*) FILTER (WHERE status IN ('open','in_progress')) as active FROM cases`),

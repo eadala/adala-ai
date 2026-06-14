@@ -1,6 +1,8 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -145,7 +147,7 @@ function calcSalary(baseSalary: number, score: number, ev: any, cfg: Record<stri
 /* ══════════════════════════════════════════════
    ROUTES — SETTINGS
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/settings", async (_req, res) => {
+router.get("/hr-perf/settings", requireAuthWithTenant, async (_req, res) => {
   await ensureTables();
   const rows = await sqlAll(sql`SELECT key, val FROM hr_settings`);
   const obj: Record<string, string> = {};
@@ -153,7 +155,7 @@ router.get("/hr-perf/settings", async (_req, res) => {
   res.json(obj);
 });
 
-router.patch("/hr-perf/settings", async (req, res) => {
+router.patch("/hr-perf/settings", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   const updates = req.body as Record<string, string>;
   for (const [key, val] of Object.entries(updates)) {
@@ -168,7 +170,7 @@ router.patch("/hr-perf/settings", async (req, res) => {
 /* ══════════════════════════════════════════════
    ROUTES — PERFORMANCE EVALUATIONS
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/evaluations", async (_req, res) => {
+router.get("/hr-perf/evaluations", requireAuthWithTenant, async (_req, res) => {
   await ensureTables();
   try {
     const rows = await sqlAll(sql`
@@ -181,7 +183,7 @@ router.get("/hr-perf/evaluations", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr-perf/evaluations/:employeeId", async (req, res) => {
+router.get("/hr-perf/evaluations/:employeeId", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const rows = await sqlAll(sql`
@@ -195,7 +197,7 @@ router.get("/hr-perf/evaluations/:employeeId", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr-perf/evaluate", async (req, res) => {
+router.post("/hr-perf/evaluate", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const ev = req.body as any;
@@ -218,7 +220,7 @@ router.post("/hr-perf/evaluate", async (req, res) => {
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-router.delete("/hr-perf/evaluations/:id", async (req, res) => {
+router.delete("/hr-perf/evaluations/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   await db.execute(sql`DELETE FROM performance_evaluations WHERE id = ${parseInt(req.params.id)}`);
   res.status(204).end();
@@ -227,7 +229,7 @@ router.delete("/hr-perf/evaluations/:id", async (req, res) => {
 /* ══════════════════════════════════════════════
    ROUTES — INCENTIVES
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/incentives", async (_req, res) => {
+router.get("/hr-perf/incentives", requireAuthWithTenant, async (_req, res) => {
   await ensureTables();
   try {
     const rows = await sqlAll(sql`
@@ -240,7 +242,7 @@ router.get("/hr-perf/incentives", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr-perf/incentives", async (req, res) => {
+router.post("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const { employeeId, type, amount, reason, period } = req.body as any;
@@ -254,7 +256,7 @@ router.post("/hr-perf/incentives", async (req, res) => {
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-router.delete("/hr-perf/incentives/:id", async (req, res) => {
+router.delete("/hr-perf/incentives/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   await db.execute(sql`DELETE FROM employee_incentives WHERE id = ${parseInt(req.params.id)}`);
   res.status(204).end();
@@ -263,7 +265,7 @@ router.delete("/hr-perf/incentives/:id", async (req, res) => {
 /* ══════════════════════════════════════════════
    ROUTES — SMART PAYROLL SIMULATION
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/smart-payroll/preview", async (req, res) => {
+router.get("/hr-perf/smart-payroll/preview", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const { period } = req.query as { period?: string };
@@ -325,7 +327,7 @@ router.get("/hr-perf/smart-payroll/preview", async (req, res) => {
 /* ══════════════════════════════════════════════
    ROUTES — DASHBOARD
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/dashboard", async (_req, res) => {
+router.get("/hr-perf/dashboard", requireAuthWithTenant, async (_req, res) => {
   await ensureTables();
   try {
     const [

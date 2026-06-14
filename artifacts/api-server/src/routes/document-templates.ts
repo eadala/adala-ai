@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -363,7 +364,7 @@ async function seedDefaultTemplates() {
   }
 }
 
-router.get("/document-templates", async (req, res) => {
+router.get("/document-templates", requireAuthWithTenant, async (req, res) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -377,7 +378,7 @@ router.get("/document-templates", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/document-templates/:id", async (req, res) => {
+router.get("/document-templates/:id", requireAuthWithTenant, async (req, res) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -389,7 +390,7 @@ router.get("/document-templates/:id", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/document-templates", async (req, res) => {
+router.post("/document-templates", requireAuthWithTenant, async (req, res) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -406,7 +407,7 @@ router.post("/document-templates", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.put("/document-templates/:id", async (req, res) => {
+router.put("/document-templates/:id", requireAuthWithTenant, async (req, res) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -432,7 +433,7 @@ router.put("/document-templates/:id", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete("/document-templates/:id", async (req, res) => {
+router.delete("/document-templates/:id", requireAuthWithTenant, async (req, res) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -444,7 +445,7 @@ router.delete("/document-templates/:id", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/document-templates/:id/generate", async (req, res) => {
+router.post("/document-templates/:id/generate", requireAuthWithTenant, async (req, res) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -472,7 +473,7 @@ router.post("/document-templates/:id/generate", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/generated-documents", async (req, res) => {
+router.get("/generated-documents", requireAuthWithTenant, async (req, res) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -485,7 +486,7 @@ router.get("/generated-documents", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/generated-documents/:id", async (req, res) => {
+router.get("/generated-documents/:id", requireAuthWithTenant, async (req, res) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {

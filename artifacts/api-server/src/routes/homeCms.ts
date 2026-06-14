@@ -1,8 +1,28 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 
 const router = Router();
+
+async function isSuperAdmin(req: any): Promise<boolean> {
+  try {
+    const { userId } = getAuth(req);
+    if (!userId) return false;
+    const { clerkClient } = await import("@clerk/express");
+    const user = await (clerkClient as any)().users.getUser(userId);
+    const ownerEmail = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
+    const userEmail = user.emailAddresses?.[0]?.emailAddress ?? "";
+    if (ownerEmail && userEmail === ownerEmail) return true;
+    if (user.publicMetadata?.role === "super_admin") return true;
+    return false;
+  } catch { return false; }
+}
+
+async function adminOnly(req: any, res: any, next: any) {
+  if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
+  next();
+}
 
 /* ── helpers ─────────────────────────────────────────── */
 async function sqlOne(q: any) {
@@ -156,7 +176,7 @@ router.get("/home/content", async (_req, res) => {
 /* ══════════════════════════════════════════════════════
    ADMIN: PUT /api/home/content  (super-admin only via isSuperAdmin)
 ══════════════════════════════════════════════════════ */
-router.put("/home/content", async (req, res) => {
+router.put("/home/content", adminOnly, async (req, res) => {
   try {
     await ensureTable();
     const { hero, trust, features, cta_section, announcement, stats, seo, contact, footer, updatedBy } = req.body;
@@ -185,7 +205,7 @@ router.put("/home/content", async (req, res) => {
 /* ══════════════════════════════════════════════════════
    ADMIN: POST /api/home/content/reset
 ══════════════════════════════════════════════════════ */
-router.post("/home/content/reset", async (_req, res) => {
+router.post("/home/content/reset", adminOnly, async (_req, res) => {
   try {
     await ensureTable();
     await db.execute(sql`

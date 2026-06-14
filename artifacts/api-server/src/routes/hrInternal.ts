@@ -1,6 +1,8 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -58,7 +60,7 @@ async function sqlOne(q: any): Promise<any> {
 /* ══════════════════════════════════════════════
    ANNOUNCEMENTS
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/announcements", async (_req, res) => {
+router.get("/hr-internal/announcements", requireAuthWithTenant, async (_req, res) => {
   await ensureTables();
   try {
     const rows = await sqlAll(sql`
@@ -70,7 +72,7 @@ router.get("/hr-internal/announcements", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr-internal/announcements/all", async (_req, res) => {
+router.get("/hr-internal/announcements/all", requireAuthWithTenant, async (_req, res) => {
   await ensureTables();
   try {
     const rows = await sqlAll(sql`SELECT * FROM hr_announcements ORDER BY created_at DESC`);
@@ -78,7 +80,7 @@ router.get("/hr-internal/announcements/all", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr-internal/announcements", async (req, res) => {
+router.post("/hr-internal/announcements", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const { title, content, priority, targetDept, authorName, authorId, expiresAt } = req.body as any;
@@ -92,7 +94,7 @@ router.post("/hr-internal/announcements", async (req, res) => {
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-router.delete("/hr-internal/announcements/:id", async (req, res) => {
+router.delete("/hr-internal/announcements/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   await db.execute(sql`DELETE FROM hr_announcements WHERE id = ${parseInt(req.params.id)}`);
   res.status(204).end();
@@ -101,7 +103,7 @@ router.delete("/hr-internal/announcements/:id", async (req, res) => {
 /* ══════════════════════════════════════════════
    EMPLOYEE REQUESTS
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/requests", async (_req, res) => {
+router.get("/hr-internal/requests", requireAuthWithTenant, async (_req, res) => {
   await ensureTables();
   try {
     const rows = await sqlAll(sql`
@@ -114,7 +116,7 @@ router.get("/hr-internal/requests", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr-internal/requests", async (req, res) => {
+router.post("/hr-internal/requests", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const { employeeId, type, subject, body } = req.body as any;
@@ -128,7 +130,7 @@ router.post("/hr-internal/requests", async (req, res) => {
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-router.patch("/hr-internal/requests/:id", async (req, res) => {
+router.patch("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const { status, response, resolvedBy } = req.body as any;
@@ -146,7 +148,7 @@ router.patch("/hr-internal/requests/:id", async (req, res) => {
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-router.delete("/hr-internal/requests/:id", async (req, res) => {
+router.delete("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   await db.execute(sql`DELETE FROM employee_requests WHERE id = ${parseInt(req.params.id)}`);
   res.status(204).end();
@@ -155,7 +157,7 @@ router.delete("/hr-internal/requests/:id", async (req, res) => {
 /* ══════════════════════════════════════════════
    LEAVE BALANCES
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/leave-balances", async (req, res) => {
+router.get("/hr-internal/leave-balances", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const year = parseInt(String(req.query.year ?? new Date().getFullYear()));
@@ -208,7 +210,7 @@ router.get("/hr-internal/leave-balances", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/hr-internal/leave-balances/:employeeId", async (req, res) => {
+router.patch("/hr-internal/leave-balances/:employeeId", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const { leaveType, quota, year } = req.body as any;
@@ -224,7 +226,7 @@ router.patch("/hr-internal/leave-balances/:employeeId", async (req, res) => {
 /* ══════════════════════════════════════════════
    PAYSLIP DATA
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/payslip/:payrollId", async (req, res) => {
+router.get("/hr-internal/payslip/:payrollId", requireAuthWithTenant, async (req, res) => {
   try {
     const row = await sqlOne(sql`
       SELECT p.*, e.full_name, e.job_title, e.department, e.national_id, e.bank_iban, e.bank_name, e.hire_date
@@ -240,7 +242,7 @@ router.get("/hr-internal/payslip/:payrollId", async (req, res) => {
 /* ══════════════════════════════════════════════
    DASHBOARD STATS
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/dashboard", async (_req, res) => {
+router.get("/hr-internal/dashboard", requireAuthWithTenant, async (_req, res) => {
   await ensureTables();
   try {
     const year = new Date().getFullYear();

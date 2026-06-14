@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -12,7 +13,7 @@ async function sqlAll(q: any) {
 }
 
 /* ─── Import Clients ─────────────────────────────────────────────────── */
-router.post("/import/clients", async (req, res) => {
+router.post("/import/clients", requireAuthWithTenant, async (req, res) => {
   try {
     const { rows } = req.body as { rows: any[] };
     if (!Array.isArray(rows) || rows.length === 0)
@@ -42,7 +43,7 @@ router.post("/import/clients", async (req, res) => {
 });
 
 /* ─── Import Cases ───────────────────────────────────────────────────── */
-router.post("/import/cases", async (req, res) => {
+router.post("/import/cases", requireAuthWithTenant, async (req, res) => {
   try {
     const { rows } = req.body as { rows: any[] };
     if (!Array.isArray(rows) || rows.length === 0)

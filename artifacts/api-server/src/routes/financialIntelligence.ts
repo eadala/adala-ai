@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 /**
  * Financial Intelligence API
  * GET /api/finance/intelligence  — unified KPIs + insights + forecast
@@ -10,7 +11,7 @@ import { getAuth } from "@clerk/express";
 
 const router = Router();
 
-router.get("/finance/intelligence", async (req, res) => {
+router.get("/finance/intelligence", requireAuthWithTenant, async (req, res) => {
   const { userId } = getAuth(req as any);
   if (!userId) return res.status(401).json({ error: "غير مصرح" });
 

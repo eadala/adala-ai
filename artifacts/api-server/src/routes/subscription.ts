@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { plansTable, officePageTable } from "@workspace/db/schema";
@@ -34,7 +35,7 @@ const TRIAL_LIMITS = {
    Used by the frontend to gate UI elements.
    During the 30-day Stripe trial → returns full access.
 ───────────────────────────────────────────────────── */
-router.get("/office/subscription", async (_req, res) => {
+router.get("/office/subscription", requireAuth, async (_req, res) => {
   try {
     /* ── 1. Check Stripe for active trial ── */
     let isTrial = false;
@@ -172,7 +173,7 @@ router.get("/office/subscription", async (_req, res) => {
    GET /office/plan-notifications
    Returns plan change notification history (last 20).
 ───────────────────────────────────────────────────── */
-router.get("/office/plan-notifications", async (_req, res) => {
+router.get("/office/plan-notifications", requireAuth, async (_req, res) => {
   try {
     const rows = await db.execute(sql`
       SELECT id, type, old_plan, new_plan, title, message, is_read, created_at
@@ -191,9 +192,14 @@ router.get("/office/plan-notifications", async (_req, res) => {
    PATCH /office/plan-notifications/read-all
    Mark all plan notifications as read.
 ───────────────────────────────────────────────────── */
-router.patch("/office/plan-notifications/read-all", async (_req, res) => {
+router.patch("/office/plan-notifications/read-all", requireAuth, async (req, res) => {
   try {
-    await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE`);
+    const auth = getAuth(req as any);
+    if (!auth?.userId) { res.status(401).json({ error: "غير مصرح" }); return; }
+    // Scope to requesting office's notifications only — never update ALL tenants
+    const { resolveTenantId } = await import("../middlewares/tenantMiddleware");
+    const officeId = await resolveTenantId(auth.userId, req.headers["x-tenant-id"] as string | undefined) ?? "default";
+    await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE WHERE office_id = ${officeId}`);
     res.json({ ok: true });
   } catch (e: any) {
     console.error("[plan-notifications/read-all]", e);
