@@ -1,0 +1,311 @@
+تمام—هذا Prompt أعلى مستوى (System-wide refactor) يخلي Replit يعيد بناء تجربة منصة عدالة كاملة بأسلوب SaaS عالمي (بدون تدمير النظام الحالي):
+
+⸻
+
+Adala AI — Full Platform UX + Performance Overhaul (Apple-Level SaaS Standard)
+
+أنت فريق هندسة متقدم مكوّن من:
+
+* Principal Frontend Engineer
+* UX Architect (SaaS Enterprise)
+* Performance Engineer
+* Product Designer
+* System Architect
+
+مهمتك إعادة هندسة تجربة منصة عدالة AI بالكامل لتصبح:
+
+Fast • Minimal • Unified • Intelligent • Enterprise-grade SaaS
+
+بدون إضافة وظائف جديدة، فقط إعادة بناء التجربة الحالية وتحسين الأداء والهيكل.
+
+⸻
+
+الهدف الأساسي
+
+تحويل المنصة من:
+
+* مجموعة صفحات كثيرة ومعقدة
+* تنقل غير سلس
+* تحميل ثقيل
+* UI تقليدي
+
+إلى:
+
+* Unified Operating System Interface
+* Navigation بسيطة جدًا
+* Lazy-loaded modules
+* تجربة تشبه Notion + Linear + Stripe Dashboard
+
+⸻
+
+المرحلة 1: إعادة تصميم هيكل المنصة (Information Architecture)
+
+إلغاء فكرة “45 صفحة منفصلة” واستبدالها بـ:
+
+Core Operating Centers
+
+1. Legal Operations Center
+
+* Cases
+* Clients
+* Contracts
+* Documents
+* Tasks
+* Calendar
+
+⸻
+
+2. AI Intelligence Center
+
+* Legal AI
+* AI Chat
+* Judge Prep
+* Opponent Simulator
+* Legal Research
+* AI Tasks
+
+⸻
+
+3. Finance Center
+
+* Invoices
+* Revenue
+* Expenses
+* Cashflow
+* Payments
+
+⸻
+
+4. HR Center
+
+* Employees
+* Attendance
+* Payroll
+* Leaves
+
+⸻
+
+5. Office & Client Experience Center
+
+* Office Page
+* Client Portal
+* Bookings
+* Store
+
+⸻
+
+6. Platform Settings Center
+
+* Users
+* Roles
+* Permissions
+* Backup
+* Storage
+* Integrations
+
+⸻
+
+المرحلة 2: إعادة بناء UI System
+
+Global Layout
+
+استبدل UI الحالي بـ:
+
+1. Command-Based Navigation
+
+* Search Everywhere (Global Command Bar)
+* Keyboard shortcuts
+* Quick actions
+
+⸻
+
+2. Context-Based UI
+
+بدل صفحات ثابتة:
+
+* Sidebar dynamic حسب الوحدة
+* Panels حسب السياق
+* Tabs ذكية
+
+⸻
+
+3. Case/Entity-Centric Design
+
+كل شيء يدور حول:
+
+* Case
+* Client
+* Invoice
+* Document
+
+وليس صفحات منفصلة.
+
+⸻
+
+المرحلة 3: Performance First Architecture
+
+1. Full Lazy Loading
+
+* كل Center يتم تحميله عند الطلب فقط
+* لا تحميل شامل عند الدخول
+
+⸻
+
+2. Route Splitting
+
+كل وحدة:
+
+/legal
+/finance
+/hr
+/ai
+
+تتحمل بشكل مستقل
+
+⸻
+
+3. API Optimization
+
+تقليل الـ payload:
+
+* No over-fetching
+* Endpoint segmentation:
+    * /cases/summary
+    * /cases/timeline
+    * /cases/metrics
+
+⸻
+
+4. Smart Caching Layer
+
+* React Query / SWR
+* Cache per entity
+* Stale-while-revalidate
+
+⸻
+
+5. UI Virtualization
+
+في:
+
+* tables
+* logs
+* timelines
+
+⸻
+
+المرحلة 4: Dashboard Redesign (Executive Level)
+
+Owner Dashboard يجب أن يحتوي فقط على:
+
+* Revenue (Today / Month)
+* Active Cases
+* Pending Invoices
+* System Health
+* AI Usage
+* Alerts (Critical only)
+
+بدون أي clutter إضافي
+
+⸻
+
+المرحلة 5: AI Integration (On-Demand Only)
+
+AI لا يعمل تلقائيًا.
+
+بل فقط:
+
+* عند الطلب
+* داخل كل Entity (Case / Client / Invoice)
+
+AI Actions:
+
+* Summarize
+* Analyze risk
+* Suggest actions
+* Detect anomalies
+
+⸻
+
+المرحلة 6: UX Simplification Rules
+
+طبق القواعد التالية:
+
+* أي معلومة تحتاج > 3 clicks = فشل UX
+* أي صفحة تحتوي > 20 عنصر مرئي = تحتاج إعادة تصميم
+* أي feature غير مستخدمة = تُزال أو تُخفى
+* أي duplication = يُدمج
+
+⸻
+
+المرحلة 7: Design System Standardization
+
+أنشئ Design System موحد:
+
+* Typography scale ثابت
+* Color tokens
+* Spacing system
+* Card components unified
+* Buttons standardized
+* Tables unified component
+
+⸻
+
+المرحلة 8: Performance Targets
+
+بعد التحسين يجب تحقيق:
+
+* First Load < 2 seconds
+* Route change < 300ms
+* Lighthouse score > 95
+* API reduction > 40%
+* UI re-render reduction > 50%
+
+⸻
+
+المرحلة 9: Safety Rules
+
+* لا تغيير في Database schema
+* لا كسر للـ APIs الحالية
+* لا حذف وظائف أساسية
+* كل تغيير يجب أن يكون backward compatible
+
+⸻
+
+المرحلة 10: Final Output
+
+بعد التنفيذ:
+
+أنت مطالب بتقديم:
+
+* Before / After comparison
+* Performance improvements metrics
+* UI structure changes
+* Reduced complexity report
+* Suggested future enhancements
+
+⸻
+
+الهدف النهائي
+
+تحويل منصة عدالة AI إلى:
+
+Enterprise Legal Operating System with world-class SaaS UX, minimal latency, and unified experience across all modules.
+
+⸻
+
+إذا نفذته في Replit صح
+
+راح تحصل على:
+
+* لوحة أسرع بشكل واضح
+* UI أبسط بكثير
+* تنقل أقل
+* تجربة أقرب لـ Stripe / Notion / Linear
+* نظام قابل للتوسع بدون فوضى
+
+⸻
+
+إذا تبغى الخطوة الأقوى بعد هذا، أقدر أبني لك:
+
+Prompt يخلي النظام يتحول إلى AI-first بالكامل (كل شيء يُدار بالأوامر بدل النقرات)
