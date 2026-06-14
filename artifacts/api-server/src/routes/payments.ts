@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../stripeClient";
 import crypto from "crypto";
+import { eventBus } from "../core/eventBus";
 
 const router = Router();
 
@@ -270,6 +271,14 @@ router.post("/payments/transactions", async (req, res) => {
          ${netAmount}, ${status}, ${paymentMethod}, ${invoiceId ?? null}, ${caseId ?? null})
       RETURNING *
     `);
+
+    if (status === "completed") {
+      eventBus.emit({
+        type: "PAYMENT_SUCCESS",
+        officeId,
+        data: { amount, clientName, description, invoiceId, caseId, gateway: paymentMethod, platformFee, netAmount },
+      }).catch(() => {});
+    }
 
     res.json(result[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }

@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db, clientInvoicesTable as invoicesTable, clientsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { getUncachableStripeClient } from "../stripeClient";
+import { eventBus } from "../core/eventBus";
 
 const router = Router();
 
@@ -60,6 +61,11 @@ router.post("/invoices", async (req: Request, res: Response) => {
       currency: currency ?? "SAR",
       status: "draft", dueDate, notes,
     }).returning();
+
+    eventBus.emit({
+      type: "INVOICE_CREATED",
+      data: { invoiceNumber, clientId, caseId, title, total, currency: currency ?? "SAR" },
+    }).catch(() => {});
 
     res.status(201).json(invoice);
   } catch (err: any) {
