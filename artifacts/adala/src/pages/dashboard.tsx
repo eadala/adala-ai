@@ -11,12 +11,114 @@ import {
   Scale, Users, Receipt, TrendingUp, Bot, AlertCircle, CalendarDays,
   FileText, Clock, ArrowLeft, Zap, ChevronLeft, CheckCircle2, Banknote,
   Activity, Bell, BarChart3, MapPin, Plus, ExternalLink, CreditCard, BrainCircuit,
-  DollarSign, ShieldCheck, Sparkles, UserCheck, TrendingDown, HeartPulse,
+  DollarSign, ShieldCheck, Sparkles, UserCheck, TrendingDown, HeartPulse, Brain,
+  X, RefreshCw,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useLang } from "@/hooks/use-lang";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+
+/* ══════════════════════════════════════════════════════
+   AI Events Intelligence Panel — Autonomous Monitoring
+══════════════════════════════════════════════════════ */
+const SEV_CONFIG: Record<string, { bg: string; border: string; dot: string; text: string; label: string }> = {
+  critical: { bg: "bg-red-500/6",    border: "border-red-500/20",    dot: "bg-red-400",    text: "text-red-400",    label: "حرج" },
+  high:     { bg: "bg-amber-500/6",  border: "border-amber-500/20",  dot: "bg-amber-400",  text: "text-amber-400",  label: "مهم" },
+  info:     { bg: "bg-blue-500/6",   border: "border-blue-500/20",   dot: "bg-blue-400",   text: "text-blue-400",   label: "معلومة" },
+};
+
+function AiEventsPanel() {
+  const [dismissed, setDismissed] = useState<Set<number>>(new Set());
+  const [scanning, setScanning] = useState(false);
+  const { data, refetch } = useQuery<{ events: any[] }>({
+    queryKey: ["ai-events"],
+    queryFn: () => fetch(`${BASE}/api/ai-events`).then(r => r.json()),
+    staleTime: 5 * 60_000,
+    refetchInterval: 10 * 60_000,
+  });
+
+  const events = (data?.events ?? []).filter((e: any) => !dismissed.has(e.id));
+  if (events.length === 0) return null;
+
+  const dismiss = async (id: number) => {
+    setDismissed(p => new Set([...p, id]));
+    fetch(`${BASE}/api/ai-events/${id}/dismiss`, { method: "POST" }).catch(() => {});
+  };
+
+  const scan = async () => {
+    setScanning(true);
+    await fetch(`${BASE}/api/ai-events/scan`, { method: "POST" }).catch(() => {});
+    await refetch();
+    setScanning(false);
+  };
+
+  const criticalCount = events.filter((e: any) => e.severity === "critical").length;
+  const highCount = events.filter((e: any) => e.severity === "high").length;
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card overflow-hidden shadow-sm">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30 bg-muted/20">
+        <div className="flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-md bg-[#C9A84C]/15 flex items-center justify-center">
+            <Brain className="h-3.5 w-3.5 text-[#C9A84C]" />
+          </div>
+          <span className="text-xs font-bold text-foreground/70 uppercase tracking-widest">
+            ذكاء النظام — مراقبة تلقائية
+          </span>
+          <div className="flex items-center gap-1">
+            {criticalCount > 0 && (
+              <span className="bg-red-500/15 text-red-400 border border-red-500/25 text-[10px] font-bold rounded-full px-1.5 py-0.5">
+                {criticalCount} حرج
+              </span>
+            )}
+            {highCount > 0 && (
+              <span className="bg-amber-500/15 text-amber-400 border border-amber-500/25 text-[10px] font-bold rounded-full px-1.5 py-0.5">
+                {highCount} مهم
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={scan}
+          disabled={scanning}
+          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3 w-3 ${scanning ? "animate-spin" : ""}`} />
+          فحص جديد
+        </button>
+      </div>
+
+      {/* Events List */}
+      <div className="divide-y divide-border/20">
+        {events.map((ev: any) => {
+          const s = SEV_CONFIG[ev.severity] ?? SEV_CONFIG.info;
+          return (
+            <div key={ev.id} className={`flex items-start gap-3 px-4 py-3 ${s.bg} transition-all hover:brightness-110`}>
+              <div className="flex items-center gap-2 mt-1 shrink-0">
+                <span className={`w-2 h-2 rounded-full ${s.dot} animate-pulse`} />
+                <span className={`text-[10px] font-bold border rounded-full px-1.5 py-0.5 ${s.border} ${s.text}`}>
+                  {s.label}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-bold leading-tight ${s.text}`}>{ev.title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{ev.body}</p>
+              </div>
+              <button
+                onClick={() => dismiss(ev.id)}
+                className="text-muted-foreground/30 hover:text-muted-foreground transition-colors flex-shrink-0 mt-0.5 p-0.5 rounded hover:bg-white/5"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 /* ── Live Event Feed widget ─────────────────────────────── */
 interface LiveEv { id: string; type: string; label: string; data: Record<string, any>; timestamp: string; }
@@ -377,6 +479,9 @@ export default function Dashboard() {
 
       {/* ── Executive Pulse Bar — 10 مؤشرات فورية */}
       <ExecutivePulseBar />
+
+      {/* ── AI Intelligence Panel — Autonomous Monitoring */}
+      <AiEventsPanel />
 
       {/* ── Executive Assistant Widget */}
       <ExecutiveAssistant />

@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useUser, useClerk } from "@clerk/react";
 import { useLoginTracker } from "@/hooks/useLoginTracker";
 import { FloatingCopilot } from "@/components/floating-copilot";
+import { CommandBar } from "@/components/command-bar";
 
 interface NavItem {
   href: string;
@@ -484,11 +485,18 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <div className="hidden md:flex flex-1 items-center max-w-md">
-            <div className="relative w-full">
-              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder={t("search")} className="w-full pl-4 pr-10 bg-muted/50 border-none focus-visible:ring-1" />
-            </div>
+          {/* ⌘K Command Bar Trigger */}
+          <div className="hidden md:flex flex-1 items-center max-w-sm">
+            <button
+              onClick={() => (window as any).__openCommandBar?.()}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg border border-border/60 bg-muted/30 hover:bg-muted/60 hover:border-border transition-all text-sm text-muted-foreground group"
+            >
+              <Search className="h-3.5 w-3.5 shrink-0 group-hover:text-foreground transition-colors" />
+              <span className="flex-1 text-right text-[13px]">ابحث أو اكتب أمراً...</span>
+              <kbd className="hidden sm:flex items-center gap-0.5 text-[10px] font-mono border border-border/60 rounded px-1.5 py-0.5 bg-background/60 shrink-0">
+                <span className="text-[11px]">⌘</span>K
+              </kbd>
+            </button>
           </div>
 
           <div className="flex items-center gap-1 mr-auto">
@@ -516,6 +524,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </main>
 
       <FloatingCopilot />
+      <CommandBar />
     </div>
   );
 }
