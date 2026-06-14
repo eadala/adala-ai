@@ -23,8 +23,26 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import type { RequestHandler } from "express";
 import type { IncomingHttpHeaders } from "http";
 
-const CLERK_FAPI = "https://frontend-api.clerk.dev";
 export const CLERK_PROXY_PATH = "/api/__clerk";
+
+/**
+ * Derives the Clerk Frontend API base URL from the publishable key.
+ * Clerk publishable keys encode the FAPI domain in base64:
+ *   pk_live_{base64(fapi_domain + "$")} → https://{fapi_domain}
+ *
+ * Falls back to frontend-api.clerk.dev for safety.
+ */
+function getFapiFromPublishableKey(publishableKey: string): string {
+  try {
+    const encoded = publishableKey.replace(/^pk_(?:live|test)_/, "");
+    const decoded = Buffer.from(encoded, "base64").toString("utf-8");
+    const domain = decoded.replace(/\$$/, "").trim();
+    if (!domain || !domain.includes(".")) return "https://frontend-api.clerk.dev";
+    return `https://${domain}`;
+  } catch {
+    return "https://frontend-api.clerk.dev";
+  }
+}
 
 /**
  * Returns the first effective public hostname for the given request,
@@ -62,6 +80,11 @@ export function clerkProxyMiddleware(): RequestHandler {
   if (!secretKey) {
     return (_req, _res, next) => next();
   }
+
+  const publishableKey = process.env.CLERK_PUBLISHABLE_KEY || "";
+  const CLERK_FAPI = publishableKey
+    ? getFapiFromPublishableKey(publishableKey)
+    : "https://frontend-api.clerk.dev";
 
   return createProxyMiddleware({
     target: CLERK_FAPI,
