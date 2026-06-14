@@ -139,9 +139,55 @@ router.post("/cases", async (req, res) => {
 
 router.get("/cases/:id", async (req, res) => {
   try {
-    const [found] = await db.select().from(casesTable).where(eq(casesTable.id, req.params.id));
-    if (!found) return res.status(404).json({ error: "Not found" });
-    res.json({ ...found, createdAt: found.createdAt.toISOString(), updatedAt: found.updatedAt?.toISOString() ?? null });
+    /* Raw SQL to include ad-hoc columns + joined order details */
+    const { sql: rawSql } = await import("drizzle-orm");
+    const rows = await db.execute(rawSql`
+      SELECT
+        c.id, c.title, c.description, c.case_type, c.status,
+        c.client_name, c.assigned_to, c.created_at, c.updated_at,
+        COALESCE(c.source, 'manual')  AS source,
+        c.store_order_id,
+        c.created_by,
+        oo.id                        AS order_db_id,
+        oo.amount                    AS order_amount,
+        oo.client_email              AS order_client_email,
+        oo.client_phone              AS order_client_phone,
+        oo.stripe_session_id         AS order_stripe_session,
+        oo.created_at                AS order_created_at,
+        osvc.name                    AS order_service_name,
+        osvc.description             AS order_service_desc
+      FROM cases c
+      LEFT JOIN office_orders  oo   ON oo.id  = c.store_order_id
+      LEFT JOIN office_services osvc ON osvc.id = oo.service_id
+      WHERE c.id = ${req.params.id}
+      LIMIT 1
+    `);
+    const rawArr: any[] = (rows as any)?.rows ?? (rows as any) ?? [];
+    const c = rawArr[0];
+    if (!c) return res.status(404).json({ error: "Not found" });
+
+    const orderDetails = c.order_db_id ? {
+      id: c.order_db_id,
+      serviceName: c.order_service_name ?? null,
+      serviceDesc: c.order_service_desc ?? null,
+      amount: c.order_amount ? Number(c.order_amount) : null,
+      clientEmail: c.order_client_email ?? null,
+      clientPhone: c.order_client_phone ?? null,
+      stripeSession: c.order_stripe_session ?? null,
+      createdAt: c.order_created_at instanceof Date ? c.order_created_at.toISOString() : c.order_created_at ?? null,
+    } : null;
+
+    res.json({
+      id: c.id, title: c.title, description: c.description,
+      caseType: c.case_type, status: c.status,
+      clientName: c.client_name, assignedTo: c.assigned_to,
+      source: c.source ?? "manual",
+      storeOrderId: c.store_order_id ?? null,
+      createdBy: c.created_by ?? null,
+      orderDetails,
+      createdAt: c.created_at instanceof Date ? c.created_at.toISOString() : c.created_at,
+      updatedAt: c.updated_at instanceof Date ? c.updated_at?.toISOString() ?? null : c.updated_at ?? null,
+    });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
