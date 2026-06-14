@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "duS8RMlCtEWQ1R3uPpfMi"
+uri = "file://adala-production-audit.md"
+type = "text"
+title = "تقرير التدقيق الاحترافي — عدالة AI"
