@@ -5,6 +5,21 @@ import { getStripeSync } from "./stripeClient";
 import { startEmailCron } from "./cron/emailCron";
 import { registerAllListeners } from "./core/listeners/index";
 import { initVapid } from "./lib/webPush";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
+
+/** Ensure ad-hoc columns added outside the Drizzle schema always exist at boot */
+async function ensureAdHocColumns() {
+  try {
+    await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS source       TEXT DEFAULT 'manual'`);
+    await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS store_order_id TEXT`);
+    await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS created_by    TEXT`);
+    await db.execute(sql`ALTER TABLE office_orders ADD COLUMN IF NOT EXISTS auto_case_id TEXT`);
+    await db.execute(sql`ALTER TABLE office_orders ADD COLUMN IF NOT EXISTS portal_token TEXT`);
+  } catch (e: any) {
+    logger.warn({ err: e.message }, "ensureAdHocColumns: non-fatal migration warning");
+  }
+}
 
 const rawPort = process.env["PORT"];
 
@@ -36,6 +51,7 @@ async function initStripe() {
   }
 }
 
+ensureAdHocColumns().catch(e => logger.error({ e }, "ensureAdHocColumns failed"));
 initStripe();
 startEmailCron();
 registerAllListeners();

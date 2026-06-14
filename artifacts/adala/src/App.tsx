@@ -115,6 +115,7 @@ const Billing              = lazy(() => import("@/pages/billing"));
 const PricingPage          = lazy(() => import("@/pages/pricing"));
 const DemoPage             = lazy(() => import("@/pages/demo"));
 const OfficePage           = lazy(() => import("@/pages/office-public"));
+const OfficeServiceDetail  = lazy(() => import("@/pages/office-service-detail"));
 const OfficeStore          = lazy(() => import("@/pages/office-store"));
 const OfficeBook           = lazy(() => import("@/pages/office-book"));
 const TermsPage            = lazy(() => import("@/pages/terms"));
@@ -420,6 +421,7 @@ function AppRoutes() {
             {/* ── Public firm pages ── */}
             <Route path="/firms/:slug/store"><PublicPage><OfficeStore /></PublicPage></Route>
             <Route path="/firms/:slug/book"><PublicPage><OfficeBook /></PublicPage></Route>
+            <Route path="/firms/:slug/service/:serviceId"><PublicPage><OfficeServiceDetail /></PublicPage></Route>
             <Route path="/firms/:slug"><PublicPage><OfficePage /></PublicPage></Route>
 
             {/* ── Workspace (law firm users only) ── */}
