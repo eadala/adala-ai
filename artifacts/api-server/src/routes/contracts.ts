@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { contractsTable } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -79,50 +80,84 @@ ${details}
 حرر في: ${new Date().toLocaleDateString("ar-SA")}`;
 }
 
-router.get("/contracts", async (_req, res) => {
-  const contracts = await db.select().from(contractsTable).orderBy(desc(contractsTable.createdAt));
-  res.json(contracts);
-});
-
-router.post("/contracts", async (req, res) => {
-  const { title, type, parties, details, aiGenerate, notes, expiresAt, clientId, caseId } = req.body;
-  let content = req.body.content ?? "";
-
-  if (aiGenerate) {
-    content = await aiGenerateContract(type ?? "general", parties ?? [], details ?? title);
+// ── GET /contracts ────────────────────────────────────────────────────────────
+router.get("/contracts", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    const contracts = await db.select().from(contractsTable)
+      .where(eq(contractsTable.officeId, tenantId))
+      .orderBy(desc(contractsTable.createdAt));
+    res.json(contracts);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
-
-  const [contract] = await db.insert(contractsTable).values({
-    title, type: type ?? "general", parties: parties ?? [],
-    content, aiGenerated: !!aiGenerate, notes,
-    expiresAt: expiresAt ? new Date(expiresAt) : undefined,
-    clientId, caseId,
-  }).returning();
-  res.json(contract);
 });
 
-router.patch("/contracts/:id", async (req, res) => {
-  const { id } = req.params;
-  const [updated] = await db.update(contractsTable)
-    .set({ ...req.body, updatedAt: new Date() })
-    .where(eq(contractsTable.id, id)).returning();
-  res.json(updated);
+// ── POST /contracts ───────────────────────────────────────────────────────────
+router.post("/contracts", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    const { title, type, parties, details, aiGenerate, notes, expiresAt, clientId, caseId } = req.body;
+    let content = req.body.content ?? "";
+
+    if (aiGenerate) {
+      content = await aiGenerateContract(type ?? "general", parties ?? [], details ?? title);
+    }
+
+    const [contract] = await db.insert(contractsTable).values({
+      title, type: type ?? "general", parties: parties ?? [],
+      content, aiGenerated: !!aiGenerate, notes,
+      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+      clientId, caseId,
+      officeId: tenantId,
+    }).returning();
+    res.json(contract);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-router.delete("/contracts/:id", async (req, res) => {
-  await db.delete(contractsTable).where(eq(contractsTable.id, req.params.id));
-  res.json({ success: true });
+// ── PATCH /contracts/:id ──────────────────────────────────────────────────────
+router.patch("/contracts/:id", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    const { id } = req.params;
+    const [updated] = await db.update(contractsTable)
+      .set({ ...req.body, updatedAt: new Date() })
+      .where(and(eq(contractsTable.id, id), eq(contractsTable.officeId, tenantId)))
+      .returning();
+    if (!updated) return res.status(404).json({ error: "العقد غير موجود" });
+    res.json(updated);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-router.post("/contracts/:id/analyze", async (req, res) => {
-  const { id } = req.params;
-  const [contract] = await db.select().from(contractsTable).where(eq(contractsTable.id, id));
-  if (!contract) return res.status(404).json({ error: "العقد غير موجود" });
+// ── DELETE /contracts/:id ─────────────────────────────────────────────────────
+router.delete("/contracts/:id", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    await db.delete(contractsTable)
+      .where(and(eq(contractsTable.id, req.params.id), eq(contractsTable.officeId, tenantId)));
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
-  const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-  const OPENAI_KEY = process.env.OPENAI_API_KEY;
+// ── POST /contracts/:id/analyze ───────────────────────────────────────────────
+router.post("/contracts/:id/analyze", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    const { id } = req.params;
+    const [contract] = await db.select().from(contractsTable)
+      .where(and(eq(contractsTable.id, id), eq(contractsTable.officeId, tenantId)));
+    if (!contract) return res.status(404).json({ error: "العقد غير موجود" });
 
-  const prompt = `حلل العقد التالي واستخرج:
+    const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+    const OPENAI_KEY = process.env.OPENAI_API_KEY;
+
+    const prompt = `حلل العقد التالي واستخرج:
 1. المخاطر القانونية الرئيسية (قائمة)
 2. نقاط القوة (قائمة)
 3. التوصيات للتحسين (قائمة)
@@ -133,36 +168,40 @@ ${contract.content?.substring(0, 3000)}
 
 أجب بتنسيق منظم بالعربية.`;
 
-  let analysis = "";
-  try {
-    if (ANTHROPIC_KEY) {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model: "claude-3-5-haiku-20241022", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
-      });
-      const d = await r.json() as any;
-      analysis = d.content?.[0]?.text ?? "";
-    } else if (OPENAI_KEY) {
-      const r = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_KEY}` },
-        body: JSON.stringify({ model: "gpt-4o-mini", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
-      });
-      const d = await r.json() as any;
-      analysis = d.choices?.[0]?.message?.content ?? "";
+    let analysis = "";
+    try {
+      if (ANTHROPIC_KEY) {
+        const r = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify({ model: "claude-3-5-haiku-20241022", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
+        });
+        const d = await r.json() as any;
+        analysis = d.content?.[0]?.text ?? "";
+      } else if (OPENAI_KEY) {
+        const r = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_KEY}` },
+          body: JSON.stringify({ model: "gpt-4o-mini", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
+        });
+        const d = await r.json() as any;
+        analysis = d.choices?.[0]?.message?.content ?? "";
+      }
+    } catch {}
+
+    if (!analysis) {
+      analysis = `**المخاطر القانونية:**\n- غياب شرط التحكيم الصريح\n- عدم تحديد عقوبة التأخر في السداد\n- إمكانية التفسير المتعارض لبعض البنود\n\n**نقاط القوة:**\n- وضوح موضوع العقد\n- تحديد الالتزامات بشكل معقول\n\n**التوصيات:**\n- إضافة شرط تحكيم\n- تحديد الغرامات التأخيرية\n- تعزيز بند الإنهاء\n\nدرجة المخاطرة: 5`;
     }
-  } catch {}
 
-  if (!analysis) {
-    analysis = `**المخاطر القانونية:**\n- غياب شرط التحكيم الصريح\n- عدم تحديد عقوبة التأخر في السداد\n- إمكانية التفسير المتعارض لبعض البنود\n\n**نقاط القوة:**\n- وضوح موضوع العقد\n- تحديد الالتزامات بشكل معقول\n\n**التوصيات:**\n- إضافة شرط تحكيم\n- تحديد الغرامات التأخيرية\n- تعزيز بند الإنهاء\n\nدرجة المخاطرة: 5`;
+    const riskMatch = analysis.match(/درجة المخاطرة:\s*(\d+)/);
+    const riskScore = riskMatch?.[1] ?? "5";
+    await db.update(contractsTable).set({ riskScore, updatedAt: new Date() })
+      .where(and(eq(contractsTable.id, id), eq(contractsTable.officeId, tenantId)));
+
+    res.json({ analysis, riskScore });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
-
-  const riskMatch = analysis.match(/درجة المخاطرة:\s*(\d+)/);
-  const riskScore = riskMatch?.[1] ?? "5";
-  await db.update(contractsTable).set({ riskScore, updatedAt: new Date() }).where(eq(contractsTable.id, id));
-
-  res.json({ analysis, riskScore });
 });
 
 export default router;

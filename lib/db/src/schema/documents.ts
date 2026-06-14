@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 export const documentsTable = pgTable("documents", {
   id:        text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   caseId:    text("case_id"),
+  officeId:  text("office_id"),
   fileUrl:   text("file_url").notNull(),
   fileType:  text("file_type").notNull(),
   fileName:  text("file_name"),

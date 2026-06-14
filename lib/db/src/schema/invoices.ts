@@ -7,6 +7,7 @@ export const clientInvoicesTable = pgTable("client_invoices", {
   invoiceNumber:        text("invoice_number").notNull(),
   clientId:             text("client_id"),
   caseId:               text("case_id"),
+  officeId:             text("office_id"),
   title:                text("title").notNull(),
   items:                text("items").notNull().default("[]"),
   subtotal:             integer("subtotal").notNull().default(0),
