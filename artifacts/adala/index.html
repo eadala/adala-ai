@@ -18,6 +18,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
+    <script>
+      (function(){
+        var t = localStorage.getItem('adala-theme') || 'dark';
+        document.documentElement.classList.toggle('dark', t === 'dark');
+      })();
+    </script>
     <div id="root" style="background:#0F1B35;min-height:100vh"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
