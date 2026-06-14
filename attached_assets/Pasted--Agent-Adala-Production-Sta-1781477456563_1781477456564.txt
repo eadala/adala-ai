@@ -1,0 +1,168 @@
+يمكنك إرسال هذا الطلب مباشرة إلى Agent لعمل تدقيق احترافي خاص بمنصة عدالة فقط:
+
+Adala Production Stability Audit
+
+Perform a complete production-grade audit of the Adala Legal Practice Management Platform.
+
+System Architecture Review
+
+Analyze and validate:
+
+* Multi-tenant architecture
+* Tenant isolation
+* Database schema integrity
+* Permission system
+* Authentication flow
+* Authorization policies
+* File storage architecture
+* API architecture
+* Background jobs
+* Audit logging
+
+Core Business Workflows
+
+Validate end-to-end functionality for:
+
+Law Firm Onboarding
+
+* Create law firm account
+* Firm activation
+* Subscription assignment
+* Tenant provisioning
+
+User Management
+
+* Owner account
+* Lawyers
+* Legal assistants
+* Finance staff
+* Custom roles
+* Permission inheritance
+
+Client Management
+
+* Create client
+* Client profile
+* Client documents
+* Client communications
+* Client history
+
+Case Management
+
+* Create case
+* Assign lawyer
+* Case stages
+* Hearings
+* Tasks
+* Notes
+* Attachments
+* Timeline
+
+Document Management
+
+* Upload documents
+* Version control
+* Secure access
+* Search
+* Categorization
+* Download permissions
+
+Contracts
+
+* Contract creation
+* Templates
+* Electronic signing workflow
+* Contract storage
+* Contract lifecycle
+
+Billing & Finance
+
+* Invoices
+* Payments
+* Subscription billing
+* Financial reports
+* Tax handling
+* Refund handling
+
+Notifications
+
+* Email
+* SMS
+* In-app notifications
+* Reminder engine
+
+Security Audit
+
+Verify:
+
+* Tenant data isolation
+* API protection
+* Authentication security
+* Authorization enforcement
+* File access controls
+* Rate limiting
+* Security headers
+* Secrets management
+* Session security
+* OWASP Top 10 risks
+
+Performance Audit
+
+Measure:
+
+* Dashboard load time
+* Client list performance
+* Case list performance
+* Large document uploads
+* Database query efficiency
+* API response times
+* Bundle sizes
+* Memory consumption
+
+Production Infrastructure
+
+Validate:
+
+* Replit deployment configuration
+* Environment variables
+* Build process
+* Rollup/Vite configuration
+* Error monitoring
+* Logging
+* Backup strategy
+* Disaster recovery readiness
+
+Quality Assurance
+
+Execute:
+
+* Smoke tests
+* Regression tests
+* Permission tests
+* Multi-tenant tests
+* Payment tests
+* File upload tests
+
+Deliverables
+
+Generate:
+
+1. Executive Summary
+2. Architecture Assessment
+3. Security Score (/100)
+4. Performance Score (/100)
+5. Reliability Score (/100)
+6. Scalability Score (/100)
+7. Critical Issues
+8. High Priority Issues
+9. Recommended Fixes
+10. Production Readiness Assessment
+
+Provide a final verdict:
+
+* Not Ready
+* Ready with Conditions
+* Production Ready
+* Enterprise Ready
+
+هذا التدقيق مناسب لعدالة كنظام إدارة مكاتب محاماة (SaaS متعدد العملاء)، وليس لسوق الخدمات القانونية.
