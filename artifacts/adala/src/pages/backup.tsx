@@ -889,7 +889,17 @@ export default function BackupCenter() {
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm"
                           className="border-sidebar-border text-muted-foreground hover:border-[#C9A84C]/50 hover:text-white"
-                          onClick={() => toast.info("اختبار الاتصال قيد التطوير")}>
+                          onClick={async () => {
+                            try {
+                              const r = await fetch(`${BASE}/api/backup/test-cloud`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(cloudCfg),
+                              }).then(x => x.json());
+                              if (r.ok) toast.success(r.message ?? "✅ الإعدادات صحيحة");
+                              else toast.error(r.error ?? "❌ خطأ في الإعدادات");
+                            } catch { toast.error("تعذّر الاتصال بالخادم"); }
+                          }}>
                           <Shield className="h-3.5 w-3.5 ml-1.5" /> اختبار الاتصال
                         </Button>
                       </div>
