@@ -116,6 +116,36 @@ export default function CaseDetail({ id }: { id: string }) {
   const [portalType, setPortalType] = useState("note");
   const [portalShared, setPortalShared] = useState(true);
   const [portalSending, setPortalSending] = useState(false);
+
+  /* ── Case Messages ── */
+  const [msgComposeOpen, setMsgComposeOpen] = useState(false);
+  const [msgSubject, setMsgSubject]         = useState("");
+  const [msgBody, setMsgBody]               = useState("");
+  const [selectedMsg, setSelectedMsg]       = useState<any>(null);
+
+  const { data: caseMsgs = [], refetch: refetchMsgs } = useQuery<any[]>({
+    queryKey: ["case-messages", id],
+    queryFn: () => fetch(`${BASE}/api/internal-messages/case/${id}`).then(r => r.json()),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+
+  const sendMsg = useMutation({
+    mutationFn: (d: { subject: string; body: string }) =>
+      fetch(`${BASE}/api/internal-messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...d, caseId: id, folder: "sent" }),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      refetchMsgs();
+      setMsgComposeOpen(false);
+      setMsgSubject("");
+      setMsgBody("");
+      toast({ title: "تم الإرسال", description: "تم إرسال الرسالة بنجاح" });
+    },
+  });
+
   const updateCase = useUpdateCase();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -639,20 +669,121 @@ export default function CaseDetail({ id }: { id: string }) {
             </TabsContent>
 
             {/* MESSAGES TAB */}
-            <TabsContent value="messages" className="mt-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-3">
-                  <CardTitle className="text-sm">المراسلات</CardTitle>
-                  <Link href="/messages">
-                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
-                      <ExternalLink className="h-3 w-3" />فتح المراسلات
+            <TabsContent value="messages" className="mt-4 space-y-3">
+              {/* Header + Compose button */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-semibold">مراسلات القضية</span>
+                  {caseMsgs.length > 0 && (
+                    <span className="text-[10px] bg-blue-500/20 text-blue-400 rounded px-1.5 py-0.5">{caseMsgs.length}</span>
+                  )}
+                </div>
+                <Button size="sm" className="h-7 text-xs gap-1" onClick={() => setMsgComposeOpen(true)}>
+                  <Plus className="h-3 w-3" />رسالة جديدة
+                </Button>
+              </div>
+
+              {/* Message detail view */}
+              {selectedMsg ? (
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-sm truncate">{selectedMsg.subject}</CardTitle>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        من: <strong className="text-foreground">{selectedMsg.sender_name}</strong>
+                        {" · "}{new Date(selectedMsg.created_at).toLocaleString("ar-EG")}
+                      </p>
+                    </div>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0" onClick={() => setSelectedMsg(null)}>
+                      ← رجوع
                     </Button>
-                  </Link>
-                </CardHeader>
-                <CardContent>
-                  <EmptyState icon={<MessageSquare className="h-10 w-10" />} label="المراسلات المرتبطة بهذه القضية ستظهر هنا" action="فتح المراسلات" href="/messages" />
-                </CardContent>
-              </Card>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-muted/30 rounded-lg p-4 text-sm leading-relaxed whitespace-pre-wrap border border-border/40">
+                      {selectedMsg.body}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                /* Message list */
+                <Card>
+                  <CardContent className="p-0">
+                    {caseMsgs.length === 0 ? (
+                      <div className="py-10 flex flex-col items-center gap-2 text-muted-foreground">
+                        <MessageSquare className="h-8 w-8 opacity-20" />
+                        <p className="text-sm">لا توجد مراسلات لهذه القضية بعد</p>
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 mt-1" onClick={() => setMsgComposeOpen(true)}>
+                          <Plus className="h-3 w-3" />ابدأ مراسلة
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border/40">
+                        {caseMsgs.map((msg: any) => (
+                          <button key={msg.id} onClick={() => setSelectedMsg(msg)}
+                            className="w-full flex items-start gap-3 p-3 hover:bg-muted/30 transition-colors text-right">
+                            <div className="w-8 h-8 rounded-full bg-blue-500/15 border border-blue-500/25 flex items-center justify-center shrink-0">
+                              <span className="text-xs text-blue-400 font-bold">
+                                {(msg.sender_name ?? "؟").charAt(0)}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-sm font-medium truncate">{msg.subject}</span>
+                                <span className="text-[10px] text-muted-foreground shrink-0">
+                                  {new Date(msg.created_at).toLocaleDateString("ar-EG")}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-0.5 truncate">{msg.sender_name}</p>
+                              <p className="text-xs text-muted-foreground/70 mt-0.5 truncate">{msg.body?.slice(0, 60)}...</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Compose Dialog */}
+              <Dialog open={msgComposeOpen} onOpenChange={setMsgComposeOpen}>
+                <DialogContent className="max-w-lg" dir="rtl">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-base">
+                      <MessageSquare className="h-4 w-4" />رسالة جديدة
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-3 py-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">الموضوع</Label>
+                      <Input value={msgSubject} onChange={e => setMsgSubject(e.target.value)}
+                        placeholder="موضوع الرسالة..." className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">نص الرسالة</Label>
+                      <textarea
+                        value={msgBody}
+                        onChange={e => setMsgBody(e.target.value)}
+                        placeholder="اكتب رسالتك هنا..."
+                        rows={5}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      سيتم ربط الرسالة تلقائياً بهذه القضية
+                    </p>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setMsgComposeOpen(false)}>إلغاء</Button>
+                    <Button size="sm" className="gap-1.5"
+                      disabled={!msgSubject.trim() || !msgBody.trim() || sendMsg.isPending}
+                      onClick={() => sendMsg.mutate({ subject: msgSubject, body: msgBody })}>
+                      <Send className="h-3.5 w-3.5" />
+                      {sendMsg.isPending ? "جارٍ الإرسال..." : "إرسال"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </TabsContent>
 
             {/* PORTAL TAB */}
