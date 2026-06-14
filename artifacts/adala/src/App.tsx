@@ -81,6 +81,7 @@ const BackupCenter         = lazy(() => import("@/pages/backup"));
 const StorageSettings      = lazy(() => import("@/pages/storage-settings"));
 const AdalaBuildStudio     = lazy(() => import("@/pages/studio"));
 const ThemeBuilderPage     = lazy(() => import("@/pages/theme-builder"));
+const EngineeringCenter    = lazy(() => import("@/pages/engineering-center"));
 const AuditLogsPage        = lazy(() => import("@/pages/audit-logs"));
 const LoginTrackingPage    = lazy(() => import("@/pages/login-tracking"));
 const MySessionsPage       = lazy(() => import("@/pages/my-sessions"));
@@ -477,6 +478,7 @@ function AppRoutes() {
             <Route path="/studio"><AdminRoute><AdalaBuildStudio /></AdminRoute></Route>
             <Route path="/financial-core"><AdminRoute><FinancialCore /></AdminRoute></Route>
             <Route path="/audit-logs"><AdminRoute><AuditLogsPage /></AdminRoute></Route>
+            <Route path="/engineering-center"><AdminRoute><EngineeringCenter /></AdminRoute></Route>
             <Route path="/activity-stream"><WorkspaceRoute><ActivityStreamPage /></WorkspaceRoute></Route>
 
             {/* Admin & Settings (law firm admins) */}
