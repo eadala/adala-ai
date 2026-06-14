@@ -404,7 +404,7 @@ function PublicPage({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
 }
 
-// ── All routes ─────────────────────────────────────────────────────────────────
+// ── All routes (inside ClerkProvider — auth-aware) ─────────────────────────────
 function AppRoutes() {
   const [, setLocation] = useLocation();
 
@@ -422,10 +422,9 @@ function AppRoutes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
-      <QueryClientProvider client={queryClient}>
-        <ClerkQueryClientCacheInvalidator />
-        <OfficeThemeProvider />
-        <TooltipProvider>
+      <ClerkQueryClientCacheInvalidator />
+      <OfficeThemeProvider />
+      <AppErrorBoundary>
           <Switch>
             {/* ── Public ── */}
             <Route path="/" component={HomeRedirect} />
@@ -551,22 +550,43 @@ function AppRoutes() {
             {/* 404 */}
             <Route><Layout><Suspense fallback={<PageLoader />}><NotFound /></Suspense></Layout></Route>
           </Switch>
-          <Toaster />
-        </TooltipProvider>
-      </QueryClientProvider>
+        </AppErrorBoundary>
     </ClerkProvider>
   );
 }
 
+// ── Public home — renders Landing instantly, zero ClerkProvider dependency ─────
+function HomeLanding() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#0F1B35" }} />}>
+      <Landing />
+    </Suspense>
+  );
+}
+
 // ── App root ───────────────────────────────────────────────────────────────────
+// QueryClientProvider + TooltipProvider live here (OUTSIDE ClerkProvider) so
+// Landing at "/" can use useQuery without waiting for Clerk to initialise.
 function App() {
   return (
     <AppErrorBoundary>
-      <div dir="rtl" className="font-sans antialiased text-foreground bg-background min-h-screen">
-        <WouterRouter base={basePath}>
-          <AppRoutes />
-        </WouterRouter>
-      </div>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <div dir="rtl" className="font-sans antialiased text-foreground bg-background min-h-screen">
+            <WouterRouter base={basePath}>
+              <Switch>
+                {/* "/" → Landing renders immediately — no Clerk dependency */}
+                <Route path="/" component={HomeLanding} />
+                {/* All other routes go through ClerkProvider */}
+                <Route>
+                  <AppRoutes />
+                </Route>
+              </Switch>
+              <Toaster />
+            </WouterRouter>
+          </div>
+        </TooltipProvider>
+      </QueryClientProvider>
     </AppErrorBoundary>
   );
 }
