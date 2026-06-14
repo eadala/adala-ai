@@ -99,41 +99,25 @@ export default defineConfig({
           ) {
             return "vendor-charts";
           }
-          // Each @radix-ui package gets its OWN chunk to avoid circular-dep TDZ.
-          // Bundling all Radix into ONE chunk caused "Cannot access 'X' before
-          // initialization" (TDZ) because Rollup couldn't linearise the circular
-          // deps inside the mega-chunk. Splitting per-package lets the browser's
-          // native ES-module system resolve cross-package cycles correctly.
-          if (id.includes("node_modules/@radix-ui/")) {
-            const m = id.match(/@radix-ui\/([^/]+)/);
-            if (m) return `radix-${m[1]}`;
-          }
-          // Lucide icons — large icon lib, shared across all pages
+          // ── @radix-ui + all other node_modules: NO manual grouping ──────────
+          // ANY manual grouping of @radix-ui caused one of two errors:
+          //   1. All in one chunk → TDZ "Cannot access 'X' before initialization"
+          //   2. Per-package chunks → "undefined is not an object (t.useLayoutEffect)"
+          // Solution: let Rollup's automatic chunk algorithm decide everything
+          // else. It uses the actual dependency graph so circular deps between
+          // Radix packages are resolved in the correct initialisation order.
+          // Lucide icons — explicitly chunked (large, shared, no circular deps)
           if (id.includes("node_modules/lucide-react")) {
             return "vendor-icons";
           }
-          // Date utilities
-          if (id.includes("node_modules/date-fns")) {
-            return "vendor-date";
-          }
-          // Stripe SDK — only on payment pages
-          if (
-            id.includes("node_modules/@stripe/") ||
-            id.includes("node_modules/stripe")
-          ) {
-            return "vendor-stripe";
-          }
-          // i18n — translations only when language switches
+          // i18n — large, language-switch only
           if (
             id.includes("node_modules/i18next") ||
             id.includes("node_modules/react-i18next")
           ) {
             return "vendor-i18n";
           }
-          // All remaining node_modules → shared misc vendor chunk
-          if (id.includes("node_modules/")) {
-            return "vendor-misc";
-          }
+          // Everything else (Radix, shadcn utils, cmdk, etc.) → Rollup auto
         },
       },
     },
