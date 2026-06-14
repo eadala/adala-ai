@@ -1,0 +1,163 @@
+“شاشة بيضاء” في موقعك (Adala) على Replit غالبًا معناها أن التطبيق اشتغل لكن الـ frontend انهار قبل ما يرسم أي UI أو أنه عالق في runtime error.
+
+خلّنا نعالجها بشكل تشخيص هندسي سريع:
+
+⸻
+
+🧨 أولاً: معنى الشاشة البيضاء
+
+هي واحدة من هذه الحالات:
+
+1) JavaScript Error يمنع React/Vue من التحميل
+
+2) App لم يتم mount أصلاً (root element فارغ)
+
+3) Infinite loading / await ما ينتهي
+
+4) Build فشل لكن السيرفر ما أظهر الخطأ
+
+⸻
+
+🔍 خطوة 1: افتح Console (مهم جدًا)
+
+في Replit أو المتصفح:
+
+* Right click → Inspect
+* تبويب Console
+
+وابحث عن:
+
+* ❌ Uncaught TypeError
+* ❌ Cannot read properties of undefined
+* ❌ Failed to fetch
+* ❌ Module not found
+
+👉 أي خطأ هنا هو السبب الحقيقي 100%
+
+⸻
+
+⚠️ السبب الأكثر شيوعًا في حالتك (حسب كلامك السابق)
+
+أنت عدّلت نظام المستخدم + safeUpdate + auth
+
+فالغالب أحد التالي صار:
+
+💥 1) Frontend ينتظر API وفشل
+
+await api.getUser()
+
+لكن backend يرجع:
+
+* 500
+* أو null
+* أو response مختلف
+
+➡️ النتيجة: React يوقف بدون render
+
+⸻
+
+💥 2) خطأ في useEffect (Infinite loop أو crash)
+
+useEffect(() => {
+  loadUser(); // لو فيها خطأ → شاشة بيضاء
+}, []);
+
+⸻
+
+💥 3) Root render فشل
+
+root.render(<App />)
+
+لكن App فيه error داخلي → يطيح كله
+
+⸻
+
+🛠️ الحل السريع (Emergency Fix)
+
+1) امنع انهيار التطبيق
+
+في أعلى App:
+
+window.onerror = function (msg, url, line) {
+  console.error("GLOBAL ERROR:", msg);
+};
+
+⸻
+
+2) لف التطبيق بـ Error Boundary (ضروري)
+
+class ErrorBoundary extends React.Component {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return <h1>Something went wrong</h1>;
+    }
+    return this.props.children;
+  }
+}
+
+ثم:
+
+root.render(
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
+);
+
+⸻
+
+3) تأكد أن API لا يكسر الصفحة
+
+const loadUser = async () => {
+  try {
+    const res = await api.get("/me");
+    setUser(res.data || {});
+  } catch (err) {
+    console.error(err);
+    setUser(null); // مهم جدًا
+  }
+};
+
+⸻
+
+4) تأكد من root div
+
+في index.html:
+
+<div id="root"></div>
+
+إذا ناقص = شاشة بيضاء 100%
+
+⸻
+
+🚨 اختبار سريع (يعرفك السبب خلال 10 ثواني)
+
+أضف هذا داخل App:
+
+console.log("APP RENDERED");
+
+* إذا ما ظهر → المشكلة قبل React (build / index.js)
+* إذا ظهر ثم اختفى → crash داخل component
+
+⸻
+
+🧠 السبب الأكثر احتمالاً في مشروعك الحالي
+
+بناءً على التعديلات السابقة:
+
+API update أو auth middleware رجّع response غير متوقع → frontend انهار
+
+⸻
+
+🔥 لو تبغى تشخيص دقيق 100%
+
+أرسل واحد من التالي:
+
+* صورة من Console error
+* أو ملف App.js / main.jsx
+* أو endpoint /me أو login API
+
+وأحدد لك الخطأ “سطر بسطر” بدون تخمين.
