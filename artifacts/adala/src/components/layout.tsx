@@ -43,43 +43,66 @@ interface OperatingCenterDef {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   7 مراكز تشغيل — Operating Centers Architecture
+   Domain-Driven Architecture — 3 Domains + 3 Engines + Platform
+   Case | CRM | Contracts  →  Docs | Comms | Productivity
 ══════════════════════════════════════════════════════════════ */
 const OPERATING_CENTERS: OperatingCenterDef[] = [
+  /* ─── Domain 1: Case Management Core ─── */
   {
-    id: "legal",
-    label: "العمليات القانونية",
+    id: "cases",
+    label: "إدارة القضايا",
     icon: Scale,
     color: "#6366F1",
     items: [
-      { href: "/dashboard",          labelKey: "nav.items.dashboard",          icon: LayoutDashboard },
-      { href: "/cases",              labelKey: "nav.items.cases",              icon: Scale },
-      { href: "/clients",            labelKey: "nav.items.clients",            icon: UserCircle },
-      { href: "/contracts",          labelKey: "nav.items.contracts",          icon: Handshake },
-      { href: "/documents",          labelKey: "nav.items.documents",          icon: BookOpen },
-      { href: "/document-templates", labelKey: "nav.items.documentTemplates",  icon: FileSignature },
-      { href: "/letters",            labelKey: "nav.items.letters",            icon: Mail },
-      { href: "/messages",           labelKey: "nav.items.messages",           icon: MessageCircle },
-      { href: "/reminders",          labelKey: "nav.items.reminders",          icon: Bell },
-      { href: "/calendar",           labelKey: "nav.items.calendar",           icon: CalendarDays, feature: "calendar" },
-      { href: "/tasks",              labelKey: "nav.items.tasks",              icon: ClipboardList },
+      { href: "/dashboard", labelKey: "nav.items.dashboard", icon: LayoutDashboard },
+      { href: "/cases",     labelKey: "nav.items.cases",     icon: Scale },
+      { href: "/calendar",  labelKey: "nav.items.calendar",  icon: CalendarDays, feature: "calendar" },
+      { href: "/tasks",     labelKey: "nav.items.tasks",     icon: ClipboardList },
+      { href: "/reminders", labelKey: "nav.items.reminders", icon: Bell },
     ],
   },
+  /* ─── Domain 2: CRM Layer ─── */
+  {
+    id: "crm",
+    label: "إدارة العملاء",
+    icon: UserCircle,
+    color: "#0EA5E9",
+    items: [
+      { href: "/clients",       labelKey: "nav.items.clients",       icon: UserCircle },
+      { href: "/client-portal", labelKey: "nav.items.client_portal", icon: Globe, feature: "clientPortal" },
+      { href: "/mediators",     labelKey: "nav.items.mediators",     icon: Handshake },
+    ],
+  },
+  /* ─── Domain 3: Contracts + Document Engine ─── */
+  {
+    id: "docs",
+    label: "العقود والمستندات",
+    icon: FileSignature,
+    color: "#8B5CF6",
+    items: [
+      { href: "/contracts",          labelKey: "nav.items.contracts",         icon: Handshake },
+      { href: "/documents",          labelKey: "nav.items.documents",         icon: BookOpen },
+      { href: "/document-templates", labelKey: "nav.items.documentTemplates", icon: FileSignature },
+      { href: "/letters",            labelKey: "nav.items.letters",           icon: Mail },
+    ],
+  },
+  /* ─── Engine 1: AI Center ─── */
   {
     id: "ai",
     label: "مركز الذكاء الاصطناعي",
     icon: Sparkles,
     color: "#C9A84C",
     items: [
-      { href: "/ai-hub",             labelKey: "nav.items.ai_hub",             icon: Sparkles,    feature: "ai" },
-      { href: "/ai-agents",          labelKey: "nav.items.ai_agents",          icon: Bot,         feature: "ai" },
-      { href: "/legal-ai",           labelKey: "nav.items.legal_ai",           icon: Scale,       feature: "ai" },
-      { href: "/legal-research",     labelKey: "nav.items.legal_research",     icon: LibraryBig,  feature: "ai" },
-      { href: "/judge-prep",         labelKey: "nav.items.judge_prep",         icon: Gavel,       feature: "ai" },
-      { href: "/opponent-simulator", labelKey: "nav.items.opponent_simulator", icon: Swords,      feature: "ai" },
-      { href: "/arbitration",        labelKey: "nav.items.arbitration",        icon: Handshake,   feature: "ai" },
+      { href: "/ai-hub",             labelKey: "nav.items.ai_hub",             icon: Sparkles,   feature: "ai" },
+      { href: "/ai-agents",          labelKey: "nav.items.ai_agents",          icon: Bot,        feature: "ai" },
+      { href: "/legal-ai",           labelKey: "nav.items.legal_ai",           icon: Scale,      feature: "ai" },
+      { href: "/legal-research",     labelKey: "nav.items.legal_research",     icon: LibraryBig, feature: "ai" },
+      { href: "/judge-prep",         labelKey: "nav.items.judge_prep",         icon: Gavel,      feature: "ai" },
+      { href: "/opponent-simulator", labelKey: "nav.items.opponent_simulator", icon: Swords,     feature: "ai" },
+      { href: "/arbitration",        labelKey: "nav.items.arbitration",        icon: Handshake,  feature: "ai" },
     ],
   },
+  /* ─── Engine 2: Financial Operations ─── */
   {
     id: "finance",
     label: "العمليات المالية",
@@ -100,46 +123,48 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/billing",           labelKey: "nav.items.billing",           icon: CreditCard },
     ],
   },
+  /* ─── Engine 3: Communication Hub ─── */
+  {
+    id: "comms",
+    label: "مركز الاتصالات",
+    icon: MessageCircle,
+    color: "#3B82F6",
+    items: [
+      { href: "/messages",            labelKey: "nav.items.messages",            icon: MessageCircle },
+      { href: "/email-notifications", labelKey: "nav.items.email_notifications", icon: MailIcon },
+      { href: "/whatsapp-settings",   labelKey: "nav.items.whatsapp",            icon: MessageSquare },
+      { href: "/telegram-settings",   labelKey: "nav.items.telegram",            icon: Send },
+      { href: "/office-management",   labelKey: "nav.items.office_management",   icon: Globe,       feature: "website" },
+      { href: "/marketplace",         labelKey: "nav.items.marketplace",         icon: ShoppingBag, feature: "serviceStore" },
+      { href: "/support",             labelKey: "nav.items.support",             icon: LifeBuoy },
+    ],
+  },
+  /* ─── Platform: HR ─── */
   {
     id: "hr",
     label: "رأس المال البشري",
     icon: Users,
     color: "#F59E0B",
     items: [
-      { href: "/hr-center",   labelKey: "nav.items.hr_center",   icon: Award },
-      { href: "/hr-systems",  labelKey: "nav.items.hr_systems",  icon: Building2 },
-      { href: "/employees",   labelKey: "nav.items.employees",   icon: UserCog },
-      { href: "/attendance",  labelKey: "nav.items.attendance",  icon: Clock },
-      { href: "/leaves",      labelKey: "nav.items.leaves",      icon: CalendarDays },
-      { href: "/payroll",     labelKey: "nav.items.payroll",     icon: DollarSign },
-      { href: "/warnings",    labelKey: "nav.items.warnings",    icon: AlertTriangle },
+      { href: "/hr-center",  labelKey: "nav.items.hr_center",  icon: Award },
+      { href: "/hr-systems", labelKey: "nav.items.hr_systems", icon: Building2 },
+      { href: "/employees",  labelKey: "nav.items.employees",  icon: UserCog },
+      { href: "/attendance", labelKey: "nav.items.attendance", icon: Clock },
+      { href: "/leaves",     labelKey: "nav.items.leaves",     icon: CalendarDays },
+      { href: "/payroll",    labelKey: "nav.items.payroll",    icon: DollarSign },
+      { href: "/warnings",   labelKey: "nav.items.warnings",   icon: AlertTriangle },
     ],
   },
-  {
-    id: "digital",
-    label: "الحضور الرقمي والتواصل",
-    icon: Globe,
-    color: "#3B82F6",
-    items: [
-      { href: "/office-management",   labelKey: "nav.items.office_management",   icon: Globe,        feature: "website" },
-      { href: "/marketplace",         labelKey: "nav.items.marketplace",         icon: ShoppingBag,  feature: "serviceStore" },
-      { href: "/client-portal",       labelKey: "nav.items.client_portal",       icon: UserCircle,   feature: "clientPortal" },
-      { href: "/email-notifications", labelKey: "nav.items.email_notifications", icon: MailIcon },
-      { href: "/whatsapp-settings",   labelKey: "nav.items.whatsapp",            icon: MessageSquare },
-      { href: "/telegram-settings",   labelKey: "nav.items.telegram",            icon: Send },
-      { href: "/support",             labelKey: "nav.items.support",             icon: LifeBuoy },
-      { href: "/mediators",           labelKey: "nav.items.mediators",           icon: Handshake },
-    ],
-  },
+  /* ─── Platform: Analytics & Settings ─── */
   {
     id: "analytics",
     label: "التحليلات والإعدادات",
     icon: BarChart3,
-    color: "#8B5CF6",
+    color: "#EC4899",
     items: [
-      { href: "/analytics",              labelKey: "nav.items.performance_analytics",  icon: BarChart3,    feature: "advancedReports" },
+      { href: "/analytics",              labelKey: "nav.items.performance_analytics",  icon: BarChart3,     feature: "advancedReports" },
       { href: "/financial-intelligence", labelKey: "nav.items.financial_intelligence", icon: BrainCircuit },
-      { href: "/risk-management",        labelKey: "nav.items.risk_management",        icon: AlertTriangle,feature: "advancedReports" },
+      { href: "/risk-management",        labelKey: "nav.items.risk_management",        icon: AlertTriangle, feature: "advancedReports" },
       { href: "/activity-stream",        labelKey: "nav.items.activity_stream",        icon: Activity },
       { href: "/audit-logs",             labelKey: "nav.items.audit_logs",             icon: Activity },
       { href: "/compliance",             labelKey: "nav.items.compliance",             icon: Shield },
@@ -153,6 +178,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/storage-settings",       labelKey: "nav.items.storage_settings",       icon: HardDrive },
     ],
   },
+  /* ─── Platform: Super Admin ─── */
   {
     id: "superadmin",
     label: "إدارة المنصة",
