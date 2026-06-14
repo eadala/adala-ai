@@ -58,3 +58,4 @@
 - [Adala Marketplace Redesign](adala-marketplace-redesign.md) — Legal Marketplace concept: Deal Room + Buy Now + auto-case; 3 new tables + 10 routes
 - [Adala Clerk Routing](adala-clerk-routing.md) — Show components blank during Clerk init; always use useAuth() + explicit if/return guards in route wrappers
 - [Adala Client Acquisition Portal](client-acquisition-portal.md) — Stripe checkout.session.completed → auto-case+client+portal; guard: officeSlug present AND no plan; success overlay BEFORE isLoading guard; polls /order-success every 3s
+- [Adala production blank page fix](adala-prod-blank-fix.md) — publishableKeyFromHost from @clerk/react/internal throws on .replit.app, corrupts Clerk singleton → use VITE_CLERK_PUBLISHABLE_KEY directly; guard useClerk() with optional chaining; always wrap App in ErrorBoundary
