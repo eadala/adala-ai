@@ -229,7 +229,7 @@ export default function OfficeStore() {
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {featured.map((svc: any) => (
-                <FeaturedServiceCard key={svc.id} svc={svc} lang={lang} gold={gold}
+                <FeaturedServiceCard key={svc.id} svc={svc} lang={lang} gold={gold} slug={slug}
                   whatsappBase={whatsappBase}
                   onOrder={() => { setOrderDialog(svc); setOrderForm({ clientName: "", clientPhone: "", clientEmail: "", notes: "" }); }} />
               ))}
@@ -331,7 +331,7 @@ export default function OfficeStore() {
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((svc: any) => (
-              <ServiceCard key={svc.id} svc={svc} lang={lang} gold={gold} whatsappBase={whatsappBase}
+              <ServiceCard key={svc.id} svc={svc} lang={lang} gold={gold} slug={slug} whatsappBase={whatsappBase}
                 onOrder={() => { setOrderDialog(svc); setOrderForm({ clientName: "", clientPhone: "", clientEmail: "", notes: "" }); }} />
             ))}
           </div>
@@ -493,7 +493,7 @@ export default function OfficeStore() {
 
 /* ─── Sub-components ─────────────────────────────────────── */
 
-function FeaturedServiceCard({ svc, lang, gold, whatsappBase, onOrder }: { svc: any; lang: Lang; gold: string; whatsappBase: string; onOrder: () => void }) {
+function FeaturedServiceCard({ svc, lang, gold, slug, whatsappBase, onOrder }: { svc: any; lang: Lang; gold: string; slug: string; whatsappBase: string; onOrder: () => void }) {
   const name = t(svc.name, svc.nameEn, lang);
   const desc = t(svc.description, svc.descriptionEn, lang);
   const Icon = CATEGORY_ICONS[svc.category] ?? Scale;
@@ -521,15 +521,22 @@ function FeaturedServiceCard({ svc, lang, gold, whatsappBase, onOrder }: { svc: 
             ? <span className="text-sm">{lang === "ar" ? "حسب العرض" : "Custom"}</span>
             : `${Number(svc.price).toLocaleString()} ${lang === "ar" ? "ر.س" : "SAR"}`}
         </span>
-        <Button size="sm" className="text-xs font-bold gap-1" style={{ background: gold, color: "#000" }} onClick={onOrder}>
-          {svc.isCustomQuote ? (lang === "ar" ? "اطلب عرضاً" : "Quote") : (lang === "ar" ? "اطلب الآن" : "Order")}
-        </Button>
+        <div className="flex gap-2">
+          <a href={`/firms/${slug}/service/${svc.id}`}
+            className="flex items-center justify-center rounded-md border text-xs font-bold px-3 h-8 transition-colors"
+            style={{ borderColor: `${gold}40`, color: gold, background: `${gold}08` }}>
+            {lang === "ar" ? "تفاصيل" : "Details"}
+          </a>
+          <Button size="sm" className="text-xs font-bold gap-1 h-8" style={{ background: gold, color: "#000" }} onClick={onOrder}>
+            {svc.isCustomQuote ? (lang === "ar" ? "اطلب عرضاً" : "Quote") : (lang === "ar" ? "اطلب الآن" : "Order")}
+          </Button>
+        </div>
       </div>
     </div>
   );
 }
 
-function ServiceCard({ svc, lang, gold, whatsappBase, onOrder }: { svc: any; lang: Lang; gold: string; whatsappBase: string; onOrder: () => void }) {
+function ServiceCard({ svc, lang, gold, slug, whatsappBase, onOrder }: { svc: any; lang: Lang; gold: string; slug: string; whatsappBase: string; onOrder: () => void }) {
   const name = t(svc.name, svc.nameEn, lang);
   const desc = t(svc.description, svc.descriptionEn, lang);
   const Icon = CATEGORY_ICONS[svc.category] ?? Scale;
@@ -572,6 +579,11 @@ function ServiceCard({ svc, lang, gold, whatsappBase, onOrder }: { svc: any; lan
           )}
         </div>
         <div className="flex gap-1.5 shrink-0">
+          <a href={`/firms/${slug}/service/${svc.id}`}
+            className="flex items-center justify-center rounded-md border text-xs font-bold px-3 h-8 transition-colors"
+            style={{ borderColor: `${gold}40`, color: gold, background: `${gold}08` }}>
+            {lang === "ar" ? "تفاصيل" : "Details"}
+          </a>
           {whatsappBase && (
             <a href={`https://wa.me/${whatsappBase}?text=${encodeURIComponent(lang === "ar" ? `أود الاستفسار عن: ${name}` : `I'd like to inquire about: ${name}`)}`} target="_blank" rel="noreferrer">
               <Button size="sm" variant="outline" className="h-8 w-8 p-0 border-emerald-500/25 hover:bg-emerald-500/12 text-emerald-400">
