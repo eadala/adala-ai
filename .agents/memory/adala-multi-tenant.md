@@ -77,5 +77,25 @@ router.get("/cases", requireAuthWithTenant, async (req, res) => {
 // Raw SQL: WHERE office_id = ${tenantId}
 ```
 
+## SaaS Kernel (3 layers, June 2026)
+All 3 layers activate via `requireAuthWithTenant` — no per-route changes needed.
+
+**Layer 1 — AsyncLocalStorage** (`src/core/tenantContext.ts`):
+- `runWithTenant({ userId, officeId }, () => next())` wraps the entire request
+- `getTenant()` works in any service/helper without prop-drilling
+- `getTenantSafe()` returns null instead of throwing — for shared utilities
+
+**Layer 2 — tenantDB proxy** (`src/core/tenantDb.ts`):
+- `tenantDB.select(table)` auto-filters by officeId
+- `tenantDB.insert(table, data)` auto-injects officeId
+- `tenantFilter(table)` / `tenantAnd(table, ...conds)` for Drizzle .where()
+- `guardRawSQL(sql, context)` — warns in prod, throws in dev if no office_id
+
+**Layer 3 — PostgreSQL RLS**:
+- `ALTER TABLE cases ENABLE ROW LEVEL SECURITY` on 5 core tables
+- Policy: `office_id = current_setting('app.current_tenant', true)` or empty (permissive fallback for backward compat)
+- `requireAuthWithTenant` calls `set_config('app.current_tenant', officeId, false)`
+- `app.ts` resets to `''` on `res.finish` to prevent pool state bleed
+
 ## CORS (fixed June 2026)
 Changed from `origin: true` to regex validator: allows `*.replit.app`, `*.replit.dev`, `localhost:*`, and `ALLOWED_ORIGINS` env var.

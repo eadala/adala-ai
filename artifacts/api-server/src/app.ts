@@ -14,6 +14,8 @@ import {
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./webhookHandlers";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
 
 const app: Express = express();
 
@@ -122,6 +124,17 @@ app.use(
     ),
   })),
 );
+
+// ─── RLS Session Reset ─────────────────────────────────────────────────────
+// After each response, clear the tenant session variable.
+// requireAuthWithTenant sets it per-request; this ensures the pool
+// connection never carries stale tenant state into the next request.
+app.use((_req, res, next) => {
+  res.on("finish", () => {
+    db.execute(sql`SELECT set_config('app.current_tenant', '', false)`).catch(() => {});
+  });
+  next();
+});
 
 app.use("/api", router);
 
