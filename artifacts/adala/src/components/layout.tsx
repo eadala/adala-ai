@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUser, useClerk } from "@clerk/react";
 import { useLoginTracker } from "@/hooks/useLoginTracker";
+import { FloatingCopilot } from "@/components/floating-copilot";
 
 interface NavItem {
   href: string;
@@ -469,6 +470,9 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </main>
+
+      {/* Floating AI Copilot — visible on all pages */}
+      <FloatingCopilot />
     </div>
   );
 }
