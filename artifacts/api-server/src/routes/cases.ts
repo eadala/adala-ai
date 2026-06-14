@@ -4,6 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace/api-zod";
 import { auditLog } from "../lib/auditLogger";
 import { notifyTelegramCaseStatus } from "./telegram";
+import { eventBus } from "../core/eventBus";
 
 const STATUS_LABELS: Record<string, string> = {
   open: "مفتوحة",
@@ -115,6 +116,11 @@ router.post("/cases", async (req, res) => {
     }).returning();
     const auth = (req as any).auth;
     auditLog({ userId: auth?.userId, action: "create", resource: "cases", resourceId: created.id, details: created.title }).catch(() => {});
+    eventBus.emit({
+      type: "CASE_CREATED",
+      actorId: auth?.userId,
+      data: { caseId: created.id, title: created.title, clientName: created.clientName, assignedTo: created.assignedTo, caseType: created.caseType, status: created.status },
+    }).catch(() => {});
     res.status(201).json({
       ...created,
       createdAt: created.createdAt.toISOString(),
@@ -156,6 +162,12 @@ router.patch("/cases/:id", async (req, res) => {
     }
     const auth = (req as any).auth;
     auditLog({ userId: auth?.userId, action: "update", resource: "cases", resourceId: req.params.id, details: updated.title }).catch(() => {});
+    const evType = updated.status === "closed" ? "CASE_CLOSED" : "CASE_UPDATED";
+    eventBus.emit({
+      type: evType,
+      actorId: auth?.userId,
+      data: { caseId: updated.id, title: updated.title, clientName: updated.clientName, status: updated.status, assignedTo: updated.assignedTo },
+    }).catch(() => {});
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt?.toISOString() ?? null });
   } catch (e: any) {
     res.status(400).json({ error: e.message });

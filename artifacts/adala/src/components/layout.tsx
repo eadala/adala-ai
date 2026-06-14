@@ -110,6 +110,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/analytics",                labelKey: "nav.items.performance_analytics",   icon: BarChart3,     feature: "advancedReports" },
       { href: "/financial-intelligence",   labelKey: "nav.items.financial_intelligence",  icon: BrainCircuit },
       { href: "/risk-management",          labelKey: "nav.items.risk_management",         icon: AlertTriangle, feature: "advancedReports" },
+      { href: "/activity-stream",          labelKey: "nav.items.activity_stream",         icon: Activity },
       { href: "/audit-logs",               labelKey: "nav.items.audit_logs",             icon: Activity },
       { href: "/compliance",               labelKey: "nav.items.compliance",              icon: Shield },
       { href: "/login-tracking",           labelKey: "nav.items.login_tracking",          icon: Lock },

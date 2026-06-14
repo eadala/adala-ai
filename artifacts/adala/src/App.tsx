@@ -84,6 +84,7 @@ const ThemeBuilderPage     = lazy(() => import("@/pages/theme-builder"));
 const AuditLogsPage        = lazy(() => import("@/pages/audit-logs"));
 const LoginTrackingPage    = lazy(() => import("@/pages/login-tracking"));
 const MySessionsPage       = lazy(() => import("@/pages/my-sessions"));
+const ActivityStreamPage   = lazy(() => import("@/pages/activity-stream"));
 
 // Communication
 const Messages             = lazy(() => import("@/pages/messages"));
@@ -476,6 +477,7 @@ function AppRoutes() {
             <Route path="/studio"><AdminRoute><AdalaBuildStudio /></AdminRoute></Route>
             <Route path="/financial-core"><AdminRoute><FinancialCore /></AdminRoute></Route>
             <Route path="/audit-logs"><AdminRoute><AuditLogsPage /></AdminRoute></Route>
+            <Route path="/activity-stream"><WorkspaceRoute><ActivityStreamPage /></WorkspaceRoute></Route>
 
             {/* Admin & Settings (law firm admins) */}
             <Route path="/users"><ProtectedRoute><Users /></ProtectedRoute></Route>

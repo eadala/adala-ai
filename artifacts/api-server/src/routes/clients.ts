@@ -10,6 +10,7 @@ import { db } from "@workspace/db";
 import { clientsTable } from "@workspace/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { sql } from "drizzle-orm";
+import { eventBus } from "../core/eventBus";
 import { getAuth } from "@clerk/express";
 
 const router = Router();
@@ -54,6 +55,12 @@ router.post("/clients", async (req, res) => {
       source:     source     ?? "direct",
       tags:       tags       ?? [],
     }).returning();
+
+    eventBus.emit({
+      type: "CLIENT_ADDED",
+      data: { fullName, email, phone, type, company, source },
+    }).catch(() => {});
+
     res.json(client);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
