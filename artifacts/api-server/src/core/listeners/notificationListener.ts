@@ -4,6 +4,7 @@
 import { eventBus, StoredEvent } from "../eventBus";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { sendPushToOffice } from "../../lib/webPush";
 
 async function createInAppNotification(officeId: string, title: string, body: string, link?: string) {
   try {
@@ -17,16 +18,18 @@ async function createInAppNotification(officeId: string, title: string, body: st
 export function registerNotificationListeners() {
   /* CASE_CREATED → notify assigned lawyer */
   eventBus.on("CASE_CREATED", async (event: StoredEvent) => {
-    const { title, clientName, assignedTo, caseType } = event.data;
+    const { title, clientName } = event.data;
     const officeId = event.officeId ?? "default";
     console.log(`[Notify] CASE_CREATED: "${title}" — ${clientName ?? "?"}`);
 
-    await createInAppNotification(
-      officeId,
-      "⚖️ قضية جديدة",
-      `تم فتح قضية: "${title}" للعميل ${clientName ?? "غير محدد"}`,
-      `/cases`
-    );
+    await createInAppNotification(officeId, "⚖️ قضية جديدة",
+      `تم فتح قضية: "${title}" للعميل ${clientName ?? "غير محدد"}`, `/cases`);
+
+    sendPushToOffice(officeId, {
+      title: "⚖️ قضية جديدة",
+      body:  `"${title}" — ${clientName ?? ""}`,
+      url:   "/cases", tag: "case_created",
+    }).catch(() => {});
   });
 
   /* CASE_CLOSED → office notification */
@@ -49,12 +52,14 @@ export function registerNotificationListeners() {
     const officeId = event.officeId ?? "default";
     console.log(`[Notify] CLIENT_ADDED: ${fullName}`);
 
-    await createInAppNotification(
-      officeId,
-      "👤 عميل جديد",
-      `تم تسجيل العميل: ${fullName}${email ? ` (${email})` : ""}`,
-      `/clients`
-    );
+    await createInAppNotification(officeId, "👤 عميل جديد",
+      `تم تسجيل العميل: ${fullName}${email ? ` (${email})` : ""}`, `/clients`);
+
+    sendPushToOffice(officeId, {
+      title: "👤 عميل جديد",
+      body:  fullName,
+      url:   "/clients", tag: "client_added",
+    }).catch(() => {});
   });
 
   /* INVOICE_CREATED → remind to send */

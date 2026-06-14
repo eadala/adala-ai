@@ -4,6 +4,7 @@ import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient";
 import { startEmailCron } from "./cron/emailCron";
 import { registerAllListeners } from "./core/listeners/index";
+import { initVapid } from "./lib/webPush";
 
 const rawPort = process.env["PORT"];
 
@@ -38,6 +39,7 @@ async function initStripe() {
 initStripe();
 startEmailCron();
 registerAllListeners();
+initVapid().catch(e => console.error("[WebPush] init error:", e));
 
 app.listen(port, (err) => {
   if (err) {
