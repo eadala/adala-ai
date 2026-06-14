@@ -6,7 +6,7 @@ import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace
 import { auditLog } from "../lib/auditLogger";
 import { notifyTelegramCaseStatus } from "./telegram";
 import { eventBus } from "../core/eventBus";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
+import { runCaseAutopilot, ensureAutopilotTable } from "../agents/caseAutopilot";
 
 const STATUS_LABELS: Record<string, string> = {
   open: "مفتوحة",
@@ -279,6 +279,56 @@ router.get("/cases/:id/hub", requireAuthWithTenant, async (req, res) => {
       events:    events.rows ?? [],
       documents: documents.rows ?? [],
     });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /cases/:id/health ─────────────────────────────────────────────────────
+// Returns the latest autopilot health report (cached) or runs a fresh one
+router.get("/cases/:id/health", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    const caseId   = req.params.id;
+    const force    = req.query.force === "1";
+
+    if (!force) {
+      const cached = await db.execute(sql`
+        SELECT * FROM case_autopilot_reports
+        WHERE case_id = ${caseId} AND office_id = ${tenantId}
+        LIMIT 1
+      `).catch(() => null);
+      const row = (cached as any)?.rows?.[0];
+      if (row) return res.json(row);
+    }
+
+    await ensureAutopilotTable();
+    const report = await runCaseAutopilot(caseId, tenantId, false);
+    if (!report) return res.status(404).json({ error: "القضية غير موجودة" });
+    res.json(report);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /cases/:id/autopilot ─────────────────────────────────────────────────
+// Manually trigger autopilot — runs analysis + creates tasks
+router.post("/cases/:id/autopilot", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    const caseId   = req.params.id;
+    const auth     = (req as any).auth;
+
+    await ensureAutopilotTable();
+    const report = await runCaseAutopilot(caseId, tenantId, true);
+    if (!report) return res.status(404).json({ error: "القضية غير موجودة" });
+
+    auditLog({
+      userId: auth?.userId, action: "autopilot", resource: "cases",
+      resourceId: caseId, details: `score=${report.healthScore} tasks=${report.tasksCreated}`,
+    }).catch(() => {});
+
+    res.json(report);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

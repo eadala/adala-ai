@@ -1,3 +1,4 @@
+- [Adala Case Autopilot](adala-case-autopilot.md) — AI health score (0-100) + auto-task engine; EventBus CASE_CREATED→3s delay; GET+POST /cases/:id/health|autopilot; case_autopilot_reports table; ScoreRing UI card in case-detail sidebar
 - [Adala Operating Centers Nav](adala-operating-centers.md) — layout.tsx replaced with 7 collapsible OperatingCenterDef centers; Layout is named export only (NOT default); engineering-center.tsx must use named import
 - [Adala Engineering Center](engineering-center.md) — /engineering-center (AdminRoute); engineering.ts backend 9 routes; 7-tab frontend; 4 DB tables; IP whitelist + AI review + security scan + tasks
 - [Adala EDA System](adala-eda.md) — DB-persisted EventBus in src/core/eventBus.ts; system_events + event_daily_counts tables; Finance/Notification/Analytics listeners; SSE at /api/events/stream; /activity-stream page
