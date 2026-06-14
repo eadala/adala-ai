@@ -53,8 +53,6 @@ export default function OfficeManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
-  const [slugEdit, setSlugEdit] = useState("");
-  const [slugEditing, setSlugEditing] = useState(false);
   const [appearanceForm, setAppearanceForm] = useState<any>(null);
 
   /* ── Office data ── */
@@ -339,48 +337,21 @@ export default function OfficeManagement() {
                 </Badge>
               </div>
 
-              {/* Slug editor + URL display */}
-              {slugEditing ? (
-                <div className="space-y-2">
-                  <Label className="text-xs">الرابط المختصر (بالإنجليزية)</Label>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground font-mono shrink-0">adalah.sa/firms/</span>
-                    <Input
-                      value={slugEdit}
-                      onChange={e => setSlugEdit(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""))}
-                      className="flex-1 font-mono text-sm h-8 dir-ltr"
-                      placeholder="law-firm-name"
-                      autoFocus
-                    />
-                    <Button size="sm" className="h-8 gap-1 text-xs"
-                      disabled={!slugEdit.trim() || updateOfficeMutation.isPending}
-                      onClick={() => { updateOfficeMutation.mutate({ id: office.id, slug: slugEdit.trim() }); setSlugEditing(false); }}>
-                      {updateOfficeMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                      حفظ
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setSlugEditing(false)}>إلغاء</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/50 border border-border/50">
-                  <span className="font-mono text-sm flex-1 select-all dir-ltr text-left text-foreground">
-                    adalah.sa/firms/<span className="text-primary font-bold">{office.slug}</span>
-                  </span>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="تعديل الرابط"
-                    onClick={() => { setSlugEdit(office.slug); setSlugEditing(true); }}>
-                    <Pencil className="h-3.5 w-3.5" />
+              {/* URL display — read-only; slug is managed by platform admin */}
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/50 border border-border/50">
+                <span className="font-mono text-sm flex-1 select-all dir-ltr text-left text-foreground">
+                  adalah.sa/firms/<span className="text-primary font-bold">{office.slug}</span>
+                </span>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="نسخ الرابط"
+                  onClick={() => { navigator.clipboard.writeText(window.location.origin + `/firms/${office.slug}`); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
+                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                </Button>
+                <a href={`/firms/${office.slug}`} target="_blank" rel="noreferrer">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="فتح الموقع">
+                    <ExternalLink className="h-3.5 w-3.5 text-primary" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="نسخ الرابط"
-                    onClick={() => { navigator.clipboard.writeText(window.location.origin + `/firms/${office.slug}`); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
-                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                  </Button>
-                  <a href={`/firms/${office.slug}`} target="_blank" rel="noreferrer">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="فتح الموقع">
-                      <ExternalLink className="h-3.5 w-3.5 text-primary" />
-                    </Button>
-                  </a>
-                </div>
-              )}
+                </a>
+              </div>
 
               {/* Publish toggle */}
               <div className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-background/50">
