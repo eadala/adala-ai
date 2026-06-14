@@ -58,7 +58,9 @@ function AnimatedStat({ val, label, gold, icon }: { val: string; label: string; 
   );
 }
 
-function ServiceCard({ svc, lang, gold, onOrder }: { svc: any; lang: Lang; gold: string; onOrder: () => void }) {
+function ServiceCard({ svc, lang, gold, onOrder, onNegotiate }: {
+  svc: any; lang: Lang; gold: string; onOrder: () => void; onNegotiate?: () => void;
+}) {
   const name = t(svc.name, svc.nameEn, lang);
   const desc = t(svc.description, svc.descriptionEn, lang);
   const Icon = CATEGORY_ICONS[svc.category] ?? Scale;
@@ -83,21 +85,33 @@ function ServiceCard({ svc, lang, gold, onOrder }: { svc: any; lang: Lang; gold:
           {lang === "ar" ? `التسليم خلال ${svc.deliveryDays} يوم` : `${svc.deliveryDays}-day delivery`}
         </div>
       )}
-      <div className="flex items-center justify-between pt-3 border-t border-white/8 mt-auto">
-        <div>
-          {svc.isCustomQuote ? (
-            <span className="text-xs font-bold text-white/60">{lang === "ar" ? "حسب العرض" : "Custom Quote"}</span>
-          ) : (
-            <>
-              <span className="text-xl font-black" style={{ color: gold }}>{Number(svc.price).toLocaleString()}</span>
-              <span className="text-xs text-white/40 mr-1">{lang === "ar" ? "ر.س" : "SAR"}</span>
-            </>
-          )}
+      <div className="pt-3 border-t border-white/8 mt-auto space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            {svc.isCustomQuote ? (
+              <span className="text-xs font-bold text-white/60">{lang === "ar" ? "حسب العرض" : "Custom Quote"}</span>
+            ) : (
+              <>
+                <span className="text-xl font-black" style={{ color: gold }}>{Number(svc.price).toLocaleString()}</span>
+                <span className="text-xs text-white/40 mr-1">{lang === "ar" ? "ر.س" : "SAR"}</span>
+              </>
+            )}
+          </div>
         </div>
-        <Button size="sm" className="gap-1.5 text-xs font-bold px-4" style={{ background: gold, color: "#000" }}
-          onClick={onOrder}>
-          {svc.isCustomQuote ? (lang === "ar" ? "اطلب عرضاً" : "Get Quote") : (lang === "ar" ? "اطلب الآن" : "Order")}
-        </Button>
+        <div className="flex gap-2">
+          {onNegotiate && !svc.isCustomQuote && (
+            <Button size="sm" variant="outline" className="flex-1 text-xs font-bold"
+              style={{ borderColor: `${gold}40`, color: gold, background: `${gold}08` }}
+              onClick={onNegotiate}>
+              <MessageCircle className="h-3 w-3 ml-1" />
+              {lang === "ar" ? "تفاوض" : "Negotiate"}
+            </Button>
+          )}
+          <Button size="sm" className="flex-1 text-xs font-bold" style={{ background: gold, color: "#000" }}
+            onClick={onOrder}>
+            {svc.isCustomQuote ? (lang === "ar" ? "اطلب عرضاً" : "Get Quote") : (lang === "ar" ? "اطلب الآن" : "Order")}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -233,12 +247,17 @@ export default function OfficePage() {
   const [lang, setLang] = useState<Lang>("ar");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [orderDialog, setOrderDialog] = useState<any>(null);
+  const [dealDialog, setDealDialog] = useState<any>(null);
+  const [dealStep, setDealStep] = useState<"form" | "sent">("form");
+  const [dealForm, setDealForm] = useState({ clientName: "", clientPhone: "", clientEmail: "", offerPrice: "", notes: "" });
   const [reviewDialog, setReviewDialog] = useState(false);
   const [orderForm, setOrderForm] = useState({ clientName: "", clientPhone: "", clientEmail: "", notes: "" });
   const [reviewForm, setReviewForm] = useState({ clientName: "", rating: "5", comment: "" });
   const [success, setSuccess] = useState("");
   const [reviewPage, setReviewPage] = useState(0);
   const [scrolled, setScrolled] = useState(false);
+  const [showAllSvc, setShowAllSvc] = useState(false);
+  const [filterCat, setFilterCat] = useState<string>("الكل");
   const contactRef = useRef<HTMLElement>(null);
   const servicesRef = useRef<HTMLElement>(null);
   const teamRef = useRef<HTMLElement>(null);
@@ -271,6 +290,23 @@ export default function OfficePage() {
       });
       setSuccess(lang === "ar" ? "تم إرسال طلبك بنجاح! سيتواصل معك المكتب قريباً." : "Your request was sent! The office will contact you soon.");
       setOrderDialog(null);
+    },
+  });
+
+  const dealMutation = useMutation({
+    mutationFn: async () => {
+      await fetch(`/api/marketplace/deals`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceId: dealDialog?.id,
+          buyerName: dealForm.clientName,
+          buyerEmail: dealForm.clientEmail || undefined,
+          buyerPhone: dealForm.clientPhone || undefined,
+          initialPrice: parseFloat(dealForm.offerPrice || "0"),
+          notes: dealForm.notes || undefined,
+        }),
+      });
+      setDealStep("sent");
     },
   });
 
@@ -376,11 +412,10 @@ export default function OfficePage() {
           </div>
 
           <div className="hidden md:flex items-center gap-2">
-            <a href={`/firms/${slug}/store`}>
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs border-white/20 hover:bg-white/10">
-                <ShoppingBag className="h-3 w-3" /> {lang === "ar" ? "المتجر" : "Store"}
-              </Button>
-            </a>
+            <button onClick={() => scrollTo(servicesRef)}
+              className="inline-flex items-center gap-1.5 text-xs border border-white/20 hover:bg-white/10 px-3 py-1.5 rounded-md transition-colors text-white/70 hover:text-white">
+              <ShoppingBag className="h-3 w-3" /> {lang === "ar" ? "المتجر القانوني" : "Legal Store"}
+            </button>
             <a href={`/firms/${slug}/book`}>
               <Button size="sm" className="gap-1.5 text-xs font-bold shadow-lg" style={{ background: gold, color: "#000" }}>
                 <Calendar className="h-3 w-3" /> {lang === "ar" ? "احجز استشارة" : "Book Now"}
@@ -413,11 +448,11 @@ export default function OfficePage() {
               </button>
             ))}
             <div className="pt-2 flex gap-2">
-              <a href={`/firms/${slug}/store`} className="flex-1">
+              <button onClick={() => scrollTo(servicesRef)} className="flex-1">
                 <Button variant="outline" size="sm" className="w-full gap-1 text-xs border-white/20 hover:bg-white/10">
                   <ShoppingBag className="h-3 w-3" /> {lang === "ar" ? "المتجر" : "Store"}
                 </Button>
-              </a>
+              </button>
               <a href={`/firms/${slug}/book`} className="flex-1">
                 <Button size="sm" className="w-full gap-1 text-xs font-bold" style={{ background: gold, color: "#000" }}>
                   <Calendar className="h-3 w-3" /> {lang === "ar" ? "احجز" : "Book"}
@@ -607,40 +642,88 @@ export default function OfficePage() {
           </div>
         </section>
 
-        {/* ── SERVICES ──────────────────────────────── */}
+        {/* ── SERVICES (Legal Store) ─────────────────── */}
         {services.length > 0 && (
           <section ref={servicesRef} id="services">
-            <div className="flex items-end justify-between flex-wrap gap-3 mb-8">
+            {/* Header */}
+            <div className="flex items-end justify-between flex-wrap gap-3 mb-6">
               <div>
-                <SecHeader icon={<ShoppingBag />} title={lang === "ar" ? "خدماتنا القانونية" : "Legal Services"} gold={gold} noSub />
-                <p className="text-sm text-white/45 mt-2">{lang === "ar" ? "نقدم خدمات قانونية شاملة بأعلى معايير الجودة والمهنية" : "Comprehensive legal services with the highest standards of quality"}</p>
+                <SecHeader icon={<ShoppingBag />}
+                  title={lang === "ar" ? "المتجر القانوني" : "Legal Store"} gold={gold} noSub />
+                <p className="text-sm text-white/45 mt-2">
+                  {lang === "ar"
+                    ? "خدمات قانونية متكاملة — اطلب مباشرة أو تفاوض على السعر"
+                    : "Full legal services — order directly or negotiate the price"}
+                </p>
               </div>
-              {services.length > 6 && (
-                <a href={`/firms/${slug}/store`}>
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs border-white/20 hover:bg-white/10">
-                    {lang === "ar" ? `عرض الكل (${services.length})` : `View All (${services.length})`}
-                    <ChevronRight className={cn("h-3.5 w-3.5", lang === "ar" && "rotate-180")} />
-                  </Button>
-                </a>
-              )}
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {services.slice(0, 6).map((svc: any) => (
-                <ServiceCard key={svc.id} svc={svc} lang={lang} gold={gold}
-                  onOrder={() => { setOrderDialog(svc); setOrderForm({ clientName: "", clientPhone: "", clientEmail: "", notes: "" }); }} />
-              ))}
-            </div>
-            {services.length > 6 && (
-              <div className="mt-8 text-center">
-                <a href={`/firms/${slug}/store`}>
-                  <Button variant="outline" className="gap-2 border-white/20 hover:bg-white/10 px-8">
-                    <ShoppingBag className="h-4 w-4" />
-                    {lang === "ar" ? `تصفح المتجر القانوني — ${services.length} خدمة` : `Browse Legal Store — ${services.length} services`}
-                    <ArrowLeft className={cn("h-4 w-4", lang === "en" && "rotate-180")} style={{ color: gold }} />
-                  </Button>
-                </a>
+              <div className="flex items-center gap-2 text-xs text-white/40 px-3 py-1.5 rounded-full"
+                style={{ background: `${gold}10`, border: `1px solid ${gold}20`, color: gold }}>
+                <ShoppingBag className="h-3 w-3" />
+                {services.length} {lang === "ar" ? "خدمة متاحة" : "services available"}
               </div>
-            )}
+            </div>
+
+            {/* Category Filter */}
+            {(() => {
+              const cats = ["الكل", ...Array.from(new Set(services.map((s: any) => s.category).filter(Boolean)))];
+              return cats.length > 2 ? (
+                <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide">
+                  {cats.map((cat: string) => (
+                    <button key={cat} onClick={() => setFilterCat(cat)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-xs whitespace-nowrap border transition-all shrink-0 font-medium",
+                        filterCat === cat
+                          ? "border-white/30 text-white"
+                          : "border-white/10 text-white/40 hover:border-white/20 hover:text-white/60"
+                      )}
+                      style={filterCat === cat ? { background: `${gold}20`, borderColor: `${gold}40`, color: gold } : {}}>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              ) : null;
+            })()}
+
+            {/* Services Grid */}
+            {(() => {
+              const filtered = filterCat === "الكل"
+                ? services
+                : services.filter((s: any) => s.category === filterCat);
+              const visible = showAllSvc ? filtered : filtered.slice(0, 6);
+              return (
+                <>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {visible.map((svc: any) => (
+                      <ServiceCard key={svc.id} svc={svc} lang={lang} gold={gold}
+                        onOrder={() => {
+                          setOrderDialog(svc);
+                          setOrderForm({ clientName: "", clientPhone: "", clientEmail: "", notes: "" });
+                        }}
+                        onNegotiate={() => {
+                          setDealDialog(svc);
+                          setDealStep("form");
+                          setDealForm({ clientName: "", clientPhone: "", clientEmail: "",
+                            offerPrice: String(Math.floor(Number(svc.price) * 0.8)), notes: "" });
+                        }}
+                      />
+                    ))}
+                  </div>
+                  {filtered.length > 6 && (
+                    <div className="mt-8 text-center">
+                      <button onClick={() => setShowAllSvc(v => !v)}
+                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold border transition-all hover:bg-white/5"
+                        style={{ borderColor: `${gold}30`, color: gold }}>
+                        <ShoppingBag className="h-4 w-4" />
+                        {showAllSvc
+                          ? (lang === "ar" ? "عرض أقل" : "Show Less")
+                          : (lang === "ar" ? `عرض جميع الخدمات (${filtered.length})` : `Show All Services (${filtered.length})`)}
+                        <ChevronDown className={cn("h-4 w-4 transition-transform", showAllSvc && "rotate-180")} />
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </section>
         )}
 
@@ -908,7 +991,7 @@ export default function OfficePage() {
               <button onClick={() => scrollTo(aboutRef)} className="hover:text-white/60 transition-colors">{lang === "ar" ? "من نحن" : "About"}</button>
               <button onClick={() => scrollTo(servicesRef)} className="hover:text-white/60 transition-colors">{lang === "ar" ? "الخدمات" : "Services"}</button>
               <button onClick={() => scrollTo(contactRef)} className="hover:text-white/60 transition-colors">{lang === "ar" ? "تواصل" : "Contact"}</button>
-              <a href={`/firms/${slug}/store`} className="hover:text-white/60 transition-colors">{lang === "ar" ? "المتجر" : "Store"}</a>
+              <button onClick={() => scrollTo(servicesRef)} className="hover:text-white/60 transition-colors">{lang === "ar" ? "المتجر القانوني" : "Legal Store"}</button>
               <a href={`/firms/${slug}/book`} className="hover:text-white/60 transition-colors">{lang === "ar" ? "الحجز" : "Book"}</a>
             </div>
             <div className="text-[11px] text-white/20">
@@ -983,6 +1066,74 @@ export default function OfficePage() {
                 {orderMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 {orderDialog.isCustomQuote ? (lang === "ar" ? "إرسال طلب العرض" : "Request Quote") : (lang === "ar" ? "تأكيد الطلب" : "Confirm Order")}
               </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Deal Room Dialog ──────────────────────── */}
+      <Dialog open={!!dealDialog} onOpenChange={v => { if (!v) { setDealDialog(null); setDealStep("form"); } }}>
+        <DialogContent className="max-w-md" dir={lang === "ar" ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-xl flex items-center justify-center" style={{ background: `${gold}20`, color: gold }}>
+                <MessageCircle className="h-4 w-4" />
+              </div>
+              {lang === "ar" ? "غرفة التفاوض" : "Deal Room"}
+            </DialogTitle>
+          </DialogHeader>
+          {dealStep === "sent" ? (
+            <div className="text-center py-8 space-y-3">
+              <div className="h-16 w-16 rounded-full mx-auto flex items-center justify-center" style={{ background: `${gold}20` }}>
+                <CheckCircle2 className="h-8 w-8" style={{ color: gold }} />
+              </div>
+              <p className="font-bold">{lang === "ar" ? "تم إرسال عرضك!" : "Your offer was sent!"}</p>
+              <p className="text-sm text-white/50">{lang === "ar" ? "سيراجع المكتب عرضك ويرد عليك قريباً." : "The office will review your offer and respond soon."}</p>
+              <Button className="mt-4" style={{ background: gold, color: "#000" }} onClick={() => { setDealDialog(null); setDealStep("form"); }}>
+                {lang === "ar" ? "حسناً" : "OK"}
+              </Button>
+            </div>
+          ) : dealDialog && (
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl" style={{ background: `${gold}10`, border: `1px solid ${gold}20` }}>
+                <div className="text-xs text-white/40 mb-1">{lang === "ar" ? "السعر المطلوب" : "Listed Price"}</div>
+                <span className="text-xl font-black" style={{ color: gold }}>
+                  {Number(dealDialog.price).toLocaleString()} <span className="text-sm">{lang === "ar" ? "ر.س" : "SAR"}</span>
+                </span>
+              </div>
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "عرضك المالي (ر.س) *" : "Your Offer (SAR) *"}</Label>
+                <Input type="number" dir="ltr" value={dealForm.offerPrice}
+                  onChange={e => setDealForm(f => ({ ...f, offerPrice: e.target.value }))}
+                  placeholder={lang === "ar" ? "أدخل مبلغ العرض..." : "Enter offer amount..."} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "الاسم *" : "Name *"}</Label>
+                  <Input value={dealForm.clientName} onChange={e => setDealForm(f => ({ ...f, clientName: e.target.value }))} />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "الجوال *" : "Phone *"}</Label>
+                  <Input value={dealForm.clientPhone} onChange={e => setDealForm(f => ({ ...f, clientPhone: e.target.value }))} dir="ltr" />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "البريد الإلكتروني" : "Email"}</Label>
+                <Input value={dealForm.clientEmail} onChange={e => setDealForm(f => ({ ...f, clientEmail: e.target.value }))} dir="ltr" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "ملاحظات" : "Notes"}</Label>
+                <Textarea value={dealForm.notes} onChange={e => setDealForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="resize-none" />
+              </div>
+              <Button className="w-full gap-2 font-bold h-11" style={{ background: gold, color: "#000" }}
+                disabled={!dealForm.clientName || !dealForm.clientPhone || !dealForm.offerPrice || dealMutation.isPending}
+                onClick={() => dealMutation.mutate()}>
+                {dealMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {lang === "ar" ? "إرسال العرض للتفاوض" : "Send Negotiation Offer"}
+              </Button>
+              <p className="text-[10px] text-center text-white/30">
+                {lang === "ar" ? "سيتواصل معك المكتب بعرض مقابل أو قبول مباشر" : "The office will respond with a counter-offer or direct acceptance"}
+              </p>
             </div>
           )}
         </DialogContent>
