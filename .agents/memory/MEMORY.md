@@ -45,3 +45,4 @@
 - [Adala Office Management](adala-office-mgmt.md) — /office-management page; 8 tabs: overview(default)/appearance/orders/services/team/reviews/articles/domains; overview tab has slug editor+URL card+publish toggle+stats+quick-actions; appearance tab has inline color picker+logo/cover upload+name/tagline/about form; appLogoUpload/appCoverUpload hooks defined before conditional returns
 - [Adala Payment Center](adala-payment-center.md) — Settlement system + Moyasar gateway + 6-tab dashboard; settlement_status separate from payment status; getUncachableStripeClient() always
 - [Adala Checkout.com](adala-checkout.md) — user requested Checkout.com+Mada+Apple Pay as MENA payment gateway alongside Stripe; Tabby/Tamara for installments
+- [Adala Floating Copilot](adala-copilot.md) — /api/copilot/chat+snapshot routes; FloatingCopilot in layout.tsx; full Gemini context + action parsing

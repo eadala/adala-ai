@@ -326,3 +326,8 @@ html[data-theme="light"] .lp-trust-tag      { color: var(--lp-text-subtle, rgba(
   from { transform: translateX(100%); opacity: 0.6; }
   to   { transform: translateX(0);    opacity: 1;   }
 }
+
+@keyframes slideUpIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
