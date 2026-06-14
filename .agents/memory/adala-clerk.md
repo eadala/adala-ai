@@ -49,6 +49,33 @@ The `<div id="root">` should have an inline dark background style:
 ```
 **Why:** If React fails to mount (JS error, bundle failure), the page shows dark background instead of white — making it immediately clear that React is not running. With React running, its own styles override the inline style.
 
+## CRITICAL — Dark Mode Must Be Initialized Before React Mounts
+
+The app uses `@custom-variant dark (&:is(.dark *))` in `index.css` (Tailwind v4). This requires `class="dark"` on `<html>` for ALL dark CSS variables to apply.
+
+**index.html MUST have this inline script BEFORE `<div id="root">`:**
+```html
+<script>
+  (function(){
+    var t = localStorage.getItem('adala-theme') || 'dark';
+    document.documentElement.classList.toggle('dark', t === 'dark');
+  })();
+</script>
+```
+
+**account-menu.tsx MUST initialize from localStorage AND sync via useEffect:**
+```typescript
+const [theme, setTheme] = useState<"dark" | "light">(() =>
+  (localStorage.getItem("adala-theme") as "dark" | "light") || "dark"
+);
+useEffect(() => {
+  document.documentElement.classList.toggle("dark", theme === "dark");
+  localStorage.setItem("adala-theme", theme);
+}, [theme]);
+```
+
+**Why:** Without dark class on `<html>`, all `bg-background`/`text-foreground` etc. use `:root` (light mode) variables → components render with wrong colors → blank dark screen (root div inline background shows through).
+
 ## Module-level safety for publishableKeyFromHost
 
 Wrap in try/catch at module level in App.tsx:

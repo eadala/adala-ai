@@ -72,10 +72,17 @@ export function AccountMenu() {
   const { user, isLoaded } = useUser();
   const { signOut, openUserProfile } = useClerk();
   const [open, setOpen] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    return (localStorage.getItem("adala-theme") as "dark" | "light") || "dark";
+  });
   const [officeOpen, setOfficeOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    localStorage.setItem("adala-theme", theme);
+  }, [theme]);
 
   const { data: branding } = useQuery<Branding>({
     queryKey: ["branding"],
