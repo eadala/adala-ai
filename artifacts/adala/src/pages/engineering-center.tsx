@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import Layout from "@/components/layout";
+import { Layout } from "@/components/layout";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 let _getToken: (() => Promise<string | null>) | null = null;
