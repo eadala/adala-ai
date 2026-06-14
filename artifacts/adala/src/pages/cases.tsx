@@ -289,9 +289,16 @@ export default function Cases() {
                   return (
                     <TableRow key={c.id} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="font-medium">
-                        <Link href={`/cases/${c.id}`} className="hover:text-primary hover:underline transition-colors">
-                          {c.title}
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link href={`/cases/${c.id}`} className="hover:text-primary hover:underline transition-colors">
+                            {c.title}
+                          </Link>
+                          {(c as any).source === "store" && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/40 text-amber-600 bg-amber-500/10 shrink-0">
+                              من المتجر
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{c.clientName || "—"}</TableCell>
                       <TableCell>

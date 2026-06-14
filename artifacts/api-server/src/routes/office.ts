@@ -109,11 +109,12 @@ router.get("/office/public/:slug/order-success", async (req, res) => {
     const db2 = db as any;
     const sql2 = (await import("drizzle-orm")).sql;
 
+    /* Validate: join on slug ensures session belongs to THIS office */
     const rows = await db2.execute(sql2`
       SELECT oo.auto_case_id, oo.portal_token, oo.client_name, oo.client_email,
              oo.status, os.name AS service_name, op.name AS office_name
       FROM   office_orders oo
-      JOIN   office_page   op ON op.id = oo.office_id
+      JOIN   office_page   op ON op.id = oo.office_id AND op.slug = ${req.params.slug}
       LEFT JOIN office_services os ON os.id::text = oo.service_id::text
       WHERE  oo.stripe_session_id = ${sessionId}
       LIMIT  1
@@ -121,21 +122,19 @@ router.get("/office/public/:slug/order-success", async (req, res) => {
     const row = (rows?.rows ?? rows)?.[0] ?? null;
 
     if (!row) {
-      /* Might still be processing — return pending */
+      /* Not found: either still pending or session doesn't belong to this slug */
       res.json({ status: "pending" });
       return;
     }
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
     res.json({
-      status:       row.status ?? "paid",
-      caseId:       row.auto_case_id ?? null,
-      portalToken:  row.portal_token ?? null,
-      portalUrl:    row.portal_token ? `${baseUrl}/portal/${row.portal_token}` : null,
-      clientName:   row.client_name ?? null,
-      clientEmail:  row.client_email ?? null,
-      serviceName:  row.service_name ?? null,
-      officeName:   row.office_name ?? null,
+      status:      row.status ?? "paid",
+      caseId:      row.auto_case_id ?? null,
+      portalUrl:   row.portal_token ? `${baseUrl}/portal/${row.portal_token}` : null,
+      clientName:  row.client_name ?? null,
+      serviceName: row.service_name ?? null,
+      officeName:  row.office_name ?? null,
     });
   } catch (e: any) {
     console.error("order-success:", e);
