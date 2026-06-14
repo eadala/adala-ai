@@ -8,7 +8,8 @@ import {
   Copy, Check, Camera, Image, MapPin,
   FileText, Pencil, BookOpen, Calendar, ExternalLink,
   Link2, Shield, ShieldCheck, Wifi, WifiOff, Lock, Unlock,
-  ArrowUpRight, Crown, Zap, AlertCircle, RefreshCw,
+  Handshake, TrendingUp, ArrowUpRight,
+  Crown, Zap, AlertCircle, RefreshCw,
   Palette, LayoutDashboard, QrCode, Sparkles, ToggleRight,
   MessageCircle, Send
 } from "lucide-react";
@@ -441,6 +442,53 @@ export default function OfficeManagement() {
               </Card>
             ))}
           </div>
+
+          {/* ── Marketplace Stats Card ── */}
+          <Card className="border-amber-500/20 bg-gradient-to-l from-amber-500/5 to-transparent">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-amber-500/15 flex items-center justify-center">
+                    <ShoppingBag className="h-3.5 w-3.5 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold">المتجر القانوني</p>
+                    <p className="text-[10px] text-muted-foreground">خدماتك في السوق العام</p>
+                  </div>
+                </div>
+                <a href="/marketplace" className="flex items-center gap-1 text-[10px] text-amber-400 hover:text-amber-300 transition-colors">
+                  <span>إدارة المتجر</span>
+                  <ArrowUpRight className="h-3 w-3" />
+                </a>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: "خدمات نشطة", value: services.filter((s: any) => s.isActive !== false).length, color: "#10B981" },
+                  { label: "إجمالي الخدمات", value: services.length, color: "#6366F1" },
+                  { label: "المتجر", value: office.isPublished ? "مفعّل" : "معطّل", color: office.isPublished ? "#10B981" : "#F59E0B" },
+                ].map(s => (
+                  <div key={s.label} className="text-center p-2 rounded-lg bg-muted/30 border border-border/30">
+                    <p className="text-sm font-black" style={{ color: s.color }}>{s.value}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <a href="/marketplace?tab=deals" className="flex-1">
+                  <div className="flex items-center justify-center gap-1.5 p-2 rounded-lg border border-amber-500/20 hover:bg-amber-500/10 transition-colors cursor-pointer">
+                    <Handshake className="h-3 w-3 text-amber-400" />
+                    <span className="text-[10px] text-amber-400 font-semibold">الصفقات والطلبات</span>
+                  </div>
+                </a>
+                <a href="/marketplace?tab=my" className="flex-1">
+                  <div className="flex items-center justify-center gap-1.5 p-2 rounded-lg border border-border/30 hover:bg-muted/50 transition-colors cursor-pointer">
+                    <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground">خدماتي</span>
+                  </div>
+                </a>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* ── Quick Actions ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
