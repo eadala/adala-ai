@@ -145,10 +145,10 @@ export function FloatingCopilot() {
             text-[#0B1B2B] font-bold rounded-2xl shadow-2xl
             px-4 py-3 transition-all duration-200
             hover:scale-105 hover:shadow-[0_0_32px_rgba(201,168,76,0.45)]"
-          title="المساعد الذكي عدل"
+          title="المساعد الذكي عدولي"
         >
           <BrainCircuit className="h-5 w-5 flex-shrink-0" />
-          <span className="text-sm hidden sm:inline">عدل AI</span>
+          <span className="text-sm hidden sm:inline">عدولي AI</span>
           {/* Dot badges */}
           {!!snapshot?.overdueInvoices && (
             <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
@@ -177,7 +177,7 @@ export function FloatingCopilot() {
                 <BrainCircuit className="h-4 w-4 text-[#C9A84C]" />
               </div>
               <div>
-                <p className="text-sm font-bold text-white leading-none">عدل AI</p>
+                <p className="text-sm font-bold text-white leading-none">عدولي AI</p>
                 <p className="text-[10px] text-white/40 mt-0.5">{pageLabel} · كامل الصلاحيات</p>
               </div>
               <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] flex-shrink-0" />
@@ -225,7 +225,7 @@ export function FloatingCopilot() {
                     <div className="w-12 h-12 rounded-2xl bg-[#C9A84C]/15 flex items-center justify-center mx-auto mb-2">
                       <Sparkles className="h-6 w-6 text-[#C9A84C]" />
                     </div>
-                    <p className="text-sm font-semibold text-white">مرحباً! أنا عدل</p>
+                    <p className="text-sm font-semibold text-white">مرحباً! أنا عدولي</p>
                     <p className="text-xs text-white/45 mt-1">مساعدك القانوني الذكي — اسألني أي شيء</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
