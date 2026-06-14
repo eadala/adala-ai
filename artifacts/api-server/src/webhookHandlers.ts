@@ -98,32 +98,40 @@ export class WebhookHandlers {
 
     /* ══════════════════════════════════════════════════════════════
        1. checkout.session.completed → activate subscription
+          GUARD: only runs for subscription payments (metadata.plan present)
+          Office-store payments (metadata.officeSlug, no metadata.plan) are
+          handled exclusively in section 7 below.
     ══════════════════════════════════════════════════════════════ */
     if (eventType === 'checkout.session.completed') {
-      const session  = event.data.object as any;
-      const plan     = session?.metadata?.plan ?? session?.metadata?.planId ?? 'basic';
-      const email    = session?.customer_email ?? session?.customer_details?.email ?? 'unknown';
-      const officeId = session?.metadata?.officeId ?? 'default';
-      const grossSAR = (session?.amount_total ?? 0) / 100;
+      const session     = event.data.object as any;
+      const isStorePayment = !!session?.metadata?.officeSlug && !session?.metadata?.plan;
 
-      console.log(`[Webhook] checkout.session.completed — office=${officeId} plan=${plan} amount=${grossSAR} SAR`);
+      if (!isStorePayment) {
+        /* Subscription checkout — provision tenant */
+        const plan     = session?.metadata?.plan ?? session?.metadata?.planId ?? 'basic';
+        const email    = session?.customer_email ?? session?.customer_details?.email ?? 'unknown';
+        const officeId = session?.metadata?.officeId ?? 'default';
+        const grossSAR = (session?.amount_total ?? 0) / 100;
 
-      try {
-        await provisionTenant({ officeId, plan, email, stripeSessionId: session.id, amountPaid: session?.amount_total ?? 0 });
+        console.log(`[Webhook] checkout.session.completed (subscription) — office=${officeId} plan=${plan} amount=${grossSAR} SAR`);
 
-        if (grossSAR > 0) {
-          const rev = await recordRevenue({
-            officeId,
-            grossSAR,
-            ref:         `CHECKOUT_${plan.toUpperCase()}`,
-            description: `اشتراك باقة ${plan} — ${email}`,
-            stripeId:    session.id,
-            stripeEventId: eventId,
-          });
-          console.log(`[Webhook] Revenue recorded: gross=${grossSAR} platform=${rev.platformFee} stripe=${rev.stripeFee} net=${rev.net}`);
+        try {
+          await provisionTenant({ officeId, plan, email, stripeSessionId: session.id, amountPaid: session?.amount_total ?? 0 });
+
+          if (grossSAR > 0) {
+            const rev = await recordRevenue({
+              officeId,
+              grossSAR,
+              ref:         `CHECKOUT_${plan.toUpperCase()}`,
+              description: `اشتراك باقة ${plan} — ${email}`,
+              stripeId:    session.id,
+              stripeEventId: eventId,
+            });
+            console.log(`[Webhook] Revenue recorded: gross=${grossSAR} platform=${rev.platformFee} stripe=${rev.stripeFee} net=${rev.net}`);
+          }
+        } catch (err) {
+          console.error('[Webhook] checkout provisioning error:', err);
         }
-      } catch (err) {
-        console.error('[Webhook] checkout provisioning error:', err);
       }
     }
 
@@ -312,7 +320,7 @@ async function handleOfficeServicePayment(opts: {
 
   function sqlOne(r: any) { return (r?.rows ?? r)?.[0] ?? null; }
 
-  /* 1 ─ Make sure extra columns exist on office_orders */
+  /* ── Schema migrations (non-critical — silently skip if column exists) ── */
   await db.execute(sql`
     ALTER TABLE office_orders
       ADD COLUMN IF NOT EXISTS status        TEXT DEFAULT 'pending',
@@ -320,7 +328,11 @@ async function handleOfficeServicePayment(opts: {
       ADD COLUMN IF NOT EXISTS portal_token  TEXT
   `).catch(() => {});
 
-  /* 2 ─ Get the order & office */
+  /* Add source tracking to cases table */
+  await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'`).catch(() => {});
+  await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS store_order_id TEXT`).catch(() => {});
+
+  /* ── Step 2: Get the order + office (CRITICAL — abort if missing) ── */
   const orderRow = sqlOne(await db.execute(sql`
     SELECT oo.*, op.id AS office_page_id, op.name AS office_name, op.email AS office_email
     FROM office_orders oo
@@ -334,13 +346,13 @@ async function handleOfficeServicePayment(opts: {
   }
   const officeId = orderRow.office_page_id as string;
 
-  /* 3 ─ Mark order as paid */
+  /* ── Step 3: Mark order as paid (CRITICAL) ── */
   await db.execute(sql`
     UPDATE office_orders SET status = 'paid', updated_at = NOW()
     WHERE stripe_session_id = ${stripeSessionId}
-  `).catch(() => {});
+  `);
 
-  /* 4 ─ Ensure client_accounts table exists */
+  /* ── Step 4: Ensure client_accounts table (non-critical DDL) ── */
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS client_accounts (
       id             TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -356,7 +368,7 @@ async function handleOfficeServicePayment(opts: {
     )
   `).catch(() => {});
 
-  /* 5 ─ Get or create client account */
+  /* ── Step 5: Get or create client account (CRITICAL) ── */
   let clientId: string;
   if (clientEmail) {
     const existing = sqlOne(await db.execute(sql`
@@ -364,7 +376,6 @@ async function handleOfficeServicePayment(opts: {
     `));
     if (existing) {
       clientId = existing.id as string;
-      /* Update name/phone if missing */
       await db.execute(sql`
         UPDATE client_accounts
         SET name  = COALESCE(name,  ${clientName  || null}),
@@ -380,22 +391,21 @@ async function handleOfficeServicePayment(opts: {
       `);
     }
   } else {
-    /* No email — create anonymous account keyed by phone */
     clientId = randomBytes(16).toString("hex");
     const fakeEmail = `${clientId}@noemail.adala.sa`;
     await db.execute(sql`
       INSERT INTO client_accounts (id, email, name, phone)
       VALUES (${clientId}, ${fakeEmail}, ${clientName || null}, ${clientPhone || null})
-    `).catch(() => {});
+    `);
   }
 
-  /* 6 ─ Auto-create a case */
-  const svcLabel = serviceName || orderRow.service_name || "خدمة قانونية";
+  /* ── Step 6: Auto-create a case with store source (CRITICAL) ── */
+  const svcLabel  = serviceName || (orderRow.service_name as string | undefined) || "خدمة قانونية";
   const caseTitle = `${svcLabel} — ${clientName || clientPhone || "عميل جديد"}`;
-  const caseId = randomUUID();
+  const caseId    = randomUUID();
 
   await db.execute(sql`
-    INSERT INTO cases (id, title, description, case_type, status, client_name, created_by)
+    INSERT INTO cases (id, title, description, case_type, status, client_name, created_by, source, store_order_id)
     VALUES (
       ${caseId},
       ${caseTitle},
@@ -403,14 +413,13 @@ async function handleOfficeServicePayment(opts: {
       'civil',
       'open',
       ${clientName || null},
-      ${officeId}
+      ${officeId},
+      'store',
+      ${stripeSessionId}
     )
-  `).catch(() => {});
+  `);
 
-  /* 7 ─ Create portal token */
-  const portalToken = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 365 * 86400000); // 1 year
-
+  /* ── Step 7: Create portal token (CRITICAL) ── */
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS client_portal_tokens (
       id               TEXT PRIMARY KEY,
@@ -429,7 +438,10 @@ async function handleOfficeServicePayment(opts: {
     )
   `).catch(() => {});
 
-  const portalId = randomUUID();
+  const portalToken = randomBytes(32).toString("hex");
+  const portalId    = randomUUID();
+  const expiresAt   = new Date(Date.now() + 365 * 86400000);
+
   await db.execute(sql`
     INSERT INTO client_portal_tokens
       (id, case_id, token, client_email, client_name, expires_at,
@@ -439,10 +451,9 @@ async function handleOfficeServicePayment(opts: {
        ${clientEmail || null}, ${clientName || null},
        ${expiresAt.toISOString()},
        true, true, true, '[]', NOW())
-    ON CONFLICT DO NOTHING
-  `).catch(() => {});
+  `);
 
-  /* 8 ─ Link case to client account */
+  /* ── Step 8: Link case → client account (CRITICAL) ── */
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS client_case_links (
       id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -460,16 +471,16 @@ async function handleOfficeServicePayment(opts: {
     INSERT INTO client_case_links (client_id, case_id, portal_token_id, portal_token, office_id)
     VALUES (${clientId}, ${caseId}, ${portalId}, ${portalToken}, ${officeId})
     ON CONFLICT (client_id, case_id) DO NOTHING
-  `).catch(() => {});
+  `);
 
-  /* 9 ─ Store portal token on the order for frontend retrieval */
+  /* ── Step 9: Record portal token on the order (CRITICAL — enables polling) ── */
   await db.execute(sql`
     UPDATE office_orders
     SET auto_case_id = ${caseId}, portal_token = ${portalToken}
     WHERE stripe_session_id = ${stripeSessionId}
-  `).catch(() => {});
+  `);
 
-  /* 10 ─ Add initial timeline entry */
+  /* ── Step 10: Initial timeline entry (non-critical) ── */
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS case_timeline (
       id          TEXT PRIMARY KEY,
@@ -494,21 +505,21 @@ async function handleOfficeServicePayment(opts: {
     )
   `).catch(() => {});
 
-  /* 11 ─ Send welcome email with portal link */
+  /* ── Step 11: Welcome email (non-critical — failure must not roll back) ── */
   if (clientEmail) {
     try {
       const baseUrl = process.env.REPLIT_DOMAINS
         ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
         : "https://adala.sa";
       const portalUrl = `${baseUrl}/portal/${portalToken}`;
-      const officeName = orderRow.office_name ?? "مكتب المحاماة";
+      const officeName = (orderRow.office_name as string | undefined) ?? "مكتب المحاماة";
       await sendAcquisitionEmail({ clientEmail, clientName, officeName, svcLabel, portalUrl });
     } catch (e) {
-      console.error('[Webhook] Welcome email error:', e);
+      console.error('[Webhook] Welcome email error (non-critical):', e);
     }
   }
 
-  console.log(`[Webhook] Client acquisition done — case=${caseId} portal=${portalToken.slice(0, 8)}...`);
+  console.log(`[Webhook] Client acquisition done — case=${caseId} source=store portal=${portalToken.slice(0, 8)}...`);
 }
 
 async function sendAcquisitionEmail(opts: {
