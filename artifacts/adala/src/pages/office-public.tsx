@@ -58,8 +58,8 @@ function AnimatedStat({ val, label, gold, icon }: { val: string; label: string; 
   );
 }
 
-function ServiceCard({ svc, lang, gold, onOrder, onNegotiate }: {
-  svc: any; lang: Lang; gold: string; onOrder: () => void; onNegotiate?: () => void;
+function ServiceCard({ svc, lang, gold, slug, onOrder, onNegotiate }: {
+  svc: any; lang: Lang; gold: string; slug: string; onOrder: () => void; onNegotiate?: () => void;
 }) {
   const name = t(svc.name, svc.nameEn, lang);
   const desc = t(svc.description, svc.descriptionEn, lang);
@@ -99,6 +99,11 @@ function ServiceCard({ svc, lang, gold, onOrder, onNegotiate }: {
           </div>
         </div>
         <div className="flex gap-2">
+          <a href={`/firms/${slug}/service/${svc.id}`}
+            className="flex-1 flex items-center justify-center gap-1 rounded-md border text-xs font-bold px-3 py-1.5 transition-colors"
+            style={{ borderColor: `${gold}40`, color: gold, background: `${gold}08` }}>
+            {lang === "ar" ? "التفاصيل" : "Details"}
+          </a>
           {onNegotiate && !svc.isCustomQuote && (
             <Button size="sm" variant="outline" className="flex-1 text-xs font-bold"
               style={{ borderColor: `${gold}40`, color: gold, background: `${gold}08` }}
@@ -779,7 +784,7 @@ export default function OfficePage() {
                 <>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {visible.map((svc: any) => (
-                      <ServiceCard key={svc.id} svc={svc} lang={lang} gold={gold}
+                      <ServiceCard key={svc.id} svc={svc} lang={lang} gold={gold} slug={slug}
                         onOrder={() => {
                           setOrderDialog(svc);
                           setOrderForm({ clientName: "", clientPhone: "", clientEmail: "", notes: "" });
