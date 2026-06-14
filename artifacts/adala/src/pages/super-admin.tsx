@@ -102,7 +102,7 @@ export default function SuperAdmin() {
     queryKey: ["ghost", "status"],
     queryFn: () => DEV_API("/impersonate/status"),
     retry: false,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
   if (statsError?.message?.includes("403") || statsError?.message?.includes("غير مصرح")) {
@@ -1346,7 +1346,7 @@ function SupportTab({ qc, toast }: any) {
     queryKey: ["admin", "support-thread", selected?.id],
     queryFn: () => API(`/support/${selected.id}/messages`),
     enabled: !!selected?.id,
-    refetchInterval: 8_000,
+    refetchInterval: 25_000,
   });
 
   const update = useMutation({
@@ -1678,7 +1678,7 @@ function DevCenterTab({ toast }: any) {
     queryKey: ["dev", "impersonate-status"],
     queryFn: () => DEV_API("/impersonate/status"),
     retry: false,
-    refetchInterval: 15_000,
+    refetchInterval: 60_000,
   });
 
   const startImpersonate = useMutation({
@@ -6513,7 +6513,7 @@ function GhostCenterTab({ toast, onRefreshHeader }: { toast: any; onRefreshHeade
     queryKey: ["ghost", "status"],
     queryFn: () => DEV_API("/impersonate/status"),
     retry: false,
-    refetchInterval: 15_000,
+    refetchInterval: 60_000,
   });
 
   const { data: ghostLog = [], refetch: refetchLog } = useQuery<any[]>({
@@ -7493,8 +7493,8 @@ function AgentRuntimeTab({ toast }: { toast: any }) {
   const { data, refetch, isFetching } = useQuery<any>({
     queryKey: ["agents", "status"],
     queryFn: async () => saFetch(`${SA_BASE}/api/agents/status`, await getToken() ?? ""),
-    refetchInterval: 30_000,
-    staleTime: 15_000,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 
   async function runAgent(id: string) {

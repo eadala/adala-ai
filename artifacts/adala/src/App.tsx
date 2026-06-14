@@ -123,12 +123,17 @@ const ReferralPage         = lazy(() => import("@/pages/referral"));
 const NotFound             = lazy(() => import("@/pages/not-found"));
 
 // ── Query client ───────────────────────────────────────────────────────────────
+// staleTime=5min: data is fresh for 5 minutes, no duplicate network calls
+// gcTime=30min: cached data stays in memory for 30 minutes after last use
+// refetchOnWindowFocus=false: tab switching doesn't trigger floods of requests
+// retry=1: fail fast on bad routes, don't spam the server
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60_000,
-      gcTime: 5 * 60_000,
+      staleTime: 5 * 60_000,
+      gcTime: 30 * 60_000,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: "always",
       retry: 1,
     },
   },

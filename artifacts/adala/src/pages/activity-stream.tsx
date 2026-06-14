@@ -134,8 +134,8 @@ export default function ActivityStream() {
     queryFn: () => fetch(
       `${BASE}/api/events/recent?limit=100${filterType !== "all" ? `&type=${filterType}` : ""}`
     ).then(r => r.json()),
-    staleTime: 10_000,
-    refetchInterval: 30_000,
+    staleTime: 45_000,
+    refetchInterval: 60_000,
   });
 
   /* ── Stats ── */

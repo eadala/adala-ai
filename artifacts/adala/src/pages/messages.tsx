@@ -81,7 +81,8 @@ export default function Messages() {
       if (!r.ok) return { inbox: { total: 0, unread: 0 }, sent: { total: 0 }, drafts: { total: 0 } };
       return r.json();
     },
-    refetchInterval: 30000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   // Messages list

@@ -49,50 +49,86 @@ export default defineConfig({
     dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
   optimizeDeps: {
-    include: ["react", "react-dom", "@tanstack/react-table"],
+    include: [
+      "react",
+      "react-dom",
+      "@tanstack/react-table",
+      "@tanstack/react-query",
+      "wouter",
+    ],
+    exclude: [
+      "@replit/vite-plugin-cartographer",
+      "@replit/vite-plugin-dev-banner",
+    ],
   },
   root: path.resolve(import.meta.dirname),
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    // Raise warning threshold — we expect larger per-chunk sizes with splitting
+    target: "es2020",
+    minify: "esbuild",
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // React core — cached forever, rarely changes
-          "vendor-react": ["react", "react-dom", "react/jsx-runtime"],
-          // Clerk auth — large, changes independently
-          "vendor-clerk": ["@clerk/react", "@clerk/themes"],
-          // Query & routing
-          "vendor-query": ["@tanstack/react-query"],
-          "vendor-router": ["wouter"],
-          // UI primitives (Radix)
-          "vendor-ui": [
-            "@radix-ui/react-dialog",
-            "@radix-ui/react-select",
-            "@radix-ui/react-tabs",
-            "@radix-ui/react-tooltip",
-            "@radix-ui/react-dropdown-menu",
-            "@radix-ui/react-popover",
-            "@radix-ui/react-accordion",
-            "@radix-ui/react-checkbox",
-            "@radix-ui/react-label",
-            "@radix-ui/react-switch",
-            "@radix-ui/react-slider",
-            "@radix-ui/react-progress",
-            "@radix-ui/react-avatar",
-            "@radix-ui/react-separator",
-            "@radix-ui/react-scroll-area",
-          ],
-          // Charts — heavy, only needed on analytics pages
-          "vendor-charts": ["recharts"],
-          // Icons — large, but shared
-          "vendor-icons": ["lucide-react"],
-          // Date utils
-          "vendor-date": ["date-fns"],
-          // Table
-          "vendor-table": ["@tanstack/react-table"],
+        manualChunks(id) {
+          // React core — always cached, changes never
+          if (
+            id.includes("node_modules/react/") ||
+            id.includes("node_modules/react-dom/") ||
+            id.includes("node_modules/react/jsx-runtime")
+          ) {
+            return "vendor-react";
+          }
+          // Clerk auth — large, independent release cycle
+          if (id.includes("node_modules/@clerk/")) {
+            return "vendor-clerk";
+          }
+          // TanStack — query + table together
+          if (id.includes("node_modules/@tanstack/")) {
+            return "vendor-tanstack";
+          }
+          // Routing
+          if (id.includes("node_modules/wouter")) {
+            return "vendor-router";
+          }
+          // Recharts + d3 — only needed on analytics/finance pages
+          if (
+            id.includes("node_modules/recharts") ||
+            id.includes("node_modules/d3-") ||
+            id.includes("node_modules/victory-")
+          ) {
+            return "vendor-charts";
+          }
+          // Radix UI primitives — shared across all pages
+          if (id.includes("node_modules/@radix-ui/")) {
+            return "vendor-radix";
+          }
+          // Lucide icons — large icon lib, shared across all pages
+          if (id.includes("node_modules/lucide-react")) {
+            return "vendor-icons";
+          }
+          // Date utilities
+          if (id.includes("node_modules/date-fns")) {
+            return "vendor-date";
+          }
+          // Stripe SDK — only on payment pages
+          if (
+            id.includes("node_modules/@stripe/") ||
+            id.includes("node_modules/stripe")
+          ) {
+            return "vendor-stripe";
+          }
+          // i18n — translations only when language switches
+          if (
+            id.includes("node_modules/i18next") ||
+            id.includes("node_modules/react-i18next")
+          ) {
+            return "vendor-i18n";
+          }
+          // All remaining node_modules → shared misc vendor chunk
+          if (id.includes("node_modules/")) {
+            return "vendor-misc";
+          }
         },
       },
     },
