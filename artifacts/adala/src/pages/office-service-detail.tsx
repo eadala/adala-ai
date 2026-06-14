@@ -38,14 +38,28 @@ export default function OfficeServiceDetail() {
   const services: any[] = data?.services ?? [];
 
   if (isLoading) return (
-    <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-white/30" />
+    <div className="min-h-screen bg-[#080d1a] flex items-center justify-center">
+      <div className="text-center">
+        <div className="h-16 w-16 rounded-2xl bg-[#C9A84C]/20 flex items-center justify-center mx-auto mb-4 animate-pulse">
+          <AlertCircle className="h-8 w-8 text-[#C9A84C]" />
+        </div>
+        <Loader2 className="h-5 w-5 animate-spin text-[#C9A84C] mx-auto" />
+      </div>
     </div>
   );
 
   if (isError || !data?.services) return (
-    <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-white/50">
-      {lang === "ar" ? "لم يتم العثور على الخدمة" : "Service not found"}
+    <div className="min-h-screen bg-[#080d1a] flex items-center justify-center text-white text-center px-6">
+      <div>
+        <div className="h-24 w-24 rounded-3xl bg-[#C9A84C]/10 flex items-center justify-center mx-auto mb-6">
+          <AlertCircle className="h-12 w-12 text-[#C9A84C] opacity-50" />
+        </div>
+        <h1 className="text-3xl font-black mb-3">{lang === "ar" ? "المكتب غير موجود" : "Office Not Found"}</h1>
+        <p className="text-white/50 text-sm mb-6">{lang === "ar" ? "تحقق من الرابط أو تواصل مع المكتب" : "Check the URL or contact the office"}</p>
+        <button onClick={() => navigate("/")} className="px-6 py-2.5 rounded-xl bg-[#C9A84C] text-black font-bold text-sm hover:bg-[#b8943d] transition-colors">
+          {lang === "ar" ? "العودة للرئيسية" : "Back to Home"}
+        </button>
+      </div>
     </div>
   );
 
@@ -53,8 +67,22 @@ export default function OfficeServiceDetail() {
   const svc = services.find((s: any) => s.id === params.serviceId);
 
   if (!svc) return (
-    <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-white/50">
-      {lang === "ar" ? "الخدمة غير موجودة" : "Service not found"}
+    <div className="min-h-screen bg-[#080d1a] flex items-center justify-center text-white text-center px-6">
+      <div>
+        <div className="h-24 w-24 rounded-3xl bg-[#C9A84C]/10 flex items-center justify-center mx-auto mb-6">
+          <AlertCircle className="h-12 w-12 text-[#C9A84C] opacity-50" />
+        </div>
+        <h1 className="text-3xl font-black mb-3">{lang === "ar" ? "الخدمة غير موجودة" : "Service Not Found"}</h1>
+        <p className="text-white/50 text-sm mb-6">{lang === "ar" ? "هذه الخدمة غير متاحة أو ربما تم حذفها" : "This service is unavailable or may have been removed"}</p>
+        <div className="flex gap-3 justify-center">
+          <button onClick={() => navigate(`/firms/${params.slug}`)} className="px-6 py-2.5 rounded-xl border border-white/20 text-white text-sm font-semibold hover:bg-white/10 transition-colors">
+            {lang === "ar" ? "العودة للمكتب" : "Back to Office"}
+          </button>
+          <button onClick={() => navigate(`/firms/${params.slug}/store`)} className="px-6 py-2.5 rounded-xl bg-[#C9A84C] text-black font-bold text-sm hover:bg-[#b8943d] transition-colors">
+            {lang === "ar" ? "عرض الخدمات" : "View Services"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 

@@ -480,6 +480,14 @@ export default function OfficePage() {
       className={cn("min-h-screen bg-[#080d1a] text-white", lang === "ar" ? "font-['Cairo',sans-serif]" : "font-sans")}
       dir={lang === "ar" ? "rtl" : "ltr"}
     >
+      {/* ── DRAFT BANNER — shown when office is not yet published ── */}
+      {!office.isPublished && (
+        <div className="fixed top-0 inset-x-0 z-[100] bg-amber-500/95 backdrop-blur text-black text-center py-2 text-sm font-bold shadow-lg">
+          {lang === "ar"
+            ? "⚠️ هذا الموقع في وضع المعاينة — غير مرئي للعملاء حتى يتم النشر"
+            : "⚠️ Preview mode — this site is not visible to clients until published"}
+        </div>
+      )}
       {/* ── NAVBAR ─────────────────────────────────── */}
       <nav className={cn("fixed top-0 inset-x-0 z-50 transition-all duration-300", scrolled ? "bg-[#080d1a]/97 backdrop-blur shadow-xl shadow-black/30 border-b border-white/8" : "bg-transparent")}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">

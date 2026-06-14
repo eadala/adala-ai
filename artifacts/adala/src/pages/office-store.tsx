@@ -96,11 +96,16 @@ export default function OfficeStore() {
   if (isError || !data?.office) return (
     <div className="min-h-screen bg-[#080d1a] flex items-center justify-center text-white text-center px-6">
       <div>
-        <Scale className="h-16 w-16 mx-auto mb-4 text-[#C9A84C] opacity-30" />
-        <h1 className="text-2xl font-bold mb-2">
-          {lang === "ar" ? "المكتب غير موجود" : "Office not found"}
+        <div className="h-24 w-24 rounded-3xl bg-[#C9A84C]/10 flex items-center justify-center mx-auto mb-6">
+          <Scale className="h-12 w-12 text-[#C9A84C] opacity-50" />
+        </div>
+        <h1 className="text-3xl font-black mb-3">
+          {lang === "ar" ? "المكتب غير موجود" : "Office Not Found"}
         </h1>
-        <p className="text-white/40 text-sm">{lang === "ar" ? "تحقق من الرابط" : "Check the URL"}</p>
+        <p className="text-white/50 text-sm mb-6">{lang === "ar" ? "تحقق من الرابط أو تواصل مع المكتب مباشرةً" : "Check the URL or contact the office directly"}</p>
+        <button onClick={() => window.location.href = "/"} className="px-6 py-2.5 rounded-xl bg-[#C9A84C] text-black font-bold text-sm hover:bg-[#b8943d] transition-colors">
+          {lang === "ar" ? "العودة للرئيسية" : "Back to Home"}
+        </button>
       </div>
     </div>
   );

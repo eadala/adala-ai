@@ -19,8 +19,10 @@ function getStripe(): Stripe | null {
 /* ═══ PUBLIC ROUTES (no auth) ═══════════════════════════════ */
 
 router.get("/office/public/:slug", async (req, res) => {
+  /* Accept any office with a matching slug — published OR draft.
+     Frontend shows a "coming soon" banner when isPublished = false. */
   const office = await db.select().from(officePageTable)
-    .where(and(eq(officePageTable.slug, req.params.slug), eq(officePageTable.isPublished, true)))
+    .where(eq(officePageTable.slug, req.params.slug))
     .limit(1);
   if (!office.length) return res.status(404).json({ error: "المكتب غير موجود" });
 

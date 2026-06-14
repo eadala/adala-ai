@@ -16,6 +16,16 @@ async function ensureAdHocColumns() {
     await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS created_by    TEXT`);
     await db.execute(sql`ALTER TABLE office_orders ADD COLUMN IF NOT EXISTS auto_case_id TEXT`);
     await db.execute(sql`ALTER TABLE office_orders ADD COLUMN IF NOT EXISTS portal_token TEXT`);
+
+    /* Auto-generate slugs for any office_page rows that have none.
+       Pattern: lower-cased name with spaces→dashes + short id suffix */
+    await db.execute(sql`
+      UPDATE office_page
+      SET slug = LOWER(REGEXP_REPLACE(REGEXP_REPLACE(name, '[^a-zA-Z\u0600-\u06FF0-9 ]', '', 'g'), '\s+', '-', 'g'))
+                 || '-' || SUBSTRING(id::text, 1, 8)
+      WHERE (slug IS NULL OR slug = '')
+        AND name IS NOT NULL AND name <> ''
+    `);
   } catch (e: any) {
     logger.warn({ err: e.message }, "ensureAdHocColumns: non-fatal migration warning");
   }
