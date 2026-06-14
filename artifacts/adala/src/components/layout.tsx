@@ -171,6 +171,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/login-tracking",         labelKey: "nav.items.login_tracking",         icon: Lock },
       { href: "/firm-admin",             labelKey: "nav.items.firm_admin",             icon: Crown },
       { href: "/org-structure",          labelKey: "nav.items.org_structure",          icon: Network },
+      { href: "/team",                   labelKey: "nav.items.team_permissions",       icon: Shield },
       { href: "/users",                  labelKey: "nav.items.users",                  icon: Users },
       { href: "/office-settings",        labelKey: "nav.items.office_settings",        icon: Building2 },
       { href: "/theme-builder",          labelKey: "nav.items.theme_builder",          icon: Palette },

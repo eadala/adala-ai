@@ -1,0 +1,304 @@
+تمام — سأخصصه لك الآن بشكل مباشر على منصة “عدالة AI” كنظام إنتاجي (Production-Grade) يخدم: إدارة مكاتب المحاماة + القضايا + العقود + المستخدمين متعددين داخل نفس المكتب.
+
+⸻
+
+⚖️ عدالة AI — نظام الصلاحيات الديناميكي (Dynamic Permission System)
+
+🧠 الهدف
+
+تمكين كل مكتب قانوني من:
+
+* إنشاء أدوار مخصصة
+* تعديل الصلاحيات بدون مطور
+* التحكم الكامل في الوصول حسب القضايا والعملاء
+* منع أي تضارب بين UI و Backend
+* تطبيق نظام Multi-Tenant + ABAC + RBAC Hybrid
+
+⸻
+
+🏗️ 1) معمارية النظام داخل عدالة AI
+
+                    ┌──────────────────────────┐
+                    │       عدالة AI UI        │
+                    │ Admin Panel / Studio     │
+                    └────────────┬─────────────┘
+                                 │
+                                 ▼
+                    ┌──────────────────────────┐
+                    │   API Gateway (AuthZ)    │
+                    │ JWT + Tenant Resolver    │
+                    └────────────┬─────────────┘
+                                 │
+        ┌────────────────────────┼────────────────────────┐
+        ▼                        ▼                        ▼
+┌──────────────┐      ┌────────────────┐      ┌──────────────────┐
+│ RBAC Engine  │      │ Policy Engine  │      │ Override Engine  │
+│ (Roles)      │      │ (ABAC Rules)   │      │ (Emergency Fix)  │
+└──────┬───────┘      └──────┬─────────┘      └──────┬──────────┘
+       └──────────────┬──────┴──────────────┬────────┘
+                      ▼                     ▼
+            ┌────────────────────────────────────┐
+            │  Authorization Decision Service     │
+            │        (Single Source of Truth)     │
+            └────────────────────────────────────┘
+
+⸻
+
+👥 2) أدوار منصة عدالة AI (Default Roles)
+
+هذه الأدوار تأتي جاهزة لكل مكتب:
+
+Role	الوصف
+👑 Owner	مالك المكتب (Full Control)
+🧑‍💼 Admin	إدارة تشغيل المكتب
+⚖️ Lawyer	محامي يدير قضاياه
+🗂️ Clerk	موظف إداري / إدخال بيانات
+
+✔ ويمكن إضافة Roles مخصصة لكل مكتب
+
+⸻
+
+🔐 3) Permission Keys (عدالة AI Standard)
+
+⚖️ Cases
+
+cases.read
+cases.create
+cases.update
+cases.assign
+cases.delete
+cases.timeline.view
+
+👤 Clients (CRM)
+
+clients.read
+clients.create
+clients.update
+clients.delete
+
+📄 Contracts
+
+contracts.read
+contracts.create
+contracts.approve
+contracts.version
+
+📁 Documents
+
+documents.upload
+documents.generate
+documents.template.manage
+documents.delete
+
+👥 Employees
+
+employees.view
+employees.manage
+employees.invite
+employees.roles.manage
+
+📊 Reports
+
+reports.view
+reports.export
+
+⚙️ System
+
+settings.manage
+billing.manage
+audit.view
+
+⸻
+
+🧩 4) Permission Behavior داخل عدالة AI
+
+❌ قاعدة صارمة
+
+أي صلاحية غير معرفة = DENY
+
+⸻
+
+👁️ UI Rule (مهم جداً)
+
+الحالة	السلوك
+No Permission	Hide completely
+Partial Permission	Show partial UI
+Admin/Owner	Full visibility
+
+⸻
+
+🧠 5) Policy Engine (داخل عدالة AI)
+
+مثال: القضايا
+
+{
+  "resource": "cases",
+  "action": "read",
+  "condition": {
+    "assigned_to": "current_user.id"
+  },
+  "effect": "allow"
+}
+
+⸻
+
+مثال: منع الوصول بعد إغلاق القضية
+
+{
+  "resource": "cases",
+  "action": "update",
+  "condition": {
+    "status": "closed"
+  },
+  "effect": "deny"
+}
+
+⸻
+
+⚙️ 6) Decision Flow (عدالة AI)
+
+1. تحديد المستخدم + المكتب (Tenant)
+2. جلب Roles
+3. جمع Permissions
+4. تطبيق Policies (ABAC)
+5. تطبيق Overrides
+6. إخراج القرار النهائي
+
+⸻
+
+🧱 7) Backend Module (جاهز لعدالة AI)
+
+📦 Structure
+
+permissions/
+ ├── controllers/
+ │    authz.controller.ts
+ │    roles.controller.ts
+ │    policies.controller.ts
+ │
+ ├── services/
+ │    rbac.service.ts
+ │    policy.engine.ts
+ │    decision.engine.ts
+ │
+ ├── guards/
+ │    authz.guard.ts
+ │
+ ├── entities/
+ │    role.entity.ts
+ │    policy.entity.ts
+ │    override.entity.ts
+
+⸻
+
+🔐 8) API الخاصة بعدالة AI
+
+⚖️ Authorization Check (Core)
+
+POST /ada/authz/check
+{
+  "userId": "u123",
+  "action": "cases.read",
+  "resource": "case:789"
+}
+
+⸻
+
+👥 Roles
+
+GET    /ada/roles
+POST   /ada/roles
+PUT    /ada/roles/{id}
+DELETE /ada/roles/{id}
+
+⸻
+
+🔐 Permissions
+
+GET    /ada/permissions/catalog
+POST   /ada/roles/{id}/permissions
+
+⸻
+
+🧠 Policies
+
+GET    /ada/policies
+POST   /ada/policies
+PUT    /ada/policies/{id}
+
+⸻
+
+⚡ Overrides
+
+POST   /ada/overrides
+GET    /ada/overrides/user/{id}
+DELETE /ada/overrides/{id}
+
+⸻
+
+🎨 9) Admin UI داخل عدالة AI
+
+🧩 Permission Studio
+
+Tabs:
+
+* Roles
+* Permissions
+* Policies
+* Overrides
+* Debug Console
+
+⸻
+
+🧑‍⚖️ Roles Editor
+
+* Drag & Drop Permissions
+* Clone Role
+* Tenant-specific roles
+
+⸻
+
+🧠 Policy Builder
+
+IF Case.assigned_to == current_user
+THEN allow cases.read
+
+⸻
+
+🔥 Debug Mode
+
+REQUEST: cases.update
+✔ Role: Lawyer → ALLOW
+✖ Policy: status=closed → DENY
+✖ Override: NONE
+RESULT: DENIED
+
+⸻
+
+🚀 10) أهم قوة في عدالة AI
+
+هذا النظام يعطيك:
+
+🔹 1. تخصيص لكل مكتب بدون كود
+
+🔹 2. نظام قانوني حقيقي (Not CRUD SaaS)
+
+🔹 3. فصل كامل بين UI و Backend Authorization
+
+🔹 4. قابلية توسع إلى Enterprise Legal OS
+
+⸻
+
+💡 الخطوة التالية (مهم جداً)
+
+أقدر الآن أبني لك مباشرة:
+
+🧱 1. PostgreSQL Schema Production Ready (عدالة AI)
+
+⚙️ 2. NestJS Module كامل جاهز تشغيل
+
+🎨 3. واجهة Admin Panel React كاملة
+
+🔥 4. أو تحويله إلى Microservices Architecture
+
+قلّي: تبغاه Backend أول ولا UI أول؟
