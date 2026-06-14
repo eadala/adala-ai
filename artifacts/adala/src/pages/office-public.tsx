@@ -120,40 +120,44 @@ function ServiceCard({ svc, lang, gold, onOrder, onNegotiate }: {
 function TeamCard({ m, lang, gold }: { m: any; lang: Lang; gold: string }) {
   const [expanded, setExpanded] = useState(false);
   const name = t(m.name, m.nameEn, lang);
-  const role = t(m.role, m.roleEn, lang);
+  const role = t(m.title ?? m.role, m.titleEn ?? m.roleEn, lang);
   const bio = t(m.bio, m.bioEn, lang);
+  const photo = m.photoUrl ?? m.photo;
+  const specialties = m.specialties ?? m.specialtiesEn;
   return (
     <div className="group p-5 rounded-2xl bg-white/4 border border-white/8 hover:bg-white/7 hover:border-white/15 transition-all">
       <div className="flex items-center gap-4 mb-3">
-        {m.photo ? (
-          <img src={imgSrc(m.photo)} alt={name} className="h-14 w-14 rounded-xl object-cover ring-2 ring-white/10 group-hover:ring-white/20 transition-all" />
+        {photo ? (
+          <img src={imgSrc(photo)} alt={name} className="h-14 w-14 rounded-xl object-cover ring-2 ring-white/10 group-hover:ring-white/20 transition-all" />
         ) : (
           <div className="h-14 w-14 rounded-xl flex items-center justify-center text-xl font-black ring-2 ring-white/10"
             style={{ background: `${gold}20`, color: gold }}>{(name || "م")[0]}</div>
         )}
-        <div>
-          <div className="font-bold text-sm">{name}</div>
-          {role && <div className="text-xs text-white/50 mt-0.5">{role}</div>}
-          {m.yearsExp > 0 && (
-            <div className="text-[10px] mt-1 font-medium" style={{ color: gold }}>
-              {lang === "ar" ? `${m.yearsExp} سنة خبرة` : `${m.yearsExp} yrs exp`}
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-sm leading-snug">{name}</div>
+          {role && <div className="text-xs text-white/50 mt-0.5 leading-tight">{role}</div>}
+          {specialties && (
+            <div className="text-[10px] mt-1 font-medium line-clamp-1" style={{ color: gold }}>
+              {specialties}
             </div>
           )}
         </div>
       </div>
       {bio && (
         <>
-          <p className={cn("text-xs text-white/50 leading-relaxed", !expanded && "line-clamp-2")}>{bio}</p>
-          {bio.length > 80 && (
+          <p className={cn("text-xs text-white/50 leading-relaxed", !expanded && "line-clamp-3")}>{bio}</p>
+          {bio.length > 100 && (
             <button onClick={() => setExpanded(v => !v)} className="text-[10px] mt-1 font-semibold" style={{ color: gold }}>
               {expanded ? (lang === "ar" ? "أقل" : "Less") : (lang === "ar" ? "المزيد" : "More")}
             </button>
           )}
         </>
       )}
-      {(m.linkedin || m.twitter) && (
+      {m.linkedin && (
         <div className="flex gap-2 mt-3">
-          {m.linkedin && <a href={m.linkedin} target="_blank" rel="noreferrer" className="h-7 w-7 rounded-lg flex items-center justify-center bg-white/6 hover:bg-blue-500/20 transition-colors"><Linkedin className="h-3.5 w-3.5 text-blue-400" /></a>}
+          <a href={m.linkedin} target="_blank" rel="noreferrer" className="h-7 w-7 rounded-lg flex items-center justify-center bg-white/6 hover:bg-blue-500/20 transition-colors">
+            <Linkedin className="h-3.5 w-3.5 text-blue-400" />
+          </a>
           {m.twitter && <a href={m.twitter} target="_blank" rel="noreferrer" className="h-7 w-7 rounded-lg flex items-center justify-center bg-white/6 hover:bg-sky-500/20 transition-colors"><Twitter className="h-3.5 w-3.5 text-sky-400" /></a>}
         </div>
       )}
