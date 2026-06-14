@@ -42,6 +42,7 @@
 - [Adala analytics sql-safety](adala-analytics-sql.md) — analytics.ts uses periodStartDate(period):string (JS Date → ISO) instead of sql.raw(INTERVAL); SAST scanner flags sql.raw even when whitelisted — always use parameterized dates
 - [Adala promo codes](adala-promo.md) — promo_codes + gift_subscriptions tables; /api/admin/promo-codes + /api/admin/gift-subscriptions (admin) + /api/promo/redeem + /api/promo/my-gift (office); gift check in subscription.ts step 2a; PromoCodesTab in super-admin; Gift tab in billing
 - [Adala Landing Redesign](adala-landing-redesign.md) — bento grid (8 features), side-nav dots, tabbed How+Security, stats merged into Hero; privacyItems still in state but section removed
+- [Adala Landing Eager Import](adala-landing-eager.md) — Landing MUST be eagerly imported in App.tsx (never lazy); lazy+Suspense caused blue-screen in production
 - [Adala Role Isolation](adala-role-isolation.md) — AdminRoute/WorkspaceRoute/ProtectedRoute in App.tsx; useRole() hook; AdminLayout for platform_admin; always wait isLoaded before redirect
 - [Adala Telegram integration](adala-telegram.md) — telegram_settings+telegram_logs tables; /api/telegram/* routes in telegram.ts; notifyTelegramCaseStatus() exported; /telegram-settings page (4 tabs); nav item under التواصل
 - [Adala Financial Core](adala-financial-core.md) — Payment Abstraction Layer (Stripe+Moyasar+Checkout.com) + Ledger + Wallets + Payouts; axios required in api-server; /financial-core page (6 tabs)
