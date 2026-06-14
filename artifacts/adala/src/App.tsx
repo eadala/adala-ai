@@ -155,9 +155,15 @@ try {
   clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? "";
 }
 
-// REQUIRED — copy verbatim. Empty in dev (Clerk hits dev FAPI directly),
-// auto-set in prod by Replit. Do NOT add a fallback or gate on NODE_ENV.
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+// REQUIRED — Replit sets VITE_CLERK_PROXY_URL to a relative path like "/api/__clerk"
+// but Clerk v6 requires an absolute URL (https://domain/api/__clerk) for the proxy
+// to work correctly in production. We expand relative paths at runtime.
+const _rawProxy = import.meta.env.VITE_CLERK_PROXY_URL;
+const clerkProxyUrl = _rawProxy
+  ? _rawProxy.startsWith("/")
+    ? `${window.location.origin}${_rawProxy}`
+    : _rawProxy
+  : undefined;
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
