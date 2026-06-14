@@ -1,0 +1,191 @@
+إذا كانت داخل منصة عدالة AI نفسها، فأرى أنها تصبح جزءًا من لوحة مالك المنصة (Platform Owner Console) وليست جزءًا من خدمات العملاء أو المحامين.
+
+الاسم الاحترافي
+
+بدل “إصلاح الكود بالذكاء الاصطناعي” استخدم:
+
+Adala Engineering Center
+
+أو
+
+Adala AI Operations Center
+
+لأنها تشمل أكثر من مجرد إصلاح الأكواد.
+
+⸻
+
+موقعها داخل لوحة الإدارة
+
+منصة عدالة AI
+├── Dashboard
+├── Tenants Management
+├── Users
+├── Subscriptions
+├── Payments
+├── Support Center
+├── Audit Logs
+├── System Monitoring
+├── Adala Engineering Center
+└── Settings
+
+⸻
+
+مكونات Adala Engineering Center
+
+1. AI Command Center
+
+مربع أوامر موحد:
+
+راجع ملف ai-tasks.tsx
+أضف البحث
+أضف إنشاء مهمة
+أنشئ الاختبارات
+ثم اعرض التعديلات
+
+⸻
+
+2. AI Code Review
+
+يفحص:
+
+* React
+* TypeScript
+* Node.js
+* API Routes
+* Database Queries
+
+ويعطي تقرير جودة.
+
+⸻
+
+3. AI Auto Repair
+
+مثال:
+
+أصلح جميع أخطاء TypeScript
+وأصلح الاستيرادات المفقودة
+
+ثم يعرض:
+
+24 Issues Found
+21 Fixed
+3 Require Approval
+
+⸻
+
+4. AI Security Center
+
+فحص:
+
+* SQL Injection
+* XSS
+* Broken Access Control
+* Secrets Exposure
+* Session Security
+
+⸻
+
+5. AI Performance Center
+
+فحص:
+
+* حجم الحزم
+* سرعة الصفحات
+* استعلامات قاعدة البيانات
+* استهلاك الذاكرة
+* زمن استجابة API
+
+⸻
+
+6. AI Database Center
+
+تحليل:
+
+* الجداول
+* الفهارس
+* العلاقات
+* Migration Impact
+
+⸻
+
+7. AI Deployment Center
+
+إدارة:
+
+* Staging
+* Production
+* Rollback
+* Release Notes
+
+⸻
+
+نظام الحماية
+
+أقترح 5 طبقات:
+
+Layer 1
+Role Permission
+Layer 2
+2FA
+Layer 3
+IP Allowlist
+Layer 4
+Approval Key
+Layer 5
+Audit Logs
+
+⸻
+
+هل نضيف مفتاح IP؟
+
+نعم.
+
+لكن كميزة إضافية:
+
+Allowed IPs
+- Office IP
+- Home IP
+- CTO IP
+
+وعند الدخول من عنوان آخر:
+
+Unauthorized Access
+Your IP is not authorized
+
+⸻
+
+قاعدة البيانات
+
+جداول جديدة:
+
+engineering_tasks
+engineering_patches
+engineering_agents
+engineering_scans
+engineering_logs
+engineering_backups
+engineering_deployments
+engineering_ip_whitelist
+
+⸻
+
+أهم ميزة أقترح إضافتها
+
+AI Project Awareness
+
+عند تشغيل الوكيل يقوم أولاً ببناء خريطة كاملة للمنصة:
+
+Frontend
+Backend
+Database
+Storage
+Payments
+Notifications
+AI Services
+WhatsApp
+Email
+Subscriptions
+
+فيصبح الذكاء الاصطناعي مدركًا لبنية عدالة كاملة قبل تنفيذ أي تعديل، مما يقلل الأخطاء بشكل كبير.
+
+بهذا الشكل تتحول عدالة AI من منصة قانونية فقط إلى منصة تمتلك مركز تشغيل هندسي داخلي متقدم لإدارة وصيانة وتطوير المنتج نفسه.

@@ -180,7 +180,7 @@ router.delete("/developer/tokens/:id", devOnly, async (req, res) => {
   } catch {}
 })();
 
-/* GET /api/developer/offices — list all offices */
+/* GET /api/developer/offices — list all offices with rich stats */
 router.get("/developer/offices", devOnly, async (_req, res) => {
   try {
     const offices = await safeRows(sql`
@@ -189,7 +189,12 @@ router.get("/developer/offices", devOnly, async (_req, res) => {
         op.office_name,
         op.plan,
         op.created_at,
-        (SELECT COUNT(*)::int FROM office_members om WHERE om.office_id = op.id::text) AS member_count
+        (SELECT COUNT(*)::int  FROM office_members  om WHERE om.office_id = op.id::text)                                    AS member_count,
+        (SELECT COUNT(*)::int  FROM cases           c  WHERE c.office_id  = op.id::text)                                    AS case_count,
+        (SELECT COUNT(*)::int  FROM clients         cl WHERE cl.office_id = op.id::text)                                    AS client_count,
+        (SELECT COUNT(*)::int  FROM client_invoices ci WHERE ci.office_id = op.id::text)                                    AS invoice_count,
+        (SELECT COALESCE(SUM(ci.amount),0)::float   FROM client_invoices ci WHERE ci.office_id = op.id::text AND ci.status='paid') AS revenue_total,
+        (SELECT MAX(c.updated_at) FROM cases c WHERE c.office_id = op.id::text)                                             AS last_activity
       FROM office_page op
       ORDER BY op.created_at DESC
     `);
@@ -269,6 +274,54 @@ router.delete("/developer/impersonate", devOnly, async (req: any, res) => {
     } catch {}
     await db.execute(sql`DELETE FROM developer_impersonation WHERE super_admin_user_id = ${userId}`);
     res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* GET /api/developer/ghost-log — owner's own ghost session history (server-only) */
+router.get("/developer/ghost-log", devOnly, async (req: any, res) => {
+  try {
+    const userId = getAuth(req)?.userId;
+    if (!userId) return res.json([]);
+    const rows = await safeRows(sql`
+      SELECT id::text, office_id, office_name, action, logged_at
+      FROM ghost_access_log
+      WHERE admin_user_id = ${userId}
+      ORDER BY logged_at DESC
+      LIMIT 100
+    `);
+    res.json(rows);
+  } catch { res.json([]); }
+});
+
+/* GET /api/developer/office-snapshot/:officeId — deep live snapshot for one office */
+router.get("/developer/office-snapshot/:officeId", devOnly, async (req: any, res) => {
+  try {
+    const { officeId } = req.params;
+    const [recentCases, recentClients, invoiceSummary, recentActivity] = await Promise.all([
+      safeRows(sql`
+        SELECT id::text, title, status, created_at
+        FROM cases WHERE office_id = ${officeId}
+        ORDER BY created_at DESC LIMIT 5
+      `),
+      safeRows(sql`
+        SELECT id::text, full_name, phone, created_at
+        FROM clients WHERE office_id = ${officeId}
+        ORDER BY created_at DESC LIMIT 5
+      `),
+      safeRows(sql`
+        SELECT status,
+               COUNT(*)::int AS count,
+               COALESCE(SUM(amount),0)::float AS total
+        FROM client_invoices WHERE office_id = ${officeId}
+        GROUP BY status
+      `),
+      safeRows(sql`
+        SELECT action, resource, created_at
+        FROM audit_logs WHERE office_id = ${officeId}
+        ORDER BY created_at DESC LIMIT 10
+      `),
+    ]);
+    res.json({ recentCases, recentClients, invoiceSummary, recentActivity });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
