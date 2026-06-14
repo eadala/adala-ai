@@ -5,7 +5,28 @@ import {
   casesTable, clientsTable, clientInvoicesTable,
   contractsTable, documentsTable, usersTable,
 } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
+
+/* ── HR + Accounting raw-SQL helpers ───────────────────────── */
+async function fetchHR() {
+  const [employees, payroll, performance, incentives] = await Promise.all([
+    db.execute(sql`SELECT * FROM employees LIMIT 10000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM payroll LIMIT 10000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM performance_evaluations LIMIT 10000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM employee_incentives LIMIT 10000`).then(r => r.rows).catch(() => []),
+  ]);
+  return { employees, payroll, performance, incentives };
+}
+
+async function fetchAccounting() {
+  const [revenues, expenses, bankAccounts, cashAdvances] = await Promise.all([
+    db.execute(sql`SELECT * FROM revenues LIMIT 10000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM expenses LIMIT 10000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM bank_accounts LIMIT 1000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM cash_advances LIMIT 10000`).then(r => r.rows).catch(() => []),
+  ]);
+  return { revenues, expenses, bankAccounts, cashAdvances };
+}
 
 const router = Router();
 
@@ -101,33 +122,38 @@ router.post("/backup/create", async (req, res) => {
   try {
     const { type = "manual", scheduleType } = req.body as { type?: string; scheduleType?: string };
 
-    const [cases, clients, invoices, contracts, docs, users] = await Promise.all([
-      db.select().from(casesTable).limit(10000),
-      db.select().from(clientsTable).limit(10000),
-      db.select().from(clientInvoicesTable).limit(10000),
-      db.select().from(contractsTable).limit(10000),
-      db.select({
-        id: documentsTable.id,
-        fileName: documentsTable.fileName,
-        fileType: documentsTable.fileType,
-        caseId: documentsTable.caseId,
-        createdAt: documentsTable.createdAt,
-      }).from(documentsTable).limit(10000),
-      db.select({
-        id: usersTable.id,
-        email: usersTable.email,
-        fullName: usersTable.fullName,
-        role: usersTable.role,
-        status: usersTable.status,
-      }).from(usersTable).limit(500),
+    const [[cases, clients, invoices, contracts, docs, users], hr, accounting] = await Promise.all([
+      Promise.all([
+        db.select().from(casesTable).limit(10000),
+        db.select().from(clientsTable).limit(10000),
+        db.select().from(clientInvoicesTable).limit(10000),
+        db.select().from(contractsTable).limit(10000),
+        db.select({
+          id: documentsTable.id,
+          fileName: documentsTable.fileName,
+          fileType: documentsTable.fileType,
+          caseId: documentsTable.caseId,
+          createdAt: documentsTable.createdAt,
+        }).from(documentsTable).limit(10000),
+        db.select({
+          id: usersTable.id,
+          email: usersTable.email,
+          fullName: usersTable.fullName,
+          role: usersTable.role,
+          status: usersTable.status,
+        }).from(usersTable).limit(500),
+      ]),
+      fetchHR(),
+      fetchAccounting(),
     ]);
 
     const payload = {
       meta: {
         platform: "عدالة AI",
-        version: "2.0",
+        version: "2.1",
         createdAt: new Date().toISOString(),
         type,
+        sections: ["cases","clients","invoices","contracts","documents","users","hr","accounting"],
       },
       cases,
       clients,
@@ -135,6 +161,8 @@ router.post("/backup/create", async (req, res) => {
       contracts,
       documents: docs,
       users,
+      hr,
+      accounting,
     };
 
     const dataStr = JSON.stringify(payload, null, 2);
@@ -195,30 +223,41 @@ router.delete("/backup/jobs/:id", async (req, res) => {
 /* GET /api/backup/local-download */
 router.get("/backup/local-download", async (req, res) => {
   try {
-    const [cases, clients, invoices, contracts, docs, users] = await Promise.all([
-      db.select().from(casesTable).limit(10000),
-      db.select().from(clientsTable).limit(10000),
-      db.select().from(clientInvoicesTable).limit(10000),
-      db.select().from(contractsTable).limit(10000),
-      db.select({
-        id: documentsTable.id,
-        fileName: documentsTable.fileName,
-        fileType: documentsTable.fileType,
-        caseId: documentsTable.caseId,
-        createdAt: documentsTable.createdAt,
-      }).from(documentsTable).limit(10000),
-      db.select({
-        id: usersTable.id,
-        email: usersTable.email,
-        fullName: usersTable.fullName,
-        role: usersTable.role,
-        status: usersTable.status,
-      }).from(usersTable).limit(500),
+    const [[cases, clients, invoices, contracts, docs, users], hr, accounting] = await Promise.all([
+      Promise.all([
+        db.select().from(casesTable).limit(10000),
+        db.select().from(clientsTable).limit(10000),
+        db.select().from(clientInvoicesTable).limit(10000),
+        db.select().from(contractsTable).limit(10000),
+        db.select({
+          id: documentsTable.id,
+          fileName: documentsTable.fileName,
+          fileType: documentsTable.fileType,
+          caseId: documentsTable.caseId,
+          createdAt: documentsTable.createdAt,
+        }).from(documentsTable).limit(10000),
+        db.select({
+          id: usersTable.id,
+          email: usersTable.email,
+          fullName: usersTable.fullName,
+          role: usersTable.role,
+          status: usersTable.status,
+        }).from(usersTable).limit(500),
+      ]),
+      fetchHR(),
+      fetchAccounting(),
     ]);
 
     const payload = {
-      meta: { platform: "عدالة AI", version: "2.0", exportedAt: new Date().toISOString(), type: "local_device" },
+      meta: {
+        platform: "عدالة AI",
+        version: "2.1",
+        exportedAt: new Date().toISOString(),
+        type: "local_device",
+        sections: ["cases","clients","invoices","contracts","documents","users","hr","accounting"],
+      },
       cases, clients, invoices, contracts, documents: docs, users,
+      hr, accounting,
     };
 
     const fileName = `adala-backup-${dateStr()}.json`;
@@ -238,19 +277,96 @@ router.get("/backup/local-download", async (req, res) => {
 /* GET /api/export/all */
 router.get("/export/all", async (req, res) => {
   try {
-    const [cases, clients, invoices, contracts] = await Promise.all([
-      db.select().from(casesTable).limit(10000),
-      db.select().from(clientsTable).limit(10000),
-      db.select().from(clientInvoicesTable).limit(10000),
-      db.select().from(contractsTable).limit(10000),
+    const [[cases, clients, invoices, contracts], hr, accounting] = await Promise.all([
+      Promise.all([
+        db.select().from(casesTable).limit(10000),
+        db.select().from(clientsTable).limit(10000),
+        db.select().from(clientInvoicesTable).limit(10000),
+        db.select().from(contractsTable).limit(10000),
+      ]),
+      fetchHR(),
+      fetchAccounting(),
     ]);
-    const payload = { exportedAt: new Date().toISOString(), cases, clients, invoices, contracts };
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      version: "2.1",
+      cases, clients, invoices, contracts,
+      hr, accounting,
+    };
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="office-export-${dateStr()}.json"`);
     res.json(payload);
   } catch {
     res.status(500).json({ error: "خطأ في التصدير الكامل" });
   }
+});
+
+/* GET /api/export/revenues?format=csv|json */
+router.get("/export/revenues", async (req, res) => {
+  try {
+    const fmt = (req.query.format as string) ?? "json";
+    const rows = await db.execute(sql`SELECT * FROM revenues LIMIT 10000`).then(r => r.rows);
+    if (fmt === "csv") {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="revenues-${dateStr()}.csv"`);
+      res.send("\uFEFF" + toCSV(rows));
+    } else {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="revenues-${dateStr()}.json"`);
+      res.json(rows);
+    }
+  } catch { res.status(500).json({ error: "خطأ في تصدير الإيرادات" }); }
+});
+
+/* GET /api/export/expenses?format=csv|json */
+router.get("/export/expenses", async (req, res) => {
+  try {
+    const fmt = (req.query.format as string) ?? "json";
+    const rows = await db.execute(sql`SELECT * FROM expenses LIMIT 10000`).then(r => r.rows);
+    if (fmt === "csv") {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="expenses-${dateStr()}.csv"`);
+      res.send("\uFEFF" + toCSV(rows));
+    } else {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="expenses-${dateStr()}.json"`);
+      res.json(rows);
+    }
+  } catch { res.status(500).json({ error: "خطأ في تصدير المصاريف" }); }
+});
+
+/* GET /api/export/employees?format=csv|json */
+router.get("/export/employees", async (req, res) => {
+  try {
+    const fmt = (req.query.format as string) ?? "json";
+    const rows = await db.execute(sql`SELECT * FROM employees LIMIT 10000`).then(r => r.rows);
+    if (fmt === "csv") {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="employees-${dateStr()}.csv"`);
+      res.send("\uFEFF" + toCSV(rows));
+    } else {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="employees-${dateStr()}.json"`);
+      res.json(rows);
+    }
+  } catch { res.status(500).json({ error: "خطأ في تصدير الموظفين" }); }
+});
+
+/* GET /api/export/payroll?format=csv|json */
+router.get("/export/payroll", async (req, res) => {
+  try {
+    const fmt = (req.query.format as string) ?? "json";
+    const rows = await db.execute(sql`SELECT * FROM payroll LIMIT 10000`).then(r => r.rows);
+    if (fmt === "csv") {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="payroll-${dateStr()}.csv"`);
+      res.send("\uFEFF" + toCSV(rows));
+    } else {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="payroll-${dateStr()}.json"`);
+      res.json(rows);
+    }
+  } catch { res.status(500).json({ error: "خطأ في تصدير الرواتب" }); }
 });
 
 /* GET /api/export/clients?format=csv|json */
