@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { CaseAutopilotCard } from "@/components/case-autopilot-card";
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   open:        { label: "مفتوحة",       color: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
@@ -514,6 +515,9 @@ export default function CaseDetail({ id }: { id: string }) {
               </CardContent>
             </Card>
           )}
+
+          {/* ── Autopilot Health Card ── */}
+          <CaseAutopilotCard caseId={id} />
         </div>
 
         {/* Main Tabs */}
