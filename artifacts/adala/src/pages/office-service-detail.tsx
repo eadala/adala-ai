@@ -28,11 +28,14 @@ export default function OfficeServiceDetail() {
   const [ordering, setOrdering] = useState(false);
   const [ordered, setOrdered] = useState(false);
 
-  const { data: office, isLoading, isError } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["office-public", params.slug],
     queryFn: () => fetch(`/api/office/public/${params.slug}`).then(r => r.json()),
     staleTime: 5 * 60 * 1000,
   });
+  /* API returns { office: {...}, services: [...], team: [...], ... } */
+  const office = data?.office;
+  const services: any[] = data?.services ?? [];
 
   if (isLoading) return (
     <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
@@ -40,14 +43,14 @@ export default function OfficeServiceDetail() {
     </div>
   );
 
-  if (isError || !office?.services) return (
+  if (isError || !data?.services) return (
     <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-white/50">
       {lang === "ar" ? "لم يتم العثور على الخدمة" : "Service not found"}
     </div>
   );
 
-  const gold = office.primaryColor ?? "#C9A84C";
-  const svc = (office.services ?? []).find((s: any) => s.id === params.serviceId);
+  const gold = office?.primaryColor ?? "#C9A84C";
+  const svc = services.find((s: any) => s.id === params.serviceId);
 
   if (!svc) return (
     <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-white/50">
@@ -172,11 +175,11 @@ export default function OfficeServiceDetail() {
           <div className="rounded-xl border border-white/8 p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl flex items-center justify-center text-lg font-black shrink-0"
               style={{ background: `${gold}20`, color: gold }}>
-              {(office.name ?? "م")[0]}
+              {(office?.name ?? "م")[0]}
             </div>
             <div>
-              <p className="text-sm font-bold">{office.name}</p>
-              <p className="text-xs text-white/40">{office.tagline ?? (lang === "ar" ? "مكتب قانوني" : "Law Office")}</p>
+              <p className="text-sm font-bold">{office?.name ?? ""}</p>
+              <p className="text-xs text-white/40">{office?.tagline ?? (lang === "ar" ? "مكتب قانوني" : "Law Office")}</p>
             </div>
           </div>
         </div>
