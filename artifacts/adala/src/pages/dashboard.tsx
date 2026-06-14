@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import { Link } from "wouter";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,12 +10,116 @@ import { ExecutiveAssistant } from "@/components/executive-assistant";
 import {
   Scale, Users, Receipt, TrendingUp, Bot, AlertCircle, CalendarDays,
   FileText, Clock, ArrowLeft, Zap, ChevronLeft, CheckCircle2, Banknote,
-  Activity, Bell, BarChart3, MapPin, Plus, ExternalLink
+  Activity, Bell, BarChart3, MapPin, Plus, ExternalLink, CreditCard, BrainCircuit,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useLang } from "@/hooks/use-lang";
 
-const BASE = import.meta.env.BASE_URL ?? "/";
+const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+
+/* ── Live Event Feed widget ─────────────────────────────── */
+interface LiveEv { id: string; type: string; label: string; data: Record<string, any>; timestamp: string; }
+
+const EV_ICONS: Record<string, { icon: any; color: string }> = {
+  CASE_CREATED:    { icon: Scale,        color: "#6366F1" },
+  CASE_CLOSED:     { icon: Scale,        color: "#64748B" },
+  CLIENT_ADDED:    { icon: Users,        color: "#10B981" },
+  INVOICE_CREATED: { icon: Receipt,      color: "#F59E0B" },
+  INVOICE_PAID:    { icon: Receipt,      color: "#10B981" },
+  PAYMENT_SUCCESS: { icon: CreditCard,   color: "#C9A84C" },
+  PAYMENT_FAILED:  { icon: CreditCard,   color: "#EF4444" },
+  DOCUMENT_GENERATED:{ icon: FileText,   color: "#8B5CF6" },
+  AI_QUERY:        { icon: BrainCircuit, color: "#A855F7" },
+};
+
+function timeAgo(ts: string) {
+  const d = Date.now() - new Date(ts).getTime();
+  if (d < 60_000)    return `${Math.floor(d/1000)}ث`;
+  if (d < 3_600_000) return `${Math.floor(d/60_000)}د`;
+  return `${Math.floor(d/3_600_000)}س`;
+}
+
+function LiveEventFeed() {
+  const [events, setEvents] = useState<LiveEv[]>([]);
+  const [connected, setConnected] = useState(false);
+  const esRef = useRef<EventSource | null>(null);
+
+  /* Seed from history */
+  useEffect(() => {
+    fetch(`${BASE}/api/events/recent?limit=7`)
+      .then(r => r.json())
+      .then(d => { if (d.events?.length) setEvents(d.events); })
+      .catch(() => {});
+  }, []);
+
+  /* SSE live updates */
+  useEffect(() => {
+    function connect() {
+      if (esRef.current) esRef.current.close();
+      const es = new EventSource(`${BASE}/api/events/stream`);
+      esRef.current = es;
+      es.onopen  = () => setConnected(true);
+      es.onerror = () => { setConnected(false); setTimeout(connect, 5000); };
+      es.onmessage = (e) => {
+        try {
+          const ev: LiveEv = JSON.parse(e.data);
+          if (ev.type === "__CONNECTED__") return;
+          setEvents(p => [ev, ...p].slice(0, 7));
+        } catch {}
+      };
+    }
+    connect();
+    return () => esRef.current?.close();
+  }, []);
+
+  return (
+    <Card className="border-border/50">
+      <CardHeader className="pb-2 pt-4 px-4">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${connected ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`} />
+            نبض النظام — لحظي
+          </CardTitle>
+          <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" asChild>
+            <Link href="/activity-stream"><ExternalLink className="h-3 w-3" />السجل الكامل</Link>
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="px-0 pb-2">
+        {events.length === 0 ? (
+          <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+            <Activity className="h-4 w-4" />
+            <p className="text-xs">في انتظار أول حدث...</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/30">
+            {events.map((ev, i) => {
+              const meta = EV_ICONS[ev.type] ?? { icon: Activity, color: "#64748B" };
+              const Icon = meta.icon;
+              return (
+                <div key={ev.id} className={`flex items-center gap-3 px-4 py-2 transition-colors hover:bg-white/2 ${i === 0 ? "bg-[#C9A84C]/3" : ""}`}>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: `${meta.color}15` }}>
+                    <Icon className="h-3.5 w-3.5" style={{ color: meta.color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold" style={{ color: meta.color }}>{ev.label}</span>
+                    <span className="text-[10px] text-muted-foreground mx-1.5">—</span>
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {ev.data?.title ?? ev.data?.fullName ?? ev.data?.invoiceNumber ?? ev.data?.clientName ?? ""}
+                      {ev.data?.amount ? ` ${Number(ev.data.amount).toLocaleString("ar-SA")} ر.س` : ""}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground/50 flex-shrink-0">{timeAgo(ev.timestamp)}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 type Overview = {
   kpis: {
@@ -377,6 +482,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Live Event Feed ── */}
+      <LiveEventFeed />
 
       {/* ── Upcoming Events */}
       {(data?.upcomingEvents ?? []).length > 0 && (

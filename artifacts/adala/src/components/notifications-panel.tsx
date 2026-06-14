@@ -1,13 +1,16 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   Bell, X, AlertTriangle, Info, CheckCircle, AlertCircle,
   FileText, Scale, Calendar, Users, MessageSquare, RefreshCw,
-  ChevronRight, Receipt, Briefcase, Clock, XCircle
+  ChevronRight, Receipt, Briefcase, Clock, Activity,
+  CreditCard, Zap, BrainCircuit,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+
+const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -25,6 +28,14 @@ interface Notification {
 interface NotificationsResponse {
   notifications: Notification[];
   unreadCount: number;
+}
+
+interface LiveEvent {
+  id: string;
+  type: string;
+  label: string;
+  data: Record<string, any>;
+  timestamp: string;
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -46,26 +57,78 @@ const CATEGORY_ICONS: Record<string, any> = {
   "القضايا":          Scale,
 };
 
+const EVENT_ICONS: Record<string, { icon: any; color: string }> = {
+  CASE_CREATED:     { icon: Scale,        color: "#6366F1" },
+  CASE_UPDATED:     { icon: Scale,        color: "#94A3B8" },
+  CASE_CLOSED:      { icon: Scale,        color: "#64748B" },
+  CLIENT_ADDED:     { icon: Users,        color: "#10B981" },
+  INVOICE_CREATED:  { icon: Receipt,      color: "#F59E0B" },
+  INVOICE_PAID:     { icon: Receipt,      color: "#10B981" },
+  PAYMENT_SUCCESS:  { icon: CreditCard,   color: "#C9A84C" },
+  PAYMENT_FAILED:   { icon: CreditCard,   color: "#EF4444" },
+  DOCUMENT_GENERATED:{ icon: FileText,    color: "#8B5CF6" },
+  AI_QUERY:         { icon: BrainCircuit, color: "#A855F7" },
+  SUBSCRIPTION_RENEWED:{ icon: Zap,       color: "#C9A84C" },
+};
+
 const GOLD = "#C9A84C";
+
+function timeAgo(ts: string): string {
+  const diff = Date.now() - new Date(ts).getTime();
+  if (diff < 60_000)    return `${Math.floor(diff / 1000)}ث`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}د`;
+  return `${Math.floor(diff / 3_600_000)}س`;
+}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function NotificationsPanel() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]           = useState(false);
+  const [tab, setTab]             = useState<"alerts" | "live">("live");
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  const panelRef = useRef<HTMLDivElement>(null);
+  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
+  const [connected, setConnected] = useState(false);
+  const [newLiveCount, setNewLiveCount] = useState(0);
+  const panelRef  = useRef<HTMLDivElement>(null);
+  const esRef     = useRef<EventSource | null>(null);
   const [, setLocation] = useLocation();
-  const qc = useQueryClient();
+
+  // ── SSE connection ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    function connect() {
+      if (esRef.current) esRef.current.close();
+      const es = new EventSource(`${BASE}/api/events/stream`);
+      esRef.current = es;
+      es.onopen  = () => setConnected(true);
+      es.onerror = () => { setConnected(false); setTimeout(connect, 5000); };
+      es.onmessage = (e) => {
+        try {
+          const ev: LiveEvent = JSON.parse(e.data);
+          if (ev.type === "__CONNECTED__") return;
+          setLiveEvents(prev => [ev, ...prev].slice(0, 50));
+          if (!open) setNewLiveCount(n => n + 1);
+        } catch {}
+      };
+    }
+    connect();
+    return () => esRef.current?.close();
+  }, []);
+
+  // Reset new-count when panel opens on live tab
+  useEffect(() => {
+    if (open && tab === "live") setNewLiveCount(0);
+  }, [open, tab]);
 
   const { data, isLoading, refetch } = useQuery<NotificationsResponse>({
     queryKey: ["notifications"],
-    queryFn: () => fetch("/api/notifications").then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/notifications`).then(r => r.json()),
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
 
   const allNotifications = (data?.notifications ?? []).filter(n => !dismissed.has(n.id));
-  const unread = allNotifications.length;
+
+  const totalBadge = allNotifications.length + newLiveCount;
 
   // Close on outside click
   useEffect(() => {
@@ -89,12 +152,9 @@ export function NotificationsPanel() {
     e.stopPropagation();
     setDismissed(prev => new Set([...prev, id]));
   };
-
   const dismissAll = () => {
     setDismissed(new Set(allNotifications.map(n => n.id)));
-    setOpen(false);
   };
-
   const navigate = (href: string) => {
     setOpen(false);
     setLocation(href);
@@ -107,14 +167,18 @@ export function NotificationsPanel() {
         variant="ghost"
         size="icon"
         className="relative h-9 w-9"
-        onClick={() => setOpen(v => !v)}
+        onClick={() => { setOpen(v => !v); if (!open) setNewLiveCount(0); }}
         aria-label="الإشعارات"
       >
         <Bell className={`h-5 w-5 transition-colors ${open ? "text-foreground" : "text-muted-foreground"}`} />
-        {unread > 0 && (
-          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white animate-in zoom-in-75"
+        {/* Live connected dot */}
+        {connected && (
+          <span className="absolute bottom-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        )}
+        {totalBadge > 0 && (
+          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white animate-in zoom-in-75"
             style={{ background: "#EF4444", border: "2px solid hsl(var(--card))" }}>
-            {unread > 9 ? "9+" : unread}
+            {totalBadge > 9 ? "9+" : totalBadge}
           </span>
         )}
       </Button>
@@ -122,7 +186,7 @@ export function NotificationsPanel() {
       {/* Dropdown Panel */}
       {open && (
         <div
-          className="absolute left-0 top-12 z-50 w-96 max-h-[80vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden animate-in slide-in-from-top-2 fade-in-0 duration-200"
+          className="absolute left-0 top-12 z-50 w-96 max-h-[82vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden animate-in slide-in-from-top-2 fade-in-0 duration-200"
           style={{
             background: "#1A2744",
             borderColor: "#2D3D6B",
@@ -130,31 +194,25 @@ export function NotificationsPanel() {
           }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3.5 border-b"
+          <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
             style={{ borderColor: "#2D3D6B" }}>
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{ background: `${GOLD}18` }}>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${GOLD}18` }}>
                 <Bell className="h-3.5 w-3.5" style={{ color: GOLD }} />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-white">الإشعارات والتنبيهات</h3>
-                {unread > 0 && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{unread} تنبيه يحتاج اهتمامك</p>
-                )}
+                <h3 className="font-bold text-sm text-white">الإشعارات</h3>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
+                  <p className="text-[10px] text-muted-foreground">{connected ? "متصل — لحظي" : "غير متصل"}</p>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-1">
               <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-white"
-                onClick={() => { refetch(); }} title="تحديث">
+                onClick={() => refetch()} title="تحديث">
                 <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
               </Button>
-              {unread > 0 && (
-                <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-white px-2"
-                  onClick={dismissAll}>
-                  مسح الكل
-                </Button>
-              )}
               <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-white"
                 onClick={() => setOpen(false)}>
                 <X className="h-3.5 w-3.5" />
@@ -162,100 +220,178 @@ export function NotificationsPanel() {
             </div>
           </div>
 
-          {/* Notification List */}
-          <div className="flex-1 overflow-y-auto">
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <RefreshCw className="h-6 w-6 text-muted-foreground animate-spin" />
-                <p className="text-sm text-muted-foreground">جارٍ تحميل الإشعارات...</p>
-              </div>
-            ) : allNotifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                  style={{ background: `${GOLD}10` }}>
-                  <Bell className="h-7 w-7" style={{ color: `${GOLD}60` }} />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-medium text-white">لا توجد إشعارات</p>
-                  <p className="text-xs text-muted-foreground mt-1">كل شيء على ما يرام!</p>
-                </div>
-              </div>
-            ) : (
-              <div className="py-2">
-                {Object.entries(groups).map(([category, items]) => {
-                  const CategoryIcon = CATEGORY_ICONS[category] ?? Bell;
-                  return (
-                    <div key={category}>
-                      {/* Category Header */}
-                      <div className="flex items-center gap-2 px-4 py-2 sticky top-0"
-                        style={{ background: "#1A2744" }}>
-                        <CategoryIcon className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{category}</span>
-                        <div className="flex-1 h-px" style={{ background: "#2D3D6B" }} />
-                        <Badge variant="outline" className="text-[9px] py-0 px-1.5 h-4"
-                          style={{ borderColor: "#2D3D6B", color: "#A0ADB8" }}>
-                          {items.length}
-                        </Badge>
-                      </div>
+          {/* Tabs */}
+          <div className="flex border-b flex-shrink-0" style={{ borderColor: "#2D3D6B" }}>
+            {[
+              { id: "live" as const,   label: "نبض لحظي", badge: newLiveCount > 0 ? newLiveCount : liveEvents.length },
+              { id: "alerts" as const, label: "تنبيهات",  badge: allNotifications.length },
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => { setTab(t.id); if (t.id === "live") setNewLiveCount(0); }}
+                className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                  tab === t.id
+                    ? "text-white border-b-2"
+                    : "text-muted-foreground hover:text-white border-b-2 border-transparent"
+                }`}
+                style={tab === t.id ? { borderBottomColor: GOLD, color: GOLD } : {}}
+              >
+                {t.label}
+                {t.badge > 0 && (
+                  <span className="px-1.5 py-0 rounded-full text-[9px] font-bold text-white"
+                    style={{ background: t.id === "live" && newLiveCount > 0 ? "#EF4444" : "#2D3D6B" }}>
+                    {t.badge > 99 ? "99+" : t.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
 
-                      {/* Items */}
-                      {items.map(notif => {
-                        const cfg = TYPE_CONFIG[notif.type];
-                        const Icon = cfg.icon;
-                        return (
-                          <div
-                            key={notif.id}
-                            className="mx-2 mb-1.5 rounded-xl p-3 cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99]"
-                            style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
-                            onClick={() => navigate(notif.href)}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                                style={{ background: `${cfg.color}20` }}>
-                                <Icon className="h-3.5 w-3.5" style={{ color: cfg.color }} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-white leading-tight">{notif.title}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{notif.body}</p>
-                              </div>
-                              <div className="flex items-center gap-1 flex-shrink-0">
-                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                                <button
-                                  className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
-                                  onClick={(e) => dismiss(notif.id, e)}
-                                  title="إغلاق"
-                                >
-                                  <X className="h-3 w-3 text-muted-foreground" />
-                                </button>
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto">
+
+            {/* ── Live Events Tab ── */}
+            {tab === "live" && (
+              <div className="py-1">
+                {liveEvents.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: `${GOLD}10` }}>
+                      <Activity className="h-7 w-7" style={{ color: `${GOLD}60` }} />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-white">في انتظار الأحداث</p>
+                      <p className="text-xs text-muted-foreground mt-1">جرّب إنشاء قضية أو إضافة عميل</p>
+                    </div>
+                    <button
+                      className="text-xs flex items-center gap-1 mt-1 hover:opacity-80 transition-opacity"
+                      style={{ color: GOLD }}
+                      onClick={() => navigate("/activity-stream")}
+                    >
+                      عرض السجل الكامل <ChevronRight className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="divide-y" style={{ divideColor: "#1E2D50" }}>
+                    {liveEvents.map((ev, idx) => {
+                      const meta = EVENT_ICONS[ev.type] ?? { icon: Activity, color: "#64748B" };
+                      const Icon = meta.icon;
+                      const isNew = idx < 3;
+                      return (
+                        <div
+                          key={ev.id}
+                          className={`flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-white/3 cursor-pointer ${isNew ? "bg-[#C9A84C]/3" : ""}`}
+                          onClick={() => navigate("/activity-stream")}
+                        >
+                          <div className="mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ background: `${meta.color}15`, border: `1px solid ${meta.color}25` }}>
+                            <Icon className="h-3.5 w-3.5" style={{ color: meta.color }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold" style={{ color: meta.color }}>{ev.label}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                              {ev.data?.title ?? ev.data?.fullName ?? ev.data?.invoiceNumber ?? ev.data?.clientName ?? ""}
+                              {ev.data?.amount ? ` — ${Number(ev.data.amount).toLocaleString("ar-SA")} ر.س` : ""}
+                            </p>
+                          </div>
+                          <span className="text-[9px] text-muted-foreground/60 flex-shrink-0 mt-0.5">{timeAgo(ev.timestamp)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Alerts Tab ── */}
+            {tab === "alerts" && (
+              isLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <RefreshCw className="h-6 w-6 text-muted-foreground animate-spin" />
+                  <p className="text-sm text-muted-foreground">جارٍ التحميل...</p>
+                </div>
+              ) : allNotifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: `${GOLD}10` }}>
+                    <Bell className="h-7 w-7" style={{ color: `${GOLD}60` }} />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-white">لا توجد تنبيهات</p>
+                    <p className="text-xs text-muted-foreground mt-1">كل شيء على ما يرام!</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-2">
+                  <div className="flex justify-end px-3 pb-1">
+                    <button className="text-[10px] text-muted-foreground hover:text-white transition-colors" onClick={dismissAll}>
+                      مسح الكل
+                    </button>
+                  </div>
+                  {Object.entries(groups).map(([category, items]) => {
+                    const CategoryIcon = CATEGORY_ICONS[category] ?? Bell;
+                    return (
+                      <div key={category}>
+                        <div className="flex items-center gap-2 px-4 py-2 sticky top-0" style={{ background: "#1A2744" }}>
+                          <CategoryIcon className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{category}</span>
+                          <div className="flex-1 h-px" style={{ background: "#2D3D6B" }} />
+                          <Badge variant="outline" className="text-[9px] py-0 px-1.5 h-4" style={{ borderColor: "#2D3D6B", color: "#A0ADB8" }}>
+                            {items.length}
+                          </Badge>
+                        </div>
+                        {items.map(notif => {
+                          const cfg = TYPE_CONFIG[notif.type];
+                          const Icon = cfg.icon;
+                          return (
+                            <div key={notif.id}
+                              className="mx-2 mb-1.5 rounded-xl p-3 cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99]"
+                              style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
+                              onClick={() => navigate(notif.href)}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                                  style={{ background: `${cfg.color}20` }}>
+                                  <Icon className="h-3.5 w-3.5" style={{ color: cfg.color }} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-white leading-tight">{notif.title}</p>
+                                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{notif.body}</p>
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <button
+                                    className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
+                                    onClick={(e) => dismiss(notif.id, e)} title="إغلاق"
+                                  >
+                                    <X className="h-3 w-3 text-muted-foreground" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              )
             )}
           </div>
 
           {/* Footer */}
-          {allNotifications.length > 0 && (
-            <div className="border-t px-4 py-3 flex items-center justify-between"
-              style={{ borderColor: "#2D3D6B", background: "rgba(26,39,68,0.95)" }}>
-              <span className="text-xs text-muted-foreground">
-                يتجدد كل دقيقة
-              </span>
-              <button
-                className="text-xs font-medium flex items-center gap-1 hover:opacity-80 transition-opacity"
-                style={{ color: GOLD }}
-                onClick={() => navigate("/firm-admin")}
-              >
-                عرض لوحة المدير
-                <ChevronRight className="h-3 w-3" />
-              </button>
-            </div>
-          )}
+          <div className="border-t px-4 py-2.5 flex items-center justify-between flex-shrink-0"
+            style={{ borderColor: "#2D3D6B", background: "rgba(26,39,68,0.95)" }}>
+            <span className="text-[10px] text-muted-foreground">
+              {connected ? "متصل — تحديث فوري" : "يتجدد كل دقيقة"}
+            </span>
+            <button
+              className="text-xs font-medium flex items-center gap-1 hover:opacity-80 transition-opacity"
+              style={{ color: GOLD }}
+              onClick={() => navigate("/activity-stream")}
+            >
+              نبض النظام الكامل
+              <ChevronRight className="h-3 w-3" />
+            </button>
+          </div>
         </div>
       )}
     </div>
