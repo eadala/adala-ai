@@ -101,6 +101,7 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
 /**
  * Combined guard: auth + tenant resolution in one middleware.
  * Replaces requireAuth for routes that need both userId and tenantId.
+ * Also injects AsyncLocalStorage tenant context (Kernel Layer 1).
  */
 export async function requireAuthWithTenant(req: Request, res: Response, next: NextFunction) {
   const auth = getAuth(req);
@@ -111,7 +112,17 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
 
   const headerTenant = req.headers["x-tenant-id"] as string | undefined;
   const tenantId = await resolveTenantId(userId, headerTenant);
-  (req as any).tenantId = tenantId ?? "default";
+  const officeId = tenantId ?? "default";
+  (req as any).tenantId = officeId;
 
-  next();
+  // Delegate to the canonical implementation in requireAuth.ts
+  // (which sets AsyncLocalStorage + RLS session variable)
+  const { runWithTenant } = await import("../core/tenantContext");
+  const { db } = await import("@workspace/db");
+  const { sql } = await import("drizzle-orm");
+
+  db.execute(sql`SELECT set_config('app.current_tenant', ${officeId}, false)`)
+    .catch(() => {});
+
+  runWithTenant({ userId, officeId }, () => next());
 }

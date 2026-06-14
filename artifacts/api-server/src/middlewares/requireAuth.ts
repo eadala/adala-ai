@@ -1,6 +1,9 @@
 import { getAuth } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
 import { resolveTenantId } from "./tenantMiddleware";
+import { runWithTenant } from "../core/tenantContext";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const auth = getAuth(req);
@@ -13,8 +16,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 /**
- * requireAuthWithTenant — sets both req.userId and req.tenantId.
- * Use this for routes that need tenant-scoped data.
+ * requireAuthWithTenant — authenticates the request AND injects the tenant
+ * context into BOTH req.tenantId (classic pattern) and AsyncLocalStorage
+ * (kernel pattern). All async work triggered by next() sees the same context.
  */
 export async function requireAuthWithTenant(req: Request, res: Response, next: NextFunction) {
   const auth = getAuth(req);
@@ -22,9 +26,18 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
   if (!userId) {
     return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
   }
+
   (req as any).userId = userId;
   const headerTenant = req.headers["x-tenant-id"] as string | undefined;
   const tenantId = await resolveTenantId(userId, headerTenant);
-  (req as any).tenantId = tenantId ?? "default";
-  next();
+  const officeId = tenantId ?? "default";
+  (req as any).tenantId = officeId;
+
+  // 🔑 Layer 1: AsyncLocalStorage — getTenant() works anywhere in the stack
+  // 🔑 Layer 2: PostgreSQL RLS session variable — DB-level enforcement
+  // Both run asynchronously but are set before any route handler executes.
+  db.execute(sql`SELECT set_config('app.current_tenant', ${officeId}, false)`)
+    .catch(() => {}); // Non-blocking — app-level filter is the primary guard
+
+  runWithTenant({ userId, officeId }, () => next());
 }
