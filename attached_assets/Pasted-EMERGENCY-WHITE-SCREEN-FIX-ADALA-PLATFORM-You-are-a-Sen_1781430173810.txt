@@ -1,0 +1,95 @@
+EMERGENCY WHITE SCREEN FIX — ADALA PLATFORM
+
+You are a Senior Staff Frontend Engineer and Production Reliability Engineer.
+
+Objective:
+Diagnose and permanently fix the white screen issue in the Adala platform without introducing regressions.
+
+Tasks:
+
+1. Authentication Layer Audit
+
+* Inspect all Clerk initialization logic.
+* Verify ClerkProvider configuration.
+* Extract and validate the actual Frontend API (FAPI) from the publishable key.
+* Compare configured FAPI against runtime requests.
+* Eliminate any incorrect fallback to frontend-api.clerk.dev.
+* Ensure all authentication requests resolve to the correct Clerk endpoint.
+
+2. Loading State Protection
+
+* Find every conditional rendering block using:
+    * Show when=“signed-in”
+    * Show when=“signed-out”
+    * SignedIn
+    * SignedOut
+* Add explicit loading handling before rendering authentication-dependent UI.
+* Ensure the application never renders a blank page while Clerk is initializing.
+* Create a reusable AppLoadingScreen component.
+
+3. Global Error Containment
+
+* Implement React Error Boundaries around:
+    * App Shell
+    * Dashboard
+    * Authentication Area
+    * Marketplace
+* Prevent runtime exceptions from crashing the entire application.
+
+4. Network Diagnostics
+
+* Audit all startup API requests.
+* Detect:
+    * Failed fetches
+    * 401 responses
+    * 403 responses
+    * 404 responses
+    * CORS issues
+    * DNS issues
+* Generate a startup health report.
+
+5. Application Bootstrap Validation
+
+* Verify root mounting logic.
+* Verify hydration sequence.
+* Verify router initialization.
+* Verify authentication initialization order.
+* Verify data provider initialization order.
+
+6. Safe Fallback Strategy
+
+* If authentication fails:
+    * Show recovery UI.
+    * Show diagnostic information.
+    * Never display a blank screen.
+* If backend APIs fail:
+    * Render degraded mode.
+    * Continue application startup.
+
+7. Logging & Monitoring
+
+* Add structured logging.
+* Log:
+    * Clerk initialization
+    * Authentication status
+    * Bootstrap status
+    * Startup errors
+* Output logs to console and monitoring service.
+
+8. Final Verification
+    Run a complete startup audit and confirm:
+
+* No white screen.
+* No blank render state.
+* No infinite loading.
+* No authentication deadlock.
+* No unhandled promise rejection.
+* No uncaught runtime exception.
+
+Output:
+
+* Root cause summary.
+* Files modified.
+* Exact code changes.
+* Remaining risks.
+* Production readiness assessment.

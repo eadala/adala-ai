@@ -22,6 +22,42 @@ Clerk is provisioned and working (development keys active).
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 ```
 
-**Why:** `VITE_CLERK_PROXY_URL` is **empty in dev** (intentional — Clerk hits dev FAPI directly) and **auto-populated by Replit at publish time**. Any manual fallback like `|| window.location.origin + /api/__clerk` causes the published app to use a wrong proxy URL that routes the Clerk JS bundle to `frontend-api.clerk.dev/npm/...` which returns 404 and breaks auth entirely.
+**Why:** `VITE_CLERK_PROXY_URL` is **empty in dev** (intentional — Clerk hits dev FAPI directly) and **auto-populated by Replit at publish time**. Any manual fallback causes the published app to use wrong proxy URL and breaks auth entirely.
 
 **How to apply:** Never add a `||` fallback to `clerkProxyUrl`. Never gate it on `NODE_ENV`. The empty dev value is intentional per the Clerk skill canonical pattern.
+
+## CRITICAL — clerkProxyMiddleware.ts
+
+**NEVER modify clerkProxyMiddleware.ts** beyond the canonical template at `.local/skills/clerk-auth/templates/api-server/src/middlewares/clerkProxyMiddleware.ts`. Specifically:
+- The FAPI target MUST be `https://frontend-api.clerk.dev` — do NOT derive it from the publishable key
+- Deriving FAPI from `pk_live_*` base64 decode yields `clerk.legal-platform--ahkm1000.replit.app` which is unreachable from the deployed server → **504 Gateway Timeout** → Clerk JS never loads → white screen
+- Always resync to canonical template when anything seems wrong
+
+## CRITICAL — Tailwind v4 + Clerk in Production
+
+When using `@tailwindcss/vite` (Tailwind v4), vite.config.ts MUST have:
+```typescript
+tailwindcss({ optimize: false })
+```
+**Why:** Without this, nested `@layer` imports from `@clerk/themes/*.css` get reordered in production builds. Clerk UI and potentially the entire page render correctly in dev but broken/white in production.
+
+## CRITICAL — index.html root div
+
+The `<div id="root">` should have an inline dark background style:
+```html
+<div id="root" style="background:#0F1B35;min-height:100vh"></div>
+```
+**Why:** If React fails to mount (JS error, bundle failure), the page shows dark background instead of white — making it immediately clear that React is not running. With React running, its own styles override the inline style.
+
+## Module-level safety for publishableKeyFromHost
+
+Wrap in try/catch at module level in App.tsx:
+```typescript
+let clerkPubKey: string;
+try {
+  clerkPubKey = publishableKeyFromHost(window.location.hostname, import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+} catch (e) {
+  clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? "";
+}
+```
+**Why:** Module-level throw prevents React from mounting entirely — not caught by ErrorBoundary.
