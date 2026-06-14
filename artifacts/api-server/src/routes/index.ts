@@ -170,7 +170,11 @@ router.use(pushRouter);
 
 import aiEventsRouter from "./aiEvents";
 import searchRouter from "./search";
+import platformCommandRouter from "./platformCommand";
+import agentRuntimeRouter from "./agentRuntime";
 router.use(aiEventsRouter);
 router.use(searchRouter);
+router.use(platformCommandRouter);
+router.use(agentRuntimeRouter);
 
 export default router;
