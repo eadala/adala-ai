@@ -1,6 +1,8 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -41,7 +43,7 @@ async function sqlOne(q: any): Promise<any> {
 ══════════════════════════════════════════════ */
 
 /* GET all units */
-router.get("/org-units", async (_req, res) => {
+router.get("/org-units", requireAuthWithTenant, async (_req, res) => {
   await ensureTables();
   try {
     const units = await sqlAll(sql`
@@ -52,7 +54,7 @@ router.get("/org-units", async (_req, res) => {
 });
 
 /* GET single unit */
-router.get("/org-units/:id", async (req, res) => {
+router.get("/org-units/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const unit = await sqlOne(sql`SELECT * FROM organization_units WHERE id = ${parseInt(req.params.id)}`);
@@ -62,7 +64,7 @@ router.get("/org-units/:id", async (req, res) => {
 });
 
 /* GET unit stats */
-router.get("/org-units/:id/stats", async (req, res) => {
+router.get("/org-units/:id/stats", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   const id = parseInt(req.params.id);
   try {
@@ -83,7 +85,7 @@ router.get("/org-units/:id/stats", async (req, res) => {
 });
 
 /* GET dashboard aggregate stats */
-router.get("/org-units-dashboard", async (_req, res) => {
+router.get("/org-units-dashboard", requireAuthWithTenant, async (_req, res) => {
   await ensureTables();
   try {
     const [total, active, byType, topUnits] = await Promise.all([
@@ -110,7 +112,7 @@ router.get("/org-units-dashboard", async (_req, res) => {
 });
 
 /* POST create unit */
-router.post("/org-units", async (req, res) => {
+router.post("/org-units", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const { name, type, parentId, managerId, managerName, description } = req.body as {
@@ -129,7 +131,7 @@ router.post("/org-units", async (req, res) => {
 });
 
 /* PATCH update unit */
-router.patch("/org-units/:id", async (req, res) => {
+router.patch("/org-units/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const { name, type, parentId, managerId, managerName, description, status } = req.body as any;
@@ -154,7 +156,7 @@ router.patch("/org-units/:id", async (req, res) => {
 });
 
 /* PATCH move unit (change parent) */
-router.patch("/org-units/:id/move", async (req, res) => {
+router.patch("/org-units/:id/move", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const { parentId } = req.body as { parentId: number | null };
@@ -168,7 +170,7 @@ router.patch("/org-units/:id/move", async (req, res) => {
 });
 
 /* PATCH toggle status */
-router.patch("/org-units/:id/status", async (req, res) => {
+router.patch("/org-units/:id/status", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const { status } = req.body as { status: string };
@@ -182,7 +184,7 @@ router.patch("/org-units/:id/status", async (req, res) => {
 });
 
 /* DELETE unit */
-router.delete("/org-units/:id", async (req, res) => {
+router.delete("/org-units/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const children = await sqlOne(sql`SELECT id FROM organization_units WHERE parent_id = ${parseInt(req.params.id)} LIMIT 1`);
@@ -194,7 +196,7 @@ router.delete("/org-units/:id", async (req, res) => {
 });
 
 /* GET users list (for manager selection) */
-router.get("/org-units-users", async (_req, res) => {
+router.get("/org-units-users", requireAuthWithTenant, async (_req, res) => {
   try {
     const users = await sqlAll(sql`SELECT id, full_name, email, role FROM users ORDER BY full_name LIMIT 100`);
     res.json(users);

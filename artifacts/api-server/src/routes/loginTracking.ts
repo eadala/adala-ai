@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 /**
  * Login Tracking Routes — Professional SaaS Login Analytics
  *
@@ -100,7 +101,7 @@ router.post("/security/login", async (req, res) => {
 /* ══════════════════════════════════════════════════
    GET /api/security/logins — Login history
 ══════════════════════════════════════════════════ */
-router.get("/security/logins", async (req, res) => {
+router.get("/security/logins", requireAuth, async (req, res) => {
   const auth = getAuth(req as any);
   if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
 
@@ -133,7 +134,7 @@ router.get("/security/logins", async (req, res) => {
 /* ══════════════════════════════════════════════════
    GET /api/security/login-stats — Dashboard stats
 ══════════════════════════════════════════════════ */
-router.get("/security/login-stats", async (req, res) => {
+router.get("/security/login-stats", requireAuth, async (req, res) => {
   const auth = getAuth(req as any);
   if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
 
@@ -238,7 +239,7 @@ router.get("/security/login-stats", async (req, res) => {
 /* ══════════════════════════════════════════════════
    GET /api/security/my-sessions — Current user's own sessions
 ══════════════════════════════════════════════════ */
-router.get("/security/my-sessions", async (req, res) => {
+router.get("/security/my-sessions", requireAuth, async (req, res) => {
   const auth = getAuth(req as any);
   if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
 
@@ -266,7 +267,7 @@ router.get("/security/my-sessions", async (req, res) => {
 /* ══════════════════════════════════════════════════
    DELETE /api/security/logins/:id — Remove log entry
 ══════════════════════════════════════════════════ */
-router.delete("/security/logins/:id", async (req, res) => {
+router.delete("/security/logins/:id", requireAuth, async (req, res) => {
   const auth = getAuth(req as any);
   if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
 

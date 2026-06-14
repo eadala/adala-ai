@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 
 const router = Router();
@@ -213,7 +214,7 @@ ${userMessages}
   };
 }
 
-router.post("/opponent-simulator/respond", async (req, res) => {
+router.post("/opponent-simulator/respond", requireAuth, async (req, res) => {
   const { caseDescription, side, caseType, difficulty, history, userMessage } = req.body as {
     caseDescription: string;
     side: "plaintiff" | "defendant";
@@ -251,7 +252,7 @@ ${sideContext}
   res.json({ response, round: messages.filter(m => m.role === "user").length });
 });
 
-router.post("/opponent-simulator/evaluate", async (req, res) => {
+router.post("/opponent-simulator/evaluate", requireAuth, async (req, res) => {
   const { caseDescription, side, caseType, history } = req.body as {
     caseDescription: string;
     side: string;

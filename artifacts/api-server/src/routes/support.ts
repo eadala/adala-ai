@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 /**
  * Office-facing Support Ticket routes
  * Offices can create, view, and reply to their own tickets.
@@ -25,7 +26,7 @@ async function safeRows(q: any): Promise<any[]> {
 }
 
 /* ── List own tickets ──────────────────────────────── */
-router.get("/support/tickets", async (req, res) => {
+router.get("/support/tickets", requireAuth, async (req, res) => {
   try {
     const userId = requireAuth(req, res);
     if (!userId) return;
@@ -39,7 +40,7 @@ router.get("/support/tickets", async (req, res) => {
 });
 
 /* ── Create ticket ─────────────────────────────────── */
-router.post("/support/tickets", async (req, res) => {
+router.post("/support/tickets", requireAuth, async (req, res) => {
   try {
     const userId = requireAuth(req, res);
     if (!userId) return;
@@ -73,7 +74,7 @@ router.post("/support/tickets", async (req, res) => {
 });
 
 /* ── Get single ticket + messages ──────────────────── */
-router.get("/support/tickets/:id", async (req, res) => {
+router.get("/support/tickets/:id", requireAuth, async (req, res) => {
   try {
     const userId = requireAuth(req, res);
     if (!userId) return;
@@ -94,7 +95,7 @@ router.get("/support/tickets/:id", async (req, res) => {
 });
 
 /* ── Reply to ticket ───────────────────────────────── */
-router.post("/support/tickets/:id/messages", async (req, res) => {
+router.post("/support/tickets/:id/messages", requireAuth, async (req, res) => {
   try {
     const userId = requireAuth(req, res);
     if (!userId) return;
@@ -126,7 +127,7 @@ router.post("/support/tickets/:id/messages", async (req, res) => {
 });
 
 /* ── Close ticket ──────────────────────────────────── */
-router.patch("/support/tickets/:id/close", async (req, res) => {
+router.patch("/support/tickets/:id/close", requireAuth, async (req, res) => {
   try {
     const userId = requireAuth(req, res);
     if (!userId) return;

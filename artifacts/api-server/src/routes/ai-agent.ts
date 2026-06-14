@@ -1,7 +1,10 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
+import { getTenantSafe } from "../core/tenantContext";
 
 const router = Router();
 
@@ -90,7 +93,8 @@ async function logAction(data: {
 async function executeAction(
   intent: AgentIntent,
   params: Record<string, any>,
-  userId?: string
+  userId?: string,
+  officeId: string = "default"
 ): Promise<{ success: boolean; message: string; data?: any }> {
   switch (intent) {
     case "get_briefing": {
@@ -126,10 +130,10 @@ async function executeAction(
       const id = randomUUID();
       const title = params.caseTitle || `قضية ${params.clientName || "جديدة"}`;
       await db.execute(sql`
-        INSERT INTO cases (id, title, case_type, status, client_name, description, created_at, updated_at)
+        INSERT INTO cases (id, title, case_type, status, client_name, description, office_id, created_at, updated_at)
         VALUES (
           ${id}, ${title}, ${params.caseType || "مدنية"}, 'open',
-          ${params.clientName || null}, ${params.description || null}, NOW(), NOW()
+          ${params.clientName || null}, ${params.description || null}, ${officeId}, NOW(), NOW()
         )
       `);
       return { success: true, message: `✅ تم إنشاء القضية "${title}" بنجاح`, data: { id, title } };
@@ -159,10 +163,10 @@ async function executeAction(
     case "create_client": {
       const id = randomUUID();
       await db.execute(sql`
-        INSERT INTO clients (id, full_name, email, phone, type, status, tags, created_at, updated_at)
+        INSERT INTO clients (id, full_name, email, phone, type, status, tags, office_id, created_at, updated_at)
         VALUES (
           ${id}, ${params.clientName || "عميل جديد"}, ${params.email || null},
-          ${params.phone || null}, 'individual', 'active', '[]'::jsonb, NOW(), NOW()
+          ${params.phone || null}, 'individual', 'active', '[]'::jsonb, ${officeId}, NOW(), NOW()
         )
       `);
       return { success: true, message: `✅ تمت إضافة العميل "${params.clientName}"`, data: { id, fullName: params.clientName } };
@@ -184,11 +188,11 @@ async function executeAction(
       const amount = Number(params.amount) || 1000;
       const vat = Math.round(amount * 0.15);
       await db.execute(sql`
-        INSERT INTO client_invoices (id, invoice_number, title, items, subtotal, vat_rate, vat_amount, total, currency, status, created_at)
+        INSERT INTO client_invoices (id, invoice_number, title, items, subtotal, vat_rate, vat_amount, total, currency, status, office_id, created_at)
         VALUES (
           ${id}, ${num}, ${params.invoiceTitle || `فاتورة خدمات قانونية`},
           ${JSON.stringify([{ description: "خدمات قانونية", qty: 1, price: amount }])},
-          ${amount}, 15, ${vat}, ${amount + vat}, 'SAR', 'draft', NOW()
+          ${amount}, 15, ${vat}, ${amount + vat}, 'SAR', 'draft', ${officeId}, NOW()
         )
       `);
       return { success: true, message: `✅ تم إنشاء الفاتورة رقم ${num} بمبلغ ${amount + vat} ريال`, data: { id, num } };
@@ -279,12 +283,13 @@ ${params.query ? `- التركيز على: ${params.query}` : ""}
 }
 
 // ─── POST /ai-agent/execute ───────────────────────────────────────────────────
-router.post("/ai-agent/execute", async (req: Request, res: Response) => {
+router.post("/ai-agent/execute", requireAuthWithTenant, async (req: Request, res: Response) => {
   const { command, userId, userEmail, mode = "execute" } = req.body as {
     command: string; userId?: string; userEmail?: string; mode?: "preview" | "execute";
   };
   if (!command?.trim()) { res.status(400).json({ error: "الأمر مطلوب" }); return; }
 
+  const tenantId = (req as any).tenantId ?? "default";
   const t0 = Date.now();
   const parsed = await parseIntent(command);
 
@@ -293,7 +298,7 @@ router.post("/ai-agent/execute", async (req: Request, res: Response) => {
     return;
   }
 
-  const result = await executeAction(parsed.intent, parsed.params, userId);
+  const result = await executeAction(parsed.intent, parsed.params, userId, tenantId);
   const ms = Date.now() - t0;
 
   await logAction({
@@ -305,7 +310,7 @@ router.post("/ai-agent/execute", async (req: Request, res: Response) => {
 });
 
 // ─── GET /ai-agent/briefing ───────────────────────────────────────────────────
-router.get("/ai-agent/briefing", async (_req: Request, res: Response) => {
+router.get("/ai-agent/briefing", requireAuth, async (_req: Request, res: Response) => {
   try {
     const [eventsR, overdueR, casesR, contractsR, invoicesR] = await Promise.all([
       db.execute(sql`SELECT id, title, event_type, start_at, location FROM events WHERE start_at >= NOW()::date AND start_at < NOW()::date + INTERVAL '1 day' ORDER BY start_at LIMIT 5`),
@@ -336,7 +341,7 @@ router.get("/ai-agent/briefing", async (_req: Request, res: Response) => {
 });
 
 // ─── GET /ai-agent/logs ───────────────────────────────────────────────────────
-router.get("/ai-agent/logs", async (req: Request, res: Response) => {
+router.get("/ai-agent/logs", requireAuth, async (req: Request, res: Response) => {
   const limit = Math.min(Number(req.query.limit) || 50, 100);
   const rows = await db.execute(sql`
     SELECT id, user_email, command, intent, action_taken, success, execution_ms, created_at
@@ -346,7 +351,7 @@ router.get("/ai-agent/logs", async (req: Request, res: Response) => {
 });
 
 // ─── GET /ai-agent/workflows ──────────────────────────────────────────────────
-router.get("/ai-agent/workflows", async (_req: Request, res: Response) => {
+router.get("/ai-agent/workflows", requireAuth, async (_req: Request, res: Response) => {
   const rows = await db.execute(sql`
     SELECT * FROM ai_workflows ORDER BY created_at DESC
   `);
@@ -354,7 +359,7 @@ router.get("/ai-agent/workflows", async (_req: Request, res: Response) => {
 });
 
 // ─── POST /ai-agent/workflows ─────────────────────────────────────────────────
-router.post("/ai-agent/workflows", async (req: Request, res: Response) => {
+router.post("/ai-agent/workflows", requireAuth, async (req: Request, res: Response) => {
   const { name, description, triggerType, schedule, actionType, actionParams, mode, createdBy } = req.body;
   const id = randomUUID();
   await db.execute(sql`
@@ -369,7 +374,7 @@ router.post("/ai-agent/workflows", async (req: Request, res: Response) => {
 });
 
 // ─── PUT /ai-agent/workflows/:id ──────────────────────────────────────────────
-router.put("/ai-agent/workflows/:id", async (req: Request, res: Response) => {
+router.put("/ai-agent/workflows/:id", requireAuth, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { isActive, mode } = req.body;
   await db.execute(sql`
@@ -382,7 +387,7 @@ router.put("/ai-agent/workflows/:id", async (req: Request, res: Response) => {
 });
 
 // ─── DELETE /ai-agent/workflows/:id ───────────────────────────────────────────
-router.delete("/ai-agent/workflows/:id", async (req: Request, res: Response) => {
+router.delete("/ai-agent/workflows/:id", requireAuth, async (req: Request, res: Response) => {
   await db.execute(sql`DELETE FROM ai_workflows WHERE id = ${req.params.id}`);
   res.json({ success: true });
 });

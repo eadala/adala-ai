@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
@@ -53,7 +54,7 @@ function dateStr() {
 ══════════════════════════════════════════════════════════ */
 
 /* GET /api/backup/settings */
-router.get("/backup/settings", async (_req, res) => {
+router.get("/backup/settings", requireAuthWithTenant, async (_req, res) => {
   try {
     const rows = await db.select().from(backupSettingsTable).limit(1);
     if (rows.length) return res.json(rows[0]);
@@ -71,7 +72,7 @@ router.get("/backup/settings", async (_req, res) => {
 });
 
 /* PUT /api/backup/settings */
-router.put("/backup/settings", async (req, res) => {
+router.put("/backup/settings", requireAuthWithTenant, async (req, res) => {
   try {
     const { schedule, retentionDays, storageProvider, cloudConfig, isEnabled } = req.body;
     const rows = await db.select().from(backupSettingsTable).limit(1);
@@ -94,7 +95,7 @@ router.put("/backup/settings", async (req, res) => {
 ══════════════════════════════════════════════════════════ */
 
 /* GET /api/backup/jobs */
-router.get("/backup/jobs", async (_req, res) => {
+router.get("/backup/jobs", requireAuthWithTenant, async (_req, res) => {
   try {
     const jobs = await db
       .select({
@@ -118,7 +119,7 @@ router.get("/backup/jobs", async (_req, res) => {
 });
 
 /* POST /api/backup/create */
-router.post("/backup/create", async (req, res) => {
+router.post("/backup/create", requireAuthWithTenant, async (req, res) => {
   try {
     const { type = "manual", scheduleType } = req.body as { type?: string; scheduleType?: string };
 
@@ -189,7 +190,7 @@ router.post("/backup/create", async (req, res) => {
 });
 
 /* GET /api/backup/jobs/:id/download */
-router.get("/backup/jobs/:id/download", async (req, res) => {
+router.get("/backup/jobs/:id/download", requireAuthWithTenant, async (req, res) => {
   try {
     const [job] = await db
       .select()
@@ -206,7 +207,7 @@ router.get("/backup/jobs/:id/download", async (req, res) => {
 });
 
 /* DELETE /api/backup/jobs/:id */
-router.delete("/backup/jobs/:id", async (req, res) => {
+router.delete("/backup/jobs/:id", requireAuthWithTenant, async (req, res) => {
   try {
     await db.delete(backupJobsTable).where(eq(backupJobsTable.id, req.params.id));
     res.json({ ok: true });
@@ -221,7 +222,7 @@ router.delete("/backup/jobs/:id", async (req, res) => {
 ══════════════════════════════════════════════════════════ */
 
 /* GET /api/backup/local-download */
-router.get("/backup/local-download", async (req, res) => {
+router.get("/backup/local-download", requireAuthWithTenant, async (req, res) => {
   try {
     const [[cases, clients, invoices, contracts, docs, users], hr, accounting] = await Promise.all([
       Promise.all([
@@ -275,7 +276,7 @@ router.get("/backup/local-download", async (req, res) => {
 ══════════════════════════════════════════════════════════ */
 
 /* GET /api/export/all */
-router.get("/export/all", async (req, res) => {
+router.get("/export/all", requireAuthWithTenant, async (req, res) => {
   try {
     const [[cases, clients, invoices, contracts], hr, accounting] = await Promise.all([
       Promise.all([
@@ -302,7 +303,7 @@ router.get("/export/all", async (req, res) => {
 });
 
 /* GET /api/export/revenues?format=csv|json */
-router.get("/export/revenues", async (req, res) => {
+router.get("/export/revenues", requireAuthWithTenant, async (req, res) => {
   try {
     const fmt = (req.query.format as string) ?? "json";
     const rows = await db.execute(sql`SELECT * FROM revenues LIMIT 10000`).then(r => r.rows);
@@ -319,7 +320,7 @@ router.get("/export/revenues", async (req, res) => {
 });
 
 /* GET /api/export/expenses?format=csv|json */
-router.get("/export/expenses", async (req, res) => {
+router.get("/export/expenses", requireAuthWithTenant, async (req, res) => {
   try {
     const fmt = (req.query.format as string) ?? "json";
     const rows = await db.execute(sql`SELECT * FROM expenses LIMIT 10000`).then(r => r.rows);
@@ -336,7 +337,7 @@ router.get("/export/expenses", async (req, res) => {
 });
 
 /* GET /api/export/employees?format=csv|json */
-router.get("/export/employees", async (req, res) => {
+router.get("/export/employees", requireAuthWithTenant, async (req, res) => {
   try {
     const fmt = (req.query.format as string) ?? "json";
     const rows = await db.execute(sql`SELECT * FROM employees LIMIT 10000`).then(r => r.rows);
@@ -353,7 +354,7 @@ router.get("/export/employees", async (req, res) => {
 });
 
 /* GET /api/export/payroll?format=csv|json */
-router.get("/export/payroll", async (req, res) => {
+router.get("/export/payroll", requireAuthWithTenant, async (req, res) => {
   try {
     const fmt = (req.query.format as string) ?? "json";
     const rows = await db.execute(sql`SELECT * FROM payroll LIMIT 10000`).then(r => r.rows);
@@ -370,7 +371,7 @@ router.get("/export/payroll", async (req, res) => {
 });
 
 /* GET /api/export/clients?format=csv|json */
-router.get("/export/clients", async (req, res) => {
+router.get("/export/clients", requireAuthWithTenant, async (req, res) => {
   try {
     const fmt = (req.query.format as string) ?? "json";
     const rows = await db.select().from(clientsTable).limit(10000);
@@ -389,7 +390,7 @@ router.get("/export/clients", async (req, res) => {
 });
 
 /* GET /api/export/cases?format=csv|json */
-router.get("/export/cases", async (req, res) => {
+router.get("/export/cases", requireAuthWithTenant, async (req, res) => {
   try {
     const fmt = (req.query.format as string) ?? "json";
     const rows = await db.select().from(casesTable).limit(10000);
@@ -408,7 +409,7 @@ router.get("/export/cases", async (req, res) => {
 });
 
 /* GET /api/export/invoices?format=csv|json */
-router.get("/export/invoices", async (req, res) => {
+router.get("/export/invoices", requireAuthWithTenant, async (req, res) => {
   try {
     const fmt = (req.query.format as string) ?? "json";
     const rows = await db.select().from(clientInvoicesTable).limit(10000);
@@ -427,7 +428,7 @@ router.get("/export/invoices", async (req, res) => {
 });
 
 /* GET /api/export/contracts?format=csv|json */
-router.get("/export/contracts", async (req, res) => {
+router.get("/export/contracts", requireAuthWithTenant, async (req, res) => {
   try {
     const fmt = (req.query.format as string) ?? "json";
     const rows = await db.select().from(contractsTable).limit(10000);
@@ -446,7 +447,7 @@ router.get("/export/contracts", async (req, res) => {
 });
 
 /* POST /api/import (Business+ — receives JSON and merges) */
-router.post("/backup/test-cloud", async (req, res) => {
+router.post("/backup/test-cloud", requireAuthWithTenant, async (req, res) => {
   try {
     const { accessKey, secretKey, bucket, region, endpoint } = req.body as {
       accessKey?: string; secretKey?: string; bucket?: string; region?: string; endpoint?: string;
@@ -498,7 +499,7 @@ router.post("/backup/test-cloud", async (req, res) => {
   }
 });
 
-router.post("/import", async (req, res) => {
+router.post("/import", requireAuthWithTenant, async (req, res) => {
   try {
     const data = req.body as { cases?: any[]; clients?: any[]; invoices?: any[]; contracts?: any[] };
     let imported = 0;

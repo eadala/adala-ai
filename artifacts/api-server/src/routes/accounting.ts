@@ -1,4 +1,6 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import {
   revenuesTable, expensesTable, bankAccountsTable, cashAdvancesTable,
@@ -35,14 +37,14 @@ async function sqlAll(query: any): Promise<Record<string, any>[]> {
    REVENUES
 ══════════════════════════════════════════════════════════ */
 
-router.get("/accounting/revenues", async (_req, res) => {
+router.get("/accounting/revenues", requireAuthWithTenant, async (_req, res) => {
   try {
     const rows = await db.select().from(revenuesTable).orderBy(desc(revenuesTable.date)).limit(500);
     res.json(rows);
   } catch { res.status(500).json({ error: "خطأ في جلب الإيرادات" }); }
 });
 
-router.post("/accounting/revenues", async (req, res) => {
+router.post("/accounting/revenues", requireAuthWithTenant, async (req, res) => {
   try {
     const { title, category, amount, paymentMethod, date, clientId, caseId, notes } = req.body;
     const [row] = await db.insert(revenuesTable).values({
@@ -53,7 +55,7 @@ router.post("/accounting/revenues", async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: "خطأ في إضافة الإيراد" }); }
 });
 
-router.put("/accounting/revenues/:id", async (req, res) => {
+router.put("/accounting/revenues/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { title, category, amount, paymentMethod, date, notes } = req.body;
     const [row] = await db.update(revenuesTable)
@@ -63,7 +65,7 @@ router.put("/accounting/revenues/:id", async (req, res) => {
   } catch { res.status(500).json({ error: "خطأ في تعديل الإيراد" }); }
 });
 
-router.delete("/accounting/revenues/:id", async (req, res) => {
+router.delete("/accounting/revenues/:id", requireAuthWithTenant, async (req, res) => {
   try {
     await db.delete(revenuesTable).where(eq(revenuesTable.id, req.params.id));
     res.json({ ok: true });
@@ -74,14 +76,14 @@ router.delete("/accounting/revenues/:id", async (req, res) => {
    EXPENSES
 ══════════════════════════════════════════════════════════ */
 
-router.get("/accounting/expenses", async (_req, res) => {
+router.get("/accounting/expenses", requireAuthWithTenant, async (_req, res) => {
   try {
     const rows = await db.select().from(expensesTable).orderBy(desc(expensesTable.date)).limit(500);
     res.json(rows);
   } catch { res.status(500).json({ error: "خطأ في جلب المصاريف" }); }
 });
 
-router.post("/accounting/expenses", async (req, res) => {
+router.post("/accounting/expenses", requireAuthWithTenant, async (req, res) => {
   try {
     const { title, category, amount, paymentMethod, date, vendor, notes } = req.body;
     const [row] = await db.insert(expensesTable).values({
@@ -92,7 +94,7 @@ router.post("/accounting/expenses", async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: "خطأ في إضافة المصروف" }); }
 });
 
-router.put("/accounting/expenses/:id", async (req, res) => {
+router.put("/accounting/expenses/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { title, category, amount, paymentMethod, date, vendor, notes } = req.body;
     const [row] = await db.update(expensesTable)
@@ -102,7 +104,7 @@ router.put("/accounting/expenses/:id", async (req, res) => {
   } catch { res.status(500).json({ error: "خطأ في تعديل المصروف" }); }
 });
 
-router.delete("/accounting/expenses/:id", async (req, res) => {
+router.delete("/accounting/expenses/:id", requireAuthWithTenant, async (req, res) => {
   try {
     await db.delete(expensesTable).where(eq(expensesTable.id, req.params.id));
     res.json({ ok: true });
@@ -113,14 +115,14 @@ router.delete("/accounting/expenses/:id", async (req, res) => {
    BANK ACCOUNTS
 ══════════════════════════════════════════════════════════ */
 
-router.get("/accounting/bank-accounts", async (_req, res) => {
+router.get("/accounting/bank-accounts", requireAuthWithTenant, async (_req, res) => {
   try {
     const rows = await db.select().from(bankAccountsTable).where(eq(bankAccountsTable.isActive, true)).orderBy(desc(bankAccountsTable.createdAt));
     res.json(rows);
   } catch { res.status(500).json({ error: "خطأ في جلب الحسابات" }); }
 });
 
-router.post("/accounting/bank-accounts", async (req, res) => {
+router.post("/accounting/bank-accounts", requireAuthWithTenant, async (req, res) => {
   try {
     const { bankName, accountName, accountNumber, iban, currency, currentBalance, isDefault, notes } = req.body;
     const [row] = await db.insert(bankAccountsTable).values({
@@ -133,7 +135,7 @@ router.post("/accounting/bank-accounts", async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: "خطأ في إضافة الحساب" }); }
 });
 
-router.put("/accounting/bank-accounts/:id", async (req, res) => {
+router.put("/accounting/bank-accounts/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { bankName, accountName, accountNumber, iban, currentBalance, isDefault, notes } = req.body;
     const [row] = await db.update(bankAccountsTable)
@@ -143,7 +145,7 @@ router.put("/accounting/bank-accounts/:id", async (req, res) => {
   } catch { res.status(500).json({ error: "خطأ في تعديل الحساب" }); }
 });
 
-router.delete("/accounting/bank-accounts/:id", async (req, res) => {
+router.delete("/accounting/bank-accounts/:id", requireAuthWithTenant, async (req, res) => {
   try {
     await db.update(bankAccountsTable).set({ isActive: false }).where(eq(bankAccountsTable.id, req.params.id));
     res.json({ ok: true });
@@ -154,14 +156,14 @@ router.delete("/accounting/bank-accounts/:id", async (req, res) => {
    CASH ADVANCES
 ══════════════════════════════════════════════════════════ */
 
-router.get("/accounting/advances", async (_req, res) => {
+router.get("/accounting/advances", requireAuthWithTenant, async (_req, res) => {
   try {
     const rows = await db.select().from(cashAdvancesTable).orderBy(desc(cashAdvancesTable.date)).limit(200);
     res.json(rows);
   } catch { res.status(500).json({ error: "خطأ في جلب السلف" }); }
 });
 
-router.post("/accounting/advances", async (req, res) => {
+router.post("/accounting/advances", requireAuthWithTenant, async (req, res) => {
   try {
     const { employeeName, employeeId, amount, purpose, repaymentMonths, date, notes } = req.body;
     const [row] = await db.insert(cashAdvancesTable).values({
@@ -172,7 +174,7 @@ router.post("/accounting/advances", async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: "خطأ في إضافة السلفة" }); }
 });
 
-router.patch("/accounting/advances/:id/approve", async (req, res) => {
+router.patch("/accounting/advances/:id/approve", requireAuthWithTenant, async (req, res) => {
   try {
     const [row] = await db.update(cashAdvancesTable)
       .set({ status: "approved", approvedBy: req.body.approvedBy ?? "المدير", approvedAt: new Date(), updatedAt: new Date() })
@@ -181,7 +183,7 @@ router.patch("/accounting/advances/:id/approve", async (req, res) => {
   } catch { res.status(500).json({ error: "خطأ في الموافقة" }); }
 });
 
-router.patch("/accounting/advances/:id/repay", async (req, res) => {
+router.patch("/accounting/advances/:id/repay", requireAuthWithTenant, async (req, res) => {
   try {
     const [current] = await db.select().from(cashAdvancesTable).where(eq(cashAdvancesTable.id, req.params.id)).limit(1);
     if (!current) return res.status(404).json({ error: "السلفة غير موجودة" });
@@ -194,7 +196,7 @@ router.patch("/accounting/advances/:id/repay", async (req, res) => {
   } catch { res.status(500).json({ error: "خطأ في تسجيل السداد" }); }
 });
 
-router.delete("/accounting/advances/:id", async (req, res) => {
+router.delete("/accounting/advances/:id", requireAuthWithTenant, async (req, res) => {
   try {
     await db.delete(cashAdvancesTable).where(eq(cashAdvancesTable.id, req.params.id));
     res.json({ ok: true });
@@ -205,7 +207,7 @@ router.delete("/accounting/advances/:id", async (req, res) => {
    FINANCIAL REPORTS  (P&L)
 ══════════════════════════════════════════════════════════ */
 
-router.get("/accounting/reports/summary", async (_req, res) => {
+router.get("/accounting/reports/summary", requireAuthWithTenant, async (_req, res) => {
   try {
     const year = new Date().getFullYear();
 
@@ -267,7 +269,7 @@ router.get("/accounting/reports/summary", async (_req, res) => {
 });
 
 /* ── Cashflow: last 12 months ───────────────────────────── */
-router.get("/accounting/cashflow", async (_req, res) => {
+router.get("/accounting/cashflow", requireAuthWithTenant, async (_req, res) => {
   try {
     const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
     let runningBalance = 0;

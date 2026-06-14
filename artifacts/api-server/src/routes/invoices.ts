@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db, clientInvoicesTable as invoicesTable, clientsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";

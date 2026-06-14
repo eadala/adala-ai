@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -90,7 +91,7 @@ router.get("/billing/stripe-status", async (_req, res) => {
 /* ══════════════════════════════════════════════════════
    BILLING OVERVIEW — KPIs + Subscription + Alerts + Usage
 ══════════════════════════════════════════════════════ */
-router.get("/billing/overview", async (req, res) => {
+router.get("/billing/overview", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -207,7 +208,7 @@ router.get("/billing/overview", async (req, res) => {
 /* ══════════════════════════════════════════════════════
    CHECKOUT + PAYMENT LINK
 ══════════════════════════════════════════════════════ */
-router.post("/billing/checkout", async (req, res) => {
+router.post("/billing/checkout", requireAuth, async (req, res) => {
   let stripe: StripeClient;
   try { stripe = await getUncachableStripeClient(); } catch {
     return res.status(503).json({ error: "Stripe غير مهيأ", hint: "أضف STRIPE_SECRET_KEY أو فعّل تكامل Stripe" });
@@ -287,7 +288,7 @@ router.post("/billing/checkout", async (req, res) => {
   }
 });
 
-router.post("/billing/payment-link", async (req, res) => {
+router.post("/billing/payment-link", requireAuth, async (req, res) => {
   let stripe: StripeClient;
   try { stripe = await getUncachableStripeClient(); } catch {
     return res.status(503).json({ error: "Stripe غير مهيأ", hint: "أضف STRIPE_SECRET_KEY أو فعّل تكامل Stripe" });
@@ -313,7 +314,7 @@ router.post("/billing/payment-link", async (req, res) => {
 /* ══════════════════════════════════════════════════════
    STRIPE SUBSCRIPTION DETAILS
 ══════════════════════════════════════════════════════ */
-router.get("/billing/stripe-subscription", async (req, res) => {
+router.get("/billing/stripe-subscription", requireAuth, async (req, res) => {
   let stripe: StripeClient | null = null;
   try { stripe = await getUncachableStripeClient(); } catch { }
   if (!stripe) return res.json({ configured: false, subscription: null });
@@ -342,7 +343,7 @@ router.get("/billing/stripe-subscription", async (req, res) => {
 /* ══════════════════════════════════════════════════════
    STRIPE INVOICES
 ══════════════════════════════════════════════════════ */
-router.get("/billing/stripe-invoices", async (req, res) => {
+router.get("/billing/stripe-invoices", requireAuth, async (req, res) => {
   let stripe: StripeClient | null = null;
   try { stripe = await getUncachableStripeClient(); } catch { }
   if (!stripe) return res.json([]);
@@ -368,7 +369,7 @@ router.get("/billing/stripe-invoices", async (req, res) => {
 /* ══════════════════════════════════════════════════════
    REVENUE ANALYTICS (Admin)
 ══════════════════════════════════════════════════════ */
-router.get("/billing/revenue", async (req, res) => {
+router.get("/billing/revenue", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -442,7 +443,7 @@ router.get("/billing/revenue", async (req, res) => {
 /* ══════════════════════════════════════════════════════
    CHANGE PLAN (upgrade / downgrade)
 ══════════════════════════════════════════════════════ */
-router.post("/billing/change-plan", async (req, res) => {
+router.post("/billing/change-plan", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -487,7 +488,7 @@ router.post("/billing/change-plan", async (req, res) => {
 /* ══════════════════════════════════════════════════════
    ACTIVATE PLAN (super-admin only)
 ══════════════════════════════════════════════════════ */
-router.post("/billing/activate-plan", async (req, res) => {
+router.post("/billing/activate-plan", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -511,7 +512,7 @@ router.post("/billing/activate-plan", async (req, res) => {
 /* ══════════════════════════════════════════════════════
    LEDGER
 ══════════════════════════════════════════════════════ */
-router.get("/billing/ledger", async (req, res) => {
+router.get("/billing/ledger", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -531,7 +532,7 @@ router.get("/billing/ledger", async (req, res) => {
 /* ══════════════════════════════════════════════════════
    PLATFORM BILLING INVOICES
 ══════════════════════════════════════════════════════ */
-router.get("/billing/platform-invoices", async (req, res) => {
+router.get("/billing/platform-invoices", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -546,7 +547,7 @@ router.get("/billing/platform-invoices", async (req, res) => {
   }
 });
 
-router.get("/billing/platform-invoices/stats", async (req, res) => {
+router.get("/billing/platform-invoices/stats", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -566,7 +567,7 @@ router.get("/billing/platform-invoices/stats", async (req, res) => {
   }
 });
 
-router.post("/billing/subscribe", async (req, res) => {
+router.post("/billing/subscribe", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -585,7 +586,7 @@ router.post("/billing/subscribe", async (req, res) => {
   }
 });
 
-router.post("/billing/pay/:id", async (req, res) => {
+router.post("/billing/pay/:id", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -596,7 +597,7 @@ router.post("/billing/pay/:id", async (req, res) => {
   }
 });
 
-router.post("/billing/mark-overdue", async (_req, res) => {
+router.post("/billing/mark-overdue", requireAuth, async (_req, res) => {
   try {
     await db.execute(sql`UPDATE platform_billing_invoices SET status='overdue' WHERE status='unpaid' AND due_date < NOW()`);
     res.json({ ok: true });
@@ -608,7 +609,7 @@ router.post("/billing/mark-overdue", async (_req, res) => {
 /* ══════════════════════════════════════════════════════
    BILLING ALERTS (standalone endpoint)
 ══════════════════════════════════════════════════════ */
-router.get("/billing/alerts", async (req, res) => {
+router.get("/billing/alerts", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -674,7 +675,7 @@ router.get("/billing/calc-fee", (req, res) => {
    REVENUE REPORT — تقرير الإيرادات التفصيلي
    GET /api/billing/revenue-report
 ══════════════════════════════════════════════════════ */
-router.get("/billing/revenue-report", async (req, res) => {
+router.get("/billing/revenue-report", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });

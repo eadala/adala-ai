@@ -1,6 +1,8 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -126,7 +128,7 @@ async function processQuery(question: string): Promise<{ response: string; conte
 }
 
 // POST /api/ai-assistant
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const { question } = req.body;
     if (!question?.trim()) return res.status(400).json({ error: "السؤال مطلوب" });
@@ -143,7 +145,7 @@ router.post("/", async (req: Request, res: Response) => {
 });
 
 // GET /api/ai-assistant/history
-router.get("/history", async (req: Request, res: Response) => {
+router.get("/history", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).auth?.userId ?? "anonymous";
     const r = await db.execute(sql`
@@ -160,7 +162,7 @@ router.get("/history", async (req: Request, res: Response) => {
 });
 
 // GET /api/ai-assistant/suggestions
-router.get("/suggestions", async (_req: Request, res: Response) => {
+router.get("/suggestions", requireAuth, async (_req: Request, res: Response) => {
   res.json([
     "ما هي القضايا المفتوحة؟",
     "ما هي الجلسات القادمة؟",

@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 
 const router = Router();
@@ -119,7 +120,7 @@ function generateFallback(): string {
   });
 }
 
-router.post("/judge-prep/generate", async (req, res) => {
+router.post("/judge-prep/generate", requireAuth, async (req, res) => {
   const { caseType, factsummary, judgeStyle, strengths, weaknesses, previousNotes } = req.body;
 
   const caseContext = CASE_TYPE_CONTEXTS[caseType] || CASE_TYPE_CONTEXTS.civil;

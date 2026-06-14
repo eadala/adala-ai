@@ -1,6 +1,8 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -297,7 +299,7 @@ router.get("/ai-models/available", (_req, res) => {
   res.json(getAvailableModels());
 });
 
-router.post("/ai-chat/message", async (req, res) => {
+router.post("/ai-chat/message", requireAuth, async (req, res) => {
   const { message, caseId, history = [], model = "auto" } = req.body as {
     message: string;
     caseId?: number;
@@ -312,7 +314,8 @@ router.post("/ai-chat/message", async (req, res) => {
   let context = "";
   if (caseId) {
     try {
-      const caseRows = await db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} LIMIT 1`) as any;
+      const userId = (req as any).userId;
+      const caseRows = await db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} AND (created_by = ${userId} OR office_id IS NOT NULL) LIMIT 1`) as any;
       const caseArr = Array.isArray(caseRows) ? caseRows : (caseRows?.rows ?? []);
       if (caseArr.length > 0) {
         const c = caseArr[0];
@@ -327,7 +330,7 @@ router.post("/ai-chat/message", async (req, res) => {
   return res.json({ reply, modelUsed });
 });
 
-router.post("/ai-tasks/:id/process", async (req, res) => {
+router.post("/ai-tasks/:id/process", requireAuth, async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: "معرف غير صالح" });
 
@@ -358,7 +361,7 @@ router.post("/ai-tasks/:id/process", async (req, res) => {
   } catch (e: any) { return res.status(500).json({ error: e.message }); }
 });
 
-router.post("/ai-search", async (req, res) => {
+router.post("/ai-search", requireAuth, async (req, res) => {
   const { query } = req.body as { query: string };
   if (!query) return res.status(400).json({ error: "استعلام البحث مطلوب" });
 

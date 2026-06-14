@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -73,7 +74,7 @@ ensurePaymentCols();
 ══════════════════════════════════════════════════ */
 
 /* GET  /api/payments/connect/status */
-router.get("/payments/connect/status", async (req, res) => {
+router.get("/payments/connect/status", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = (req as any).headers["x-office-id"] ?? "default";
     const account = await one(sql`SELECT * FROM office_stripe_accounts WHERE office_id = ${officeId} LIMIT 1`);
@@ -113,7 +114,7 @@ router.get("/payments/connect/status", async (req, res) => {
 });
 
 /* POST /api/payments/connect/create */
-router.post("/payments/connect/create", async (req, res) => {
+router.post("/payments/connect/create", requireAuthWithTenant, async (req, res) => {
   try {
     const { officeId = "default", email, commissionPercent = 10 } = req.body;
     if (!email) return res.status(400).json({ error: "البريد الإلكتروني مطلوب" });
@@ -147,7 +148,7 @@ router.post("/payments/connect/create", async (req, res) => {
 });
 
 /* POST /api/payments/connect/onboarding */
-router.post("/payments/connect/onboarding", async (req, res) => {
+router.post("/payments/connect/onboarding", requireAuthWithTenant, async (req, res) => {
   try {
     const { stripeAccountId } = req.body;
     if (!stripeAccountId) return res.status(400).json({ error: "معرّف الحساب مطلوب" });
@@ -166,7 +167,7 @@ router.post("/payments/connect/onboarding", async (req, res) => {
 });
 
 /* POST /api/payments/connect/login-link */
-router.post("/payments/connect/login-link", async (req, res) => {
+router.post("/payments/connect/login-link", requireAuthWithTenant, async (req, res) => {
   try {
     const { stripeAccountId } = req.body;
     if (!stripeAccountId) return res.status(400).json({ error: "معرّف الحساب مطلوب" });
@@ -179,7 +180,7 @@ router.post("/payments/connect/login-link", async (req, res) => {
 /* ══════════════════════════════════════════════════
    PAYMENT INTENTS (Stripe)
 ══════════════════════════════════════════════════ */
-router.post("/payments/intent", async (req, res) => {
+router.post("/payments/intent", requireAuthWithTenant, async (req, res) => {
   try {
     const {
       amountSAR, description = "دفع خدمة قانونية",
@@ -239,7 +240,7 @@ router.post("/payments/intent", async (req, res) => {
 ══════════════════════════════════════════════════ */
 
 /* GET /api/payments/transactions */
-router.get("/payments/transactions", async (_req, res) => {
+router.get("/payments/transactions", requireAuthWithTenant, async (_req, res) => {
   try {
     const txs = await rows(sql`
       SELECT * FROM payment_transactions ORDER BY created_at DESC LIMIT 200
@@ -249,7 +250,7 @@ router.get("/payments/transactions", async (_req, res) => {
 });
 
 /* POST /api/payments/transactions — manual record */
-router.post("/payments/transactions", async (req, res) => {
+router.post("/payments/transactions", requireAuthWithTenant, async (req, res) => {
   try {
     const {
       officeId = "default", clientName, description, amount,
@@ -285,7 +286,7 @@ router.post("/payments/transactions", async (req, res) => {
 });
 
 /* PATCH /api/payments/transactions/:id/status */
-router.patch("/payments/transactions/:id/status", async (req, res) => {
+router.patch("/payments/transactions/:id/status", requireAuthWithTenant, async (req, res) => {
   try {
     const { status } = req.body;
     await db.execute(sql`
@@ -296,7 +297,7 @@ router.patch("/payments/transactions/:id/status", async (req, res) => {
 });
 
 /* PATCH /api/payments/transactions/:id/settle — mark transaction settled */
-router.patch("/payments/transactions/:id/settle", async (req, res) => {
+router.patch("/payments/transactions/:id/settle", requireAuthWithTenant, async (req, res) => {
   try {
     const { settlementRef = "" } = req.body;
     await db.execute(sql`
@@ -312,7 +313,7 @@ router.patch("/payments/transactions/:id/settle", async (req, res) => {
 });
 
 /* POST /api/payments/batch-settle — settle all completed unsettled */
-router.post("/payments/batch-settle", async (req, res) => {
+router.post("/payments/batch-settle", requireAuthWithTenant, async (req, res) => {
   try {
     const { officeId = "default", settlementRef = "" } = req.body;
     const result = await rows(sql`
@@ -331,7 +332,7 @@ router.post("/payments/batch-settle", async (req, res) => {
 });
 
 /* DELETE /api/payments/transactions/:id */
-router.delete("/payments/transactions/:id", async (req, res) => {
+router.delete("/payments/transactions/:id", requireAuthWithTenant, async (req, res) => {
   try {
     await db.execute(sql`DELETE FROM payment_transactions WHERE id=${req.params.id}::uuid`);
     res.json({ ok: true });
@@ -341,7 +342,7 @@ router.delete("/payments/transactions/:id", async (req, res) => {
 /* ══════════════════════════════════════════════════
    WALLET — settlement breakdown
 ══════════════════════════════════════════════════ */
-router.get("/payments/wallet", async (req, res) => {
+router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = (req as any).headers["x-office-id"] ?? "default";
 
@@ -411,7 +412,7 @@ router.get("/payments/wallet", async (req, res) => {
 });
 
 /* backwards compat */
-router.get("/payments/stats", async (_req, res) => {
+router.get("/payments/stats", requireAuthWithTenant, async (_req, res) => {
   try {
     const totals = await one(sql`
       SELECT
@@ -458,7 +459,7 @@ router.get("/payments/stats", async (_req, res) => {
 ══════════════════════════════════════════════════ */
 
 /* GET /api/payments/moyasar/settings */
-router.get("/payments/moyasar/settings", async (req, res) => {
+router.get("/payments/moyasar/settings", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = (req as any).headers["x-office-id"] ?? "default";
     const s = await one(sql`SELECT * FROM moyasar_settings WHERE office_id=${officeId} LIMIT 1`);
@@ -476,7 +477,7 @@ router.get("/payments/moyasar/settings", async (req, res) => {
 });
 
 /* PUT /api/payments/moyasar/settings */
-router.put("/payments/moyasar/settings", async (req, res) => {
+router.put("/payments/moyasar/settings", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = (req as any).headers["x-office-id"] ?? "default";
     const { publishableKey, secretKey, webhookSecret, testMode = true, enabled = false } = req.body;
@@ -510,7 +511,7 @@ router.put("/payments/moyasar/settings", async (req, res) => {
 ══════════════════════════════════════════════════ */
 
 /* POST /api/payments/payment-link — generate a Moyasar payment page link */
-router.post("/payments/payment-link", async (req, res) => {
+router.post("/payments/payment-link", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = (req as any).headers["x-office-id"] ?? "default";
     const {
@@ -560,7 +561,7 @@ router.post("/payments/payment-link", async (req, res) => {
 });
 
 /* GET /api/payments/moyasar/success — Moyasar redirect back */
-router.get("/payments/moyasar/success", async (req, res) => {
+router.get("/payments/moyasar/success", requireAuthWithTenant, async (req, res) => {
   try {
     const { tx, id: moyasarId, status: mStatus } = req.query as any;
     if (tx) {
@@ -580,7 +581,7 @@ router.get("/payments/moyasar/success", async (req, res) => {
 ══════════════════════════════════════════════════ */
 
 /* GET /api/payments/checkout/settings */
-router.get("/payments/checkout/settings", async (req, res) => {
+router.get("/payments/checkout/settings", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = (req as any).headers["x-office-id"] ?? "default";
     const s = await one(sql`SELECT * FROM checkout_settings WHERE office_id=${officeId} LIMIT 1`);
@@ -597,7 +598,7 @@ router.get("/payments/checkout/settings", async (req, res) => {
 });
 
 /* PUT /api/payments/checkout/settings */
-router.put("/payments/checkout/settings", async (req, res) => {
+router.put("/payments/checkout/settings", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = (req as any).headers["x-office-id"] ?? "default";
     const { secretKey, publicKey, webhookSecret, testMode = true, enabled = false } = req.body;
@@ -624,7 +625,7 @@ router.put("/payments/checkout/settings", async (req, res) => {
 });
 
 /* POST /api/payments/checkout/create-payment */
-router.post("/payments/checkout/create-payment", async (req, res) => {
+router.post("/payments/checkout/create-payment", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = (req as any).headers["x-office-id"] ?? "default";
     const { amountSAR, description = "خدمة قانونية", clientName, clientEmail, invoiceId, caseId, commissionPercent = 10 } = req.body;
@@ -683,7 +684,7 @@ router.post("/payments/checkout/create-payment", async (req, res) => {
 });
 
 /* GET /api/payments/checkout/success — Checkout.com redirect back */
-router.get("/payments/checkout/success", async (req, res) => {
+router.get("/payments/checkout/success", requireAuthWithTenant, async (req, res) => {
   try {
     const { tx, status: cStatus } = req.query as any;
     if (tx) {
@@ -699,7 +700,7 @@ router.get("/payments/checkout/success", async (req, res) => {
 });
 
 /* POST /api/webhook/checkout — Checkout.com webhook */
-router.post("/webhook/checkout", async (req, res) => {
+router.post("/webhook/checkout", requireAuthWithTenant, async (req, res) => {
   try {
     const event = req.body;
     const type  = event?.type ?? "";

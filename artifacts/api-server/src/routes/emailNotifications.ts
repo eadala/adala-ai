@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -48,7 +49,7 @@ async function sqlAll(q: any) {
   } catch { return []; }
 }
 
-router.get("/email-notifications/settings", async (_req, res) => {
+router.get("/email-notifications/settings", requireAuthWithTenant, async (_req, res) => {
   await ensureTables();
   try {
     const row = await sqlOne(sql`SELECT * FROM email_notification_settings WHERE office_id = 'default'`);
@@ -66,7 +67,7 @@ router.get("/email-notifications/settings", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.put("/email-notifications/settings", async (req, res) => {
+router.put("/email-notifications/settings", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const { enabled, smtpHost, smtpPort, smtpUser, smtpPass, fromName, fromEmail, triggers } = req.body;
@@ -94,7 +95,7 @@ router.put("/email-notifications/settings", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/email-notifications/test", async (req, res) => {
+router.post("/email-notifications/test", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const settings = await sqlOne(sql`SELECT * FROM email_notification_settings WHERE office_id = 'default'`);
@@ -137,7 +138,7 @@ router.post("/email-notifications/test", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/email-notifications/run-now", async (_req, res) => {
+router.post("/email-notifications/run-now", requireAuthWithTenant, async (_req, res) => {
   try {
     const { runEmailCron } = await import("../cron/emailCron");
     const result = await runEmailCron();
@@ -145,7 +146,7 @@ router.post("/email-notifications/run-now", async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/email-notifications/logs", async (_req, res) => {
+router.get("/email-notifications/logs", requireAuthWithTenant, async (_req, res) => {
   await ensureTables();
   try {
     const rows = await sqlAll(sql`

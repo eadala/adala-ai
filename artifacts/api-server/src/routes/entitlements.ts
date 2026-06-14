@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 /**
  * Entitlements Routes
  * GET  /api/entitlements          — current office entitlements + usage
@@ -36,7 +37,7 @@ function resolveOfficeId(req: any): string | null {
 }
 
 /* GET /api/entitlements */
-router.get("/entitlements", async (req, res) => {
+router.get("/entitlements", requireAuth, async (req, res) => {
   const officeId = resolveOfficeId(req);
   if (!officeId) return res.status(401).json({ error: "غير مصرح" });
 
@@ -66,7 +67,7 @@ router.get("/entitlements", async (req, res) => {
 });
 
 /* POST /api/entitlements/check — server-side check only, no cross-tenant */
-router.post("/entitlements/check", async (req, res) => {
+router.post("/entitlements/check", requireAuth, async (req, res) => {
   const officeId = resolveOfficeId(req);
   if (!officeId) return res.status(401).json({ error: "غير مصرح" });
 
@@ -78,7 +79,7 @@ router.post("/entitlements/check", async (req, res) => {
 });
 
 /* POST /api/entitlements/increment */
-router.post("/entitlements/increment", async (req, res) => {
+router.post("/entitlements/increment", requireAuth, async (req, res) => {
   const officeId = resolveOfficeId(req);
   if (!officeId) return res.status(401).json({ error: "غير مصرح" });
 
@@ -90,7 +91,7 @@ router.post("/entitlements/increment", async (req, res) => {
 });
 
 /* POST /api/entitlements/provision — manual provisioning (authenticated) */
-router.post("/entitlements/provision", async (req, res) => {
+router.post("/entitlements/provision", requireAuth, async (req, res) => {
   const officeId = resolveOfficeId(req);
   if (!officeId) return res.status(401).json({ error: "غير مصرح" });
 

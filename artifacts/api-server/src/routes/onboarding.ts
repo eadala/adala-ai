@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -28,7 +29,7 @@ async function sqlOne(q: any) {
   } catch { return null; }
 }
 
-router.get("/onboarding/state", async (req, res) => {
+router.get("/onboarding/state", requireAuth, async (req, res) => {
   await ensureTable();
   try {
     const { userId } = getAuth(req as any);
@@ -38,7 +39,7 @@ router.get("/onboarding/state", async (req, res) => {
   } catch { res.json({ completed: false, step: 0, data: {} }); }
 });
 
-router.put("/onboarding/state", async (req, res) => {
+router.put("/onboarding/state", requireAuth, async (req, res) => {
   await ensureTable();
   try {
     const { userId } = getAuth(req as any);

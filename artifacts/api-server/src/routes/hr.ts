@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { employeesTable, attendanceTable, leavesTable, payrollTable, officeLocationTable, employeeWarningsTable, employeeInvestigationsTable } from "@workspace/db/schema";
@@ -24,12 +25,12 @@ const router = Router();
 
 /* ─── EMPLOYEES ─────────────────────────────────────── */
 
-router.get("/hr/employees", async (_req, res) => {
+router.get("/hr/employees", requireAuthWithTenant, async (_req, res) => {
   const rows = await db.select().from(employeesTable).orderBy(desc(employeesTable.createdAt));
   res.json(rows);
 });
 
-router.post("/hr/employees", async (req, res) => {
+router.post("/hr/employees", requireAuthWithTenant, async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
     const { fullName, jobTitle, department, salary, phone, email,
@@ -45,7 +46,7 @@ router.post("/hr/employees", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/hr/employees/:id", async (req, res) => {
+router.patch("/hr/employees/:id", requireAuthWithTenant, async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
     const { fullName, jobTitle, department, salary, phone, email,
@@ -70,7 +71,7 @@ router.patch("/hr/employees/:id", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete("/hr/employees/:id", async (req, res) => {
+router.delete("/hr/employees/:id", requireAuthWithTenant, async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
     await db.delete(employeesTable).where(eq(employeesTable.id, req.params.id));
@@ -78,7 +79,7 @@ router.delete("/hr/employees/:id", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr/employees/stats", async (_req, res) => {
+router.get("/hr/employees/stats", requireAuthWithTenant, async (_req, res) => {
   const all = await db.select().from(employeesTable);
   res.json({
     total: all.length,
@@ -90,7 +91,7 @@ router.get("/hr/employees/stats", async (_req, res) => {
 
 /* ─── ATTENDANCE ─────────────────────────────────────── */
 
-router.get("/hr/attendance", async (req, res) => {
+router.get("/hr/attendance", requireAuthWithTenant, async (req, res) => {
   const { employeeId, date } = req.query as Record<string, string>;
   let q = db.select({
     id: attendanceTable.id,
@@ -116,7 +117,7 @@ router.get("/hr/attendance", async (req, res) => {
   res.json(filtered);
 });
 
-router.post("/hr/attendance/check-in", async (req, res) => {
+router.post("/hr/attendance/check-in", requireAuthWithTenant, async (req, res) => {
   const { employeeId, latitude, longitude } = req.body;
   const today = new Date().toISOString().split("T")[0];
   const existing = await db.select().from(attendanceTable)
@@ -143,7 +144,7 @@ router.post("/hr/attendance/check-in", async (req, res) => {
   res.json({ ...row, distanceMeters });
 });
 
-router.post("/hr/attendance/check-out", async (req, res) => {
+router.post("/hr/attendance/check-out", requireAuthWithTenant, async (req, res) => {
   const { employeeId, latitude, longitude } = req.body;
   const today = new Date().toISOString().split("T")[0];
   const [existing] = await db.select().from(attendanceTable)
@@ -161,12 +162,12 @@ router.post("/hr/attendance/check-out", async (req, res) => {
 
 /* ─── OFFICE LOCATION ─────────────────────────────────────── */
 
-router.get("/hr/office-location", async (_req, res) => {
+router.get("/hr/office-location", requireAuthWithTenant, async (_req, res) => {
   const [office] = await db.select().from(officeLocationTable).where(eq(officeLocationTable.isActive, true));
   res.json(office ?? null);
 });
 
-router.post("/hr/office-location", async (req, res) => {
+router.post("/hr/office-location", requireAuthWithTenant, async (req, res) => {
   const { name, latitude, longitude, radius } = req.body;
   await db.update(officeLocationTable).set({ isActive: false });
   const [row] = await db.insert(officeLocationTable).values({
@@ -179,7 +180,7 @@ router.post("/hr/office-location", async (req, res) => {
   res.json(row);
 });
 
-router.post("/hr/attendance", async (req, res) => {
+router.post("/hr/attendance", requireAuthWithTenant, async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
     const { employeeId, workDate, checkIn, checkOut, status, notes } = req.body;
@@ -194,7 +195,7 @@ router.post("/hr/attendance", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr/attendance/stats", async (_req, res) => {
+router.get("/hr/attendance/stats", requireAuthWithTenant, async (_req, res) => {
   const today = new Date().toISOString().split("T")[0];
   const all = await db.select().from(attendanceTable);
   const todayRows = all.filter(r => r.workDate === today);
@@ -208,7 +209,7 @@ router.get("/hr/attendance/stats", async (_req, res) => {
 
 /* ─── LEAVES ─────────────────────────────────────── */
 
-router.get("/hr/leaves", async (_req, res) => {
+router.get("/hr/leaves", requireAuthWithTenant, async (_req, res) => {
   const rows = await db.select({
     id: leavesTable.id,
     employeeId: leavesTable.employeeId,
@@ -229,7 +230,7 @@ router.get("/hr/leaves", async (_req, res) => {
   res.json(rows);
 });
 
-router.post("/hr/leaves", async (req, res) => {
+router.post("/hr/leaves", requireAuthWithTenant, async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
     const { employeeId, type, startDate, endDate, reason } = req.body;
@@ -243,7 +244,7 @@ router.post("/hr/leaves", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/hr/leaves/:id", async (req, res) => {
+router.patch("/hr/leaves/:id", requireAuthWithTenant, async (req, res) => {
   const { status, approvedBy } = req.body;
   const [row] = await db.update(leavesTable)
     .set({ status, approvedBy, approvedAt: status !== "pending" ? new Date() : undefined })
@@ -251,7 +252,7 @@ router.patch("/hr/leaves/:id", async (req, res) => {
   res.json(row);
 });
 
-router.get("/hr/leaves/stats", async (_req, res) => {
+router.get("/hr/leaves/stats", requireAuthWithTenant, async (_req, res) => {
   const all = await db.select().from(leavesTable);
   res.json({
     pending: all.filter(l => l.status === "pending").length,
@@ -263,7 +264,7 @@ router.get("/hr/leaves/stats", async (_req, res) => {
 
 /* ─── PAYROLL ─────────────────────────────────────── */
 
-router.get("/hr/payroll", async (_req, res) => {
+router.get("/hr/payroll", requireAuthWithTenant, async (_req, res) => {
   const rows = await db.select({
     id: payrollTable.id,
     employeeId: payrollTable.employeeId,
@@ -286,7 +287,7 @@ router.get("/hr/payroll", async (_req, res) => {
   res.json(rows);
 });
 
-router.post("/hr/payroll/generate", async (req, res) => {
+router.post("/hr/payroll/generate", requireAuthWithTenant, async (req, res) => {
   const { month, year } = req.body;
   const employees = await db.select().from(employeesTable).where(eq(employeesTable.status, "active"));
   const entries = [];
@@ -307,14 +308,14 @@ router.post("/hr/payroll/generate", async (req, res) => {
   res.json({ generated: entries.length, entries });
 });
 
-router.patch("/hr/payroll/:id/pay", async (req, res) => {
+router.patch("/hr/payroll/:id/pay", requireAuthWithTenant, async (req, res) => {
   const [row] = await db.update(payrollTable)
     .set({ status: "paid", paidAt: new Date() })
     .where(eq(payrollTable.id, req.params.id)).returning();
   res.json(row);
 });
 
-router.patch("/hr/payroll/pay-all", async (req, res) => {
+router.patch("/hr/payroll/pay-all", requireAuthWithTenant, async (req, res) => {
   const { month, year } = req.body;
   await db.update(payrollTable)
     .set({ status: "paid", paidAt: new Date() })
@@ -324,7 +325,7 @@ router.patch("/hr/payroll/pay-all", async (req, res) => {
 
 /* ─── WARNINGS ─────────────────────────────────────── */
 
-router.get("/hr/warnings", async (_req, res) => {
+router.get("/hr/warnings", requireAuthWithTenant, async (_req, res) => {
   const rows = await db.select({
     id: employeeWarningsTable.id,
     employeeId: employeeWarningsTable.employeeId,
@@ -345,7 +346,7 @@ router.get("/hr/warnings", async (_req, res) => {
   res.json(rows);
 });
 
-router.post("/hr/warnings", async (req, res) => {
+router.post("/hr/warnings", requireAuthWithTenant, async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
     const { employeeId, type, reason, description, issuedBy } = req.body;
@@ -358,7 +359,7 @@ router.post("/hr/warnings", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/hr/warnings/:id", async (req, res) => {
+router.patch("/hr/warnings/:id", requireAuthWithTenant, async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
     const { status, appealNotes } = req.body;
@@ -372,7 +373,7 @@ router.patch("/hr/warnings/:id", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete("/hr/warnings/:id", async (req, res) => {
+router.delete("/hr/warnings/:id", requireAuthWithTenant, async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
     await db.delete(employeeWarningsTable).where(eq(employeeWarningsTable.id, req.params.id));
@@ -382,7 +383,7 @@ router.delete("/hr/warnings/:id", async (req, res) => {
 
 /* ─── INVESTIGATIONS ─────────────────────────────────────── */
 
-router.get("/hr/investigations", async (_req, res) => {
+router.get("/hr/investigations", requireAuthWithTenant, async (_req, res) => {
   const rows = await db.select({
     id: employeeInvestigationsTable.id,
     employeeId: employeeInvestigationsTable.employeeId,
@@ -406,7 +407,7 @@ router.get("/hr/investigations", async (_req, res) => {
   res.json(rows);
 });
 
-router.post("/hr/investigations", async (req, res) => {
+router.post("/hr/investigations", requireAuthWithTenant, async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
     const { employeeId, subject, description, openedBy, committee, sessionDate } = req.body;
@@ -420,7 +421,7 @@ router.post("/hr/investigations", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/hr/investigations/:id", async (req, res) => {
+router.patch("/hr/investigations/:id", requireAuthWithTenant, async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
     const { status, outcome, notes, committee, sessionDate } = req.body;
@@ -437,7 +438,7 @@ router.patch("/hr/investigations/:id", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete("/hr/investigations/:id", async (req, res) => {
+router.delete("/hr/investigations/:id", requireAuthWithTenant, async (req, res) => {
   try {
     if (!requireAuth(req, res)) return;
     await db.delete(employeeInvestigationsTable)
@@ -446,7 +447,7 @@ router.delete("/hr/investigations/:id", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr/payroll/stats", async (_req, res) => {
+router.get("/hr/payroll/stats", requireAuthWithTenant, async (_req, res) => {
   const all = await db.select().from(payrollTable);
   res.json({
     totalPaid: all.filter(p => p.status === "paid").reduce((s, p) => s + parseFloat(String(p.netSalary) || "0"), 0),

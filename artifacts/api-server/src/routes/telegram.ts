@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -118,7 +119,7 @@ export async function notifyTelegramCaseStatus(updatedCase: any) {
 }
 
 // ── GET /telegram/settings ────────────────────────────────────────────────────
-router.get("/telegram/settings", async (req: Request, res: Response) => {
+router.get("/telegram/settings", requireAuthWithTenant, async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -133,7 +134,7 @@ router.get("/telegram/settings", async (req: Request, res: Response) => {
 });
 
 // ── PATCH /telegram/settings ─────────────────────────────────────────────────
-router.patch("/telegram/settings", async (req: Request, res: Response) => {
+router.patch("/telegram/settings", requireAuthWithTenant, async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -170,7 +171,7 @@ router.patch("/telegram/settings", async (req: Request, res: Response) => {
 });
 
 // ── POST /telegram/test ───────────────────────────────────────────────────────
-router.post("/telegram/test", async (req: Request, res: Response) => {
+router.post("/telegram/test", requireAuthWithTenant, async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -197,7 +198,7 @@ router.post("/telegram/test", async (req: Request, res: Response) => {
 });
 
 // ── POST /telegram/send (manual send) ────────────────────────────────────────
-router.post("/telegram/send", async (req: Request, res: Response) => {
+router.post("/telegram/send", requireAuthWithTenant, async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -218,7 +219,7 @@ router.post("/telegram/send", async (req: Request, res: Response) => {
 
 // ── POST /telegram/forward-file ───────────────────────────────────────────────
 // Forward a file URL to the Telegram channel as backup storage
-router.post("/telegram/forward-file", async (req: Request, res: Response) => {
+router.post("/telegram/forward-file", requireAuthWithTenant, async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -250,7 +251,7 @@ router.post("/telegram/forward-file", async (req: Request, res: Response) => {
 });
 
 // ── GET /telegram/bot-info ────────────────────────────────────────────────────
-router.get("/telegram/bot-info", async (req: Request, res: Response) => {
+router.get("/telegram/bot-info", requireAuthWithTenant, async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
@@ -262,7 +263,7 @@ router.get("/telegram/bot-info", async (req: Request, res: Response) => {
 });
 
 // ── GET /telegram/logs ────────────────────────────────────────────────────────
-router.get("/telegram/logs", async (req: Request, res: Response) => {
+router.get("/telegram/logs", requireAuthWithTenant, async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   await ensureTables();
   try {

@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db, messagesTable, casesTable } from "@workspace/db";
 import { ListMessagesQueryParams, SendMessageBody } from "@workspace/api-zod";
@@ -40,7 +41,7 @@ async function canReplyToClient(u: NonNullable<Awaited<ReturnType<typeof getMsgU
 }
 
 // ── GET /messages/conversations  — grouped view ───────────────────────────────
-router.get("/messages/conversations", async (req, res) => {
+router.get("/messages/conversations", requireAuth, async (req, res) => {
   try {
     const msgs = await db.select().from(messagesTable).orderBy(messagesTable.createdAt);
     const allCases = await db.select({ id: casesTable.id, title: casesTable.title }).from(casesTable);
@@ -86,7 +87,7 @@ router.get("/messages/conversations", async (req, res) => {
 });
 
 // ── GET /messages  — flat list ────────────────────────────────────────────────
-router.get("/messages", async (req, res) => {
+router.get("/messages", requireAuth, async (req, res) => {
   try {
     const query = ListMessagesQueryParams.parse(req.query);
     let msgs = await db.select().from(messagesTable).orderBy(messagesTable.createdAt);
@@ -109,7 +110,7 @@ router.get("/messages", async (req, res) => {
   }
 });
 
-router.post("/messages", async (req, res) => {
+router.post("/messages", requireAuth, async (req, res) => {
   // Outbound messages (to clients) require reply permission
   const u = await getMsgUser(req);
   if (!u) { res.status(401).json({ error: "يجب تسجيل الدخول لإرسال رسائل" }); return; }

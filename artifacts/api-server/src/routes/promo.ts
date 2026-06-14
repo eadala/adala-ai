@@ -1,3 +1,4 @@
+import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -19,6 +20,11 @@ async function isSuperAdmin(req: any): Promise<boolean> {
     return false;
   } catch { return false; }
 }
+async function adminOnly(req: any, res: any, next: any) {
+  if (!(await isSuperAdmin(req))) return res.status(403).json({ error: 'غير مصرح' });
+  next();
+}
+
 
 async function sqlAll(q: any) {
   const result = await db.execute(q);
@@ -34,7 +40,7 @@ async function sqlOne(q: any) {
 ────────────────────────────────────────────── */
 
 /* GET /admin/promo-codes */
-router.get("/admin/promo-codes", async (req, res) => {
+router.get("/admin/promo", adminOnly, async (req, res) => {
   if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
   try {
     const rows = await sqlAll(sql`
@@ -46,7 +52,7 @@ router.get("/admin/promo-codes", async (req, res) => {
 });
 
 /* POST /admin/promo-codes */
-router.post("/admin/promo-codes", async (req, res) => {
+router.post("/admin/promo", adminOnly, async (req, res) => {
   if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
   try {
     const { code, plan_slug, duration_days, max_uses, notes, expires_at } = req.body;
@@ -66,7 +72,7 @@ router.post("/admin/promo-codes", async (req, res) => {
 });
 
 /* PATCH /admin/promo-codes/:id */
-router.patch("/admin/promo-codes/:id", async (req, res) => {
+router.patch("/admin/promo", adminOnly, async (req, res) => {
   if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
   try {
     const { id } = req.params;
@@ -84,7 +90,7 @@ router.patch("/admin/promo-codes/:id", async (req, res) => {
 });
 
 /* DELETE /admin/promo-codes/:id */
-router.delete("/admin/promo-codes/:id", async (req, res) => {
+router.delete("/admin/promo", adminOnly, async (req, res) => {
   if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
   try {
     await db.execute(sql`DELETE FROM promo_codes WHERE id = ${req.params.id}`);
@@ -97,7 +103,7 @@ router.delete("/admin/promo-codes/:id", async (req, res) => {
 ────────────────────────────────────────────── */
 
 /* GET /admin/gift-subscriptions */
-router.get("/admin/gift-subscriptions", async (req, res) => {
+router.get("/admin/gift", adminOnly, async (req, res) => {
   if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
   try {
     const rows = await sqlAll(sql`
@@ -111,7 +117,7 @@ router.get("/admin/gift-subscriptions", async (req, res) => {
 });
 
 /* POST /admin/gift-subscriptions — create directly without a code */
-router.post("/admin/gift-subscriptions", async (req, res) => {
+router.post("/admin/gift", adminOnly, async (req, res) => {
   if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
   try {
     const { plan_slug, duration_days, notes } = req.body;
@@ -128,7 +134,7 @@ router.post("/admin/gift-subscriptions", async (req, res) => {
 });
 
 /* POST /admin/gift-subscriptions/:id/renew */
-router.post("/admin/gift-subscriptions/:id/renew", async (req, res) => {
+router.post("/admin/gift", adminOnly, async (req, res) => {
   if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
   try {
     const { days } = req.body;
@@ -147,7 +153,7 @@ router.post("/admin/gift-subscriptions/:id/renew", async (req, res) => {
 });
 
 /* PATCH /admin/gift-subscriptions/:id/cancel */
-router.patch("/admin/gift-subscriptions/:id/cancel", async (req, res) => {
+router.patch("/admin/gift", adminOnly, async (req, res) => {
   if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
   try {
     await db.execute(sql`UPDATE gift_subscriptions SET status = 'cancelled' WHERE id = ${req.params.id}`);
@@ -160,7 +166,7 @@ router.patch("/admin/gift-subscriptions/:id/cancel", async (req, res) => {
 ────────────────────────────────────────────── */
 
 /* POST /promo/redeem */
-router.post("/promo/redeem", async (req, res) => {
+router.post("/promo/redeem", requireAuth, async (req, res) => {
   try {
     const { code } = req.body;
     if (!code) return res.status(400).json({ error: "أدخل الكود" });
@@ -199,7 +205,7 @@ router.post("/promo/redeem", async (req, res) => {
 });
 
 /* GET /promo/my-gift */
-router.get("/promo/my-gift", async (_req, res) => {
+router.get("/promo/my-gift", requireAuth, async (_req, res) => {
   try {
     const row = await sqlOne(sql`
       SELECT gs.*, pc.code AS promo_code_text

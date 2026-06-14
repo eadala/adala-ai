@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -15,7 +16,7 @@ function sqlOne(r: any): any {
   return rows[0] ?? null;
 }
 
-router.get("/office-tasks", async (_req, res) => {
+router.get("/office-tasks", requireAuthWithTenant, async (_req, res) => {
   try {
     const r = await db.execute(sql`
       SELECT * FROM tasks ORDER BY
@@ -29,7 +30,7 @@ router.get("/office-tasks", async (_req, res) => {
   }
 });
 
-router.get("/office-tasks/stats", async (_req, res) => {
+router.get("/office-tasks/stats", requireAuthWithTenant, async (_req, res) => {
   try {
     const r = await db.execute(sql`
       SELECT
@@ -46,7 +47,7 @@ router.get("/office-tasks/stats", async (_req, res) => {
   }
 });
 
-router.post("/office-tasks", async (req, res) => {
+router.post("/office-tasks", requireAuthWithTenant, async (req, res) => {
   try {
     const { title, description, status = "todo", priority = "medium", assigneeName, dueDate, caseTitle, tags, createdBy } = req.body;
     if (!title) return res.status(400).json({ error: "عنوان المهمة مطلوب" });
@@ -66,7 +67,7 @@ router.post("/office-tasks", async (req, res) => {
   }
 });
 
-router.patch("/office-tasks/:id", async (req, res) => {
+router.patch("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, status, priority, assigneeName, dueDate, caseTitle, tags } = req.body;
@@ -89,7 +90,7 @@ router.patch("/office-tasks/:id", async (req, res) => {
   }
 });
 
-router.delete("/office-tasks/:id", async (req, res) => {
+router.delete("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
   try {
     await db.execute(sql`DELETE FROM tasks WHERE id = ${req.params.id}::uuid`);
     res.json({ ok: true });

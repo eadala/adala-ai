@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 /**
  * Arbitration routes — fixed:
  *  1. Added auth (getAuth) to all write operations
@@ -21,7 +22,7 @@ async function dbRows(q: any): Promise<any[]> {
   } catch { return []; }
 }
 
-router.get("/arbitration/cases", async (req, res) => {
+router.get("/arbitration/cases", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -33,7 +34,7 @@ router.get("/arbitration/cases", async (req, res) => {
   }
 });
 
-router.post("/arbitration/cases", async (req, res) => {
+router.post("/arbitration/cases", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -64,7 +65,7 @@ router.post("/arbitration/cases", async (req, res) => {
   }
 });
 
-router.patch("/arbitration/cases/:id", async (req, res) => {
+router.patch("/arbitration/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -93,7 +94,7 @@ router.patch("/arbitration/cases/:id", async (req, res) => {
   }
 });
 
-router.delete("/arbitration/cases/:id", async (req, res) => {
+router.delete("/arbitration/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -106,7 +107,7 @@ router.delete("/arbitration/cases/:id", async (req, res) => {
   }
 });
 
-router.post("/arbitration/cases/:id/session", async (req, res) => {
+router.post("/arbitration/cases/:id/session", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -139,7 +140,7 @@ router.post("/arbitration/cases/:id/session", async (req, res) => {
   }
 });
 
-router.post("/arbitration/cases/:id/generate-decision", async (req, res) => {
+router.post("/arbitration/cases/:id/generate-decision", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -210,7 +211,7 @@ router.post("/arbitration/cases/:id/generate-decision", async (req, res) => {
   }
 });
 
-router.get("/arbitration/stats", async (req, res) => {
+router.get("/arbitration/stats", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });

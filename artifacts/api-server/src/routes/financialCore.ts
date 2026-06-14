@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 /**
  * Financial Core System — عدالة AI
  * Double-entry Ledger + Wallets + Payouts + Settlement Engine + Dashboard
@@ -97,7 +98,7 @@ ensureFinancialCoreTables();
 /* ════════════════════════════════════════════════
    PLATFORM DASHBOARD
 ════════════════════════════════════════════════ */
-router.get("/fincore/dashboard", async (_req, res) => {
+router.get("/fincore/dashboard", requireAuthWithTenant, async (_req, res) => {
   try {
     /* Revenue from payment_transactions */
     const revenue = await one(sql`
@@ -184,7 +185,7 @@ router.get("/fincore/dashboard", async (_req, res) => {
 /* ════════════════════════════════════════════════
    LEDGER
 ════════════════════════════════════════════════ */
-router.get("/fincore/ledger", async (req, res) => {
+router.get("/fincore/ledger", requireAuthWithTenant, async (req, res) => {
   try {
     const { limit = 100, offset = 0 } = req.query;
     const entries = await rows(sql`
@@ -198,7 +199,7 @@ router.get("/fincore/ledger", async (req, res) => {
 });
 
 /* POST /api/fincore/ledger — create double-entry */
-router.post("/fincore/ledger", async (req, res) => {
+router.post("/fincore/ledger", requireAuthWithTenant, async (req, res) => {
   try {
     const { debitAccount, creditAccount, amount, currency = "SAR", description, entryType = "payment", transactionRef } = req.body;
     if (!debitAccount || !creditAccount || !amount) return res.status(400).json({ error: "الحقول مطلوبة" });
@@ -237,7 +238,7 @@ router.post("/fincore/ledger", async (req, res) => {
 /* ════════════════════════════════════════════════
    WALLETS
 ════════════════════════════════════════════════ */
-router.get("/fincore/wallets", async (_req, res) => {
+router.get("/fincore/wallets", requireAuthWithTenant, async (_req, res) => {
   try {
     const wallets = await rows(sql`SELECT * FROM wallets ORDER BY available_balance DESC`);
     res.json(wallets);
@@ -245,7 +246,7 @@ router.get("/fincore/wallets", async (_req, res) => {
 });
 
 /* GET /api/fincore/wallets/:ownerId */
-router.get("/fincore/wallets/:ownerId", async (req, res) => {
+router.get("/fincore/wallets/:ownerId", requireAuthWithTenant, async (req, res) => {
   try {
     const wallet = await one(sql`SELECT * FROM wallets WHERE owner_id = ${req.params.ownerId} LIMIT 1`);
     if (!wallet) return res.json({ owner_id: req.params.ownerId, available_balance: 0, pending_balance: 0 });
@@ -254,7 +255,7 @@ router.get("/fincore/wallets/:ownerId", async (req, res) => {
 });
 
 /* POST /api/fincore/wallets/credit — credit wallet */
-router.post("/fincore/wallets/credit", async (req, res) => {
+router.post("/fincore/wallets/credit", requireAuthWithTenant, async (req, res) => {
   try {
     const { ownerId, ownerLabel, amount, type = "available" } = req.body;
     if (!ownerId || !amount) return res.status(400).json({ error: "المعطيات مطلوبة" });
@@ -285,7 +286,7 @@ router.post("/fincore/wallets/credit", async (req, res) => {
 /* ════════════════════════════════════════════════
    PAYOUTS
 ════════════════════════════════════════════════ */
-router.get("/fincore/payouts", async (req, res) => {
+router.get("/fincore/payouts", requireAuthWithTenant, async (req, res) => {
   try {
     const { status } = req.query;
     const payouts = status
@@ -296,7 +297,7 @@ router.get("/fincore/payouts", async (req, res) => {
 });
 
 /* POST /api/fincore/payouts — create payout */
-router.post("/fincore/payouts", async (req, res) => {
+router.post("/fincore/payouts", requireAuthWithTenant, async (req, res) => {
   try {
     const { officeId, ownerLabel, amount, platformFee = 0, notes } = req.body;
     if (!officeId || !amount) return res.status(400).json({ error: "معرف المكتب والمبلغ مطلوبان" });
@@ -314,7 +315,7 @@ router.post("/fincore/payouts", async (req, res) => {
 });
 
 /* PATCH /api/fincore/payouts/:id/process — move to processing/sent */
-router.patch("/fincore/payouts/:id/process", async (req, res) => {
+router.patch("/fincore/payouts/:id/process", requireAuthWithTenant, async (req, res) => {
   try {
     const { status = "processing", bankReference, provider = "manual" } = req.body;
     await db.execute(sql`
@@ -331,7 +332,7 @@ router.patch("/fincore/payouts/:id/process", async (req, res) => {
 });
 
 /* DELETE /api/fincore/payouts/:id */
-router.delete("/fincore/payouts/:id", async (req, res) => {
+router.delete("/fincore/payouts/:id", requireAuthWithTenant, async (req, res) => {
   try {
     await db.execute(sql`DELETE FROM lawyer_payouts WHERE id = ${req.params.id}::uuid`);
     res.json({ ok: true });
@@ -339,7 +340,7 @@ router.delete("/fincore/payouts/:id", async (req, res) => {
 });
 
 /* POST /api/fincore/settlement — daily settlement run */
-router.post("/fincore/settlement", async (req, res) => {
+router.post("/fincore/settlement", requireAuthWithTenant, async (req, res) => {
   try {
     const pending = await rows(sql`SELECT * FROM lawyer_payouts WHERE status = 'pending'`);
     const results: any[] = [];
@@ -383,7 +384,7 @@ router.get("/fincore/providers", (_req, res) => {
   res.json(PaymentService.listProviders());
 });
 
-router.post("/fincore/pay", async (req, res) => {
+router.post("/fincore/pay", requireAuthWithTenant, async (req, res) => {
   try {
     const { provider = "stripe", ...data } = req.body;
     if (!data.amount) return res.status(400).json({ error: "المبلغ مطلوب" });
@@ -392,7 +393,7 @@ router.post("/fincore/pay", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/fincore/refund", async (req, res) => {
+router.post("/fincore/refund", requireAuthWithTenant, async (req, res) => {
   try {
     const { provider = "stripe", paymentId, amount } = req.body;
     if (!paymentId) return res.status(400).json({ error: "معرف الدفعة مطلوب" });
@@ -404,7 +405,7 @@ router.post("/fincore/refund", async (req, res) => {
 /* ════════════════════════════════════════════════
    REPORTS
 ════════════════════════════════════════════════ */
-router.get("/fincore/reports", async (req, res) => {
+router.get("/fincore/reports", requireAuthWithTenant, async (req, res) => {
   try {
     const { period = "6m" } = req.query;
     const interval = period === "1y" ? "12 months" : period === "3m" ? "3 months" : "6 months";

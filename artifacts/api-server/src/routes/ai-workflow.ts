@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db, casesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
@@ -46,7 +47,7 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
 }
 
 // ─── POST /ai-workflow/run ────────────────────────────────────────────────────
-router.post("/ai-workflow/run", async (req: Request, res: Response) => {
+router.post("/ai-workflow/run", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { caseId, userId } = req.body;
     if (!caseId) { res.status(400).json({ error: "caseId مطلوب" }); return; }
@@ -136,7 +137,7 @@ router.post("/ai-workflow/run", async (req: Request, res: Response) => {
 });
 
 // ─── GET /ai-workflow/:caseId ─────────────────────────────────────────────────
-router.get("/ai-workflow/:caseId", async (req: Request, res: Response) => {
+router.get("/ai-workflow/:caseId", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { caseId } = req.params;
     const rows = await db.execute(sql`

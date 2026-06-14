@@ -1,3 +1,4 @@
+import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db, casesTable, documentsTable, aiTasksTable, usersTable, messagesTable, clientInvoicesTable as invoicesTable, clientsTable, contractsTable } from "@workspace/db";
 import { sql, desc, gte, and, eq } from "drizzle-orm";
@@ -5,7 +6,7 @@ import { sql, desc, gte, and, eq } from "drizzle-orm";
 const router = Router();
 
 // ─── GET /dashboard/overview ──────────────────────────────────────────────────
-router.get("/dashboard/overview", async (req, res) => {
+router.get("/dashboard/overview", requireAuthWithTenant, async (req, res) => {
   try {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -136,7 +137,7 @@ router.get("/dashboard/overview", async (req, res) => {
 });
 
 // Keep old endpoints for backward compatibility
-router.get("/dashboard/stats", async (req, res) => {
+router.get("/dashboard/stats", requireAuthWithTenant, async (req, res) => {
   try {
     const [cases, docs, tasks, users, _inv2] = await Promise.all([
       db.select().from(casesTable),
@@ -160,7 +161,7 @@ router.get("/dashboard/stats", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/dashboard/recent-activity", async (req, res) => {
+router.get("/dashboard/recent-activity", requireAuthWithTenant, async (req, res) => {
   try {
     const [cases, docs, tasks, msgs] = await Promise.all([
       db.select().from(casesTable).orderBy(desc(casesTable.createdAt)).limit(5),
@@ -178,7 +179,7 @@ router.get("/dashboard/recent-activity", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/dashboard/case-breakdown", async (req, res) => {
+router.get("/dashboard/case-breakdown", requireAuthWithTenant, async (req, res) => {
   try {
     const cases = await db.select().from(casesTable);
     const byType: Record<string, number> = {};
@@ -188,7 +189,7 @@ router.get("/dashboard/case-breakdown", async (req, res) => {
 });
 
 /* ─── GET /dashboard/executive — مركز القيادة التنفيذي ───────────────────── */
-router.get("/dashboard/executive", async (req, res) => {
+router.get("/dashboard/executive", requireAuthWithTenant, async (req, res) => {
   try {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -267,7 +268,7 @@ router.get("/dashboard/executive", async (req, res) => {
 });
 
 /* ─── GET /dashboard/intelligence — Office AI Intelligence ──────────────── */
-router.get("/dashboard/intelligence", async (req, res) => {
+router.get("/dashboard/intelligence", requireAuthWithTenant, async (req, res) => {
   try {
     const now = new Date();
     const start7  = new Date(now); start7.setDate(now.getDate() - 7);
