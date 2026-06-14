@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient, useQuery } from "@tanstack/react-query";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, ClerkLoading, ClerkLoaded } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
@@ -267,14 +267,21 @@ function RoleAwareRedirect() {
 function HomeRedirect() {
   return (
     <>
-      <Show when="signed-in">
-        <RoleAwareRedirect />
-      </Show>
-      <Show when="signed-out">
-        <Suspense fallback={<div className="min-h-screen bg-[#0F1B35]" />}>
-          <Landing />
-        </Suspense>
-      </Show>
+      <ClerkLoading>
+        <div className="min-h-screen flex items-center justify-center" style={{ background: "#0F1B35" }}>
+          <div className="w-10 h-10 rounded-full border-2 border-[#C9A84C] border-t-transparent animate-spin" />
+        </div>
+      </ClerkLoading>
+      <ClerkLoaded>
+        <Show when="signed-in">
+          <RoleAwareRedirect />
+        </Show>
+        <Show when="signed-out">
+          <Suspense fallback={<div className="min-h-screen bg-[#0F1B35]" />}>
+            <Landing />
+          </Suspense>
+        </Show>
+      </ClerkLoaded>
     </>
   );
 }
