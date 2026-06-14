@@ -168,4 +168,9 @@ router.use(financialCoreRouter);
 router.use(eventsRouter);
 router.use(pushRouter);
 
+import aiEventsRouter from "./aiEvents";
+import searchRouter from "./search";
+router.use(aiEventsRouter);
+router.use(searchRouter);
+
 export default router;

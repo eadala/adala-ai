@@ -49,3 +49,4 @@
 - [Adala Payment Center](adala-payment-center.md) — Settlement system + Moyasar gateway + 6-tab dashboard; settlement_status separate from payment status; getUncachableStripeClient() always
 - [Adala Checkout.com](adala-checkout.md) — user requested Checkout.com+Mada+Apple Pay as MENA payment gateway alongside Stripe; Tabby/Tamara for installments
 - [Adala Floating Copilot](adala-copilot.md) — /api/copilot/chat+snapshot routes; FloatingCopilot in layout.tsx; full Gemini context + action parsing
+- [Adala Command Bar](adala-command-bar.md) — ⌘K global palette; window.__openCommandBar(); routes at /search/global; router mounted at /api so no /api prefix in route files
