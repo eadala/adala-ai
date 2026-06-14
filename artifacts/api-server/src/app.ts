@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import path from "path";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import helmet from "helmet";
@@ -105,5 +106,27 @@ app.use(
 );
 
 app.use("/api", router);
+
+/* ── SPA fallback — production only ──
+   Serves the built React frontend for any route not handled by /api.
+   This fixes direct-link navigation (e.g. /firms/slug, /dashboard).    */
+if (process.env.NODE_ENV === "production") {
+  const frontendDist = path.resolve("artifacts/adala/dist/public");
+  const mobileDist   = path.resolve("artifacts/adala-mobile/dist/public");
+
+  // Static assets for each app
+  app.use("/adala-mobile", express.static(mobileDist));
+  app.use(express.static(frontendDist));
+
+  // /adala-mobile/* → mobile index.html
+  app.use("/adala-mobile", (_req, res) => {
+    res.sendFile(path.join(mobileDist, "index.html"));
+  });
+
+  // All other routes → main app index.html
+  app.use((_req, res) => {
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 export default app;
