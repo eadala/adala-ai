@@ -4,6 +4,16 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
+// Ensure case_id column exists on office_messages
+async function ensureCaseIdColumn() {
+  try {
+    await db.execute(sql`
+      ALTER TABLE office_messages ADD COLUMN IF NOT EXISTS case_id INTEGER REFERENCES cases(id) ON DELETE SET NULL
+    `);
+  } catch (_) {}
+}
+ensureCaseIdColumn();
+
 function getClientIp(req: Request): string {
   const forwarded = req.headers["x-forwarded-for"];
   if (forwarded) return String(forwarded).split(",")[0].trim();
@@ -191,10 +201,39 @@ router.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/internal-messages/case/:caseId — messages for a specific case
+router.get("/case/:caseId", async (req: Request, res: Response) => {
+  try {
+    const { caseId } = req.params;
+    const userId = (req as any).auth?.userId ?? "anonymous";
+
+    const q = await db.execute(sql`
+      SELECT m.id, m.subject, m.body, m.sender_id, m.sender_name,
+             m.sender_ip, m.device_info, m.folder, m.tags, m.created_at, m.case_id,
+        COALESCE(
+          json_agg(DISTINCT jsonb_build_object(
+            'userId', r.user_id, 'userName', r.user_name,
+            'isRead', r.is_read, 'readAt', r.read_at
+          )) FILTER (WHERE r.id IS NOT NULL), '[]'
+        ) AS recipients
+      FROM office_messages m
+      LEFT JOIN office_message_recipients r ON r.message_id = m.id
+      WHERE m.case_id = ${Number(caseId)}
+      GROUP BY m.id
+      ORDER BY m.created_at DESC
+      LIMIT 100
+    `);
+
+    res.json(q.rows ?? []);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // POST /api/internal-messages
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { subject, body, recipients = [], attachments = [], folder = "sent", tags = [] } = req.body;
+    const { subject, body, recipients = [], attachments = [], folder = "sent", tags = [], caseId } = req.body;
     const userId = (req as any).auth?.userId ?? "anonymous";
     const senderName = (req as any).auth?.sessionClaims?.fullName ?? "المرسِل";
     const ip = getClientIp(req);
@@ -202,9 +241,10 @@ router.post("/", async (req: Request, res: Response) => {
     const tagsArr = `{${(tags as string[]).join(",")}}`;
 
     const ins = await db.execute(sql`
-      INSERT INTO office_messages (subject, body, sender_id, sender_name, sender_ip, device_info, folder, tags)
-      VALUES (${subject}, ${body}, ${userId}, ${senderName}, ${ip}, ${device}, ${folder}, ${tagsArr})
-      RETURNING id, subject, body, sender_id, sender_name, folder, created_at
+      INSERT INTO office_messages (subject, body, sender_id, sender_name, sender_ip, device_info, folder, tags, case_id)
+      VALUES (${subject}, ${body}, ${userId}, ${senderName}, ${ip}, ${device}, ${folder}, ${tagsArr},
+              ${caseId ? Number(caseId) : null})
+      RETURNING id, subject, body, sender_id, sender_name, folder, created_at, case_id
     `);
 
     const msg = ins.rows[0] as any;
