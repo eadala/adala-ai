@@ -126,10 +126,12 @@ router.post("/office/my", async (req, res) => {
   res.json(row);
 });
 
-/* PATCH update office */
+/* PATCH update office — slug is platform-only, stripped here */
 router.patch("/office/my/:id", async (req, res) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { slug: _slug, ...safeBody } = req.body;
   const [row] = await db.update(officePageTable)
-    .set({ ...req.body, updatedAt: new Date() })
+    .set({ ...safeBody, updatedAt: new Date() })
     .where(eq(officePageTable.id, req.params.id)).returning();
   res.json(row);
 });

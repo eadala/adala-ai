@@ -258,11 +258,30 @@ const PLAN_SLUG_LABELS: Record<string, string> = {
   business:     "أعمال (قديم)",
 };
 
+/* Arabic → Latin slug suggestion helper */
+function arabicToSlug(name: string): string {
+  const map: Record<string, string> = {
+    'ا':'a','أ':'a','إ':'a','آ':'aa','ب':'b','ت':'t','ث':'th','ج':'j','ح':'h','خ':'kh',
+    'د':'d','ذ':'dh','ر':'r','ز':'z','س':'s','ش':'sh','ص':'s','ض':'d','ط':'t','ظ':'z',
+    'ع':'a','غ':'gh','ف':'f','ق':'q','ك':'k','ل':'l','م':'m','ن':'n','ه':'h','و':'w',
+    'ي':'y','ى':'a','ة':'a','ء':'','ئ':'y','ؤ':'w','لا':'la','ال':'al',
+  };
+  let result = '';
+  for (const ch of name) {
+    if (map[ch] !== undefined) result += map[ch];
+    else if (/[a-z0-9]/i.test(ch)) result += ch.toLowerCase();
+    else if (/\s/.test(ch)) result += '-';
+  }
+  return result.replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || `office-${Date.now().toString(36)}`;
+}
+
 function OfficesTab({ qc, toast }: any) {
   const { data: offices = [], isLoading } = useAdmin<any[]>("/offices");
   const { data: plans = [] } = useAdmin<any[]>("/plans");
   const [search, setSearch] = useState("");
   const [planDialog, setPlanDialog] = useState<any>(null); // { id, currentPlan }
+  const [slugDialog, setSlugDialog] = useState<any>(null); // { id, name, slug }
+  const [slugInput, setSlugInput] = useState("");
 
   const updateOffice = useMutation({
     mutationFn: ({ id, ...d }: any) => API(`/offices/${id}`, { method: "PATCH", body: JSON.stringify(d) }),
@@ -270,6 +289,7 @@ function OfficesTab({ qc, toast }: any) {
       qc.invalidateQueries({ queryKey: ["admin", "/offices"] });
       toast({ title: "تم التحديث ✓" });
       setPlanDialog(null);
+      setSlugDialog(null);
     },
   });
 
@@ -330,6 +350,11 @@ function OfficesTab({ qc, toast }: any) {
                           {o.isPublished ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                           {o.isPublished ? "إخفاء" : "نشر"}
                         </Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-violet-400 hover:text-violet-300"
+                          title="تعديل رابط المكتب"
+                          onClick={() => { setSlugDialog({ id: o.id, name: o.name, slug: o.slug }); setSlugInput(o.slug ?? ""); }}>
+                          <Link2 className="h-3 w-3" /> رابط
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -339,6 +364,66 @@ function OfficesTab({ qc, toast }: any) {
           </Table>
         </div>
       )}
+
+      {/* Slug management dialog — platform admin only */}
+      <Dialog open={!!slugDialog} onOpenChange={v => { if (!v) setSlugDialog(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black flex items-center gap-2">
+              <Link2 className="h-4 w-4 text-violet-400" /> تعديل رابط المكتب
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              {slugDialog?.name} — الرابط الحالي: <span className="font-mono text-primary" dir="ltr">/firms/{slugDialog?.slug}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">الرابط الجديد</Label>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground font-mono shrink-0 bg-muted/50 px-2 py-1.5 rounded-lg border border-border/50">adalah.sa/firms/</span>
+                <Input
+                  value={slugInput}
+                  onChange={e => setSlugInput(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""))}
+                  className="flex-1 font-mono text-sm h-9 dir-ltr"
+                  placeholder="law-firm-name"
+                  dir="ltr"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground">أحرف إنجليزية صغيرة وأرقام وشرطات فقط</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">اقتراح تلقائي من اسم المكتب</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {slugDialog?.name && (() => {
+                  const auto = arabicToSlug(slugDialog.name);
+                  const suggestions = [
+                    auto,
+                    auto.split('-').slice(0, 2).join('-'),
+                    `${auto.split('-')[0]}-law`,
+                    `${auto.split('-')[0]}-legal`,
+                  ].filter((s, i, a) => s && a.indexOf(s) === i).slice(0, 4);
+                  return suggestions.map(s => (
+                    <button key={s} onClick={() => setSlugInput(s)}
+                      className={`text-[11px] font-mono px-2 py-1 rounded-lg border transition-all ${slugInput === s ? 'border-violet-500 bg-violet-500/10 text-violet-300' : 'border-border/40 bg-muted/30 hover:bg-muted/60 text-muted-foreground'}`}
+                      dir="ltr">
+                      {s}
+                    </button>
+                  ));
+                })()}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="ghost" size="sm" onClick={() => setSlugDialog(null)}>إلغاء</Button>
+              <Button size="sm" className="gap-1.5 bg-violet-600 hover:bg-violet-700"
+                disabled={!slugInput.trim() || slugInput === slugDialog?.slug || updateOffice.isPending}
+                onClick={() => slugDialog && updateOffice.mutate({ id: slugDialog.id, slug: slugInput.trim() })}>
+                {updateOffice.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                حفظ الرابط
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Plan assignment dialog */}
       <Dialog open={!!planDialog} onOpenChange={() => setPlanDialog(null)}>
