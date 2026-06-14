@@ -49,6 +49,21 @@ async function ensurePaymentCols() {
       UNIQUE(office_id)
     )
   `).catch(() => {});
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS checkout_settings (
+      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id         TEXT NOT NULL DEFAULT 'default',
+      secret_key        TEXT,
+      public_key        TEXT,
+      webhook_secret    TEXT,
+      test_mode         BOOLEAN DEFAULT true,
+      enabled           BOOLEAN DEFAULT false,
+      created_at        TIMESTAMP DEFAULT NOW(),
+      updated_at        TIMESTAMP DEFAULT NOW(),
+      UNIQUE(office_id)
+    )
+  `).catch(() => {});
 }
 ensurePaymentCols();
 
@@ -548,6 +563,151 @@ router.get("/payments/moyasar/success", async (req, res) => {
       `).catch(() => {});
     }
     res.redirect(`${BASE_DOMAIN}/payment-center?gateway=moyasar&result=${mStatus ?? "unknown"}`);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════════════════
+   CHECKOUT.COM SETTINGS
+══════════════════════════════════════════════════ */
+
+/* GET /api/payments/checkout/settings */
+router.get("/payments/checkout/settings", async (req, res) => {
+  try {
+    const officeId = (req as any).headers["x-office-id"] ?? "default";
+    const s = await one(sql`SELECT * FROM checkout_settings WHERE office_id=${officeId} LIMIT 1`);
+    if (!s) return res.json({ enabled: false, testMode: true });
+    res.json({
+      enabled:       s.enabled,
+      testMode:      s.test_mode,
+      publicKey:     s.public_key ?? "",
+      secretKey:     s.secret_key ? "••••••••" + s.secret_key.slice(-4) : "",
+      webhookSecret: s.webhook_secret ? "••••" : "",
+      webhookUrl:    `${BASE_DOMAIN}/api/webhook/checkout`,
+    });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* PUT /api/payments/checkout/settings */
+router.put("/payments/checkout/settings", async (req, res) => {
+  try {
+    const officeId = (req as any).headers["x-office-id"] ?? "default";
+    const { secretKey, publicKey, webhookSecret, testMode = true, enabled = false } = req.body;
+    const existing = await one(sql`SELECT id FROM checkout_settings WHERE office_id=${officeId} LIMIT 1`);
+    if (existing) {
+      await db.execute(sql`
+        UPDATE checkout_settings
+        SET secret_key      = COALESCE(NULLIF(${secretKey ?? ""},''), secret_key),
+            public_key      = COALESCE(NULLIF(${publicKey ?? ""},''), public_key),
+            webhook_secret  = COALESCE(NULLIF(${webhookSecret ?? ""},''), webhook_secret),
+            test_mode       = ${testMode},
+            enabled         = ${enabled},
+            updated_at      = NOW()
+        WHERE office_id = ${officeId}
+      `);
+    } else {
+      await db.execute(sql`
+        INSERT INTO checkout_settings (office_id, secret_key, public_key, webhook_secret, test_mode, enabled)
+        VALUES (${officeId}, ${secretKey ?? null}, ${publicKey ?? null}, ${webhookSecret ?? null}, ${testMode}, ${enabled})
+      `);
+    }
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* POST /api/payments/checkout/create-payment */
+router.post("/payments/checkout/create-payment", async (req, res) => {
+  try {
+    const officeId = (req as any).headers["x-office-id"] ?? "default";
+    const { amountSAR, description = "خدمة قانونية", clientName, clientEmail, invoiceId, caseId, commissionPercent = 10 } = req.body;
+    if (!amountSAR || amountSAR <= 0) return res.status(400).json({ error: "المبلغ مطلوب" });
+
+    const settings = await one(sql`SELECT * FROM checkout_settings WHERE office_id=${officeId} LIMIT 1`);
+    const secretKey = settings?.secret_key ?? process.env.CHECKOUT_SECRET_KEY ?? "";
+
+    const platformFee = parseFloat((amountSAR * commissionPercent / 100).toFixed(2));
+    const netAmount   = parseFloat((amountSAR - platformFee).toFixed(2));
+    const txRef       = `CHK-${Date.now()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+
+    const [tx] = await rows(sql`
+      INSERT INTO payment_transactions
+        (office_id, client_name, description, amount, platform_fee, net_amount,
+         status, payment_method, invoice_id, case_id, gateway, gateway_payment_id)
+      VALUES
+        (${officeId}, ${clientName ?? null}, ${description}, ${amountSAR}, ${platformFee},
+         ${netAmount}, 'pending', 'checkout', ${invoiceId ?? null}, ${caseId ?? null}, 'checkout', ${txRef})
+      RETURNING *
+    `);
+
+    const successUrl = `${BASE_DOMAIN}/api/payments/checkout/success?tx=${tx?.id ?? ""}&status=captured`;
+    const failureUrl = `${BASE_DOMAIN}/api/payments/checkout/success?tx=${tx?.id ?? ""}&status=failed`;
+
+    let checkoutUrl: string | null = null;
+    if (secretKey) {
+      const payload = {
+        amount: Math.round(amountSAR * 100),
+        currency: "SAR",
+        reference: txRef,
+        description,
+        customer: clientEmail ? { email: clientEmail, name: clientName } : undefined,
+        success_url: successUrl,
+        failure_url: failureUrl,
+        metadata: { tx_id: tx?.id ?? "", office_id: officeId },
+      };
+      const r = await fetch("https://api.checkout.com/payment-links", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).then(x => x.json()).catch(() => ({}));
+      checkoutUrl = (r as any)._links?.redirect?.href ?? null;
+    }
+
+    res.json({
+      transactionId: tx?.id,
+      ref: txRef,
+      amount: amountSAR,
+      platformFee,
+      netAmount,
+      paymentUrl: checkoutUrl,
+      configured: !!secretKey,
+    });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* GET /api/payments/checkout/success — Checkout.com redirect back */
+router.get("/payments/checkout/success", async (req, res) => {
+  try {
+    const { tx, status: cStatus } = req.query as any;
+    if (tx) {
+      const finalStatus = cStatus === "captured" ? "completed" : "failed";
+      await db.execute(sql`
+        UPDATE payment_transactions
+        SET status=${finalStatus}, updated_at=NOW()
+        WHERE id=${tx}::uuid
+      `).catch(() => {});
+    }
+    res.redirect(`${BASE_DOMAIN}/payment-center?gateway=checkout&result=${cStatus ?? "unknown"}`);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* POST /api/webhook/checkout — Checkout.com webhook */
+router.post("/webhook/checkout", async (req, res) => {
+  try {
+    const event = req.body;
+    const type  = event?.type ?? "";
+    const ref   = event?.data?.reference ?? event?.data?.metadata?.tx_id ?? "";
+    if (type === "payment_captured" || type === "payment_approved") {
+      await db.execute(sql`
+        UPDATE payment_transactions
+        SET status='completed', gateway_payment_id=${event?.data?.id ?? null}, updated_at=NOW()
+        WHERE gateway_payment_id=${ref} OR id=${ref}::uuid
+      `).catch(() => {});
+    } else if (type === "payment_declined" || type === "payment_expired") {
+      await db.execute(sql`
+        UPDATE payment_transactions SET status='failed', updated_at=NOW()
+        WHERE gateway_payment_id=${ref} OR id=${ref}::uuid
+      `).catch(() => {});
+    }
+    res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

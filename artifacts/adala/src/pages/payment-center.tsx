@@ -50,10 +50,10 @@ const SETTLE_MAP: Record<string, { label: string; color: string }> = {
 };
 const METHOD_LABELS: Record<string, string> = {
   card: "بطاقة ائتمانية", bank_transfer: "تحويل بنكي",
-  cash: "نقداً", stripe: "Stripe", moyasar: "Moyasar",
+  cash: "نقداً", stripe: "Stripe", moyasar: "Moyasar", checkout: "Checkout.com",
 };
 const GATEWAY_COLORS: Record<string, string> = {
-  manual: "#6B7280", stripe: "#635BFF", moyasar: "#1DB954",
+  manual: "#6B7280", stripe: "#635BFF", moyasar: "#1DB954", checkout: "#0ABD8C",
 };
 
 /* ══════════════════════════════════════════════════ */
@@ -87,6 +87,12 @@ export default function PaymentCenter() {
     testMode: true, enabled: false,
   });
 
+  /* Checkout.com settings form */
+  const [checkoutForm, setCheckoutForm] = useState({
+    secretKey: "", publicKey: "", webhookSecret: "",
+    testMode: true, enabled: false,
+  });
+
   /* Handle Stripe / Moyasar return */
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -98,6 +104,15 @@ export default function PaymentCenter() {
         toast({ title: "✅ تم استلام الدفعة عبر Moyasar" });
       else
         toast({ title: "نتيجة الدفع: " + result, variant: "destructive" });
+      qc.invalidateQueries({ queryKey: ["payment-wallet"] });
+      qc.invalidateQueries({ queryKey: ["payment-transactions"] });
+    }
+    if (params.get("gateway") === "checkout") {
+      const result = params.get("result");
+      if (result === "captured")
+        toast({ title: "✅ تم استلام الدفعة عبر Checkout.com" });
+      else
+        toast({ title: "نتيجة Checkout.com: " + result, variant: "destructive" });
       qc.invalidateQueries({ queryKey: ["payment-wallet"] });
       qc.invalidateQueries({ queryKey: ["payment-transactions"] });
     }
@@ -126,6 +141,13 @@ export default function PaymentCenter() {
     queryFn: () => API(`${BASE}/api/payments/moyasar/settings`),
     onSuccess: (d: any) => {
       if (d) setMoyasarForm(f => ({ ...f, testMode: d.testMode ?? true, enabled: d.enabled ?? false }));
+    },
+  });
+  const { data: checkoutSettings } = useQuery<any>({
+    queryKey: ["checkout-settings"],
+    queryFn: () => API(`${BASE}/api/payments/checkout/settings`),
+    onSuccess: (d: any) => {
+      if (d) setCheckoutForm(f => ({ ...f, testMode: d.testMode ?? true, enabled: d.enabled ?? false }));
     },
   });
 
@@ -185,6 +207,10 @@ export default function PaymentCenter() {
   const saveMoyasar = useMutation({
     mutationFn: (body: any) => API(`${BASE}/api/payments/moyasar/settings`, { method: "PUT", body: JSON.stringify(body) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["moyasar-settings"] }); toast({ title: "✅ تم حفظ إعدادات Moyasar" }); },
+  });
+  const saveCheckout = useMutation({
+    mutationFn: (body: any) => API(`${BASE}/api/payments/checkout/settings`, { method: "PUT", body: JSON.stringify(body) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["checkout-settings"] }); toast({ title: "✅ تم حفظ إعدادات Checkout.com" }); },
   });
   const generatePayLink = useMutation({
     mutationFn: (body: any) => API(`${BASE}/api/payments/payment-link`, { method: "POST", body: JSON.stringify(body) }),
@@ -273,6 +299,7 @@ export default function PaymentCenter() {
           <TabsTrigger value="transactions" className="gap-1.5 text-xs data-[state=active]:bg-background rounded-lg px-3 py-1.5"><ArrowRightLeft className="h-3.5 w-3.5" /> المعاملات</TabsTrigger>
           <TabsTrigger value="gateway"      className="gap-1.5 text-xs data-[state=active]:bg-background rounded-lg px-3 py-1.5"><Zap className="h-3.5 w-3.5" /> بوابة الدفع</TabsTrigger>
           <TabsTrigger value="stripe"       className="gap-1.5 text-xs data-[state=active]:bg-background rounded-lg px-3 py-1.5"><CreditCard className="h-3.5 w-3.5" /> Stripe</TabsTrigger>
+          <TabsTrigger value="checkout"     className="gap-1.5 text-xs data-[state=active]:bg-background rounded-lg px-3 py-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Checkout.com</TabsTrigger>
         </TabsList>
 
         {/* ══ OVERVIEW TAB ══ */}
@@ -988,6 +1015,176 @@ export default function PaymentCenter() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* ══ CHECKOUT.COM TAB ══ */}
+        <TabsContent value="checkout" className="mt-4 space-y-4">
+          {/* Info banner */}
+          <Card className="border-dashed border-[#0ABD8C]/30 bg-[#0ABD8C]/5">
+            <CardContent className="p-4 flex gap-3">
+              <ShieldCheck className="h-5 w-5 text-[#0ABD8C] mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-muted-foreground leading-relaxed">
+                <strong className="text-foreground">Checkout.com</strong> — بوابة دفع عالمية معتمدة في المنطقة العربية.
+                تدعم <strong className="text-foreground">مدى</strong>، Apple Pay، STC Pay، Visa، Mastercard، وKNET.
+                Webhook URL: <code className="bg-muted px-1 rounded text-[10px] font-mono">/api/webhook/checkout</code>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Payment methods badges */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: "مدى",         color: "bg-green-500/10 text-green-400 border-green-500/20" },
+              { label: "Apple Pay",   color: "bg-gray-500/10 text-gray-300 border-gray-500/20" },
+              { label: "STC Pay",     color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
+              { label: "Visa",        color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+              { label: "Mastercard",  color: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
+              { label: "KNET",        color: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" },
+            ].map(m => (
+              <span key={m.label} className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${m.color}`}>
+                {m.label}
+              </span>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Settings form */}
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Settings className="h-4 w-4 text-[#0ABD8C]" /> إعدادات Checkout.com
+                  {checkoutSettings?.enabled && (
+                    <Badge className="text-[10px] bg-[#0ABD8C]/20 text-[#0ABD8C] border-[#0ABD8C]/30 mr-auto">مفعّل</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold">تفعيل Checkout.com</p>
+                    <p className="text-[10px] text-muted-foreground">استقبال المدفوعات عبر Checkout.com</p>
+                  </div>
+                  <Switch checked={checkoutForm.enabled} onCheckedChange={v => setCheckoutForm(f => ({ ...f, enabled: v }))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold">وضع الاختبار (Sandbox)</p>
+                    <p className="text-[10px] text-muted-foreground">بدون مدفوعات حقيقية</p>
+                  </div>
+                  <Switch checked={checkoutForm.testMode} onCheckedChange={v => setCheckoutForm(f => ({ ...f, testMode: v }))} />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold mb-1 block">Secret Key</Label>
+                  <Input dir="ltr" type="password" placeholder="sk_test_..." value={checkoutForm.secretKey}
+                    onChange={e => setCheckoutForm(f => ({ ...f, secretKey: e.target.value }))}
+                    className="font-mono text-xs" />
+                  {checkoutSettings?.secretKey && !checkoutForm.secretKey && (
+                    <p className="text-[10px] text-[#0ABD8C] mt-0.5">✓ محفوظ — اترك فارغاً للإبقاء عليه</p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold mb-1 block">Public Key</Label>
+                  <Input dir="ltr" placeholder="pk_test_..." value={checkoutForm.publicKey}
+                    onChange={e => setCheckoutForm(f => ({ ...f, publicKey: e.target.value }))}
+                    className="font-mono text-xs" />
+                  {checkoutSettings?.publicKey && !checkoutForm.publicKey && (
+                    <p className="text-[10px] text-[#0ABD8C] mt-0.5">✓ محفوظ</p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold mb-1 block">Webhook Secret (اختياري)</Label>
+                  <Input dir="ltr" type="password" placeholder="للتحقق من إشعارات Checkout" value={checkoutForm.webhookSecret}
+                    onChange={e => setCheckoutForm(f => ({ ...f, webhookSecret: e.target.value }))}
+                    className="font-mono text-xs" />
+                </div>
+
+                {/* Webhook URL */}
+                <div className="bg-muted/40 rounded-lg p-3">
+                  <p className="text-[10px] text-muted-foreground font-semibold mb-1">Webhook URL (أضفه في لوحة Checkout.com)</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] font-mono text-[#0ABD8C] flex-1 truncate">
+                      {checkoutSettings?.webhookUrl ?? (window.location.origin + "/api/webhook/checkout")}
+                    </code>
+                    <Button size="icon" variant="ghost" className="h-6 w-6"
+                      onClick={() => copyToClipboard(
+                        checkoutSettings?.webhookUrl ?? (window.location.origin + "/api/webhook/checkout"),
+                        "Webhook URL", toast
+                      )}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+
+                <Button className="w-full gap-2 text-xs bg-[#0ABD8C] hover:bg-[#099b76] text-white"
+                  disabled={saveCheckout.isPending}
+                  onClick={() => saveCheckout.mutate(checkoutForm)}>
+                  {saveCheckout.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  حفظ الإعدادات
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Setup guide */}
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Package className="h-4 w-4 text-[#0ABD8C]" /> دليل الإعداد
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {[
+                  { n: 1, title: "أنشئ حساباً في Checkout.com", desc: "checkout.com/ar-ae → طلب حساب تجاري" },
+                  { n: 2, title: "احصل على المفاتيح", desc: 'لوحة التحكم → Settings → Channels → API keys' },
+                  { n: 3, title: "أدخل المفاتيح هنا", desc: "Secret Key + Public Key في الخانات على اليسار" },
+                  { n: 4, title: "أضف Webhook URL", desc: "لوحة Checkout → Webhooks → أضف الرابط أعلاه" },
+                  { n: 5, title: "فعّل البوابة", desc: "شغّل مفتاح التفعيل واحفظ — جاهز!" },
+                ].map(step => (
+                  <div key={step.n} className="flex gap-3 items-start">
+                    <div className="w-6 h-6 rounded-full bg-[#0ABD8C]/15 text-[#0ABD8C] text-[11px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">
+                      {step.n}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold">{step.title}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{step.desc}</p>
+                    </div>
+                  </div>
+                ))}
+                <div className="mt-2 pt-2 border-t border-border/50">
+                  <Button variant="outline" size="sm" className="w-full gap-2 text-xs border-[#0ABD8C]/30 text-[#0ABD8C] hover:bg-[#0ABD8C]/10"
+                    onClick={() => window.open("https://www.checkout.com/ar-ae", "_blank")}>
+                    <ExternalLink className="h-3.5 w-3.5" /> فتح موقع Checkout.com
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Status card */}
+          <Card className={`border-2 ${checkoutSettings?.enabled ? "border-[#0ABD8C]/40" : "border-dashed border-border/50"}`}>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${checkoutSettings?.enabled ? "bg-[#0ABD8C]/15" : "bg-muted/50"}`}>
+                {checkoutSettings?.enabled
+                  ? <CircleCheck className="h-5 w-5 text-[#0ABD8C]" />
+                  : <Circle className="h-5 w-5 text-muted-foreground" />}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold">
+                  {checkoutSettings?.enabled ? "Checkout.com مفعّل" : "Checkout.com غير مفعّل"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {checkoutSettings?.enabled
+                    ? checkoutSettings?.testMode ? "وضع الاختبار (Sandbox) — لا مدفوعات حقيقية" : "وضع الإنتاج — المدفوعات الحقيقية مفعّلة"
+                    : "أدخل المفاتيح وفعّل البوابة لبدء استقبال المدفوعات"}
+                </p>
+              </div>
+              {checkoutSettings?.enabled && !checkoutSettings?.testMode && (
+                <Badge className="bg-[#0ABD8C]/20 text-[#0ABD8C] border-[#0ABD8C]/30 text-xs">Live</Badge>
+              )}
+              {checkoutSettings?.enabled && checkoutSettings?.testMode && (
+                <Badge variant="secondary" className="text-xs">Sandbox</Badge>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
