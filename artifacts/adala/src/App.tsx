@@ -147,7 +147,11 @@ const clerkPubKey = publishableKeyFromHost(
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
 );
 
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+// Derive the Clerk proxy URL from the current origin so it works on any
+// deployment domain without needing to bake the URL into the build.
+const clerkProxyUrl =
+  import.meta.env.VITE_CLERK_PROXY_URL ||
+  `${window.location.origin}/api/__clerk`;
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
