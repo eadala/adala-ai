@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { db, casesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace/api-zod";
 import { auditLog } from "../lib/auditLogger";
 import { notifyTelegramCaseStatus } from "./telegram";
 import { eventBus } from "../core/eventBus";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const STATUS_LABELS: Record<string, string> = {
   open: "مفتوحة",
@@ -67,20 +68,20 @@ async function notifyWhatsAppCaseStatus(updatedCase: any) {
 
 const router = Router();
 
-router.get("/cases", async (req, res) => {
+// ── GET /cases ──────────────────────────────────────────────────────────────
+router.get("/cases", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const query = ListCasesQueryParams.parse(req.query);
     const page  = req.query.page  ? Math.max(1, parseInt(String(req.query.page)))  : null;
     const limit = req.query.limit ? Math.min(200, parseInt(String(req.query.limit))) : null;
 
-    /* Use raw SQL to include ad-hoc columns (source, store_order_id) not in Drizzle schema */
-    const { sql: rawSql } = await import("drizzle-orm");
-    const rawRows = await db.execute(rawSql`
+    const rawRows = await db.execute(sql`
       SELECT id, title, description, case_type, status, client_name, assigned_to,
              created_at, updated_at,
              COALESCE(source, 'manual') AS source,
              store_order_id
-      FROM cases ORDER BY created_at
+      FROM cases WHERE office_id = ${tenantId} ORDER BY created_at
     `);
     let allCases: any[] = (rawRows as any)?.rows ?? (rawRows as any) ?? [];
     const mapCase = (c: any) => ({
@@ -93,7 +94,7 @@ router.get("/cases", async (req, res) => {
       updatedAt: c.updated_at instanceof Date ? c.updated_at?.toISOString() ?? null : c.updated_at ?? null,
     });
 
-    if (query.status)   allCases = allCases.filter((c) => c.status   === query.status);
+    if (query.status)   allCases = allCases.filter((c) => c.status    === query.status);
     if (query.caseType) allCases = allCases.filter((c) => c.case_type === query.caseType);
 
     const total = allCases.length;
@@ -109,16 +110,19 @@ router.get("/cases", async (req, res) => {
   }
 });
 
-router.post("/cases", async (req, res) => {
+// ── POST /cases ──────────────────────────────────────────────────────────────
+router.post("/cases", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const body = CreateCaseBody.parse(req.body);
     const [created] = await db.insert(casesTable).values({
-      title: body.title,
+      title:       body.title,
       description: body.description ?? null,
-      caseType: body.caseType,
-      status: body.status ?? "open",
-      clientName: body.clientName ?? null,
-      assignedTo: body.assignedTo ?? null,
+      caseType:    body.caseType,
+      status:      body.status ?? "open",
+      clientName:  body.clientName ?? null,
+      assignedTo:  body.assignedTo ?? null,
+      officeId:    tenantId,
     }).returning();
     const auth = (req as any).auth;
     auditLog({ userId: auth?.userId, action: "create", resource: "cases", resourceId: created.id, details: created.title }).catch(() => {});
@@ -137,11 +141,11 @@ router.post("/cases", async (req, res) => {
   }
 });
 
-router.get("/cases/:id", async (req, res) => {
+// ── GET /cases/:id ───────────────────────────────────────────────────────────
+router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    /* Raw SQL to include ad-hoc columns + joined order details */
-    const { sql: rawSql } = await import("drizzle-orm");
-    const rows = await db.execute(rawSql`
+    const tenantId = (req as any).tenantId;
+    const rows = await db.execute(sql`
       SELECT
         c.id, c.title, c.description, c.case_type, c.status,
         c.client_name, c.assigned_to, c.created_at, c.updated_at,
@@ -157,9 +161,9 @@ router.get("/cases/:id", async (req, res) => {
         osvc.name                    AS order_service_name,
         osvc.description             AS order_service_desc
       FROM cases c
-      LEFT JOIN office_orders  oo   ON oo.id  = c.store_order_id
-      LEFT JOIN office_services osvc ON osvc.id = oo.service_id
-      WHERE c.id = ${req.params.id}
+      LEFT JOIN office_orders   oo   ON oo.id   = c.store_order_id
+      LEFT JOIN office_services osvc ON osvc.id  = oo.service_id
+      WHERE c.id = ${req.params.id} AND c.office_id = ${tenantId}
       LIMIT 1
     `);
     const rawArr: any[] = (rows as any)?.rows ?? (rows as any) ?? [];
@@ -168,13 +172,13 @@ router.get("/cases/:id", async (req, res) => {
 
     const orderDetails = c.order_db_id ? {
       id: c.order_db_id,
-      serviceName: c.order_service_name ?? null,
-      serviceDesc: c.order_service_desc ?? null,
-      amount: c.order_amount ? Number(c.order_amount) : null,
-      clientEmail: c.order_client_email ?? null,
-      clientPhone: c.order_client_phone ?? null,
+      serviceName:   c.order_service_name ?? null,
+      serviceDesc:   c.order_service_desc ?? null,
+      amount:        c.order_amount ? Number(c.order_amount) : null,
+      clientEmail:   c.order_client_email ?? null,
+      clientPhone:   c.order_client_phone ?? null,
       stripeSession: c.order_stripe_session ?? null,
-      createdAt: c.order_created_at instanceof Date ? c.order_created_at.toISOString() : c.order_created_at ?? null,
+      createdAt:     c.order_created_at instanceof Date ? c.order_created_at.toISOString() : c.order_created_at ?? null,
     } : null;
 
     res.json({
@@ -193,19 +197,24 @@ router.get("/cases/:id", async (req, res) => {
   }
 });
 
-router.patch("/cases/:id", async (req, res) => {
+// ── PATCH /cases/:id ─────────────────────────────────────────────────────────
+router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const body = UpdateCaseBody.parse(req.body);
-    const [before] = await db.select().from(casesTable).where(eq(casesTable.id, req.params.id));
+    const [before] = await db.select().from(casesTable)
+      .where(and(eq(casesTable.id, req.params.id), eq(casesTable.officeId, tenantId)));
+    if (!before) return res.status(404).json({ error: "Not found" });
+
     const [updated] = await db.update(casesTable).set({
-      ...(body.title !== undefined && { title: body.title }),
+      ...(body.title       !== undefined && { title:       body.title }),
       ...(body.description !== undefined && { description: body.description }),
-      ...(body.caseType !== undefined && { caseType: body.caseType }),
-      ...(body.status !== undefined && { status: body.status }),
-      ...(body.clientName !== undefined && { clientName: body.clientName }),
-      ...(body.assignedTo !== undefined && { assignedTo: body.assignedTo }),
+      ...(body.caseType    !== undefined && { caseType:    body.caseType }),
+      ...(body.status      !== undefined && { status:      body.status }),
+      ...(body.clientName  !== undefined && { clientName:  body.clientName }),
+      ...(body.assignedTo  !== undefined && { assignedTo:  body.assignedTo }),
       updatedAt: new Date(),
-    }).where(eq(casesTable.id, req.params.id)).returning();
+    }).where(and(eq(casesTable.id, req.params.id), eq(casesTable.officeId, tenantId))).returning();
     if (!updated) return res.status(404).json({ error: "Not found" });
 
     if (body.status && before && before.status !== body.status) {
@@ -226,10 +235,13 @@ router.patch("/cases/:id", async (req, res) => {
   }
 });
 
-router.delete("/cases/:id", async (req, res) => {
+// ── DELETE /cases/:id ────────────────────────────────────────────────────────
+router.delete("/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const auth = (req as any).auth;
-    await db.delete(casesTable).where(eq(casesTable.id, req.params.id));
+    await db.delete(casesTable)
+      .where(and(eq(casesTable.id, req.params.id), eq(casesTable.officeId, tenantId)));
     auditLog({ userId: auth?.userId, action: "delete", resource: "cases", resourceId: req.params.id }).catch(() => {});
     res.status(204).end();
   } catch (e: any) {
@@ -237,33 +249,33 @@ router.delete("/cases/:id", async (req, res) => {
   }
 });
 
-// ── GET /cases/:id/hub ── full case hub with related entities ──────────────
-router.get("/cases/:id/hub", async (req, res) => {
+// ── GET /cases/:id/hub ── full case hub with related entities ─────────────────
+router.get("/cases/:id/hub", requireAuthWithTenant, async (req, res) => {
   try {
-    const { sql } = await import("drizzle-orm");
+    const tenantId = (req as any).tenantId;
     const caseId = req.params.id;
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
 
     const [caseRow, invoices, events, documents] = await Promise.all([
-      db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} LIMIT 1`),
-      db.execute(sql`SELECT id, invoice_number, title, total, status, due_date, created_at FROM client_invoices WHERE case_id = ${caseId} ORDER BY created_at DESC`),
+      db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} AND office_id = ${tenantId} LIMIT 1`),
+      db.execute(sql`SELECT id, invoice_number, title, total, status, due_date, created_at FROM client_invoices WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC`),
       db.execute(sql`SELECT id, title, event_type, start_at, location, status FROM events WHERE case_id = ${caseId} ORDER BY start_at DESC`),
-      db.execute(sql`SELECT id, file_name, file_type, created_at FROM documents WHERE case_id = ${caseId} ORDER BY created_at DESC`),
+      db.execute(sql`SELECT id, file_name, file_type, created_at FROM documents WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC`),
     ]);
 
     let contractRows: any[] = [];
     if (isUuid) {
-      const contractsResult = await db.execute(sql`SELECT id, title, type, status, expires_at, created_at FROM contracts WHERE case_id = ${caseId}::uuid ORDER BY created_at DESC`);
+      const contractsResult = await db.execute(sql`SELECT id, title, type, status, expires_at, created_at FROM contracts WHERE case_id = ${caseId}::uuid AND office_id = ${tenantId} ORDER BY created_at DESC`);
       contractRows = contractsResult.rows ?? [];
     }
 
     const found = caseRow.rows?.[0];
     if (!found) { res.status(404).json({ error: "Not found" }); return; }
     res.json({
-      case: found,
-      invoices: invoices.rows ?? [],
+      case:      found,
+      invoices:  invoices.rows ?? [],
       contracts: contractRows,
-      events: events.rows ?? [],
+      events:    events.rows ?? [],
       documents: documents.rows ?? [],
     });
   } catch (e: any) {

@@ -59,3 +59,23 @@ All require isSuperAdmin:
 - /billing/change-plan — provisions correct office
 - /billing/activate-plan — provisions correct office
 - /billing/ledger — scoped to tenantId + returns fee breakdown columns
+
+## Core tables with office_id (migrated June 2026)
+`cases`, `clients`, `documents`, `contracts`, `client_invoices` — all received `office_id TEXT` column.
+Indexes added: `idx_<table>_office_id` + status/type/client_id indexes.
+All existing rows backfilled to default office (first row in office_page).
+
+## Required route pattern for any data route
+```typescript
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
+
+router.get("/cases", requireAuthWithTenant, async (req, res) => {
+  const tenantId = (req as any).tenantId;
+  const results = await db.select().from(casesTable)
+    .where(eq(casesTable.officeId, tenantId));
+});
+// Raw SQL: WHERE office_id = ${tenantId}
+```
+
+## CORS (fixed June 2026)
+Changed from `origin: true` to regex validator: allows `*.replit.app`, `*.replit.dev`, `localhost:*`, and `ALLOWED_ORIGINS` env var.

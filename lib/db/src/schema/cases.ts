@@ -10,6 +10,7 @@ export const casesTable = pgTable("cases", {
   status:      text("status").notNull().default("open"),
   clientName:  text("client_name"),
   assignedTo:  text("assigned_to"),
+  officeId:    text("office_id"),
   createdAt:   timestamp("created_at").notNull().defaultNow(),
   updatedAt:   timestamp("updated_at").notNull().defaultNow(),
 });

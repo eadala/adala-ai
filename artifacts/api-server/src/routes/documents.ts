@@ -1,19 +1,27 @@
 import { Router } from "express";
 import { db, documentsTable, casesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { ListDocumentsQueryParams, CreateDocumentBody } from "@workspace/api-zod";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
-router.get("/documents", async (req, res) => {
+router.get("/documents", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const query = ListDocumentsQueryParams.parse(req.query);
-    let docs = await db.select().from(documentsTable).orderBy(documentsTable.createdAt);
-    if (query.caseId) docs = docs.filter((d) => d.caseId === query.caseId);
+
+    const conditions = [eq(documentsTable.officeId, tenantId)];
+    if (query.caseId) conditions.push(eq(documentsTable.caseId, query.caseId));
+
+    const docs = await db.select().from(documentsTable)
+      .where(and(...conditions))
+      .orderBy(documentsTable.createdAt);
 
     const caseIds = [...new Set(docs.map((d) => d.caseId).filter(Boolean))] as string[];
     const cases = caseIds.length > 0
       ? await db.select({ id: casesTable.id, title: casesTable.title }).from(casesTable)
+        .where(eq(casesTable.officeId, tenantId))
       : [];
     const caseMap = Object.fromEntries(cases.map((c) => [c.id, c.title]));
 
@@ -28,12 +36,14 @@ router.get("/documents", async (req, res) => {
   }
 });
 
-router.post("/documents", async (req, res) => {
+router.post("/documents", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const body = CreateDocumentBody.parse(req.body);
     const [created] = await db.insert(documentsTable).values({
-      caseId: body.caseId ?? null,
-      fileUrl: body.fileUrl,
+      caseId:   body.caseId ?? null,
+      officeId: tenantId,
+      fileUrl:  body.fileUrl,
       fileType: body.fileType,
       fileName: body.fileName,
     }).returning();
@@ -43,13 +53,16 @@ router.post("/documents", async (req, res) => {
   }
 });
 
-router.get("/documents/:id", async (req, res) => {
+router.get("/documents/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const [found] = await db.select().from(documentsTable).where(eq(documentsTable.id, req.params.id));
+    const tenantId = (req as any).tenantId;
+    const [found] = await db.select().from(documentsTable)
+      .where(and(eq(documentsTable.id, req.params.id), eq(documentsTable.officeId, tenantId)));
     if (!found) return res.status(404).json({ error: "Not found" });
     let caseName: string | null = null;
     if (found.caseId) {
-      const [c] = await db.select({ title: casesTable.title }).from(casesTable).where(eq(casesTable.id, found.caseId));
+      const [c] = await db.select({ title: casesTable.title }).from(casesTable)
+        .where(and(eq(casesTable.id, found.caseId), eq(casesTable.officeId, tenantId)));
       caseName = c?.title ?? null;
     }
     res.json({ ...found, caseName, createdAt: found.createdAt.toISOString() });
@@ -58,9 +71,11 @@ router.get("/documents/:id", async (req, res) => {
   }
 });
 
-router.delete("/documents/:id", async (req, res) => {
+router.delete("/documents/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    await db.delete(documentsTable).where(eq(documentsTable.id, req.params.id));
+    const tenantId = (req as any).tenantId;
+    await db.delete(documentsTable)
+      .where(and(eq(documentsTable.id, req.params.id), eq(documentsTable.officeId, tenantId)));
     res.status(204).end();
   } catch (e: any) {
     res.status(500).json({ error: e.message });

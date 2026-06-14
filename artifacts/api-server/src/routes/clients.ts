@@ -1,39 +1,30 @@
-/**
- * Clients routes — fixed:
- *  1. Auth (getAuth) added to all write routes
- *  2. req.body spread replaced with explicit field extraction
- *  3. Fields aligned with actual DB schema (fullName, no address/caseIds)
- *  4. try/catch added throughout
- */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { clientsTable } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { eventBus } from "../core/eventBus";
-import { getAuth } from "@clerk/express";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
-function requireAuth(req: any, res: any): boolean {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "غير مصرح" }); return false; }
-  return true;
-}
-
-router.get("/clients", async (req, res) => {
+// ── GET /clients ──────────────────────────────────────────────────────────────
+router.get("/clients", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
-    const clients = await db.select().from(clientsTable).orderBy(desc(clientsTable.createdAt));
+    const tenantId = (req as any).tenantId;
+    const clients = await db.select().from(clientsTable)
+      .where(eq(clientsTable.officeId, tenantId))
+      .orderBy(desc(clientsTable.createdAt));
     res.json(clients);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
-router.post("/clients", async (req, res) => {
+// ── POST /clients ─────────────────────────────────────────────────────────────
+router.post("/clients", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
+    const tenantId = (req as any).tenantId;
     const {
       fullName, type = "individual", email, phone,
       nationalId, company, notes, status = "active", source, tags,
@@ -54,6 +45,7 @@ router.post("/clients", async (req, res) => {
       status,
       source:     source     ?? "direct",
       tags:       tags       ?? [],
+      officeId:   tenantId,
     }).returning();
 
     eventBus.emit({
@@ -67,9 +59,10 @@ router.post("/clients", async (req, res) => {
   }
 });
 
-router.patch("/clients/:id", async (req, res) => {
+// ── PATCH /clients/:id ────────────────────────────────────────────────────────
+router.patch("/clients/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
+    const tenantId = (req as any).tenantId;
     const { fullName, type, email, phone, nationalId, company, notes, status, source, tags } = req.body;
     const [updated] = await db.update(clientsTable)
       .set({
@@ -85,7 +78,7 @@ router.patch("/clients/:id", async (req, res) => {
         ...(tags       !== undefined && { tags }),
         updatedAt: new Date(),
       })
-      .where(eq(clientsTable.id, req.params.id))
+      .where(and(eq(clientsTable.id, req.params.id), eq(clientsTable.officeId, tenantId)))
       .returning();
     if (!updated) return res.status(404).json({ error: "الموكل غير موجود" });
     res.json(updated);
@@ -94,22 +87,42 @@ router.patch("/clients/:id", async (req, res) => {
   }
 });
 
-router.delete("/clients/:id", async (req, res) => {
+// ── DELETE /clients/:id ───────────────────────────────────────────────────────
+router.delete("/clients/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
-    await db.delete(clientsTable).where(eq(clientsTable.id, req.params.id));
+    const tenantId = (req as any).tenantId;
+    await db.delete(clientsTable)
+      .where(and(eq(clientsTable.id, req.params.id), eq(clientsTable.officeId, tenantId)));
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
-/* ── Single client ────────────────────────────────── */
-router.get("/clients/:id", async (req, res) => {
+// ── GET /clients/stats ────────────────────────────────────────────────────────
+router.get("/clients/stats", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
+    const tenantId = (req as any).tenantId;
+    const all = await db.select().from(clientsTable)
+      .where(eq(clientsTable.officeId, tenantId));
+    res.json({
+      total:       all.length,
+      active:      all.filter(c => c.status === "active").length,
+      potential:   all.filter(c => c.status === "potential").length,
+      companies:   all.filter(c => c.type   === "company").length,
+      individuals: all.filter(c => c.type   === "individual").length,
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /clients/:id ──────────────────────────────────────────────────────────
+router.get("/clients/:id", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
     const [client] = await db.select().from(clientsTable)
-      .where(eq(clientsTable.id, req.params.id));
+      .where(and(eq(clientsTable.id, req.params.id), eq(clientsTable.officeId, tenantId)));
     if (!client) return res.status(404).json({ error: "الموكل غير موجود" });
     res.json(client);
   } catch (e: any) {
@@ -117,12 +130,14 @@ router.get("/clients/:id", async (req, res) => {
   }
 });
 
-router.get("/clients/:id/overview", async (req, res) => {
+// ── GET /clients/:id/overview ─────────────────────────────────────────────────
+router.get("/clients/:id/overview", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
+    const tenantId = (req as any).tenantId;
     const { id } = req.params;
 
-    const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, id));
+    const [client] = await db.select().from(clientsTable)
+      .where(and(eq(clientsTable.id, id), eq(clientsTable.officeId, tenantId)));
     if (!client) return res.status(404).json({ error: "الموكل غير موجود" });
 
     async function safeRows(q: any): Promise<any[]> {
@@ -133,14 +148,13 @@ router.get("/clients/:id/overview", async (req, res) => {
     }
 
     const [cases, invoices, contracts, events, messages] = await Promise.all([
-      safeRows(sql`SELECT * FROM cases WHERE client_id = ${id} ORDER BY created_at DESC LIMIT 20`),
-      safeRows(sql`SELECT * FROM client_invoices WHERE client_id = ${id} ORDER BY created_at DESC LIMIT 20`),
-      safeRows(sql`SELECT * FROM contracts WHERE client_id = ${id} ORDER BY created_at DESC LIMIT 20`),
+      safeRows(sql`SELECT * FROM cases WHERE client_id = ${id} AND office_id = ${tenantId} ORDER BY created_at DESC LIMIT 20`),
+      safeRows(sql`SELECT * FROM client_invoices WHERE client_id = ${id} AND office_id = ${tenantId} ORDER BY created_at DESC LIMIT 20`),
+      safeRows(sql`SELECT * FROM contracts WHERE client_id = ${id}::uuid AND office_id = ${tenantId} ORDER BY created_at DESC LIMIT 20`),
       safeRows(sql`SELECT * FROM events WHERE client_id = ${id} ORDER BY start_at DESC LIMIT 10`),
       safeRows(sql`SELECT * FROM office_messages WHERE client_id = ${id} ORDER BY created_at DESC LIMIT 10`),
     ]);
 
-    /* Use `total` (stored in minor units as integer) matching DB schema */
     const paidTotal = invoices
       .filter((i: any) => i.status === "paid")
       .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0 as number);
@@ -148,7 +162,6 @@ router.get("/clients/:id/overview", async (req, res) => {
       .filter((i: any) => i.status !== "paid" && i.status !== "cancelled")
       .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0 as number);
 
-    /* Build lightweight activity log */
     const activities = [
       { type: "client_created", date: client.createdAt, label: "تم إضافة الموكل" },
       ...cases.map((c: any) => ({ type: "case_created", date: c.created_at, label: `قضية: ${c.title}` })),
@@ -158,13 +171,7 @@ router.get("/clients/:id/overview", async (req, res) => {
     ].sort((a, b) => new Date(b.date as any).getTime() - new Date(a.date as any).getTime()).slice(0, 20);
 
     res.json({
-      client,
-      cases,
-      invoices,
-      contracts,
-      events,
-      messages,
-      activities,
+      client, cases, invoices, contracts, events, messages, activities,
       stats: {
         casesCount:       cases.length,
         invoicesCount:    invoices.length,
@@ -178,12 +185,17 @@ router.get("/clients/:id/overview", async (req, res) => {
   }
 });
 
-/* ─── Client Accounting / Financial Statements ──────────────────────────── */
-router.get("/clients/:id/accounting", async (req, res) => {
+// ── GET /clients/:id/accounting ───────────────────────────────────────────────
+router.get("/clients/:id/accounting", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
+    const tenantId = (req as any).tenantId;
     const { id } = req.params;
     const { period = "annual", year = new Date().getFullYear(), month = "1" } = req.query as any;
+
+    // Verify client belongs to this office
+    const [client] = await db.select().from(clientsTable)
+      .where(and(eq(clientsTable.id, id), eq(clientsTable.officeId, tenantId)));
+    if (!client) return res.status(404).json({ error: "الموكل غير موجود" });
 
     async function safeRows(q: any): Promise<any[]> {
       try {
@@ -192,7 +204,6 @@ router.get("/clients/:id/accounting", async (req, res) => {
       } catch { return []; }
     }
 
-    // Determine date range from period
     const y = parseInt(year);
     const m = parseInt(month);
     let startDate: string, endDate: string, label: string;
@@ -219,35 +230,29 @@ router.get("/clients/:id/accounting", async (req, res) => {
       label = `سنة ${y}`;
     }
 
-    // All invoices for this client in period
     const invoices = await safeRows(sql`
       SELECT * FROM client_invoices
-      WHERE client_id = ${id}
+      WHERE client_id = ${id} AND office_id = ${tenantId}
         AND created_at::date BETWEEN ${startDate}::date AND ${endDate}::date
     `);
 
-    // All expenses linked to this client in period (if client_id col exists)
     const expenses = await safeRows(sql`
       SELECT * FROM expenses
       WHERE client_id = ${id}
         AND date BETWEEN ${startDate}::date AND ${endDate}::date
     `).catch(() => []);
 
-    // Revenue = paid invoices (total stored in minor units ÷ 100)
     const revenue = invoices
       .filter((i: any) => i.status === "paid")
       .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0 as number);
 
-    // Receivables = unpaid (sent / draft / overdue)
     const receivables = invoices
       .filter((i: any) => i.status !== "paid" && i.status !== "cancelled")
       .reduce((s: number, i: any) => s + (parseInt(String(i.total ?? 0)) / 100), 0 as number);
 
-    // Expenses
     const totalExpenses = (expenses as any[]).reduce((s: number, e: any) => s + (parseFloat(String(e.amount ?? 0))), 0);
     const netProfit = revenue - totalExpenses;
 
-    // Monthly breakdown for the chart (always show 12 months of the year)
     const monthlyRows = await safeRows(sql`
       SELECT
         EXTRACT(MONTH FROM created_at)::int AS month,
@@ -255,7 +260,7 @@ router.get("/clients/:id/accounting", async (req, res) => {
         SUM(CASE WHEN status != 'paid' AND status != 'cancelled' THEN total ELSE 0 END)::float / 100 AS receivables,
         COUNT(*)::int AS count
       FROM client_invoices
-      WHERE client_id = ${id}
+      WHERE client_id = ${id} AND office_id = ${tenantId}
         AND EXTRACT(YEAR FROM created_at) = ${y}
       GROUP BY month ORDER BY month
     `);
@@ -265,12 +270,11 @@ router.get("/clients/:id/accounting", async (req, res) => {
       const row = monthlyRows.find((r: any) => parseInt(r.month) === i + 1);
       return {
         name,
-        revenue: parseFloat(String(row?.revenue ?? 0)),
+        revenue:     parseFloat(String(row?.revenue ?? 0)),
         receivables: parseFloat(String(row?.receivables ?? 0)),
       };
     });
 
-    // Invoice breakdown by status
     const byStatus = {
       paid:    invoices.filter((i: any) => i.status === "paid").length,
       overdue: invoices.filter((i: any) => i.status === "overdue").length,
@@ -282,42 +286,13 @@ router.get("/clients/:id/accounting", async (req, res) => {
       period: { type: period, startDate, endDate, label, year: y },
       accounting: { revenue, receivables, expenses: totalExpenses, netProfit },
       financialStatements: {
-        incomeStatement: {
-          revenue,
-          expenses: totalExpenses,
-          netProfit,
-          margin: revenue > 0 ? ((netProfit / revenue) * 100) : 0,
-        },
-        balanceSheet: {
-          assets: { cash: revenue, receivables },
-          totalAssets: revenue + receivables,
-          equity: revenue + receivables - totalExpenses,
-        },
-        cashFlow: {
-          cashIn: revenue,
-          cashOut: totalExpenses,
-          netCashFlow: revenue - totalExpenses,
-        },
+        incomeStatement: { revenue, expenses: totalExpenses, netProfit, margin: revenue > 0 ? ((netProfit / revenue) * 100) : 0 },
+        balanceSheet: { assets: { cash: revenue, receivables }, totalAssets: revenue + receivables, equity: revenue + receivables - totalExpenses },
+        cashFlow: { cashIn: revenue, cashOut: totalExpenses, netCashFlow: revenue - totalExpenses },
       },
       monthly,
       byStatus,
       invoicesCount: invoices.length,
-    });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-router.get("/clients/stats", async (req, res) => {
-  try {
-    if (!requireAuth(req, res)) return;
-    const all = await db.select().from(clientsTable);
-    res.json({
-      total:       all.length,
-      active:      all.filter(c => c.status === "active").length,
-      potential:   all.filter(c => c.status === "potential").length,
-      companies:   all.filter(c => c.type   === "company").length,
-      individuals: all.filter(c => c.type   === "individual").length,
     });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

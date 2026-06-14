@@ -1,8 +1,9 @@
 import { Router, type Request, type Response } from "express";
 import { db, clientInvoicesTable as invoicesTable, clientsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { getUncachableStripeClient } from "../stripeClient";
 import { eventBus } from "../core/eventBus";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -15,9 +16,12 @@ async function nextInvoiceNumber(): Promise<string> {
 }
 
 // ─── GET /invoices ───
-router.get("/invoices", async (_req: Request, res: Response) => {
+router.get("/invoices", requireAuthWithTenant, async (_req: Request, res: Response) => {
   try {
-    const invoices = await db.select().from(invoicesTable).orderBy(desc(invoicesTable.createdAt));
+    const tenantId = (_req as any).tenantId;
+    const invoices = await db.select().from(invoicesTable)
+      .where(eq(invoicesTable.officeId, tenantId))
+      .orderBy(desc(invoicesTable.createdAt));
     res.json(invoices);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -25,9 +29,11 @@ router.get("/invoices", async (_req: Request, res: Response) => {
 });
 
 // ─── GET /invoices/:id ───
-router.get("/invoices/:id", async (req: Request, res: Response) => {
+router.get("/invoices/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const [invoice] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, String(req.params.id)));
+    const tenantId = (req as any).tenantId;
+    const [invoice] = await db.select().from(invoicesTable)
+      .where(and(eq(invoicesTable.id, String(req.params.id)), eq(invoicesTable.officeId, tenantId)));
     if (!invoice) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
     res.json(invoice);
   } catch (err: any) {
@@ -36,8 +42,9 @@ router.get("/invoices/:id", async (req: Request, res: Response) => {
 });
 
 // ─── POST /invoices ─── Create invoice
-router.post("/invoices", async (req: Request, res: Response) => {
+router.post("/invoices", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tenantId = (req as any).tenantId;
     const { clientId, caseId, title, items, vatRate, dueDate, notes, currency } = req.body as {
       clientId?: string; caseId?: string; title: string;
       items: Array<{ description: string; quantity: number; unitPrice: number }>;
@@ -60,6 +67,7 @@ router.post("/invoices", async (req: Request, res: Response) => {
       subtotal, vatRate: vat, vatAmount: vatAmt, total,
       currency: currency ?? "SAR",
       status: "draft", dueDate, notes,
+      officeId: tenantId,
     }).returning();
 
     eventBus.emit({
@@ -74,8 +82,9 @@ router.post("/invoices", async (req: Request, res: Response) => {
 });
 
 // ─── PUT /invoices/:id ─── Update invoice
-router.put("/invoices/:id", async (req: Request, res: Response) => {
+router.put("/invoices/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tenantId = (req as any).tenantId;
     const { title, items, vatRate, dueDate, notes, status } = req.body as {
       title?: string;
       items?: Array<{ description: string; quantity: number; unitPrice: number }>;
@@ -92,15 +101,16 @@ router.put("/invoices/:id", async (req: Request, res: Response) => {
       const subtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
       const vat      = vatRate ?? 15;
       const vatAmt   = Math.round(subtotal * vat / 100);
-      updates.items    = JSON.stringify(items);
-      updates.subtotal = subtotal;
-      updates.vatRate  = vat;
+      updates.items     = JSON.stringify(items);
+      updates.subtotal  = subtotal;
+      updates.vatRate   = vat;
       updates.vatAmount = vatAmt;
-      updates.total    = subtotal + vatAmt;
+      updates.total     = subtotal + vatAmt;
     }
 
     const [updated] = await db.update(invoicesTable).set(updates)
-      .where(eq(invoicesTable.id, String(req.params.id))).returning();
+      .where(and(eq(invoicesTable.id, String(req.params.id)), eq(invoicesTable.officeId, tenantId)))
+      .returning();
 
     if (!updated) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
     res.json(updated);
@@ -110,9 +120,11 @@ router.put("/invoices/:id", async (req: Request, res: Response) => {
 });
 
 // ─── DELETE /invoices/:id ───
-router.delete("/invoices/:id", async (req: Request, res: Response) => {
+router.delete("/invoices/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    await db.delete(invoicesTable).where(eq(invoicesTable.id, String(req.params.id)));
+    const tenantId = (req as any).tenantId;
+    await db.delete(invoicesTable)
+      .where(and(eq(invoicesTable.id, String(req.params.id)), eq(invoicesTable.officeId, tenantId)));
     res.json({ ok: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -120,18 +132,19 @@ router.delete("/invoices/:id", async (req: Request, res: Response) => {
 });
 
 // ─── POST /invoices/:id/payment-link ─── Create Stripe Payment Link
-router.post("/invoices/:id/payment-link", async (req: Request, res: Response) => {
+router.post("/invoices/:id/payment-link", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const [invoice] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, String(req.params.id)));
+    const tenantId = (req as any).tenantId;
+    const [invoice] = await db.select().from(invoicesTable)
+      .where(and(eq(invoicesTable.id, String(req.params.id)), eq(invoicesTable.officeId, tenantId)));
     if (!invoice) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
 
     if (invoice.stripePaymentLinkUrl) {
       res.json({ url: invoice.stripePaymentLinkUrl, existing: true }); return;
     }
 
-    // invoice.total is stored in SAR → multiply × 100 to convert to halalas (Stripe smallest unit)
     const unitAmount = Math.round(invoice.total * 100);
-    const STRIPE_MAX = 99_999_999; // 999,999.99 SAR in halalas
+    const STRIPE_MAX = 99_999_999;
     if (unitAmount > STRIPE_MAX) {
       const sarDisplay = invoice.total.toLocaleString("ar-SA", { maximumFractionDigits: 2 });
       res.status(400).json({
@@ -146,21 +159,18 @@ router.post("/invoices/:id/payment-link", async (req: Request, res: Response) =>
     const stripe = await getUncachableStripeClient();
     const host   = req.get("host") ?? "";
 
-    // Get client email if available
     let clientEmail: string | undefined;
     if (invoice.clientId) {
       const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, invoice.clientId));
       clientEmail = client?.email ?? undefined;
     }
 
-    // Create Stripe Product for this invoice
     const product = await stripe.products.create({
       name: `فاتورة: ${invoice.title}`,
       description: `${invoice.invoiceNumber} — ${invoice.title}`,
       metadata: { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber },
     });
 
-    // Create Price (converted to halalas — SAR smallest unit)
     const currency = (invoice.currency ?? "SAR").toLowerCase();
     const price = await stripe.prices.create({
       product: product.id,
@@ -168,7 +178,6 @@ router.post("/invoices/:id/payment-link", async (req: Request, res: Response) =>
       currency,
     });
 
-    // Payment methods: card (mada/visa/mastercard), apple_pay, google_pay link
     const paymentLink = await stripe.paymentLinks.create({
       line_items: [{ price: price.id, quantity: 1 }],
       payment_method_types: ["card"],
@@ -180,7 +189,6 @@ router.post("/invoices/:id/payment-link", async (req: Request, res: Response) =>
       ...(clientEmail ? { customer_creation: "always" } : {}),
     });
 
-    // Save link to DB
     await db.update(invoicesTable).set({
       stripePaymentLinkId:  paymentLink.id,
       stripePaymentLinkUrl: paymentLink.url,
@@ -188,7 +196,7 @@ router.post("/invoices/:id/payment-link", async (req: Request, res: Response) =>
       stripePriceId:   price.id,
       status: "sent",
       updatedAt: new Date(),
-    }).where(eq(invoicesTable.id, invoice.id));
+    }).where(and(eq(invoicesTable.id, invoice.id), eq(invoicesTable.officeId, tenantId)));
 
     res.json({ url: paymentLink.url, id: paymentLink.id });
   } catch (err: any) {
@@ -198,11 +206,13 @@ router.post("/invoices/:id/payment-link", async (req: Request, res: Response) =>
 });
 
 // ─── POST /invoices/:id/mark-paid ───
-router.post("/invoices/:id/mark-paid", async (req: Request, res: Response) => {
+router.post("/invoices/:id/mark-paid", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tenantId = (req as any).tenantId;
     const [updated] = await db.update(invoicesTable)
       .set({ status: "paid", paidAt: new Date(), updatedAt: new Date() })
-      .where(eq(invoicesTable.id, String(req.params.id))).returning();
+      .where(and(eq(invoicesTable.id, String(req.params.id)), eq(invoicesTable.officeId, tenantId)))
+      .returning();
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

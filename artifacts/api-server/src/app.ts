@@ -91,7 +91,26 @@ app.use("/api/portal/create-token", strictLimiter);
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
-app.use(cors({ credentials: true, origin: true }));
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  credentials: true,
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (
+      ALLOWED_ORIGINS.includes(origin) ||
+      /^https:\/\/.*\.replit\.app$/.test(origin) ||
+      /^https:\/\/.*\.replit\.dev$/.test(origin) ||
+      /^http:\/\/localhost(:\d+)?$/.test(origin)
+    ) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS: origin not allowed — ${origin}`));
+  },
+}));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
