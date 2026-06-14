@@ -1,9 +1,9 @@
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef, Component } from "react";
+import type { ReactNode, ErrorInfo } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import Landing from "@/pages/landing"; // eager — public homepage must never be lazy-blocked
 import { QueryClient, QueryClientProvider, useQueryClient, useQuery } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, useClerk, useAuth } from "@clerk/react";
-import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -144,20 +144,14 @@ const queryClient = new QueryClient({
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-let clerkPubKey: string;
-try {
-  clerkPubKey = publishableKeyFromHost(
-    window.location.hostname,
-    import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-  );
-} catch (e) {
-  console.error("[Adala] publishableKeyFromHost failed:", e);
-  clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? "";
-}
+// Use the publishable key directly from the environment variable.
+// publishableKeyFromHost from @clerk/react/internal was throwing in production
+// for the .replit.app hostname, which was corrupting the Clerk singleton and
+// causing ClerkProvider to fail silently → blank page.
+const clerkPubKey: string = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? "";
 
-// REQUIRED — Replit sets VITE_CLERK_PROXY_URL to a relative path like "/api/__clerk"
-// but Clerk v6 requires an absolute URL (https://domain/api/__clerk) for the proxy
-// to work correctly in production. We expand relative paths at runtime.
+// Replit sets VITE_CLERK_PROXY_URL to a relative path like "/api/__clerk"
+// Clerk v6 requires an absolute URL in production — expand at runtime.
 const _rawProxy = import.meta.env.VITE_CLERK_PROXY_URL;
 const clerkProxyUrl = _rawProxy
   ? _rawProxy.startsWith("/")
@@ -249,14 +243,52 @@ function SignUpPage() {
   );
 }
 
+// ── Root error boundary ────────────────────────────────────────────────────────
+// Catches any render-time throw in the app tree and shows a recoverable message
+// instead of a completely blank white screen.
+interface EBState { error: Error | null }
+class AppErrorBoundary extends Component<{ children: ReactNode }, EBState> {
+  state: EBState = { error: null };
+  static getDerivedStateFromError(error: Error): EBState { return { error }; }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[Adala] AppErrorBoundary caught:", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div dir="rtl" style={{ padding: "2rem", fontFamily: "Cairo, sans-serif", background: "#0F1B35", minHeight: "100vh", color: "#F8F9FA", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem" }}>
+          <div style={{ fontSize: "2rem" }}>⚠️</div>
+          <h1 style={{ color: "#C9A84C", fontSize: "1.25rem" }}>حدث خطأ غير متوقع</h1>
+          <p style={{ color: "#A0ADB8", fontSize: "0.875rem" }}>يرجى تحديث الصفحة. إذا استمرت المشكلة، تواصل مع الدعم.</p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ background: "#C9A84C", color: "#1A2744", border: "none", borderRadius: "0.5rem", padding: "0.5rem 1.5rem", cursor: "pointer", fontFamily: "inherit", fontWeight: "bold" }}
+          >
+            تحديث الصفحة
+          </button>
+          {import.meta.env.DEV && (
+            <pre style={{ color: "#EF4444", fontSize: "0.75rem", maxWidth: "600px", overflow: "auto", background: "#1A2744", padding: "1rem", borderRadius: "0.5rem" }}>
+              {this.state.error.message}{"\n"}{this.state.error.stack}
+            </pre>
+          )}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ── Clerk cache invalidator ────────────────────────────────────────────────────
+// Safe: guards against useClerk() returning undefined when Clerk singleton
+// is not yet ready (e.g. ClerkProvider still initializing in production).
 function ClerkQueryClientCacheInvalidator() {
-  const { addListener } = useClerk();
+  const clerk = useClerk();
   const qc = useQueryClient();
   const prevUserIdRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
-    const unsubscribe = addListener(({ user }) => {
+    if (!clerk?.addListener) return;
+    const unsubscribe = clerk.addListener(({ user }) => {
       const userId = user?.id ?? null;
       if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
         qc.clear();
@@ -264,7 +296,7 @@ function ClerkQueryClientCacheInvalidator() {
       prevUserIdRef.current = userId;
     });
     return unsubscribe;
-  }, [addListener, qc]);
+  }, [clerk, qc]);
 
   return null;
 }
@@ -529,11 +561,13 @@ function AppRoutes() {
 // ── App root ───────────────────────────────────────────────────────────────────
 function App() {
   return (
-    <div dir="rtl" className="font-sans antialiased text-foreground bg-background min-h-screen">
-      <WouterRouter base={basePath}>
-        <AppRoutes />
-      </WouterRouter>
-    </div>
+    <AppErrorBoundary>
+      <div dir="rtl" className="font-sans antialiased text-foreground bg-background min-h-screen">
+        <WouterRouter base={basePath}>
+          <AppRoutes />
+        </WouterRouter>
+      </div>
+    </AppErrorBoundary>
   );
 }
 
