@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, useSearch } from "wouter";
 import {
   Phone, Mail, MapPin, MessageCircle, Star, Globe, Twitter,
   Linkedin, Facebook, Clock, BadgeCheck, Award, Users, Briefcase,
@@ -248,6 +248,11 @@ export default function OfficePage() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
   const [, navigate] = useLocation();
+  const search = useSearch();
+  const sp = new URLSearchParams(search);
+  const paidSession = sp.get("session") ?? "";
+  const isPaid = sp.get("paid") === "1";
+
   const [lang, setLang] = useState<Lang>("ar");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [orderDialog, setOrderDialog] = useState<any>(null);
@@ -272,6 +277,20 @@ export default function OfficePage() {
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
   }, []);
+
+  /* ── Poll order-success after Stripe redirect ── */
+  const { data: orderSuccess, isLoading: orderSuccessLoading } = useQuery<any>({
+    queryKey: ["order-success", paidSession],
+    queryFn: () => fetch(`/api/office/public/${slug}/order-success?sessionId=${paidSession}`).then(r => r.json()),
+    enabled: isPaid && !!paidSession,
+    refetchInterval: (d) => {
+      const data = d?.state?.data;
+      if (!data || data.status === "pending") return 3000;
+      return false;
+    },
+    staleTime: Infinity,
+    retry: 5,
+  });
 
   const { data, isLoading, isError } = useQuery<any>({
     queryKey: ["office-public", slug],
@@ -329,6 +348,68 @@ export default function OfficePage() {
     ref.current?.scrollIntoView({ behavior: "smooth" });
     setMobileMenu(false);
   };
+
+  /* ── Payment success overlay (shown BEFORE error/loading guards) ── */
+  if (isPaid && paidSession) {
+    const ready = orderSuccess && orderSuccess.status !== "pending";
+    const portalUrl = orderSuccess?.portalUrl;
+    const clientName2 = orderSuccess?.clientName ?? "";
+    const svcName = orderSuccess?.serviceName ?? "الخدمة القانونية";
+    const officeName2 = orderSuccess?.officeName ?? (data?.office?.name ?? "المكتب");
+
+    return (
+      <div className="min-h-screen bg-[#080d1a] flex items-center justify-center px-4" dir="rtl">
+        <div className="max-w-lg w-full bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-white">
+          {!ready ? (
+            <>
+              <div className="h-20 w-20 rounded-full bg-[#C9A84C]/20 flex items-center justify-center mx-auto mb-6 animate-pulse">
+                <Loader2 className="h-10 w-10 text-[#C9A84C] animate-spin" />
+              </div>
+              <h1 className="text-2xl font-black mb-2">جاري معالجة طلبك...</h1>
+              <p className="text-white/50 text-sm">تم استلام الدفع — نحن نُعِدّ ملفك وبوابتك الإلكترونية</p>
+            </>
+          ) : (
+            <>
+              <div className="h-20 w-20 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 className="h-10 w-10 text-emerald-400" />
+              </div>
+              <h1 className="text-2xl font-black mb-1">
+                {clientName2 ? `مرحباً ${clientName2}!` : "تم الدفع بنجاح! ✅"}
+              </h1>
+              <p className="text-white/60 text-sm mb-2">تم تسجيل طلبك لخدمة <strong className="text-white">{svcName}</strong></p>
+              <p className="text-white/40 text-xs mb-6">سيتواصل فريق <strong className="text-white/70">{officeName2}</strong> معك في أقرب وقت</p>
+
+              {portalUrl ? (
+                <div className="bg-white/5 border border-[#C9A84C]/30 rounded-xl p-5 mb-6">
+                  <p className="text-[#C9A84C] text-xs font-bold mb-2 uppercase tracking-wider">بوابتك الإلكترونية الخاصة</p>
+                  <p className="text-white/50 text-xs mb-4">تابع حالة قضيتك، الوثائق، والتحديثات في الوقت الفعلي</p>
+                  <a href={portalUrl} target="_blank" rel="noreferrer"
+                    className="block w-full bg-[#C9A84C] hover:bg-[#b8952f] text-[#0d1b2a] font-black py-3 rounded-lg transition-colors text-sm">
+                    🔗 فتح البوابة الإلكترونية
+                  </a>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(portalUrl); }}
+                    className="mt-2 w-full text-xs text-white/30 hover:text-white/60 transition-colors py-1">
+                    نسخ الرابط
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-6">
+                  <p className="text-white/50 text-sm">سيصلك رابط البوابة الإلكترونية على بريدك الإلكتروني قريباً</p>
+                </div>
+              )}
+
+              <button
+                onClick={() => navigate(`/firms/${slug}`)}
+                className="text-white/40 hover:text-white/70 text-xs transition-colors">
+                العودة إلى صفحة المكتب
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) return (
     <div className="min-h-screen bg-[#080d1a] flex items-center justify-center">

@@ -55,3 +55,4 @@
 - [Adala RBAC frontend](adala-rbac-frontend.md) — use-permissions.ts hook + Can.tsx guard + team.tsx page; routes: /rbac/my-permissions /rbac/members /rbac/members/:id/role
 - [Adala Marketplace Redesign](adala-marketplace-redesign.md) — Legal Marketplace concept: Deal Room + Buy Now + auto-case; 3 new tables + 10 routes
 - [Adala Clerk Routing](adala-clerk-routing.md) — Show components blank during Clerk init; always use useAuth() + explicit if/return guards in route wrappers
+- [Adala Client Acquisition Portal](client-acquisition-portal.md) — Stripe checkout.session.completed → auto-case+client+portal; guard: officeSlug present AND no plan; success overlay BEFORE isLoading guard; polls /order-success every 3s
