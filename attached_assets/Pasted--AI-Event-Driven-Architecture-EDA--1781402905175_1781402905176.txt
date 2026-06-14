@@ -1,0 +1,255 @@
+تمام. الآن ندخل إلى أعلى مستوى في التصميم المعماري لـ عدالة AI:
+
+🧠 Event-Driven Architecture (EDA) + Legal Operating System Core
+
+هذا هو ما يجعل النظام “حي” وليس مجرد تطبيق.
+
+⸻
+
+🧠 1. الفكرة ببساطة (لكن بدقة هندسية)
+
+بدلاً من:
+
+❌ كل جزء يعمل بشكل مستقل (قضايا / دفع / فواتير)
+
+نحو:
+
+✅ كل شيء = أحداث (Events)
+
+يعني:
+
+أي حركة داخل النظام تولّد Event
+وكل Event يتم معالجته بواسطة “مستمعين” (Listeners)
+
+⸻
+
+🏗️ 2. الهيكل العام للنظام
+
+                 ┌──────────────┐
+                 │  Frontend    │
+                 └──────┬───────┘
+                        │
+                        v
+             ┌─────────────────────┐
+             │  API Layer          │
+             └────────┬────────────┘
+                      v
+        ┌──────────────────────────────┐
+        │      EVENT BUS CORE          │
+        │ (Central Brain / Message Hub)│
+        └───────┬─────────┬───────────┘
+                v         v
+     ┌──────────────┐ ┌──────────────┐
+     │ Finance      │ │ Cases Engine  │
+     │ Listener     │ │ Listener      │
+     └──────────────┘ └──────────────┘
+                v         v
+        ┌──────────────┐ ┌──────────────┐
+        │ Notifications │ │ Analytics     │
+        │ Listener      │ │ Listener      │
+        └──────────────┘ └──────────────┘
+
+⸻
+
+⚡ 3. تعريف الأحداث الأساسية في عدالة AI
+
+export type EventType =
+  | "CASE_CREATED"
+  | "INVOICE_GENERATED"
+  | "PAYMENT_SUCCESS"
+  | "PAYMENT_FAILED"
+  | "SUBSCRIPTION_RENEWED"
+  | "LAWYER_ASSIGNED"
+  | "PAYOUT_REQUESTED";
+
+⸻
+
+🧠 4. Event Bus (قلب النظام)
+
+class EventBus {
+  private listeners: Record<string, Function[]> = {};
+  on(event: string, handler: Function) {
+    if (!this.listeners[event]) {
+      this.listeners[event] = [];
+    }
+    this.listeners[event].push(handler);
+  }
+  emit(event: string, data: any) {
+    const handlers = this.listeners[event] || [];
+    for (const handler of handlers) {
+      handler(data);
+    }
+  }
+}
+export const eventBus = new EventBus();
+
+⸻
+
+⚖️ 5. مثال: عند إنشاء قضية
+
+النظام لا “ينفذ”، بل “يصدر حدث”
+
+eventBus.emit("CASE_CREATED", {
+  caseId: "123",
+  clientId: "456",
+  lawyerId: "789",
+});
+
+⸻
+
+💰 6. Financial Listener (القلب المالي)
+
+eventBus.on("PAYMENT_SUCCESS", async (data) => {
+  // 1. تسجيل في Ledger
+  await LedgerEngine.post({
+    transactionId: data.txId,
+    amount: data.amount,
+  });
+  // 2. توزيع الأرباح
+  await FinancialEngine.processMarketplace(data);
+  // 3. تحديث المحفظة
+  await WalletEngine.update(data);
+});
+
+⸻
+
+🧾 7. Invoice Listener
+
+eventBus.on("INVOICE_GENERATED", async (invoice) => {
+  await NotificationService.send({
+    userId: invoice.clientId,
+    message: "تم إصدار فاتورة جديدة",
+  });
+});
+
+⸻
+
+⚖️ 8. Case Listener (القضايا)
+
+eventBus.on("CASE_CREATED", async (data) => {
+  await Analytics.track("new_case");
+  await NotificationService.send({
+    userId: data.lawyerId,
+    message: "تم إسناد قضية جديدة لك",
+  });
+});
+
+⸻
+
+🔔 9. Notification Engine
+
+class NotificationService {
+  static async send({ userId, message }) {
+    console.log(`Notify ${userId}: ${message}`);
+  }
+}
+
+⸻
+
+📊 10. Analytics Listener
+
+eventBus.on("*", async (event, data) => {
+  await AnalyticsStore.insert({
+    event,
+    data,
+    timestamp: new Date(),
+  });
+});
+
+⸻
+
+🧠 11. كيف يصبح النظام “حي”؟
+
+مثال واقعي كامل
+
+⚖️ خطوة واحدة فقط:
+
+عميل دفع فاتورة
+
+⸻
+
+🔥 ما يحدث خلف الكواليس:
+
+PAYMENT_SUCCESS
+   ↓
+Ledger Engine
+   ↓
+Wallet Update
+   ↓
+Revenue Split
+   ↓
+Payout Scheduling
+   ↓
+Notification Sent
+   ↓
+Analytics Updated
+
+⸻
+
+🧩 12. كيف يتم دمجه داخل عدالة AI؟
+
+بدون تغيير UI:
+
+أي API في النظام فقط يطلق Event:
+
+app.post("/pay", async (req, res) => {
+  const payment = await Checkout.pay(req.body);
+  eventBus.emit("PAYMENT_SUCCESS", payment);
+  res.send({ ok: true });
+});
+
+⸻
+
+🏛️ 13. النتيجة النهائية داخل عدالة AI
+
+أصبح النظام:
+
+✔ ليس صفحات
+✔ ليس Modules
+✔ ليس Services منفصلة
+
+بل:
+
+🧠 Legal Operating System Event-Driven
+
+⸻
+
+🚀 14. القوة الحقيقية لهذا التصميم
+
+الآن يمكنك:
+
+* إضافة أي Feature بدون تعديل النظام المالي
+* إضافة إشعارات بدون لمس الدفع
+* إضافة AI Analytics بدون لمس القضايا
+* توسيع النظام إلى دول أخرى بسهولة
+
+⸻
+
+🔥 15. التحول النهائي
+
+قبل:
+
+نظام إدارة محاماة
+
+بعد:
+
+🧠 منصة تشغيل قانونية + مالية + تشغيلية في نظام واحد حي
+
+⸻
+
+👉 إذا تريد الخطوة التالية (مهم جداً)
+
+أقدر أبني لك الآن:
+
+🔥 “Real-Time Dashboard System”
+
+يشمل:
+
+* تحديث لحظي لكل الأحداث
+* WebSocket live feed
+* شاشة مراقبة مالية مثل البنوك
+* Activity stream مثل Stripe
+
+فقط قل:
+
+ابني النظام اللحظي الكامل (Real-time OS)
