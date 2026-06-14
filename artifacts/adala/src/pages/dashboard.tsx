@@ -12,7 +12,8 @@ import {
   FileText, Clock, ArrowLeft, Zap, ChevronLeft, CheckCircle2, Banknote,
   Activity, Bell, BarChart3, MapPin, Plus, ExternalLink, CreditCard, BrainCircuit,
   DollarSign, ShieldCheck, Sparkles, UserCheck, TrendingDown, HeartPulse, Brain,
-  X, RefreshCw,
+  X, RefreshCw, Target, Gauge, Star, FlameKindling, ChevronRight,
+  CircleDot, TriangleAlert, BadgeCheck,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useLang } from "@/hooks/use-lang";
@@ -116,6 +117,265 @@ function AiEventsPanel() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════
+   INTELLIGENCE DATA TYPE
+══════════════════════════════════════════════════════ */
+type IntelData = {
+  scores: { engagement: number; collection: number; activity: number; ai: number; risk: number };
+  officeScore: number;
+  tier: string;
+  smartActions: { priority: number; urgent: boolean; type: string; title: string; body: string; href: string; icon: string }[];
+  clientRisks: { id: string; name: string; activeCases: number; unpaidAmount: number; overdueCount: number; daysSince: number | null; risk: string }[];
+  stats: any;
+};
+
+/* ══════════════════════════════════════════════════════
+   Smart Briefing — Adaptive Daily Briefing Header
+══════════════════════════════════════════════════════ */
+function SmartBriefing({ user }: { user: any }) {
+  const { tx, isAr, dateLocale } = useLang();
+  const { data, isLoading } = useQuery<IntelData>({
+    queryKey: ["dashboard-intelligence"],
+    queryFn: () => fetch(`${BASE}/api/dashboard/intelligence`).then(r => r.json()),
+    staleTime: 5 * 60_000,
+  });
+
+  const hr = new Date().getHours();
+  const name = user?.firstName ?? (isAr ? "المحامي" : "Counselor");
+  const greeting = isAr
+    ? hr < 12 ? `صباح الخير، ${name} ⚖️` : hr < 17 ? `مساء الخير، ${name}` : `مساء النور، ${name}`
+    : hr < 12 ? `Good morning, ${name} ⚖️` : hr < 17 ? `Good afternoon, ${name}` : `Good evening, ${name}`;
+
+  const ICON_MAP: Record<string, any> = {
+    gavel: Scale, receipt: Receipt, scale: Scale, file: FileText,
+    sparkles: Sparkles, alert: AlertCircle, clock: Clock,
+  };
+
+  const urgentActions  = (data?.smartActions ?? []).filter(a => a.urgent).slice(0, 2);
+  const normalActions  = (data?.smartActions ?? []).filter(a => !a.urgent).slice(0, 2);
+  const hasActions = urgentActions.length + normalActions.length > 0;
+
+  const tierStyles: Record<string, string> = {
+    "ممتاز": "bg-emerald-500/15 border-emerald-500/30 text-emerald-400",
+    "متقدم": "bg-blue-500/15 border-blue-500/30 text-blue-400",
+    "نشط":   "bg-primary/15 border-primary/30 text-primary",
+    "ناشئ":  "bg-slate-500/15 border-slate-500/30 text-slate-400",
+  };
+
+  return (
+    <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
+      {/* Left — Greeting + tier */}
+      <div className="flex-1">
+        <h1 className="text-2xl font-black tracking-tight">{greeting}</h1>
+        <p className="text-xs text-muted-foreground mt-1">
+          {new Date().toLocaleDateString(dateLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+        </p>
+        {data && (
+          <div className="flex items-center gap-2 mt-2">
+            <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${tierStyles[data.tier] ?? tierStyles["نشط"]}`}>
+              <BadgeCheck className="h-3 w-3" />
+              مكتب {data.tier} — {data.officeScore}/100
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Right — Prioritised smart actions */}
+      {(isLoading || hasActions) && (
+        <div className="w-full lg:w-[420px] space-y-1.5">
+          {isLoading && Array(2).fill(0).map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)}
+          {!isLoading && urgentActions.map((action, i) => {
+            const Icon = ICON_MAP[action.icon] ?? AlertCircle;
+            return (
+              <Link key={i} href={action.href}>
+                <div className="flex items-start gap-3 p-2.5 rounded-xl border border-red-500/30 bg-red-500/5 cursor-pointer hover:bg-red-500/10 transition-all">
+                  <div className="w-7 h-7 rounded-lg bg-red-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Icon className="h-3.5 w-3.5 text-red-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-red-300 leading-tight">{action.title}</p>
+                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{action.body}</p>
+                  </div>
+                  <ChevronLeft className="h-3 w-3 text-red-400/60 flex-shrink-0 mt-1" />
+                </div>
+              </Link>
+            );
+          })}
+          {!isLoading && normalActions.map((action, i) => {
+            const Icon = ICON_MAP[action.icon] ?? Target;
+            return (
+              <Link key={i} href={action.href}>
+                <div className="flex items-start gap-3 p-2.5 rounded-xl border border-border/40 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-all">
+                  <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Icon className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold leading-tight">{action.title}</p>
+                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{action.body}</p>
+                  </div>
+                  <ChevronLeft className="h-3 w-3 text-muted-foreground/50 flex-shrink-0 mt-1" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════
+   Office Perf Score — 5-Dimension Intelligence Bars
+══════════════════════════════════════════════════════ */
+function OfficePerfScore() {
+  const { data, isLoading } = useQuery<IntelData>({
+    queryKey: ["dashboard-intelligence"],
+    staleTime: 5 * 60_000,
+    queryFn: () => fetch(`${BASE}/api/dashboard/intelligence`).then(r => r.json()),
+  });
+
+  const DIMS = [
+    { key: "engagement" as const, label: "التفاعل",  icon: Zap,        color: "#6366F1" },
+    { key: "collection" as const, label: "التحصيل", icon: DollarSign,  color: "#10B981" },
+    { key: "activity"   as const, label: "النشاط",  icon: Activity,    color: "#3B82F6" },
+    { key: "ai"         as const, label: "ذكاء AI", icon: Brain,        color: "#C9A84C" },
+    { key: "risk"       as const, label: "الأمان",  icon: ShieldCheck, color: "#F59E0B" },
+  ];
+
+  const scores = data?.scores ?? { engagement: 0, collection: 0, activity: 0, ai: 0, risk: 0 };
+  const overall = data?.officeScore ?? 0;
+  const overallColor = overall >= 85 ? "#10B981" : overall >= 65 ? "#3B82F6" : overall >= 40 ? "#C9A84C" : "#EF4444";
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30 bg-muted/20">
+        <div className="flex items-center gap-2">
+          <Target className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">ذكاء المكتب — 5 أبعاد</span>
+        </div>
+        {data && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground">الدرجة الكلية</span>
+            <span className="text-sm font-black tabular-nums" style={{ color: overallColor }}>{overall}/100</span>
+          </div>
+        )}
+      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-5 gap-px bg-border/10 p-0">
+          {Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-16 rounded-none" />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-5 divide-x divide-x-reverse divide-border/20">
+          {DIMS.map(dim => {
+            const score = scores[dim.key] ?? 0;
+            const pct = Math.max(2, score);
+            const Icon = dim.icon;
+            const scoreColor = score >= 80 ? "text-emerald-400" : score >= 60 ? "text-blue-400" : score >= 40 ? "text-amber-400" : "text-red-400";
+            return (
+              <div key={dim.key} className="flex flex-col items-center gap-1.5 px-2 py-3 text-center hover:bg-white/2 transition-all">
+                <Icon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: dim.color }} />
+                <span className={`text-sm font-black tabular-nums leading-none ${scoreColor}`}>{score}</span>
+                <div className="w-full h-1 rounded-full bg-muted/50 overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: dim.color }} />
+                </div>
+                <span className="text-[9px] text-muted-foreground/70 leading-tight">{dim.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════
+   Client Risk Matrix — AI-Driven Client Health
+══════════════════════════════════════════════════════ */
+function ClientRiskMatrix() {
+  const { data, isLoading } = useQuery<IntelData>({
+    queryKey: ["dashboard-intelligence"],
+    staleTime: 5 * 60_000,
+    queryFn: () => fetch(`${BASE}/api/dashboard/intelligence`).then(r => r.json()),
+  });
+
+  const risks = data?.clientRisks ?? [];
+  if (!isLoading && risks.length === 0) return null;
+
+  const RISK_CFG = {
+    high:   { label: "مرتفع",  bg: "bg-red-500/10",    text: "text-red-400",    border: "border-red-500/20",    dot: "bg-red-400" },
+    medium: { label: "متوسط",  bg: "bg-amber-500/10",  text: "text-amber-400",  border: "border-amber-500/20",  dot: "bg-amber-400" },
+    low:    { label: "منخفض",  bg: "bg-emerald-500/10",text: "text-emerald-400",border: "border-emerald-500/20",dot: "bg-emerald-400" },
+  };
+
+  const highCount = risks.filter(r => r.risk === "high").length;
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card overflow-hidden shadow-sm">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30 bg-muted/20">
+        <div className="flex items-center gap-2">
+          <Gauge className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">مصفوفة مخاطر العملاء</span>
+          {highCount > 0 && (
+            <span className="bg-red-500/15 text-red-400 border border-red-500/25 text-[10px] font-bold rounded-full px-1.5 py-0.5">
+              {highCount} مرتفع
+            </span>
+          )}
+        </div>
+        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" asChild>
+          <Link href="/clients"><ExternalLink className="h-3 w-3" />كل العملاء</Link>
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="p-3 space-y-2">{Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-9 rounded-lg" />)}</div>
+      ) : (
+        <>
+          {/* Column headers */}
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-1.5 border-b border-border/10 bg-muted/10">
+            <span className="text-[10px] text-muted-foreground/50">العميل</span>
+            <span className="text-[10px] text-muted-foreground/50 w-14 text-center">قضايا</span>
+            <span className="text-[10px] text-muted-foreground/50 w-20 text-left rtl:text-right">مستحق</span>
+            <span className="text-[10px] text-muted-foreground/50 w-10 text-center">أيام</span>
+            <span className="text-[10px] text-muted-foreground/50 w-14 text-center">المخاطرة</span>
+          </div>
+          <div className="divide-y divide-border/20">
+            {risks.slice(0, 8).map(client => {
+              const rc = RISK_CFG[client.risk as keyof typeof RISK_CFG] ?? RISK_CFG.low;
+              return (
+                <Link key={client.id} href="/clients">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center px-4 py-2.5 hover:bg-white/2 transition-all cursor-pointer">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${rc.dot}`} />
+                      <span className="text-xs font-medium truncate">{client.name}</span>
+                    </div>
+                    <span className="text-[11px] font-mono text-muted-foreground w-14 text-center">{client.activeCases}</span>
+                    <span className={`text-[11px] font-mono font-bold w-20 text-left rtl:text-right ${
+                      client.unpaidAmount > 0
+                        ? client.overdueCount > 0 ? "text-red-400" : "text-amber-400"
+                        : "text-emerald-400"
+                    }`}>
+                      {client.unpaidAmount > 0 ? `${client.unpaidAmount.toLocaleString("ar-SA")}` : "✓"}
+                    </span>
+                    <span className={`text-[10px] w-10 text-center ${client.daysSince !== null && client.daysSince > 30 ? "text-red-400/80" : "text-muted-foreground/60"}`}>
+                      {client.daysSince !== null ? `${client.daysSince}ي` : "—"}
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold w-14 text-center ${rc.bg} ${rc.text} ${rc.border}`}>
+                      {rc.label}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+          <div className="px-4 py-1.5 border-t border-border/10 bg-muted/10">
+            <span className="text-[10px] text-muted-foreground/40">أيام = منذ آخر نشاط · المستحق بالريال</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -419,15 +679,6 @@ export default function Dashboard() {
     cancelled:{ label: tx("ملغاة", "Cancelled"),   color: "text-orange-400" },
   };
 
-  const hr = new Date().getHours();
-  const name = user?.firstName ?? (isAr ? "المحامي" : "Counselor");
-  const greeting = isAr
-    ? hr < 12 ? `صباح الخير، ${name} ⚖️` : hr < 17 ? `مساء الخير، ${name}` : `مساء النور، ${name}`
-    : hr < 12 ? `Good morning, ${name} ⚖️` : hr < 17 ? `Good afternoon, ${name}` : `Good evening, ${name}`;
-  const greetingSub = isAr
-    ? hr < 12 ? "ابدأ يومك بمراجعة القضايا الجديدة ومواعيد الجلسات" : hr < 17 ? "تابع قضاياك الجارية واطلع على آخر التحديثات" : "راجع ملخص يومك وتأكد من الاستعداد لجلسات الغد"
-    : hr < 12 ? "Start your day by reviewing new cases and upcoming sessions" : hr < 17 ? "Follow up on active cases and check latest updates" : "Review your day summary and prepare for tomorrow's sessions";
-
   const kpis = (data?.kpis ?? {}) as any;
 
   const kpiCards = [
@@ -466,19 +717,14 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 max-w-7xl">
-      {/* ── Greeting */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight">{greeting}</h1>
-          <p className="text-muted-foreground text-sm mt-1">{greetingSub}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {new Date().toLocaleDateString(dateLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-          </p>
-        </div>
-      </div>
+      {/* ── Smart Briefing — Adaptive Greeting + Priority Actions */}
+      <SmartBriefing user={user} />
 
       {/* ── Executive Pulse Bar — 10 مؤشرات فورية */}
       <ExecutivePulseBar />
+
+      {/* ── Office Intelligence Score — 5 Dimensions */}
+      <OfficePerfScore />
 
       {/* ── AI Intelligence Panel — Autonomous Monitoring */}
       <AiEventsPanel />
@@ -730,6 +976,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Client Risk Matrix — AI-Driven Client Health */}
+      <ClientRiskMatrix />
 
       {/* ── Live Event Feed ── */}
       <LiveEventFeed />

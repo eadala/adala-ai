@@ -1,0 +1,213 @@
+تمام—هذا Auto Build Prompt جاهز لـ Replit (أو أي AI coding agent) يحوّل مشروعك إلى نفس الـ Blueprint الذي صممناه، ويقوم بإعادة الهيكلة + تحسين الأداء + تنظيم النظام بدون ما يخرب المنطق الحالي.
+
+انسخه كما هو:
+
+⸻
+
+🚀 Adala AI — Auto Build & Refactor Prompt (Production Grade)
+
+You are a senior Staff Software Engineer + SaaS Architect.
+Your mission is to fully refactor and optimize an existing large-scale legal SaaS system (Adala AI) into a production-grade modular architecture WITHOUT breaking existing features.
+You must prioritize:
+1. Performance (critical)
+2. Modular architecture
+3. Maintainability
+4. Lazy loading
+5. AI efficiency
+6. Multi-tenant security
+---
+## 🧠 CORE OBJECTIVE
+Transform the system into:
+> Modular SaaS Operating System + Event-Driven Backend + AI-on-Demand Layer
+---
+# 🏗️ FRONTEND REQUIREMENTS (React + Vite)
+## 1. Create App Shell Architecture
+- Build a lightweight AppShell
+- Move all heavy logic OUT of initial load
+- Keep only:
+  - Sidebar
+  - Topbar
+  - Router outlet
+---
+## 2. Implement Lazy Module System
+Convert ALL pages into lazy-loaded modules:
+modules:
+- cases
+- finance
+- hr
+- clients
+- documents
+- ai
+- admin
+Each module must include:
+- pages/
+- components/
+- hooks/
+- api.ts
+- types.ts
+---
+## 3. Remove Dashboard Monolith
+- Break any "all-in-one dashboard" into modules
+- No page should load more than one domain at startup
+---
+## 4. Introduce Shared Core Layer
+Create:
+src/core/
+- auth
+- permissions (RBAC)
+- tenant isolation
+- api client
+- event bus
+---
+## 5. Performance Rules (Strict)
+- Use React.lazy + Suspense everywhere
+- Remove unnecessary re-renders
+- Apply React.memo where needed
+- Use useMemo/useCallback properly
+- Ensure initial bundle is minimal (<300KB target)
+---
+# ⚙️ BACKEND REQUIREMENTS (Node.js + Express)
+## 1. Convert backend into service-based architecture:
+server/services:
+- cases.service
+- finance.service
+- hr.service
+- ai.orchestrator.service
+- notification.service
+---
+## 2. Implement Event-Driven System
+Create event bus:
+Events:
+- CASE_CREATED
+- CASE_UPDATED
+- INVOICE_OVERDUE
+- DOCUMENT_UPLOADED
+- USER_ACTIVITY
+Each event must:
+- Trigger workers asynchronously
+- Not block API response
+---
+## 3. Create Worker System
+server/workers:
+- ai.worker
+- notification.worker
+- analytics.worker
+Workers must process:
+- AI tasks
+- notifications
+- background jobs
+Use queue system (Redis or in-memory fallback).
+---
+## 4. AI Orchestrator Layer
+AI must NOT run inside API routes directly.
+Instead:
+API → Queue → AI Worker → Cache → Response
+AI responsibilities:
+- summarization
+- recommendation
+- risk scoring
+- insights generation
+---
+## 5. Multi-Tenant Security (CRITICAL)
+Enforce strict isolation:
+- Every table must include tenantId
+- Every request must validate tenant ownership
+- No cross-tenant data access allowed
+---
+# 🧠 AI OPTIMIZATION RULES
+- AI must be ON-DEMAND ONLY
+- AI responses must be cached
+- AI must not execute on page load
+- Rate-limit AI requests per user
+- Track AI cost per tenant
+---
+# 💾 DATABASE REQUIREMENTS (PostgreSQL)
+Ensure these core tables exist:
+- users
+- tenants
+- roles
+- permissions
+- cases
+- clients
+- documents
+- invoices
+- payments
+- ai_events
+- ai_logs
+- ai_decisions
+- audit_logs
+- notifications
+---
+# ⚡ REDIS REQUIREMENTS
+Use Redis for:
+- caching API responses
+- AI results cache
+- session storage
+- job queue
+---
+# 🔐 RBAC SYSTEM
+Implement:
+Permissions:
+- VIEW_CASES
+- EDIT_CASES
+- VIEW_FINANCE
+- REQUEST_AI
+- ADMIN_ACCESS
+Enforce:
+- UI-level permission filtering
+- Backend-level enforcement (mandatory)
+---
+# 📊 PERFORMANCE TARGETS
+Must achieve:
+- Initial load < 1.5 seconds
+- Lazy modules only load on demand
+- AI calls reduced by caching
+- API calls per page < 5
+- No duplicate API requests
+---
+# 🧩 OUTPUT REQUIREMENTS
+After refactor:
+1. Clean modular folder structure
+2. Lazy-loaded frontend architecture
+3. Event-driven backend
+4. AI worker system
+5. RBAC enforced properly
+6. Performance optimized system
+7. No breaking changes to core features
+---
+# ⚠️ IMPORTANT RULES
+- Do NOT remove existing business logic unless necessary
+- Do NOT break APIs
+- Do NOT merge modules back into monolith
+- Always prefer modularization over rewriting
+- Keep system functional at all times
+---
+Now refactor the entire project accordingly and output:
+- Updated folder structure
+- Key changed files
+- Any missing dependencies
+- Performance improvements applied
+
+⸻
+
+🚀 ماذا يفعل هذا الـ Prompt؟
+
+هذا الـ prompt يجبر Replit أو أي AI coding agent على:
+
+* تحويل مشروعك إلى Modular SaaS OS
+* تقليل الثقل فورًا
+* فصل AI عن UI rendering
+* بناء event-driven backend
+* تحسين الأداء بدون كسر النظام
+
+⸻
+
+إذا تريد الخطوة التالية (مهم جدًا)
+
+أقدر أصمم لك:
+
+🔥 “Zero-Downtime Migration Plan”
+
+كيف تطبق هذا التغيير على مشروعك الحالي بدون ما ينهار أو ينكسر الإنتاج
+
+فقط قل: ￼ ابغى خطة الترحيل الآمن

@@ -266,4 +266,212 @@ router.get("/dashboard/executive", async (req, res) => {
   }
 });
 
+/* ─── GET /dashboard/intelligence — Office AI Intelligence ──────────────── */
+router.get("/dashboard/intelligence", async (req, res) => {
+  try {
+    const now = new Date();
+    const start7  = new Date(now); start7.setDate(now.getDate() - 7);
+    const start30 = new Date(now); start30.setDate(now.getDate() - 30);
+    const in72h   = new Date(now); in72h.setDate(now.getDate() + 3);
+
+    const [cases, invoices, clients, contracts] = await Promise.all([
+      db.select().from(casesTable).then(r => r as any[]),
+      db.select().from(invoicesTable).then(r => r as any[]),
+      db.select().from(clientsTable).then(r => r as any[]),
+      db.select().from(contractsTable).then(r => r as any[]),
+    ]);
+
+    /* AI usage */
+    let aiMonth = 0;
+    try {
+      const r = await db.execute(sql`
+        SELECT COUNT(*) AS cnt FROM ai_tasks WHERE created_at >= ${start30.toISOString()}
+      `);
+      aiMonth = Number((r.rows?.[0] as any)?.cnt ?? 0);
+    } catch {}
+
+    /* Login frequency */
+    let loginCount7 = 0;
+    try {
+      const r = await db.execute(sql`
+        SELECT COUNT(*) AS cnt FROM login_logs WHERE created_at >= ${start7.toISOString()}
+      `);
+      loginCount7 = Number((r.rows?.[0] as any)?.cnt ?? 0);
+    } catch {}
+
+    /* Docs last 30 days */
+    let docsMonth = 0;
+    try {
+      const r = await db.execute(sql`
+        SELECT COUNT(*) AS cnt FROM documents WHERE created_at >= ${start30.toISOString()}
+      `);
+      docsMonth = Number((r.rows?.[0] as any)?.cnt ?? 0);
+    } catch {}
+
+    /* ── Score calculations ── */
+    const activeInv = invoices.filter((i: any) => i.status !== "cancelled");
+    const paidInv   = invoices.filter((i: any) => i.status === "paid");
+    const overdueInv= invoices.filter((i: any) => i.status === "overdue" || (i.due_date && new Date(i.due_date) < now && i.status === "unpaid"));
+    const activeCases = cases.filter((c: any) => ["open","in_progress"].includes(c.status));
+    const stale7 = activeCases.filter((c: any) => new Date(c.updatedAt ?? c.created_at ?? 0) < start7);
+    const critical = activeCases.filter((c: any) => c.nextHearingDate && new Date(c.nextHearingDate) <= in72h);
+
+    // Engagement (0-100)
+    const engagementScore = Math.min(100, Math.round(
+      Math.min(aiMonth, 30) * 1 +          // AI usage → max 30
+      Math.min(loginCount7, 7) * 5 +        // Logins → max 35
+      Math.min(docsMonth, 10) * 1.5 +       // Docs → max 15
+      (cases.length > 0 ? 10 : 0) +         // Has cases
+      (clients.length > 0 ? 10 : 0)         // Has clients
+    ));
+
+    // Collection (0-100)
+    const collectionScore = activeInv.length > 0
+      ? Math.round((paidInv.length / activeInv.length) * 100)
+      : 100;
+
+    // Activity (0-100) — cases updated in last 7 days
+    const activityScore = activeCases.length > 0
+      ? Math.round(((activeCases.length - stale7.length) / activeCases.length) * 100)
+      : 100;
+
+    // AI utilization (0-100)
+    const aiScore = Math.min(100, Math.round(aiMonth * 5));
+
+    // Risk (0-100, higher = safer)
+    let riskScore = 100;
+    riskScore -= Math.min(overdueInv.length * 12, 50);
+    riskScore -= Math.min(critical.length * 10, 30);
+    const outstanding = activeInv.filter((i: any) => i.status !== "paid").reduce((s: number, i: any) => s + ((i.total ?? i.amount ?? 0) / 100), 0);
+    if (outstanding > 100_000) riskScore -= 20;
+    else if (outstanding > 50_000) riskScore -= 10;
+    riskScore = Math.max(0, riskScore);
+
+    // Office score (weighted)
+    const officeScore = Math.round(
+      engagementScore * 0.20 +
+      collectionScore * 0.30 +
+      activityScore   * 0.20 +
+      aiScore         * 0.15 +
+      riskScore       * 0.15
+    );
+
+    const tier = officeScore >= 85 ? "ممتاز" : officeScore >= 65 ? "متقدم" : officeScore >= 40 ? "نشط" : "ناشئ";
+    const tierEn = officeScore >= 85 ? "Excellent" : officeScore >= 65 ? "Advanced" : officeScore >= 40 ? "Active" : "Emerging";
+
+    /* ── Smart Actions ── */
+    const smartActions: any[] = [];
+
+    if (critical.length > 0) {
+      smartActions.push({
+        priority: 1, urgent: true,
+        type: "critical_session",
+        title: `${critical.length} جلسة قضائية خلال 72 ساعة`,
+        body: critical.slice(0, 2).map((c: any) => c.title).join(" · "),
+        href: "/cases",
+        icon: "gavel",
+      });
+    }
+
+    if (overdueInv.length > 0) {
+      const total = overdueInv.reduce((s: number, i: any) => s + ((i.total ?? i.amount ?? 0) / 100), 0);
+      smartActions.push({
+        priority: overdueInv.length > 3 ? 1 : 2, urgent: overdueInv.length > 5,
+        type: "overdue_invoices",
+        title: `${overdueInv.length} فاتورة متأخرة — ${total.toLocaleString("ar-SA")} ر.س`,
+        body: "أرسل تذكيرات الدفع لتحسين معدل التحصيل",
+        href: "/invoices",
+        icon: "receipt",
+      });
+    }
+
+    if (stale7.length > 0) {
+      smartActions.push({
+        priority: 2, urgent: false,
+        type: "stale_cases",
+        title: `${stale7.length} قضية بدون تحديث منذ 7 أيام`,
+        body: "تابع تقدم هذه القضايا وأضف آخر المستجدات",
+        href: "/cases",
+        icon: "scale",
+      });
+    }
+
+    const expiringContracts = contracts.filter((c: any) => {
+      const exp = c.expiresAt ?? c.endDate;
+      if (!exp) return false;
+      const d = new Date(exp);
+      return d > now && d <= new Date(now.getTime() + 30 * 86400000);
+    });
+    if (expiringContracts.length > 0) {
+      smartActions.push({
+        priority: 2, urgent: false,
+        type: "expiring_contracts",
+        title: `${expiringContracts.length} عقد ينتهي خلال 30 يوم`,
+        body: "جدّد العقود قبل انتهاء صلاحيتها",
+        href: "/contracts",
+        icon: "file",
+      });
+    }
+
+    if (aiScore < 20 && cases.length > 0) {
+      smartActions.push({
+        priority: 3, urgent: false,
+        type: "ai_low_usage",
+        title: "استخدم الذكاء الاصطناعي لتسريع عملك",
+        body: "جرّب لخّص قضية أو أنشئ مستنداً قانونياً بالذكاء الاصطناعي",
+        href: "/ai-hub",
+        icon: "sparkles",
+      });
+    }
+
+    /* ── Client Risk Matrix ── */
+    const clientRisks = clients.slice(0, 12).map((cl: any) => {
+      const clInv = invoices.filter((i: any) => i.client_id === cl.id);
+      const clCases = cases.filter((c: any) => c.client_id === cl.id && ["open","in_progress"].includes(c.status));
+      const unpaid = clInv.filter((i: any) => !["paid","cancelled"].includes(i.status))
+        .reduce((s: number, i: any) => s + ((i.total ?? i.amount ?? 0) / 100), 0);
+      const overdue = clInv.filter((i: any) => i.status === "overdue").length;
+      const lastActivity = [
+        ...(clCases.map((c: any) => new Date(c.updatedAt ?? c.created_at ?? 0).getTime())),
+        ...(clInv.map((i: any) => new Date(i.createdAt ?? 0).getTime())),
+      ].reduce((max, t) => Math.max(max, t), 0);
+      const daysSince = lastActivity > 0 ? Math.round((Date.now() - lastActivity) / 86400000) : 999;
+
+      let risk = "low";
+      if (overdue > 0 || unpaid > 20000) risk = "high";
+      else if (unpaid > 5000 || daysSince > 30) risk = "medium";
+
+      return {
+        id: cl.id,
+        name: cl.fullName ?? cl.name ?? "—",
+        activeCases: clCases.length,
+        unpaidAmount: Math.round(unpaid),
+        overdueCount: overdue,
+        daysSince: daysSince < 999 ? daysSince : null,
+        risk,
+      };
+    }).sort((a: any, b: any) => {
+      const order = { high: 0, medium: 1, low: 2 };
+      return (order[a.risk as keyof typeof order] ?? 3) - (order[b.risk as keyof typeof order] ?? 3);
+    });
+
+    res.json({
+      scores: { engagement: engagementScore, collection: collectionScore, activity: activityScore, ai: aiScore, risk: riskScore },
+      officeScore,
+      tier,
+      tierEn,
+      smartActions: smartActions.sort((a, b) => a.priority - b.priority).slice(0, 5),
+      clientRisks,
+      stats: { activeCases: activeCases.length, overdueInv: overdueInv.length, stale: stale7.length, critical: critical.length },
+    });
+  } catch (e: any) {
+    console.error("dashboard/intelligence:", e);
+    res.json({
+      scores: { engagement: 50, collection: 50, activity: 50, ai: 0, risk: 80 },
+      officeScore: 50, tier: "نشط", tierEn: "Active",
+      smartActions: [], clientRisks: [], stats: {},
+    });
+  }
+});
+
 export default router;
