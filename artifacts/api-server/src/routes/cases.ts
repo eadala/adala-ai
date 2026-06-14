@@ -73,31 +73,37 @@ router.get("/cases", async (req, res) => {
     const page  = req.query.page  ? Math.max(1, parseInt(String(req.query.page)))  : null;
     const limit = req.query.limit ? Math.min(200, parseInt(String(req.query.limit))) : null;
 
-    let cases = await db.select().from(casesTable).orderBy(casesTable.createdAt);
-    if (query.status)   cases = cases.filter((c) => c.status   === query.status);
-    if (query.caseType) cases = cases.filter((c) => c.caseType === query.caseType);
+    /* Use raw SQL to include ad-hoc columns (source, store_order_id) not in Drizzle schema */
+    const { sql: rawSql } = await import("drizzle-orm");
+    const rawRows = await db.execute(rawSql`
+      SELECT id, title, description, case_type, status, client_name, assigned_to,
+             created_at, updated_at,
+             COALESCE(source, 'manual') AS source,
+             store_order_id
+      FROM cases ORDER BY created_at
+    `);
+    let allCases: any[] = (rawRows as any)?.rows ?? (rawRows as any) ?? [];
+    const mapCase = (c: any) => ({
+      id: c.id, title: c.title, description: c.description,
+      caseType: c.case_type, status: c.status, clientName: c.client_name,
+      assignedTo: c.assigned_to,
+      source: c.source ?? "manual",
+      storeOrderId: c.store_order_id ?? null,
+      createdAt: c.created_at instanceof Date ? c.created_at.toISOString() : c.created_at,
+      updatedAt: c.updated_at instanceof Date ? c.updated_at?.toISOString() ?? null : c.updated_at ?? null,
+    });
 
-    const total = cases.length;
+    if (query.status)   allCases = allCases.filter((c) => c.status   === query.status);
+    if (query.caseType) allCases = allCases.filter((c) => c.case_type === query.caseType);
+
+    const total = allCases.length;
     if (page && limit) {
-      cases = cases.slice((page - 1) * limit, page * limit);
-      const mapped = cases.map((c) => ({
-        id: c.id, title: c.title, description: c.description,
-        caseType: c.caseType, status: c.status, clientName: c.clientName,
-        assignedTo: c.assignedTo,
-        createdAt: c.createdAt.toISOString(),
-        updatedAt: c.updatedAt?.toISOString() ?? null,
-      }));
-      res.json({ data: mapped, total, page, limit, pages: Math.ceil(total / limit) });
+      const sliced = allCases.slice((page - 1) * limit, page * limit);
+      res.json({ data: sliced.map(mapCase), total, page, limit, pages: Math.ceil(total / limit) });
       return;
     }
 
-    res.json(cases.map((c) => ({
-      id: c.id, title: c.title, description: c.description,
-      caseType: c.caseType, status: c.status, clientName: c.clientName,
-      assignedTo: c.assignedTo,
-      createdAt: c.createdAt.toISOString(),
-      updatedAt: c.updatedAt?.toISOString() ?? null,
-    })));
+    res.json(allCases.map(mapCase));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
