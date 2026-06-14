@@ -73,7 +73,11 @@ router.post("/office/public/:slug/checkout", async (req, res) => {
     .where(eq(officeServicesTable.id, serviceId)).limit(1);
   if (!svc) return res.status(404).json({ error: "الخدمة غير موجودة" });
 
-  const origin = req.headers.origin ?? `https://adala.sa`;
+  /* Use configured canonical URL — never trust req.headers.origin to avoid redirect hijacking */
+  const appUrl = process.env.APP_URL
+    ?? (process.env.REPLIT_DOMAINS
+      ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+      : "https://adala.sa");
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
@@ -86,8 +90,8 @@ router.post("/office/public/:slug/checkout", async (req, res) => {
       },
       quantity: 1,
     }],
-    success_url: `${origin}/firms/${req.params.slug}?paid=1&session={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/firms/${req.params.slug}`,
+    success_url: `${appUrl}/firms/${req.params.slug}?paid=1&session={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl}/firms/${req.params.slug}`,
     metadata: { officeSlug: req.params.slug, serviceId, clientName, clientPhone, clientEmail: clientEmail ?? "" },
   });
 

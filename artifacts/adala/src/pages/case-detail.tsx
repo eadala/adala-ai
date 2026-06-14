@@ -15,7 +15,7 @@ import {
   ArrowRight, FileText, MessageSquare, Bot, User, Clock, Scale,
   Receipt, Handshake, CalendarDays, Sparkles, AlertTriangle,
   ChevronLeft, TrendingUp, Upload, Plus, ExternalLink, Loader2,
-  Shield, Lightbulb, Swords, BookOpen, Send, Globe, GitCommitHorizontal
+  Shield, Lightbulb, Swords, BookOpen, Send, Globe, GitCommitHorizontal, ShoppingBag
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -448,6 +448,18 @@ export default function CaseDetail({ id }: { id: string }) {
                 <>
                   <Separator />
                   <InfoRow icon={<User className="h-4 w-4 text-muted-foreground" />} label="المحامي المسؤول" value={caseData.assignedTo} />
+                </>
+              )}
+              {(caseData as any).source === "store" && (
+                <>
+                  <Separator />
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="h-4 w-4 text-amber-500 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground">مصدر القضية</p>
+                      <p className="text-sm font-medium text-amber-600">طلب مدفوع من المتجر</p>
+                    </div>
+                  </div>
                 </>
               )}
             </CardContent>

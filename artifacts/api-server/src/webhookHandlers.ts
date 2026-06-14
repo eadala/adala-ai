@@ -328,9 +328,10 @@ async function handleOfficeServicePayment(opts: {
       ADD COLUMN IF NOT EXISTS portal_token  TEXT
   `).catch(() => {});
 
-  /* Add source tracking to cases table */
+  /* Add source tracking + linkage columns to cases (ad-hoc — not in Drizzle schema) */
   await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'`).catch(() => {});
   await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS store_order_id TEXT`).catch(() => {});
+  await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS created_by TEXT`).catch(() => {});
 
   /* ── Step 2: Get the order + office (CRITICAL — abort if missing) ── */
   const orderRow = sqlOne(await db.execute(sql`
@@ -415,7 +416,7 @@ async function handleOfficeServicePayment(opts: {
       ${clientName || null},
       ${officeId},
       'store',
-      ${stripeSessionId}
+      ${orderRow.id as string}
     )
   `);
 
