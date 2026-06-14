@@ -50,3 +50,4 @@
 - [Adala Checkout.com](adala-checkout.md) — user requested Checkout.com+Mada+Apple Pay as MENA payment gateway alongside Stripe; Tabby/Tamara for installments
 - [Adala Floating Copilot](adala-copilot.md) — /api/copilot/chat+snapshot routes; FloatingCopilot in layout.tsx; full Gemini context + action parsing
 - [Adala Command Bar](adala-command-bar.md) — ⌘K global palette; window.__openCommandBar(); routes at /search/global; router mounted at /api so no /api prefix in route files
+- [Adala PCC & Agent Runtime](adala-pcc-agents.md) — PCC tab: /pcc/system-health|tenant-matrix|event-stream|ai-ops; Agents tab: /agents/status|run|actions; tables: ai_agents+agent_actions; pccOnly+agentOnly guards
