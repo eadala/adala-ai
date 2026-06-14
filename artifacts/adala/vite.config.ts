@@ -70,10 +70,6 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        // hoistTransitiveImports:false prevents Rollup from reordering
-        // imports in a way that causes TDZ errors with circular deps
-        // (e.g. "Cannot access 'X' before initialization" in Radix bundles)
-        hoistTransitiveImports: false,
         manualChunks(id) {
           // React core — always cached, changes never
           if (
@@ -103,11 +99,15 @@ export default defineConfig({
           ) {
             return "vendor-charts";
           }
-          // NOTE: @radix-ui is intentionally NOT given a separate chunk.
-          // Bundling all Radix packages into one chunk caused circular-dependency
-          // TDZ errors ("Cannot access 'X' before initialization").
-          // Letting Rollup decide the chunking for Radix avoids this.
-          //
+          // Each @radix-ui package gets its OWN chunk to avoid circular-dep TDZ.
+          // Bundling all Radix into ONE chunk caused "Cannot access 'X' before
+          // initialization" (TDZ) because Rollup couldn't linearise the circular
+          // deps inside the mega-chunk. Splitting per-package lets the browser's
+          // native ES-module system resolve cross-package cycles correctly.
+          if (id.includes("node_modules/@radix-ui/")) {
+            const m = id.match(/@radix-ui\/([^/]+)/);
+            if (m) return `radix-${m[1]}`;
+          }
           // Lucide icons — large icon lib, shared across all pages
           if (id.includes("node_modules/lucide-react")) {
             return "vendor-icons";
