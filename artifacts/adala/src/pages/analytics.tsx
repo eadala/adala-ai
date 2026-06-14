@@ -128,6 +128,84 @@ function PieLegend({ data }: { data: { name: string; value: number }[] }) {
   );
 }
 
+/* ── Revenue Forecaster ─────────────────────────────────── */
+function RevenueForecaster({ monthlyData }: { monthlyData: { month: string; revenue?: number }[] }) {
+  const revenues = monthlyData.map(m => m.revenue ?? 0);
+  const n = revenues.length;
+  if (n < 3) return null;
+
+  const xs = revenues.map((_, i) => i);
+  const sumX = xs.reduce((a, b) => a + b, 0);
+  const sumY = revenues.reduce((a, b) => a + b, 0);
+  const sumXY = xs.reduce((acc, x, i) => acc + x * revenues[i], 0);
+  const sumX2 = xs.reduce((acc, x) => acc + x * x, 0);
+  const denom = n * sumX2 - sumX * sumX;
+  const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
+  const intercept = (sumY - slope * sumX) / n;
+
+  const MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+  const now = new Date();
+  const forecastPts = [1, 2, 3].map(i => ({
+    i,
+    val: Math.max(0, Math.round(slope * (n + i - 1) + intercept)),
+    name: MONTHS[(now.getMonth() + i) % 12],
+  }));
+
+  const chartData = [
+    ...monthlyData.map(m => ({ month: m.month, actual: m.revenue ?? 0, forecast: null as number | null })),
+    ...forecastPts.map(p => ({ month: p.name, actual: null as number | null, forecast: p.val })),
+  ];
+
+  const trendColor = slope >= 0 ? "#10B981" : "#EF4444";
+
+  return (
+    <Card>
+      <SectionTitle icon={TrendingUp} title="توقعات الإيرادات" sub="الأشهر الثلاثة القادمة — انحدار خطي" />
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs px-2.5 py-1 rounded-full border font-semibold" style={{ color: trendColor, borderColor: `${trendColor}40`, background: `${trendColor}12` }}>
+            {slope >= 0 ? "▲" : "▼"} اتجاه {slope >= 0 ? "صاعد" : "هابط"}
+          </span>
+          <span className="text-xs text-muted-foreground">معدل النمو الشهري: <span className="font-bold" style={{ color: trendColor }}>{slope >= 0 ? "+" : ""}{fmt(Math.abs(Math.round(slope)))} ر.س</span></span>
+        </div>
+        <ResponsiveContainer width="100%" height={240}>
+          <AreaChart data={chartData}>
+            <defs>
+              <linearGradient id="gAct2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor="#10B981" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="gFore" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor="#C9A84C" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="#C9A84C" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#2D3D6B" />
+            <XAxis dataKey="month" tick={{ fill: "#A0ADB8", fontSize: 10 }} />
+            <YAxis tick={{ fill: "#A0ADB8", fontSize: 10 }} tickFormatter={v => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v)} />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Area type="monotone" dataKey="actual"   name="فعلي"   stroke="#10B981" fill="url(#gAct2)" strokeWidth={2.5} dot={{ fill: "#10B981", r: 3 }} connectNulls={false} />
+            <Area type="monotone" dataKey="forecast" name="متوقع"  stroke="#C9A84C" fill="url(#gFore)" strokeWidth={2} strokeDasharray="6 3" dot={{ fill: "#C9A84C", r: 4 }} connectNulls={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+        <div className="grid grid-cols-3 gap-3">
+          {forecastPts.map(p => (
+            <div key={p.i} className="text-center p-3 rounded-xl border" style={{ borderColor: "#C9A84C30", background: "#C9A84C08" }}>
+              <div className="text-xl font-black" style={{ color: "#C9A84C" }}>{fmt(p.val)}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">{p.name}</div>
+              <div className="text-[9px] text-muted-foreground/50">ر.س · متوقع</div>
+            </div>
+          ))}
+        </div>
+        <p className="text-[10px] text-muted-foreground/40 text-center">
+          التوقعات مبنية على أنماط الإيرادات التاريخية — للإرشاد الاستراتيجي فقط
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════ */
 /* ── simple markdown bold renderer ── */
 function renderBold(text: string) {
@@ -602,6 +680,9 @@ tr:nth-child(even) td{background:#fafafa}
               </Card>
             ))}
           </div>
+
+          {/* Revenue Forecast */}
+          <RevenueForecaster monthlyData={fin.monthly ?? []} />
         </TabsContent>
 
         {/* ── CASES TAB ───────────────────────────────────── */}

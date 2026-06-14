@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Scale, Users, TrendingUp, AlertCircle, ChevronLeft,
-  Clock, Briefcase, Bell, Receipt, Plus,
+  Clock, Briefcase, Bell, Receipt, Plus, Sparkles,
+  Activity, Target,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -61,6 +62,13 @@ const STATUS_DOT: Record<string, string> = {
   open: "bg-blue-400", in_progress: "bg-amber-400", closed: "bg-green-400",
 };
 
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "صباح الخير";
+  if (h < 17) return "مساء الخير";
+  return "مساء النور";
+}
+
 export default function Home() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["dashboard-stats"],
@@ -73,6 +81,11 @@ export default function Home() {
   const { data: reminders = [], isLoading: reminderLoading } = useQuery<any[]>({
     queryKey: ["reminders"],
     queryFn: () => fetchJson("/reminders"),
+  });
+  const { data: executive } = useQuery<any>({
+    queryKey: ["executive-mobile"],
+    queryFn: () => fetchJson("/dashboard/executive"),
+    staleTime: 120_000,
   });
 
   const kpis = overview?.kpis ?? stats;
@@ -89,9 +102,68 @@ export default function Home() {
     })
     .slice(0, 3);
 
-  return (
-    <div className="p-4 space-y-5" dir="rtl">
+  const healthScore = executive?.healthScore ?? 0;
+  const healthColor = healthScore >= 80 ? "#10B981" : healthScore >= 60 ? "#F59E0B" : "#EF4444";
+  const healthLabel = healthScore >= 80 ? "ممتاز" : healthScore >= 60 ? "جيد" : "يحتاج تطوير";
 
+  const today = new Date();
+  const todayStr = today.toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long" });
+
+  return (
+    <div className="pb-4 space-y-4" dir="rtl">
+
+      {/* ── Hero Banner ── */}
+      <div className="relative overflow-hidden px-4 pt-4 pb-5"
+        style={{ background: "linear-gradient(135deg, #0f1c35 0%, #1A2744 50%, #0f1c35 100%)" }}>
+        <div className="absolute inset-0 opacity-5"
+          style={{ backgroundImage: "repeating-linear-gradient(45deg, #C9A84C 0, #C9A84C 1px, transparent 0, transparent 50%)", backgroundSize: "18px 18px" }} />
+        <div className="relative">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs text-white/40 mb-1">{todayStr}</p>
+              <h1 className="text-xl font-black text-white leading-tight">
+                {getGreeting()} 👋
+              </h1>
+              <p className="text-sm text-white/50 mt-0.5">مرحباً في منصة عدالة AI</p>
+            </div>
+            {executive && (
+              <div className="flex flex-col items-center gap-1 p-2.5 rounded-2xl border shrink-0"
+                style={{ borderColor: `${healthColor}30`, background: `${healthColor}10` }}>
+                <div className="text-lg font-black leading-none" style={{ color: healthColor }}>{healthScore}</div>
+                <div className="text-[9px] font-semibold" style={{ color: healthColor }}>{healthLabel}</div>
+                <Activity size={12} style={{ color: healthColor }} />
+              </div>
+            )}
+          </div>
+
+          {executive && (
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {[
+                { label: "إيرادات اليوم", value: `${(executive.todayRevenue ?? 0).toLocaleString("ar-SA")}`, unit: "ر.س", color: "#10B981" },
+                { label: "قضايا نشطة",    value: executive.activeCases ?? 0,         unit: "قضية",    color: "#6366F1" },
+                { label: "مستحق",          value: `${(executive.outstanding ?? 0).toLocaleString("ar-SA")}`, unit: "ر.س",    color: "#F59E0B" },
+              ].map(s => (
+                <div key={s.label} className="text-center p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="text-sm font-black" style={{ color: s.color }}>{s.value}</div>
+                  <div className="text-[9px] text-white/40 mt-0.5">{s.unit} · {s.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {dueReminders.length > 0 && (
+            <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl"
+              style={{ background: "#EF444412", border: "1px solid #EF444430" }}>
+              <AlertCircle size={13} className="text-red-400 shrink-0" />
+              <span className="text-xs text-red-300">
+                {dueReminders.length === 1 ? "لديك تذكير مستحق اليوم" : `لديك ${dueReminders.length} تذكيرات مستحقة`}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="px-4 space-y-4">
       {/* KPI Grid */}
       <section>
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">نظرة عامة</h2>
@@ -254,6 +326,7 @@ export default function Home() {
       </section>
 
       <div className="h-2" />
+      </div>
     </div>
   );
 }

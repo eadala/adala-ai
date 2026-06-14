@@ -1,0 +1,338 @@
+ممتاز—الآن ندخل مستوى Architecture حقيقي (System Design Level) لمنصة عدالة AI.
+
+سأعطيك 4 طبقات متكاملة:
+
+1. System Architecture Diagram (مفهوم كامل)
+2. Event-Driven System (كيف النظام “يفكر ويستجيب”)
+3. Database Triggers Strategy (PostgreSQL)
+4. AI Orchestration Layer (العقل المركزي)
+
+⸻
+
+1) 🧠 Adala AI — Full System Architecture (High-Level)
+
+                    ┌──────────────────────────────┐
+                    │        Frontend Layer        │
+                    │  React / Vite / PWA Mobile   │
+                    └─────────────┬────────────────┘
+                                  │
+                                  ▼
+                    ┌──────────────────────────────┐
+                    │      API Gateway Layer       │
+                    │ Node.js / Express / RBAC     │
+                    └─────────────┬────────────────┘
+                                  │
+        ┌─────────────────────────┼─────────────────────────┐
+        ▼                         ▼                         ▼
+┌──────────────┐      ┌──────────────────┐      ┌──────────────────┐
+│ Legal Domain  │      │ Finance Domain   │      │ HR Domain        │
+│ Services      │      │ Services         │      │ Services         │
+└──────┬───────┘      └──────┬───────────┘      └──────┬───────────┘
+       │                      │                         │
+       ▼                      ▼                         ▼
+┌──────────────────────────────────────────────────────────────┐
+│                 Core Application Layer                        │
+│                                                              │
+│  Cases Engine   Clients Engine   Documents Engine           │
+│  Contracts      Tasks Engine     Notifications Engine       │
+└──────────────────────────┬───────────────────────────────────┘
+                           │
+                           ▼
+        ┌──────────────────────────────────────────┐
+        │        AI Orchestration Layer            │
+        │  (Adala Intelligence Core Brain)         │
+        │                                          │
+        │  - Legal AI Agent                        │
+        │  - Finance AI Agent                     │
+        │  - HR AI Agent                          │
+        │  - Risk Analysis Agent                  │
+        │  - Automation Agent                     │
+        └──────────────────┬───────────────────────┘
+                           │
+                           ▼
+        ┌──────────────────────────────────────────┐
+        │         Event Bus Layer                  │
+        │   (Kafka / Redis Streams / Queue)        │
+        │                                          │
+        │ CaseCreated, InvoiceOverdue,            │
+        │ HearingScheduled, EmployeeAbsent        │
+        └──────────────────┬───────────────────────┘
+                           │
+                           ▼
+        ┌──────────────────────────────────────────┐
+        │         Data Layer                       │
+        │ PostgreSQL + Drizzle ORM                │
+        │ Redis Cache + Search Index              │
+        └──────────────────────────────────────────┘
+
+⸻
+
+2) ⚡ Event System (Event-Driven Core)
+
+النظام لا يعمل بـ “طلبات فقط”
+
+بل يعمل بـ Events
+
+⸻
+
+📌 أهم Events في عدالة AI
+
+Legal Events
+
+CASE_CREATED
+CASE_UPDATED
+CASE_DEADLINE_APPROACHING
+COURT_HEARING_SCHEDULED
+DOCUMENT_MISSING
+CASE_CLOSED
+
+⸻
+
+Finance Events
+
+INVOICE_CREATED
+INVOICE_OVERDUE
+PAYMENT_RECEIVED
+REVENUE_DROP_DETECTED
+CASHFLOW_RISK
+
+⸻
+
+HR Events
+
+EMPLOYEE_ABSENT
+PAYROLL_DUE
+PERFORMANCE_DROP
+TASK_OVERLOAD
+
+⸻
+
+System Events
+
+API_ERROR_SPIKE
+DB_SLOW_QUERY
+STORAGE_LIMIT_REACHED
+HIGH_AI_USAGE
+
+⸻
+
+🔁 Event Flow
+
+Event Triggered
+      ↓
+Event Bus
+      ↓
+AI Orchestrator
+      ↓
+Decision Engine
+      ↓
+Action Layer
+
+⸻
+
+مثال عملي:
+
+INVOICE_OVERDUE
+      ↓
+AI analyzes client behavior
+      ↓
+Risk = HIGH
+      ↓
+Actions:
+- Send reminder
+- Create follow-up task
+- Notify lawyer
+
+⸻
+
+3) 🗄️ Database Triggers Strategy (PostgreSQL)
+
+بدل polling، نستخدم triggers لإطلاق الأحداث فورياً.
+
+⸻
+
+📌 مثال Trigger: Invoice Overdue
+
+CREATE OR REPLACE FUNCTION notify_invoice_overdue()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW.due_date < NOW() AND NEW.status != 'paid' THEN
+    INSERT INTO ai_events(type, payload)
+    VALUES (
+      'INVOICE_OVERDUE',
+      json_build_object(
+        'invoice_id', NEW.id,
+        'client_id', NEW.client_id,
+        'amount', NEW.amount
+      )
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+⸻
+
+📌 Trigger Binding
+
+CREATE TRIGGER invoice_overdue_trigger
+AFTER UPDATE ON invoices
+FOR EACH ROW
+EXECUTE FUNCTION notify_invoice_overdue();
+
+⸻
+
+📌 Events Table (Core)
+
+CREATE TABLE ai_events (
+  id SERIAL PRIMARY KEY,
+  type TEXT,
+  payload JSONB,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+4) 🧠 AI Orchestration Layer (The Brain)
+
+هذا أهم جزء في النظام.
+
+⸻
+
+📌 Core Component
+
+Adala AI Orchestrator
+
+⸻
+
+🧩 وظيفته:
+
+* استقبال الأحداث
+* تحليل السياق
+* اختيار Agent مناسب
+* اتخاذ قرار
+* تنفيذ أو توصية
+
+⸻
+
+📌 AI Agents
+
+Legal Agent
+
+* تحليل القضايا
+* توقع النتائج
+* اكتشاف المخاطر
+
+⸻
+
+Finance Agent
+
+* تحليل التدفقات المالية
+* كشف التعثر
+* اقتراح تحصيل
+
+⸻
+
+HR Agent
+
+* تحليل الموظفين
+* كشف الضغط
+* تحسين التوزيع
+
+⸻
+
+Risk Agent
+
+* تقييم المخاطر العامة
+* إعطاء Risk Score
+
+⸻
+
+Automation Agent
+
+* تنفيذ العمليات الآلية
+* إنشاء مهام
+* إرسال إشعارات
+
+⸻
+
+📌 Decision Engine
+
+INPUT: Event + Context
+↓
+AI Analysis
+↓
+Decision Type:
+1. AUTO_EXECUTE
+2. RECOMMEND
+3. REQUIRE_APPROVAL
+
+⸻
+
+📌 مثال Decision Flow
+
+Event: CASE_DEADLINE_APPROACHING
+↓
+Agent: Legal AI
+↓
+Output:
+Risk Score: 85%
+↓
+Decision:
+RECOMMEND
+↓
+Actions:
+- Notify lawyer
+- Prepare summary
+- Suggest reschedule
+
+⸻
+
+5) 🧩 System Intelligence Loop (الأهم)
+
+النظام يعمل 24/7 بهذه الحلقة:
+
+Observe
+↓
+Detect Event
+↓
+Analyze
+↓
+Decide
+↓
+Act
+↓
+Learn
+↓
+Optimize
+
+⸻
+
+6) 🧠 النتيجة النهائية
+
+بعد تطبيق هذا التصميم:
+
+المنصة تصبح:
+
+* Self-monitoring
+* Event-driven
+* AI-orchestrated
+* Semi-autonomous
+* Real-time intelligent system
+
+⸻
+
+إذا تبغى الخطوة التالية (مستوى أعلى)
+
+أقدر أصمم لك:
+
+🔥 “Full Production Blueprint”
+
+* Microservices architecture فعلي
+* Redis/Kafka design جاهز
+* AI memory system (long-term legal memory)
+* Multi-tenant isolation architecture
+* Cost optimization model للـ AI usage
+
+فقط قلّي: أبغى النسخة الإنتاجية الكاملة
