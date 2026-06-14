@@ -456,7 +456,7 @@ export default function BackupCenter() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {["القضايا", "العملاء", "الفواتير", "العقود", "المستندات", "المستخدمون"].map(item => (
+                    {["القضايا","العملاء","الفواتير","العقود","المستندات","المستخدمون","الإيرادات","المصاريف","الموظفون","الرواتب"].map(item => (
                       <span key={item} className="text-xs bg-emerald-500/10 text-emerald-300/70 rounded-full px-2 py-0.5">
                         ✓ {item}
                       </span>
@@ -499,16 +499,27 @@ export default function BackupCenter() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {[
-                  { key: "clients",   label: "العملاء (CRM)",  icon: "👤" },
-                  { key: "cases",     label: "القضايا",         icon: "⚖️" },
-                  { key: "invoices",  label: "الفواتير",        icon: "📄" },
-                  { key: "contracts", label: "العقود",          icon: "📝" },
+                  { key: "clients",   label: "العملاء (CRM)",       icon: "👤", group: "core" },
+                  { key: "cases",     label: "القضايا",              icon: "⚖️", group: "core" },
+                  { key: "invoices",  label: "الفواتير",             icon: "📄", group: "core" },
+                  { key: "contracts", label: "العقود",               icon: "📝", group: "core" },
+                  { key: "revenues",  label: "الإيرادات",            icon: "💰", group: "accounting" },
+                  { key: "expenses",  label: "المصاريف",             icon: "💸", group: "accounting" },
+                  { key: "employees", label: "الموظفون (HR)",        icon: "🧑‍💼", group: "hr" },
+                  { key: "payroll",   label: "الرواتب",              icon: "💳", group: "hr" },
                 ].map(section => (
                   <div key={section.key}
                     className="flex items-center justify-between rounded-lg border border-sidebar-border p-3 hover:border-emerald-500/30 transition-colors">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">{section.icon}</span>
-                      <span className="text-sm text-white font-medium">{section.label}</span>
+                      <div>
+                        <span className="text-sm text-white font-medium">{section.label}</span>
+                        {section.group !== "core" && (
+                          <span className="mr-2 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary/70">
+                            {section.group === "hr" ? "الموارد البشرية" : "المحاسبة"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline"
@@ -640,7 +651,7 @@ export default function BackupCenter() {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-white">محتويات النسخة الاحتياطية</p>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {["القضايا", "العملاء", "الفواتير", "العقود", "المستندات", "المستخدمون"].map(item => (
+                        {["القضايا","العملاء","الفواتير","العقود","المستندات","المستخدمون","الإيرادات","المصاريف","الموظفون","الرواتب"].map(item => (
                           <span key={item} className="text-xs bg-sidebar-accent rounded-full px-2 py-0.5 text-muted-foreground">
                             {item}
                           </span>
@@ -684,16 +695,27 @@ export default function BackupCenter() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {[
-                  { key: "clients",   label: "العملاء (CRM)",  icon: "👤" },
-                  { key: "cases",     label: "القضايا",         icon: "⚖️" },
-                  { key: "invoices",  label: "الفواتير",        icon: "📄" },
-                  { key: "contracts", label: "العقود",          icon: "📝" },
+                  { key: "clients",   label: "العملاء (CRM)",       icon: "👤", group: "core" },
+                  { key: "cases",     label: "القضايا",              icon: "⚖️", group: "core" },
+                  { key: "invoices",  label: "الفواتير",             icon: "📄", group: "core" },
+                  { key: "contracts", label: "العقود",               icon: "📝", group: "core" },
+                  { key: "revenues",  label: "الإيرادات",            icon: "💰", group: "accounting" },
+                  { key: "expenses",  label: "المصاريف",             icon: "💸", group: "accounting" },
+                  { key: "employees", label: "الموظفون (HR)",        icon: "🧑‍💼", group: "hr" },
+                  { key: "payroll",   label: "الرواتب",              icon: "💳", group: "hr" },
                 ].map(section => (
                   <div key={section.key}
                     className="flex items-center justify-between rounded-lg border border-sidebar-border p-3 hover:border-[#C9A84C]/30 transition-colors">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">{section.icon}</span>
-                      <span className="text-sm text-white font-medium">{section.label}</span>
+                      <div>
+                        <span className="text-sm text-white font-medium">{section.label}</span>
+                        {section.group !== "core" && (
+                          <span className="mr-2 text-[10px] px-1.5 py-0.5 rounded-full bg-[#C9A84C]/10 text-[#C9A84C]/80">
+                            {section.group === "hr" ? "الموارد البشرية" : "المحاسبة"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline"
@@ -721,7 +743,7 @@ export default function BackupCenter() {
                         ملف JSON شامل يحتوي على كل بيانات المكتب
                       </p>
                       <div className="flex flex-wrap gap-1 mt-2">
-                        {["clients.json", "cases.json", "invoices.json", "contracts.json"].map(f => (
+                        {["clients.json","cases.json","invoices.json","contracts.json","revenues.json","expenses.json","employees.json","payroll.json"].map(f => (
                           <span key={f} className="text-[10px] bg-[#C9A84C]/10 text-[#C9A84C]/70 rounded px-1.5 py-0.5">{f}</span>
                         ))}
                       </div>
