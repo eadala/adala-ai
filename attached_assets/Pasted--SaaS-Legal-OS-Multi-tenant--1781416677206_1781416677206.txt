@@ -1,0 +1,255 @@
+سأبني لك مخطط معماري احترافي على مستوى SaaS Legal OS (Multi-tenant) مع فصل واضح بين: الطبقات + الدومينات + الـ APIs.
+
+⸻
+
+🏗️ أولاً: المخطط المعماري العام (Architecture Layers)
+
+┌──────────────────────────────────────────────┐
+│                Frontend Layer                │
+│  (Web App / Mobile / Admin Dashboard)       │
+│  React / Next.js                            │
+└──────────────────────────────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────────┐
+│             API Gateway Layer               │
+│  - Authentication (JWT / OAuth2)           │
+│  - Rate Limiting                          │
+│  - Tenant Resolution                      │
+│  - Routing                                │
+└──────────────────────────────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────────┐
+│             Application Layer              │
+│   (Business Logic / Services)             │
+│                                              │
+│  ┌──────────────┬──────────────┬───────────┐ │
+│  │ Case Service │ CRM Service  │ Contract  │ │
+│  │              │              │ Service    │ │
+│  └──────────────┴──────────────┴───────────┘ │
+│                                              │
+│  ┌──────────────┬──────────────┬───────────┐ │
+│  │ Document     │ Communication│ Productivity│ │
+│  │ Engine       │ Hub          │ Engine      │ │
+│  └──────────────┴──────────────┴───────────┘ │
+└──────────────────────────────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────────┐
+│             Domain Layer                    │
+│ (Entities + Rules + Aggregates)           │
+│                                              │
+│ Case | Client | Contract | Document | Task  │
+└──────────────────────────────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────────┐
+│             Infrastructure Layer           │
+│                                              │
+│ PostgreSQL | Redis | S3 Storage | Queue     │
+│ Webhooks | Email/SMS | Search (Elastic)     │
+└──────────────────────────────────────────────┘
+
+⸻
+
+🧠 ثانياً: الدومينات الأساسية (Domain Model)
+
+1) Case Domain (القلب التشغيلي)
+
+* Case
+* Hearing (جلسة)
+* CaseStatus
+* CaseTimeline
+
+2) CRM Domain
+
+* Client
+* Contact
+* Interaction
+* ClientFile
+
+3) Contract Domain
+
+* Contract
+* Clause
+* ContractVersion
+* ApprovalFlow
+
+4) Document Domain
+
+* Document
+* Template
+* GeneratedDocument
+* Tagging System
+
+5) Productivity Domain
+
+* Task
+* CalendarEvent
+* Reminder
+
+6) Communication Domain
+
+* Message
+* Thread
+* Notification
+
+⸻
+
+🔌 ثالثاً: تصميم الـ APIs (REST / Clean APIs)
+
+🔐 Authentication APIs
+
+POST   /auth/login
+POST   /auth/logout
+POST   /auth/refresh
+GET    /auth/me
+
+⸻
+
+⚖️ Case Management APIs
+
+GET    /cases
+POST   /cases
+GET    /cases/{id}
+PUT    /cases/{id}
+DELETE /cases/{id}
+GET    /cases/{id}/timeline
+POST   /cases/{id}/assign-client
+
+⸻
+
+👤 CRM APIs
+
+GET    /clients
+POST   /clients
+GET    /clients/{id}
+PUT    /clients/{id}
+GET    /clients/{id}/cases
+GET    /clients/{id}/interactions
+
+⸻
+
+📄 Contracts APIs
+
+GET    /contracts
+POST   /contracts
+GET    /contracts/{id}
+POST   /contracts/{id}/approve
+POST   /contracts/{id}/version
+
+⸻
+
+📁 Document Engine APIs
+
+GET    /documents
+POST   /documents/upload
+POST   /documents/generate (from template)
+GET    /templates
+POST   /templates
+
+⸻
+
+🧠 Productivity APIs
+
+GET    /tasks
+POST   /tasks
+PUT    /tasks/{id}
+GET    /calendar/events
+POST   /calendar/events
+POST   /reminders
+
+⸻
+
+💬 Communication APIs
+
+GET    /messages
+POST   /messages
+GET    /notifications
+POST   /notifications/mark-read
+
+⸻
+
+🔄 رابعاً: تدفق النظام (Critical Flows)
+
+📌 إنشاء قضية كاملة (Core Flow)
+
+Client → Case Created
+        ↓
+Auto Link CRM + Documents + Tasks
+        ↓
+Generate Timeline
+        ↓
+Attach Calendar Events
+        ↓
+Enable Notifications
+
+⸻
+
+📌 عقد جديد
+
+Contract Service
+   ↓
+Fetch Client
+   ↓
+Generate Draft (Template Engine)
+   ↓
+Approval Workflow
+   ↓
+Versioning + Storage
+
+⸻
+
+🧩 خامساً: أهم قرار معماري (Critical Insight)
+
+❗ لا تجعل هذه أنظمة منفصلة:
+
+* التذكيرات
+* التقويم
+* المهام
+* المراسلات
+
+✔️ كلها يجب أن تكون:
+
+Support Engines (Cross-cutting systems)
+وليست Modules مستقلة
+
+⸻
+
+⚡ النتيجة النهائية (Architecture Summary)
+
+Core Domains:
+
+* Cases
+* CRM
+* Contracts
+
+Engines:
+
+* Document Engine
+* Communication Hub
+* Productivity Engine
+
+Platform Layer:
+
+* Auth
+* Multi-tenancy
+* API Gateway
+
+Infrastructure:
+
+* DB + Queue + Storage + Search
+
+⸻
+
+🚀 إذا تبغى الخطوة التالية
+
+أقدر أحول هذا إلى واحد من التالي:
+
+1. 🧱 ￼ ERD Database Schema كامل (PostgreSQL جاهز)
+2. ⚙️ ￼ Microservices decomposition (Docker/K8s)
+3. 🧠 ￼ AI layer داخل النظام (Legal Copilot)
+4. 📦 ￼ Backend folder structure جاهز للتنفيذ (NestJS / Laravel / Django)
+
+قلّي الاتجاه الذي تريد البناء عليه.
