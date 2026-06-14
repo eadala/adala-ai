@@ -142,10 +142,16 @@ const queryClient = new QueryClient({
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
+let clerkPubKey: string;
+try {
+  clerkPubKey = publishableKeyFromHost(
+    window.location.hostname,
+    import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+  );
+} catch (e) {
+  console.error("[Adala] publishableKeyFromHost failed:", e);
+  clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? "";
+}
 
 // REQUIRED — copy verbatim. Empty in dev (Clerk hits dev FAPI directly),
 // auto-set in prod by Replit. Do NOT add a fallback or gate on NODE_ENV.
