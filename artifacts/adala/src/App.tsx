@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
+import Landing from "@/pages/landing"; // eager — public homepage must never be lazy-blocked
 import { QueryClient, QueryClientProvider, useQueryClient, useQuery } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, useClerk, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
@@ -14,7 +15,7 @@ import { OfficeThemeProvider } from "@/components/office-theme-provider";
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────────
 // Core (likely first visit)
 const Dashboard            = lazy(() => import("@/pages/dashboard"));
-const Landing              = lazy(() => import("@/pages/landing"));
+// Landing is eagerly imported above — do NOT add it here
 const OnboardingPage       = lazy(() => import("@/pages/onboarding"));
 
 // Cases & Clients
@@ -276,26 +277,14 @@ function RoleAwareRedirect() {
 function HomeRedirect() {
   const { isLoaded, isSignedIn } = useAuth();
 
-  // Clerk still initializing → show Landing (never blank)
-  if (!isLoaded) {
-    return (
-      <Suspense fallback={<div className="min-h-screen" style={{ background: "#0F1B35" }} />}>
-        <Landing />
-      </Suspense>
-    );
+  // Clerk still initializing OR signed out → show Landing immediately
+  // Landing is eagerly imported so there is no Suspense/lazy delay → no blue flash
+  if (!isLoaded || !isSignedIn) {
+    return <Landing />;
   }
 
   // Clerk ready + signed in → go to their dashboard
-  if (isSignedIn) {
-    return <RoleAwareRedirect />;
-  }
-
-  // Clerk ready + signed out → show Landing
-  return (
-    <Suspense fallback={<div className="min-h-screen" style={{ background: "#0F1B35" }} />}>
-      <Landing />
-    </Suspense>
-  );
+  return <RoleAwareRedirect />;
 }
 
 // ── Onboarding gate ────────────────────────────────────────────────────────────
