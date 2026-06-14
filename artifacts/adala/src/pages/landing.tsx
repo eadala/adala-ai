@@ -20,24 +20,18 @@ const PaymentShowcase  = lazy(() => import("@/components/payment-showcase"));
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-// ── CSS-based fade-in hook (replaces framer-motion) ───────────────────────────
+// ── CSS-based fade-in hook ─────────────────────────────────────────────────────
+// Uses setTimeout (not IntersectionObserver) for maximum production reliability
 function useFadeIn(delay = 0) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          el.style.transitionDelay = `${delay}s`;
-          el.classList.add("lp-visible");
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.08, rootMargin: "-60px" },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    const t = setTimeout(() => {
+      el.style.transitionDelay = `${delay}s`;
+      el.classList.add("lp-visible");
+    }, 80);
+    return () => clearTimeout(t);
   }, [delay]);
   return ref;
 }
@@ -238,6 +232,18 @@ export default function Landing() {
     return (cms?.[section]?.[key] as string | undefined) || fallback;
   }
 
+  // ── Production safety: force all animated elements visible after 600ms ────────
+  useEffect(() => {
+    const t = setTimeout(() => {
+      document.querySelectorAll<HTMLElement>(".lp-fade,.lp-hero-0,.lp-hero-1,.lp-hero-2,.lp-hero-3,.lp-hero-4,.lp-hero-mock").forEach(el => {
+        el.style.opacity = "1";
+        el.style.transform = "none";
+        el.classList.add("lp-visible");
+      });
+    }, 600);
+    return () => clearTimeout(t);
+  }, []);
+
   useEffect(() => {
     if (!cms?.seo) return;
     const { metaTitle, metaDescription, ogImage } = cms.seo as any;
@@ -349,17 +355,17 @@ export default function Landing() {
   return (
     <div dir={isAr ? "rtl" : "ltr"} className="min-h-screen overflow-x-hidden lp-root" style={{ background: "var(--lp-bg, #080F1E)", fontFamily: "Cairo, sans-serif" }}>
 
-      {/* CSS for animations — injected once */}
+      {/* CSS for animations */}
       <style>{`
-        .lp-fade { opacity: 0; transform: translateY(24px); transition: opacity 0.55s cubic-bezier(0.22,1,0.36,1), transform 0.55s cubic-bezier(0.22,1,0.36,1); }
+        .lp-fade { opacity: 0; transform: translateY(20px); transition: opacity 0.5s ease-out, transform 0.5s ease-out; }
         .lp-visible { opacity: 1 !important; transform: translateY(0) !important; }
-        @keyframes lp-hero-in { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:none; } }
-        .lp-hero-0 { animation: lp-hero-in 0.55s cubic-bezier(0.22,1,0.36,1) 0.05s both; }
-        .lp-hero-1 { animation: lp-hero-in 0.6s  cubic-bezier(0.22,1,0.36,1) 0.15s both; }
-        .lp-hero-2 { animation: lp-hero-in 0.6s  cubic-bezier(0.22,1,0.36,1) 0.25s both; }
-        .lp-hero-3 { animation: lp-hero-in 0.6s  cubic-bezier(0.22,1,0.36,1) 0.35s both; }
-        .lp-hero-4 { animation: lp-hero-in 0.6s  cubic-bezier(0.22,1,0.36,1) 0.45s both; }
-        .lp-hero-mock { animation: lp-hero-in 0.75s cubic-bezier(0.22,1,0.36,1) 0.3s both; }
+        @keyframes lp-hero-in { from { opacity:0.4; transform:translateY(12px); } to { opacity:1; transform:none; } }
+        .lp-hero-0 { animation: lp-hero-in 0.45s ease-out 0s forwards; }
+        .lp-hero-1 { animation: lp-hero-in 0.45s ease-out 0.08s forwards; }
+        .lp-hero-2 { animation: lp-hero-in 0.45s ease-out 0.16s forwards; }
+        .lp-hero-3 { animation: lp-hero-in 0.45s ease-out 0.24s forwards; }
+        .lp-hero-4 { animation: lp-hero-in 0.45s ease-out 0.32s forwards; }
+        .lp-hero-mock { animation: lp-hero-in 0.5s ease-out 0.1s forwards; }
         .lp-mobile-menu { overflow:hidden; transition: max-height 0.3s ease, opacity 0.3s ease; }
       `}</style>
 
