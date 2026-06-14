@@ -264,16 +264,19 @@ export function OfficeThemeProvider() {
     refetchOnWindowFocus: false,
   });
 
-  /* Apply design tokens + landing vars */
+  /* Apply design tokens + landing vars — only on mount/update, not on every cleanup */
   useEffect(() => {
     if (themeData?.tokens) {
       applyDesignTokens(themeData.tokens);
       applyLandingVars(themeData.tokens);
-    } else {
-      clearDesignTokens();
     }
-    return () => clearDesignTokens();
+    // Do NOT clear on every re-run: clearing inline vars mid-render causes FOUC
   }, [themeData]);
+
+  /* Clear only on unmount */
+  useEffect(() => {
+    return () => clearDesignTokens();
+  }, []);
 
   /* Legacy: office branding primary/secondary */
   useEffect(() => {
