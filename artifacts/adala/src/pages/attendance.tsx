@@ -75,13 +75,15 @@ export default function Attendance() {
   const { data: records = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["attendance", dateFilter],
     queryFn: () => fetch(`/api/hr/attendance${dateFilter ? `?date=${dateFilter}` : ""}`).then(r => r.json()),
-    refetchInterval: 30000,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
   });
 
   const { data: stats } = useQuery<any>({
     queryKey: ["attendance-stats"],
     queryFn: () => fetch("/api/hr/attendance/stats").then(r => r.json()),
-    refetchInterval: 30000,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
   });
 
   const { data: employees = [] } = useQuery<any[]>({

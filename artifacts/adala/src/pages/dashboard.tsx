@@ -415,7 +415,8 @@ function ExecutivePulseBar() {
   const { data, isLoading } = useQuery<ExecData>({
     queryKey: ["dashboard-executive"],
     queryFn: () => fetch(`${BASE}/api/dashboard/executive`).then(r => r.json()),
-    refetchInterval: 120_000,
+    staleTime: 3 * 60_000,
+    refetchInterval: 5 * 60_000,
   });
 
   const fmt = (n: number) => n.toLocaleString(dateLocale, { maximumFractionDigits: 0 });
@@ -653,7 +654,8 @@ export default function Dashboard() {
   const { data, isLoading } = useQuery<Overview>({
     queryKey: ["dashboard-overview"],
     queryFn: () => fetch(`${BASE}api/dashboard/overview`).then(r => r.json()),
-    refetchInterval: 60_000,
+    staleTime: 3 * 60_000,
+    refetchInterval: 5 * 60_000,
   });
 
   const EVENT_TYPE_LABEL: Record<string, string> = {

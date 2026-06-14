@@ -51,7 +51,8 @@ export default function RemindersPage() {
       const q = filter === "pending" ? "?done=false" : filter === "done" ? "?done=true" : "";
       return fetch(`${BASE}/api/reminders${q}`).then(r => r.json());
     },
-    refetchInterval: 30000,
+    staleTime: 60_000,
+    refetchInterval: 2 * 60_000,
   });
 
   const saveMut = useMutation({

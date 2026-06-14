@@ -160,7 +160,8 @@ export default function CommandCenter() {
   const { data: logs = [] } = useQuery<any[]>({
     queryKey: ["ai-agent-logs"],
     queryFn: () => fetch(`${BASE}api/ai-agent/logs?limit=20`).then(r => r.json()),
-    refetchInterval: 15_000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const execMut = useMutation({
