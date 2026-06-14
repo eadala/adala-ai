@@ -1,0 +1,107 @@
+إذا كانت هذه التغييرات نُشرت بالفعل وما زالت النتيجة شاشة زرقاء بالكامل، فهذا يعطي مؤشرًا مهمًا:
+
+المشكلة ليست في الـ animations أو IntersectionObserver أو opacity.
+
+لأنك أضفت بالفعل:
+
+* fallback بعد 600ms
+* opacity ابتدائية مرئية
+* إزالة الاعتماد على الـ viewport
+
+ومع ذلك لا يظهر المحتوى.
+
+هذا يعني أن العطل على الأغلب يحدث قبل وصول React إلى مرحلة عرض المكونات أصلًا.
+
+ما الذي يجب فحصه الآن؟
+
+1. اختبار استبعاد Clerk نهائيًا
+
+اجعل التطبيق يعرض صفحة ثابتة بدون Clerk:
+
+export default function App() {
+  return (
+    <div style={{ padding: 40, color: "white" }}>
+      TEST PAGE
+    </div>
+  );
+}
+
+إذا ظهرت كلمة TEST PAGE على .replit.app:
+
+* المشكلة في Clerk أو Auth أو Providers.
+
+إذا لم تظهر:
+
+* المشكلة أعمق (Build / Routing / JS Runtime).
+
+⸻
+
+2. أضف Error Boundary عالمي
+
+في main.jsx:
+
+window.addEventListener("error", (e) => {
+  document.body.innerHTML =
+    "<pre style='color:white;padding:20px'>" +
+    String(e.error || e.message) +
+    "</pre>";
+});
+window.addEventListener("unhandledrejection", (e) => {
+  document.body.innerHTML =
+    "<pre style='color:white;padding:20px'>" +
+    String(e.reason) +
+    "</pre>";
+});
+
+إذا كان هناك exception صامت، سيظهر مباشرة على الصفحة.
+
+⸻
+
+3. تحقق من Console أولًا
+
+إذا كان لديك وصول لمتصفح سطح مكتب:
+
+* افتح .replit.app
+* اضغط F12
+* Console
+
+ابحث عن:
+
+* Failed to fetch
+* Invalid publishable key
+* ChunkLoadError
+* ReferenceError
+* TypeError
+
+أي رسالة واحدة تكفي لتحديد السبب.
+
+⸻
+
+4. تحقق من تحميل ملفات JavaScript
+
+في Network:
+
+ابحث عن:
+
+* index-xxxxx.js
+* vendor-xxxxx.js
+
+إذا كانت تعطي 404 أو لا تُحمّل:
+فالمشكلة في الـ deployment وليس في React.
+
+⸻
+
+الاستنتاج من المعلومات الحالية
+
+بناءً على:
+
+* الموقع يعمل داخل بيئة Replit.
+* .replit.app يعرض خلفية زرقاء فقط.
+* تم تعطيل مشاكل الـ animations بالفعل.
+
+فالمرشحان الأقوى الآن هما:
+
+1. Crash مبكر في JavaScript (Clerk أو Provider أو import).
+2. ملف JS الرئيسي لا يُحمّل أو يفشل أثناء التنفيذ.
+
+أرسل أول خطأ من Console أو ملف main.jsx الحالي، وسيمكن تحديد السبب بدقة بدل الاستمرار في التجارب العامة.
