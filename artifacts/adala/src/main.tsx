@@ -56,6 +56,20 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
+/* ── Global error display (catches silent JS crashes in production) ─────────── */
+window.addEventListener("error", (e) => {
+  const pre = document.createElement("pre");
+  pre.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:#0F1B35;color:#ff6b6b;padding:20px;overflow:auto;font-size:13px;white-space:pre-wrap;";
+  pre.textContent = "[JS Error]\n" + (e.error?.stack || e.message || String(e));
+  document.body?.appendChild(pre);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  const pre = document.createElement("pre");
+  pre.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:#0F1B35;color:#ff6b6b;padding:20px;overflow:auto;font-size:13px;white-space:pre-wrap;";
+  pre.textContent = "[Unhandled Promise]\n" + (e.reason?.stack || String(e.reason));
+  document.body?.appendChild(pre);
+});
+
 /* Register Service Worker for Push Notifications */
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
