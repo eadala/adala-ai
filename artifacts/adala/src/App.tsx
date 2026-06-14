@@ -147,11 +147,9 @@ const clerkPubKey = publishableKeyFromHost(
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
 );
 
-// Derive the Clerk proxy URL from the current origin so it works on any
-// deployment domain without needing to bake the URL into the build.
-const clerkProxyUrl =
-  import.meta.env.VITE_CLERK_PROXY_URL ||
-  `${window.location.origin}/api/__clerk`;
+// REQUIRED — copy verbatim. Empty in dev (Clerk hits dev FAPI directly),
+// auto-set in prod by Replit. Do NOT add a fallback or gate on NODE_ENV.
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
