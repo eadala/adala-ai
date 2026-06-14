@@ -187,4 +187,83 @@ router.get("/dashboard/case-breakdown", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+/* ─── GET /dashboard/executive — مركز القيادة التنفيذي ───────────────────── */
+router.get("/dashboard/executive", async (req, res) => {
+  try {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfWeek  = new Date(now); startOfWeek.setDate(now.getDate() - 7);
+    const in3Days      = new Date(now); in3Days.setDate(now.getDate() + 3);
+
+    const [cases, invoices, clients, employees] = await Promise.all([
+      db.select().from(casesTable),
+      db.select().from(invoicesTable).then(r => r as any[]),
+      db.select().from(clientsTable),
+      db.execute(sql`SELECT * FROM employees`).then(r => r.rows ?? []).catch(() => []),
+    ]);
+
+    // Revenue metrics
+    const todayRevenue  = (invoices as any[]).filter((i: any) => i.status === "paid" && new Date(i.createdAt) >= startOfToday)
+      .reduce((s: number, i: any) => s + ((i.total ?? i.amount ?? 0) / 100), 0);
+    const monthRevenue  = (invoices as any[]).filter((i: any) => i.status === "paid" && new Date(i.createdAt) >= startOfMonth)
+      .reduce((s: number, i: any) => s + ((i.total ?? i.amount ?? 0) / 100), 0);
+    const outstanding   = (invoices as any[]).filter((i: any) => !["paid","cancelled"].includes(i.status))
+      .reduce((s: number, i: any) => s + ((i.total ?? i.amount ?? 0) / 100), 0);
+    const overdueCount  = (invoices as any[]).filter((i: any) => i.status === "overdue").length;
+    const paidCount     = (invoices as any[]).filter((i: any) => i.status === "paid").length;
+    const totalInvCount = (invoices as any[]).filter((i: any) => i.status !== "cancelled").length;
+    const collectionRate = totalInvCount > 0 ? Math.round((paidCount / totalInvCount) * 100) : 0;
+
+    // Cases
+    const activeCases   = cases.filter(c => ["open","in_progress"].includes(c.status)).length;
+    const criticalCases = cases.filter(c => {
+      if (!["open","in_progress"].includes(c.status)) return false;
+      if (!c.nextHearingDate) return false;
+      const d = new Date(c.nextHearingDate as any);
+      return d >= now && d <= in3Days;
+    }).length;
+
+    // Clients
+    const newClientsThisWeek = clients.filter(c => new Date(c.createdAt) >= startOfWeek).length;
+
+    // AI usage
+    let aiUsageThisMonth = 0;
+    try {
+      const aiR = await db.execute(sql`
+        SELECT COUNT(*) as cnt FROM ai_tasks WHERE created_at >= ${startOfMonth.toISOString()}
+      `);
+      aiUsageThisMonth = Number((aiR.rows?.[0] as any)?.cnt ?? 0);
+    } catch {}
+
+    // Active employees
+    const activeEmployees = (employees as any[]).filter((e: any) => e.status === "active").length;
+
+    // System health score (simple heuristic)
+    let healthScore = 100;
+    if (overdueCount > 5)  healthScore -= 20;
+    if (criticalCases > 3) healthScore -= 15;
+    if (outstanding > 50000) healthScore -= 10;
+    const healthStatus = healthScore >= 80 ? "excellent" : healthScore >= 60 ? "good" : "attention";
+
+    res.json({
+      todayRevenue,
+      monthRevenue,
+      outstanding,
+      overdueCount,
+      collectionRate,
+      activeCases,
+      criticalCases,
+      newClientsThisWeek,
+      aiUsageThisMonth,
+      activeEmployees,
+      healthScore,
+      healthStatus,
+    });
+  } catch (e: any) {
+    console.error("dashboard/executive:", e);
+    res.json({ todayRevenue: 0, monthRevenue: 0, outstanding: 0, overdueCount: 0, collectionRate: 0, activeCases: 0, criticalCases: 0, newClientsThisWeek: 0, aiUsageThisMonth: 0, activeEmployees: 0, healthScore: 100, healthStatus: "excellent" });
+  }
+});
+
 export default router;

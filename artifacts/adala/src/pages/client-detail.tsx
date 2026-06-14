@@ -14,6 +14,7 @@ import {
   MessageSquare, Activity, CheckCircle2, Clock, FileText,
   UserPlus, SmartphoneIcon, CheckCircle, XCircle,
   TrendingDown, BarChart3, Printer, ArrowUpRight, ArrowDownRight,
+  Sparkles, Bot, Brain, RefreshCw, Copy,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -208,7 +209,7 @@ export default function ClientDetail() {
 
       {/* ── Tabs ── */}
       <Tabs defaultValue="cases" dir="rtl">
-        <TabsList className="grid w-full grid-cols-8 h-9">
+        <TabsList className="grid w-full grid-cols-9 h-9">
           <TabsTrigger value="cases" className="text-xs px-1.5">
             <Scale className="h-3.5 w-3.5 ml-1 hidden sm:block" />القضايا
             {cases.length > 0 && <span className="mr-1 text-[10px] bg-blue-500/20 text-blue-400 rounded px-1">{cases.length}</span>}
@@ -239,6 +240,10 @@ export default function ClientDetail() {
           <TabsTrigger value="whatsapp" className="text-xs px-1.5">
             <SmartphoneIcon className="h-3.5 w-3.5 ml-1 hidden sm:block" />واتساب
             {waLogs.length > 0 && <span className="mr-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{waLogs.length}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="ai" className="text-xs px-1.5">
+            <Sparkles className="h-3.5 w-3.5 ml-1" style={{ color: "#C9A84C" }} />
+            <span style={{ color: "#C9A84C" }}>AI</span>
           </TabsTrigger>
         </TabsList>
 
@@ -489,6 +494,11 @@ export default function ClientDetail() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── AI INSIGHTS TAB ── */}
+        <TabsContent value="ai" className="mt-4">
+          <ClientAIInsights client={client} cases={cases} invoices={invoices} contracts={contracts} />
         </TabsContent>
 
         {/* ACTIVITIES TIMELINE TAB */}
@@ -803,6 +813,162 @@ function ClientAccountingTab({ clientId }: { clientId: string }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════
+   مكوّن تحليل العميل بالذكاء الاصطناعي
+══════════════════════════════════════════════════════ */
+const AI_ANALYSIS_TYPES = [
+  { key: "relationship",   label: "تحليل العلاقة",        icon: "🤝", color: "#6366F1", prompt: "حلّل طبيعة العلاقة مع هذا العميل، مدتها، جودتها، ومستوى التفاعل." },
+  { key: "profitability",  label: "تحليل الربحية",         icon: "💰", color: "#10B981", prompt: "حلّل ربحية هذا العميل من حيث الإيرادات المحصّلة مقابل الوقت المستثمر." },
+  { key: "risk",           label: "تقييم المخاطر",         icon: "⚠️", color: "#F59E0B", prompt: "قيّم مخاطر الاستمرار مع هذا العميل من الجانب المالي والقانوني." },
+  { key: "opportunities",  label: "فرص النمو",             icon: "🚀", color: "#8B5CF6", prompt: "اقترح فرص لتوسيع نطاق الخدمات المقدّمة لهذا العميل." },
+  { key: "next_actions",   label: "الإجراءات الموصى بها",  icon: "📋", color: "#C9A84C", prompt: "اقترح أهم 5 إجراءات يجب اتخاذها تجاه هذا العميل الآن." },
+] as const;
+
+function ClientAIInsights({ client, cases, invoices, contracts }: {
+  client: any; cases: any[]; invoices: any[]; contracts: any[];
+}) {
+  const [activeType, setActiveType] = useState<string>("relationship");
+  const [result, setResult] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const runAnalysis = async (type: string) => {
+    setActiveType(type);
+    setResult("");
+    setLoading(true);
+
+    const at = AI_ANALYSIS_TYPES.find(t => t.key === type)!;
+
+    const context = `
+بيانات العميل:
+- الاسم: ${client.fullName}
+- النوع: ${client.clientType === "individual" ? "فرد" : client.clientType === "company" ? "شركة" : "جهة حكومية"}
+- البريد: ${client.email || "غير محدد"}
+- الهاتف: ${client.phone || "غير محدد"}
+- العنوان: ${client.address || "غير محدد"}
+- تاريخ الانضمام: ${new Date(client.createdAt).toLocaleDateString("ar-SA")}
+
+القضايا: ${cases.length} قضية (${cases.filter(c => c.status === "open").length} مفتوحة، ${cases.filter(c => c.status === "closed").length} مغلقة)
+الفواتير: ${invoices.length} فاتورة (${invoices.filter(i => i.status === "paid").length} مدفوعة، ${invoices.filter(i => i.status === "overdue").length} متأخرة)
+إجمالي الإيرادات: ${invoices.filter(i => i.status === "paid").reduce((s: number, i: any) => s + ((i.total ?? i.amount ?? 0) / 100), 0).toLocaleString("ar-SA")} ر.س
+العقود النشطة: ${contracts.filter(c => c.status === "active").length}
+
+الطلب: ${at.prompt}
+    `.trim();
+
+    try {
+      const res = await fetch(`${BASE}/api/ai/analyze-case`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: context, type: "client_analysis" }),
+      });
+      const data = await res.json();
+      setResult(data.result || data.analysis || data.content || "لا توجد نتيجة");
+    } catch {
+      setResult("حدث خطأ أثناء التحليل. تأكد من إعداد مفتاح API.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { runAnalysis("relationship"); }, []);
+
+  const renderBold = (text: string) =>
+    text.split(/\*\*(.*?)\*\*/g).map((p, i) =>
+      i % 2 === 1 ? <strong key={i} className="font-bold text-foreground">{p}</strong> : p
+    );
+
+  const activeAt = AI_ANALYSIS_TYPES.find(t => t.key === activeType)!;
+
+  return (
+    <div className="space-y-4">
+      {/* Analysis Type Selector */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        {AI_ANALYSIS_TYPES.map(at => (
+          <button
+            key={at.key}
+            onClick={() => runAnalysis(at.key)}
+            disabled={loading}
+            className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-center transition-all text-xs font-medium disabled:opacity-50 ${
+              activeType === at.key
+                ? "text-white shadow-lg"
+                : "border-border/40 bg-muted/20 text-muted-foreground hover:bg-muted/40"
+            }`}
+            style={activeType === at.key ? { backgroundColor: `${at.color}20`, borderColor: `${at.color}50`, color: at.color } : {}}
+          >
+            <span className="text-xl">{at.icon}</span>
+            <span className="leading-tight">{at.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Result Card */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <span className="text-base">{activeAt.icon}</span>
+              <span style={{ color: activeAt.color }}>{activeAt.label}</span>
+              <span className="text-xs font-normal text-muted-foreground">— {client.fullName}</span>
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              {result && (
+                <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => {
+                  navigator.clipboard.writeText(result);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}>
+                  <Copy className="h-3 w-3" />{copied ? "تم النسخ" : "نسخ"}
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => runAnalysis(activeType)} disabled={loading}>
+                <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />إعادة التحليل
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <div className="relative">
+                <Sparkles className="h-8 w-8 animate-pulse" style={{ color: activeAt.color }} />
+              </div>
+              <p className="text-sm text-muted-foreground">يحلّل الذكاء الاصطناعي بيانات العميل...</p>
+            </div>
+          ) : result ? (
+            <div className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap space-y-1">
+              {result.split("\n").map((line, i) => (
+                <p key={i}>{renderBold(line)}</p>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
+              <Bot className="h-8 w-8 opacity-20" />
+              <p className="text-sm">اختر نوع التحليل للبدء</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Stats for Context */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "إجمالي القضايا", value: cases.length, color: "#6366F1", icon: "⚖️" },
+          { label: "الإيرادات المحصّلة", value: `${invoices.filter(i => i.status === "paid").reduce((s: number, i: any) => s + ((i.total ?? i.amount ?? 0)/100), 0).toLocaleString("ar-SA")} ر.س`, color: "#10B981", icon: "💰" },
+          { label: "الفواتير المتأخرة", value: invoices.filter(i => i.status === "overdue").length, color: "#EF4444", icon: "⚠️" },
+          { label: "العقود النشطة", value: contracts.filter(c => c.status === "active").length, color: "#8B5CF6", icon: "📝" },
+        ].map(stat => (
+          <div key={stat.label} className="rounded-xl p-3 border border-border/40 bg-muted/20 text-center">
+            <div className="text-xl mb-1">{stat.icon}</div>
+            <div className="text-lg font-black" style={{ color: stat.color }}>{stat.value}</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{stat.label}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   Scale, Users, Receipt, TrendingUp, Bot, AlertCircle, CalendarDays,
   FileText, Clock, ArrowLeft, Zap, ChevronLeft, CheckCircle2, Banknote,
   Activity, Bell, BarChart3, MapPin, Plus, ExternalLink, CreditCard, BrainCircuit,
+  DollarSign, ShieldCheck, Sparkles, UserCheck, TrendingDown, HeartPulse,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useLang } from "@/hooks/use-lang";
@@ -37,6 +38,145 @@ function timeAgo(ts: string) {
   if (d < 60_000)    return `${Math.floor(d/1000)}ث`;
   if (d < 3_600_000) return `${Math.floor(d/60_000)}د`;
   return `${Math.floor(d/3_600_000)}س`;
+}
+
+/* ── Executive Pulse Bar — 10 مؤشرات في ثانية ────────────────────────────── */
+type ExecData = {
+  todayRevenue: number; monthRevenue: number; outstanding: number;
+  overdueCount: number; collectionRate: number; activeCases: number;
+  criticalCases: number; newClientsThisWeek: number; aiUsageThisMonth: number;
+  activeEmployees: number; healthScore: number; healthStatus: string;
+};
+
+function ExecutivePulseBar() {
+  const { tx, dateLocale } = useLang();
+  const { data, isLoading } = useQuery<ExecData>({
+    queryKey: ["dashboard-executive"],
+    queryFn: () => fetch(`${BASE}/api/dashboard/executive`).then(r => r.json()),
+    refetchInterval: 120_000,
+  });
+
+  const fmt = (n: number) => n.toLocaleString(dateLocale, { maximumFractionDigits: 0 });
+
+  const metrics = data ? [
+    {
+      label: tx("إيرادات اليوم", "Today Revenue"),
+      value: `${fmt(data.todayRevenue)} ${tx("ر.س","SAR")}`,
+      icon: DollarSign,
+      status: data.todayRevenue > 0 ? "green" : "neutral",
+      href: "/invoices",
+    },
+    {
+      label: tx("إيرادات الشهر", "Month Revenue"),
+      value: `${fmt(data.monthRevenue)} ${tx("ر.س","SAR")}`,
+      icon: TrendingUp,
+      status: "green",
+      href: "/revenues",
+    },
+    {
+      label: tx("مستحقات معلّقة", "Outstanding"),
+      value: `${fmt(data.outstanding)} ${tx("ر.س","SAR")}`,
+      icon: TrendingDown,
+      status: data.outstanding > 10000 ? "amber" : "green",
+      href: "/collections",
+    },
+    {
+      label: tx("نسبة التحصيل", "Collection Rate"),
+      value: `${data.collectionRate}%`,
+      icon: ShieldCheck,
+      status: data.collectionRate >= 80 ? "green" : data.collectionRate >= 60 ? "amber" : "red",
+      href: "/collections",
+    },
+    {
+      label: tx("قضايا حرجة", "Critical Cases"),
+      value: String(data.criticalCases),
+      icon: AlertCircle,
+      status: data.criticalCases === 0 ? "green" : data.criticalCases <= 2 ? "amber" : "red",
+      href: "/cases",
+    },
+    {
+      label: tx("فواتير متأخرة", "Overdue Invoices"),
+      value: String(data.overdueCount),
+      icon: Receipt,
+      status: data.overdueCount === 0 ? "green" : data.overdueCount <= 3 ? "amber" : "red",
+      href: "/invoices",
+    },
+    {
+      label: tx("عملاء جدد", "New Clients"),
+      value: String(data.newClientsThisWeek),
+      icon: UserCheck,
+      status: data.newClientsThisWeek > 0 ? "green" : "neutral",
+      href: "/clients",
+    },
+    {
+      label: tx("استخدام AI", "AI Usage"),
+      value: String(data.aiUsageThisMonth),
+      icon: Sparkles,
+      status: "green",
+      href: "/ai-hub",
+    },
+    {
+      label: tx("الموظفون النشطون", "Active Employees"),
+      value: String(data.activeEmployees),
+      icon: Users,
+      status: "neutral",
+      href: "/employees",
+    },
+    {
+      label: tx("صحة النظام", "System Health"),
+      value: data.healthStatus === "excellent" ? tx("ممتاز","Excellent") : data.healthStatus === "good" ? tx("جيد","Good") : tx("يحتاج متابعة","Attention"),
+      icon: HeartPulse,
+      status: data.healthStatus === "excellent" ? "green" : data.healthStatus === "good" ? "amber" : "red",
+      href: "/audit-logs",
+    },
+  ] : [];
+
+  const statusStyle: Record<string, { bg: string; text: string; dot: string }> = {
+    green:   { bg: "bg-emerald-500/8 hover:bg-emerald-500/15 border-emerald-500/20",   text: "text-emerald-400",  dot: "bg-emerald-400" },
+    amber:   { bg: "bg-amber-500/8 hover:bg-amber-500/15 border-amber-500/20",         text: "text-amber-400",    dot: "bg-amber-400" },
+    red:     { bg: "bg-red-500/8 hover:bg-red-500/15 border-red-500/20",               text: "text-red-400",      dot: "bg-red-400" },
+    neutral: { bg: "bg-muted/30 hover:bg-muted/50 border-border/40",                   text: "text-muted-foreground", dot: "bg-slate-500" },
+  };
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
+        <div className="flex items-center gap-2">
+          <HeartPulse className="h-3.5 w-3.5 text-primary animate-pulse" />
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+            {tx("نبضة التنفيذية — لمحة فورية", "Executive Pulse — 10 Seconds View")}
+          </span>
+        </div>
+        <span className="text-[10px] text-muted-foreground/50">{new Date().toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" })}</span>
+      </div>
+      {/* Metrics Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-5 lg:grid-cols-10 gap-px bg-border/20 p-0">
+          {Array(10).fill(0).map((_, i) => <Skeleton key={i} className="h-16 rounded-none" />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 divide-x divide-x-reverse divide-border/20">
+          {metrics.map((m, i) => {
+            const s = statusStyle[m.status];
+            const Icon = m.icon;
+            return (
+              <Link key={i} href={m.href}>
+                <div className={`flex flex-col items-center justify-center gap-1 px-2 py-3 text-center cursor-pointer transition-all border-b border-border/10 ${s.bg}`}>
+                  <div className="flex items-center gap-1">
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.dot}`} />
+                    <Icon className={`h-3 w-3 ${s.text}`} />
+                  </div>
+                  <span className={`text-sm font-black tabular-nums leading-none ${s.text}`}>{m.value}</span>
+                  <span className="text-[9px] text-muted-foreground/60 leading-tight truncate w-full">{m.label}</span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function LiveEventFeed() {
@@ -234,6 +374,9 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+
+      {/* ── Executive Pulse Bar — 10 مؤشرات فورية */}
+      <ExecutivePulseBar />
 
       {/* ── Executive Assistant Widget */}
       <ExecutiveAssistant />
