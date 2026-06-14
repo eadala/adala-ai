@@ -453,12 +453,51 @@ export default function CaseDetail({ id }: { id: string }) {
               {(caseData as any).source === "store" && (
                 <>
                   <Separator />
-                  <div className="flex items-center gap-2">
-                    <ShoppingBag className="h-4 w-4 text-amber-500 shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">مصدر القضية</p>
-                      <p className="text-sm font-medium text-amber-600">طلب مدفوع من المتجر</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <ShoppingBag className="h-4 w-4 text-amber-500 shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">مصدر القضية</p>
+                        <p className="text-sm font-medium text-amber-600">طلب مدفوع من المتجر</p>
+                      </div>
                     </div>
+                    {(caseData as any).orderDetails && (() => {
+                      const od = (caseData as any).orderDetails;
+                      return (
+                        <div className="rounded-md border border-amber-200/40 bg-amber-50/10 p-3 space-y-1.5 text-xs">
+                          {od.serviceName && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">الخدمة</span>
+                              <span className="font-medium text-right">{od.serviceName}</span>
+                            </div>
+                          )}
+                          {od.amount != null && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">المبلغ المدفوع</span>
+                              <span className="font-semibold text-green-600">{od.amount.toLocaleString("ar-SA")} ر.س</span>
+                            </div>
+                          )}
+                          {od.clientEmail && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">بريد العميل</span>
+                              <span className="font-medium text-right truncate max-w-[140px]">{od.clientEmail}</span>
+                            </div>
+                          )}
+                          {od.clientPhone && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">هاتف العميل</span>
+                              <span className="font-medium">{od.clientPhone}</span>
+                            </div>
+                          )}
+                          {od.createdAt && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">تاريخ الطلب</span>
+                              <span className="font-medium">{new Date(od.createdAt).toLocaleDateString("ar-EG")}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </>
               )}

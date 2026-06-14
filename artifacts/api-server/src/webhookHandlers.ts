@@ -345,6 +345,13 @@ async function handleOfficeServicePayment(opts: {
     console.warn('[Webhook] No order found for session', stripeSessionId);
     return;
   }
+
+  /* ── Idempotency guard: if auto_case_id already set, this event was already processed ── */
+  if (orderRow.auto_case_id) {
+    console.log('[Webhook] Idempotent skip — order already processed, caseId:', orderRow.auto_case_id);
+    return;
+  }
+
   const officeId = orderRow.office_page_id as string;
 
   /* ── Step 3: Mark order as paid (CRITICAL) ── */
