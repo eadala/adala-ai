@@ -1,0 +1,269 @@
+تمام—هذا تصميم متقدم لـ Smart Permissions AI (Adaptive RBAC System) داخل منصة عدالة AI، بحيث الصلاحيات لا تكون ثابتة، بل تتغير تلقائياً حسب سلوك العميل واحتياجه.
+
+⸻
+
+Adala AI — Smart Permissions Intelligence System (SPIS)
+
+أنت فريق هندسة متقدم متخصص في:
+
+* AI-driven Access Control Systems
+* Adaptive RBAC / ABAC Architectures
+* Behavioral Analytics Systems
+* SaaS Security Engineering
+
+مهمتك بناء نظام صلاحيات ذكي داخل منصة عدالة AI يقوم بـ:
+
+تحويل نظام الصلاحيات من Static RBAC إلى AI-Driven Adaptive Permissions System
+
+⸻
+
+الهدف الأساسي
+
+بدلاً من أن تكون الصلاحيات:
+
+* ثابتة (Role = Permissions)
+
+تصبح:
+
+ديناميكية تتغير حسب سلوك العميل، استخدامه، مخاطره، واحتياجاته
+
+⸻
+
+المرحلة 1: الانتقال من RBAC إلى ABAC + AI Layer
+
+النظام الجديد يعتمد على 3 طبقات:
+
+1. Role (الدور الأساسي)
+
+* CLIENT_BASIC
+* CLIENT_BUSINESS
+* CLIENT_ENTERPRISE
+
+⸻
+
+2. Attributes (خصائص المستخدم)
+
+UserAttributes = {
+  activeCasesCount,
+  totalInvoicesPaid,
+  riskLevel,
+  engagementScore,
+  communicationFrequency,
+  documentUploads
+}
+
+⸻
+
+3. AI Decision Layer
+
+* يقرر ما إذا كانت الصلاحية تُمنح أو تُرفع أو تُقيد
+
+⸻
+
+المرحلة 2: Permission Evolution Engine
+
+الصلاحيات ليست ثابتة
+
+بل تتطور عبر 3 حالات:
+
+1. Grant (منح صلاحية جديدة)
+
+مثال:
+
+* العميل بدأ يرفع مستندات كثيرة → يتم فتح “Document Center”
+
+⸻
+
+2. Restrict (تقييد صلاحية)
+
+مثال:
+
+* سلوك غير طبيعي أو مدفوعات متأخرة → تقليل بعض الميزات
+
+⸻
+
+3. Upgrade (ترقية تلقائية)
+
+مثال:
+
+* عميل يستخدم النظام بكثافة → فتح ميزات Business Tier
+
+⸻
+
+المرحلة 3: AI Permission Engine
+
+Core Decision Model:
+
+INPUT:
+- User behavior
+- Case activity
+- Financial activity
+- Risk score
+↓
+AI MODEL
+↓
+OUTPUT:
+- Permissions update
+- Suggested role upgrade/downgrade
+
+⸻
+
+مثال عملي:
+
+User:
+- 5 active cases
+- uploads frequent documents
+- high engagement
+AI Decision:
+- Enable DOCUMENT_UPLOAD
+- Enable ADVANCED_TIMELINE
+- Suggest upgrade to BUSINESS tier
+
+⸻
+
+المرحلة 4: Permission Scoring System
+
+كل مستخدم لديه:
+
+Permission Score
+
+PermissionScore = {
+  engagement: 0-100,
+  trust: 0-100,
+  activity: 0-100,
+  risk: 0-100
+}
+
+⸻
+
+مثال:
+
+* High engagement → فتح ميزات إضافية
+* High risk → تقييد بعض العمليات
+* Low activity → تقليل الوصول المتقدم
+
+⸻
+
+المرحلة 5: Real-Time Permission Engine
+
+النظام يعمل لحظياً:
+
+User Action
+↓
+Event Generated
+↓
+AI Re-evaluates Permissions
+↓
+Permissions Updated
+↓
+UI Re-rendered
+
+⸻
+
+المرحلة 6: UI Adaptation Layer
+
+الواجهة تتغير تلقائياً:
+
+مثال:
+
+عميل عادي:
+
+* قضايا
+* فواتير فقط
+
+عميل نشط:
+
+* قضايا
+* مستندات
+* محادثة
+* خدمات
+
+عميل Enterprise:
+
+* كل شيء + تقارير + دعم مباشر
+
+⸻
+
+المرحلة 7: Backend Enforcement
+
+⚠️ مهم جداً:
+
+لا يتم الاعتماد على UI فقط
+
+if (!hasPermission(user, "VIEW_CASES")) {
+  throw new Error("Forbidden");
+}
+
+⸻
+
+المرحلة 8: AI Recommendation Layer
+
+النظام لا يغير الصلاحيات بصمت فقط، بل:
+
+يقدم توصيات:
+
+* “ننصح بترقية الحساب”
+* “تم فتح ميزات إضافية لك”
+* “تم تقييد بعض الميزات لأسباب أمنية”
+
+⸻
+
+المرحلة 9: Audit & Compliance Layer
+
+كل تغيير في الصلاحيات يتم تسجيله:
+
+PermissionChangeLog {
+  userId,
+  previousPermissions,
+  newPermissions,
+  reason,
+  aiScore,
+  timestamp
+}
+
+⸻
+
+المرحلة 10: Safety Rules
+
+* لا يتم إلغاء صلاحيات حرجة بدون مراجعة
+* لا يتم رفع صلاحيات مالية بدون تحقق
+* كل تغيير قابل للتراجع
+* كل قرار AI قابل للتفسير (Explainable AI)
+
+⸻
+
+المرحلة 11: Final Vision
+
+تحويل النظام إلى:
+
+“Living Permission System”
+
+يعني:
+
+* الصلاحيات ليست ثابتة
+* بل كائن حي يتغير حسب استخدام العميل
+
+⸻
+
+النتيجة النهائية
+
+بعد التنفيذ:
+
+* كل عميل يرى تجربة مختلفة
+* النظام يتكيف تلقائياً مع السلوك
+* تحسين تجربة العميل + تقليل المخاطر
+* رفع قيمة الاشتراكات تلقائياً
+
+⸻
+
+الخلاصة
+
+أنت الآن تبني:
+
+Client Portal = AI-Adaptive System (ليس مجرد RBAC)
+
+⸻
+
+إذا تريد الخطوة التالية، أقدر أصمم لك:
+
+نظام “AI Pricing Engine” يحدد سعر الخدمات تلقائياً حسب العميل وتعقيد القضية وسلوكه
