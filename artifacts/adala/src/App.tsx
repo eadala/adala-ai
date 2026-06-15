@@ -576,7 +576,7 @@ function App() {
     <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <div dir="rtl" className="font-sans antialiased text-foreground bg-background min-h-screen">
+          <div dir="rtl" className="font-sans antialiased text-foreground bg-background min-h-screen w-full" style={{ overflowX: "hidden", maxWidth: "100vw" }}>
             <WouterRouter base={basePath}>
               <Switch>
                 {/* "/" → Landing renders immediately — no Clerk dependency */}

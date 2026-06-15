@@ -353,7 +353,7 @@ export default function Landing() {
   ];
 
   return (
-    <div dir={isAr ? "rtl" : "ltr"} className="min-h-screen overflow-x-hidden lp-root" style={{ background: "var(--lp-bg, #080F1E)", fontFamily: "Cairo, sans-serif" }}>
+    <div dir={isAr ? "rtl" : "ltr"} className="min-h-screen overflow-x-hidden lp-root" style={{ background: "var(--lp-bg, #080F1E)", fontFamily: "Cairo, sans-serif", width: "100%", maxWidth: "100vw" }}>
 
       {/* CSS for animations */}
       <style>{`
@@ -546,7 +546,7 @@ export default function Landing() {
       </Suspense>
 
       {/* ── FEATURES BENTO ───────────────────────────────────────────────── */}
-      <section id="features" className="py-24 px-4">
+      <section id="features" className="py-24 px-4 overflow-hidden">
         <div className="max-w-6xl mx-auto">
           <FadeIn className="text-center mb-14">
             <span className="text-sm font-semibold px-4 py-1.5 rounded-full mb-4 inline-block" style={{ background: "rgba(99,102,241,0.15)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.3)" }}>
@@ -686,7 +686,7 @@ export default function Landing() {
       </Suspense>
 
       {/* ── HOW IT WORKS + SECURITY — tabbed ─────────────────────────────── */}
-      <section id="how" className="py-24 px-4">
+      <section id="how" className="py-24 px-4 overflow-hidden">
         <div className="max-w-5xl mx-auto">
           <FadeIn className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
@@ -757,7 +757,7 @@ export default function Landing() {
       </section>
 
       {/* ── TESTIMONIALS ─────────────────────────────────────────────────── */}
-      <section className="py-24 px-4">
+      <section className="py-24 px-4 overflow-hidden">
         <div className="max-w-6xl mx-auto">
           <FadeIn className="text-center mb-16">
             <span className="text-sm font-semibold px-4 py-1.5 rounded-full mb-4 inline-block" style={{ background: "rgba(201,168,76,0.12)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.3)" }}>
@@ -804,7 +804,7 @@ export default function Landing() {
 
 
       {/* ── PRICING ──────────────────────────────────────────────────────── */}
-      <section id="pricing" className="py-24 px-4">
+      <section id="pricing" className="py-24 px-4 overflow-hidden">
         <div className="max-w-5xl mx-auto">
           <FadeIn className="text-center mb-16">
             <span className="text-sm font-semibold px-4 py-1.5 rounded-full mb-4 inline-block" style={{ background: "rgba(201,168,76,0.12)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.3)" }}>
@@ -876,7 +876,7 @@ export default function Landing() {
       </section>
 
       {/* ── FAQ ──────────────────────────────────────────────────────────── */}
-      <section id="faq" className="py-24 px-4">
+      <section id="faq" className="py-24 px-4 overflow-hidden">
         <div className="max-w-3xl mx-auto">
           <FadeIn className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">{t("landing.faq.title")}</h2>
@@ -893,7 +893,7 @@ export default function Landing() {
       </section>
 
       {/* ── FINAL CTA ────────────────────────────────────────────────────── */}
-      <section className="py-24 px-4">
+      <section className="py-24 px-4 overflow-hidden">
         <FadeIn>
           <div className="max-w-4xl mx-auto rounded-3xl p-10 md:p-16 text-center relative overflow-hidden"
             style={{ background: "linear-gradient(135deg, rgba(201,168,76,0.12), rgba(99,102,241,0.12))", border: "1px solid rgba(201,168,76,0.25)" }}>
