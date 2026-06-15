@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react";
+import AdoulWidget from "@/components/adoul-widget";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -1020,6 +1021,9 @@ export default function Landing() {
           <Phone className="w-6 h-6 text-white" />
         </a>
       )}
+
+      {/* ── عدول Marketing Widget ─────────────────────────────────────────── */}
+      <AdoulWidget />
     </div>
   );
 }
