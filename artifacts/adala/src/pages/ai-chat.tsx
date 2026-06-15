@@ -30,10 +30,10 @@ function formatContent(text: string) {
       return <div key={i} className="flex gap-2 mr-2 my-0.5"><span className="text-[#C9A84C] mt-1">•</span><span>{line.slice(2)}</span></div>;
     }
     if (/^\d+\./.test(line)) {
-      return <div key={i} className="mr-2 my-0.5 text-white/90">{line}</div>;
+      return <div key={i} className="mr-2 my-0.5 text-foreground/90">{line}</div>;
     }
     if (line.trim() === "") return <div key={i} className="h-2" />;
-    return <div key={i} className="text-white/90 leading-relaxed">{line}</div>;
+    return <div key={i} className="text-foreground/90 leading-relaxed">{line}</div>;
   });
 }
 
@@ -121,7 +121,7 @@ export default function AiChat() {
                   className={`w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center ${
                     msg.role === "user"
                       ? "bg-primary text-primary-foreground"
-                      : "bg-sidebar text-white"
+                      : "bg-muted text-foreground"
                   }`}
                 >
                   {msg.role === "user" ? <User className="w-4 h-4" /> : <Scale className="w-4 h-4 text-[#C9A84C]" />}
@@ -149,7 +149,7 @@ export default function AiChat() {
 
             {isLoading && (
               <div className="flex gap-3">
-                <div className="w-9 h-9 rounded-xl bg-sidebar flex items-center justify-center flex-shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
                   <Scale className="w-4 h-4 text-[#C9A84C]" />
                 </div>
                 <div className="bg-muted rounded-2xl rounded-tr-sm px-4 py-3 flex items-center gap-2">

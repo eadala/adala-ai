@@ -215,7 +215,7 @@ function OfficeLogo() {
         </div>
       )}
       <div className="flex flex-col min-w-0">
-        <span className="text-sm font-bold tracking-tight text-white truncate leading-tight">
+        <span className="text-sm font-bold tracking-tight text-sidebar-foreground truncate leading-tight">
           {branding?.officeName || t("appName")}
         </span>
         {branding?.tagline && (
@@ -258,8 +258,8 @@ function NavItemLink({ item, isActive, onClick, badge, accentColor }: {
       href={item.href}
       className={`${baseClass} ${
         isActive
-          ? "text-white font-semibold"
-          : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-white/5"
+          ? "text-primary font-semibold"
+          : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/70"
       }`}
       style={isActive && accentColor ? { backgroundColor: `${accentColor}18`, borderRight: `2px solid ${accentColor}` } : {}}
       onClick={onClick}
@@ -305,8 +305,8 @@ function OperatingCenter({
         onClick={() => setOpen(o => !o)}
         className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-widest transition-all mb-0.5 ${
           isAnyActive
-            ? "text-white"
-            : "text-sidebar-foreground/40 hover:text-sidebar-foreground/70 hover:bg-white/4"
+            ? "text-sidebar-foreground"
+            : "text-sidebar-foreground/40 hover:text-sidebar-foreground/70 hover:bg-sidebar-accent/60"
         }`}
       >
         <div
@@ -349,19 +349,19 @@ function TrialBanner() {
   if (!isTrial) return null;
   const urgent = (trialDaysLeft ?? 30) <= 7;
   return (
-    <div className={`flex items-center justify-between gap-2 px-4 py-2 text-xs font-medium z-50 shrink-0 ${urgent ? "bg-amber-500/20 border-b border-amber-500/30 text-amber-300" : "bg-blue-500/15 border-b border-blue-500/25 text-blue-200"}`}>
+    <div className={`flex items-center justify-between gap-2 px-4 py-2 text-xs font-medium z-50 shrink-0 ${urgent ? "bg-amber-50 border-b border-amber-200 text-amber-700" : "bg-blue-50 border-b border-blue-100 text-blue-700"}`}>
       <div className="flex items-center gap-2">
         <span className="text-base">🎁</span>
         <span>
           فترة تجريبية مجانية — جميع الميزات مفعّلة
           {trialDaysLeft != null && (
-            <span className={`mr-1 font-bold ${urgent ? "text-amber-300" : "text-white"}`}>
+            <span className={`mr-1 font-bold ${urgent ? "text-amber-800" : "text-blue-800"}`}>
               ({trialDaysLeft} {trialDaysLeft === 1 ? "يوم" : "أيام"} متبقية)
             </span>
           )}
         </span>
       </div>
-      <a href="/billing" className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${urgent ? "border-amber-400/50 text-amber-300 hover:bg-amber-500/20" : "border-blue-400/40 text-blue-200 hover:bg-blue-500/20"}`}>
+      <a href="/billing" className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${urgent ? "border-amber-300 text-amber-700 hover:bg-amber-100" : "border-blue-200 text-blue-700 hover:bg-blue-100"}`}>
         اشترك الآن
       </a>
     </div>
@@ -451,11 +451,11 @@ export function Layout({ children }: { children: ReactNode }) {
               <AvatarFallback className="bg-sidebar-primary text-primary-foreground text-xs">{initials}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col flex-1 min-w-0">
-              <span className="text-sm font-medium text-white truncate">{displayName}</span>
+              <span className="text-sm font-medium text-sidebar-foreground truncate">{displayName}</span>
               <span className="text-xs text-sidebar-foreground/60">{t("systemAdmin")}</span>
             </div>
             <Button variant="ghost" size="icon"
-              className="h-7 w-7 text-sidebar-foreground/50 hover:text-white hover:bg-sidebar-accent/50"
+              className="h-7 w-7 text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10"
               onClick={() => signOut({ redirectUrl: basePath || "/" })}
               title={t("logout")}>
               <LogOut className="h-4 w-4" />
@@ -475,7 +475,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <div className="flex items-center justify-between px-3 pt-3 pb-1 border-b border-sidebar-border/50">
               <OfficeLogo />
               <Button variant="ghost" size="icon"
-                className="h-8 w-8 text-sidebar-foreground/60 hover:text-white hover:bg-sidebar-accent/60 shrink-0"
+                className="h-8 w-8 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent shrink-0"
                 onClick={() => setIsMobileMenuOpen(false)}>
                 <span className="text-lg leading-none">✕</span>
               </Button>
@@ -490,9 +490,9 @@ export function Layout({ children }: { children: ReactNode }) {
                   <AvatarFallback className="bg-sidebar-primary text-primary-foreground text-xs">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col flex-1 min-w-0">
-                  <span className="text-sm font-medium text-white truncate">{displayName}</span>
+                  <span className="text-sm font-medium text-sidebar-foreground truncate">{displayName}</span>
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400/70 hover:text-red-400"
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500/70 hover:text-red-500"
                   onClick={() => signOut({ redirectUrl: basePath || "/" })}>
                   <LogOut className="h-4 w-4" />
                 </Button>

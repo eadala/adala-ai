@@ -63,40 +63,40 @@ export default function Expenses() {
             <div className="h-10 w-10 rounded-xl bg-red-500/20 flex items-center justify-center">
               <TrendingDown className="h-5 w-5 text-red-400" />
             </div>
-            <div><h1 className="text-xl font-bold text-white">المصاريف</h1><p className="text-xs text-muted-foreground">إدارة المصروفات والتكاليف</p></div>
+            <div><h1 className="text-xl font-bold text-foreground">المصاريف</h1><p className="text-xs text-muted-foreground">إدارة المصروفات والتكاليف</p></div>
           </div>
           <Button onClick={openCreate} className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold gap-1.5"><Plus className="h-4 w-4"/>إضافة مصروف</Button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <Card className="bg-sidebar border-sidebar-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">إجمالي المصاريف</p><p className="text-xl font-bold text-red-400">{fmt(rows.reduce((s,r)=>s+parseFloat(String(r.amount||0)),0))}</p></CardContent></Card>
-          <Card className="bg-sidebar border-sidebar-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">مصاريف هذا الشهر</p><p className="text-xl font-bold text-[#C9A84C]">{fmt(thisMonth)}</p></CardContent></Card>
-          <Card className="bg-sidebar border-sidebar-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السجلات</p><p className="text-2xl font-bold text-white">{rows.length}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">إجمالي المصاريف</p><p className="text-xl font-bold text-red-400">{fmt(rows.reduce((s,r)=>s+parseFloat(String(r.amount||0)),0))}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">مصاريف هذا الشهر</p><p className="text-xl font-bold text-primary">{fmt(thisMonth)}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السجلات</p><p className="text-2xl font-bold text-foreground">{rows.length}</p></CardContent></Card>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <div className="relative flex-1 min-w-48">
             <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground"/>
-            <Input placeholder="بحث..." value={search} onChange={e=>setSearch(e.target.value)} className="pr-9 bg-sidebar border-sidebar-border text-white h-9 text-sm"/>
+            <Input placeholder="بحث..." value={search} onChange={e=>setSearch(e.target.value)} className="pr-9 bg-card border-border text-foreground h-9 text-sm"/>
           </div>
           <Select value={catFilter} onValueChange={setCatFilter}>
-            <SelectTrigger className="w-44 h-9 bg-sidebar border-sidebar-border text-sm"><SelectValue placeholder="الفئة"/></SelectTrigger>
+            <SelectTrigger className="w-44 h-9 bg-card border-border text-sm"><SelectValue placeholder="الفئة"/></SelectTrigger>
             <SelectContent><SelectItem value="all">جميع الفئات</SelectItem>{CATEGORIES.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
         </div>
 
-        {filtered.length>0&&<p className="text-sm text-[#C9A84C]">المجموع: {fmt(total)} ({filtered.length} سجل)</p>}
+        {filtered.length>0&&<p className="text-sm text-primary">المجموع: {fmt(total)} ({filtered.length} سجل)</p>}
 
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardContent className="p-0">
             {isLoading?(
               <div className="flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ml-2"/>جارٍ التحميل...</div>
             ):filtered.length===0?(
-              <div className="flex flex-col items-center py-14 text-muted-foreground"><TrendingDown className="h-10 w-10 mb-2 opacity-20"/><p className="text-sm">لا توجد مصاريف</p><Button size="sm" variant="link" className="text-[#C9A84C] mt-1" onClick={openCreate}>إضافة أول مصروف</Button></div>
+              <div className="flex flex-col items-center py-14 text-muted-foreground"><TrendingDown className="h-10 w-10 mb-2 opacity-20"/><p className="text-sm">لا توجد مصاريف</p><Button size="sm" variant="link" className="text-primary mt-1" onClick={openCreate}>إضافة أول مصروف</Button></div>
             ):(
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead><tr className="border-b border-sidebar-border text-muted-foreground text-right">
+                  <thead><tr className="border-b border-border text-muted-foreground text-right">
                     <th className="px-4 py-3 font-medium">العنوان</th>
                     <th className="px-4 py-3 font-medium">الفئة</th>
                     <th className="px-4 py-3 font-medium">المبلغ</th>
@@ -107,15 +107,15 @@ export default function Expenses() {
                   </tr></thead>
                   <tbody>
                     {filtered.map(r=>(
-                      <tr key={r.id} className="border-b border-sidebar-border/50 hover:bg-sidebar-accent/30">
-                        <td className="px-4 py-3 text-white font-medium">{r.title}</td>
+                      <tr key={r.id} className="border-b border-border/50 hover:bg-sidebar-accent/30">
+                        <td className="px-4 py-3 text-foreground font-medium">{r.title}</td>
                         <td className="px-4 py-3"><Badge variant="outline" className="border-red-500/30 text-red-400 text-xs">{r.category}</Badge></td>
                         <td className="px-4 py-3 text-red-400 font-bold">{fmt(r.amount)}</td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">{r.vendor||"—"}</td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">{METHODS.find(m=>m.v===r.paymentMethod)?.l??r.paymentMethod}</td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">{r.date}</td>
                         <td className="px-4 py-3"><div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-[#C9A84C]" onClick={()=>openEdit(r)}><Pencil className="h-3.5 w-3.5"/></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-primary" onClick={()=>openEdit(r)}><Pencil className="h-3.5 w-3.5"/></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-red-400" onClick={()=>setDelId(r.id)}><Trash2 className="h-3.5 w-3.5"/></Button>
                         </div></td>
                       </tr>
@@ -128,28 +128,28 @@ export default function Expenses() {
         </Card>
 
         <Dialog open={open} onOpenChange={v=>!v&&close_()}>
-          <DialogContent className="bg-sidebar border-sidebar-border text-white max-w-md" dir="rtl">
+          <DialogContent className="bg-card border-border text-foreground max-w-md" dir="rtl">
             <DialogHeader><DialogTitle>{editing?"تعديل المصروف":"إضافة مصروف جديد"}</DialogTitle></DialogHeader>
             <div className="space-y-3 py-2">
-              <div><Label className="text-xs text-muted-foreground">عنوان المصروف *</Label><Input value={form.title??""} onChange={e=>set("title",e.target.value)} className="bg-background/50 border-sidebar-border mt-1 text-sm"/></div>
+              <div><Label className="text-xs text-muted-foreground">عنوان المصروف *</Label><Input value={form.title??""} onChange={e=>set("title",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label className="text-xs text-muted-foreground">الفئة</Label>
                   <Select value={form.category??""} onValueChange={v=>set("category",v)}>
-                    <SelectTrigger className="bg-background/50 border-sidebar-border mt-1 text-sm h-9"><SelectValue/></SelectTrigger>
+                    <SelectTrigger className="bg-background/50 border-border mt-1 text-sm h-9"><SelectValue/></SelectTrigger>
                     <SelectContent>{CATEGORIES.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                   </Select></div>
-                <div><Label className="text-xs text-muted-foreground">المبلغ (ر.س) *</Label><Input type="number" value={form.amount??""} onChange={e=>set("amount",e.target.value)} className="bg-background/50 border-sidebar-border mt-1 text-sm"/></div>
+                <div><Label className="text-xs text-muted-foreground">المبلغ (ر.س) *</Label><Input type="number" value={form.amount??""} onChange={e=>set("amount",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label className="text-xs text-muted-foreground">طريقة الدفع</Label>
                   <Select value={form.paymentMethod??""} onValueChange={v=>set("paymentMethod",v)}>
-                    <SelectTrigger className="bg-background/50 border-sidebar-border mt-1 text-sm h-9"><SelectValue/></SelectTrigger>
+                    <SelectTrigger className="bg-background/50 border-border mt-1 text-sm h-9"><SelectValue/></SelectTrigger>
                     <SelectContent>{METHODS.map(m=><SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent>
                   </Select></div>
-                <div><Label className="text-xs text-muted-foreground">التاريخ</Label><Input type="date" value={form.date??""} onChange={e=>set("date",e.target.value)} className="bg-background/50 border-sidebar-border mt-1 text-sm"/></div>
+                <div><Label className="text-xs text-muted-foreground">التاريخ</Label><Input type="date" value={form.date??""} onChange={e=>set("date",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
               </div>
-              <div><Label className="text-xs text-muted-foreground">المورد / الجهة</Label><Input value={form.vendor??""} onChange={e=>set("vendor",e.target.value)} className="bg-background/50 border-sidebar-border mt-1 text-sm"/></div>
-              <div><Label className="text-xs text-muted-foreground">ملاحظات</Label><Textarea value={form.notes??""} onChange={e=>set("notes",e.target.value)} className="bg-background/50 border-sidebar-border mt-1 text-sm resize-none" rows={2}/></div>
+              <div><Label className="text-xs text-muted-foreground">المورد / الجهة</Label><Input value={form.vendor??""} onChange={e=>set("vendor",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
+              <div><Label className="text-xs text-muted-foreground">ملاحظات</Label><Textarea value={form.notes??""} onChange={e=>set("notes",e.target.value)} className="bg-background/50 border-border mt-1 text-sm resize-none" rows={2}/></div>
             </div>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={close_}>إلغاء</Button>
@@ -161,7 +161,7 @@ export default function Expenses() {
         </Dialog>
 
         <Dialog open={!!delId} onOpenChange={v=>!v&&setDelId(null)}>
-          <DialogContent className="bg-sidebar border-sidebar-border text-white max-w-sm" dir="rtl">
+          <DialogContent className="bg-card border-border text-foreground max-w-sm" dir="rtl">
             <DialogHeader><DialogTitle>تأكيد الحذف</DialogTitle></DialogHeader>
             <p className="text-sm text-muted-foreground">هل أنت متأكد من حذف هذا المصروف؟</p>
             <DialogFooter className="gap-2">

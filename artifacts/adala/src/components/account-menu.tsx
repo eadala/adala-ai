@@ -73,7 +73,7 @@ export function AccountMenu() {
   const { signOut, openUserProfile } = useClerk();
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">(() => {
-    return (localStorage.getItem("adala-theme") as "dark" | "light") || "dark";
+    return (localStorage.getItem("adala-theme") as "dark" | "light") || "light";
   });
   const [officeOpen, setOfficeOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
