@@ -180,6 +180,7 @@ import adoulRouter from "./adoul";
 import monitoringRouter from "./monitoring";
 import preventionRouter from "./prevention";
 import smartAlertsRouter from "./smart-alerts";
+import financialEngineRouter from "./financial-engine";
 router.use(aiEventsRouter);
 router.use(searchRouter);
 router.use(platformCommandRouter);
@@ -190,5 +191,6 @@ router.use("/adoul", adoulRouter);
 router.use(monitoringRouter);
 router.use(preventionRouter);
 router.use(smartAlertsRouter);
+router.use(financialEngineRouter);
 
 export default router;
