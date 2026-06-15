@@ -130,7 +130,7 @@ export default function Contracts() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: tx("إجمالي العقود", "Total Contracts"), value: stats.total,        icon: FileText,       color: "#6366F1" },
           { label: tx("موقّعة", "Signed"),                  value: stats.signed,       icon: CheckCircle,    color: "#10B981" },

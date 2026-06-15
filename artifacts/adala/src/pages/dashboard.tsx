@@ -265,11 +265,11 @@ function OfficePerfScore() {
         )}
       </div>
       {isLoading ? (
-        <div className="grid grid-cols-5 gap-px bg-border/10 p-0">
+        <div className="overflow-x-auto"><div className="grid grid-cols-5 gap-px bg-border/10 p-0 min-w-[280px]">
           {Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-16 rounded-none" />)}
-        </div>
+        </div></div>
       ) : (
-        <div className="grid grid-cols-5 divide-x divide-x-reverse divide-border/20">
+        <div className="overflow-x-auto"><div className="grid grid-cols-5 divide-x divide-x-reverse divide-border/20 min-w-[280px]">
           {DIMS.map(dim => {
             const score = scores[dim.key] ?? 0;
             const pct = Math.max(2, score);
@@ -286,7 +286,7 @@ function OfficePerfScore() {
               </div>
             );
           })}
-        </div>
+        </div></div>
       )}
     </div>
   );
@@ -333,9 +333,9 @@ function ClientRiskMatrix() {
       {isLoading ? (
         <div className="p-3 space-y-2">{Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-9 rounded-lg" />)}</div>
       ) : (
-        <>
+        <div className="overflow-x-auto">
           {/* Column headers */}
-          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-1.5 border-b border-border/10 bg-muted/10">
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-1.5 border-b border-border/10 bg-muted/10 min-w-[420px]">
             <span className="text-[10px] text-muted-foreground/50">العميل</span>
             <span className="text-[10px] text-muted-foreground/50 w-14 text-center">قضايا</span>
             <span className="text-[10px] text-muted-foreground/50 w-20 text-left rtl:text-right">مستحق</span>
@@ -347,7 +347,7 @@ function ClientRiskMatrix() {
               const rc = RISK_CFG[client.risk as keyof typeof RISK_CFG] ?? RISK_CFG.low;
               return (
                 <Link key={client.id} href="/clients">
-                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center px-4 py-2.5 hover:bg-accent/30 transition-all cursor-pointer">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center px-4 py-2.5 hover:bg-accent/30 transition-all cursor-pointer min-w-[420px]">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${rc.dot}`} />
                       <span className="text-xs font-medium truncate">{client.name}</span>
@@ -371,10 +371,10 @@ function ClientRiskMatrix() {
               );
             })}
           </div>
-          <div className="px-4 py-1.5 border-t border-border/10 bg-muted/10">
+          <div className="px-4 py-1.5 border-t border-border/10 bg-muted/10 min-w-[420px]">
             <span className="text-[10px] text-muted-foreground/40">أيام = منذ آخر نشاط · المستحق بالريال</span>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
