@@ -64,10 +64,25 @@ export default function Tasks() {
     queryFn: () => fetch("/api/hr/employees").then(r => r.json()),
   });
 
+  const cleanPayload = (data: any) => ({
+    ...data,
+    dueDate: data.dueDate || null,
+    assigneeName: data.assigneeName || null,
+    caseTitle: data.caseTitle || null,
+    description: data.description || null,
+  });
+
   const createMutation = useMutation({
-    mutationFn: (data: any) => fetch("/api/office-tasks", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-    }).then(r => r.json()),
+    mutationFn: async (data: any) => {
+      const r = await fetch("/api/office-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cleanPayload(data)),
+      });
+      const json = await r.json();
+      if (!r.ok) throw new Error(json.error || "فشل إنشاء المهمة");
+      return json;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["tasks-stats"] });
@@ -75,17 +90,30 @@ export default function Tasks() {
       setForm({ ...EMPTY_FORM });
       toast({ title: "تم إنشاء المهمة ✓" });
     },
+    onError: (e: any) => {
+      toast({ title: e.message || "فشل إنشاء المهمة", variant: "destructive" });
+    },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }: any) => fetch(`/api/office-tasks/${id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-    }).then(r => r.json()),
+    mutationFn: async ({ id, ...data }: any) => {
+      const r = await fetch(`/api/office-tasks/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cleanPayload(data)),
+      });
+      const json = await r.json();
+      if (!r.ok) throw new Error(json.error || "فشل تحديث المهمة");
+      return json;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["tasks-stats"] });
       setEditTask(null);
       toast({ title: "تم تحديث المهمة ✓" });
+    },
+    onError: (e: any) => {
+      toast({ title: e.message || "فشل تحديث المهمة", variant: "destructive" });
     },
   });
 

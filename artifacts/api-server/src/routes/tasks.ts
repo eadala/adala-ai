@@ -16,10 +16,13 @@ function sqlOne(r: any): any {
   return rows[0] ?? null;
 }
 
-router.get("/office-tasks", requireAuthWithTenant, async (_req, res) => {
+router.get("/office-tasks", requireAuthWithTenant, async (req, res) => {
   try {
+    const officeId = (req as any).tenantId ?? null;
     const r = await db.execute(sql`
-      SELECT * FROM tasks ORDER BY
+      SELECT * FROM tasks
+      WHERE (office_id = ${officeId}::uuid OR office_id IS NULL)
+      ORDER BY
         CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
         COALESCE(due_date, '9999-12-31'::date),
         created_at DESC
@@ -49,15 +52,22 @@ router.get("/office-tasks/stats", requireAuthWithTenant, async (_req, res) => {
 
 router.post("/office-tasks", requireAuthWithTenant, async (req, res) => {
   try {
-    const { title, description, status = "todo", priority = "medium", assigneeName, dueDate, caseTitle, tags, createdBy } = req.body;
+    const { title, description, status = "todo", priority = "medium", assigneeName, dueDate, caseTitle, createdBy } = req.body;
     if (!title) return res.status(400).json({ error: "عنوان المهمة مطلوب" });
+    const officeId = (req as any).tenantId ?? null;
+    const dueDateVal = dueDate || null;
     const r = await db.execute(sql`
-      INSERT INTO tasks (title, description, status, priority, assignee_name, due_date, case_title, tags, created_by)
+      INSERT INTO tasks (office_id, title, description, status, priority, assignee_name, due_date, case_title, created_by)
       VALUES (
-        ${title}, ${description ?? null}, ${status}, ${priority},
-        ${assigneeName ?? null}, ${dueDate ?? null}, ${caseTitle ?? null},
-        ${tags ? sql`${JSON.stringify(tags)}::text[]` : sql`NULL`},
-        ${createdBy ?? null}
+        ${officeId}::uuid,
+        ${title},
+        ${description || null},
+        ${status},
+        ${priority},
+        ${assigneeName || null},
+        ${dueDateVal ? sql`${dueDateVal}::date` : sql`NULL`},
+        ${caseTitle || null},
+        ${createdBy || null}
       )
       RETURNING *
     `);
