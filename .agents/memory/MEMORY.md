@@ -64,3 +64,4 @@
 - [Adala production blank page fix](adala-prod-blank-fix.md) — publishableKeyFromHost from @clerk/react/internal throws on .replit.app, corrupts Clerk singleton → use VITE_CLERK_PUBLISHABLE_KEY directly; guard useClerk() with optional chaining; always wrap App in ErrorBoundary
 - [Adala Vite Radix chunks](adala-vite-radix-chunks.md) — ANY manual @radix-ui chunk causes TDZ or React namespace errors; fix = no vendor-radix/vendor-misc for Radix, let Rollup auto-chunk
 - [Adala Go-Live Security Hardening](adala-go-live-security.md) — 610/671 routes protected; requireAuthWithTenant pattern; 61 legit public routes; adminOnly is LOCAL function (no shared file); import fix via Node scan
+- [Adala light theme showcase](adala-light-showcase.md) — platform-showcase + payment-showcase fully converted to white/blue (#1A56DB); G const = blue not gold
