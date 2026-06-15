@@ -44,7 +44,7 @@ interface ModeConfig {
   icon: React.ComponentType<{ className?: string }>;
   desc: string;
   placeholder: string;
-  suggestions: { icon: React.ComponentType<{ className?: string }>; text: string; cat: string }[];
+  suggestions: { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; text: string; cat: string }[];
 }
 
 const MODES: ModeConfig[] = [

@@ -106,14 +106,14 @@ class EventBus {
     /* 2. Run specific listeners */
     const handlers = this.listeners.get(stored.type) ?? [];
     for (const handler of handlers) {
-      handler(stored).catch((e: any) =>
+      Promise.resolve(handler(stored)).catch((e: any) =>
         console.error(`[EventBus] listener error [${stored.type}]:`, e.message)
       );
     }
 
     /* 3. Run wildcard listeners */
     for (const handler of this.wildcardListeners) {
-      handler(stored).catch((e: any) =>
+      Promise.resolve(handler(stored)).catch((e: any) =>
         console.error("[EventBus] wildcard listener error:", e.message)
       );
     }

@@ -53,8 +53,8 @@ const TYPE_COLOR: Record<string, string> = {
 };
 
 /* ── Statement Row ── */
-function StmtRow({ label, amount, bold, indent, sub, separator }: {
-  label: string; amount?: number; bold?: boolean; indent?: number;
+function StmtRow({ label = "", amount, bold, indent, sub, separator }: {
+  label?: string; amount?: number; bold?: boolean; indent?: number;
   sub?: string; separator?: boolean;
 }) {
   if (separator) return <tr><td colSpan={2}><Separator className="my-1 opacity-30" /></td></tr>;

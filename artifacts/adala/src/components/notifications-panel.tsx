@@ -273,7 +273,7 @@ export function NotificationsPanel() {
                     </button>
                   </div>
                 ) : (
-                  <div className="divide-y" style={{ divideColor: "#1E2D50" }}>
+                  <div className="divide-y divide-[#1E2D50]">
                     {liveEvents.map((ev, idx) => {
                       const meta = EVENT_ICONS[ev.type] ?? { icon: Activity, color: "#64748B" };
                       const Icon = meta.icon;

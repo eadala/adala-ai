@@ -46,9 +46,9 @@ function useFadeIn(delay = 0) {
   return ref;
 }
 
-function FadeIn({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
+function FadeIn({ children, delay = 0, className = "", style }: { children: React.ReactNode; delay?: number; className?: string; style?: React.CSSProperties }) {
   const ref = useFadeIn(delay);
-  return <div ref={ref} className={`lp-fade ${className}`}>{children}</div>;
+  return <div ref={ref} className={`lp-fade ${className}`} style={style}>{children}</div>;
 }
 
 /* ── Blue accent text ─────────────────────────────────────────────── */

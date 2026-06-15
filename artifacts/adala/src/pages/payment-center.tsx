@@ -139,17 +139,18 @@ export default function PaymentCenter() {
   const { data: moyasarSettings, isLoading: moyasarLoad } = useQuery<any>({
     queryKey: ["moyasar-settings"],
     queryFn: () => API(`${BASE}/api/payments/moyasar/settings`),
-    onSuccess: (d: any) => {
-      if (d) setMoyasarForm(f => ({ ...f, testMode: d.testMode ?? true, enabled: d.enabled ?? false }));
-    },
   });
   const { data: checkoutSettings } = useQuery<any>({
     queryKey: ["checkout-settings"],
     queryFn: () => API(`${BASE}/api/payments/checkout/settings`),
-    onSuccess: (d: any) => {
-      if (d) setCheckoutForm(f => ({ ...f, testMode: d.testMode ?? true, enabled: d.enabled ?? false }));
-    },
   });
+
+  useEffect(() => {
+    if (moyasarSettings) setMoyasarForm(f => ({ ...f, testMode: moyasarSettings.testMode ?? true, enabled: moyasarSettings.enabled ?? false }));
+  }, [moyasarSettings]);
+  useEffect(() => {
+    if (checkoutSettings) setCheckoutForm(f => ({ ...f, testMode: checkoutSettings.testMode ?? true, enabled: checkoutSettings.enabled ?? false }));
+  }, [checkoutSettings]);
 
   /* ── Mutations ──────────────────────────────────── */
   const createConnect = useMutation({
