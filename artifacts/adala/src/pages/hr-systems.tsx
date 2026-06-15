@@ -432,33 +432,33 @@ export default function HRSystems() {
 
   const { data: employees = [] } = useQuery<any[]>({
     queryKey: ["hr-employees-list"],
-    queryFn: () => fetch(`${BASE}/api/hr/employees`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/hr/employees`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
   const activeEmps = employees.filter((e: any) => e.status === "active");
 
   const { data: dash } = useQuery<any>({
     queryKey: ["hr-internal-dash"],
-    queryFn: () => fetch(`${BASE}/api/hr-internal/dashboard`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/hr-internal/dashboard`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: announcements = [], isLoading: annLoading } = useQuery<any[]>({
     queryKey: ["announcements"],
-    queryFn: () => fetch(`${BASE}/api/hr-internal/announcements/all`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/hr-internal/announcements/all`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: requests = [], isLoading: reqLoading } = useQuery<any[]>({
     queryKey: ["emp-requests"],
-    queryFn: () => fetch(`${BASE}/api/hr-internal/requests`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/hr-internal/requests`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: balances = [], isLoading: balLoading } = useQuery<any[]>({
     queryKey: ["leave-balances", balYear],
-    queryFn: () => fetch(`${BASE}/api/hr-internal/leave-balances?year=${balYear}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/hr-internal/leave-balances?year=${balYear}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: payrollList = [] } = useQuery<any[]>({
     queryKey: ["payroll"],
-    queryFn: () => fetch(`${BASE}/api/hr/payroll`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/hr/payroll`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const delAnn = useMutation({

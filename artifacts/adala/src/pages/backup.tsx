@@ -146,7 +146,7 @@ export default function BackupCenter() {
   /* ── Queries ── */
   const settingsQ = useQuery<BackupSettings>({
     queryKey: ["backup-settings"],
-    queryFn: () => fetch(`${BASE}/api/backup/settings`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/backup/settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   useEffect(() => {
@@ -160,7 +160,7 @@ export default function BackupCenter() {
 
   const jobsQ = useQuery<BackupJob[]>({
     queryKey: ["backup-jobs"],
-    queryFn: () => fetch(`${BASE}/api/backup/jobs`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/backup/jobs`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   /* ── Mutations ── */
@@ -170,7 +170,7 @@ export default function BackupCenter() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       toast.success("تم حفظ إعدادات النسخ الاحتياطي");
       qc.invalidateQueries({ queryKey: ["backup-settings"] });
@@ -180,7 +180,7 @@ export default function BackupCenter() {
 
   const deleteJobMut = useMutation({
     mutationFn: (id: string) =>
-      fetch(`${BASE}/api/backup/jobs/${id}`, { method: "DELETE" }).then(r => r.json()),
+      fetch(`${BASE}/api/backup/jobs/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       toast.success("تم حذف النسخة الاحتياطية");
       qc.invalidateQueries({ queryKey: ["backup-jobs"] });

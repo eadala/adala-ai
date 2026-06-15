@@ -286,7 +286,7 @@ export default function OfficePage() {
   /* ── Poll order-success after Stripe redirect ── */
   const { data: orderSuccess, isLoading: orderSuccessLoading } = useQuery<any>({
     queryKey: ["order-success", paidSession],
-    queryFn: () => fetch(`/api/office/public/${slug}/order-success?sessionId=${paidSession}`).then(r => r.json()),
+    queryFn: () => fetch(`/api/office/public/${slug}/order-success?sessionId=${paidSession}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: isPaid && !!paidSession,
     refetchInterval: (d) => {
       const data = d?.state?.data;
@@ -299,7 +299,7 @@ export default function OfficePage() {
 
   const { data, isLoading, isError } = useQuery<any>({
     queryKey: ["office-public", slug],
-    queryFn: () => fetch(`/api/office/public/${slug}`).then(r => r.json()),
+    queryFn: () => fetch(`/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const orderMutation = useMutation({
@@ -342,7 +342,7 @@ export default function OfficePage() {
     mutationFn: () => fetch(`/api/office/public/${slug}/review`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...reviewForm, rating: parseInt(reviewForm.rating) }),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       setSuccess(lang === "ar" ? "شكراً لتقييمك!" : "Thank you for your review!");
       setReviewDialog(false);

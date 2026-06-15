@@ -599,7 +599,7 @@ function ClientAccountingTab({ clientId }: { clientId: string }) {
     queryKey: ["client-accounting", clientId, period, year, month],
     queryFn: () => {
       const params = new URLSearchParams({ period, year, month });
-      return fetch(`${BASE}/api/clients/${clientId}/accounting?${params}`).then(r => r.json());
+      return fetch(`${BASE}/api/clients/${clientId}/accounting?${params}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
     },
     enabled: !!clientId,
   });

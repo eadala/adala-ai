@@ -144,21 +144,21 @@ export default function Employees() {
 
   const { data: employees = [], isLoading } = useQuery<any[]>({
     queryKey: ["employees"],
-    queryFn: () => fetch("/api/hr/employees").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: stats } = useQuery<any>({
     queryKey: ["employees-stats"],
-    queryFn: () => fetch("/api/hr/employees/stats").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/employees/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => fetch("/api/hr/employees", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
+    mutationFn: (data: any) => fetch("/api/hr/employees", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); qc.invalidateQueries({ queryKey: ["employees-stats"] }); setShowCreate(false); setForm({ ...EMPTY_FORM }); toast({ title: "تم إضافة الموظف" }); },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: any) => fetch(`/api/hr/employees/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
+    mutationFn: ({ id, data }: any) => fetch(`/api/hr/employees/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); setEditEmp(null); toast({ title: "تم التحديث" }); },
   });
 

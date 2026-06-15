@@ -62,7 +62,7 @@ export default function OfficeBook() {
 
   const { data, isLoading, isError } = useQuery<any>({
     queryKey: ["office-public", slug],
-    queryFn: () => fetch(`/api/office/public/${slug}`).then(r => r.json()),
+    queryFn: () => fetch(`/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const bookMutation = useMutation({
@@ -81,7 +81,7 @@ export default function OfficeBook() {
           form.notes && `ملاحظات: ${form.notes}`,
         ].filter(Boolean).join("\n"),
       }),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => setStep("success"),
   });
 

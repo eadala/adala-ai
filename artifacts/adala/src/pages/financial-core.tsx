@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-const fetcher = (url: string) => fetch(`${BASE}${url}`).then(r => r.json());
+const fetcher = (url: string) => fetch(`${BASE}${url}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
 const fmt = (n: number) => (n ?? 0).toLocaleString("ar-SA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const COLORS = ["#6366f1","#22c55e","#f59e0b","#ec4899","#14b8a6","#8b5cf6"];
@@ -137,17 +137,17 @@ export default function FinancialCore() {
       fetch(`${BASE}/api/fincore/payouts/${id}/process`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { refetchPayouts(); toast({ title: "تم تحديث حالة التحويل" }); },
   });
 
   const deletePayout = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/fincore/payouts/${id}`, { method: "DELETE" }).then(r => r.json()),
+    mutationFn: (id: string) => fetch(`${BASE}/api/fincore/payouts/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { refetchPayouts(); toast({ title: "تم حذف التحويل" }); },
   });
 
   const runSettlement = useMutation({
-    mutationFn: () => fetch(`${BASE}/api/fincore/settlement`, { method: "POST" }).then(r => r.json()),
+    mutationFn: () => fetch(`${BASE}/api/fincore/settlement`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d: any) => {
       qc.invalidateQueries({ queryKey: ["fincore-payouts"] });
       toast({ title: `التسوية مكتملة`, description: `${d.payoutsProcessed} تحويل — ${d.transactionsSettled} معاملة` });
@@ -157,7 +157,7 @@ export default function FinancialCore() {
   const createPayout = useMutation({
     mutationFn: (body: any) => fetch(`${BASE}/api/fincore/payouts`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       setNewPayoutOpen(false); setNewPayout({ officeId: "", ownerLabel: "", amount: "", fee: "10", notes: "" });
       refetchPayouts(); toast({ title: "تم إنشاء التحويل" });
@@ -167,7 +167,7 @@ export default function FinancialCore() {
   const createLedger = useMutation({
     mutationFn: (body: any) => fetch(`${BASE}/api/fincore/ledger`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       setNewLedgerOpen(false); setNewLedger({ debitAccount: "", creditAccount: "", amount: "", description: "", entryType: "payment" });
       refetchLedger(); toast({ title: "تم تسجيل القيد المحاسبي" });

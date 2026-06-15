@@ -140,16 +140,16 @@ export default function Clients() {
 
   const { data: clients = [], isLoading } = useQuery<any[]>({
     queryKey: ["clients"],
-    queryFn: () => fetch("/api/clients").then(r => r.json()),
+    queryFn: () => fetch("/api/clients").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => fetch("/api/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
+    mutationFn: (data: any) => fetch("/api/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); closeForm(); toast({ title: tx("تم إضافة العميل", "Client added") }); },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }: any) => fetch(`/api/clients/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
+    mutationFn: ({ id, ...data }: any) => fetch(`/api/clients/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); closeForm(); toast({ title: tx("تم التحديث", "Updated") }); },
   });
 

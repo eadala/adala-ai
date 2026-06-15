@@ -72,14 +72,14 @@ export function CaseAutopilotCard({ caseId }: { caseId: string }) {
 
   const { data: report, isLoading } = useQuery<AutopilotReport>({
     queryKey:  ["case-health", caseId],
-    queryFn:   () => fetch(`${BASE}/api/cases/${caseId}/health`).then(r => r.json()),
+    queryFn:   () => fetch(`${BASE}/api/cases/${caseId}/health`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled:   !!caseId,
     staleTime: 5 * 60_000,
   });
 
   const runAutopilot = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/cases/${caseId}/autopilot`, { method: "POST" }).then(r => r.json()),
+      fetch(`${BASE}/api/cases/${caseId}/autopilot`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (data) => {
       qc.setQueryData(["case-health", caseId], data);
       toast({

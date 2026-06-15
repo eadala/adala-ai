@@ -395,7 +395,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const { data: onboardingState } = useQuery({
     queryKey: ["onboarding-state"],
-    queryFn: () => fetch(`${basePath}/api/onboarding/state`).then(r => r.json()),
+    queryFn: () => fetch(`${basePath}/api/onboarding/state`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: isLoaded && !!user,
     staleTime: 5 * 60_000,
   });
@@ -407,7 +407,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const { data: remindersData } = useQuery({
     queryKey: ["reminders-count"],
-    queryFn: () => fetch(`${basePath}/api/reminders/count`).then(r => r.json()),
+    queryFn: () => fetch(`${basePath}/api/reminders/count`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: isLoaded && !!user,
     staleTime: 60_000,
     refetchInterval: 60_000,

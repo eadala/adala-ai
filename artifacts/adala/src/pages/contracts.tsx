@@ -63,13 +63,13 @@ export default function Contracts() {
 
   const { data: contracts = [], isLoading } = useQuery<any[]>({
     queryKey: ["contracts"],
-    queryFn: () => fetch("/api/contracts").then(r => r.json()),
+    queryFn: () => fetch("/api/contracts").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMutation = useMutation({
     mutationFn: (data: any) => fetch("/api/contracts", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["contracts"] });
       setShowCreate(false);
@@ -87,7 +87,7 @@ export default function Contracts() {
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => fetch(`/api/contracts/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["contracts"] }),
   });
 

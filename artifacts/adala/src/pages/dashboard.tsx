@@ -34,7 +34,7 @@ function AiEventsPanel() {
   const [scanning, setScanning] = useState(false);
   const { data, refetch } = useQuery<{ events: any[] }>({
     queryKey: ["ai-events"],
-    queryFn: () => fetch(`${BASE}/api/ai-events`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/ai-events`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 5 * 60_000,
     refetchInterval: 10 * 60_000,
   });
@@ -140,7 +140,7 @@ function SmartBriefing({ user }: { user: any }) {
   const { tx, isAr, dateLocale } = useLang();
   const { data, isLoading } = useQuery<IntelData>({
     queryKey: ["dashboard-intelligence"],
-    queryFn: () => fetch(`${BASE}/api/dashboard/intelligence`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/dashboard/intelligence`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 5 * 60_000,
   });
 
@@ -235,7 +235,7 @@ function OfficePerfScore() {
   const { data, isLoading } = useQuery<IntelData>({
     queryKey: ["dashboard-intelligence"],
     staleTime: 5 * 60_000,
-    queryFn: () => fetch(`${BASE}/api/dashboard/intelligence`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/dashboard/intelligence`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const DIMS = [
@@ -299,7 +299,7 @@ function ClientRiskMatrix() {
   const { data, isLoading } = useQuery<IntelData>({
     queryKey: ["dashboard-intelligence"],
     staleTime: 5 * 60_000,
-    queryFn: () => fetch(`${BASE}/api/dashboard/intelligence`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/dashboard/intelligence`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const risks = data?.clientRisks ?? [];
@@ -414,7 +414,7 @@ function ExecutivePulseBar() {
   const { tx, dateLocale } = useLang();
   const { data, isLoading } = useQuery<ExecData>({
     queryKey: ["dashboard-executive"],
-    queryFn: () => fetch(`${BASE}/api/dashboard/executive`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/dashboard/executive`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 3 * 60_000,
     refetchInterval: 5 * 60_000,
   });
@@ -550,7 +550,7 @@ function LiveEventFeed() {
   /* Seed from history */
   useEffect(() => {
     fetch(`${BASE}/api/events/recent?limit=7`)
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); })
       .then(d => { if (d.events?.length) setEvents(d.events); })
       .catch(() => {});
   }, []);
@@ -653,7 +653,7 @@ export default function Dashboard() {
 
   const { data, isLoading } = useQuery<Overview>({
     queryKey: ["dashboard-overview"],
-    queryFn: () => fetch(`${BASE}api/dashboard/overview`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/dashboard/overview`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 3 * 60_000,
     refetchInterval: 5 * 60_000,
   });

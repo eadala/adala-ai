@@ -68,7 +68,7 @@ export function FloatingCopilot() {
 
   const { data: snapshot } = useQuery({
     queryKey: ["copilot-snapshot"],
-    queryFn: () => fetch(`${BASE}/api/copilot/snapshot`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/copilot/snapshot`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
     refetchInterval: 120_000,
   });

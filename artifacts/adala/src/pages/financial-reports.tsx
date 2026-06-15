@@ -78,7 +78,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function FinancialReports() {
   const { data, isLoading } = useQuery<any>({
     queryKey: ["accounting-summary"],
-    queryFn: () => fetch(`${BASE}/api/accounting/reports/summary`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/accounting/reports/summary`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   if (isLoading) return (

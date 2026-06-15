@@ -82,24 +82,24 @@ export default function LegalAIPage() {
 
   const { data: casesList = [] } = useQuery<any[]>({
     queryKey: ["cases-list"],
-    queryFn: () => fetch(`${BASE}/api/cases`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/cases`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
   });
   const { data: clientsList = [] } = useQuery<any[]>({
     queryKey: ["clients-list"],
-    queryFn: () => fetch(`${BASE}/api/clients`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/clients`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
   });
 
   const { data: templates = {} } = useQuery<Record<string, TemplateInfo>>({
     queryKey: ["legal-ai-templates"],
-    queryFn: () => fetch(`${BASE}/api/legal-ai/templates`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/legal-ai/templates`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: Infinity,
   });
 
   const { data: history = [], refetch: refetchHistory } = useQuery<any[]>({
     queryKey: ["legal-ai-history"],
-    queryFn: () => fetch(`${BASE}/api/legal-ai/history`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/legal-ai/history`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: viewMode === "history",
   });
 
@@ -146,7 +146,7 @@ export default function LegalAIPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
-      fetch(`${BASE}/api/legal-ai/${id}`, { method: "DELETE" }).then(r => r.json()),
+      fetch(`${BASE}/api/legal-ai/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       refetchHistory();
       toast({ title: "تم الحذف" });

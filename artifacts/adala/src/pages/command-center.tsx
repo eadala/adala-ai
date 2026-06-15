@@ -154,12 +154,12 @@ export default function CommandCenter() {
 
   const { data: workflows = [], refetch: refetchWf } = useQuery<WorkflowRow[]>({
     queryKey: ["ai-workflows"],
-    queryFn: () => fetch(`${BASE}api/ai-agent/workflows`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/ai-agent/workflows`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: logs = [] } = useQuery<any[]>({
     queryKey: ["ai-agent-logs"],
-    queryFn: () => fetch(`${BASE}api/ai-agent/logs?limit=20`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/ai-agent/logs?limit=20`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
@@ -170,7 +170,7 @@ export default function CommandCenter() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...body, userEmail: user?.primaryEmailAddress?.emailAddress }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const toggleWf = useMutation({
@@ -178,12 +178,12 @@ export default function CommandCenter() {
       fetch(`${BASE}api/ai-agent/workflows/${id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: v }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => refetchWf(),
   });
 
   const deleteWf = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}api/ai-agent/workflows/${id}`, { method: "DELETE" }).then(r => r.json()),
+    mutationFn: (id: string) => fetch(`${BASE}api/ai-agent/workflows/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => refetchWf(),
   });
 

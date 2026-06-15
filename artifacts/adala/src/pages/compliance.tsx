@@ -197,7 +197,7 @@ export default function Compliance() {
   // Load saved statuses from DB on mount
   const { data: dbItems = [] } = useQuery<{ framework_key: string; item_id: string; status: string }[]>({
     queryKey: ["compliance-items"],
-    queryFn: () => fetch(`${BASE}api/compliance/items`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/compliance/items`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
   });
 

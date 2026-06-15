@@ -32,12 +32,12 @@ export default function EmailNotificationsPage() {
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["email-notif-settings"],
-    queryFn: () => fetch(`${BASE}/api/email-notifications/settings`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/email-notifications/settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: logs = [] } = useQuery<any[]>({
     queryKey: ["email-notif-logs"],
-    queryFn: () => fetch(`${BASE}/api/email-notifications/logs`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/email-notifications/logs`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   useEffect(() => {
@@ -61,7 +61,7 @@ export default function EmailNotificationsPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, smtpPort: parseInt(form.smtpPort) || 587 }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["email-notif-settings"] }); toast.success("تم حفظ الإعدادات"); },
     onError: () => toast.error("حدث خطأ في الحفظ"),
   });
@@ -72,7 +72,7 @@ export default function EmailNotificationsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to: testEmail }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d.error) toast.error(d.error);
       else { qc.invalidateQueries({ queryKey: ["email-notif-logs"] }); toast.success(d.message ?? "تم الإرسال"); }
@@ -82,7 +82,7 @@ export default function EmailNotificationsPage() {
 
   const runNowMut = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/email-notifications/run-now`, { method: "POST" }).then(r => r.json()),
+      fetch(`${BASE}/api/email-notifications/run-now`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d.error) toast.error(d.error);
       else {

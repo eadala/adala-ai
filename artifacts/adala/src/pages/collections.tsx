@@ -81,18 +81,18 @@ export default function Collections() {
 
   const { data, isLoading, refetch } = useQuery<any>({
     queryKey: ["collections", statusFilter],
-    queryFn: () => fetch(`${BASE}/api/finance/collections?status=${statusFilter}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/finance/collections?status=${statusFilter}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
   });
   const { data: analytics, isLoading: analyticsLoading } = useQuery<any>({
     queryKey: ["collections-analytics"],
-    queryFn: () => fetch(`${BASE}/api/finance/collections/analytics`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/finance/collections/analytics`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
     enabled: tab === "dashboard",
   });
   const { data: profitability = [], isLoading: profLoading } = useQuery<any[]>({
     queryKey: ["collections-profitability"],
-    queryFn: () => fetch(`${BASE}/api/finance/collections/profitability`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/finance/collections/profitability`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
     enabled: tab === "profitability",
   });
@@ -110,7 +110,7 @@ export default function Collections() {
     mutationFn: () => fetch(`${BASE}/api/finance/collections/${payDialog.id}/payment`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amount: Number(payForm.amount) || undefined, paymentMethod: payForm.method, notes: payForm.notes }),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: d => {
       if (d.error) { toast({ title: "خطأ", description: d.error, variant: "destructive" }); return; }
       toast({ title: "✅ تم تسجيل الدفعة بنجاح" });
@@ -125,7 +125,7 @@ export default function Collections() {
     mutationFn: () => fetch(`${BASE}/api/finance/collections/${partialDialog.id}/partial-payment`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amount: Number(partialForm.amount), paymentMethod: partialForm.method, referenceNumber: partialForm.reference, notes: partialForm.notes }),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: d => {
       if (d.error) { toast({ title: "خطأ", description: d.error, variant: "destructive" }); return; }
       toast({ title: d.autoMarkedPaid ? "✅ الفاتورة مسددة بالكامل!" : "✅ تم تسجيل الدفعة الجزئية" });
@@ -138,7 +138,7 @@ export default function Collections() {
     mutationFn: () => fetch(`${BASE}/api/finance/collections/${stageDialog.id}/stage`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ stage: Number(stageForm.stage), notes: stageForm.notes }),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       toast({ title: "✅ تم تحديث مرحلة التحصيل" });
       setStageDialog(null);
@@ -153,7 +153,7 @@ export default function Collections() {
       const r = await fetch(`${BASE}/api/finance/collections/bulk-reminder`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ invoiceIds: Array.from(selectedIds) }),
-      }).then(r => r.json());
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
       toast({ title: `✅ أُرسل ${r.sent} تذكير`, description: r.skipped > 0 ? `تجاوز ${r.skipped} (لا بريد / SMTP)` : undefined });
       setSelectedIds(new Set());
     } catch { toast({ title: "خطأ في الإرسال الجماعي", variant: "destructive" }); }
@@ -164,7 +164,7 @@ export default function Collections() {
   const sendReminder = async (inv: any) => {
     setReminderLoading(inv.id);
     try {
-      const r = await fetch(`${BASE}/api/finance/collections/${inv.id}/reminder`, { method: "POST" }).then(r => r.json());
+      const r = await fetch(`${BASE}/api/finance/collections/${inv.id}/reminder`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
       if (r.success) toast({ title: "✅ تم إرسال التذكير" });
       else toast({ title: "تنبيه", description: r.reason ?? "لم يُرسَل التذكير", variant: "destructive" });
     } catch { toast({ title: "خطأ في إرسال التذكير", variant: "destructive" }); }
@@ -765,7 +765,7 @@ export default function Collections() {
 function ActivityLog({ invoiceId }: { invoiceId: string }) {
   const { data, isLoading } = useQuery<any>({
     queryKey: ["collection-activities", invoiceId],
-    queryFn: () => fetch(`${BASE}/api/finance/collections/${invoiceId}/activities`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/finance/collections/${invoiceId}/activities`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 10_000,
   });
 

@@ -222,7 +222,7 @@ export default function Analytics() {
 
   const qOpts = (key: string[]) => ({
     queryKey: [...key, period],
-    queryFn: () => fetch(`${BASE}/api/analytics/${key[0]}?period=${period}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/analytics/${key[0]}?period=${period}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
   });
 
@@ -234,7 +234,7 @@ export default function Analytics() {
 
   const { data: aiData, isFetching: aiLoading } = useQuery<{ insights: string; modelUsed: string; cached: boolean }>({
     queryKey: ["ai-insights", period, aiForce],
-    queryFn: () => fetch(`${BASE}/api/analytics/ai-insights?period=${period}${aiForce > 0 ? "&force=1" : ""}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/analytics/ai-insights?period=${period}${aiForce > 0 ? "&force=1" : ""}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: aiRequested,
     staleTime: Infinity,
   });

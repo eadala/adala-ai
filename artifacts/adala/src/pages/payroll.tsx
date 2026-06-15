@@ -42,30 +42,30 @@ export default function Payroll() {
 
   const { data: payroll = [], isLoading } = useQuery<any[]>({
     queryKey: ["payroll"],
-    queryFn: () => fetch("/api/hr/payroll").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/payroll").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: payStats } = useQuery<any>({
     queryKey: ["payroll-stats"],
-    queryFn: () => fetch("/api/hr/payroll/stats").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/payroll/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const generateMutation = useMutation({
     mutationFn: (data: any) => fetch("/api/hr/payroll/generate", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => { qc.invalidateQueries({ queryKey: ["payroll"] }); qc.invalidateQueries({ queryKey: ["payroll-stats"] }); setShowGenerate(false); toast({ title: `تم توليد ${d.generated} قسيمة راتب` }); },
   });
 
   const payMutation = useMutation({
-    mutationFn: (id: string) => fetch(`/api/hr/payroll/${id}/pay`, { method: "PATCH" }).then(r => r.json()),
+    mutationFn: (id: string) => fetch(`/api/hr/payroll/${id}/pay`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); qc.invalidateQueries({ queryKey: ["payroll-stats"] }); toast({ title: "تم صرف الراتب" }); },
   });
 
   const payAllMutation = useMutation({
     mutationFn: ({ month, year }: any) => fetch("/api/hr/payroll/pay-all", {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, year: parseInt(year) }),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); qc.invalidateQueries({ queryKey: ["payroll-stats"] }); toast({ title: "تم صرف جميع الرواتب" }); },
   });
 

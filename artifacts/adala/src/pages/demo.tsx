@@ -240,7 +240,7 @@ function PlatformOverviewSection() {
 
   useEffect(() => {
     fetch(`${BASE}/api/platform/modules`)
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); })
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);

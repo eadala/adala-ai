@@ -76,7 +76,7 @@ export default function LoginTrackingPage() {
   /* ── Queries ────────────────────────────────────────── */
   const { data: stats, isLoading: statsLoading } = useQuery<any>({
     queryKey: ["login-stats"],
-    queryFn: () => fetch(`${BASE}/api/security/login-stats`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/security/login-stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 60_000,
   });
 
@@ -88,7 +88,7 @@ export default function LoginTrackingPage() {
         offset: String(page * LIMIT),
         ...(statusFilter !== "all" && { status: statusFilter }),
       });
-      return fetch(`${BASE}/api/security/logins?${params}`).then(r => r.json());
+      return fetch(`${BASE}/api/security/logins?${params}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
     },
   });
 

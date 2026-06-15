@@ -59,7 +59,7 @@ export default function Warnings() {
   /* ── shared ── */
   const { data: employees = [] } = useQuery<any[]>({
     queryKey: ["employees"],
-    queryFn: () => fetch("/api/hr/employees").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   /* ═══════════ WARNINGS ═══════════ */
@@ -71,21 +71,21 @@ export default function Warnings() {
 
   const { data: warnings = [], isLoading: wLoading } = useQuery<any[]>({
     queryKey: ["warnings"],
-    queryFn: () => fetch("/api/hr/warnings").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/warnings").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const addWarning = useMutation({
-    mutationFn: (d: any) => fetch("/api/hr/warnings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => r.json()),
+    mutationFn: (d: any) => fetch("/api/hr/warnings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["warnings"] }); setShowWarnForm(false); setWForm({ employeeId: "", type: "written", reason: "", description: "", issuedBy: "" }); toast({ title: "تم إصدار الإنذار ✓" }); },
   });
 
   const updateWarning = useMutation({
-    mutationFn: ({ id, ...d }: any) => fetch(`/api/hr/warnings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => r.json()),
+    mutationFn: ({ id, ...d }: any) => fetch(`/api/hr/warnings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["warnings"] }); toast({ title: "تم التحديث ✓" }); },
   });
 
   const deleteWarning = useMutation({
-    mutationFn: (id: string) => fetch(`/api/hr/warnings/${id}`, { method: "DELETE" }).then(r => r.json()),
+    mutationFn: (id: string) => fetch(`/api/hr/warnings/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["warnings"] }); toast({ title: "تم الحذف" }); },
   });
 
@@ -106,21 +106,21 @@ export default function Warnings() {
 
   const { data: investigations = [], isLoading: iLoading } = useQuery<any[]>({
     queryKey: ["investigations"],
-    queryFn: () => fetch("/api/hr/investigations").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/investigations").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const addInvestigation = useMutation({
-    mutationFn: (d: any) => fetch("/api/hr/investigations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => r.json()),
+    mutationFn: (d: any) => fetch("/api/hr/investigations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["investigations"] }); setShowInvForm(false); setIForm({ employeeId: "", subject: "", description: "", openedBy: "", committee: "", sessionDate: "" }); toast({ title: "تم فتح التحقيق ✓" }); },
   });
 
   const updateInvestigation = useMutation({
-    mutationFn: ({ id, ...d }: any) => fetch(`/api/hr/investigations/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => r.json()),
+    mutationFn: ({ id, ...d }: any) => fetch(`/api/hr/investigations/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["investigations"] }); setShowInvDetail(null); toast({ title: "تم التحديث ✓" }); },
   });
 
   const deleteInvestigation = useMutation({
-    mutationFn: (id: string) => fetch(`/api/hr/investigations/${id}`, { method: "DELETE" }).then(r => r.json()),
+    mutationFn: (id: string) => fetch(`/api/hr/investigations/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["investigations"] }); toast({ title: "تم الحذف" }); },
   });
 

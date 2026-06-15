@@ -35,27 +35,27 @@ export default function Advances() {
 
   const { data: rows = [], isLoading } = useQuery<Advance[]>({
     queryKey: ["accounting-advances"],
-    queryFn: () => fetch(`${BASE}/api/accounting/advances`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/accounting/advances`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMut = useMutation({
-    mutationFn: (data: any) => fetch(`${BASE}/api/accounting/advances`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
+    mutationFn: (data: any) => fetch(`${BASE}/api/accounting/advances`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounting-advances"] }); toast.success("تم إضافة السلفة"); setOpen(false); setForm(empty()); },
     onError: () => toast.error("خطأ في الإضافة"),
   });
 
   const approveMut = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/accounting/advances/${id}/approve`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approvedBy: "المدير" }) }).then(r => r.json()),
+    mutationFn: (id: string) => fetch(`${BASE}/api/accounting/advances/${id}/approve`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approvedBy: "المدير" }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounting-advances"] }); toast.success("تمت الموافقة"); },
   });
 
   const repayMut = useMutation({
-    mutationFn: ({ id, amount }: { id:string; amount:number }) => fetch(`${BASE}/api/accounting/advances/${id}/repay`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount }) }).then(r => r.json()),
+    mutationFn: ({ id, amount }: { id:string; amount:number }) => fetch(`${BASE}/api/accounting/advances/${id}/repay`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounting-advances"] }); toast.success("تم تسجيل السداد"); setRepayId(null); setRepayAmt(""); },
   });
 
   const delMut = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/accounting/advances/${id}`, { method: "DELETE" }).then(r => r.json()),
+    mutationFn: (id: string) => fetch(`${BASE}/api/accounting/advances/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounting-advances"] }); toast.success("تم الحذف"); },
   });
 

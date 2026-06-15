@@ -26,7 +26,7 @@ import { useLocation } from "wouter";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const API = (path: string, opts?: RequestInit) =>
-  fetch(`${BASE}${path}`, { headers: { "Content-Type": "application/json" }, ...opts }).then(r => r.json());
+  fetch(`${BASE}${path}`, { headers: { "Content-Type": "application/json" }, ...opts }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
 
 /* ── helpers ─────────────────────────────────────── */
 function fmt(n: number) {

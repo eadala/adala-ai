@@ -41,27 +41,27 @@ export default function Leaves() {
 
   const { data: leaves = [], isLoading } = useQuery<any[]>({
     queryKey: ["leaves"],
-    queryFn: () => fetch("/api/hr/leaves").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/leaves").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: stats } = useQuery<any>({
     queryKey: ["leaves-stats"],
-    queryFn: () => fetch("/api/hr/leaves/stats").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/leaves/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: employees = [] } = useQuery<any[]>({
     queryKey: ["employees"],
-    queryFn: () => fetch("/api/hr/employees").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => fetch("/api/hr/leaves", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
+    mutationFn: (data: any) => fetch("/api/hr/leaves", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["leaves"] }); qc.invalidateQueries({ queryKey: ["leaves-stats"] }); setShowCreate(false); setForm({ ...EMPTY_FORM }); toast({ title: "تم تقديم طلب الإجازة" }); },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      fetch(`/api/hr/leaves/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, approvedBy: "مدير الموارد البشرية" }) }).then(r => r.json()),
+      fetch(`/api/hr/leaves/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, approvedBy: "مدير الموارد البشرية" }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (_, { status }) => { qc.invalidateQueries({ queryKey: ["leaves"] }); qc.invalidateQueries({ queryKey: ["leaves-stats"] }); toast({ title: status === "approved" ? "تمت الموافقة" : "تم الرفض" }); },
   });
 

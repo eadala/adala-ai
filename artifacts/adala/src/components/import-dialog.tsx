@@ -59,7 +59,7 @@ export function ImportDialog({ open, onOpenChange, type, queryKey }: ImportDialo
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rows }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d.error) { toast.error(d.error); return; }
       qc.invalidateQueries({ queryKey });

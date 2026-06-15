@@ -133,7 +133,7 @@ export default function ActivityStream() {
     queryKey: ["events-recent", filterType],
     queryFn: () => fetch(
       `${BASE}/api/events/recent?limit=100${filterType !== "all" ? `&type=${filterType}` : ""}`
-    ).then(r => r.json()),
+    ).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 45_000,
     refetchInterval: 60_000,
   });
@@ -141,7 +141,7 @@ export default function ActivityStream() {
   /* ── Stats ── */
   const { data: stats } = useQuery<any>({
     queryKey: ["events-stats"],
-    queryFn: () => fetch(`${BASE}/api/events/stats`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/events/stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });

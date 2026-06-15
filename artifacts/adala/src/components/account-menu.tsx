@@ -86,7 +86,7 @@ export function AccountMenu() {
 
   const { data: branding } = useQuery<Branding>({
     queryKey: ["branding"],
-    queryFn: () => fetch("/api/branding").then(r => r.json()),
+    queryFn: () => fetch("/api/branding").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 5 * 60 * 1000,
   });
 

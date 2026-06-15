@@ -46,18 +46,18 @@ export default function WhatsAppSettingsPage() {
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["whatsapp-settings"],
-    queryFn: () => fetch(`${BASE}/api/whatsapp/settings`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/whatsapp/settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: logs = [] } = useQuery<any[]>({
     queryKey: ["whatsapp-logs"],
-    queryFn: () => fetch(`${BASE}/api/whatsapp/logs`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/whatsapp/logs`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 10000,
   });
 
   const { data: templates = [] } = useQuery<any[]>({
     queryKey: ["whatsapp-templates"],
-    queryFn: () => fetch(`${BASE}/api/whatsapp/templates`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/whatsapp/templates`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export default function WhatsAppSettingsPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d.error) { toast.error(d.error); return; }
       qc.invalidateQueries({ queryKey: ["whatsapp-settings"] });
@@ -95,7 +95,7 @@ export default function WhatsAppSettingsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to: testPhone }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ["whatsapp-logs"] });
       if (d.ok) toast.success("تم إرسال رسالة الاختبار بنجاح ✅");
@@ -110,7 +110,7 @@ export default function WhatsAppSettingsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to: customTo, message: customMsg, template: "custom" }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ["whatsapp-logs"] });
       if (d.ok) { toast.success("تم الإرسال بنجاح ✅"); setCustomMsg(""); setCustomTo(""); }

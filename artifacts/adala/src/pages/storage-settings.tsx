@@ -67,7 +67,7 @@ function timeAgo(date: string) {
 function OverviewTab() {
   const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ["storage-stats"],
-    queryFn: () => api("/storage/stats").then(r => r.json()),
+    queryFn: () => api("/storage/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   if (isLoading) return <div className="flex items-center justify-center h-64 text-muted-foreground/60">جارٍ التحميل...</div>;
@@ -183,32 +183,32 @@ function FileManagerTab() {
 
   const { data: files = [], isLoading } = useQuery({
     queryKey: ["storage-files", search, filter, cat],
-    queryFn: () => api(`/storage/files?search=${search}&archived=${filter === "archived"}&deleted=${filter === "deleted"}&category=${cat}`).then(r => r.json()),
+    queryFn: () => api(`/storage/files?search=${search}&archived=${filter === "archived"}&deleted=${filter === "deleted"}&category=${cat}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: false,
   });
 
   const archiveMut = useMutation({
-    mutationFn: (id: string) => api(`/storage/files/${id}/archive`, { method: "PATCH" }).then(r => r.json()),
+    mutationFn: (id: string) => api(`/storage/files/${id}/archive`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["storage-files"] }); qc.invalidateQueries({ queryKey: ["storage-stats"] }); toast.success("تم تحديث الأرشيف"); },
   });
 
   const trashMut = useMutation({
-    mutationFn: (id: string) => api(`/storage/files/${id}/trash`, { method: "PATCH" }).then(r => r.json()),
+    mutationFn: (id: string) => api(`/storage/files/${id}/trash`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["storage-files"] }); qc.invalidateQueries({ queryKey: ["storage-stats"] }); toast.success("نُقل إلى سلة المحذوفات"); },
   });
 
   const restoreMut = useMutation({
-    mutationFn: (id: string) => api(`/storage/files/${id}/restore`, { method: "PATCH" }).then(r => r.json()),
+    mutationFn: (id: string) => api(`/storage/files/${id}/restore`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["storage-files"] }); toast.success("تمت الاستعادة"); },
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/storage/files/${id}`, { method: "DELETE" }).then(r => r.json()),
+    mutationFn: (id: string) => api(`/storage/files/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["storage-files"] }); qc.invalidateQueries({ queryKey: ["storage-stats"] }); toast.success("حُذف نهائياً"); },
   });
 
   const emptyTrashMut = useMutation({
-    mutationFn: () => api("/storage/trash/empty", { method: "DELETE" }).then(r => r.json()),
+    mutationFn: () => api("/storage/trash/empty", { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => { qc.invalidateQueries({ queryKey: ["storage-files"] }); qc.invalidateQueries({ queryKey: ["storage-stats"] }); toast.success(`فُرّغت سلة المحذوفات — تم توفير ${d.freedFmt ?? "0 B"}`); },
   });
 
@@ -314,7 +314,7 @@ function FileManagerTab() {
 function AiAnalysisTab() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["storage-ai"],
-    queryFn: () => api("/storage/ai-analysis").then(r => r.json()),
+    queryFn: () => api("/storage/ai-analysis").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   if (isLoading) return <div className="text-center text-muted-foreground/50 py-16">جارٍ تحليل التخزين...</div>;
@@ -429,7 +429,7 @@ function SettingsTab() {
 
   const { data: settings = [], isLoading } = useQuery({
     queryKey: ["storage-settings"],
-    queryFn: () => api("/storage/settings").then(r => r.json()),
+    queryFn: () => api("/storage/settings").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: isSA,
   });
 
@@ -437,7 +437,7 @@ function SettingsTab() {
 
   const saveMut = useMutation({
     mutationFn: (settings: Record<string, string>) =>
-      api("/storage/settings", { method: "PATCH", body: JSON.stringify({ settings }) }).then(r => r.json()),
+      api("/storage/settings", { method: "PATCH", body: JSON.stringify({ settings }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["storage-settings"] }); toast.success("تم حفظ الإعدادات"); },
   });
 

@@ -248,7 +248,7 @@ export default function Landing() {
 
   const { data: cms } = useQuery({
     queryKey: ["home-cms"],
-    queryFn: () => fetch(`${BASE}/api/home/content`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/home/content`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 5 * 60 * 1000, retry: false,
   });
 

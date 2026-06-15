@@ -321,7 +321,7 @@ export default function Calendar() {
   });
 
   const deleteEvent = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}api/calendar/events/${id}`, { method: "DELETE" }).then(r => r.json()),
+    mutationFn: (id: string) => fetch(`${BASE}api/calendar/events/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       toast.success("تم حذف الحدث");
       qc.invalidateQueries({ queryKey: ["calendar-events"] });
