@@ -3,8 +3,6 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -132,52 +130,6 @@
   --sidebar-accent-border: hsl(var(--sidebar-accent));
 }
 
-.dark {
-  --background: 222 47% 8%;
-  --foreground: 210 40% 98%;
-
-  --card: 222 47% 12%;
-  --card-foreground: 210 40% 98%;
-  --card-border: 222 47% 18%;
-
-  --popover: 222 47% 12%;
-  --popover-foreground: 210 40% 98%;
-  --popover-border: 222 47% 18%;
-
-  --primary: 221 83% 58%;
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 222 47% 18%;
-  --secondary-foreground: 210 40% 98%;
-
-  --muted: 222 47% 16%;
-  --muted-foreground: 215 20.2% 65.1%;
-
-  --accent: 222 47% 18%;
-  --accent-foreground: 210 40% 98%;
-
-  --destructive: 0 62.8% 50%;
-  --destructive-foreground: 210 40% 98%;
-
-  --border: 222 47% 18%;
-  --input: 222 47% 18%;
-  --ring: 221 83% 58%;
-
-  --chart-1: 221 83% 58%;
-  --chart-2: 160 60% 45%;
-  --chart-3: 30 80% 55%;
-  --chart-4: 280 65% 60%;
-  --chart-5: 222 47% 35%;
-
-  --sidebar: 222 47% 8%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-border: 222 47% 18%;
-  --sidebar-primary: 221 83% 58%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 222 47% 16%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-ring: 221 83% 58%;
-}
 
 @layer base {
   * {
