@@ -1,0 +1,214 @@
+PRODUCTION OBSERVABILITY SYSTEM
+
+This layer is responsible for monitoring system health, detecting anomalies, and alerting without modifying core architecture (PRODUCTION LOCKED SYSTEM).
+
+═══════════════════════════════════════
+OBJECTIVE
+═══════════════════════════════════════
+
+Provide real-time visibility into:
+
+* API health
+* database integrity
+* Stripe payment flows
+* frontend stability
+* error rates
+* performance degradation
+
+WITHOUT modifying business logic.
+
+═══════════════════════════════════════
+ARCHITECTURE OVERVIEW
+═══════════════════════════════════════
+
+    ┌──────────────────────────┐
+    │   Monitoring Layer       │
+    └──────────┬───────────────┘
+               │
+
+┌───────────────┼────────────────┐
+▼               ▼                ▼
+Sentry        Metrics Engine   Health Checks
+│               │                │
+└──────┬────────┴───────┬────────┘
+▼                ▼
+Alert System     Dashboard Logs
+
+═══════════════════════════════════════
+
+1. SENTRY INTEGRATION (ERROR TRACKING)
+    ═══════════════════════════════════════
+
+Tracks:
+
+* API exceptions
+* Stripe webhook failures
+* frontend crashes
+* database errors
+
+Captures context:
+
+* userId
+* officeId
+* request path
+* service layer
+
+Critical rule:
+→ NO ERROR SILENCING
+
+═══════════════════════════════════════
+2. HEALTH CHECK ENGINE
+═══════════════════════════════════════
+
+Runs every 30–60 seconds:
+
+CHECKS:
+
+* API server status
+* database connection
+* Stripe API reachability
+* webhook endpoint availability
+
+RESULT:
+HEALTH_STATUS = GREEN | YELLOW | RED
+
+═══════════════════════════════════════
+3. METRICS ENGINE
+═══════════════════════════════════════
+
+Tracks:
+
+* request latency
+* error rate
+* webhook success rate
+* DB query time
+* payment success ratio
+
+Threshold alerts:
+
+if errorRate > 5% → ALERT
+if latency > 800ms → ALERT
+if webhook failure spike → ALERT
+
+═══════════════════════════════════════
+4. STRIPE PAYMENT MONITORING
+═══════════════════════════════════════
+
+Monitors:
+
+* checkout.session.completed
+* invoice.paid
+* payment_failed
+* refund events
+
+Detects:
+
+* missing webhook delivery
+* duplicate events
+* ledger mismatch
+* payment drift
+
+═══════════════════════════════════════
+5. DATABASE INTEGRITY WATCHER
+═══════════════════════════════════════
+
+Checks:
+
+* orphan records
+* missing relations
+* duplicate stripe_event_id
+* revenue mismatch vs ledger
+
+Runs periodic reconciliation:
+
+Stripe vs DB vs Ledger
+
+═══════════════════════════════════════
+6. ALERTING SYSTEM
+═══════════════════════════════════════
+
+Triggers alerts on:
+
+* system crash
+* payment failure spike
+* DB downtime
+* webhook rejection spike
+
+Channels:
+
+* console logs
+* optional: Telegram / Email / Slack
+
+═══════════════════════════════════════
+7. DASHBOARD METRICS
+═══════════════════════════════════════
+
+Displays:
+
+* System Health Score (0–100)
+* Error Rate %
+* Payment Success Rate %
+* Webhook Success Rate %
+* DB Latency
+* Active Alerts
+
+═══════════════════════════════════════
+8. FAILURE CLASSIFICATION
+═══════════════════════════════════════
+
+CRITICAL:
+
+* payment system failure
+* webhook signature failure
+* DB connection failure
+
+HIGH:
+
+* API errors spike
+* AI service failure
+
+MEDIUM:
+
+* slow queries
+* UI errors
+
+LOW:
+
+* warnings, logs
+
+═══════════════════════════════════════
+9. SELF-HEALING (READ-ONLY MODE)
+═══════════════════════════════════════
+
+System is allowed ONLY to:
+
+* retry failed requests
+* re-run webhook processing safely
+* re-sync Stripe data (read-only correction)
+* restart failed workers
+
+NO code modification allowed.
+
+═══════════════════════════════════════
+10. FINAL OUTPUT
+═══════════════════════════════════════
+
+Generate:
+
+SYSTEM_MONITORING_REPORT.md
+
+Must include:
+
+1. Current system health status
+2. Active errors
+3. Stripe flow health
+4. DB integrity status
+5. performance metrics
+6. critical risks
+7. alert summary
+
+FINAL STATUS:
+
+🟢 HEALTHY
+🟡 DEGRADED
+🔴 CRITICAL
