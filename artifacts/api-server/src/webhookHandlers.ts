@@ -74,22 +74,20 @@ export class WebhookHandlers {
     let event: any;
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-    if (webhookSecret) {
-      try {
-        const stripe = await getUncachableStripeClient();
-        event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-      } catch (err) {
-        console.error('[Webhook] Signature verification failed — rejecting event');
-        throw new Error('Webhook signature verification failed');
-      }
-    } else {
-      console.warn('[Webhook] STRIPE_WEBHOOK_SECRET not set — skipping provisioning');
+    if (!webhookSecret) {
+      /* SECURITY: Reject ALL webhook requests when the secret is not configured.
+         Accepting requests without signature verification allows any actor to
+         forge Stripe events (subscription activations, refunds, etc.).
+         Set STRIPE_WEBHOOK_SECRET in the environment to enable webhooks. */
+      throw new Error('STRIPE_WEBHOOK_SECRET is not configured — rejecting unverified webhook. Set the secret in environment variables.');
     }
 
-    if (!event) {
-      /* StripeSync still runs below even without a verified event */
-      await runStripeSync(payload, signature);
-      return;
+    try {
+      const stripe = await getUncachableStripeClient();
+      event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    } catch (err) {
+      console.error('[Webhook] Signature verification failed — rejecting event');
+      throw new Error('Webhook signature verification failed');
     }
 
     const eventId   = event.id as string;
@@ -298,6 +296,81 @@ export class WebhookHandlers {
           });
         } catch (err) {
           console.error('[Webhook] handleOfficeServicePayment error:', err);
+        }
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       8. charge.refunded → debit ledger + update payment_transactions
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'charge.refunded') {
+      const charge      = event.data.object as any;
+      const refundedSAR = (charge?.amount_refunded ?? 0) / 100;
+      const chargeId    = charge?.id as string;
+      const piId        = charge?.payment_intent as string;
+
+      if (refundedSAR > 0) {
+        try {
+          /* 1. Look up which office owns this charge via payment_transactions */
+          const txRow: any = piId
+            ? (await db.execute(sql`
+                SELECT office_id FROM payment_transactions
+                WHERE stripe_payment_intent_id = ${piId}
+                LIMIT 1
+              `))?.rows?.[0] ?? null
+            : null;
+
+          const officeId = txRow?.office_id ?? 'unknown';
+
+          /* 2. Write debit entry to office_ledger (idempotent via stripe_event_id) */
+          await db.execute(sql`
+            INSERT INTO office_ledger
+              (office_id, type, amount, currency, ref, description,
+               stripe_id, stripe_event_id, platform_fee, stripe_fee, net_amount)
+            VALUES
+              (${officeId}, 'refund', ${refundedSAR}, 'SAR',
+               ${'REFUND_' + chargeId},
+               ${'استرداد دفعة — ' + chargeId},
+               ${chargeId}, ${eventId},
+               0, 0, ${-refundedSAR})
+            ON CONFLICT (stripe_event_id) WHERE stripe_event_id IS NOT NULL
+            DO NOTHING
+          `).catch(() => {
+            /* Fallback: if partial index not yet applied, use generic ON CONFLICT DO NOTHING */
+            return db.execute(sql`
+              INSERT INTO office_ledger
+                (office_id, type, amount, currency, ref, description,
+                 stripe_id, stripe_event_id, platform_fee, stripe_fee, net_amount)
+              VALUES
+                (${officeId}, 'refund', ${refundedSAR}, 'SAR',
+                 ${'REFUND_' + chargeId},
+                 ${'استرداد دفعة — ' + chargeId},
+                 ${chargeId}, ${eventId},
+                 0, 0, ${-refundedSAR})
+              ON CONFLICT DO NOTHING
+            `).catch(() => {});
+          });
+
+          /* 3. Update payment_transactions status */
+          if (piId) {
+            await db.execute(sql`
+              UPDATE payment_transactions
+              SET status = 'refunded', updated_at = NOW()
+              WHERE stripe_payment_intent_id = ${piId}
+            `).catch(() => {});
+          }
+
+          /* 4. Notify the office */
+          await db.execute(sql`
+            INSERT INTO plan_notifications (office_id, type, old_plan, new_plan, title, message, is_read)
+            VALUES (${officeId}, 'info', '', '',
+              'تم استرداد دفعة 🔄',
+              ${`تم استرداد مبلغ ${refundedSAR} ر.س — معرف الشحنة: ${chargeId}`}, FALSE)
+          `).catch(() => {});
+
+          console.log(`[Webhook] charge.refunded — office=${officeId} amount=${refundedSAR} SAR chargeId=${chargeId}`);
+        } catch (err) {
+          console.error('[Webhook] charge.refunded error:', err);
         }
       }
     }
