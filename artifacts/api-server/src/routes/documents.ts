@@ -1,6 +1,7 @@
 import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db, documentsTable, casesTable } from "@workspace/db";
+import { auditLog, auditMeta } from "../lib/auditLogger";
 import { eq, and } from "drizzle-orm";
 import { ListDocumentsQueryParams, CreateDocumentBody } from "@workspace/api-zod";
 
@@ -47,6 +48,7 @@ router.post("/documents", requireAuthWithTenant, async (req, res) => {
       fileType: body.fileType,
       fileName: body.fileName,
     } as any).returning();
+    auditLog({ ...auditMeta(req), action: "upload", resource: "document", resourceId: String(created.id), details: `ملف: ${body.fileName ?? body.fileType}` }).catch(() => {});
     res.status(201).json({ ...created, caseName: null, createdAt: created.createdAt.toISOString() });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -76,6 +78,7 @@ router.delete("/documents/:id", requireAuthWithTenant, async (req, res) => {
     const tenantId = (req as any).tenantId;
     await db.delete(documentsTable)
       .where(and(eq(documentsTable.id, String(req.params.id)), eq((documentsTable as any).officeId, tenantId)));
+    auditLog({ ...auditMeta(req), action: "delete", resource: "document", resourceId: String(req.params.id) }).catch(() => {});
     res.status(204).end();
   } catch (e: any) {
     res.status(500).json({ error: e.message });

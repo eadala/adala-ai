@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import helmet from "helmet";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
 import {
@@ -68,6 +69,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(compression());
+app.use(cookieParser());
 
 // Global rate limit: 300 req / 1min per IP
 const globalLimiter = rateLimit({
@@ -88,10 +90,32 @@ const strictLimiter = rateLimit({
   message: { error: "تجاوزت حد الطلبات المسموح به" },
 });
 
+// Auth endpoints — strict brute-force protection
+const authLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "تجاوزت محاولات تسجيل الدخول المسموح بها — انتظر دقيقة وحاول مجدداً" },
+});
+const registerLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "تجاوزت محاولات التسجيل — انتظر دقيقة وحاول مجدداً" },
+});
+
 app.use(globalLimiter);
-app.use("/api/ai-chat", strictLimiter);
-app.use("/api/legal-ai", strictLimiter);
+app.use("/api/ai-chat",             strictLimiter);
+app.use("/api/legal-ai",            strictLimiter);
 app.use("/api/portal/create-token", strictLimiter);
+app.use("/api/ai-copilot",          strictLimiter);
+app.use("/api/copilot",             strictLimiter);
+app.use("/api/client-auth/login",        authLimiter);
+app.use("/api/client-auth/verify-otp",   authLimiter);
+app.use("/api/client-auth/register",     registerLimiter);
+app.use("/api/client-auth/request-otp",  registerLimiter);
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 

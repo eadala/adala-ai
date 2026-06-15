@@ -5,6 +5,7 @@ import { clientsTable } from "@workspace/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { eventBus } from "../core/eventBus";
+import { auditLog, auditMeta } from "../lib/auditLogger";
 
 const router = Router();
 
@@ -53,6 +54,7 @@ router.post("/clients", requireAuthWithTenant, async (req, res) => {
       data: { fullName, email, phone, type, company, source },
     }).catch(() => {});
 
+    auditLog({ ...auditMeta(req), action: "create", resource: "client", resourceId: String((client as any)?.id ?? ""), details: `اسم: ${fullName}` }).catch(() => {});
     res.json(client);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -81,6 +83,7 @@ router.patch("/clients/:id", requireAuthWithTenant, async (req, res) => {
       .where(and(eq(clientsTable.id, String(req.params.id)), eq((clientsTable as any).officeId, tenantId)))
       .returning();
     if (!updated) return res.status(404).json({ error: "الموكل غير موجود" });
+    auditLog({ ...auditMeta(req), action: "update", resource: "client", resourceId: String(req.params.id) }).catch(() => {});
     res.json(updated);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -93,6 +96,7 @@ router.delete("/clients/:id", requireAuthWithTenant, async (req, res) => {
     const tenantId = (req as any).tenantId;
     await db.delete(clientsTable)
       .where(and(eq(clientsTable.id, String(req.params.id)), eq((clientsTable as any).officeId, tenantId)));
+    auditLog({ ...auditMeta(req), action: "delete", resource: "client", resourceId: String(req.params.id) }).catch(() => {});
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

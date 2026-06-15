@@ -71,8 +71,9 @@ ensureTables().catch(console.error);
 // ─── auth middleware for client sessions ─────────────────────────────────────
 async function getClientSession(req: Request): Promise<{ clientId: string; email: string; name: string } | null> {
   const authHeader = req.headers.authorization ?? "";
-  const token = authHeader.replace("Bearer ", "").trim() || (String(req.query.ct));
-  if (!token) return null;
+  const cookieToken = (req as any).cookies?.client_session ?? "";
+  const token = authHeader.replace("Bearer ", "").trim() || cookieToken || (String(req.query.ct));
+  if (!token || token === "undefined") return null;
   const row = sqlOne(await db.execute(sql`
     SELECT cs.client_id, ca.email, ca.name
     FROM client_sessions cs
@@ -109,6 +110,10 @@ router.post("/client-auth/register", async (req: Request, res: Response) => {
       VALUES (${id}, ${sessionToken}, ${expiresAt.toISOString()})
     `);
 
+    res.cookie("client_session", sessionToken, {
+      httpOnly: true, secure: true, sameSite: "strict",
+      expires: expiresAt, path: "/",
+    });
     res.status(201).json({ token: sessionToken, client: { id, email: email.toLowerCase(), name: name ?? null } });
   } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -200,6 +205,10 @@ router.post("/client-auth/verify-otp", async (req: Request, res: Response) => {
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await db.execute(sql`INSERT INTO client_sessions (client_id, token, expires_at) VALUES (${row.id}, ${sessionToken}, ${expiresAt.toISOString()})`);
 
+    res.cookie("client_session", sessionToken, {
+      httpOnly: true, secure: true, sameSite: "strict",
+      expires: expiresAt, path: "/",
+    });
     res.json({ token: sessionToken, client: { id: row.id, email: row.email, name: row.name } });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -210,8 +219,11 @@ router.post("/client-auth/verify-otp", async (req: Request, res: Response) => {
 // LOGOUT
 // ═══════════════════════════════════════════════════════════════════
 router.post("/client-auth/logout", async (req: Request, res: Response) => {
-  const token = req.headers.authorization?.replace("Bearer ", "").trim();
+  const cookieToken = (req as any).cookies?.client_session ?? "";
+  const headerToken = req.headers.authorization?.replace("Bearer ", "").trim() ?? "";
+  const token = headerToken || cookieToken;
   if (token) await db.execute(sql`DELETE FROM client_sessions WHERE token = ${token}`).catch(() => {});
+  res.clearCookie("client_session", { path: "/" });
   res.json({ ok: true });
 });
 

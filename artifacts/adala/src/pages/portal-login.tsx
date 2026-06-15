@@ -18,9 +18,8 @@ export default function PortalLogin() {
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const saveSession = (token: string, client: any) => {
-    localStorage.setItem("client_session_token", token);
-    localStorage.setItem("client_info", JSON.stringify(client));
+  const saveClientInfo = (client: any) => {
+    sessionStorage.setItem("client_info", JSON.stringify(client));
   };
 
   const handleLogin = async () => {
@@ -28,13 +27,14 @@ export default function PortalLogin() {
     setLoading(true);
     const r = await fetch(`${BASE}api/client-auth/login`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
     const d = await r.json();
     setLoading(false);
     if (d.error) { toast.error(d.error); return; }
-    saveSession(d.token, d.client);
+    saveClientInfo(d.client);
     toast.success("أهلاً " + (d.client.name ?? d.client.email) + " 👋");
     nav("/portal/my-cases");
   };
@@ -45,13 +45,14 @@ export default function PortalLogin() {
     setLoading(true);
     const r = await fetch(`${BASE}api/client-auth/register`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, name }),
     });
     const d = await r.json();
     setLoading(false);
     if (d.error) { toast.error(d.error); return; }
-    saveSession(d.token, d.client);
+    saveClientInfo(d.client);
     toast.success("تم إنشاء حسابك بنجاح 🎉");
     nav("/portal/my-cases");
   };
@@ -61,6 +62,7 @@ export default function PortalLogin() {
     setLoading(true);
     const r = await fetch(`${BASE}api/client-auth/request-otp`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
@@ -76,13 +78,14 @@ export default function PortalLogin() {
     setLoading(true);
     const r = await fetch(`${BASE}api/client-auth/verify-otp`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, otp }),
     });
     const d = await r.json();
     setLoading(false);
     if (d.error) { toast.error(d.error); return; }
-    saveSession(d.token, d.client);
+    saveClientInfo(d.client);
     toast.success("تم التحقق ✅");
     nav("/portal/my-cases");
   };
