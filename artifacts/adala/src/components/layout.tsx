@@ -202,6 +202,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/isolation",          labelKey: "عزل المستأجرين",               icon: Lock },
       { href: "/hardening",          labelKey: "قفل الإنتاج",                  icon: Shield },
       { href: "/legal-os",           labelKey: "نظام التشغيل القانوني",        icon: Cpu },
+      { href: "/self-healing",       labelKey: "الإصلاح الذاتي",               icon: Activity },
     ],
   },
 ];

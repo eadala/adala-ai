@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { systemHealthCheck } from "../observability/healthcheck";
 import { sendSmartAlert, checkTrendAlerts } from "../alerts/smart.alerts";
+import { runSelfHealingCycle } from "../healing/self.healer";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -59,6 +60,8 @@ export function startMonitoringCron() {
       /* Trend analysis — every 5 ticks (5 min) */
       if (cronTick % 5 === 0) {
         await checkTrendAlerts();
+        /* Self-healing cycle — runs alongside trend analysis */
+        runSelfHealingCycle().catch(() => {});
       }
 
       lastStatus = status;
