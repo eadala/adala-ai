@@ -58,7 +58,7 @@ export function usePushNotifications() {
       /* Subscribe via PushManager */
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly:      true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey) as ArrayBufferView,
+        applicationServerKey: urlBase64ToUint8Array(publicKey) as unknown as BufferSource,
       });
 
       /* Send to server */
