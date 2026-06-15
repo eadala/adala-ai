@@ -71,3 +71,5 @@
 - [Adala Theme Refactor](adala-theme-refactor.md) — full platform rebrand to white/blue SaaS; :root CSS vars key; light mode default
 - [Adala Express 5 req.params](adala-express5-params.md) — String() wrap for direct, 'as Record<string,string>' for destructured; routes without :id get params={} type
 - [Adala SA refactor constants](adala-sa-refactor-constants.md) — when extracting tabs from a monolith, module-level constants defined BEFORE a function must be explicitly injected into each tab file; Python `if 'X' not in content` check must use `'const X'` not `'X'` (usage sites cause false positives)
+- [Adala AI Gateway](adala-ai-gateway.md) — POST /api/ai/query unified entry point; 7 query types; 10-min cache; never call AI directly from frontend modules
+- [Adala Core Cache](adala-cache-core.md) — src/core/cache.ts TTL Map; dashboard:summary:tenantId (60s); ai:sha256 (600s); Redis-ready API

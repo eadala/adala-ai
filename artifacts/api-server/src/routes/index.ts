@@ -43,6 +43,7 @@ import promoRouter                 from "../modules/financial/promo";
 import stripeAdminRouter           from "../modules/financial/stripeAdmin";
 
 // ── AI ───────────────────────────────────────────────────────────────────────
+import aiGatewayRouter     from "../modules/ai/aiGateway";
 import aiChatRouter        from "../modules/ai/aiChat";
 import aiTasksRouter       from "../modules/ai/aiTasks";
 import aiAgentsRouter      from "../modules/ai/aiAgents";
@@ -162,7 +163,8 @@ router.use(subscriptionRouter);
 router.use(promoRouter);
 router.use(stripeAdminRouter);
 
-// AI
+// AI — Gateway first (unified entry point)
+router.use(aiGatewayRouter);
 router.use(aiChatRouter);
 router.use(aiTasksRouter);
 router.use(aiAgentsRouter);

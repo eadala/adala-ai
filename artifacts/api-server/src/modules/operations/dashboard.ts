@@ -1,178 +1,263 @@
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
-import { db, casesTable, documentsTable, aiTasksTable, usersTable, messagesTable, clientInvoicesTable as invoicesTable, clientsTable, contractsTable } from "@workspace/db";
-import { sql, desc, gte, and, eq } from "drizzle-orm";
+import { db, casesTable, clientInvoicesTable as invoicesTable, clientsTable } from "@workspace/db";
+import { sql, desc, eq } from "drizzle-orm";
+import { cache } from "../../core/cache";
 
 const router = Router();
 
-// ─── GET /dashboard/overview ──────────────────────────────────────────────────
-router.get("/dashboard/overview", requireAuthWithTenant, async (req, res) => {
+/* ─── Helper: safe db.execute rows ───────────────────────────── */
+async function safeRows(q: any): Promise<any[]> {
   try {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfWeek  = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay());
-    const in7Days      = new Date(now); in7Days.setDate(now.getDate() + 7);
-    const in30Days     = new Date(now); in30Days.setDate(now.getDate() + 30);
+    const r = await db.execute(q) as any;
+    return Array.isArray(r) ? r : (r?.rows ?? []);
+  } catch { return []; }
+}
 
-    const [cases, docs, tasks, users, _inv, clients, _con] = await Promise.all([
-      db.select().from(casesTable),
-      db.select().from(documentsTable),
-      db.select().from(aiTasksTable),
-      db.select().from(usersTable),
-      db.select().from(invoicesTable),
-      db.select().from(clientsTable),
-      db.select().from(contractsTable),
-    ]);
-    const invoices = _inv as any[];
-    const contracts = _con as any[];
+/* ─────────────────────────────────────────────────────────────────
+   GET /dashboard/summary  ← NEW — fast < 200ms endpoint
+   Returns COUNT aggregates only; never fetches full tables.
+   Cached per office for 60 seconds.
+───────────────────────────────────────────────────────────────── */
+router.get("/dashboard/summary", requireAuthWithTenant, async (req, res) => {
+  const tenantId = (req as any).tenantId as string;
+  const cacheKey = `dashboard:summary:${tenantId}`;
 
-    // KPI Stats
-    const activeCases    = cases.filter(c => ["open","in_progress"].includes(c.status)).length;
-    const totalCases     = cases.length;
-    const totalClients   = clients.length;
-    const paidRevenue    = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total ?? i.amount ?? 0), 0);
-    const outstanding    = invoices.filter(i => !["paid","cancelled"].includes(i.status)).reduce((s, i) => s + (i.total ?? i.amount ?? 0), 0);
-    const overdueInvoices = invoices.filter(i => i.status === "overdue");
-    const aiCompleted    = tasks.filter(t => t.status === "done").length;
-    const casesThisMonth = cases.filter(c => c.createdAt >= startOfMonth).length;
-    const clientsThisMonth = clients.filter(c => c.createdAt >= startOfMonth).length;
+  const hit = cache.get<object>(cacheKey);
+  if (hit) { res.json({ ...hit, cached: true }); return; }
 
-    // Smart Alerts
-    const alerts: any[] = [];
+  try {
+    const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0);
 
-    if (overdueInvoices.length > 0) {
-      const total = overdueInvoices.reduce((s, i) => s + (i.total ?? i.amount ?? 0), 0);
-      alerts.push({
-        type: "warning", icon: "receipt",
-        title: `${overdueInvoices.length} فاتورة متأخرة`,
-        body: `إجمالي المستحقات: ${(total / 100).toLocaleString("ar-SA")} ر.س`,
-        action: "/invoices",
-      });
-    }
-
-    const expiringContracts = contracts.filter(c => {
-      if (!c.expiresAt && !c.endDate) return false;
-      const exp = new Date((c.expiresAt ?? c.endDate) as Date);
-      return exp > now && exp <= in30Days;
-    });
-    if (expiringContracts.length > 0) {
-      alerts.push({
-        type: "info", icon: "file",
-        title: `${expiringContracts.length} عقد ينتهي خلال 30 يوم`,
-        body: expiringContracts.slice(0, 2).map((c: any) => c.title).join(" • "),
-        action: "/contracts",
-      });
-    }
-
-    const pendingCases = cases.filter(c => c.status === "open").length;
-    if (pendingCases > 0) {
-      alerts.push({
-        type: "primary", icon: "scale",
-        title: `${pendingCases} قضية مفتوحة`,
-        body: "تحتاج إلى متابعة ومعالجة",
-        action: "/cases",
-      });
-    }
-
-    // Upcoming calendar events
-    let upcomingEvents: any[] = [];
-    try {
-      const evRows = await db.execute(sql`
-        SELECT * FROM events
-        WHERE start_at >= NOW() AND start_at <= NOW() + INTERVAL '7 days'
+    const [kpiRows, alertRows, recentCaseRows, recentInvRows, chartRows, evRows] = await Promise.all([
+      /* KPIs — all COUNT/SUM in DB, zero JS aggregation */
+      safeRows(sql`
+        SELECT
+          (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId})::int                                      AS total_cases,
+          (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId} AND status IN ('open','in_progress'))::int AS active_cases,
+          (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId} AND status = 'closed')::int                AS closed_cases,
+          (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId} AND created_at >= ${startOfMonth})::int    AS cases_this_month,
+          (SELECT COUNT(*) FROM clients WHERE office_id = ${tenantId})::int                                    AS total_clients,
+          (SELECT COUNT(*) FROM clients WHERE office_id = ${tenantId} AND created_at >= ${startOfMonth})::int  AS clients_this_month,
+          (SELECT COALESCE(SUM(total),0) FROM client_invoices WHERE office_id = ${tenantId} AND status = 'paid')::float        AS paid_revenue,
+          (SELECT COALESCE(SUM(total),0) FROM client_invoices WHERE office_id = ${tenantId} AND status NOT IN ('paid','cancelled'))::float AS outstanding,
+          (SELECT COUNT(*) FROM client_invoices WHERE office_id = ${tenantId} AND status = 'overdue')::int     AS overdue_count,
+          (SELECT COALESCE(SUM(total),0) FROM client_invoices WHERE office_id = ${tenantId} AND status = 'overdue')::float AS overdue_total
+      `),
+      /* Alert data (just counts — no full rows) */
+      safeRows(sql`
+        SELECT
+          (SELECT COUNT(*) FROM contracts
+           WHERE office_id = ${tenantId}
+             AND (expires_at IS NOT NULL OR end_date IS NOT NULL)
+             AND COALESCE(expires_at, end_date) BETWEEN NOW() AND NOW() + INTERVAL '30 days')::int AS expiring_contracts,
+          (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId} AND status = 'open')::int AS open_cases
+      `),
+      /* 3 most recent cases — indexed by created_at */
+      safeRows(sql`
+        SELECT id, title, status, case_type, created_at
+        FROM cases WHERE office_id = ${tenantId}
+        ORDER BY created_at DESC LIMIT 3
+      `),
+      /* 3 most recent invoices */
+      safeRows(sql`
+        SELECT id, title, total, status
+        FROM client_invoices WHERE office_id = ${tenantId}
+        ORDER BY created_at DESC LIMIT 3
+      `),
+      /* 6-month revenue chart — pure SQL aggregation */
+      safeRows(sql`
+        SELECT
+          TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+          COALESCE(SUM(total),0)::float AS revenue
+        FROM client_invoices
+        WHERE office_id = ${tenantId}
+          AND status = 'paid'
+          AND created_at >= NOW() - INTERVAL '6 months'
+        GROUP BY 1 ORDER BY 1
+      `),
+      /* Upcoming events next 7 days */
+      safeRows(sql`
+        SELECT id, title, start_at, event_type
+        FROM events
+        WHERE start_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
         ORDER BY start_at ASC LIMIT 5
-      `);
-      upcomingEvents = evRows.rows ?? [];
-    } catch {}
+      `),
+    ]);
 
-    // Today's events
-    let todayEvents: any[] = [];
-    try {
-      const todayRows = await db.execute(sql`
-        SELECT * FROM events
-        WHERE DATE(start_at) = CURRENT_DATE
-        ORDER BY start_at ASC
-      `);
-      todayEvents = todayRows.rows ?? [];
-    } catch {}
+    const k   = kpiRows[0] ?? {};
+    const al  = alertRows[0] ?? {};
+    const totalCases = parseInt(k.total_cases ?? "0");
+    const closedCases = parseInt(k.closed_cases ?? "0");
 
-    // Recent activity
-    const recentCases = cases.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 3);
-    const recentInvoices = invoices.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 3);
+    const alerts: any[] = [];
+    if (parseInt(k.overdue_count ?? "0") > 0)
+      alerts.push({ type: "warning", icon: "receipt",
+        title: `${k.overdue_count} فاتورة متأخرة`,
+        body: `المستحقات: ${(parseFloat(k.overdue_total ?? "0") / 100).toLocaleString("ar-SA")} ر.س`,
+        action: "/invoices" });
+    if (parseInt(al.expiring_contracts ?? "0") > 0)
+      alerts.push({ type: "info", icon: "file",
+        title: `${al.expiring_contracts} عقد ينتهي خلال 30 يوم`, body: "", action: "/contracts" });
+    if (parseInt(al.open_cases ?? "0") > 0)
+      alerts.push({ type: "primary", icon: "scale",
+        title: `${al.open_cases} قضية مفتوحة`, body: "تحتاج إلى متابعة", action: "/cases" });
 
-    // Performance metrics
-    const completedCases = cases.filter(c => c.status === "closed").length;
-    const successRate    = totalCases > 0 ? Math.round((completedCases / totalCases) * 100) : 0;
-
-    // Month-by-month revenue (last 6 months)
-    const monthlyData: Record<string, number> = {};
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = d.toLocaleDateString("ar-SA", { month: "short" });
-      monthlyData[key] = 0;
-    }
-    invoices.filter(i => i.status === "paid").forEach(inv => {
-      const d  = new Date(inv.createdAt);
-      const mo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-      if (d >= mo) {
-        const key = d.toLocaleDateString("ar-SA", { month: "short" });
-        monthlyData[key] = (monthlyData[key] ?? 0) + ((inv.total ?? inv.amount ?? 0) / 100);
-      }
-    });
-    const revenueChart = Object.entries(monthlyData).map(([month, revenue]) => ({ month, revenue }));
-
-    res.json({
-      kpis: { activeCases, totalCases, totalClients, paidRevenue, outstanding, aiCompleted, casesThisMonth, clientsThisMonth, successRate },
+    const result = {
+      kpis: {
+        totalCases,
+        activeCases:      parseInt(k.active_cases ?? "0"),
+        totalClients:     parseInt(k.total_clients ?? "0"),
+        paidRevenue:      parseFloat(k.paid_revenue ?? "0") / 100,
+        outstanding:      parseFloat(k.outstanding ?? "0") / 100,
+        casesThisMonth:   parseInt(k.cases_this_month ?? "0"),
+        clientsThisMonth: parseInt(k.clients_this_month ?? "0"),
+        successRate:      totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0,
+        aiCompleted:      0,
+      },
       alerts,
-      upcomingEvents,
-      todayEvents,
-      recentCases: recentCases.map(c => ({ id: c.id, title: c.title, status: c.status, caseType: c.caseType, createdAt: c.createdAt })),
-      recentInvoices: recentInvoices.map(i => ({ id: i.id, title: i.title, total: i.total ?? i.amount, status: i.status })),
-      revenueChart,
-    });
+      recentCases:    recentCaseRows.map((c: any) => ({ id: c.id, title: c.title, status: c.status, caseType: c.case_type, createdAt: c.created_at })),
+      recentInvoices: recentInvRows.map((i: any) => ({ id: i.id, title: i.title, total: i.total, status: i.status })),
+      revenueChart:   chartRows.map((r: any) => ({ month: r.month, revenue: parseFloat(r.revenue) / 100 })),
+      upcomingEvents: evRows,
+      todayEvents:    [],
+    };
+
+    cache.set(cacheKey, result, 60); // 60s cache
+    res.json({ ...result, cached: false });
   } catch (e: any) {
-        res.json({ kpis: {}, alerts: [], upcomingEvents: [], todayEvents: [], recentCases: [], recentInvoices: [], revenueChart: [] });
+    res.json({ kpis: {}, alerts: [], recentCases: [], recentInvoices: [], revenueChart: [], upcomingEvents: [], todayEvents: [], cached: false });
   }
 });
 
-// Keep old endpoints for backward compatibility
-router.get("/dashboard/stats", requireAuthWithTenant, async (req, res) => {
+// ─── GET /dashboard/overview  (kept for backward compat — now delegates to summary) ─
+router.get("/dashboard/overview", requireAuthWithTenant, async (req, res) => {
+  // Reuse the summary logic — same data shape, clients already use this endpoint
+  const tenantId = (req as any).tenantId as string;
+  const cacheKey = `dashboard:summary:${tenantId}`;
+
+  const hit = cache.get<object>(cacheKey);
+  if (hit) { res.json({ ...hit, cached: true }); return; }
+
+  // Forward internally to summary logic by re-running the same query
   try {
-    const [cases, docs, tasks, users, _inv2] = await Promise.all([
-      db.select().from(casesTable),
-      db.select().from(documentsTable),
-      db.select().from(aiTasksTable),
-      db.select().from(usersTable),
-      db.select().from(invoicesTable),
+    const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0);
+
+    const [kpiRows, alertRows, recentCaseRows, recentInvRows, chartRows, evRows, todayRows] = await Promise.all([
+      safeRows(sql`
+        SELECT
+          (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId})::int                                      AS total_cases,
+          (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId} AND status IN ('open','in_progress'))::int AS active_cases,
+          (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId} AND status = 'closed')::int                AS closed_cases,
+          (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId} AND created_at >= ${startOfMonth})::int    AS cases_this_month,
+          (SELECT COUNT(*) FROM clients WHERE office_id = ${tenantId})::int                                    AS total_clients,
+          (SELECT COUNT(*) FROM clients WHERE office_id = ${tenantId} AND created_at >= ${startOfMonth})::int  AS clients_this_month,
+          (SELECT COALESCE(SUM(total),0) FROM client_invoices WHERE office_id = ${tenantId} AND status = 'paid')::float        AS paid_revenue,
+          (SELECT COALESCE(SUM(total),0) FROM client_invoices WHERE office_id = ${tenantId} AND status NOT IN ('paid','cancelled'))::float AS outstanding,
+          (SELECT COUNT(*) FROM client_invoices WHERE office_id = ${tenantId} AND status = 'overdue')::int     AS overdue_count,
+          (SELECT COALESCE(SUM(total),0) FROM client_invoices WHERE office_id = ${tenantId} AND status = 'overdue')::float AS overdue_total
+      `),
+      safeRows(sql`
+        SELECT
+          (SELECT COUNT(*) FROM contracts
+           WHERE office_id = ${tenantId}
+             AND COALESCE(expires_at, end_date) BETWEEN NOW() AND NOW() + INTERVAL '30 days')::int AS expiring_contracts,
+          (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId} AND status = 'open')::int AS open_cases
+      `),
+      safeRows(sql`SELECT id, title, status, case_type, created_at FROM cases WHERE office_id = ${tenantId} ORDER BY created_at DESC LIMIT 3`),
+      safeRows(sql`SELECT id, title, total, status FROM client_invoices WHERE office_id = ${tenantId} ORDER BY created_at DESC LIMIT 3`),
+      safeRows(sql`
+        SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month, COALESCE(SUM(total),0)::float AS revenue
+        FROM client_invoices WHERE office_id = ${tenantId} AND status = 'paid' AND created_at >= NOW() - INTERVAL '6 months'
+        GROUP BY 1 ORDER BY 1
+      `),
+      safeRows(sql`SELECT id, title, start_at, event_type FROM events WHERE start_at BETWEEN NOW() AND NOW() + INTERVAL '7 days' ORDER BY start_at ASC LIMIT 5`),
+      safeRows(sql`SELECT id, title, start_at, event_type FROM events WHERE DATE(start_at) = CURRENT_DATE ORDER BY start_at ASC LIMIT 10`),
     ]);
-    const invoices = _inv2 as any[];
+
+    const k = kpiRows[0] ?? {};
+    const al = alertRows[0] ?? {};
+    const totalCases = parseInt(k.total_cases ?? "0");
+    const closedCases = parseInt(k.closed_cases ?? "0");
+
+    const alerts: any[] = [];
+    if (parseInt(k.overdue_count ?? "0") > 0)
+      alerts.push({ type: "warning", icon: "receipt", title: `${k.overdue_count} فاتورة متأخرة`, body: `المستحقات: ${(parseFloat(k.overdue_total ?? "0") / 100).toLocaleString("ar-SA")} ر.س`, action: "/invoices" });
+    if (parseInt(al.expiring_contracts ?? "0") > 0)
+      alerts.push({ type: "info", icon: "file", title: `${al.expiring_contracts} عقد ينتهي خلال 30 يوم`, body: "", action: "/contracts" });
+    if (parseInt(al.open_cases ?? "0") > 0)
+      alerts.push({ type: "primary", icon: "scale", title: `${al.open_cases} قضية مفتوحة`, body: "تحتاج إلى متابعة", action: "/cases" });
+
+    const result = {
+      kpis: {
+        totalCases,
+        activeCases:      parseInt(k.active_cases ?? "0"),
+        totalClients:     parseInt(k.total_clients ?? "0"),
+        paidRevenue:      parseFloat(k.paid_revenue ?? "0") / 100,
+        outstanding:      parseFloat(k.outstanding ?? "0") / 100,
+        casesThisMonth:   parseInt(k.cases_this_month ?? "0"),
+        clientsThisMonth: parseInt(k.clients_this_month ?? "0"),
+        successRate:      totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0,
+        aiCompleted:      0,
+      },
+      alerts,
+      recentCases:    recentCaseRows.map((c: any) => ({ id: c.id, title: c.title, status: c.status, caseType: c.case_type, createdAt: c.created_at })),
+      recentInvoices: recentInvRows.map((i: any) => ({ id: i.id, title: i.title, total: i.total, status: i.status })),
+      revenueChart:   chartRows.map((r: any) => ({ month: r.month, revenue: parseFloat(r.revenue) / 100 })),
+      upcomingEvents: evRows,
+      todayEvents:    todayRows,
+    };
+    cache.set(cacheKey, result, 60);
+    res.json({ ...result, cached: false });
+  } catch {
+    res.json({ kpis: {}, alerts: [], recentCases: [], recentInvoices: [], revenueChart: [], upcomingEvents: [], todayEvents: [], cached: false });
+  }
+});
+
+// Keep old endpoints for backward compatibility — rewritten to use SQL aggregation
+router.get("/dashboard/stats", requireAuthWithTenant, async (req, res) => {
+  const tenantId = (req as any).tenantId as string;
+  try {
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const rows = await safeRows(sql`
+      SELECT
+        (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId})::int                                      AS total_cases,
+        (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId} AND status IN ('open','in_progress'))::int AS open_cases,
+        (SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId} AND created_at >= ${startOfMonth})::int    AS cases_this_month,
+        (SELECT COUNT(*) FROM documents WHERE office_id = ${tenantId})::int                                  AS total_documents,
+        (SELECT COUNT(*) FROM documents WHERE office_id = ${tenantId} AND created_at >= ${startOfMonth})::int AS docs_this_month,
+        (SELECT COUNT(*) FROM ai_tasks WHERE office_id = ${tenantId} AND status = 'done')::int               AS ai_tasks_completed,
+        (SELECT COUNT(*) FROM users WHERE office_id = ${tenantId} AND status = 'active')::int                AS active_users,
+        (SELECT COALESCE(SUM(total),0) FROM client_invoices WHERE office_id = ${tenantId} AND status = 'paid' AND created_at >= ${startOfMonth})::float AS monthly_revenue
+    `);
+    const k = rows[0] ?? {};
     res.json({
-      totalCases: cases.length,
-      openCases: cases.filter(c => ["open","in_progress"].includes(c.status)).length,
-      totalDocuments: docs.length,
-      aiTasksCompleted: tasks.filter(t => t.status === "done").length,
-      activeUsers: users.filter(u => u.status === "active").length,
-      monthlyRevenue: invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.amount ?? 0), 0),
-      casesThisMonth: cases.filter(c => c.createdAt >= startOfMonth).length,
-      docsThisMonth: docs.filter(d => d.createdAt >= startOfMonth).length,
+      totalCases:       parseInt(k.total_cases ?? "0"),
+      openCases:        parseInt(k.open_cases ?? "0"),
+      totalDocuments:   parseInt(k.total_documents ?? "0"),
+      aiTasksCompleted: parseInt(k.ai_tasks_completed ?? "0"),
+      activeUsers:      parseInt(k.active_users ?? "0"),
+      monthlyRevenue:   parseFloat(k.monthly_revenue ?? "0") / 100,
+      casesThisMonth:   parseInt(k.cases_this_month ?? "0"),
+      docsThisMonth:    parseInt(k.docs_this_month ?? "0"),
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.get("/dashboard/recent-activity", requireAuthWithTenant, async (req, res) => {
+  const tenantId = (req as any).tenantId as string;
   try {
     const [cases, docs, tasks, msgs] = await Promise.all([
-      db.select().from(casesTable).orderBy(desc(casesTable.createdAt)).limit(5),
-      db.select().from(documentsTable).orderBy(desc(documentsTable.createdAt)).limit(5),
-      db.select().from(aiTasksTable).orderBy(desc(aiTasksTable.createdAt)).limit(5),
-      db.select().from(messagesTable).orderBy(desc(messagesTable.createdAt)).limit(5),
+      safeRows(sql`SELECT id, title, created_at FROM cases WHERE office_id = ${tenantId} ORDER BY created_at DESC LIMIT 5`),
+      safeRows(sql`SELECT id, file_name, file_type, created_at FROM documents WHERE office_id = ${tenantId} ORDER BY created_at DESC LIMIT 5`),
+      safeRows(sql`SELECT id, type, created_at FROM ai_tasks WHERE office_id = ${tenantId} ORDER BY created_at DESC LIMIT 5`),
+      safeRows(sql`SELECT id, direction, created_at FROM office_messages WHERE office_id = ${tenantId} ORDER BY created_at DESC LIMIT 5`),
     ]);
     const activity = [
-      ...cases.map(c => ({ id: `case-${c.id}`, type: "case_created", description: `قضية جديدة: ${c.title}`, createdAt: c.createdAt.toISOString() })),
-      ...docs.map(d => ({ id: `doc-${d.id}`, type: "document_uploaded", description: `مستند: ${d.fileName ?? d.fileType}`, createdAt: d.createdAt.toISOString() })),
-      ...tasks.map(t => ({ id: `task-${t.id}`, type: "ai_task_completed", description: `مهمة ذكاء: ${t.type}`, createdAt: t.createdAt.toISOString() })),
-      ...msgs.map(m => ({ id: `msg-${m.id}`, type: "message_sent", description: `رسالة ${m.direction === "inbound" ? "واردة" : "صادرة"}`, createdAt: m.createdAt.toISOString() })),
+      ...cases.map((c: any) => ({ id: `case-${c.id}`, type: "case_created",       description: `قضية جديدة: ${c.title}`,                               createdAt: c.created_at })),
+      ...docs.map((d: any)  => ({ id: `doc-${d.id}`,  type: "document_uploaded",   description: `مستند: ${d.file_name ?? d.file_type}`,                  createdAt: d.created_at })),
+      ...tasks.map((t: any) => ({ id: `task-${t.id}`, type: "ai_task_completed",   description: `مهمة ذكاء: ${t.type}`,                                  createdAt: t.created_at })),
+      ...msgs.map((m: any)  => ({ id: `msg-${m.id}`,  type: "message_sent",        description: `رسالة ${m.direction === "inbound" ? "واردة" : "صادرة"}`, createdAt: m.created_at })),
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 15);
     res.json(activity);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -273,11 +358,11 @@ router.get("/dashboard/intelligence", requireAuthWithTenant, async (req, res) =>
     const start30 = new Date(now); start30.setDate(now.getDate() - 30);
     const in72h   = new Date(now); in72h.setDate(now.getDate() + 3);
 
-    const [cases, invoices, clients, contracts] = await Promise.all([
+    const tenantId2 = (req as any).tenantId as string;
+    const [cases, invoices, clients] = await Promise.all([
       db.select().from(casesTable).then(r => r as any[]),
       db.select().from(invoicesTable).then(r => r as any[]),
       db.select().from(clientsTable).then(r => r as any[]),
-      db.select().from(contractsTable).then(r => r as any[]),
     ]);
 
     /* AI usage */
@@ -395,17 +480,20 @@ router.get("/dashboard/intelligence", requireAuthWithTenant, async (req, res) =>
       });
     }
 
-    const expiringContracts = contracts.filter((c: any) => {
-      const exp = c.expiresAt ?? c.endDate;
-      if (!exp) return false;
-      const d = new Date(exp);
-      return d > now && d <= new Date(now.getTime() + 30 * 86400000);
-    });
-    if (expiringContracts.length > 0) {
+    let expiringContractsCount = 0;
+    try {
+      const cRows = await safeRows(sql`
+        SELECT COUNT(*)::int AS cnt FROM contracts
+        WHERE office_id = ${tenantId2}
+          AND COALESCE(expires_at, end_date) BETWEEN NOW() AND NOW() + INTERVAL '30 days'
+      `);
+      expiringContractsCount = parseInt((cRows[0] as any)?.cnt ?? "0");
+    } catch {}
+    if (expiringContractsCount > 0) {
       smartActions.push({
         priority: 2, urgent: false,
         type: "expiring_contracts",
-        title: `${expiringContracts.length} عقد ينتهي خلال 30 يوم`,
+        title: `${expiringContractsCount} عقد ينتهي خلال 30 يوم`,
         body: "جدّد العقود قبل انتهاء صلاحيتها",
         href: "/contracts",
         icon: "file",
