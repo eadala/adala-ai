@@ -7,7 +7,7 @@ import {
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
   FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity, Send,
-  ChevronDown, Briefcase,
+  ChevronDown, Briefcase, Wand2,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -94,6 +94,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
     color: "#C9A84C",
     items: [
       { href: "/ai-hub",             labelKey: "nav.items.ai_hub",             icon: Sparkles,   feature: "ai" },
+      { href: "/ui-builder",         labelKey: "nav.items.ui_builder",         icon: Wand2,      feature: "ai" },
       { href: "/ai-agents",          labelKey: "nav.items.ai_agents",          icon: Bot,        feature: "ai" },
       { href: "/legal-ai",           labelKey: "nav.items.legal_ai",           icon: Scale,      feature: "ai" },
       { href: "/legal-research",     labelKey: "nav.items.legal_research",     icon: LibraryBig, feature: "ai" },
