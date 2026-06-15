@@ -77,6 +77,7 @@ import signaturesRouter from "./signatures";
 import financialCoreRouter from "./financialCore";
 import eventsRouter from "./events";
 import pushRouter from "./push";
+import stripeAdminRouter from "./stripeAdmin";
 
 const router: IRouter = Router();
 
@@ -167,6 +168,7 @@ router.use(signaturesRouter);
 router.use(financialCoreRouter);
 router.use(eventsRouter);
 router.use(pushRouter);
+router.use(stripeAdminRouter);
 
 import aiEventsRouter from "./aiEvents";
 import searchRouter from "./search";
