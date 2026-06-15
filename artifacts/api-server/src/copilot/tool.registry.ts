@@ -1,7 +1,7 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getTenantSafe } from "../core/tenantContext";
-import { callAI } from "../routes/aiChat";
+import { callAI } from "../modules/ai/aiChat";
 
 export interface ToolResult {
   success: boolean;

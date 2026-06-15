@@ -3,7 +3,7 @@ import { buildRichContext, formatContextForPrompt } from "./context.engine";
 import { buildMemoryContext, rememberFact } from "./memory";
 import { analyzeCaseIntelligence } from "./case.intelligence";
 import { TOOL_REGISTRY } from "./tool.registry";
-import { callAI } from "../routes/aiChat";
+import { callAI } from "../modules/ai/aiChat";
 
 export interface OrchestratorResult {
   reply: string;

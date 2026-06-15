@@ -12,7 +12,7 @@
 import { CaseRepository }        from "./case.repository";
 import { CaseEvents }             from "./case.events";
 import { auditLog }               from "../lib/auditLogger";
-import { notifyTelegramCaseStatus } from "../routes/telegram";
+import { notifyTelegramCaseStatus } from "../modules/integrations/telegram";
 import type { CreateCaseInput, UpdateCaseInput, CaseFilters, CaseEntity } from "./case.entity";
 import { STATUS_LABELS }          from "./case.entity";
 

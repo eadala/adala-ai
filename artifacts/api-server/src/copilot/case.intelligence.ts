@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { callAI } from "../routes/aiChat";
+import { callAI } from "../modules/ai/aiChat";
 
 export interface CaseIntelligence {
   caseId: string;

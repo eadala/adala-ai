@@ -1,206 +1,240 @@
 import { Router, type IRouter } from "express";
-import healthRouter from "./health";
-import casesRouter from "./cases";
-import documentsRouter from "./documents";
-import aiTasksRouter from "./aiTasks";
-import usersRouter from "./users";
-import messagesRouter from "./messages";
-import billingRouter from "./billing";
-import dashboardRouter from "./dashboard";
-import aiChatRouter from "./aiChat";
-import rbacRouter from "./rbac";
-import opponentSimulatorRouter from "./opponentSimulator";
-import contractsRouter from "./contracts";
-import clientsRouter from "./clients";
-import aiAgentsRouter from "./aiAgents";
-import commandCenterRouter from "./commandCenter";
-import legalResearchRouter from "./legalResearch";
-import arbitrationRouter from "./arbitration";
-import hrRouter from "./hr";
-import brandingRouter from "./branding";
-import storageRouter from "./storage";
-import judgePrepRouter from "./judgePrep";
-import webhookRouter from "./webhook";
-import invoicesRouter from "./invoices";
-import emailRouter from "./email";
-import officeRouter from "./office";
-import adminRouter from "./admin";
-import calendarRouter from "./calendar";
-import clientPortalRouter from "./client-portal";
-import clientAuthRouter from "./client-auth";
-import marketplaceRouter from "./marketplace";
-import aiWorkflowRouter from "./ai-workflow";
-import firmAdminRouter from "./firm-admin";
-import notificationsRouter from "./notifications";
-import complianceRouter from "./compliance";
-import aiAgentRouter from "./ai-agent";
-import aiEngineRouter from "./ai-engine";
-import internalMessagesRouter from "./internal-messages";
-import aiAssistantRouter from "./ai-assistant";
-import copilotRouter from "./copilot";
-import subscriptionRouter from "./subscription";
-import backupRouter from "./backup";
-import accountingRouter from "./accounting";
-import developerRouter from "./developer";
-import paymentsRouter from "./payments";
-import hostingRouter from "./hosting";
-import studioRouter from "./studio";
-import engineeringRouter from "./engineering";
-import entitlementsRouter from "./entitlements";
-import officeApiKeysRouter from "./officeApiKeys";
-import loginTrackingRouter from "./loginTracking";
-import financialIntelligenceRouter from "./financialIntelligence";
-import remindersRouter from "./reminders";
-import emailNotificationsRouter from "./emailNotifications";
-import onboardingRouter from "./onboarding";
-import importDataRouter from "./importData";
-import aiCreditsRouter from "./aiCredits";
-import whatsappRouter from "./whatsapp";
-import telegramRouter from "./telegram";
-import promoRouter from "./promo";
-import documentTemplatesRouter from "./document-templates";
-import financeCenterRouter from "./finance-center";
-import analyticsRouter from "./analytics";
-import themeBuilderRouter from "./themeBuilder";
-import tasksRouter from "./tasks";
-import supportRouter from "./support";
-import mediatorsRouter from "./mediators";
-import orgStructureRouter from "./orgStructure";
-import hrPerformanceRouter from "./hrPerformance";
-import hrInternalRouter from "./hrInternal";
-import legalAIRouter from "./legalAI";
-import auditLogsRouter from "./auditLogs";
-import platformModulesRouter from "./platformModules";
-import homeCmsRouter from "./homeCms";
-import planCmsRouter from "./planCms";
-import signaturesRouter from "./signatures";
-import financialCoreRouter from "./financialCore";
-import eventsRouter from "./events";
-import pushRouter from "./push";
-import stripeAdminRouter from "./stripeAdmin";
 
+// ── Monitoring & Health ──────────────────────────────────────────────────────
+import healthRouter            from "../modules/monitoring/health";
+import monitoringRouter        from "../modules/monitoring/monitoring";
+import preventionRouter        from "../modules/monitoring/prevention";
+import smartAlertsRouter       from "../modules/monitoring/smart-alerts";
+import isolationRouter         from "../modules/monitoring/isolation";
+import hardeningRouter         from "../modules/monitoring/hardening";
+import selfHealingRouter       from "../modules/monitoring/self-healing";
+
+// ── Legal Core ───────────────────────────────────────────────────────────────
+import casesRouter             from "../modules/legal-core/cases";
+import clientsRouter           from "../modules/legal-core/clients";
+import documentsRouter         from "../modules/legal-core/documents";
+import contractsRouter         from "../modules/legal-core/contracts";
+import arbitrationRouter       from "../modules/legal-core/arbitration";
+import judgePrepRouter         from "../modules/legal-core/judgePrep";
+import legalResearchRouter     from "../modules/legal-core/legalResearch";
+import legalAIRouter           from "../modules/legal-core/legalAI";
+import mediatorsRouter         from "../modules/legal-core/mediators";
+import complianceRouter        from "../modules/legal-core/compliance";
+import signaturesRouter        from "../modules/legal-core/signatures";
+import documentTemplatesRouter from "../modules/legal-core/document-templates";
+import legalOsRouter           from "../modules/legal-core/legal-os";
+import adoulRouter             from "../modules/legal-core/adoul";
+import opponentSimulatorRouter from "../modules/legal-core/opponentSimulator";
+import remindersRouter         from "../modules/legal-core/reminders";
+
+// ── Financial ────────────────────────────────────────────────────────────────
+import billingRouter               from "../modules/financial/billing";
+import invoicesRouter              from "../modules/financial/invoices";
+import paymentsRouter              from "../modules/financial/payments";
+import accountingRouter            from "../modules/financial/accounting";
+import journalAccountingRouter     from "../modules/financial/journalAccounting";
+import financeCenterRouter         from "../modules/financial/finance-center";
+import financeDashboardRouter      from "../modules/financial/finance-dashboard";
+import financialCoreRouter         from "../modules/financial/financialCore";
+import financialIntelligenceRouter from "../modules/financial/financialIntelligence";
+import financialEngineRouter       from "../modules/financial/financial-engine";
+import subscriptionRouter          from "../modules/financial/subscription";
+import promoRouter                 from "../modules/financial/promo";
+import stripeAdminRouter           from "../modules/financial/stripeAdmin";
+
+// ── AI ───────────────────────────────────────────────────────────────────────
+import aiChatRouter        from "../modules/ai/aiChat";
+import aiTasksRouter       from "../modules/ai/aiTasks";
+import aiAgentsRouter      from "../modules/ai/aiAgents";
+import aiAgentRouter       from "../modules/ai/ai-agent";
+import aiEngineRouter      from "../modules/ai/ai-engine";
+import aiWorkflowRouter    from "../modules/ai/ai-workflow";
+import aiAssistantRouter   from "../modules/ai/ai-assistant";
+import copilotRouter       from "../modules/ai/copilot";
+import aiCreditsRouter     from "../modules/ai/aiCredits";
+import aiEventsRouter      from "../modules/ai/aiEvents";
+import uiBuilderRouter     from "../modules/ai/uiBuilder";
+import commandCenterRouter from "../modules/ai/commandCenter";
+
+// ── Platform ─────────────────────────────────────────────────────────────────
+import adminRouter           from "../modules/platform/admin";
+import usersRouter           from "../modules/platform/users";
+import rbacRouter            from "../modules/platform/rbac";
+import onboardingRouter      from "../modules/platform/onboarding";
+import developerRouter       from "../modules/platform/developer";
+import engineeringRouter     from "../modules/platform/engineering";
+import hostingRouter         from "../modules/platform/hosting";
+import backupRouter          from "../modules/platform/backup";
+import studioRouter          from "../modules/platform/studio";
+import entitlementsRouter    from "../modules/platform/entitlements";
+import planCmsRouter         from "../modules/platform/planCms";
+import platformModulesRouter from "../modules/platform/platformModules";
+import themeBuilderRouter    from "../modules/platform/themeBuilder";
+import brandingRouter        from "../modules/platform/branding";
+import loginTrackingRouter   from "../modules/platform/loginTracking";
+import auditLogsRouter       from "../modules/platform/auditLogs";
+import orgStructureRouter    from "../modules/platform/orgStructure";
+import supportRouter         from "../modules/platform/support";
+import platformCommandRouter from "../modules/platform/platformCommand";
+import agentRuntimeRouter    from "../modules/platform/agentRuntime";
+import importDataRouter      from "../modules/platform/importData";
+import officeApiKeysRouter   from "../modules/platform/officeApiKeys";
+
+// ── Integrations ─────────────────────────────────────────────────────────────
+import emailRouter              from "../modules/integrations/email";
+import emailNotificationsRouter from "../modules/integrations/emailNotifications";
+import whatsappRouter           from "../modules/integrations/whatsapp";
+import telegramRouter           from "../modules/integrations/telegram";
+import pushRouter               from "../modules/integrations/push";
+import webhookRouter            from "../modules/integrations/webhook";
+
+// ── Marketplace ──────────────────────────────────────────────────────────────
+import marketplaceRouter  from "../modules/marketplace/marketplace";
+import officeRouter       from "../modules/marketplace/office";
+import clientPortalRouter from "../modules/marketplace/client-portal";
+import clientAuthRouter   from "../modules/marketplace/client-auth";
+import firmAdminRouter    from "../modules/marketplace/firm-admin";
+import homeCmsRouter      from "../modules/marketplace/homeCms";
+
+// ── Operations ───────────────────────────────────────────────────────────────
+import dashboardRouter        from "../modules/operations/dashboard";
+import analyticsRouter        from "../modules/operations/analytics";
+import searchRouter           from "../modules/operations/search";
+import calendarRouter         from "../modules/operations/calendar";
+import tasksRouter            from "../modules/operations/tasks";
+import messagesRouter         from "../modules/operations/messages";
+import internalMessagesRouter from "../modules/operations/internal-messages";
+import notificationsRouter    from "../modules/operations/notifications";
+import eventsRouter           from "../modules/operations/events";
+import storageRouter          from "../modules/operations/storage";
+import hrRouter               from "../modules/operations/hr";
+import hrPerformanceRouter    from "../modules/operations/hrPerformance";
+import hrInternalRouter       from "../modules/operations/hrInternal";
+
+// ─────────────────────────────────────────────────────────────────────────────
 const router: IRouter = Router();
 
+// Monitoring
 router.use(healthRouter);
+router.use(monitoringRouter);
+router.use(preventionRouter);
+router.use(smartAlertsRouter);
+router.use(isolationRouter);
+router.use(hardeningRouter);
+router.use(selfHealingRouter);
+
+// Legal Core
 router.use(casesRouter);
-router.use(documentsRouter);
-router.use(aiTasksRouter);
-router.use(usersRouter);
-router.use(messagesRouter);
-router.use(billingRouter);
-router.use(dashboardRouter);
-router.use(aiChatRouter);
-router.use(rbacRouter);
-router.use(opponentSimulatorRouter);
-router.use(contractsRouter);
 router.use(clientsRouter);
-router.use(aiAgentsRouter);
-router.use(commandCenterRouter);
-router.use(legalResearchRouter);
+router.use(documentsRouter);
+router.use(contractsRouter);
 router.use(arbitrationRouter);
-router.use(hrRouter);
-router.use(brandingRouter);
-router.use(storageRouter);
 router.use(judgePrepRouter);
-router.use(webhookRouter);
-router.use(invoicesRouter);
-router.use(emailRouter);
-router.use(officeRouter);
-router.use(adminRouter);
-router.use(calendarRouter);
-router.use(clientPortalRouter);
-router.use(marketplaceRouter);
-router.use(aiWorkflowRouter);
-router.use(firmAdminRouter);
-router.use(notificationsRouter);
+router.use(legalResearchRouter);
+router.use(legalAIRouter);
+router.use(mediatorsRouter);
 router.use(complianceRouter);
-router.use(aiAgentRouter);
-router.use(aiEngineRouter);
-router.use("/internal-messages", internalMessagesRouter);
-router.use("/ai-assistant", aiAssistantRouter);
-router.use("/copilot", copilotRouter);
-router.use(subscriptionRouter);
-router.use(backupRouter);
-router.use(accountingRouter);
-router.use(developerRouter);
-router.use(paymentsRouter);
-router.use(hostingRouter);
-router.use(studioRouter);
-router.use(engineeringRouter);
-router.use(entitlementsRouter);
-router.use(officeApiKeysRouter);
-router.use(loginTrackingRouter);
-router.use(financialIntelligenceRouter);
+router.use(signaturesRouter);
 router.use(remindersRouter);
-router.use(emailNotificationsRouter);
-router.use(onboardingRouter);
-router.use(importDataRouter);
-router.use(aiCreditsRouter);
-router.use(whatsappRouter);
-router.use(telegramRouter);
-router.use(promoRouter);
+router.use(opponentSimulatorRouter);
+router.use("/adoul", adoulRouter);
 router.use((req, _res, next) => {
   if (req.url === "/templates" || req.url.startsWith("/templates/") || req.url.startsWith("/templates?")) {
     req.url = "/document-templates" + req.url.slice("/templates".length);
   }
+  next();
+});
+router.use(documentTemplatesRouter);
+router.use(legalOsRouter);
+
+// Financial
+router.use(billingRouter);
+router.use(invoicesRouter);
+router.use(paymentsRouter);
+router.use(accountingRouter);
+router.use(journalAccountingRouter);
+router.use(financeCenterRouter);
+router.use(financeDashboardRouter);
+router.use(financialCoreRouter);
+router.use(financialIntelligenceRouter);
+router.use(financialEngineRouter);
+router.use(subscriptionRouter);
+router.use(promoRouter);
+router.use(stripeAdminRouter);
+
+// AI
+router.use(aiChatRouter);
+router.use(aiTasksRouter);
+router.use(aiAgentsRouter);
+router.use(aiAgentRouter);
+router.use(aiEngineRouter);
+router.use(aiWorkflowRouter);
+router.use("/ai-assistant", aiAssistantRouter);
+router.use("/copilot", copilotRouter);
+router.use(aiCreditsRouter);
+router.use(aiEventsRouter);
+router.use(uiBuilderRouter);
+router.use(commandCenterRouter);
+
+// Platform
+router.use(adminRouter);
+router.use(usersRouter);
+router.use(rbacRouter);
+router.use(onboardingRouter);
+router.use(developerRouter);
+router.use(engineeringRouter);
+router.use(hostingRouter);
+router.use(backupRouter);
+router.use(studioRouter);
+router.use(entitlementsRouter);
+router.use(planCmsRouter);
+router.use(platformModulesRouter);
+router.use(themeBuilderRouter);
+router.use(brandingRouter);
+router.use(loginTrackingRouter);
+router.use(auditLogsRouter);
+router.use(orgStructureRouter);
+router.use(supportRouter);
+router.use(platformCommandRouter);
+router.use(agentRuntimeRouter);
+router.use(importDataRouter);
+router.use(officeApiKeysRouter);
+
+// Integrations
+router.use(emailRouter);
+router.use(emailNotificationsRouter);
+router.use(whatsappRouter);
+router.use(telegramRouter);
+router.use(pushRouter);
+router.use(webhookRouter);
+
+// Marketplace
+router.use(marketplaceRouter);
+router.use(officeRouter);
+router.use(clientPortalRouter);
+router.use(clientAuthRouter);
+router.use(firmAdminRouter);
+router.use(homeCmsRouter);
+
+// Operations
+router.use(dashboardRouter);
+router.use(analyticsRouter);
+router.use(searchRouter);
+router.use(calendarRouter);
+router.use(tasksRouter);
+router.use(messagesRouter);
+router.use("/internal-messages", internalMessagesRouter);
+router.use(notificationsRouter);
+router.use((req, _res, next) => {
   if (req.url === "/appointments" || req.url.startsWith("/appointments/") || req.url.startsWith("/appointments?")) {
     req.url = "/calendar/events" + req.url.slice("/appointments".length);
   }
   next();
 });
-router.use(documentTemplatesRouter);
-router.use(financeCenterRouter);
-router.use(analyticsRouter);
-router.use(themeBuilderRouter);
-router.use(tasksRouter);
-router.use(supportRouter);
-router.use(mediatorsRouter);
-router.use(orgStructureRouter);
+router.use(eventsRouter);
+router.use(storageRouter);
+router.use(hrRouter);
 router.use(hrPerformanceRouter);
 router.use(hrInternalRouter);
-router.use(legalAIRouter);
-router.use(auditLogsRouter);
-router.use(platformModulesRouter);
-router.use(homeCmsRouter);
-router.use(planCmsRouter);
-router.use(clientAuthRouter);
-router.use(signaturesRouter);
-router.use(financialCoreRouter);
-router.use(eventsRouter);
-router.use(pushRouter);
-router.use(stripeAdminRouter);
-
-import aiEventsRouter from "./aiEvents";
-import searchRouter from "./search";
-import platformCommandRouter from "./platformCommand";
-import agentRuntimeRouter from "./agentRuntime";
-import journalAccountingRouter from "./journalAccounting";
-import uiBuilderRouter from "./uiBuilder";
-import adoulRouter from "./adoul";
-import monitoringRouter from "./monitoring";
-import preventionRouter from "./prevention";
-import smartAlertsRouter from "./smart-alerts";
-import financialEngineRouter from "./financial-engine";
-import financeDashboardRouter from "./finance-dashboard";
-import isolationRouter from "./isolation";
-import hardeningRouter    from "./hardening";
-import legalOsRouter      from "./legal-os";
-import selfHealingRouter  from "./self-healing";
-router.use(aiEventsRouter);
-router.use(searchRouter);
-router.use(platformCommandRouter);
-router.use(agentRuntimeRouter);
-router.use(journalAccountingRouter);
-router.use(uiBuilderRouter);
-router.use("/adoul", adoulRouter);
-router.use(monitoringRouter);
-router.use(preventionRouter);
-router.use(smartAlertsRouter);
-router.use(financialEngineRouter);
-router.use(financeDashboardRouter);
-router.use(isolationRouter);
-router.use(hardeningRouter);
-router.use(legalOsRouter);
-router.use(selfHealingRouter);
 
 export default router;

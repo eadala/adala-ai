@@ -1,4 +1,4 @@
-import { callAI } from "../routes/aiChat";
+import { callAI } from "../modules/ai/aiChat";
 
 export type IntentType =
   | "CREATE_CASE"
