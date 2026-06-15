@@ -976,7 +976,7 @@ export default function PlatformShowcase() {
               <div className="relative overflow-hidden" style={{ height: 440 }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
                 <AnimatePresence mode="wait">
                   <motion.div key={active} className="absolute inset-0"
-                    initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                    initial={{ opacity: 0, x: 0, scale: 0.98 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: 0, scale: 0.98 }}
                     transition={{ duration: 0.25, ease: "easeInOut" }}>
                     <Screen />
                   </motion.div>
@@ -1137,7 +1137,7 @@ export default function PlatformShowcase() {
                   <div className="space-y-3">
                     {SCREENS_T[modal].features.map((f, i) => (
                       <motion.div key={f} className="flex items-start gap-2.5"
-                        initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.07 }}>
+                        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}>
                         <div className="w-5 h-5 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
                           style={{ background: `${SCREENS_T[modal].color}18`, border: `1px solid ${SCREENS_T[modal].color}30` }}>
                           <Check className="w-3 h-3" style={{ color: SCREENS_T[modal].color }} />
