@@ -366,7 +366,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
           <div className="flex flex-col items-center gap-3 pointer-events-none">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
               style={{ background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.25)" }}>
-              <Upload className="h-6 w-6" className="text-primary" />
+              <Upload className="h-6 w-6 text-primary" />
             </div>
             <div>
               <p className="font-semibold">اسحب ملفاتك هنا</p>

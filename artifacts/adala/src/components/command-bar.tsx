@@ -74,7 +74,7 @@ export function CommandBar() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [, navigate] = useLocation();
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   /* ── Expose opener globally for trigger button ── */
   useEffect(() => {

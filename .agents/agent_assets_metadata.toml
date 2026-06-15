@@ -6,3 +6,9 @@ id = "duS8RMlCtEWQ1R3uPpfMi"
 uri = "file://adala-production-audit.md"
 type = "text"
 title = "تقرير التدقيق الاحترافي — عدالة AI"
+
+[[outputs]]
+id = "REHR6shEEaLc5CWWwuaNt"
+uri = "file://FINAL_PRODUCTION_READINESS_REPORT.md"
+type = "text"
+title = "FINAL_PRODUCTION_READINESS_REPORT.md"
