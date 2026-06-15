@@ -93,6 +93,10 @@ async function ensurePerformanceIndexes() {
     `CREATE INDEX IF NOT EXISTS idx_invoices_office_id    ON client_invoices(office_id)`,
     `CREATE INDEX IF NOT EXISTS idx_invoices_status       ON client_invoices(status)`,
     `CREATE INDEX IF NOT EXISTS idx_contracts_office_id   ON contracts(office_id)`,
+    /* Idempotency index — prevents duplicate ledger entries for same Stripe event */
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_office_ledger_stripe_event_id
+       ON office_ledger(stripe_event_id)
+       WHERE stripe_event_id IS NOT NULL`,
   ];
   for (const idx of indexes) {
     await db.execute(sql.raw(idx)).catch(() => {});
