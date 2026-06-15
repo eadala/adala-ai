@@ -178,7 +178,7 @@ function MarkdownContent({ text, color }: { text: string; color: string }) {
           {bullets.map((b, bi) => (
             <li key={bi} className="flex gap-2.5 text-sm" style={{ color: DARK }}>
               <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-2" style={{ background: color }} />
-              <span className="leading-relaxed">{inline(b, bi)}</span>
+              <span style={{ lineHeight: "1.78" }}>{inline(b, bi)}</span>
             </li>
           ))}
         </ul>
@@ -192,7 +192,7 @@ function MarkdownContent({ text, color }: { text: string; color: string }) {
           {items.map((item, ii) => (
             <li key={ii} className="flex gap-2.5 text-sm" style={{ color: DARK }}>
               <span className="font-bold shrink-0 w-5 text-right" style={{ color }}>{ii + 1}.</span>
-              <span className="leading-relaxed">{inline(item, ii)}</span>
+              <span style={{ lineHeight: "1.78" }}>{inline(item, ii)}</span>
             </li>
           ))}
         </ol>
@@ -201,7 +201,7 @@ function MarkdownContent({ text, color }: { text: string; color: string }) {
     } else if (line.trim() === "") {
       out.push(<div key={i} className="h-2" />);
     } else {
-      out.push(<p key={i} className="text-sm leading-relaxed" style={{ color: DARK }}>{inline(line, i)}</p>);
+      out.push(<p key={i} className="text-sm" style={{ color: DARK, lineHeight: "1.78" }}>{inline(line, i)}</p>);
     }
     i++;
   }
