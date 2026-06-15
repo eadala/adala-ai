@@ -206,7 +206,12 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
 router.get("/case/:caseId", requireAuth, async (req: Request, res: Response) => {
   try {
     const { caseId } = req.params as Record<string, string>;
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const numericId = parseInt(caseId, 10);
+
+    /* Guard: caseId must be a valid integer (INTEGER FK to cases) */
+    if (!caseId || isNaN(numericId)) {
+      return res.json([]);
+    }
 
     const q = await db.execute(sql`
       SELECT m.id, m.subject, m.body, m.sender_id, m.sender_name,
@@ -219,7 +224,7 @@ router.get("/case/:caseId", requireAuth, async (req: Request, res: Response) => 
         ) AS recipients
       FROM office_messages m
       LEFT JOIN office_message_recipients r ON r.message_id = m.id
-      WHERE m.case_id = ${Number(caseId)}
+      WHERE m.case_id = ${numericId}
       GROUP BY m.id
       ORDER BY m.created_at DESC
       LIMIT 100

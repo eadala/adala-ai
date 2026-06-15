@@ -29,7 +29,12 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
 
   (req as any).userId = userId;
   const headerTenant = req.headers["x-tenant-id"] as string | undefined;
-  const tenantId = await resolveTenantId(userId, headerTenant);
+  let tenantId: string | null = null;
+  try {
+    tenantId = await resolveTenantId(userId, headerTenant);
+  } catch {
+    /* resolveTenantId failure is non-fatal — fallback to "default" */
+  }
   const officeId = tenantId ?? "default";
   (req as any).tenantId = officeId;
 

@@ -142,9 +142,14 @@ router.post("/cases", requireAuthWithTenant, async (req, res) => {
   }
 });
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isValidUuid(v: string) { return UUID_RE.test(v); }
+
 // ── GET /cases/:id ───────────────────────────────────────────────────────────
 router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
+    const caseId = String(req.params.id);
+    if (!isValidUuid(caseId)) return res.status(404).json({ error: "القضية غير موجودة" });
     const tenantId = (req as any).tenantId;
     const rows = await db.execute(sql`
       SELECT
@@ -164,7 +169,7 @@ router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
       FROM cases c
       LEFT JOIN office_orders   oo   ON oo.id   = c.store_order_id
       LEFT JOIN office_services osvc ON osvc.id  = oo.service_id
-      WHERE c.id = ${String(req.params.id)} AND c.office_id = ${tenantId}
+      WHERE c.id = ${caseId} AND c.office_id = ${tenantId}
       LIMIT 1
     `);
     const rawArr: any[] = (rows as any)?.rows ?? (rows as any) ?? [];
