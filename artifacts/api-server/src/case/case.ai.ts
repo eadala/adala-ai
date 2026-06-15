@@ -78,7 +78,7 @@ async function buildCaseContext(caseId: string, officeId: string) {
   const tasks = sqlAll(
     await db.execute(sql`
       SELECT title, status, priority, due_date
-      FROM tasks WHERE case_id = ${caseId}::uuid LIMIT 20
+      FROM tasks WHERE case_id = ${caseId} LIMIT 20
     `).catch(() => ({ rows: [] }))
   );
 
@@ -287,10 +287,11 @@ export async function approveAITask(
   if (!target || target.status !== "pending_approval") return null;
 
   /* create real task */
+  /* case_id is TEXT, office_id is UUID */
   const created = sqlOne(await db.execute(sql`
     INSERT INTO tasks (case_id, title, description, priority, status, office_id)
     VALUES (
-      ${caseId}::uuid,
+      ${caseId},
       ${target.title},
       ${target.description ?? ""},
       ${target.priority ?? "medium"},
@@ -298,14 +299,7 @@ export async function approveAITask(
       ${officeId}::uuid
     )
     RETURNING *
-  `).catch(async () => {
-    /* fallback: tasks.case_id might be TEXT */
-    return db.execute(sql`
-      INSERT INTO tasks (case_id, title, description, priority, status, office_id)
-      VALUES (${caseId}, ${target.title}, ${target.description ?? ""}, ${target.priority ?? "medium"}, 'todo', ${officeId})
-      RETURNING *
-    `);
-  }));
+  `));
 
   /* mark as approved in insight */
   const updated = tasks.map(t => t.id === taskId ? { ...t, status: "approved" as const } : t);
