@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Scale, ArrowRight, Shield, FileText, AlertTriangle, Ban, CreditCard, Globe, BookOpen, Mail } from "lucide-react";
 
-const GOLD = "#C9A84C";
+const GOLD = "#1A56DB";
 const LAST_UPDATED = "١ يونيو ٢٠٢٦";
 
 const sections = [
@@ -106,20 +106,20 @@ const sections = [
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen" style={{ background: "linear-gradient(135deg, #0D1626 0%, #0f1e35 50%, #0D1626 100%)", fontFamily: "'Cairo', sans-serif", direction: "rtl" }}>
+    <div className="min-h-screen" style={{ background: "#F8FAFC", fontFamily: "'Cairo', sans-serif", direction: "rtl" }}>
       {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b" style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(13,22,38,0.95)", backdropFilter: "blur(12px)" }}>
+      <nav className="sticky top-0 z-50 border-b border-slate-200" style={{ background: "rgba(255,255,255,0.95)", backdropFilter: "blur(12px)" }}>
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link href="/">
             <div className="flex items-center gap-2.5 cursor-pointer">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)" }}>
-                <Scale className="w-4 h-4 text-[#0D1626]" />
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: GOLD }}>
+                <Scale className="w-4 h-4 text-white" />
               </div>
-              <span className="font-black text-white text-base">عدالة AI</span>
+              <span className="font-black text-slate-800 text-base">عدالة AI</span>
             </div>
           </Link>
           <Link href="/">
-            <button className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white transition-colors">
+            <button className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors">
               <ArrowRight className="w-3.5 h-3.5" />
               العودة للرئيسية
             </button>
@@ -130,16 +130,16 @@ export default function TermsPage() {
       {/* Hero */}
       <div className="max-w-4xl mx-auto px-4 pt-16 pb-8">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(201,168,76,0.15)", border: "1px solid rgba(201,168,76,0.3)" }}>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: `${GOLD}15`, border: `1px solid ${GOLD}30` }}>
             <FileText className="w-6 h-6" style={{ color: GOLD }} />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-white">الشروط والأحكام</h1>
-            <p className="text-sm text-white/40">آخر تحديث: {LAST_UPDATED}</p>
+            <h1 className="text-2xl font-black text-slate-900">الشروط والأحكام</h1>
+            <p className="text-sm text-slate-400">آخر تحديث: {LAST_UPDATED}</p>
           </div>
         </div>
-        <div className="rounded-2xl p-4 mb-8" style={{ background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.2)" }}>
-          <p className="text-sm text-white/60 leading-relaxed">
+        <div className="rounded-2xl p-4 mb-8" style={{ background: `${GOLD}08`, border: `1px solid ${GOLD}25` }}>
+          <p className="text-sm text-slate-600 leading-relaxed">
             تُنظِّم هذه الوثيقة العلاقة القانونية بين شركة عدالة AI ومستخدمي المنصة. يُرجى قراءتها بعناية قبل استخدام الخدمات أو الاشتراك في أي خطة. باستخدامك للمنصة فأنت توافق على جميع البنود الواردة أدناه.
           </p>
         </div>
@@ -147,33 +147,33 @@ export default function TermsPage() {
         {/* Sections */}
         <div className="space-y-6">
           {sections.map((sec, i) => (
-            <div key={i} className="rounded-2xl p-6" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div key={i} className="rounded-2xl p-6" style={{ background: "#ffffff", border: "1px solid #E2E8F0" }}>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.2)" }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${GOLD}12`, border: `1px solid ${GOLD}25` }}>
                   <sec.icon className="w-4.5 h-4.5" style={{ color: GOLD }} />
                 </div>
-                <h2 className="text-base font-bold text-white">{sec.title}</h2>
+                <h2 className="text-base font-bold text-slate-800">{sec.title}</h2>
               </div>
-              <p className="text-sm text-white/60 leading-relaxed whitespace-pre-line">{sec.content}</p>
+              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{sec.content}</p>
             </div>
           ))}
         </div>
 
         {/* Contact */}
-        <div className="mt-8 rounded-2xl p-6 text-center" style={{ background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.2)" }}>
+        <div className="mt-8 rounded-2xl p-6 text-center" style={{ background: `${GOLD}08`, border: `1px solid ${GOLD}25` }}>
           <Mail className="w-6 h-6 mx-auto mb-3" style={{ color: GOLD }} />
-          <h3 className="font-bold text-white mb-1">هل لديك استفسار قانوني؟</h3>
-          <p className="text-sm text-white/50 mb-3">تواصل مع فريق الدعم القانوني لدينا</p>
+          <h3 className="font-bold text-slate-800 mb-1">هل لديك استفسار قانوني؟</h3>
+          <p className="text-sm text-slate-500 mb-3">تواصل مع فريق الدعم القانوني لدينا</p>
           <a href="mailto:legal@adala-ai.sa" className="text-sm font-semibold" style={{ color: GOLD }}>legal@adala-ai.sa</a>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-center gap-4 mt-8 pt-6 pb-10" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-          <Link href="/privacy"><span className="text-sm text-white/40 hover:text-white/70 transition-colors cursor-pointer">سياسة الخصوصية</span></Link>
-          <span className="text-white/20">•</span>
-          <Link href="/security"><span className="text-sm text-white/40 hover:text-white/70 transition-colors cursor-pointer">الأمان وحماية البيانات</span></Link>
-          <span className="text-white/20">•</span>
-          <Link href="/"><span className="text-sm text-white/40 hover:text-white/70 transition-colors cursor-pointer">الرئيسية</span></Link>
+        <div className="flex items-center justify-center gap-4 mt-8 pt-6 pb-10 border-t border-slate-200">
+          <Link href="/privacy"><span className="text-sm text-slate-400 hover:text-slate-700 transition-colors cursor-pointer">سياسة الخصوصية</span></Link>
+          <span className="text-slate-200">•</span>
+          <Link href="/security"><span className="text-sm text-slate-400 hover:text-slate-700 transition-colors cursor-pointer">الأمان وحماية البيانات</span></Link>
+          <span className="text-slate-200">•</span>
+          <Link href="/"><span className="text-sm text-slate-400 hover:text-slate-700 transition-colors cursor-pointer">الرئيسية</span></Link>
         </div>
       </div>
     </div>

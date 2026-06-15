@@ -14,15 +14,15 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   return (
     <div
       className="border rounded-xl overflow-hidden cursor-pointer"
-      style={{ borderColor: open ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.08)", background: open ? "rgba(99,102,241,0.05)" : "rgba(255,255,255,0.02)", transition: "border-color 0.2s, background 0.2s" }}
+      style={{ borderColor: open ? "rgba(99,102,241,0.4)" : "#E2E8F0", background: open ? "rgba(99,102,241,0.04)" : "#ffffff", transition: "border-color 0.2s, background 0.2s" }}
       onClick={() => setOpen(p => !p)}
     >
       <div className="flex items-center justify-between px-6 py-4">
-        <span className="font-semibold text-white text-sm md:text-base">{q}</span>
-        {open ? <ChevronUp className="w-5 h-5 text-indigo-400 shrink-0" /> : <ChevronDown className="w-5 h-5 text-white/40 shrink-0" />}
+        <span className="font-semibold text-slate-800 text-sm md:text-base">{q}</span>
+        {open ? <ChevronUp className="w-5 h-5 text-indigo-500 shrink-0" /> : <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />}
       </div>
       <div style={{ maxHeight: open ? "300px" : "0", overflow: "hidden", transition: "max-height 0.28s ease" }}>
-        <p className="px-6 pb-4 text-white/60 text-sm leading-relaxed">{a}</p>
+        <p className="px-6 pb-4 text-slate-600 text-sm leading-relaxed">{a}</p>
       </div>
     </div>
   );
@@ -101,22 +101,22 @@ export default function ReferralPage() {
   ];
 
   return (
-    <div dir={isAr ? "rtl" : "ltr"} className="min-h-screen" style={{ background: "#080F1E", fontFamily: "Cairo, sans-serif" }}>
+    <div dir={isAr ? "rtl" : "ltr"} className="min-h-screen" style={{ background: "#F8FAFC", fontFamily: "Cairo, sans-serif" }}>
 
       {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b" style={{ background: "rgba(8,15,30,0.95)", backdropFilter: "blur(12px)", borderColor: "rgba(255,255,255,0.07)" }}>
+      <header className="sticky top-0 z-50 border-b border-slate-200" style={{ background: "rgba(255,255,255,0.95)", backdropFilter: "blur(12px)" }}>
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href={`${BASE}/`}>
             <div className="flex items-center gap-2.5 cursor-pointer">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)" }}>
-                <Scale className="w-4 h-4 text-[#0D1626]" />
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "#1A56DB" }}>
+                <Scale className="w-4 h-4 text-white" />
               </div>
-              <span className="text-lg font-black text-white">{isAr ? "عدالة AI" : "ADALAH AI"}</span>
+              <span className="text-lg font-black text-slate-800">{isAr ? "عدالة AI" : "ADALAH AI"}</span>
             </div>
           </Link>
           <Link href={`${BASE}/sign-up`}>
-            <button className="font-bold text-sm px-5 py-2.5 rounded-xl transition-all hover:opacity-90"
-              style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626" }}>
+            <button className="font-bold text-sm px-5 py-2.5 rounded-xl transition-all hover:opacity-90 text-white"
+              style={{ background: "#1A56DB" }}>
               {isAr ? "ابدأ مجاناً" : "Start free"}
             </button>
           </Link>
@@ -138,60 +138,59 @@ export default function ReferralPage() {
             {isAr ? (
               <>أحِل زميلاً<br /><span style={{ background: "linear-gradient(135deg,#C9A84C,#F0D060)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>واكسبا معاً شهراً مجانياً</span></>
             ) : (
-              <>Refer a colleague<br /><span style={{ background: "linear-gradient(135deg,#C9A84C,#F0D060)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>and both earn a free month</span></>
+              <>Refer a colleague<br /><span style={{ color: "#1A56DB" }}>and both earn a free month</span></>
             )}
           </h1>
-          <p className="text-white/55 text-lg mb-10 leading-relaxed max-w-xl mx-auto">
+          <p className="text-slate-500 text-lg mb-10 leading-relaxed max-w-xl mx-auto">
             {isAr
               ? "لكل محامٍ تُحيله ويشترك في عدالة AI، تحصل أنت وزميلك على شهر مجاني كامل مُضاف على خطتيكما."
               : "For every lawyer you refer who subscribes to Adalah AI, both of you get a full free month added to your plans."}
           </p>
 
           {/* Demo referral box */}
-          <div className="max-w-lg mx-auto rounded-2xl p-6" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
-            <p className="text-white/50 text-xs mb-3 font-medium">{isAr ? "رابط الإحالة الخاص بك (مثال)" : "Your referral link (example)"}</p>
+          <div className="max-w-lg mx-auto rounded-2xl p-6" style={{ background: "#ffffff", border: "1px solid #E2E8F0" }}>
+            <p className="text-slate-400 text-xs mb-3 font-medium">{isAr ? "رابط الإحالة الخاص بك (مثال)" : "Your referral link (example)"}</p>
             <div className="flex gap-2">
-              <div className="flex-1 px-3 py-2.5 rounded-xl text-sm text-white/60 font-mono truncate"
-                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div className="flex-1 px-3 py-2.5 rounded-xl text-sm text-slate-500 font-mono truncate"
+                style={{ background: "#F8FAFC", border: "1px solid #E2E8F0" }}>
                 {shareUrl}
               </div>
               <button
                 onClick={copyLink}
                 className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-sm transition-all hover:opacity-90"
-                style={{ background: copied ? "rgba(16,185,129,0.2)" : "linear-gradient(135deg,#C9A84C,#E0C060)", color: copied ? "#34D399" : "#0D1626", border: copied ? "1px solid rgba(16,185,129,0.4)" : "none" }}>
+                style={{ background: copied ? "rgba(16,185,129,0.12)" : "#1A56DB", color: copied ? "#10B981" : "#ffffff", border: copied ? "1px solid rgba(16,185,129,0.3)" : "none" }}>
                 {copied ? <><Check className="w-4 h-4" />{isAr ? "تم النسخ" : "Copied"}</> : <><Copy className="w-4 h-4" />{isAr ? "نسخ" : "Copy"}</>}
               </button>
             </div>
 
             {/* Social share */}
             <div className="flex items-center gap-2 mt-4 flex-wrap justify-center">
-              <span className="text-white/30 text-xs">{isAr ? "شارك عبر:" : "Share via:"}</span>
+              <span className="text-slate-400 text-xs">{isAr ? "شارك عبر:" : "Share via:"}</span>
               {shareLinks.map(({ icon: Icon, label, color, href }) => (
                 <a key={label} href={href} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 hover:scale-105"
-                  style={{ background: `${color}18`, color, border: `1px solid ${color}30` }}>
+                  style={{ background: `${color}12`, color, border: `1px solid ${color}25` }}>
                   <Icon className="w-3.5 h-3.5" />
                   {label}
                 </a>
               ))}
             </div>
 
-            <p className="text-white/30 text-xs text-center mt-4">
+            <p className="text-slate-400 text-xs text-center mt-4">
               {isAr ? "* سجّل الدخول للحصول على رابطك الفريد الحقيقي" : "* Sign in to get your real unique referral link"}
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
             <Link href={`${BASE}/sign-up`}>
-              <button className="flex items-center gap-2 font-bold px-8 py-3.5 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] shadow-lg"
-                style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626", boxShadow: "0 8px 32px rgba(201,168,76,0.35)" }}>
+              <button className="flex items-center gap-2 font-bold px-8 py-3.5 rounded-xl text-base text-white transition-all hover:opacity-90 hover:scale-[1.02] shadow-lg"
+                style={{ background: "#1A56DB", boxShadow: "0 8px 32px rgba(26,86,219,0.3)" }}>
                 {isAr ? "سجّل وابدأ الإحالة" : "Sign up & start referring"}
                 {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
               </button>
             </Link>
             <Link href={`${BASE}/sign-in`}>
-              <button className="flex items-center gap-2 font-semibold px-7 py-3.5 rounded-xl text-base border transition-all hover:bg-white/5"
-                style={{ borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)" }}>
+              <button className="flex items-center gap-2 font-semibold px-7 py-3.5 rounded-xl text-base border border-slate-300 text-slate-600 transition-all hover:bg-slate-50">
                 {isAr ? "لديّ حساب — سجّل الدخول" : "I have an account — sign in"}
               </button>
             </Link>
@@ -206,13 +205,13 @@ export default function ReferralPage() {
             const Icon = p.icon;
             return (
               <div key={i} className="p-5 rounded-2xl text-center"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                style={{ background: "#ffffff", border: "1px solid #E2E8F0" }}>
                 <div className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center mb-3"
-                  style={{ background: `${p.color}18`, border: `1px solid ${p.color}30` }}>
+                  style={{ background: `${p.color}12`, border: `1px solid ${p.color}25` }}>
                   <Icon className="w-5 h-5" style={{ color: p.color }} />
                 </div>
-                <p className="font-bold text-white text-sm mb-1">{p.title}</p>
-                <p className="text-white/45 text-xs leading-relaxed">{p.desc}</p>
+                <p className="font-bold text-slate-800 text-sm mb-1">{p.title}</p>
+                <p className="text-slate-400 text-xs leading-relaxed">{p.desc}</p>
               </div>
             );
           })}
@@ -223,16 +222,16 @@ export default function ReferralPage() {
       <section className="py-16 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl font-black text-white mb-3">{isAr ? "كيف يعمل البرنامج؟" : "How does it work?"}</h2>
-            <p className="text-white/50">{isAr ? "أربع خطوات بسيطة" : "Four simple steps"}</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">{isAr ? "كيف يعمل البرنامج؟" : "How does it work?"}</h2>
+            <p className="text-slate-500">{isAr ? "أربع خطوات بسيطة" : "Four simple steps"}</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {STEPS.map((s, i) => (
               <div key={i} className="p-6 rounded-2xl relative"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <div className="text-4xl font-black mb-4" style={{ color: ["#C9A84C","#6366F1","#10B981","#F59E0B"][i] }}>{s.n}</div>
-                <h3 className="font-bold text-white text-sm mb-2">{s.title}</h3>
-                <p className="text-white/50 text-xs leading-relaxed">{s.desc}</p>
+                style={{ background: "#ffffff", border: "1px solid #E2E8F0" }}>
+                <div className="text-4xl font-black mb-4" style={{ color: ["#1A56DB","#6366F1","#10B981","#F59E0B"][i] }}>{s.n}</div>
+                <h3 className="font-bold text-slate-800 text-sm mb-2">{s.title}</h3>
+                <p className="text-slate-500 text-xs leading-relaxed">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -242,7 +241,7 @@ export default function ReferralPage() {
       {/* Social proof */}
       <section className="py-12 px-4">
         <div className="max-w-3xl mx-auto rounded-2xl p-8 text-center"
-          style={{ background: "linear-gradient(135deg,rgba(201,168,76,0.08),rgba(99,102,241,0.08))", border: "1px solid rgba(201,168,76,0.2)" }}>
+          style={{ background: "linear-gradient(135deg,rgba(26,86,219,0.05),rgba(99,102,241,0.05))", border: "1px solid rgba(26,86,219,0.15)" }}>
           <div className="flex justify-center gap-6 mb-6">
             {[
               { v: isAr ? "٣٤٠+" : "340+", l: isAr ? "إحالة ناجحة" : "successful referrals" },
@@ -250,12 +249,12 @@ export default function ReferralPage() {
               { v: isAr ? "٩٥٪" : "95%", l: isAr ? "رضا المُحالين" : "referred user satisfaction" },
             ].map((s, i) => (
               <div key={i} className="text-center">
-                <div className="text-2xl font-black" style={{ color: "#C9A84C" }}>{s.v}</div>
-                <div className="text-white/40 text-xs mt-0.5">{s.l}</div>
+                <div className="text-2xl font-black" style={{ color: "#1A56DB" }}>{s.v}</div>
+                <div className="text-slate-400 text-xs mt-0.5">{s.l}</div>
               </div>
             ))}
           </div>
-          <p className="text-white/50 text-sm">{isAr ? "انضم لآلاف المحامين الذين يشاركون في برنامج الإحالة" : "Join thousands of lawyers participating in the referral program"}</p>
+          <p className="text-slate-500 text-sm">{isAr ? "انضم لآلاف المحامين الذين يشاركون في برنامج الإحالة" : "Join thousands of lawyers participating in the referral program"}</p>
         </div>
       </section>
 
@@ -263,7 +262,7 @@ export default function ReferralPage() {
       <section className="py-16 px-4">
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-10">
-            <h2 className="text-2xl font-black text-white mb-3">{isAr ? "أسئلة شائعة" : "Frequently asked questions"}</h2>
+            <h2 className="text-2xl font-black text-slate-900 mb-3">{isAr ? "أسئلة شائعة" : "Frequently asked questions"}</h2>
           </div>
           <div className="space-y-3">
             {FAQS.map((f, i) => <FAQItem key={i} q={f.q} a={f.a} />)}
@@ -274,21 +273,21 @@ export default function ReferralPage() {
       {/* Final CTA */}
       <section className="py-16 px-4">
         <div className="max-w-2xl mx-auto text-center">
-          <CheckCircle className="w-12 h-12 mx-auto mb-5 text-green-400" />
-          <h2 className="text-2xl sm:text-3xl font-black text-white mb-4">
+          <CheckCircle className="w-12 h-12 mx-auto mb-5 text-green-500" />
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-4">
             {isAr ? "ابدأ الآن وكسب شهراً مجانياً" : "Start now and earn a free month"}
           </h2>
-          <p className="text-white/50 mb-8">{isAr ? "سجّل ثم احصل على رابطك الخاص من لوحة التحكم" : "Sign up then get your unique link from the dashboard"}</p>
+          <p className="text-slate-500 mb-8">{isAr ? "سجّل ثم احصل على رابطك الخاص من لوحة التحكم" : "Sign up then get your unique link from the dashboard"}</p>
           <Link href={`${BASE}/sign-up`}>
-            <button className="inline-flex items-center gap-2 font-bold px-9 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] shadow-xl"
-              style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626", boxShadow: "0 8px 32px rgba(201,168,76,0.4)" }}>
+            <button className="inline-flex items-center gap-2 font-bold px-9 py-4 rounded-xl text-base text-white transition-all hover:opacity-90 hover:scale-[1.02] shadow-xl"
+              style={{ background: "#1A56DB", boxShadow: "0 8px 32px rgba(26,86,219,0.3)" }}>
               {isAr ? "سجّل مجاناً الآن" : "Sign up free now"}
               {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
             </button>
           </Link>
           <div className="mt-6">
             <Link href={`${BASE}/`}>
-              <span className="text-white/30 text-sm hover:text-white/60 transition-colors cursor-pointer">
+              <span className="text-slate-400 text-sm hover:text-slate-700 transition-colors cursor-pointer">
                 {isAr ? "← العودة للصفحة الرئيسية" : "← Back to home"}
               </span>
             </Link>
