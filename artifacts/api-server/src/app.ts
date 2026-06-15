@@ -13,6 +13,7 @@ import {
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import { requestGuard, preventionErrorHandler } from "./prevention/request.guard";
+import { IsolationMiddleware } from "./isolation/tenant.scope";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./webhookHandlers";
 import { db } from "@workspace/db";
@@ -138,6 +139,7 @@ app.use((_req, res, next) => {
 });
 
 app.use("/api", requestGuard);
+app.use("/api", IsolationMiddleware);
 app.use("/api", router);
 app.use(preventionErrorHandler);
 
