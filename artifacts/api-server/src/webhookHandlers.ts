@@ -62,6 +62,11 @@ async function downgradeToFree(officeId: string, reason: string) {
 }
 
 export class WebhookHandlers {
+  /**
+   * Main entry point: buffers event → verifies signature → dispatches with
+   * retry (3× exponential backoff) → DLQ on exhaustion.
+   * Signature verification and idempotency are handled inside bufferAndProcess.
+   */
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
     if (!Buffer.isBuffer(payload)) {
       throw new Error(
@@ -69,28 +74,22 @@ export class WebhookHandlers {
         'Ensure webhook route is registered BEFORE app.use(express.json()).'
       );
     }
+    const { bufferAndProcess } = await import('./services/stripeEventBuffer');
+    await bufferAndProcess(payload, signature, async (event) => {
+      await WebhookHandlers.dispatchEvent(event);
+      /* StripeSync runs here so it has the original raw Buffer + signature.
+         dispatchEvent does NOT call it — keeping it clean for DLQ retries. */
+      await runStripeSync(payload, signature).catch(() => {});
+    });
+  }
 
-    /* ── Signature verification ─────────────────────────────── */
-    let event: any;
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-    if (!webhookSecret) {
-      /* SECURITY: Reject ALL webhook requests when the secret is not configured.
-         Accepting requests without signature verification allows any actor to
-         forge Stripe events (subscription activations, refunds, etc.).
-         Set STRIPE_WEBHOOK_SECRET in the environment to enable webhooks. */
-      throw new Error('STRIPE_WEBHOOK_SECRET is not configured — rejecting unverified webhook. Set the secret in environment variables.');
-    }
-
-    try {
-      const stripe = await getUncachableStripeClient();
-      event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-    } catch (err) {
-      console.error('[Webhook] Signature verification failed — rejecting event');
-      throw new Error('Webhook signature verification failed');
-    }
-
-    const eventId   = event.id as string;
+  /**
+   * Dispatch a verified, deduplicated Stripe event to the correct handler.
+   * Called by processWebhook (via bufferAndProcess) AND directly by DLQ retry.
+   * StripeSync is intentionally NOT called here.
+   */
+  static async dispatchEvent(event: any): Promise<void> {
+    const eventId   = event.id   as string;
     const eventType = event.type as string;
     console.log(`[Webhook] Processing event: ${eventType} (${eventId})`);
 
@@ -234,18 +233,20 @@ export class WebhookHandlers {
       const attempt   = inv?.attempt_count ?? 1;
 
       try {
-        await db.execute(sql`
-          UPDATE subscriptions SET status = 'past_due' WHERE office_id = ${officeId}
-        `).catch(() => {});
+        /* TRANSACTION: subscription status + notification are atomic */
+        await db.transaction(async (tx) => {
+          await tx.execute(sql`
+            UPDATE subscriptions SET status = 'past_due' WHERE office_id = ${officeId}
+          `);
+          await tx.execute(sql`
+            INSERT INTO plan_notifications (office_id, type, old_plan, new_plan, title, message, is_read)
+            VALUES (${officeId}, 'downgrade', 'paid', 'paid',
+              ${'فشل تجديد الاشتراك ❌ (محاولة ' + attempt + ')'},
+              'فشلت عملية الدفع. يُرجى تحديث بيانات بطاقتك لتجنب تعليق الخدمة.', FALSE)
+          `);
+        });
 
-        await db.execute(sql`
-          INSERT INTO plan_notifications (office_id, type, old_plan, new_plan, title, message, is_read)
-          VALUES (${officeId}, 'downgrade', 'paid', 'paid',
-            ${'فشل تجديد الاشتراك ❌ (محاولة ' + attempt + ')'},
-            'فشلت عملية الدفع. يُرجى تحديث بيانات بطاقتك لتجنب تعليق الخدمة.', FALSE)
-        `).catch(() => {});
-
-        /* Auto-downgrade after 3 failed attempts */
+        /* Auto-downgrade after 3 failed attempts (separate — provisionTenant has its own logic) */
         if (attempt >= 3) {
           await downgradeToFree(officeId, `تم تخفيض الباقة إلى المجاني بعد ${attempt} محاولات دفع فاشلة.`);
         }
@@ -375,8 +376,7 @@ export class WebhookHandlers {
       }
     }
 
-    /* ── StripeSync (handles low-level DB sync) ─────────────── */
-    await runStripeSync(payload, signature);
+    /* StripeSync is called by processWebhook (not here) so DLQ retries stay clean */
   }
 }
 
