@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Activity, Shield, Zap, AlertTriangle, CheckCircle2, XCircle,
   RefreshCw, Play, Database, Cpu, Server, Clock, TrendingUp,
-  Wifi, WifiOff, ChevronRight, Terminal, BarChart3, FlaskConical
+  Wifi, WifiOff, ChevronRight, Terminal, BarChart3, FlaskConical,
+  CreditCard, Bell, ShieldCheck, AlertCircle
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -66,10 +67,13 @@ function SeverityChip({ s }: { s: string }) {
 }
 
 const TAB_ITEMS = [
-  { id: "overview",  label: "نظرة عامة",  icon: Activity },
-  { id: "events",    label: "أحداث الإصلاح", icon: Zap },
-  { id: "metrics",   label: "المقاييس",   icon: BarChart3 },
-  { id: "simulate",  label: "محاكاة الأخطاء", icon: FlaskConical },
+  { id: "overview",   label: "نظرة عامة",      icon: Activity },
+  { id: "stripe",     label: "Stripe",          icon: CreditCard },
+  { id: "integrity",  label: "سلامة البيانات",  icon: ShieldCheck },
+  { id: "alerts",     label: "التنبيهات",       icon: Bell },
+  { id: "events",     label: "أحداث الإصلاح",  icon: Zap },
+  { id: "metrics",    label: "المقاييس",        icon: BarChart3 },
+  { id: "simulate",   label: "محاكاة",          icon: FlaskConical },
 ];
 
 export default function MonitoringPage() {
@@ -96,6 +100,27 @@ export default function MonitoringPage() {
     refetchInterval: autoRefresh ? 15000 : false,
   });
 
+  const stripeQ = useQuery({
+    queryKey: ["monitoring-stripe"],
+    queryFn: () => fetchJ(api("/api/monitoring/stripe-check")),
+    enabled: tab === "stripe",
+    refetchInterval: autoRefresh ? 30000 : false,
+  });
+
+  const integrityQ = useQuery({
+    queryKey: ["monitoring-integrity"],
+    queryFn: () => fetchJ(api("/api/monitoring/db-integrity")),
+    enabled: tab === "integrity",
+    refetchInterval: autoRefresh ? 60000 : false,
+  });
+
+  const alertsLogQ = useQuery({
+    queryKey: ["monitoring-alerts-log"],
+    queryFn: () => fetchJ(api("/api/monitoring/alerts-log?limit=50")),
+    enabled: tab === "alerts",
+    refetchInterval: autoRefresh ? 15000 : false,
+  });
+
   const healMut = useMutation({
     mutationFn: () => fetchJ(api("/api/monitoring/heal"), { method: "POST" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["monitoring-health"] }); },
@@ -116,6 +141,9 @@ export default function MonitoringPage() {
     qc.invalidateQueries({ queryKey: ["monitoring-health"] });
     qc.invalidateQueries({ queryKey: ["monitoring-metrics"] });
     qc.invalidateQueries({ queryKey: ["monitoring-events"] });
+    qc.invalidateQueries({ queryKey: ["monitoring-stripe"] });
+    qc.invalidateQueries({ queryKey: ["monitoring-integrity"] });
+    qc.invalidateQueries({ queryKey: ["monitoring-alerts-log"] });
   }, [qc]);
 
   const health   = healthQ.data;
@@ -353,6 +381,164 @@ export default function MonitoringPage() {
               {m.warn && <div className="text-xs text-orange-500 mt-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />يتجاوز الحد</div>}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── Stripe Tab ── */}
+      {tab === "stripe" && (
+        <div className="space-y-5">
+          {stripeQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ فحص Stripe…</div>}
+          {stripeQ.data && (() => {
+            const d = stripeQ.data;
+            return (
+              <>
+                {/* Summary cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: "إجمالي الأحداث", value: d.totalEvents, icon: CreditCard, color: "blue" },
+                    { label: "تكرارات مشبوهة", value: d.duplicateCount, icon: AlertCircle, color: d.duplicateCount > 0 ? "red" : "emerald", warn: d.duplicateCount > 0 },
+                    { label: "صفوف Ledger", value: d.ledger?.rows ?? 0, icon: Database, color: "purple" },
+                    { label: "جلسات مكتملة", value: d.ledger?.completedSessions ?? 0, icon: CheckCircle2, color: "teal" },
+                  ].map((m, i) => (
+                    <div key={i} className={`bg-white border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-gray-200"}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <m.icon className={`h-4 w-4 text-${m.color}-500`} />
+                        <span className="text-xs text-gray-500">{m.label}</span>
+                      </div>
+                      <div className={`text-2xl font-bold ${m.warn ? "text-red-600" : "text-gray-900"}`}>{m.value}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Health badge */}
+                <div className={`rounded-xl p-4 flex items-center gap-3 border ${
+                  d.health === "green" ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
+                  {d.health === "green"
+                    ? <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                    : <AlertTriangle className="h-5 w-5 text-amber-600" />}
+                  <span className={`text-sm font-semibold ${d.health === "green" ? "text-emerald-800" : "text-amber-800"}`}>
+                    {d.health === "green" ? "لا توجد أحداث مكررة — Stripe سليم" : `${d.duplicateCount} حدث مكرر محتمل`}
+                  </span>
+                </div>
+                {/* Events last 24h */}
+                {(d.last24h ?? []).length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                    <div className="p-4 border-b border-gray-100 flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-gray-500" />
+                      <span className="font-semibold text-gray-800 text-sm">أحداث آخر 24 ساعة</span>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                      {d.last24h.map((row: any, i: number) => (
+                        <div key={i} className="px-4 py-3 flex items-center justify-between">
+                          <span className="text-sm font-mono text-gray-700">{row.type}</span>
+                          <span className="text-sm font-bold text-blue-600">{row.cnt}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ── DB Integrity Tab ── */}
+      {tab === "integrity" && (
+        <div className="space-y-5">
+          {integrityQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ فحص سلامة قاعدة البيانات…</div>}
+          {integrityQ.data && (() => {
+            const d = integrityQ.data;
+            const orphans = d.orphans ?? {};
+            return (
+              <>
+                {/* Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: "إجمالي الجداول", value: d.tableCount, icon: Database, color: "blue" },
+                    { label: "حجم قاعدة البيانات", value: d.dbSize, icon: Server, color: "purple" },
+                    { label: "سجلات يتيمة", value: d.totalOrphans, icon: AlertCircle, color: d.totalOrphans > 0 ? "orange" : "emerald", warn: d.totalOrphans > 0 },
+                    { label: "حالة السلامة", value: d.health === "green" ? "سليم" : d.health === "yellow" ? "تحذير" : "خطر", icon: ShieldCheck, color: d.health === "green" ? "emerald" : d.health === "yellow" ? "orange" : "red" },
+                  ].map((m, i) => (
+                    <div key={i} className={`bg-white border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-gray-200"}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <m.icon className={`h-4 w-4 text-${m.color}-500`} />
+                        <span className="text-xs text-gray-500">{m.label}</span>
+                      </div>
+                      <div className={`text-2xl font-bold ${m.warn ? "text-orange-600" : "text-gray-900"}`}>{m.value}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Orphan breakdown */}
+                <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                  <div className="p-4 border-b border-gray-100 flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-gray-500" />
+                    <span className="font-semibold text-gray-800 text-sm">تفاصيل السجلات اليتيمة</span>
+                    <span className="text-xs text-gray-400 mr-auto">آخر فحص: {new Date(d.checkedAt).toLocaleTimeString("ar-SA")}</span>
+                  </div>
+                  <div className="divide-y divide-gray-50">
+                    {[
+                      { label: "وثائق بلا قضية", value: orphans.documents ?? 0 },
+                      { label: "مهام بلا قضية",  value: orphans.tasks    ?? 0 },
+                      { label: "جدول زمني بلا قضية", value: orphans.timeline ?? 0 },
+                    ].map((row, i) => (
+                      <div key={i} className="px-4 py-3 flex items-center justify-between">
+                        <span className="text-sm text-gray-700">{row.label}</span>
+                        <span className={`text-sm font-bold ${row.value > 0 ? "text-orange-600" : "text-emerald-600"}`}>
+                          {row.value > 0 ? <><AlertTriangle className="h-3 w-3 inline ml-1" />{row.value}</> : "✓ لا شيء"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {d.health !== "green" && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                    السجلات اليتيمة لا تؤثر على الأداء لكن يُنصح بمراجعتها دورياً. تواصل مع فريق التقنية للتنظيف.
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ── Alerts Tab ── */}
+      {tab === "alerts" && (
+        <div className="space-y-4">
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4 text-gray-500" />
+                <span className="font-semibold text-gray-800">سجل التنبيهات التاريخي</span>
+              </div>
+              <span className="text-xs text-gray-400">{alertsLogQ.data?.alerts?.length ?? 0} تنبيه</span>
+            </div>
+            <div className="divide-y divide-gray-50 max-h-[540px] overflow-y-auto">
+              {alertsLogQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ التحميل…</div>}
+              {!alertsLogQ.isLoading && (alertsLogQ.data?.alerts ?? []).length === 0 && (
+                <div className="p-8 text-center text-gray-400 text-sm flex flex-col items-center gap-2">
+                  <Bell className="h-8 w-8 text-gray-300" />
+                  لا توجد تنبيهات مسجلة — النظام يعمل بسلاسة
+                </div>
+              )}
+              {(alertsLogQ.data?.alerts ?? []).map((al: any) => (
+                <div key={al.id} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50">
+                  <div className="flex items-center gap-3">
+                    <SeverityChip s={al.severity} />
+                    <span className="text-sm text-gray-800">{al.message}</span>
+                  </div>
+                  <span className="text-xs text-gray-400 shrink-0 mr-4">
+                    {new Date(al.created_at).toLocaleString("ar-SA")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Buffer alerts (in-memory, current session) */}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-700 flex items-center gap-2">
+            <Bell className="h-3.5 w-3.5 shrink-0" />
+            التنبيهات المعروضة هي فقط التي أُرسلت عبر نظام ALERT. تنبيهات الجلسة الحالية تظهر بعد كل دورة مراقبة (60 ثانية).
+          </div>
         </div>
       )}
 
