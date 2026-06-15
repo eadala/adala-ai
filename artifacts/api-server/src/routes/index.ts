@@ -172,9 +172,11 @@ import aiEventsRouter from "./aiEvents";
 import searchRouter from "./search";
 import platformCommandRouter from "./platformCommand";
 import agentRuntimeRouter from "./agentRuntime";
+import journalAccountingRouter from "./journalAccounting";
 router.use(aiEventsRouter);
 router.use(searchRouter);
 router.use(platformCommandRouter);
 router.use(agentRuntimeRouter);
+router.use(journalAccountingRouter);
 
 export default router;

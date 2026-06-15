@@ -1,7 +1,7 @@
 import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 import { db } from "@workspace/db";
+import { autoPostJournalEntry, ensureJournalTables } from "./journalAccounting";
 import {
   revenuesTable, expensesTable, bankAccountsTable, cashAdvancesTable,
 } from "@workspace/db/schema";
@@ -46,11 +46,37 @@ router.get("/accounting/revenues", requireAuthWithTenant, async (_req, res) => {
 
 router.post("/accounting/revenues", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const { title, category, amount, paymentMethod, date, clientId, caseId, notes } = req.body;
     const [row] = await db.insert(revenuesTable).values({
       title, category, amount: String(amount), paymentMethod,
       date: date ?? today(), clientId, caseId, notes,
     }).returning();
+
+    /* ── القيد التلقائي: مدين الصندوق/البنك ← دائن الإيرادات ── */
+    const cashAccount  = paymentMethod === "bank" ? { code: "1120", name: "البنك الرئيسي" } : { code: "1110", name: "الصندوق" };
+    const revAccount   = category === "أتعاب قضائية"     ? { code: "4100", name: "أتعاب قضائية" }
+                       : category === "أتعاب استشارية"   ? { code: "4200", name: "أتعاب استشارية" }
+                       : category === "أتعاب عقود"       ? { code: "4300", name: "أتعاب عقود وتوثيق" }
+                       : { code: "4500", name: "إيرادات أخرى" };
+
+    ensureJournalTables(tenantId).then(() =>
+      autoPostJournalEntry({
+        officeId:        tenantId,
+        description:     `إيراد: ${title}`,
+        referenceType:   "revenue",
+        referenceId:     row.id,
+        date:            date ?? today(),
+        amount:          num(amount),
+        debitCode:       cashAccount.code,
+        debitName:       cashAccount.name,
+        debitType:       "Asset",
+        creditCode:      revAccount.code,
+        creditName:      revAccount.name,
+        creditType:      "Revenue",
+      })
+    ).catch(() => {});
+
     res.json(row);
   } catch (e) { console.error(e); res.status(500).json({ error: "خطأ في إضافة الإيراد" }); }
 });
@@ -85,11 +111,40 @@ router.get("/accounting/expenses", requireAuthWithTenant, async (_req, res) => {
 
 router.post("/accounting/expenses", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId;
     const { title, category, amount, paymentMethod, date, vendor, notes } = req.body;
     const [row] = await db.insert(expensesTable).values({
       title, category, amount: String(amount), paymentMethod,
       date: date ?? today(), vendor, notes,
     }).returning();
+
+    /* ── القيد التلقائي: مدين المصروف ← دائن الصندوق/البنك ── */
+    const cashAccount = paymentMethod === "bank" ? { code: "1120", name: "البنك الرئيسي" } : { code: "1110", name: "الصندوق" };
+    const expAccount  = category === "رواتب"           ? { code: "5100", name: "رواتب ومكافآت" }
+                      : category === "إيجار"           ? { code: "5200", name: "إيجار المكتب" }
+                      : category === "اتصالات"         ? { code: "5300", name: "اتصالات وإنترنت" }
+                      : category === "تسويق"           ? { code: "5500", name: "تسويق وإعلان" }
+                      : category === "نقل"             ? { code: "5600", name: "نقل ومواصلات" }
+                      : category === "رسوم حكومية"     ? { code: "5700", name: "رسوم حكومية وقضائية" }
+                      : { code: "5900", name: "مصروفات متنوعة" };
+
+    ensureJournalTables(tenantId).then(() =>
+      autoPostJournalEntry({
+        officeId:        tenantId,
+        description:     `مصروف: ${title}`,
+        referenceType:   "expense",
+        referenceId:     row.id,
+        date:            date ?? today(),
+        amount:          num(amount),
+        debitCode:       expAccount.code,
+        debitName:       expAccount.name,
+        debitType:       "Expense",
+        creditCode:      cashAccount.code,
+        creditName:      cashAccount.name,
+        creditType:      "Asset",
+      })
+    ).catch(() => {});
+
     res.json(row);
   } catch (e) { console.error(e); res.status(500).json({ error: "خطأ في إضافة المصروف" }); }
 });

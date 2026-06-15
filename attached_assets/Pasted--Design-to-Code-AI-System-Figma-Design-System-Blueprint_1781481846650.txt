@@ -1,0 +1,324 @@
+تمام—سأعطيك الآن Design-to-Code AI System + Figma Design System Blueprint بحيث تتحول “عدالة” إلى نظام تصميم + تنفيذ تلقائي (real product pipeline).
+
+⸻
+
+🎨⚙️ Adala Design-to-Code System (D2C Engine)
+
+🎯 الفكرة
+
+بدل ما التصميم يكون يدوي → يصبح عندك نظام:
+
+Figma → Tokens → Components → React Code تلقائي
+
+⸻
+
+🧠 1) المعمارية
+
+Figma Design
+   ↓
+Design Tokens Extractor
+   ↓
+Component Mapper
+   ↓
+Code Generator (React + Tailwind)
+   ↓
+Adala UI Runtime
+
+⸻
+
+🎨 2) Figma Design System Blueprint
+
+🧱 Pages داخل Figma
+
+1) Foundations
+
+* Colors
+* Typography
+* Spacing
+* Radius
+* Shadows
+
+⸻
+
+2) Components
+
+* Buttons
+* Inputs
+* Cards
+* Tables
+* Badges
+* Modals
+
+⸻
+
+3) Layouts
+
+* Dashboard
+* Case View
+* Client Portal
+* Contracts Page
+* AI Copilot Panel
+
+⸻
+
+4) Templates
+
+* Case Detail Page
+* Legal Timeline
+* Invoice Page
+* Task Board
+
+⸻
+
+🎨 3) Design Tokens (Figma Variables)
+
+Colors
+
+Background: #FFFFFF
+Surface: #F9FAFB
+Border: #E5E7EB
+Text Primary: #111827
+Text Secondary: #6B7280
+Primary: #2563EB
+Success: #16A34A
+Warning: #F59E0B
+Danger: #DC2626
+
+⸻
+
+Spacing System
+
+4 / 8 / 12 / 16 / 24 / 32 / 48
+
+⸻
+
+Radius
+
+6px / 10px / 14px / 18px
+
+⸻
+
+Typography
+
+H1: 32–40px Bold
+H2: 24–32px SemiBold
+Body: 14–16px Regular
+Caption: 12px
+
+⸻
+
+⚙️ 4) Design Token Sync Engine
+
+📁 tools/figma-sync.ts
+
+export async function syncTokens(figmaData: any) {
+  const tokens = {
+    colors: figmaData.colors,
+    spacing: figmaData.spacing,
+    typography: figmaData.textStyles,
+  };
+  await saveToProject("/tokens/design-tokens.json", tokens);
+  return tokens;
+}
+
+⸻
+
+🧩 5) Component Mapper (Figma → React)
+
+📁 tools/component-mapper.ts
+
+export function mapComponent(figmaNode: any) {
+  switch (figmaNode.type) {
+    case "BUTTON":
+      return `
+        <Button variant="${figmaNode.variant}">
+          ${figmaNode.text}
+        </Button>
+      `;
+    case "CARD":
+      return `
+        <Card>
+          ${figmaNode.children}
+        </Card>
+      `;
+    case "INPUT":
+      return `<Input placeholder="${figmaNode.placeholder}" />`;
+    default:
+      return `<div>${figmaNode.children}</div>`;
+  }
+}
+
+⸻
+
+⚡ 6) Code Generator Engine
+
+📁 tools/code-generator.ts
+
+export function generateReact(componentTree: any) {
+  return componentTree.map((node: any) => {
+    if (node.type === "CARD") {
+      return `
+        <Card>
+          ${generateReact(node.children)}
+        </Card>
+      `;
+    }
+    if (node.type === "TEXT") {
+      return `<p>${node.content}</p>`;
+    }
+    return "";
+  }).join("\n");
+}
+
+⸻
+
+🧠 7) AI Layout Generator (Adala Copilot)
+
+يحول فكرة إلى UI تلقائي
+
+export async function generateLayout(prompt: string) {
+  return {
+    layout: "dashboard",
+    components: [
+      "stats-cards",
+      "case-list",
+      "copilot-panel",
+    ],
+  };
+}
+
+⸻
+
+🏛️ 8) UI Runtime (تشغيل التصميم)
+
+export function RuntimeLayout({ config }: any) {
+  return (
+    <div className="min-h-screen bg-white">
+      {config.components.includes("stats-cards") && (
+        <StatsCards />
+      )}
+      {config.components.includes("case-list") && (
+        <CaseList />
+      )}
+      {config.components.includes("copilot-panel") && (
+        <CopilotPanel />
+      )}
+    </div>
+  );
+}
+
+⸻
+
+🔄 9) Full Pipeline (كيف النظام يعمل)
+
+Figma Design
+   ↓
+Export JSON
+   ↓
+Token Sync
+   ↓
+Component Mapping
+   ↓
+React Code Generation
+   ↓
+UI Runtime
+   ↓
+Production Deployment
+
+⸻
+
+🧠 10) Adala Figma Structure (جاهز للتنفيذ)
+
+الصفحات داخل Figma:
+
+🟢 1. Design System
+
+* Colors
+* Typography
+* Spacing
+* Grid
+
+🔵 2. Components
+
+* Buttons
+* Inputs
+* Cards
+* Tables
+* Tags
+* Modals
+
+⚖️ 3. Legal App Screens
+
+* Dashboard
+* Case Detail
+* Client Profile
+* Contracts
+* Invoice
+* AI Copilot Panel
+
+🧠 4. AI Screens
+
+* Case Analysis View
+* Risk Dashboard
+* Suggestions Panel
+
+⸻
+
+📱 11) قواعد التصميم (Golden Rules)
+
+❌ ممنوع:
+
+* fixed width layouts
+* heavy gradients
+* multi-color chaos
+* inconsistent spacing
+
+✅ مطلوب:
+
+* single design language
+* white-first UI
+* consistent spacing system
+* mobile-first structure
+* reusable components only
+
+⸻
+
+🚀 النتيجة النهائية
+
+بعد تطبيق هذا النظام:
+
+عدالة تصبح:
+
+🧱 Design System Platform
+
+→ ليست مجرد واجهة
+
+⚙️ + Code Generation System
+
+→ توليد صفحات تلقائيًا
+
+🧠 + AI UI Builder
+
+→ تصميم → يتحول إلى كود مباشرة
+
+⸻
+
+🔥 أقوى نقطة
+
+أنت الآن تملك:
+
+“نظام يصمم ويبرمج واجهة المنصة بدل المطور”
+
+⸻
+
+إذا تبغى الخطوة التالية (المستوى الأعلى)
+
+أقدر أبني لك:
+
+🔵 AI UI Builder داخل عدالة (تكتب وصف → يولد صفحة كاملة)
+
+🔵 أو Figma Plugin جاهز يربط مباشرة بالمشروع
+
+🔵 أو نظام Component Marketplace داخلي للمحامين
+
+قل: ￼ أبغى AI UI Builder الكامل
