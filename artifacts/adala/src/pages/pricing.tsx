@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 /* ═══════════════════════════════════════ CONSTANTS ══════════════════════════════ */
 
-const GOLD = "#C9A84C";
+const GOLD = "#1A56DB";
 
 /* ═══════════════════════════════════════ PLANS DATA ═════════════════════════════ */
 
@@ -349,7 +349,7 @@ export default function PricingPage() {
             <span className="font-black text-sm">عدالة AI</span>
           </div>
           <a href="/sign-up">
-            <Button size="sm" style={{ background: GOLD, color: "#000" }} className="font-bold gap-1.5 text-xs">
+            <Button size="sm" style={{ background: GOLD, color: "#fff" }} className="font-bold gap-1.5 text-xs">
               ابدأ مجاناً
             </Button>
           </a>
@@ -458,7 +458,7 @@ export default function PricingPage() {
                     <div
                       className="text-[9px] font-black px-3 py-1 rounded-b-xl whitespace-nowrap"
                       style={plan.recommended
-                        ? { background: GOLD, color: "#000" }
+                        ? { background: GOLD, color: "#fff" }
                         : { background: `${plan.color}30`, color: plan.color, border: `1px solid ${plan.color}40`, borderTop: "none" }}
                     >
                       {plan.badge}
@@ -551,7 +551,7 @@ export default function PricingPage() {
                     <Button
                       className="w-full py-5 font-black text-xs gap-1.5 transition-all hover:opacity-90"
                       style={plan.recommended
-                        ? { background: `linear-gradient(135deg, ${GOLD}, #f0d060)`, color: "#000" }
+                        ? { background: GOLD, color: "#fff" }
                         : plan.monthly === 0
                         ? { background: `${plan.color}25`, color: plan.color, border: `1px solid ${plan.color}35` }
                         : { background: `${plan.color}18`, color: plan.color, border: `1px solid ${plan.color}30` }}
@@ -667,7 +667,7 @@ export default function PricingPage() {
                         size="sm"
                         className="w-full text-[10px] font-bold py-3"
                         style={plan.recommended
-                          ? { background: `linear-gradient(135deg, ${GOLD}, #f0d060)`, color: "#000" }
+                          ? { background: GOLD, color: "#fff" }
                           : { background: `${plan.color}15`, color: plan.color, border: `1px solid ${plan.color}25` }}
                       >
                         {plan.cta}
@@ -826,9 +826,9 @@ export default function PricingPage() {
               />
               <label htmlFor="terms-cta" className="text-sm text-white/55 cursor-pointer leading-relaxed">
                 أقر بأنني اطلعت على{" "}
-                <Link href="/terms"><span className="text-[#C9A84C] hover:underline cursor-pointer">الشروط والأحكام</span></Link>
+                <Link href="/terms"><span className="text-blue-600 hover:underline cursor-pointer">الشروط والأحكام</span></Link>
                 {" "}و{" "}
-                <Link href="/privacy"><span className="text-[#C9A84C] hover:underline cursor-pointer">سياسة الخصوصية</span></Link>
+                <Link href="/privacy"><span className="text-blue-600 hover:underline cursor-pointer">سياسة الخصوصية</span></Link>
                 {" "}وأوافق عليهما
               </label>
             </div>
@@ -837,7 +837,7 @@ export default function PricingPage() {
                 <Button
                   size="lg"
                   className="gap-2 px-8 py-6 text-base font-black shadow-2xl transition-opacity"
-                  style={{ background: acceptedTerms ? `linear-gradient(135deg, ${GOLD}, #f0d060)` : "rgba(255,255,255,0.1)", color: acceptedTerms ? "#000" : "rgba(255,255,255,0.3)" }}
+                  style={{ background: acceptedTerms ? GOLD : "rgba(255,255,255,0.1)", color: acceptedTerms ? "#fff" : "rgba(255,255,255,0.3)" }}
                   disabled={!acceptedTerms}
                 >
                   <Zap className="h-5 w-5" />
