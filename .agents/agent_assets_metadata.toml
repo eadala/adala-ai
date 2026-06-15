@@ -24,3 +24,9 @@ id = "30X3WPJcmi8yosCo-AaQV"
 uri = "file://STRIPE_PRODUCTION_AUDIT.md"
 type = "text"
 title = "STRIPE_PRODUCTION_AUDIT.md"
+
+[[outputs]]
+id = "HSyBaaqrq3dCg9cacuxJ7"
+uri = "file://ADALA_PLATFORM_AUDIT_REPORT.md"
+type = "text"
+title = "تقرير التدقيق الشامل — ADALA AI Platform Audit"
