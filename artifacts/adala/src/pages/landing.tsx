@@ -126,9 +126,9 @@ function DashboardMock() {
         <div className="w-3 h-3 rounded-full bg-green-400/70" />
         <div className="flex-1 mx-4 px-3 py-1 rounded text-xs text-white/30 text-center" style={{ background: "rgba(255,255,255,0.04)" }}>app.adalah-ai.sa</div>
       </div>
-      <div className="flex gap-1 px-4 pt-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      <div className="flex gap-1 px-4 pt-3 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", scrollbarWidth: "none" }}>
         {TABS.map((tab, i) => (
-          <button key={i} onClick={() => setActive(i)} className="px-3 py-2 text-xs font-medium rounded-t transition-all"
+          <button key={i} onClick={() => setActive(i)} className="flex-shrink-0 px-3 py-2 text-xs font-medium rounded-t transition-all"
             style={{ color: active === i ? "#C9A84C" : "rgba(255,255,255,0.4)", borderBottom: active === i ? "2px solid #C9A84C" : "2px solid transparent" }}>
             {tab}
           </button>
@@ -475,7 +475,7 @@ export default function Landing() {
           <div className="absolute bottom-1/4 left-1/4 w-64 h-64 rounded-full blur-[100px] opacity-15" style={{ background: "#6366F1" }} />
         </div>
 
-        <div className="max-w-7xl mx-auto w-full grid lg:grid-cols-2 gap-12 items-center">
+        <div className="max-w-7xl mx-auto w-full grid lg:grid-cols-2 gap-8 lg:gap-12 items-center overflow-hidden">
           <div className={textAlign}>
             <div className="lp-hero-0 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-6"
               style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", color: "var(--lp-accent, #C9A84C)" }}>
@@ -520,7 +520,7 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="lp-hero-mock">
+          <div className="lp-hero-mock w-full overflow-hidden">
             <DashboardMock />
           </div>
         </div>
