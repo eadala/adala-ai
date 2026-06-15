@@ -1,0 +1,136 @@
+إذا كان مشروع عدالة وصل لهذه المرحلة، فأقوى أمر يمكنك إعطاؤه لـ Replit الآن ليس “ابنِ ميزة جديدة”، بل:
+
+افهم المشروع بالكامل أولاً، ثم أعطني تقريراً دقيقاً قبل أي تعديل.
+
+استخدم هذا الأمر:
+
+🚨 ADALA AI PLATFORM AUDIT & MASTER ALIGNMENT
+Read and analyze the entire codebase.
+Treat PROJECT_CONSTITUTION.md (or ADALA_MASTER_SPEC.md) as the official source of truth for the platform.
+IMPORTANT RULES:
+- Do NOT refactor anything yet.
+- Do NOT modify code yet.
+- Do NOT delete files.
+- Do NOT change database schema.
+- Do NOT create new features yet.
+FIRST TASK:
+Perform a complete platform audit and generate:
+ADALA_PLATFORM_AUDIT_REPORT.md
+The report must include:
+==================================================
+1. CURRENT SYSTEM INVENTORY
+==================================================
+- Frontend architecture
+- Backend architecture
+- Database architecture
+- Authentication architecture
+- Payment architecture
+- AI architecture
+- Multi-tenant architecture
+==================================================
+2. FEATURE INVENTORY
+==================================================
+List every implemented module:
+- Cases
+- Clients
+- Documents
+- Tasks
+- Hearings
+- Billing
+- Accounting
+- HR
+- Reports
+- AI
+- Notifications
+- Website Builder
+- Client Portal
+- Marketplace
+- Any other modules
+For each module provide:
+- Completion %
+- Status
+- Technical quality
+- Production readiness
+==================================================
+3. GAP ANALYSIS
+==================================================
+Compare current implementation against PROJECT_CONSTITUTION.md.
+Classify:
+✅ Implemented
+🟡 Partially Implemented
+🔴 Missing
+==================================================
+4. SECURITY AUDIT
+==================================================
+Verify:
+- Tenant isolation
+- RBAC permissions
+- Authentication
+- Authorization
+- Audit logs
+- File security
+- CSP
+- XSS protection
+- CSRF protection
+- Rate limiting
+Provide evidence.
+==================================================
+5. DATABASE AUDIT
+==================================================
+Analyze:
+- All tables
+- Relationships
+- Duplicates
+- Dead tables
+- Unused tables
+- Missing indexes
+- Performance risks
+==================================================
+6. CODE QUALITY AUDIT
+==================================================
+Identify:
+- Large files
+- Duplicate logic
+- Dead code
+- Legacy code
+- Unused components
+- Technical debt
+Rank by severity.
+==================================================
+7. PERFORMANCE AUDIT
+==================================================
+Analyze:
+- Bundle size
+- Route loading
+- Query efficiency
+- Mobile performance
+- Lighthouse readiness
+==================================================
+8. PRODUCTION READINESS
+==================================================
+Provide a score from 0–100.
+Classify:
+- Production Ready
+- Production Ready With Warnings
+- Not Production Ready
+==================================================
+9. IMPLEMENTATION ROADMAP
+==================================================
+Create a phased roadmap:
+Phase 1 (Critical)
+Phase 2 (Important)
+Phase 3 (Enhancements)
+Prioritize stability over new features.
+==================================================
+10. FINAL EXECUTIVE SUMMARY
+==================================================
+Provide:
+- Current platform maturity level
+- Biggest risks
+- Biggest opportunities
+- Estimated effort remaining
+IMPORTANT:
+Do not change any code until this report is completed and approved.
+Output only the report and recommendations.
+
+هذا الأمر مناسب جداً في وضعك الحالي لأن المشروع أصبح كبيراً، وأي تطوير جديد بدون تدقيق شامل قد يضيف تعقيداً أو يكسر أجزاء تعمل بالفعل.

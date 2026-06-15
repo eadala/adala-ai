@@ -1,14 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation, useSearch } from "wouter";
 import {
-  Phone, Mail, MapPin, MessageCircle, Star, Globe, Twitter,
-  Linkedin, Facebook, Clock, BadgeCheck, Award, Users, Briefcase,
-  ShoppingBag, ChevronLeft, ChevronDown, Send, CheckCircle2,
-  Loader2, Scale, Menu, X, ExternalLink, FileText, Calendar,
-  Shield, Zap, Trophy, ArrowLeft, ArrowRight, Quote, TrendingUp,
-  BookOpen, Gavel, Home, Building, Car, Heart, DollarSign,
-  ChevronRight, Play, Instagram, Youtube,
+  Phone, Mail, MapPin, MessageCircle, Star, Twitter, Linkedin,
+  Clock, BadgeCheck, Award, Users, Briefcase, ShoppingBag,
+  Send, CheckCircle2, Loader2, Scale, Menu, X, FileText,
+  Shield, Trophy, ArrowLeft, Quote, Gavel, Home, Building,
+  Car, Heart, DollarSign, ChevronDown, ChevronRight,
+  Instagram, Facebook, Globe, Calendar, Sparkles, Zap,
+  ArrowRight, Play, ChevronLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,237 +18,398 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
+/* ═══════════════════════════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════════════════════════ */
 type Lang = "ar" | "en";
-function t(ar: string | null | undefined, en: string | null | undefined, lang: Lang): string {
-  if (lang === "en" && en) return en;
-  return ar ?? "";
-}
-function imgSrc(path: string | null | undefined): string | undefined {
+const t = (ar: string | null | undefined, en: string | null | undefined, lang: Lang) =>
+  lang === "en" && en ? en : ar ?? "";
+const imgSrc = (path: string | null | undefined) => {
   if (!path) return undefined;
   if (path.startsWith("http")) return path;
   return `/api/storage/objects${path.startsWith("/") ? path : "/" + path}`;
-}
-function stars(n: number, size = "h-3.5 w-3.5") {
-  return Array.from({ length: 5 }, (_, i) => (
-    <Star key={i} className={cn(size, i < n ? "fill-yellow-400 text-yellow-400" : "text-gray-600")} />
-  ));
-}
-
-const CATEGORY_ICONS: Record<string, any> = {
-  استشارات: Scale, عقود: FileText, دعاوى: Gavel,
-  توثيق: BadgeCheck, تحكيم: Shield, "أحوال شخصية": Heart,
-  تجاري: Briefcase, عقاري: Home, جنائي: Trophy,
-  مرور: Car, عمالي: Users, إداري: Building,
+};
+const toWaNum = (raw: string) => {
+  const d = raw.replace(/\D/g, "");
+  if (!d) return "";
+  if (d.startsWith("00966")) return d.slice(2);
+  if (d.startsWith("966")) return d;
+  if (d.startsWith("0")) return "966" + d.slice(1);
+  return d.length <= 9 ? "966" + d : d;
 };
 
-/* ═══════════════════════════════════════════════════════════ */
-/* Sub-components                                             */
-/* ═══════════════════════════════════════════════════════════ */
+const CAT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  استشارات: Scale, عقود: FileText, دعاوى: Gavel, توثيق: BadgeCheck,
+  تحكيم: Shield, "أحوال شخصية": Heart, تجاري: Briefcase,
+  عقاري: Home, جنائي: Trophy, مرور: Car, عمالي: Users, إداري: Building,
+};
 
-function AnimatedStat({ val, label, gold, icon }: { val: string; label: string; gold: string; icon: React.ReactNode }) {
+/* ── Theme: derive from primaryColor ──────────────────────────── */
+function useTheme(primaryColor: string | null | undefined) {
+  const c = primaryColor ?? "#1A56DB";
+  return { c, cLight: `${c}15`, cBorder: `${c}30`, cGlow: `${c}40` };
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SUB-COMPONENTS
+═══════════════════════════════════════════════════════════════════ */
+
+/* Animated number counter */
+function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
+  const [val, setVal] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([e]) => {
+        if (!e.isIntersecting) return;
+        observer.disconnect();
+        let start = 0;
+        const step = () => {
+          start += Math.ceil(target / 40);
+          if (start >= target) { setVal(target); return; }
+          setVal(start);
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      },
+      { threshold: 0.4 }
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [target]);
+  return <span ref={ref}>{val.toLocaleString("ar-SA")}{suffix}</span>;
+}
+
+/* Star display */
+function Stars({ n, size = "h-4 w-4", color = "#FBBF24" }: { n: number; size?: string; color?: string }) {
   return (
-    <div className="text-center group">
-      <div className="h-12 w-12 rounded-2xl mx-auto mb-3 flex items-center justify-center transition-transform group-hover:scale-110"
-        style={{ background: `${gold}15`, color: gold }}>
-        {icon}
-      </div>
-      <div className="text-3xl font-black mb-1" style={{ color: gold }}>{val}</div>
-      <div className="text-xs text-slate-500 font-medium">{label}</div>
+    <div className="flex gap-0.5">
+      {Array.from({ length: 5 }, (_, i) => (
+        <Star key={i} className={cn(size, i < n ? "fill-current" : "opacity-20")}
+          style={{ color }} />
+      ))}
     </div>
   );
 }
 
-function ServiceCard({ svc, lang, gold, slug, onOrder, onNegotiate }: {
-  svc: any; lang: Lang; gold: string; slug: string; onOrder: () => void; onNegotiate?: () => void;
+/* Service card — premium bento style */
+function ServiceCard({ svc, lang, theme, slug, onOrder, onNegotiate }: {
+  svc: any; lang: Lang; theme: ReturnType<typeof useTheme>;
+  slug: string; onOrder: () => void; onNegotiate?: () => void;
 }) {
+  const { c, cLight, cBorder } = theme;
+  const Icon = CAT_ICONS[svc.category] ?? Scale;
   const name = t(svc.name, svc.nameEn, lang);
   const desc = t(svc.description, svc.descriptionEn, lang);
-  const Icon = CATEGORY_ICONS[svc.category] ?? Scale;
   return (
-    <div className="group relative p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all flex flex-col overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-t-2xl"
-        style={{ background: `linear-gradient(90deg, transparent, ${gold}, transparent)` }} />
-      <div className="flex items-start gap-3 mb-3">
-        <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-colors"
-          style={{ background: `${gold}15`, color: gold }}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-sm leading-snug mb-0.5">{name}</h3>
-          {svc.category && <Badge className="text-[9px] bg-slate-50 text-slate-500 border-slate-200">{svc.category}</Badge>}
-        </div>
-      </div>
-      {desc && <p className="text-xs text-slate-600 mb-4 flex-1 leading-relaxed line-clamp-3">{desc}</p>}
-      {svc.deliveryDays > 0 && (
-        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-4">
-          <Clock className="h-3 w-3" />
-          {lang === "ar" ? `التسليم خلال ${svc.deliveryDays} يوم` : `${svc.deliveryDays}-day delivery`}
-        </div>
-      )}
-      <div className="pt-3 border-t border-slate-200 mt-auto space-y-2">
-        <div className="flex items-center justify-between">
-          <div>
-            {svc.isCustomQuote ? (
-              <span className="text-xs font-bold text-slate-600">{lang === "ar" ? "حسب العرض" : "Custom Quote"}</span>
-            ) : (
-              <>
-                <span className="text-xl font-black" style={{ color: gold }}>{Number(svc.price).toLocaleString()}</span>
-                <span className="text-xs text-slate-500 mr-1">{lang === "ar" ? "ر.س" : "SAR"}</span>
-              </>
-            )}
+    <div className="group relative flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-slate-300 hover:shadow-lg transition-all duration-300">
+      {/* top accent line */}
+      <div className="h-0.5 w-0 group-hover:w-full transition-all duration-500 rounded-t-full" style={{ background: c }} />
+      <div className="p-6 flex flex-col flex-1">
+        {/* icon + category */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="h-11 w-11 rounded-xl flex items-center justify-center" style={{ background: cLight, color: c }}>
+            <Icon className="h-5 w-5" />
           </div>
-        </div>
-        <div className="flex gap-2">
-          <a href={`/firms/${slug}/service/${svc.id}`}
-            className="flex-1 flex items-center justify-center gap-1 rounded-md border text-xs font-bold px-3 py-1.5 transition-colors"
-            style={{ borderColor: `${gold}40`, color: gold, background: `${gold}08` }}>
-            {lang === "ar" ? "التفاصيل" : "Details"}
-          </a>
-          {onNegotiate && !svc.isCustomQuote && (
-            <Button size="sm" variant="outline" className="flex-1 text-xs font-bold"
-              style={{ borderColor: `${gold}40`, color: gold, background: `${gold}08` }}
-              onClick={onNegotiate}>
-              <MessageCircle className="h-3 w-3 ml-1" />
-              {lang === "ar" ? "تفاوض" : "Negotiate"}
-            </Button>
+          {svc.category && (
+            <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background: cLight, color: c }}>
+              {svc.category}
+            </span>
           )}
-          <Button size="sm" className="flex-1 text-xs font-bold" style={{ background: gold, color: "#000" }}
-            onClick={onOrder}>
-            {svc.isCustomQuote ? (lang === "ar" ? "اطلب عرضاً" : "Get Quote") : (lang === "ar" ? "اطلب الآن" : "Order")}
-          </Button>
+        </div>
+
+        <h3 className="font-bold text-slate-900 mb-2 leading-snug">{name}</h3>
+        {desc && <p className="text-sm text-slate-500 mb-4 flex-1 leading-relaxed line-clamp-2">{desc}</p>}
+
+        {svc.deliveryDays > 0 && (
+          <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-4">
+            <Clock className="h-3 w-3" />
+            {lang === "ar" ? `تسليم خلال ${svc.deliveryDays} يوم` : `${svc.deliveryDays}-day delivery`}
+          </div>
+        )}
+
+        {/* price + actions */}
+        <div className="pt-4 border-t border-slate-100 mt-auto">
+          <div className="flex items-center justify-between mb-3">
+            {svc.isCustomQuote ? (
+              <div className="flex items-center gap-1.5">
+                <DollarSign className="h-4 w-4 text-slate-400" />
+                <span className="text-sm font-bold text-slate-500">
+                  {lang === "ar" ? "سعر حسب الطلب" : "Custom Quote"}
+                </span>
+              </div>
+            ) : (
+              <div>
+                <span className="text-2xl font-black" style={{ color: c }}>
+                  {Number(svc.price).toLocaleString("ar-SA")}
+                </span>
+                <span className="text-xs text-slate-400 mr-1">{lang === "ar" ? " ر.س" : " SAR"}</span>
+              </div>
+            )}
+            <a href={`/firms/${slug}/service/${svc.id}`}
+              className="text-xs font-semibold hover:underline" style={{ color: c }}>
+              {lang === "ar" ? "التفاصيل" : "Details"}
+            </a>
+          </div>
+
+          <div className="flex gap-2">
+            {onNegotiate && !svc.isCustomQuote && (
+              <button onClick={onNegotiate}
+                className="flex-1 py-2 rounded-lg text-xs font-bold border transition-all hover:opacity-80"
+                style={{ borderColor: cBorder, color: c, background: cLight }}>
+                {lang === "ar" ? "تفاوض" : "Negotiate"}
+              </button>
+            )}
+            <button onClick={onOrder}
+              className="flex-1 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90 shadow-sm"
+              style={{ background: c }}>
+              {svc.isCustomQuote
+                ? (lang === "ar" ? "اطلب عرضاً" : "Get Quote")
+                : (lang === "ar" ? "اطلب الآن" : "Order Now")}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function TeamCard({ m, lang, gold }: { m: any; lang: Lang; gold: string }) {
-  const [expanded, setExpanded] = useState(false);
+/* Team member card */
+function TeamCard({ m, lang, theme }: { m: any; lang: Lang; theme: ReturnType<typeof useTheme> }) {
+  const { c, cLight } = theme;
   const name = t(m.name, m.nameEn, lang);
   const role = t(m.title ?? m.role, m.titleEn ?? m.roleEn, lang);
   const bio = t(m.bio, m.bioEn, lang);
-  const photo = m.photoUrl ?? m.photo;
-  const specialties = m.specialties ?? m.specialtiesEn;
+  const photo = imgSrc(m.photoUrl ?? m.photo);
   return (
-    <div className="group p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all">
-      <div className="flex items-center gap-4 mb-3">
+    <div className="group bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-slate-300 transition-all duration-300">
+      {/* Photo area */}
+      <div className="relative h-48 overflow-hidden" style={{ background: cLight }}>
         {photo ? (
-          <img src={imgSrc(photo)} alt={name} className="h-14 w-14 rounded-xl object-cover ring-2 ring-slate-200 group-hover:ring-slate-300 transition-all" />
+          <img src={photo} alt={name} className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" />
         ) : (
-          <div className="h-14 w-14 rounded-xl flex items-center justify-center text-xl font-black ring-2 ring-slate-200"
-            style={{ background: `${gold}20`, color: gold }}>{(name || "م")[0]}</div>
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="h-20 w-20 rounded-full flex items-center justify-center text-3xl font-black"
+              style={{ background: `${c}25`, color: c }}>{(name || "م")[0]}</div>
+          </div>
         )}
-        <div className="flex-1 min-w-0">
-          <div className="font-bold text-sm leading-snug">{name}</div>
-          {role && <div className="text-xs text-slate-500 mt-0.5 leading-tight">{role}</div>}
-          {specialties && (
-            <div className="text-[10px] mt-1 font-medium line-clamp-1" style={{ color: gold }}>
-              {specialties}
+        {/* gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+      </div>
+      <div className="p-5">
+        <h3 className="font-bold text-slate-900 mb-0.5">{name}</h3>
+        {role && <p className="text-xs font-semibold mb-2" style={{ color: c }}>{role}</p>}
+        {m.specialties && (
+          <p className="text-xs text-slate-400 mb-3 leading-relaxed">{m.specialties}</p>
+        )}
+        {bio && <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">{bio}</p>}
+        {(m.linkedin || m.twitter) && (
+          <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">
+            {m.linkedin && (
+              <a href={m.linkedin} target="_blank" rel="noreferrer"
+                className="h-8 w-8 rounded-lg flex items-center justify-center bg-slate-50 hover:bg-blue-50 transition-colors">
+                <Linkedin className="h-3.5 w-3.5 text-blue-500" />
+              </a>
+            )}
+            {m.twitter && (
+              <a href={m.twitter} target="_blank" rel="noreferrer"
+                className="h-8 w-8 rounded-lg flex items-center justify-center bg-slate-50 hover:bg-sky-50 transition-colors">
+                <Twitter className="h-3.5 w-3.5 text-sky-500" />
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Review card */
+function ReviewCard({ r, theme }: { r: any; theme: ReturnType<typeof useTheme> }) {
+  const { c, cLight } = theme;
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-all">
+      <div className="flex items-start gap-3 mb-4">
+        <div className="h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
+          style={{ background: cLight, color: c }}>
+          {(r.clientName || "م")[0]}
+        </div>
+        <div className="flex-1">
+          <p className="font-bold text-sm text-slate-900">{r.clientName || "عميل"}</p>
+          <Stars n={r.rating} size="h-3.5 w-3.5" color={c} />
+        </div>
+        <Quote className="h-6 w-6 text-slate-200 shrink-0" />
+      </div>
+      {r.comment && <p className="text-sm text-slate-600 leading-relaxed">{r.comment}</p>}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DIALOGS
+═══════════════════════════════════════════════════════════════════ */
+function OrderDialog({
+  svc, slug, lang, theme, onClose,
+}: { svc: any; slug: string; lang: Lang; theme: ReturnType<typeof useTheme>; onClose: () => void }) {
+  const { c, cLight } = theme;
+  const [form, setForm] = useState({ clientName: "", clientPhone: "", clientEmail: "", notes: "" });
+  const [done, setDone] = useState(false);
+  const name = t(svc.name, svc.nameEn, lang);
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (svc.price && !svc.isCustomQuote) {
+        const r = await fetch(`/api/office/public/${slug}/checkout`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ serviceId: svc.id, ...form }),
+        });
+        const d = await r.json();
+        if (d.url) { window.location.href = d.url; return; }
+      }
+      await fetch(`/api/office/public/${slug}/order`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceId: svc.id, ...form, isQuoteRequest: svc.isCustomQuote }),
+      });
+      setDone(true);
+    },
+  });
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md" dir={lang === "ar" ? "rtl" : "ltr"}>
+        <DialogHeader>
+          <DialogTitle className="font-black text-lg">
+            {svc.isCustomQuote ? (lang === "ar" ? "طلب عرض سعر" : "Request Quote") : (lang === "ar" ? "طلب الخدمة" : "Order Service")}
+          </DialogTitle>
+        </DialogHeader>
+
+        {done ? (
+          <div className="text-center py-8">
+            <div className="h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: cLight }}>
+              <CheckCircle2 className="h-8 w-8" style={{ color: c }} />
             </div>
-          )}
-        </div>
-      </div>
-      {bio && (
-        <>
-          <p className={cn("text-xs text-slate-500 leading-relaxed", !expanded && "line-clamp-3")}>{bio}</p>
-          {bio.length > 100 && (
-            <button onClick={() => setExpanded(v => !v)} className="text-[10px] mt-1 font-semibold" style={{ color: gold }}>
-              {expanded ? (lang === "ar" ? "أقل" : "Less") : (lang === "ar" ? "المزيد" : "More")}
-            </button>
-          )}
-        </>
-      )}
-      {m.linkedin && (
-        <div className="flex gap-2 mt-3">
-          <a href={m.linkedin} target="_blank" rel="noreferrer" className="h-7 w-7 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-blue-500/20 transition-colors">
-            <Linkedin className="h-3.5 w-3.5 text-blue-400" />
-          </a>
-          {m.twitter && <a href={m.twitter} target="_blank" rel="noreferrer" className="h-7 w-7 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-sky-500/20 transition-colors"><Twitter className="h-3.5 w-3.5 text-sky-400" /></a>}
-        </div>
-      )}
-    </div>
+            <h3 className="font-black text-lg mb-2">{lang === "ar" ? "تم الإرسال بنجاح!" : "Request Sent!"}</h3>
+            <p className="text-sm text-slate-500">{lang === "ar" ? "سيتواصل معك المكتب قريباً" : "The office will contact you shortly"}</p>
+            <Button className="mt-6 w-full font-bold" onClick={onClose} style={{ background: c }}>
+              {lang === "ar" ? "حسناً" : "OK"}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl flex items-center gap-3" style={{ background: cLight }}>
+              {svc.isCustomQuote ? (
+                <DollarSign className="h-5 w-5" style={{ color: c }} />
+              ) : (
+                <ShoppingBag className="h-5 w-5" style={{ color: c }} />
+              )}
+              <div>
+                <p className="font-bold text-sm">{name}</p>
+                {!svc.isCustomQuote && svc.price && (
+                  <p className="text-xs text-slate-500">{Number(svc.price).toLocaleString("ar-SA")} {lang === "ar" ? "ر.س" : "SAR"}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs mb-1 block">{lang === "ar" ? "الاسم *" : "Name *"}</Label>
+                <Input value={form.clientName} onChange={e => setForm(f => ({ ...f, clientName: e.target.value }))}
+                  placeholder={lang === "ar" ? "اسمك الكامل" : "Full name"} />
+              </div>
+              <div>
+                <Label className="text-xs mb-1 block">{lang === "ar" ? "الجوال *" : "Phone *"}</Label>
+                <Input value={form.clientPhone} onChange={e => setForm(f => ({ ...f, clientPhone: e.target.value }))}
+                  dir="ltr" placeholder="05XXXXXXXX" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs mb-1 block">{lang === "ar" ? "البريد (اختياري)" : "Email (optional)"}</Label>
+              <Input value={form.clientEmail} onChange={e => setForm(f => ({ ...f, clientEmail: e.target.value }))}
+                dir="ltr" type="email" placeholder="email@domain.com" />
+            </div>
+            <div>
+              <Label className="text-xs mb-1 block">{lang === "ar" ? "ملاحظاتك" : "Notes"}</Label>
+              <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                rows={3} placeholder={lang === "ar" ? "تفاصيل إضافية..." : "Additional details..."} className="resize-none" />
+            </div>
+            <Button className="w-full font-bold gap-2 text-white" onClick={() => mut.mutate()}
+              disabled={mut.isPending || !form.clientName || !form.clientPhone}
+              style={{ background: c }}>
+              {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {svc.isCustomQuote ? (lang === "ar" ? "أرسل طلب العرض" : "Send Quote Request") : (lang === "ar" ? "أرسل الطلب" : "Submit Order")}
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function SocialLink({ href, icon, label, hoverColor }: { href: string; icon: React.ReactNode; label: string; hoverColor: string }) {
+function ReviewDialog({ slug, lang, theme, onClose }: {
+  slug: string; lang: Lang; theme: ReturnType<typeof useTheme>; onClose: () => void;
+}) {
+  const { c, cLight } = theme;
+  const [form, setForm] = useState({ clientName: "", rating: 5, comment: "" });
+  const [done, setDone] = useState(false);
+  const mut = useMutation({
+    mutationFn: () => fetch(`/api/office/public/${slug}/review`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    onSuccess: () => setDone(true),
+  });
   return (
-    <a href={href} target="_blank" rel="noreferrer" title={label}
-      className={cn("h-10 w-10 rounded-xl flex items-center justify-center bg-slate-100 border border-slate-200 transition-all hover:scale-110", hoverColor)}>
-      {icon}
-    </a>
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md" dir={lang === "ar" ? "rtl" : "ltr"}>
+        <DialogHeader>
+          <DialogTitle>{lang === "ar" ? "أضف تقييمك" : "Add Your Review"}</DialogTitle>
+        </DialogHeader>
+        {done ? (
+          <div className="text-center py-6">
+            <CheckCircle2 className="h-12 w-12 mx-auto mb-3" style={{ color: c }} />
+            <p className="font-bold">{lang === "ar" ? "شكراً لتقييمك!" : "Thank you for your review!"}</p>
+            <p className="text-xs text-slate-400 mt-1">{lang === "ar" ? "سيُراجع التقييم قبل النشر" : "Your review will be moderated before publishing"}</p>
+            <Button className="mt-4 w-full" onClick={onClose} style={{ background: c }}>
+              {lang === "ar" ? "حسناً" : "Done"}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs mb-1 block">{lang === "ar" ? "اسمك" : "Your Name"}</Label>
+              <Input value={form.clientName} onChange={e => setForm(f => ({ ...f, clientName: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-xs mb-2 block">{lang === "ar" ? "تقييمك" : "Rating"}</Label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <button key={n} onClick={() => setForm(f => ({ ...f, rating: n }))}
+                    className="transition-transform hover:scale-110">
+                    <Star className={cn("h-7 w-7", n <= form.rating ? "fill-current" : "opacity-20")}
+                      style={{ color: c }} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs mb-1 block">{lang === "ar" ? "تعليقك" : "Comment"}</Label>
+              <Textarea value={form.comment} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))}
+                rows={3} className="resize-none" />
+            </div>
+            <Button className="w-full font-bold text-white" onClick={() => mut.mutate()}
+              disabled={mut.isPending || !form.clientName} style={{ background: c }}>
+              {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : lang === "ar" ? "أرسل التقييم" : "Submit Review"}
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function SecHeader({ icon, title, subtitle, gold, noSub }: { icon: React.ReactNode; title: string; subtitle?: string; gold: string; noSub?: boolean }) {
-  return (
-    <div className="mb-1">
-      <div className="inline-flex items-center gap-2 text-xs font-bold mb-3 px-3 py-1.5 rounded-full"
-        style={{ background: `${gold}12`, color: gold, border: `1px solid ${gold}25` }}>
-        <span className="h-3.5 w-3.5">{icon}</span> {title}
-      </div>
-      {!noSub && subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
-    </div>
-  );
-}
-
-function ContactForm({ lang, gold, whatsappUrl, officeName, onOrder }: any) {
-  const [form, setForm] = useState({ name: "", phone: "", subject: "", message: "" });
-  const subjects = lang === "ar"
-    ? ["استشارة قانونية", "إعداد عقد", "قضية في المحكمة", "توثيق", "استفسار عام"]
-    : ["Legal Consultation", "Contract Drafting", "Court Case", "Notarization", "General Inquiry"];
-  const url = whatsappUrl(
-    form.message
-      ? `${lang === "ar" ? "مرحباً،\nالاسم: " : "Hello,\nName: "}${form.name}\n${lang === "ar" ? "الموضوع: " : "Subject: "}${form.subject}\n${lang === "ar" ? "الرسالة: " : "Message: "}${form.message}`
-      : undefined
-  );
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs text-slate-600 mb-1 block">{lang === "ar" ? "الاسم" : "Name"}</Label>
-          <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="bg-slate-50 border-slate-200 text-sm" />
-        </div>
-        <div>
-          <Label className="text-xs text-slate-600 mb-1 block">{lang === "ar" ? "الجوال" : "Phone"}</Label>
-          <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} dir="ltr" className="bg-slate-50 border-slate-200 text-sm" />
-        </div>
-      </div>
-      <div>
-        <Label className="text-xs text-slate-600 mb-1 block">{lang === "ar" ? "الموضوع" : "Subject"}</Label>
-        <div className="flex flex-wrap gap-1.5">
-          {subjects.map(s => (
-            <button key={s} onClick={() => setForm(f => ({ ...f, subject: s }))}
-              className={cn("text-[10px] px-2.5 py-1 rounded-full border transition-all font-medium", form.subject === s ? "text-black border-transparent" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-50")}
-              style={form.subject === s ? { background: gold, borderColor: gold } : {}}>
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <Label className="text-xs text-slate-600 mb-1 block">{lang === "ar" ? "رسالتك" : "Message"}</Label>
-        <Textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} rows={3} className="bg-slate-50 border-slate-200 text-sm resize-none" placeholder={lang === "ar" ? "اكتب استفسارك هنا..." : "Write your inquiry here..."} />
-      </div>
-      <div className="flex gap-2">
-        <a href={url} target="_blank" rel="noreferrer" className="flex-1">
-          <Button className="w-full gap-2 font-bold bg-emerald-600 hover:bg-emerald-700">
-            <MessageCircle className="h-4 w-4" />
-            {lang === "ar" ? "أرسل عبر واتساب" : "Send via WhatsApp"}
-          </Button>
-        </a>
-        <Button variant="outline" className="border-slate-200 hover:bg-slate-50 gap-1.5"
-          onClick={onOrder} style={{ color: gold, borderColor: `${gold}40` }}>
-          <Calendar className="h-4 w-4" />
-          {lang === "ar" ? "احجز" : "Book"}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════ */
-/* Main Component                                             */
-/* ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   MAIN PAGE
+═══════════════════════════════════════════════════════════════════ */
 export default function OfficePage() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
@@ -260,154 +421,91 @@ export default function OfficePage() {
 
   const [lang, setLang] = useState<Lang>("ar");
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState("hero");
   const [orderDialog, setOrderDialog] = useState<any>(null);
   const [dealDialog, setDealDialog] = useState<any>(null);
-  const [dealStep, setDealStep] = useState<"form" | "sent">("form");
-  const [dealForm, setDealForm] = useState({ clientName: "", clientPhone: "", clientEmail: "", offerPrice: "", notes: "" });
   const [reviewDialog, setReviewDialog] = useState(false);
-  const [orderForm, setOrderForm] = useState({ clientName: "", clientPhone: "", clientEmail: "", notes: "" });
-  const [reviewForm, setReviewForm] = useState({ clientName: "", rating: "5", comment: "" });
-  const [success, setSuccess] = useState("");
-  const [reviewPage, setReviewPage] = useState(0);
-  const [scrolled, setScrolled] = useState(false);
+  const [filterCat, setFilterCat] = useState("الكل");
   const [showAllSvc, setShowAllSvc] = useState(false);
-  const [filterCat, setFilterCat] = useState<string>("الكل");
-  const contactRef = useRef<HTMLElement>(null);
-  const servicesRef = useRef<HTMLElement>(null);
-  const teamRef = useRef<HTMLElement>(null);
-  const aboutRef = useRef<HTMLElement>(null);
+  const [reviewPage, setReviewPage] = useState(0);
 
+  const heroRef    = useRef<HTMLElement>(null);
+  const aboutRef   = useRef<HTMLElement>(null);
+  const servicesRef= useRef<HTMLElement>(null);
+  const teamRef    = useRef<HTMLElement>(null);
+  const reviewsRef = useRef<HTMLElement>(null);
+  const contactRef = useRef<HTMLElement>(null);
+
+  /* scroll spy */
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 80);
+    const handler = () => {
+      setScrolled(window.scrollY > 70);
+      const refs = [
+        { id: "hero", ref: heroRef }, { id: "about", ref: aboutRef },
+        { id: "services", ref: servicesRef }, { id: "team", ref: teamRef },
+        { id: "reviews", ref: reviewsRef }, { id: "contact", ref: contactRef },
+      ];
+      for (const { id, ref } of [...refs].reverse()) {
+        if (ref.current && window.scrollY >= ref.current.offsetTop - 140) {
+          setActiveSection(id); break;
+        }
+      }
+    };
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
   }, []);
 
-  /* ── Poll order-success after Stripe redirect ── */
-  const { data: orderSuccess, isLoading: orderSuccessLoading } = useQuery<any>({
+  const scrollTo = useCallback((ref: React.RefObject<HTMLElement | null>) => {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setMobileMenu(false);
+  }, []);
+
+  /* Queries */
+  const { data: orderSuccess } = useQuery<any>({
     queryKey: ["order-success", paidSession],
-    queryFn: () => fetch(`/api/office/public/${slug}/order-success?sessionId=${paidSession}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`/api/office/public/${slug}/order-success?sessionId=${paidSession}`).then(r => r.json()),
     enabled: isPaid && !!paidSession,
-    refetchInterval: (d) => {
-      const data = d?.state?.data;
-      if (!data || data.status === "pending") return 3000;
-      return false;
-    },
-    staleTime: Infinity,
-    retry: 5,
+    refetchInterval: (d) => (!d?.state?.data || d.state.data.status === "pending" ? 3000 : false),
+    staleTime: Infinity, retry: 5,
   });
 
   const { data, isLoading, isError } = useQuery<any>({
     queryKey: ["office-public", slug],
-    queryFn: () => fetch(`/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
   });
 
-  const orderMutation = useMutation({
-    mutationFn: async () => {
-      if (orderDialog?.price && !orderDialog.isCustomQuote) {
-        const r = await fetch(`/api/office/public/${slug}/checkout`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ serviceId: orderDialog.id, ...orderForm }),
-        });
-        const d = await r.json();
-        if (d.url) { window.location.href = d.url; return; }
-      }
-      await fetch(`/api/office/public/${slug}/order`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serviceId: orderDialog?.id, ...orderForm, isQuoteRequest: orderDialog?.isCustomQuote }),
-      });
-      setSuccess(lang === "ar" ? "تم إرسال طلبك بنجاح! سيتواصل معك المكتب قريباً." : "Your request was sent! The office will contact you soon.");
-      setOrderDialog(null);
-    },
-  });
-
-  const dealMutation = useMutation({
-    mutationFn: async () => {
-      await fetch(`/api/marketplace/deals`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          serviceId: dealDialog?.id,
-          buyerName: dealForm.clientName,
-          buyerEmail: dealForm.clientEmail || undefined,
-          buyerPhone: dealForm.clientPhone || undefined,
-          initialPrice: parseFloat(dealForm.offerPrice || "0"),
-          notes: dealForm.notes || undefined,
-        }),
-      });
-      setDealStep("sent");
-    },
-  });
-
-  const reviewMutation = useMutation({
-    mutationFn: () => fetch(`/api/office/public/${slug}/review`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...reviewForm, rating: parseInt(reviewForm.rating) }),
-    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess: () => {
-      setSuccess(lang === "ar" ? "شكراً لتقييمك!" : "Thank you for your review!");
-      setReviewDialog(false);
-    },
-  });
-
-  const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
-    ref.current?.scrollIntoView({ behavior: "smooth" });
-    setMobileMenu(false);
-  };
-
-  /* ── Payment success overlay (shown BEFORE error/loading guards) ── */
+  /* ── Payment success screen ── */
   if (isPaid && paidSession) {
     const ready = orderSuccess && orderSuccess.status !== "pending";
-    const portalUrl = orderSuccess?.portalUrl;
-    const clientName2 = orderSuccess?.clientName ?? "";
-    const svcName = orderSuccess?.serviceName ?? "الخدمة القانونية";
-    const officeName2 = orderSuccess?.officeName ?? (data?.office?.name ?? "المكتب");
-
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4" dir="rtl">
-        <div className="max-w-lg w-full bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-800 shadow-sm">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4" dir="rtl">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-10 text-center">
           {!ready ? (
             <>
               <div className="h-20 w-20 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-6 animate-pulse">
                 <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
               </div>
-              <h1 className="text-2xl font-black mb-2 text-slate-900">جاري معالجة طلبك...</h1>
-              <p className="text-slate-500 text-sm">تم استلام الدفع — نحن نُعِدّ ملفك وبوابتك الإلكترونية</p>
+              <h1 className="text-2xl font-black mb-2">جاري معالجة طلبك...</h1>
+              <p className="text-slate-500 text-sm">تم استلام الدفع — نُعِدّ ملفك الإلكتروني</p>
             </>
           ) : (
             <>
               <div className="h-20 w-20 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-6">
                 <CheckCircle2 className="h-10 w-10 text-emerald-600" />
               </div>
-              <h1 className="text-2xl font-black mb-1 text-slate-900">
-                {clientName2 ? `مرحباً ${clientName2}!` : "تم الدفع بنجاح! ✅"}
+              <h1 className="text-2xl font-black mb-2">
+                {orderSuccess.clientName ? `مرحباً ${orderSuccess.clientName}!` : "تم الدفع بنجاح! ✅"}
               </h1>
-              <p className="text-slate-600 text-sm mb-2">تم تسجيل طلبك لخدمة <strong className="text-slate-900">{svcName}</strong></p>
-              <p className="text-slate-400 text-xs mb-6">سيتواصل فريق <strong className="text-slate-600">{officeName2}</strong> معك في أقرب وقت</p>
-
-              {portalUrl ? (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6">
-                  <p className="text-blue-600 text-xs font-bold mb-2 uppercase tracking-wider">بوابتك الإلكترونية الخاصة</p>
-                  <p className="text-slate-500 text-xs mb-4">تابع حالة قضيتك، الوثائق، والتحديثات في الوقت الفعلي</p>
-                  <a href={portalUrl} target="_blank" rel="noreferrer"
-                    className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-lg transition-colors text-sm">
-                    🔗 فتح البوابة الإلكترونية
-                  </a>
-                  <button
-                    onClick={() => { navigator.clipboard.writeText(portalUrl); }}
-                    className="mt-2 w-full text-xs text-slate-400 hover:text-slate-600 transition-colors py-1">
-                    نسخ الرابط
-                  </button>
-                </div>
-              ) : (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-6">
-                  <p className="text-slate-500 text-sm">سيصلك رابط البوابة الإلكترونية على بريدك الإلكتروني قريباً</p>
-                </div>
+              <p className="text-slate-600 text-sm mb-6">سيتواصل فريق المكتب معك في أقرب وقت</p>
+              {orderSuccess.portalUrl && (
+                <a href={orderSuccess.portalUrl} target="_blank" rel="noreferrer"
+                  className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl mb-3 transition-colors">
+                  🔗 بوابتك الإلكترونية الخاصة
+                </a>
               )}
-
-              <button
-                onClick={() => navigate(`/firms/${slug}`)}
-                className="text-slate-400 hover:text-slate-600 text-xs transition-colors">
-                العودة إلى صفحة المكتب
+              <button onClick={() => navigate(`/firms/${slug}`)} className="text-sm text-slate-400 hover:text-slate-700 transition-colors">
+                العودة لصفحة المكتب
               </button>
             </>
           )}
@@ -416,865 +514,886 @@ export default function OfficePage() {
     );
   }
 
+  /* ── Loading ── */
   if (isLoading) return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center" dir="rtl">
       <div className="text-center">
-        <div className="h-16 w-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-4 animate-pulse">
-          <Scale className="h-8 w-8 text-blue-400" />
+        <div className="h-20 w-20 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-4 animate-pulse">
+          <Scale className="h-10 w-10 text-blue-400" />
         </div>
         <Loader2 className="h-5 w-5 animate-spin text-blue-600 mx-auto" />
       </div>
     </div>
   );
 
+  /* ── Not found ── */
   if (isError || !data?.office) return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-slate-800 text-center px-6">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center text-center px-6" dir="rtl">
       <div>
-        <div className="h-24 w-24 rounded-3xl bg-blue-50 flex items-center justify-center mx-auto mb-6">
-          <Scale className="h-12 w-12 text-blue-300 opacity-60" />
-        </div>
-        <h1 className="text-3xl font-black mb-3">{lang === "ar" ? "المكتب غير موجود" : "Office Not Found"}</h1>
-        <p className="text-slate-500 text-sm mb-6">{lang === "ar" ? "تحقق من الرابط أو تواصل مع المكتب مباشرةً" : "Check the URL or contact the office directly"}</p>
-        <Button variant="outline" className="border-slate-300 hover:bg-slate-50 text-slate-700" onClick={() => navigate("/")}>
-          {lang === "ar" ? "العودة للرئيسية" : "Back to Home"}
-        </Button>
+        <Scale className="h-16 w-16 mx-auto mb-6 text-slate-200" />
+        <h1 className="text-3xl font-black mb-3 text-slate-800">المكتب غير موجود</h1>
+        <p className="text-slate-500 text-sm mb-6">تحقق من الرابط أو تواصل مع المكتب مباشرةً</p>
+        <Button variant="outline" onClick={() => navigate("/")}>العودة للرئيسية</Button>
       </div>
     </div>
   );
 
   const { office, services = [], team = [], reviews = [], articles = [] } = data;
-  const gold = office.primaryColor ?? "#2563EB";
-  const avgRating = reviews.length ? (reviews.reduce((a: number, r: any) => a + r.rating, 0) / reviews.length) : 0;
+  const theme = useTheme(office.primaryColor);
+  const { c, cLight, cBorder, cGlow } = theme;
+  const avgRating = reviews.length
+    ? +(reviews.reduce((a: number, r: any) => a + r.rating, 0) / reviews.length).toFixed(1)
+    : 0;
   const officeName = t(office.name, office.nameEn, lang);
-  const tagline = t(office.tagline, office.taglineEn, lang);
-  const about = t(office.about, office.aboutEn, lang);
-  const REVIEWS_PER_PAGE = 6;
-  const reviewPages = Math.ceil(reviews.length / REVIEWS_PER_PAGE);
-  const visibleReviews = reviews.slice(reviewPage * REVIEWS_PER_PAGE, (reviewPage + 1) * REVIEWS_PER_PAGE);
-
-  const toWaNumber = (raw: string) => {
-    const d = raw.replace(/\D/g, "");
-    if (!d) return "";
-    if (d.startsWith("00966")) return d.slice(2);
-    if (d.startsWith("966"))   return d;
-    if (d.startsWith("0"))     return "966" + d.slice(1);
-    if (d.length <= 9)         return "966" + d;
-    return d;
-  };
+  const tagline    = t(office.tagline, office.taglineEn, lang);
+  const about      = t(office.about, office.aboutEn, lang);
+  const dir        = lang === "ar" ? "rtl" : "ltr";
 
   const whatsappUrl = (msg?: string) => {
-    const num = toWaNumber(office.whatsapp ?? office.phone ?? "");
-    const text = encodeURIComponent(msg ?? (lang === "ar" ? `مرحباً، أود الاستفسار عن خدمات ${officeName}` : `Hello, I'd like to inquire about ${officeName} services`));
+    const num = toWaNum(office.whatsapp ?? office.phone ?? "");
+    const text = encodeURIComponent(msg ?? `مرحباً، أود الاستفسار عن خدمات ${officeName}`);
     return `https://wa.me/${num}?text=${text}`;
   };
 
-  const navLinks = [
-    { label: lang === "ar" ? "من نحن" : "About", ref: aboutRef },
-    { label: lang === "ar" ? "الخدمات" : "Services", ref: servicesRef },
-    ...(team.length > 0 ? [{ label: lang === "ar" ? "الفريق" : "Team", ref: teamRef }] : []),
-    { label: lang === "ar" ? "تواصل" : "Contact", ref: contactRef },
+  const navItems = [
+    { id: "about",    label: lang === "ar" ? "من نحن"  : "About",    ref: aboutRef },
+    { id: "services", label: lang === "ar" ? "الخدمات" : "Services", ref: servicesRef },
+    ...(team.length    ? [{ id: "team",    label: lang === "ar" ? "الفريق"  : "Team",    ref: teamRef    }] : []),
+    ...(reviews.length ? [{ id: "reviews", label: lang === "ar" ? "التقييمات" : "Reviews", ref: reviewsRef }] : []),
+    { id: "contact",  label: lang === "ar" ? "تواصل"   : "Contact",  ref: contactRef },
   ];
 
+  const cats = ["الكل", ...Array.from(new Set(services.map((s: any) => s.category).filter(Boolean)))];
+  const filtered = filterCat === "الكل" ? services : services.filter((s: any) => s.category === filterCat);
+  const visibleSvc = showAllSvc ? filtered : filtered.slice(0, 6);
+  const REVIEWS_PER = 6;
+  const reviewPages = Math.ceil(reviews.length / REVIEWS_PER);
+  const visibleReviews = reviews.slice(reviewPage * REVIEWS_PER, (reviewPage + 1) * REVIEWS_PER);
+
+  const hasStats = office.showStats && (
+    office.experienceYears > 0 || office.casesCount > 0 || office.clientsCount > 0 || office.successRate > 0
+  );
+
   return (
-    <div
-      className={cn("min-h-screen bg-[#F8FAFC] text-slate-800", lang === "ar" ? "font-['Cairo',sans-serif]" : "font-sans")}
-      dir={lang === "ar" ? "rtl" : "ltr"}
-    >
-      {/* ── DRAFT BANNER — shown when office is not yet published ── */}
+    <div className="min-h-screen bg-[#F7F8FC]" dir={dir}
+      style={{ fontFamily: lang === "ar" ? "'Cairo', 'Tajawal', sans-serif" : "system-ui, sans-serif" }}>
+
+      {/* ── DRAFT BANNER ── */}
       {!office.isPublished && (
-        <div className="fixed top-0 inset-x-0 z-[100] bg-amber-500/95 backdrop-blur text-black text-center py-2 text-sm font-bold shadow-lg">
-          {lang === "ar"
-            ? "⚠️ هذا الموقع في وضع المعاينة — غير مرئي للعملاء حتى يتم النشر"
-            : "⚠️ Preview mode — this site is not visible to clients until published"}
+        <div className="fixed top-0 inset-x-0 z-[100] bg-amber-400 text-black text-center py-2.5 text-sm font-bold">
+          ⚠️ {lang === "ar" ? "وضع المعاينة — غير مرئي للعملاء حتى النشر" : "Preview mode — not visible to clients until published"}
         </div>
       )}
-      {/* ── NAVBAR ─────────────────────────────────── */}
-      <nav className={cn("fixed top-0 inset-x-0 z-50 transition-all duration-300", scrolled ? "bg-white/97 backdrop-blur shadow-md border-b border-slate-200" : "bg-white/90 backdrop-blur border-b border-slate-200")}>
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+
+      {/* ══════════════════════════════════════════
+          NAVBAR
+      ══════════════════════════════════════════ */}
+      <nav className={cn(
+        "fixed inset-x-0 z-50 transition-all duration-300",
+        !office.isPublished && "top-10",
+        scrolled
+          ? "top-0 bg-white/95 backdrop-blur-md shadow-sm border-b border-slate-200"
+          : "top-0 bg-white/80 backdrop-blur"
+      )}>
+        <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between gap-4">
+          {/* Logo + name */}
+          <div className="flex items-center gap-3 shrink-0">
             {office.logo ? (
-              <img src={imgSrc(office.logo)} alt={officeName} className="h-8 w-8 rounded-lg object-cover" />
+              <img src={imgSrc(office.logo)} alt={officeName}
+                className="h-9 w-9 rounded-xl object-cover ring-1 ring-slate-200" />
             ) : (
-              <div className="h-8 w-8 rounded-lg flex items-center justify-center text-sm font-black" style={{ background: `${gold}20`, color: gold }}>{(officeName || "م")[0]}</div>
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center text-sm font-black"
+                style={{ background: cLight, color: c }}>
+                {(officeName || "م")[0]}
+              </div>
             )}
-            <span className="font-black text-sm tracking-tight">{officeName}</span>
+            <span className="font-black text-slate-900 text-sm tracking-tight hidden sm:block">
+              {officeName}
+            </span>
           </div>
 
+          {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-1">
-            {navLinks.map(l => (
-              <button key={l.label} onClick={() => scrollTo(l.ref)}
-                className="text-xs text-slate-600 hover:text-slate-900 transition-colors font-medium px-3 py-2 rounded-lg hover:bg-slate-100">
-                {l.label}
+            {navItems.map(item => (
+              <button key={item.id} onClick={() => scrollTo(item.ref)}
+                className={cn(
+                  "text-xs font-semibold px-3 py-2 rounded-lg transition-all",
+                  activeSection === item.id
+                    ? "font-bold"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                )}
+                style={activeSection === item.id ? { color: c, background: cLight } : {}}>
+                {item.label}
               </button>
             ))}
           </div>
 
+          {/* CTA + lang */}
           <div className="hidden md:flex items-center gap-2">
-            <button onClick={() => scrollTo(servicesRef)}
-              className="inline-flex items-center gap-1.5 text-xs border border-slate-200 hover:bg-slate-50 px-3 py-1.5 rounded-md transition-colors text-slate-600 hover:text-slate-900">
-              <ShoppingBag className="h-3 w-3" /> {lang === "ar" ? "المتجر القانوني" : "Legal Store"}
-            </button>
+            {(office.whatsapp || office.phone) && (
+              <a href={whatsappUrl()} target="_blank" rel="noreferrer">
+                <button className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 font-bold hover:bg-emerald-100 transition-colors border border-emerald-200">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  {lang === "ar" ? "واتساب" : "WhatsApp"}
+                </button>
+              </a>
+            )}
             <a href={`/firms/${slug}/book`}>
-              <Button size="sm" className="gap-1.5 text-xs font-bold shadow-md text-white" style={{ background: gold }}>
-                <Calendar className="h-3 w-3" /> {lang === "ar" ? "احجز استشارة" : "Book Now"}
-              </Button>
+              <button className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
+                style={{ background: c }}>
+                <Calendar className="h-3.5 w-3.5" />
+                {lang === "ar" ? "احجز استشارة" : "Book Now"}
+              </button>
             </a>
             <button onClick={() => setLang(l => l === "ar" ? "en" : "ar")}
-              className="text-[11px] px-2.5 py-1.5 rounded-lg font-bold border border-slate-200 hover:border-slate-300 transition-colors text-slate-600">
+              className="text-xs px-2.5 py-2 rounded-lg border border-slate-200 font-bold text-slate-500 hover:border-slate-300 transition-colors">
               {lang === "ar" ? "EN" : "ع"}
             </button>
           </div>
 
+          {/* Mobile */}
           <div className="flex items-center gap-2 md:hidden">
             <button onClick={() => setLang(l => l === "ar" ? "en" : "ar")}
-              className="text-xs px-2 py-1 rounded border border-slate-200 font-bold text-slate-600">
+              className="text-xs px-2 py-1.5 rounded-lg border border-slate-200 font-bold text-slate-500">
               {lang === "ar" ? "EN" : "ع"}
             </button>
-            <button onClick={() => setMobileMenu(v => !v)} className="text-slate-500 hover:text-slate-800 p-1">
+            <button onClick={() => setMobileMenu(v => !v)} className="p-1.5 text-slate-600 hover:text-slate-900">
               {mobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
 
+        {/* Mobile menu */}
         {mobileMenu && (
-          <div className="md:hidden bg-white border-t border-slate-200 py-4 px-6 space-y-1">
-            {navLinks.map(l => (
-              <button key={l.label} onClick={() => scrollTo(l.ref)}
-                className="flex items-center gap-2 w-full text-sm py-2.5 px-3 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50">
-                <ChevronLeft className={cn("h-3.5 w-3.5", lang === "en" && "rotate-180")} style={{ color: gold }} />
-                {l.label}
+          <div className="md:hidden bg-white border-t border-slate-100 px-5 py-4 space-y-1">
+            {navItems.map(item => (
+              <button key={item.id} onClick={() => scrollTo(item.ref)}
+                className="flex items-center gap-2 w-full text-sm py-2.5 px-3 rounded-xl text-slate-600 hover:bg-slate-50">
+                <ChevronLeft className={cn("h-3.5 w-3.5", lang === "en" && "rotate-180")} style={{ color: c }} />
+                {item.label}
               </button>
             ))}
-            <div className="pt-2 flex gap-2">
-              <button onClick={() => scrollTo(servicesRef)} className="flex-1">
-                <Button variant="outline" size="sm" className="w-full gap-1 text-xs border-slate-200 hover:bg-slate-50">
-                  <ShoppingBag className="h-3 w-3" /> {lang === "ar" ? "المتجر" : "Store"}
-                </Button>
-              </button>
+            <div className="flex gap-2 pt-2">
+              {(office.whatsapp || office.phone) && (
+                <a href={whatsappUrl()} target="_blank" rel="noreferrer" className="flex-1">
+                  <button className="w-full flex items-center justify-center gap-1.5 text-xs py-2 rounded-xl bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    {lang === "ar" ? "واتساب" : "WhatsApp"}
+                  </button>
+                </a>
+              )}
               <a href={`/firms/${slug}/book`} className="flex-1">
-                <Button size="sm" className="w-full gap-1 text-xs font-bold text-white" style={{ background: gold }}>
-                  <Calendar className="h-3 w-3" /> {lang === "ar" ? "احجز" : "Book"}
-                </Button>
+                <button className="w-full flex items-center justify-center gap-1.5 text-xs py-2 rounded-xl font-bold text-white"
+                  style={{ background: c }}>
+                  <Calendar className="h-3.5 w-3.5" />
+                  {lang === "ar" ? "احجز" : "Book"}
+                </button>
               </a>
             </div>
           </div>
         )}
       </nav>
 
-      {/* ── HERO ───────────────────────────────────── */}
-      <header className="relative min-h-screen flex items-center overflow-hidden">
+      {/* ══════════════════════════════════════════
+          HERO — full screen
+      ══════════════════════════════════════════ */}
+      <section ref={heroRef} id="hero" className="relative min-h-screen flex items-center justify-center overflow-hidden">
+        {/* Background */}
         <div className="absolute inset-0">
           {office.coverImage ? (
             <>
-              <img src={imgSrc(office.coverImage)} alt="" className="w-full h-full object-cover opacity-25" />
-              <div className="absolute inset-0 bg-gradient-to-b from-white/50 via-white/30 to-white/80" />
+              <img src={imgSrc(office.coverImage)} alt="" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
             </>
           ) : (
             <>
-              <div className="absolute inset-0" style={{
-                background: `radial-gradient(ellipse at 65% 25%, ${gold}18 0%, transparent 60%),
-                             radial-gradient(ellipse at 15% 75%, #1a2f6040 0%, transparent 55%),
-                             radial-gradient(ellipse at 85% 85%, ${gold}08 0%, transparent 45%)`
-              }} />
-              <div className="absolute inset-0" style={{
-                backgroundImage: `radial-gradient(circle, ${gold}06 1px, transparent 1px)`,
-                backgroundSize: "40px 40px"
-              }} />
+              <div className="absolute inset-0 bg-slate-950" />
+              {/* geometric pattern */}
+              <div className="absolute inset-0 opacity-[0.04]"
+                style={{ backgroundImage: `repeating-linear-gradient(45deg, white 0, white 1px, transparent 0, transparent 50%)`, backgroundSize: "24px 24px" }} />
+              {/* glow blobs */}
+              <div className="absolute top-1/4 right-1/4 w-[600px] h-[600px] rounded-full blur-[120px] opacity-20"
+                style={{ background: c }} />
+              <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[80px] opacity-10"
+                style={{ background: c }} />
             </>
           )}
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-20 text-center w-full">
-          {office.logo ? (
-            <div className="relative inline-block mb-6">
-              <div className="absolute inset-0 rounded-2xl blur-xl opacity-30" style={{ background: gold }} />
-              <img src={imgSrc(office.logo)} alt={officeName} className="relative h-24 w-24 rounded-2xl object-cover mx-auto shadow-2xl ring-2 ring-slate-200" />
-            </div>
-          ) : (
-            <div className="relative inline-block mb-6">
-              <div className="absolute inset-0 rounded-2xl blur-xl opacity-20" style={{ background: gold }} />
-              <div className="relative h-24 w-24 rounded-2xl mx-auto flex items-center justify-center text-4xl font-black shadow-2xl ring-2 ring-slate-200" style={{ background: `linear-gradient(135deg, ${gold}30, ${gold}10)`, color: gold }}>
+        {/* Content */}
+        <div className="relative max-w-5xl mx-auto px-6 pt-28 pb-24 text-center text-white">
+          {/* Logo */}
+          <div className="mb-8">
+            {office.logo ? (
+              <div className="relative inline-block">
+                <div className="absolute inset-0 blur-2xl opacity-40 rounded-3xl" style={{ background: c }} />
+                <img src={imgSrc(office.logo)} alt={officeName}
+                  className="relative h-28 w-28 rounded-3xl object-cover mx-auto shadow-2xl ring-2 ring-white/20" />
+              </div>
+            ) : (
+              <div className="h-28 w-28 rounded-3xl mx-auto flex items-center justify-center text-5xl font-black shadow-2xl ring-2 ring-white/10"
+                style={{ background: `${c}40`, backdropFilter: "blur(8px)" }}>
                 {(officeName || "م")[0]}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          <div className="flex flex-wrap gap-2 justify-center mb-5">
+          {/* Badges */}
+          <div className="flex flex-wrap gap-2 justify-center mb-6">
             {office.licenseNumber && (
-              <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-medium" style={{ background: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}>
-                <BadgeCheck className="h-3.5 w-3.5" />
-                {lang === "ar" ? `مرخّص · رقم ${office.licenseNumber}` : `Licensed · No. ${office.licenseNumber}`}
+              <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-bold bg-white/10 backdrop-blur border border-white/20">
+                <BadgeCheck className="h-3.5 w-3.5" style={{ color: c }} />
+                {lang === "ar" ? `مرخّص · ${office.licenseNumber}` : `Licensed · ${office.licenseNumber}`}
               </span>
             )}
             {office.city && (
-              <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-medium bg-slate-100 text-slate-600 border border-slate-200">
+              <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-bold bg-white/10 backdrop-blur border border-white/20">
                 <MapPin className="h-3 w-3" /> {office.city}
+              </span>
+            )}
+            {avgRating > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-bold bg-white/10 backdrop-blur border border-white/20">
+                <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                {avgRating} ({reviews.length})
               </span>
             )}
           </div>
 
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black mb-5 leading-tight tracking-tight text-slate-900">
+          {/* Title */}
+          <h1 className="text-5xl md:text-7xl font-black mb-5 leading-tight tracking-tight drop-shadow-xl">
             {officeName}
           </h1>
-          {tagline && <p className="text-lg md:text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed">{tagline}</p>}
+          {tagline && (
+            <p className="text-lg md:text-xl text-white/75 mb-10 max-w-2xl mx-auto leading-relaxed">
+              {tagline}
+            </p>
+          )}
 
+          {/* CTAs */}
           <div className="flex flex-wrap gap-3 justify-center mb-12">
             <a href={`/firms/${slug}/book`}>
-              <Button size="lg" className="gap-2 px-8 font-bold text-base shadow-2xl hover:opacity-90 transition-opacity"
-                style={{ background: `linear-gradient(135deg, ${gold}, #f0d060)`, color: "#000" }}>
+              <button className="flex items-center gap-2 px-8 py-4 rounded-2xl font-black text-base shadow-2xl hover:opacity-90 transition-all hover:scale-105"
+                style={{ background: c, color: "#fff" }}>
                 <Calendar className="h-5 w-5" />
-                {lang === "ar" ? "احجز استشارتك الآن" : "Book a Consultation"}
-              </Button>
+                {lang === "ar" ? "احجز استشارتك" : "Book a Consultation"}
+              </button>
             </a>
             {(office.whatsapp || office.phone) && (
               <a href={whatsappUrl()} target="_blank" rel="noreferrer">
-                <Button size="lg" className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 shadow-xl shadow-emerald-900/30">
+                <button className="flex items-center gap-2 px-8 py-4 rounded-2xl font-bold text-base bg-emerald-600 hover:bg-emerald-700 transition-all hover:scale-105 shadow-xl">
                   <MessageCircle className="h-5 w-5" />
-                  {lang === "ar" ? "واتساب" : "WhatsApp"}
-                </Button>
+                  {lang === "ar" ? "تواصل عبر واتساب" : "WhatsApp Us"}
+                </button>
               </a>
             )}
-            <Button size="lg" variant="outline" className="gap-2 px-6 border-slate-200 hover:bg-slate-50"
-              onClick={() => scrollTo(servicesRef)}>
-              <ShoppingBag className="h-5 w-5" />
-              {lang === "ar" ? "الخدمات القانونية" : "Our Services"}
-            </Button>
+            {services.length > 0 && (
+              <button onClick={() => scrollTo(servicesRef)}
+                className="flex items-center gap-2 px-8 py-4 rounded-2xl font-bold text-base bg-white/10 backdrop-blur hover:bg-white/20 transition-all border border-white/20">
+                <ShoppingBag className="h-5 w-5" />
+                {lang === "ar" ? "الخدمات القانونية" : "Our Services"}
+              </button>
+            )}
           </div>
 
-          {avgRating > 0 && (
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-100 border border-slate-200">
-              <div className="flex gap-0.5">{stars(Math.round(avgRating), "h-4 w-4")}</div>
-              <span className="font-black text-sm" style={{ color: gold }}>{avgRating.toFixed(1)}</span>
-              <span className="text-slate-500 text-xs">{lang === "ar" ? `من ${reviews.length} تقييم` : `from ${reviews.length} reviews`}</span>
-            </div>
-          )}
-
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce opacity-40">
-            <ChevronDown className="h-6 w-6" />
+          {/* scroll indicator */}
+          <div className="flex flex-col items-center gap-2 opacity-40 animate-bounce">
+            <span className="text-xs">{lang === "ar" ? "اكتشف المزيد" : "Explore"}</span>
+            <ChevronDown className="h-5 w-5" />
           </div>
         </div>
-      </header>
+      </section>
 
-      {/* ── STATS STRIP ────────────────────────────── */}
-      {office.showStats && (office.casesCount > 0 || office.clientsCount > 0 || office.successRate > 0 || office.experienceYears > 0) && (
-        <div className="border-y border-slate-200" style={{ background: `${gold}06` }}>
-          <div className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-8">
-            {office.experienceYears > 0 && <AnimatedStat val={`${office.experienceYears}+`} label={lang === "ar" ? "سنة خبرة" : "Years Exp."} gold={gold} icon={<Award className="h-5 w-5" />} />}
-            {office.casesCount > 0 && <AnimatedStat val={office.casesCount.toLocaleString()} label={lang === "ar" ? "قضية منجزة" : "Cases Handled"} gold={gold} icon={<Briefcase className="h-5 w-5" />} />}
-            {office.clientsCount > 0 && <AnimatedStat val={office.clientsCount.toLocaleString()} label={lang === "ar" ? "عميل موثوق" : "Clients Served"} gold={gold} icon={<Users className="h-5 w-5" />} />}
-            {office.successRate > 0 && <AnimatedStat val={`${office.successRate}%`} label={lang === "ar" ? "نسبة النجاح" : "Success Rate"} gold={gold} icon={<Trophy className="h-5 w-5" />} />}
+      {/* ══════════════════════════════════════════
+          STATS BAR
+      ══════════════════════════════════════════ */}
+      {hasStats && (
+        <div className="bg-white border-y border-slate-200 py-10">
+          <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            {office.experienceYears > 0 && (
+              <div>
+                <div className="h-12 w-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: cLight, color: c }}>
+                  <Award className="h-5 w-5" />
+                </div>
+                <div className="text-3xl font-black" style={{ color: c }}>
+                  <Counter target={office.experienceYears} suffix="+" />
+                </div>
+                <div className="text-xs text-slate-500 mt-1 font-semibold">{lang === "ar" ? "سنة خبرة" : "Years Exp."}</div>
+              </div>
+            )}
+            {office.casesCount > 0 && (
+              <div>
+                <div className="h-12 w-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: cLight, color: c }}>
+                  <Briefcase className="h-5 w-5" />
+                </div>
+                <div className="text-3xl font-black" style={{ color: c }}>
+                  <Counter target={office.casesCount} />
+                </div>
+                <div className="text-xs text-slate-500 mt-1 font-semibold">{lang === "ar" ? "قضية منجزة" : "Cases Handled"}</div>
+              </div>
+            )}
+            {office.clientsCount > 0 && (
+              <div>
+                <div className="h-12 w-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: cLight, color: c }}>
+                  <Users className="h-5 w-5" />
+                </div>
+                <div className="text-3xl font-black" style={{ color: c }}>
+                  <Counter target={office.clientsCount} />
+                </div>
+                <div className="text-xs text-slate-500 mt-1 font-semibold">{lang === "ar" ? "عميل موثوق" : "Clients"}</div>
+              </div>
+            )}
+            {office.successRate > 0 && (
+              <div>
+                <div className="h-12 w-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: cLight, color: c }}>
+                  <Trophy className="h-5 w-5" />
+                </div>
+                <div className="text-3xl font-black" style={{ color: c }}>
+                  <Counter target={office.successRate} suffix="%" />
+                </div>
+                <div className="text-xs text-slate-500 mt-1 font-semibold">{lang === "ar" ? "نسبة النجاح" : "Success Rate"}</div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      <main className="max-w-6xl mx-auto px-6 pb-24 pt-16 space-y-28">
+      {/* ══════════════════════════════════════════
+          MAIN CONTENT
+      ══════════════════════════════════════════ */}
+      <div className="max-w-6xl mx-auto px-5 md:px-8 py-20 space-y-28">
 
-        {success && (
-          <div className="flex items-center gap-4 p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-            <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-            </div>
-            <div>
-              <p className="font-bold text-emerald-300 text-sm">{success}</p>
-            </div>
-            <button onClick={() => setSuccess("")} className="mr-auto text-slate-400 hover:text-slate-700"><X className="h-4 w-4" /></button>
-          </div>
-        )}
-
-        {/* ── ABOUT ─────────────────────────────────── */}
+        {/* ── ABOUT ── */}
         <section ref={aboutRef} id="about">
-          <div className="grid md:grid-cols-2 gap-14 items-center">
-            <div className="order-2 md:order-1">
-              {(office.logo || office.coverImage) ? (
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            {/* Image side */}
+            <div className={cn("relative", lang === "en" && "order-2")}>
+              {(office.coverImage || office.logo) ? (
                 <div className="relative">
-                  <div className="absolute -inset-3 rounded-3xl opacity-20 blur-2xl" style={{ background: gold }} />
-                  <div className="absolute inset-0 rounded-3xl translate-x-4 translate-y-4" style={{ background: `${gold}12`, border: `1px solid ${gold}20` }} />
-                  <img src={imgSrc(office.coverImage || office.logo)} alt={officeName} className="relative w-full h-80 object-cover rounded-3xl ring-1 ring-slate-200" />
+                  <div className="absolute -inset-4 rounded-3xl blur-2xl opacity-15" style={{ background: c }} />
+                  <div className="absolute inset-0 translate-x-3 translate-y-3 rounded-3xl border"
+                    style={{ borderColor: cBorder, background: cLight }} />
+                  <img src={imgSrc(office.coverImage ?? office.logo)} alt={officeName}
+                    className="relative w-full h-[380px] object-cover rounded-3xl shadow-xl ring-1 ring-slate-200" />
+                  {/* floating badge */}
+                  <div className="absolute bottom-5 left-5 bg-white rounded-xl px-4 py-3 shadow-lg flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: cLight, color: c }}>
+                      <Scale className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-slate-800">{lang === "ar" ? "مكتب محاماة معتمد" : "Certified Law Firm"}</p>
+                      <p className="text-[10px] text-slate-400">{lang === "ar" ? "وزارة العدل" : "Ministry of Justice"}</p>
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="w-full h-80 rounded-3xl flex items-center justify-center" style={{ background: `${gold}06`, border: `1px dashed ${gold}30` }}>
+                <div className="w-full h-[380px] rounded-3xl flex items-center justify-center border-2 border-dashed"
+                  style={{ borderColor: cBorder, background: cLight }}>
                   <div className="text-center">
-                    <Scale className="h-20 w-20 mx-auto mb-3 opacity-15" style={{ color: gold }} />
+                    <Scale className="h-20 w-20 mx-auto mb-4 opacity-20" style={{ color: c }} />
                     <p className="text-xs text-slate-400">{lang === "ar" ? "مكتب محاماة" : "Law Office"}</p>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="order-1 md:order-2">
-              <SecHeader icon={<Scale />} title={lang === "ar" ? "من نحن" : "About Us"} gold={gold} noSub />
-              <h2 className="text-3xl md:text-4xl font-black mb-5 mt-3 leading-tight">{officeName}</h2>
+            {/* Text side */}
+            <div className={cn(lang === "en" && "order-1")}>
+              {/* label */}
+              <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-5"
+                style={{ background: cLight, color: c, border: `1px solid ${cBorder}` }}>
+                <Scale className="h-3.5 w-3.5" />
+                {lang === "ar" ? "من نحن" : "About Us"}
+              </div>
+
+              <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6 leading-tight">
+                {officeName}
+              </h2>
+
               {about ? (
-                <p className="text-slate-600 leading-relaxed text-sm mb-6">{about}</p>
+                <p className="text-slate-600 leading-loose mb-8 text-base">{about}</p>
               ) : (
-                <p className="text-slate-500 text-sm mb-6 italic">{lang === "ar" ? "مكتب محاماة متخصص في تقديم الخدمات القانونية بأعلى المعايير." : "A specialized law firm providing legal services to the highest standards."}</p>
+                <p className="text-slate-400 leading-loose mb-8 italic text-sm">
+                  {lang === "ar"
+                    ? "مكتب محاماة متخصص يقدم خدمات قانونية متكاملة بأعلى معايير الكفاءة والمهنية."
+                    : "A specialized law firm offering comprehensive legal services to the highest standards."}
+                </p>
               )}
 
-              <div className="space-y-2.5">
+              {/* info pills */}
+              <div className="space-y-3">
                 {office.city && (
-                  <div className="flex items-center gap-3 text-sm text-slate-500 p-3 rounded-xl bg-slate-50">
-                    <MapPin className="h-4 w-4 shrink-0" style={{ color: gold }} />
-                    <span>{office.city}{office.regions ? ` — ${office.regions}` : ""}</span>
+                  <div className="flex items-center gap-3 text-sm text-slate-600 p-3.5 rounded-xl bg-white border border-slate-200">
+                    <MapPin className="h-4 w-4 shrink-0" style={{ color: c }} />
+                    {office.city}{office.regions ? ` — ${office.regions}` : ""}
                   </div>
                 )}
                 {office.licenseNumber && (
-                  <div className="flex items-center gap-3 text-sm text-slate-500 p-3 rounded-xl bg-slate-50">
-                    <BadgeCheck className="h-4 w-4 shrink-0" style={{ color: gold }} />
-                    <span>{lang === "ar" ? `رقم الترخيص: ${office.licenseNumber}` : `License No: ${office.licenseNumber}`}</span>
+                  <div className="flex items-center gap-3 text-sm text-slate-600 p-3.5 rounded-xl bg-white border border-slate-200">
+                    <BadgeCheck className="h-4 w-4 shrink-0" style={{ color: c }} />
+                    {lang === "ar" ? `رقم الترخيص: ${office.licenseNumber}` : `License No: ${office.licenseNumber}`}
                   </div>
                 )}
                 {office.email && (
-                  <a href={`mailto:${office.email}`} className="flex items-center gap-3 text-sm text-slate-500 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
-                    <Mail className="h-4 w-4 shrink-0" style={{ color: gold }} />
-                    <span>{office.email}</span>
+                  <a href={`mailto:${office.email}`}
+                    className="flex items-center gap-3 text-sm text-slate-600 p-3.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 transition-colors">
+                    <Mail className="h-4 w-4 shrink-0" style={{ color: c }} />
+                    {office.email}
                   </a>
                 )}
                 {office.phone && (
-                  <a href={`tel:${office.phone}`} className="flex items-center gap-3 text-sm text-slate-500 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
-                    <Phone className="h-4 w-4 shrink-0" style={{ color: gold }} />
+                  <a href={`tel:${office.phone}`}
+                    className="flex items-center gap-3 text-sm text-slate-600 p-3.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 transition-colors">
+                    <Phone className="h-4 w-4 shrink-0" style={{ color: c }} />
                     <span dir="ltr">{office.phone}</span>
                   </a>
                 )}
               </div>
+
+              {/* social */}
+              {(office.twitter || office.linkedin || office.facebook || office.instagram) && (
+                <div className="flex gap-2 mt-6">
+                  {office.twitter    && <a href={office.twitter}    target="_blank" rel="noreferrer" className="h-10 w-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 hover:border-sky-200 hover:bg-sky-50 transition-all"><Twitter   className="h-4 w-4 text-sky-500"  /></a>}
+                  {office.linkedin   && <a href={office.linkedin}   target="_blank" rel="noreferrer" className="h-10 w-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 hover:border-blue-200 hover:bg-blue-50 transition-all"><Linkedin   className="h-4 w-4 text-blue-600" /></a>}
+                  {office.facebook   && <a href={office.facebook}   target="_blank" rel="noreferrer" className="h-10 w-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 hover:border-blue-100 hover:bg-blue-50 transition-all"><Facebook   className="h-4 w-4 text-blue-700" /></a>}
+                  {office.instagram  && <a href={office.instagram}  target="_blank" rel="noreferrer" className="h-10 w-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 hover:border-pink-100 hover:bg-pink-50 transition-all"><Instagram  className="h-4 w-4 text-pink-500" /></a>}
+                  {office.website    && <a href={office.website}    target="_blank" rel="noreferrer" className="h-10 w-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 hover:border-slate-300 transition-all"><Globe      className="h-4 w-4 text-slate-500" /></a>}
+                </div>
+              )}
             </div>
           </div>
         </section>
 
-        {/* ── SERVICES (Legal Store) ─────────────────── */}
+        {/* ── LEGAL STORE / SERVICES ── */}
         {services.length > 0 && (
           <section ref={servicesRef} id="services">
-            {/* Header */}
-            <div className="flex items-end justify-between flex-wrap gap-3 mb-6">
+            {/* Section header */}
+            <div className="flex items-end justify-between flex-wrap gap-4 mb-10">
               <div>
-                <SecHeader icon={<ShoppingBag />}
-                  title={lang === "ar" ? "المتجر القانوني" : "Legal Store"} gold={gold} noSub />
-                <p className="text-sm text-slate-500 mt-2">
+                <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-4"
+                  style={{ background: cLight, color: c, border: `1px solid ${cBorder}` }}>
+                  <ShoppingBag className="h-3.5 w-3.5" />
+                  {lang === "ar" ? "المتجر القانوني" : "Legal Store"}
+                </div>
+                <h2 className="text-4xl md:text-5xl font-black text-slate-900">
+                  {lang === "ar" ? "خدماتنا القانونية" : "Our Legal Services"}
+                </h2>
+                <p className="text-slate-500 mt-3 text-base">
                   {lang === "ar"
-                    ? "خدمات قانونية متكاملة — اطلب مباشرة أو تفاوض على السعر"
-                    : "Full legal services — order directly or negotiate the price"}
+                    ? "اطلب الخدمة مباشرة أو تفاوض على السعر — نستجيب خلال 24 ساعة"
+                    : "Order directly or negotiate the price — we respond within 24 hours"}
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-xs text-slate-500 px-3 py-1.5 rounded-full"
-                style={{ background: `${gold}10`, border: `1px solid ${gold}20`, color: gold }}>
-                <ShoppingBag className="h-3 w-3" />
-                {services.length} {lang === "ar" ? "خدمة متاحة" : "services available"}
-              </div>
+              <span className="text-sm font-bold px-4 py-2 rounded-full"
+                style={{ background: cLight, color: c }}>
+                {services.length} {lang === "ar" ? "خدمة" : "services"}
+              </span>
             </div>
 
-            {/* Category Filter */}
-            {(() => {
-              const cats = ["الكل", ...Array.from(new Set(services.map((s: any) => s.category).filter(Boolean)))];
-              return cats.length > 2 ? (
-                <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide">
-                  {cats.map((cat: string) => (
-                    <button key={cat} onClick={() => setFilterCat(cat)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-full text-xs whitespace-nowrap border transition-all shrink-0 font-medium",
-                        filterCat === cat
-                          ? "border-transparent text-white"
-                          : "border-slate-200 text-slate-500 hover:border-slate-200 hover:text-slate-600"
-                      )}
-                      style={filterCat === cat ? { background: `${gold}20`, borderColor: `${gold}40`, color: gold } : {}}>
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              ) : null;
-            })()}
-
-            {/* Services Grid */}
-            {(() => {
-              const filtered = filterCat === "الكل"
-                ? services
-                : services.filter((s: any) => s.category === filterCat);
-              const visible = showAllSvc ? filtered : filtered.slice(0, 6);
-              return (
-                <>
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {visible.map((svc: any) => (
-                      <ServiceCard key={svc.id} svc={svc} lang={lang} gold={gold} slug={slug}
-                        onOrder={() => {
-                          setOrderDialog(svc);
-                          setOrderForm({ clientName: "", clientPhone: "", clientEmail: "", notes: "" });
-                        }}
-                        onNegotiate={() => {
-                          setDealDialog(svc);
-                          setDealStep("form");
-                          setDealForm({ clientName: "", clientPhone: "", clientEmail: "",
-                            offerPrice: String(Math.floor(Number(svc.price) * 0.8)), notes: "" });
-                        }}
-                      />
-                    ))}
-                  </div>
-                  {filtered.length > 6 && (
-                    <div className="mt-8 text-center">
-                      <button onClick={() => setShowAllSvc(v => !v)}
-                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold border transition-all hover:bg-slate-50"
-                        style={{ borderColor: `${gold}30`, color: gold }}>
-                        <ShoppingBag className="h-4 w-4" />
-                        {showAllSvc
-                          ? (lang === "ar" ? "عرض أقل" : "Show Less")
-                          : (lang === "ar" ? `عرض جميع الخدمات (${filtered.length})` : `Show All Services (${filtered.length})`)}
-                        <ChevronDown className={cn("h-4 w-4 transition-transform", showAllSvc && "rotate-180")} />
-                      </button>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </section>
-        )}
-
-        {/* ── TEAM ──────────────────────────────────── */}
-        {team.length > 0 && (
-          <section ref={teamRef} id="team">
-            <SecHeader icon={<Users />} title={lang === "ar" ? "فريق العمل" : "Our Team"} subtitle={lang === "ar" ? "نخبة من المحامين والمستشارين المتخصصين" : "Elite lawyers and specialized legal consultants"} gold={gold} />
-            <p className="text-sm text-slate-500 mt-2 mb-8">{lang === "ar" ? "نخبة من المحامين والمستشارين القانونيين المتخصصين" : "A team of specialized lawyers and legal consultants"}</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {team.map((m: any) => <TeamCard key={m.id} m={m} lang={lang} gold={gold} />)}
-            </div>
-          </section>
-        )}
-
-        {/* ── REVIEWS ───────────────────────────────── */}
-        <section>
-          <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
-            <div>
-              <SecHeader icon={<Star />} title={lang === "ar" ? "آراء العملاء" : "Client Reviews"} gold={gold} noSub />
-              {avgRating > 0 && (
-                <div className="flex items-center gap-2 mt-3">
-                  <span className="text-4xl font-black" style={{ color: gold }}>{avgRating.toFixed(1)}</span>
-                  <div>
-                    <div className="flex gap-0.5">{stars(Math.round(avgRating), "h-4 w-4")}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{lang === "ar" ? `${reviews.length} تقييم` : `${reviews.length} reviews`}</div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <Button size="sm" variant="outline" className="gap-1.5 text-xs border-slate-200 hover:bg-slate-50"
-              onClick={() => setReviewDialog(true)}>
-              <Star className="h-3.5 w-3.5" style={{ color: gold }} />
-              {lang === "ar" ? "أضف تقييمك" : "Leave a Review"}
-            </Button>
-          </div>
-
-          {reviews.length === 0 ? (
-            <div className="text-center py-12 rounded-2xl bg-slate-50 border border-slate-200">
-              <div className="h-16 w-16 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-4">
-                <Star className="h-8 w-8 text-slate-300" />
-              </div>
-              <p className="text-slate-500 font-medium">{lang === "ar" ? "لا توجد تقييمات بعد" : "No reviews yet"}</p>
-              <p className="text-slate-400 text-sm mt-1">{lang === "ar" ? "كن أول من يقيّم هذا المكتب!" : "Be the first to review this office!"}</p>
-            </div>
-          ) : (
-            <>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {visibleReviews.map((r: any) => (
-                  <div key={r.id} className="p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors relative overflow-hidden">
-                    <Quote className="absolute top-3 left-3 h-10 w-10 opacity-5" style={{ color: gold }} />
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-black shrink-0 ring-2 ring-slate-200"
-                        style={{ background: `${gold}20`, color: gold }}>{r.clientName[0]}</div>
-                      <div>
-                        <div className="text-sm font-semibold">{r.clientName}</div>
-                        <div className="flex gap-0.5 mt-0.5">{stars(r.rating)}</div>
-                      </div>
-                    </div>
-                    {r.comment && <p className="text-xs text-slate-600 leading-relaxed line-clamp-4">{r.comment}</p>}
-                  </div>
+            {/* Category pills */}
+            {cats.length > 2 && (
+              <div className="flex gap-2 overflow-x-auto pb-3 mb-8 scrollbar-hide">
+                {cats.map((cat: string) => (
+                  <button key={cat} onClick={() => { setFilterCat(cat); setShowAllSvc(false); }}
+                    className={cn(
+                      "px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 border transition-all",
+                      filterCat === cat
+                        ? "text-white border-transparent shadow-sm"
+                        : "border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                    )}
+                    style={filterCat === cat ? { background: c, borderColor: c } : {}}>
+                    {cat}
+                  </button>
                 ))}
               </div>
-              {reviewPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-6">
-                  <button onClick={() => setReviewPage(p => Math.max(0, p - 1))} disabled={reviewPage === 0}
-                    className="h-8 w-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center disabled:opacity-30 hover:bg-slate-200 transition-colors">
-                    <ChevronRight className={cn("h-4 w-4", lang === "ar" && "rotate-0")} />
-                  </button>
-                  {Array.from({ length: reviewPages }, (_, i) => (
-                    <button key={i} onClick={() => setReviewPage(i)}
-                      className={cn("h-8 w-8 rounded-lg text-xs font-bold transition-all", reviewPage === i ? "text-black" : "bg-slate-100 border border-slate-200 hover:bg-slate-200")}
-                      style={reviewPage === i ? { background: gold } : {}}>
-                      {i + 1}
-                    </button>
-                  ))}
-                  <button onClick={() => setReviewPage(p => Math.min(reviewPages - 1, p + 1))} disabled={reviewPage === reviewPages - 1}
-                    className="h-8 w-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center disabled:opacity-30 hover:bg-slate-200 transition-colors">
-                    <ChevronLeft className={cn("h-4 w-4", lang === "ar" && "rotate-0")} />
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </section>
+            )}
 
-        {/* ── ARTICLES ──────────────────────────────── */}
-        {articles.length > 0 && (
-          <section>
-            <SecHeader icon={<BookOpen />} title={lang === "ar" ? "مركز المعرفة القانونية" : "Legal Knowledge Center"} subtitle={lang === "ar" ? "مقالات ونصائح قانونية من فريق المكتب" : "Legal articles and tips from our team"} gold={gold} />
-            <p className="text-sm text-slate-500 mt-2 mb-8">{lang === "ar" ? "نشارككم أحدث المقالات والمستجدات القانونية" : "We share the latest legal articles and updates"}</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {articles.map((a: any) => (
-                <div key={a.id} className="group p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all cursor-pointer overflow-hidden">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${gold}15`, color: gold }}>
-                      <FileText className="h-4 w-4" />
-                    </div>
-                    <Badge className="text-[9px] bg-slate-50 text-slate-500 border-slate-200 self-start">{a.category}</Badge>
-                  </div>
-                  <h3 className="font-bold text-sm mb-2 line-clamp-2 text-slate-800 transition-colors">{a.title}</h3>
-                  {a.excerpt && <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">{a.excerpt}</p>}
-                  <div className="flex items-center gap-1 mt-3 text-[10px] font-medium" style={{ color: gold }}>
-                    {lang === "ar" ? "اقرأ المقال" : "Read Article"}
-                    <ArrowLeft className={cn("h-3 w-3 group-hover:translate-x-1 transition-transform", lang === "en" && "rotate-180")} />
-                  </div>
-                </div>
+            {/* Grid */}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {visibleSvc.map((svc: any) => (
+                <ServiceCard key={svc.id} svc={svc} lang={lang} theme={theme} slug={slug}
+                  onOrder={() => setOrderDialog(svc)}
+                  onNegotiate={() => setDealDialog(svc)}
+                />
+              ))}
+            </div>
+
+            {filtered.length > 6 && (
+              <div className="mt-10 text-center">
+                <button onClick={() => setShowAllSvc(v => !v)}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold border transition-all hover:bg-white"
+                  style={{ borderColor: cBorder, color: c }}>
+                  {showAllSvc
+                    ? <><ArrowLeft className="h-4 w-4" /> {lang === "ar" ? "عرض أقل" : "Show Less"}</>
+                    : <><ShoppingBag className="h-4 w-4" /> {lang === "ar" ? `جميع الخدمات (${filtered.length})` : `All Services (${filtered.length})`} <ChevronDown className="h-4 w-4" /></>}
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── TEAM ── */}
+        {team.length > 0 && (
+          <section ref={teamRef} id="team">
+            <div className="mb-10">
+              <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-4"
+                style={{ background: cLight, color: c, border: `1px solid ${cBorder}` }}>
+                <Users className="h-3.5 w-3.5" />
+                {lang === "ar" ? "فريق العمل" : "Our Team"}
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black text-slate-900">
+                {lang === "ar" ? "كوادرنا القانونية" : "Legal Professionals"}
+              </h2>
+              <p className="text-slate-500 mt-3 text-base">
+                {lang === "ar" ? "فريق من المحامين والمستشارين القانونيين المتخصصين" : "A team of specialized lawyers and legal consultants"}
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {team.map((m: any) => (
+                <TeamCard key={m.id} m={m} lang={lang} theme={theme} />
               ))}
             </div>
           </section>
         )}
 
-        {/* ── CONTACT ─────────────────────────────────── */}
-        <section ref={contactRef} id="contact">
-          <SecHeader icon={<Send />} title={lang === "ar" ? "تواصل معنا" : "Get In Touch"} subtitle={lang === "ar" ? "نحن هنا لمساعدتك — تواصل معنا الآن" : "We're here to help — reach out now"} gold={gold} />
-          <p className="text-sm text-slate-500 mt-2 mb-8">{lang === "ar" ? "نرد على استفساراتك في أسرع وقت ممكن" : "We respond to your inquiries as quickly as possible"}</p>
+        {/* ── REVIEWS ── */}
+        {reviews.length > 0 && (
+          <section ref={reviewsRef} id="reviews">
+            {/* Header */}
+            <div className="flex items-end justify-between flex-wrap gap-4 mb-10">
+              <div>
+                <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-4"
+                  style={{ background: cLight, color: c, border: `1px solid ${cBorder}` }}>
+                  <Star className="h-3.5 w-3.5" />
+                  {lang === "ar" ? "آراء العملاء" : "Client Reviews"}
+                </div>
+                <h2 className="text-4xl md:text-5xl font-black text-slate-900">
+                  {lang === "ar" ? "ماذا يقولون عنا؟" : "What They Say"}
+                </h2>
+              </div>
+              {/* Rating badge */}
+              <div className="flex flex-col items-center gap-1 p-5 rounded-2xl bg-white border border-slate-200 shadow-sm min-w-[100px]">
+                <span className="text-4xl font-black" style={{ color: c }}>{avgRating}</span>
+                <Stars n={Math.round(avgRating)} size="h-4 w-4" color={c} />
+                <span className="text-xs text-slate-400">{reviews.length} {lang === "ar" ? "تقييم" : "reviews"}</span>
+              </div>
+            </div>
 
-          <div className="grid md:grid-cols-5 gap-8">
-            <div className="md:col-span-2 space-y-3">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {visibleReviews.map((r: any) => (
+                <ReviewCard key={r.id} r={r} theme={theme} />
+              ))}
+            </div>
+
+            {/* Pagination + add review */}
+            <div className="flex items-center justify-between mt-8">
+              <button onClick={() => setReviewDialog(true)}
+                className="flex items-center gap-2 text-sm font-bold px-5 py-2.5 rounded-xl border transition-all hover:bg-white"
+                style={{ borderColor: cBorder, color: c }}>
+                <Star className="h-4 w-4" />
+                {lang === "ar" ? "أضف تقييمك" : "Add Review"}
+              </button>
+              {reviewPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setReviewPage(v => Math.max(0, v - 1))} disabled={reviewPage === 0}
+                    className="h-9 w-9 rounded-xl border flex items-center justify-center disabled:opacity-40 transition-all hover:bg-white border-slate-200">
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                  <span className="text-xs text-slate-500">{reviewPage + 1}/{reviewPages}</span>
+                  <button onClick={() => setReviewPage(v => Math.min(reviewPages - 1, v + 1))} disabled={reviewPage === reviewPages - 1}
+                    className="h-9 w-9 rounded-xl border flex items-center justify-center disabled:opacity-40 transition-all hover:bg-white border-slate-200">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ── CONTACT ── */}
+        <section ref={contactRef} id="contact">
+          <div className="mb-10">
+            <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-4"
+              style={{ background: cLight, color: c, border: `1px solid ${cBorder}` }}>
+              <Send className="h-3.5 w-3.5" />
+              {lang === "ar" ? "تواصل معنا" : "Get in Touch"}
+            </div>
+            <h2 className="text-4xl md:text-5xl font-black text-slate-900">
+              {lang === "ar" ? "ابدأ استشارتك اليوم" : "Start Your Consultation"}
+            </h2>
+          </div>
+
+          <div className="grid lg:grid-cols-5 gap-8">
+            {/* Contact options — 2 cols */}
+            <div className="lg:col-span-2 space-y-4">
+              {/* WhatsApp */}
               {(office.whatsapp || office.phone) && (
                 <a href={whatsappUrl()} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-4 p-4 rounded-2xl bg-emerald-500/8 border border-emerald-500/20 hover:bg-emerald-500/15 transition-all group">
-                  <div className="h-10 w-10 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
-                    <MessageCircle className="h-5 w-5 text-emerald-400" />
+                  className="flex items-center gap-4 p-5 rounded-2xl bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-all group">
+                  <div className="h-12 w-12 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <MessageCircle className="h-6 w-6 text-white" />
                   </div>
-                  <div className="flex-1">
-                    <div className="text-[10px] text-slate-500 mb-0.5">{lang === "ar" ? "واتساب" : "WhatsApp"}</div>
-                    <div className="font-bold text-sm text-emerald-300">{office.whatsapp || office.phone}</div>
+                  <div>
+                    <p className="font-bold text-emerald-800">{lang === "ar" ? "واتساب مباشر" : "Direct WhatsApp"}</p>
+                    <p className="text-xs text-emerald-600">{lang === "ar" ? "ردٌّ فوري خلال دقائق" : "Instant reply in minutes"}</p>
                   </div>
-                  <ExternalLink className="h-4 w-4 text-emerald-500/40 group-hover:text-emerald-400 transition-colors" />
+                  <ChevronLeft className={cn("h-5 w-5 text-emerald-400 mr-auto", lang === "en" && "rotate-180")} />
                 </a>
               )}
+
+              {/* Book */}
+              <a href={`/firms/${slug}/book`}
+                className="flex items-center gap-4 p-5 rounded-2xl border transition-all group hover:border-slate-300 bg-white"
+                style={{ borderColor: cBorder }}>
+                <div className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform"
+                  style={{ background: c }}>
+                  <Calendar className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-800">{lang === "ar" ? "احجز موعداً" : "Book Appointment"}</p>
+                  <p className="text-xs text-slate-400">{lang === "ar" ? "استشارة مرئية أو هاتفية" : "Video or phone consultation"}</p>
+                </div>
+                <ChevronLeft className={cn("h-5 w-5 text-slate-300 mr-auto", lang === "en" && "rotate-180")} />
+              </a>
+
+              {/* Phone */}
               {office.phone && (
-                <a href={`tel:${office.phone}`} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors group">
-                  <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${gold}15` }}>
-                    <Phone className="h-5 w-5" style={{ color: gold }} />
+                <a href={`tel:${office.phone}`}
+                  className="flex items-center gap-4 p-5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition-all group">
+                  <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <Phone className="h-5 w-5 text-slate-600" />
                   </div>
                   <div>
-                    <div className="text-[10px] text-slate-500 mb-0.5">{lang === "ar" ? "هاتف مباشر" : "Phone"}</div>
-                    <div className="font-semibold text-sm" dir="ltr">{office.phone}</div>
+                    <p className="font-bold text-slate-800">{lang === "ar" ? "اتصل بنا" : "Call Us"}</p>
+                    <p className="text-xs text-slate-500 font-mono" dir="ltr">{office.phone}</p>
                   </div>
                 </a>
               )}
+
+              {/* Email */}
               {office.email && (
-                <a href={`mailto:${office.email}`} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors">
-                  <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${gold}15` }}>
-                    <Mail className="h-5 w-5" style={{ color: gold }} />
+                <a href={`mailto:${office.email}`}
+                  className="flex items-center gap-4 p-5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition-all group">
+                  <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <Mail className="h-5 w-5 text-slate-600" />
                   </div>
                   <div>
-                    <div className="text-[10px] text-slate-500 mb-0.5">{lang === "ar" ? "بريد إلكتروني" : "Email"}</div>
-                    <div className="font-semibold text-sm">{office.email}</div>
+                    <p className="font-bold text-slate-800">{lang === "ar" ? "راسلنا بالبريد" : "Email Us"}</p>
+                    <p className="text-xs text-slate-500" dir="ltr">{office.email}</p>
                   </div>
                 </a>
               )}
+
+              {/* Address */}
               {office.address && (
-                <a
-                  href={office.googleMapsUrl ?? (office.address ? `https://maps.google.com/?q=${encodeURIComponent(office.address)}` : undefined)}
-                  target="_blank" rel="noreferrer"
-                  className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors group"
-                >
-                  <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${gold}15` }}>
-                    <MapPin className="h-5 w-5" style={{ color: gold }} />
+                <div className="flex items-center gap-4 p-5 rounded-2xl border border-slate-200 bg-white">
+                  <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                    <MapPin className="h-5 w-5 text-slate-600" />
                   </div>
-                  <div className="flex-1">
-                    <div className="text-[10px] text-slate-500 mb-0.5">{lang === "ar" ? "العنوان" : "Address"}</div>
-                    <div className="font-semibold text-sm">{office.address}</div>
+                  <div>
+                    <p className="font-bold text-slate-800">{lang === "ar" ? "العنوان" : "Address"}</p>
+                    <p className="text-xs text-slate-500">{office.address}</p>
                   </div>
-                  <ExternalLink className="h-4 w-4 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
-                </a>
+                </div>
               )}
             </div>
 
-            <div className="md:col-span-3 p-6 rounded-2xl border" style={{ background: `${gold}05`, borderColor: `${gold}18` }}>
-              <h3 className="font-bold mb-1">{lang === "ar" ? "أرسل لنا رسالة" : "Send Us a Message"}</h3>
-              <p className="text-xs text-slate-500 mb-5">{lang === "ar" ? "اختر الموضوع وأرسل رسالتك مباشرةً عبر واتساب" : "Choose a subject and send your message directly via WhatsApp"}</p>
-              <ContactForm lang={lang} gold={gold} whatsappUrl={whatsappUrl} officeName={officeName}
-                onOrder={() => { setOrderDialog({ name: lang === "ar" ? "استشارة قانونية" : "Legal Consultation", isCustomQuote: true }); }} />
+            {/* Contact form — 3 cols */}
+            <div className="lg:col-span-3 bg-white border border-slate-200 rounded-3xl p-8">
+              <h3 className="font-black text-xl text-slate-900 mb-6">
+                {lang === "ar" ? "أرسل رسالتك" : "Send a Message"}
+              </h3>
+              <ContactForm lang={lang} theme={theme} whatsappUrl={whatsappUrl} slug={slug} />
             </div>
           </div>
 
-          {/* ── Google Maps Section ── */}
-          {(office.mapsEmbedUrl || office.googleMapsUrl || office.address) && (
-            <div className="mt-8 rounded-2xl overflow-hidden border border-slate-200 relative group">
-              {office.mapsEmbedUrl ? (
-                <>
-                  <iframe
-                    src={office.mapsEmbedUrl}
-                    width="100%"
-                    height="340"
-                    style={{ border: 0, display: "block" }}
-                    allowFullScreen
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    title={lang === "ar" ? "موقع المكتب" : "Office Location"}
-                  />
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {(office.googleMapsUrl || office.address) && (
-                      <a
-                        href={office.googleMapsUrl ?? `https://maps.google.com/?q=${encodeURIComponent(office.address)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <Button size="sm" className="gap-2 text-xs font-bold shadow-xl bg-white text-black hover:bg-slate-50">
-                          <MapPin className="h-3.5 w-3.5" style={{ color: "#EA4335" }} />
-                          {lang === "ar" ? "فتح في خرائط جوجل" : "Open in Google Maps"}
-                          <ExternalLink className="h-3 w-3 text-black/40" />
-                        </Button>
-                      </a>
-                    )}
-                  </div>
-                </>
-              ) : (office.googleMapsUrl || office.address) && (
-                <a
-                  href={office.googleMapsUrl ?? `https://maps.google.com/?q=${encodeURIComponent(office.address)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between gap-4 p-5 bg-slate-50 hover:bg-slate-100 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${gold}15`, color: gold }}>
-                      <MapPin className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold mb-0.5">{lang === "ar" ? "موقع المكتب" : "Office Location"}</div>
-                      {office.address && <div className="text-xs text-slate-500">{office.address}</div>}
-                    </div>
-                  </div>
-                  <Button size="sm" className="gap-1.5 text-xs font-bold shrink-0" style={{ background: gold, color: "#000" }}>
-                    <MapPin className="h-3.5 w-3.5" />
-                    {lang === "ar" ? "فتح في الخريطة" : "Open Map"}
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </a>
-              )}
-            </div>
-          )}
-
-          {(office.twitter || office.linkedin || office.facebook || office.website || office.instagram) && (
-            <div className="mt-8 p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-wrap gap-3 items-center justify-center">
-              <span className="text-xs text-slate-400 font-medium">{lang === "ar" ? "تابعنا على" : "Follow Us"}</span>
-              <div className="flex gap-2">
-                {office.twitter && <SocialLink href={office.twitter} icon={<Twitter className="h-4 w-4 text-sky-400" />} label="Twitter" hoverColor="hover:bg-sky-500/20 hover:border-sky-500/30" />}
-                {office.linkedin && <SocialLink href={office.linkedin} icon={<Linkedin className="h-4 w-4 text-blue-400" />} label="LinkedIn" hoverColor="hover:bg-blue-500/20 hover:border-blue-500/30" />}
-                {office.facebook && <SocialLink href={office.facebook} icon={<Facebook className="h-4 w-4 text-blue-500" />} label="Facebook" hoverColor="hover:bg-blue-600/20 hover:border-blue-600/30" />}
-                {office.instagram && <SocialLink href={office.instagram} icon={<Instagram className="h-4 w-4 text-pink-400" />} label="Instagram" hoverColor="hover:bg-pink-500/20 hover:border-pink-500/30" />}
-                {office.website && <SocialLink href={office.website} icon={<Globe className="h-4 w-4 text-slate-600" />} label="Website" hoverColor="hover:bg-slate-50 hover:border-slate-200" />}
-              </div>
+          {/* Map embed */}
+          {office.mapsEmbedUrl && (
+            <div className="mt-8 h-64 rounded-3xl overflow-hidden border border-slate-200">
+              <iframe src={office.mapsEmbedUrl} className="w-full h-full border-0" loading="lazy" title="location" />
             </div>
           )}
         </section>
-      </main>
 
-      {/* ── FOOTER ────────────────────────────────── */}
-      <footer className="border-t border-slate-200 py-10">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              {office.logo ? (
-                <img src={imgSrc(office.logo)} alt={officeName} className="h-8 w-8 rounded-lg object-cover opacity-70" />
-              ) : (
-                <div className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-black opacity-70" style={{ background: `${gold}20`, color: gold }}>{(officeName || "م")[0]}</div>
-              )}
-              <span className="text-sm font-bold text-slate-500">{officeName}</span>
+      </div>
+
+      {/* ══════════════════════════════════════════
+          FOOTER
+      ══════════════════════════════════════════ */}
+      <footer className="bg-slate-950 text-white mt-8">
+        <div className="max-w-6xl mx-auto px-8 py-14">
+          <div className="flex flex-col md:flex-row items-start justify-between gap-10">
+            {/* Brand */}
+            <div className="max-w-xs">
+              <div className="flex items-center gap-3 mb-4">
+                {office.logo ? (
+                  <img src={imgSrc(office.logo)} alt={officeName} className="h-10 w-10 rounded-xl object-cover" />
+                ) : (
+                  <div className="h-10 w-10 rounded-xl flex items-center justify-center font-black"
+                    style={{ background: cLight, color: c }}>
+                    {(officeName || "م")[0]}
+                  </div>
+                )}
+                <span className="font-black text-lg">{officeName}</span>
+              </div>
+              {tagline && <p className="text-sm text-slate-400 leading-relaxed mb-4">{tagline}</p>}
+              {/* social links */}
+              <div className="flex gap-2">
+                {office.twitter   && <a href={office.twitter}   target="_blank" rel="noreferrer" className="h-9 w-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"><Twitter   className="h-3.5 w-3.5 text-slate-300" /></a>}
+                {office.linkedin  && <a href={office.linkedin}  target="_blank" rel="noreferrer" className="h-9 w-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"><Linkedin   className="h-3.5 w-3.5 text-slate-300" /></a>}
+                {office.facebook  && <a href={office.facebook}  target="_blank" rel="noreferrer" className="h-9 w-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"><Facebook   className="h-3.5 w-3.5 text-slate-300" /></a>}
+                {office.instagram && <a href={office.instagram} target="_blank" rel="noreferrer" className="h-9 w-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"><Instagram  className="h-3.5 w-3.5 text-slate-300" /></a>}
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
-              <button onClick={() => scrollTo(aboutRef)} className="hover:text-slate-600 transition-colors">{lang === "ar" ? "من نحن" : "About"}</button>
-              <button onClick={() => scrollTo(servicesRef)} className="hover:text-slate-600 transition-colors">{lang === "ar" ? "الخدمات" : "Services"}</button>
-              <button onClick={() => scrollTo(contactRef)} className="hover:text-slate-600 transition-colors">{lang === "ar" ? "تواصل" : "Contact"}</button>
-              <button onClick={() => scrollTo(servicesRef)} className="hover:text-slate-600 transition-colors">{lang === "ar" ? "المتجر القانوني" : "Legal Store"}</button>
-              <a href={`/firms/${slug}/book`} className="hover:text-slate-600 transition-colors">{lang === "ar" ? "الحجز" : "Book"}</a>
+
+            {/* Links */}
+            <div className="grid grid-cols-2 gap-12">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
+                  {lang === "ar" ? "صفحات" : "Pages"}
+                </h4>
+                <ul className="space-y-2.5">
+                  {navItems.map(item => (
+                    <li key={item.id}>
+                      <button onClick={() => scrollTo(item.ref)}
+                        className="text-sm text-slate-400 hover:text-white transition-colors">
+                        {item.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
+                  {lang === "ar" ? "تواصل" : "Contact"}
+                </h4>
+                <ul className="space-y-2.5">
+                  {(office.whatsapp || office.phone) && (
+                    <li><a href={whatsappUrl()} target="_blank" rel="noreferrer" className="text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2"><MessageCircle className="h-3.5 w-3.5" />WhatsApp</a></li>
+                  )}
+                  {office.phone && <li><a href={`tel:${office.phone}`} className="text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2"><Phone className="h-3.5 w-3.5" /><span dir="ltr">{office.phone}</span></a></li>}
+                  {office.email && <li><a href={`mailto:${office.email}`} className="text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2 truncate max-w-[160px]"><Mail className="h-3.5 w-3.5 shrink-0" />{office.email}</a></li>}
+                </ul>
+              </div>
             </div>
-            <div className="text-[11px] text-slate-400">
-              © {new Date().getFullYear()} · {lang === "ar" ? "مدعوم بـ" : "Powered by"}
-              <span className="font-bold mx-1" style={{ color: gold }}>عدالة AI</span>
-            </div>
+          </div>
+
+          <div className="mt-10 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-slate-500">
+              © {new Date().getFullYear()} {officeName} — {lang === "ar" ? "جميع الحقوق محفوظة" : "All rights reserved"}
+            </p>
+            <a href="/" className="text-xs text-slate-600 hover:text-slate-400 transition-colors flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3" />
+              {lang === "ar" ? "مدعوم بـ عدالة AI" : "Powered by Adala AI"}
+            </a>
           </div>
         </div>
       </footer>
 
-      {/* ── WhatsApp floating button ───────────────── */}
+      {/* ── WhatsApp FAB ── */}
       {(office.whatsapp || office.phone) && (
         <a href={whatsappUrl()} target="_blank" rel="noreferrer"
-          className="fixed bottom-6 left-6 z-50 h-14 w-14 rounded-full bg-emerald-500 hover:bg-emerald-600 transition-all flex items-center justify-center shadow-xl shadow-emerald-500/30 hover:scale-110">
+          className="fixed bottom-6 left-6 z-40 h-14 w-14 rounded-full bg-emerald-500 hover:bg-emerald-600 flex items-center justify-center shadow-2xl shadow-emerald-500/40 transition-all hover:scale-110">
           <MessageCircle className="h-7 w-7 text-white" />
         </a>
       )}
 
-      {/* ── Sticky Book CTA (mobile) ───────────────── */}
-      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 pb-safe" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-        <div className="mx-4 mb-3">
-          <a href={`/firms/${slug}/book`}>
-            <Button className="w-full gap-2 font-bold h-12 shadow-2xl text-base"
-              style={{ background: `linear-gradient(135deg, ${gold}, #f0d060)`, color: "#000" }}>
-              <Calendar className="h-5 w-5" />
-              {lang === "ar" ? "احجز استشارة مجانية" : "Book Free Consultation"}
-            </Button>
-          </a>
+      {/* ── Book FAB (if no WhatsApp) ── */}
+      {!office.whatsapp && !office.phone && (
+        <a href={`/firms/${slug}/book`}
+          className="fixed bottom-6 left-6 z-40 h-14 px-5 rounded-full flex items-center gap-2 font-bold text-sm text-white shadow-2xl transition-all hover:scale-105"
+          style={{ background: c }}>
+          <Calendar className="h-5 w-5" />
+          {lang === "ar" ? "احجز" : "Book"}
+        </a>
+      )}
+
+      {/* ── DIALOGS ── */}
+      {orderDialog && (
+        <OrderDialog svc={orderDialog} slug={slug} lang={lang} theme={theme} onClose={() => setOrderDialog(null)} />
+      )}
+      {dealDialog && (
+        <OrderDialog svc={dealDialog} slug={slug} lang={lang} theme={theme} onClose={() => setDealDialog(null)} />
+      )}
+      {reviewDialog && (
+        <ReviewDialog slug={slug} lang={lang} theme={theme} onClose={() => setReviewDialog(false)} />
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CONTACT FORM (standalone to avoid stale closures)
+═══════════════════════════════════════════════════════════════════ */
+function ContactForm({ lang, theme, whatsappUrl, slug }: {
+  lang: Lang; theme: ReturnType<typeof useTheme>; whatsappUrl: (msg?: string) => string; slug: string;
+}) {
+  const { c, cLight, cBorder } = theme;
+  const subjects = lang === "ar"
+    ? ["استشارة قانونية", "إعداد عقد", "قضية في المحكمة", "توثيق", "استفسار عام"]
+    : ["Legal Consultation", "Contract Drafting", "Court Case", "Notarization", "General Inquiry"];
+  const [form, setForm] = useState({ name: "", phone: "", subject: subjects[0], message: "" });
+  const [sent, setSent] = useState(false);
+  const url = whatsappUrl(
+    form.message
+      ? `${lang === "ar" ? "مرحباً،\nالاسم:" : "Hello,\nName:"} ${form.name}\n${lang === "ar" ? "الموضوع:" : "Subject:"} ${form.subject}\n${lang === "ar" ? "الرسالة:" : "Message:"} ${form.message}`
+      : undefined
+  );
+  return (
+    <div className="space-y-4">
+      {sent && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+          <p className="text-sm font-semibold text-emerald-700">{lang === "ar" ? "تم إرسال رسالتك بنجاح!" : "Message sent successfully!"}</p>
+        </div>
+      )}
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div>
+          <Label className="text-xs font-semibold mb-1.5 block text-slate-600">{lang === "ar" ? "الاسم الكامل" : "Full Name"}</Label>
+          <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            placeholder={lang === "ar" ? "أدخل اسمك" : "Enter your name"} className="rounded-xl" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold mb-1.5 block text-slate-600">{lang === "ar" ? "رقم الجوال" : "Phone Number"}</Label>
+          <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+            dir="ltr" placeholder="05XXXXXXXX" className="rounded-xl" />
         </div>
       </div>
-
-      {/* ── Order Dialog ──────────────────────────── */}
-      <Dialog open={!!orderDialog} onOpenChange={() => setOrderDialog(null)}>
-        <DialogContent className="max-w-md" dir={lang === "ar" ? "rtl" : "ltr"}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-xl flex items-center justify-center" style={{ background: `${gold}20`, color: gold }}>
-                <Scale className="h-4 w-4" />
-              </div>
-              {orderDialog?.isCustomQuote ? (lang === "ar" ? "طلب عرض سعر" : "Request Quote") : t(orderDialog?.name, orderDialog?.nameEn, lang)}
-            </DialogTitle>
-          </DialogHeader>
-          {orderDialog && (
-            <div className="space-y-3">
-              {!orderDialog.isCustomQuote && orderDialog.price && (
-                <div className="p-3 rounded-xl text-center" style={{ background: `${gold}10`, border: `1px solid ${gold}20` }}>
-                  <div className="text-[10px] text-slate-500 mb-1">{lang === "ar" ? "سعر الخدمة" : "Service Price"}</div>
-                  <span className="text-2xl font-black" style={{ color: gold }}>{Number(orderDialog.price).toLocaleString()} <span className="text-sm">{lang === "ar" ? "ر.س" : "SAR"}</span></span>
-                </div>
+      <div>
+        <Label className="text-xs font-semibold mb-2 block text-slate-600">{lang === "ar" ? "موضوع الاستفسار" : "Subject"}</Label>
+        <div className="flex flex-wrap gap-2">
+          {subjects.map(s => (
+            <button key={s} onClick={() => setForm(f => ({ ...f, subject: s }))}
+              className={cn(
+                "text-xs px-3 py-1.5 rounded-full border transition-all font-medium",
+                form.subject === s ? "text-white border-transparent" : "border-slate-200 text-slate-500 hover:border-slate-300"
               )}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "الاسم الكامل *" : "Full Name *"}</Label>
-                  <Input value={orderForm.clientName} onChange={e => setOrderForm(f => ({ ...f, clientName: e.target.value }))} />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "رقم الجوال *" : "Phone *"}</Label>
-                  <Input value={orderForm.clientPhone} onChange={e => setOrderForm(f => ({ ...f, clientPhone: e.target.value }))} dir="ltr" />
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "البريد الإلكتروني" : "Email"}</Label>
-                <Input value={orderForm.clientEmail} onChange={e => setOrderForm(f => ({ ...f, clientEmail: e.target.value }))} dir="ltr" />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "تفاصيل الطلب" : "Request Details"}</Label>
-                <Textarea value={orderForm.notes} onChange={e => setOrderForm(f => ({ ...f, notes: e.target.value }))} rows={3} className="resize-none" placeholder={lang === "ar" ? "أي تفاصيل إضافية..." : "Any additional details..."} />
-              </div>
-              <Button className="w-full gap-2 font-bold h-11" style={{ background: gold, color: "#000" }}
-                disabled={!orderForm.clientName || !orderForm.clientPhone || orderMutation.isPending}
-                onClick={() => orderMutation.mutate()}>
-                {orderMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {orderDialog.isCustomQuote ? (lang === "ar" ? "إرسال طلب العرض" : "Request Quote") : (lang === "ar" ? "تأكيد الطلب" : "Confirm Order")}
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Deal Room Dialog ──────────────────────── */}
-      <Dialog open={!!dealDialog} onOpenChange={v => { if (!v) { setDealDialog(null); setDealStep("form"); } }}>
-        <DialogContent className="max-w-md" dir={lang === "ar" ? "rtl" : "ltr"}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-xl flex items-center justify-center" style={{ background: `${gold}20`, color: gold }}>
-                <MessageCircle className="h-4 w-4" />
-              </div>
-              {lang === "ar" ? "غرفة التفاوض" : "Deal Room"}
-            </DialogTitle>
-          </DialogHeader>
-          {dealStep === "sent" ? (
-            <div className="text-center py-8 space-y-3">
-              <div className="h-16 w-16 rounded-full mx-auto flex items-center justify-center" style={{ background: `${gold}20` }}>
-                <CheckCircle2 className="h-8 w-8" style={{ color: gold }} />
-              </div>
-              <p className="font-bold">{lang === "ar" ? "تم إرسال عرضك!" : "Your offer was sent!"}</p>
-              <p className="text-sm text-slate-500">{lang === "ar" ? "سيراجع المكتب عرضك ويرد عليك قريباً." : "The office will review your offer and respond soon."}</p>
-              <Button className="mt-4" style={{ background: gold, color: "#000" }} onClick={() => { setDealDialog(null); setDealStep("form"); }}>
-                {lang === "ar" ? "حسناً" : "OK"}
-              </Button>
-            </div>
-          ) : dealDialog && (
-            <div className="space-y-3">
-              <div className="p-3 rounded-xl" style={{ background: `${gold}10`, border: `1px solid ${gold}20` }}>
-                <div className="text-xs text-slate-500 mb-1">{lang === "ar" ? "السعر المطلوب" : "Listed Price"}</div>
-                <span className="text-xl font-black" style={{ color: gold }}>
-                  {Number(dealDialog.price).toLocaleString()} <span className="text-sm">{lang === "ar" ? "ر.س" : "SAR"}</span>
-                </span>
-              </div>
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "عرضك المالي (ر.س) *" : "Your Offer (SAR) *"}</Label>
-                <Input type="number" dir="ltr" value={dealForm.offerPrice}
-                  onChange={e => setDealForm(f => ({ ...f, offerPrice: e.target.value }))}
-                  placeholder={lang === "ar" ? "أدخل مبلغ العرض..." : "Enter offer amount..."} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "الاسم *" : "Name *"}</Label>
-                  <Input value={dealForm.clientName} onChange={e => setDealForm(f => ({ ...f, clientName: e.target.value }))} />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "الجوال *" : "Phone *"}</Label>
-                  <Input value={dealForm.clientPhone} onChange={e => setDealForm(f => ({ ...f, clientPhone: e.target.value }))} dir="ltr" />
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "البريد الإلكتروني" : "Email"}</Label>
-                <Input value={dealForm.clientEmail} onChange={e => setDealForm(f => ({ ...f, clientEmail: e.target.value }))} dir="ltr" />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "ملاحظات" : "Notes"}</Label>
-                <Textarea value={dealForm.notes} onChange={e => setDealForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="resize-none" />
-              </div>
-              <Button className="w-full gap-2 font-bold h-11" style={{ background: gold, color: "#000" }}
-                disabled={!dealForm.clientName || !dealForm.clientPhone || !dealForm.offerPrice || dealMutation.isPending}
-                onClick={() => dealMutation.mutate()}>
-                {dealMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {lang === "ar" ? "إرسال العرض للتفاوض" : "Send Negotiation Offer"}
-              </Button>
-              <p className="text-[10px] text-center text-slate-400">
-                {lang === "ar" ? "سيتواصل معك المكتب بعرض مقابل أو قبول مباشر" : "The office will respond with a counter-offer or direct acceptance"}
-              </p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Review Dialog ─────────────────────────── */}
-      <Dialog open={reviewDialog} onOpenChange={setReviewDialog}>
-        <DialogContent className="max-w-sm" dir={lang === "ar" ? "rtl" : "ltr"}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Star className="h-5 w-5" style={{ color: gold }} />
-              {lang === "ar" ? "أضف تقييمك" : "Leave a Review"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-xs font-semibold mb-2 block">{lang === "ar" ? "التقييم" : "Rating"}</Label>
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map(n => (
-                  <button key={n} onClick={() => setReviewForm(f => ({ ...f, rating: String(n) }))}
-                    className="transition-transform hover:scale-110">
-                    <Star className={cn("h-7 w-7", n <= parseInt(reviewForm.rating) ? "fill-yellow-400 text-yellow-400" : "text-gray-600")} />
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "اسمك *" : "Your Name *"}</Label>
-              <Input value={reviewForm.clientName} onChange={e => setReviewForm(f => ({ ...f, clientName: e.target.value }))} />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "تعليقك" : "Comment"}</Label>
-              <Textarea value={reviewForm.comment} onChange={e => setReviewForm(f => ({ ...f, comment: e.target.value }))} rows={3} className="resize-none" />
-            </div>
-            <Button className="w-full gap-2 font-bold" style={{ background: gold, color: "#000" }}
-              disabled={!reviewForm.clientName || reviewMutation.isPending}
-              onClick={() => reviewMutation.mutate()}>
-              {reviewMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {lang === "ar" ? "إرسال التقييم" : "Submit Review"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+              style={form.subject === s ? { background: c, borderColor: c } : {}}>
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs font-semibold mb-1.5 block text-slate-600">{lang === "ar" ? "تفاصيل الاستفسار" : "Message"}</Label>
+        <Textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+          rows={4} className="rounded-xl resize-none"
+          placeholder={lang === "ar" ? "اشرح استفسارك بالتفصيل..." : "Describe your inquiry in detail..."} />
+      </div>
+      <div className="flex gap-3 pt-2">
+        <a href={url} target="_blank" rel="noreferrer" className="flex-1">
+          <button className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-700 text-white transition-colors">
+            <MessageCircle className="h-4 w-4" />
+            {lang === "ar" ? "أرسل عبر واتساب" : "Send via WhatsApp"}
+          </button>
+        </a>
+        <a href={`/firms/${slug}/book`}>
+          <button className="flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm border transition-all hover:bg-white"
+            style={{ borderColor: cBorder, color: c }}>
+            <Calendar className="h-4 w-4" />
+            {lang === "ar" ? "احجز" : "Book"}
+          </button>
+        </a>
+      </div>
     </div>
   );
 }
