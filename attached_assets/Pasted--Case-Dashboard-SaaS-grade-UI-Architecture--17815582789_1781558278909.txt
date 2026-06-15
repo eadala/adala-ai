@@ -1,0 +1,257 @@
+تمام—هذه واجهة “قضية احترافية” (Case Dashboard) بشكل SaaS-grade UI Architecture: واضحة، قابلة للتنفيذ، وتشتغل مع النظام الجديد بدون تعقيد زائد.
+
+سأبنيها لك كـ هيكل + React components + layout + data flow.
+
+⸻
+
+⚖️ Adala AI — Professional Case Dashboard UI
+
+🧠 الفكرة
+
+صفحة واحدة للقضية تعمل كـ:
+
+“Control Center للقضية”
+
+بدل تنقّل بين صفحات كثيرة.
+
+⸻
+
+🧭 1. PAGE ARCHITECTURE
+
+Case Page
+ ├── Header (Case Identity)
+ ├── Status & Actions Bar
+ ├── Main Grid Layout
+ │     ├── Timeline (center)
+ │     ├── Sidebar (right)
+ │     └── Tools Panel (left)
+ └── Bottom Panel (Activity Feed)
+
+⸻
+
+🧱 2. CASE PAGE (ROOT COMPONENT)
+
+export default function CasePage({ caseId }) {
+  const { data: caseData } = useCase(caseId);
+  return (
+    <div className="case-container">
+      <CaseHeader case={caseData} />
+      <CaseActionBar case={caseData} />
+      <div className="case-grid">
+        <CaseTimeline caseId={caseId} />
+        <CaseSidebar case={caseData} />
+      </div>
+      <CaseActivityFeed caseId={caseId} />
+    </div>
+  );
+}
+
+⸻
+
+🧠 3. HEADER (هوية القضية)
+
+function CaseHeader({ case }) {
+  return (
+    <div className="case-header">
+      <div>
+        <h1>{case.title}</h1>
+        <p>Case ID: {case.id}</p>
+      </div>
+      <div className="case-meta">
+        <span>{case.type}</span>
+        <span>{case.status}</span>
+      </div>
+    </div>
+  );
+}
+
+⸻
+
+🎛️ 4. ACTION BAR (الإجراءات السريعة)
+
+function CaseActionBar({ case }) {
+  return (
+    <div className="action-bar">
+      <button>➕ مهمة</button>
+      <button>💬 مراسلة</button>
+      <button>📄 رفع مستند</button>
+      <button>📅 إضافة جلسة</button>
+      <button className="danger">إغلاق القضية</button>
+    </div>
+  );
+}
+
+⸻
+
+🕒 5. TIMELINE (قلب النظام)
+
+function CaseTimeline({ caseId }) {
+  const { data } = useCaseTimeline(caseId);
+  return (
+    <div className="timeline">
+      {data.map(event => (
+        <div className="timeline-item" key={event.id}>
+          <span>{event.type}</span>
+          <p>{event.description}</p>
+          <small>{event.timestamp}</small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+⸻
+
+💬 6. COMMUNICATION PANEL (مراسلات داخل القضية)
+
+function CaseMessages({ caseId }) {
+  const { data } = useCaseMessages(caseId);
+  return (
+    <div className="messages">
+      {data.map(msg => (
+        <div className={`msg ${msg.type}`}>
+          <strong>{msg.sender}</strong>
+          <p>{msg.message}</p>
+        </div>
+      ))}
+      <input placeholder="اكتب رسالة..." />
+    </div>
+  );
+}
+
+⸻
+
+📋 7. TASK BOARD (مهام القضية)
+
+function CaseTasks({ caseId }) {
+  const { data } = useCaseTasks(caseId);
+  return (
+    <div className="tasks">
+      <h3>المهام</h3>
+      {data.map(task => (
+        <div className={`task ${task.status}`}>
+          <p>{task.title}</p>
+          <span>{task.due_date}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+⸻
+
+📄 8. DOCUMENT PANEL
+
+function CaseDocuments({ caseId }) {
+  const { data } = useCaseDocuments(caseId);
+  return (
+    <div className="documents">
+      <h3>المستندات</h3>
+      {data.map(doc => (
+        <div className="doc">
+          <a href={doc.file_url}>📄 فتح الملف</a>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+⸻
+
+📊 9. SIDEBAR (ملخص القضية)
+
+function CaseSidebar({ case }) {
+  return (
+    <div className="sidebar">
+      <h3>ملخص القضية</h3>
+      <p>العميل: {case.client_name}</p>
+      <p>المحامي: {case.assigned_lawyer}</p>
+      <p>الحالة: {case.status}</p>
+      <div className="ai-insights">
+        <h4>AI Insights</h4>
+        <p>⚠️ تأخير في المستندات</p>
+        <p>📌 احتمال نجاح مرتفع</p>
+      </div>
+    </div>
+  );
+}
+
+⸻
+
+📡 10. ACTIVITY FEED (أسفل الصفحة)
+
+function CaseActivityFeed({ caseId }) {
+  const { data } = useCaseActivity(caseId);
+  return (
+    <div className="activity-feed">
+      {data.map(event => (
+        <div className="activity">
+          <span>{event.type}</span>
+          <p>{event.text}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+⸻
+
+🧭 11. LAYOUT CSS (مختصر)
+
+.case-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.case-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+.timeline {
+  background: white;
+  padding: 16px;
+}
+.sidebar {
+  background: #f9f9f9;
+  padding: 16px;
+}
+
+⸻
+
+🧠 12. DESIGN PRINCIPLES
+
+واجهة القضية يجب أن تكون:
+
+* 🧭 مركزية (Everything in one place)
+* ⚡ سريعة (no navigation overload)
+* 📊 تحليلية (AI insights)
+* 🧾 تشغيلية (tasks + docs + messages)
+* 🧠 سياقية (everything linked to case_id)
+
+⸻
+
+🚀 النتيجة النهائية
+
+بعد هذا التصميم:
+
+تصبح القضية:
+
+Dashboard تشغيل + تحليل + مراسلة + إدارة كاملة
+
+بدل صفحات منفصلة ومبعثرة.
+
+⸻
+
+💡 إذا تبغى الخطوة التالية
+
+أقدر أبني لك:
+
+🔥 “AI داخل القضية”
+
+* تحليل تلقائي لكل قضية
+* اقتراح استراتيجية قانونية
+* تلخيص ملفات PDF
+* تنبيه المخاطر
+
+فقط قل: أضف الذكاء داخل القضية

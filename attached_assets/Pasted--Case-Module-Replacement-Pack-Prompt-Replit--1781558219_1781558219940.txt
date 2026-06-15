@@ -1,0 +1,288 @@
+تمام—سأعطيك حزمة كود نظيفة (Case Module Replacement Pack) + رسالة/Prompt جاهز تطلب من Replit حذف النظام القديم واستبداله بالكامل.
+
+الفكرة هنا: Replace not patch.
+
+⸻
+
+🧹 1. REPLACEMENT PROMPT (أرسله لـ Replit كما هو)
+
+🚨 SYSTEM REFACTOR INSTRUCTION — CASE MANAGEMENT MODULE REWRITE
+You are required to COMPLETELY REMOVE the existing Case Management implementation and replace it with a clean modular architecture.
+DO NOT patch or modify existing logic.
+DO NOT keep legacy case services, controllers, or mixed logic.
+## DELETE COMPLETELY:
+- old case service files
+- old case controllers
+- any case logic inside admin/super-admin files
+- any duplicated case tables logic
+- any inline case business logic in routes
+- any legacy workflow tied to cases
+## REPLACE WITH NEW STRUCTURE BELOW:
+Implement a CLEAN Case Management Module with strict separation of concerns:
+- Case Core Entity
+- Case Service (single source of truth)
+- Case Repository (DB isolation layer)
+- Case Events (event-driven system)
+- Case Communications module
+- Case Tasks module
+- Case Documents module
+- Case Timeline module
+## HARD RULES:
+- Every query MUST include tenant_id enforcement
+- No direct DB access outside repository layer
+- No business logic in controllers
+- No cross-tenant data leakage allowed
+- No legacy compatibility layers
+## GOAL:
+Create a production-grade, scalable, multi-tenant case system that is clean, modular, and safe for SaaS production.
+After completion:
+- old system must be fully removed
+- new system must be the only active implementation
+- all APIs must use new service only
+
+⸻
+
+🧱 2. CLEAN CASE MODULE CODE (NEW CORE)
+
+📦 Folder Structure
+
+case/
+ ├── case.entity.ts
+ ├── case.service.ts
+ ├── case.repository.ts
+ ├── case.controller.ts
+ ├── case.events.ts
+ ├── modules/
+ │    ├── communications.ts
+ │    ├── tasks.ts
+ │    ├── documents.ts
+ │    └── timeline.ts
+
+⸻
+
+🧠 3. CASE ENTITY (النواة)
+
+export type CaseStatus = "draft" | "active" | "suspended" | "closed";
+export interface Case {
+  id: string;
+  tenant_id: string;
+  title: string;
+  description?: string;
+  type: "civil" | "criminal" | "contract" | "labor";
+  status: CaseStatus;
+  client_id: string;
+  assigned_lawyer_id?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+⸻
+
+🧩 4. CASE REPOSITORY (العزل الإجباري)
+
+export class CaseRepository {
+  constructor(private db: any, private tenantId: string) {}
+  async findAll() {
+    return this.db.cases.findMany({
+      where: { tenant_id: this.tenantId }
+    });
+  }
+  async findById(id: string) {
+    return this.db.cases.findFirst({
+      where: {
+        id,
+        tenant_id: this.tenantId
+      }
+    });
+  }
+  async create(data: Partial<any>) {
+    return this.db.cases.create({
+      data: {
+        ...data,
+        tenant_id: this.tenantId
+      }
+    });
+  }
+  async update(id: string, data: any) {
+    return this.db.cases.update({
+      where: {
+        id,
+        tenant_id: this.tenantId
+      },
+      data
+    });
+  }
+  async delete(id: string) {
+    return this.db.cases.delete({
+      where: {
+        id,
+        tenant_id: this.tenantId
+      }
+    });
+  }
+}
+
+⸻
+
+⚙️ 5. CASE SERVICE (القلب)
+
+import { CaseRepository } from "./case.repository";
+import { CaseEvents } from "./case.events";
+export class CaseService {
+  constructor(private repo: CaseRepository) {}
+  async getCases() {
+    return this.repo.findAll();
+  }
+  async getCase(id: string) {
+    return this.repo.findById(id);
+  }
+  async createCase(data: any) {
+    const newCase = await this.repo.create({
+      ...data,
+      status: "active"
+    });
+    CaseEvents.emit("CASE_CREATED", newCase);
+    return newCase;
+  }
+  async updateCase(id: string, data: any) {
+    const updated = await this.repo.update(id, data);
+    CaseEvents.emit("CASE_UPDATED", updated);
+    return updated;
+  }
+  async deleteCase(id: string) {
+    const result = await this.repo.delete(id);
+    CaseEvents.emit("CASE_DELETED", { id });
+    return result;
+  }
+}
+
+⸻
+
+🔔 6. CASE EVENTS SYSTEM
+
+import EventEmitter from "events";
+class CaseEventBus extends EventEmitter {}
+export const CaseEvents = new CaseEventBus();
+
+⸻
+
+💬 7. COMMUNICATIONS MODULE
+
+export class CaseCommunications {
+  constructor(private db: any, private tenantId: string) {}
+  async sendMessage(caseId: string, message: string, senderId: string) {
+    return this.db.case_messages.create({
+      data: {
+        case_id: caseId,
+        tenant_id: this.tenantId,
+        sender_id: senderId,
+        message,
+        type: "internal"
+      }
+    });
+  }
+  async getMessages(caseId: string) {
+    return this.db.case_messages.findMany({
+      where: {
+        case_id: caseId,
+        tenant_id: this.tenantId
+      }
+    });
+  }
+}
+
+⸻
+
+📝 8. TASKS MODULE
+
+export class CaseTasks {
+  constructor(private db: any, private tenantId: string) {}
+  async createTask(caseId: string, data: any) {
+    return this.db.tasks.create({
+      data: {
+        ...data,
+        case_id: caseId,
+        tenant_id: this.tenantId,
+        status: "todo"
+      }
+    });
+  }
+  async getTasks(caseId: string) {
+    return this.db.tasks.findMany({
+      where: {
+        case_id: caseId,
+        tenant_id: this.tenantId
+      }
+    });
+  }
+}
+
+⸻
+
+📄 9. DOCUMENTS MODULE
+
+export class CaseDocuments {
+  constructor(private db: any, private tenantId: string) {}
+  async upload(caseId: string, fileUrl: string) {
+    return this.db.documents.create({
+      data: {
+        case_id: caseId,
+        tenant_id: this.tenantId,
+        file_url: fileUrl
+      }
+    });
+  }
+}
+
+⸻
+
+🧭 10. CONTROLLER (نظيف جداً)
+
+export class CaseController {
+  constructor(private service: any) {}
+  async list(req, res) {
+    const data = await this.service.getCases();
+    res.json(data);
+  }
+  async create(req, res) {
+    const data = await this.service.createCase(req.body);
+    res.json(data);
+  }
+}
+
+⸻
+
+🚨 النتيجة النهائية بعد الاستبدال
+
+النظام الجديد:
+
+* Modular
+* Tenant-safe
+* Event-driven
+* بدون coupling
+* بدون legacy logic
+* قابل للتوسع
+
+⸻
+
+💡 أهم نقطة
+
+هذا التغيير ليس تحسين…
+
+هذا “استبدال نواة النظام”
+
+⸻
+
+🚀 إذا تبغى الخطوة التالية
+
+أقدر أبني لك:
+
+🔥 “Case UI Dashboard كامل”
+
+* صفحة قضية واحدة مثل CRM احترافي
+* Timeline حي
+* شات داخل القضية
+* Kanban tasks
+* عرض المستندات
+
+فقط قل: ￼ ابني واجهة القضية الاحترافية

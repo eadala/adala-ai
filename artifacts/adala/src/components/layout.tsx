@@ -199,6 +199,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/alerts",             labelKey: "التنبيهات الذكية",           icon: Bell },
       { href: "/financial-engine",   labelKey: "المحرك المالي",               icon: DollarSign },
       { href: "/finance-dashboard",  labelKey: "التقارير المالية",             icon: BarChart2 },
+      { href: "/isolation",          labelKey: "عزل المستأجرين",               icon: Lock },
     ],
   },
 ];
