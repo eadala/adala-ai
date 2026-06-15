@@ -673,7 +673,7 @@ function TasksMini({ caseId, onAdd }: { caseId: string; onAdd: () => void }) {
 
   const toggle = async (id: string, cur: string) => {
     const next = cur === "done" ? "todo" : "done";
-    await fetch(`${BASE}/api/tasks/${id}`, {
+    await fetch(`${BASE}/api/office-tasks/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: next }),
     }).catch(() => {});

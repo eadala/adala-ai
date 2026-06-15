@@ -50,9 +50,9 @@ router.post("/chat", requireAuth, async (req: Request, res: Response) => {
 });
 
 /* ── GET /api/copilot/snapshot ── */
-router.get("/snapshot", requireAuth, async (req: Request, res: Response) => {
+router.get("/snapshot", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const { officeId } = getIds(req);
+    const officeId = (req as any).tenantId ?? getTenantSafe()?.officeId ?? "default";
     const [cases, invoices, events, tasks] = await Promise.all([
       db.execute(sql`SELECT COUNT(*) FILTER (WHERE status IN ('open','in_progress')) as active FROM cases WHERE office_id=${officeId}`),
       db.execute(sql`SELECT COUNT(*) FILTER (WHERE status='overdue') as overdue FROM client_invoices WHERE office_id=${officeId}`),

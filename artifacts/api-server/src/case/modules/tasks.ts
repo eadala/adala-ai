@@ -9,11 +9,11 @@ export class CaseTasks {
   constructor(private readonly tenantId: string) {}
 
   async getTasks(caseId: string): Promise<any[]> {
-    /* tasks.case_id is UUID, cases.id is TEXT — cast needed */
+    /* tasks.case_id is TEXT (was UUID, migrated). Compare as text. */
     const r = await db.execute(sql`
       SELECT id, title, description, status, priority, assignee_name, due_date, created_at
       FROM tasks
-      WHERE case_id = ${caseId}::uuid
+      WHERE case_id = ${caseId}
         AND (office_id::text = ${this.tenantId} OR office_id IS NULL)
       ORDER BY created_at DESC
     `).catch(() => ({ rows: [] }));
@@ -27,11 +27,11 @@ export class CaseTasks {
     assignee_name?: string;
     due_date?:     string;
   }): Promise<any> {
-    /* Cast case_id text→uuid, office_id text→uuid */
+    /* case_id is TEXT; office_id is still UUID */
     const r = await db.execute(sql`
       INSERT INTO tasks (case_id, case_title, office_id, title, description, priority, assignee_name, due_date, status)
       VALUES (
-        ${caseId}::uuid,
+        ${caseId},
         ${caseTitle},
         ${this.tenantId}::uuid,
         ${data.title},
@@ -42,7 +42,7 @@ export class CaseTasks {
         'todo'
       )
       RETURNING id, title, status, priority, assignee_name, due_date, created_at
-    `).catch(() => ({ rows: [] }));
+    `);
     return ((r as any).rows ?? (r as any))?.[0] ?? {};
   }
 
