@@ -18,6 +18,7 @@ import { sql }                                     from "drizzle-orm";
 import { runCaseAutopilot, ensureAutopilotTable }  from "../agents/caseAutopilot";
 import { auditLog }                                from "../lib/auditLogger";
 import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace/api-zod";
+import { runAIAnalysis, getLatestInsight, approveAITask, rejectAITask } from "../case/case.ai";
 
 const router = Router();
 
@@ -351,6 +352,58 @@ router.post("/cases/:id/autopilot", requireAuthWithTenant, async (req, res) => {
     auditLog({ userId: auth?.userId, action: "autopilot", resource: "cases", resourceId: caseId,
       details: `score=${report.healthScore} tasks=${report.tasksCreated}` }).catch(() => {});
     res.json(report);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   AI AUTONOMOUS ASSISTANT
+══════════════════════════════════════════════════════ */
+
+/** GET /cases/:id/ai-insights — latest cached insight */
+router.get("/cases/:id/ai-insights", requireAuthWithTenant, async (req, res) => {
+  try {
+    const insight = await getLatestInsight(String(req.params.id), getTenant(req));
+    res.json(insight ?? null);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** POST /cases/:id/analyze — trigger fresh AI analysis */
+router.post("/cases/:id/analyze", requireAuthWithTenant, async (req, res) => {
+  try {
+    const caseId   = String(req.params.id);
+    const tenantId = getTenant(req);
+    const result   = await runAIAnalysis(caseId, tenantId);
+    if (!result) return res.status(404).json({ error: "القضية غير موجودة" });
+    auditLog({ userId: getAuth(req)?.userId, action: "ai_analyze", resource: "cases",
+      resourceId: caseId, details: `risks=${result.risks?.length ?? 0}` }).catch(() => {});
+    res.json(result);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** POST /cases/:id/ai-insights/approve-task — approve → create real task */
+router.post("/cases/:id/ai-insights/approve-task", requireAuthWithTenant, async (req, res) => {
+  try {
+    const { insightId, taskId } = req.body as { insightId: string; taskId: string };
+    const result = await approveAITask(insightId, taskId, String(req.params.id), getTenant(req));
+    if (!result) return res.status(404).json({ error: "المهمة غير موجودة أو تمت معالجتها مسبقاً" });
+    res.json(result);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** POST /cases/:id/ai-insights/reject-task — reject a pending auto-task */
+router.post("/cases/:id/ai-insights/reject-task", requireAuthWithTenant, async (req, res) => {
+  try {
+    const { insightId, taskId } = req.body as { insightId: string; taskId: string };
+    const result = await rejectAITask(insightId, taskId, getTenant(req));
+    res.json(result);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

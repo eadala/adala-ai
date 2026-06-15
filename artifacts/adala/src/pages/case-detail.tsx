@@ -23,6 +23,8 @@ import {
   Loader2, Send, History, Receipt, AlertTriangle,
   Sparkles, Shield, TrendingUp, ChevronRight, Scale,
   Paperclip, Zap, X, ListTodo,
+  Brain, ThumbsUp, ThumbsDown, ShieldAlert, Lightbulb,
+  BellRing, CheckCircle2, XCircle, RefreshCw,
 } from "lucide-react";
 import { Link }           from "wouter";
 import { useToast }       from "@/hooks/use-toast";
@@ -397,6 +399,273 @@ function AIHealthCard({ caseId, onAnalyze }: { caseId: string; onAnalyze: () => 
   );
 }
 
+/* ══════════════════════════════════════════════════════
+   AUTONOMOUS AI PANEL
+══════════════════════════════════════════════════════ */
+const ACTION_TYPE_LABEL: Record<string, string> = {
+  CREATE_TASK:       "مهمة جديدة",
+  REQUEST_DOCUMENT:  "طلب مستند",
+  SCHEDULE_HEARING:  "جدولة جلسة",
+  SEND_MESSAGE:      "إرسال رسالة",
+  ALERT_ONLY:        "تنبيه",
+};
+const PRIORITY_BADGE: Record<string, string> = {
+  high:   "bg-red-50 text-red-700 border-red-200",
+  medium: "bg-amber-50 text-amber-700 border-amber-200",
+  low:    "bg-slate-50 text-slate-600 border-slate-200",
+};
+const PRIORITY_LABEL: Record<string, string> = {
+  high: "عالية", medium: "متوسطة", low: "منخفضة",
+};
+
+function AutonomousAIPanel({ caseId }: { caseId: string }) {
+  const { toast }                        = useToast();
+  const qc                               = useQueryClient();
+  const [running, setRunning]            = useState(false);
+  const [approving, setApproving]        = useState<string | null>(null);
+  const [rejecting, setRejecting]        = useState<string | null>(null);
+  const [expanded, setExpanded]          = useState(true);
+
+  const { data: insight, refetch } = api<any>(
+    ["case-ai-insights", caseId],
+    `/api/cases/${caseId}/ai-insights`,
+  );
+
+  const analyze = async () => {
+    setRunning(true);
+    try {
+      const r = await fetch(`${BASE}/api/cases/${caseId}/analyze`, { method: "POST" });
+      if (!r.ok) throw new Error("فشل التحليل");
+      await refetch();
+      toast({ title: "✅ اكتمل التحليل الذكي" });
+    } catch {
+      toast({ variant: "destructive", title: "خطأ أثناء التحليل" });
+    }
+    setRunning(false);
+  };
+
+  const approveTask = async (taskId: string) => {
+    if (!insight?.id) return;
+    setApproving(taskId);
+    try {
+      const r = await fetch(`${BASE}/api/cases/${caseId}/ai-insights/approve-task`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ insightId: insight.id, taskId }),
+      });
+      if (!r.ok) throw new Error();
+      await refetch();
+      qc.invalidateQueries({ queryKey: ["case-tasks", caseId] });
+      toast({ title: "✅ تمت الموافقة وإنشاء المهمة" });
+    } catch {
+      toast({ variant: "destructive", title: "خطأ في الموافقة" });
+    }
+    setApproving(null);
+  };
+
+  const rejectTask = async (taskId: string) => {
+    if (!insight?.id) return;
+    setRejecting(taskId);
+    try {
+      await fetch(`${BASE}/api/cases/${caseId}/ai-insights/reject-task`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ insightId: insight.id, taskId }),
+      });
+      await refetch();
+      toast({ title: "تم رفض الاقتراح" });
+    } catch {
+      toast({ variant: "destructive", title: "خطأ" });
+    }
+    setRejecting(null);
+  };
+
+  const risks       = insight?.risks       ?? [];
+  const suggestions = insight?.suggestions ?? [];
+  const alerts      = insight?.alerts      ?? [];
+  const autoTasks   = (insight?.auto_tasks ?? []) as any[];
+  const pending     = autoTasks.filter((t: any) => t.status === "pending_approval");
+
+  return (
+    <Card className="border shadow-sm overflow-hidden">
+      {/* Header */}
+      <CardHeader className="pb-2 bg-gradient-to-l from-violet-50 to-background">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-xs font-semibold flex items-center gap-1.5">
+            <Brain className="h-3.5 w-3.5 text-violet-600" />
+            المساعد القانوني الذكي
+            {pending.length > 0 && (
+              <Badge className="text-xs h-4 px-1.5 rounded-full bg-amber-100 text-amber-700 border-amber-200 border">
+                {pending.length}
+              </Badge>
+            )}
+          </CardTitle>
+          <button
+            onClick={() => setExpanded(v => !v)}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-90")} />
+          </button>
+        </div>
+      </CardHeader>
+
+      {expanded && (
+        <CardContent className="pt-2 space-y-3">
+          {/* No data yet */}
+          {!insight && (
+            <div className="text-center py-4 space-y-2">
+              <Brain className="h-8 w-8 text-violet-200 mx-auto" />
+              <p className="text-xs text-muted-foreground">لم يتم التحليل بعد</p>
+              <p className="text-xs text-muted-foreground/70">اضغط التحليل لتشغيل المساعد الذكي</p>
+            </div>
+          )}
+
+          {insight && (
+            <>
+              {/* Alerts — urgent */}
+              {alerts.length > 0 && (
+                <div className="space-y-1.5">
+                  {alerts.map((a: string, i: number) => (
+                    <div key={i} className="flex items-start gap-1.5 text-xs bg-red-50 text-red-700 border border-red-200 rounded-lg px-2.5 py-2">
+                      <BellRing className="h-3 w-3 shrink-0 mt-0.5" />
+                      <span>{a}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Risks */}
+              {risks.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                    <ShieldAlert className="h-3 w-3 text-amber-600" />المخاطر
+                  </p>
+                  <div className="space-y-1">
+                    {risks.map((r: string, i: number) => (
+                      <div key={i} className="flex items-start gap-1.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5 text-amber-500" />
+                        <span>{r}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Suggestions */}
+              {suggestions.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                    <Lightbulb className="h-3 w-3 text-blue-500" />الاقتراحات
+                  </p>
+                  <div className="space-y-1">
+                    {suggestions.map((s: string, i: number) => (
+                      <div key={i} className="flex items-start gap-1.5 text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5">
+                        <ChevronRight className="h-3 w-3 shrink-0 mt-0.5 text-blue-400" />
+                        <span>{s}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Auto-tasks requiring approval */}
+              {autoTasks.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 text-violet-500" />
+                    الإجراءات المقترحة
+                  </p>
+                  <div className="space-y-2">
+                    {autoTasks.map((t: any) => (
+                      <div
+                        key={t.id}
+                        className={cn(
+                          "rounded-lg border px-2.5 py-2 text-xs space-y-1.5 transition-all",
+                          t.status === "pending_approval" && "bg-violet-50 border-violet-200",
+                          t.status === "approved"         && "bg-emerald-50 border-emerald-200 opacity-70",
+                          t.status === "rejected"         && "bg-slate-50 border-slate-200 opacity-50",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <span className="font-medium text-foreground">{t.title}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <Badge variant="outline" className={cn("text-xs h-4 px-1.5", PRIORITY_BADGE[t.priority] ?? "")}>
+                                {PRIORITY_LABEL[t.priority] ?? t.priority}
+                              </Badge>
+                              <span className="text-muted-foreground text-xs">
+                                {ACTION_TYPE_LABEL[t.type] ?? t.type}
+                              </span>
+                            </div>
+                          </div>
+                          {t.status === "approved" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />}
+                          {t.status === "rejected" && <XCircle     className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />}
+                        </div>
+
+                        {t.description && (
+                          <p className="text-muted-foreground text-xs">{t.description}</p>
+                        )}
+
+                        {t.status === "pending_approval" && (
+                          <div className="flex gap-1.5 pt-0.5">
+                            <Button
+                              size="sm"
+                              className="h-6 text-xs flex-1 bg-violet-600 hover:bg-violet-700 text-white"
+                              onClick={() => approveTask(t.id)}
+                              disabled={!!approving}
+                            >
+                              {approving === t.id
+                                ? <Loader2 className="h-3 w-3 animate-spin me-1" />
+                                : <ThumbsUp className="h-3 w-3 me-1" />}
+                              موافقة
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-xs flex-1 border-slate-200 text-slate-500 hover:text-red-600"
+                              onClick={() => rejectTask(t.id)}
+                              disabled={!!rejecting}
+                            >
+                              {rejecting === t.id
+                                ? <Loader2 className="h-3 w-3 animate-spin me-1" />
+                                : <ThumbsDown className="h-3 w-3 me-1" />}
+                              رفض
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Timestamp */}
+              {insight.created_at && (
+                <p className="text-xs text-muted-foreground/50 text-center">
+                  آخر تحليل: {new Date(insight.created_at).toLocaleDateString("ar-SA")}
+                </p>
+              )}
+            </>
+          )}
+
+          {/* Analyze button */}
+          <Button
+            size="sm"
+            onClick={analyze}
+            disabled={running}
+            className="w-full text-xs h-7 bg-violet-600 hover:bg-violet-700 text-white"
+          >
+            {running
+              ? <><Loader2 className="h-3 w-3 animate-spin me-1" />جارِ التحليل...</>
+              : <><RefreshCw className="h-3 w-3 me-1" />{insight ? "تحديث التحليل" : "تحليل بالذكاء الاصطناعي"}</>
+            }
+          </Button>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
 /* Tasks mini */
 function TasksMini({ caseId, onAdd }: { caseId: string; onAdd: () => void }) {
   const { data: tasks = [], refetch } = api<any[]>(["case-tasks", caseId], `/api/cases/${caseId}/tasks`);
@@ -721,6 +990,7 @@ export default function CaseDetail({ id }: { id: string }) {
         <div className="space-y-4">
           <InfoCard c={c} />
           <AIHealthCard caseId={id} onAnalyze={() => {}} />
+          <AutonomousAIPanel caseId={id} />
           <TasksMini caseId={id} onAdd={() => setTaskOpen(true)} />
           <HubMini caseId={id} />
         </div>
