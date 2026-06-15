@@ -88,20 +88,20 @@ export default function OfficeBook() {
   const isValid = form.clientName.trim() && form.clientPhone.trim() && form.serviceType;
 
   if (isLoading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "#080d1a" }}>
-      <Loader2 className="h-8 w-8 animate-spin text-[#C9A84C]" />
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "#F8FAFC" }}>
+      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
     </div>
   );
 
   if (isError || !data?.office) return (
-    <div className="min-h-screen flex items-center justify-center text-white text-center px-6" style={{ background: "#080d1a" }}>
+    <div className="min-h-screen flex items-center justify-center text-slate-800 text-center px-6" style={{ background: "#F8FAFC" }}>
       <div>
-        <div className="h-24 w-24 rounded-3xl bg-[#C9A84C]/10 flex items-center justify-center mx-auto mb-6">
-          <Scale className="h-12 w-12 text-[#C9A84C] opacity-50" />
+        <div className="h-24 w-24 rounded-3xl bg-blue-50 flex items-center justify-center mx-auto mb-6">
+          <Scale className="h-12 w-12 text-blue-300 opacity-50" />
         </div>
         <h1 className="text-3xl font-black mb-3">{lang === "ar" ? "المكتب غير موجود" : "Office Not Found"}</h1>
-        <p className="text-white/50 text-sm mb-6">{lang === "ar" ? "تحقق من الرابط أو تواصل مع المكتب مباشرةً" : "Check the URL or contact the office directly"}</p>
-        <button onClick={() => window.location.href = "/"} className="px-6 py-2.5 rounded-xl bg-[#C9A84C] text-black font-bold text-sm hover:bg-[#b8943d] transition-colors">
+        <p className="text-slate-500 text-sm mb-6">{lang === "ar" ? "تحقق من الرابط أو تواصل مع المكتب مباشرةً" : "Check the URL or contact the office directly"}</p>
+        <button onClick={() => window.location.href = "/"} className="px-6 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition-colors">
           {lang === "ar" ? "العودة للرئيسية" : "Back to Home"}
         </button>
       </div>
@@ -118,14 +118,14 @@ export default function OfficeBook() {
 
   return (
     <div
-      className={cn("min-h-screen text-white", lang === "ar" ? "font-['Cairo',sans-serif]" : "font-sans")}
+      className={cn("min-h-screen text-slate-800", lang === "ar" ? "font-['Cairo',sans-serif]" : "font-sans")}
       dir={lang === "ar" ? "rtl" : "ltr"}
-      style={{ background: "linear-gradient(160deg, #080d1a 0%, #0d1528 100%)" }}
+      style={{ background: "#F8FAFC" }}
     >
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-white/5" style={{ background: "rgba(8,13,26,0.95)", backdropFilter: "blur(12px)" }}>
+      <header className="sticky top-0 z-40 border-b border-slate-200" style={{ background: "rgba(255,255,255,0.95)", backdropFilter: "blur(12px)" }}>
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-          <a href={`/firms/${slug}`} className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-sm">
+          <a href={`/firms/${slug}`} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm">
             <ChevronLeft className={cn("h-4 w-4", lang === "en" && "rotate-180")} />
             {lang === "ar" ? "رجوع للصفحة" : "Back to Page"}
           </a>
@@ -137,12 +137,11 @@ export default function OfficeBook() {
                 {(officeName || "م")[0]}
               </div>
             )}
-            <span className="font-bold text-sm">{officeName}</span>
+            <span className="font-bold text-sm text-slate-800">{officeName}</span>
           </div>
           <button
             onClick={() => setLang(l => l === "ar" ? "en" : "ar")}
-            className="text-xs px-2.5 py-1 rounded-lg font-bold border border-white/20"
-            style={{ color: gold }}
+            className="text-xs px-2.5 py-1 rounded-lg font-bold border border-slate-200 text-slate-600"
           >
             {lang === "ar" ? "EN" : "ع"}
           </button>
@@ -158,10 +157,10 @@ export default function OfficeBook() {
             <Calendar className="h-3.5 w-3.5" />
             {lang === "ar" ? "حجز استشارة قانونية" : "Book a Legal Consultation"}
           </div>
-          <h1 className="text-3xl font-black mb-2">
+          <h1 className="text-3xl font-black mb-2 text-slate-900">
             {lang === "ar" ? "احجز استشارتك الآن" : "Book Your Consultation"}
           </h1>
-          <p className="text-white/50 text-sm">
+          <p className="text-slate-500 text-sm">
             {lang === "ar"
               ? "أكمل النموذج أدناه وسيتواصل معك فريق المكتب لتأكيد الموعد"
               : "Complete the form below and the office team will contact you to confirm the appointment"}
@@ -175,10 +174,10 @@ export default function OfficeBook() {
               style={{ background: "rgba(16,185,129,0.15)", border: "2px solid rgba(16,185,129,0.3)" }}>
               <CheckCircle2 className="h-10 w-10 text-emerald-400" />
             </div>
-            <h2 className="text-2xl font-black text-white mb-3">
+            <h2 className="text-2xl font-black text-slate-900 mb-3">
               {lang === "ar" ? "تم إرسال طلبك!" : "Request Sent!"}
             </h2>
-            <p className="text-white/60 mb-8 leading-relaxed">
+            <p className="text-slate-500 mb-8 leading-relaxed">
               {lang === "ar"
                 ? `شكراً ${form.clientName}، تم استلام طلب الحجز بنجاح. سيتواصل معك فريق ${officeName} قريباً لتأكيد موعدك.`
                 : `Thank you ${form.clientName}, your booking request has been received. The ${officeName} team will contact you soon to confirm your appointment.`}
@@ -196,7 +195,7 @@ export default function OfficeBook() {
                 </a>
               )}
               <a href={`/firms/${slug}`}>
-                <Button variant="outline" className="w-full border-white/20 hover:bg-white/5">
+                <Button variant="outline" className="w-full border-slate-200 hover:bg-slate-50">
                   {lang === "ar" ? "العودة لصفحة المكتب" : "Back to Office Page"}
                 </Button>
               </a>
@@ -209,25 +208,25 @@ export default function OfficeBook() {
             <div className="lg:col-span-2 space-y-5">
 
               {/* Personal info */}
-              <div className="p-6 rounded-2xl space-y-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <h2 className="font-bold flex items-center gap-2 text-sm">
+              <div className="p-6 rounded-2xl space-y-4" style={{ background: "#ffffff", border: "1px solid #E2E8F0" }}>
+                <h2 className="font-bold flex items-center gap-2 text-sm text-slate-800">
                   <User className="h-4 w-4" style={{ color: gold }} />
                   {lang === "ar" ? "بياناتك الشخصية" : "Your Personal Details"}
                 </h2>
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs font-semibold mb-1.5 block text-white/70">
+                    <Label className="text-xs font-semibold mb-1.5 block text-slate-600">
                       {lang === "ar" ? "الاسم الكامل *" : "Full Name *"}
                     </Label>
                     <Input
                       value={form.clientName}
                       onChange={e => setForm(f => ({ ...f, clientName: e.target.value }))}
                       placeholder={lang === "ar" ? "محمد عبدالله" : "John Smith"}
-                      className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                      className="border-slate-200 text-slate-800 placeholder:text-slate-400"
                     />
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold mb-1.5 block text-white/70">
+                    <Label className="text-xs font-semibold mb-1.5 block text-slate-600">
                       {lang === "ar" ? "رقم الجوال *" : "Phone Number *"}
                     </Label>
                     <Input
@@ -235,14 +234,14 @@ export default function OfficeBook() {
                       onChange={e => setForm(f => ({ ...f, clientPhone: e.target.value }))}
                       placeholder="05xxxxxxxx"
                       dir="ltr"
-                      className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                      className="border-slate-200 text-slate-800 placeholder:text-slate-400"
                     />
                   </div>
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold mb-1.5 block text-white/70">
+                  <Label className="text-xs font-semibold mb-1.5 block text-slate-600">
                     {lang === "ar" ? "البريد الإلكتروني" : "Email Address"}
-                    <span className="text-white/30 font-normal mr-1">{lang === "ar" ? "(اختياري)" : "(optional)"}</span>
+                    <span className="text-slate-400 font-normal mr-1">{lang === "ar" ? "(اختياري)" : "(optional)"}</span>
                   </Label>
                   <Input
                     value={form.clientEmail}
@@ -250,24 +249,24 @@ export default function OfficeBook() {
                     placeholder="email@example.com"
                     dir="ltr"
                     type="email"
-                    className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                    className="border-slate-200 text-slate-800 placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
               {/* Consultation details */}
-              <div className="p-6 rounded-2xl space-y-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <h2 className="font-bold flex items-center gap-2 text-sm">
+              <div className="p-6 rounded-2xl space-y-4" style={{ background: "#ffffff", border: "1px solid #E2E8F0" }}>
+                <h2 className="font-bold flex items-center gap-2 text-sm text-slate-800">
                   <FileText className="h-4 w-4" style={{ color: gold }} />
                   {lang === "ar" ? "تفاصيل الاستشارة" : "Consultation Details"}
                 </h2>
 
                 <div>
-                  <Label className="text-xs font-semibold mb-1.5 block text-white/70">
+                  <Label className="text-xs font-semibold mb-1.5 block text-slate-600">
                     {lang === "ar" ? "نوع الاستشارة *" : "Consultation Type *"}
                   </Label>
                   <Select value={form.serviceType} onValueChange={v => setForm(f => ({ ...f, serviceType: v }))}>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectTrigger className="border-slate-200 text-slate-800">
                       <SelectValue placeholder={lang === "ar" ? "اختر نوع الاستشارة" : "Select consultation type"} />
                     </SelectTrigger>
                     <SelectContent>
@@ -290,7 +289,7 @@ export default function OfficeBook() {
 
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs font-semibold mb-1.5 block text-white/70">
+                    <Label className="text-xs font-semibold mb-1.5 block text-slate-600">
                       {lang === "ar" ? "التاريخ المفضل" : "Preferred Date"}
                     </Label>
                     <Input
@@ -298,15 +297,15 @@ export default function OfficeBook() {
                       value={form.preferredDate}
                       onChange={e => setForm(f => ({ ...f, preferredDate: e.target.value }))}
                       min={new Date().toISOString().split("T")[0]}
-                      className="bg-white/5 border-white/10 text-white [color-scheme:dark]"
+                      className="border-slate-200 text-slate-800"
                     />
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold mb-1.5 block text-white/70">
+                    <Label className="text-xs font-semibold mb-1.5 block text-slate-600">
                       {lang === "ar" ? "الوقت المفضل" : "Preferred Time"}
                     </Label>
                     <Select value={form.preferredTime} onValueChange={v => setForm(f => ({ ...f, preferredTime: v }))}>
-                      <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                      <SelectTrigger className="border-slate-200 text-slate-800">
                         <SelectValue placeholder={lang === "ar" ? "اختر الوقت" : "Select time"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -319,7 +318,7 @@ export default function OfficeBook() {
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold mb-1.5 block text-white/70">
+                  <Label className="text-xs font-semibold mb-1.5 block text-slate-600">
                     {lang === "ar" ? "وصف موجز لطلبك" : "Brief Description of Your Request"}
                   </Label>
                   <Textarea
@@ -327,14 +326,14 @@ export default function OfficeBook() {
                     onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                     rows={3}
                     placeholder={lang === "ar" ? "اذكر باختصار موضوع الاستشارة لتمكين المحامي من التحضير المسبق..." : "Briefly describe the consultation topic to help the lawyer prepare in advance..."}
-                    className="resize-none bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                    className="resize-none border-slate-200 text-slate-800 placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
               <Button
-                className="w-full py-6 text-base font-bold gap-2 transition-all hover:opacity-90 hover:scale-[1.01]"
-                style={{ background: `linear-gradient(135deg, ${gold}, #f0d060)`, color: "#000" }}
+                className="w-full py-6 text-base font-bold gap-2 transition-all hover:opacity-90 hover:scale-[1.01] text-white"
+                style={{ background: gold }}
                 disabled={!isValid || bookMutation.isPending}
                 onClick={() => bookMutation.mutate()}
               >
@@ -371,19 +370,19 @@ export default function OfficeBook() {
                 )}
                 <div className="space-y-2">
                   {office.phone && (
-                    <a href={`tel:${office.phone}`} className="flex items-center gap-2 text-xs text-white/60 hover:text-white transition-colors">
+                    <a href={`tel:${office.phone}`} className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-800 transition-colors">
                       <Phone className="h-3.5 w-3.5 shrink-0" style={{ color: gold }} />
                       {office.phone}
                     </a>
                   )}
                   {office.email && (
-                    <div className="flex items-center gap-2 text-xs text-white/60">
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
                       <Mail className="h-3.5 w-3.5 shrink-0" style={{ color: gold }} />
                       {office.email}
                     </div>
                   )}
                   {office.city && (
-                    <div className="flex items-center gap-2 text-xs text-white/60">
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
                       <MapPin className="h-3.5 w-3.5 shrink-0" style={{ color: gold }} />
                       {office.city}
                     </div>
@@ -392,8 +391,8 @@ export default function OfficeBook() {
               </div>
 
               {/* Steps */}
-              <div className="p-5 rounded-2xl space-y-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <h4 className="font-bold text-sm text-white/80">
+              <div className="p-5 rounded-2xl space-y-3" style={{ background: "#ffffff", border: "1px solid #E2E8F0" }}>
+                <h4 className="font-bold text-sm text-slate-700">
                   {lang === "ar" ? "كيف يعمل الحجز؟" : "How It Works"}
                 </h4>
                 {[
@@ -403,19 +402,19 @@ export default function OfficeBook() {
                 ].map(s => (
                   <div key={s.n} className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 mt-0.5"
-                      style={{ background: `${gold}20`, color: gold }}>
+                      style={{ background: `${gold}18`, color: gold }}>
                       {s.n}
                     </div>
-                    <p className="text-xs text-white/55 leading-relaxed">{s.text}</p>
+                    <p className="text-xs text-slate-500 leading-relaxed">{s.text}</p>
                   </div>
                 ))}
               </div>
 
               {/* WhatsApp alternative */}
               {whatsappNum && (
-                <div className="p-4 rounded-2xl text-center" style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)" }}>
-                  <MessageSquare className="h-5 w-5 text-emerald-400 mx-auto mb-2" />
-                  <p className="text-xs text-white/55 mb-3">
+                <div className="p-4 rounded-2xl text-center" style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                  <MessageSquare className="h-5 w-5 text-emerald-600 mx-auto mb-2" />
+                  <p className="text-xs text-slate-500 mb-3">
                     {lang === "ar" ? "أو تواصل مباشرة عبر واتساب" : "Or contact directly via WhatsApp"}
                   </p>
                   <a href={`https://wa.me/${whatsappNum}`} target="_blank" rel="noreferrer">

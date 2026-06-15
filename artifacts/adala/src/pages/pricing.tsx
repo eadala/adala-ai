@@ -289,10 +289,10 @@ const FAQS = [
 /* ═══════════════════════════════════════ HELPERS ════════════════════════════════ */
 
 function FeatureVal({ val }: { val: FeatureVal }) {
-  if (val === true)  return <Check className="h-3.5 w-3.5 text-emerald-400 mx-auto" />;
-  if (val === false) return <X className="h-3.5 w-3.5 text-white/15 mx-auto" />;
-  if (val === null)  return <Minus className="h-3.5 w-3.5 text-white/15 mx-auto" />;
-  return <span className="text-[11px] text-white/65 font-medium">{val}</span>;
+  if (val === true)  return <Check className="h-3.5 w-3.5 text-emerald-500 mx-auto" />;
+  if (val === false) return <X className="h-3.5 w-3.5 text-slate-200 mx-auto" />;
+  if (val === null)  return <Minus className="h-3.5 w-3.5 text-slate-200 mx-auto" />;
+  return <span className="text-[11px] text-slate-600 font-medium">{val}</span>;
 }
 
 function Counter({ to, suffix = "" }: { to: number; suffix?: string }) {
@@ -694,8 +694,8 @@ export default function PricingPage() {
             <Plus className="h-3.5 w-3.5" />
             إضافات اختيارية
           </div>
-          <h2 className="text-3xl font-black">خصّص باقتك</h2>
-          <p className="text-white/40 text-sm mt-2">أضف ما تحتاجه فقط — ادفع مقابل ما تستخدمه</p>
+          <h2 className="text-3xl font-black text-slate-900">خصّص باقتك</h2>
+          <p className="text-slate-400 text-sm mt-2">أضف ما تحتاجه فقط — ادفع مقابل ما تستخدمه</p>
         </motion.div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -717,12 +717,12 @@ export default function PricingPage() {
                   <Icon className="h-5 w-5" style={{ color: a.color }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm">{a.label}</div>
-                  <div className="text-xs text-white/35">{a.per}</div>
+                  <div className="font-bold text-sm text-slate-800">{a.label}</div>
+                  <div className="text-xs text-slate-400">{a.per}</div>
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-xl font-black" style={{ color: a.color }}>{a.price}</div>
-                  <div className="text-[10px] text-white/25">ر.س</div>
+                  <div className="text-[10px] text-slate-400">ر.س</div>
                 </div>
               </motion.div>
             );
@@ -742,7 +742,7 @@ export default function PricingPage() {
             style={{ background: "#8B5CF620", color: "#8B5CF6", border: "1px solid #8B5CF625" }}>
             الأسئلة الشائعة
           </div>
-          <h2 className="text-3xl font-black">هل لديك أسئلة؟</h2>
+          <h2 className="text-3xl font-black text-slate-900">هل لديك أسئلة؟</h2>
         </motion.div>
 
         <div className="space-y-2">
@@ -754,19 +754,19 @@ export default function PricingPage() {
               viewport={{ once: true }}
               transition={{ delay: i * 0.05 }}
               className="rounded-2xl overflow-hidden"
-              style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}
+              style={{ border: "1px solid #E2E8F0", background: "#ffffff" }}
             >
               <button
-                className="w-full p-5 flex items-center justify-between text-right gap-4 hover:bg-white/5 transition-colors"
+                className="w-full p-5 flex items-center justify-between text-right gap-4 hover:bg-slate-50 transition-colors"
                 onClick={() => setOpenFaq(openFaq === i ? null : i)}
               >
-                <span className="font-bold text-sm">{faq.q}</span>
+                <span className="font-bold text-sm text-slate-800">{faq.q}</span>
                 <motion.div
                   animate={{ rotate: openFaq === i ? 180 : 0 }}
                   transition={{ duration: 0.2 }}
                   className="shrink-0"
                 >
-                  <ChevronDown className="h-4 w-4 text-white/40" />
+                  <ChevronDown className="h-4 w-4 text-slate-400" />
                 </motion.div>
               </button>
               <AnimatePresence>
@@ -778,7 +778,7 @@ export default function PricingPage() {
                     transition={{ duration: 0.25 }}
                     className="overflow-hidden"
                   >
-                    <div className="px-5 pb-5 text-sm text-white/50 leading-relaxed border-t border-white/7 pt-4">
+                    <div className="px-5 pb-5 text-sm text-slate-500 leading-relaxed border-t border-slate-100 pt-4">
                       {faq.a}
                     </div>
                   </motion.div>
@@ -796,9 +796,9 @@ export default function PricingPage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="relative rounded-3xl overflow-hidden text-center py-20 px-8"
-          style={{ background: `linear-gradient(135deg, ${GOLD}18, ${GOLD}08 40%, rgba(6,11,24,0) 100%)`, border: `1px solid ${GOLD}30` }}
+          style={{ background: `linear-gradient(135deg, ${GOLD}10, #EFF6FF 60%, #F8FAFC 100%)`, border: `1px solid ${GOLD}30` }}
         >
-          <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at 50% 0%, ${GOLD}12, transparent 70%)` }} />
+          <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at 50% 0%, ${GOLD}08, transparent 70%)` }} />
 
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
@@ -810,11 +810,11 @@ export default function PricingPage() {
               style={{ background: `${GOLD}20`, border: `1px solid ${GOLD}40` }}>
               <Sparkles className="h-8 w-8" style={{ color: GOLD }} />
             </div>
-            <h2 className="text-4xl md:text-5xl font-black mb-4">
+            <h2 className="text-4xl md:text-5xl font-black mb-4 text-slate-900">
               ابدأ رحلتك نحو
               <span className="block" style={{ color: GOLD }}>مكتب قانوني أكثر ذكاءً</span>
             </h2>
-            <p className="text-white/50 text-base mb-8 max-w-lg mx-auto leading-relaxed">
+            <p className="text-slate-500 text-base mb-8 max-w-lg mx-auto leading-relaxed">
               انضم لأكثر من ٨٥٠ مكتباً قانونياً يستخدمون عدالة AI لتحسين كفاءتهم وتنمية أعمالهم.
             </p>
             <div className="flex items-start gap-3 max-w-sm mx-auto mb-6 text-right">
@@ -824,7 +824,7 @@ export default function PricingPage() {
                 onCheckedChange={(v) => setAcceptedTerms(!!v)}
                 className="mt-0.5 shrink-0"
               />
-              <label htmlFor="terms-cta" className="text-sm text-white/55 cursor-pointer leading-relaxed">
+              <label htmlFor="terms-cta" className="text-sm text-slate-500 cursor-pointer leading-relaxed">
                 أقر بأنني اطلعت على{" "}
                 <Link href="/terms"><span className="text-blue-600 hover:underline cursor-pointer">الشروط والأحكام</span></Link>
                 {" "}و{" "}
@@ -837,7 +837,7 @@ export default function PricingPage() {
                 <Button
                   size="lg"
                   className="gap-2 px-8 py-6 text-base font-black shadow-2xl transition-opacity"
-                  style={{ background: acceptedTerms ? GOLD : "rgba(255,255,255,0.1)", color: acceptedTerms ? "#fff" : "rgba(255,255,255,0.3)" }}
+                  style={{ background: acceptedTerms ? GOLD : "#E2E8F0", color: acceptedTerms ? "#fff" : "#94A3B8" }}
                   disabled={!acceptedTerms}
                 >
                   <Zap className="h-5 w-5" />
@@ -845,13 +845,13 @@ export default function PricingPage() {
                 </Button>
               </a>
               <a href="mailto:sales@adalah-ai.sa">
-                <Button size="lg" variant="outline" className="gap-2 px-8 py-6 text-base border-white/20 hover:bg-white/10">
+                <Button size="lg" variant="outline" className="gap-2 px-8 py-6 text-base border-slate-300 text-slate-600 hover:bg-slate-50">
                   <Phone className="h-5 w-5" />
                   تحدث مع فريق المبيعات
                 </Button>
               </a>
             </div>
-            <div className="flex flex-wrap gap-6 justify-center mt-8 text-xs text-white/30">
+            <div className="flex flex-wrap gap-6 justify-center mt-8 text-xs text-slate-400">
               {["✓ لا بطاقة ائتمانية", "✓ لا عقود طويلة", "✓ إلغاء في أي وقت", "✓ دعم كامل بالعربية"].map(t => (
                 <span key={t} className="font-medium">{t}</span>
               ))}
@@ -861,14 +861,14 @@ export default function PricingPage() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="border-t border-white/5 py-8 text-center text-xs text-white/20">
+      <footer className="border-t border-slate-200 py-8 text-center text-xs text-slate-400">
         <p className="mb-3">© ٢٠٢٦ عدالة AI · جميع الحقوق محفوظة</p>
         <div className="flex items-center justify-center gap-4">
-          <Link href="/terms"><span className="text-white/30 hover:text-white/60 transition-colors cursor-pointer">الشروط والأحكام</span></Link>
-          <span className="text-white/15">•</span>
-          <Link href="/privacy"><span className="text-white/30 hover:text-white/60 transition-colors cursor-pointer">سياسة الخصوصية</span></Link>
-          <span className="text-white/15">•</span>
-          <Link href="/security"><span className="text-white/30 hover:text-white/60 transition-colors cursor-pointer">الأمان</span></Link>
+          <Link href="/terms"><span className="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer">الشروط والأحكام</span></Link>
+          <span className="text-slate-200">•</span>
+          <Link href="/privacy"><span className="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer">سياسة الخصوصية</span></Link>
+          <span className="text-slate-200">•</span>
+          <Link href="/security"><span className="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer">الأمان</span></Link>
         </div>
       </footer>
 

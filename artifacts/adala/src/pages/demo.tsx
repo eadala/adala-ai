@@ -139,26 +139,26 @@ const COLLECTIONS = [
 
 /* ── HELPERS ─────────────────────────────────── */
 const statusColors: Record<string, string> = {
-  جارية:    "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  مجدولة:   "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  فائزة:    "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  مؤجلة:    "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  ساري:     "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  منتهي:    "bg-gray-500/20 text-gray-300 border-gray-500/30",
-  نشط:      "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  إجازة:    "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  معلق:     "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  "مُحصّل": "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  "مُسدَّد":"bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  مدفوع:    "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  متأخر:    "bg-red-500/20 text-red-300 border-red-500/30",
-  قادمة:    "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  "مؤكدة":  "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  "مُعالج": "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  "مُفهرس": "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  قائم:     "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  "مُسوَّى":"bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  جديد:     "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  جارية:    "bg-blue-50 text-blue-700 border-blue-200",
+  مجدولة:   "bg-purple-50 text-purple-700 border-purple-200",
+  فائزة:    "bg-emerald-50 text-emerald-700 border-emerald-200",
+  مؤجلة:    "bg-amber-50 text-amber-700 border-amber-200",
+  ساري:     "bg-emerald-50 text-emerald-700 border-emerald-200",
+  منتهي:    "bg-slate-100 text-slate-500 border-slate-200",
+  نشط:      "bg-emerald-50 text-emerald-700 border-emerald-200",
+  إجازة:    "bg-amber-50 text-amber-700 border-amber-200",
+  معلق:     "bg-amber-50 text-amber-700 border-amber-200",
+  "مُحصّل": "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "مُسدَّد":"bg-emerald-50 text-emerald-700 border-emerald-200",
+  مدفوع:    "bg-emerald-50 text-emerald-700 border-emerald-200",
+  متأخر:    "bg-red-50 text-red-700 border-red-200",
+  قادمة:    "bg-blue-50 text-blue-700 border-blue-200",
+  "مؤكدة":  "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "مُعالج": "bg-purple-50 text-purple-700 border-purple-200",
+  "مُفهرس": "bg-emerald-50 text-emerald-700 border-emerald-200",
+  قائم:     "bg-amber-50 text-amber-700 border-amber-200",
+  "مُسوَّى":"bg-emerald-50 text-emerald-700 border-emerald-200",
+  جديد:     "bg-blue-50 text-blue-700 border-blue-200",
 };
 
 const priorityColors: Record<string, string> = {
@@ -177,7 +177,7 @@ const auditColors: Record<string, { bg: string; text: string; label: string }> =
 
 function StatusBadge({ label }: { label: string }) {
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${statusColors[label] ?? "bg-white/10 text-white/50 border-white/10"}`}>
+    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${statusColors[label] ?? "bg-slate-100 text-slate-500 border-slate-200"}`}>
       {label}
     </span>
   );
@@ -187,13 +187,13 @@ function SectionHeader({ title, count, icon: Icon }: { title: string; count?: nu
   return (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center">
-          <Icon className="w-4 h-4 text-amber-400" />
+        <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+          <Icon className="w-4 h-4 text-blue-600" />
         </div>
-        <h3 className="text-base font-bold text-white">{title}</h3>
-        {count !== undefined && <span className="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded-full">{count}</span>}
+        <h3 className="text-base font-bold text-slate-800">{title}</h3>
+        {count !== undefined && <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{count}</span>}
       </div>
-      <button className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors">
+      <button className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 transition-colors">
         <Plus className="w-3 h-3" /> إضافة جديد
       </button>
     </div>
@@ -204,10 +204,10 @@ function SearchBar({ placeholder }: { placeholder: string }) {
   return (
     <div className="flex gap-2 mb-4">
       <div className="relative flex-1">
-        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-        <input placeholder={placeholder} className="w-full bg-white/5 border border-white/10 rounded-lg py-2 pr-9 pl-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/40" />
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <input placeholder={placeholder} className="w-full bg-white border border-slate-200 rounded-lg py-2 pr-9 pl-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-400" />
       </div>
-      <button className="flex items-center gap-1.5 text-xs text-white/50 bg-white/5 border border-white/10 px-3 rounded-lg hover:bg-white/10 transition-colors">
+      <button className="flex items-center gap-1.5 text-xs text-slate-600 bg-white border border-slate-200 px-3 rounded-lg hover:bg-slate-50 transition-colors">
         <Filter className="w-3.5 h-3.5" /> فلتر
       </button>
     </div>
@@ -260,10 +260,10 @@ function PlatformOverviewSection() {
             { label: "مدعوم بالذكاء AI", value: data.stats.aiPowered, icon: Brain, color: "text-purple-400" },
             { label: "أقسام المنصة", value: data.stats.groups, icon: Layers, color: "text-blue-400" },
           ].map(s => (
-            <div key={s.label} className="bg-white/5 border border-white/8 rounded-xl p-3 text-center">
+            <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-3 text-center">
               <s.icon className={`w-4 h-4 mx-auto mb-1 ${s.color}`} />
               <div className={`text-xl font-black ${s.color}`}>{s.value}</div>
-              <div className="text-xs text-white/40 mt-0.5">{s.label}</div>
+              <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
             </div>
           ))}
         </div>
@@ -275,8 +275,8 @@ function PlatformOverviewSection() {
           onClick={() => setActiveGroup("all")}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all border ${
             activeGroup === "all"
-              ? "bg-amber-500 text-black border-amber-500"
-              : "bg-white/5 border-white/10 text-white/60 hover:bg-white/8"
+              ? "bg-blue-600 text-white border-blue-600"
+              : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-50"
           }`}
         >
           الكل
@@ -286,7 +286,7 @@ function PlatformOverviewSection() {
             className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all border ${
               activeGroup === id
                 ? "text-black border-transparent"
-                : "bg-white/5 border-white/10 text-white/60 hover:bg-white/8"
+                : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
             style={activeGroup === id ? { background: g.color, borderColor: g.color } : {}}>
             {g.label}
@@ -297,7 +297,7 @@ function PlatformOverviewSection() {
       {loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-28 bg-white/5 border border-white/8 rounded-xl animate-pulse" />
+            <div key={i} className="h-28 bg-white border border-slate-200 rounded-xl animate-pulse" />
           ))}
         </div>
       )}
@@ -308,10 +308,9 @@ function PlatformOverviewSection() {
             const Icon = ICON_MAP[m.icon] || LayoutGrid;
             return (
               <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                className="group relative bg-white/3 hover:bg-white/6 border border-white/8 hover:border-white/15 rounded-xl p-4 cursor-pointer transition-all"
-                style={{ "--hover-border": m.color + "40" } as any}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = m.color + "35")}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}>
+                className="group relative bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-4 cursor-pointer transition-all"
+                onMouseEnter={e => (e.currentTarget.style.borderColor = m.color + "60")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "#e2e8f0")}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: m.color + "18", border: `1px solid ${m.color}30` }}>
                     <Icon className="w-4.5 h-4.5" style={{ color: m.color }} />
@@ -323,8 +322,8 @@ function PlatformOverviewSection() {
                     </span>
                   )}
                 </div>
-                <h4 className="text-sm font-bold text-white mb-1">{m.title}</h4>
-                <p className="text-xs text-white/45 leading-relaxed">{m.description}</p>
+                <h4 className="text-sm font-bold text-slate-800 mb-1">{m.title}</h4>
+                <p className="text-xs text-slate-500 leading-relaxed">{m.description}</p>
                 <div className="mt-3 flex items-center gap-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: m.color }}>
                   <span>عرض في النظام الحقيقي</span>
                   <ExternalLink className="w-3 h-3" />
@@ -336,7 +335,7 @@ function PlatformOverviewSection() {
       )}
 
       {!loading && !data && (
-        <div className="text-center py-12 text-white/30 text-sm">
+        <div className="text-center py-12 text-slate-400 text-sm">
           تعذّر تحميل وحدات المنصة — يرجى المحاولة لاحقاً
         </div>
       )}
@@ -352,26 +351,26 @@ function PlatformOverviewSection() {
 function CasesSection() {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية — لا تؤثر على النظام الحقيقي</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية — لا تؤثر على النظام الحقيقي</span></div>
       <SectionHeader title="القضايا النشطة" count={CASES.length} icon={Scale} />
       <SearchBar placeholder="ابحث في القضايا..." />
       <div className="space-y-2">
         {CASES.map(c => (
           <motion.div key={c.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-white/5 hover:bg-white/8 border border-white/8 hover:border-amber-500/20 rounded-xl p-4 cursor-pointer transition-all group">
+            className="bg-slate-50 hover:bg-slate-50 border border-slate-200 hover:border-amber-500/20 rounded-xl p-4 cursor-pointer transition-all group">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs text-amber-400/70 font-mono">{c.id}</span>
                   <span className={`text-xs font-medium ${priorityColors[c.priority]}`}>● {c.priority}</span>
                 </div>
-                <p className="text-sm font-semibold text-white mb-1 truncate">{c.title}</p>
-                <div className="flex items-center gap-3 text-xs text-white/40">
+                <p className="text-sm font-semibold text-slate-800 mb-1 truncate">{c.title}</p>
+                <div className="flex items-center gap-3 text-xs text-slate-500">
                   <span><UserCircle className="inline w-3 h-3 ml-1" />{c.client}</span>
                   <span><Briefcase className="inline w-3 h-3 ml-1" />{c.type}</span>
                   <span><Calendar className="inline w-3 h-3 ml-1" />{c.date}</span>
                 </div>
-                <p className="text-xs text-white/30 mt-1">{c.judge}</p>
+                <p className="text-xs text-slate-400 mt-1">{c.judge}</p>
               </div>
               <div className="flex flex-col items-end gap-2 shrink-0">
                 <StatusBadge label={c.status} />
@@ -388,31 +387,31 @@ function CasesSection() {
 function ClientsSection() {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
       <SectionHeader title="العملاء (CRM)" count={CLIENTS.length} icon={Users} />
       <SearchBar placeholder="ابحث في العملاء..." />
       <div className="space-y-3">
         {CLIENTS.map((c, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-white/5 hover:bg-white/8 border border-white/8 hover:border-amber-500/20 rounded-xl p-4 cursor-pointer transition-all">
+            className="bg-slate-50 hover:bg-slate-50 border border-slate-200 hover:border-amber-500/20 rounded-xl p-4 cursor-pointer transition-all">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-600/40 to-amber-400/20 flex items-center justify-center text-amber-300 font-bold text-sm shrink-0">
                 {c.name[0]}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-white">{c.name}</p>
-                  <span className="text-xs text-white/30 bg-white/5 px-1.5 rounded">{c.type}</span>
+                  <p className="text-sm font-semibold text-slate-800">{c.name}</p>
+                  <span className="text-xs text-slate-400 bg-slate-50 px-1.5 rounded">{c.type}</span>
                   <StatusBadge label={c.status} />
                 </div>
-                <div className="flex items-center gap-3 text-xs text-white/40 mt-1">
+                <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
                   <span><Phone className="inline w-3 h-3 ml-0.5" />{c.phone}</span>
                   <span><Mail className="inline w-3 h-3 ml-0.5" />{c.email}</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-white/40 mt-0.5">
+                <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
                   <span>{c.cases} قضية</span>
                   <span>إجمالي الفوترة: <span className="text-amber-400">{c.totalBilled} ﷼</span></span>
-                  <div className="flex gap-0.5">{Array.from({length: 5}).map((_, j) => <Star key={j} className={`w-3 h-3 ${j < c.rating ? "text-amber-400 fill-amber-400" : "text-white/20"}`} />)}</div>
+                  <div className="flex gap-0.5">{Array.from({length: 5}).map((_, j) => <Star key={j} className={`w-3 h-3 ${j < c.rating ? "text-amber-400 fill-amber-400" : "text-slate-300"}`} />)}</div>
                 </div>
               </div>
             </div>
@@ -426,20 +425,20 @@ function ClientsSection() {
 function ContractsSection() {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
       <SectionHeader title="العقود والاتفاقيات" count={CONTRACTS.length} icon={FileCheck} />
       <SearchBar placeholder="ابحث في العقود..." />
       <div className="space-y-2">
         {CONTRACTS.map((c, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-white/5 hover:bg-white/8 border border-white/8 rounded-xl p-4 cursor-pointer transition-all">
+            className="bg-slate-50 hover:bg-slate-50 border border-slate-200 rounded-xl p-4 cursor-pointer transition-all">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-white mb-1">{c.title}</p>
-                <div className="flex items-center gap-3 text-xs text-white/40">
+                <p className="text-sm font-semibold text-slate-800 mb-1">{c.title}</p>
+                <div className="flex items-center gap-3 text-xs text-slate-500">
                   <span><UserCircle className="inline w-3 h-3 ml-1" />{c.client}</span>
                   <span>{c.start} ← {c.end}</span>
-                  <span className="text-white/30 bg-white/5 px-1.5 rounded">{c.type}</span>
+                  <span className="text-slate-400 bg-slate-50 px-1.5 rounded">{c.type}</span>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-2 shrink-0">
@@ -457,23 +456,23 @@ function ContractsSection() {
 function EmployeesSection() {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
       <SectionHeader title="الموظفون" count={EMPLOYEES.length} icon={UserCircle} />
       <SearchBar placeholder="ابحث في الموظفين..." />
       <div className="space-y-3">
         {EMPLOYEES.map((e, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-white/5 hover:bg-white/8 border border-white/8 rounded-xl p-4 transition-all">
+            className="bg-slate-50 hover:bg-slate-50 border border-slate-200 rounded-xl p-4 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600/40 to-blue-400/20 flex items-center justify-center text-blue-300 font-bold text-sm shrink-0">
                 {e.name.split("/ ")[1]?.[0] ?? "م"}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-white">{e.name}</p>
+                  <p className="text-sm font-semibold text-slate-800">{e.name}</p>
                   <StatusBadge label={e.status} />
                 </div>
-                <div className="flex items-center gap-3 text-xs text-white/40 mt-1">
+                <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
                   <span>{e.role}</span>
                   <span>{e.dept}</span>
                   <span className="text-amber-400 font-medium">{e.salary} ﷼/شهر</span>
@@ -481,7 +480,7 @@ function EmployeesSection() {
               </div>
               <div className="shrink-0 text-center">
                 <div className={`text-base font-black ${e.perf >= 90 ? "text-emerald-400" : e.perf >= 75 ? "text-amber-400" : "text-red-400"}`}>{e.perf}%</div>
-                <div className="text-xs text-white/30">أداء</div>
+                <div className="text-xs text-slate-400">أداء</div>
               </div>
             </div>
           </motion.div>
@@ -494,17 +493,17 @@ function EmployeesSection() {
 function RevenuesSection() {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
       <div className="grid grid-cols-3 gap-3 mb-4">
         {[
           { label: "إجمالي الإيرادات", value: "156,667 ﷼", color: "text-emerald-400", icon: TrendingUp },
           { label: "مُحصَّل", value: "146,667 ﷼", color: "text-blue-400", icon: CheckCircle },
           { label: "معلق", value: "10,000 ﷼", color: "text-amber-400", icon: Clock },
         ].map(s => (
-          <div key={s.label} className="bg-white/5 border border-white/8 rounded-xl p-3 text-center">
+          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-3 text-center">
             <s.icon className={`w-4 h-4 mx-auto mb-1 ${s.color}`} />
             <div className={`text-base font-bold ${s.color}`}>{s.value}</div>
-            <div className="text-xs text-white/40 mt-0.5">{s.label}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
@@ -512,12 +511,12 @@ function RevenuesSection() {
       <div className="space-y-2">
         {REVENUES.map((r, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/8 border border-white/8 rounded-xl transition-all">
+            className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all">
             <div className="min-w-0">
-              <p className="text-sm text-white font-medium">{r.desc}</p>
-              <div className="flex gap-3 text-xs text-white/40 mt-0.5">
+              <p className="text-sm text-slate-800 font-medium">{r.desc}</p>
+              <div className="flex gap-3 text-xs text-slate-500 mt-0.5">
                 <span>{r.client}</span><span>{r.date}</span>
-                <span className="bg-white/5 px-1.5 rounded">{r.category}</span>
+                <span className="bg-slate-50 px-1.5 rounded">{r.category}</span>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
@@ -534,17 +533,17 @@ function RevenuesSection() {
 function ExpensesSection() {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
       <div className="grid grid-cols-3 gap-3 mb-4">
         {[
           { label: "إجمالي المصاريف", value: "67,700 ﷼", color: "text-red-400", icon: TrendingDown },
-          { label: "مُسدَّد", value: "67,700 ﷼", color: "text-white/60", icon: CheckCircle },
+          { label: "مُسدَّد", value: "67,700 ﷼", color: "text-slate-600", icon: CheckCircle },
           { label: "صافي الربح", value: "88,967 ﷼", color: "text-emerald-400", icon: Activity },
         ].map(s => (
-          <div key={s.label} className="bg-white/5 border border-white/8 rounded-xl p-3 text-center">
+          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-3 text-center">
             <s.icon className={`w-4 h-4 mx-auto mb-1 ${s.color}`} />
             <div className={`text-base font-bold ${s.color}`}>{s.value}</div>
-            <div className="text-xs text-white/40 mt-0.5">{s.label}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
@@ -552,12 +551,12 @@ function ExpensesSection() {
       <div className="space-y-2">
         {EXPENSES.map((e, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/8 border border-white/8 rounded-xl transition-all">
+            className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all">
             <div className="min-w-0">
-              <p className="text-sm text-white font-medium">{e.desc}</p>
-              <div className="flex gap-3 text-xs text-white/40 mt-0.5">
+              <p className="text-sm text-slate-800 font-medium">{e.desc}</p>
+              <div className="flex gap-3 text-xs text-slate-500 mt-0.5">
                 <span>{e.vendor}</span><span>{e.date}</span>
-                <span className="bg-white/5 px-1.5 rounded">{e.category}</span>
+                <span className="bg-slate-50 px-1.5 rounded">{e.category}</span>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
@@ -574,21 +573,21 @@ function ExpensesSection() {
 function InvoicesSection() {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
       <SectionHeader title="الفواتير" count={INVOICES.length} icon={Receipt} />
       <SearchBar placeholder="ابحث في الفواتير..." />
       <div className="space-y-2">
         {INVOICES.map((inv, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className="p-4 bg-white/5 hover:bg-white/8 border border-white/8 rounded-xl transition-all cursor-pointer">
+            className="p-4 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all cursor-pointer">
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-mono text-amber-400/70">{inv.id}</span>
                   <StatusBadge label={inv.status} />
                 </div>
-                <p className="text-sm font-semibold text-white">{inv.client}</p>
-                <div className="flex gap-3 text-xs text-white/40 mt-1">
+                <p className="text-sm font-semibold text-slate-800">{inv.client}</p>
+                <div className="flex gap-3 text-xs text-slate-500 mt-1">
                   <span>إصدار: {inv.issued}</span>
                   <span>استحقاق: {inv.due}</span>
                   <span>{inv.items} بنود</span>
@@ -606,22 +605,22 @@ function InvoicesSection() {
 function MessagesSection() {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
       <SectionHeader title="المراسلات الداخلية" count={MESSAGES.length} icon={MessageSquare} />
       <div className="space-y-2 mb-4">
         {MESSAGES.map((m, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className={`p-3 border rounded-xl cursor-pointer transition-all ${m.unread ? "bg-amber-500/5 border-amber-500/20 hover:bg-amber-500/8" : "bg-white/5 border-white/8 hover:bg-white/8"}`}>
+            className={`p-3 border rounded-xl cursor-pointer transition-all ${m.unread ? "bg-amber-50 border-amber-200 hover:bg-amber-100" : "bg-white border-slate-200 hover:bg-slate-50"}`}>
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-600/40 to-amber-400/20 flex items-center justify-center text-amber-300 font-bold text-sm shrink-0">
                 {m.avatar}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className={`text-sm font-semibold ${m.unread ? "text-white" : "text-white/70"}`}>{m.from}</span>
-                  <span className="text-xs text-white/30">{m.time}</span>
+                  <span className={`text-sm font-semibold ${m.unread ? "text-slate-900" : "text-slate-600"}`}>{m.from}</span>
+                  <span className="text-xs text-slate-400">{m.time}</span>
                 </div>
-                <p className="text-xs text-white/50 line-clamp-2">{m.text}</p>
+                <p className="text-xs text-slate-500 line-clamp-2">{m.text}</p>
               </div>
               {m.unread && <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0 mt-1.5" />}
             </div>
@@ -629,7 +628,7 @@ function MessagesSection() {
         ))}
       </div>
       <div className="flex gap-2">
-        <input placeholder="اكتب رسالة..." className="flex-1 bg-white/5 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/40" />
+        <input placeholder="اكتب رسالة..." className="flex-1 bg-white border border-slate-200 rounded-lg py-2.5 px-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-400" />
         <button className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-black rounded-lg transition-colors">
           <Send className="w-4 h-4" />
         </button>
@@ -647,10 +646,10 @@ function ReportsSection() {
   ];
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
       <SectionHeader title="التقارير المالية" icon={BarChart3} />
-      <div className="bg-white/5 border border-white/8 rounded-xl p-4 mb-4">
-        <p className="text-xs text-white/40 mb-3">الإيرادات مقابل المصاريف (آلاف ريال) — 2026</p>
+      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
+        <p className="text-xs text-slate-500 mb-3">الإيرادات مقابل المصاريف (آلاف ريال) — 2026</p>
         <div className="flex items-end gap-4 h-32">
           {bars.map(b => (
             <div key={b.month} className="flex-1 flex flex-col items-center gap-1">
@@ -658,13 +657,13 @@ function ReportsSection() {
                 <div className="flex-1 bg-emerald-500/60 rounded-t-sm transition-all hover:bg-emerald-500/80" style={{ height: `${b.rev * 0.6}%` }} />
                 <div className="flex-1 bg-red-500/40 rounded-t-sm transition-all hover:bg-red-500/60" style={{ height: `${b.exp * 0.6}%` }} />
               </div>
-              <span className="text-xs text-white/40">{b.month}</span>
+              <span className="text-xs text-slate-500">{b.month}</span>
             </div>
           ))}
         </div>
         <div className="flex gap-4 mt-2">
-          <span className="flex items-center gap-1 text-xs text-white/40"><span className="w-3 h-2 rounded-sm bg-emerald-500/60 inline-block" /> إيرادات</span>
-          <span className="flex items-center gap-1 text-xs text-white/40"><span className="w-3 h-2 rounded-sm bg-red-500/40 inline-block" /> مصاريف</span>
+          <span className="flex items-center gap-1 text-xs text-slate-500"><span className="w-3 h-2 rounded-sm bg-emerald-500/60 inline-block" /> إيرادات</span>
+          <span className="flex items-center gap-1 text-xs text-slate-500"><span className="w-3 h-2 rounded-sm bg-red-500/40 inline-block" /> مصاريف</span>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -674,9 +673,9 @@ function ReportsSection() {
           { label: "صافي الربح", val: "88,967 ﷼", trend: "+38%", up: true },
           { label: "نسبة الربحية", val: "56.8%", trend: "+10%", up: true },
         ].map(s => (
-          <div key={s.label} className="bg-white/5 border border-white/8 rounded-xl p-3">
-            <p className="text-xs text-white/40 mb-1">{s.label}</p>
-            <p className="text-base font-bold text-white">{s.val}</p>
+          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-3">
+            <p className="text-xs text-slate-500 mb-1">{s.label}</p>
+            <p className="text-base font-bold text-slate-800">{s.val}</p>
             <p className={`text-xs font-medium mt-0.5 ${s.up ? "text-emerald-400" : "text-red-400"}`}>
               {s.up ? "↑" : "↑"} {s.trend} من الربع الماضي
             </p>
@@ -690,20 +689,20 @@ function ReportsSection() {
 function DocumentsSection() {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
       <SectionHeader title="إدارة المستندات" count={DOCUMENTS.length} icon={FileText} />
       <SearchBar placeholder="ابحث في المستندات أو استخدم OCR عربي..." />
       <div className="space-y-2">
         {DOCUMENTS.map((d, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/8 border border-white/8 rounded-xl transition-all cursor-pointer">
+            className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all cursor-pointer">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-9 h-9 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
                 <FileText className="w-4 h-4 text-blue-400" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-white truncate">{d.name}</p>
-                <div className="flex gap-2 text-xs text-white/40 mt-0.5">
+                <p className="text-sm font-medium text-slate-800 truncate">{d.name}</p>
+                <div className="flex gap-2 text-xs text-slate-500 mt-0.5">
                   <span>{d.case}</span><span>{d.size}</span><span>{d.date}</span>
                   {d.ocr && <span className="text-emerald-400">✓ OCR</span>}
                 </div>
@@ -721,13 +720,13 @@ function CalendarSection() {
   const highlighted = [15, 18, 20, 22];
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
       <SectionHeader title="المواعيد والجلسات" count={SESSIONS.length} icon={Calendar} />
-      <div className="bg-white/5 border border-white/8 rounded-xl p-4 mb-4">
-        <p className="text-xs text-white/40 mb-3">يونيو 2026</p>
+      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
+        <p className="text-xs text-slate-500 mb-3">يونيو 2026</p>
         <div className="grid grid-cols-7 gap-1 text-center mb-1">
           {["أح","إث","ثل","أر","خم","جم","سب"].map(d => (
-            <div key={d} className="text-xs text-white/30 py-1">{d}</div>
+            <div key={d} className="text-xs text-slate-400 py-1">{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1 text-center">
@@ -737,8 +736,8 @@ function CalendarSection() {
             return (
               <div key={i} className={`text-xs py-1.5 rounded-lg cursor-pointer transition-colors ${
                 has ? "bg-amber-500 text-black font-bold" :
-                day === 12 ? "bg-white/15 text-white font-bold" :
-                "text-white/40 hover:bg-white/8"
+                day === 12 ? "bg-blue-600 text-white font-bold" :
+                "text-slate-500 hover:bg-slate-50"
               }`}>{day}</div>
             );
           })}
@@ -747,19 +746,19 @@ function CalendarSection() {
       <div className="space-y-2">
         {SESSIONS.map((s, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className="p-3 bg-white/5 hover:bg-white/8 border border-white/8 rounded-xl transition-all">
+            className="p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs bg-white/5 px-2 py-0.5 rounded text-white/50">{s.type}</span>
+                  <span className="text-xs bg-slate-50 px-2 py-0.5 rounded text-slate-500">{s.type}</span>
                   <StatusBadge label={s.status} />
                 </div>
-                <p className="text-sm font-semibold text-white mb-0.5">{s.title}</p>
-                <p className="text-xs text-white/40">{s.court}</p>
+                <p className="text-sm font-semibold text-slate-800 mb-0.5">{s.title}</p>
+                <p className="text-xs text-slate-500">{s.court}</p>
               </div>
               <div className="text-left shrink-0">
                 <p className="text-sm font-bold text-amber-400">{s.time}</p>
-                <p className="text-xs text-white/40">{s.date}</p>
+                <p className="text-xs text-slate-500">{s.date}</p>
               </div>
             </div>
           </motion.div>
@@ -776,21 +775,21 @@ function BankSection() {
   ];
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
       <SectionHeader title="الحسابات البنكية والسلف" icon={Landmark} />
       <div className="space-y-3 mb-6">
         {accounts.map((a, i) => (
-          <div key={i} className="bg-gradient-to-l from-white/5 to-white/3 border border-white/8 rounded-xl p-4">
+          <div key={i} className="bg-white border border-slate-200 rounded-xl p-4">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-bold text-white mb-1">{a.bank}</p>
-                <p className="text-xs text-white/30 font-mono">{a.iban}</p>
-                <span className="text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded mt-1 inline-block">{a.type}</span>
+                <p className="text-sm font-bold text-slate-800 mb-1">{a.bank}</p>
+                <p className="text-xs text-slate-400 font-mono">{a.iban}</p>
+                <span className="text-xs text-slate-500 bg-slate-50 px-2 py-0.5 rounded mt-1 inline-block">{a.type}</span>
               </div>
               <div className="text-left">
-                <p className="text-xs text-white/40">الرصيد الحالي</p>
+                <p className="text-xs text-slate-500">الرصيد الحالي</p>
                 <p className="text-xl font-black text-emerald-400">{a.balance}</p>
-                <p className="text-xs text-white/30">ريال سعودي</p>
+                <p className="text-xs text-slate-400">ريال سعودي</p>
               </div>
             </div>
           </div>
@@ -802,10 +801,10 @@ function BankSection() {
           { name: "عبدالرحمن الشمري", amount: "2,000", purpose: "رسوم محاكم - قضية الأفق", date: "2026-04-10", status: "قائم" },
           { name: "ريم الغامدي", amount: "800", purpose: "نثريات ومستلزمات مكتبية", date: "2026-04-15", status: "مُسوَّى" },
         ].map((ad, i) => (
-          <div key={i} className="flex items-center justify-between p-3 bg-white/5 border border-white/8 rounded-xl">
+          <div key={i} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
             <div>
-              <p className="text-sm text-white font-medium">{ad.name}</p>
-              <p className="text-xs text-white/40">{ad.purpose} • {ad.date}</p>
+              <p className="text-sm text-slate-800 font-medium">{ad.name}</p>
+              <p className="text-xs text-slate-500">{ad.purpose} • {ad.date}</p>
             </div>
             <div className="flex flex-col items-end gap-1">
               <span className="text-sm font-bold text-amber-400">{ad.amount} ﷼</span>
@@ -843,30 +842,30 @@ function AiHubSection() {
           <button key={m.id} onClick={() => setMode(m.id)}
             className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-xl border text-xs transition-all ${
               mode === m.id
-                ? "bg-purple-500/20 border-purple-500/30 text-purple-300"
-                : "bg-white/5 border-white/8 text-white/50 hover:bg-white/8"
+                ? "bg-blue-100 border-blue-300 text-blue-700"
+                : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
             }`}>
             <m.icon className="w-4 h-4" />
             <span className="font-medium">{m.label}</span>
-            <span className="text-white/30 text-center leading-tight">{m.desc}</span>
+            <span className="text-slate-400 text-center leading-tight">{m.desc}</span>
           </button>
         ))}
       </div>
-      <div className="bg-white/5 border border-white/8 rounded-xl p-4 mb-4">
-        <p className="text-xs text-white/40 mb-3">جرّب الأسئلة التالية:</p>
+      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
+        <p className="text-xs text-slate-500 mb-3">جرّب الأسئلة التالية:</p>
         <div className="flex flex-col gap-2">
           {AI_PROMPTS.map((p, i) => (
             <button key={i} onClick={() => ask(i)}
-              className={`text-right text-sm px-4 py-2.5 rounded-xl border transition-all ${selected === i ? "bg-amber-500/15 border-amber-500/30 text-amber-300" : "bg-white/5 border-white/8 text-white/60 hover:bg-white/8 hover:text-white"}`}>
+              className={`text-right text-sm px-4 py-2.5 rounded-xl border transition-all ${selected === i ? "bg-blue-100 border-blue-300 text-blue-700" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
               <Sparkles className="inline w-3.5 h-3.5 ml-2 text-amber-400" />
               {p.q}
             </button>
           ))}
         </div>
       </div>
-      <div className="bg-gradient-to-br from-[#0D2137] to-[#0B1B2B] border border-amber-500/20 rounded-xl p-4 min-h-[140px]">
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 min-h-[140px]">
         {!shown && !typing && (
-          <div className="flex items-center gap-2 text-white/30 text-sm">
+          <div className="flex items-center gap-2 text-slate-400 text-sm">
             <Bot className="w-5 h-5" /> اختر سؤالاً من الأعلى لترى الذكاء الاصطناعي في العمل...
           </div>
         )}
@@ -891,7 +890,7 @@ function AiHubSection() {
               </div>
               <span className="text-xs font-semibold text-amber-400">مساعد عدالة AI</span>
             </div>
-            <p className="text-sm text-white/80 leading-7 pr-9">{AI_PROMPTS[selected].a}</p>
+            <p className="text-sm text-slate-700 leading-7 pr-9">{AI_PROMPTS[selected].a}</p>
           </motion.div>
         )}
       </div>
@@ -913,11 +912,11 @@ function LegalAISection() {
   return (
     <div>
       <SectionHeader title="محرك توليد الوثائق القانونية" icon={Sparkles} />
-      <div className="mb-4 p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl text-xs text-purple-300">
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
         <Brain className="inline w-3.5 h-3.5 ml-1" />
         11 نوع وثيقة قانونية مدعومة • صياغة بالذكاء الاصطناعي • متوافقة مع الأنظمة السعودية
       </div>
-      <p className="text-xs text-white/40 mb-3">اختر نوع الوثيقة:</p>
+      <p className="text-xs text-slate-500 mb-3">اختر نوع الوثيقة:</p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
         {LEGAL_AI_TYPES.map(t => {
           const Icon = t.icon;
@@ -926,12 +925,12 @@ function LegalAISection() {
               className={`p-3 rounded-xl border text-right transition-all ${
                 selected === t.id
                   ? "border-transparent"
-                  : "bg-white/5 border-white/8 hover:bg-white/8"
+                  : "bg-white border-slate-200 hover:bg-slate-50"
               }`}
               style={selected === t.id ? { background: t.color + "18", borderColor: t.color + "40" } : {}}>
               <Icon className="w-4 h-4 mb-2" style={{ color: selected === t.id ? t.color : undefined }} />
-              <p className="text-xs font-bold text-white">{t.label}</p>
-              <p className="text-xs text-white/40 mt-0.5 leading-tight">{t.desc}</p>
+              <p className="text-xs font-bold text-slate-800">{t.label}</p>
+              <p className="text-xs text-slate-500 mt-0.5 leading-tight">{t.desc}</p>
             </button>
           );
         })}
@@ -942,10 +941,10 @@ function LegalAISection() {
             ? "hover:opacity-90 hover:scale-[1.01]"
             : "opacity-40 cursor-not-allowed"
         }`}
-        style={{ background: selected ? "linear-gradient(135deg,#C9A84C,#E0C060)" : "#444", color: "#0D1626" }}>
+        style={{ background: selected ? "#1A56DB" : "#94a3b8", color: "#fff" }}>
         {generating ? (
           <span className="flex items-center justify-center gap-2">
-            <motion.div className="w-4 h-4 rounded-full border-2 border-[#0D1626] border-t-transparent"
+            <motion.div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent"
               animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} />
             يتم التوليد...
           </span>
@@ -955,24 +954,24 @@ function LegalAISection() {
       </button>
       {generated && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-xl">
+          className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
           <div className="flex items-center gap-2 mb-3">
-            <CheckCircle className="w-4 h-4 text-emerald-400" />
-            <span className="text-sm font-bold text-emerald-400">تمت الصياغة بنجاح</span>
+            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <span className="text-sm font-bold text-emerald-600">تمت الصياغة بنجاح</span>
             <DemoBadge />
           </div>
-          <p className="text-xs text-white/60 leading-6">
+          <p className="text-xs text-slate-600 leading-6">
             بسم الله الرحمن الرحيم — المملكة العربية السعودية<br/>
             {LEGAL_AI_TYPES.find(t => t.id === selected)?.label}<br/>
             الأطراف: [يُعبأ تلقائياً من ملف العميل]<br/>
             بناءً على الوقائع والمستندات المتوفرة في النظام، يتشرف المحامي بتقديم هذه الوثيقة...
-            <span className="text-white/30"> [تُستكمل الصياغة تلقائياً من بيانات المكتب]</span>
+            <span className="text-slate-400"> [تُستكمل الصياغة تلقائياً من بيانات المكتب]</span>
           </p>
           <div className="flex gap-2 mt-3">
-            <button className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg hover:bg-emerald-500/15 transition-colors">
+            <button className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors">
               تحميل PDF
             </button>
-            <button className="text-xs text-white/50 bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/8 transition-colors">
+            <button className="text-xs text-slate-500 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
               تعديل النص
             </button>
           </div>
@@ -992,40 +991,40 @@ function FinanceCenterSection() {
           { label: "عدد الملفات", value: "2", color: "text-amber-400", icon: Receipt },
           { label: "أعمر متأخرة", value: "47 يوماً", color: "text-red-300", icon: Clock },
         ].map(s => (
-          <div key={s.label} className="bg-white/5 border border-white/8 rounded-xl p-3 text-center">
+          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-3 text-center">
             <s.icon className={`w-4 h-4 mx-auto mb-1 ${s.color}`} />
             <div className={`text-base font-bold ${s.color}`}>{s.value}</div>
-            <div className="text-xs text-white/40 mt-0.5">{s.label}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
-      <h4 className="text-sm font-bold text-white mb-3">الفواتير المستحقة التحصيل</h4>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
+      <h4 className="text-sm font-bold text-slate-800 mb-3">الفواتير المستحقة التحصيل</h4>
       <div className="space-y-3">
         {COLLECTIONS.map((c, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className="p-4 bg-red-500/5 border border-red-500/20 rounded-xl">
+            className="p-4 bg-red-50 border border-red-200 rounded-xl">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-bold text-white mb-1">{c.client}</p>
-                <div className="flex items-center gap-3 text-xs text-white/40">
+                <p className="text-sm font-bold text-slate-800 mb-1">{c.client}</p>
+                <div className="flex items-center gap-3 text-xs text-slate-500">
                   <span className="font-mono text-amber-400/70">{c.invoice}</span>
                   <span>استحقاق: {c.due}</span>
                   <span className="text-red-400">تأخر: {c.delay}</span>
                 </div>
               </div>
               <div className="shrink-0 text-left">
-                <div className="text-base font-black text-amber-400">{c.amount} ﷼</div>
+                <div className="text-base font-black text-amber-600">{c.amount} ﷼</div>
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.risk === "عالي" ? "bg-red-500/20 text-red-400" : "bg-amber-500/20 text-amber-400"}`}>
                   خطر {c.risk}
                 </span>
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <button className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg hover:bg-amber-500/15 transition-colors flex items-center gap-1">
+              <button className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors flex items-center gap-1">
                 <Send className="w-3 h-3" /> إرسال تذكير
               </button>
-              <button className="text-xs text-white/50 bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/8 transition-colors">
+              <button className="text-xs text-slate-500 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
                 خطة التحصيل
               </button>
             </div>
@@ -1054,11 +1053,11 @@ function AnalyticsSection() {
   return (
     <div>
       <SectionHeader title="التحليلات والتقارير" icon={BarChart3} />
-      <div className="flex items-center gap-2 mb-4"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية — يونيو 2026</span></div>
+      <div className="flex items-center gap-2 mb-4"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية — يونيو 2026</span></div>
       <div className="grid grid-cols-2 gap-3 mb-5">
         {kpis.map(k => (
-          <div key={k.label} className="bg-white/5 border border-white/8 rounded-xl p-3">
-            <p className="text-xs text-white/40 mb-1">{k.label}</p>
+          <div key={k.label} className="bg-white border border-slate-200 rounded-xl p-3">
+            <p className="text-xs text-slate-500 mb-1">{k.label}</p>
             <p className="text-2xl font-black" style={{ color: k.color }}>{k.value}</p>
             <p className={`text-xs mt-1 ${k.up ? "text-emerald-400" : "text-red-400"}`}>
               {k.up ? "↑" : "⚠"} {k.change}
@@ -1066,28 +1065,28 @@ function AnalyticsSection() {
           </div>
         ))}
       </div>
-      <div className="bg-gradient-to-br from-purple-900/20 to-[#0B1B2B] border border-purple-500/20 rounded-xl p-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Brain className="w-4 h-4 text-purple-400" />
-          <span className="text-sm font-bold text-purple-300">التحليل الذكي — AI Insights</span>
-          {aiLoaded && <span className="text-xs text-purple-400/60 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">مولّد تلقائياً</span>}
+          <Brain className="w-4 h-4 text-blue-600" />
+          <span className="text-sm font-bold text-blue-700">التحليل الذكي — AI Insights</span>
+          {aiLoaded && <span className="text-xs text-blue-600 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-full">مولّد تلقائياً</span>}
         </div>
         {!aiLoaded ? (
-          <div className="flex items-center gap-2 text-white/30 text-xs">
-            <motion.div className="w-3 h-3 rounded-full border border-purple-500/40 border-t-transparent"
+          <div className="flex items-center gap-2 text-slate-400 text-xs">
+            <motion.div className="w-3 h-3 rounded-full border border-blue-400 border-t-transparent"
               animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} />
             يحلّل الذكاء الاصطناعي بيانات مكتبك...
           </div>
         ) : (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <p className="text-sm text-white/70 leading-7">
-              📈 <span className="text-white font-medium">نقطة قوة:</span> معدل الكسب 78% أعلى من متوسط المكاتب المماثلة (64%). قضية الحربي العقارية رفعت الرقم بشكل ملحوظ.
+            <p className="text-sm text-slate-600 leading-7">
+              📈 <span className="text-slate-800 font-medium">نقطة قوة:</span> معدل الكسب 78% أعلى من متوسط المكاتب المماثلة (64%). قضية الحربي العقارية رفعت الرقم بشكل ملحوظ.
             </p>
-            <p className="text-sm text-white/70 leading-7 mt-2">
+            <p className="text-sm text-slate-600 leading-7 mt-2">
               ⚠ <span className="text-amber-400 font-medium">تنبيه:</span> فاتورتان متأخرتان تجاوزتا 30 يوماً — ينصح بتفعيل التحصيل التلقائي من مركز المالية.
             </p>
-            <p className="text-sm text-white/70 leading-7 mt-2">
-              🎯 <span className="text-white font-medium">فرصة:</span> 3 موكلين جدد هذا الشهر، مما يشير لنمو قادم — يُنصح بتوسيع القسم التجاري.
+            <p className="text-sm text-slate-600 leading-7 mt-2">
+              🎯 <span className="text-slate-800 font-medium">فرصة:</span> 3 موكلين جدد هذا الشهر، مما يشير لنمو قادم — يُنصح بتوسيع القسم التجاري.
             </p>
           </motion.div>
         )}
@@ -1106,32 +1105,32 @@ function AuditSection() {
           { label: "تنبيهات أمنية", value: "0", color: "text-emerald-400", icon: Shield },
           { label: "مستخدمون نشطون", value: "3", color: "text-amber-400", icon: Users },
         ].map(s => (
-          <div key={s.label} className="bg-white/5 border border-white/8 rounded-xl p-3 text-center">
+          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-3 text-center">
             <s.icon className={`w-4 h-4 mx-auto mb-1 ${s.color}`} />
             <div className={`text-xl font-black ${s.color}`}>{s.value}</div>
-            <div className="text-xs text-white/40 mt-0.5">{s.label}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
-      <h4 className="text-sm font-bold text-white mb-3">آخر الأحداث</h4>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
+      <h4 className="text-sm font-bold text-slate-800 mb-3">آخر الأحداث</h4>
       <div className="space-y-2">
         {AUDIT_EVENTS.map((e, i) => {
           const style = auditColors[e.type];
           return (
             <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
               className={`flex items-start gap-3 p-3 border rounded-xl ${style.bg}`}>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-white/5`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-slate-50`}>
                 <Activity className={`w-3 h-3 ${style.text}`} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${style.bg} ${style.text}`}>{e.action}</span>
-                  <span className="text-xs text-white/40">{e.resource}</span>
-                  <span className="text-xs text-white/25 mr-auto">{e.time}</span>
+                  <span className="text-xs text-slate-500">{e.resource}</span>
+                  <span className="text-xs text-slate-400 mr-auto">{e.time}</span>
                 </div>
-                <p className="text-xs text-white/60">{e.detail}</p>
-                <p className="text-xs text-white/30 mt-0.5">بواسطة: {e.user}</p>
+                <p className="text-xs text-slate-600">{e.detail}</p>
+                <p className="text-xs text-slate-400 mt-0.5">بواسطة: {e.user}</p>
               </div>
             </motion.div>
           );
@@ -1153,20 +1152,20 @@ function OpponentSection() {
   return (
     <div>
       <SectionHeader title="محاكي الخصم" icon={Shield} />
-      <div className="bg-gradient-to-br from-red-950/30 to-[#0B1B2B] border border-red-500/20 rounded-xl p-4 mb-4">
+      <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
         <p className="text-xs text-red-400/80 mb-2 flex items-center gap-1.5">
           <AlertCircle className="w-3.5 h-3.5" /> الوضع: محاكاة — المحامي الافتراضي يمثل الخصم
         </p>
-        <p className="text-sm text-white/60 mb-4 leading-6">اكتب حجتك القانونية وسيردّ عليك محامي AI كخصم حقيقي لاكتشاف نقاط ضعفك قبل الجلسة.</p>
+        <p className="text-sm text-slate-600 mb-4 leading-6">اكتب حجتك القانونية وسيردّ عليك محامي AI كخصم حقيقي لاكتشاف نقاط ضعفك قبل الجلسة.</p>
         <div className="flex gap-2">
-          <input placeholder="مثال: العقد الموقع يُثبت التزام موكلي..." className="flex-1 bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-red-500/40" />
+          <input placeholder="مثال: العقد الموقع يُثبت التزام موكلي..." className="flex-1 bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-red-400" />
           <button onClick={simulate} className="px-4 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg text-sm font-bold transition-colors whitespace-nowrap">
             جرّب الآن
           </button>
         </div>
       </div>
       {phase === "thinking" && (
-        <div className="flex items-center gap-3 p-4 bg-red-900/10 border border-red-500/20 rounded-xl">
+        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
           <div className="w-7 h-7 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
             <Shield className="w-4 h-4 text-red-400" />
           </div>
@@ -1181,25 +1180,25 @@ function OpponentSection() {
       )}
       {phase === "done" && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          className="p-4 bg-red-900/15 border border-red-500/25 rounded-xl">
+          className="p-4 bg-red-50 border border-red-200 rounded-xl">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-7 h-7 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
               <Shield className="w-4 h-4 text-red-400" />
             </div>
-            <span className="text-xs font-bold text-red-400">محامي الخصم — ردّه:</span>
+            <span className="text-xs font-bold text-red-600">محامي الخصم — ردّه:</span>
           </div>
-          <p className="text-sm text-white/80 leading-7">{OPPONENT_ROUNDS[round].counter}</p>
-          <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-            <p className="text-xs text-amber-400 font-semibold">⚡ نقطة ضعف مكتشفة:</p>
-            <p className="text-xs text-white/60 mt-1">يُنصح بتقوية الحجة بمستندات موثقة أو سوابق قضائية داعمة قبل الجلسة.</p>
+          <p className="text-sm text-slate-700 leading-7">{OPPONENT_ROUNDS[round].counter}</p>
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-xs text-amber-700 font-semibold">⚡ نقطة ضعف مكتشفة:</p>
+            <p className="text-xs text-slate-600 mt-1">يُنصح بتقوية الحجة بمستندات موثقة أو سوابق قضائية داعمة قبل الجلسة.</p>
           </div>
         </motion.div>
       )}
       {phase === "idle" && (
-        <div className="p-3 bg-white/3 border border-white/5 rounded-xl">
-          <p className="text-xs text-white/30 mb-2">مثال من جلسة سابقة:</p>
-          <p className="text-xs text-blue-300/60 mb-1">⚖ الحجة: العقد الموقع يُثبت الالتزام بالدفع خلال 30 يوماً</p>
-          <p className="text-xs text-red-300/60">{OPPONENT_ROUNDS[0].counter.slice(0,120)}...</p>
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+          <p className="text-xs text-slate-400 mb-2">مثال من جلسة سابقة:</p>
+          <p className="text-xs text-blue-600 mb-1">⚖ الحجة: العقد الموقع يُثبت الالتزام بالدفع خلال 30 يوماً</p>
+          <p className="text-xs text-red-500">{OPPONENT_ROUNDS[0].counter.slice(0,120)}...</p>
         </div>
       )}
     </div>
@@ -1213,9 +1212,9 @@ function LegalResearchSection() {
       <SectionHeader title="البحث القانوني الذكي" icon={Search} />
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input defaultValue="منازعات الشراكة التجارية" placeholder="ابحث في الأنظمة والسوابق القضائية..."
-            className="w-full bg-white/5 border border-white/10 rounded-lg py-2 pr-9 pl-4 text-sm text-white focus:outline-none focus:border-amber-500/40" />
+            className="w-full bg-white border border-slate-200 rounded-lg py-2 pr-9 pl-4 text-sm text-slate-800 focus:outline-none focus:border-blue-400" />
         </div>
         <button onClick={() => setSearched(true)} className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black rounded-lg text-sm font-bold transition-colors">
           بحث AI
@@ -1229,19 +1228,19 @@ function LegalResearchSection() {
       <div className="space-y-2">
         {LEGAL_RESULTS.map((r, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-            className="p-4 bg-white/5 hover:bg-white/8 border border-white/8 rounded-xl cursor-pointer transition-all">
+            className="p-4 bg-slate-50 hover:bg-slate-50 border border-slate-200 rounded-xl cursor-pointer transition-all">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full">{r.type}</span>
-                  <span className="text-xs text-white/30">{r.source}</span>
+                  <span className="text-xs text-slate-400">{r.source}</span>
                 </div>
-                <p className="text-sm font-semibold text-white">{r.title}</p>
-                <p className="text-xs text-white/30 mt-0.5">{r.date}</p>
+                <p className="text-sm font-semibold text-slate-800">{r.title}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{r.date}</p>
               </div>
               <div className="shrink-0 text-center">
                 <div className="text-lg font-black text-emerald-400">{r.relevance}%</div>
-                <div className="text-xs text-white/30">صلة</div>
+                <div className="text-xs text-slate-400">صلة</div>
               </div>
             </div>
           </motion.div>
@@ -1255,26 +1254,26 @@ function ClientPortalSection() {
   return (
     <div>
       <SectionHeader title="بوابة العملاء الذاتية" count={CLIENTS.length} icon={Globe} />
-      <div className="bg-gradient-to-l from-indigo-900/20 to-transparent border border-indigo-500/15 rounded-xl p-4 mb-4">
+      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
         <p className="text-xs text-indigo-400 mb-2">كل موكل لديه رابط خاص ومشفر للوصول لملفه في أي وقت — بدون حاجة لحساب</p>
-        <div className="flex items-center gap-2 bg-black/20 rounded-lg p-2.5">
-          <Globe className="w-4 h-4 text-indigo-400 shrink-0" />
-          <span className="text-xs text-white/50 font-mono truncate">adalah.ai/portal/tk_a8f2c9e1...</span>
-          <button className="mr-auto text-xs text-indigo-400 hover:text-indigo-300 shrink-0">نسخ</button>
+        <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-2.5">
+          <Globe className="w-4 h-4 text-indigo-500 shrink-0" />
+          <span className="text-xs text-slate-600 font-mono truncate">adalah.ai/portal/tk_a8f2c9e1...</span>
+          <button className="mr-auto text-xs text-indigo-600 hover:text-indigo-700 shrink-0">نسخ</button>
         </div>
       </div>
-      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-white/40">بيانات تجريبية</span></div>
+      <div className="flex items-center gap-2 mb-3"><DemoBadge /><span className="text-xs text-slate-500">بيانات تجريبية</span></div>
       <div className="space-y-3">
         {CLIENTS.map((c, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between p-3 bg-white/5 border border-white/8 rounded-xl transition-all hover:border-indigo-500/20">
+            className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl transition-all hover:border-indigo-500/20">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-600/40 to-indigo-400/20 flex items-center justify-center text-indigo-300 font-bold text-sm shrink-0">
                 {c.name[0]}
               </div>
               <div>
-                <p className="text-sm font-medium text-white">{c.name}</p>
-                <p className="text-xs text-white/40">{c.cases} قضايا • آخر دخول: منذ {i + 1} أيام</p>
+                <p className="text-sm font-medium text-slate-800">{c.name}</p>
+                <p className="text-xs text-slate-500">{c.cases} قضايا • آخر دخول: منذ {i + 1} أيام</p>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1">
@@ -1321,29 +1320,28 @@ export default function DemoPage() {
   const Section = current.component;
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[#0B1B2B]" style={{ fontFamily: "'Cairo', sans-serif" }}>
+    <div dir="rtl" className="min-h-screen bg-[#F8FAFC]" style={{ fontFamily: "'Cairo', sans-serif" }}>
 
       {/* ── TOP BAR ── */}
-      <div className="sticky top-0 z-50 bg-[#0B1B2B]/95 backdrop-blur-md border-b border-white/10">
+      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-              <Scale className="w-4 h-4 text-amber-400" />
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
+              <Scale className="w-4 h-4 text-white" />
             </div>
             <div>
-              <span className="text-base font-black text-white">عدالة AI</span>
-              <span className="mr-2 text-xs text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5">معاينة تفاعلية</span>
+              <span className="text-base font-black text-slate-900">عدالة AI</span>
+              <span className="mr-2 text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">معاينة تفاعلية</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Link href={`${BASE}/sign-in`}>
-              <button className="text-sm text-white/60 hover:text-white px-4 py-2 rounded-lg hover:bg-white/5 transition-colors">
+              <button className="text-sm text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors">
                 تسجيل الدخول
               </button>
             </Link>
             <Link href={`${BASE}/sign-up`}>
-              <button className="text-sm font-bold px-5 py-2 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02]"
-                style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626" }}>
+              <button className="text-sm font-bold px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-all hover:scale-[1.02]">
                 ابدأ مجاناً
               </button>
             </Link>
@@ -1352,18 +1350,17 @@ export default function DemoPage() {
       </div>
 
       {/* ── HERO BANNER ── */}
-      <div className="bg-gradient-to-b from-[#0D2137]/60 to-transparent py-8 px-4">
+      <div className="bg-gradient-to-b from-blue-50 to-transparent py-8 px-4">
         <div className="max-w-3xl mx-auto text-center">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-4"
-              style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", color: "#C9A84C" }}>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-4 bg-blue-50 border border-blue-200 text-blue-600">
               <Sparkles className="w-3.5 h-3.5" />
               استكشاف تفاعلي حقيقي للمنصة — البيانات التجريبية معزولة تماماً
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white mb-3">
-              استكشف <span className="text-amber-400">عدالة AI</span> بالكامل
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">
+              استكشف <span className="text-blue-600">عدالة AI</span> بالكامل
             </h1>
-            <p className="text-white/50 text-sm max-w-xl mx-auto">
+            <p className="text-slate-500 text-sm max-w-xl mx-auto">
               ابدأ من "نظرة عامة" لاستعراض جميع الوحدات الحقيقية للمنصة، ثم انتقل لأي قسم لترى التفاصيل ببيانات تجريبية معزولة.
             </p>
           </motion.div>
@@ -1381,13 +1378,13 @@ export default function DemoPage() {
               <button key={t.id} onClick={() => setActiveTab(t.id)}
                 className={`relative flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
                   isActive
-                    ? "bg-amber-500 text-black shadow-lg shadow-amber-500/20"
-                    : "bg-white/5 border border-white/8 text-white/60 hover:bg-white/10 hover:text-white"
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                 }`}>
-                <Icon className={`w-3.5 h-3.5 ${isActive ? "text-black" : ""}`} />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? "text-white" : ""}`} />
                 {t.label}
                 {t.isNew && !isActive && (
-                  <span className="absolute -top-1 -left-1 w-2 h-2 rounded-full bg-purple-500 border border-[#0B1B2B]" />
+                  <span className="absolute -top-1 -left-1 w-2 h-2 rounded-full bg-purple-500 border border-[#F8FAFC]" />
                 )}
               </button>
             );
@@ -1405,17 +1402,16 @@ export default function DemoPage() {
       </div>
 
       {/* ── STICKY CTA ── */}
-      <div className="fixed bottom-0 inset-x-0 z-50 bg-gradient-to-t from-[#0B1B2B] via-[#0B1B2B]/95 to-transparent pb-4 pt-8 px-4">
+      <div className="fixed bottom-0 inset-x-0 z-50 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/95 to-transparent pb-4 pt-8 px-4">
         <div className="max-w-lg mx-auto">
-          <div className="bg-gradient-to-r from-[#0D2137] to-[#112940] border border-amber-500/25 rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
+          <div className="bg-white border border-slate-200 shadow-lg rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-bold text-white">جاهز لتجربة المنصة الحقيقية؟</p>
-              <p className="text-xs text-white/40 mt-0.5">ابدأ نسختك مجاناً — لا بطاقة ائتمانية، إعداد في 5 دقائق</p>
+              <p className="text-sm font-bold text-slate-900">جاهز لتجربة المنصة الحقيقية؟</p>
+              <p className="text-xs text-slate-500 mt-0.5">ابدأ نسختك مجاناً — لا بطاقة ائتمانية، إعداد في 5 دقائق</p>
             </div>
             <div className="flex gap-2 shrink-0">
               <Link href={`${BASE}/sign-up`}>
-                <button className="font-bold text-sm px-5 py-2.5 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02] shadow-lg"
-                  style={{ background: "linear-gradient(135deg,#C9A84C,#E0C060)", color: "#0D1626", boxShadow: "0 6px 24px rgba(201,168,76,0.3)" }}>
+                <button className="font-bold text-sm px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-all hover:scale-[1.02] shadow-md">
                   ابدأ مجاناً
                   <ArrowLeft className="inline w-4 h-4 mr-1.5" />
                 </button>

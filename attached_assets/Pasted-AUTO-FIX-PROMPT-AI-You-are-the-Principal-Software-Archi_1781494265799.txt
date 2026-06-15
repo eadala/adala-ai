@@ -1,0 +1,340 @@
+AUTO-FIX PROMPT — عدالة AI
+
+You are the Principal Software Architect and Senior Performance Engineer responsible for stabilizing, optimizing, and repairing the entire Adala AI platform.
+
+Your mission is to automatically inspect, analyze, repair, refactor, and optimize the complete application without breaking any existing business functionality.
+
+PRIMARY OBJECTIVES
+
+Execute the following tasks in order:
+
+1. Full Project Audit
+
+Scan and analyze:
+
+* Frontend
+* Backend
+* Database
+* APIs
+* Authentication
+* Storage
+* Replit deployment configuration
+* Environment variables
+* Build configuration
+* Performance bottlenecks
+
+Generate a report of:
+
+* Errors
+* Warnings
+* Dead code
+* Duplicate code
+* Unused dependencies
+* Missing environment variables
+* Broken routes
+* Broken imports
+* Failed API endpoints
+
+⸻
+
+2. Fix White Screen Issues
+
+Automatically detect and repair:
+
+* React render crashes
+* Undefined variables
+* Failed API responses
+* Missing suspense boundaries
+* Infinite render loops
+* Hydration errors
+* Runtime exceptions
+
+Requirements:
+
+* Application must never display a blank page.
+* Display graceful fallback UI on errors.
+* Add global error boundaries.
+* Add loading states everywhere.
+
+⸻
+
+3. Mobile-First Responsive Repair
+
+Inspect every page.
+
+Fix:
+
+* Desktop-only layouts
+* Overflow issues
+* Horizontal scrolling
+* Broken cards
+* Misaligned forms
+* Fixed widths
+* Broken navigation
+
+Requirements:
+
+* Mobile First Design
+* Fully responsive
+* iPhone support
+* Android support
+* Tablet support
+
+Target widths:
+
+* 320px
+* 375px
+* 390px
+* 414px
+* 768px
+* 1024px
+* 1440px
+
+⸻
+
+4. Dashboard Statistics Validation
+
+Audit all dashboard metrics.
+
+Validate:
+
+* Users
+* Cases
+* Contracts
+* Invoices
+* Revenue
+* AI Requests
+* Documents
+
+Requirements:
+
+* No NaN values
+* No negative values
+* No duplicate calculations
+* No fake placeholders
+* Real database values only
+
+Create:
+
+safeStatsService()
+
+Features:
+
+* Validation
+* Sanitization
+* Error handling
+* Fallback values
+
+⸻
+
+5. Database Optimization
+
+Inspect schema.
+
+Perform:
+
+* Index optimization
+* Query optimization
+* Duplicate cleanup
+* Foreign key validation
+
+Requirements:
+
+* No N+1 queries
+* No full table scans where avoidable
+* Add indexes where needed
+* Optimize pagination
+
+⸻
+
+6. Frontend Performance Optimization
+
+Apply:
+
+* Lazy Loading
+* Dynamic Imports
+* Route Splitting
+* Image Optimization
+* Memoization
+* Component Optimization
+
+Remove:
+
+* Unused renders
+* Duplicate requests
+* Unused states
+* Unused hooks
+
+Target:
+
+* Lighthouse Performance > 90
+
+⸻
+
+7. API Stability Layer
+
+Inspect every API.
+
+Implement:
+
+* Retry mechanism
+* Timeout handling
+* Error handling
+* Request validation
+* Response validation
+
+Requirements:
+
+* No frontend crash from API failures.
+* All failures return meaningful responses.
+
+⸻
+
+8. Memory Cleanup
+
+Remove:
+
+* Memory leaks
+* Unmounted listeners
+* Unused timers
+* Orphaned intervals
+
+Verify:
+
+* Cleanup functions exist in every useEffect.
+
+⸻
+
+9. Security Hardening
+
+Inspect:
+
+* Authentication
+* Authorization
+* Sessions
+* API endpoints
+
+Fix:
+
+* Exposed secrets
+* Unsafe requests
+* Missing validation
+
+Ensure:
+
+* Environment variables only
+* No secret keys in frontend
+
+⸻
+
+10. Build & Deployment Repair
+
+Verify:
+
+* package.json
+* vite.config
+* tsconfig
+* replit configuration
+
+Repair:
+
+* Build failures
+* Missing scripts
+* Deployment errors
+
+Requirements:
+
+Application must build successfully with zero fatal errors.
+
+⸻
+
+11. Design System Consistency
+
+Standardize:
+
+* Colors
+* Typography
+* Spacing
+* Buttons
+* Forms
+* Cards
+* Tables
+
+Requirements:
+
+Style must resemble modern enterprise SaaS products.
+
+Design principles:
+
+* Clean
+* Minimal
+* White background
+* Professional legal technology platform
+* Fast loading
+
+⸻
+
+12. Final Validation
+
+After all repairs:
+
+Run:
+
+* Type checking
+* Linting
+* Build test
+* Runtime validation
+* Mobile validation
+* API validation
+
+Generate:
+
+FINAL_REPAIR_REPORT.md
+
+Include:
+
+* Fixed files
+* Performance improvements
+* Security improvements
+* Statistics validation results
+* Remaining warnings
+
+⸻
+
+CRITICAL RULES
+
+DO NOT:
+
+* Remove business logic.
+* Remove database data.
+* Remove authentication.
+* Break existing routes.
+
+DO:
+
+* Create backups before modifications.
+* Refactor safely.
+* Preserve functionality.
+* Improve maintainability.
+
+SUCCESS CRITERIA:
+
+✔ No white screen
+
+✔ Fully responsive
+
+✔ Correct statistics
+
+✔ Stable APIs
+
+✔ Fast dashboard
+
+✔ Clean console
+
+✔ Successful build
+
+✔ Lighthouse score above 90
+
+✔ Production-ready deployment
+
+Begin immediately and apply fixes automatically across the entire project.

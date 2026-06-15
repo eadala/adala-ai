@@ -53,7 +53,7 @@ function AnimatedStat({ val, label, gold, icon }: { val: string; label: string; 
         {icon}
       </div>
       <div className="text-3xl font-black mb-1" style={{ color: gold }}>{val}</div>
-      <div className="text-xs text-white/50 font-medium">{label}</div>
+      <div className="text-xs text-slate-500 font-medium">{label}</div>
     </div>
   );
 }
@@ -65,7 +65,7 @@ function ServiceCard({ svc, lang, gold, slug, onOrder, onNegotiate }: {
   const desc = t(svc.description, svc.descriptionEn, lang);
   const Icon = CATEGORY_ICONS[svc.category] ?? Scale;
   return (
-    <div className="group relative p-5 rounded-2xl bg-white/4 border border-white/8 hover:bg-white/7 hover:border-white/15 transition-all flex flex-col overflow-hidden">
+    <div className="group relative p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all flex flex-col overflow-hidden">
       <div className="absolute top-0 left-0 right-0 h-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-t-2xl"
         style={{ background: `linear-gradient(90deg, transparent, ${gold}, transparent)` }} />
       <div className="flex items-start gap-3 mb-3">
@@ -75,25 +75,25 @@ function ServiceCard({ svc, lang, gold, slug, onOrder, onNegotiate }: {
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-sm leading-snug mb-0.5">{name}</h3>
-          {svc.category && <Badge className="text-[9px] bg-white/5 text-white/40 border-white/10">{svc.category}</Badge>}
+          {svc.category && <Badge className="text-[9px] bg-slate-50 text-slate-500 border-slate-200">{svc.category}</Badge>}
         </div>
       </div>
-      {desc && <p className="text-xs text-white/55 mb-4 flex-1 leading-relaxed line-clamp-3">{desc}</p>}
+      {desc && <p className="text-xs text-slate-600 mb-4 flex-1 leading-relaxed line-clamp-3">{desc}</p>}
       {svc.deliveryDays > 0 && (
-        <div className="flex items-center gap-1.5 text-[10px] text-white/35 mb-4">
+        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-4">
           <Clock className="h-3 w-3" />
           {lang === "ar" ? `التسليم خلال ${svc.deliveryDays} يوم` : `${svc.deliveryDays}-day delivery`}
         </div>
       )}
-      <div className="pt-3 border-t border-white/8 mt-auto space-y-2">
+      <div className="pt-3 border-t border-slate-200 mt-auto space-y-2">
         <div className="flex items-center justify-between">
           <div>
             {svc.isCustomQuote ? (
-              <span className="text-xs font-bold text-white/60">{lang === "ar" ? "حسب العرض" : "Custom Quote"}</span>
+              <span className="text-xs font-bold text-slate-600">{lang === "ar" ? "حسب العرض" : "Custom Quote"}</span>
             ) : (
               <>
                 <span className="text-xl font-black" style={{ color: gold }}>{Number(svc.price).toLocaleString()}</span>
-                <span className="text-xs text-white/40 mr-1">{lang === "ar" ? "ر.س" : "SAR"}</span>
+                <span className="text-xs text-slate-500 mr-1">{lang === "ar" ? "ر.س" : "SAR"}</span>
               </>
             )}
           </div>
@@ -130,17 +130,17 @@ function TeamCard({ m, lang, gold }: { m: any; lang: Lang; gold: string }) {
   const photo = m.photoUrl ?? m.photo;
   const specialties = m.specialties ?? m.specialtiesEn;
   return (
-    <div className="group p-5 rounded-2xl bg-white/4 border border-white/8 hover:bg-white/7 hover:border-white/15 transition-all">
+    <div className="group p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all">
       <div className="flex items-center gap-4 mb-3">
         {photo ? (
-          <img src={imgSrc(photo)} alt={name} className="h-14 w-14 rounded-xl object-cover ring-2 ring-white/10 group-hover:ring-white/20 transition-all" />
+          <img src={imgSrc(photo)} alt={name} className="h-14 w-14 rounded-xl object-cover ring-2 ring-slate-200 group-hover:ring-slate-300 transition-all" />
         ) : (
-          <div className="h-14 w-14 rounded-xl flex items-center justify-center text-xl font-black ring-2 ring-white/10"
+          <div className="h-14 w-14 rounded-xl flex items-center justify-center text-xl font-black ring-2 ring-slate-200"
             style={{ background: `${gold}20`, color: gold }}>{(name || "م")[0]}</div>
         )}
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm leading-snug">{name}</div>
-          {role && <div className="text-xs text-white/50 mt-0.5 leading-tight">{role}</div>}
+          {role && <div className="text-xs text-slate-500 mt-0.5 leading-tight">{role}</div>}
           {specialties && (
             <div className="text-[10px] mt-1 font-medium line-clamp-1" style={{ color: gold }}>
               {specialties}
@@ -150,7 +150,7 @@ function TeamCard({ m, lang, gold }: { m: any; lang: Lang; gold: string }) {
       </div>
       {bio && (
         <>
-          <p className={cn("text-xs text-white/50 leading-relaxed", !expanded && "line-clamp-3")}>{bio}</p>
+          <p className={cn("text-xs text-slate-500 leading-relaxed", !expanded && "line-clamp-3")}>{bio}</p>
           {bio.length > 100 && (
             <button onClick={() => setExpanded(v => !v)} className="text-[10px] mt-1 font-semibold" style={{ color: gold }}>
               {expanded ? (lang === "ar" ? "أقل" : "Less") : (lang === "ar" ? "المزيد" : "More")}
@@ -160,10 +160,10 @@ function TeamCard({ m, lang, gold }: { m: any; lang: Lang; gold: string }) {
       )}
       {m.linkedin && (
         <div className="flex gap-2 mt-3">
-          <a href={m.linkedin} target="_blank" rel="noreferrer" className="h-7 w-7 rounded-lg flex items-center justify-center bg-white/6 hover:bg-blue-500/20 transition-colors">
+          <a href={m.linkedin} target="_blank" rel="noreferrer" className="h-7 w-7 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-blue-500/20 transition-colors">
             <Linkedin className="h-3.5 w-3.5 text-blue-400" />
           </a>
-          {m.twitter && <a href={m.twitter} target="_blank" rel="noreferrer" className="h-7 w-7 rounded-lg flex items-center justify-center bg-white/6 hover:bg-sky-500/20 transition-colors"><Twitter className="h-3.5 w-3.5 text-sky-400" /></a>}
+          {m.twitter && <a href={m.twitter} target="_blank" rel="noreferrer" className="h-7 w-7 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-sky-500/20 transition-colors"><Twitter className="h-3.5 w-3.5 text-sky-400" /></a>}
         </div>
       )}
     </div>
@@ -173,7 +173,7 @@ function TeamCard({ m, lang, gold }: { m: any; lang: Lang; gold: string }) {
 function SocialLink({ href, icon, label, hoverColor }: { href: string; icon: React.ReactNode; label: string; hoverColor: string }) {
   return (
     <a href={href} target="_blank" rel="noreferrer" title={label}
-      className={cn("h-10 w-10 rounded-xl flex items-center justify-center bg-white/6 border border-white/10 transition-all hover:scale-110", hoverColor)}>
+      className={cn("h-10 w-10 rounded-xl flex items-center justify-center bg-slate-100 border border-slate-200 transition-all hover:scale-110", hoverColor)}>
       {icon}
     </a>
   );
@@ -186,7 +186,7 @@ function SecHeader({ icon, title, subtitle, gold, noSub }: { icon: React.ReactNo
         style={{ background: `${gold}12`, color: gold, border: `1px solid ${gold}25` }}>
         <span className="h-3.5 w-3.5">{icon}</span> {title}
       </div>
-      {!noSub && subtitle && <p className="text-sm text-white/45 mt-1">{subtitle}</p>}
+      {!noSub && subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
     </div>
   );
 }
@@ -205,20 +205,20 @@ function ContactForm({ lang, gold, whatsappUrl, officeName, onOrder }: any) {
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="text-xs text-white/60 mb-1 block">{lang === "ar" ? "الاسم" : "Name"}</Label>
-          <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="bg-white/5 border-white/10 text-sm" />
+          <Label className="text-xs text-slate-600 mb-1 block">{lang === "ar" ? "الاسم" : "Name"}</Label>
+          <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="bg-slate-50 border-slate-200 text-sm" />
         </div>
         <div>
-          <Label className="text-xs text-white/60 mb-1 block">{lang === "ar" ? "الجوال" : "Phone"}</Label>
-          <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} dir="ltr" className="bg-white/5 border-white/10 text-sm" />
+          <Label className="text-xs text-slate-600 mb-1 block">{lang === "ar" ? "الجوال" : "Phone"}</Label>
+          <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} dir="ltr" className="bg-slate-50 border-slate-200 text-sm" />
         </div>
       </div>
       <div>
-        <Label className="text-xs text-white/60 mb-1 block">{lang === "ar" ? "الموضوع" : "Subject"}</Label>
+        <Label className="text-xs text-slate-600 mb-1 block">{lang === "ar" ? "الموضوع" : "Subject"}</Label>
         <div className="flex flex-wrap gap-1.5">
           {subjects.map(s => (
             <button key={s} onClick={() => setForm(f => ({ ...f, subject: s }))}
-              className={cn("text-[10px] px-2.5 py-1 rounded-full border transition-all font-medium", form.subject === s ? "text-black border-transparent" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10")}
+              className={cn("text-[10px] px-2.5 py-1 rounded-full border transition-all font-medium", form.subject === s ? "text-black border-transparent" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-50")}
               style={form.subject === s ? { background: gold, borderColor: gold } : {}}>
               {s}
             </button>
@@ -226,8 +226,8 @@ function ContactForm({ lang, gold, whatsappUrl, officeName, onOrder }: any) {
         </div>
       </div>
       <div>
-        <Label className="text-xs text-white/60 mb-1 block">{lang === "ar" ? "رسالتك" : "Message"}</Label>
-        <Textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} rows={3} className="bg-white/5 border-white/10 text-sm resize-none" placeholder={lang === "ar" ? "اكتب استفسارك هنا..." : "Write your inquiry here..."} />
+        <Label className="text-xs text-slate-600 mb-1 block">{lang === "ar" ? "رسالتك" : "Message"}</Label>
+        <Textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} rows={3} className="bg-slate-50 border-slate-200 text-sm resize-none" placeholder={lang === "ar" ? "اكتب استفسارك هنا..." : "Write your inquiry here..."} />
       </div>
       <div className="flex gap-2">
         <a href={url} target="_blank" rel="noreferrer" className="flex-1">
@@ -236,7 +236,7 @@ function ContactForm({ lang, gold, whatsappUrl, officeName, onOrder }: any) {
             {lang === "ar" ? "أرسل عبر واتساب" : "Send via WhatsApp"}
           </Button>
         </a>
-        <Button variant="outline" className="border-white/20 hover:bg-white/10 gap-1.5"
+        <Button variant="outline" className="border-slate-200 hover:bg-slate-50 gap-1.5"
           onClick={onOrder} style={{ color: gold, borderColor: `${gold}40` }}>
           <Calendar className="h-4 w-4" />
           {lang === "ar" ? "احجز" : "Book"}
@@ -363,50 +363,50 @@ export default function OfficePage() {
     const officeName2 = orderSuccess?.officeName ?? (data?.office?.name ?? "المكتب");
 
     return (
-      <div className="min-h-screen bg-[#080d1a] flex items-center justify-center px-4" dir="rtl">
-        <div className="max-w-lg w-full bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-white">
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4" dir="rtl">
+        <div className="max-w-lg w-full bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-800 shadow-sm">
           {!ready ? (
             <>
-              <div className="h-20 w-20 rounded-full bg-[#C9A84C]/20 flex items-center justify-center mx-auto mb-6 animate-pulse">
-                <Loader2 className="h-10 w-10 text-[#C9A84C] animate-spin" />
+              <div className="h-20 w-20 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-6 animate-pulse">
+                <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
               </div>
-              <h1 className="text-2xl font-black mb-2">جاري معالجة طلبك...</h1>
-              <p className="text-white/50 text-sm">تم استلام الدفع — نحن نُعِدّ ملفك وبوابتك الإلكترونية</p>
+              <h1 className="text-2xl font-black mb-2 text-slate-900">جاري معالجة طلبك...</h1>
+              <p className="text-slate-500 text-sm">تم استلام الدفع — نحن نُعِدّ ملفك وبوابتك الإلكترونية</p>
             </>
           ) : (
             <>
-              <div className="h-20 w-20 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="h-10 w-10 text-emerald-400" />
+              <div className="h-20 w-20 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 className="h-10 w-10 text-emerald-600" />
               </div>
-              <h1 className="text-2xl font-black mb-1">
+              <h1 className="text-2xl font-black mb-1 text-slate-900">
                 {clientName2 ? `مرحباً ${clientName2}!` : "تم الدفع بنجاح! ✅"}
               </h1>
-              <p className="text-white/60 text-sm mb-2">تم تسجيل طلبك لخدمة <strong className="text-white">{svcName}</strong></p>
-              <p className="text-white/40 text-xs mb-6">سيتواصل فريق <strong className="text-white/70">{officeName2}</strong> معك في أقرب وقت</p>
+              <p className="text-slate-600 text-sm mb-2">تم تسجيل طلبك لخدمة <strong className="text-slate-900">{svcName}</strong></p>
+              <p className="text-slate-400 text-xs mb-6">سيتواصل فريق <strong className="text-slate-600">{officeName2}</strong> معك في أقرب وقت</p>
 
               {portalUrl ? (
-                <div className="bg-white/5 border border-[#C9A84C]/30 rounded-xl p-5 mb-6">
-                  <p className="text-[#C9A84C] text-xs font-bold mb-2 uppercase tracking-wider">بوابتك الإلكترونية الخاصة</p>
-                  <p className="text-white/50 text-xs mb-4">تابع حالة قضيتك، الوثائق، والتحديثات في الوقت الفعلي</p>
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6">
+                  <p className="text-blue-600 text-xs font-bold mb-2 uppercase tracking-wider">بوابتك الإلكترونية الخاصة</p>
+                  <p className="text-slate-500 text-xs mb-4">تابع حالة قضيتك، الوثائق، والتحديثات في الوقت الفعلي</p>
                   <a href={portalUrl} target="_blank" rel="noreferrer"
-                    className="block w-full bg-[#C9A84C] hover:bg-[#b8952f] text-[#0d1b2a] font-black py-3 rounded-lg transition-colors text-sm">
+                    className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-lg transition-colors text-sm">
                     🔗 فتح البوابة الإلكترونية
                   </a>
                   <button
                     onClick={() => { navigator.clipboard.writeText(portalUrl); }}
-                    className="mt-2 w-full text-xs text-white/30 hover:text-white/60 transition-colors py-1">
+                    className="mt-2 w-full text-xs text-slate-400 hover:text-slate-600 transition-colors py-1">
                     نسخ الرابط
                   </button>
                 </div>
               ) : (
-                <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-6">
-                  <p className="text-white/50 text-sm">سيصلك رابط البوابة الإلكترونية على بريدك الإلكتروني قريباً</p>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-6">
+                  <p className="text-slate-500 text-sm">سيصلك رابط البوابة الإلكترونية على بريدك الإلكتروني قريباً</p>
                 </div>
               )}
 
               <button
                 onClick={() => navigate(`/firms/${slug}`)}
-                className="text-white/40 hover:text-white/70 text-xs transition-colors">
+                className="text-slate-400 hover:text-slate-600 text-xs transition-colors">
                 العودة إلى صفحة المكتب
               </button>
             </>
@@ -417,25 +417,25 @@ export default function OfficePage() {
   }
 
   if (isLoading) return (
-    <div className="min-h-screen bg-[#080d1a] flex items-center justify-center">
+    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
       <div className="text-center">
-        <div className="h-16 w-16 rounded-2xl bg-[#C9A84C]/20 flex items-center justify-center mx-auto mb-4 animate-pulse">
-          <Scale className="h-8 w-8 text-[#C9A84C]" />
+        <div className="h-16 w-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-4 animate-pulse">
+          <Scale className="h-8 w-8 text-blue-400" />
         </div>
-        <Loader2 className="h-5 w-5 animate-spin text-[#C9A84C] mx-auto" />
+        <Loader2 className="h-5 w-5 animate-spin text-blue-600 mx-auto" />
       </div>
     </div>
   );
 
   if (isError || !data?.office) return (
-    <div className="min-h-screen bg-[#080d1a] flex items-center justify-center text-white text-center px-6">
+    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-slate-800 text-center px-6">
       <div>
-        <div className="h-24 w-24 rounded-3xl bg-[#C9A84C]/10 flex items-center justify-center mx-auto mb-6">
-          <Scale className="h-12 w-12 text-[#C9A84C] opacity-30" />
+        <div className="h-24 w-24 rounded-3xl bg-blue-50 flex items-center justify-center mx-auto mb-6">
+          <Scale className="h-12 w-12 text-blue-300 opacity-60" />
         </div>
         <h1 className="text-3xl font-black mb-3">{lang === "ar" ? "المكتب غير موجود" : "Office Not Found"}</h1>
-        <p className="text-white/40 text-sm mb-6">{lang === "ar" ? "تحقق من الرابط أو تواصل مع المكتب مباشرةً" : "Check the URL or contact the office directly"}</p>
-        <Button variant="outline" className="border-white/20 hover:bg-white/10" onClick={() => navigate("/")}>
+        <p className="text-slate-500 text-sm mb-6">{lang === "ar" ? "تحقق من الرابط أو تواصل مع المكتب مباشرةً" : "Check the URL or contact the office directly"}</p>
+        <Button variant="outline" className="border-slate-300 hover:bg-slate-50 text-slate-700" onClick={() => navigate("/")}>
           {lang === "ar" ? "العودة للرئيسية" : "Back to Home"}
         </Button>
       </div>
@@ -477,7 +477,7 @@ export default function OfficePage() {
 
   return (
     <div
-      className={cn("min-h-screen bg-[#080d1a] text-white", lang === "ar" ? "font-['Cairo',sans-serif]" : "font-sans")}
+      className={cn("min-h-screen bg-[#F8FAFC] text-slate-800", lang === "ar" ? "font-['Cairo',sans-serif]" : "font-sans")}
       dir={lang === "ar" ? "rtl" : "ltr"}
     >
       {/* ── DRAFT BANNER — shown when office is not yet published ── */}
@@ -489,7 +489,7 @@ export default function OfficePage() {
         </div>
       )}
       {/* ── NAVBAR ─────────────────────────────────── */}
-      <nav className={cn("fixed top-0 inset-x-0 z-50 transition-all duration-300", scrolled ? "bg-[#080d1a]/97 backdrop-blur shadow-xl shadow-black/30 border-b border-white/8" : "bg-transparent")}>
+      <nav className={cn("fixed top-0 inset-x-0 z-50 transition-all duration-300", scrolled ? "bg-white/97 backdrop-blur shadow-md border-b border-slate-200" : "bg-white/90 backdrop-blur border-b border-slate-200")}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {office.logo ? (
@@ -503,7 +503,7 @@ export default function OfficePage() {
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map(l => (
               <button key={l.label} onClick={() => scrollTo(l.ref)}
-                className="text-xs text-white/60 hover:text-white transition-colors font-medium px-3 py-2 rounded-lg hover:bg-white/6">
+                className="text-xs text-slate-600 hover:text-slate-900 transition-colors font-medium px-3 py-2 rounded-lg hover:bg-slate-100">
                 {l.label}
               </button>
             ))}
@@ -511,48 +511,48 @@ export default function OfficePage() {
 
           <div className="hidden md:flex items-center gap-2">
             <button onClick={() => scrollTo(servicesRef)}
-              className="inline-flex items-center gap-1.5 text-xs border border-white/20 hover:bg-white/10 px-3 py-1.5 rounded-md transition-colors text-white/70 hover:text-white">
+              className="inline-flex items-center gap-1.5 text-xs border border-slate-200 hover:bg-slate-50 px-3 py-1.5 rounded-md transition-colors text-slate-600 hover:text-slate-900">
               <ShoppingBag className="h-3 w-3" /> {lang === "ar" ? "المتجر القانوني" : "Legal Store"}
             </button>
             <a href={`/firms/${slug}/book`}>
-              <Button size="sm" className="gap-1.5 text-xs font-bold shadow-lg" style={{ background: gold, color: "#000" }}>
+              <Button size="sm" className="gap-1.5 text-xs font-bold shadow-md text-white" style={{ background: gold }}>
                 <Calendar className="h-3 w-3" /> {lang === "ar" ? "احجز استشارة" : "Book Now"}
               </Button>
             </a>
             <button onClick={() => setLang(l => l === "ar" ? "en" : "ar")}
-              className="text-[11px] px-2.5 py-1.5 rounded-lg font-bold border border-white/20 hover:border-white/40 transition-colors" style={{ color: gold }}>
+              className="text-[11px] px-2.5 py-1.5 rounded-lg font-bold border border-slate-200 hover:border-slate-300 transition-colors text-slate-600">
               {lang === "ar" ? "EN" : "ع"}
             </button>
           </div>
 
           <div className="flex items-center gap-2 md:hidden">
             <button onClick={() => setLang(l => l === "ar" ? "en" : "ar")}
-              className="text-xs px-2 py-1 rounded border border-white/20 font-bold" style={{ color: gold }}>
+              className="text-xs px-2 py-1 rounded border border-slate-200 font-bold text-slate-600">
               {lang === "ar" ? "EN" : "ع"}
             </button>
-            <button onClick={() => setMobileMenu(v => !v)} className="text-white/60 hover:text-white p-1">
+            <button onClick={() => setMobileMenu(v => !v)} className="text-slate-500 hover:text-slate-800 p-1">
               {mobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
 
         {mobileMenu && (
-          <div className="md:hidden bg-[#0b1120]/98 border-t border-white/8 py-4 px-6 space-y-1">
+          <div className="md:hidden bg-white border-t border-slate-200 py-4 px-6 space-y-1">
             {navLinks.map(l => (
               <button key={l.label} onClick={() => scrollTo(l.ref)}
-                className="flex items-center gap-2 w-full text-sm py-2.5 px-3 rounded-xl text-white/70 hover:text-white hover:bg-white/6">
+                className="flex items-center gap-2 w-full text-sm py-2.5 px-3 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                 <ChevronLeft className={cn("h-3.5 w-3.5", lang === "en" && "rotate-180")} style={{ color: gold }} />
                 {l.label}
               </button>
             ))}
             <div className="pt-2 flex gap-2">
               <button onClick={() => scrollTo(servicesRef)} className="flex-1">
-                <Button variant="outline" size="sm" className="w-full gap-1 text-xs border-white/20 hover:bg-white/10">
+                <Button variant="outline" size="sm" className="w-full gap-1 text-xs border-slate-200 hover:bg-slate-50">
                   <ShoppingBag className="h-3 w-3" /> {lang === "ar" ? "المتجر" : "Store"}
                 </Button>
               </button>
               <a href={`/firms/${slug}/book`} className="flex-1">
-                <Button size="sm" className="w-full gap-1 text-xs font-bold" style={{ background: gold, color: "#000" }}>
+                <Button size="sm" className="w-full gap-1 text-xs font-bold text-white" style={{ background: gold }}>
                   <Calendar className="h-3 w-3" /> {lang === "ar" ? "احجز" : "Book"}
                 </Button>
               </a>
@@ -567,7 +567,7 @@ export default function OfficePage() {
           {office.coverImage ? (
             <>
               <img src={imgSrc(office.coverImage)} alt="" className="w-full h-full object-cover opacity-25" />
-              <div className="absolute inset-0 bg-gradient-to-b from-[#080d1a]/70 via-[#080d1a]/40 to-[#080d1a]" />
+              <div className="absolute inset-0 bg-gradient-to-b from-white/50 via-white/30 to-white/80" />
             </>
           ) : (
             <>
@@ -588,12 +588,12 @@ export default function OfficePage() {
           {office.logo ? (
             <div className="relative inline-block mb-6">
               <div className="absolute inset-0 rounded-2xl blur-xl opacity-30" style={{ background: gold }} />
-              <img src={imgSrc(office.logo)} alt={officeName} className="relative h-24 w-24 rounded-2xl object-cover mx-auto shadow-2xl ring-2 ring-white/15" />
+              <img src={imgSrc(office.logo)} alt={officeName} className="relative h-24 w-24 rounded-2xl object-cover mx-auto shadow-2xl ring-2 ring-slate-200" />
             </div>
           ) : (
             <div className="relative inline-block mb-6">
               <div className="absolute inset-0 rounded-2xl blur-xl opacity-20" style={{ background: gold }} />
-              <div className="relative h-24 w-24 rounded-2xl mx-auto flex items-center justify-center text-4xl font-black shadow-2xl ring-2 ring-white/15" style={{ background: `linear-gradient(135deg, ${gold}30, ${gold}10)`, color: gold }}>
+              <div className="relative h-24 w-24 rounded-2xl mx-auto flex items-center justify-center text-4xl font-black shadow-2xl ring-2 ring-slate-200" style={{ background: `linear-gradient(135deg, ${gold}30, ${gold}10)`, color: gold }}>
                 {(officeName || "م")[0]}
               </div>
             </div>
@@ -607,16 +607,16 @@ export default function OfficePage() {
               </span>
             )}
             {office.city && (
-              <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-medium bg-white/8 text-white/60" style={{ border: "1px solid rgba(255,255,255,0.1)" }}>
+              <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-medium bg-slate-100 text-slate-600 border border-slate-200">
                 <MapPin className="h-3 w-3" /> {office.city}
               </span>
             )}
           </div>
 
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black mb-5 leading-tight tracking-tight">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black mb-5 leading-tight tracking-tight text-slate-900">
             {officeName}
           </h1>
-          {tagline && <p className="text-lg md:text-xl text-white/55 mb-10 max-w-2xl mx-auto leading-relaxed">{tagline}</p>}
+          {tagline && <p className="text-lg md:text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed">{tagline}</p>}
 
           <div className="flex flex-wrap gap-3 justify-center mb-12">
             <a href={`/firms/${slug}/book`}>
@@ -634,7 +634,7 @@ export default function OfficePage() {
                 </Button>
               </a>
             )}
-            <Button size="lg" variant="outline" className="gap-2 px-6 border-white/20 hover:bg-white/10"
+            <Button size="lg" variant="outline" className="gap-2 px-6 border-slate-200 hover:bg-slate-50"
               onClick={() => scrollTo(servicesRef)}>
               <ShoppingBag className="h-5 w-5" />
               {lang === "ar" ? "الخدمات القانونية" : "Our Services"}
@@ -642,10 +642,10 @@ export default function OfficePage() {
           </div>
 
           {avgRating > 0 && (
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/6 border border-white/10">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-100 border border-slate-200">
               <div className="flex gap-0.5">{stars(Math.round(avgRating), "h-4 w-4")}</div>
               <span className="font-black text-sm" style={{ color: gold }}>{avgRating.toFixed(1)}</span>
-              <span className="text-white/40 text-xs">{lang === "ar" ? `من ${reviews.length} تقييم` : `from ${reviews.length} reviews`}</span>
+              <span className="text-slate-500 text-xs">{lang === "ar" ? `من ${reviews.length} تقييم` : `from ${reviews.length} reviews`}</span>
             </div>
           )}
 
@@ -657,7 +657,7 @@ export default function OfficePage() {
 
       {/* ── STATS STRIP ────────────────────────────── */}
       {office.showStats && (office.casesCount > 0 || office.clientsCount > 0 || office.successRate > 0 || office.experienceYears > 0) && (
-        <div className="border-y border-white/6" style={{ background: `${gold}06` }}>
+        <div className="border-y border-slate-200" style={{ background: `${gold}06` }}>
           <div className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-8">
             {office.experienceYears > 0 && <AnimatedStat val={`${office.experienceYears}+`} label={lang === "ar" ? "سنة خبرة" : "Years Exp."} gold={gold} icon={<Award className="h-5 w-5" />} />}
             {office.casesCount > 0 && <AnimatedStat val={office.casesCount.toLocaleString()} label={lang === "ar" ? "قضية منجزة" : "Cases Handled"} gold={gold} icon={<Briefcase className="h-5 w-5" />} />}
@@ -677,7 +677,7 @@ export default function OfficePage() {
             <div>
               <p className="font-bold text-emerald-300 text-sm">{success}</p>
             </div>
-            <button onClick={() => setSuccess("")} className="mr-auto text-white/30 hover:text-white"><X className="h-4 w-4" /></button>
+            <button onClick={() => setSuccess("")} className="mr-auto text-slate-400 hover:text-slate-700"><X className="h-4 w-4" /></button>
           </div>
         )}
 
@@ -689,13 +689,13 @@ export default function OfficePage() {
                 <div className="relative">
                   <div className="absolute -inset-3 rounded-3xl opacity-20 blur-2xl" style={{ background: gold }} />
                   <div className="absolute inset-0 rounded-3xl translate-x-4 translate-y-4" style={{ background: `${gold}12`, border: `1px solid ${gold}20` }} />
-                  <img src={imgSrc(office.coverImage || office.logo)} alt={officeName} className="relative w-full h-80 object-cover rounded-3xl ring-1 ring-white/10" />
+                  <img src={imgSrc(office.coverImage || office.logo)} alt={officeName} className="relative w-full h-80 object-cover rounded-3xl ring-1 ring-slate-200" />
                 </div>
               ) : (
                 <div className="w-full h-80 rounded-3xl flex items-center justify-center" style={{ background: `${gold}06`, border: `1px dashed ${gold}30` }}>
                   <div className="text-center">
                     <Scale className="h-20 w-20 mx-auto mb-3 opacity-15" style={{ color: gold }} />
-                    <p className="text-xs text-white/25">{lang === "ar" ? "مكتب محاماة" : "Law Office"}</p>
+                    <p className="text-xs text-slate-400">{lang === "ar" ? "مكتب محاماة" : "Law Office"}</p>
                   </div>
                 </div>
               )}
@@ -705,32 +705,32 @@ export default function OfficePage() {
               <SecHeader icon={<Scale />} title={lang === "ar" ? "من نحن" : "About Us"} gold={gold} noSub />
               <h2 className="text-3xl md:text-4xl font-black mb-5 mt-3 leading-tight">{officeName}</h2>
               {about ? (
-                <p className="text-white/60 leading-relaxed text-sm mb-6">{about}</p>
+                <p className="text-slate-600 leading-relaxed text-sm mb-6">{about}</p>
               ) : (
-                <p className="text-white/40 text-sm mb-6 italic">{lang === "ar" ? "مكتب محاماة متخصص في تقديم الخدمات القانونية بأعلى المعايير." : "A specialized law firm providing legal services to the highest standards."}</p>
+                <p className="text-slate-500 text-sm mb-6 italic">{lang === "ar" ? "مكتب محاماة متخصص في تقديم الخدمات القانونية بأعلى المعايير." : "A specialized law firm providing legal services to the highest standards."}</p>
               )}
 
               <div className="space-y-2.5">
                 {office.city && (
-                  <div className="flex items-center gap-3 text-sm text-white/50 p-3 rounded-xl bg-white/4">
+                  <div className="flex items-center gap-3 text-sm text-slate-500 p-3 rounded-xl bg-slate-50">
                     <MapPin className="h-4 w-4 shrink-0" style={{ color: gold }} />
                     <span>{office.city}{office.regions ? ` — ${office.regions}` : ""}</span>
                   </div>
                 )}
                 {office.licenseNumber && (
-                  <div className="flex items-center gap-3 text-sm text-white/50 p-3 rounded-xl bg-white/4">
+                  <div className="flex items-center gap-3 text-sm text-slate-500 p-3 rounded-xl bg-slate-50">
                     <BadgeCheck className="h-4 w-4 shrink-0" style={{ color: gold }} />
                     <span>{lang === "ar" ? `رقم الترخيص: ${office.licenseNumber}` : `License No: ${office.licenseNumber}`}</span>
                   </div>
                 )}
                 {office.email && (
-                  <a href={`mailto:${office.email}`} className="flex items-center gap-3 text-sm text-white/50 p-3 rounded-xl bg-white/4 hover:bg-white/8 transition-colors">
+                  <a href={`mailto:${office.email}`} className="flex items-center gap-3 text-sm text-slate-500 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
                     <Mail className="h-4 w-4 shrink-0" style={{ color: gold }} />
                     <span>{office.email}</span>
                   </a>
                 )}
                 {office.phone && (
-                  <a href={`tel:${office.phone}`} className="flex items-center gap-3 text-sm text-white/50 p-3 rounded-xl bg-white/4 hover:bg-white/8 transition-colors">
+                  <a href={`tel:${office.phone}`} className="flex items-center gap-3 text-sm text-slate-500 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
                     <Phone className="h-4 w-4 shrink-0" style={{ color: gold }} />
                     <span dir="ltr">{office.phone}</span>
                   </a>
@@ -748,13 +748,13 @@ export default function OfficePage() {
               <div>
                 <SecHeader icon={<ShoppingBag />}
                   title={lang === "ar" ? "المتجر القانوني" : "Legal Store"} gold={gold} noSub />
-                <p className="text-sm text-white/45 mt-2">
+                <p className="text-sm text-slate-500 mt-2">
                   {lang === "ar"
                     ? "خدمات قانونية متكاملة — اطلب مباشرة أو تفاوض على السعر"
                     : "Full legal services — order directly or negotiate the price"}
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-xs text-white/40 px-3 py-1.5 rounded-full"
+              <div className="flex items-center gap-2 text-xs text-slate-500 px-3 py-1.5 rounded-full"
                 style={{ background: `${gold}10`, border: `1px solid ${gold}20`, color: gold }}>
                 <ShoppingBag className="h-3 w-3" />
                 {services.length} {lang === "ar" ? "خدمة متاحة" : "services available"}
@@ -771,8 +771,8 @@ export default function OfficePage() {
                       className={cn(
                         "px-3 py-1.5 rounded-full text-xs whitespace-nowrap border transition-all shrink-0 font-medium",
                         filterCat === cat
-                          ? "border-white/30 text-white"
-                          : "border-white/10 text-white/40 hover:border-white/20 hover:text-white/60"
+                          ? "border-transparent text-white"
+                          : "border-slate-200 text-slate-500 hover:border-slate-200 hover:text-slate-600"
                       )}
                       style={filterCat === cat ? { background: `${gold}20`, borderColor: `${gold}40`, color: gold } : {}}>
                       {cat}
@@ -809,7 +809,7 @@ export default function OfficePage() {
                   {filtered.length > 6 && (
                     <div className="mt-8 text-center">
                       <button onClick={() => setShowAllSvc(v => !v)}
-                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold border transition-all hover:bg-white/5"
+                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold border transition-all hover:bg-slate-50"
                         style={{ borderColor: `${gold}30`, color: gold }}>
                         <ShoppingBag className="h-4 w-4" />
                         {showAllSvc
@@ -829,7 +829,7 @@ export default function OfficePage() {
         {team.length > 0 && (
           <section ref={teamRef} id="team">
             <SecHeader icon={<Users />} title={lang === "ar" ? "فريق العمل" : "Our Team"} subtitle={lang === "ar" ? "نخبة من المحامين والمستشارين المتخصصين" : "Elite lawyers and specialized legal consultants"} gold={gold} />
-            <p className="text-sm text-white/45 mt-2 mb-8">{lang === "ar" ? "نخبة من المحامين والمستشارين القانونيين المتخصصين" : "A team of specialized lawyers and legal consultants"}</p>
+            <p className="text-sm text-slate-500 mt-2 mb-8">{lang === "ar" ? "نخبة من المحامين والمستشارين القانونيين المتخصصين" : "A team of specialized lawyers and legal consultants"}</p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {team.map((m: any) => <TeamCard key={m.id} m={m} lang={lang} gold={gold} />)}
             </div>
@@ -846,12 +846,12 @@ export default function OfficePage() {
                   <span className="text-4xl font-black" style={{ color: gold }}>{avgRating.toFixed(1)}</span>
                   <div>
                     <div className="flex gap-0.5">{stars(Math.round(avgRating), "h-4 w-4")}</div>
-                    <div className="text-xs text-white/40 mt-0.5">{lang === "ar" ? `${reviews.length} تقييم` : `${reviews.length} reviews`}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{lang === "ar" ? `${reviews.length} تقييم` : `${reviews.length} reviews`}</div>
                   </div>
                 </div>
               )}
             </div>
-            <Button size="sm" variant="outline" className="gap-1.5 text-xs border-white/20 hover:bg-white/10"
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs border-slate-200 hover:bg-slate-50"
               onClick={() => setReviewDialog(true)}>
               <Star className="h-3.5 w-3.5" style={{ color: gold }} />
               {lang === "ar" ? "أضف تقييمك" : "Leave a Review"}
@@ -859,46 +859,46 @@ export default function OfficePage() {
           </div>
 
           {reviews.length === 0 ? (
-            <div className="text-center py-12 rounded-2xl bg-white/3 border border-white/8">
-              <div className="h-16 w-16 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-4">
-                <Star className="h-8 w-8 text-white/20" />
+            <div className="text-center py-12 rounded-2xl bg-slate-50 border border-slate-200">
+              <div className="h-16 w-16 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-4">
+                <Star className="h-8 w-8 text-slate-300" />
               </div>
-              <p className="text-white/40 font-medium">{lang === "ar" ? "لا توجد تقييمات بعد" : "No reviews yet"}</p>
-              <p className="text-white/25 text-sm mt-1">{lang === "ar" ? "كن أول من يقيّم هذا المكتب!" : "Be the first to review this office!"}</p>
+              <p className="text-slate-500 font-medium">{lang === "ar" ? "لا توجد تقييمات بعد" : "No reviews yet"}</p>
+              <p className="text-slate-400 text-sm mt-1">{lang === "ar" ? "كن أول من يقيّم هذا المكتب!" : "Be the first to review this office!"}</p>
             </div>
           ) : (
             <>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {visibleReviews.map((r: any) => (
-                  <div key={r.id} className="p-5 rounded-2xl bg-white/4 border border-white/8 hover:bg-white/6 transition-colors relative overflow-hidden">
+                  <div key={r.id} className="p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors relative overflow-hidden">
                     <Quote className="absolute top-3 left-3 h-10 w-10 opacity-5" style={{ color: gold }} />
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-black shrink-0 ring-2 ring-white/8"
+                      <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-black shrink-0 ring-2 ring-slate-200"
                         style={{ background: `${gold}20`, color: gold }}>{r.clientName[0]}</div>
                       <div>
                         <div className="text-sm font-semibold">{r.clientName}</div>
                         <div className="flex gap-0.5 mt-0.5">{stars(r.rating)}</div>
                       </div>
                     </div>
-                    {r.comment && <p className="text-xs text-white/55 leading-relaxed line-clamp-4">{r.comment}</p>}
+                    {r.comment && <p className="text-xs text-slate-600 leading-relaxed line-clamp-4">{r.comment}</p>}
                   </div>
                 ))}
               </div>
               {reviewPages > 1 && (
                 <div className="flex items-center justify-center gap-2 mt-6">
                   <button onClick={() => setReviewPage(p => Math.max(0, p - 1))} disabled={reviewPage === 0}
-                    className="h-8 w-8 rounded-lg bg-white/6 border border-white/10 flex items-center justify-center disabled:opacity-30 hover:bg-white/12 transition-colors">
+                    className="h-8 w-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center disabled:opacity-30 hover:bg-slate-200 transition-colors">
                     <ChevronRight className={cn("h-4 w-4", lang === "ar" && "rotate-0")} />
                   </button>
                   {Array.from({ length: reviewPages }, (_, i) => (
                     <button key={i} onClick={() => setReviewPage(i)}
-                      className={cn("h-8 w-8 rounded-lg text-xs font-bold transition-all", reviewPage === i ? "text-black" : "bg-white/6 border border-white/10 hover:bg-white/12")}
+                      className={cn("h-8 w-8 rounded-lg text-xs font-bold transition-all", reviewPage === i ? "text-black" : "bg-slate-100 border border-slate-200 hover:bg-slate-200")}
                       style={reviewPage === i ? { background: gold } : {}}>
                       {i + 1}
                     </button>
                   ))}
                   <button onClick={() => setReviewPage(p => Math.min(reviewPages - 1, p + 1))} disabled={reviewPage === reviewPages - 1}
-                    className="h-8 w-8 rounded-lg bg-white/6 border border-white/10 flex items-center justify-center disabled:opacity-30 hover:bg-white/12 transition-colors">
+                    className="h-8 w-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center disabled:opacity-30 hover:bg-slate-200 transition-colors">
                     <ChevronLeft className={cn("h-4 w-4", lang === "ar" && "rotate-0")} />
                   </button>
                 </div>
@@ -911,18 +911,18 @@ export default function OfficePage() {
         {articles.length > 0 && (
           <section>
             <SecHeader icon={<BookOpen />} title={lang === "ar" ? "مركز المعرفة القانونية" : "Legal Knowledge Center"} subtitle={lang === "ar" ? "مقالات ونصائح قانونية من فريق المكتب" : "Legal articles and tips from our team"} gold={gold} />
-            <p className="text-sm text-white/45 mt-2 mb-8">{lang === "ar" ? "نشارككم أحدث المقالات والمستجدات القانونية" : "We share the latest legal articles and updates"}</p>
+            <p className="text-sm text-slate-500 mt-2 mb-8">{lang === "ar" ? "نشارككم أحدث المقالات والمستجدات القانونية" : "We share the latest legal articles and updates"}</p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {articles.map((a: any) => (
-                <div key={a.id} className="group p-5 rounded-2xl bg-white/4 border border-white/8 hover:bg-white/7 hover:border-white/15 transition-all cursor-pointer overflow-hidden">
+                <div key={a.id} className="group p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all cursor-pointer overflow-hidden">
                   <div className="flex items-start gap-3 mb-3">
                     <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${gold}15`, color: gold }}>
                       <FileText className="h-4 w-4" />
                     </div>
-                    <Badge className="text-[9px] bg-white/5 text-white/40 border-white/10 self-start">{a.category}</Badge>
+                    <Badge className="text-[9px] bg-slate-50 text-slate-500 border-slate-200 self-start">{a.category}</Badge>
                   </div>
-                  <h3 className="font-bold text-sm mb-2 line-clamp-2 group-hover:text-white/90 transition-colors">{a.title}</h3>
-                  {a.excerpt && <p className="text-xs text-white/45 line-clamp-3 leading-relaxed">{a.excerpt}</p>}
+                  <h3 className="font-bold text-sm mb-2 line-clamp-2 text-slate-800 transition-colors">{a.title}</h3>
+                  {a.excerpt && <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">{a.excerpt}</p>}
                   <div className="flex items-center gap-1 mt-3 text-[10px] font-medium" style={{ color: gold }}>
                     {lang === "ar" ? "اقرأ المقال" : "Read Article"}
                     <ArrowLeft className={cn("h-3 w-3 group-hover:translate-x-1 transition-transform", lang === "en" && "rotate-180")} />
@@ -936,7 +936,7 @@ export default function OfficePage() {
         {/* ── CONTACT ─────────────────────────────────── */}
         <section ref={contactRef} id="contact">
           <SecHeader icon={<Send />} title={lang === "ar" ? "تواصل معنا" : "Get In Touch"} subtitle={lang === "ar" ? "نحن هنا لمساعدتك — تواصل معنا الآن" : "We're here to help — reach out now"} gold={gold} />
-          <p className="text-sm text-white/45 mt-2 mb-8">{lang === "ar" ? "نرد على استفساراتك في أسرع وقت ممكن" : "We respond to your inquiries as quickly as possible"}</p>
+          <p className="text-sm text-slate-500 mt-2 mb-8">{lang === "ar" ? "نرد على استفساراتك في أسرع وقت ممكن" : "We respond to your inquiries as quickly as possible"}</p>
 
           <div className="grid md:grid-cols-5 gap-8">
             <div className="md:col-span-2 space-y-3">
@@ -947,30 +947,30 @@ export default function OfficePage() {
                     <MessageCircle className="h-5 w-5 text-emerald-400" />
                   </div>
                   <div className="flex-1">
-                    <div className="text-[10px] text-white/40 mb-0.5">{lang === "ar" ? "واتساب" : "WhatsApp"}</div>
+                    <div className="text-[10px] text-slate-500 mb-0.5">{lang === "ar" ? "واتساب" : "WhatsApp"}</div>
                     <div className="font-bold text-sm text-emerald-300">{office.whatsapp || office.phone}</div>
                   </div>
                   <ExternalLink className="h-4 w-4 text-emerald-500/40 group-hover:text-emerald-400 transition-colors" />
                 </a>
               )}
               {office.phone && (
-                <a href={`tel:${office.phone}`} className="flex items-center gap-4 p-4 rounded-2xl bg-white/4 border border-white/8 hover:bg-white/8 transition-colors group">
+                <a href={`tel:${office.phone}`} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors group">
                   <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${gold}15` }}>
                     <Phone className="h-5 w-5" style={{ color: gold }} />
                   </div>
                   <div>
-                    <div className="text-[10px] text-white/40 mb-0.5">{lang === "ar" ? "هاتف مباشر" : "Phone"}</div>
+                    <div className="text-[10px] text-slate-500 mb-0.5">{lang === "ar" ? "هاتف مباشر" : "Phone"}</div>
                     <div className="font-semibold text-sm" dir="ltr">{office.phone}</div>
                   </div>
                 </a>
               )}
               {office.email && (
-                <a href={`mailto:${office.email}`} className="flex items-center gap-4 p-4 rounded-2xl bg-white/4 border border-white/8 hover:bg-white/8 transition-colors">
+                <a href={`mailto:${office.email}`} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors">
                   <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${gold}15` }}>
                     <Mail className="h-5 w-5" style={{ color: gold }} />
                   </div>
                   <div>
-                    <div className="text-[10px] text-white/40 mb-0.5">{lang === "ar" ? "بريد إلكتروني" : "Email"}</div>
+                    <div className="text-[10px] text-slate-500 mb-0.5">{lang === "ar" ? "بريد إلكتروني" : "Email"}</div>
                     <div className="font-semibold text-sm">{office.email}</div>
                   </div>
                 </a>
@@ -979,23 +979,23 @@ export default function OfficePage() {
                 <a
                   href={office.googleMapsUrl ?? (office.address ? `https://maps.google.com/?q=${encodeURIComponent(office.address)}` : undefined)}
                   target="_blank" rel="noreferrer"
-                  className="flex items-center gap-4 p-4 rounded-2xl bg-white/4 border border-white/8 hover:bg-white/8 transition-colors group"
+                  className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors group"
                 >
                   <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${gold}15` }}>
                     <MapPin className="h-5 w-5" style={{ color: gold }} />
                   </div>
                   <div className="flex-1">
-                    <div className="text-[10px] text-white/40 mb-0.5">{lang === "ar" ? "العنوان" : "Address"}</div>
+                    <div className="text-[10px] text-slate-500 mb-0.5">{lang === "ar" ? "العنوان" : "Address"}</div>
                     <div className="font-semibold text-sm">{office.address}</div>
                   </div>
-                  <ExternalLink className="h-4 w-4 text-white/20 group-hover:text-white/50 transition-colors shrink-0" />
+                  <ExternalLink className="h-4 w-4 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
                 </a>
               )}
             </div>
 
             <div className="md:col-span-3 p-6 rounded-2xl border" style={{ background: `${gold}05`, borderColor: `${gold}18` }}>
               <h3 className="font-bold mb-1">{lang === "ar" ? "أرسل لنا رسالة" : "Send Us a Message"}</h3>
-              <p className="text-xs text-white/40 mb-5">{lang === "ar" ? "اختر الموضوع وأرسل رسالتك مباشرةً عبر واتساب" : "Choose a subject and send your message directly via WhatsApp"}</p>
+              <p className="text-xs text-slate-500 mb-5">{lang === "ar" ? "اختر الموضوع وأرسل رسالتك مباشرةً عبر واتساب" : "Choose a subject and send your message directly via WhatsApp"}</p>
               <ContactForm lang={lang} gold={gold} whatsappUrl={whatsappUrl} officeName={officeName}
                 onOrder={() => { setOrderDialog({ name: lang === "ar" ? "استشارة قانونية" : "Legal Consultation", isCustomQuote: true }); }} />
             </div>
@@ -1003,7 +1003,7 @@ export default function OfficePage() {
 
           {/* ── Google Maps Section ── */}
           {(office.mapsEmbedUrl || office.googleMapsUrl || office.address) && (
-            <div className="mt-8 rounded-2xl overflow-hidden border border-white/10 relative group">
+            <div className="mt-8 rounded-2xl overflow-hidden border border-slate-200 relative group">
               {office.mapsEmbedUrl ? (
                 <>
                   <iframe
@@ -1023,7 +1023,7 @@ export default function OfficePage() {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        <Button size="sm" className="gap-2 text-xs font-bold shadow-2xl shadow-black/60 bg-white text-black hover:bg-white/90">
+                        <Button size="sm" className="gap-2 text-xs font-bold shadow-xl bg-white text-black hover:bg-slate-50">
                           <MapPin className="h-3.5 w-3.5" style={{ color: "#EA4335" }} />
                           {lang === "ar" ? "فتح في خرائط جوجل" : "Open in Google Maps"}
                           <ExternalLink className="h-3 w-3 text-black/40" />
@@ -1037,7 +1037,7 @@ export default function OfficePage() {
                   href={office.googleMapsUrl ?? `https://maps.google.com/?q=${encodeURIComponent(office.address)}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center justify-between gap-4 p-5 bg-white/4 hover:bg-white/7 transition-colors"
+                  className="flex items-center justify-between gap-4 p-5 bg-slate-50 hover:bg-slate-100 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${gold}15`, color: gold }}>
@@ -1045,7 +1045,7 @@ export default function OfficePage() {
                     </div>
                     <div>
                       <div className="text-xs font-bold mb-0.5">{lang === "ar" ? "موقع المكتب" : "Office Location"}</div>
-                      {office.address && <div className="text-xs text-white/50">{office.address}</div>}
+                      {office.address && <div className="text-xs text-slate-500">{office.address}</div>}
                     </div>
                   </div>
                   <Button size="sm" className="gap-1.5 text-xs font-bold shrink-0" style={{ background: gold, color: "#000" }}>
@@ -1059,14 +1059,14 @@ export default function OfficePage() {
           )}
 
           {(office.twitter || office.linkedin || office.facebook || office.website || office.instagram) && (
-            <div className="mt-8 p-5 rounded-2xl bg-white/3 border border-white/8 flex flex-wrap gap-3 items-center justify-center">
-              <span className="text-xs text-white/35 font-medium">{lang === "ar" ? "تابعنا على" : "Follow Us"}</span>
+            <div className="mt-8 p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-wrap gap-3 items-center justify-center">
+              <span className="text-xs text-slate-400 font-medium">{lang === "ar" ? "تابعنا على" : "Follow Us"}</span>
               <div className="flex gap-2">
                 {office.twitter && <SocialLink href={office.twitter} icon={<Twitter className="h-4 w-4 text-sky-400" />} label="Twitter" hoverColor="hover:bg-sky-500/20 hover:border-sky-500/30" />}
                 {office.linkedin && <SocialLink href={office.linkedin} icon={<Linkedin className="h-4 w-4 text-blue-400" />} label="LinkedIn" hoverColor="hover:bg-blue-500/20 hover:border-blue-500/30" />}
                 {office.facebook && <SocialLink href={office.facebook} icon={<Facebook className="h-4 w-4 text-blue-500" />} label="Facebook" hoverColor="hover:bg-blue-600/20 hover:border-blue-600/30" />}
                 {office.instagram && <SocialLink href={office.instagram} icon={<Instagram className="h-4 w-4 text-pink-400" />} label="Instagram" hoverColor="hover:bg-pink-500/20 hover:border-pink-500/30" />}
-                {office.website && <SocialLink href={office.website} icon={<Globe className="h-4 w-4 text-white/60" />} label="Website" hoverColor="hover:bg-white/10 hover:border-white/20" />}
+                {office.website && <SocialLink href={office.website} icon={<Globe className="h-4 w-4 text-slate-600" />} label="Website" hoverColor="hover:bg-slate-50 hover:border-slate-200" />}
               </div>
             </div>
           )}
@@ -1074,7 +1074,7 @@ export default function OfficePage() {
       </main>
 
       {/* ── FOOTER ────────────────────────────────── */}
-      <footer className="border-t border-white/6 py-10">
+      <footer className="border-t border-slate-200 py-10">
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -1083,16 +1083,16 @@ export default function OfficePage() {
               ) : (
                 <div className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-black opacity-70" style={{ background: `${gold}20`, color: gold }}>{(officeName || "م")[0]}</div>
               )}
-              <span className="text-sm font-bold text-white/50">{officeName}</span>
+              <span className="text-sm font-bold text-slate-500">{officeName}</span>
             </div>
-            <div className="flex flex-wrap items-center gap-4 text-xs text-white/30">
-              <button onClick={() => scrollTo(aboutRef)} className="hover:text-white/60 transition-colors">{lang === "ar" ? "من نحن" : "About"}</button>
-              <button onClick={() => scrollTo(servicesRef)} className="hover:text-white/60 transition-colors">{lang === "ar" ? "الخدمات" : "Services"}</button>
-              <button onClick={() => scrollTo(contactRef)} className="hover:text-white/60 transition-colors">{lang === "ar" ? "تواصل" : "Contact"}</button>
-              <button onClick={() => scrollTo(servicesRef)} className="hover:text-white/60 transition-colors">{lang === "ar" ? "المتجر القانوني" : "Legal Store"}</button>
-              <a href={`/firms/${slug}/book`} className="hover:text-white/60 transition-colors">{lang === "ar" ? "الحجز" : "Book"}</a>
+            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
+              <button onClick={() => scrollTo(aboutRef)} className="hover:text-slate-600 transition-colors">{lang === "ar" ? "من نحن" : "About"}</button>
+              <button onClick={() => scrollTo(servicesRef)} className="hover:text-slate-600 transition-colors">{lang === "ar" ? "الخدمات" : "Services"}</button>
+              <button onClick={() => scrollTo(contactRef)} className="hover:text-slate-600 transition-colors">{lang === "ar" ? "تواصل" : "Contact"}</button>
+              <button onClick={() => scrollTo(servicesRef)} className="hover:text-slate-600 transition-colors">{lang === "ar" ? "المتجر القانوني" : "Legal Store"}</button>
+              <a href={`/firms/${slug}/book`} className="hover:text-slate-600 transition-colors">{lang === "ar" ? "الحجز" : "Book"}</a>
             </div>
-            <div className="text-[11px] text-white/20">
+            <div className="text-[11px] text-slate-400">
               © {new Date().getFullYear()} · {lang === "ar" ? "مدعوم بـ" : "Powered by"}
               <span className="font-bold mx-1" style={{ color: gold }}>عدالة AI</span>
             </div>
@@ -1136,7 +1136,7 @@ export default function OfficePage() {
             <div className="space-y-3">
               {!orderDialog.isCustomQuote && orderDialog.price && (
                 <div className="p-3 rounded-xl text-center" style={{ background: `${gold}10`, border: `1px solid ${gold}20` }}>
-                  <div className="text-[10px] text-white/40 mb-1">{lang === "ar" ? "سعر الخدمة" : "Service Price"}</div>
+                  <div className="text-[10px] text-slate-500 mb-1">{lang === "ar" ? "سعر الخدمة" : "Service Price"}</div>
                   <span className="text-2xl font-black" style={{ color: gold }}>{Number(orderDialog.price).toLocaleString()} <span className="text-sm">{lang === "ar" ? "ر.س" : "SAR"}</span></span>
                 </div>
               )}
@@ -1186,7 +1186,7 @@ export default function OfficePage() {
                 <CheckCircle2 className="h-8 w-8" style={{ color: gold }} />
               </div>
               <p className="font-bold">{lang === "ar" ? "تم إرسال عرضك!" : "Your offer was sent!"}</p>
-              <p className="text-sm text-white/50">{lang === "ar" ? "سيراجع المكتب عرضك ويرد عليك قريباً." : "The office will review your offer and respond soon."}</p>
+              <p className="text-sm text-slate-500">{lang === "ar" ? "سيراجع المكتب عرضك ويرد عليك قريباً." : "The office will review your offer and respond soon."}</p>
               <Button className="mt-4" style={{ background: gold, color: "#000" }} onClick={() => { setDealDialog(null); setDealStep("form"); }}>
                 {lang === "ar" ? "حسناً" : "OK"}
               </Button>
@@ -1194,7 +1194,7 @@ export default function OfficePage() {
           ) : dealDialog && (
             <div className="space-y-3">
               <div className="p-3 rounded-xl" style={{ background: `${gold}10`, border: `1px solid ${gold}20` }}>
-                <div className="text-xs text-white/40 mb-1">{lang === "ar" ? "السعر المطلوب" : "Listed Price"}</div>
+                <div className="text-xs text-slate-500 mb-1">{lang === "ar" ? "السعر المطلوب" : "Listed Price"}</div>
                 <span className="text-xl font-black" style={{ color: gold }}>
                   {Number(dealDialog.price).toLocaleString()} <span className="text-sm">{lang === "ar" ? "ر.س" : "SAR"}</span>
                 </span>
@@ -1229,7 +1229,7 @@ export default function OfficePage() {
                 {dealMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 {lang === "ar" ? "إرسال العرض للتفاوض" : "Send Negotiation Offer"}
               </Button>
-              <p className="text-[10px] text-center text-white/30">
+              <p className="text-[10px] text-center text-slate-400">
                 {lang === "ar" ? "سيتواصل معك المكتب بعرض مقابل أو قبول مباشر" : "The office will respond with a counter-offer or direct acceptance"}
               </p>
             </div>
