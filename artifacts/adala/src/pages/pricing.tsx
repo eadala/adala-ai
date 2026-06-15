@@ -414,7 +414,7 @@ export default function PricingPage() {
               {c === "yearly" && (
                 <span className={cn(
                   "text-[10px] font-black px-1.5 py-0.5 rounded-md",
-                  cycle === "yearly" ? "bg-white/20 text-white" : "bg-emerald-500/20 text-emerald-600"
+                  cycle === "yearly" ? "bg-primary/15 text-primary" : "bg-emerald-500/20 text-emerald-600"
                 )}>
                   وفّر ٢٠٪
                 </span>

@@ -47,7 +47,7 @@ const AGENTS = [
     placeholder: "مثال: أريد حماية اسم منتجي الجديد وشعاره كعلامة تجارية في السعودية...",
   },
   {
-    key: "collections", name: "وكيل التحصيل", icon: BadgeDollarSign, color: "#C9A84C",
+    key: "collections", name: "وكيل التحصيل", icon: BadgeDollarSign, color: "#2563EB",
     bg: "bg-yellow-500/10", border: "border-yellow-500/20",
     desc: "متابعة الديون وصياغة الإنذارات واقتراح التسويات",
     capabilities: ["إنذار مدين", "خطة التحصيل", "اقتراح تسوية", "أمر الأداء"],

@@ -329,11 +329,11 @@ export default function BackupCenter() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-[#C9A84C]/20 flex items-center justify-center">
-                <Database className="h-5 w-5 text-[#C9A84C]" />
+              <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                <Database className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">مركز البيانات</h1>
+                <h1 className="text-2xl font-bold text-foreground">مركز البيانات</h1>
                 <p className="text-sm text-muted-foreground">النسخ الاحتياطي والتصدير وإدارة البيانات</p>
               </div>
             </div>
@@ -352,10 +352,10 @@ export default function BackupCenter() {
 
         {/* ─── Summary Cards ─── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-sidebar border-sidebar-border">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
-                <History className="h-4 w-4 text-[#C9A84C]" />
+                <History className="h-4 w-4 text-primary" />
                 <span className="text-xs text-muted-foreground">آخر نسخة</span>
               </div>
               <p className="text-sm font-medium text-white truncate">
@@ -364,17 +364,17 @@ export default function BackupCenter() {
             </CardContent>
           </Card>
 
-          <Card className="bg-sidebar border-sidebar-border">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Layers className="h-4 w-4 text-blue-400" />
                 <span className="text-xs text-muted-foreground">إجمالي النسخ</span>
               </div>
-              <p className="text-2xl font-bold text-white">{totalBackups}</p>
+              <p className="text-2xl font-bold text-foreground">{totalBackups}</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-sidebar border-sidebar-border">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <CheckCircle2 className="h-4 w-4 text-green-400" />
@@ -384,7 +384,7 @@ export default function BackupCenter() {
             </CardContent>
           </Card>
 
-          <Card className="bg-sidebar border-sidebar-border">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Calendar className="h-4 w-4 text-amber-400" />
@@ -399,24 +399,24 @@ export default function BackupCenter() {
 
         {/* ─── Main Tabs ─── */}
         <Tabs defaultValue="local" dir="rtl">
-          <TabsList className="bg-sidebar border border-sidebar-border flex-wrap h-auto gap-1 p-1">
+          <TabsList className="bg-card border border-border flex-wrap h-auto gap-1 p-1">
             <TabsTrigger value="local" className="gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
               <HardDrive className="h-3.5 w-3.5" /> النسخ المحلي
               <span className="text-[9px] bg-emerald-500/20 text-emerald-300 rounded px-1 py-0 mr-0.5">مجاني</span>
             </TabsTrigger>
-            <TabsTrigger value="settings"  className="gap-1.5 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-black">
+            <TabsTrigger value="settings"  className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-black">
               <Settings2 className="h-3.5 w-3.5" /> نسخ المنصة
             </TabsTrigger>
-            <TabsTrigger value="export"    className="gap-1.5 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-black">
+            <TabsTrigger value="export"    className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-black">
               <ArrowDownToLine className="h-3.5 w-3.5" /> تصدير الأقسام
             </TabsTrigger>
-            <TabsTrigger value="history"   className="gap-1.5 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-black">
+            <TabsTrigger value="history"   className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-black">
               <History className="h-3.5 w-3.5" /> السجل
             </TabsTrigger>
-            <TabsTrigger value="cloud"     className="gap-1.5 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-black">
+            <TabsTrigger value="cloud"     className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-black">
               <UploadCloud className="h-3.5 w-3.5" /> التخزين السحابي
             </TabsTrigger>
-            <TabsTrigger value="import"    className="gap-1.5 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-black">
+            <TabsTrigger value="import"    className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-black">
               <Upload className="h-3.5 w-3.5" /> الاستيراد
             </TabsTrigger>
           </TabsList>
@@ -437,7 +437,7 @@ export default function BackupCenter() {
             </div>
 
             {/* One-click full backup */}
-            <Card className="bg-sidebar border-sidebar-border">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base text-white flex items-center gap-2">
                   <Download className="h-4 w-4 text-emerald-400" /> نسخة احتياطية كاملة للجهاز
@@ -445,7 +445,7 @@ export default function BackupCenter() {
                 <CardDescription>ملف JSON شامل لجميع بيانات المكتب — يُحفظ على جهازك مباشرةً</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-lg border border-sidebar-border bg-background/30 p-4">
+                <div className="rounded-lg border border-border bg-background/30 p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
                       <Shield className="h-5 w-5 text-emerald-400" />
@@ -473,15 +473,15 @@ export default function BackupCenter() {
                 </Button>
 
                 <div className="grid grid-cols-3 gap-3 text-center text-xs text-muted-foreground">
-                  <div className="rounded-lg border border-sidebar-border p-2">
+                  <div className="rounded-lg border border-border p-2">
                     <p className="font-medium text-white">لا قيود</p>
                     <p>عدد مرات التحميل</p>
                   </div>
-                  <div className="rounded-lg border border-sidebar-border p-2">
+                  <div className="rounded-lg border border-border p-2">
                     <p className="font-medium text-white">فوري</p>
                     <p>بدون جدولة</p>
                   </div>
-                  <div className="rounded-lg border border-sidebar-border p-2">
+                  <div className="rounded-lg border border-border p-2">
                     <p className="font-medium text-white">آمن</p>
                     <p>لا يُخزَّن على السيرفر</p>
                   </div>
@@ -490,10 +490,10 @@ export default function BackupCenter() {
             </Card>
 
             {/* Section-by-section exports */}
-            <Card className="bg-sidebar border-sidebar-border">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base text-white flex items-center gap-2">
-                  <FileJson className="h-4 w-4 text-[#C9A84C]" /> تصدير أقسام محددة
+                  <FileJson className="h-4 w-4 text-primary" /> تصدير أقسام محددة
                 </CardTitle>
                 <CardDescription>تحميل بيانات قسم معين بصيغة JSON أو CSV</CardDescription>
               </CardHeader>
@@ -509,11 +509,11 @@ export default function BackupCenter() {
                   { key: "payroll",   label: "الرواتب",              icon: "💳", group: "hr" },
                 ].map(section => (
                   <div key={section.key}
-                    className="flex items-center justify-between rounded-lg border border-sidebar-border p-3 hover:border-emerald-500/30 transition-colors">
+                    className="flex items-center justify-between rounded-lg border border-border p-3 hover:border-emerald-500/30 transition-colors">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">{section.icon}</span>
                       <div>
-                        <span className="text-sm text-white font-medium">{section.label}</span>
+                        <span className="text-sm text-foreground font-medium">{section.label}</span>
                         {section.group !== "core" && (
                           <span className="mr-2 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary/70">
                             {section.group === "hr" ? "الموارد البشرية" : "المحاسبة"}
@@ -523,12 +523,12 @@ export default function BackupCenter() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline"
-                        className="text-xs border-sidebar-border hover:border-emerald-500/50 hover:text-emerald-400"
+                        className="text-xs border-border hover:border-emerald-500/50 hover:text-emerald-400"
                         onClick={() => exportSection(section.key, "json")}>
                         <FileJson className="h-3.5 w-3.5 ml-1" /> JSON
                       </Button>
                       <Button size="sm" variant="outline"
-                        className="text-xs border-sidebar-border hover:border-emerald-500/50 hover:text-emerald-400"
+                        className="text-xs border-border hover:border-emerald-500/50 hover:text-emerald-400"
                         onClick={() => exportSection(section.key, "csv")}>
                         <FileSpreadsheet className="h-3.5 w-3.5 ml-1" /> CSV
                       </Button>
@@ -554,16 +554,16 @@ export default function BackupCenter() {
               <Badge style={{ backgroundColor: `${planColor}22`, color: planColor, borderColor: `${planColor}44` }}>{planName}</Badge>
             </div>
 
-            <Card className="bg-sidebar border-sidebar-border">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base text-white flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4 text-[#C9A84C]" /> النسخ التلقائي المجدوَل
+                  <RefreshCw className="h-4 w-4 text-primary" /> النسخ التلقائي المجدوَل
                 </CardTitle>
                 <CardDescription>تحديد جدول النسخ الاحتياطي التلقائي على سيرفر المنصة</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 {/* Enable toggle */}
-                <div className="flex items-center justify-between rounded-lg border border-sidebar-border p-3">
+                <div className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div>
                     <p className="text-sm font-medium text-white">تفعيل النسخ التلقائي</p>
                     <p className="text-xs text-muted-foreground mt-0.5">نسخ احتياطية تلقائية حسب الجدول المحدد</p>
@@ -584,10 +584,10 @@ export default function BackupCenter() {
                           onClick={() => allowed && setSettings(p => ({ ...p, schedule: s.value }))}
                           className={`relative flex items-center gap-2 rounded-lg border p-3 text-sm transition-all text-right
                             ${isSelected
-                              ? "border-[#C9A84C] bg-[#C9A84C]/10 text-white"
+                              ? "border-primary bg-primary/10 text-white"
                               : allowed
-                                ? "border-sidebar-border text-muted-foreground hover:border-[#C9A84C]/40 hover:text-white"
-                                : "border-sidebar-border/30 text-muted-foreground/30 cursor-not-allowed"
+                                ? "border-border text-muted-foreground hover:border-primary/40 hover:text-white"
+                                : "border-border/30 text-muted-foreground/30 cursor-not-allowed"
                             }`}>
                           <span>{s.icon}</span>
                           <span className="font-medium">{s.label}</span>
@@ -613,10 +613,10 @@ export default function BackupCenter() {
                           onClick={() => allowed && setSettings(p => ({ ...p, retentionDays: r.value }))}
                           className={`relative flex items-center gap-2 rounded-lg border p-3 text-sm transition-all text-right
                             ${isSelected
-                              ? "border-[#C9A84C] bg-[#C9A84C]/10 text-white"
+                              ? "border-primary bg-primary/10 text-white"
                               : allowed
-                                ? "border-sidebar-border text-muted-foreground hover:border-[#C9A84C]/40 hover:text-white"
-                                : "border-sidebar-border/30 text-muted-foreground/30 cursor-not-allowed"
+                                ? "border-border text-muted-foreground hover:border-primary/40 hover:text-white"
+                                : "border-border/30 text-muted-foreground/30 cursor-not-allowed"
                             }`}>
                           <span className="font-medium">{r.label}</span>
                           {!allowed && <Lock className="h-3 w-3 absolute top-1.5 left-1.5 text-amber-500/50" />}
@@ -627,7 +627,7 @@ export default function BackupCenter() {
                 </div>
 
                 <Button onClick={saveSettings} disabled={saveSettingsMut.isPending}
-                  className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold w-full">
+                  className="bg-primary hover:bg-[#b8943f] text-black font-bold w-full">
                   {saveSettingsMut.isPending && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
                   حفظ الإعدادات
                 </Button>
@@ -635,15 +635,15 @@ export default function BackupCenter() {
             </Card>
 
             {/* Manual Backup */}
-            <Card className="bg-sidebar border-sidebar-border">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base text-white flex items-center gap-2">
-                  <Database className="h-4 w-4 text-[#C9A84C]" /> نسخ احتياطي يدوي
+                  <Database className="h-4 w-4 text-primary" /> نسخ احتياطي يدوي
                 </CardTitle>
                 <CardDescription>إنشاء نسخة احتياطية فورية لجميع بيانات المكتب</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="rounded-lg border border-sidebar-border bg-background/30 p-4">
+                <div className="rounded-lg border border-border bg-background/30 p-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center">
                       <Shield className="h-5 w-5 text-green-400" />
@@ -652,7 +652,7 @@ export default function BackupCenter() {
                       <p className="text-sm font-medium text-white">محتويات النسخة الاحتياطية</p>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {["القضايا","العملاء","الفواتير","العقود","المستندات","المستخدمون","الإيرادات","المصاريف","الموظفون","الرواتب"].map(item => (
-                          <span key={item} className="text-xs bg-sidebar-accent rounded-full px-2 py-0.5 text-muted-foreground">
+                          <span key={item} className="text-xs bg-card-accent rounded-full px-2 py-0.5 text-muted-foreground">
                             {item}
                           </span>
                         ))}
@@ -661,7 +661,7 @@ export default function BackupCenter() {
                   </div>
                 </div>
                 <Button onClick={createBackup} disabled={isCreatingBackup}
-                  className="w-full bg-[#1e3a5f] hover:bg-[#1e3a5f]/80 border border-[#C9A84C]/40 text-[#C9A84C] font-bold">
+                  className="w-full bg-[#1e3a5f] hover:bg-[#1e3a5f]/80 border border-primary/40 text-primary font-bold">
                   {isCreatingBackup
                     ? <><Loader2 className="h-4 w-4 ml-2 animate-spin" /> جارٍ إنشاء النسخة...</>
                     : <><Database className="h-4 w-4 ml-2" /> إنشاء نسخة احتياطية الآن</>
@@ -686,10 +686,10 @@ export default function BackupCenter() {
               </p>
             </div>
 
-            <Card className="bg-sidebar border-sidebar-border">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base text-white flex items-center gap-2">
-                  <ArrowDownToLine className="h-4 w-4 text-[#C9A84C]" /> تصدير أقسام محددة
+                  <ArrowDownToLine className="h-4 w-4 text-primary" /> تصدير أقسام محددة
                 </CardTitle>
                 <CardDescription>تنزيل بيانات قسم معين بصيغة JSON أو CSV — مجاني لجميع الباقات</CardDescription>
               </CardHeader>
@@ -705,13 +705,13 @@ export default function BackupCenter() {
                   { key: "payroll",   label: "الرواتب",              icon: "💳", group: "hr" },
                 ].map(section => (
                   <div key={section.key}
-                    className="flex items-center justify-between rounded-lg border border-sidebar-border p-3 hover:border-[#C9A84C]/30 transition-colors">
+                    className="flex items-center justify-between rounded-lg border border-border p-3 hover:border-primary/30 transition-colors">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">{section.icon}</span>
                       <div>
-                        <span className="text-sm text-white font-medium">{section.label}</span>
+                        <span className="text-sm text-foreground font-medium">{section.label}</span>
                         {section.group !== "core" && (
-                          <span className="mr-2 text-[10px] px-1.5 py-0.5 rounded-full bg-[#C9A84C]/10 text-[#C9A84C]/80">
+                          <span className="mr-2 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary/80">
                             {section.group === "hr" ? "الموارد البشرية" : "المحاسبة"}
                           </span>
                         )}
@@ -719,12 +719,12 @@ export default function BackupCenter() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline"
-                        className="text-xs border-sidebar-border hover:border-[#C9A84C]/50 hover:text-[#C9A84C]"
+                        className="text-xs border-border hover:border-primary/50 hover:text-primary"
                         onClick={() => exportSection(section.key, "json")}>
                         <FileJson className="h-3.5 w-3.5 ml-1" /> JSON
                       </Button>
                       <Button size="sm" variant="outline"
-                        className="text-xs border-sidebar-border hover:border-[#C9A84C]/50 hover:text-[#C9A84C]"
+                        className="text-xs border-border hover:border-primary/50 hover:text-primary"
                         onClick={() => exportSection(section.key, "csv")}>
                         <FileSpreadsheet className="h-3.5 w-3.5 ml-1" /> CSV
                       </Button>
@@ -732,24 +732,24 @@ export default function BackupCenter() {
                   </div>
                 ))}
 
-                <Separator className="bg-sidebar-border" />
+                <Separator className="bg-card-border" />
 
                 {/* Full office export — now free for all */}
-                <div className="rounded-xl border border-[#C9A84C]/30 bg-[#C9A84C]/5 p-4">
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-bold text-[#C9A84C]">تصدير كامل المكتب</p>
+                      <p className="text-sm font-bold text-primary">تصدير كامل المكتب</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         ملف JSON شامل يحتوي على كل بيانات المكتب
                       </p>
                       <div className="flex flex-wrap gap-1 mt-2">
                         {["clients.json","cases.json","invoices.json","contracts.json","revenues.json","expenses.json","employees.json","payroll.json"].map(f => (
-                          <span key={f} className="text-[10px] bg-[#C9A84C]/10 text-[#C9A84C]/70 rounded px-1.5 py-0.5">{f}</span>
+                          <span key={f} className="text-[10px] bg-primary/10 text-primary/70 rounded px-1.5 py-0.5">{f}</span>
                         ))}
                       </div>
                     </div>
                     <Button onClick={exportAll}
-                      className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold shrink-0">
+                      className="bg-primary hover:bg-[#b8943f] text-black font-bold shrink-0">
                       <Download className="h-4 w-4 ml-1.5" />
                       تصدير الكل
                     </Button>
@@ -761,13 +761,13 @@ export default function BackupCenter() {
 
           {/* ══ TAB: HISTORY ══ */}
           <TabsContent value="history" className="mt-4">
-            <Card className="bg-sidebar border-sidebar-border">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base text-white flex items-center gap-2">
-                    <History className="h-4 w-4 text-[#C9A84C]" /> سجل النسخ الاحتياطي
+                    <History className="h-4 w-4 text-primary" /> سجل النسخ الاحتياطي
                   </CardTitle>
-                  <Button variant="outline" size="sm" className="text-xs border-sidebar-border hover:border-[#C9A84C]/50"
+                  <Button variant="outline" size="sm" className="text-xs border-border hover:border-primary/50"
                     onClick={() => qc.invalidateQueries({ queryKey: ["backup-jobs"] })}>
                     <RefreshCw className="h-3 w-3 ml-1" /> تحديث
                   </Button>
@@ -788,7 +788,7 @@ export default function BackupCenter() {
                   <div className="space-y-2">
                     {jobs.map(job => (
                       <div key={job.id}
-                        className="flex items-center justify-between rounded-lg border border-sidebar-border p-3 hover:border-[#C9A84C]/30 transition-colors group">
+                        className="flex items-center justify-between rounded-lg border border-border p-3 hover:border-primary/30 transition-colors group">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0
                             ${job.status === "completed" ? "bg-green-500/10" : "bg-red-500/10"}`}>
@@ -811,7 +811,7 @@ export default function BackupCenter() {
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <Button variant="ghost" size="icon"
-                            className="h-7 w-7 hover:text-[#C9A84C] hover:bg-[#C9A84C]/10"
+                            className="h-7 w-7 hover:text-primary hover:bg-primary/10"
                             onClick={() => downloadBackup(job)}>
                             <Download className="h-3.5 w-3.5" />
                           </Button>
@@ -834,10 +834,10 @@ export default function BackupCenter() {
             {!features.cloudStorage ? (
               <LockedBanner requiredPlan="Business" />
             ) : (
-              <Card className="bg-sidebar border-sidebar-border">
+              <Card className="bg-card border-border">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base text-white flex items-center gap-2">
-                    <UploadCloud className="h-4 w-4 text-[#C9A84C]" /> مزود التخزين السحابي
+                    <UploadCloud className="h-4 w-4 text-primary" /> مزود التخزين السحابي
                   </CardTitle>
                   <CardDescription>ربط مزود التخزين لحفظ النسخ الاحتياطية تلقائياً</CardDescription>
                 </CardHeader>
@@ -851,8 +851,8 @@ export default function BackupCenter() {
                           onClick={() => setSettings(s => ({ ...s, storageProvider: p.value }))}
                           className={`flex items-center gap-2 rounded-lg border p-3 text-sm transition-all text-right
                             ${settings.storageProvider === p.value
-                              ? "border-[#C9A84C] bg-[#C9A84C]/10 text-white"
-                              : "border-sidebar-border text-muted-foreground hover:border-[#C9A84C]/40 hover:text-white"
+                              ? "border-primary bg-primary/10 text-white"
+                              : "border-border text-muted-foreground hover:border-primary/40 hover:text-white"
                             }`}>
                           {p.icon}
                           <span className="text-xs font-medium">{p.label}</span>
@@ -863,7 +863,7 @@ export default function BackupCenter() {
 
                   {settings.storageProvider !== "local" && (
                     <>
-                      <Separator className="bg-sidebar-border" />
+                      <Separator className="bg-card-border" />
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {[
                           { key: "accessKey",  label: "Access Key",  type: "password" },
@@ -879,7 +879,7 @@ export default function BackupCenter() {
                               placeholder={field.label}
                               value={(cloudCfg as any)[field.key] ?? ""}
                               onChange={e => setCloudCfg(c => ({ ...c, [field.key]: e.target.value }))}
-                              className="bg-background/50 border-sidebar-border text-white text-sm h-8"
+                              className="bg-background/50 border-border text-white text-sm h-8"
                               dir="ltr"
                             />
                           </div>
@@ -888,7 +888,7 @@ export default function BackupCenter() {
 
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm"
-                          className="border-sidebar-border text-muted-foreground hover:border-[#C9A84C]/50 hover:text-white"
+                          className="border-border text-muted-foreground hover:border-primary/50 hover:text-white"
                           onClick={async () => {
                             try {
                               const r = await fetch(`${BASE}/api/backup/test-cloud`, {
@@ -907,7 +907,7 @@ export default function BackupCenter() {
                   )}
 
                   <Button onClick={saveSettings} disabled={saveSettingsMut.isPending}
-                    className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold w-full">
+                    className="bg-primary hover:bg-[#b8943f] text-black font-bold w-full">
                     {saveSettingsMut.isPending && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
                     حفظ إعدادات التخزين
                   </Button>
@@ -922,16 +922,16 @@ export default function BackupCenter() {
               <LockedBanner requiredPlan="Business" />
             ) : (
               <>
-                <Card className="bg-sidebar border-sidebar-border">
+                <Card className="bg-card border-border">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base text-white flex items-center gap-2">
-                      <Upload className="h-4 w-4 text-[#C9A84C]" /> استيراد البيانات
+                      <Upload className="h-4 w-4 text-primary" /> استيراد البيانات
                     </CardTitle>
                     <CardDescription>استيراد البيانات من ملف JSON (من نسخة احتياطية سابقة)</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div
-                      className="rounded-xl border-2 border-dashed border-sidebar-border hover:border-[#C9A84C]/40 p-8 text-center cursor-pointer transition-colors"
+                      className="rounded-xl border-2 border-dashed border-border hover:border-primary/40 p-8 text-center cursor-pointer transition-colors"
                       onClick={() => importRef.current?.click()}>
                       <input ref={importRef} type="file" accept=".json" className="hidden"
                         onChange={e => setImportFile(e.target.files?.[0] ?? null)} />
@@ -963,7 +963,7 @@ export default function BackupCenter() {
                     </div>
 
                     <Button onClick={handleImport} disabled={!importFile}
-                      className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold w-full">
+                      className="bg-primary hover:bg-[#b8943f] text-black font-bold w-full">
                       <Upload className="h-4 w-4 ml-2" /> بدء الاستيراد
                     </Button>
                   </CardContent>
@@ -971,10 +971,10 @@ export default function BackupCenter() {
 
                 {/* Restore section */}
                 {features.restore && (
-                  <Card className="bg-sidebar border-sidebar-border">
+                  <Card className="bg-card border-border">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base text-white flex items-center gap-2">
-                        <RefreshCw className="h-4 w-4 text-[#C9A84C]" /> الاستعادة من نسخة سابقة
+                        <RefreshCw className="h-4 w-4 text-primary" /> الاستعادة من نسخة سابقة
                       </CardTitle>
                       <CardDescription>استعادة بيانات محددة من سجل النسخ الاحتياطي</CardDescription>
                     </CardHeader>
@@ -984,13 +984,13 @@ export default function BackupCenter() {
                       ) : (
                         <div className="space-y-2">
                           {jobs.slice(0, 5).map(job => (
-                            <div key={job.id} className="flex items-center justify-between rounded-lg border border-sidebar-border p-3">
+                            <div key={job.id} className="flex items-center justify-between rounded-lg border border-border p-3">
                               <div>
                                 <p className="text-sm text-white">{job.fileName}</p>
                                 <p className="text-xs text-muted-foreground">{formatDate(job.createdAt)} · {formatBytes(job.sizeBytes)}</p>
                               </div>
                               <Button variant="outline" size="sm"
-                                className="text-xs border-sidebar-border hover:border-[#C9A84C]/50 hover:text-[#C9A84C]"
+                                className="text-xs border-border hover:border-primary/50 hover:text-primary"
                                 onClick={() => downloadBackup(job)}>
                                 <Download className="h-3 w-3 ml-1" /> تحميل
                               </Button>

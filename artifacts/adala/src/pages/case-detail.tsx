@@ -549,8 +549,8 @@ export default function CaseDetail({ id }: { id: string }) {
                 <MessageSquare className="h-3.5 w-3.5 ml-1" />المراسلات
               </TabsTrigger>
               <TabsTrigger value="ai" className="text-xs py-2">
-                <Bot className="h-3.5 w-3.5 ml-1 text-[#C9A84C]" />
-                <span className="text-[#C9A84C]">AI</span>
+                <Bot className="h-3.5 w-3.5 ml-1 text-primary" />
+                <span className="text-primary">AI</span>
               </TabsTrigger>
             </TabsList>
 
@@ -957,17 +957,17 @@ export default function CaseDetail({ id }: { id: string }) {
 
             {/* AI TAB */}
             <TabsContent value="ai" className="mt-4">
-              <div className="mb-3 flex items-center gap-3 p-3 rounded-xl bg-[#C9A84C]/5 border border-[#C9A84C]/20">
-                <div className="w-8 h-8 rounded-lg bg-[#C9A84C]/15 flex items-center justify-center flex-shrink-0">
-                  <FileText className="h-4 w-4 text-[#C9A84C]" />
+              <div className="mb-3 flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-[#C9A84C]">محرك توليد الوثائق القانونية</p>
+                  <p className="text-xs font-semibold text-primary">محرك توليد الوثائق القانونية</p>
                   <p className="text-xs text-white/40">أنشئ عقوداً، مذكرات، لوائح، وكالات — بالذكاء الاصطناعي</p>
                 </div>
                 <Link href="/legal-ai">
                   <Button size="sm" variant="outline"
-                    className="h-7 text-xs border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/10 flex-shrink-0 gap-1.5">
+                    className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10 flex-shrink-0 gap-1.5">
                     <ExternalLink className="w-3 h-3" />فتح
                   </Button>
                 </Link>
@@ -1044,9 +1044,9 @@ function AiTab({
     <div className="space-y-4">
       {/* Auto-brief banner */}
       {(autoBriefLoading || autoBrief) && (
-        <Card className="border-[#C9A84C]/25 bg-[#C9A84C]/5">
+        <Card className="border-primary/25 bg-primary/5">
           <CardHeader className="pb-2 pt-3 px-4">
-            <CardTitle className="text-xs flex items-center gap-2 text-[#C9A84C]">
+            <CardTitle className="text-xs flex items-center gap-2 text-primary">
               <Sparkles className="h-3.5 w-3.5" />
               الإفادة الذكية التلقائية
               {autoBrief && aiSource && (
@@ -1091,17 +1091,17 @@ function AiTab({
       {aiLoading && !aiResult && (
         <Card>
           <CardContent className="py-10 flex flex-col items-center gap-3">
-            <Sparkles className="h-7 w-7 text-[#C9A84C] animate-pulse" />
+            <Sparkles className="h-7 w-7 text-primary animate-pulse" />
             <p className="text-sm text-muted-foreground">يحلل المحرك الذكي القضية...</p>
           </CardContent>
         </Card>
       )}
 
       {aiResult && !aiLoading && (
-        <Card className="border-[#C9A84C]/20">
+        <Card className="border-primary/20">
           <CardHeader className="pb-2 pt-3 px-4">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-[#C9A84C]" />
+              <Sparkles className="h-4 w-4 text-primary" />
               {AI_BUTTONS.find(b => b.key === activeAiType)?.label ?? "نتيجة التحليل"}
               {aiSource && (
                 <span className={`mr-auto text-[10px] px-2 py-0.5 rounded-full ${aiSource === "ai" ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-500/20 text-slate-400"}`}>

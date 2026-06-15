@@ -321,14 +321,14 @@ export default function EngineeringCenter() {
                   { label: "مهام AI",    value: map.aiTasks,     icon: Zap,           color: "text-yellow-400" },
                   { label: "جداول DB",   value: map.dbTables,    icon: Database,      color: "text-indigo-400" },
                 ].map((stat, i) => (
-                  <Card key={i} className="border-white/5 bg-white/2">
+                  <Card key={i} className="border-border bg-card">
                     <CardContent className="pt-4 pb-3">
                       <div className="flex items-center gap-2 mb-1">
                         <stat.icon className={`h-3.5 w-3.5 ${stat.color}`} />
                         <p className="text-xs text-muted-foreground">{stat.label}</p>
                       </div>
                       {mapLoading
-                        ? <div className="h-6 w-12 bg-white/5 rounded animate-pulse" />
+                        ? <div className="h-6 w-12 bg-muted/50 rounded animate-pulse" />
                         : <p className="text-2xl font-black">{Number(stat.value ?? 0).toLocaleString()}</p>
                       }
                     </CardContent>
@@ -338,7 +338,7 @@ export default function EngineeringCenter() {
 
               {/* System Info */}
               <div className="grid md:grid-cols-2 gap-4">
-                <Card className="border-white/5">
+                <Card className="border-border">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Server className="h-4 w-4 text-violet-400" />معلومات النظام
@@ -365,7 +365,7 @@ export default function EngineeringCenter() {
                 </Card>
 
                 {/* Security Layers */}
-                <Card className="border-white/5">
+                <Card className="border-border">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Shield className="h-4 w-4 text-emerald-400" />طبقات الحماية الأمنية (5 طبقات)
@@ -395,7 +395,7 @@ export default function EngineeringCenter() {
 
               {/* Recent Activity */}
               {(map.recentActivity?.length > 0) && (
-                <Card className="border-white/5">
+                <Card className="border-border">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <ScrollText className="h-4 w-4 text-amber-400" />آخر نشاط هندسي
@@ -425,7 +425,7 @@ export default function EngineeringCenter() {
 
             {/* ══════════ AI CODE REVIEW ══════════ */}
             <TabsContent value="code-review" className="mt-0 space-y-4">
-              <Card className="border-white/5">
+              <Card className="border-border">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Code2 className="h-4 w-4 text-violet-400" />تحليل AI الهندسي
@@ -498,7 +498,7 @@ export default function EngineeringCenter() {
             <TabsContent value="security" className="mt-0 space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 {/* Security Scan */}
-                <Card className="border-white/5">
+                <Card className="border-border">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4 text-emerald-400" />الفحص الأمني الشامل
@@ -528,7 +528,7 @@ export default function EngineeringCenter() {
                           </div>
                         ))}
                         {scanResult.aiAnalysis && (
-                          <div className="mt-3 p-3 bg-white/3 rounded-lg border border-white/5">
+                          <div className="mt-3 p-3 bg-muted/30 rounded-lg border border-border">
                             <p className="text-xs font-bold mb-2 text-violet-300">تحليل AI:</p>
                             <div className="space-y-1 max-h-48 overflow-y-auto">
                               {renderAIText(scanResult.aiAnalysis)}
@@ -552,7 +552,7 @@ export default function EngineeringCenter() {
                 </Card>
 
                 {/* IP Whitelist */}
-                <Card className="border-white/5">
+                <Card className="border-border">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Lock className="h-4 w-4 text-amber-400" />القائمة البيضاء للـ IP
@@ -588,7 +588,7 @@ export default function EngineeringCenter() {
                       {ips.length === 0
                         ? <p className="text-xs text-muted-foreground text-center py-4">لا توجد قيود IP</p>
                         : ips.map((ip: any) => (
-                          <div key={ip.id} className="flex items-center justify-between p-2 rounded border border-white/5 bg-white/2">
+                          <div key={ip.id} className="flex items-center justify-between p-2 rounded border border-border bg-card">
                             <div>
                               <p className="text-xs font-mono font-bold">{ip.ip_address}</p>
                               {ip.label && <p className="text-[10px] text-muted-foreground">{ip.label}</p>}
@@ -630,12 +630,12 @@ export default function EngineeringCenter() {
                         { label: "RAM النظام", value: `${fmt(perf.memory?.systemTotal - perf.memory?.systemFree)} / ${fmt(perf.memory?.systemTotal)}`, pct: sysPercent, color: sysPercent > 80 ? "bg-red-500" : "bg-blue-500" },
                         { label: "DB Size", value: perf.db?.size ?? "—", pct: null, color: "bg-indigo-500" },
                       ].map((item, i) => (
-                        <Card key={i} className="border-white/5">
+                        <Card key={i} className="border-border">
                           <CardContent className="pt-4">
                             <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
                             <p className="text-sm font-bold mb-2">{item.value}</p>
                             {item.pct !== null && (
-                              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                              <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
                                 <div className={`h-full rounded-full ${item.color}`} style={{ width: `${item.pct}%` }} />
                               </div>
                             )}
@@ -646,7 +646,7 @@ export default function EngineeringCenter() {
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
-                      <Card className="border-white/5">
+                      <Card className="border-border">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm">معلومات الخادم</CardTitle>
                         </CardHeader>
@@ -666,7 +666,7 @@ export default function EngineeringCenter() {
                         </CardContent>
                       </Card>
 
-                      <Card className="border-white/5">
+                      <Card className="border-border">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm">أكبر 10 جداول</CardTitle>
                         </CardHeader>
@@ -707,9 +707,9 @@ export default function EngineeringCenter() {
               {dbLoading
                 ? <div className="flex items-center justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-violet-400" /></div>
                 : (
-                  <div className="rounded-lg border border-white/5 overflow-hidden">
+                  <div className="rounded-lg border border-border overflow-hidden">
                     <table className="w-full text-xs">
-                      <thead className="bg-white/3 border-b border-white/5">
+                      <thead className="bg-muted/30 border-b border-border">
                         <tr>
                           <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">#</th>
                           <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">اسم الجدول</th>
@@ -719,7 +719,7 @@ export default function EngineeringCenter() {
                       </thead>
                       <tbody>
                         {filteredTables.map((t: any, i: number) => (
-                          <tr key={t.name} className="border-b border-white/3 hover:bg-white/2 transition-colors">
+                          <tr key={t.name} className="border-b border-border/50 hover:bg-card transition-colors">
                             <td className="px-4 py-2 text-muted-foreground">{i + 1}</td>
                             <td className="px-4 py-2 font-mono font-bold">{t.name}</td>
                             <td className="px-4 py-2 text-indigo-300">{t.total_size}</td>
@@ -792,7 +792,7 @@ export default function EngineeringCenter() {
                 {tasks.length === 0
                   ? <div className="text-center py-12 text-muted-foreground text-sm">لا توجد مهام بعد — أضف مهمتك الأولى</div>
                   : tasks.map((task: any) => (
-                    <Card key={task.id} className="border-white/5">
+                    <Card key={task.id} className="border-border">
                       <CardContent className="pt-3 pb-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
@@ -852,7 +852,7 @@ export default function EngineeringCenter() {
                 {logs.length === 0
                   ? <div className="text-center py-12 text-muted-foreground text-sm">لا توجد سجلات بعد</div>
                   : logs.map((log: any) => (
-                    <div key={log.id} className="flex items-center gap-3 p-3 rounded-lg border border-white/5 bg-white/1 text-xs">
+                    <div key={log.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card text-xs">
                       <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <span className="font-mono text-violet-300 w-32 shrink-0">{log.action}</span>
                       <span className="flex-1 text-muted-foreground truncate font-mono text-[10px]">

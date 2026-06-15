@@ -71,17 +71,17 @@ function PayslipModal({ payroll, onClose }: { payroll: any; onClose: () => void 
       <head><meta charset="UTF-8"/><title>كشف راتب</title>
       <style>
         body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; padding: 24px; color: #111; direction: rtl; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #C9A84C; padding-bottom: 12px; margin-bottom: 20px; }
-        .logo { font-size: 22px; font-weight: 900; color: #C9A84C; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2563EB; padding-bottom: 12px; margin-bottom: 20px; }
+        .logo { font-size: 22px; font-weight: 900; color: #2563EB; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
         th, td { padding: 8px 12px; text-align: right; font-size: 13px; }
         thead th { background: #f5f5f5; font-weight: 700; }
         tbody tr:nth-child(even) { background: #fafafa; }
-        .total-row { background: #1a2744 !important; color: #C9A84C; font-weight: 900; }
-        .section-title { font-weight: 700; font-size: 13px; color: #1a2744; margin: 16px 0 6px; border-right: 3px solid #C9A84C; padding-right: 8px; }
+        .total-row { background: #1a2744 !important; color: #2563EB; font-weight: 900; }
+        .section-title { font-weight: 700; font-size: 13px; color: #1a2744; margin: 16px 0 6px; border-right: 3px solid #2563EB; padding-right: 8px; }
         .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
         .info-item { font-size: 12px; } .info-label { color: #666; font-size: 11px; }
-        .seal { border: 2px solid #C9A84C; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10px; color: #C9A84C; font-weight: 700; }
+        .seal { border: 2px solid #2563EB; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10px; color: #2563EB; font-weight: 700; }
         @media print { body { padding: 12px; } }
       </style>
       </head><body>${content}</body></html>

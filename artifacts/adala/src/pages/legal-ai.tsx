@@ -190,19 +190,19 @@ export default function LegalAIPage() {
     <>
     <div className="h-full flex flex-col gap-0">
       {/* header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gold/20 flex items-center justify-center">
             <FileSignature className="w-5 h-5 text-gold" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-white">محرك الوثائق القانونية</h1>
+            <h1 className="text-lg font-bold text-foreground">محرك الوثائق القانونية</h1>
             <p className="text-xs text-white/50">توليد عقود ومذكرات وردود بالذكاء الاصطناعي</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Select value={model} onValueChange={setModel}>
-            <SelectTrigger className="w-36 h-8 text-xs bg-white/5 border-white/10">
+            <SelectTrigger className="w-36 h-8 text-xs bg-muted border-border">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -237,12 +237,12 @@ export default function LegalAIPage() {
               {history.map((doc: any) => (
                 <div
                   key={doc.id}
-                  className="bg-white/5 rounded-xl p-4 border border-white/10 hover:border-gold/30 transition-all"
+                  className="bg-card rounded-xl p-4 border border-border hover:border-primary/30 transition-all"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <Badge className="bg-white/10 text-white/70 text-xs border-0">
+                        <Badge className="bg-muted text-muted-foreground text-xs border-0">
                           {doc.doc_category}
                         </Badge>
                         <span className="text-xs text-white/40">
@@ -280,11 +280,11 @@ export default function LegalAIPage() {
         /* ── generate view ── */
         <div className="flex-1 flex overflow-hidden">
           {/* left: type selector */}
-          <div className="w-64 shrink-0 border-l border-white/10 flex flex-col">
+          <div className="w-64 shrink-0 border-l border-border flex flex-col">
             <ScrollArea className="flex-1 p-3">
               <div className="space-y-4">
                 {Object.entries(grouped).map(([category, items]) => {
-                  const meta = CATEGORIES[category] ?? { icon: FileText, color: "text-white/60", bg: "bg-white/5" };
+                  const meta = CATEGORIES[category] ?? { icon: FileText, color: "text-muted-foreground", bg: "bg-muted/50" };
                   const CatIcon = meta.icon;
                   return (
                     <div key={category}>
@@ -303,7 +303,7 @@ export default function LegalAIPage() {
                               "w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-all text-right",
                               selectedType === item.id
                                 ? "bg-gold/20 text-gold border border-gold/30"
-                                : "text-white/70 hover:bg-white/5 hover:text-white"
+                                : "text-muted-foreground hover:bg-accent hover:text-foreground"
                             )}
                           >
                             <span>{item.label}</span>
@@ -338,24 +338,24 @@ export default function LegalAIPage() {
                   {/* form header */}
                   <div className="flex items-center gap-3">
                     <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center",
-                      CATEGORIES[currentTemplate?.category ?? ""]?.bg ?? "bg-white/5")}>
+                      CATEGORIES[currentTemplate?.category ?? ""]?.bg ?? "bg-muted/30")}>
                       {(() => {
                         const Icon = CATEGORIES[currentTemplate?.category ?? ""]?.icon ?? FileText;
-                        return <Icon className={cn("w-5 h-5", CATEGORIES[currentTemplate?.category ?? ""]?.color ?? "text-white")} />;
+                        return <Icon className={cn("w-5 h-5", CATEGORIES[currentTemplate?.category ?? ""]?.color ?? "text-primary")} />;
                       })()}
                     </div>
                     <div>
-                      <h2 className="font-bold text-white">{currentTemplate?.label}</h2>
+                      <h2 className="font-bold text-foreground">{currentTemplate?.label}</h2>
                       <p className="text-xs text-white/40">{currentTemplate?.category}</p>
                     </div>
                   </div>
 
                   {/* link to case/client */}
-                  <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-white/[0.03] border border-white/10">
+                  <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/30 border border-border">
                     <div className="space-y-1">
                       <Label className="text-[11px] text-white/50">ربط بقضية (اختياري)</Label>
                       <Select value={linkedCaseId} onValueChange={setLinkedCaseId}>
-                        <SelectTrigger className="bg-white/5 border-white/10 text-white text-xs h-8">
+                        <SelectTrigger className="bg-muted border-border text-white text-xs h-8">
                           <SelectValue placeholder="اختر قضية..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -369,7 +369,7 @@ export default function LegalAIPage() {
                     <div className="space-y-1">
                       <Label className="text-[11px] text-white/50">ربط بعميل (اختياري)</Label>
                       <Select value={linkedClientId} onValueChange={setLinkedClientId}>
-                        <SelectTrigger className="bg-white/5 border-white/10 text-white text-xs h-8">
+                        <SelectTrigger className="bg-muted border-border text-white text-xs h-8">
                           <SelectValue placeholder="اختر عميل..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -397,7 +397,7 @@ export default function LegalAIPage() {
                             placeholder={field.placeholder}
                             value={formVars[field.key] ?? ""}
                             onChange={(e) => setFormVars(v => ({ ...v, [field.key]: e.target.value }))}
-                            className="bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none text-sm"
+                            className="bg-muted border-border text-white placeholder:text-white/30 resize-none text-sm"
                           />
                         ) : (
                           <Input
@@ -405,7 +405,7 @@ export default function LegalAIPage() {
                             placeholder={field.placeholder}
                             value={formVars[field.key] ?? ""}
                             onChange={(e) => setFormVars(v => ({ ...v, [field.key]: e.target.value }))}
-                            className="bg-white/5 border-white/10 text-white placeholder:text-white/30 text-sm"
+                            className="bg-muted border-border text-white placeholder:text-white/30 text-sm"
                           />
                         )}
                       </div>
@@ -427,9 +427,9 @@ export default function LegalAIPage() {
                   {/* generated output */}
                   {generatedContent && (
                     <div ref={outputRef} className="space-y-3">
-                      <Separator className="bg-white/10" />
+                      <Separator className="bg-border" />
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-white">الوثيقة المولّدة</span>
+                        <span className="text-sm font-semibold text-foreground">الوثيقة المولّدة</span>
                         <div className="flex gap-1">
                           <Button
                             size="sm" variant="ghost"
@@ -464,7 +464,7 @@ export default function LegalAIPage() {
                         </div>
                       </div>
 
-                      <div className="bg-white/5 rounded-xl border border-white/10 p-5">
+                      <div className="bg-card rounded-xl border border-border p-5">
                         <pre
                           dir="rtl"
                           className="whitespace-pre-wrap text-sm text-white/85 font-sans leading-relaxed"
@@ -482,7 +482,7 @@ export default function LegalAIPage() {
                             placeholder="مثال: أضف بنداً للسرية، اجعل الأسلوب أكثر رسمية، قصّر العقد..."
                             value={refineText}
                             onChange={(e) => setRefineText(e.target.value)}
-                            className="bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none text-sm"
+                            className="bg-muted border-border text-white placeholder:text-white/30 resize-none text-sm"
                           />
                           <Button
                             size="sm"
@@ -515,7 +515,7 @@ export default function LegalAIPage() {
     {/* Signature Request Dialog */}
     {signDialog && (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => !signLoading && setSignDialog(false)}>
-        <div className="bg-[#1A2744] border border-white/10 rounded-2xl p-6 w-full max-w-sm space-y-4" onClick={e => e.stopPropagation()} dir="rtl">
+        <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm space-y-4" onClick={e => e.stopPropagation()} dir="rtl">
           <div className="flex items-center gap-3">
             <FileSignature className="w-5 h-5 text-emerald-400" />
             <h3 className="font-bold text-white text-base">طلب توقيع إلكتروني</h3>
@@ -523,7 +523,7 @@ export default function LegalAIPage() {
           {signUrl ? (
             <div className="space-y-3">
               <p className="text-sm text-emerald-400">✓ تم إنشاء رابط التوقيع بنجاح</p>
-              <div className="bg-white/5 rounded-lg p-3 text-xs text-white/70 break-all border border-white/10">
+              <div className="bg-muted rounded-lg p-3 text-xs text-muted-foreground break-all border border-border">
                 {signUrl}
               </div>
               <button
@@ -542,7 +542,7 @@ export default function LegalAIPage() {
                   value={signerName}
                   onChange={e => setSignerName(e.target.value)}
                   placeholder="الاسم الكامل..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50"
+                  className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-emerald-500/50"
                 />
               </div>
               <div className="space-y-1.5">
@@ -551,7 +551,7 @@ export default function LegalAIPage() {
                   value={signerEmail}
                   onChange={e => setSignerEmail(e.target.value)}
                   placeholder="example@domain.com"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50"
+                  className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-emerald-500/50"
                   dir="ltr"
                 />
               </div>

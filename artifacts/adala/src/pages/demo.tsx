@@ -118,7 +118,7 @@ const OPPONENT_ROUNDS = [
 const LEGAL_AI_TYPES = [
   { id: "memo", label: "مذكرة دفاعية", icon: FileText, color: "#818CF8", desc: "مذكرة قانونية احترافية بناءً على وقائع القضية" },
   { id: "contract", label: "عقد تجاري", icon: FileCheck, color: "#34D399", desc: "عقد توريد أو شراكة أو استشارة مخصص" },
-  { id: "poa", label: "توكيل رسمي", icon: Scale, color: "#C9A84C", desc: "توكيل عام أو خاص بصياغة قانونية دقيقة" },
+  { id: "poa", label: "توكيل رسمي", icon: Scale, color: "#2563EB", desc: "توكيل عام أو خاص بصياغة قانونية دقيقة" },
   { id: "complaint", label: "لائحة دعوى", icon: AlertCircle, color: "#F87171", desc: "صياغة لائحة دعوى مدنية أو تجارية" },
   { id: "notice", label: "إنذار رسمي", icon: Send, color: "#FB923C", desc: "إنذار قانوني رسمي مع الأثر القانوني" },
   { id: "opinion", label: "مذكرة رأي", icon: BookOpen, color: "#60A5FA", desc: "رأي قانوني مدعوم بالأنظمة واللوائح" },
@@ -1044,7 +1044,7 @@ function AnalyticsSection() {
   }, []);
 
   const kpis = [
-    { label: "قضايا نشطة", value: "5", change: "+2 هذا الشهر", up: true, color: "#C9A84C" },
+    { label: "قضايا نشطة", value: "5", change: "+2 هذا الشهر", up: true, color: "#2563EB" },
     { label: "موكلون جدد", value: "3", change: "+60% عن الشهر الماضي", up: true, color: "#34D399" },
     { label: "معدل الكسب", value: "78%", change: "+5 نقاط", up: true, color: "#818CF8" },
     { label: "التحصيل المعلق", value: "26.7K", change: "₂ فواتير", up: false, color: "#F87171" },

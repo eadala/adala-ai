@@ -57,7 +57,7 @@ interface DesignTokens {
 
 const DEFAULT_TOKENS: DesignTokens = {
   colors: {
-    primary: "#1A2744", accent: "#C9A84C", background: "#0D1526",
+    primary: "#FFFFFF", accent: "#2563EB", background: "#0D1526",
     surface: "#1E2D4A", sidebar: "#0F1C35", text: "#E8EAF0",
     textMuted: "#8899AA", border: "#2A3A58",
     success: "#10B981", warning: "#F59E0B", danger: "#EF4444",
@@ -553,7 +553,7 @@ function PresetCard({
       )}
     >
       <div
-        className="w-8 h-8 rounded-lg flex-shrink-0 border border-white/10"
+        className="w-8 h-8 rounded-lg flex-shrink-0 border border-border"
         style={{ background: preset.preview }}
       />
       <div className="flex-1 min-w-0">
@@ -562,7 +562,7 @@ function PresetCard({
           {["primary", "accent", "surface"].map(k => (
             <div
               key={k}
-              className="w-3 h-3 rounded-full border border-white/10"
+              className="w-3 h-3 rounded-full border border-border"
               style={{ background: (preset.tokens.colors as any)[k] }}
             />
           ))}
@@ -1030,7 +1030,7 @@ export default function ThemeBuilderPage() {
                   <span className="text-[11px] text-muted-foreground">{label}</span>
                   <div className="flex items-center gap-2">
                     <code className="text-[10px] font-mono text-foreground/50">{tokens.colors[key]}</code>
-                    <div className="w-5 h-5 rounded border border-white/10" style={{ background: tokens.colors[key] }} />
+                    <div className="w-5 h-5 rounded border border-border" style={{ background: tokens.colors[key] }} />
                   </div>
                 </div>
               ))}

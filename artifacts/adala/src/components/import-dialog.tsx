@@ -100,7 +100,7 @@ export function ImportDialog({ open, onOpenChange, type, queryKey }: ImportDialo
       <DialogContent className="bg-card border-border max-w-lg" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5 text-[#C9A84C]" />
+            <Upload className="h-5 w-5 text-primary" />
             استيراد {tpl.label}
           </DialogTitle>
         </DialogHeader>
@@ -183,7 +183,7 @@ export function ImportDialog({ open, onOpenChange, type, queryKey }: ImportDialo
           <Button
             onClick={() => importMut.mutate()}
             disabled={rows.length === 0 || importMut.isPending}
-            className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold gap-1.5"
+            className="bg-primary hover:bg-primary/90 text-black font-bold gap-1.5"
           >
             {importMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             استيراد {rows.length > 0 ? `(${rows.length})` : ""}

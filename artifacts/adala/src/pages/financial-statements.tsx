@@ -117,9 +117,9 @@ function IncomeStatement() {
           {[
             { label: "إجمالي الإيرادات", val: d.totalRevenue ?? 0, color: "#10b981", icon: TrendingUp },
             { label: "إجمالي المصروفات", val: d.totalExpenses ?? 0, color: "#ef4444", icon: TrendingDown },
-            { label: "صافي الدخل",       val: d.netIncome ?? 0,    color: isProfit ? "#c9a84c" : "#ef4444", icon: isProfit ? ArrowUpRight : ArrowDownRight },
+            { label: "صافي الدخل",       val: d.netIncome ?? 0,    color: isProfit ? "#2563EB" : "#ef4444", icon: isProfit ? ArrowUpRight : ArrowDownRight },
           ].map(k => (
-            <Card key={k.label} className="bg-sidebar border-sidebar-border">
+            <Card key={k.label} className="bg-card border-border">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <k.icon className="h-4 w-4" style={{ color: k.color }} />
@@ -133,7 +133,7 @@ function IncomeStatement() {
       )}
 
       {/* Statement Table */}
-      <Card className="bg-sidebar border-sidebar-border">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-3 border-b border-border/40">
           <div className="text-center">
             <h2 className="text-base font-bold text-white">قائمة الدخل</h2>
@@ -218,7 +218,7 @@ function BalanceSheet() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* الأصول */}
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2 border-b border-border/40">
             <CardTitle className="text-sm flex items-center gap-2 text-white">
               <Landmark className="h-4 w-4 text-blue-400" /> الأصول
@@ -243,7 +243,7 @@ function BalanceSheet() {
         </Card>
 
         {/* الخصوم وحقوق الملكية */}
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2 border-b border-border/40">
             <CardTitle className="text-sm flex items-center gap-2 text-white">
               <Wallet className="h-4 w-4 text-violet-400" /> الخصوم وحقوق الملكية
@@ -316,7 +316,7 @@ function TrialBalance() {
         </CardContent>
       </Card>
 
-      <Card className="bg-sidebar border-sidebar-border">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2 border-b border-border/40">
           <div className="text-center">
             <h2 className="text-base font-bold text-white">ميزان المراجعة</h2>
@@ -453,7 +453,7 @@ function ChartOfAccounts() {
             const accounts = byType[type] ?? [];
             if (accounts.length === 0) return null;
             return (
-              <Card key={type} className="bg-sidebar border-sidebar-border">
+              <Card key={type} className="bg-card border-border">
                 <CardHeader className="py-2 px-4 border-b border-border/40">
                   <CardTitle className="text-xs flex items-center gap-2">
                     <Badge variant="outline" className={`${TYPE_COLOR[type]} text-xs`}>{TYPE_AR[type]}</Badge>
@@ -516,7 +516,7 @@ function JournalBook() {
       {isLoading ? (
         <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : data.length === 0 ? (
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardContent className="py-12 text-center">
             <BookOpen className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
             <p className="text-sm text-muted-foreground">لا توجد قيود في هذه الفترة</p>
@@ -528,7 +528,7 @@ function JournalBook() {
           {data.map((entry: any) => {
             const items: any[] = Array.isArray(entry.items) ? entry.items : [];
             return (
-              <Card key={entry.id} className="bg-sidebar border-sidebar-border">
+              <Card key={entry.id} className="bg-card border-border">
                 <CardHeader className="py-2.5 px-4 border-b border-border/40">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -596,7 +596,7 @@ export default function FinancialStatements() {
           <Scale className="h-5 w-5 text-emerald-400" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white">القوائم المالية</h1>
+          <h1 className="text-xl font-bold text-foreground">القوائم المالية</h1>
           <p className="text-xs text-muted-foreground">نظام القيد المزدوج المتوافق مع المعايير المحاسبية</p>
         </div>
       </div>

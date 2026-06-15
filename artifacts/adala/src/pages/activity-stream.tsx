@@ -32,14 +32,14 @@ const EVENT_META: Record<string, { icon: any; color: string; bg: string; ring: s
   INVOICE_CREATED:     { icon: Receipt,     color: "text-amber-400",   bg: "bg-amber-500/10",   ring: "ring-amber-500/30" },
   INVOICE_PAID:        { icon: Receipt,     color: "text-green-400",   bg: "bg-green-500/10",   ring: "ring-green-500/30" },
   INVOICE_OVERDUE:     { icon: Receipt,     color: "text-red-400",     bg: "bg-red-500/10",     ring: "ring-red-500/30" },
-  PAYMENT_SUCCESS:     { icon: CreditCard,  color: "text-[#C9A84C]",   bg: "bg-[#C9A84C]/10",  ring: "ring-[#C9A84C]/30" },
+  PAYMENT_SUCCESS:     { icon: CreditCard,  color: "text-primary",   bg: "bg-primary/10",  ring: "ring-primary/30" },
   PAYMENT_FAILED:      { icon: CreditCard,  color: "text-red-400",     bg: "bg-red-500/10",     ring: "ring-red-500/30" },
   PAYMENT_SETTLED:     { icon: TrendingUp,  color: "text-teal-400",    bg: "bg-teal-500/10",    ring: "ring-teal-500/30" },
   CONTRACT_SIGNED:     { icon: Handshake,   color: "text-violet-400",  bg: "bg-violet-500/10",  ring: "ring-violet-500/30" },
   REMINDER_DUE:        { icon: Bell,        color: "text-orange-400",  bg: "bg-orange-500/10",  ring: "ring-orange-500/30" },
   PORTAL_UPDATED:      { icon: Shield,      color: "text-cyan-400",    bg: "bg-cyan-500/10",    ring: "ring-cyan-500/30" },
   AI_QUERY:            { icon: BrainCircuit,color: "text-purple-400",  bg: "bg-purple-500/10",  ring: "ring-purple-500/30" },
-  SUBSCRIPTION_RENEWED:{ icon: Zap,         color: "text-[#C9A84C]",   bg: "bg-[#C9A84C]/10",  ring: "ring-[#C9A84C]/30" },
+  SUBSCRIPTION_RENEWED:{ icon: Zap,         color: "text-primary",   bg: "bg-primary/10",  ring: "ring-primary/30" },
   DOCUMENT_GENERATED:  { icon: FileText,    color: "text-indigo-400",  bg: "bg-indigo-500/10",  ring: "ring-indigo-500/30" },
   USER_LOGIN:          { icon: Shield,      color: "text-slate-400",   bg: "bg-slate-500/10",   ring: "ring-slate-500/20" },
 };
@@ -65,7 +65,7 @@ function EventSummary({ event }: { event: LiveEvent }) {
     case "CLIENT_ADDED":    return <>{d.fullName ?? ""}{d.email ? ` — ${d.email}` : ""}</>;
     case "INVOICE_CREATED": return <>{d.invoiceNumber ? `${d.invoiceNumber} — ` : ""}{d.total ? `${Number(d.total).toLocaleString("ar-SA")} ر.س` : ""}</>;
     case "INVOICE_PAID":    return <>{d.invoiceNumber ? `${d.invoiceNumber} — ` : ""}<span className="text-green-400 font-semibold">{d.total ? `${Number(d.total).toLocaleString("ar-SA")} ر.س` : ""}</span></>;
-    case "PAYMENT_SUCCESS": return <><span className="text-[#C9A84C] font-semibold">{d.amount ? `${Number(d.amount).toLocaleString("ar-SA")} ر.س` : ""}</span>{d.clientName ? ` من ${d.clientName}` : ""}{d.gateway ? ` عبر ${d.gateway}` : ""}</>;
+    case "PAYMENT_SUCCESS": return <><span className="text-primary font-semibold">{d.amount ? `${Number(d.amount).toLocaleString("ar-SA")} ر.س` : ""}</span>{d.clientName ? ` من ${d.clientName}` : ""}{d.gateway ? ` عبر ${d.gateway}` : ""}</>;
     case "PAYMENT_FAILED":  return <><span className="text-red-400">{d.amount ? `${Number(d.amount).toLocaleString("ar-SA")} ر.س` : ""}</span>{d.reason ? ` — ${d.reason}` : ""}</>;
     case "DOCUMENT_GENERATED": return <>{d.title ?? d.docType ?? ""}</>;
     case "AI_QUERY":        return <>{d.question ? `"${String(d.question).slice(0, 60)}…"` : ""}</>;
@@ -171,8 +171,8 @@ export default function ActivityStream() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#C9A84C]/10 flex items-center justify-center">
-            <Activity className="h-5 w-5 text-[#C9A84C]" />
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Activity className="h-5 w-5 text-primary" />
           </div>
           <div>
             <h1 className="text-xl font-black">نبض النظام</h1>
@@ -204,9 +204,9 @@ export default function ActivityStream() {
       {/* Stats row */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="أحداث (30 يوم)"  value={stats.total30d?.toLocaleString("ar-SA") ?? "—"} icon={Activity}    color="text-[#C9A84C]" />
+          <StatCard label="أحداث (30 يوم)"  value={stats.total30d?.toLocaleString("ar-SA") ?? "—"} icon={Activity}    color="text-primary" />
           <StatCard label="قضايا جديدة"     value={stats.byType?.find((t: any) => t.type === "CASE_CREATED")?.count ?? 0}    icon={Scale}       color="text-blue-400" />
-          <StatCard label="مدفوعات ناجحة"   value={stats.byType?.find((t: any) => t.type === "PAYMENT_SUCCESS")?.count ?? 0} icon={CreditCard}  color="text-[#C9A84C]" />
+          <StatCard label="مدفوعات ناجحة"   value={stats.byType?.find((t: any) => t.type === "PAYMENT_SUCCESS")?.count ?? 0} icon={CreditCard}  color="text-primary" />
           <StatCard label="عملاء جدد"       value={stats.byType?.find((t: any) => t.type === "CLIENT_ADDED")?.count ?? 0}    icon={Users}       color="text-emerald-400" />
         </div>
       )}
@@ -223,15 +223,15 @@ export default function ActivityStream() {
                 <AreaChart data={stats.byDay}>
                   <defs>
                     <linearGradient id="evGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#C9A84C" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#C9A84C" stopOpacity={0} />
+                      <stop offset="5%"  stopColor="#2563EB" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                   <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#64748B" }} tickFormatter={d => d?.slice(5) ?? d} />
                   <YAxis tick={{ fontSize: 10, fill: "#64748B" }} allowDecimals={false} />
-                  <Tooltip contentStyle={{ background: "#1A2744", border: "1px solid #2D3D6B", borderRadius: 8, fontSize: 12 }} />
-                  <Area type="monotone" dataKey="count" name="أحداث" stroke="#C9A84C" fill="url(#evGrad)" strokeWidth={2} dot={false} />
+                  <Tooltip contentStyle={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 12 }} />
+                  <Area type="monotone" dataKey="count" name="أحداث" stroke="#2563EB" fill="url(#evGrad)" strokeWidth={2} dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </CardContent>
@@ -247,8 +247,8 @@ export default function ActivityStream() {
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                   <XAxis type="number" tick={{ fontSize: 10, fill: "#64748B" }} allowDecimals={false} />
                   <YAxis type="category" dataKey="label" tick={{ fontSize: 10, fill: "#64748B" }} width={85} />
-                  <Tooltip contentStyle={{ background: "#1A2744", border: "1px solid #2D3D6B", borderRadius: 8, fontSize: 12 }} />
-                  <Bar dataKey="count" name="العدد" fill="#C9A84C" radius={[0, 4, 4, 0]} />
+                  <Tooltip contentStyle={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 12 }} />
+                  <Bar dataKey="count" name="العدد" fill="#2563EB" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -269,7 +269,7 @@ export default function ActivityStream() {
             </CardTitle>
             <div className="flex items-center gap-2">
               {newCount > 0 && (
-                <Button size="sm" className="h-7 text-xs gap-1 bg-[#C9A84C] hover:bg-[#a8882e] text-[#0B1B2B]"
+                <Button size="sm" className="h-7 text-xs gap-1 bg-primary hover:bg-[#a8882e] text-[#0B1B2B]"
                   onClick={resumeFeed}>
                   <ChevronRight className="h-3 w-3" /> {newCount} حدث جديد
                 </Button>
@@ -313,8 +313,8 @@ export default function ActivityStream() {
                 return (
                   <div
                     key={event.id}
-                    className={`flex items-start gap-3 px-4 py-3 transition-all duration-300 hover:bg-white/2 ${
-                      isNew && idx < 5 ? "bg-[#C9A84C]/3" : ""
+                    className={`flex items-start gap-3 px-4 py-3 transition-all duration-300 hover:bg-accent/30 ${
+                      isNew && idx < 5 ? "bg-primary/3" : ""
                     }`}
                   >
                     {/* Icon */}

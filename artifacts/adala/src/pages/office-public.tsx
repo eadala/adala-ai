@@ -443,7 +443,7 @@ export default function OfficePage() {
   );
 
   const { office, services = [], team = [], reviews = [], articles = [] } = data;
-  const gold = office.primaryColor ?? "#C9A84C";
+  const gold = office.primaryColor ?? "#2563EB";
   const avgRating = reviews.length ? (reviews.reduce((a: number, r: any) => a + r.rating, 0) / reviews.length) : 0;
   const officeName = t(office.name, office.nameEn, lang);
   const tagline = t(office.tagline, office.taglineEn, lang);

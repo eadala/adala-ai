@@ -134,7 +134,7 @@ export default function Payroll() {
           { label: "إجمالي المدفوع", value: `${fmt(payStats?.totalPaid)} ر`, color: "#10B981", icon: DollarSign },
           { label: "قسائم مدفوعة", value: payStats?.paidCount ?? 0, color: "#6366F1", icon: CheckCircle2 },
           { label: "قسائم معلقة", value: payStats?.totalDraft ?? 0, color: "#F59E0B", icon: Clock },
-          { label: "المعروض حالياً", value: `${fmt(totalNet)} ر`, color: "#C9A84C", icon: TrendingUp },
+          { label: "المعروض حالياً", value: `${fmt(totalNet)} ر`, color: "#2563EB", icon: TrendingUp },
         ].map(s => (
           <Card key={s.label} className="border-0 bg-card/50">
             <CardContent className="p-4 flex items-center gap-3">
@@ -238,7 +238,7 @@ export default function Payroll() {
                 { label: "إجمالي الرواتب الأساسية", value: filtered.reduce((s, p) => s + parseFloat(String(p.baseSalary || "0")), 0), color: "#6366F1" },
                 { label: "إجمالي البدلات", value: filtered.reduce((s, p) => s + parseFloat(String(p.allowances || "0")), 0), color: "#10B981" },
                 { label: "إجمالي التأمينات", value: filtered.reduce((s, p) => s + parseFloat(String(p.gosi || "0")), 0), color: "#F97316" },
-                { label: "إجمالي الصافي", value: totalNet, color: "#C9A84C" },
+                { label: "إجمالي الصافي", value: totalNet, color: "#2563EB" },
               ].map(s => (
                 <div key={s.label} className="text-center p-3 bg-muted/30 rounded-xl">
                   <div className="text-lg font-black" style={{ color: s.color }}>{fmt(s.value)}</div>

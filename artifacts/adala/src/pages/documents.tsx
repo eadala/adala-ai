@@ -99,7 +99,7 @@ function ShareDialog({ doc, open, onClose, tx, dir }: { doc: any; open: boolean;
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="sm:max-w-md" dir={dir}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Share2 className="h-5 w-5 text-[#C9A84C]" />{tx("مشاركة مع بوابة العميل","Share with Client Portal")}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><Share2 className="h-5 w-5 text-primary" />{tx("مشاركة مع بوابة العميل","Share with Client Portal")}</DialogTitle>
           <DialogDescription>{tx("اختر بوابات العملاء","Choose client portals to share")} <strong className="text-foreground">{doc?.fileName ?? doc?.original_name}</strong></DialogDescription>
         </DialogHeader>
         <div className="space-y-3 max-h-64 overflow-y-auto py-2">
@@ -109,7 +109,7 @@ function ShareDialog({ doc, open, onClose, tx, dir }: { doc: any; open: boolean;
              const shared = token.shared_docs?.includes(docId);
              return (
                <div key={token.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
-                 <div className="flex items-center gap-2"><Globe className="h-4 w-4 text-[#C9A84C]" /><span className="text-sm">{token.client_name ?? token.id.slice(0,8)}</span></div>
+                 <div className="flex items-center gap-2"><Globe className="h-4 w-4 text-primary" /><span className="text-sm">{token.client_name ?? token.id.slice(0,8)}</span></div>
                  <Switch checked={!!shared} onCheckedChange={c => toggleMut.mutate({ tokenId:token.id, docId, shared:c })} disabled={toggleMut.isPending} />
                </div>
              );
@@ -146,7 +146,7 @@ function MoveDialog({ file, folders, open, onClose }: { file: any; folders: any[
       <DialogContent className="sm:max-w-sm" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-right">
-            <FolderInput className="h-4 w-4 text-[#C9A84C]" />
+            <FolderInput className="h-4 w-4 text-primary" />
             نقل إلى مجلد
           </DialogTitle>
           <DialogDescription className="text-right truncate">
@@ -159,7 +159,7 @@ function MoveDialog({ file, folders, open, onClose }: { file: any; folders: any[
             onClick={() => setSelected(null)}
             className={cn(
               "w-full text-right flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
-              selected === null ? "bg-[#C9A84C]/15 text-[#C9A84C] font-semibold" : "hover:bg-muted/40"
+              selected === null ? "bg-primary/15 text-primary font-semibold" : "hover:bg-muted/40"
             )}>
             <Home className="h-4 w-4 shrink-0" />
             الجذر (بدون مجلد)
@@ -171,7 +171,7 @@ function MoveDialog({ file, folders, open, onClose }: { file: any; folders: any[
         <div className="flex gap-2 pt-1">
           <Button variant="outline" size="sm" className="flex-1" onClick={onClose}>إلغاء</Button>
           <Button size="sm" className="flex-1 font-bold"
-            style={{ background:"linear-gradient(135deg,#C9A84C,#D4A843)", color:"#0D1626" }}
+            style={{ background:"linear-gradient(135deg,#2563EB,#2563EB)", color:"#0D1626" }}
             disabled={moveMut.isPending || selected === (file?.folder_id ?? null)}
             onClick={() => moveMut.mutate(selected)}>
             {moveMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "نقل هنا"}
@@ -188,10 +188,10 @@ function renderTreeForMove(nodes: any[], selected: string | null, setSelected: (
       onClick={() => setSelected(n.id)}
       className={cn(
         "w-full text-right flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
-        selected === n.id ? "bg-[#C9A84C]/15 text-[#C9A84C] font-semibold" : "hover:bg-muted/40"
+        selected === n.id ? "bg-primary/15 text-primary font-semibold" : "hover:bg-muted/40"
       )}
       style={{ paddingRight: `${12 + depth * 16}px` }}>
-      <Folder className="h-4 w-4 shrink-0 text-[#C9A84C]/70" />
+      <Folder className="h-4 w-4 shrink-0 text-primary/70" />
       <span className="truncate flex-1">{n.name}</span>
       {n.file_count > 0 && <span className="text-[10px] text-muted-foreground">{n.file_count}</span>}
       {selected === n.id && <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
@@ -278,7 +278,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
       <DialogContent className="sm:max-w-md" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-right">
-            <ShieldCheck className="h-5 w-5 text-[#C9A84C]" />
+            <ShieldCheck className="h-5 w-5 text-primary" />
             صلاحيات المجلد
           </DialogTitle>
           <DialogDescription className="text-right font-medium text-foreground/80">
@@ -300,7 +300,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
                     className={cn(
                       "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-right transition-all",
                       vis === opt.value
-                        ? "border-[#C9A84C]/50 bg-[#C9A84C]/8"
+                        ? "border-primary/50 bg-primary/8"
                         : "border-border/40 hover:border-border hover:bg-muted/30"
                     )}>
                     {opt.icon}
@@ -308,12 +308,12 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
                       <p className="text-sm font-semibold">{opt.label}</p>
                       <p className="text-[11px] text-muted-foreground">{opt.desc}</p>
                     </div>
-                    {vis === opt.value && <CheckCircle2 className="h-4 w-4 text-[#C9A84C] shrink-0" />}
+                    {vis === opt.value && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
                   </button>
                 ))}
               </div>
               <Button size="sm" className="w-full h-8 text-xs font-bold mt-1"
-                style={{ background:"linear-gradient(135deg,#C9A84C,#D4A843)", color:"#0D1626" }}
+                style={{ background:"linear-gradient(135deg,#2563EB,#2563EB)", color:"#0D1626" }}
                 disabled={savingVis || vis === (data?.folder?.visibility ?? "everyone")}
                 onClick={saveVis}>
                 {savingVis ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "حفظ مستوى الرؤية"}
@@ -349,7 +349,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
                   <div className="pt-1 space-y-2">
                     <p className="text-[11px] text-muted-foreground">إضافة شخص:</p>
                     <select value={addUserId} onChange={e => setAddUserId(e.target.value)}
-                      className="w-full h-8 rounded-lg border border-border/50 bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#C9A84C]/50">
+                      className="w-full h-8 rounded-lg border border-border/50 bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50">
                       <option value="">— اختر عضوًا —</option>
                       {availableMembers.map((m: any) => (
                         <option key={m.user_id} value={m.user_id}>{m.name} ({m.role})</option>
@@ -361,7 +361,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
                         {addCanWrite ? "قراءة + كتابة" : "قراءة فقط"}
                       </label>
                       <Button size="sm" className="h-8 px-3 text-xs gap-1 font-bold"
-                        style={{ background:"linear-gradient(135deg,#C9A84C,#D4A843)", color:"#0D1626" }}
+                        style={{ background:"linear-gradient(135deg,#2563EB,#2563EB)", color:"#0D1626" }}
                         disabled={!addUserId || grantMut.isPending}
                         onClick={() => {
                           const m = members.find((x:any) => x.user_id === addUserId);
@@ -425,7 +425,7 @@ function FolderNode({ node, currentId, onNavigate, onCreateSub, onRename, onDele
       <div
         className={cn(
           "group flex items-center gap-1.5 rounded-lg px-2 py-1.5 cursor-pointer transition-colors select-none",
-          isActive ? "bg-[#C9A84C]/15 text-[#C9A84C]" : "hover:bg-muted/40 text-foreground/80"
+          isActive ? "bg-primary/15 text-primary" : "hover:bg-muted/40 text-foreground/80"
         )}
         style={{ paddingRight: `${8 + depth * 14}px` }}
         onClick={() => onNavigate(node.id)}
@@ -522,7 +522,7 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
                   {tx("نقل إلى مجلد","Move to folder")}
                 </DropdownMenuItem>
                 {file.case_id && (
-                  <DropdownMenuItem className="gap-2 cursor-pointer text-[#C9A84C] focus:text-[#C9A84C]" onClick={() => onShare(file)}>
+                  <DropdownMenuItem className="gap-2 cursor-pointer text-primary focus:text-primary" onClick={() => onShare(file)}>
                     <Share2 className="h-4 w-4" />{tx("مشاركة مع العميل","Share with Client")}
                   </DropdownMenuItem>
                 )}
@@ -563,7 +563,7 @@ function FolderNameInput({ label, defaultValue = "", onSubmit, onCancel }: { lab
         className="h-8 text-sm flex-1"
       />
       <Button size="sm" className="h-8 px-3 text-xs font-bold shrink-0"
-        style={{ background:"linear-gradient(135deg,#C9A84C,#D4A843)", color:"#0D1626" }}
+        style={{ background:"linear-gradient(135deg,#2563EB,#2563EB)", color:"#0D1626" }}
         disabled={!val.trim()} onClick={() => onSubmit(val.trim())}>
         حفظ
       </Button>
@@ -654,7 +654,7 @@ export default function Documents() {
           <p className="text-muted-foreground mt-1">{tx("إدارة جميع الملفات والمرفقات القانونية","Manage all legal files and attachments")}</p>
         </div>
         <Button onClick={() => setUploadOpen(true)} className="hover-elevate gap-2"
-          style={{ background:"linear-gradient(135deg,#C9A84C,#D4A843)", color:"#0D1626" }}>
+          style={{ background:"linear-gradient(135deg,#2563EB,#2563EB)", color:"#0D1626" }}>
           <Upload className="h-4 w-4" />
           {tx("رفع مستند","Upload Document")}
         </Button>
@@ -692,7 +692,7 @@ export default function Documents() {
                 onClick={() => navigate(null)}
                 className={cn(
                   "w-full text-right flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
-                  currentFolderId === null ? "bg-[#C9A84C]/15 text-[#C9A84C] font-semibold" : "hover:bg-muted/40 text-foreground/80"
+                  currentFolderId === null ? "bg-primary/15 text-primary font-semibold" : "hover:bg-muted/40 text-foreground/80"
                 )}>
                 <Home className="h-4 w-4 shrink-0" />
                 <span className="flex-1">كل الملفات</span>
@@ -761,7 +761,7 @@ export default function Documents() {
                         className={cn(
                           "transition-colors",
                           i === folderPath.length - 1
-                            ? "text-[#C9A84C] font-semibold"
+                            ? "text-primary font-semibold"
                             : "text-muted-foreground hover:text-foreground"
                         )}>
                         {seg.name}
@@ -799,8 +799,8 @@ export default function Documents() {
                     {subs.map(f => (
                       <button key={f.id}
                         onClick={() => navigate(f.id)}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border/50 bg-card hover:border-[#C9A84C]/40 hover:bg-[#C9A84C]/5 transition-all text-sm font-medium">
-                        <Folder className="h-4 w-4 text-[#C9A84C]/70" />
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border/50 bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-sm font-medium">
+                        <Folder className="h-4 w-4 text-primary/70" />
                         {f.name}
                         {f.file_count > 0 && (
                           <span className="text-[10px] px-1.5 rounded-full bg-muted text-muted-foreground">{f.file_count}</span>
@@ -822,7 +822,7 @@ export default function Documents() {
                 <div className="text-center py-20 bg-card rounded-2xl border border-dashed">
                   <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
                     style={{ background:"rgba(201,168,76,0.1)", border:"1px solid rgba(201,168,76,0.2)" }}>
-                    {currentFolderId ? <Folder className="h-7 w-7" style={{ color:"#C9A84C" }} /> : <Upload className="h-7 w-7" style={{ color:"#C9A84C" }} />}
+                    {currentFolderId ? <Folder className="h-7 w-7" style={{ color:"#2563EB" }} /> : <Upload className="h-7 w-7" style={{ color:"#2563EB" }} />}
                   </div>
                   <h3 className="text-lg font-semibold mb-1">
                     {search ? tx("لا توجد نتائج","No matching results") : tx("هذا المجلد فارغ","This folder is empty")}
@@ -832,7 +832,7 @@ export default function Documents() {
                   </p>
                   {!search && (
                     <Button onClick={() => setUploadOpen(true)} className="gap-2"
-                      style={{ background:"linear-gradient(135deg,#C9A84C,#D4A843)", color:"#0D1626" }}>
+                      style={{ background:"linear-gradient(135deg,#2563EB,#2563EB)", color:"#0D1626" }}>
                       <Upload className="h-4 w-4" />
                       {tx("ارفع ملف","Upload file")}
                     </Button>
@@ -884,7 +884,7 @@ export default function Documents() {
                         <DropdownMenuContent align="end" className="w-44">
                           <DropdownMenuItem className="gap-2 cursor-pointer"><Download className="h-4 w-4" />{tx("تحميل","Download")}</DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="gap-2 cursor-pointer text-[#C9A84C] focus:text-[#C9A84C]" onClick={() => setShareDoc(doc)} disabled={!doc.caseId}>
+                          <DropdownMenuItem className="gap-2 cursor-pointer text-primary focus:text-primary" onClick={() => setShareDoc(doc)} disabled={!doc.caseId}>
                             <Share2 className="h-4 w-4" />{tx("مشاركة مع العميل","Share with Client")}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -916,7 +916,7 @@ export default function Documents() {
             <DialogTitle className="flex items-center gap-2 text-right">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                 style={{ background:"rgba(201,168,76,0.15)", border:"1px solid rgba(201,168,76,0.25)" }}>
-                <Upload className="h-4 w-4" style={{ color:"#C9A84C" }} />
+                <Upload className="h-4 w-4" style={{ color:"#2563EB" }} />
               </div>
               {tx("رافع الملفات الذكي","Smart File Uploader")}
             </DialogTitle>

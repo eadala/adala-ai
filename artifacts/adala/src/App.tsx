@@ -261,11 +261,11 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, EBState> {
       return (
         <div dir="rtl" style={{ padding: "2rem", fontFamily: "Cairo, sans-serif", background: "#0F1B35", minHeight: "100vh", color: "#F8F9FA", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem" }}>
           <div style={{ fontSize: "2rem" }}>⚠️</div>
-          <h1 style={{ color: "#C9A84C", fontSize: "1.25rem" }}>حدث خطأ غير متوقع</h1>
+          <h1 style={{ color: "#2563EB", fontSize: "1.25rem" }}>حدث خطأ غير متوقع</h1>
           <p style={{ color: "#A0ADB8", fontSize: "0.875rem" }}>يرجى تحديث الصفحة. إذا استمرت المشكلة، تواصل مع الدعم.</p>
           <button
             onClick={() => window.location.reload()}
-            style={{ background: "#C9A84C", color: "#1A2744", border: "none", borderRadius: "0.5rem", padding: "0.5rem 1.5rem", cursor: "pointer", fontFamily: "inherit", fontWeight: "bold" }}
+            style={{ background: "#2563EB", color: "#1A2744", border: "none", borderRadius: "0.5rem", padding: "0.5rem 1.5rem", cursor: "pointer", fontFamily: "inherit", fontWeight: "bold" }}
           >
             تحديث الصفحة
           </button>

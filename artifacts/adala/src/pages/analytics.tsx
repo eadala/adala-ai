@@ -27,7 +27,7 @@ function escHtml(s: unknown): string {
     .replace(/'/g, "&#x27;");
 }
 
-const COLORS = ["#C9A84C", "#6366F1", "#10B981", "#3B82F6", "#EC4899", "#F59E0B", "#8B5CF6", "#06B6D4"];
+const COLORS = ["#2563EB", "#6366F1", "#10B981", "#3B82F6", "#EC4899", "#F59E0B", "#8B5CF6", "#06B6D4"];
 
 type Period = "30d" | "3m" | "6m" | "1y";
 const PERIODS: { label: string; value: Period }[] = [
@@ -47,7 +47,7 @@ function fmt(n: number) {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1A2744] border border-[#2D3D6B] rounded-xl p-3 text-xs shadow-2xl min-w-[130px]">
+    <div className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-xl p-3 text-xs shadow-2xl min-w-[130px]">
       <p className="font-bold text-primary mb-2">{label}</p>
       {payload.map((p: any, i: number) => (
         <div key={i} className="flex items-center gap-2 mb-1">
@@ -176,23 +176,23 @@ function RevenueForecaster({ monthlyData }: { monthlyData: { month: string; reve
                 <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="gFore" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#C9A84C" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#C9A84C" stopOpacity={0} />
+                <stop offset="5%"  stopColor="#2563EB" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#2D3D6B" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
             <XAxis dataKey="month" tick={{ fill: "#A0ADB8", fontSize: 10 }} />
             <YAxis tick={{ fill: "#A0ADB8", fontSize: 10 }} tickFormatter={v => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v)} />
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             <Area type="monotone" dataKey="actual"   name="فعلي"   stroke="#10B981" fill="url(#gAct2)" strokeWidth={2.5} dot={{ fill: "#10B981", r: 3 }} connectNulls={false} />
-            <Area type="monotone" dataKey="forecast" name="متوقع"  stroke="#C9A84C" fill="url(#gFore)" strokeWidth={2} strokeDasharray="6 3" dot={{ fill: "#C9A84C", r: 4 }} connectNulls={false} />
+            <Area type="monotone" dataKey="forecast" name="متوقع"  stroke="#2563EB" fill="url(#gFore)" strokeWidth={2} strokeDasharray="6 3" dot={{ fill: "#2563EB", r: 4 }} connectNulls={false} />
           </AreaChart>
         </ResponsiveContainer>
         <div className="grid grid-cols-3 gap-3">
           {forecastPts.map(p => (
-            <div key={p.i} className="text-center p-3 rounded-xl border" style={{ borderColor: "#C9A84C30", background: "#C9A84C08" }}>
-              <div className="text-xl font-black" style={{ color: "#C9A84C" }}>{fmt(p.val)}</div>
+            <div key={p.i} className="text-center p-3 rounded-xl border" style={{ borderColor: "#2563EB30", background: "#2563EB08" }}>
+              <div className="text-xl font-black" style={{ color: "#2563EB" }}>{fmt(p.val)}</div>
               <div className="text-[10px] text-muted-foreground mt-0.5">{p.name}</div>
               <div className="text-[9px] text-muted-foreground/50">ر.س · متوقع</div>
             </div>
@@ -255,17 +255,17 @@ export default function Analytics() {
 *{box-sizing:border-box;margin:0;padding:0}
 @page{size:A4;margin:18mm 20mm}
 body{font-family:'Cairo',Arial,sans-serif;color:#1a1a2e;background:#fff;font-size:11pt}
-.cover{background:linear-gradient(135deg,#0f1c35,#1A2744);color:#fff;padding:32px;margin-bottom:24px;border-radius:8px}
-.cover h1{font-size:22pt;font-weight:900;color:#C9A84C;margin-bottom:4px}
+.cover{background:linear-gradient(135deg,#0f1c35,#FFFFFF);color:#fff;padding:32px;margin-bottom:24px;border-radius:8px}
+.cover h1{font-size:22pt;font-weight:900;color:#2563EB;margin-bottom:4px}
 .cover p{color:rgba(255,255,255,0.6);font-size:9pt}
 .section{margin-bottom:20px;padding:16px;border:1px solid #e8e8e8;border-radius:8px}
-.section h2{font-size:11pt;font-weight:700;color:#1A2744;border-bottom:2px solid #C9A84C;padding-bottom:6px;margin-bottom:12px}
+.section h2{font-size:11pt;font-weight:700;color:#FFFFFF;border-bottom:2px solid #2563EB;padding-bottom:6px;margin-bottom:12px}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
 .kpi{background:#f8f9fa;border-radius:6px;padding:10px;text-align:center}
-.kpi .val{font-size:15pt;font-weight:900;color:#C9A84C}
+.kpi .val{font-size:15pt;font-weight:900;color:#2563EB}
 .kpi .lbl{font-size:8pt;color:#666;margin-top:2px}
 table{width:100%;border-collapse:collapse;font-size:9pt}
-th{background:#1A2744;color:#C9A84C;padding:8px;text-align:right}
+th{background:#FFFFFF;color:#2563EB;padding:8px;text-align:right}
 td{padding:7px 8px;border-bottom:1px solid #eee}
 tr:nth-child(even) td{background:#fafafa}
 .footer{text-align:center;color:#aaa;font-size:8pt;margin-top:20px;border-top:1px solid #eee;padding-top:10px}
@@ -383,7 +383,7 @@ tr:nth-child(even) td{background:#fafafa}
         <KPICard icon={DollarSign}  label="إجمالي الإيرادات"   color="#10B981"
           value={`${fmt(fin.totalRevenue ?? 0)} ر.س`}
           sub={`مصاريف: ${fmt(fin.totalExpenses ?? 0)} ر.س`} trend="مالية" />
-        <KPICard icon={TrendingUp}  label="صافي الربح"          color="#C9A84C"
+        <KPICard icon={TrendingUp}  label="صافي الربح"          color="#2563EB"
           value={`${fmt(fin.netProfit ?? 0)} ر.س`}
           sub={`هامش: ${(fin.profitMargin ?? 0).toFixed(1)}%`}
           trendUp={(fin.netProfit ?? 0) >= 0} trend={(fin.netProfit ?? 0) >= 0 ? "رابح" : "خاسر"} />
@@ -429,7 +429,7 @@ tr:nth-child(even) td{background:#fafafa}
 
             const BAND_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
               excellent:        { label: "ممتاز",     color: "#10B981", bg: "#10B98115" },
-              good:             { label: "جيد جداً",  color: "#C9A84C", bg: "#C9A84C15" },
+              good:             { label: "جيد جداً",  color: "#2563EB", bg: "#2563EB15" },
               average:          { label: "متوسط",     color: "#6366F1", bg: "#6366F115" },
               needsImprovement: { label: "يحتاج تطوير", color: "#EF4444", bg: "#EF444415" },
             };
@@ -516,7 +516,7 @@ tr:nth-child(even) td{background:#fafafa}
                     sub={`تحصيل ${dim.financial?.collectionRate ?? 0}% · هامش ${dim.financial?.profitMargin ?? 0}%`} />
                   <DimCard label="القضايا" score={dim.cases?.score ?? 0} color="#6366F1"
                     sub={`نجاح ${dim.cases?.successRate ?? 0}% · متوسط ${dim.cases?.avgDays ?? 0} يوم`} />
-                  <DimCard label="العملاء" score={dim.clients?.score ?? 0} color="#C9A84C"
+                  <DimCard label="العملاء" score={dim.clients?.score ?? 0} color="#2563EB"
                     sub={`احتفاظ ${dim.clients?.retention?.toFixed(0) ?? 0}% · ${dim.clients?.repeat ?? 0} عميل متكرر`} />
                   <DimCard label="الذكاء الاصطناعي" score={dim.ai?.score ?? 0} color="#F59E0B"
                     sub={`${dim.ai?.calls ?? 0} طلب · ${dim.ai?.usagePct ?? 0}% مستهلك`} />
@@ -532,7 +532,7 @@ tr:nth-child(even) td{background:#fafafa}
                       <div className="grid grid-cols-4 gap-3">
                         {[
                           { label: "الطلبات", val: (dim.ai.calls ?? 0).toLocaleString(), color: "#F59E0B" },
-                          { label: "الوحدات", val: (dim.ai.units ?? 0).toLocaleString(), color: "#C9A84C" },
+                          { label: "الوحدات", val: (dim.ai.units ?? 0).toLocaleString(), color: "#2563EB" },
                           { label: "الرصيد المتبقي", val: dim.ai.balance ?? 0, color: "#10B981" },
                           { label: "المخصص الشهري", val: dim.ai.allowance ?? 0, color: "#6366F1" },
                         ].map(s => (
@@ -571,7 +571,7 @@ tr:nth-child(even) td{background:#fafafa}
             {[
               { label: "الإيرادات", value: `${fmt(fin.totalRevenue ?? 0)} ر.س`, color: "#10B981", icon: TrendingUp },
               { label: "المصروفات", value: `${fmt(fin.totalExpenses ?? 0)} ر.س`, color: "#EF4444", icon: TrendingDown },
-              { label: "صافي الربح", value: `${fmt(fin.netProfit ?? 0)} ر.س`, color: "#C9A84C", icon: DollarSign },
+              { label: "صافي الربح", value: `${fmt(fin.netProfit ?? 0)} ر.س`, color: "#2563EB", icon: DollarSign },
             ].map(s => (
               <div key={s.label} className="text-center p-3 bg-muted/30 rounded-xl border border-border/40">
                 <s.icon className="h-4 w-4 mx-auto mb-1" style={{ color: s.color }} />
@@ -600,11 +600,11 @@ tr:nth-child(even) td{background:#fafafa}
                         <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="gPro" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="#C9A84C" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#C9A84C" stopOpacity={0} />
+                        <stop offset="5%"  stopColor="#2563EB" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2D3D6B" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                     <XAxis dataKey="month" tick={{ fill: "#A0ADB8", fontSize: 10 }} />
                     <YAxis tick={{ fill: "#A0ADB8", fontSize: 10 }}
                       tickFormatter={v => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v)} />
@@ -612,7 +612,7 @@ tr:nth-child(even) td{background:#fafafa}
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     <Area type="monotone" dataKey="revenue"  name="الإيرادات"  stroke="#10B981" fill="url(#gRev)" strokeWidth={2.5} dot={{ fill: "#10B981", r: 3 }} />
                     <Area type="monotone" dataKey="expenses" name="المصروفات"  stroke="#EF4444" fill="url(#gExp)" strokeWidth={2.5} dot={{ fill: "#EF4444", r: 3 }} />
-                    <Area type="monotone" dataKey="profit"   name="صافي الربح" stroke="#C9A84C" fill="url(#gPro)" strokeWidth={2} dot={{ fill: "#C9A84C", r: 3 }} strokeDasharray="4 2" />
+                    <Area type="monotone" dataKey="profit"   name="صافي الربح" stroke="#2563EB" fill="url(#gPro)" strokeWidth={2} dot={{ fill: "#2563EB", r: 3 }} strokeDasharray="4 2" />
                   </AreaChart>
                 </ResponsiveContainer>
               )}
@@ -664,7 +664,7 @@ tr:nth-child(even) td{background:#fafafa}
             {[
               { label: "فواتير مدفوعة",   value: fin.paidInvoices ?? 0,        color: "#10B981", icon: CheckCircle2 },
               { label: "إجمالي الفواتير", value: fin.totalInvoices ?? 0,       color: "#6366F1", icon: FileText },
-              { label: "معدل التحصيل",    value: `${(fin.collectionRate ?? 0).toFixed(0)}%`, color: "#C9A84C", icon: Target },
+              { label: "معدل التحصيل",    value: `${(fin.collectionRate ?? 0).toFixed(0)}%`, color: "#2563EB", icon: Target },
               { label: "هامش الربح",      value: `${(fin.profitMargin ?? 0).toFixed(1)}%`,  color: "#F59E0B", icon: Award },
             ].map(k => (
               <Card key={k.label} className="border-0 bg-muted/30">
@@ -703,14 +703,14 @@ tr:nth-child(even) td{background:#fafafa}
                 {!(cas.monthly ?? []).some((m: any) => m.total > 0) ? <EmptyState msg="لا توجد قضايا في هذه الفترة" /> : (
                   <ResponsiveContainer width="100%" height={240}>
                     <BarChart data={cas.monthly} barSize={14}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3D6B" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                       <XAxis dataKey="month" tick={{ fill: "#A0ADB8", fontSize: 10 }} />
                       <YAxis tick={{ fill: "#A0ADB8", fontSize: 10 }} allowDecimals={false} />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend wrapperStyle={{ fontSize: 10 }} />
                       <Bar dataKey="total"  name="الإجمالي" fill="#6366F1" radius={[3, 3, 0, 0]} />
                       <Bar dataKey="closed" name="مغلقة"    fill="#10B981" radius={[3, 3, 0, 0]} />
-                      <Bar dataKey="open"   name="مفتوحة"   fill="#C9A84C" radius={[3, 3, 0, 0]} />
+                      <Bar dataKey="open"   name="مفتوحة"   fill="#2563EB" radius={[3, 3, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -761,7 +761,7 @@ tr:nth-child(even) td{background:#fafafa}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KPICard icon={Users}  label="إجمالي الفريق"     color="#6366F1" value={tm.teamTotal ?? 0} />
             <KPICard icon={Users}  label="الموظفون النشطون"  color="#10B981" value={tm.teamActive ?? 0} />
-            <KPICard icon={Scale}  label="قضايا مُسنَدة"     color="#C9A84C"
+            <KPICard icon={Scale}  label="قضايا مُسنَدة"     color="#2563EB"
               value={(tm.casesByMember ?? []).reduce((s: number, r: any) => s + (r.قضايا ?? 0), 0)} />
             <KPICard icon={Award}  label="أفضل معدل نجاح"    color="#F59E0B"
               value={`${Math.max(...(tm.casesByMember ?? [{ نسبة: 0 }]).map((r: any) => r.نسبة ?? 0))}%`} />
@@ -775,7 +775,7 @@ tr:nth-child(even) td{background:#fafafa}
                 {!(tm.casesByMember ?? []).length ? <EmptyState msg="لا توجد قضايا مُسنَدة" /> : (
                   <ResponsiveContainer width="100%" height={280}>
                     <BarChart data={tm.casesByMember} layout="vertical" barSize={14}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3D6B" horizontal={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" horizontal={false} />
                       <XAxis type="number" tick={{ fill: "#A0ADB8", fontSize: 9 }} allowDecimals={false} />
                       <YAxis dataKey="name" type="category" tick={{ fill: "#A0ADB8", fontSize: 9 }} width={80} />
                       <Tooltip content={<CustomTooltip />} />
@@ -853,7 +853,7 @@ tr:nth-child(even) td{background:#fafafa}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KPICard icon={Users}     label="إجمالي العملاء"   color="#6366F1" value={cl.totalClients ?? 0} />
             <KPICard icon={CheckCircle2} label="عملاء نشطون"   color="#10B981" value={cl.activeClients ?? 0} />
-            <KPICard icon={ArrowUpRight} label="جدد في الفترة" color="#C9A84C" value={cl.newInPeriod ?? 0} />
+            <KPICard icon={ArrowUpRight} label="جدد في الفترة" color="#2563EB" value={cl.newInPeriod ?? 0} />
             <KPICard icon={Building2} label="الشركات"          color="#8B5CF6"
               value={(cl.byType ?? []).find((t: any) => t.name === "شركات")?.value ?? 0} />
           </div>
@@ -866,7 +866,7 @@ tr:nth-child(even) td{background:#fafafa}
                 {!(cl.monthly ?? []).some((m: any) => m.عملاء > 0) ? <EmptyState msg="لا بيانات" /> : (
                   <ResponsiveContainer width="100%" height={240}>
                     <LineChart data={cl.monthly}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3D6B" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                       <XAxis dataKey="month" tick={{ fill: "#A0ADB8", fontSize: 10 }} />
                       <YAxis tick={{ fill: "#A0ADB8", fontSize: 10 }} allowDecimals={false} />
                       <Tooltip content={<CustomTooltip />} />
@@ -985,7 +985,7 @@ tr:nth-child(even) td{background:#fafafa}
                     </Badge>
                   )}
                   {aiData.cached && (
-                    <Badge variant="outline" className="text-xs border-white/20 text-white/40">محفوظ مؤقتاً</Badge>
+                    <Badge variant="outline" className="text-xs border-border text-muted-foreground">محفوظ مؤقتاً</Badge>
                   )}
                 </div>
                 <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs text-white/50 hover:text-white"

@@ -40,7 +40,7 @@ type Service = {
 
 /* ── Category config ─────────────────────────────────────────────────────── */
 const CATEGORIES = [
-  { id: "all",          label: "الكل",              icon: ShoppingBag, color: "#C9A84C" },
+  { id: "all",          label: "الكل",              icon: ShoppingBag, color: "#2563EB" },
   { id: "consultation", label: "استشارات",          icon: Users,       color: "#6366F1" },
   { id: "contract",     label: "صياغة العقود",      icon: FileText,    color: "#0EA5E9" },
   { id: "memo",         label: "مذكرات قانونية",    icon: Scale,       color: "#8B5CF6" },
@@ -59,7 +59,7 @@ function fmtPrice(n: number) {
 /* ── Office Avatar ────────────────────────────────────────────────────────── */
 function OfficeAvatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
   const initials = (name ?? "؟").split(" ").slice(0, 2).map(w => w[0]).join("");
-  const COLORS = ["#6366F1","#0EA5E9","#8B5CF6","#10B981","#F59E0B","#EF4444","#EC4899","#C9A84C"];
+  const COLORS = ["#6366F1","#0EA5E9","#8B5CF6","#10B981","#F59E0B","#EF4444","#EC4899","#2563EB"];
   const color  = COLORS[(name?.charCodeAt(0) ?? 0) % COLORS.length];
   const sz     = { sm: "w-7 h-7 text-[11px]", md: "w-10 h-10 text-sm", lg: "w-14 h-14 text-base" }[size];
   return (
@@ -113,7 +113,7 @@ function BuyNowDialog({ service, onClose }: { service: Service; onClose: () => v
       <DialogContent className="max-w-md" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <ShoppingBag className="h-4 w-4 text-[#C9A84C]" />اطلب الخدمة مباشرة
+            <ShoppingBag className="h-4 w-4 text-primary" />اطلب الخدمة مباشرة
           </DialogTitle>
         </DialogHeader>
 
@@ -126,7 +126,7 @@ function BuyNowDialog({ service, onClose }: { service: Service; onClose: () => v
               <p className="text-[10px] text-muted-foreground">{service.office_name}</p>
             </div>
             <div className="mr-auto text-right">
-              <p className="text-base font-black text-[#C9A84C]">{fmtPrice(service.price)}</p>
+              <p className="text-base font-black text-primary">{fmtPrice(service.price)}</p>
               <p className="text-[10px] text-muted-foreground">ر.س</p>
             </div>
           </div>
@@ -217,7 +217,7 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
       <DialogContent className="max-w-lg" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Handshake className="h-4 w-4 text-[#C9A84C]" />غرفة التفاوض
+            <Handshake className="h-4 w-4 text-primary" />غرفة التفاوض
           </DialogTitle>
         </DialogHeader>
 
@@ -229,7 +229,7 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
                 <p className="text-sm font-bold">{service.title}</p>
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">السعر الأصلي</p>
-                  <p className="text-base font-black text-[#C9A84C]">{fmtPrice(service.price)} ر.س</p>
+                  <p className="text-base font-black text-primary">{fmtPrice(service.price)} ر.س</p>
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground">
@@ -257,7 +257,7 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
               <Label className="text-xs">عرضك (ر.س) *</Label>
               <div className="relative">
                 <Input type="number" value={myPrice} onChange={e => setMyPrice(e.target.value)}
-                  className="h-10 text-lg font-black text-[#C9A84C] pl-14" dir="ltr" />
+                  className="h-10 text-lg font-black text-primary pl-14" dir="ltr" />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">ر.س</span>
               </div>
               <p className="text-[10px] text-muted-foreground">
@@ -310,14 +310,14 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
                   <div className={cn(
                     "max-w-[75%] rounded-xl p-3 space-y-1",
                     offer.from_role === "buyer"
-                      ? "bg-[#C9A84C]/15 border border-[#C9A84C]/30"
+                      ? "bg-primary/15 border border-primary/30"
                       : "bg-muted/50 border border-border/40"
                   )}>
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="text-[10px] text-muted-foreground">
                         {offer.from_role === "buyer" ? "عرضك" : "رد المكتب"}
                       </span>
-                      <span className="text-base font-black text-[#C9A84C]">{fmtPrice(offer.price)} ر.س</span>
+                      <span className="text-base font-black text-primary">{fmtPrice(offer.price)} ر.س</span>
                     </div>
                     {offer.message && <p className="text-xs text-muted-foreground">{offer.message}</p>}
                     <p className="text-[9px] text-muted-foreground/50">
@@ -342,7 +342,7 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
                 <CheckCircle2 className="h-5 w-5 text-emerald-400 mx-auto mb-1" />
                 <p className="text-sm font-bold text-emerald-400">تم الاتفاق!</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  السعر النهائي: <strong className="text-[#C9A84C]">{fmtPrice(deal.final_price)} ر.س</strong>
+                  السعر النهائي: <strong className="text-primary">{fmtPrice(deal.final_price)} ر.س</strong>
                   {" · "}سيتواصل معك الفريق قريباً
                 </p>
               </div>
@@ -404,7 +404,7 @@ function AddServiceDialog({ onCreated }: { onCreated: () => void }) {
         <DialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-[#C9A84C]" />نشر خدمة قانونية جديدة
+              <Sparkles className="h-4 w-4 text-primary" />نشر خدمة قانونية جديدة
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
@@ -443,9 +443,9 @@ function AddServiceDialog({ onCreated }: { onCreated: () => void }) {
                 <Input value={tags} onChange={e => setTags(e.target.value)} placeholder="عمالي, عقود" className="h-9 text-sm" />
               </div>
             </div>
-            <div className="p-3 rounded-xl border border-[#C9A84C]/25 bg-[#C9A84C]/5 space-y-2">
+            <div className="p-3 rounded-xl border border-primary/25 bg-primary/5 space-y-2">
               <div className="flex items-start gap-2">
-                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[#C9A84C]" />
+                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
                 <p className="text-[11px] text-muted-foreground">
                   عمولة المنصة <strong className="text-foreground">10%</strong> عند الدفع الإلكتروني
                 </p>
@@ -502,7 +502,7 @@ function ServiceCard({
     )}>
       {/* Category color strip */}
       <div className="absolute top-0 right-0 left-0 h-0.5 rounded-t-lg"
-        style={{ background: cat?.color ?? "#C9A84C" }} />
+        style={{ background: cat?.color ?? "#2563EB" }} />
 
       <CardContent className="p-4 space-y-3">
         {/* Office + Category */}
@@ -568,7 +568,7 @@ function ServiceCard({
         {/* Price + CTAs */}
         <div className="flex items-end justify-between pt-2 border-t border-border/30 gap-2">
           <div>
-            <p className="text-xl font-black text-[#C9A84C] font-mono leading-none">{fmtPrice(service.price)}</p>
+            <p className="text-xl font-black text-primary font-mono leading-none">{fmtPrice(service.price)}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">ر.س</p>
           </div>
           <div className="flex gap-1.5">
@@ -673,7 +673,7 @@ function DealsDashboard() {
           { label: "صفقات مفتوحة",   value: deals.filter((d: any) => d.status === "open").length,     color: "#F59E0B" },
           { label: "صفقات مكتملة",   value: deals.filter((d: any) => d.status === "accepted").length,  color: "#10B981" },
           { label: "طلبات معلقة",    value: orders.filter((o: any) => o.status === "pending").length,  color: "#6366F1" },
-          { label: "طلبات مكتملة",   value: orders.filter((o: any) => o.status === "completed").length, color: "#C9A84C" },
+          { label: "طلبات مكتملة",   value: orders.filter((o: any) => o.status === "completed").length, color: "#2563EB" },
         ].map(s => (
           <Card key={s.label} className="border-border/50">
             <CardContent className="p-4 text-center">
@@ -710,7 +710,7 @@ function DealsDashboard() {
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">عرض المشتري: <strong className="text-[#C9A84C]">{fmtPrice(deal.initial_price)} ر.س</strong></span>
+                    <span className="text-muted-foreground">عرض المشتري: <strong className="text-primary">{fmtPrice(deal.initial_price)} ر.س</strong></span>
                     {deal.final_price && <span className="text-emerald-400">نهائي: {fmtPrice(deal.final_price)} ر.س</span>}
                   </div>
                   {deal.status === "open" && (
@@ -741,8 +741,8 @@ function DealsDashboard() {
                       <div className="space-y-1.5 max-h-32 overflow-y-auto">
                         {(dealDetail.offers ?? []).map((o: any) => (
                           <div key={o.id} className={cn("p-2 rounded-lg text-xs",
-                            o.from_role === "buyer" ? "bg-muted/30 text-right" : "bg-[#C9A84C]/10 text-left")}>
-                            <span className="font-bold text-[#C9A84C]">{fmtPrice(o.price)} ر.س</span>
+                            o.from_role === "buyer" ? "bg-muted/30 text-right" : "bg-primary/10 text-left")}>
+                            <span className="font-bold text-primary">{fmtPrice(o.price)} ر.س</span>
                             {o.message && <p className="text-muted-foreground mt-0.5">{o.message}</p>}
                             <p className="text-[9px] text-muted-foreground/50 mt-0.5">
                               {o.from_role === "buyer" ? "المشتري" : "ردك"} · {new Date(o.created_at).toLocaleTimeString("ar-SA")}
@@ -793,7 +793,7 @@ function DealsDashboard() {
                       </div>
                     </div>
                     <div className="text-left shrink-0">
-                      <p className="text-sm font-black text-[#C9A84C]">{fmtPrice(order.amount)} ر.س</p>
+                      <p className="text-sm font-black text-primary">{fmtPrice(order.amount)} ر.س</p>
                       <Select value={order.status} onValueChange={v => updateOrder.mutate({ id: order.id, status: v })}>
                         <SelectTrigger className="h-6 text-[10px] mt-1 w-24 border-none p-0 pr-1">
                           <span className={cn("font-medium", cfg.color)}>{cfg.label}</span>
@@ -882,13 +882,13 @@ export default function Marketplace() {
       <div className="relative overflow-hidden rounded-2xl mb-6 p-6 sm:p-8"
         style={{ background: "linear-gradient(135deg, #0d1b2a 0%, #1a2744 40%, #0d1b2a 100%)" }}>
         <div className="absolute inset-0 opacity-10"
-          style={{ backgroundImage: "radial-gradient(circle at 20% 50%, #C9A84C 0%, transparent 50%), radial-gradient(circle at 80% 20%, #6366F1 0%, transparent 50%)" }} />
+          style={{ backgroundImage: "radial-gradient(circle at 20% 50%, #2563EB 0%, transparent 50%), radial-gradient(circle at 80% 20%, #6366F1 0%, transparent 50%)" }} />
 
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <Scale className="h-5 w-5 text-[#C9A84C]" />
-              <span className="text-xs font-bold text-[#C9A84C] uppercase tracking-wider">عدالة AI · Marketplace</span>
+              <Scale className="h-5 w-5 text-primary" />
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">عدالة AI · Marketplace</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">السوق القانوني</h1>
             <p className="text-sm text-white/60 max-w-md">
@@ -903,7 +903,7 @@ export default function Marketplace() {
                 { label: "طلب مكتمل",   value: stats?.completedOrders ?? "—" },
               ].map(s => (
                 <div key={s.label}>
-                  <p className="text-xl font-black text-[#C9A84C]">{s.value}+</p>
+                  <p className="text-xl font-black text-primary">{s.value}+</p>
                   <p className="text-[10px] text-white/40">{s.label}</p>
                 </div>
               ))}
@@ -913,7 +913,7 @@ export default function Marketplace() {
           <div className="flex flex-col gap-2 items-start md:items-end">
             <AddServiceDialog onCreated={refresh} />
             <button onClick={() => setActiveTab("deals")}
-              className="text-xs text-white/50 hover:text-[#C9A84C] transition-colors flex items-center gap-1">
+              className="text-xs text-white/50 hover:text-primary transition-colors flex items-center gap-1">
               <Handshake className="h-3.5 w-3.5" />إدارة صفقاتي وطلباتي
             </button>
           </div>
@@ -954,7 +954,7 @@ export default function Marketplace() {
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap border transition-all shrink-0",
                     active
-                      ? "border-[#C9A84C]/50 text-[#C9A84C]"
+                      ? "border-primary/50 text-primary"
                       : "border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
                   )}
                   style={active ? { background: `${cat.color}15` } : {}}>

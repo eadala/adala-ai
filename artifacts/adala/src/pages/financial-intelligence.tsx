@@ -20,11 +20,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
 const BASE  = import.meta.env.BASE_URL.replace(/\/$/, "");
-const GOLD  = "#C9A84C";
+const GOLD  = "#2563EB";
 const GREEN = "#10B981";
 const RED   = "#EF4444";
 const BLUE  = "#3B82F6";
-const PIE_COLORS = ["#C9A84C","#3B82F6","#10B981","#8B5CF6","#F59E0B","#06B6D4","#EC4899","#14B8A6"];
+const PIE_COLORS = ["#2563EB","#3B82F6","#10B981","#8B5CF6","#F59E0B","#06B6D4","#EC4899","#14B8A6"];
 
 /* ── Helpers ──────────────────────────────────────────── */
 function fmt(n: number) {
@@ -129,7 +129,7 @@ export default function FinancialIntelligencePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black flex items-center gap-2">
-            <BrainCircuit className="h-6 w-6 text-[#C9A84C]" />
+            <BrainCircuit className="h-6 w-6 text-primary" />
             مركز الذكاء المالي
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -172,7 +172,7 @@ export default function FinancialIntelligencePage() {
         <Card className="border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-[#C9A84C]" /> تحليلات الذكاء الاصطناعي
+              <Lightbulb className="h-4 w-4 text-primary" /> تحليلات الذكاء الاصطناعي
             </CardTitle>
             <CardDescription>رؤى مالية مولّدة تلقائياً من بياناتك</CardDescription>
           </CardHeader>

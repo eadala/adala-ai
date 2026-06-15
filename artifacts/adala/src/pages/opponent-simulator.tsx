@@ -97,7 +97,7 @@ function MessageBubble({ msg }: { msg: Message }) {
 
   const lines = msg.content.split("\n").map((line, i) => {
     if (line.startsWith("**") && line.endsWith("**"))
-      return <div key={i} className="font-bold text-[#C9A84C] mt-2 mb-1 text-sm">{line.slice(2, -2)}</div>;
+      return <div key={i} className="font-bold text-primary mt-2 mb-1 text-sm">{line.slice(2, -2)}</div>;
     if (line.trim() === "") return <div key={i} className="h-1" />;
     return <div key={i} className="leading-relaxed text-sm">{line}</div>;
   });

@@ -85,7 +85,7 @@ export default function OnboardingPage() {
               key={i}
               className={cn(
                 "h-1.5 flex-1 rounded-full transition-all duration-300",
-                i <= step ? "bg-[#C9A84C]" : "bg-muted"
+                i <= step ? "bg-primary" : "bg-muted"
               )}
             />
           ))}
@@ -95,14 +95,14 @@ export default function OnboardingPage() {
         <div className="bg-card border border-border rounded-2xl p-8 shadow-xl">
           {/* Icon */}
           <div className="flex justify-center mb-6">
-            <div className="h-16 w-16 rounded-2xl bg-[#C9A84C]/20 flex items-center justify-center">
-              <Icon className="h-8 w-8 text-[#C9A84C]" />
+            <div className="h-16 w-16 rounded-2xl bg-primary/20 flex items-center justify-center">
+              <Icon className="h-8 w-8 text-primary" />
             </div>
           </div>
 
           {/* Title */}
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-white mb-2">{cur.title}</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-2">{cur.title}</h1>
             <p className="text-muted-foreground text-sm">{cur.sub}</p>
           </div>
 
@@ -129,8 +129,8 @@ export default function OnboardingPage() {
                   className={cn(
                     "px-3 py-2 rounded-lg text-sm border transition-all",
                     specialty === s
-                      ? "bg-[#C9A84C]/20 border-[#C9A84C]/50 text-[#C9A84C] font-medium"
-                      : "border-border text-muted-foreground hover:border-[#C9A84C]/30 hover:text-foreground"
+                      ? "bg-primary/20 border-primary/50 text-primary font-medium"
+                      : "border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
                   )}
                 >{s}</button>
               ))}
@@ -146,8 +146,8 @@ export default function OnboardingPage() {
                   className={cn(
                     "px-4 py-4 rounded-xl border transition-all text-center",
                     size === s.value
-                      ? "bg-[#C9A84C]/20 border-[#C9A84C]/50 text-[#C9A84C] font-semibold"
-                      : "border-border text-muted-foreground hover:border-[#C9A84C]/30 hover:text-foreground"
+                      ? "bg-primary/20 border-primary/50 text-primary font-semibold"
+                      : "border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
                   )}
                 >
                   <Users className="h-5 w-5 mx-auto mb-1" />
@@ -167,7 +167,7 @@ export default function OnboardingPage() {
                 ].map(item => (
                   <div key={item.label} className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{item.label}</span>
-                    <span className="text-white font-medium">{item.val || "-"}</span>
+                    <span className="text-foreground font-medium">{item.val || "-"}</span>
                   </div>
                 ))}
               </div>
@@ -196,7 +196,7 @@ export default function OnboardingPage() {
               <Button
                 onClick={next}
                 disabled={!canNext() || completeMut.isPending}
-                className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold px-6"
+                className="bg-primary hover:bg-[#b8943f] text-black font-bold px-6"
               >
                 {completeMut.isPending && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}
                 {isLast ? "ابدأ الآن" : "التالي"}

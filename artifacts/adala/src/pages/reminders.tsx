@@ -114,11 +114,11 @@ export default function RemindersPage() {
             <Bell className="h-5 w-5 text-amber-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">{tx("التذكيرات", "Reminders")}</h1>
+            <h1 className="text-xl font-bold text-foreground">{tx("التذكيرات", "Reminders")}</h1>
             <p className="text-xs text-muted-foreground">{pending} {tx("تذكير معلق", "pending reminder(s)")}</p>
           </div>
         </div>
-        <Button onClick={openCreate} className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold gap-1.5">
+        <Button onClick={openCreate} className="bg-primary hover:bg-[#b8943f] text-black font-bold gap-1.5">
           <Plus className="h-4 w-4" /> {tx("تذكير جديد", "New Reminder")}
         </Button>
       </div>
@@ -135,7 +135,7 @@ export default function RemindersPage() {
             onClick={() => setFilter(tab.key as any)}
             className={cn(
               "px-4 py-1.5 text-sm font-medium rounded-t transition-colors",
-              filter === tab.key ? "text-[#C9A84C] border-b-2 border-[#C9A84C]" : "text-muted-foreground hover:text-foreground"
+              filter === tab.key ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
             )}
           >{tab.label}</button>
         ))}
@@ -160,7 +160,7 @@ export default function RemindersPage() {
             const catConf = CATEGORIES.find(c => c.value === r.category);
             return (
               <Card key={r.id} className={cn(
-                "bg-sidebar border-sidebar-border transition-all",
+                "bg-card border-border transition-all",
                 r.done && "opacity-50",
                 overdue && !r.done && "border-red-500/30 bg-red-500/5"
               )}>
@@ -264,7 +264,7 @@ export default function RemindersPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>{tx("إلغاء", "Cancel")}</Button>
-            <Button onClick={submit} disabled={saveMut.isPending} className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold">
+            <Button onClick={submit} disabled={saveMut.isPending} className="bg-primary hover:bg-[#b8943f] text-black font-bold">
               {saveMut.isPending && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}
               {editing ? tx("حفظ التعديلات", "Save Changes") : tx("إضافة", "Add")}
             </Button>

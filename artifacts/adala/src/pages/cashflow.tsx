@@ -10,7 +10,7 @@ function fmt(n: number) { return n.toLocaleString("ar-SA", { maximumFractionDigi
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1A2744] border border-[#2D3D6B] rounded-lg p-3 text-xs shadow-xl" dir="rtl">
+    <div className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-lg p-3 text-xs shadow-xl" dir="rtl">
       <p className="text-primary font-medium mb-2">{label}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2 mb-1">
@@ -84,23 +84,23 @@ export default function Cashflow() {
                 <AreaChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                   <defs>
                     <linearGradient id="balGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#C9A84C" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#C9A84C" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#2563EB" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="inGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
                       <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2D3D6B" />
-                  <XAxis dataKey="month" tick={{ fill: "#9CA3AF", fontSize: 9 }} axisLine={{ stroke: "#2D3D6B" }} tickLine={false} />
-                  <YAxis tick={{ fill: "#9CA3AF", fontSize: 9 }} axisLine={{ stroke: "#2D3D6B" }} tickLine={false}
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                  <XAxis dataKey="month" tick={{ fill: "#9CA3AF", fontSize: 9 }} axisLine={{ stroke: "#E2E8F0" }} tickLine={false} />
+                  <YAxis tick={{ fill: "#9CA3AF", fontSize: 9 }} axisLine={{ stroke: "#E2E8F0" }} tickLine={false}
                     tickFormatter={(v) => v >= 1000 ? (v / 1000) + "ك" : String(v)} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend wrapperStyle={{ fontSize: "12px", color: "#9CA3AF" }} />
                   <Area type="monotone" dataKey="inflow" name="الدخل" stroke="#10B981" fill="url(#inGrad)" strokeWidth={2} />
                   <Area type="monotone" dataKey="outflow" name="الخروج" stroke="#EF4444" fill="transparent" strokeWidth={2} strokeDasharray="5 5" />
-                  <Area type="monotone" dataKey="balance" name="الرصيد" stroke="#C9A84C" fill="url(#balGrad)" strokeWidth={2.5} />
+                  <Area type="monotone" dataKey="balance" name="الرصيد" stroke="#2563EB" fill="url(#balGrad)" strokeWidth={2.5} />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -124,7 +124,7 @@ export default function Cashflow() {
                   {data.map((m: any) => {
                     const net = m.inflow - m.outflow;
                     return (
-                      <tr key={m.month} className="border-b border-border/40 hover:bg-sidebar-accent/20">
+                      <tr key={m.month} className="border-b border-border/40 hover:bg-card-accent/20">
                         <td className="px-4 py-2.5 text-foreground">{m.month}</td>
                         <td className="px-4 py-2.5 text-green-400">{fmt(m.inflow)}</td>
                         <td className="px-4 py-2.5 text-red-400">{fmt(m.outflow)}</td>

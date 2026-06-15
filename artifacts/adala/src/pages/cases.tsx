@@ -175,7 +175,7 @@ export default function Cases() {
               <cfg.icon className="h-3 w-3" />
               {cfg.label}
               <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full",
-                active ? "bg-white/20" : "bg-muted text-muted-foreground")}>
+                active ? "bg-primary/10" : "bg-muted text-muted-foreground")}>
                 {count}
               </span>
             </button>

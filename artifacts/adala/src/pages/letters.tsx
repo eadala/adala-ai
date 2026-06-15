@@ -501,7 +501,7 @@ export default function Letters() {
     const br = branding;
     const letterhead = (br as any)?.letterheadUrl as string | undefined;
     const primary = br?.primaryColor || "#1e3a5f";
-    const secondary = br?.secondaryColor || "#c9a84c";
+    const secondary = br?.secondaryColor || "#2563EB";
     const officeName = br?.officeName || "مكتب المحاماة";
     const showFooter = br?.showAdalalahFooter !== false;
 

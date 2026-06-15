@@ -65,14 +65,14 @@ const EVENT_ICONS: Record<string, { icon: any; color: string }> = {
   CLIENT_ADDED:     { icon: Users,        color: "#10B981" },
   INVOICE_CREATED:  { icon: Receipt,      color: "#F59E0B" },
   INVOICE_PAID:     { icon: Receipt,      color: "#10B981" },
-  PAYMENT_SUCCESS:  { icon: CreditCard,   color: "#C9A84C" },
+  PAYMENT_SUCCESS:  { icon: CreditCard,   color: "#2563EB" },
   PAYMENT_FAILED:   { icon: CreditCard,   color: "#EF4444" },
   DOCUMENT_GENERATED:{ icon: FileText,    color: "#8B5CF6" },
   AI_QUERY:         { icon: BrainCircuit, color: "#A855F7" },
-  SUBSCRIPTION_RENEWED:{ icon: Zap,       color: "#C9A84C" },
+  SUBSCRIPTION_RENEWED:{ icon: Zap,       color: "#2563EB" },
 };
 
-const GOLD = "#C9A84C";
+const GOLD = "#2563EB";
 
 function timeAgo(ts: string): string {
   const diff = Date.now() - new Date(ts).getTime();
@@ -190,14 +190,14 @@ export function NotificationsPanel() {
         <div
           className="absolute left-0 top-12 z-50 w-96 max-h-[82vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden animate-in slide-in-from-top-2 fade-in-0 duration-200"
           style={{
-            background: "#1A2744",
-            borderColor: "#2D3D6B",
+            background: "#FFFFFF",
+            borderColor: "#E2E8F0",
             boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.1)",
           }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
-            style={{ borderColor: "#2D3D6B" }}>
+            style={{ borderColor: "#E2E8F0" }}>
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${GOLD}18` }}>
                 <Bell className="h-3.5 w-3.5" style={{ color: GOLD }} />
@@ -223,7 +223,7 @@ export function NotificationsPanel() {
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b flex-shrink-0" style={{ borderColor: "#2D3D6B" }}>
+          <div className="flex border-b flex-shrink-0" style={{ borderColor: "#E2E8F0" }}>
             {[
               { id: "live" as const,   label: "نبض لحظي", badge: newLiveCount > 0 ? newLiveCount : liveEvents.length },
               { id: "alerts" as const, label: "تنبيهات",  badge: allNotifications.length },
@@ -241,7 +241,7 @@ export function NotificationsPanel() {
                 {t.label}
                 {t.badge > 0 && (
                   <span className="px-1.5 py-0 rounded-full text-[9px] font-bold text-white"
-                    style={{ background: t.id === "live" && newLiveCount > 0 ? "#EF4444" : "#2D3D6B" }}>
+                    style={{ background: t.id === "live" && newLiveCount > 0 ? "#EF4444" : "#E2E8F0" }}>
                     {t.badge > 99 ? "99+" : t.badge}
                   </span>
                 )}
@@ -281,7 +281,7 @@ export function NotificationsPanel() {
                       return (
                         <div
                           key={ev.id}
-                          className={`flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-white/3 cursor-pointer ${isNew ? "bg-[#C9A84C]/3" : ""}`}
+                          className={`flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-accent/50 cursor-pointer ${isNew ? "bg-primary/5" : ""}`}
                           onClick={() => navigate("/activity-stream")}
                         >
                           <div className="mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -332,11 +332,11 @@ export function NotificationsPanel() {
                     const CategoryIcon = CATEGORY_ICONS[category] ?? Bell;
                     return (
                       <div key={category}>
-                        <div className="flex items-center gap-2 px-4 py-2 sticky top-0" style={{ background: "#1A2744" }}>
+                        <div className="flex items-center gap-2 px-4 py-2 sticky top-0" style={{ background: "#FFFFFF" }}>
                           <CategoryIcon className="h-3 w-3 text-muted-foreground" />
                           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{category}</span>
-                          <div className="flex-1 h-px" style={{ background: "#2D3D6B" }} />
-                          <Badge variant="outline" className="text-[9px] py-0 px-1.5 h-4" style={{ borderColor: "#2D3D6B", color: "#A0ADB8" }}>
+                          <div className="flex-1 h-px" style={{ background: "#E2E8F0" }} />
+                          <Badge variant="outline" className="text-[9px] py-0 px-1.5 h-4" style={{ borderColor: "#E2E8F0", color: "#A0ADB8" }}>
                             {items.length}
                           </Badge>
                         </div>
@@ -381,7 +381,7 @@ export function NotificationsPanel() {
 
           {/* Footer */}
           <div className="border-t px-3 py-2.5 flex items-center justify-between flex-shrink-0 gap-2"
-            style={{ borderColor: "#2D3D6B", background: "rgba(26,39,68,0.95)" }}>
+            style={{ borderColor: "#E2E8F0", background: "rgba(26,39,68,0.95)" }}>
 
             {/* Push toggle */}
             {push.state !== "unsupported" && (

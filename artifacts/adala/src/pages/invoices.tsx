@@ -215,7 +215,7 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 bg-[#b4823c] hover:bg-[#9a6f33] text-white">
+        <Button className="gap-2 bg-[#b4823c] hover:bg-[#1E40AF] text-white">
           <Plus className="h-4 w-4" />فاتورة جديدة
         </Button>
       </DialogTrigger>
@@ -310,7 +310,7 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
               onChange={e => setNotes(e.target.value)} rows={2} />
           </div>
 
-          <Button className="w-full bg-[#b4823c] hover:bg-[#9a6f33] text-white"
+          <Button className="w-full bg-[#b4823c] hover:bg-[#1E40AF] text-white"
             onClick={() => create.mutate()} disabled={!title || create.isPending}>
             {create.isPending
               ? <Loader2 className="h-4 w-4 animate-spin ml-2" />
@@ -442,12 +442,12 @@ body{font-family:'Cairo',Arial,sans-serif;background:#fff;color:#1a1a2e;-webkit-
 /* ═══ TOP ACCENT BAR ═══ */
 .accent-bar{
   height:6px;
-  background:linear-gradient(90deg,#1A2744 0%,#1A2744 40%,#C9A84C 40%,#C9A84C 60%,#1A2744 60%,#1A2744 100%);
+  background:linear-gradient(90deg,#FFFFFF 0%,#FFFFFF 40%,#2563EB 40%,#2563EB 60%,#FFFFFF 60%,#FFFFFF 100%);
 }
 
 /* ═══ HEADER ═══ */
 .header{
-  background:linear-gradient(135deg,#0f1c35 0%,#1A2744 60%,#243560 100%);
+  background:linear-gradient(135deg,#0f1c35 0%,#FFFFFF 60%,#243560 100%);
   padding:28px 32px 24px;
   display:flex;justify-content:space-between;align-items:flex-start;
   position:relative;overflow:hidden;
@@ -465,14 +465,14 @@ body{font-family:'Cairo',Arial,sans-serif;background:#fff;color:#1a1a2e;-webkit-
 
 .brand-block{position:relative;z-index:1}
 .brand-ar{font-size:28pt;font-weight:900;color:#fff;line-height:1;letter-spacing:-0.5px}
-.brand-ar span{color:#C9A84C}
+.brand-ar span{color:#2563EB}
 .brand-en{font-family:'Montserrat',Arial,sans-serif;font-size:10pt;font-weight:600;color:rgba(201,168,76,0.8);letter-spacing:3px;text-transform:uppercase;margin-top:3px}
 .brand-tagline{font-size:8pt;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:300}
 
 .inv-badge{
   position:relative;z-index:1;text-align:left;
 }
-.inv-badge .inv-type-ar{font-size:16pt;font-weight:900;color:#C9A84C;line-height:1.1}
+.inv-badge .inv-type-ar{font-size:16pt;font-weight:900;color:#2563EB;line-height:1.1}
 .inv-badge .inv-type-en{font-family:'Montserrat',Arial,sans-serif;font-size:9pt;color:rgba(201,168,76,0.7);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
 .inv-badge .inv-num{
   background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.4);
@@ -490,7 +490,7 @@ body{font-family:'Cairo',Arial,sans-serif;background:#fff;color:#1a1a2e;-webkit-
     ? "background:#f0fdf4;border-bottom:2px solid #86efac;"
     : isOverdue
     ? "background:#fef2f2;border-bottom:2px solid #fca5a5;"
-    : "background:#fffbf0;border-bottom:2px solid #C9A84C40;"}
+    : "background:#fffbf0;border-bottom:2px solid #2563EB40;"}
 }
 .status-ribbon .dates{display:flex;gap:24px;color:#555}
 .status-ribbon .dates span{display:flex;align-items:center;gap:6px}
@@ -520,17 +520,17 @@ body{font-family:'Cairo',Arial,sans-serif;background:#fff;color:#1a1a2e;-webkit-
 .party:last-child{background:#fff}
 .party-label{
   font-size:7.5pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-  color:#C9A84C;margin-bottom:8px;display:flex;align-items:center;gap:5px;
+  color:#2563EB;margin-bottom:8px;display:flex;align-items:center;gap:5px;
 }
-.party-label .dot{width:5px;height:5px;border-radius:50%;background:#C9A84C}
-.party-name{font-size:13pt;font-weight:900;color:#1A2744;margin-bottom:4px}
+.party-label .dot{width:5px;height:5px;border-radius:50%;background:#2563EB}
+.party-name{font-size:13pt;font-weight:900;color:#FFFFFF;margin-bottom:4px}
 .party-detail{font-size:9pt;color:#666;line-height:1.7}
 .party-detail strong{color:#444}
 
 /* ═══ TABLE ═══ */
 .tbl-wrap{border-radius:10px;overflow:hidden;border:1px solid #e8e8e8;margin-bottom:20px}
 table{width:100%;border-collapse:collapse}
-.tbl-head{background:linear-gradient(90deg,#1A2744,#243560)}
+.tbl-head{background:linear-gradient(90deg,#FFFFFF,#243560)}
 th{
   padding:11px 14px;font-size:9pt;font-weight:700;color:#fff;
   text-align:right;
@@ -540,9 +540,9 @@ td{padding:10px 14px;font-size:10pt;border-bottom:1px solid #f0f0f0;color:#333;t
 tr:last-child td{border-bottom:none}
 tr:nth-child(even) td{background:#f9fafb}
 td.idx{width:36px;color:#aaa;font-size:9pt;font-family:'Montserrat',Arial,sans-serif}
-td.num{font-family:'Montserrat',Arial,sans-serif;font-weight:600;color:#1A2744}
+td.num{font-family:'Montserrat',Arial,sans-serif;font-weight:600;color:#FFFFFF}
 td.desc-en{font-size:8pt;color:#aaa;font-family:'Montserrat',Arial,sans-serif}
-td.service-cell .svc-ar{font-weight:700;color:#1A2744}
+td.service-cell .svc-ar{font-weight:700;color:#FFFFFF}
 td.service-cell .svc-en{font-size:8pt;color:#aaa;font-family:'Montserrat',Arial,sans-serif;margin-top:2px}
 
 /* ═══ BOTTOM ROW ═══ */
@@ -555,7 +555,7 @@ td.service-cell .svc-en{font-size:8pt;color:#aaa;font-family:'Montserrat',Arial,
 }
 .payment-box h4{
   font-size:8pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-  color:#C9A84C;margin-bottom:10px;display:flex;align-items:center;gap:5px;
+  color:#2563EB;margin-bottom:10px;display:flex;align-items:center;gap:5px;
 }
 .payment-methods{display:flex;flex-wrap:wrap;gap:6px}
 .pm-chip{
@@ -563,13 +563,13 @@ td.service-cell .svc-en{font-size:8pt;color:#aaa;font-family:'Montserrat',Arial,
   background:#f4f4f5;color:#555;border:1px solid #e4e4e7;
   font-family:'Montserrat',Arial,sans-serif;
 }
-.pm-chip.primary{background:#1A2744;color:#C9A84C;border-color:#1A2744}
+.pm-chip.primary{background:#FFFFFF;color:#2563EB;border-color:#FFFFFF}
 .due-notice{
   margin-top:10px;padding:7px 10px;border-radius:6px;
-  background:#fffbf0;border:1px dashed #C9A84C60;
+  background:#fffbf0;border:1px dashed #2563EB60;
   font-size:8.5pt;color:#92400e;
 }
-.due-notice strong{color:#C9A84C}
+.due-notice strong{color:#2563EB}
 
 /* ═══ TOTALS ═══ */
 .totals-box{border:1px solid #e8e8e8;border-radius:10px;overflow:hidden}
@@ -581,12 +581,12 @@ td.service-cell .svc-en{font-size:8pt;color:#aaa;font-family:'Montserrat',Arial,
 .tot-row:last-child{border-bottom:none}
 .tot-row .lbl{color:#666}
 .tot-row .lbl-en{font-family:'Montserrat',Arial,sans-serif;font-size:7.5pt;color:#aaa;display:block}
-.tot-row .val{font-weight:700;color:#1A2744;font-family:'Montserrat',Arial,sans-serif;font-size:11pt}
+.tot-row .val{font-weight:700;color:#FFFFFF;font-family:'Montserrat',Arial,sans-serif;font-size:11pt}
 .tot-row.vat .val{color:#555}
-.tot-row.grand{background:linear-gradient(90deg,#1A2744,#243560);padding:14px 16px}
+.tot-row.grand{background:linear-gradient(90deg,#FFFFFF,#243560);padding:14px 16px}
 .tot-row.grand .lbl{color:rgba(255,255,255,0.8);font-weight:700;font-size:11pt}
 .tot-row.grand .lbl-en{color:rgba(201,168,76,0.7)}
-.tot-row.grand .val{color:#C9A84C;font-size:15pt;font-weight:900}
+.tot-row.grand .val{color:#2563EB;font-size:15pt;font-weight:900}
 .tot-row.grand .currency{font-size:10pt;font-weight:600;opacity:.8}
 
 /* ═══ NOTES ═══ */
@@ -594,7 +594,7 @@ td.service-cell .svc-en{font-size:8pt;color:#aaa;font-family:'Montserrat',Arial,
   border:1px solid #e8e8e8;border-radius:10px;padding:14px 16px;
   margin-bottom:20px;background:#fafbfd;
 }
-.notes-box h4{font-size:8pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C9A84C;margin-bottom:6px}
+.notes-box h4{font-size:8pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#2563EB;margin-bottom:6px}
 .notes-box p{font-size:9.5pt;color:#555;line-height:1.7}
 
 /* ═══ SIGNATURE ROW ═══ */
@@ -605,12 +605,12 @@ td.service-cell .svc-en{font-size:8pt;color:#aaa;font-family:'Montserrat',Arial,
 
 /* ═══ FOOTER ═══ */
 .footer-bar{
-  background:linear-gradient(90deg,#0f1c35,#1A2744);
+  background:linear-gradient(90deg,#0f1c35,#FFFFFF);
   padding:14px 32px;
   display:flex;justify-content:space-between;align-items:center;
   margin-top:auto;
 }
-.footer-bar .f-brand{color:#C9A84C;font-weight:900;font-size:10pt}
+.footer-bar .f-brand{color:#2563EB;font-weight:900;font-size:10pt}
 .footer-bar .f-brand span{color:rgba(255,255,255,0.5);font-weight:400;font-size:8pt}
 .footer-bar .f-meta{font-family:'Montserrat',Arial,sans-serif;font-size:7.5pt;color:rgba(255,255,255,0.4);text-align:left;line-height:1.7}
 
@@ -927,7 +927,7 @@ ${isPaid ? `<div class="watermark">PAID ✓</div>` : isOverdue ? `<div class="wa
             </div>
           ) : (
             invoice.status !== "paid" && invoice.status !== "cancelled" && (
-              <Button className="w-full gap-2 bg-[#b4823c] hover:bg-[#9a6f33] text-white"
+              <Button className="w-full gap-2 bg-[#b4823c] hover:bg-[#1E40AF] text-white"
                 onClick={generateLink} disabled={loadingLink}>
                 {loadingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
                 {loadingLink ? "جاري إنشاء رابط الدفع..." : "إنشاء رابط دفع Stripe"}

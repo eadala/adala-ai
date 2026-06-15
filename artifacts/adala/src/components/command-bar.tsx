@@ -34,7 +34,7 @@ const QUICK_ACTIONS = [
 ];
 
 const AI_COMMANDS = [
-  { label: "لخّص يومي",        desc: "ملخص ذكي لنشاط اليوم",            icon: Brain,    href: "/ai-hub?cmd=summarize_day",  color: "#C9A84C" },
+  { label: "لخّص يومي",        desc: "ملخص ذكي لنشاط اليوم",            icon: Brain,    href: "/ai-hub?cmd=summarize_day",  color: "#2563EB" },
   { label: "تحليل المخاطر",     desc: "اكتشف قضايا عالية المخاطر",       icon: Sparkles, href: "/ai-hub?cmd=risk_analysis",   color: "#A855F7" },
   { label: "المساعد القانوني",   desc: "اكتب، لخّص، راجع مستندات",         icon: Scale,    href: "/legal-ai",                   color: "#6366F1" },
   { label: "توقع الإيرادات",    desc: "تحليل التدفقات والتوقعات المالية", icon: TrendingUp, href: "/analytics",                 color: "#10B981" },
@@ -247,7 +247,7 @@ export function CommandBar() {
         <span className="flex items-center gap-1"><kbd className="bg-muted rounded px-1.5 py-0.5 font-mono text-[10px]">↑↓</kbd> تنقل</span>
         <span className="flex items-center gap-1"><kbd className="bg-muted rounded px-1.5 py-0.5 font-mono text-[10px]">Esc</kbd> إغلاق</span>
         <span className="mr-auto flex items-center gap-1">
-          <Zap className="h-2.5 w-2.5 text-[#C9A84C]" />
+          <Zap className="h-2.5 w-2.5 text-primary" />
           عدالة AI Command
         </span>
       </div>

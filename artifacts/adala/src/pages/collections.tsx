@@ -184,7 +184,7 @@ export default function Collections() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <DollarSign className="h-6 w-6 text-[#C9A84C]" />
+            <DollarSign className="h-6 w-6 text-primary" />
             نظام التحصيل الذكي
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">تحليلات متقدمة · مراحل التحصيل · ربحية العملاء</p>
@@ -200,7 +200,7 @@ export default function Collections() {
           { label: "فواتير متأخرة",  icon: <AlertTriangle className="h-4 w-4 text-red-400" />,     bg: "bg-red-500/10",     val: String(summary.overdue_count ?? 0),  sub: fmtSAR(Number(summary.overdue_amount ?? 0)),              color: "text-red-400"    },
           { label: "قيد التحصيل",    icon: <Clock className="h-4 w-4 text-amber-400" />,            bg: "bg-amber-500/10",   val: String(summary.pending_count ?? 0),  sub: fmtSAR(Number(summary.pending_amount ?? 0)),              color: "text-amber-400"  },
           { label: "معدل التحصيل",   icon: <Target className="h-4 w-4 text-emerald-400" />,         bg: "bg-emerald-500/10", val: analyticsLoading ? "…" : `${analytics?.collectionRate ?? 0}%`, sub: "من إجمالي الفواتير", color: "text-emerald-400" },
-          { label: "إجمالي المستحق", icon: <TrendingUp className="h-4 w-4 text-[#C9A84C]" />,      bg: "bg-[#C9A84C]/10",   val: fmtSAR(Number(summary.overdue_amount ?? 0) + Number(summary.pending_amount ?? 0)), sub: "ريال سعودي", color: "text-[#C9A84C]" },
+          { label: "إجمالي المستحق", icon: <TrendingUp className="h-4 w-4 text-primary" />,      bg: "bg-primary/10",   val: fmtSAR(Number(summary.overdue_amount ?? 0) + Number(summary.pending_amount ?? 0)), sub: "ريال سعودي", color: "text-primary" },
         ].map(k => (
           <Card key={k.label} className="border-border/50">
             <CardContent className="p-4">
@@ -248,7 +248,7 @@ export default function Collections() {
               <Card className="border-border/50">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-[#C9A84C]" />
+                    <Layers className="h-4 w-4 text-primary" />
                     تحليل الأعمار — Aging Analysis
                   </CardTitle>
                   <p className="text-xs text-muted-foreground">توزيع الفواتير المستحقة حسب أيام التأخر</p>
@@ -292,7 +292,7 @@ export default function Collections() {
                 <Card className="border-border/50">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Activity className="h-4 w-4 text-[#C9A84C]" />
+                      <Activity className="h-4 w-4 text-primary" />
                       التحصيل الشهري — آخر 6 أشهر
                     </CardTitle>
                   </CardHeader>
@@ -307,7 +307,7 @@ export default function Collections() {
                             contentStyle={{ background: "#0d1b2a", border: "1px solid rgba(201,168,76,0.25)", borderRadius: "8px", fontSize: "12px" }}
                             formatter={(v: any) => [fmtSAR(v), "المحصّل"]}
                           />
-                          <Bar dataKey="collected" radius={[5,5,0,0]} fill="#C9A84C" />
+                          <Bar dataKey="collected" radius={[5,5,0,0]} fill="#2563EB" />
                         </BarChart>
                       </ResponsiveContainer>
                     ) : (
@@ -356,7 +356,7 @@ export default function Collections() {
                   { label: "معدل التحصيل (عدد)",   val: `${analytics.collectionRate ?? 0}%`,       color: "text-emerald-400" },
                   { label: "معدل التحصيل (قيمة)",  val: `${analytics.amtCollectionRate ?? 0}%`,    color: "text-blue-400"    },
                   { label: "متوسط أيام التأخر",     val: `${analytics.avgDaysOverdue ?? 0} يوم`,    color: "text-amber-400"   },
-                  { label: "عدد المدينين",           val: analytics.topDebtors?.length ?? 0,         color: "text-[#C9A84C]"   },
+                  { label: "عدد المدينين",           val: analytics.topDebtors?.length ?? 0,         color: "text-primary"   },
                 ].map(s => (
                   <Card key={s.label} className="border-border/50">
                     <CardContent className="p-4 text-center">
@@ -420,7 +420,7 @@ export default function Collections() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Receipt className="h-4 w-4 text-[#C9A84C]" />
+                  <Receipt className="h-4 w-4 text-primary" />
                   الفواتير ({filtered.length})
                 </CardTitle>
                 {filtered.length > 0 && (
@@ -460,7 +460,7 @@ export default function Collections() {
                               e.target.checked ? next.add(inv.id) : next.delete(inv.id);
                               setSelectedIds(next);
                             }}
-                            className="mt-1.5 h-3.5 w-3.5 rounded accent-[#C9A84C] cursor-pointer shrink-0"
+                            className="mt-1.5 h-3.5 w-3.5 rounded accent-[#2563EB] cursor-pointer shrink-0"
                           />
 
                           <div className="flex-1 min-w-0">
@@ -488,7 +488,7 @@ export default function Collections() {
                           </div>
 
                           <div className="flex flex-col items-end gap-1.5 shrink-0">
-                            <p className={cn("text-base font-black", overdue ? "text-red-400" : "text-[#C9A84C]")}>
+                            <p className={cn("text-base font-black", overdue ? "text-red-400" : "text-primary")}>
                               {fmtSAR(Number(inv.total ?? 0))}
                             </p>
                             <div className="flex flex-wrap gap-1 justify-end">
@@ -523,7 +523,7 @@ export default function Collections() {
                                 <Minus className="h-3 w-3" />جزئي
                               </Button>
                               <Button size="sm"
-                                className="h-7 text-xs gap-1 bg-[#C9A84C] hover:bg-[#b8943f] text-black font-semibold"
+                                className="h-7 text-xs gap-1 bg-primary hover:bg-[#1D4ED8] text-black font-semibold"
                                 onClick={() => { setPayDialog(inv); setPayForm({ amount: String(Number(inv.total ?? 0) / 100), method: "bank_transfer", notes: "" }); }}>
                                 <CreditCard className="h-3 w-3" />كامل
                               </Button>
@@ -545,7 +545,7 @@ export default function Collections() {
         <Card className="border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-[#C9A84C]" />
+              <Users className="h-4 w-4 text-primary" />
               ربحية العملاء — تحليل شامل
             </CardTitle>
             <p className="text-xs text-muted-foreground">مقارنة الفوترة والتحصيل ومعدل الدفع لكل موكل</p>
@@ -572,7 +572,7 @@ export default function Collections() {
                       <tr key={c.clientId ?? i} className="border-b border-border/30 hover:bg-muted/20 transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-[#C9A84C]/15 flex items-center justify-center text-sm font-black text-[#C9A84C] shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-sm font-black text-primary shrink-0">
                               {(c.clientName ?? "؟")[0]}
                             </div>
                             <div>
@@ -617,7 +617,7 @@ export default function Collections() {
         <DialogContent className="sm:max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-[#C9A84C]" />تسجيل دفعة كاملة
+              <CreditCard className="h-5 w-5 text-primary" />تسجيل دفعة كاملة
             </DialogTitle>
           </DialogHeader>
           {payDialog && (
@@ -625,7 +625,7 @@ export default function Collections() {
               <div className="bg-muted/40 rounded-xl p-4 space-y-1.5 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">رقم الفاتورة</span><span className="font-medium">{payDialog.invoice_number}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">العميل</span><span className="font-medium">{payDialog.client_name ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">المبلغ</span><span className="font-bold text-[#C9A84C]">{fmtSAR(Number(payDialog.total ?? 0))}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">المبلغ</span><span className="font-bold text-primary">{fmtSAR(Number(payDialog.total ?? 0))}</span></div>
               </div>
               <div className="space-y-1.5">
                 <Label>المبلغ المحصَّل (ر.س)</Label>
@@ -647,7 +647,7 @@ export default function Collections() {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPayDialog(null)}>إلغاء</Button>
             <Button onClick={() => recordPayMut.mutate()} disabled={recordPayMut.isPending || !payForm.amount}
-              className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold gap-2">
+              className="bg-primary hover:bg-[#1D4ED8] text-black font-bold gap-2">
               {recordPayMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}تأكيد الدفعة
             </Button>
           </DialogFooter>
@@ -746,7 +746,7 @@ export default function Collections() {
         <DialogContent className="sm:max-w-lg" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <History className="h-5 w-5 text-[#C9A84C]" />
+              <History className="h-5 w-5 text-primary" />
               سجل النشاط — {activityInv?.invoice_number}
             </DialogTitle>
           </DialogHeader>

@@ -78,7 +78,7 @@ function RoleBadge({ role }: { role: string }) {
 
 function MemberAvatar({ name }: { name: string }) {
   const initials = (name ?? "؟").split(" ").slice(0, 2).map(w => w[0]).join("");
-  const colors = ["#6366F1","#0EA5E9","#8B5CF6","#10B981","#F59E0B","#EF4444","#EC4899","#C9A84C"];
+  const colors = ["#6366F1","#0EA5E9","#8B5CF6","#10B981","#F59E0B","#EF4444","#EC4899","#2563EB"];
   const idx    = name?.charCodeAt(0) % colors.length || 0;
   return (
     <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
@@ -171,7 +171,7 @@ export default function TeamPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-black flex items-center gap-2">
-            <Shield className="h-6 w-6 text-[#C9A84C]" />
+            <Shield className="h-6 w-6 text-primary" />
             إدارة الفريق والصلاحيات
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -188,7 +188,7 @@ export default function TeamPage() {
       {/* Quick stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "إجمالي الأعضاء", value: activeMembers.length, color: "#C9A84C", icon: Users },
+          { label: "إجمالي الأعضاء", value: activeMembers.length, color: "#2563EB", icon: Users },
           { label: "ملّاك ومديرون",  value: countByRole("firm_owner") + countByRole("office_manager"), color: "#6366F1", icon: Crown },
           { label: "محامون",          value: countByRole("lawyer") + countByRole("trainee_lawyer"), color: "#0EA5E9", icon: Briefcase },
           { label: "دعوات معلقة",    value: invitations.filter((i: any) => i.status === "pending").length, color: "#F59E0B", icon: Mail },
@@ -379,7 +379,7 @@ export default function TeamPage() {
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-sm flex items-center gap-2">
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                          style={{ background: `${cfg?.color?.replace("text-","").replace("-400","") || "#C9A84C"}18` }}>
+                          style={{ background: `${cfg?.color?.replace("text-","").replace("-400","") || "#2563EB"}18` }}>
                           <Icon className={cn("h-3.5 w-3.5", cfg?.color ?? "text-muted-foreground")} />
                         </div>
                         {role.displayName}
@@ -475,7 +475,7 @@ export default function TeamPage() {
         <DialogContent className="max-w-sm" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
-              <UserPlus className="h-4 w-4 text-[#C9A84C]" />دعوة عضو جديد
+              <UserPlus className="h-4 w-4 text-primary" />دعوة عضو جديد
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">

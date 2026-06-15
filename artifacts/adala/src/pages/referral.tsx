@@ -56,12 +56,12 @@ export default function ReferralPage() {
   ];
 
   const PERKS = isAr ? [
-    { icon: Gift, color: "#C9A84C", title: "شهر مجاني لك", desc: "لكل زميل يشترك بواسطة رابطك" },
+    { icon: Gift, color: "#2563EB", title: "شهر مجاني لك", desc: "لكل زميل يشترك بواسطة رابطك" },
     { icon: Users, color: "#6366F1", title: "شهر مجاني لزميلك", desc: "خصم ترحيبي تلقائي عند تسجيله" },
     { icon: Zap, color: "#10B981", title: "لا حدود للإحالات", desc: "كلما أحلت أكثر كلما حصلت على المزيد" },
     { icon: Star, color: "#F59E0B", title: "متابعة لحظية", desc: "لوحة تتبّع إحالاتك ومكافآتك" },
   ] : [
-    { icon: Gift, color: "#C9A84C", title: "Free month for you", desc: "For every colleague who subscribes via your link" },
+    { icon: Gift, color: "#2563EB", title: "Free month for you", desc: "For every colleague who subscribes via your link" },
     { icon: Users, color: "#6366F1", title: "Free month for them", desc: "Auto welcome discount when they register" },
     { icon: Zap, color: "#10B981", title: "Unlimited referrals", desc: "More referrals = more free months" },
     { icon: Star, color: "#F59E0B", title: "Live tracking", desc: "Dashboard to track your referrals and rewards" },
@@ -95,7 +95,7 @@ export default function ReferralPage() {
       href: `https://wa.me/?text=${encodeURIComponent(isAr ? `مرحباً! جرّب عدالة AI لإدارة مكتب المحاماة — شهر مجاني عبر رابطي: ${shareUrl}` : `Hi! Try Adalah AI for law firm management — free month via my link: ${shareUrl}`)}`
     },
     {
-      icon: Mail, label: isAr ? "بريد" : "Email", color: "#C9A84C",
+      icon: Mail, label: isAr ? "بريد" : "Email", color: "#2563EB",
       href: `mailto:?subject=${encodeURIComponent(isAr ? "دعوة لتجربة عدالة AI" : "Invitation to try Adalah AI")}&body=${encodeURIComponent(isAr ? `مرحباً،\n\nأدعوك لتجربة عدالة AI — نظام إدارة مكتب المحاماة المدعوم بالذكاء الاصطناعي.\n\nاستخدم رابطي للحصول على شهر مجاني: ${shareUrl}` : `Hi,\n\nI invite you to try Adalah AI — the AI-powered law firm management system.\n\nUse my link for a free month: ${shareUrl}`)}`
     },
   ];
@@ -136,7 +136,7 @@ export default function ReferralPage() {
           </div>
           <h1 className="text-4xl sm:text-5xl font-black text-white mb-5 leading-tight">
             {isAr ? (
-              <>أحِل زميلاً<br /><span style={{ background: "linear-gradient(135deg,#C9A84C,#F0D060)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>واكسبا معاً شهراً مجانياً</span></>
+              <>أحِل زميلاً<br /><span style={{ background: "linear-gradient(135deg,#2563EB,#F0D060)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>واكسبا معاً شهراً مجانياً</span></>
             ) : (
               <>Refer a colleague<br /><span style={{ color: "#1A56DB" }}>and both earn a free month</span></>
             )}

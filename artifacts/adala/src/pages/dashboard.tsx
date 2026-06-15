@@ -62,8 +62,8 @@ function AiEventsPanel() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30 bg-muted/20">
         <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-md bg-[#C9A84C]/15 flex items-center justify-center">
-            <Brain className="h-3.5 w-3.5 text-[#C9A84C]" />
+          <div className="w-6 h-6 rounded-md bg-primary/15 flex items-center justify-center">
+            <Brain className="h-3.5 w-3.5 text-primary" />
           </div>
           <span className="text-xs font-bold text-foreground/70 uppercase tracking-widest">
             ذكاء النظام — مراقبة تلقائية
@@ -109,7 +109,7 @@ function AiEventsPanel() {
               </div>
               <button
                 onClick={() => dismiss(ev.id)}
-                className="text-muted-foreground/30 hover:text-muted-foreground transition-colors flex-shrink-0 mt-0.5 p-0.5 rounded hover:bg-white/5"
+                className="text-muted-foreground/30 hover:text-muted-foreground transition-colors flex-shrink-0 mt-0.5 p-0.5 rounded hover:bg-sidebar-accent/50"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -242,13 +242,13 @@ function OfficePerfScore() {
     { key: "engagement" as const, label: "التفاعل",  icon: Zap,        color: "#6366F1" },
     { key: "collection" as const, label: "التحصيل", icon: DollarSign,  color: "#10B981" },
     { key: "activity"   as const, label: "النشاط",  icon: Activity,    color: "#3B82F6" },
-    { key: "ai"         as const, label: "ذكاء AI", icon: Brain,        color: "#C9A84C" },
+    { key: "ai"         as const, label: "ذكاء AI", icon: Brain,        color: "#2563EB" },
     { key: "risk"       as const, label: "الأمان",  icon: ShieldCheck, color: "#F59E0B" },
   ];
 
   const scores = data?.scores ?? { engagement: 0, collection: 0, activity: 0, ai: 0, risk: 0 };
   const overall = data?.officeScore ?? 0;
-  const overallColor = overall >= 85 ? "#10B981" : overall >= 65 ? "#3B82F6" : overall >= 40 ? "#C9A84C" : "#EF4444";
+  const overallColor = overall >= 85 ? "#10B981" : overall >= 65 ? "#3B82F6" : overall >= 40 ? "#2563EB" : "#EF4444";
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm overflow-hidden">
@@ -276,7 +276,7 @@ function OfficePerfScore() {
             const Icon = dim.icon;
             const scoreColor = score >= 80 ? "text-emerald-400" : score >= 60 ? "text-blue-400" : score >= 40 ? "text-amber-400" : "text-red-400";
             return (
-              <div key={dim.key} className="flex flex-col items-center gap-1.5 px-2 py-3 text-center hover:bg-white/2 transition-all">
+              <div key={dim.key} className="flex flex-col items-center gap-1.5 px-2 py-3 text-center hover:bg-accent/30 transition-all">
                 <Icon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: dim.color }} />
                 <span className={`text-sm font-black tabular-nums leading-none ${scoreColor}`}>{score}</span>
                 <div className="w-full h-1 rounded-full bg-muted/50 overflow-hidden">
@@ -347,7 +347,7 @@ function ClientRiskMatrix() {
               const rc = RISK_CFG[client.risk as keyof typeof RISK_CFG] ?? RISK_CFG.low;
               return (
                 <Link key={client.id} href="/clients">
-                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center px-4 py-2.5 hover:bg-white/2 transition-all cursor-pointer">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center px-4 py-2.5 hover:bg-accent/30 transition-all cursor-pointer">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${rc.dot}`} />
                       <span className="text-xs font-medium truncate">{client.name}</span>
@@ -389,7 +389,7 @@ const EV_ICONS: Record<string, { icon: any; color: string }> = {
   CLIENT_ADDED:    { icon: Users,        color: "#10B981" },
   INVOICE_CREATED: { icon: Receipt,      color: "#F59E0B" },
   INVOICE_PAID:    { icon: Receipt,      color: "#10B981" },
-  PAYMENT_SUCCESS: { icon: CreditCard,   color: "#C9A84C" },
+  PAYMENT_SUCCESS: { icon: CreditCard,   color: "#2563EB" },
   PAYMENT_FAILED:  { icon: CreditCard,   color: "#EF4444" },
   DOCUMENT_GENERATED:{ icon: FileText,   color: "#8B5CF6" },
   AI_QUERY:        { icon: BrainCircuit, color: "#A855F7" },
@@ -600,7 +600,7 @@ function LiveEventFeed() {
               const meta = EV_ICONS[ev.type] ?? { icon: Activity, color: "#64748B" };
               const Icon = meta.icon;
               return (
-                <div key={ev.id} className={`flex items-center gap-3 px-4 py-2 transition-colors hover:bg-white/2 ${i === 0 ? "bg-[#C9A84C]/3" : ""}`}>
+                <div key={ev.id} className={`flex items-center gap-3 px-4 py-2 transition-colors hover:bg-accent/30 ${i === 0 ? "bg-primary/3" : ""}`}>
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                     style={{ background: `${meta.color}15` }}>
                     <Icon className="h-3.5 w-3.5" style={{ color: meta.color }} />

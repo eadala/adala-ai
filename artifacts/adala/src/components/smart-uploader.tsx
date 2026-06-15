@@ -359,14 +359,14 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
           onClick={() => fileRef.current?.click()}
           className={cn(
             "relative border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer select-none",
-            dragging ? "border-[#C9A84C]/70 bg-[#C9A84C]/5 scale-[1.01]"
-                     : "border-border/50 hover:border-[#C9A84C]/40 hover:bg-muted/20"
+            dragging ? "border-primary/70 bg-primary/5 scale-[1.01]"
+                     : "border-border/50 hover:border-primary/40 hover:bg-muted/20"
           )}
         >
           <div className="flex flex-col items-center gap-3 pointer-events-none">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
               style={{ background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.25)" }}>
-              <Upload className="h-6 w-6" style={{ color: "#C9A84C" }} />
+              <Upload className="h-6 w-6" className="text-primary" />
             </div>
             <div>
               <p className="font-semibold">اسحب ملفاتك هنا</p>
@@ -455,7 +455,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
                       {item.status !== "done" && item.status !== "error" && (
                         <div className="w-full bg-muted/50 rounded-full h-1.5 overflow-hidden">
                           <div className="h-1.5 rounded-full transition-all duration-300"
-                            style={{ width: `${item.progress}%`, background: "linear-gradient(90deg,#C9A84C,#E0C060)" }} />
+                            style={{ width: `${item.progress}%`, background: "linear-gradient(90deg,#2563EB,#3B82F6)" }} />
                         </div>
                       )}
                     </div>
@@ -493,7 +493,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
                       <div className="col-span-2 flex flex-wrap gap-1 mt-0.5">
                         {item.analysis.tags.slice(0,6).map((t: string) => (
                           <span key={t} className="text-[10px] px-2 py-0.5 rounded-full border font-medium"
-                            style={{ borderColor:"rgba(201,168,76,0.3)", background:"rgba(201,168,76,0.08)", color:"#C9A84C" }}>
+                            style={{ borderColor:"rgba(201,168,76,0.3)", background:"rgba(201,168,76,0.08)", color:"#2563EB" }}>
                             {t}
                           </span>
                         ))}
@@ -509,8 +509,8 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
 
       {/* ── URL Import Box ── */}
       {showUrlBox && (
-        <div className="rounded-xl border border-[#C9A84C]/30 bg-[#C9A84C]/5 p-3 space-y-2">
-          <p className="text-xs font-semibold text-[#C9A84C] flex items-center gap-1.5">
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2">
+          <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
             <Globe className="h-3.5 w-3.5" />
             استيراد من رابط
           </p>
@@ -525,7 +525,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
               onKeyDown={e => e.key === "Enter" && importFromUrl()}
               placeholder="الصق الرابط هنا..."
               dir="ltr"
-              className="flex-1 h-9 rounded-lg border border-border/50 bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-[#C9A84C]/50 placeholder:text-muted-foreground/40"
+              className="flex-1 h-9 rounded-lg border border-border/50 bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground/40"
             />
             <Button size="sm" variant="ghost" className="h-9 w-9 p-0 shrink-0"
               onClick={async () => {
@@ -541,7 +541,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
             <Button size="sm" onClick={importFromUrl}
               disabled={!urlValue.trim() || urlLoading}
               className="h-9 px-4 text-xs font-bold shrink-0"
-              style={{ background:"linear-gradient(135deg,#C9A84C,#D4A843)", color:"#0D1626" }}>
+              style={{ background:"#2563EB", color:"#ffffff" }}>
               {urlLoading
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 : "استيراد"}
@@ -581,7 +581,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
         {queuedCount > 0 && (
           <Button size="sm" onClick={uploadAll} disabled={busy}
             className="gap-2 font-bold h-9 px-5 sm:px-6"
-            style={{ background:"linear-gradient(135deg,#C9A84C,#D4A843)", color:"#0D1626" }}>
+            style={{ background:"#2563EB", color:"#ffffff" }}>
             {busy
               ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> جاري الرفع...</>
               : <><Upload className="h-3.5 w-3.5" /> ارفع الآن ({queuedCount})</>}

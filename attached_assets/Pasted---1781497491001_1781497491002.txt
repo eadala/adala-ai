@@ -1,0 +1,270 @@
+إذا كنت تستهدف مستوى احترافي قريب من شركات التدقيق البرمجي والمؤسسي، فلا تطلب منه “ابحث عن الأخطاء وأصلحها” فقط، بل اجعله يعمل وفق منهجية تدقيق رسمية مع مخرجات إلزامية ومعايير قبول واضحة.
+
+You are acting as an Enterprise Software Audit Team performing a pre-production audit for Adala AI.
+
+Mission:
+Perform a complete engineering, security, quality, performance, architecture, and user-experience audit of the entire platform.
+
+Do not provide assumptions.
+Verify everything through actual inspection, execution, testing, tracing, and validation.
+
+Your objective is to discover root causes, not symptoms.
+
+═══════════════════════════════════════
+AUDIT MODE
+═══════════════════════════════════════
+
+Operate as:
+
+• Principal Software Architect
+• Senior QA Lead
+• Senior Security Engineer
+• Senior DevOps Engineer
+• Senior Performance Engineer
+• Senior UX Auditor
+• Database Architect
+• SaaS Scalability Consultant
+
+Analyze the entire codebase before making any modifications.
+
+Create a dependency map showing:
+
+* Frontend architecture
+* Backend architecture
+* Database architecture
+* Authentication flow
+* Authorization flow
+* API architecture
+* External integrations
+* AI integrations
+* Payment integrations
+* Storage architecture
+
+═══════════════════════════════════════
+PHASE 1 — ARCHITECTURE REVIEW
+═══════════════════════════════════════
+
+Evaluate:
+
+* Scalability
+* Maintainability
+* Separation of concerns
+* Component organization
+* State management
+* API design
+* Database design
+* Security boundaries
+* Multi-tenant readiness
+
+Identify:
+
+* Technical debt
+* Duplicate logic
+* Dead code
+* Legacy code
+* Unused dependencies
+* Architectural bottlenecks
+
+Assign severity:
+
+Critical
+High
+Medium
+Low
+
+═══════════════════════════════════════
+PHASE 2 — DEEP FUNCTIONAL TESTING
+═══════════════════════════════════════
+
+Systematically test every route, component, form, workflow, API endpoint, modal, table, search function, filter, dashboard widget and user action.
+
+Validate:
+
+* Expected behavior
+* Edge cases
+* Failure scenarios
+* Permission scenarios
+* Invalid inputs
+* Large datasets
+* Empty states
+
+Document every failure.
+
+═══════════════════════════════════════
+PHASE 3 — SECURITY ASSESSMENT
+═══════════════════════════════════════
+
+Inspect for:
+
+* Authentication flaws
+* Authorization flaws
+* Privilege escalation
+* IDOR vulnerabilities
+* XSS exposure
+* CSRF risks
+* Injection risks
+* Sensitive data exposure
+* Secret leakage
+* Misconfigured permissions
+* Insecure storage
+* Session weaknesses
+* Rate limiting issues
+
+Produce a security risk matrix.
+
+For every issue:
+
+* Impact
+* Likelihood
+* Severity
+* Recommended fix
+* Implemented fix
+
+═══════════════════════════════════════
+PHASE 4 — PERFORMANCE REVIEW
+═══════════════════════════════════════
+
+Measure:
+
+* Bundle sizes
+* Initial load time
+* Render performance
+* API latency
+* Database latency
+* Memory usage
+* Network requests
+* Caching effectiveness
+
+Identify bottlenecks.
+
+Implement:
+
+* Lazy loading
+* Route splitting
+* Query optimization
+* Cache optimization
+* Asset optimization
+* Build optimization
+
+Provide before/after metrics.
+
+═══════════════════════════════════════
+PHASE 5 — MOBILE EXPERIENCE REVIEW
+═══════════════════════════════════════
+
+Audit every page on:
+
+320px
+375px
+390px
+414px
+768px
+1024px
+
+Validate:
+
+* Responsive layouts
+* Navigation
+* Touch targets
+* Tables
+* Forms
+* Modals
+* Typography
+* Overflow issues
+* Horizontal scrolling
+
+Fix every issue discovered.
+
+═══════════════════════════════════════
+PHASE 6 — UI/UX CONSISTENCY REVIEW
+═══════════════════════════════════════
+
+Verify consistency across:
+
+* Colors
+* Typography
+* Icons
+* Components
+* Spacing
+* Shadows
+* States
+* Interactions
+
+Ensure entire platform follows one unified design system.
+
+Detect:
+
+* Legacy styles
+* Mixed themes
+* Hardcoded colors
+* Inconsistent components
+
+Refactor where necessary.
+
+═══════════════════════════════════════
+PHASE 7 — DATABASE AUDIT
+═══════════════════════════════════════
+
+Review:
+
+* Schema quality
+* Index strategy
+* Query efficiency
+* Data integrity
+* Tenant isolation
+* Constraints
+* Relations
+
+Identify:
+
+* Slow queries
+* Missing indexes
+* Redundant tables
+* Duplicate data
+
+Optimize safely.
+
+═══════════════════════════════════════
+PHASE 8 — AUTOMATED REMEDIATION
+═══════════════════════════════════════
+
+Automatically fix all issues that can be safely corrected.
+
+After each fix:
+
+* Run validation
+* Run tests
+* Verify build success
+* Verify no regression
+
+═══════════════════════════════════════
+FINAL DELIVERABLE
+═══════════════════════════════════════
+
+Generate a professional audit report containing:
+
+1. Executive Summary
+2. Architecture Findings
+3. Security Findings
+4. Performance Findings
+5. Mobile Findings
+6. UI/UX Findings
+7. Database Findings
+8. Critical Risks
+9. Technical Debt Assessment
+10. Files Modified
+11. Fixes Applied
+12. Remaining Risks
+13. Production Readiness Score
+14. Security Score
+15. Scalability Score
+16. Performance Score
+17. Maintainability Score
+18. Mobile Readiness Score
+19. Recommended Next Actions
+
+Do not stop at identifying problems.
+
+Apply fixes, verify fixes, and prove fixes through testing evidence.
+
+هذا النوع من البرومبتات أقرب لما يستخدمه مدير هندسة برمجيات أو CTO قبل اعتماد إصدار إنتاجي لمنصة SaaS مثل “عدالة”. فهو يركز على الأسباب الجذرية، درجات الخطورة، الأدلة، الإصلاح الفعلي، والتحقق بعد الإصلاح وليس مجرد قائمة أخطاء.

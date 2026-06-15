@@ -234,14 +234,14 @@ const TABS = [
 const PLAN_SLUG_COLORS: Record<string, string> = {
   free:         "#64748B",
   basic:        "#3B82F6",
-  pro:          "#C9A84C",
+  pro:          "#8B5CF6",
   growth:       "#8B5CF6",
   advanced:     "#EC4899",
   enterprise:   "#10B981",
   elite:        "#F59E0B",
   /* legacy */
   starter:      "#3B82F6",
-  professional: "#C9A84C",
+  professional: "#6366F1",
   business:     "#8B5CF6",
 };
 const PLAN_SLUG_LABELS: Record<string, string> = {
@@ -317,7 +317,7 @@ function OfficesTab({ qc, toast }: any) {
             <TableBody>
               {filtered.map((o: any) => {
                 const planSlug = o.plan ?? "starter";
-                const planColor = PLAN_SLUG_COLORS[planSlug] ?? "#C9A84C";
+                const planColor = PLAN_SLUG_COLORS[planSlug] ?? "#2563EB";
                 const planLabel = PLAN_SLUG_LABELS[planSlug] ?? planSlug;
                 return (
                   <TableRow key={o.id} className="hover:bg-muted/20">
@@ -439,7 +439,7 @@ function OfficesTab({ qc, toast }: any) {
               ...(plans as any[]).map((p: any) => ({
                 slug:  p.slug ?? p.id,
                 label: p.name,
-                color: p.color ?? "#C9A84C",
+                color: p.color ?? "#2563EB",
                 price: p.monthlyPrice > 0 ? `${p.monthlyPrice} ر.س/شهر` : "مجاناً",
               })),
             ].filter((item, idx, arr) => arr.findIndex(x => x.slug === item.slug) === idx)
@@ -589,10 +589,10 @@ const PLAN_FEATURE_FLAGS = [
   { key: "sla",             label: "SLA مميّز",                 icon: "🛡️", desc: "ضمان مستوى خدمة مميّز" },
   { key: "whiteLabel",      label: "White Label",               icon: "🏷️", desc: "إزالة علامة عدالة AI من الواجهة" },
 ];
-const PLAN_COLORS = ["#6B7280","#C9A84C","#3B82F6","#8B5CF6","#EF4444","#10B981","#F59E0B","#EC4899"];
+const PLAN_COLORS = ["#6B7280","#2563EB","#3B82F6","#8B5CF6","#EF4444","#10B981","#F59E0B","#EC4899"];
 const EMPTY_PLAN_FORM = {
   name:"", nameEn:"", slug:"", description:"",
-  price:0, monthlyPrice:0, yearlyPrice:0, color:"#C9A84C",
+  price:0, monthlyPrice:0, yearlyPrice:0, color:"#2563EB",
   maxUsers:5, maxCases:100, maxClients:50, maxAiCalls:500, maxStorageGb:5, maxBranches:0,
   isActive:true, isVisible:true, isHighlighted:false, features:"",
   featureFlags:{} as Record<string,boolean>, displayOrder:0,
@@ -606,7 +606,7 @@ function PlanCard({ plan: p, onEdit, onDelete, onToggleVisibility }: any) {
   return (
     <Card className={cn("relative overflow-hidden border-border/50 transition-all hover:shadow-md hover:shadow-black/20",
       !p.isVisible && "opacity-55", p.isHighlighted && "ring-2 ring-primary/40")}>
-      <div className="absolute top-0 inset-x-0 h-1" style={{ backgroundColor: p.color ?? "#C9A84C" }} />
+      <div className="absolute top-0 inset-x-0 h-1" style={{ backgroundColor: p.color ?? "#2563EB" }} />
       <CardHeader className="pb-2 pt-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -630,7 +630,7 @@ function PlanCard({ plan: p, onEdit, onDelete, onToggleVisibility }: any) {
         {/* Prices */}
         {monthly > 0 ? (
           <div>
-            <div className="text-2xl font-black" style={{ color: p.color ?? "#C9A84C" }}>
+            <div className="text-2xl font-black" style={{ color: p.color ?? "#2563EB" }}>
               {monthly.toLocaleString("ar-SA")}
               <span className="text-xs font-normal text-muted-foreground mr-1">ر.س / شهر</span>
             </div>
@@ -847,7 +847,7 @@ function PlansTab({ qc, toast }: any) {
                         form.color === c ? "border-white scale-110 shadow-lg" : "border-transparent")}
                       style={{ backgroundColor: c }} />
                   ))}
-                  <Input type="color" value={form.color ?? "#C9A84C"} onChange={e => setForm((f: any) => ({ ...f, color: e.target.value }))}
+                  <Input type="color" value={form.color ?? "#2563EB"} onChange={e => setForm((f: any) => ({ ...f, color: e.target.value }))}
                     className="h-6 w-10 p-0.5 border-border/50 cursor-pointer bg-transparent rounded" />
                 </div>
               </div>
@@ -1202,7 +1202,7 @@ function DepartmentsTab({ qc, toast }: any) {
   const { data: titles = [] } = useAdmin<any[]>("/job-titles");
   const [deptDialog, setDeptDialog] = useState(false);
   const [titleDialog, setTitleDialog] = useState(false);
-  const [deptForm, setDeptForm] = useState({ name: "", nameEn: "", description: "", color: "#C9A84C" });
+  const [deptForm, setDeptForm] = useState({ name: "", nameEn: "", description: "", color: "#2563EB" });
   const [titleForm, setTitleForm] = useState({ name: "", nameEn: "", departmentId: "", level: "staff" });
 
   const addDept = useMutation({
@@ -1228,11 +1228,11 @@ function DepartmentsTab({ qc, toast }: any) {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-sm">الأقسام</h3>
-          <Button size="sm" className="gap-1" onClick={() => { setDeptForm({ name: "", nameEn: "", description: "", color: "#C9A84C" }); setDeptDialog(true); }}><Plus className="h-3.5 w-3.5" /> قسم جديد</Button>
+          <Button size="sm" className="gap-1" onClick={() => { setDeptForm({ name: "", nameEn: "", description: "", color: "#2563EB" }); setDeptDialog(true); }}><Plus className="h-3.5 w-3.5" /> قسم جديد</Button>
         </div>
         {isLoading ? <Loader2 className="animate-spin mx-auto h-5 w-5" /> : depts.map(d => (
           <div key={d.id} className="flex items-center gap-2 p-3 rounded-xl border border-border/50 hover:bg-muted/20">
-            <div className="h-3 w-3 rounded-full shrink-0" style={{ background: d.color ?? "#C9A84C" }} />
+            <div className="h-3 w-3 rounded-full shrink-0" style={{ background: d.color ?? "#2563EB" }} />
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-sm">{d.name}</div>
               {d.nameEn && <div className="text-[10px] text-muted-foreground" dir="ltr">{d.nameEn}</div>}
@@ -1490,7 +1490,7 @@ function SupportTab({ qc, toast }: any) {
             onClick={() => { setSelected(t); setAdminReply(""); }}
             className={cn("p-3 rounded-xl border cursor-pointer transition-all",
               selected?.id === t.id
-                ? "border-[#C9A84C]/40 bg-[#C9A84C]/5 shadow-sm"
+                ? "border-primary/40 bg-primary/5 shadow-sm"
                 : "border-border/50 hover:bg-muted/20")}>
             <div className="flex items-start justify-between gap-2 mb-1.5">
               <span className="font-semibold text-sm line-clamp-1">{t.subject}</span>
@@ -1522,7 +1522,7 @@ function SupportTab({ qc, toast }: any) {
                   <span>{selected.userName}</span>
                   <span>·</span>
                   <span>{selected.userEmail}</span>
-                  {selected.officeName && <><span>·</span><span className="text-[#C9A84C]">{selected.officeName}</span></>}
+                  {selected.officeName && <><span>·</span><span className="text-primary">{selected.officeName}</span></>}
                 </div>
               </div>
               <div className="flex gap-1.5 shrink-0">
@@ -1559,13 +1559,13 @@ function SupportTab({ qc, toast }: any) {
             {threadMsgs.map((msg: any) => (
               <div key={msg.id} className={cn("flex gap-2.5", msg.senderType === "admin" ? "flex-row-reverse" : "")}>
                 <div className={cn("w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[9px] font-bold",
-                  msg.senderType === "admin" ? "bg-[#C9A84C]/20 text-[#C9A84C]" : "bg-blue-500/20 text-blue-400")}>
+                  msg.senderType === "admin" ? "bg-primary/20 text-primary" : "bg-blue-500/20 text-blue-400")}>
                   {msg.senderType === "admin" ? "د" : "م"}
                 </div>
                 <div className={cn("flex-1 max-w-[85%]", msg.senderType === "admin" ? "items-end" : "")}>
                   <div className={cn("rounded-xl p-3 text-sm leading-relaxed",
                     msg.senderType === "admin"
-                      ? "bg-[#C9A84C]/10 border border-[#C9A84C]/20"
+                      ? "bg-primary/10 border border-primary/20"
                       : "bg-muted/40 border border-border/30")}>
                     {msg.message}
                   </div>
@@ -1584,7 +1584,7 @@ function SupportTab({ qc, toast }: any) {
               <div className="flex gap-2">
                 <Textarea value={adminReply} onChange={e => setAdminReply(e.target.value)}
                   rows={3} className="resize-none text-xs flex-1" placeholder="اكتب ردك على العميل..." />
-                <Button size="icon" className="h-full aspect-square bg-[#C9A84C] hover:bg-[#b8973d] text-[#1A2744] self-stretch"
+                <Button size="icon" className="h-full aspect-square bg-primary hover:bg-[#b8973d] text-[#FFFFFF] self-stretch"
                   onClick={() => { if (adminReply.trim()) reply.mutate({ id: selected.id, message: adminReply }); }}
                   disabled={!adminReply.trim() || reply.isPending}>
                   {reply.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
@@ -2915,7 +2915,7 @@ function HostingCenterTab({ toast }: { toast: any }) {
 /* ═══════════════════════════════════════════════════
    OVERVIEW TAB (enhanced — with recharts + extended stats)
 ═══════════════════════════════════════════════════ */
-const CHART_COLORS = ["#C9A84C","#3B82F6","#10B981","#8B5CF6","#EF4444","#F59E0B","#06B6D4","#F97316"];
+const CHART_COLORS = ["#2563EB","#3B82F6","#10B981","#8B5CF6","#EF4444","#F59E0B","#06B6D4","#F97316"];
 
 function OverviewTab({ stats }: { stats: any }) {
   const { data: ext } = useQuery<any>({
@@ -2935,7 +2935,7 @@ function OverviewTab({ stats }: { stats: any }) {
     <div className="space-y-6" dir="rtl">
       {/* KPI row 1 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={<Building2 className="h-4 w-4" />} label="إجمالي المكاتب" value={stats?.totalOffices ?? "—"} color="#C9A84C" />
+        <StatCard icon={<Building2 className="h-4 w-4" />} label="إجمالي المكاتب" value={stats?.totalOffices ?? "—"} color="#2563EB" />
         <StatCard icon={<Users className="h-4 w-4" />} label="إجمالي المستخدمين" value={stats?.totalUsers ?? "—"} color="#3B82F6" />
         <StatCard icon={<Gavel className="h-4 w-4" />} label="إجمالي القضايا" value={ext?.cases?.total ?? "—"} sub={`${ext?.cases?.open ?? 0} مفتوحة`} color="#8B5CF6" />
         <StatCard icon={<FileSignature className="h-4 w-4" />} label="إجمالي العقود" value={ext?.contracts?.total ?? "—"} sub={`${ext?.contracts?.signed ?? 0} موقعة`} color="#10B981" />
@@ -2952,10 +2952,10 @@ function OverviewTab({ stats }: { stats: any }) {
       {/* Revenue chart + Activity feed */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Monthly Revenue Chart */}
-        <Card className="lg:col-span-2 bg-sidebar border-sidebar-border">
+        <Card className="lg:col-span-2 bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-[#C9A84C]" /> الإيرادات الشهرية
+              <TrendingUp className="h-4 w-4 text-primary" /> الإيرادات الشهرية
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -2966,15 +2966,15 @@ function OverviewTab({ stats }: { stats: any }) {
                 <AreaChart data={ext.monthlyChart} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                   <defs>
                     <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#C9A84C" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#C9A84C" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#2563EB" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border)/0.3)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? (v/1000).toFixed(0)+"ك" : String(v)} />
                   <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px", direction: "rtl" }} formatter={(v: number) => [`${(v/100).toLocaleString("ar-SA")} ر.س`, "الإيرادات"]} />
-                  <Area type="monotone" dataKey="revenue" stroke="#C9A84C" strokeWidth={2} fill="url(#revGrad)" dot={{ fill: "#C9A84C", r: 2 }} />
+                  <Area type="monotone" dataKey="revenue" stroke="#2563EB" strokeWidth={2} fill="url(#revGrad)" dot={{ fill: "#2563EB", r: 2 }} />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -2982,7 +2982,7 @@ function OverviewTab({ stats }: { stats: any }) {
         </Card>
 
         {/* Recent Activity */}
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">النشاط الأخير</CardTitle>
           </CardHeader>
@@ -3045,17 +3045,17 @@ function PlatformCasesTab() {
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في القضايا..." className="w-full h-9 pr-9 pl-3 rounded-lg bg-muted/40 text-sm border border-border/40 focus:outline-none focus:ring-1 focus:ring-[#C9A84C]" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في القضايا..." className="w-full h-9 pr-9 pl-3 rounded-lg bg-muted/40 text-sm border border-border/40 focus:outline-none focus:ring-1 focus:ring-[#2563EB]" />
         </div>
         {["all","open","closed","pending"].map(s => (
-          <button key={s} onClick={() => setStatusFilter(s)} className={cn("text-xs px-3 py-1.5 rounded-lg border transition-colors", statusFilter===s ? "bg-[#C9A84C] text-black border-[#C9A84C] font-bold" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
+          <button key={s} onClick={() => setStatusFilter(s)} className={cn("text-xs px-3 py-1.5 rounded-lg border transition-colors", statusFilter===s ? "bg-primary text-black border-primary font-bold" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
             {s==="all"?"الكل":CASE_STATUS[s]?.label??s}
           </button>
         ))}
         <Badge variant="outline" className="text-xs mr-auto">{filtered.length} قضية</Badge>
       </div>
 
-      <Card className="bg-sidebar border-sidebar-border">
+      <Card className="bg-card border-border">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -3122,17 +3122,17 @@ function PlatformContractsTab() {
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في العقود..." className="w-full h-9 pr-9 pl-3 rounded-lg bg-muted/40 text-sm border border-border/40 focus:outline-none focus:ring-1 focus:ring-[#C9A84C]" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في العقود..." className="w-full h-9 pr-9 pl-3 rounded-lg bg-muted/40 text-sm border border-border/40 focus:outline-none focus:ring-1 focus:ring-[#2563EB]" />
         </div>
         {["all","draft","review","signed","expired"].map(s => (
-          <button key={s} onClick={() => setStatusFilter(s)} className={cn("text-xs px-3 py-1.5 rounded-lg border transition-colors", statusFilter===s ? "bg-[#C9A84C] text-black border-[#C9A84C] font-bold" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
+          <button key={s} onClick={() => setStatusFilter(s)} className={cn("text-xs px-3 py-1.5 rounded-lg border transition-colors", statusFilter===s ? "bg-primary text-black border-primary font-bold" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
             {s==="all"?"الكل":CONTRACT_STATUS[s]?.label??s}
           </button>
         ))}
         <Badge variant="outline" className="text-xs mr-auto">{filtered.length} عقد</Badge>
       </div>
 
-      <Card className="bg-sidebar border-sidebar-border">
+      <Card className="bg-card border-border">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -3157,7 +3157,7 @@ function PlatformContractsTab() {
                   <TableCell className="text-sm font-medium max-w-52 truncate">{c.title}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{c.type}</TableCell>
                   <TableCell><Badge className={cn("text-[10px]", st.color)}>{st.label}</Badge></TableCell>
-                  <TableCell className="text-center">{c.ai_generated ? <CheckSquare className="h-4 w-4 text-[#C9A84C] mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                  <TableCell className="text-center">{c.ai_generated ? <CheckSquare className="h-4 w-4 text-primary mx-auto" /> : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
                   <TableCell className={cn("text-xs font-medium", risk[c.risk_score]?.color ?? "text-muted-foreground")}>{risk[c.risk_score]?.label ?? (c.risk_score ?? "—")}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString("ar-SA")}</TableCell>
                 </TableRow>
@@ -3196,12 +3196,12 @@ function PlatformFinanceTab() {
         {[
           { label: "إجمالي الإيرادات", value: fmtSAR(n(kpi.totalRevenue)), icon: TrendingUp, color: "text-emerald-400 bg-emerald-500/15" },
           { label: "إجمالي المصروفات", value: fmtSAR(n(kpi.totalExpenses)), icon: TrendingDown, color: "text-red-400 bg-red-500/15" },
-          { label: "صافي الربح",        value: fmtSAR(n(kpi.netProfit)),    icon: DollarSign, color: "text-[#C9A84C] bg-[#C9A84C]/15" },
+          { label: "صافي الربح",        value: fmtSAR(n(kpi.netProfit)),    icon: DollarSign, color: "text-primary bg-primary/15" },
           { label: "فواتير مدفوعة",     value: `${kpi.paidInvoices?.count ?? 0} فاتورة`,   icon: CheckCircle2, color: "text-green-400 bg-green-500/15" },
           { label: "فواتير متأخرة",     value: `${kpi.overdueInvoices?.count ?? 0} فاتورة`, icon: AlertOctagon, color: "text-red-400 bg-red-500/15" },
           { label: "فواتير قيد التحصيل",value: `${kpi.pendingInvoices?.count ?? 0} فاتورة`, icon: Clock,        color: "text-amber-400 bg-amber-500/15" },
         ].map(({ label, value, icon: Icon, color }) => (
-          <Card key={label} className="bg-sidebar border-sidebar-border">
+          <Card key={label} className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2.5 mb-2">
                 <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", color)}>
@@ -3217,7 +3217,7 @@ function PlatformFinanceTab() {
 
       {/* Monthly revenue/expenses bar chart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2 bg-sidebar border-sidebar-border">
+        <Card className="lg:col-span-2 bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">الأداء المالي — آخر 6 أشهر</CardTitle>
           </CardHeader>
@@ -3240,7 +3240,7 @@ function PlatformFinanceTab() {
         </Card>
 
         {/* Expense Categories */}
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">تصنيف المصروفات</CardTitle>
           </CardHeader>
@@ -3270,7 +3270,7 @@ function PlatformFinanceTab() {
       </div>
 
       {/* Recent Invoices */}
-      <Card className="bg-sidebar border-sidebar-border">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold">أحدث الفواتير</CardTitle>
         </CardHeader>
@@ -3360,7 +3360,7 @@ function PlatformReportsTab() {
       title: "تقرير الفواتير",
       desc: `${finance?.kpi?.paidInvoices?.count ?? 0} مدفوعة | ${finance?.kpi?.overdueInvoices?.count ?? 0} متأخرة`,
       icon: Banknote,
-      color: "text-[#C9A84C] bg-[#C9A84C]/15",
+      color: "text-primary bg-primary/15",
       rows: finance?.recentInvoices ?? [],
       name: "invoices-report",
     },
@@ -3388,7 +3388,7 @@ function PlatformReportsTab() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {reports.map((r) => (
-          <Card key={r.name} className="bg-sidebar border-sidebar-border hover:border-[#C9A84C]/30 transition-colors">
+          <Card key={r.name} className="bg-card border-border hover:border-primary/30 transition-colors">
             <CardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", r.color)}>
@@ -3400,7 +3400,7 @@ function PlatformReportsTab() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" className="flex-1 gap-1.5 text-xs h-8 bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold" onClick={() => r.rows.length ? exportCSV(r.rows, r.name) : window.print()}>
+                <Button size="sm" className="flex-1 gap-1.5 text-xs h-8 bg-primary hover:bg-[#1D4ED8] text-black font-bold" onClick={() => r.rows.length ? exportCSV(r.rows, r.name) : window.print()}>
                   <Download className="h-3 w-3" /> Excel / CSV
                 </Button>
                 <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-xs h-8" onClick={() => window.print()}>
@@ -3413,7 +3413,7 @@ function PlatformReportsTab() {
       </div>
 
       {/* Financial Summary Table (printable) */}
-      <Card className="bg-sidebar border-sidebar-border">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold">ملخص الأداء المالي الشهري</CardTitle>
         </CardHeader>
@@ -3432,7 +3432,7 @@ function PlatformReportsTab() {
                 <TableCell className="text-xs font-medium">{m.month}</TableCell>
                 <TableCell className="text-xs text-emerald-400">{(Number(m.revenue||0)/100).toLocaleString("ar-SA")} ر.س</TableCell>
                 <TableCell className="text-xs text-red-400">{(Number(m.expenses||0)/100).toLocaleString("ar-SA")} ر.س</TableCell>
-                <TableCell className={cn("text-xs font-bold", (m.revenue-m.expenses)>=0?"text-[#C9A84C]":"text-red-400")}>
+                <TableCell className={cn("text-xs font-bold", (m.revenue-m.expenses)>=0?"text-primary":"text-red-400")}>
                   {((Number(m.revenue||0)-Number(m.expenses||0))/100).toLocaleString("ar-SA")} ر.س
                 </TableCell>
               </TableRow>
@@ -3477,7 +3477,7 @@ function PlatformSecurityTab() {
           { label: "دخول فاشل", value: failedCount, icon: XCircle, color: "text-red-400 bg-red-500/15" },
           { label: "سجلات التدقيق", value: auditLogs.length, icon: Shield, color: "text-amber-400 bg-amber-500/15" },
         ].map(({ label, value, icon: Icon, color }) => (
-          <Card key={label} className="bg-sidebar border-sidebar-border">
+          <Card key={label} className="bg-card border-border">
             <CardContent className="p-4 flex items-center gap-3">
               <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", color)}>
                 <Icon className="h-4 w-4" />
@@ -3493,10 +3493,10 @@ function PlatformSecurityTab() {
 
       {/* Sub tabs */}
       <div className="flex gap-2">
-        <button onClick={() => setSecTab("logins")} className={cn("text-xs px-3 py-1.5 rounded-lg border transition-colors", secTab==="logins" ? "bg-[#C9A84C] text-black font-bold border-[#C9A84C]" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
+        <button onClick={() => setSecTab("logins")} className={cn("text-xs px-3 py-1.5 rounded-lg border transition-colors", secTab==="logins" ? "bg-primary text-black font-bold border-primary" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
           سجل الدخول ({loginLogs.length})
         </button>
-        <button onClick={() => setSecTab("audit")} className={cn("text-xs px-3 py-1.5 rounded-lg border transition-colors", secTab==="audit" ? "bg-[#C9A84C] text-black font-bold border-[#C9A84C]" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
+        <button onClick={() => setSecTab("audit")} className={cn("text-xs px-3 py-1.5 rounded-lg border transition-colors", secTab==="audit" ? "bg-primary text-black font-bold border-primary" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
           سجل التدقيق ({auditLogs.length})
         </button>
         <div className="mr-auto relative">
@@ -3507,7 +3507,7 @@ function PlatformSecurityTab() {
 
       {/* Login Logs Table */}
       {secTab === "logins" && (
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -3547,7 +3547,7 @@ function PlatformSecurityTab() {
 
       {/* Audit Logs Table */}
       {secTab === "audit" && (
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -3636,7 +3636,7 @@ function PlatformWebsiteTab({ qc, toast }: any) {
           <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => window.open("/", "_blank")}>
             <Globe className="h-3.5 w-3.5" /> معاينة
           </Button>
-          <Button size="sm" className="gap-1.5 text-xs bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold" onClick={save} disabled={saving}>
+          <Button size="sm" className="gap-1.5 text-xs bg-primary hover:bg-[#1D4ED8] text-black font-bold" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} حفظ
           </Button>
         </div>
@@ -3648,7 +3648,7 @@ function PlatformWebsiteTab({ qc, toast }: any) {
           {WEBSITE_SECTIONS.map(s => (
             <button key={s.key} onClick={() => setActiveSection(s.key)}
               className={cn("w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-right",
-                activeSection===s.key ? "bg-[#C9A84C]/15 text-[#C9A84C] border border-[#C9A84C]/30 font-semibold" : "hover:bg-muted/30 text-muted-foreground")}>
+                activeSection===s.key ? "bg-primary/15 text-primary border border-primary/30 font-semibold" : "hover:bg-muted/30 text-muted-foreground")}>
               <s.icon className="h-4 w-4 shrink-0" />
               <span>{s.label}</span>
               <ChevronRight className="h-3.5 w-3.5 mr-auto" />
@@ -3657,10 +3657,10 @@ function PlatformWebsiteTab({ qc, toast }: any) {
         </div>
 
         {/* Fields editor */}
-        <Card className="lg:col-span-3 bg-sidebar border-sidebar-border">
+        <Card className="lg:col-span-3 bg-card border-border">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <section.icon className="h-4 w-4 text-[#C9A84C]" />
+              <section.icon className="h-4 w-4 text-primary" />
               {section.label}
             </CardTitle>
           </CardHeader>
@@ -3684,7 +3684,7 @@ function PlatformWebsiteTab({ qc, toast }: any) {
             })}
 
             <div className="pt-2 flex justify-end">
-              <Button size="sm" className="gap-1.5 bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold" onClick={save} disabled={saving}>
+              <Button size="sm" className="gap-1.5 bg-primary hover:bg-[#1D4ED8] text-black font-bold" onClick={save} disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 حفظ التغييرات
               </Button>
@@ -3701,7 +3701,7 @@ function PlatformWebsiteTab({ qc, toast }: any) {
 ═══════════════════════════════════════════════════ */
 const PLAN_COLORS_SA: Record<string, string> = {
   advisor:    "#38BDF8",
-  solo:       "#C9A84C",
+  solo:       "#2563EB",
   office:     "#34D399",
   advanced:   "#A78BFA",
   corporate:  "#FB923C",
@@ -3749,7 +3749,7 @@ function PlatformBillingTab({ toast }: { toast: any }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-[#C9A84C]" /> فواتير اشتراكات المنصة
+            <CreditCard className="h-5 w-5 text-primary" /> فواتير اشتراكات المنصة
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             إيرادات SaaS المحصّلة من مكاتب المحاماة — نظرة عامة شاملة
@@ -3763,7 +3763,7 @@ function PlatformBillingTab({ toast }: { toast: any }) {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         {kpis.map(({ label, value, icon: Icon, color }) => (
-          <Card key={label} className="bg-sidebar border-sidebar-border">
+          <Card key={label} className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2.5 mb-2">
                 <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", color)}>
@@ -3781,7 +3781,7 @@ function PlatformBillingTab({ toast }: { toast: any }) {
 
       {/* Revenue by plan */}
       {(data?.by_plan ?? []).length > 0 && (
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">الإيرادات حسب الباقة</CardTitle>
           </CardHeader>
@@ -3812,7 +3812,7 @@ function PlatformBillingTab({ toast }: { toast: any }) {
       )}
 
       {/* Recent invoices */}
-      <Card className="bg-sidebar border-sidebar-border">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold">أحدث الفواتير</CardTitle>
         </CardHeader>
@@ -3840,7 +3840,7 @@ function PlatformBillingTab({ toast }: { toast: any }) {
                         {inv.issue_date ? new Date(inv.issue_date).toLocaleDateString("ar-SA") : "—"}
                       </p>
                     </div>
-                    <span className="font-bold text-sm text-[#C9A84C]">
+                    <span className="font-bold text-sm text-primary">
                       {parseFloat(inv.amount).toLocaleString("ar-SA", { maximumFractionDigits: 0 })} {inv.currency}
                     </span>
                     <Badge variant="outline" className={cn("text-[10px] border shrink-0", st.cls)}>
@@ -3863,9 +3863,9 @@ function PlatformBillingTab({ toast }: { toast: any }) {
 
       {/* Empty-state */}
       {!isLoading && (data?.total_invoices ?? 0) === 0 && (
-        <div className="p-5 rounded-xl border border-[#C9A84C]/20 bg-[#C9A84C]/5 text-center space-y-2">
-          <CreditCard className="h-10 w-10 mx-auto text-[#C9A84C]/50" />
-          <p className="text-sm font-semibold text-[#C9A84C]">لا توجد فواتير بعد</p>
+        <div className="p-5 rounded-xl border border-primary/20 bg-primary/5 text-center space-y-2">
+          <CreditCard className="h-10 w-10 mx-auto text-primary/50" />
+          <p className="text-sm font-semibold text-primary">لا توجد فواتير بعد</p>
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
             عندما تشترك المكاتب في باقات عدالة AI ستظهر فواتيرها هنا مع تتبع الدفع والإيرادات.
           </p>
@@ -4098,7 +4098,7 @@ function AiCreditsTab({ qc, toast }: any) {
           { label: "عدد المكاتب", value: offices.length, icon: Building2, color: "text-blue-400", bg: "bg-blue-500/10" },
           { label: "تجديد تلقائي", value: offices.filter((o: any) => o.auto_renew).length, icon: RefreshCw, color: "text-green-400", bg: "bg-green-500/10" },
         ].map(s => (
-          <Card key={s.label} className="bg-sidebar border-sidebar-border">
+          <Card key={s.label} className="bg-card border-border">
             <CardContent className="p-4 flex items-center gap-3">
               <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", s.bg)}>
                 <s.icon className={cn("h-4 w-4", s.color)} />
@@ -4126,10 +4126,10 @@ function AiCreditsTab({ qc, toast }: any) {
           <Loader2 className="h-5 w-5 animate-spin ml-2" /> جارٍ التحميل...
         </div>
       ) : (
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <Table>
             <TableHeader>
-              <TableRow className="border-sidebar-border hover:bg-transparent">
+              <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="text-right text-xs">المكتب</TableHead>
                 <TableHead className="text-right text-xs">الرصيد الحالي</TableHead>
                 <TableHead className="text-right text-xs">المنح الشهرية</TableHead>
@@ -4144,7 +4144,7 @@ function AiCreditsTab({ qc, toast }: any) {
                 const pct = o.monthly_allowance > 0 ? Math.min(100, Math.round((o.used_this_month / o.monthly_allowance) * 100)) : 0;
                 const isLow = o.balance <= 10;
                 return (
-                  <TableRow key={o.office_id} className="border-sidebar-border hover:bg-muted/10">
+                  <TableRow key={o.office_id} className="border-border hover:bg-muted/10">
                     <TableCell className="font-medium text-sm">{o.office_name}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5">
@@ -4278,7 +4278,7 @@ function AiCreditsTab({ qc, toast }: any) {
             <Button variant="outline" onClick={() => setSettingsDialog(null)}>إلغاء</Button>
             <Button onClick={() => settingsMut.mutate({ officeId: settingsDialog?.office_id, ...settingsForm })}
               disabled={settingsMut.isPending}
-              className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold">
+              className="bg-primary hover:bg-[#1D4ED8] text-black font-bold">
               {settingsMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               حفظ
             </Button>
@@ -4360,7 +4360,7 @@ function AiCreditsTab({ qc, toast }: any) {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOfficeOpen(false)}>إلغاء</Button>
             <Button onClick={() => addOfficeMut.mutate(newOffice)} disabled={!newOffice.officeId || !newOffice.officeName || addOfficeMut.isPending}
-              className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold">
+              className="bg-primary hover:bg-[#1D4ED8] text-black font-bold">
               {addOfficeMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               إضافة
             </Button>
@@ -4384,9 +4384,9 @@ const RISK_COLOR: Record<string, string> = {
 const RISK_LABEL: Record<string, string> = {
   HIGH: "خطر مرتفع", MEDIUM: "خطر متوسط", LOW: "آمن",
 };
-const GOLD = "#C9A84C";
+const GOLD = "#2563EB";
 const PLAN_COLORS_GC: Record<string, string> = {
-  free:"#64748B", basic:"#3B82F6", pro:"#C9A84C",
+  free:"#64748B", basic:"#3B82F6", pro:"#2563EB",
   growth:"#8B5CF6", advanced:"#EC4899", enterprise:"#10B981", elite:"#F59E0B",
 };
 
@@ -4451,7 +4451,7 @@ function GlobalControlTab({ toast }: { toast: any }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-black flex items-center gap-2">
-            <Globe2 className="h-5 w-5 text-[#C9A84C]" />
+            <Globe2 className="h-5 w-5 text-primary" />
             لوحة الإدارة العالمية
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">مركز التحكم الكامل بكل المكاتب والإيرادات والمخاطر</p>
@@ -4470,15 +4470,15 @@ function GlobalControlTab({ toast }: { toast: any }) {
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}@page{size:A4;margin:15mm 18mm}
 body{font-family:'Cairo',Arial,sans-serif;color:#1a1a2e;background:#fff;font-size:10.5pt}
-.cover{background:linear-gradient(135deg,#080F1E,#1A2744);color:#fff;padding:28px;margin-bottom:20px;border-radius:8px;display:flex;justify-content:space-between;align-items:center}
-.cover h1{font-size:20pt;font-weight:900;color:#C9A84C;margin-bottom:4px}.cover p{color:rgba(255,255,255,0.55);font-size:9pt}
+.cover{background:linear-gradient(135deg,#080F1E,#FFFFFF);color:#fff;padding:28px;margin-bottom:20px;border-radius:8px;display:flex;justify-content:space-between;align-items:center}
+.cover h1{font-size:20pt;font-weight:900;color:#2563EB;margin-bottom:4px}.cover p{color:rgba(255,255,255,0.55);font-size:9pt}
 .section{margin-bottom:18px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:8px;break-inside:avoid}
-.section h2{font-size:11pt;font-weight:800;color:#1A2744;border-bottom:2.5px solid #C9A84C;padding-bottom:6px;margin-bottom:12px}
+.section h2{font-size:11pt;font-weight:800;color:#FFFFFF;border-bottom:2.5px solid #2563EB;padding-bottom:6px;margin-bottom:12px}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 .kpi{background:#f8fafc;border-radius:6px;padding:10px 8px;text-align:center;border:1px solid #e5e7eb}
-.kpi .val{font-size:14pt;font-weight:900;color:#C9A84C}.kpi .lbl{font-size:7.5pt;color:#64748b;margin-top:2px}
+.kpi .val{font-size:14pt;font-weight:900;color:#2563EB}.kpi .lbl{font-size:7.5pt;color:#64748b;margin-top:2px}
 table{width:100%;border-collapse:collapse;font-size:8.5pt}
-th{background:#1A2744;color:#C9A84C;padding:7px 8px;text-align:right;font-weight:700}
+th{background:#FFFFFF;color:#2563EB;padding:7px 8px;text-align:right;font-weight:700}
 td{padding:6px 8px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{background:#f8fafc}
 .risk-h{background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:8pt;font-weight:700}
 .risk-m{background:#fef9c3;color:#d97706;padding:2px 6px;border-radius:4px;font-size:8pt;font-weight:700}
@@ -4487,7 +4487,7 @@ td{padding:6px 8px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{backgro
 </style></head><body>
 <div class="cover">
   <div><h1>تقرير الإدارة العالمية</h1><p>عدالة AI · منصة SaaS قانونية · ${d}</p></div>
-  <div style="text-align:center"><div style="font-size:28pt;font-weight:900;color:#C9A84C">${growthData?.summary?.totalOffices ?? 0}</div><div style="color:rgba(255,255,255,0.6);font-size:9pt">مكتب مسجّل</div></div>
+  <div style="text-align:center"><div style="font-size:28pt;font-weight:900;color:#2563EB">${growthData?.summary?.totalOffices ?? 0}</div><div style="color:rgba(255,255,255,0.6);font-size:9pt">مكتب مسجّل</div></div>
 </div>
 <div class="section">
   <h2>📊 مؤشرات الإيرادات الرئيسية</h2>
@@ -4529,7 +4529,7 @@ td{padding:6px 8px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{backgro
 </body></html>`;
             const win = window.open("", "_blank", "width=950,height=1200");
             if (win) { win.document.write(html); win.document.close(); }
-          }} className="gap-1.5 text-xs border-[#C9A84C]/40 text-[#C9A84C] hover:bg-[#C9A84C]/10">
+          }} className="gap-1.5 text-xs border-primary/40 text-primary hover:bg-primary/10">
             <Receipt className="h-3.5 w-3.5" /> تصدير PDF
           </Button>
           <Button variant="outline" size="sm" onClick={() => qc.invalidateQueries({ queryKey: ["gc"] })} className="gap-1.5 text-xs">
@@ -4544,7 +4544,7 @@ td{padding:6px 8px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{backgro
           <button key={s.id} onClick={() => setActiveSection(s.id as any)}
             className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
               activeSection === s.id
-                ? "bg-[#C9A84C] text-black border-[#C9A84C]"
+                ? "bg-primary text-black border-primary"
                 : "bg-muted/40 border-border/50 text-muted-foreground hover:text-foreground hover:border-border")}>
             {s.icon}{s.label}
           </button>
@@ -4562,7 +4562,7 @@ td{padding:6px 8px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{backgro
         <div className="space-y-5">
           {/* KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard icon={<DollarSign className="h-4 w-4"/>} label="إجمالي الإيرادات" color="#C9A84C"
+            <StatCard icon={<DollarSign className="h-4 w-4"/>} label="إجمالي الإيرادات" color="#2563EB"
               value={rev ? fmtSAR(rev.totals?.gross ?? 0) : "—"} sub="إجمالي كل المدفوعات" />
             <StatCard icon={<TrendingUp className="h-4 w-4"/>} label="صافي المنصة" color="#10B981"
               value={rev ? fmtSAR(rev.totals?.net ?? 0) : "—"} sub={`بعد رسوم Stripe وعمولة المنصة`} />
@@ -4577,7 +4577,7 @@ td{padding:6px 8px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{backgro
               value={ai ? (ai.summary?.totalCalls ?? 0).toLocaleString() : "—"} sub="مجموع كل المكاتب" />
             <StatCard icon={<ShieldAlert className="h-4 w-4"/>} label="مكاتب خطر مرتفع" color="#EF4444"
               value={risk ? risk.summary?.high ?? 0 : "—"} sub="تحتاج مراجعة فورية" />
-            <StatCard icon={<Receipt className="h-4 w-4"/>} label="إجمالي المعاملات" color="#C9A84C"
+            <StatCard icon={<Receipt className="h-4 w-4"/>} label="إجمالي المعاملات" color="#2563EB"
               value={rev ? rev.totals?.transactions ?? 0 : "—"} sub="دفعات ناجحة" />
             <StatCard icon={<CreditCard className="h-4 w-4"/>} label="رسوم Stripe" color="#64748B"
               value={rev ? fmtSAR(rev.totals?.stripeFee ?? 0) : "—"} sub="2.9% + 1 ر.س / معاملة" />
@@ -4653,7 +4653,7 @@ td{padding:6px 8px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{backgro
         <Card className="border-border/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-[#C9A84C]" />
+              <Building2 className="h-4 w-4 text-primary" />
               جميع المكاتب ({tenants?.total ?? 0})
             </CardTitle>
           </CardHeader>
@@ -4772,7 +4772,7 @@ td{padding:6px 8px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{backgro
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between text-xs mb-0.5">
                           <span className="truncate">{o.officeName}</span>
-                          <span className="text-[#C9A84C] font-bold shrink-0">{o.usagePct}%</span>
+                          <span className="text-primary font-bold shrink-0">{o.usagePct}%</span>
                         </div>
                         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                           <div className="h-full rounded-full transition-all"
@@ -4932,7 +4932,7 @@ td{padding:6px 8px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{backgro
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setChangingPlan(null)}>إلغاء</Button>
             <Button size="sm" onClick={doChangePlan} disabled={planChanging}
-              className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold">
+              className="bg-primary hover:bg-[#1D4ED8] text-black font-bold">
               {planChanging && <Loader2 className="h-3.5 w-3.5 animate-spin ml-1" />}
               تطبيق
             </Button>
@@ -5168,7 +5168,7 @@ function TrialsDashTab({ toast }: { toast: any }) {
               <div className="flex gap-2">
                 {[7, 14, 30].map(d => (
                   <Button key={d} size="sm" variant={extendDays === d ? "default" : "outline"}
-                    className={extendDays === d ? "bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold" : ""}
+                    className={extendDays === d ? "bg-primary hover:bg-[#1D4ED8] text-black font-bold" : ""}
                     onClick={() => setExtendDays(d)}>
                     {d} يوم
                   </Button>
@@ -5182,7 +5182,7 @@ function TrialsDashTab({ toast }: { toast: any }) {
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setExtendTarget(null)}>إلغاء</Button>
             <Button size="sm" onClick={doExtend} disabled={!!actionLoading}
-              className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold gap-1">
+              className="bg-primary hover:bg-[#1D4ED8] text-black font-bold gap-1">
               {actionLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               تمديد
             </Button>
@@ -5211,7 +5211,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
     stats: { offices: "", cases: "", satisfaction: "", timeSaving: "" },
     features: { title: "", subtitle: "" },
     cta_section: { title: "", titleHighlight: "", subtitle: "" },
-    announcement: { enabled: false, text: "", link: "", bgColor: "#C9A84C", textColor: "#0D1626" },
+    announcement: { enabled: false, text: "", link: "", bgColor: "#2563EB", textColor: "#0D1626" },
     seo: { metaTitle: "", metaDescription: "", ogImage: "" },
     contact: { whatsapp: "", email: "", twitter: "", linkedin: "", youtube: "", showWhatsappButton: true },
     footer: {
@@ -5299,7 +5299,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
 
   if (!loaded) return (
     <div className="flex items-center justify-center h-40">
-      <Loader2 className="h-6 w-6 animate-spin text-[#C9A84C]" />
+      <Loader2 className="h-6 w-6 animate-spin text-primary" />
     </div>
   );
 
@@ -5321,7 +5321,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
             {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             إعادة الضبط
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving} className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold gap-1">
+          <Button size="sm" onClick={handleSave} disabled={saving} className="bg-primary hover:bg-[#1D4ED8] text-black font-bold gap-1">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             حفظ التغييرات
           </Button>
@@ -5333,7 +5333,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
         <div className="space-y-1">
           {SECTIONS.map(s => (
             <button key={s.id} onClick={() => setActiveSection(s.id)}
-              className={`w-full text-right px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${activeSection === s.id ? "bg-[#C9A84C]/10 text-[#C9A84C] border border-[#C9A84C]/20" : "text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
+              className={`w-full text-right px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${activeSection === s.id ? "bg-primary/10 text-primary border border-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}>
               <span>{s.icon}</span>
               {s.label}
             </button>
@@ -5360,7 +5360,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
                     {f.key === "subtitle" ? (
                       <textarea rows={3} value={form.hero[f.key] || ""} onChange={e => setField("hero", f.key, e.target.value)}
                         placeholder={f.placeholder}
-                        className="w-full px-3 py-2 text-sm rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-[#C9A84C] resize-none" />
+                        className="w-full px-3 py-2 text-sm rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-[#2563EB] resize-none" />
                     ) : (
                       <Input value={form.hero[f.key] || ""} onChange={e => setField("hero", f.key, e.target.value)} placeholder={f.placeholder} className="text-sm" />
                     )}
@@ -5413,7 +5413,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
                   <Label className="text-xs">النص الوصفي</Label>
                   <textarea rows={3} value={form.features.subtitle || ""} onChange={e => setField("features", "subtitle", e.target.value)}
                     placeholder="منصة شاملة تجمع إدارة القضايا والعملاء والمستندات..."
-                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-[#C9A84C] resize-none" />
+                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-[#2563EB] resize-none" />
                 </div>
               </>
             )}
@@ -5432,7 +5432,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
                     {f.key === "subtitle" ? (
                       <textarea rows={3} value={form.cta_section[f.key] || ""} onChange={e => setField("cta_section", f.key, e.target.value)}
                         placeholder={f.placeholder}
-                        className="w-full px-3 py-2 text-sm rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-[#C9A84C] resize-none" />
+                        className="w-full px-3 py-2 text-sm rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-[#2563EB] resize-none" />
                     ) : (
                       <Input value={form.cta_section[f.key] || ""} onChange={e => setField("cta_section", f.key, e.target.value)} placeholder={f.placeholder} className="text-sm" />
                     )}
@@ -5449,7 +5449,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
                   <div className="flex items-center gap-2">
                     <input type="checkbox" id="ann-enabled" checked={!!form.announcement.enabled}
                       onChange={e => setField("announcement", "enabled", e.target.checked)}
-                      className="w-4 h-4 rounded accent-[#C9A84C]" />
+                      className="w-4 h-4 rounded accent-[#2563EB]" />
                     <label htmlFor="ann-enabled" className="text-sm font-medium">تفعيل شريط الإعلانات</label>
                   </div>
                   {form.announcement.enabled && (
@@ -5458,7 +5458,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
                 </div>
                 {form.announcement.enabled && (
                   <div className="p-3 rounded-lg border text-sm text-center font-bold"
-                    style={{ background: form.announcement.bgColor || "#C9A84C", color: form.announcement.textColor || "#0D1626" }}>
+                    style={{ background: form.announcement.bgColor || "#2563EB", color: form.announcement.textColor || "#0D1626" }}>
                     {form.announcement.text || "معاينة الشريط..."}
                   </div>
                 )}
@@ -5476,10 +5476,10 @@ function HomeCmsTab({ toast }: { toast: any }) {
                   <div className="space-y-1.5">
                     <Label className="text-xs">لون الخلفية</Label>
                     <div className="flex items-center gap-2">
-                      <input type="color" value={form.announcement.bgColor || "#C9A84C"}
+                      <input type="color" value={form.announcement.bgColor || "#2563EB"}
                         onChange={e => setField("announcement", "bgColor", e.target.value)}
                         className="w-10 h-8 rounded border border-border cursor-pointer bg-transparent" />
-                      <Input value={form.announcement.bgColor || "#C9A84C"} onChange={e => setField("announcement", "bgColor", e.target.value)}
+                      <Input value={form.announcement.bgColor || "#2563EB"} onChange={e => setField("announcement", "bgColor", e.target.value)}
                         className="text-sm font-mono" />
                     </div>
                   </div>
@@ -5610,7 +5610,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
                     {f.key === "metaDescription" ? (
                       <textarea rows={3} value={form.seo[f.key] || ""} onChange={e => setField("seo", f.key, e.target.value)}
                         placeholder={f.placeholder}
-                        className="w-full px-3 py-2 text-sm rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-[#C9A84C] resize-none" />
+                        className="w-full px-3 py-2 text-sm rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-[#2563EB] resize-none" />
                     ) : (
                       <Input value={form.seo[f.key] || ""} onChange={e => setField("seo", f.key, e.target.value)} placeholder={f.placeholder} className="text-sm" />
                     )}
@@ -5634,7 +5634,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
 
                 {/* Basic info */}
                 <div className="space-y-3 p-3 rounded-lg bg-muted/20 border border-border">
-                  <p className="text-xs font-bold text-[#C9A84C]">المعلومات الأساسية</p>
+                  <p className="text-xs font-bold text-primary">المعلومات الأساسية</p>
                   <div className="space-y-1.5">
                     <Label className="text-xs">شعار الشركة (tagline)</Label>
                     <Input value={form.footer.tagline || ""} onChange={e => setField("footer", "tagline", e.target.value)}
@@ -5650,7 +5650,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
                 {/* Status badge */}
                 <div className="space-y-3 p-3 rounded-lg bg-muted/20 border border-border">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-[#C9A84C]">بادج حالة الأنظمة</p>
+                    <p className="text-xs font-bold text-primary">بادج حالة الأنظمة</p>
                     <div className="flex items-center gap-2">
                       <Label className="text-xs text-muted-foreground">إظهار</Label>
                       <Switch checked={form.footer.showStatus !== false}
@@ -5674,7 +5674,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
 
                 {/* Column visibility */}
                 <div className="p-3 rounded-lg bg-muted/20 border border-border">
-                  <p className="text-xs font-bold text-[#C9A84C] mb-3">إظهار أعمدة الروابط</p>
+                  <p className="text-xs font-bold text-primary mb-3">إظهار أعمدة الروابط</p>
                   <div className="grid grid-cols-3 gap-4">
                     {[
                       { key: "showPlatformCol", label: "عمود المنصة" },
@@ -5697,7 +5697,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
                   { key: "supportLinks",  label: "روابط الدعم",    count: 4 },
                 ].map(col => (
                   <div key={col.key} className="space-y-2 p-3 rounded-lg bg-muted/20 border border-border">
-                    <p className="text-xs font-bold text-[#C9A84C] mb-1">{col.label}</p>
+                    <p className="text-xs font-bold text-primary mb-1">{col.label}</p>
                     <div className="grid grid-cols-2 gap-1 mb-1">
                       <span className="text-xs text-muted-foreground px-1">النص</span>
                       <span className="text-xs text-muted-foreground px-1">الرابط (href)</span>
@@ -5724,7 +5724,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
                 ))}
 
                 {/* Live preview */}
-                <div className="p-4 rounded-xl border border-white/10 text-xs" style={{ background: "#080F1E" }}>
+                <div className="p-4 rounded-xl border border-border text-xs" style={{ background: "#080F1E" }}>
                   <p className="text-white/40 text-xs mb-3">معاينة الفوتر:</p>
                   <div className="flex gap-6 flex-wrap">
                     {form.footer.showPlatformCol !== false && (
@@ -5752,7 +5752,7 @@ function HomeCmsTab({ toast }: { toast: any }) {
                       </div>
                     )}
                   </div>
-                  <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between">
+                  <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
                     <p className="text-white/30 text-xs">{form.footer.copyright || "© ٢٠٢٦ عدالة AI"}</p>
                     {form.footer.showStatus !== false && (
                       <span className="text-green-400 text-xs">● {form.footer.statusText || "جميع الأنظمة تعمل"}</span>
@@ -5869,7 +5869,7 @@ function PlansCmsTab({ toast }: { toast: any }) {
 
   const PLAN_COLORS: Record<string, string> = {
     free: "#64748B", basic: "#3B82F6", pro: "#8B5CF6",
-    growth: "#10B981", advanced: "#F59E0B", enterprise: "#EF4444", elite: "#C9A84C",
+    growth: "#10B981", advanced: "#F59E0B", enterprise: "#EF4444", elite: "#2563EB",
   };
 
   return (
@@ -6220,7 +6220,7 @@ function PromoCodesTab({ qc, toast }: any) {
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "أكواد نشطة",         value: (codes as any[]).filter(c => c.is_active).length,  color: "#C9A84C" },
+          { label: "أكواد نشطة",         value: (codes as any[]).filter(c => c.is_active).length,  color: "#2563EB" },
           { label: "إجمالي الأكواد",      value: (codes as any[]).length,                           color: "#64748B" },
           { label: "اشتراكات مجانية",     value: activeGifts.length,                               color: "#10B981" },
           { label: "مستردات الأكواد",     value: (codes as any[]).reduce((s, c) => s + (c.used_count ?? 0), 0), color: "#8B5CF6" },
@@ -6243,7 +6243,7 @@ function PromoCodesTab({ qc, toast }: any) {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
-                <Tag className="h-4 w-4 text-[#C9A84C]" /> أكواد الاشتراك المجاني
+                <Tag className="h-4 w-4 text-primary" /> أكواد الاشتراك المجاني
               </CardTitle>
               <CardDescription className="text-xs mt-0.5">أنشئ كوداً وشاركه مع المكتب — يدخله في صفحة الفوترة لتفعيل الباقة</CardDescription>
             </div>
@@ -6465,7 +6465,7 @@ function PromoCodesTab({ qc, toast }: any) {
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="outline" size="sm" onClick={() => setShowCreate(false)}>إلغاء</Button>
               <Button size="sm" onClick={createCode} disabled={!form.code || loading === "create-code"}
-                className="bg-[#C9A84C] hover:bg-[#b8943d] text-black font-bold gap-1.5">
+                className="bg-primary hover:bg-[#b8943d] text-black font-bold gap-1.5">
                 {loading === "create-code" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                 إنشاء
               </Button>
@@ -6539,7 +6539,7 @@ function PromoCodesTab({ qc, toast }: any) {
               <Button variant="outline" size="sm" onClick={() => setRenewTarget(null)}>إلغاء</Button>
               <Button size="sm" onClick={renewGift}
                 disabled={!renewDays || loading === "renew-" + renewTarget?.id}
-                className="bg-[#C9A84C] hover:bg-[#b8943d] text-black font-bold gap-1.5">
+                className="bg-primary hover:bg-[#b8943d] text-black font-bold gap-1.5">
                 {loading?.startsWith("renew-") ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                 تمديد
               </Button>
@@ -6555,7 +6555,7 @@ function PromoCodesTab({ qc, toast }: any) {
    GHOST CENTER TAB — وصول خفي لأي مكتب بدون أثر
 ═══════════════════════════════════════════════════════════════════ */
 const GHOST_QUICK_LINKS = [
-  { label: "لوحة التحكم",    path: "/dashboard",  Icon: Layout,       color: "#C9A84C" },
+  { label: "لوحة التحكم",    path: "/dashboard",  Icon: Layout,       color: "#2563EB" },
   { label: "القضايا",        path: "/cases",       Icon: Gavel,        color: "#8B5CF6" },
   { label: "العملاء",        path: "/clients",     Icon: Users,        color: "#06B6D4" },
   { label: "الفواتير",       path: "/invoices",    Icon: Receipt,      color: "#10B981" },
@@ -6763,7 +6763,7 @@ function GhostCenterTab({ toast, onRefreshHeader }: { toast: any; onRefreshHeade
           {/* Stats row */}
           <div className="grid grid-cols-4 gap-3">
             {[
-              { label: "إجمالي المكاتب", value: (offices as any[]).length,                                                   color: "text-[#C9A84C]" },
+              { label: "إجمالي المكاتب", value: (offices as any[]).length,                                                   color: "text-primary" },
               { label: "جلسات نشطة",    value: ghostStatus?.active ? "1" : "0",                                              color: "text-violet-400" },
               { label: "إجمالي القضايا", value: (offices as any[]).reduce((s: number, o: any) => s + (o.case_count ?? 0), 0), color: "text-blue-400"   },
               { label: "إجمالي العملاء", value: (offices as any[]).reduce((s: number, o: any) => s + (o.client_count ?? 0), 0), color: "text-emerald-400" },
@@ -7119,7 +7119,7 @@ function saFetch(path: string, token: string) {
 
 function HealthPill({ value, label, icon: Icon, color }: { value: string | number; label: string; icon: any; color: string }) {
   return (
-    <div className={`flex flex-col gap-1.5 p-4 rounded-xl border ${color} bg-white/2`}>
+    <div className={`flex flex-col gap-1.5 p-4 rounded-xl border ${color} bg-muted/10`}>
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Icon className="h-3.5 w-3.5" /> {label}
       </div>
@@ -7232,7 +7232,7 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
               pccTab === t.id
                 ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
-                : "bg-white/3 text-muted-foreground border-white/5 hover:bg-white/5"
+                : "bg-muted/20 text-muted-foreground border-border/50 hover:bg-muted/30"
             )}
           >
             <t.icon className="h-3.5 w-3.5" /> {t.label}
@@ -7257,10 +7257,10 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
                   <Server className="h-3.5 w-3.5" /> الخادم
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <HealthPill icon={Timer}       label="وقت التشغيل"  value={fmtUptime(health.process?.uptime ?? 0)}     color="border-white/5" />
-                  <HealthPill icon={CpuIcon}     label="Heap مستخدم"  value={`${health.process?.heapUsedMB ?? 0} MB`}    color="border-white/5" />
-                  <HealthPill icon={HardDrive}   label="RSS"          value={`${health.process?.rssMB ?? 0} MB`}         color="border-white/5" />
-                  <HealthPill icon={Code2}       label="Node.js"      value={health.process?.nodeVersion ?? "—"}         color="border-white/5" />
+                  <HealthPill icon={Timer}       label="وقت التشغيل"  value={fmtUptime(health.process?.uptime ?? 0)}     color="border-border/50" />
+                  <HealthPill icon={CpuIcon}     label="Heap مستخدم"  value={`${health.process?.heapUsedMB ?? 0} MB`}    color="border-border/50" />
+                  <HealthPill icon={HardDrive}   label="RSS"          value={`${health.process?.rssMB ?? 0} MB`}         color="border-border/50" />
+                  <HealthPill icon={Code2}       label="Node.js"      value={health.process?.nodeVersion ?? "—"}         color="border-border/50" />
                 </div>
               </div>
               {/* OS */}
@@ -7269,10 +7269,10 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
                   <CpuIcon className="h-3.5 w-3.5" /> نظام التشغيل
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <HealthPill icon={Gauge}    label="Load Avg (1m)"  value={health.os?.loadAvg1m ?? 0}                           color="border-white/5" />
-                  <HealthPill icon={HardDrive} label="RAM مستخدم"   value={`${health.os?.usedRamPct ?? 0}%`}                     color={`border-white/5 ${(health.os?.usedRamPct ?? 0) > 85 ? "border-red-500/30" : ""}`} />
-                  <HealthPill icon={Server}   label="إجمالي RAM"     value={`${health.os?.totalRamMB ?? 0} MB`}                   color="border-white/5" />
-                  <HealthPill icon={Network}  label="CPUs"           value={`${health.os?.cpuCount ?? 0} core`}                   color="border-white/5" />
+                  <HealthPill icon={Gauge}    label="Load Avg (1m)"  value={health.os?.loadAvg1m ?? 0}                           color="border-border/50" />
+                  <HealthPill icon={HardDrive} label="RAM مستخدم"   value={`${health.os?.usedRamPct ?? 0}%`}                     color={`border-border/50 ${(health.os?.usedRamPct ?? 0) > 85 ? "border-red-500/30" : ""}`} />
+                  <HealthPill icon={Server}   label="إجمالي RAM"     value={`${health.os?.totalRamMB ?? 0} MB`}                   color="border-border/50" />
+                  <HealthPill icon={Network}  label="CPUs"           value={`${health.os?.cpuCount ?? 0} core`}                   color="border-border/50" />
                 </div>
               </div>
               {/* DB */}
@@ -7283,13 +7283,13 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
                   <span className="text-muted-foreground">{health.db?.status === "healthy" ? "سليمة" : health.db?.status === "slow" ? "بطيئة" : "حرجة"}</span>
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  <HealthPill icon={Wifi}     label="زمن الاستجابة"  value={`${health.db?.latencyMs ?? 0} ms`}  color={`border-white/5 ${(health.db?.latencyMs ?? 0) > 300 ? "border-amber-500/30" : ""}`} />
-                  <HealthPill icon={Database} label="عدد الجداول"   value={health.db?.tableCount ?? 0}          color="border-white/5" />
-                  <HealthPill icon={Building2} label="المكاتب"      value={health.platform?.offices ?? 0}       color="border-white/5" />
+                  <HealthPill icon={Wifi}     label="زمن الاستجابة"  value={`${health.db?.latencyMs ?? 0} ms`}  color={`border-border/50 ${(health.db?.latencyMs ?? 0) > 300 ? "border-amber-500/30" : ""}`} />
+                  <HealthPill icon={Database} label="عدد الجداول"   value={health.db?.tableCount ?? 0}          color="border-border/50" />
+                  <HealthPill icon={Building2} label="المكاتب"      value={health.platform?.offices ?? 0}       color="border-border/50" />
                 </div>
               </div>
               {/* Platform */}
-              <Card className="border-white/5">
+              <Card className="border-border/50">
                 <CardHeader className="pb-2 pt-4 px-4">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Crown className="h-4 w-4 text-yellow-500" /> إحصائيات المنصة اللحظية
@@ -7329,7 +7329,7 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
         <div className="space-y-3">
           {tenants?.summary && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <HealthPill icon={Building2}   label="إجمالي المكاتب"  value={tenants.summary.total}     color="border-white/5" />
+              <HealthPill icon={Building2}   label="إجمالي المكاتب"  value={tenants.summary.total}     color="border-border/50" />
               <HealthPill icon={CheckCircle} label="سليمة"           value={tenants.summary.healthy}   color="border-emerald-500/20" />
               <HealthPill icon={AlertCircle} label="في خطر"         value={tenants.summary.atRisk}    color="border-amber-500/20" />
               <HealthPill icon={XCircle}     label="حرجة"            value={tenants.summary.critical}  color="border-red-500/20" />
@@ -7342,17 +7342,17 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
                 value={tenantSearch}
                 onChange={e => setTenantSearch(e.target.value)}
                 placeholder="ابحث باسم المكتب..."
-                className="pr-9 h-8 text-xs bg-white/3"
+                className="pr-9 h-8 text-xs bg-muted/20"
               />
             </div>
             <Button size="sm" variant="ghost" onClick={() => refetchTenants()} disabled={tFetching} className="gap-1.5 text-xs">
               <RefreshCw className={cn("h-3.5 w-3.5", tFetching && "animate-spin")} />
             </Button>
           </div>
-          <div className="rounded-xl border border-white/5 overflow-hidden">
+          <div className="rounded-xl border border-border/50 overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="border-white/5 bg-white/2 hover:bg-white/2">
+                <TableRow className="border-border/50 bg-muted/10 hover:bg-accent/30">
                   <TableHead className="text-right text-xs">المكتب</TableHead>
                   <TableHead className="text-center text-xs">الصحة</TableHead>
                   <TableHead className="text-center text-xs">الخطر</TableHead>
@@ -7366,19 +7366,19 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
               <TableBody>
                 {tFetching && !filteredTenants.length ? (
                   Array.from({ length: 6 }).map((_, i) => (
-                    <TableRow key={i} className="border-white/5">
+                    <TableRow key={i} className="border-border/50">
                       <TableCell colSpan={8}><Skeleton className="h-6 w-full" /></TableCell>
                     </TableRow>
                   ))
                 ) : filteredTenants.map((o: any) => (
-                  <TableRow key={o.id} className="border-white/5 hover:bg-white/2">
+                  <TableRow key={o.id} className="border-border/50 hover:bg-accent/30">
                     <TableCell className="py-2">
                       <div className="font-medium text-sm">{o.name}</div>
                       <div className="text-xs text-muted-foreground font-mono">{o.slug} · {o.plan}</div>
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <div className="h-1.5 w-16 rounded-full bg-white/10 overflow-hidden">
+                        <div className="h-1.5 w-16 rounded-full bg-muted/50 overflow-hidden">
                           <div
                             className={cn("h-full rounded-full", o.healthScore >= 80 ? "bg-emerald-400" : o.healthScore >= 50 ? "bg-amber-400" : "bg-red-400")}
                             style={{ width: `${o.healthScore}%` }}
@@ -7422,7 +7422,7 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
                 value={evtSearch}
                 onChange={e => setEvtSearch(e.target.value)}
                 placeholder="فلتر الأحداث..."
-                className="pr-9 h-8 text-xs bg-white/3"
+                className="pr-9 h-8 text-xs bg-muted/20"
               />
             </div>
             <Button size="sm" variant="ghost" onClick={() => refetchEvents()} disabled={eFetching} className="gap-1.5 text-xs">
@@ -7433,8 +7433,8 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
             {eFetching && !filteredEvents.length ? (
               Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)
             ) : filteredEvents.map((e: any, i: number) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-white/2 border border-white/5 hover:bg-white/3 transition-colors">
-                <span className={cn("text-xs px-2 py-0.5 rounded font-mono shrink-0 mt-0.5", SRC_COLOR[e.source] ?? "bg-white/10 text-white/60")}>
+              <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/10 border border-border/50 hover:bg-accent/40 transition-colors">
+                <span className={cn("text-xs px-2 py-0.5 rounded font-mono shrink-0 mt-0.5", SRC_COLOR[e.source] ?? "bg-muted/50 text-white/60")}>
                   {e.source === "audit" ? "audit" : "AI"}
                 </span>
                 <div className="flex-1 min-w-0">
@@ -7467,7 +7467,7 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
               </div>
               {/* By model */}
               {(aiOps.byModel ?? []).length > 0 && (
-                <Card className="border-white/5">
+                <Card className="border-border/50">
                   <CardHeader className="pb-2 pt-4 px-4">
                     <CardTitle className="text-sm">توزيع الاستخدام حسب النموذج</CardTitle>
                   </CardHeader>
@@ -7479,7 +7479,7 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
                         return (
                           <div key={i} className="flex items-center gap-3">
                             <span className="text-xs font-mono w-20 shrink-0 text-right">{m.model}</span>
-                            <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
+                            <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
                               <div className="h-full rounded-full bg-violet-400" style={{ width: `${pct}%` }} />
                             </div>
                             <span className="text-xs font-mono text-muted-foreground w-16 text-left">{Number(m.calls ?? 0).toLocaleString()} طلب</span>
@@ -7492,7 +7492,7 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
               )}
               {/* Daily trend */}
               {(aiOps.dailyTrend ?? []).length > 0 && (
-                <Card className="border-white/5">
+                <Card className="border-border/50">
                   <CardHeader className="pb-2 pt-4 px-4">
                     <CardTitle className="text-sm">اتجاه AI — 14 يوم</CardTitle>
                   </CardHeader>
@@ -7511,7 +7511,7 @@ function PlatformCommandCenterTab({ toast }: { toast: any }) {
               )}
               {/* Top offices */}
               {(aiOps.byOffice ?? []).length > 0 && (
-                <Card className="border-white/5">
+                <Card className="border-border/50">
                   <CardHeader className="pb-2 pt-4 px-4">
                     <CardTitle className="text-sm">أكثر المكاتب استخداماً للـ AI</CardTitle>
                   </CardHeader>
@@ -7660,7 +7660,7 @@ function AgentRuntimeTab({ toast }: { toast: any }) {
           const colorCls = AGENT_COLOR[ag.type] ?? "text-slate-400 bg-slate-500/10 border-slate-500/20";
           const isRunning = running === ag.id;
           return (
-            <Card key={ag.id} className={cn("border cursor-pointer hover:bg-white/3 transition-colors", colorCls.includes("border") ? colorCls.split(" ").find(c => c.startsWith("border-")) ?? "border-white/5" : "border-white/5")}>
+            <Card key={ag.id} className={cn("border cursor-pointer hover:bg-accent/40 transition-colors", colorCls.includes("border") ? colorCls.split(" ").find(c => c.startsWith("border-")) ?? "border-border/50" : "border-border/50")}>
               <CardContent className="pt-4 pb-3 px-3 space-y-2">
                 <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", colorCls.split(" ").filter(c => c.startsWith("bg-")).join(" "))}>
                   <Icon className={cn("h-4 w-4", colorCls.split(" ").find(c => c.startsWith("text-")))} />
@@ -7695,7 +7695,7 @@ function AgentRuntimeTab({ toast }: { toast: any }) {
             <select
               value={agFilter}
               onChange={e => setAgFilter(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-lg text-xs px-2 py-1 text-white"
+              className="bg-muted/30 border border-border rounded-lg text-xs px-2 py-1 text-white"
             >
               <option value="all">كل الوكلاء</option>
               <option value="legal">القانوني</option>
@@ -7718,7 +7718,7 @@ function AgentRuntimeTab({ toast }: { toast: any }) {
             return (
               <div key={a.id} className={cn(
                 "flex items-start gap-3 p-3 rounded-lg border transition-colors",
-                a.status === "resolved" ? "bg-white/1 border-white/5 opacity-50" : "bg-white/3 border-white/8 hover:bg-white/4"
+                a.status === "resolved" ? "bg-muted border-border opacity-50" : "bg-muted border-border hover:bg-accent"
               )}>
                 <Icon className={cn("h-4 w-4 mt-0.5 shrink-0", AGENT_COLOR[a.agent_id]?.split(" ").find((c: string) => c.startsWith("text-")) ?? "text-slate-400")} />
                 <div className="flex-1 min-w-0">
@@ -7802,7 +7802,7 @@ function EngineeringHeroTab() {
       </div>
 
       {/* Security Layers */}
-      <Card className="border-white/5">
+      <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
@@ -7828,7 +7828,7 @@ function EngineeringHeroTab() {
       {/* Feature Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {features.map((f, i) => (
-          <Card key={i} className="border-white/5 bg-white/2 hover:bg-white/4 transition-colors cursor-pointer" onClick={() => { (window as any).open(engUrl, "_self"); }}>
+          <Card key={i} className="border-border/50 bg-muted/10 hover:bg-accent transition-colors cursor-pointer" onClick={() => { (window as any).open(engUrl, "_self"); }}>
             <CardContent className="pt-4 pb-3">
               <f.icon className="h-5 w-5 text-violet-400 mb-2" />
               <p className="text-sm font-bold mb-0.5">{f.label}</p>
