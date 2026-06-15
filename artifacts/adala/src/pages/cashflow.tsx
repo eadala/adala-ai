@@ -11,12 +11,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-[#1A2744] border border-[#2D3D6B] rounded-lg p-3 text-xs shadow-xl" dir="rtl">
-      <p className="text-[#C9A84C] font-medium mb-2">{label}</p>
+      <p className="text-primary font-medium mb-2">{label}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2 mb-1">
           <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />
           <span className="text-muted-foreground">{p.name}:</span>
-          <span className="text-white font-medium">{fmt(p.value)}</span>
+          <span className="text-foreground font-medium">{fmt(p.value)}</span>
         </div>
       ))}
     </div>
@@ -42,34 +42,34 @@ export default function Cashflow() {
             <ArrowRightLeft className="h-5 w-5 text-blue-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">التدفقات النقدية</h1>
+            <h1 className="text-xl font-bold text-foreground">التدفقات النقدية</h1>
             <p className="text-xs text-muted-foreground">تتبع حركة السيولة المالية — آخر 12 شهراً</p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Card className="bg-sidebar border-sidebar-border"><CardContent className="p-4">
+          <Card className="bg-card border-border"><CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1"><TrendingUp className="h-4 w-4 text-green-400"/><p className="text-xs text-muted-foreground">إجمالي الدخل</p></div>
             <p className="text-lg font-bold text-green-400">{fmt(totalIn)}</p>
           </CardContent></Card>
-          <Card className="bg-sidebar border-sidebar-border"><CardContent className="p-4">
+          <Card className="bg-card border-border"><CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1"><TrendingDown className="h-4 w-4 text-red-400"/><p className="text-xs text-muted-foreground">إجمالي الخروج</p></div>
             <p className="text-lg font-bold text-red-400">{fmt(totalOut)}</p>
           </CardContent></Card>
-          <Card className="bg-sidebar border-sidebar-border"><CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1"><ArrowRightLeft className="h-4 w-4 text-[#C9A84C]"/><p className="text-xs text-muted-foreground">صافي التدفق</p></div>
-            <p className={`text-lg font-bold ${netFlow >= 0 ? "text-[#C9A84C]" : "text-red-400"}`}>{fmt(netFlow)}</p>
+          <Card className="bg-card border-border"><CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1"><ArrowRightLeft className="h-4 w-4 text-primary"/><p className="text-xs text-muted-foreground">صافي التدفق</p></div>
+            <p className={`text-lg font-bold ${netFlow >= 0 ? "text-primary" : "text-red-400"}`}>{fmt(netFlow)}</p>
           </CardContent></Card>
-          <Card className="bg-sidebar border-sidebar-border"><CardContent className="p-4">
+          <Card className="bg-card border-border"><CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1"><Wallet className="h-4 w-4 text-purple-400"/><p className="text-xs text-muted-foreground">الرصيد الحالي</p></div>
-            <p className={`text-lg font-bold ${lastBalance >= 0 ? "text-white" : "text-red-400"}`}>{fmt(lastBalance)}</p>
+            <p className={`text-lg font-bold ${lastBalance >= 0 ? "text-foreground" : "text-red-400"}`}>{fmt(lastBalance)}</p>
           </CardContent></Card>
         </div>
 
         {/* Area chart */}
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base text-white">الرصيد التراكمي</CardTitle>
+            <CardTitle className="text-base text-foreground">الرصيد التراكمي</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -108,28 +108,28 @@ export default function Cashflow() {
         </Card>
 
         {/* Monthly table */}
-        <Card className="bg-sidebar border-sidebar-border">
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-white">تفاصيل التدفق الشهري</CardTitle></CardHeader>
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-foreground">تفاصيل التدفق الشهري</CardTitle></CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead><tr className="border-b border-sidebar-border text-muted-foreground text-right">
+                <thead><tr className="border-b border-border text-muted-foreground text-right">
                   <th className="px-4 py-2 font-medium">الشهر</th>
                   <th className="px-4 py-2 font-medium text-green-400">دخل</th>
                   <th className="px-4 py-2 font-medium text-red-400">خروج</th>
-                  <th className="px-4 py-2 font-medium text-[#C9A84C]">صافي</th>
+                  <th className="px-4 py-2 font-medium text-primary">صافي</th>
                   <th className="px-4 py-2 font-medium">الرصيد التراكمي</th>
                 </tr></thead>
                 <tbody>
                   {data.map((m: any) => {
                     const net = m.inflow - m.outflow;
                     return (
-                      <tr key={m.month} className="border-b border-sidebar-border/40 hover:bg-sidebar-accent/20">
-                        <td className="px-4 py-2.5 text-white">{m.month}</td>
+                      <tr key={m.month} className="border-b border-border/40 hover:bg-sidebar-accent/20">
+                        <td className="px-4 py-2.5 text-foreground">{m.month}</td>
                         <td className="px-4 py-2.5 text-green-400">{fmt(m.inflow)}</td>
                         <td className="px-4 py-2.5 text-red-400">{fmt(m.outflow)}</td>
-                        <td className={`px-4 py-2.5 font-bold ${net >= 0 ? "text-[#C9A84C]" : "text-red-400"}`}>{fmt(net)}</td>
-                        <td className={`px-4 py-2.5 font-medium ${m.balance >= 0 ? "text-white" : "text-red-400"}`}>{fmt(m.balance)}</td>
+                        <td className={`px-4 py-2.5 font-bold ${net >= 0 ? "text-primary" : "text-red-400"}`}>{fmt(net)}</td>
+                        <td className={`px-4 py-2.5 font-medium ${m.balance >= 0 ? "text-foreground" : "text-red-400"}`}>{fmt(m.balance)}</td>
                       </tr>
                     );
                   })}

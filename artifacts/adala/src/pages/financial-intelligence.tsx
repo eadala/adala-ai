@@ -93,7 +93,7 @@ function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl p-3 text-xs" style={{ background: "#0f1e35", border: "1px solid rgba(255,255,255,0.1)" }}>
-      <p className="font-bold mb-1.5 text-white">{label}</p>
+      <p className="font-bold mb-1.5 text-foreground">{label}</p>
       {payload.map((p: any, i: number) => (
         <p key={i} style={{ color: p.color }}>{p.name}: {fmt(p.value)} ر.س</p>
       ))}
