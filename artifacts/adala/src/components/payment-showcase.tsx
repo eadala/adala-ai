@@ -159,7 +159,7 @@ export default function PaymentShowcase() {
     <section
       id="payment-showcase"
       className="relative py-28 px-4 overflow-hidden"
-      style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+      style={{ background: "#0F172A", borderTop: "1px solid rgba(255,255,255,0.05)" }}
     >
       {/* ── Background atmosphere ─────────────────────────────────── */}
       <div className="absolute inset-0 pointer-events-none">
