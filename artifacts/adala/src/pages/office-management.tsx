@@ -378,7 +378,7 @@ export default function OfficeManagement() {
 
               {/* Store link specifically */}
               <div className="flex items-center gap-2 p-3 rounded-xl border border-border/30 bg-muted/20 text-xs text-muted-foreground">
-                <ShoppingBag className="h-3.5 w-3.5 text-[#C9A84C] shrink-0" />
+                <ShoppingBag className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span>رابط المتجر المباشر:</span>
                 <a href={`/firms/${office.slug}/store`} target="_blank" rel="noreferrer" className="font-mono text-primary hover:underline flex-1 dir-ltr text-left">
                   adalah.sa/firms/{office.slug}/store
@@ -394,7 +394,7 @@ export default function OfficeManagement() {
           {/* ── Stats ── */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {[
-              { label: "الطلبات",    val: orders.length,   color: "#C9A84C",  tab: "orders",   pending: (orders as any[]).filter((o: any) => o.status === "pending").length },
+              { label: "الطلبات",    val: orders.length,   color: "#2563EB",  tab: "orders",   pending: (orders as any[]).filter((o: any) => o.status === "pending").length },
               { label: "الخدمات",   val: services.length,  color: "#3B82F6",  tab: "services" },
               { label: "الفريق",    val: team.length,      color: "#8B5CF6",  tab: "team"     },
               { label: "التقييمات", val: reviews.length,   color: "#10B981",  tab: "reviews"  },
@@ -468,7 +468,7 @@ export default function OfficeManagement() {
               { icon: Users,       label: "إضافة عضو فريق",  color: "text-purple-400",  href: `?tab=team`,     desc: "أعضاء مكتبك" },
               { icon: FileText,    label: "كتابة مقال",       color: "text-orange-400",  href: `?tab=articles`, desc: "محتوى جذب العملاء" },
               { icon: Palette,     label: "تخصيص المظهر",    color: "text-pink-400",    href: `?tab=appearance`, desc: "الألوان والشعار" },
-              { icon: Link2,       label: "إعدادات النطاق",  color: "text-[#C9A84C]",   href: `?tab=domains`,  desc: "دومين مخصص" },
+              { icon: Link2,       label: "إعدادات النطاق",  color: "text-primary",   href: `?tab=domains`,  desc: "دومين مخصص" },
               { icon: Edit2,       label: "تعديل محتوى الصفحة", color: "text-emerald-400", action: () => setPageForm({ ...office }), desc: "النصوص والمعلومات" },
             ].map(action => (
               <Card key={action.label} className="border-border/50 hover:border-border cursor-pointer transition-colors"
@@ -547,22 +547,22 @@ export default function OfficeManagement() {
                 <div className="flex items-center gap-3">
                   <input
                     type="color"
-                    value={appearanceForm?.primaryColor ?? office.primaryColor ?? "#C9A84C"}
+                    value={appearanceForm?.primaryColor ?? office.primaryColor ?? "#2563EB"}
                     onChange={e => setAppearanceForm((f: any) => ({ ...(f ?? { primaryColor: office.primaryColor, name: office.name, nameEn: office.nameEn, tagline: office.tagline, taglineEn: office.taglineEn, about: office.about, aboutEn: office.aboutEn }), primaryColor: e.target.value }))}
                     className="h-10 w-16 rounded-lg border border-border/50 cursor-pointer bg-transparent p-1"
                   />
                   <div className="flex gap-2 flex-wrap">
-                    {["#C9A84C", "#1E40AF", "#059669", "#7C3AED", "#DC2626", "#0F172A", "#EA580C"].map(c => (
+                    {["#2563EB", "#1E40AF", "#059669", "#7C3AED", "#DC2626", "#0F172A", "#EA580C"].map(c => (
                       <button
                         key={c}
-                        className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${(appearanceForm?.primaryColor ?? office.primaryColor ?? "#C9A84C") === c ? "border-foreground scale-110" : "border-transparent"}`}
+                        className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${(appearanceForm?.primaryColor ?? office.primaryColor ?? "#2563EB") === c ? "border-foreground scale-110" : "border-transparent"}`}
                         style={{ background: c }}
                         onClick={() => setAppearanceForm((f: any) => ({ ...(f ?? { name: office.name, nameEn: office.nameEn, tagline: office.tagline, taglineEn: office.taglineEn, about: office.about, aboutEn: office.aboutEn }), primaryColor: c }))}
                       />
                     ))}
                   </div>
                   <div className="h-8 w-8 rounded-lg border border-border/50 flex-shrink-0"
-                    style={{ background: appearanceForm?.primaryColor ?? office.primaryColor ?? "#C9A84C" }} />
+                    style={{ background: appearanceForm?.primaryColor ?? office.primaryColor ?? "#2563EB" }} />
                 </div>
               </div>
 
@@ -668,7 +668,7 @@ export default function OfficeManagement() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="font-bold text-sm">{o.clientName}</span>
-                      <Badge className={`text-[9px] ${STATUS_LABELS[o.status]?.color ?? "text-gray-400"} bg-white/5 border-white/10`}>
+                      <Badge className={`text-[9px] ${STATUS_LABELS[o.status]?.color ?? "text-gray-400"} bg-muted border-border`}>
                         {STATUS_LABELS[o.status]?.label ?? o.status}
                       </Badge>
                       {o.isQuoteRequest && <Badge className="text-[9px] bg-purple-500/10 text-purple-400 border-purple-500/20">طلب عرض سعر</Badge>}
@@ -853,7 +853,7 @@ export default function OfficeManagement() {
           <Card className="border-border/50 bg-card/50">
             <CardContent className="p-5 space-y-4">
               <div className="flex items-center gap-2 mb-1">
-                <Globe className="h-4 w-4 text-[#C9A84C]" />
+                <Globe className="h-4 w-4 text-primary" />
                 <h3 className="font-bold text-sm">الدومين الفرعي</h3>
                 <Badge className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 gap-1">
                   <CheckCircle2 className="h-2.5 w-2.5" /> نشط
@@ -870,7 +870,7 @@ export default function OfficeManagement() {
                 </Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" asChild>
                   <a href={office ? `/firms/${office.slug}` : "#"} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5 text-[#C9A84C]" />
+                    <ExternalLink className="h-3.5 w-3.5 text-primary" />
                   </a>
                 </Button>
               </div>
@@ -1013,7 +1013,7 @@ export default function OfficeManagement() {
                 </h3>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="rounded-lg bg-muted/40 p-3 text-center">
-                    <Globe className="h-5 w-5 mx-auto mb-1 text-[#C9A84C]" />
+                    <Globe className="h-5 w-5 mx-auto mb-1 text-primary" />
                     <p className="text-[11px] text-muted-foreground">الدومين الفرعي</p>
                     <p className="text-xs font-bold text-emerald-400">نشط</p>
                   </div>

@@ -34,8 +34,8 @@ import { arSA } from "date-fns/locale";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const GOLD = "#C9A84C";
-const NAVY = "#1A2744";
+const GOLD = "#2563EB";
+const NAVY = "#1E40AF";
 
 const COLORS = [GOLD, "#6366F1", "#10B981", "#3B82F6", "#EC4899", "#F59E0B", "#8B5CF6", "#06B6D4"];
 
@@ -191,7 +191,7 @@ function SectionHeader({ title, desc, children }: { title: string; desc?: string
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border shadow-xl p-3 text-xs" style={{ background: "#1A2744", borderColor: "#2D3D6B" }}>
+    <div className="rounded-xl border shadow-xl p-3 text-xs" style={{ background: "#F8FAFC", borderColor: "#E2E8F0" }}>
       <p className="font-bold mb-2" style={{ color: GOLD }}>{label}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2 mb-1">
@@ -334,7 +334,7 @@ function RoleDialog({ open, onClose, editRole }: { open: boolean; onClose: () =>
             </h4>
             {isEdit && editRole?.isSystem ? (
               <div className="rounded-xl border p-4 text-sm text-muted-foreground flex items-center gap-2"
-                style={{ borderColor: "#2D3D6B", background: "rgba(45,61,107,0.3)" }}>
+                style={{ borderColor: "#E2E8F0", background: "#F8FAFC" }}>
                 <Lock className="h-4 w-4" />
                 الأدوار الأساسية محمية ولا يمكن تعديل صلاحياتها
               </div>
@@ -344,8 +344,8 @@ function RoleDialog({ open, onClose, editRole }: { open: boolean; onClose: () =>
                   const allOn = mod.perms.every(k => permissions.includes(k));
                   const someOn = mod.perms.some(k => permissions.includes(k)) && !allOn;
                   return (
-                    <div key={mod.key} className="rounded-xl border overflow-hidden" style={{ borderColor: "#2D3D6B" }}>
-                      <div className="flex items-center gap-3 px-4 py-2.5 border-b" style={{ borderColor: "#2D3D6B", background: `${mod.color}08` }}>
+                    <div key={mod.key} className="rounded-xl border overflow-hidden" style={{ borderColor: "#E2E8F0" }}>
+                      <div className="flex items-center gap-3 px-4 py-2.5 border-b" style={{ borderColor: "#E2E8F0", background: `${mod.color}08` }}>
                         <span className="font-medium text-sm flex-1">{mod.label}</span>
                         <Switch
                           checked={allOn}
@@ -363,7 +363,7 @@ function RoleDialog({ open, onClose, editRole }: { open: boolean; onClose: () =>
                           return (
                             <button key={key} onClick={() => toggle(key)}
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer"
-                              style={on ? { background: mod.color, borderColor: mod.color, color: "#fff" } : { background: "rgba(45,61,107,0.3)", borderColor: "#2D3D6B", color: "#A0ADB8" }}>
+                              style={on ? { background: mod.color, borderColor: mod.color, color: "#fff" } : { background: "#F8FAFC", borderColor: "#E2E8F0", color: "#64748B" }}>
                               {on ? <Check className="h-3 w-3" /> : <X className="h-3 w-3 opacity-50" />}
                               {label}
                             </button>
@@ -586,7 +586,7 @@ export default function FirmAdmin() {
                           <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3D6B" opacity={0.5} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.5} />
                       <XAxis dataKey="month" tick={{ fill: "#A0ADB8", fontSize: 11 }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fill: "#A0ADB8", fontSize: 11 }} axisLine={false} tickLine={false} />
                       <Tooltip content={<CustomTooltip />} />
@@ -657,7 +657,7 @@ export default function FirmAdmin() {
               </CardHeader>
               <CardContent className="p-0">
                 {isLoading ? <div className="p-4"><Skeleton className="h-40 w-full" /></div> : (
-                  <div className="divide-y" style={{ borderColor: "#2D3D6B1A" }}>
+                  <div className="divide-y" style={{ borderColor: "#E2E8F0" }}>
                     {(overview?.recentCases ?? []).map(c => (
                       <div key={c.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
                         <div className="min-w-0 flex-1">
@@ -685,7 +685,7 @@ export default function FirmAdmin() {
               </CardHeader>
               <CardContent className="p-0">
                 {isLoading ? <div className="p-4"><Skeleton className="h-40 w-full" /></div> : (
-                  <div className="divide-y" style={{ borderColor: "#2D3D6B1A" }}>
+                  <div className="divide-y" style={{ borderColor: "#E2E8F0" }}>
                     {(overview?.recentInvoices ?? []).map(inv => (
                       <div key={inv.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
                         <div className="min-w-0 flex-1">
@@ -716,7 +716,7 @@ export default function FirmAdmin() {
               <CardContent>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={overview.topTypes} layout="vertical" margin={{ right: 20, left: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2D3D6B" opacity={0.5} horizontal={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.5} horizontal={false} />
                     <XAxis type="number" tick={{ fill: "#A0ADB8", fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis dataKey="name" type="category" tick={{ fill: "#A0ADB8", fontSize: 11 }} axisLine={false} tickLine={false} width={70} />
                     <Tooltip content={<CustomTooltip />} />
@@ -915,7 +915,7 @@ export default function FirmAdmin() {
               {isLoading ? <Skeleton className="h-64 w-full" /> : (
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={overview?.charts ?? []} margin={{ top: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2D3D6B" opacity={0.5} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.5} />
                     <XAxis dataKey="month" tick={{ fill: "#A0ADB8", fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: "#A0ADB8", fontSize: 11 }} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} />
@@ -965,7 +965,7 @@ export default function FirmAdmin() {
               <CardContent className="p-0">
                 {overview.expiringContracts.map(c => (
                   <div key={c.id} className="flex items-center justify-between px-4 py-3 border-b last:border-0"
-                    style={{ borderColor: "#2D3D6B1A" }}>
+                    style={{ borderColor: "#E2E8F0" }}>
                     <span className="text-sm">{c.title}</span>
                     <span className="text-xs text-amber-400 font-medium">
                       ينتهي {format(new Date(c.expiresAt), "dd MMM yyyy", { locale: arSA })}
@@ -1036,7 +1036,7 @@ export default function FirmAdmin() {
                           <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3D6B" opacity={0.5} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.5} />
                       <XAxis dataKey="month" tick={{ fill: "#A0ADB8", fontSize: 11 }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fill: "#A0ADB8", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
                       <Tooltip content={<CustomTooltip />} />
@@ -1194,7 +1194,7 @@ export default function FirmAdmin() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b" style={{ borderColor: "#2D3D6B" }}>
+                    <tr className="border-b" style={{ borderColor: "#E2E8F0" }}>
                       <th className="text-right py-2 pr-2 font-semibold text-muted-foreground">الصلاحية</th>
                       {roles.map(r => (
                         <th key={r.id} className="text-center py-2 px-3 font-semibold"
@@ -1212,7 +1212,7 @@ export default function FirmAdmin() {
                       "users:view","users:manage",
                       "billing:view","billing:manage",
                     ].map(perm => (
-                      <tr key={perm} className="border-b hover:bg-muted/20 transition-colors" style={{ borderColor: "#2D3D6B30" }}>
+                      <tr key={perm} className="border-b hover:bg-muted/20 transition-colors" style={{ borderColor: "#E2E8F030" }}>
                         <td className="py-2 pr-2 font-mono text-muted-foreground">{perm}</td>
                         {roles.map(r => (
                           <td key={r.id} className="text-center py-2">
@@ -1241,7 +1241,7 @@ export default function FirmAdmin() {
                   {Array.from({length: 8}).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
                 </div>
               ) : (
-                <div className="divide-y" style={{ borderColor: "#2D3D6B1A" }}>
+                <div className="divide-y" style={{ borderColor: "#E2E8F0" }}>
                   {(overview?.recentActivity ?? []).map((log: any) => {
                     const actionMap: Record<string,{label:string; color:string; bg:string}> = {
                       create:        { label: "إنشاء",         color: "#10B981", bg: "rgba(16,185,129,0.12)" },

@@ -121,7 +121,7 @@ export default function SignPage({ token }: { token: string }) {
   /* ── Loading ── */
   if (isLoading) return (
     <div className="min-h-screen bg-[#0f1c35] flex items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-[#C9A84C]" />
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   );
 
@@ -158,8 +158,8 @@ export default function SignPage({ token }: { token: string }) {
       <div className="bg-gradient-to-l from-[#0f1c35] to-[#1A2744] border-b border-white/10 px-6 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#C9A84C]/15 border border-[#C9A84C]/30 flex items-center justify-center">
-              <Scale className="h-4 w-4 text-[#C9A84C]" />
+            <div className="w-9 h-9 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center">
+              <Scale className="h-4 w-4 text-primary" />
             </div>
             <div>
               <h1 className="text-white font-bold">عدالة AI — التوقيع الإلكتروني</h1>
@@ -179,7 +179,7 @@ export default function SignPage({ token }: { token: string }) {
         <Card className="bg-white/5 border-white/10">
           <CardHeader className="pb-2">
             <CardTitle className="text-white text-sm flex items-center gap-2">
-              <FileSignature className="h-4 w-4 text-[#C9A84C]" />طلب توقيع
+              <FileSignature className="h-4 w-4 text-primary" />طلب توقيع
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-0">
@@ -227,10 +227,10 @@ export default function SignPage({ token }: { token: string }) {
               <Label className="text-white/60 text-xs">التوقيع</Label>
               <Tabs value={signMode} onValueChange={v => setSignMode(v as "draw" | "type")}>
                 <TabsList className="bg-white/5 border border-white/10 h-8">
-                  <TabsTrigger value="draw" className="text-xs gap-1 h-6 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-black">
+                  <TabsTrigger value="draw" className="text-xs gap-1 h-6 data-[state=active]:bg-primary data-[state=active]:text-black">
                     <PenLine className="h-3 w-3" />رسم التوقيع
                   </TabsTrigger>
-                  <TabsTrigger value="type" className="text-xs gap-1 h-6 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-black">
+                  <TabsTrigger value="type" className="text-xs gap-1 h-6 data-[state=active]:bg-primary data-[state=active]:text-black">
                     <Type className="h-3 w-3" />كتابة التوقيع
                   </TabsTrigger>
                 </TabsList>
@@ -278,7 +278,7 @@ export default function SignPage({ token }: { token: string }) {
 
             {/* Agreement */}
             <label className="flex items-start gap-3 cursor-pointer select-none">
-              <input type="checkbox" className="mt-1 accent-[#C9A84C]" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+              <input type="checkbox" className="mt-1 accent-[#2563EB]" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
               <span className="text-white/50 text-sm leading-relaxed">
                 أُقرّ بأنني قرأت الوثيقة أعلاه بالكامل وأوافق على محتواها، وأن توقيعي الإلكتروني يُعادل التوقيع الخطي من الناحية القانونية.
               </span>
@@ -288,7 +288,7 @@ export default function SignPage({ token }: { token: string }) {
               <p className="text-red-400 text-xs">{(signMutation.error as any)?.message}</p>
             )}
 
-            <Button className="w-full bg-[#C9A84C] hover:bg-[#b8973e] text-black font-bold h-11"
+            <Button className="w-full bg-primary hover:bg-[#b8973e] text-black font-bold h-11"
               disabled={!isReady || signMutation.isPending}
               onClick={() => signMutation.mutate()}>
               {signMutation.isPending

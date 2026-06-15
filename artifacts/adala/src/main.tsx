@@ -28,7 +28,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
           }}
         >
           <div style={{ fontSize: "3rem" }}>⚖️</div>
-          <h2 style={{ color: "#C9A84C", fontSize: "1.5rem", fontWeight: "bold" }}>
+          <h2 style={{ color: "#2563EB", fontSize: "1.5rem", fontWeight: "bold" }}>
             حدث خطأ في التطبيق
           </h2>
           <p style={{ color: "#A0ADB8", maxWidth: "600px" }}>{this.state.error.message}</p>
@@ -42,7 +42,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
           <button
             onClick={() => window.location.reload()}
             style={{
-              background: "#C9A84C", color: "#1A2744", border: "none",
+              background: "#2563EB", color: "#1A2744", border: "none",
               padding: "0.75rem 1.5rem", borderRadius: "8px",
               fontWeight: "bold", cursor: "pointer", fontSize: "1rem",
             }}

@@ -16,7 +16,7 @@ import {
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-const COLORS = ["#C9A84C","#3B82F6","#10B981","#F59E0B","#EF4444","#8B5CF6","#06B6D4","#F97316"];
+const COLORS = ["#2563EB","#3B82F6","#10B981","#F59E0B","#EF4444","#8B5CF6","#06B6D4","#F97316"];
 
 function fmtSAR(n: number) {
   const riyals = n / 100;
@@ -35,7 +35,7 @@ function KpiCard({ title, value, sub, icon: Icon, colorClass, trend, link }: {
   colorClass: string; trend?: number; link?: string;
 }) {
   const content = (
-    <Card className={`bg-sidebar border-sidebar-border hover:border-[#C9A84C]/30 transition-all duration-200 ${link ? "cursor-pointer" : ""}`}>
+    <Card className={`bg-card border-border hover:border-primary/30 transition-all duration-200 ${link ? "cursor-pointer" : ""}`}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-3">
           <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${colorClass}`}>
@@ -91,7 +91,7 @@ export default function FinanceCenter() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <DollarSign className="h-6 w-6 text-[#C9A84C]" />
+            <DollarSign className="h-6 w-6 text-primary" />
             مركز المالية
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">نظرة شاملة على الوضع المالي للمكتب</p>
@@ -126,7 +126,7 @@ export default function FinanceCenter() {
             value={fmtSAR(profit)}
             sub={`هامش الربح: ${margin}%`}
             icon={DollarSign}
-            colorClass={profit >= 0 ? "bg-[#C9A84C]/20 text-[#C9A84C]" : "bg-red-500/20 text-red-400"}
+            colorClass={profit >= 0 ? "bg-primary/20 text-primary" : "bg-red-500/20 text-red-400"}
           />
           <KpiCard
             title="الفواتير المدفوعة"
@@ -175,7 +175,7 @@ export default function FinanceCenter() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Monthly Chart — spans 2 cols */}
-        <Card className="lg:col-span-2 bg-sidebar border-sidebar-border">
+        <Card className="lg:col-span-2 bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold">الأداء المالي الشهري</CardTitle>
           </CardHeader>
@@ -195,7 +195,7 @@ export default function FinanceCenter() {
                   <Legend formatter={v => v === "revenue" ? "الإيرادات" : v === "expenses" ? "المصروفات" : "صافي الربح"} />
                   <Bar dataKey="revenue"  fill="#10B981" radius={[4,4,0,0]} maxBarSize={28} />
                   <Bar dataKey="expenses" fill="#EF4444" radius={[4,4,0,0]} maxBarSize={28} />
-                  <Bar dataKey="profit"   fill="#C9A84C" radius={[4,4,0,0]} maxBarSize={28} />
+                  <Bar dataKey="profit"   fill="#2563EB" radius={[4,4,0,0]} maxBarSize={28} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -203,7 +203,7 @@ export default function FinanceCenter() {
         </Card>
 
         {/* Expense Categories Pie */}
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold">تصنيف المصروفات</CardTitle>
           </CardHeader>
@@ -240,7 +240,7 @@ export default function FinanceCenter() {
       </div>
 
       {/* Quick Access Grid */}
-      <Card className="bg-sidebar border-sidebar-border">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold">الوصول السريع</CardTitle>
         </CardHeader>
@@ -248,7 +248,7 @@ export default function FinanceCenter() {
           <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-3">
             {QUICK_LINKS.map(({ href, label, icon: Icon, color }) => (
               <Link key={href} href={href}>
-                <div className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border/40 hover:border-[#C9A84C]/30 hover:bg-muted/30 transition-all cursor-pointer group">
+                <div className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border/40 hover:border-primary/30 hover:bg-muted/30 transition-all cursor-pointer group">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color} group-hover:scale-110 transition-transform`}>
                     <Icon className="h-5 w-5" />
                   </div>

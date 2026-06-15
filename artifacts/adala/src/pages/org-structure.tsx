@@ -45,7 +45,7 @@ const UNIT_TYPES: { value: string; label: string; icon: React.ComponentType<any>
   { value: "DEPARTMENT",           label: "قسم",              icon: Layers,       color: "#8B5CF6" },
   { value: "SECTION",              label: "شعبة",             icon: GitBranch,    color: "#10B981" },
   { value: "TEAM",                 label: "فريق",             icon: Users,        color: "#F59E0B" },
-  { value: "LEGAL_DEPARTMENT",     label: "إدارة قانونية",    icon: Scale,        color: "#C9A84C" },
+  { value: "LEGAL_DEPARTMENT",     label: "إدارة قانونية",    icon: Scale,        color: "#2563EB" },
   { value: "CONTRACTS_DEPARTMENT", label: "إدارة العقود",     icon: FileText,     color: "#6366F1" },
   { value: "COMPLIANCE_DEPARTMENT",label: "إدارة الامتثال",   icon: Shield,       color: "#EF4444" },
   { value: "GOVERNANCE_DEPARTMENT",label: "إدارة الحوكمة",    icon: Crown,        color: "#EC4899" },
@@ -61,7 +61,7 @@ const VISIBILITY_SCOPES = [
 ];
 
 const NEW_ROLES = [
-  { value: "legal_manager",        label: "مدير قانوني",           color: "#C9A84C" },
+  { value: "legal_manager",        label: "مدير قانوني",           color: "#2563EB" },
   { value: "contracts_manager",    label: "مدير العقود",           color: "#6366F1" },
   { value: "compliance_officer",   label: "مسؤول الامتثال",        color: "#EF4444" },
   { value: "governance_officer",   label: "مسؤول الحوكمة",         color: "#EC4899" },
@@ -436,7 +436,7 @@ function TreeNode({
 ══════════════════════════════════════════════ */
 function VisibilityScopeTable() {
   const SCOPE_ROLES = [
-    { role: "مالك المكتب",    scope: "ALL",           color: "#C9A84C" },
+    { role: "مالك المكتب",    scope: "ALL",           color: "#2563EB" },
     { role: "مدير المكتب",    scope: "ORGANIZATION",  color: "#3B82F6" },
     { role: "مدير قانوني",    scope: "UNIT",          color: "#8B5CF6" },
     { role: "مدير العقود",    scope: "UNIT",          color: "#6366F1" },
@@ -571,7 +571,7 @@ export default function OrgStructure() {
           { label: "إجمالي الوحدات",  value: dashboard?.total  ?? units.length,                       icon: Network,   color: "#6366F1" },
           { label: "وحدات نشطة",      value: dashboard?.active ?? units.filter(u => u.status === "active").length, icon: CheckCircle2, color: "#10B981" },
           { label: "وحدات موقوفة",    value: (dashboard?.total ?? units.length) - (dashboard?.active ?? 0), icon: XCircle, color: "#EF4444" },
-          { label: "أعلى قضايا",      value: dashboard?.topUnits?.[0]?.name ?? "—",                   icon: Scale,     color: "#C9A84C", isText: true },
+          { label: "أعلى قضايا",      value: dashboard?.topUnits?.[0]?.name ?? "—",                   icon: Scale,     color: "#2563EB", isText: true },
         ].map(stat => (
           <div key={stat.label} className="rounded-2xl border border-border/50 bg-card p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${stat.color}15` }}>

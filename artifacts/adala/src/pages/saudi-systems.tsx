@@ -38,7 +38,7 @@ const SYSTEMS: SaudiSystem[] = [
     id: "nafith", name: "نافذ", nameEn: "Nafith",
     description: "نظام تنفيذ الأحكام القضائية — متابعة طلبات التنفيذ والحجز والاعتراضات",
     url: "https://nafith.moj.gov.sa", status: "available", category: "القضاء والمحاكم",
-    tags: ["تنفيذ", "أحكام", "حجز"], icon: Landmark, color: "#c9a84c",
+    tags: ["تنفيذ", "أحكام", "حجز"], icon: Landmark, color: "#2563EB",
   },
   {
     id: "moj", name: "وزارة العدل", nameEn: "Ministry of Justice",
@@ -70,7 +70,7 @@ const SYSTEMS: SaudiSystem[] = [
     id: "sba", name: "هيئة المحامين السعوديين", nameEn: "Saudi Bar Association",
     description: "تجديد ترخيص المحاماة، الاطلاع على سجل المحامين، الدورات التدريبية المعتمدة",
     url: "https://sba.org.sa", status: "available", category: "المحامون والمهن القانونية",
-    tags: ["ترخيص", "محامون", "تدريب"], icon: Users, color: "#c9a84c",
+    tags: ["ترخيص", "محامون", "تدريب"], icon: Users, color: "#2563EB",
   },
   {
     id: "nafath", name: "نفاذ", nameEn: "Nafath",
@@ -134,7 +134,7 @@ const SYSTEMS: SaudiSystem[] = [
     id: "zatca", name: "هيئة الزكاة والضريبة والجمارك", nameEn: "ZATCA",
     description: "تسجيل ضريبة القيمة المضافة، الإقرارات الضريبية، الفواتير الإلكترونية، الجمارك",
     url: "https://zatca.gov.sa", status: "available", category: "الضرائب والمالية",
-    tags: ["ضرائب", "زكاة", "جمارك", "فاتورة"], icon: DollarSign, color: "#c9a84c",
+    tags: ["ضرائب", "زكاة", "جمارك", "فاتورة"], icon: DollarSign, color: "#2563EB",
   },
   {
     id: "sama", name: "البنك المركزي السعودي (ساما)", nameEn: "SAMA",
@@ -166,7 +166,7 @@ const SYSTEMS: SaudiSystem[] = [
     id: "mc", name: "وزارة التجارة", nameEn: "Ministry of Commerce",
     description: "تأسيس الشركات، تجديد السجل التجاري، العلامات التجارية، حماية المستهلك",
     url: "https://mc.gov.sa", status: "available", category: "السجل التجاري والأعمال",
-    tags: ["سجل تجاري", "شركات", "علامات"], icon: Briefcase, color: "#c9a84c",
+    tags: ["سجل تجاري", "شركات", "علامات"], icon: Briefcase, color: "#2563EB",
   },
   {
     id: "maroof", name: "معروف", nameEn: "Maroof",
@@ -204,7 +204,7 @@ const SYSTEMS: SaudiSystem[] = [
     id: "srca", name: "الهيئة العامة للعقار", nameEn: "SRCA",
     description: "تراخيص الوساطة العقارية، تسجيل المطورين، الشكاوى العقارية والنزاعات",
     url: "https://srca.gov.sa", status: "available", category: "العقارات",
-    tags: ["وساطة", "مطورون", "نزاعات"], icon: Home, color: "#c9a84c",
+    tags: ["وساطة", "مطورون", "نزاعات"], icon: Home, color: "#2563EB",
   },
   {
     id: "mmc", name: "وزارة الشؤون البلدية والقروية", nameEn: "MOMRA",
@@ -276,7 +276,7 @@ const SYSTEMS: SaudiSystem[] = [
     id: "stats", name: "الهيئة العامة للإحصاء", nameEn: "GASTAT",
     description: "البيانات الإحصائية الرسمية — ديموغرافيا، اقتصاد، سوق العمل",
     url: "https://stats.gov.sa", status: "available", category: "الرقابة والهيئات",
-    tags: ["إحصاء", "بيانات", "سوق عمل"], icon: BarChart3, color: "#c9a84c",
+    tags: ["إحصاء", "بيانات", "سوق عمل"], icon: BarChart3, color: "#2563EB",
   },
   {
     id: "transport", name: "وزارة النقل والخدمات اللوجستية", nameEn: "MOT",
@@ -357,7 +357,7 @@ export default function SaudiSystems() {
           {[
             { label: "نظام", value: stats.total, color: "#6366f1" },
             { label: "مرتبط", value: stats.connected, color: "#10b981" },
-            { label: "جهة", value: stats.categories, color: "#c9a84c" },
+            { label: "جهة", value: stats.categories, color: "#2563EB" },
           ].map(s => (
             <div key={s.label} className="text-center px-4 py-2 bg-card border border-border/60 rounded-xl">
               <div className="text-xl font-black" style={{ color: s.color }}>{s.value}</div>
@@ -395,7 +395,7 @@ export default function SaudiSystems() {
               {cat}
               <span className={cn(
                 "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
-                activeCategory === cat ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                activeCategory === cat ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
               )}>{count}</span>
             </button>
           );

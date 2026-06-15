@@ -73,7 +73,7 @@ export default function Revenues() {
               <p className="text-xs text-muted-foreground">إدارة الدخل والإيرادات</p>
             </div>
           </div>
-          <Button onClick={openCreate} className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold gap-1.5">
+          <Button onClick={openCreate} className="bg-primary hover:bg-[#b8943f] text-black font-bold gap-1.5">
             <Plus className="h-4 w-4" /> إضافة إيراد
           </Button>
         </div>
@@ -149,7 +149,7 @@ export default function Revenues() {
                   </thead>
                   <tbody>
                     {filtered.map(r => (
-                      <tr key={r.id} className="border-b border-border/50 hover:bg-sidebar-accent/30 transition-colors">
+                      <tr key={r.id} className="border-b border-border/50 hover:bg-card-accent/30 transition-colors">
                         <td className="px-4 py-3 text-foreground font-medium">{r.title}</td>
                         <td className="px-4 py-3">
                           <Badge variant="outline" className="border-green-500/30 text-green-400 text-xs">{r.category}</Badge>
@@ -202,7 +202,7 @@ export default function Revenues() {
             </div>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={closeDialog}>إلغاء</Button>
-              <Button className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold"
+              <Button className="bg-primary hover:bg-[#b8943f] text-black font-bold"
                 disabled={!form.title||!form.amount||saveMut.isPending}
                 onClick={()=>saveMut.mutate(form)}>
                 {saveMut.isPending&&<Loader2 className="h-4 w-4 ml-1 animate-spin"/>} حفظ

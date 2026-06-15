@@ -86,7 +86,7 @@ const INVOICE_TEMPLATES = [
     label: "الكلاسيكي القانوني",
     desc: "تصميم رسمي بخط ذهبي، مثالي للمحاكم",
     color: "#1e3a5f",
-    accent: "#c9a84c",
+    accent: "#2563EB",
     preview: "classic",
   },
   {
@@ -428,7 +428,7 @@ export default function OfficeSettingsPage() {
       } else if (!data && !loaded) {
         setForm({
           primaryColor: "#1e3a5f",
-          secondaryColor: "#c9a84c",
+          secondaryColor: "#2563EB",
           subscriptionTier: "basic",
           showAdalalahLogo: true,
           showAdalalahFooter: true,
@@ -639,8 +639,8 @@ export default function OfficeSettingsPage() {
                   <div className="space-y-2">
                     <Label>اللون الثانوي (الذهبي)</Label>
                     <div className="flex items-center gap-2">
-                      <input type="color" value={form.secondaryColor || "#c9a84c"} onChange={e => set("secondaryColor", e.target.value)} className="w-10 h-10 rounded cursor-pointer border border-border" />
-                      <Input value={form.secondaryColor || "#c9a84c"} onChange={e => set("secondaryColor", e.target.value)} className="font-mono" placeholder="#c9a84c" />
+                      <input type="color" value={form.secondaryColor || "#2563EB"} onChange={e => set("secondaryColor", e.target.value)} className="w-10 h-10 rounded cursor-pointer border border-border" />
+                      <Input value={form.secondaryColor || "#2563EB"} onChange={e => set("secondaryColor", e.target.value)} className="font-mono" placeholder="#2563EB" />
                     </div>
                   </div>
                 </div>
@@ -648,10 +648,10 @@ export default function OfficeSettingsPage() {
                 {/* Live color swatches */}
                 <div className="mt-4 flex gap-2 flex-wrap">
                   {[
-                    { label: "الأساسي العميق", primary: "#1e3a5f", secondary: "#c9a84c" },
+                    { label: "الأساسي العميق", primary: "#1e3a5f", secondary: "#2563EB" },
                     { label: "الملكي الذهبي", primary: "#2d1b69", secondary: "#f59e0b" },
                     { label: "الأخضر القانوني", primary: "#14532d", secondary: "#86efac" },
-                    { label: "الأسود الفاخر", primary: "#0f0f0f", secondary: "#c9a84c" },
+                    { label: "الأسود الفاخر", primary: "#0f0f0f", secondary: "#2563EB" },
                     { label: "الأزرق الدولي", primary: "#1d4ed8", secondary: "#60a5fa" },
                   ].map(preset => (
                     <button
@@ -661,8 +661,8 @@ export default function OfficeSettingsPage() {
                       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/60 text-xs hover:border-primary/50 transition-colors"
                       title={preset.label}
                     >
-                      <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: preset.primary }} />
-                      <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: preset.secondary }} />
+                      <span className="w-3.5 h-3.5 rounded-full border border-border" style={{ backgroundColor: preset.primary }} />
+                      <span className="w-3.5 h-3.5 rounded-full border border-border" style={{ backgroundColor: preset.secondary }} />
                       {preset.label}
                     </button>
                   ))}
@@ -716,7 +716,7 @@ export default function OfficeSettingsPage() {
                 <h3 className="font-semibold mb-3 flex items-center gap-2"><FileText className="h-4 w-4" />معاينة رأس المستند (مباشر)</h3>
                 <div className="border border-border rounded-xl overflow-hidden shadow-sm">
                   <div className="p-6 bg-white " style={{ direction: "rtl" }}>
-                    <div className="flex items-start justify-between border-b pb-4 mb-4" style={{ borderColor: form.secondaryColor || "#c9a84c" }}>
+                    <div className="flex items-start justify-between border-b pb-4 mb-4" style={{ borderColor: form.secondaryColor || "#2563EB" }}>
                       <div className="flex items-center gap-3">
                         {form.logoUrl ? (
                           <img src={form.logoUrl} alt="شعار" className="h-14 w-14 object-contain" />
@@ -742,7 +742,7 @@ export default function OfficeSettingsPage() {
                     </div>
                     <p className="text-center text-sm text-gray-400 italic">... محتوى المستند ...</p>
                     {(form.showAdalalahFooter !== false) && (
-                      <div className="mt-4 pt-3 border-t text-center text-xs text-gray-400" style={{ borderColor: form.secondaryColor || "#c9a84c" }}>
+                      <div className="mt-4 pt-3 border-t text-center text-xs text-gray-400" style={{ borderColor: form.secondaryColor || "#2563EB" }}>
                         تم إنشاء هذا المستند بواسطة منصة <span className="font-semibold">عدالة AI</span> — Powered by Adalah AI
                       </div>
                     )}
@@ -822,7 +822,7 @@ export default function OfficeSettingsPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-start justify-between border-b pb-4 mb-4" style={{ borderColor: form.secondaryColor || "#c9a84c" }}>
+                      <div className="flex items-start justify-between border-b pb-4 mb-4" style={{ borderColor: form.secondaryColor || "#2563EB" }}>
                         <div className="flex items-center gap-3">
                           {form.logoUrl ? (
                             <img src={form.logoUrl} alt="شعار" className="h-12 w-12 object-contain" />
@@ -837,7 +837,7 @@ export default function OfficeSettingsPage() {
                           </div>
                         </div>
                         <div className="text-left">
-                          <p className="text-2xl font-bold" style={{ color: form.secondaryColor || "#c9a84c" }}>فاتورة</p>
+                          <p className="text-2xl font-bold" style={{ color: form.secondaryColor || "#2563EB" }}>فاتورة</p>
                           <p className="text-sm text-gray-500">#INV-2024-001</p>
                         </div>
                       </div>

@@ -24,10 +24,10 @@ function formatContent(text: string) {
   const lines = text.split("\n");
   return lines.map((line, i) => {
     if (line.startsWith("**") && line.endsWith("**")) {
-      return <div key={i} className="font-bold text-[#C9A84C] mt-3 mb-1">{line.slice(2, -2)}</div>;
+      return <div key={i} className="font-bold text-primary mt-3 mb-1">{line.slice(2, -2)}</div>;
     }
     if (line.startsWith("- ") || line.startsWith("• ")) {
-      return <div key={i} className="flex gap-2 mr-2 my-0.5"><span className="text-[#C9A84C] mt-1">•</span><span>{line.slice(2)}</span></div>;
+      return <div key={i} className="flex gap-2 mr-2 my-0.5"><span className="text-primary mt-1">•</span><span>{line.slice(2)}</span></div>;
     }
     if (/^\d+\./.test(line)) {
       return <div key={i} className="mr-2 my-0.5 text-foreground/90">{line}</div>;
@@ -124,7 +124,7 @@ export default function AiChat() {
                       : "bg-muted text-foreground"
                   }`}
                 >
-                  {msg.role === "user" ? <User className="w-4 h-4" /> : <Scale className="w-4 h-4 text-[#C9A84C]" />}
+                  {msg.role === "user" ? <User className="w-4 h-4" /> : <Scale className="w-4 h-4 text-primary" />}
                 </div>
                 <div className={`max-w-[80%] ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col gap-1`}>
                   <div
@@ -150,7 +150,7 @@ export default function AiChat() {
             {isLoading && (
               <div className="flex gap-3">
                 <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
-                  <Scale className="w-4 h-4 text-[#C9A84C]" />
+                  <Scale className="w-4 h-4 text-primary" />
                 </div>
                 <div className="bg-muted rounded-2xl rounded-tr-sm px-4 py-3 flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />

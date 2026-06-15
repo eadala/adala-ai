@@ -141,7 +141,7 @@ export default function LoginTrackingPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard icon={Activity}      label="إجمالي الدخول"    value={stats?.total}       color="#C9A84C" sub={`اليوم: ${stats?.today ?? 0}`} />
+          <StatCard icon={Activity}      label="إجمالي الدخول"    value={stats?.total}       color="#2563EB" sub={`اليوم: ${stats?.today ?? 0}`} />
           <StatCard icon={CheckCircle2}  label="دخول ناجح"        value={stats?.success}     color="#10B981" />
           <StatCard icon={XCircle}       label="محاولات فاشلة"    value={stats?.failed}      color="#EF4444" />
           <StatCard icon={AlertTriangle} label="أنشطة مشبوهة"     value={stats?.suspicious}  color="#F59E0B" />
@@ -228,7 +228,7 @@ export default function LoginTrackingPage() {
         <Card className="border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-[#C9A84C]" /> أكثر المستخدمين نشاطاً
+              <Users className="h-4 w-4 text-primary" /> أكثر المستخدمين نشاطاً
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -316,7 +316,7 @@ export default function LoginTrackingPage() {
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                     statusFilter === f.key
-                      ? "bg-[#C9A84C] text-black"
+                      ? "bg-primary text-black"
                       : "text-muted-foreground hover:text-foreground border border-border/40"
                   )}
                 >

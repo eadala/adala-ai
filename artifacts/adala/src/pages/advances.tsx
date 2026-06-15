@@ -71,23 +71,23 @@ export default function Advances() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-purple-500/20 flex items-center justify-center"><Wallet className="h-5 w-5 text-purple-400" /></div>
-            <div><h1 className="text-xl font-bold text-white">العهد والسلف</h1><p className="text-xs text-muted-foreground">إدارة السلف والقروض للموظفين</p></div>
+            <div><h1 className="text-xl font-bold text-foreground">العهد والسلف</h1><p className="text-xs text-muted-foreground">إدارة السلف والقروض للموظفين</p></div>
           </div>
-          <Button onClick={() => { setForm(empty()); setOpen(true); }} className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold gap-1.5"><Plus className="h-4 w-4" />سلفة جديدة</Button>
+          <Button onClick={() => { setForm(empty()); setOpen(true); }} className="bg-primary hover:bg-[#b8943f] text-black font-bold gap-1.5"><Plus className="h-4 w-4" />سلفة جديدة</Button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Card className="bg-sidebar border-sidebar-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">إجمالي السلف</p><p className="text-xl font-bold text-white">{fmt(totalAdvances)}</p></CardContent></Card>
-          <Card className="bg-sidebar border-sidebar-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">المسدد</p><p className="text-xl font-bold text-green-400">{fmt(totalRepaid)}</p></CardContent></Card>
-          <Card className="bg-sidebar border-sidebar-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">القائم</p><p className="text-xl font-bold text-[#C9A84C]">{fmt(outstanding)}</p></CardContent></Card>
-          <Card className="bg-sidebar border-sidebar-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السلف</p><p className="text-2xl font-bold text-white">{rows.length}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">إجمالي السلف</p><p className="text-xl font-bold text-foreground">{fmt(totalAdvances)}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">المسدد</p><p className="text-xl font-bold text-green-400">{fmt(totalRepaid)}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">القائم</p><p className="text-xl font-bold text-primary">{fmt(outstanding)}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السلف</p><p className="text-2xl font-bold text-foreground">{rows.length}</p></CardContent></Card>
         </div>
 
         {/* Status filter */}
         <div className="flex flex-wrap gap-2">
           {[{ v:"all",l:"الكل"},...Object.entries(STATUS_MAP).map(([v,c])=>({v,l:c.label}))].map(s=>(
             <button key={s.v} onClick={()=>setFilterStatus(s.v)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filterStatus===s.v ? "border-[#C9A84C] bg-[#C9A84C]/10 text-[#C9A84C]" : "border-sidebar-border text-muted-foreground hover:border-[#C9A84C]/40"}`}>
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filterStatus===s.v ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
               {s.l}
             </button>
           ))}
@@ -104,12 +104,12 @@ export default function Advances() {
               const StIcon = st.icon;
               const pct = parseFloat(String(r.amount||0)) > 0 ? (parseFloat(String(r.amountRepaid||0)) / parseFloat(String(r.amount))) * 100 : 0;
               return (
-                <Card key={r.id} className="bg-sidebar border-sidebar-border hover:border-[#C9A84C]/20 transition-colors">
+                <Card key={r.id} className="bg-card border-border hover:border-primary/20 transition-colors">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-bold text-white">{r.employeeName}</p>
+                          <p className="text-sm font-bold text-foreground">{r.employeeName}</p>
                           <Badge variant="outline" className={`text-[10px] ${st.color}`}>
                             <StIcon className="h-2.5 w-2.5 ml-1" />{st.label}
                           </Badge>
@@ -121,14 +121,14 @@ export default function Advances() {
                               <span>السداد: {fmt(r.amountRepaid)} من {fmt(r.amount)}</span>
                               <span>{pct.toFixed(0)}%</span>
                             </div>
-                            <div className="h-1.5 bg-sidebar-border rounded-full overflow-hidden">
-                              <div className="h-full bg-[#C9A84C] rounded-full transition-all" style={{ width: `${pct}%` }} />
+                            <div className="h-1.5 bg-card-border rounded-full overflow-hidden">
+                              <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
                             </div>
                           </div>
                         )}
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
-                        <p className="text-lg font-bold text-[#C9A84C]">{fmt(r.amount)}</p>
+                        <p className="text-lg font-bold text-primary">{fmt(r.amount)}</p>
                         <div className="flex gap-1">
                           {r.status === "pending" && (
                             <Button size="sm" variant="outline" className="text-xs border-green-500/30 text-green-400 hover:bg-green-500/10"
@@ -151,21 +151,21 @@ export default function Advances() {
 
         {/* Create dialog */}
         <Dialog open={open} onOpenChange={v => !v && setOpen(false)}>
-          <DialogContent className="bg-sidebar border-sidebar-border text-white max-w-md" dir="rtl">
+          <DialogContent className="bg-card border-border text-foreground max-w-md" dir="rtl">
             <DialogHeader><DialogTitle>سلفة جديدة</DialogTitle></DialogHeader>
             <div className="space-y-3 py-2">
-              <div><Label className="text-xs text-muted-foreground">اسم الموظف *</Label><Input value={form.employeeName??""} onChange={e=>set("employeeName",e.target.value)} className="bg-background/50 border-sidebar-border mt-1 text-sm"/></div>
+              <div><Label className="text-xs text-muted-foreground">اسم الموظف *</Label><Input value={form.employeeName??""} onChange={e=>set("employeeName",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-xs text-muted-foreground">المبلغ (ر.س) *</Label><Input type="number" value={form.amount??""} onChange={e=>set("amount",e.target.value)} className="bg-background/50 border-sidebar-border mt-1 text-sm"/></div>
-                <div><Label className="text-xs text-muted-foreground">أقساط السداد (شهر)</Label><Input type="number" value={form.repaymentMonths??1} onChange={e=>set("repaymentMonths",parseInt(e.target.value))} className="bg-background/50 border-sidebar-border mt-1 text-sm"/></div>
+                <div><Label className="text-xs text-muted-foreground">المبلغ (ر.س) *</Label><Input type="number" value={form.amount??""} onChange={e=>set("amount",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
+                <div><Label className="text-xs text-muted-foreground">أقساط السداد (شهر)</Label><Input type="number" value={form.repaymentMonths??1} onChange={e=>set("repaymentMonths",parseInt(e.target.value))} className="bg-background/50 border-border mt-1 text-sm"/></div>
               </div>
-              <div><Label className="text-xs text-muted-foreground">الغرض من السلفة *</Label><Input value={form.purpose??""} onChange={e=>set("purpose",e.target.value)} className="bg-background/50 border-sidebar-border mt-1 text-sm"/></div>
-              <div><Label className="text-xs text-muted-foreground">التاريخ</Label><Input type="date" value={form.date??""} onChange={e=>set("date",e.target.value)} className="bg-background/50 border-sidebar-border mt-1 text-sm"/></div>
-              <div><Label className="text-xs text-muted-foreground">ملاحظات</Label><Textarea value={form.notes??""} onChange={e=>set("notes",e.target.value)} className="bg-background/50 border-sidebar-border mt-1 text-sm resize-none" rows={2}/></div>
+              <div><Label className="text-xs text-muted-foreground">الغرض من السلفة *</Label><Input value={form.purpose??""} onChange={e=>set("purpose",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
+              <div><Label className="text-xs text-muted-foreground">التاريخ</Label><Input type="date" value={form.date??""} onChange={e=>set("date",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
+              <div><Label className="text-xs text-muted-foreground">ملاحظات</Label><Textarea value={form.notes??""} onChange={e=>set("notes",e.target.value)} className="bg-background/50 border-border mt-1 text-sm resize-none" rows={2}/></div>
             </div>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={()=>setOpen(false)}>إلغاء</Button>
-              <Button className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold" disabled={!form.employeeName||!form.amount||!form.purpose||createMut.isPending} onClick={()=>createMut.mutate(form)}>
+              <Button className="bg-primary hover:bg-[#b8943f] text-black font-bold" disabled={!form.employeeName||!form.amount||!form.purpose||createMut.isPending} onClick={()=>createMut.mutate(form)}>
                 {createMut.isPending&&<Loader2 className="h-4 w-4 ml-1 animate-spin"/>}حفظ
               </Button>
             </DialogFooter>
@@ -174,15 +174,15 @@ export default function Advances() {
 
         {/* Repay dialog */}
         <Dialog open={!!repayId} onOpenChange={v=>!v&&setRepayId(null)}>
-          <DialogContent className="bg-sidebar border-sidebar-border text-white max-w-sm" dir="rtl">
+          <DialogContent className="bg-card border-border text-foreground max-w-sm" dir="rtl">
             <DialogHeader><DialogTitle>تسجيل دفعة سداد</DialogTitle></DialogHeader>
             <div className="py-2">
               <Label className="text-xs text-muted-foreground">مبلغ الدفعة (ر.س)</Label>
-              <Input type="number" value={repayAmt} onChange={e=>setRepayAmt(e.target.value)} className="bg-background/50 border-sidebar-border mt-1" />
+              <Input type="number" value={repayAmt} onChange={e=>setRepayAmt(e.target.value)} className="bg-background/50 border-border mt-1" />
             </div>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={()=>setRepayId(null)}>إلغاء</Button>
-              <Button className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold" disabled={!repayAmt||repayMut.isPending}
+              <Button className="bg-primary hover:bg-[#b8943f] text-black font-bold" disabled={!repayAmt||repayMut.isPending}
                 onClick={()=>repayMut.mutate({id:repayId!,amount:parseFloat(repayAmt)})}>
                 {repayMut.isPending&&<Loader2 className="h-4 w-4 ml-1 animate-spin"/>}تسجيل
               </Button>

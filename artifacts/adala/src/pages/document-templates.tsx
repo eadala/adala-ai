@@ -85,7 +85,7 @@ function TemplateCard({ template, onUse }: { template: any; onUse: (t: any) => v
           </div>
           <div className="flex items-center gap-1.5">
             {template.is_default && (
-              <span className="text-[10px] bg-[#C9A84C]/15 text-[#C9A84C] border border-[#C9A84C]/30 rounded px-1.5 py-0.5 flex items-center gap-1">
+              <span className="text-[10px] bg-primary/15 text-primary border border-primary/30 rounded px-1.5 py-0.5 flex items-center gap-1">
                 <Star className="h-2.5 w-2.5" />افتراضي
               </span>
             )}
@@ -261,7 +261,7 @@ export default function DocumentTemplates() {
     if (!selectedTemplate?.body) return "";
     let html = selectedTemplate.body as string;
     for (const [key, value] of Object.entries(filledData)) {
-      html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), sanitizeHtml(value) || `<span style="color:#C9A84C">[${key}]</span>`);
+      html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), sanitizeHtml(value) || `<span style="color:#2563EB">[${key}]</span>`);
     }
     return sanitizeHtml(html);
   };

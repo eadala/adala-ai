@@ -78,7 +78,7 @@ function ScoreGauge({ score, label }: { score: number; label: string }) {
     <div className="flex flex-col items-center gap-2">
       <div className="relative w-24 h-24">
         <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r={r} stroke="#2D3D6B" strokeWidth="8" fill="none" />
+          <circle cx="50" cy="50" r={r} stroke="#E2E8F0" strokeWidth="8" fill="none" />
           <circle cx="50" cy="50" r={r} stroke={color} strokeWidth="8" fill="none"
             strokeDasharray={c} strokeDashoffset={dashOffset} strokeLinecap="round"
             style={{ transition: "stroke-dashoffset 1s ease" }} />

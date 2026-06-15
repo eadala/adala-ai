@@ -134,8 +134,8 @@ export default function SupportPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#C9A84C]/10 flex items-center justify-center">
-            <HeadphonesIcon className="h-5 w-5 text-[#C9A84C]" />
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <HeadphonesIcon className="h-5 w-5 text-primary" />
           </div>
           <div>
             <h1 className="text-lg font-black">مركز الدعم الفني</h1>
@@ -144,7 +144,7 @@ export default function SupportPage() {
             </p>
           </div>
         </div>
-        <Button size="sm" className="gap-2 bg-[#C9A84C] hover:bg-[#b8973d] text-[#1A2744] font-bold"
+        <Button size="sm" className="gap-2 bg-primary hover:bg-[#b8973d] text-[#FFFFFF] font-bold"
           onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4" /> تذكرة جديدة
         </Button>
@@ -153,7 +153,7 @@ export default function SupportPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: "إجمالي التذاكر", value: tickets.length, color: "#C9A84C" },
+          { label: "إجمالي التذاكر", value: tickets.length, color: "#2563EB" },
           { label: "مفتوحة",          value: tickets.filter((t: any) => t.status === "open").length, color: "#3B82F6" },
           { label: "قيد المعالجة",    value: tickets.filter((t: any) => t.status === "in_progress").length, color: "#F59E0B" },
           { label: "محلولة",          value: tickets.filter((t: any) => t.status === "resolved").length, color: "#10B981" },
@@ -192,7 +192,7 @@ export default function SupportPage() {
               return (
                 <div key={t.id} onClick={() => setSelectedId(t.id)}
                   className={cn("p-3.5 rounded-xl border cursor-pointer transition-all", selectedId === t.id
-                    ? "border-[#C9A84C]/50 bg-[#C9A84C]/5 shadow-sm"
+                    ? "border-primary/50 bg-primary/5 shadow-sm"
                     : "border-border/50 hover:bg-muted/20 hover:border-border")}>
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <span className="font-semibold text-sm line-clamp-1 flex-1">{t.subject}</span>
@@ -264,13 +264,13 @@ export default function SupportPage() {
                   messages.map((msg: any) => (
                     <div key={msg.id} className={cn("flex gap-3", msg.senderType === "admin" ? "flex-row-reverse" : "")}>
                       <div className={cn("w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold",
-                        msg.senderType === "admin" ? "bg-[#C9A84C]/20 text-[#C9A84C]" : "bg-blue-500/20 text-blue-400")}>
+                        msg.senderType === "admin" ? "bg-primary/20 text-primary" : "bg-blue-500/20 text-blue-400")}>
                         {msg.senderType === "admin" ? "دعم" : "أنا"}
                       </div>
                       <div className={cn("flex-1 max-w-[80%]", msg.senderType === "admin" ? "items-end" : "")}>
                         <div className={cn("rounded-xl p-3 text-sm leading-relaxed",
                           msg.senderType === "admin"
-                            ? "bg-[#C9A84C]/10 border border-[#C9A84C]/20"
+                            ? "bg-primary/10 border border-primary/20"
                             : "bg-muted/40 border border-border/30")}>
                           {msg.message}
                         </div>
@@ -288,12 +288,12 @@ export default function SupportPage() {
 
                 {/* Admin written response (legacy field) */}
                 {ticket.response && !messages.some((m: any) => m.senderType === "admin") && (
-                  <div className="p-3 rounded-xl bg-[#C9A84C]/10 border border-[#C9A84C]/20">
+                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
                     <div className="flex items-center gap-1.5 mb-1.5">
-                      <div className="w-5 h-5 rounded-full bg-[#C9A84C]/20 flex items-center justify-center">
-                        <HeadphonesIcon className="h-3 w-3 text-[#C9A84C]" />
+                      <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+                        <HeadphonesIcon className="h-3 w-3 text-primary" />
                       </div>
-                      <span className="text-xs font-semibold text-[#C9A84C]">رد الدعم الفني</span>
+                      <span className="text-xs font-semibold text-primary">رد الدعم الفني</span>
                     </div>
                     <p className="text-sm text-muted-foreground leading-relaxed">{ticket.response}</p>
                   </div>
@@ -312,7 +312,7 @@ export default function SupportPage() {
                       rows={2}
                       className="resize-none text-sm flex-1"
                     />
-                    <Button size="icon" className="h-full aspect-square bg-[#C9A84C] hover:bg-[#b8973d] text-[#1A2744]"
+                    <Button size="icon" className="h-full aspect-square bg-primary hover:bg-[#b8973d] text-[#FFFFFF]"
                       onClick={handleReply} disabled={!reply.trim() || replyMutation.isPending}>
                       {replyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     </Button>
@@ -329,7 +329,7 @@ export default function SupportPage() {
         <DialogContent className="sm:max-w-[500px]" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <HeadphonesIcon className="h-5 w-5 text-[#C9A84C]" />
+              <HeadphonesIcon className="h-5 w-5 text-primary" />
               تذكرة دعم فني جديدة
             </DialogTitle>
           </DialogHeader>
@@ -368,7 +368,7 @@ export default function SupportPage() {
             </div>
           </div>
           <DialogFooter className="flex-row-reverse gap-2">
-            <Button onClick={handleCreate} disabled={createMutation.isPending} className="gap-2 bg-[#C9A84C] hover:bg-[#b8973d] text-[#1A2744] font-bold">
+            <Button onClick={handleCreate} disabled={createMutation.isPending} className="gap-2 bg-primary hover:bg-[#b8973d] text-[#FFFFFF] font-bold">
               {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               إرسال التذكرة
             </Button>

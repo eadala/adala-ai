@@ -220,7 +220,7 @@ export default function ClientDetail() {
           </TabsTrigger>
           <TabsTrigger value="accounting" className="text-xs px-1.5">
             <BarChart3 className="h-3.5 w-3.5 ml-1 hidden sm:block" />
-            <span className="text-[#C9A84C]">المالية</span>
+            <span className="text-primary">المالية</span>
           </TabsTrigger>
           <TabsTrigger value="contracts" className="text-xs px-1.5">
             <Handshake className="h-3.5 w-3.5 ml-1 hidden sm:block" />العقود
@@ -242,8 +242,8 @@ export default function ClientDetail() {
             {waLogs.length > 0 && <span className="mr-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{waLogs.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="ai" className="text-xs px-1.5">
-            <Sparkles className="h-3.5 w-3.5 ml-1" style={{ color: "#C9A84C" }} />
-            <span style={{ color: "#C9A84C" }}>AI</span>
+            <Sparkles className="h-3.5 w-3.5 ml-1" style={{ color: "#2563EB" }} />
+            <span style={{ color: "#2563EB" }}>AI</span>
           </TabsTrigger>
         </TabsList>
 
@@ -618,9 +618,9 @@ function ClientAccountingTab({ clientId }: { clientId: string }) {
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 flex-1 min-w-[280px]">
-              <BarChart3 className="h-4 w-4 text-[#C9A84C]" />
+              <BarChart3 className="h-4 w-4 text-primary" />
               <span className="text-sm font-semibold">التقارير المالية للعميل</span>
-              {lbl && <Badge variant="outline" className="text-[10px] border-[#C9A84C]/30 text-[#C9A84C]">{lbl}</Badge>}
+              {lbl && <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">{lbl}</Badge>}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Select value={period} onValueChange={setPeriod}>
@@ -652,7 +652,7 @@ function ClientAccountingTab({ clientId }: { clientId: string }) {
       </Card>
 
       {isLoading ? (
-        <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-[#C9A84C]" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>
       ) : (
         <>
           {/* KPI Cards */}
@@ -661,7 +661,7 @@ function ClientAccountingTab({ clientId }: { clientId: string }) {
               { label: "الإيرادات المحصّلة", value: acc.revenue ?? 0, icon: TrendingUp, color: "#10B981", trend: true },
               { label: "المستحقات",           value: acc.receivables ?? 0, icon: AlertCircle, color: "#F59E0B", trend: null },
               { label: "المصاريف",           value: acc.expenses ?? 0, icon: TrendingDown, color: "#EF4444", trend: false },
-              { label: "صافي الربح",         value: acc.netProfit ?? 0, icon: DollarSign, color: (acc.netProfit ?? 0) >= 0 ? "#C9A84C" : "#EF4444", trend: null },
+              { label: "صافي الربح",         value: acc.netProfit ?? 0, icon: DollarSign, color: (acc.netProfit ?? 0) >= 0 ? "#2563EB" : "#EF4444", trend: null },
             ].map(k => (
               <Card key={k.label} className="border-0 bg-card/60">
                 <CardContent className="p-4">
@@ -726,7 +726,7 @@ function ClientAccountingTab({ clientId }: { clientId: string }) {
                 <StatRow label="المصاريف" value={fs.incomeStatement?.expenses ?? 0} color="text-red-400" />
                 <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
                   <span className="text-xs font-bold">صافي الربح</span>
-                  <span className={`text-sm font-black tabular-nums ${(fs.incomeStatement?.netProfit ?? 0) >= 0 ? "text-[#C9A84C]" : "text-red-400"}`}>
+                  <span className={`text-sm font-black tabular-nums ${(fs.incomeStatement?.netProfit ?? 0) >= 0 ? "text-primary" : "text-red-400"}`}>
                     {fmtSAR(fs.incomeStatement?.netProfit ?? 0)}
                   </span>
                 </div>
@@ -825,7 +825,7 @@ const AI_ANALYSIS_TYPES = [
   { key: "profitability",  label: "تحليل الربحية",         icon: "💰", color: "#10B981", prompt: "حلّل ربحية هذا العميل من حيث الإيرادات المحصّلة مقابل الوقت المستثمر." },
   { key: "risk",           label: "تقييم المخاطر",         icon: "⚠️", color: "#F59E0B", prompt: "قيّم مخاطر الاستمرار مع هذا العميل من الجانب المالي والقانوني." },
   { key: "opportunities",  label: "فرص النمو",             icon: "🚀", color: "#8B5CF6", prompt: "اقترح فرص لتوسيع نطاق الخدمات المقدّمة لهذا العميل." },
-  { key: "next_actions",   label: "الإجراءات الموصى بها",  icon: "📋", color: "#C9A84C", prompt: "اقترح أهم 5 إجراءات يجب اتخاذها تجاه هذا العميل الآن." },
+  { key: "next_actions",   label: "الإجراءات الموصى بها",  icon: "📋", color: "#2563EB", prompt: "اقترح أهم 5 إجراءات يجب اتخاذها تجاه هذا العميل الآن." },
 ] as const;
 
 function ClientAIInsights({ client, cases, invoices, contracts }: {

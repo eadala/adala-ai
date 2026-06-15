@@ -251,7 +251,7 @@ export default function Attendance() {
             { label: "حاضر اليوم", value: stats.todayPresent, color: "#10B981", icon: UserCheck },
             { label: "سجّل الانصراف", value: stats.checkedOut, color: "#6366F1", icon: LogOut },
             { label: "غائب", value: stats.todayAbsent, color: "#EF4444", icon: XCircle },
-            { label: "إجمالي السجلات", value: stats.totalRecords, color: "#C9A84C", icon: Clock },
+            { label: "إجمالي السجلات", value: stats.totalRecords, color: "#2563EB", icon: Clock },
           ].map(s => (
             <Card key={s.label} className="border-0 bg-card/50">
               <CardContent className="p-4 flex items-center gap-3">

@@ -91,7 +91,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
     id: "ai",
     label: "مركز الذكاء الاصطناعي",
     icon: Sparkles,
-    color: "#C9A84C",
+    color: "#2563EB",
     items: [
       { href: "/ai-hub",             labelKey: "nav.items.ai_hub",             icon: Sparkles,   feature: "ai" },
       { href: "/adoul",              labelKey: "nav.items.adoul",              icon: Scale,      feature: "ai" },

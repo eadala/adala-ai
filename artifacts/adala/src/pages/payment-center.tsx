@@ -266,7 +266,7 @@ export default function PaymentCenter() {
               { arrow: true },
               { step: "Moyasar / Stripe يستلم",    color: "#8B5CF6", icon: <CreditCard className="h-3 w-3" /> },
               { arrow: true },
-              { step: `عدالة AI تقتطع ${COMMISSION}%`, color: "#C9A84C", icon: <Building2 className="h-3 w-3" /> },
+              { step: `عدالة AI تقتطع ${COMMISSION}%`, color: "#2563EB", icon: <Building2 className="h-3 w-3" /> },
               { arrow: true },
               { step: `المكتب يستلم ${100 - COMMISSION}%`, color: "#10B981", icon: <Wallet className="h-3 w-3" /> },
               { arrow: true },
@@ -313,7 +313,7 @@ export default function PaymentCenter() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 { label: "إجمالي المدفوعات",       value: `${fmt(wallet?.completedAmount ?? 0)} ر.س`, sub: `${wallet?.totalTransactions ?? 0} معاملة`,        icon: <TrendingUp className="h-4 w-4" />,      color: "#10B981" },
-                { label: `عمولة المنصة (${COMMISSION}%)`, value: `${fmt(wallet?.totalCommission ?? 0)} ر.س`, sub: "صافي إيراد عدالة AI",                    icon: <Building2 className="h-4 w-4" />,       color: "#C9A84C" },
+                { label: `عمولة المنصة (${COMMISSION}%)`, value: `${fmt(wallet?.totalCommission ?? 0)} ر.س`, sub: "صافي إيراد عدالة AI",                    icon: <Building2 className="h-4 w-4" />,       color: "#2563EB" },
                 { label: "صافي تحويل المكتب",       value: `${fmt(wallet?.totalNet ?? 0)} ر.س`,       sub: `${100 - COMMISSION}% من الإجمالي`,             icon: <Wallet className="h-4 w-4" />,          color: "#3B82F6" },
                 { label: "في انتظار التأكيد",        value: `${fmt(wallet?.pendingAmount ?? 0)} ر.س`,  sub: "قيد المعالجة",                                  icon: <Clock className="h-4 w-4" />,           color: "#F59E0B" },
               ].map((c) => (
@@ -356,7 +356,7 @@ export default function PaymentCenter() {
                         formatter={(v: any, n: any) => [`${Number(v).toLocaleString()} ر.س`, n === "total" ? "الإجمالي" : n === "commission" ? "العمولة" : "الصافي"]}
                       />
                       <Bar dataKey="total"      fill="#3B82F6" radius={[4,4,0,0]} />
-                      <Bar dataKey="commission" fill="#C9A84C" radius={[4,4,0,0]} />
+                      <Bar dataKey="commission" fill="#2563EB" radius={[4,4,0,0]} />
                       <Bar dataKey="net"        fill="#10B981" radius={[4,4,0,0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -462,7 +462,7 @@ export default function PaymentCenter() {
                 label: "عمولة عدالة AI",
                 value: wallet?.totalCommission ?? 0,
                 sub: `${COMMISSION}% من الإجمالي`,
-                color: "#C9A84C",
+                color: "#2563EB",
                 icon: <Building2 className="h-5 w-5" />,
               },
               {
@@ -527,7 +527,7 @@ export default function PaymentCenter() {
             <CardContent className="space-y-4">
               {[
                 { label: "إجمالي المستلم",   val: wallet?.totalAmount ?? 0,      color: "#3B82F6", pct: 100 },
-                { label: "عمولة المنصة",      val: wallet?.totalCommission ?? 0,  color: "#C9A84C", pct: COMMISSION },
+                { label: "عمولة المنصة",      val: wallet?.totalCommission ?? 0,  color: "#2563EB", pct: COMMISSION },
                 { label: "صافي المكتب",       val: wallet?.totalNet ?? 0,         color: "#10B981", pct: 100 - COMMISSION },
                 { label: "تم التسوية",        val: wallet?.settledNet ?? 0,       color: "#06B6D4", pct: wallet?.totalNet ? Math.round((wallet.settledNet / wallet.totalNet) * (100 - COMMISSION)) : 0 },
               ].map(({ label, val, color, pct }) => (

@@ -57,7 +57,7 @@ export default function BankAccounts() {
             <div className="h-10 w-10 rounded-xl bg-blue-500/20 flex items-center justify-center"><Landmark className="h-5 w-5 text-blue-400" /></div>
             <div><h1 className="text-xl font-bold text-foreground">الحسابات البنكية</h1><p className="text-xs text-muted-foreground">إدارة الحسابات والأرصدة</p></div>
           </div>
-          <Button onClick={openCreate} className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold gap-1.5"><Plus className="h-4 w-4" />إضافة حساب</Button>
+          <Button onClick={openCreate} className="bg-primary hover:bg-[#1D4ED8] text-black font-bold gap-1.5"><Plus className="h-4 w-4" />إضافة حساب</Button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -78,7 +78,7 @@ export default function BankAccounts() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-bold text-foreground truncate">{r.bankName}</p>
-                      {r.isDefault && <Star className="h-3 w-3 text-primary fill-[#C9A84C] shrink-0" />}
+                      {r.isDefault && <Star className="h-3 w-3 text-primary fill-[#2563EB] shrink-0" />}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{r.accountName}</p>
                   </div>
@@ -125,7 +125,7 @@ export default function BankAccounts() {
             </div>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={close_}>إلغاء</Button>
-              <Button className="bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold" disabled={!form.bankName || !form.accountName || !form.accountNumber || saveMut.isPending} onClick={() => saveMut.mutate(form)}>
+              <Button className="bg-primary hover:bg-[#1D4ED8] text-black font-bold" disabled={!form.bankName || !form.accountName || !form.accountNumber || saveMut.isPending} onClick={() => saveMut.mutate(form)}>
                 {saveMut.isPending && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}حفظ
               </Button>
             </DialogFooter>

@@ -70,7 +70,7 @@ const PERMISSION_MODULES = [
     key: "cases",
     label: "القضايا",
     icon: Scale,
-    color: "#C9A84C",
+    color: "#2563EB",
     perms: [
       { key: "cases:view",   label: "عرض" },
       { key: "cases:create", label: "إنشاء" },
@@ -461,8 +461,8 @@ function VisibilityScopeGrid({ roles }: { roles: Role[] }) {
                   className="h-1.5 rounded-full transition-all"
                   style={{
                     width: `${hasAll ? 100 : Math.min(100, (permCount / TOTAL_PERMS) * 100)}%`,
-                    background: meta?.color?.replace("text-", "") ? undefined : "#C9A84C",
-                    backgroundColor: hasAll ? "#C9A84C" : undefined,
+                    background: meta?.color?.replace("text-", "") ? undefined : "#2563EB",
+                    backgroundColor: hasAll ? "#2563EB" : undefined,
                   }}
                 />
               </div>
@@ -774,7 +774,7 @@ export default function Users() {
         {[
           { label: "إجمالي الأعضاء",    value: users?.length ?? 0,                                          icon: UsersIcon,  color: "#6366F1" },
           { label: "أعضاء نشطون",       value: users?.filter(u => u.status === "active").length ?? 0,       icon: UserCheck,  color: "#10B981" },
-          { label: "الأدوار المُعرَّفة", value: roles.length,                                                icon: Key,        color: "#C9A84C" },
+          { label: "الأدوار المُعرَّفة", value: roles.length,                                                icon: Key,        color: "#2563EB" },
           { label: "دعوات معلقة",       value: pendingInvitations,                                          icon: Send,       color: "#F59E0B" },
         ].map(stat => (
           <div key={stat.label} className="rounded-2xl border border-border/50 bg-card p-4 flex items-center gap-3">

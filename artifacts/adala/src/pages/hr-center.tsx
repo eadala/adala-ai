@@ -449,7 +449,7 @@ export default function HRCenter() {
             {[
               { label: "موظفون نشطون",  value: dashboard?.empCount ?? activeEmps.length,                icon: Users,       color: "#6366F1" },
               { label: "متوسط الأداء",  value: `${Math.round(dashboard?.avgScore ?? 0)}%`,              icon: Target,      color: "#10B981" },
-              { label: "مكافآت مسجّلة", value: `${fmt(dashboard?.bonusTotal ?? 0)} ر.س`,              icon: TrendingUp,  color: "#C9A84C" },
+              { label: "مكافآت مسجّلة", value: `${fmt(dashboard?.bonusTotal ?? 0)} ر.س`,              icon: TrendingUp,  color: "#2563EB" },
               { label: "خصومات مسجّلة", value: `${fmt(dashboard?.deductTotal ?? 0)} ر.س`,             icon: TrendingDown, color: "#EF4444" },
             ].map(c => (
               <div key={c.label} className="rounded-2xl border border-border/50 bg-card p-4 flex items-center gap-3">

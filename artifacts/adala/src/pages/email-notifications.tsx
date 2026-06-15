@@ -112,14 +112,14 @@ export default function EmailNotificationsPage() {
           <Mail className="h-5 w-5 text-blue-400" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white">إشعارات البريد الإلكتروني</h1>
+          <h1 className="text-xl font-bold text-foreground">إشعارات البريد الإلكتروني</h1>
           <p className="text-xs text-muted-foreground">إعداد وإدارة الإشعارات التلقائية عبر البريد</p>
         </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* SMTP Settings */}
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2"><Settings className="h-4 w-4" /> إعدادات SMTP</CardTitle>
@@ -158,7 +158,7 @@ export default function EmailNotificationsPage() {
                 <Input value={form.fromEmail} onChange={e => setF("fromEmail", e.target.value)} placeholder="no-reply@..." className="mt-1 text-sm" dir="ltr" />
               </div>
             </div>
-            <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="w-full bg-[#C9A84C] hover:bg-[#b8943f] text-black font-bold mt-1">
+            <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="w-full bg-primary hover:bg-[#b8943f] text-black font-bold mt-1">
               {saveMut.isPending && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}
               حفظ الإعدادات
             </Button>
@@ -166,7 +166,7 @@ export default function EmailNotificationsPage() {
         </Card>
 
         {/* Triggers */}
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2"><Bell className="h-4 w-4" /> الإشعارات التلقائية</CardTitle>
           </CardHeader>
@@ -189,7 +189,7 @@ export default function EmailNotificationsPage() {
 
       {/* Test + Run Now */}
       <div className="grid md:grid-cols-2 gap-4">
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" /> اختبار الإرسال</CardTitle>
           </CardHeader>
@@ -210,7 +210,7 @@ export default function EmailNotificationsPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2"><PlayCircle className="h-4 w-4 text-primary" /> تشغيل الإشعارات الآن</CardTitle>
           </CardHeader>
@@ -237,7 +237,7 @@ export default function EmailNotificationsPage() {
 
       {/* Logs */}
       {logs.length > 0 && (
-        <Card className="bg-sidebar border-sidebar-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">سجل الإرسال</CardTitle>
           </CardHeader>

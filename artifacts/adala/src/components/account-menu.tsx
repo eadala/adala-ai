@@ -15,7 +15,7 @@ import { Separator } from "@/components/ui/separator";
 interface Branding { officeName?: string | null; logoUrl?: string | null; primaryColor?: string | null }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const GOLD = "#C9A84C";
+const GOLD = "#2563EB";
 const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 function MenuItem({
@@ -40,11 +40,11 @@ function MenuItem({
           ? "hover:bg-red-500/10 text-red-400 hover:text-red-300"
           : disabled
             ? "opacity-40 cursor-not-allowed"
-            : "hover:bg-white/5 text-[#C8D3E8]"
+            : "hover:bg-muted/30 text-[#C8D3E8]"
         }`}
     >
       <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors
-        ${danger ? "bg-red-500/12 group-hover:bg-red-500/20" : "bg-white/5 group-hover:bg-white/10"}`}
+        ${danger ? "bg-red-500/12 group-hover:bg-red-500/20" : "bg-muted/30 group-hover:bg-white/10"}`}
         style={!danger && color ? { background: `${color}18` } : undefined}>
         <Icon className="h-4 w-4" style={{ color: danger ? undefined : color ?? "#A0ADB8" }} />
       </div>
@@ -142,7 +142,7 @@ export function AccountMenu() {
         className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl transition-all border
           ${open
             ? "border-[#3D4F7C] bg-[#243058] shadow-lg"
-            : "border-transparent hover:border-[#2D3D6B] hover:bg-[#1F2E54]"
+            : "border-transparent hover:border-[#E2E8F0] hover:bg-[#1F2E54]"
           }`}
         aria-label="قائمة الحساب"
       >
@@ -172,7 +172,7 @@ export function AccountMenu() {
           className="absolute left-0 top-12 z-50 w-80 rounded-2xl shadow-2xl border overflow-hidden animate-in slide-in-from-top-2 fade-in-0 duration-200"
           style={{
             background: "linear-gradient(180deg, #1E2D52 0%, #19274A 100%)",
-            borderColor: "#2D3D6B",
+            borderColor: "#E2E8F0",
             boxShadow: "0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.08), inset 0 1px 0 rgba(255,255,255,0.04)",
           }}
         >
@@ -189,7 +189,7 @@ export function AccountMenu() {
                 {isSuperAdmin && (
                   <div className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full flex items-center justify-center shadow-md"
                     style={{ background: GOLD }}>
-                    <Crown className="h-2.5 w-2.5 text-[#1A2744]" />
+                    <Crown className="h-2.5 w-2.5 text-[#FFFFFF]" />
                   </div>
                 )}
               </div>
@@ -220,7 +220,7 @@ export function AccountMenu() {
           {/* ── Office Switcher ── */}
           <div className="p-2">
             <button
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/5 transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-muted/30 transition-colors"
               onClick={() => setOfficeOpen(v => !v)}
             >
               <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: `${GOLD}20` }}>
@@ -232,7 +232,7 @@ export function AccountMenu() {
 
             {officeOpen && (
               <div className="mt-1 mx-1 rounded-xl border p-1.5 animate-in slide-in-from-top-1 fade-in-0 duration-150"
-                style={{ borderColor: "#2D3D6B", background: "rgba(26,39,68,0.8)" }}>
+                style={{ borderColor: "#E2E8F0", background: "rgba(26,39,68,0.8)" }}>
                 {/* Current office */}
                 <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg"
                   style={{ background: `${GOLD}10` }}>
@@ -243,7 +243,7 @@ export function AccountMenu() {
                 </div>
                 {/* Add new office */}
                 <button
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg mt-1 hover:bg-white/5 transition-colors text-[#A0ADB8] hover:text-white"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg mt-1 hover:bg-muted/30 transition-colors text-[#A0ADB8] hover:text-white"
                   onClick={() => { setOpen(false); setLocation("/office-settings"); }}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -293,9 +293,9 @@ export function AccountMenu() {
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 text-[#C8D3E8] hover:text-white transition-all group"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted/30 text-[#C8D3E8] hover:text-white transition-all group"
             >
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/5 group-hover:bg-white/10">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-muted/30 group-hover:bg-white/10">
                 {theme === "dark"
                   ? <Moon className="h-4 w-4 text-[#A0ADB8]" />
                   : <Sun className="h-4 w-4" style={{ color: GOLD }} />}

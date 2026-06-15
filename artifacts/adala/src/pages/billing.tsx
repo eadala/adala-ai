@@ -36,7 +36,7 @@ const PLAN_ICONS: Record<string, any> = {
 const PLAN_COLORS: Record<string, { color: string; border: string; badge: string; btn: string; glow: string }> = {
   free:       { color: "#64748B", border: "border-slate-500/30",   badge: "bg-slate-500/10 text-slate-300 border-slate-500/30",       btn: "bg-slate-700 hover:bg-slate-600 text-white",      glow: "" },
   basic:      { color: "#3B82F6", border: "border-blue-500/30",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/30",           btn: "bg-blue-600 hover:bg-blue-700 text-white",        glow: "" },
-  pro:        { color: "#C9A84C", border: "border-[#C9A84C]/50",   badge: "bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/30",      btn: "bg-[#C9A84C] hover:bg-[#b8943e] text-black",     glow: "shadow-[0_0_30px_rgba(201,168,76,0.15)]" },
+  pro:        { color: "#2563EB", border: "border-primary/50",   badge: "bg-primary/10 text-primary border-primary/30",      btn: "bg-primary hover:bg-[#b8943e] text-black",     glow: "shadow-[0_0_30px_rgba(201,168,76,0.15)]" },
   growth:     { color: "#8B5CF6", border: "border-violet-500/30",  badge: "bg-violet-500/10 text-violet-400 border-violet-500/30",     btn: "bg-violet-600 hover:bg-violet-700 text-white",    glow: "" },
   advanced:   { color: "#EC4899", border: "border-pink-500/30",    badge: "bg-pink-500/10 text-pink-400 border-pink-500/30",           btn: "bg-pink-600 hover:bg-pink-700 text-white",        glow: "" },
   enterprise: { color: "#10B981", border: "border-emerald-500/30", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",  btn: "bg-emerald-600 hover:bg-emerald-700 text-white",  glow: "" },
@@ -225,7 +225,7 @@ function UpgradeModal({
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-lg p-0 overflow-hidden border-border/60"
-        style={{ background: "linear-gradient(180deg,#1A2744 0%,#141E38 100%)" }}>
+        style={{ background: "linear-gradient(180deg,#FFFFFF 0%,#141E38 100%)" }}>
         <div className="px-6 pt-6 pb-4 border-b border-border/30"
           style={{ background: isUpgrade ? "rgba(201,168,76,0.06)" : "rgba(239,68,68,0.05)" }}>
           <DialogHeader>
@@ -236,7 +236,7 @@ function UpgradeModal({
               <div>
                 <DialogTitle className="text-lg font-black">
                   {isUpgrade ? "ترقية إلى" : isDowngrade ? "التخفيض إلى" : "التبديل إلى"}{" "}
-                  <span style={{ color: isUpgrade ? "#C9A84C" : isDowngrade ? "#EF4444" : "#94A3B8" }}>
+                  <span style={{ color: isUpgrade ? "#2563EB" : isDowngrade ? "#EF4444" : "#94A3B8" }}>
                     {targetPlan.name}
                   </span>
                 </DialogTitle>
@@ -251,7 +251,7 @@ function UpgradeModal({
             <div className="flex flex-wrap gap-2 mt-1">
               {isAnnualModal && annualPerMonth && annualTotal && annualSavings ? (
                 <>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/30">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border bg-primary/10 text-primary border-primary/30">
                     ✦ سنوي — {annualPerMonth.toLocaleString("ar-SA")} ر.س/شهر
                   </div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
@@ -546,7 +546,7 @@ export default function Billing() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-black flex items-center gap-2">
-            <CreditCard className="h-6 w-6 text-[#C9A84C]" />
+            <CreditCard className="h-6 w-6 text-primary" />
             لوحة الفوترة والاشتراكات
           </h1>
           <p className="text-muted-foreground text-sm mt-1">إدارة الباقة والمدفوعات وقياس الاستخدام وتحليلات الإيرادات</p>
@@ -642,7 +642,7 @@ export default function Billing() {
             <Card className="border-border/50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-[#C9A84C]" /> تفاصيل الاشتراك النشط (Stripe)
+                  <CreditCard className="h-4 w-4 text-primary" /> تفاصيل الاشتراك النشط (Stripe)
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -680,7 +680,7 @@ export default function Billing() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Gauge className="h-4 w-4 text-[#C9A84C]" /> ملخص الاستخدام
+                    <Gauge className="h-4 w-4 text-primary" /> ملخص الاستخدام
                   </CardTitle>
                   <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => setTab("usage")}>
                     عرض التفاصيل <ChevronRight className="h-3 w-3" />
@@ -698,8 +698,8 @@ export default function Billing() {
           {/* Quick actions */}
           <div className="grid md:grid-cols-3 gap-3">
             <button onClick={() => setTab("plans")}
-              className="flex items-center gap-3 p-4 rounded-xl border border-border/50 hover:border-[#C9A84C]/40 hover:bg-[#C9A84C]/5 transition-all text-right">
-              <div className="w-9 h-9 rounded-xl bg-[#C9A84C]/15 flex items-center justify-center"><ArrowUp className="h-4 w-4 text-[#C9A84C]" /></div>
+              className="flex items-center gap-3 p-4 rounded-xl border border-border/50 hover:border-primary/40 hover:bg-primary/5 transition-all text-right">
+              <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center"><ArrowUp className="h-4 w-4 text-primary" /></div>
               <div><p className="font-semibold text-sm">الترقية أو التخفيض</p><p className="text-xs text-muted-foreground mt-0.5">تغيير الباقة الحالية</p></div>
             </button>
             <button onClick={() => setTab("invoices")}
@@ -803,7 +803,7 @@ export default function Billing() {
                     ? "text-black shadow-lg"
                     : "text-muted-foreground hover:text-white"
                 )}
-                style={billingPeriod === "annual" ? { background: "#C9A84C" } : {}}>
+                style={billingPeriod === "annual" ? { background: "#2563EB" } : {}}>
                 سنوي
                 <span className={cn(
                   "text-[10px] font-black px-1.5 py-0.5 rounded-md transition-all",
@@ -828,7 +828,7 @@ export default function Billing() {
             ) : (
               <button
                 onClick={() => setBillingPeriod("annual")}
-                className="text-[11px] text-[#C9A84C] hover:text-[#C9A84C]/80 underline underline-offset-2 transition-colors font-semibold">
+                className="text-[11px] text-primary hover:text-primary/80 underline underline-offset-2 transition-colors font-semibold">
                 💡 انتقل للسنوي ووفّر حتى ٢٠٪ — أذكى وأوفر
               </button>
             )}
@@ -882,14 +882,14 @@ export default function Billing() {
                 return (
                   <Card key={plan.id} className={cn(
                     "relative border-2 transition-all duration-200 flex flex-col",
-                    isCurrent ? "border-[#C9A84C]/60 ring-2 ring-[#C9A84C]/20" : colors.border,
+                    isCurrent ? "border-primary/60 ring-2 ring-primary/20" : colors.border,
                     !isCurrent && colors.glow,
                     plan.popular && !isCurrent && "scale-[1.02] z-10"
                   )}>
                     {/* Top badges row */}
                     <div className="absolute -top-3.5 right-1/2 translate-x-1/2 flex gap-1.5 z-10 whitespace-nowrap">
-                      {isCurrent && <Badge className="bg-[#C9A84C] text-black text-[10px] font-black px-3 py-1 shadow">✓ باقتك الحالية</Badge>}
-                      {!isCurrent && plan.popular && <Badge className="bg-[#C9A84C] text-black text-[10px] font-black px-3 py-1 shadow">⭐ الأكثر طلباً</Badge>}
+                      {isCurrent && <Badge className="bg-primary text-black text-[10px] font-black px-3 py-1 shadow">✓ باقتك الحالية</Badge>}
+                      {!isCurrent && plan.popular && <Badge className="bg-primary text-black text-[10px] font-black px-3 py-1 shadow">⭐ الأكثر طلباً</Badge>}
                       {showAnnual && !isCurrent && pricing && (
                         <Badge className="bg-emerald-500 text-white text-[9px] font-black px-2 py-1 shadow">
                           🎉 وفّر {pricing.savings.toLocaleString("ar-SA")} ر.س
@@ -984,7 +984,7 @@ export default function Billing() {
                       </ul>
                       <div className="pt-2">
                         {isCurrent ? (
-                          <Button className="w-full gap-2 font-bold bg-[#C9A84C]/10 text-[#C9A84C] border border-[#C9A84C]/30 hover:bg-[#C9A84C]/15" disabled>
+                          <Button className="w-full gap-2 font-bold bg-primary/10 text-primary border border-primary/30 hover:bg-primary/15" disabled>
                             <Check className="h-4 w-4" /> باقتك الحالية
                           </Button>
                         ) : plan.isContactOnly ? (
@@ -1026,7 +1026,7 @@ export default function Billing() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-[#C9A84C]" /> مقارنة التوفير — شهري مقابل سنوي
+                    <TrendingUp className="h-4 w-4 text-primary" /> مقارنة التوفير — شهري مقابل سنوي
                   </CardTitle>
                   <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 border text-xs gap-1">
                     ✦ وفّر حتى 20% مع الاشتراك السنوي
@@ -1056,14 +1056,14 @@ export default function Billing() {
                         const Icon  = PLAN_ICONS[plan.id] ?? Star;
                         const bar   = Math.round((pr.savings / maxSavings) * 100);
                         return (
-                          <TableRow key={plan.id} className={cn(isCur && "bg-[#C9A84C]/5")}>
+                          <TableRow key={plan.id} className={cn(isCur && "bg-primary/5")}>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center border shrink-0", cols.badge)}>
                                   <Icon className="h-3 w-3" />
                                 </div>
-                                <span className={cn("font-semibold text-sm", isCur && "text-[#C9A84C]")}>{plan.name}</span>
-                                {isCur && <Badge className="text-[9px] bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/30 border px-1.5">✓</Badge>}
+                                <span className={cn("font-semibold text-sm", isCur && "text-primary")}>{plan.name}</span>
+                                {isCur && <Badge className="text-[9px] bg-primary/10 text-primary border-primary/30 border px-1.5">✓</Badge>}
                               </div>
                             </TableCell>
                             <TableCell className="text-center">
@@ -1112,7 +1112,7 @@ export default function Billing() {
                     <TableHead className="text-right w-36">الميزة</TableHead>
                     {PLAN_ORDER.map(id => (
                       <TableHead key={id} className="text-center px-2">
-                        <span className={cn("text-xs font-bold", id === currentPlanSlug && "text-[#C9A84C]")}>
+                        <span className={cn("text-xs font-bold", id === currentPlanSlug && "text-primary")}>
                           {plans.find((p: any) => p.id === id)?.name ?? id}
                           {id === currentPlanSlug && " ✓"}
                         </span>
@@ -1134,9 +1134,9 @@ export default function Billing() {
                       const pr = !plan.isFree && !plan.isContactOnly ? getAnnualPricing(plan.price) : null;
                       const dispPrice = billingPeriod === "annual" && pr ? pr.perMonth : (plan.isFree ? 0 : plan.price);
                       return (
-                        <TableCell key={id} className={cn("text-center text-xs px-2", isCur && "bg-[#C9A84C]/5")}>
+                        <TableCell key={id} className={cn("text-center text-xs px-2", isCur && "bg-primary/5")}>
                           {plan.isFree ? (
-                            <span className={cn("font-bold", isCur && "text-[#C9A84C]")}>مجاني</span>
+                            <span className={cn("font-bold", isCur && "text-primary")}>مجاني</span>
                           ) : plan.isContactOnly ? (
                             <span className="text-muted-foreground text-[10px]">تواصل</span>
                           ) : (
@@ -1146,7 +1146,7 @@ export default function Billing() {
                                   {plan.price.toLocaleString("ar-SA")}
                                 </span>
                               )}
-                              <span className={cn("font-bold", isCur ? "text-[#C9A84C]" : billingPeriod === "annual" ? "text-emerald-400" : "text-foreground")}>
+                              <span className={cn("font-bold", isCur ? "text-primary" : billingPeriod === "annual" ? "text-emerald-400" : "text-foreground")}>
                                 {dispPrice.toLocaleString("ar-SA")} ر.س
                               </span>
                             </div>
@@ -1164,10 +1164,10 @@ export default function Billing() {
                         const val = PLAN_COMPARE[id]?.[row.key];
                         const isCur = id === currentPlanSlug;
                         return (
-                          <TableCell key={id} className={cn("text-center text-xs px-2", isCur && "bg-[#C9A84C]/5")}>
+                          <TableCell key={id} className={cn("text-center text-xs px-2", isCur && "bg-primary/5")}>
                             {row.isBool
                               ? (val ? <Check className="h-3.5 w-3.5 text-emerald-400 mx-auto" /> : <Minus className="h-3 w-3 text-muted-foreground/40 mx-auto" />)
-                              : <span className={cn(isCur && "text-[#C9A84C] font-bold")}>{String(val ?? "—")}</span>
+                              : <span className={cn(isCur && "text-primary font-bold")}>{String(val ?? "—")}</span>
                             }
                           </TableCell>
                         );
@@ -1198,16 +1198,16 @@ export default function Billing() {
         <div className="space-y-6 max-w-2xl mx-auto">
           {/* Active gift banner */}
           {myGift ? (
-            <Card className="border-[#C9A84C]/40 bg-[#C9A84C]/5">
+            <Card className="border-primary/40 bg-primary/5">
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-[#C9A84C]/15 flex items-center justify-center shrink-0">
-                    <Gift className="h-6 w-6 text-[#C9A84C]" />
+                  <div className="h-12 w-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                    <Gift className="h-6 w-6 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-lg font-black text-[#C9A84C]">اشتراك مجاني نشط 🎁</h3>
-                      <Badge className="bg-[#C9A84C]/15 text-[#C9A84C] border-[#C9A84C]/30 text-xs font-bold">
+                      <h3 className="text-lg font-black text-primary">اشتراك مجاني نشط 🎁</h3>
+                      <Badge className="bg-primary/15 text-primary border-primary/30 text-xs font-bold">
                         {myGift.plan_slug}
                       </Badge>
                     </div>
@@ -1267,7 +1267,7 @@ export default function Billing() {
                 <Button
                   onClick={() => promoCode && redeemMutation.mutate(promoCode)}
                   disabled={!promoCode || redeemMutation.isPending}
-                  className="gap-2 bg-[#C9A84C] hover:bg-[#b8943d] text-black font-bold"
+                  className="gap-2 bg-primary hover:bg-[#b8943d] text-black font-bold"
                 >
                   {redeemMutation.isPending
                     ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -1339,7 +1339,7 @@ export default function Billing() {
                 onClick={() => { qc.invalidateQueries({ queryKey: ["platform-invoices"] }); qc.invalidateQueries({ queryKey: ["platform-invoice-stats"] }); }}>
                 <RefreshCw className="h-3.5 w-3.5" /> تحديث
               </Button>
-              <Button size="sm" className="gap-2 text-xs bg-[#C9A84C] hover:bg-[#b8943e] text-black font-bold"
+              <Button size="sm" className="gap-2 text-xs bg-primary hover:bg-[#b8943e] text-black font-bold"
                 onClick={() => genInvoiceMutation.mutate(currentPlanSlug || "free")}
                 disabled={genInvoiceMutation.isPending}>
                 {genInvoiceMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
@@ -1355,7 +1355,7 @@ export default function Billing() {
               { label: "مدفوعة",            value: platStats?.paid ?? 0,    color: "text-emerald-400" },
               { label: "قيد الانتظار",      value: platStats?.unpaid ?? 0,  color: "text-amber-400" },
               { label: "متأخرة",            value: platStats?.overdue ?? 0, color: "text-red-400" },
-              { label: "الإيرادات المحصّلة", value: `${Number(platStats?.total_paid ?? 0).toLocaleString("ar-SA")} ر.س`, color: "text-[#C9A84C]" },
+              { label: "الإيرادات المحصّلة", value: `${Number(platStats?.total_paid ?? 0).toLocaleString("ar-SA")} ر.س`, color: "text-primary" },
             ].map(s => (
               <Card key={s.label} className="border-border/50">
                 <CardContent className="p-4 text-center">
@@ -1480,7 +1480,7 @@ export default function Billing() {
               <h2 className="text-lg font-bold">مفاتيح API</h2>
               <p className="text-xs text-muted-foreground mt-0.5">مفاتيح الوصول للتكامل مع أنظمة خارجية</p>
             </div>
-            <Button size="sm" className="gap-2 bg-[#C9A84C] hover:bg-[#b8943e] text-black font-bold" onClick={() => setShowNewKey(v => !v)}>
+            <Button size="sm" className="gap-2 bg-primary hover:bg-[#b8943e] text-black font-bold" onClick={() => setShowNewKey(v => !v)}>
               <Plus className="h-3.5 w-3.5" /> مفتاح جديد
             </Button>
           </div>
@@ -1502,14 +1502,14 @@ export default function Billing() {
           )}
 
           {showNewKey && (
-            <Card className="border-[#C9A84C]/30 bg-[#C9A84C]/5">
+            <Card className="border-primary/30 bg-primary/5">
               <CardContent className="p-4">
                 <p className="text-sm font-semibold mb-3">إنشاء مفتاح جديد</p>
                 <div className="flex gap-2">
                   <input type="text" placeholder="اسم المفتاح (مثال: نظام CRM)" value={newKeyName}
                     onChange={e => setNewKeyName(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/40" />
-                  <Button className="bg-[#C9A84C] hover:bg-[#b8943e] text-black font-bold"
+                    className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+                  <Button className="bg-primary hover:bg-[#b8943e] text-black font-bold"
                     disabled={!newKeyName.trim() || createKeyMutation.isPending}
                     onClick={() => createKeyMutation.mutate(newKeyName.trim())}>
                     {createKeyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "إنشاء"}
@@ -1573,7 +1573,7 @@ export default function Billing() {
           </Card>
 
           <div className="p-4 rounded-xl border border-border/40 bg-muted/20 space-y-2">
-            <p className="text-sm font-semibold flex items-center gap-2"><Key className="h-4 w-4 text-[#C9A84C]" /> كيف تستخدم المفاتيح؟</p>
+            <p className="text-sm font-semibold flex items-center gap-2"><Key className="h-4 w-4 text-primary" /> كيف تستخدم المفاتيح؟</p>
             <code className="block text-xs bg-background/80 rounded-lg p-3 border border-border/40 font-mono text-muted-foreground">
               {"curl -H \"Authorization: Bearer sk_adala_...\" \\\n     https://api.adala.ai/v1/cases"}
             </code>
@@ -1607,7 +1607,7 @@ export default function Billing() {
                   { label: "إجمالي الإيرادات",  value: `${(revenueData?.totals?.totalRevenue ?? 0).toLocaleString("ar-SA")} ر.س`,  icon: <DollarSign className="h-5 w-5 text-emerald-400" />, color: "#10B981" },
                   { label: "عدد المعاملات",     value: revenueData?.totals?.totalTransactions ?? 0,                                icon: <Activity className="h-5 w-5 text-blue-400" />,     color: "#3B82F6" },
                   { label: "Stripe إيرادات",    value: `${(revenueData?.stripe?.total ?? 0).toLocaleString("ar-SA")} ر.س`,          icon: <CreditCard className="h-5 w-5 text-violet-400" />, color: "#8B5CF6" },
-                  { label: "معاملات Stripe",    value: revenueData?.stripe?.transactions ?? 0,                                      icon: <CheckCircle2 className="h-5 w-5 text-[#C9A84C]" />, color: "#C9A84C" },
+                  { label: "معاملات Stripe",    value: revenueData?.stripe?.transactions ?? 0,                                      icon: <CheckCircle2 className="h-5 w-5 text-primary" />, color: "#2563EB" },
                 ].map(kpi => (
                   <Card key={kpi.label} className="border-border/50">
                     <CardContent className="p-4 flex items-center gap-3">
@@ -1626,7 +1626,7 @@ export default function Billing() {
                 <Card className="border-border/50">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-[#C9A84C]" /> الإيرادات الشهرية (آخر 6 أشهر)
+                      <BarChart3 className="h-4 w-4 text-primary" /> الإيرادات الشهرية (آخر 6 أشهر)
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -1638,7 +1638,7 @@ export default function Billing() {
                           <div key={m.month} className="flex items-center gap-3">
                             <span className="text-xs text-muted-foreground w-16 shrink-0">{m.month}</span>
                             <div className="flex-1 bg-muted/40 rounded-full h-5 overflow-hidden">
-                              <div className="h-full bg-gradient-to-r from-[#C9A84C] to-[#F59E0B] rounded-full flex items-center justify-end px-2 transition-all"
+                              <div className="h-full bg-gradient-to-r from-[#2563EB] to-[#F59E0B] rounded-full flex items-center justify-end px-2 transition-all"
                                 style={{ width: `${Math.max(pct, 4)}%` }}>
                                 <span className="text-[10px] font-bold text-black">{m.revenue.toLocaleString("ar-SA")}</span>
                               </div>
@@ -1657,7 +1657,7 @@ export default function Billing() {
                 <Card className="border-border/50">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Users className="h-4 w-4 text-[#C9A84C]" /> توزيع الباقات
+                      <Users className="h-4 w-4 text-primary" /> توزيع الباقات
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -1691,7 +1691,7 @@ export default function Billing() {
                 <Card className="border-border/50">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-[#C9A84C]" /> آخر معاملات Stripe
+                      <CreditCard className="h-4 w-4 text-primary" /> آخر معاملات Stripe
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">

@@ -196,7 +196,7 @@ export default function Employees() {
             { label: "إجمالي الموظفين", value: stats.total, color: "#6366F1", icon: Users },
             { label: "الموظفون النشطون", value: stats.active, color: "#10B981", icon: UserCheck },
             { label: "غير نشط", value: stats.inactive, color: "#EF4444", icon: UserX },
-            { label: "إجمالي الرواتب", value: `${(stats.totalSalaries / 1000).toFixed(0)}k ر`, color: "#C9A84C", icon: DollarSign },
+            { label: "إجمالي الرواتب", value: `${(stats.totalSalaries / 1000).toFixed(0)}k ر`, color: "#2563EB", icon: DollarSign },
           ].map(s => (
             <Card key={s.label} className="border-0 bg-card/50">
               <CardContent className="p-4 flex items-center gap-3">

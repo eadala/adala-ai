@@ -70,7 +70,7 @@ function OverviewTab() {
     queryFn: () => api("/storage/stats").then(r => r.json()),
   });
 
-  if (isLoading) return <div className="flex items-center justify-center h-64 text-white/50">جارٍ التحميل...</div>;
+  if (isLoading) return <div className="flex items-center justify-center h-64 text-muted-foreground/60">جارٍ التحميل...</div>;
 
   const catColors: Record<string, string> = {
     document: "bg-blue-500", image: "bg-green-500", video: "bg-purple-500",
@@ -87,20 +87,20 @@ function OverviewTab() {
           { label: "مؤرشفة",           value: stats?.archivedCount ?? 0,      icon: Archive,   color: "text-amber-400" },
           { label: "سلة المحذوفات",    value: stats?.trashCount ?? 0,         icon: Trash2,    color: "text-red-400" },
         ].map(c => (
-          <Card key={c.label} className="bg-white/5 border-white/10">
+          <Card key={c.label} className="bg-card border-border">
             <CardContent className="pt-4 pb-3">
               <c.icon className={`w-5 h-5 mb-2 ${c.color}`} />
-              <div className="text-xl font-bold text-white">{c.value}</div>
-              <div className="text-xs text-white/50 mt-0.5">{c.label}</div>
+              <div className="text-xl font-bold text-foreground">{c.value}</div>
+              <div className="text-xs text-muted-foreground/60 mt-0.5">{c.label}</div>
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Quota Bar */}
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-white/70 flex items-center gap-2">
+          <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
             <HardDrive className="w-4 h-4" /> الحصة التخزينية
           </CardTitle>
         </CardHeader>
@@ -109,16 +109,16 @@ function OverviewTab() {
             <span>{stats?.quota?.usedFmt ?? "0 B"} مستخدم</span>
             <span>{stats?.quota?.maxFmt ?? "5 GB"} إجمالي</span>
           </div>
-          <Progress value={stats?.quota?.pct ?? 0} className="h-3 bg-white/10" />
-          <div className="text-xs text-white/40 mt-1">{stats?.quota?.pct ?? 0}% مستخدم</div>
+          <Progress value={stats?.quota?.pct ?? 0} className="h-3 bg-muted" />
+          <div className="text-xs text-muted-foreground/50 mt-1">{stats?.quota?.pct ?? 0}% مستخدم</div>
         </CardContent>
       </Card>
 
       {/* By Category */}
       {(stats?.byCategory ?? []).length > 0 && (
-        <Card className="bg-white/5 border-white/10">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-white/70">التوزيع حسب النوع</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">التوزيع حسب النوع</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {(stats.byCategory ?? []).map((cat: any) => {
@@ -126,10 +126,10 @@ function OverviewTab() {
               return (
                 <div key={cat.category}>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-white/70">{categoryIcon(cat.category)} {categoryLabel(cat.category)}</span>
-                    <span className="text-white/50">{cat.cnt} ملف • {fmtBytes(Number(cat.bytes))}</span>
+                    <span className="text-muted-foreground">{categoryIcon(cat.category)} {categoryLabel(cat.category)}</span>
+                    <span className="text-muted-foreground/60">{cat.cnt} ملف • {fmtBytes(Number(cat.bytes))}</span>
                   </div>
-                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div className={`h-full ${catColors[cat.category] ?? "bg-gray-500"} rounded-full`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
@@ -140,10 +140,10 @@ function OverviewTab() {
       )}
 
       {/* Recent Files */}
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2 flex-row justify-between items-center">
-          <CardTitle className="text-sm text-white/70">آخر الملفات المرفوعة</CardTitle>
-          <Button variant="ghost" size="sm" onClick={() => refetch()} className="text-white/40 hover:text-white h-7 w-7 p-0">
+          <CardTitle className="text-sm text-muted-foreground">آخر الملفات المرفوعة</CardTitle>
+          <Button variant="ghost" size="sm" onClick={() => refetch()} className="text-muted-foreground/50 hover:text-white h-7 w-7 p-0">
             <RefreshCw className="w-3.5 h-3.5" />
           </Button>
         </CardHeader>
@@ -153,15 +153,15 @@ function OverviewTab() {
           ) : (
             <div className="space-y-2">
               {(stats.recentFiles ?? []).map((f: any) => (
-                <div key={f.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                <div key={f.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 hover:bg-accent transition-colors">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-lg">{categoryIcon(f.category)}</span>
                     <div className="min-w-0">
                       <p className="text-sm text-white truncate max-w-[220px]">{f.original_name}</p>
-                      <p className="text-xs text-white/40">{fmtBytes(Number(f.file_size))} • {timeAgo(f.created_at)}</p>
+                      <p className="text-xs text-muted-foreground/50">{fmtBytes(Number(f.file_size))} • {timeAgo(f.created_at)}</p>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-xs border-white/10 text-white/50 shrink-0">
+                  <Badge variant="outline" className="text-xs border-border text-muted-foreground/60 shrink-0">
                     {categoryLabel(f.category)}
                   </Badge>
                 </div>
@@ -222,19 +222,19 @@ function FileManagerTab() {
           placeholder="ابحث عن ملف..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="bg-white/5 border-white/10 text-white placeholder:text-white/30 flex-1"
+          className="bg-card border-border text-white placeholder:text-white/30 flex-1"
         />
         <div className="flex gap-2 flex-wrap">
           {(["active", "archived", "deleted"] as const).map(v => (
             <Button key={v} size="sm" variant={filter === v ? "default" : "outline"}
               onClick={() => setFilter(v)}
-              className={filter === v ? "bg-amber-500 text-black border-0" : "border-white/10 text-white/60 hover:text-white bg-transparent"}>
+              className={filter === v ? "bg-amber-500 text-black border-0" : "border-border text-muted-foreground hover:text-foreground bg-transparent"}>
               {v === "active" ? "نشط" : v === "archived" ? "مؤرشف" : "المحذوفات"}
             </Button>
           ))}
         </div>
         <select value={cat} onChange={e => setCat(e.target.value)}
-          className="bg-white/5 border border-white/10 text-white/70 rounded-md px-3 py-1.5 text-sm">
+          className="bg-card border border-border text-muted-foreground rounded-md px-3 py-1.5 text-sm">
           {categories.map(c => <option key={c} value={c} className="bg-[#0B1B2B]">{c === "" ? "كل الأنواع" : categoryLabel(c)}</option>)}
         </select>
         {filter === "deleted" && (
@@ -246,23 +246,23 @@ function FileManagerTab() {
 
       {/* File List */}
       {isLoading ? (
-        <div className="text-center text-white/40 py-12">جارٍ التحميل...</div>
+        <div className="text-center text-muted-foreground/50 py-12">جارٍ التحميل...</div>
       ) : (files as any[]).length === 0 ? (
         <div className="text-center py-16">
           <FolderOpen className="w-12 h-12 text-white/20 mx-auto mb-3" />
-          <p className="text-white/40">لا توجد ملفات</p>
+          <p className="text-muted-foreground/50">لا توجد ملفات</p>
         </div>
       ) : (
         <div className="space-y-2">
           {(files as any[]).map((f: any) => (
-            <div key={f.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all">
+            <div key={f.id} className="flex items-center justify-between p-3 rounded-xl bg-card hover:bg-accent border border-border transition-all">
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-xl shrink-0">
+                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xl shrink-0">
                   {categoryIcon(f.category)}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm text-white font-medium truncate max-w-[280px]">{f.original_name}</p>
-                  <p className="text-xs text-white/40 mt-0.5">
+                  <p className="text-sm text-foreground font-medium truncate max-w-[280px]">{f.original_name}</p>
+                  <p className="text-xs text-muted-foreground/50 mt-0.5">
                     {fmtBytes(Number(f.file_size))} • {categoryLabel(f.category)} • {timeAgo(f.created_at)}
                   </p>
                 </div>
@@ -270,17 +270,17 @@ function FileManagerTab() {
               <div className="flex items-center gap-2 shrink-0">
                 {f.is_archived && <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-xs">مؤرشف</Badge>}
                 {f.file_url && (
-                  <Button size="sm" variant="ghost" className="text-white/40 hover:text-white h-7 w-7 p-0" asChild>
+                  <Button size="sm" variant="ghost" className="text-muted-foreground/50 hover:text-white h-7 w-7 p-0" asChild>
                     <a href={f.file_url} target="_blank" rel="noreferrer"><Eye className="w-3.5 h-3.5" /></a>
                   </Button>
                 )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="ghost" className="text-white/40 hover:text-white h-7 w-7 p-0">
+                    <Button size="sm" variant="ghost" className="text-muted-foreground/50 hover:text-white h-7 w-7 p-0">
                       <MoreVertical className="w-3.5 h-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-[#0B1B2B] border-white/10 text-white text-sm">
+                  <DropdownMenuContent align="end" className="bg-popover border-border text-popover-foreground text-sm">
                     {!f.is_deleted && (
                       <DropdownMenuItem onClick={() => archiveMut.mutate(f.id)}>
                         <Archive className="w-4 h-4 ml-2" /> {f.is_archived ? "إلغاء الأرشفة" : "أرشفة"}
@@ -317,7 +317,7 @@ function AiAnalysisTab() {
     queryFn: () => api("/storage/ai-analysis").then(r => r.json()),
   });
 
-  if (isLoading) return <div className="text-center text-white/40 py-16">جارٍ تحليل التخزين...</div>;
+  if (isLoading) return <div className="text-center text-muted-foreground/50 py-16">جارٍ تحليل التخزين...</div>;
 
   return (
     <div className="space-y-6">
@@ -343,7 +343,7 @@ function AiAnalysisTab() {
               ))}
             </div>
           )}
-          <div className="flex gap-4 mt-4 text-xs text-white/40">
+          <div className="flex gap-4 mt-4 text-xs text-muted-foreground/50">
             <span>يمكن توفير (مكرر): <span className="text-amber-300">{data?.summary?.wastedFmt ?? "0 B"}</span></span>
             <span>قابل للأرشفة: <span className="text-blue-300">{data?.summary?.archivableFmt ?? "0 B"}</span></span>
           </div>
@@ -352,15 +352,15 @@ function AiAnalysisTab() {
 
       {/* Large Files */}
       {(data?.largeFiles ?? []).length > 0 && (
-        <Card className="bg-white/5 border-white/10">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-white/70 flex items-center gap-2">
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
               <BarChart3 className="w-4 h-4" /> الملفات الكبيرة (أكبر من 10MB)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {(data.largeFiles as any[]).map((f: any) => (
-              <div key={f.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5">
+              <div key={f.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
                 <div className="flex items-center gap-2 min-w-0">
                   <span>{categoryIcon(f.category)}</span>
                   <span className="text-sm text-white/80 truncate max-w-[240px]">{f.original_name}</span>
@@ -374,18 +374,18 @@ function AiAnalysisTab() {
 
       {/* Duplicates */}
       {(data?.duplicates ?? []).length > 0 && (
-        <Card className="bg-white/5 border-white/10">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-white/70 flex items-center gap-2">
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
               <Copy className="w-4 h-4" /> ملفات مكررة
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {(data.duplicates as any[]).map((d: any, i: number) => (
-              <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-white/5">
+              <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
                 <div className="min-w-0">
                   <p className="text-sm text-white/80 truncate max-w-[240px]">{d.sample_name}</p>
-                  <p className="text-xs text-white/40">{d.cnt} نسخ مكررة</p>
+                  <p className="text-xs text-muted-foreground/50">{d.cnt} نسخ مكررة</p>
                 </div>
                 <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-xs">وفّر {fmtBytes(Number(d.wasted_bytes))}</Badge>
               </div>
@@ -396,24 +396,24 @@ function AiAnalysisTab() {
 
       {/* Old Files */}
       {(data?.oldFiles ?? []).length > 0 && (
-        <Card className="bg-white/5 border-white/10">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-white/70 flex items-center gap-2">
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
               <Archive className="w-4 h-4" /> ملفات قديمة (أكبر من 180 يوم)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {(data.oldFiles as any[]).map((f: any) => (
-              <div key={f.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5">
-                <span className="text-sm text-white/70 truncate max-w-[280px]">{f.original_name}</span>
-                <span className="text-xs text-white/40 shrink-0">{timeAgo(f.created_at)}</span>
+              <div key={f.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                <span className="text-sm text-muted-foreground truncate max-w-[280px]">{f.original_name}</span>
+                <span className="text-xs text-muted-foreground/50 shrink-0">{timeAgo(f.created_at)}</span>
               </div>
             ))}
           </CardContent>
         </Card>
       )}
 
-      <Button variant="outline" size="sm" onClick={() => refetch()} className="border-white/10 text-white/60 hover:text-white bg-transparent">
+      <Button variant="outline" size="sm" onClick={() => refetch()} className="border-border text-muted-foreground hover:text-foreground bg-transparent">
         <RefreshCw className="w-4 h-4 ml-2" /> إعادة التحليل
       </Button>
     </div>
@@ -444,11 +444,11 @@ function SettingsTab() {
   if (!isSA) return (
     <div className="text-center py-16">
       <Shield className="w-12 h-12 text-white/20 mx-auto mb-3" />
-      <p className="text-white/40">هذا القسم للمشرف العام فقط</p>
+      <p className="text-muted-foreground/50">هذا القسم للمشرف العام فقط</p>
     </div>
   );
 
-  if (isLoading) return <div className="text-center text-white/40 py-12">جارٍ التحميل...</div>;
+  if (isLoading) return <div className="text-center text-muted-foreground/50 py-12">جارٍ التحميل...</div>;
 
   const labelMap: Record<string, string> = {
     default_provider:      "مزود التخزين الافتراضي",
@@ -468,9 +468,9 @@ function SettingsTab() {
   return (
     <div className="space-y-6">
       {/* Provider */}
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-white/70">مزود التخزين</CardTitle>
+          <CardTitle className="text-sm text-muted-foreground">مزود التخزين</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-3">
@@ -478,7 +478,7 @@ function SettingsTab() {
               const currentVal = val("default_provider", "replit");
               return (
                 <button key={p} onClick={() => setVals(v => ({ ...v, default_provider: p }))}
-                  className={`p-3 rounded-xl border text-sm font-medium transition-all ${currentVal === p ? "bg-amber-500/20 border-amber-500/40 text-amber-300" : "bg-white/5 border-white/10 text-white/50 hover:border-white/20"}`}>
+                  className={`p-3 rounded-xl border text-sm font-medium transition-all ${currentVal === p ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-card border-border text-muted-foreground/60 hover:border-primary/30"}`}>
                   {p === "replit" ? "🟢 Replit Storage" : p === "cloudflare-r2" ? "☁️ Cloudflare R2" : "💾 تخزين محلي"}
                 </button>
               );
@@ -488,9 +488,9 @@ function SettingsTab() {
       </Card>
 
       {/* All Settings */}
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-white/70">إعدادات متقدمة</CardTitle>
+          <CardTitle className="text-sm text-muted-foreground">إعدادات متقدمة</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {(settings as any[]).map((s: any) => {
@@ -499,7 +499,7 @@ function SettingsTab() {
             if (s.setting_type === "boolean") {
               return (
                 <div key={s.setting_key} className="flex items-center justify-between">
-                  <Label className="text-sm text-white/70">{label}</Label>
+                  <Label className="text-sm text-muted-foreground">{label}</Label>
                   <Switch checked={v === "true"} onCheckedChange={ch => setVals(x => ({ ...x, [s.setting_key]: ch ? "true" : "false" }))}
                     className="data-[state=checked]:bg-amber-500" />
                 </div>
@@ -507,9 +507,9 @@ function SettingsTab() {
             }
             return (
               <div key={s.setting_key}>
-                <Label className="text-xs text-white/50 mb-1 block">{label}</Label>
+                <Label className="text-xs text-muted-foreground/60 mb-1 block">{label}</Label>
                 <Input value={v} onChange={e => setVals(x => ({ ...x, [s.setting_key]: e.target.value }))}
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30 h-8 text-sm" />
+                  className="bg-card border-border text-white placeholder:text-white/30 h-8 text-sm" />
               </div>
             );
           })}
@@ -537,13 +537,13 @@ export default function StorageSettings() {
               </div>
               إدارة التخزين الذكي
             </h1>
-            <p className="text-white/40 mt-1 text-sm">رفع الملفات · الأرشفة · تحليل المساحة · الإعدادات</p>
+            <p className="text-muted-foreground/50 mt-1 text-sm">رفع الملفات · الأرشفة · تحليل المساحة · الإعدادات</p>
           </div>
         </div>
 
         {/* Tabs */}
         <Tabs defaultValue="overview" dir="rtl">
-          <TabsList className="bg-white/5 border border-white/10 mb-6 flex-wrap h-auto gap-1 p-1">
+          <TabsList className="bg-card border border-border mb-6 flex-wrap h-auto gap-1 p-1">
             {[
               { value: "overview",  label: "نظرة عامة",  icon: BarChart3 },
               { value: "files",     label: "مستعرض الملفات", icon: FolderOpen },

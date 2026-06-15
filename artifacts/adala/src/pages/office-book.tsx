@@ -109,7 +109,7 @@ export default function OfficeBook() {
   );
 
   const { office, services = [] } = data;
-  const gold = office.primaryColor ?? "#C9A84C";
+  const gold = office.primaryColor ?? "#2563EB";
   const officeName = t(office.name, office.nameEn, lang);
   const consultTypes = lang === "ar" ? CONSULTATION_TYPES_AR : CONSULTATION_TYPES_EN;
   const times = lang === "ar" ? TIMES : TIMES_EN;

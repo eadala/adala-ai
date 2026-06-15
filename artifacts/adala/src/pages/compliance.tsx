@@ -67,7 +67,7 @@ const FRAMEWORKS = [
     key: "license",
     name: "تراخيص ممارسة المهنة القانونية",
     icon: Scale,
-    color: "#C9A84C",
+    color: "#2563EB",
     ref: "وزارة العدل / هيئة المحامين",
     items: [
       { id: "l1", text: "ترخيص ممارسة المهنة للمحامين", status: "done", priority: "high", notes: "ساري حتى 2025" },

@@ -107,12 +107,12 @@ function AdminSidebar({ open, onClose }: { open?: boolean; onClose?: () => void 
     <div
       dir="rtl"
       className={cn(
-        "flex flex-col h-full bg-[#0a0f1e] border-l border-white/10 text-white",
+        "flex flex-col h-full bg-[#0a0f1e] border-l border-border text-white",
         "w-64 shrink-0",
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between h-16 px-4 border-b border-white/10 shrink-0">
+      <div className="flex items-center justify-between h-16 px-4 border-b border-border shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
             <Shield className="h-4 w-4 text-white" />
@@ -142,7 +142,7 @@ function AdminSidebar({ open, onClose }: { open?: boolean; onClose?: () => void 
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-white/10 p-3 shrink-0 space-y-1">
+      <div className="border-t border-border p-3 shrink-0 space-y-1">
         <a
           href={`${BASE}/dashboard`}
           className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
@@ -188,7 +188,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar (mobile) */}
-        <div className="flex md:hidden items-center justify-between h-14 px-4 border-b border-white/10 bg-[#0a0f1e]">
+        <div className="flex md:hidden items-center justify-between h-14 px-4 border-b border-border bg-[#0a0f1e]">
           <Button variant="ghost" size="icon" className="h-8 w-8 text-white" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>

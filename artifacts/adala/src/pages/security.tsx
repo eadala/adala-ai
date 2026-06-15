@@ -32,7 +32,7 @@ const pillars = [
   },
   {
     icon: Key,
-    color: "#C9A84C",
+    color: "#2563EB",
     bg: "rgba(201,168,76,0.1)",
     border: "rgba(201,168,76,0.25)",
     title: "المصادقة والصلاحيات",
@@ -88,7 +88,7 @@ const pillars = [
 ];
 
 const certifications = [
-  { label: "PDPL", desc: "نظام حماية البيانات الشخصية السعودي", color: "#C9A84C" },
+  { label: "PDPL", desc: "نظام حماية البيانات الشخصية السعودي", color: "#2563EB" },
   { label: "ISO 27001", desc: "إدارة أمن المعلومات", color: "#3B82F6" },
   { label: "SOC 2", desc: "ضوابط الأمان والتوفر", color: "#8B5CF6" },
   { label: "TLS 1.3", desc: "أحدث معايير التشفير", color: "#10B981" },

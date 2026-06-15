@@ -206,7 +206,7 @@ export default function WhatsAppSettingsPage() {
               )}
 
               <Button
-                className="w-full bg-[#b4823c] hover:bg-[#9a6f33] text-white"
+                className="w-full bg-primary hover:bg-primary/90 text-white"
                 onClick={() => saveMut.mutate()}
                 disabled={saveMut.isPending || isLoading}
               >

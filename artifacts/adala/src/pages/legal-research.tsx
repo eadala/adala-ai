@@ -105,7 +105,7 @@ export default function LegalResearch() {
                 : "border-muted bg-card text-muted-foreground hover:border-primary/30"
             )}
           >
-            <cfg.icon className="h-3.5 w-3.5" style={{ color: category === key ? "#C9A84C" : undefined }} />
+            <cfg.icon className="h-3.5 w-3.5" style={{ color: category === key ? "#2563EB" : undefined }} />
             {cfg.label}
           </button>
         ))}
