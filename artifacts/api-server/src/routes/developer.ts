@@ -143,19 +143,19 @@ router.post("/developer/tokens", devOnly, async (req: any, res) => {
     `);
     /* Return full token only on creation */
     res.json({ ...rows[0], token });
-  } catch (e) { console.error(e); res.status(500).json({ error: "خطأ في الإنشاء" }); }
+  } catch (e) {  res.status(500).json({ error: "خطأ في الإنشاء" }); }
 });
 
 router.patch("/developer/tokens/:id/revoke", devOnly, async (req, res) => {
   try {
-    await safeRows(sql`UPDATE developer_tokens SET is_active=false WHERE id=${req.params.id}::uuid`);
+    await safeRows(sql`UPDATE developer_tokens SET is_active=false WHERE id=${String(req.params.id)}::uuid`);
     res.json({ ok: true });
   } catch { res.status(500).json({ error: "خطأ في الإلغاء" }); }
 });
 
 router.delete("/developer/tokens/:id", devOnly, async (req, res) => {
   try {
-    await safeRows(sql`DELETE FROM developer_tokens WHERE id=${req.params.id}::uuid`);
+    await safeRows(sql`DELETE FROM developer_tokens WHERE id=${String(req.params.id)}::uuid`);
     res.json({ ok: true });
   } catch { res.status(500).json({ error: "خطأ في الحذف" }); }
 });
@@ -227,7 +227,7 @@ router.post("/developer/impersonate/:officeId", devOnly, async (req: any, res) =
   try {
     const userId = getAuth(req)?.userId;
     if (!userId) return res.status(401).json({ error: "غير مصادق" });
-    const { officeId } = req.params;
+    const { officeId } = req.params as Record<string, string>;
     const officeRows = await safeRows(sql`SELECT office_name FROM office_page WHERE id::text = ${officeId} LIMIT 1`);
     const officeName = officeRows[0]?.office_name ?? officeId;
     await db.execute(sql`
@@ -296,7 +296,7 @@ router.get("/developer/ghost-log", devOnly, async (req: any, res) => {
 /* GET /api/developer/office-snapshot/:officeId — deep live snapshot for one office */
 router.get("/developer/office-snapshot/:officeId", devOnly, async (req: any, res) => {
   try {
-    const { officeId } = req.params;
+    const { officeId } = req.params as Record<string, string>;
     const [recentCases, recentClients, invoiceSummary, recentActivity] = await Promise.all([
       safeRows(sql`
         SELECT id::text, title, status, created_at

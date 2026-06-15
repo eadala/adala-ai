@@ -235,7 +235,7 @@ router.put("/calendar/events/:id", requireAuthWithTenant, async (req: Request, r
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
     await ensureTables();
 
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const existing = await dbRows(sql`SELECT user_id FROM events WHERE id = ${id}`);
     if (!existing.length) return res.status(404).json({ error: "الحدث غير موجود" });
     if (existing[0].user_id !== authUserId) return res.status(403).json({ error: "غير مصرح" });
@@ -275,7 +275,7 @@ router.delete("/calendar/events/:id", requireAuthWithTenant, async (req: Request
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
     await ensureTables();
 
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const existing = await dbRows(sql`SELECT user_id FROM events WHERE id = ${id}`);
     if (!existing.length) return res.status(404).json({ error: "الحدث غير موجود" });
     if (existing[0].user_id !== authUserId) return res.status(403).json({ error: "غير مصرح" });

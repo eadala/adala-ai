@@ -20,8 +20,7 @@ router.get("/webhook/whatsapp", (req: Request, res: Response) => {
   const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || "adala_whatsapp_verify";
 
   if (mode === "subscribe" && token === verifyToken) {
-    console.log("✅ WhatsApp Webhook verified");
-    res.status(200).send(challenge as string);
+        res.status(200).send(challenge as string);
     return;
   }
   res.status(403).json({ error: "Forbidden — token mismatch" });
@@ -78,8 +77,7 @@ router.post("/webhook/whatsapp", async (req: Request, res: Response) => {
     }
     res.status(200).json({ ok: true });
   } catch (err) {
-    console.error("Webhook error:", err);
-    res.status(200).json({ ok: true });
+        res.status(200).json({ ok: true });
   }
 });
 
@@ -252,8 +250,7 @@ router.post("/webhook/moyasar", async (req: Request, res: Response) => {
     console.log(`✅ Moyasar Webhook: ${moyasarId} → ${newStatus} (${amountSAR} SAR)`);
     res.json({ ok: true, received: moyasarId, status: newStatus });
   } catch (err: any) {
-    console.error("Moyasar webhook error:", err.message);
-    res.status(500).json({ error: err.message });
+        res.status(500).json({ error: err.message });
   }
 });
 

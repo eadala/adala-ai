@@ -2,7 +2,6 @@ import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -57,7 +56,7 @@ router.get("/org-units", requireAuthWithTenant, async (_req, res) => {
 router.get("/org-units/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
-    const unit = await sqlOne(sql`SELECT * FROM organization_units WHERE id = ${parseInt(req.params.id)}`);
+    const unit = await sqlOne(sql`SELECT * FROM organization_units WHERE id = ${parseInt(String(req.params.id))}`);
     if (!unit) return res.status(404).json({ error: "الوحدة غير موجودة" });
     res.json(unit);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -66,7 +65,7 @@ router.get("/org-units/:id", requireAuthWithTenant, async (req, res) => {
 /* GET unit stats */
 router.get("/org-units/:id/stats", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   try {
     const [cases, clients, contracts, invoicesAgg] = await Promise.all([
       sqlOne(sql`SELECT COUNT(*)::int as count FROM cases WHERE organization_unit_id = ${id} AND status != 'deleted'`),
@@ -135,7 +134,7 @@ router.patch("/org-units/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const { name, type, parentId, managerId, managerName, description, status } = req.body as any;
-    const existing = await sqlOne(sql`SELECT id FROM organization_units WHERE id = ${parseInt(req.params.id)}`);
+    const existing = await sqlOne(sql`SELECT id FROM organization_units WHERE id = ${parseInt(String(req.params.id))}`);
     if (!existing) return res.status(404).json({ error: "الوحدة غير موجودة" });
 
     const unit = await sqlOne(sql`
@@ -148,7 +147,7 @@ router.patch("/org-units/:id", requireAuthWithTenant, async (req, res) => {
         description  = COALESCE(${description ?? null}, description),
         status       = COALESCE(${status ?? null}, status),
         updated_at   = NOW()
-      WHERE id = ${parseInt(req.params.id)}
+      WHERE id = ${parseInt(String(req.params.id))}
       RETURNING *
     `);
     res.json(unit);
@@ -162,7 +161,7 @@ router.patch("/org-units/:id/move", requireAuthWithTenant, async (req, res) => {
     const { parentId } = req.body as { parentId: number | null };
     const unit = await sqlOne(sql`
       UPDATE organization_units SET parent_id = ${parentId ?? null}, updated_at = NOW()
-      WHERE id = ${parseInt(req.params.id)} RETURNING *
+      WHERE id = ${parseInt(String(req.params.id))} RETURNING *
     `);
     if (!unit) return res.status(404).json({ error: "الوحدة غير موجودة" });
     res.json(unit);
@@ -176,7 +175,7 @@ router.patch("/org-units/:id/status", requireAuthWithTenant, async (req, res) =>
     const { status } = req.body as { status: string };
     const unit = await sqlOne(sql`
       UPDATE organization_units SET status = ${status}, updated_at = NOW()
-      WHERE id = ${parseInt(req.params.id)} RETURNING *
+      WHERE id = ${parseInt(String(req.params.id))} RETURNING *
     `);
     if (!unit) return res.status(404).json({ error: "الوحدة غير موجودة" });
     res.json(unit);
@@ -187,10 +186,10 @@ router.patch("/org-units/:id/status", requireAuthWithTenant, async (req, res) =>
 router.delete("/org-units/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
-    const children = await sqlOne(sql`SELECT id FROM organization_units WHERE parent_id = ${parseInt(req.params.id)} LIMIT 1`);
+    const children = await sqlOne(sql`SELECT id FROM organization_units WHERE parent_id = ${parseInt(String(req.params.id))} LIMIT 1`);
     if (children) return res.status(400).json({ error: "لا يمكن حذف وحدة تحتوي على وحدات فرعية" });
 
-    await db.execute(sql`DELETE FROM organization_units WHERE id = ${parseInt(req.params.id)}`);
+    await db.execute(sql`DELETE FROM organization_units WHERE id = ${parseInt(String(req.params.id))}`);
     res.status(204).end();
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

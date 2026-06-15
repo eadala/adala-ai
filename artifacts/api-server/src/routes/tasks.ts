@@ -97,7 +97,7 @@ router.post("/office-tasks", requireAuthWithTenant, async (req, res) => {
 
 router.patch("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { title, description, status, priority, assigneeName, dueDate, caseTitle } = req.body;
     const dueDateVal = dueDate || null;
     const r = await db.execute(sql`
@@ -121,7 +121,7 @@ router.patch("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
 
 router.delete("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    await db.execute(sql`DELETE FROM tasks WHERE id = ${req.params.id}::uuid`);
+    await db.execute(sql`DELETE FROM tasks WHERE id = ${String(req.params.id)}::uuid`);
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

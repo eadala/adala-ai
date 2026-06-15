@@ -5,7 +5,6 @@ import { sql } from "drizzle-orm";
 import { randomBytes, scrypt, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { getAuth, createClerkClient } from "@clerk/express";
-import { requireAuth } from "../middlewares/requireAuth";
 
 const router = Router();
 const scryptAsync = promisify(scrypt);
@@ -72,7 +71,7 @@ ensureTables().catch(console.error);
 // ─── auth middleware for client sessions ─────────────────────────────────────
 async function getClientSession(req: Request): Promise<{ clientId: string; email: string; name: string } | null> {
   const authHeader = req.headers.authorization ?? "";
-  const token = authHeader.replace("Bearer ", "").trim() || (req.query.ct as string);
+  const token = authHeader.replace("Bearer ", "").trim() || (String(req.query.ct));
   if (!token) return null;
   const row = sqlOne(await db.execute(sql`
     SELECT cs.client_id, ca.email, ca.name
@@ -112,8 +111,7 @@ router.post("/client-auth/register", async (req: Request, res: Response) => {
 
     res.status(201).json({ token: sessionToken, client: { id, email: email.toLowerCase(), name: name ?? null } });
   } catch (e: any) {
-    console.error("client register:", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
@@ -137,8 +135,7 @@ router.post("/client-auth/login", async (req: Request, res: Response) => {
 
     res.json({ token: sessionToken, client: { id: row.id, email: row.email, name: row.name } });
   } catch (e: any) {
-    console.error("client login:", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
@@ -356,8 +353,7 @@ router.post("/client-auth/admin-create", requireAuth, async (req: Request, res: 
       client: { id, email: email.toLowerCase(), name: name ?? null, phone: phone ?? null },
     });
   } catch (e: any) {
-    console.error("admin-create client:", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
@@ -370,7 +366,7 @@ router.patch("/client-auth/admin-reset-password/:clientId", requireAuth, async (
   if (!password || password.length < 6) { res.status(400).json({ error: "كلمة مرور جديدة (6 أحرف+) مطلوبة" }); return; }
   try {
     const hash = await hashPassword(password);
-    await db.execute(sql`UPDATE client_accounts SET password_hash=${hash}, updated_at=NOW() WHERE id=${req.params.clientId}`);
+    await db.execute(sql`UPDATE client_accounts SET password_hash=${hash}, updated_at=NOW() WHERE id=${String(req.params.clientId)}`);
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

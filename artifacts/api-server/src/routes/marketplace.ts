@@ -211,7 +211,7 @@ router.put("/marketplace/services/:id", requireAuth, async (req: Request, res: R
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { title, description, category, price, durationMinutes, tags, isActive } = req.body;
 
     if (category && !ALLOWED_CATEGORIES.has(category)) return res.status(400).json({ error: "فئة غير مسموح بها" });
@@ -244,11 +244,11 @@ router.delete("/marketplace/services/:id", requireAuth, async (req: Request, res
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
-    const existing = await dbRows(sql`SELECT user_id FROM marketplace_services WHERE id = ${req.params.id}`);
+    const existing = await dbRows(sql`SELECT user_id FROM marketplace_services WHERE id = ${String(req.params.id)}`);
     if (!existing.length) return res.status(404).json({ error: "الخدمة غير موجودة" });
     if (existing[0].user_id !== userId) return res.status(403).json({ error: "غير مصرح" });
 
-    await db.execute(sql`DELETE FROM marketplace_services WHERE id = ${req.params.id}`);
+    await db.execute(sql`DELETE FROM marketplace_services WHERE id = ${String(req.params.id)}`);
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -312,11 +312,11 @@ router.patch("/marketplace/orders/:id", requireAuth, async (req: Request, res: R
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
     const { status } = req.body;
     await db.execute(sql`
-      UPDATE marketplace_orders SET status = ${status} WHERE id = ${req.params.id} AND seller_id = ${userId}
+      UPDATE marketplace_orders SET status = ${status} WHERE id = ${String(req.params.id)} AND seller_id = ${userId}
     `);
 
     if (status === "completed") {
-      const [order] = await dbRows(sql`SELECT * FROM marketplace_orders WHERE id = ${req.params.id}`);
+      const [order] = await dbRows(sql`SELECT * FROM marketplace_orders WHERE id = ${String(req.params.id)}`);
       if (order) {
         try {
           const caseId = randomUUID();
@@ -328,7 +328,7 @@ router.patch("/marketplace/orders/:id", requireAuth, async (req: Request, res: R
                    ${"طلب عبر المتجر · " + (order.buyer_email ?? "") + " · " + (order.buyer_phone ?? "")},
                    ${sellerOfficeId}, NOW(), NOW())
           `);
-          await db.execute(sql`UPDATE marketplace_orders SET case_id = ${caseId} WHERE id = ${req.params.id}`);
+          await db.execute(sql`UPDATE marketplace_orders SET case_id = ${caseId} WHERE id = ${String(req.params.id)}`);
         } catch {}
       }
     }
@@ -391,11 +391,11 @@ router.get("/marketplace/deals/my", requireAuth, async (req: Request, res: Respo
 // GET /marketplace/deals/:id — get deal with offers
 router.get("/marketplace/deals/:id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const [deal] = await dbRows(sql`SELECT * FROM marketplace_deals WHERE id = ${req.params.id}`);
+    const [deal] = await dbRows(sql`SELECT * FROM marketplace_deals WHERE id = ${String(req.params.id)}`);
     if (!deal) return res.status(404).json({ error: "الصفقة غير موجودة" });
 
     const offers = await dbRows(sql`
-      SELECT * FROM marketplace_deal_offers WHERE deal_id = ${req.params.id} ORDER BY created_at ASC
+      SELECT * FROM marketplace_deal_offers WHERE deal_id = ${String(req.params.id)} ORDER BY created_at ASC
     `);
     res.json({ ...deal, offers });
   } catch (e: any) {
@@ -412,14 +412,14 @@ router.post("/marketplace/deals/:id/offer", requireAuth, async (req: Request, re
     const { price, message } = req.body;
     if (!price) return res.status(400).json({ error: "السعر مطلوب" });
 
-    const [deal] = await dbRows(sql`SELECT * FROM marketplace_deals WHERE id = ${req.params.id}`);
+    const [deal] = await dbRows(sql`SELECT * FROM marketplace_deals WHERE id = ${String(req.params.id)}`);
     if (!deal) return res.status(404).json({ error: "الصفقة غير موجودة" });
     if (deal.status !== "open") return res.status(400).json({ error: "الصفقة مغلقة" });
 
     const offerId = randomUUID();
     await db.execute(sql`
       INSERT INTO marketplace_deal_offers (id, deal_id, from_role, price, message, created_at)
-      VALUES (${offerId}, ${req.params.id}, 'seller', ${price}, ${message ?? null}, NOW())
+      VALUES (${offerId}, ${String(req.params.id)}, 'seller', ${price}, ${message ?? null}, NOW())
     `);
     res.json({ id: offerId, success: true });
   } catch (e: any) {
@@ -433,16 +433,16 @@ router.post("/marketplace/deals/:id/accept", requireAuth, async (req: Request, r
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
-    const [deal] = await dbRows(sql`SELECT * FROM marketplace_deals WHERE id = ${req.params.id} AND seller_id = ${userId}`);
+    const [deal] = await dbRows(sql`SELECT * FROM marketplace_deals WHERE id = ${String(req.params.id)} AND seller_id = ${userId}`);
     if (!deal) return res.status(404).json({ error: "الصفقة غير موجودة" });
 
     const lastOffer = await dbRows(sql`
-      SELECT * FROM marketplace_deal_offers WHERE deal_id = ${req.params.id} ORDER BY created_at DESC LIMIT 1
+      SELECT * FROM marketplace_deal_offers WHERE deal_id = ${String(req.params.id)} ORDER BY created_at DESC LIMIT 1
     `);
     const finalPrice = lastOffer[0]?.price ?? deal.initial_price;
 
     await db.execute(sql`
-      UPDATE marketplace_deals SET status = 'accepted', final_price = ${finalPrice} WHERE id = ${req.params.id}
+      UPDATE marketplace_deals SET status = 'accepted', final_price = ${finalPrice} WHERE id = ${String(req.params.id)}
     `);
 
     let caseId: string | null = null;
@@ -456,7 +456,7 @@ router.post("/marketplace/deals/:id/accept", requireAuth, async (req: Request, r
                ${"صفقة متفق عليها · " + finalPrice + " ر.س · " + (deal.buyer_email ?? "") + " · " + (deal.buyer_phone ?? "")},
                ${dealOfficeId}, NOW(), NOW())
       `);
-      await db.execute(sql`UPDATE marketplace_deals SET case_id = ${caseId} WHERE id = ${req.params.id}`);
+      await db.execute(sql`UPDATE marketplace_deals SET case_id = ${caseId} WHERE id = ${String(req.params.id)}`);
     } catch {}
 
     res.json({ success: true, finalPrice, caseId });
@@ -471,7 +471,7 @@ router.post("/marketplace/deals/:id/reject", requireAuth, async (req: Request, r
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
     await db.execute(sql`
-      UPDATE marketplace_deals SET status = 'rejected' WHERE id = ${req.params.id} AND seller_id = ${userId}
+      UPDATE marketplace_deals SET status = 'rejected' WHERE id = ${String(req.params.id)} AND seller_id = ${userId}
     `);
     res.json({ success: true });
   } catch (e: any) {

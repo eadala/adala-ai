@@ -96,7 +96,7 @@ router.get("/admin/ai-credits/:officeId/transactions", adminOnly, async (req, re
   try {
     const data = await rows(sql`
       SELECT * FROM ai_credit_transactions
-      WHERE office_id = ${req.params.officeId}
+      WHERE office_id = ${String(req.params.officeId)}
       ORDER BY created_at DESC LIMIT 100
     `);
     res.json(data);

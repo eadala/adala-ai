@@ -66,3 +66,4 @@
 - [Adala Go-Live Security Hardening](adala-go-live-security.md) — 610/671 routes protected; requireAuthWithTenant pattern; 61 legit public routes; adminOnly is LOCAL function (no shared file); import fix via Node scan
 - [Adala light theme showcase](adala-light-showcase.md) — platform-showcase + payment-showcase fully converted to white/blue (#1A56DB); G const = blue not gold
 - [Adala Theme Refactor](adala-theme-refactor.md) — full platform rebrand to white/blue SaaS; :root CSS vars key; light mode default
+- [Adala Express 5 req.params](adala-express5-params.md) — String() wrap for direct, 'as Record<string,string>' for destructured; routes without :id get params={} type

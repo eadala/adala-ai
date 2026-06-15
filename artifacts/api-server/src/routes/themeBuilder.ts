@@ -3,7 +3,6 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { requireAuth } from "../middlewares/requireAuth";
 
 const router = Router();
 

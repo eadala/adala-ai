@@ -163,7 +163,7 @@ router.get("/stats/counts", requireAuth, async (req: Request, res: Response) => 
 // GET /api/internal-messages/:id
 router.get("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const userId = (req as any).auth?.userId ?? "anonymous";
     const ip = getClientIp(req);
 
@@ -205,7 +205,7 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
 // GET /api/internal-messages/case/:caseId — messages for a specific case
 router.get("/case/:caseId", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { caseId } = req.params;
+    const { caseId } = req.params as Record<string, string>;
     const userId = (req as any).auth?.userId ?? "anonymous";
 
     const q = await db.execute(sql`
@@ -273,7 +273,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 // PUT /api/internal-messages/:id/archive
 router.put("/:id/archive", requireAuth, async (req: Request, res: Response) => {
   try {
-    await db.execute(sql`UPDATE office_messages SET folder = 'archive' WHERE id = ${req.params.id}::uuid`);
+    await db.execute(sql`UPDATE office_messages SET folder = 'archive' WHERE id = ${String(req.params.id)}::uuid`);
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -283,7 +283,7 @@ router.put("/:id/archive", requireAuth, async (req: Request, res: Response) => {
 // DELETE /api/internal-messages/:id
 router.delete("/:id", requireAuth, async (req: Request, res: Response) => {
   try {
-    await db.execute(sql`DELETE FROM office_messages WHERE id = ${req.params.id}::uuid`);
+    await db.execute(sql`DELETE FROM office_messages WHERE id = ${String(req.params.id)}::uuid`);
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

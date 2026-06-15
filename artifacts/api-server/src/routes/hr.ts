@@ -3,13 +3,6 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { employeesTable, attendanceTable, leavesTable, payrollTable, officeLocationTable, employeeWarningsTable, employeeInvestigationsTable } from "@workspace/db/schema";
 import { eq, desc, and } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
-
-function requireAuth(req: any, res: any): boolean {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "غير مصرح" }); return false; }
-  return true;
-}
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -32,7 +25,6 @@ router.get("/hr/employees", requireAuthWithTenant, async (_req, res) => {
 
 router.post("/hr/employees", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
     const { fullName, jobTitle, department, salary, phone, email,
             nationalId, hireDate, status = "active", bankIban, bankName } = req.body;
     if (!fullName) return res.status(400).json({ error: "اسم الموظف مطلوب" });
@@ -48,7 +40,6 @@ router.post("/hr/employees", requireAuthWithTenant, async (req, res) => {
 
 router.patch("/hr/employees/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
     const { fullName, jobTitle, department, salary, phone, email,
             nationalId, hireDate, status, bankIban, bankName } = req.body;
     const [row] = await db.update(employeesTable)
@@ -66,15 +57,14 @@ router.patch("/hr/employees/:id", requireAuthWithTenant, async (req, res) => {
         ...(bankName   !== undefined && { bankName }),
         updatedAt: new Date(),
       })
-      .where(eq(employeesTable.id, req.params.id)).returning();
+      .where(eq(employeesTable.id, String(req.params.id))).returning();
     res.json(row);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.delete("/hr/employees/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
-    await db.delete(employeesTable).where(eq(employeesTable.id, req.params.id));
+    await db.delete(employeesTable).where(eq(employeesTable.id, String(req.params.id)));
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -182,7 +172,6 @@ router.post("/hr/office-location", requireAuthWithTenant, async (req, res) => {
 
 router.post("/hr/attendance", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
     const { employeeId, workDate, checkIn, checkOut, status, notes } = req.body;
     if (!employeeId) return res.status(400).json({ error: "employeeId مطلوب" });
     const [row] = await db.insert(attendanceTable).values({
@@ -232,7 +221,6 @@ router.get("/hr/leaves", requireAuthWithTenant, async (_req, res) => {
 
 router.post("/hr/leaves", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
     const { employeeId, type, startDate, endDate, reason } = req.body;
     if (!employeeId || !startDate || !endDate) return res.status(400).json({ error: "employeeId وstartDate وendDate مطلوبة" });
     const days = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1;
@@ -248,7 +236,7 @@ router.patch("/hr/leaves/:id", requireAuthWithTenant, async (req, res) => {
   const { status, approvedBy } = req.body;
   const [row] = await db.update(leavesTable)
     .set({ status, approvedBy, approvedAt: status !== "pending" ? new Date() : undefined })
-    .where(eq(leavesTable.id, req.params.id)).returning();
+    .where(eq(leavesTable.id, String(req.params.id))).returning();
   res.json(row);
 });
 
@@ -311,7 +299,7 @@ router.post("/hr/payroll/generate", requireAuthWithTenant, async (req, res) => {
 router.patch("/hr/payroll/:id/pay", requireAuthWithTenant, async (req, res) => {
   const [row] = await db.update(payrollTable)
     .set({ status: "paid", paidAt: new Date() })
-    .where(eq(payrollTable.id, req.params.id)).returning();
+    .where(eq(payrollTable.id, String(req.params.id))).returning();
   res.json(row);
 });
 
@@ -348,7 +336,6 @@ router.get("/hr/warnings", requireAuthWithTenant, async (_req, res) => {
 
 router.post("/hr/warnings", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
     const { employeeId, type, reason, description, issuedBy } = req.body;
     if (!employeeId || !type || !reason) return res.status(400).json({ error: "employeeId وtype وreason مطلوبة" });
     const [row] = await db.insert(employeeWarningsTable).values({
@@ -361,22 +348,20 @@ router.post("/hr/warnings", requireAuthWithTenant, async (req, res) => {
 
 router.patch("/hr/warnings/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
     const { status, appealNotes } = req.body;
     const updates: any = {};
     if (status      !== undefined) updates.status      = status;
     if (appealNotes !== undefined) updates.appealNotes = appealNotes;
     if (status === "resolved") updates.resolvedAt = new Date();
     const [row] = await db.update(employeeWarningsTable).set(updates)
-      .where(eq(employeeWarningsTable.id, req.params.id)).returning();
+      .where(eq(employeeWarningsTable.id, String(req.params.id))).returning();
     res.json(row);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.delete("/hr/warnings/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
-    await db.delete(employeeWarningsTable).where(eq(employeeWarningsTable.id, req.params.id));
+    await db.delete(employeeWarningsTable).where(eq(employeeWarningsTable.id, String(req.params.id)));
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -409,7 +394,6 @@ router.get("/hr/investigations", requireAuthWithTenant, async (_req, res) => {
 
 router.post("/hr/investigations", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
     const { employeeId, subject, description, openedBy, committee, sessionDate } = req.body;
     if (!employeeId || !subject) return res.status(400).json({ error: "employeeId وsubject مطلوبان" });
     const [row] = await db.insert(employeeInvestigationsTable).values({
@@ -423,7 +407,6 @@ router.post("/hr/investigations", requireAuthWithTenant, async (req, res) => {
 
 router.patch("/hr/investigations/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
     const { status, outcome, notes, committee, sessionDate } = req.body;
     const updates: any = { updatedAt: new Date() };
     if (status      !== undefined) updates.status      = status;
@@ -433,16 +416,15 @@ router.patch("/hr/investigations/:id", requireAuthWithTenant, async (req, res) =
     if (sessionDate !== undefined) updates.sessionDate = sessionDate;
     if (status === "closed") updates.closedAt = new Date();
     const [row] = await db.update(employeeInvestigationsTable).set(updates)
-      .where(eq(employeeInvestigationsTable.id, req.params.id)).returning();
+      .where(eq(employeeInvestigationsTable.id, String(req.params.id))).returning();
     res.json(row);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.delete("/hr/investigations/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    if (!requireAuth(req, res)) return;
     await db.delete(employeeInvestigationsTable)
-      .where(eq(employeeInvestigationsTable.id, req.params.id));
+      .where(eq(employeeInvestigationsTable.id, String(req.params.id)));
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

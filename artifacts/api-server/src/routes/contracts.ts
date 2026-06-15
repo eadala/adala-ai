@@ -3,7 +3,6 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { contractsTable } from "@workspace/db/schema";
 import { eq, desc, and } from "drizzle-orm";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -86,7 +85,7 @@ router.get("/contracts", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     const contracts = await db.select().from(contractsTable)
-      .where(eq(contractsTable.officeId, tenantId))
+      .where(eq((contractsTable as any).officeId, tenantId))
       .orderBy(desc(contractsTable.createdAt));
     res.json(contracts);
   } catch (e: any) {
@@ -111,7 +110,7 @@ router.post("/contracts", requireAuthWithTenant, async (req, res) => {
       expiresAt: expiresAt ? new Date(expiresAt) : undefined,
       clientId, caseId,
       officeId: tenantId,
-    }).returning();
+    } as any).returning();
     res.json(contract);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -122,10 +121,10 @@ router.post("/contracts", requireAuthWithTenant, async (req, res) => {
 router.patch("/contracts/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const [updated] = await db.update(contractsTable)
       .set({ ...req.body, updatedAt: new Date() })
-      .where(and(eq(contractsTable.id, id), eq(contractsTable.officeId, tenantId)))
+      .where(and(eq(contractsTable.id, id), eq((contractsTable as any).officeId, tenantId)))
       .returning();
     if (!updated) return res.status(404).json({ error: "العقد غير موجود" });
     res.json(updated);
@@ -139,7 +138,7 @@ router.delete("/contracts/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     await db.delete(contractsTable)
-      .where(and(eq(contractsTable.id, req.params.id), eq(contractsTable.officeId, tenantId)));
+      .where(and(eq(contractsTable.id, String(req.params.id)), eq((contractsTable as any).officeId, tenantId)));
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -150,9 +149,9 @@ router.delete("/contracts/:id", requireAuthWithTenant, async (req, res) => {
 router.post("/contracts/:id/analyze", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const [contract] = await db.select().from(contractsTable)
-      .where(and(eq(contractsTable.id, id), eq(contractsTable.officeId, tenantId)));
+      .where(and(eq(contractsTable.id, id), eq((contractsTable as any).officeId, tenantId)));
     if (!contract) return res.status(404).json({ error: "العقد غير موجود" });
 
     const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
@@ -197,7 +196,7 @@ ${contract.content?.substring(0, 3000)}
     const riskMatch = analysis.match(/درجة المخاطرة:\s*(\d+)/);
     const riskScore = riskMatch?.[1] ?? "5";
     await db.update(contractsTable).set({ riskScore, updatedAt: new Date() })
-      .where(and(eq(contractsTable.id, id), eq(contractsTable.officeId, tenantId)));
+      .where(and(eq(contractsTable.id, id), eq((contractsTable as any).officeId, tenantId)));
 
     res.json({ analysis, riskScore });
   } catch (e: any) {

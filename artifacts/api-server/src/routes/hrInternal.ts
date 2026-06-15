@@ -2,7 +2,6 @@ import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -96,7 +95,7 @@ router.post("/hr-internal/announcements", requireAuthWithTenant, async (req, res
 
 router.delete("/hr-internal/announcements/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  await db.execute(sql`DELETE FROM hr_announcements WHERE id = ${parseInt(req.params.id)}`);
+  await db.execute(sql`DELETE FROM hr_announcements WHERE id = ${parseInt(String(req.params.id))}`);
   res.status(204).end();
 });
 
@@ -140,7 +139,7 @@ router.patch("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res
         response = COALESCE(${response ?? null}, response),
         resolved_by = COALESCE(${resolvedBy ?? null}, resolved_by),
         resolved_at = CASE WHEN ${status ?? null} IS NOT NULL AND ${status ?? null} != 'pending' THEN NOW() ELSE resolved_at END
-      WHERE id = ${parseInt(req.params.id)}
+      WHERE id = ${parseInt(String(req.params.id))}
       RETURNING *
     `);
     if (!row) return res.status(404).json({ error: "الطلب غير موجود" });
@@ -150,7 +149,7 @@ router.patch("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res
 
 router.delete("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  await db.execute(sql`DELETE FROM employee_requests WHERE id = ${parseInt(req.params.id)}`);
+  await db.execute(sql`DELETE FROM employee_requests WHERE id = ${parseInt(String(req.params.id))}`);
   res.status(204).end();
 });
 
@@ -217,7 +216,7 @@ router.patch("/hr-internal/leave-balances/:employeeId", requireAuthWithTenant, a
     const y = year ?? new Date().getFullYear();
     await db.execute(sql`
       UPDATE leave_balances SET quota = ${parseInt(quota)}
-      WHERE employee_id = ${req.params.employeeId} AND leave_type = ${leaveType} AND year = ${y}
+      WHERE employee_id = ${String(req.params.employeeId)} AND leave_type = ${leaveType} AND year = ${y}
     `);
     res.json({ ok: true });
   } catch (e: any) { res.status(400).json({ error: e.message }); }
@@ -232,7 +231,7 @@ router.get("/hr-internal/payslip/:payrollId", requireAuthWithTenant, async (req,
       SELECT p.*, e.full_name, e.job_title, e.department, e.national_id, e.bank_iban, e.bank_name, e.hire_date
       FROM payroll p
       LEFT JOIN employees e ON p.employee_id = e.id::text
-      WHERE p.id = ${parseInt(req.params.payrollId)}
+      WHERE p.id = ${parseInt(String(req.params.payrollId))}
     `);
     if (!row) return res.status(404).json({ error: "لم يُوجد كشف راتب" });
     res.json(row);

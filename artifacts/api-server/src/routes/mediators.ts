@@ -2,7 +2,6 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 
 const router = Router();
 
@@ -13,12 +12,7 @@ function exOne(q: any) {
   return exAll(q).then((rows: any[]) => rows[0] ?? null);
 }
 
-function requireAuth(req: any, res: any, next: any) {
-  const { userId } = getAuth(req);
-  if (!userId) return res.status(401).json({ error: "غير مصرح" });
-  (req as any).userId = userId;
-  next();
-}
+
 
 async function getOfficeId(userId: string): Promise<string | null> {
   const row = await exOne(sql`SELECT id FROM offices WHERE clerk_user_id = ${userId} LIMIT 1`);
@@ -94,7 +88,7 @@ router.put("/mediators/tasks/:id", requireAuth, async (req: any, res) => {
     const { status } = req.body;
     const row = await exOne(sql`
       UPDATE mediator_tasks SET status = ${status}, updated_at = NOW()
-      WHERE id = ${req.params.id} AND office_id = ${officeId}
+      WHERE id = ${String(req.params.id)} AND office_id = ${officeId}
       RETURNING *
     `);
     if (!row) return res.status(404).json({ error: "المهمة غير موجودة" });
@@ -108,7 +102,7 @@ router.put("/mediators/tasks/:id", requireAuth, async (req: any, res) => {
 router.delete("/mediators/tasks/:id", requireAuth, async (req: any, res) => {
   try {
     const officeId = await getOfficeId(req.userId);
-    await db.execute(sql`DELETE FROM mediator_tasks WHERE id = ${req.params.id} AND office_id = ${officeId}`);
+    await db.execute(sql`DELETE FROM mediator_tasks WHERE id = ${String(req.params.id)} AND office_id = ${officeId}`);
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -118,7 +112,7 @@ router.delete("/mediators/tasks/:id", requireAuth, async (req: any, res) => {
 /* ── Apply to task ── */
 router.post("/mediators/tasks/:id/apply", requireAuth, async (req: any, res) => {
   try {
-    const taskId = req.params.id;
+    const taskId = String(req.params.id);
     const { applicant_name, applicant_email, message, agreed_to_terms } = req.body;
     if (!agreed_to_terms) return res.status(400).json({ error: "يجب الموافقة على اتفاقية السرية" });
     const existing = await exOne(sql`SELECT id FROM mediator_applications WHERE task_id = ${taskId} AND applicant_clerk_id = ${req.userId}`);
@@ -138,9 +132,9 @@ router.post("/mediators/tasks/:id/apply", requireAuth, async (req: any, res) => 
 router.get("/mediators/tasks/:id/applications", requireAuth, async (req: any, res) => {
   try {
     const officeId = await getOfficeId(req.userId);
-    const task = await exOne(sql`SELECT id FROM mediator_tasks WHERE id = ${req.params.id} AND office_id = ${officeId}`);
+    const task = await exOne(sql`SELECT id FROM mediator_tasks WHERE id = ${String(req.params.id)} AND office_id = ${officeId}`);
     if (!task) return res.status(403).json({ error: "غير مصرح" });
-    const rows = await exAll(sql`SELECT * FROM mediator_applications WHERE task_id = ${req.params.id} ORDER BY created_at DESC`);
+    const rows = await exAll(sql`SELECT * FROM mediator_applications WHERE task_id = ${String(req.params.id)} ORDER BY created_at DESC`);
     res.json(rows);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -174,7 +168,7 @@ router.put("/mediators/applications/:id", requireAuth, async (req: any, res) => 
       UPDATE mediator_applications ma
       SET status = ${status}
       FROM mediator_tasks mt
-      WHERE ma.id = ${req.params.id} AND ma.task_id = mt.id AND mt.office_id = ${officeId}
+      WHERE ma.id = ${String(req.params.id)} AND ma.task_id = mt.id AND mt.office_id = ${officeId}
       RETURNING ma.*
     `);
     if (!row) return res.status(404).json({ error: "الطلب غير موجود" });

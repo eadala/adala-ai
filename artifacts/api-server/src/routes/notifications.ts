@@ -334,7 +334,7 @@ export default router;
 /* POST /api/notifications/mark-read — mark plan notification as read */
 router.post("/notifications/mark-read/:planId", requireAuth, async (req, res) => {
   try {
-    const { planId } = req.params;
+    const { planId } = req.params as Record<string, string>;
     if (planId.startsWith("plan-notif-")) {
       const realId = planId.replace("plan-notif-", "");
       await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE WHERE id = ${realId}`);

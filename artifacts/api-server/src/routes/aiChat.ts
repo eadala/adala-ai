@@ -2,7 +2,6 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuth } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -331,7 +330,7 @@ router.post("/ai-chat/message", requireAuth, async (req, res) => {
 });
 
 router.post("/ai-tasks/:id/process", requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   if (isNaN(id)) return res.status(400).json({ error: "معرف غير صالح" });
 
   try {

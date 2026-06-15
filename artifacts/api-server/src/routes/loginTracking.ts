@@ -93,8 +93,7 @@ router.post("/security/login", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err: any) {
-    console.error("[LoginTracking]", err);
-    res.status(500).json({ error: err.message });
+        res.status(500).json({ error: err.message });
   }
 });
 
@@ -274,7 +273,7 @@ router.delete("/security/logins/:id", requireAuth, async (req, res) => {
   try {
     await db.execute(sql`
       DELETE FROM login_logs
-      WHERE id = ${req.params.id}::uuid AND office_id = 'default'
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = 'default'
     `);
     res.json({ ok: true });
   } catch (err: any) {

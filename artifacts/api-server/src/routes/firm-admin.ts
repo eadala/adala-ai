@@ -172,8 +172,7 @@ router.get("/firm-admin/overview", requireAuthWithTenant, async (_req, res) => {
       recentActivity,
     });
   } catch (e: any) {
-    console.error("firm-admin/overview:", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 

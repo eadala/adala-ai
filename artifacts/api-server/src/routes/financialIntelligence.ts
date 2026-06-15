@@ -19,8 +19,7 @@ router.get("/finance/intelligence", requireAuthWithTenant, async (req, res) => {
     const data = await getUnifiedFinancialAI();
     res.json({ system: "ADALA_AI_FINANCE_CORE", ...data });
   } catch (err: any) {
-    console.error("[FinanceAI]", err);
-    res.status(500).json({ error: err.message });
+        res.status(500).json({ error: err.message });
   }
 });
 

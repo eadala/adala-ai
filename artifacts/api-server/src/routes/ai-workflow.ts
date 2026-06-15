@@ -131,15 +131,14 @@ router.post("/ai-workflow/run", requireAuthWithTenant, async (req: Request, res:
       completedAt: new Date().toISOString(),
     });
   } catch (e: any) {
-    console.error("ai-workflow/run:", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
 // ─── GET /ai-workflow/:caseId ─────────────────────────────────────────────────
 router.get("/ai-workflow/:caseId", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const { caseId } = req.params;
+    const { caseId } = req.params as Record<string, string>;
     const rows = await db.execute(sql`
       SELECT * FROM ai_workflows WHERE case_id = ${caseId} ORDER BY created_at DESC LIMIT 10
     `);

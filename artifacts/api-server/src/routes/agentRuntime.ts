@@ -440,7 +440,7 @@ router.post("/agents/run", agentOnly, async (_req, res) => {
 
 /* POST /agents/:id/run — run specific agent */
 router.post("/agents/:id/run", agentOnly, async (req, res) => {
-  const agentId = req.params.id;
+  const agentId = String(req.params.id);
   const start = Date.now();
   try {
     let actions: AgentResult[] = [];
@@ -463,7 +463,7 @@ router.post("/agents/:id/run", agentOnly, async (req, res) => {
 
 /* POST /agents/actions/:id/resolve */
 router.post("/agents/actions/:id/resolve", agentOnly, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   if (isNaN(id)) return res.status(400).json({ error: "invalid id" });
   try {
     await db.execute(sql`

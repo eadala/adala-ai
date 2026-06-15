@@ -4,7 +4,6 @@ import { db, clientInvoicesTable as invoicesTable, clientsTable } from "@workspa
 import { eq, desc, and } from "drizzle-orm";
 import { getUncachableStripeClient } from "../stripeClient";
 import { eventBus } from "../core/eventBus";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -21,7 +20,7 @@ router.get("/invoices", requireAuthWithTenant, async (_req: Request, res: Respon
   try {
     const tenantId = (_req as any).tenantId;
     const invoices = await db.select().from(invoicesTable)
-      .where(eq(invoicesTable.officeId, tenantId))
+      .where(eq((invoicesTable as any).officeId, tenantId))
       .orderBy(desc(invoicesTable.createdAt));
     res.json(invoices);
   } catch (err: any) {
@@ -34,7 +33,7 @@ router.get("/invoices/:id", requireAuthWithTenant, async (req: Request, res: Res
   try {
     const tenantId = (req as any).tenantId;
     const [invoice] = await db.select().from(invoicesTable)
-      .where(and(eq(invoicesTable.id, String(req.params.id)), eq(invoicesTable.officeId, tenantId)));
+      .where(and(eq(invoicesTable.id, String(req.params.id)), eq((invoicesTable as any).officeId, tenantId)));
     if (!invoice) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
     res.json(invoice);
   } catch (err: any) {
@@ -69,7 +68,7 @@ router.post("/invoices", requireAuthWithTenant, async (req: Request, res: Respon
       currency: currency ?? "SAR",
       status: "draft", dueDate, notes,
       officeId: tenantId,
-    }).returning();
+    } as any).returning();
 
     eventBus.emit({
       type: "INVOICE_CREATED",
@@ -110,7 +109,7 @@ router.put("/invoices/:id", requireAuthWithTenant, async (req: Request, res: Res
     }
 
     const [updated] = await db.update(invoicesTable).set(updates)
-      .where(and(eq(invoicesTable.id, String(req.params.id)), eq(invoicesTable.officeId, tenantId)))
+      .where(and(eq(invoicesTable.id, String(req.params.id)), eq((invoicesTable as any).officeId, tenantId)))
       .returning();
 
     if (!updated) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
@@ -125,7 +124,7 @@ router.delete("/invoices/:id", requireAuthWithTenant, async (req: Request, res: 
   try {
     const tenantId = (req as any).tenantId;
     await db.delete(invoicesTable)
-      .where(and(eq(invoicesTable.id, String(req.params.id)), eq(invoicesTable.officeId, tenantId)));
+      .where(and(eq(invoicesTable.id, String(req.params.id)), eq((invoicesTable as any).officeId, tenantId)));
     res.json({ ok: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -137,7 +136,7 @@ router.post("/invoices/:id/payment-link", requireAuthWithTenant, async (req: Req
   try {
     const tenantId = (req as any).tenantId;
     const [invoice] = await db.select().from(invoicesTable)
-      .where(and(eq(invoicesTable.id, String(req.params.id)), eq(invoicesTable.officeId, tenantId)));
+      .where(and(eq(invoicesTable.id, String(req.params.id)), eq((invoicesTable as any).officeId, tenantId)));
     if (!invoice) { res.status(404).json({ error: "الفاتورة غير موجودة" }); return; }
 
     if (invoice.stripePaymentLinkUrl) {
@@ -197,12 +196,11 @@ router.post("/invoices/:id/payment-link", requireAuthWithTenant, async (req: Req
       stripePriceId:   price.id,
       status: "sent",
       updatedAt: new Date(),
-    }).where(and(eq(invoicesTable.id, invoice.id), eq(invoicesTable.officeId, tenantId)));
+    }).where(and(eq(invoicesTable.id, invoice.id), eq((invoicesTable as any).officeId, tenantId)));
 
     res.json({ url: paymentLink.url, id: paymentLink.id });
   } catch (err: any) {
-    console.error("Stripe payment link error:", err);
-    res.status(500).json({ error: err.message });
+        res.status(500).json({ error: err.message });
   }
 });
 
@@ -212,7 +210,7 @@ router.post("/invoices/:id/mark-paid", requireAuthWithTenant, async (req: Reques
     const tenantId = (req as any).tenantId;
     const [updated] = await db.update(invoicesTable)
       .set({ status: "paid", paidAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(invoicesTable.id, String(req.params.id)), eq(invoicesTable.officeId, tenantId)))
+      .where(and(eq(invoicesTable.id, String(req.params.id)), eq((invoicesTable as any).officeId, tenantId)))
       .returning();
     res.json(updated);
   } catch (err: any) {

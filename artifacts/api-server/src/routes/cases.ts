@@ -124,7 +124,7 @@ router.post("/cases", requireAuthWithTenant, async (req, res) => {
       clientName:  body.clientName ?? null,
       assignedTo:  body.assignedTo ?? null,
       officeId:    tenantId,
-    }).returning();
+    } as any).returning();
     const auth = (req as any).auth;
     auditLog({ userId: auth?.userId, action: "create", resource: "cases", resourceId: created.id, details: created.title }).catch(() => {});
     eventBus.emit({
@@ -164,7 +164,7 @@ router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
       FROM cases c
       LEFT JOIN office_orders   oo   ON oo.id   = c.store_order_id
       LEFT JOIN office_services osvc ON osvc.id  = oo.service_id
-      WHERE c.id = ${req.params.id} AND c.office_id = ${tenantId}
+      WHERE c.id = ${String(req.params.id)} AND c.office_id = ${tenantId}
       LIMIT 1
     `);
     const rawArr: any[] = (rows as any)?.rows ?? (rows as any) ?? [];
@@ -204,7 +204,7 @@ router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
     const tenantId = (req as any).tenantId;
     const body = UpdateCaseBody.parse(req.body);
     const [before] = await db.select().from(casesTable)
-      .where(and(eq(casesTable.id, req.params.id), eq(casesTable.officeId, tenantId)));
+      .where(and(eq(casesTable.id, String(req.params.id)), eq((casesTable as any).officeId, tenantId)));
     if (!before) return res.status(404).json({ error: "Not found" });
 
     const [updated] = await db.update(casesTable).set({
@@ -215,7 +215,7 @@ router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
       ...(body.clientName  !== undefined && { clientName:  body.clientName }),
       ...(body.assignedTo  !== undefined && { assignedTo:  body.assignedTo }),
       updatedAt: new Date(),
-    }).where(and(eq(casesTable.id, req.params.id), eq(casesTable.officeId, tenantId))).returning();
+    }).where(and(eq(casesTable.id, String(req.params.id)), eq((casesTable as any).officeId, tenantId))).returning();
     if (!updated) return res.status(404).json({ error: "Not found" });
 
     if (body.status && before && before.status !== body.status) {
@@ -223,7 +223,7 @@ router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
       notifyTelegramCaseStatus(updated).catch(() => {});
     }
     const auth = (req as any).auth;
-    auditLog({ userId: auth?.userId, action: "update", resource: "cases", resourceId: req.params.id, details: updated.title }).catch(() => {});
+    auditLog({ userId: auth?.userId, action: "update", resource: "cases", resourceId: String(req.params.id), details: updated.title }).catch(() => {});
     const evType = updated.status === "closed" ? "CASE_CLOSED" : "CASE_UPDATED";
     eventBus.emit({
       type: evType,
@@ -242,8 +242,8 @@ router.delete("/cases/:id", requireAuthWithTenant, async (req, res) => {
     const tenantId = (req as any).tenantId;
     const auth = (req as any).auth;
     await db.delete(casesTable)
-      .where(and(eq(casesTable.id, req.params.id), eq(casesTable.officeId, tenantId)));
-    auditLog({ userId: auth?.userId, action: "delete", resource: "cases", resourceId: req.params.id }).catch(() => {});
+      .where(and(eq(casesTable.id, String(req.params.id)), eq((casesTable as any).officeId, tenantId)));
+    auditLog({ userId: auth?.userId, action: "delete", resource: "cases", resourceId: String(req.params.id) }).catch(() => {});
     res.status(204).end();
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -254,7 +254,7 @@ router.delete("/cases/:id", requireAuthWithTenant, async (req, res) => {
 router.get("/cases/:id/hub", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const caseId = req.params.id;
+    const caseId = String(req.params.id);
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
 
     const [caseRow, invoices, events, documents] = await Promise.all([
@@ -289,7 +289,7 @@ router.get("/cases/:id/hub", requireAuthWithTenant, async (req, res) => {
 router.get("/cases/:id/health", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const caseId   = req.params.id;
+    const caseId   = String(req.params.id);
     const force    = req.query.force === "1";
 
     if (!force) {
@@ -316,7 +316,7 @@ router.get("/cases/:id/health", requireAuthWithTenant, async (req, res) => {
 router.post("/cases/:id/autopilot", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const caseId   = req.params.id;
+    const caseId   = String(req.params.id);
     const auth     = (req as any).auth;
 
     await ensureAutopilotTable();

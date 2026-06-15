@@ -200,8 +200,7 @@ router.get("/billing/overview", requireAuth, async (req, res) => {
       nextDueDate,
     });
   } catch (err: any) {
-    console.error("[billing/overview]", err);
-    res.status(500).json({ error: err.message });
+        res.status(500).json({ error: err.message });
   }
 });
 
@@ -435,8 +434,7 @@ router.get("/billing/revenue", requireAuth, async (req, res) => {
       planDistribution,
     });
   } catch (err: any) {
-    console.error("[billing/revenue]", err);
-    res.status(500).json({ error: err.message });
+        res.status(500).json({ error: err.message });
   }
 });
 
@@ -480,8 +478,7 @@ router.post("/billing/change-plan", requireAuth, async (req, res) => {
 
     return res.json({ ok: true, oldPlan, newPlan: planId, direction, planName: plan.name });
   } catch (err: any) {
-    console.error("[billing/change-plan]", err);
-    return res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: err.message });
   }
 });
 
@@ -590,7 +587,7 @@ router.post("/billing/pay/:id", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    await db.execute(sql`UPDATE platform_billing_invoices SET status='paid', paid_at=NOW() WHERE id=${req.params.id}`);
+    await db.execute(sql`UPDATE platform_billing_invoices SET status='paid', paid_at=NOW() WHERE id=${String(req.params.id)}`);
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

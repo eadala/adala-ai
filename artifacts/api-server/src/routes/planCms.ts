@@ -184,7 +184,7 @@ router.get("/admin/plans", adminOnly, async (_req, res) => {
 router.put("/admin/plans/:id", adminOnly, async (req, res) => {
   try {
     await ensureTable();
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { nameAr, nameEn, monthlyPrice, yearlyPrice, color, description, badge, features, recommended, isContactOnly, sortOrder } = req.body;
 
     await db.execute(sql`

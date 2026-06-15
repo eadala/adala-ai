@@ -347,7 +347,7 @@ router.post("/legal-ai/generate", requireAuth, async (req, res) => {
 router.post("/legal-ai/:id/refine", requireAuth, async (req, res) => {
   try {
     const { instruction, model = "auto" } = req.body as { instruction: string; model?: string };
-    const rows = await sqlAll(sql`SELECT * FROM legal_documents WHERE id = ${req.params.id} LIMIT 1`);
+    const rows = await sqlAll(sql`SELECT * FROM legal_documents WHERE id = ${String(req.params.id)} LIMIT 1`);
     if (!rows[0]) { res.status(404).json({ error: "الوثيقة غير موجودة" }); return; }
 
     const { reply } = await callAI(
@@ -356,7 +356,7 @@ router.post("/legal-ai/:id/refine", requireAuth, async (req, res) => {
       [], model as any
     );
 
-    await db.execute(sql`UPDATE legal_documents SET content = ${reply} WHERE id = ${req.params.id}`);
+    await db.execute(sql`UPDATE legal_documents SET content = ${reply} WHERE id = ${String(req.params.id)}`);
     res.json({ content: reply });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -380,7 +380,7 @@ router.get("/legal-ai/history", requireAuth, async (_req, res) => {
 /* ── Route: get single document ── */
 router.get("/legal-ai/:id", requireAuth, async (req, res) => {
   try {
-    const rows = await sqlAll(sql`SELECT * FROM legal_documents WHERE id = ${req.params.id} LIMIT 1`);
+    const rows = await sqlAll(sql`SELECT * FROM legal_documents WHERE id = ${String(req.params.id)} LIMIT 1`);
     if (!rows[0]) { res.status(404).json({ error: "الوثيقة غير موجودة" }); return; }
     res.json(rows[0]);
   } catch (e: any) {
@@ -391,7 +391,7 @@ router.get("/legal-ai/:id", requireAuth, async (req, res) => {
 /* ── Route: delete document ── */
 router.delete("/legal-ai/:id", requireAuth, async (req, res) => {
   try {
-    await db.execute(sql`DELETE FROM legal_documents WHERE id = ${req.params.id}`);
+    await db.execute(sql`DELETE FROM legal_documents WHERE id = ${String(req.params.id)}`);
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

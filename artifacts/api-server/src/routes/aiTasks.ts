@@ -1,6 +1,5 @@
 import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 import { db, aiTasksTable, casesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { ListAiTasksQueryParams, CreateAiTaskBody } from "@workspace/api-zod";
@@ -62,7 +61,7 @@ router.post("/tasks", requireAuthWithTenant, async (req, res) => {
 
 router.get("/tasks/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const [found] = await db.select().from(aiTasksTable).where(eq(aiTasksTable.id, req.params.id));
+    const [found] = await db.select().from(aiTasksTable).where(eq(aiTasksTable.id, String(req.params.id)));
     if (!found) return res.status(404).json({ error: "Not found" });
     let caseName: string | null = null;
     if (found.caseId) {
