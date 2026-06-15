@@ -1,35 +1,45 @@
 import { useState } from "react";
 import { useListCases, useCreateCase } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "wouter";
-import { Search, Plus, Filter, MoreHorizontal, Upload, Scale, Clock, CheckCheck, LayoutGrid, List } from "lucide-react";
-import { ImportDialog } from "@/components/import-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery }        from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button }          from "@/components/ui/button";
+import { Input }           from "@/components/ui/input";
+import { Badge }           from "@/components/ui/badge";
+import { Skeleton }        from "@/components/ui/skeleton";
+import { Link }            from "wouter";
+import {
+  Search, Plus, Scale, Clock, CheckCheck, Filter,
+  LayoutGrid, List, MoreHorizontal, Upload,
+  ChevronRight, Users, Briefcase, TrendingUp,
+} from "lucide-react";
+import { ImportDialog }    from "@/components/import-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Label }           from "@/components/ui/label";
+import { Textarea }        from "@/components/ui/textarea";
+import { useToast }        from "@/hooks/use-toast";
+import { useQueryClient }  from "@tanstack/react-query";
 import { getListCasesQueryKey } from "@workspace/api-client-react";
-import { DocumentPrintTemplate, PrintButton } from "@/components/document-print-template";
-import { useBranding } from "@/hooks/use-branding";
-import { useLang } from "@/hooks/use-lang";
-import { cn } from "@/lib/utils";
+import { useLang }         from "@/hooks/use-lang";
+import { cn }              from "@/lib/utils";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+/* ─── Config ─── */
 const STATUS_CFG = {
-  all:         { label: "الكل",         icon: Filter,     color: "text-muted-foreground", bg: "" },
-  open:        { label: "مفتوحة",       icon: Scale,      color: "text-blue-400",         bg: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
-  in_progress: { label: "قيد التنفيذ",  icon: Clock,      color: "text-amber-400",        bg: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
-  closed:      { label: "مغلقة",        icon: CheckCheck, color: "text-slate-400",         bg: "bg-slate-500/10 text-slate-400 border-slate-500/30" },
-};
+  open:        { label: "مفتوحة",       icon: Scale,      color: "text-blue-600",    bg: "bg-blue-50 text-blue-700 border-blue-200" },
+  in_progress: { label: "قيد التنفيذ",  icon: Clock,      color: "text-amber-600",   bg: "bg-amber-50 text-amber-700 border-amber-200" },
+  closed:      { label: "مغلقة",        icon: CheckCheck, color: "text-slate-500",   bg: "bg-slate-50 text-slate-600 border-slate-200" },
+} as const;
 
 const TYPE_MAP: Record<string, string> = {
-  all:         "كل الأنواع",
   criminal:    "جنائية",
   civil:       "مدنية",
   commercial:  "تجارية",
@@ -37,306 +47,352 @@ const TYPE_MAP: Record<string, string> = {
   real_estate: "عقارية",
 };
 
-export default function Cases() {
-  const [searchTerm, setSearchTerm]     = useState("");
-  const [importOpen, setImportOpen]     = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter]     = useState<string>("all");
-  const [viewMode, setViewMode]         = useState<"table" | "kanban">("table");
-  const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
-  const [newCase, setNewCase] = useState({ title: "", caseType: "civil", clientName: "" });
+const TYPE_COLOR: Record<string, string> = {
+  criminal:    "bg-red-50 text-red-700 border-red-200",
+  civil:       "bg-violet-50 text-violet-700 border-violet-200",
+  commercial:  "bg-emerald-50 text-emerald-700 border-emerald-200",
+  labor:       "bg-orange-50 text-orange-700 border-orange-200",
+  real_estate: "bg-cyan-50 text-cyan-700 border-cyan-200",
+};
 
-  const { data: cases, isLoading } = useListCases();
+/* ─── Stat card ─── */
+function StatCard({ label, value, icon: Icon, color }: { label: string; value: number; icon: any; color: string }) {
+  return (
+    <Card className="border shadow-sm hover:shadow-md transition-shadow">
+      <CardContent className="p-4 flex items-center gap-4">
+        <div className={cn("p-3 rounded-xl", color.replace("text-", "bg-").replace("-600", "-100").replace("-500", "-100"))}>
+          <Icon className={cn("h-5 w-5", color)} />
+        </div>
+        <div>
+          <p className="text-2xl font-bold text-foreground">{value}</p>
+          <p className="text-sm text-muted-foreground">{label}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ─── Kanban card ─── */
+function KanbanCard({ c }: { c: any }) {
+  const typeCfg = TYPE_COLOR[c.caseType] ?? "bg-slate-50 text-slate-700 border-slate-200";
+  return (
+    <Link href={`/cases/${c.id}`}>
+      <div className="group bg-white border rounded-xl p-4 hover:shadow-md hover:border-primary/40 transition-all cursor-pointer space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-medium text-sm line-clamp-2 leading-snug group-hover:text-primary transition-colors">{c.title}</h3>
+          <Badge variant="outline" className={cn("text-xs shrink-0", typeCfg)}>{TYPE_MAP[c.caseType] ?? c.caseType}</Badge>
+        </div>
+        {c.clientName && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Users className="h-3 w-3" />
+            <span>{c.clientName}</span>
+          </div>
+        )}
+        {c.assignedTo && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Briefcase className="h-3 w-3" />
+            <span>{c.assignedTo}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>{new Date(c.createdAt).toLocaleDateString("ar-SA")}</span>
+          <ChevronRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/* ─── Main ─── */
+export default function Cases() {
+  const [search, setSearch]           = useState("");
+  const [statusFilter, setStatus]     = useState<string>("all");
+  const [typeFilter, setType]         = useState<string>("all");
+  const [view, setView]               = useState<"table" | "kanban">("table");
+  const [importOpen, setImportOpen]   = useState(false);
+  const [newOpen, setNewOpen]         = useState(false);
+  const [form, setForm]               = useState({ title: "", caseType: "civil", clientName: "", description: "" });
+
+  const { data: cases, isLoading }    = useListCases();
+  const { data: stats }               = useQuery<any>({
+    queryKey: ["cases-stats"],
+    queryFn:  () => fetch(`${BASE}/api/cases/stats`).then(r => r.json()),
+    staleTime: 30_000,
+  });
   const createCase  = useCreateCase();
   const { toast }   = useToast();
-  const queryClient = useQueryClient();
-  const { tx, dateLocale, dir } = useLang();
+  const qc          = useQueryClient();
+  const { dir }     = useLang();
+
+  const filtered = cases?.filter(c => {
+    const q = search.toLowerCase();
+    const matchSearch = !q || c.title.toLowerCase().includes(q) || (c.clientName ?? "").toLowerCase().includes(q);
+    const matchStatus = statusFilter === "all" || c.status === statusFilter;
+    const matchType   = typeFilter   === "all" || c.caseType === typeFilter;
+    return matchSearch && matchStatus && matchType;
+  }) ?? [];
+
+  const kanbanCols: Array<{ key: string; label: string; color: string }> = [
+    { key: "open",        label: "مفتوحة",       color: "border-t-blue-500"  },
+    { key: "in_progress", label: "قيد التنفيذ",  color: "border-t-amber-500" },
+    { key: "closed",      label: "مغلقة",         color: "border-t-slate-400" },
+  ];
 
   const handleCreate = () => {
-    if (!newCase.title) return;
+    if (!form.title.trim()) return;
     createCase.mutate(
-      { data: { title: newCase.title, caseType: newCase.caseType, clientName: newCase.clientName, status: "open" } },
+      { data: { title: form.title, caseType: form.caseType, clientName: form.clientName, status: "open" } as any },
       {
         onSuccess: () => {
-          setIsNewDialogOpen(false);
-          setNewCase({ title: "", caseType: "civil", clientName: "" });
-          queryClient.invalidateQueries({ queryKey: getListCasesQueryKey() });
-          toast({ title: "تم إنشاء القضية", description: "تمت إضافة القضية الجديدة بنجاح." });
-        }
+          setNewOpen(false);
+          setForm({ title: "", caseType: "civil", clientName: "", description: "" });
+          qc.invalidateQueries({ queryKey: getListCasesQueryKey() });
+          qc.invalidateQueries({ queryKey: ["cases-stats"] });
+          toast({ title: "✅ تم إنشاء القضية بنجاح" });
+        },
+        onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
       }
     );
   };
 
-  const filteredCases = cases?.filter(c => {
-    const matchSearch = c.title.includes(searchTerm) || (c.clientName && c.clientName.includes(searchTerm));
-    const matchStatus = statusFilter === "all" || c.status === statusFilter;
-    const matchType   = typeFilter   === "all" || c.caseType === typeFilter;
-    return matchSearch && matchStatus && matchType;
-  });
-
-  const countByStatus = (s: string) => cases?.filter(c => s === "all" ? true : c.status === s).length ?? 0;
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-6" dir={dir}>
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{tx("إدارة القضايا", "Case Management")}</h1>
-          <p className="text-muted-foreground mt-1 text-sm">{tx("عرض وإدارة جميع القضايا النشطة والمغلقة", "View and manage all active and closed cases")}</p>
+          <h1 className="text-2xl font-bold text-foreground">القضايا</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">إدارة قضايا المكتب القانوني</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1.5">
-            <Upload className="h-4 w-4" /> CSV
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 me-2" />استيراد CSV
           </Button>
-          <ImportDialog open={importOpen} onOpenChange={setImportOpen} type="cases" queryKey={[...getListCasesQueryKey()] as string[]} />
-          <PrintButton label="PDF">
-            <DocumentPrintTemplate
-              title={tx("كشف القضايا", "Cases Report")}
-              subtitle={`إجمالي: ${filteredCases?.length ?? 0}`}
-              date={new Date().toLocaleDateString(dateLocale)}
-              showStamp showSignature
-            >
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                <thead>
-                  <tr style={{ background: "#f5f5f5" }}>
-                    {[tx("عنوان القضية","Case Title"), tx("العميل","Client"), tx("النوع","Type"), tx("الحالة","Status"), tx("التاريخ","Date")]
-                      .map(h => <th key={h} style={{ border:"1px solid #ddd", padding:"8px", textAlign:"right" }}>{h}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCases?.map((c, i) => (
-                    <tr key={c.id} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                      <td style={{ border:"1px solid #ddd", padding:"8px" }}>{c.title}</td>
-                      <td style={{ border:"1px solid #ddd", padding:"8px" }}>{c.clientName || "—"}</td>
-                      <td style={{ border:"1px solid #ddd", padding:"8px" }}>{TYPE_MAP[c.caseType] || c.caseType}</td>
-                      <td style={{ border:"1px solid #ddd", padding:"8px" }}>{STATUS_CFG[c.status as keyof typeof STATUS_CFG]?.label || c.status}</td>
-                      <td style={{ border:"1px solid #ddd", padding:"8px" }}>{new Date(c.createdAt).toLocaleDateString(dateLocale)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </DocumentPrintTemplate>
-          </PrintButton>
-          <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="hover-elevate gap-1.5">
-                <Plus className="h-4 w-4" />{tx("قضية جديدة", "New Case")}
-              </Button>
-            </DialogTrigger>
-            <DialogContent dir={dir}>
-              <DialogHeader><DialogTitle>{tx("إضافة قضية جديدة","Add New Case")}</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>{tx("عنوان القضية","Case Title")}</Label>
-                  <Input value={newCase.title} onChange={e => setNewCase({...newCase, title: e.target.value})}
-                    placeholder={tx("مثال: قضية نزاع تجاري","e.g. Commercial dispute")} />
-                </div>
-                <div className="space-y-2">
-                  <Label>{tx("اسم العميل","Client Name")}</Label>
-                  <Input value={newCase.clientName} onChange={e => setNewCase({...newCase, clientName: e.target.value})}
-                    placeholder={tx("اسم العميل أو الشركة","Client or company name")} />
-                </div>
-                <div className="space-y-2">
-                  <Label>{tx("نوع القضية","Case Type")}</Label>
-                  <Select value={newCase.caseType} onValueChange={v => setNewCase({...newCase, caseType: v})}>
-                    <SelectTrigger dir={dir}><SelectValue /></SelectTrigger>
-                    <SelectContent dir={dir}>
-                      {Object.entries(TYPE_MAP).filter(([k]) => k !== "all").map(([key, label]) => (
-                        <SelectItem key={key} value={key}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsNewDialogOpen(false)}>{tx("إلغاء","Cancel")}</Button>
-                <Button onClick={handleCreate} disabled={createCase.isPending}>
-                  {createCase.isPending ? tx("جاري الإنشاء...","Creating...") : tx("إنشاء القضية","Create Case")}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button size="sm" onClick={() => setNewOpen(true)}>
+            <Plus className="h-4 w-4 me-2" />قضية جديدة
+          </Button>
         </div>
       </div>
 
-      {/* ── Status filter tabs ── */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {(Object.entries(STATUS_CFG) as [string, typeof STATUS_CFG[keyof typeof STATUS_CFG]][]).map(([key, cfg]) => {
-          const count = countByStatus(key);
-          const active = statusFilter === key;
-          return (
-            <button key={key} onClick={() => setStatusFilter(key)}
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="إجمالي القضايا" value={stats?.total ?? cases?.length ?? 0}           icon={Briefcase}  color="text-primary" />
+        <StatCard label="مفتوحة"          value={stats?.open ?? 0}                             icon={Scale}       color="text-blue-600" />
+        <StatCard label="قيد التنفيذ"     value={stats?.inProgress ?? 0}                       icon={Clock}       color="text-amber-600" />
+        <StatCard label="مغلقة"           value={stats?.closed ?? 0}                           icon={CheckCheck}  color="text-slate-500" />
+      </div>
+
+      {/* ── Filters ── */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        {/* Status pills */}
+        <div className="flex gap-1 flex-wrap">
+          {[{ key: "all", label: "الكل" }, ...Object.entries(STATUS_CFG).map(([k, v]) => ({ key: k, label: v.label }))].map(s => (
+            <button
+              key={s.key}
+              onClick={() => setStatus(s.key)}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
-                active
-                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                  : "bg-muted/40 text-muted-foreground border-border hover:bg-muted/70"
-              )}>
-              <cfg.icon className="h-3 w-3" />
-              {cfg.label}
-              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full",
-                active ? "bg-primary/10" : "bg-muted text-muted-foreground")}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
+                "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                statusFilter === s.key
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground border-border hover:border-primary/50"
+              )}
+            >{s.label}</button>
+          ))}
+        </div>
+
         <div className="flex-1" />
-        {/* Type filter */}
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="h-8 text-xs w-36" dir={dir}>
+
+        {/* Type select */}
+        <Select value={typeFilter} onValueChange={setType}>
+          <SelectTrigger className="w-36 h-8 text-xs">
             <SelectValue placeholder="نوع القضية" />
           </SelectTrigger>
-          <SelectContent dir={dir}>
-            {Object.entries(TYPE_MAP).map(([key, label]) => (
-              <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
-            ))}
+          <SelectContent>
+            <SelectItem value="all">كل الأنواع</SelectItem>
+            {Object.entries(TYPE_MAP).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
           </SelectContent>
         </Select>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="ps-9 h-8 w-52 text-sm"
+            placeholder="بحث..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+
         {/* View toggle */}
         <div className="flex border rounded-lg overflow-hidden">
-          <button onClick={() => setViewMode("table")}
-            className={cn("px-2.5 py-1.5 text-xs transition-colors", viewMode === "table" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}>
-            <List className="h-3.5 w-3.5" />
+          <button onClick={() => setView("table")} className={cn("p-1.5 transition-colors", view === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}>
+            <List className="h-4 w-4" />
           </button>
-          <button onClick={() => setViewMode("kanban")}
-            className={cn("px-2.5 py-1.5 text-xs transition-colors", viewMode === "kanban" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}>
-            <LayoutGrid className="h-3.5 w-3.5" />
+          <button onClick={() => setView("kanban")} className={cn("p-1.5 transition-colors", view === "kanban" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}>
+            <LayoutGrid className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {/* ── Search ── */}
-      <div className="relative max-w-sm">
-        <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder={tx("ابحث بعنوان القضية أو اسم العميل...", "Search cases...")}
-          className="pr-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-      </div>
-
-      {/* ── Kanban View ── */}
-      {viewMode === "kanban" ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {(["open","in_progress","closed"] as const).map(s => {
-            const cfg = STATUS_CFG[s];
-            const cols = filteredCases?.filter(c => c.status === s) ?? [];
-            return (
-              <div key={s} className="space-y-3">
-                <div className="flex items-center gap-2 px-1">
-                  <cfg.icon className={cn("h-4 w-4", cfg.color)} />
-                  <span className="text-sm font-semibold">{cfg.label}</span>
-                  <Badge variant="outline" className="text-[10px] h-4 px-1.5">{cols.length}</Badge>
-                </div>
-                <div className="space-y-2 min-h-24">
-                  {isLoading ? (
-                    Array.from({length:3}).map((_,i) => <Skeleton key={i} className="h-24 rounded-xl" />)
-                  ) : cols.length === 0 ? (
-                    <div className="border-2 border-dashed border-border/40 rounded-xl h-20 flex items-center justify-center">
-                      <span className="text-xs text-muted-foreground/50">لا توجد قضايا</span>
-                    </div>
-                  ) : cols.map(c => (
-                    <Link key={c.id} href={`/cases/${c.id}`}>
-                      <div className="p-3 rounded-xl border bg-card hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer">
-                        <p className="text-sm font-medium mb-1 line-clamp-2">{c.title}</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">{c.clientName || "—"}</span>
-                          <Badge variant="outline" className={cn("text-[10px] px-1.5 border", cfg.bg)}>{TYPE_MAP[c.caseType] || c.caseType}</Badge>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground/60 mt-1.5">
-                          {new Date(c.createdAt).toLocaleDateString(dateLocale)}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+      {/* ── Loading ── */}
+      {isLoading && (
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
         </div>
-      ) : (
-        /* ── Table View ── */
-        <Card>
-          <CardHeader className="p-0" />
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  <TableHead className="text-right">{tx("عنوان القضية","Case Title")}</TableHead>
-                  <TableHead className="text-right">{tx("العميل","Client")}</TableHead>
-                  <TableHead className="text-right">{tx("النوع","Type")}</TableHead>
-                  <TableHead className="text-right">{tx("الحالة","Status")}</TableHead>
-                  <TableHead className="text-right">{tx("التاريخ","Date")}</TableHead>
-                  <TableHead className="w-[50px]" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({length:5}).map((_,i) => (
-                    <TableRow key={i}>
-                      {[250,150,80,80,100,0].map((w,j) => (
-                        <TableCell key={j}>{w > 0 && <Skeleton className={`h-4 w-[${w}px]`} />}</TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : !filteredCases?.length ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                      <Scale className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                      {tx("لم يتم العثور على قضايا","No cases found")}
-                    </TableCell>
-                  </TableRow>
-                ) : filteredCases.map(c => {
-                  const sCfg = STATUS_CFG[c.status as keyof typeof STATUS_CFG];
+      )}
+
+      {/* ── Empty state ── */}
+      {!isLoading && filtered.length === 0 && (
+        <div className="text-center py-20 space-y-3">
+          <Scale className="h-12 w-12 text-muted-foreground/30 mx-auto" />
+          <p className="text-muted-foreground">لا توجد قضايا مطابقة</p>
+          <Button size="sm" onClick={() => setNewOpen(true)}>
+            <Plus className="h-4 w-4 me-2" />إضافة أول قضية
+          </Button>
+        </div>
+      )}
+
+      {/* ── TABLE VIEW ── */}
+      {!isLoading && filtered.length > 0 && view === "table" && (
+        <Card className="border shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">القضية</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">الموكل</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">النوع</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">المحامي</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">الحالة</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">تاريخ الإنشاء</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((c, i) => {
+                  const s = STATUS_CFG[c.status as keyof typeof STATUS_CFG];
                   return (
-                    <TableRow key={c.id} className="hover:bg-muted/30 transition-colors">
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Link href={`/cases/${c.id}`} className="hover:text-primary hover:underline transition-colors">
+                    <tr key={c.id} className={cn("border-b transition-colors hover:bg-muted/20 group", i % 2 === 0 ? "" : "bg-muted/5")}>
+                      <td className="px-4 py-3.5">
+                        <Link href={`/cases/${c.id}`}>
+                          <span className="font-medium text-foreground group-hover:text-primary transition-colors cursor-pointer line-clamp-1 max-w-xs block">
                             {c.title}
-                          </Link>
-                          {(c as any).source === "store" && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/40 text-amber-600 bg-amber-500/10 shrink-0">
-                              من المتجر
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{c.clientName || "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {TYPE_MAP[c.caseType] || c.caseType}
+                          </span>
+                        </Link>
+                        {c.description && (
+                          <span className="text-xs text-muted-foreground line-clamp-1">{c.description}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-muted-foreground">{c.clientName ?? "—"}</td>
+                      <td className="px-4 py-3.5">
+                        <Badge variant="outline" className={cn("text-xs", TYPE_COLOR[c.caseType] ?? "")}>
+                          {TYPE_MAP[c.caseType] ?? c.caseType}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={cn("text-xs border", sCfg?.bg)}>
-                          {sCfg?.label || c.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {new Date(c.createdAt).toLocaleDateString(dateLocale)}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="px-4 py-3.5 text-muted-foreground text-xs">{c.assignedTo ?? "—"}</td>
+                      <td className="px-4 py-3.5">
+                        {s && (
+                          <Badge variant="outline" className={cn("text-xs gap-1.5", s.bg)}>
+                            <s.icon className="h-3 w-3" />
+                            {s.label}
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
+                        {c.createdAt ? new Date(c.createdAt).toLocaleDateString("ar-SA") : "—"}
+                      </td>
+                      <td className="px-4 py-3.5">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link href={`/cases/${c.id}`}>{tx("عرض التفاصيل","View Details")}</Link>
+                              <Link href={`/cases/${c.id}`}>عرض التفاصيل</Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">{tx("أرشفة","Archive")}</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   );
                 })}
-              </TableBody>
-            </Table>
-          </CardContent>
+              </tbody>
+            </table>
+          </div>
+          <div className="px-4 py-2 bg-muted/10 border-t text-xs text-muted-foreground">
+            {filtered.length} قضية
+          </div>
         </Card>
       )}
+
+      {/* ── KANBAN VIEW ── */}
+      {!isLoading && filtered.length > 0 && view === "kanban" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {kanbanCols.map(col => {
+            const colItems = filtered.filter(c => c.status === col.key);
+            return (
+              <div key={col.key} className={cn("border-t-4 rounded-xl bg-muted/20 p-4 space-y-3 min-h-64", col.color)}>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-sm">{col.label}</span>
+                  <Badge variant="secondary" className="text-xs">{colItems.length}</Badge>
+                </div>
+                {colItems.length === 0 && (
+                  <div className="text-center py-8 text-xs text-muted-foreground">لا توجد قضايا</div>
+                )}
+                {colItems.map(c => <KanbanCard key={c.id} c={c} />)}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── New Case Dialog ── */}
+      <Dialog open={newOpen} onOpenChange={setNewOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>قضية جديدة</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>عنوان القضية *</Label>
+              <Input placeholder="مثال: نزاع تجاري على عقد توريد" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>الموكل</Label>
+              <Input placeholder="اسم الموكل أو الشركة" value={form.clientName} onChange={e => setForm(p => ({ ...p, clientName: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>نوع القضية</Label>
+              <Select value={form.caseType} onValueChange={v => setForm(p => ({ ...p, caseType: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TYPE_MAP).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>وصف مختصر</Label>
+              <Textarea
+                placeholder="ملاحظات أو وصف القضية..."
+                rows={3}
+                value={form.description}
+                onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewOpen(false)}>إلغاء</Button>
+            <Button onClick={handleCreate} disabled={!form.title.trim() || createCase.isPending}>
+              {createCase.isPending ? "جارٍ الإنشاء..." : "إنشاء القضية"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} entityType="cases" />
     </div>
   );
 }

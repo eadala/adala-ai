@@ -1,183 +1,136 @@
-import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
-import { Router } from "express";
-import { db, casesTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+/**
+ * Cases Router — واجهة API للقضايا (Architecture: Clean Controller)
+ * ──────────────────────────────────────────────────────────────────
+ * ✅ thin controller only — business logic في CaseService
+ * ✅ tenant scoping in every request
+ * ✅ same URL contract as before (backward compatible)
+ */
+
+import { Router }                                  from "express";
+import { requireAuthWithTenant }                   from "../middlewares/requireAuth";
+import { CaseService }                             from "../case/case.service";
+import { CaseTimeline }                            from "../case/modules/timeline";
+import { CaseCommunications }                      from "../case/modules/communications";
+import { CaseTasks }                               from "../case/modules/tasks";
+import { CaseDocuments }                           from "../case/modules/documents";
+import { db }                                      from "@workspace/db";
+import { sql }                                     from "drizzle-orm";
+import { runCaseAutopilot, ensureAutopilotTable }  from "../agents/caseAutopilot";
+import { auditLog }                                from "../lib/auditLogger";
 import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace/api-zod";
-import { auditLog } from "../lib/auditLogger";
-import { notifyTelegramCaseStatus } from "./telegram";
-import { eventBus } from "../core/eventBus";
-import { runCaseAutopilot, ensureAutopilotTable } from "../agents/caseAutopilot";
-
-const STATUS_LABELS: Record<string, string> = {
-  open: "مفتوحة",
-  in_progress: "قيد التنفيذ",
-  closed: "مغلقة",
-};
-
-async function notifyWhatsAppCaseStatus(updatedCase: any) {
-  try {
-    const settingsRows = await db.execute(sql`
-      SELECT * FROM whatsapp_settings WHERE office_id = 'default' LIMIT 1
-    `) as any;
-    const rows = Array.isArray(settingsRows) ? settingsRows : (settingsRows?.rows ?? []);
-    const settings = rows[0];
-    if (!settings?.enabled) return;
-
-    const clientRows = await db.execute(sql`
-      SELECT phone FROM clients
-      WHERE full_name = ${updatedCase.clientName}
-        AND phone IS NOT NULL
-        AND phone <> ''
-      ORDER BY created_at DESC LIMIT 1
-    `) as any;
-    const cRows = Array.isArray(clientRows) ? clientRows : (clientRows?.rows ?? []);
-    const phone = cRows[0]?.phone;
-    if (!phone) return;
-
-    const statusLabel = STATUS_LABELS[updatedCase.status] ?? updatedCase.status;
-    const message = `السلام عليكم،\nتم تحديث حالة قضيتكم "${updatedCase.title}" إلى: ${statusLabel}.\nشكراً لثقتكم.`;
-
-    let sent = false;
-    let errorMsg = "";
-    try {
-      if (settings.provider === "twilio" && settings.account_sid && settings.auth_token && settings.from_number) {
-        const encoded = Buffer.from(`${settings.account_sid}:${settings.auth_token}`).toString("base64");
-        const body = new URLSearchParams({ From: `whatsapp:${settings.from_number}`, To: `whatsapp:${phone}`, Body: message });
-        const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${settings.account_sid}/Messages.json`, {
-          method: "POST", headers: { Authorization: `Basic ${encoded}`, "Content-Type": "application/x-www-form-urlencoded" },
-          body: body.toString(),
-        });
-        sent = r.ok;
-        if (!r.ok) errorMsg = await r.text();
-      } else if (settings.provider === "meta" && settings.meta_token && settings.meta_phone_id) {
-        const r = await fetch(`https://graph.facebook.com/v18.0/${settings.meta_phone_id}/messages`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${settings.meta_token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ messaging_product: "whatsapp", to: phone, type: "text", text: { body: message } }),
-        });
-        sent = r.ok;
-        if (!r.ok) errorMsg = await r.text();
-      }
-    } catch (e: any) { errorMsg = e.message; }
-
-    await db.execute(sql`
-      INSERT INTO whatsapp_logs (office_id, to_number, message, template, status, error)
-      VALUES ('default', ${phone}, ${message}, 'case_update', ${sent ? "sent" : "failed"}, ${errorMsg || null})
-    `);
-  } catch { }
-}
 
 const router = Router();
 
-// ── GET /cases ──────────────────────────────────────────────────────────────
+function getTenant(req: any): string { return req.tenantId; }
+function getAuth(req: any)           { return req.auth; }
+function getService(req: any)        { return new CaseService(getTenant(req), getAuth(req)?.userId); }
+
+function serializeCase(c: any) {
+  return {
+    id:          c.id,
+    title:       c.title,
+    description: c.description,
+    caseType:    c.caseType,
+    status:      c.status,
+    clientName:  c.clientName,
+    assignedTo:  c.assignedTo,
+    source:      c.source ?? "manual",
+    storeOrderId: c.storeOrderId ?? null,
+    createdBy:   c.createdBy ?? null,
+    createdAt:   c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+    updatedAt:   c.updatedAt instanceof Date ? c.updatedAt?.toISOString() ?? null : c.updatedAt ?? null,
+  };
+}
+
+/* ══════════════════════════════════════════════════════
+   CRUD
+══════════════════════════════════════════════════════ */
+
+/* GET /cases */
 router.get("/cases", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId;
-    const query = ListCasesQueryParams.parse(req.query);
-    const page  = req.query.page  ? Math.max(1, parseInt(String(req.query.page)))  : null;
-    const limit = req.query.limit ? Math.min(200, parseInt(String(req.query.limit))) : null;
-
-    const rawRows = await db.execute(sql`
-      SELECT id, title, description, case_type, status, client_name, assigned_to,
-             created_at, updated_at,
-             COALESCE(source, 'manual') AS source,
-             store_order_id
-      FROM cases WHERE office_id = ${tenantId} ORDER BY created_at
-    `);
-    let allCases: any[] = (rawRows as any)?.rows ?? (rawRows as any) ?? [];
-    const mapCase = (c: any) => ({
-      id: c.id, title: c.title, description: c.description,
-      caseType: c.case_type, status: c.status, clientName: c.client_name,
-      assignedTo: c.assigned_to,
-      source: c.source ?? "manual",
-      storeOrderId: c.store_order_id ?? null,
-      createdAt: c.created_at instanceof Date ? c.created_at.toISOString() : c.created_at,
-      updatedAt: c.updated_at instanceof Date ? c.updated_at?.toISOString() ?? null : c.updated_at ?? null,
+    const q     = ListCasesQueryParams.parse(req.query);
+    const cases = await getService(req).listCases({
+      status:   q.status   as any,
+      caseType: q.caseType as any,
     });
 
-    if (query.status)   allCases = allCases.filter((c) => c.status    === query.status);
-    if (query.caseType) allCases = allCases.filter((c) => c.case_type === query.caseType);
+    const page  = req.query.page  ? Math.max(1, parseInt(String(req.query.page)))      : null;
+    const limit = req.query.limit ? Math.min(200, parseInt(String(req.query.limit))) : null;
+    const total = cases.length;
 
-    const total = allCases.length;
     if (page && limit) {
-      const sliced = allCases.slice((page - 1) * limit, page * limit);
-      res.json({ data: sliced.map(mapCase), total, page, limit, pages: Math.ceil(total / limit) });
+      const sliced = cases.slice((page - 1) * limit, page * limit);
+      res.json({ data: sliced.map(serializeCase), total, page, limit, pages: Math.ceil(total / limit) });
       return;
     }
+    res.json(cases.map(serializeCase));
+  } catch (e: any) {
+    res.status(e.statusCode ?? 500).json({ error: e.message });
+  }
+});
 
-    res.json(allCases.map(mapCase));
+/* GET /cases/stats */
+router.get("/cases/stats", requireAuthWithTenant, async (req, res) => {
+  try {
+    const stats = await getService(req).getStats();
+    res.json(stats);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// ── POST /cases ──────────────────────────────────────────────────────────────
+/* POST /cases */
 router.post("/cases", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId;
-    const body = CreateCaseBody.parse(req.body);
-    const [created] = await db.insert(casesTable).values({
+    const body    = CreateCaseBody.parse(req.body);
+    const created = await getService(req).createCase({
       title:       body.title,
-      description: body.description ?? null,
-      caseType:    body.caseType,
-      status:      body.status ?? "open",
-      clientName:  body.clientName ?? null,
-      assignedTo:  body.assignedTo ?? null,
-      officeId:    tenantId,
-    } as any).returning();
-    const auth = (req as any).auth;
-    auditLog({ userId: auth?.userId, action: "create", resource: "cases", resourceId: created.id, details: created.title }).catch(() => {});
-    eventBus.emit({
-      type: "CASE_CREATED",
-      actorId: auth?.userId,
-      data: { caseId: created.id, title: created.title, clientName: created.clientName, assignedTo: created.assignedTo, caseType: created.caseType, status: created.status },
-    }).catch(() => {});
-    res.status(201).json({
-      ...created,
-      createdAt: created.createdAt.toISOString(),
-      updatedAt: created.updatedAt?.toISOString() ?? null,
+      description: body.description,
+      caseType:    body.caseType as any,
+      status:      body.status as any,
+      clientName:  body.clientName,
+      assignedTo:  body.assignedTo,
     });
+    res.status(201).json(serializeCase(created));
   } catch (e: any) {
-    res.status(400).json({ error: e.message });
+    res.status(e.statusCode ?? 400).json({ error: e.message });
   }
 });
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function isValidUuid(v: string) { return UUID_RE.test(v); }
-
-// ── GET /cases/:id ───────────────────────────────────────────────────────────
+/* GET /cases/:id */
 router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const caseId = String(req.params.id);
-    if (!caseId || caseId.length > 200) return res.status(400).json({ error: "معرف غير صالح" });
-    const tenantId = (req as any).tenantId;
+    const id = String(req.params.id);
+    if (!id || id.length > 200) return res.status(400).json({ error: "معرف غير صالح" });
+
+    const tenantId = getTenant(req);
+    /* include order details via raw SQL join (same as before) */
     const rows = await db.execute(sql`
       SELECT
         c.id, c.title, c.description, c.case_type, c.status,
         c.client_name, c.assigned_to, c.created_at, c.updated_at,
-        COALESCE(c.source, 'manual')  AS source,
-        c.store_order_id,
-        c.created_by,
-        oo.id                        AS order_db_id,
-        oo.amount                    AS order_amount,
-        oo.client_email              AS order_client_email,
-        oo.client_phone              AS order_client_phone,
-        oo.stripe_session_id         AS order_stripe_session,
-        oo.created_at                AS order_created_at,
-        osvc.name                    AS order_service_name,
-        osvc.description             AS order_service_desc
+        COALESCE(c.source,'manual') AS source, c.store_order_id, c.created_by,
+        oo.id          AS order_db_id,
+        oo.amount      AS order_amount,
+        oo.client_email AS order_client_email,
+        oo.client_phone AS order_client_phone,
+        oo.stripe_session_id AS order_stripe_session,
+        oo.created_at  AS order_created_at,
+        osvc.name      AS order_service_name,
+        osvc.description AS order_service_desc
       FROM cases c
-      LEFT JOIN office_orders   oo   ON oo.id   = c.store_order_id
-      LEFT JOIN office_services osvc ON osvc.id  = oo.service_id
-      WHERE c.id = ${caseId} AND c.office_id = ${tenantId}
+      LEFT JOIN office_orders   oo   ON oo.id  = c.store_order_id
+      LEFT JOIN office_services osvc ON osvc.id = oo.service_id
+      WHERE c.id = ${id} AND c.office_id = ${tenantId}
       LIMIT 1
     `);
-    const rawArr: any[] = (rows as any)?.rows ?? (rows as any) ?? [];
-    const c = rawArr[0];
-    if (!c) return res.status(404).json({ error: "Not found" });
+    const raw: any[] = (rows as any).rows ?? (rows as any) ?? [];
+    const c = raw[0];
+    if (!c) return res.status(404).json({ error: "غير موجود" });
 
     const orderDetails = c.order_db_id ? {
-      id: c.order_db_id,
+      id:            c.order_db_id,
       serviceName:   c.order_service_name ?? null,
       serviceDesc:   c.order_service_desc ?? null,
       amount:        c.order_amount ? Number(c.order_amount) : null,
@@ -199,109 +152,178 @@ router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
       updatedAt: c.updated_at instanceof Date ? c.updated_at?.toISOString() ?? null : c.updated_at ?? null,
     });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(e.statusCode ?? 500).json({ error: e.message });
   }
 });
 
-// ── PATCH /cases/:id ─────────────────────────────────────────────────────────
+/* PATCH /cases/:id */
 router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId;
+    const id   = String(req.params.id);
     const body = UpdateCaseBody.parse(req.body);
-    const [before] = await db.select().from(casesTable)
-      .where(and(eq(casesTable.id, String(req.params.id)), eq((casesTable as any).officeId, tenantId)));
-    if (!before) return res.status(404).json({ error: "Not found" });
-
-    const [updated] = await db.update(casesTable).set({
-      ...(body.title       !== undefined && { title:       body.title }),
-      ...(body.description !== undefined && { description: body.description }),
-      ...(body.caseType    !== undefined && { caseType:    body.caseType }),
-      ...(body.status      !== undefined && { status:      body.status }),
-      ...(body.clientName  !== undefined && { clientName:  body.clientName }),
-      ...(body.assignedTo  !== undefined && { assignedTo:  body.assignedTo }),
-      updatedAt: new Date(),
-    }).where(and(eq(casesTable.id, String(req.params.id)), eq((casesTable as any).officeId, tenantId))).returning();
-    if (!updated) return res.status(404).json({ error: "Not found" });
-
-    if (body.status && before && before.status !== body.status) {
-      notifyWhatsAppCaseStatus(updated).catch(() => {});
-      notifyTelegramCaseStatus(updated).catch(() => {});
-    }
-    const auth = (req as any).auth;
-    auditLog({ userId: auth?.userId, action: "update", resource: "cases", resourceId: String(req.params.id), details: updated.title }).catch(() => {});
-    const evType = updated.status === "closed" ? "CASE_CLOSED" : "CASE_UPDATED";
-    eventBus.emit({
-      type: evType,
-      actorId: auth?.userId,
-      data: { caseId: updated.id, title: updated.title, clientName: updated.clientName, status: updated.status, assignedTo: updated.assignedTo },
-    }).catch(() => {});
-    res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt?.toISOString() ?? null });
+    const { after } = await getService(req).updateCase(id, {
+      title:       body.title,
+      description: body.description,
+      caseType:    body.caseType as any,
+      status:      body.status as any,
+      clientName:  body.clientName,
+      assignedTo:  body.assignedTo,
+    });
+    res.json(serializeCase(after));
   } catch (e: any) {
-    res.status(400).json({ error: e.message });
+    res.status(e.statusCode ?? 400).json({ error: e.message });
   }
 });
 
-// ── DELETE /cases/:id ────────────────────────────────────────────────────────
+/* DELETE /cases/:id */
 router.delete("/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId;
-    const auth = (req as any).auth;
-    await db.delete(casesTable)
-      .where(and(eq(casesTable.id, String(req.params.id)), eq((casesTable as any).officeId, tenantId)));
-    auditLog({ userId: auth?.userId, action: "delete", resource: "cases", resourceId: String(req.params.id) }).catch(() => {});
+    await getService(req).deleteCase(String(req.params.id));
     res.status(204).end();
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(e.statusCode ?? 500).json({ error: e.message });
   }
 });
 
-// ── GET /cases/:id/hub ── full case hub with related entities ─────────────────
+/* ══════════════════════════════════════════════════════
+   HUB — all related entities in one call
+══════════════════════════════════════════════════════ */
 router.get("/cases/:id/hub", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId;
-    const caseId = String(req.params.id);
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
+    const tenantId = getTenant(req);
+    const caseId   = String(req.params.id);
+    const isUuid   = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
 
     const [caseRow, invoices, events, documents] = await Promise.all([
       db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} AND office_id = ${tenantId} LIMIT 1`),
-      db.execute(sql`SELECT id, invoice_number, title, total, status, due_date, created_at FROM client_invoices WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC`),
-      db.execute(sql`SELECT id, title, event_type, start_at, location, status FROM events WHERE case_id = ${caseId} ORDER BY start_at DESC`),
-      db.execute(sql`SELECT id, file_name, file_type, created_at FROM documents WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC`),
+      db.execute(sql`SELECT id,invoice_number,title,total,status,due_date,created_at FROM client_invoices WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC`),
+      db.execute(sql`SELECT id,title,event_type,start_at,location,status FROM events WHERE case_id = ${caseId} ORDER BY start_at DESC`),
+      db.execute(sql`SELECT id,file_name,file_type,created_at FROM documents WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC`),
     ]);
 
     let contractRows: any[] = [];
     if (isUuid) {
-      const contractsResult = await db.execute(sql`SELECT id, title, type, status, expires_at, created_at FROM contracts WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC`);
-      contractRows = contractsResult.rows ?? [];
+      const cr = await db.execute(sql`SELECT id,title,type,status,expires_at,created_at FROM contracts WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC`);
+      contractRows = (cr as any).rows ?? [];
     }
 
-    const found = caseRow.rows?.[0];
-    if (!found) { res.status(404).json({ error: "Not found" }); return; }
+    const found = (caseRow as any).rows?.[0];
+    if (!found) return res.status(404).json({ error: "غير موجود" });
+
     res.json({
       case:      found,
-      invoices:  invoices.rows ?? [],
+      invoices:  (invoices  as any).rows ?? [],
       contracts: contractRows,
-      events:    events.rows ?? [],
-      documents: documents.rows ?? [],
+      events:    (events    as any).rows ?? [],
+      documents: (documents as any).rows ?? [],
     });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// ── GET /cases/:id/health ─────────────────────────────────────────────────────
-// Returns the latest autopilot health report (cached) or runs a fresh one
+/* ══════════════════════════════════════════════════════
+   TIMELINE
+══════════════════════════════════════════════════════ */
+router.get("/cases/:id/timeline", requireAuthWithTenant, async (req, res) => {
+  try {
+    const entries = await new CaseTimeline(getTenant(req)).getEntries(String(req.params.id));
+    res.json(entries);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/cases/:id/timeline", requireAuthWithTenant, async (req, res) => {
+  try {
+    const auth   = getAuth(req);
+    const entry  = await new CaseTimeline(getTenant(req)).addEntry(String(req.params.id), {
+      ...req.body,
+      created_by: auth?.userId,
+    });
+    auditLog({ userId: auth?.userId, action: "create", resource: "case_timeline", resourceId: String(req.params.id) }).catch(() => {});
+    res.status(201).json(entry);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   COMMUNICATIONS (case chat)
+══════════════════════════════════════════════════════ */
+router.get("/cases/:id/messages", requireAuthWithTenant, async (req, res) => {
+  try {
+    const msgs = await new CaseCommunications(getTenant(req)).getMessages(String(req.params.id));
+    res.json(msgs);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/cases/:id/messages", requireAuthWithTenant, async (req, res) => {
+  try {
+    const { body: msgBody, sender_name } = req.body;
+    if (!msgBody?.trim()) return res.status(400).json({ error: "الرسالة فارغة" });
+    const auth = getAuth(req);
+    const msg  = await new CaseCommunications(getTenant(req)).sendMessage(String(req.params.id), {
+      body:        msgBody,
+      sender_id:   auth?.userId,
+      sender_name: sender_name ?? "المحامي",
+    });
+    res.status(201).json(msg);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   TASKS
+══════════════════════════════════════════════════════ */
+router.get("/cases/:id/tasks", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tasks = await new CaseTasks(getTenant(req)).getTasks(String(req.params.id));
+    res.json(tasks);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/cases/:id/tasks", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = getTenant(req);
+    const caseId   = String(req.params.id);
+    const caseData = await getService(req).getCase(caseId);
+    const task     = await new CaseTasks(tenantId).createTask(caseId, caseData.title, req.body);
+    res.status(201).json(task);
+  } catch (e: any) {
+    res.status(e.statusCode ?? 400).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   DOCUMENTS
+══════════════════════════════════════════════════════ */
+router.get("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
+  try {
+    const docs = await new CaseDocuments(getTenant(req)).getDocuments(String(req.params.id));
+    res.json(docs);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   AI AUTOPILOT
+══════════════════════════════════════════════════════ */
 router.get("/cases/:id/health", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = getTenant(req);
     const caseId   = String(req.params.id);
     const force    = req.query.force === "1";
 
     if (!force) {
       const cached = await db.execute(sql`
-        SELECT * FROM case_autopilot_reports
-        WHERE case_id = ${caseId} AND office_id = ${tenantId}
-        LIMIT 1
+        SELECT * FROM case_autopilot_reports WHERE case_id = ${caseId} AND office_id = ${tenantId} LIMIT 1
       `).catch(() => null);
       const row = (cached as any)?.rows?.[0];
       if (row) return res.json(row);
@@ -316,23 +338,18 @@ router.get("/cases/:id/health", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-// ── POST /cases/:id/autopilot ─────────────────────────────────────────────────
-// Manually trigger autopilot — runs analysis + creates tasks
 router.post("/cases/:id/autopilot", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = getTenant(req);
     const caseId   = String(req.params.id);
-    const auth     = (req as any).auth;
+    const auth     = getAuth(req);
 
     await ensureAutopilotTable();
     const report = await runCaseAutopilot(caseId, tenantId, true);
     if (!report) return res.status(404).json({ error: "القضية غير موجودة" });
 
-    auditLog({
-      userId: auth?.userId, action: "autopilot", resource: "cases",
-      resourceId: caseId, details: `score=${report.healthScore} tasks=${report.tasksCreated}`,
-    }).catch(() => {});
-
+    auditLog({ userId: auth?.userId, action: "autopilot", resource: "cases", resourceId: caseId,
+      details: `score=${report.healthScore} tasks=${report.tasksCreated}` }).catch(() => {});
     res.json(report);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
