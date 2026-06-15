@@ -69,8 +69,8 @@ function MD({ text }: { text: string }) {
         <ul key={`u${i}`} className="my-1.5 space-y-1">
           {items.map((it, ii) => (
             <li key={ii} className="flex gap-2 text-xs">
-              <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ background: BLUE }} />
-              <span className="leading-relaxed" style={{ color: "#334155" }}>{inline(it, ii)}</span>
+              <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-2" style={{ background: BLUE }} />
+              <span style={{ color: "#334155", lineHeight: "1.75" }}>{inline(it, ii)}</span>
             </li>
           ))}
         </ul>
@@ -80,7 +80,7 @@ function MD({ text }: { text: string }) {
       nodes.push(<div key={i} className="h-1" />);
     } else {
       nodes.push(
-        <p key={i} className="text-xs leading-relaxed" style={{ color: "#334155" }}>
+        <p key={i} className="text-xs" style={{ color: "#334155", lineHeight: "1.75" }}>
           {inline(l, i)}
         </p>
       );
@@ -382,9 +382,9 @@ export default function AdoulWidget() {
             <a href={SIGNUP_URL}
               className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold transition-all hover:opacity-90 hover:shadow-md"
               style={{
-                background: `linear-gradient(135deg, ${BLUE}, #3B82F6)`,
+                background: BLUE,
                 color: WHITE,
-                boxShadow: `0 4px 16px rgba(26,86,219,0.3)`,
+                boxShadow: `0 3px 12px rgba(26,86,219,0.22)`,
               }}>
               <Sparkles className="w-3.5 h-3.5" />
               ابدأ مجاناً — الآن
