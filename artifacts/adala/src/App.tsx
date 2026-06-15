@@ -96,6 +96,7 @@ const FinanceDashboard     = lazy(() => import("@/pages/finance-dashboard"));
 const IsolationPage        = lazy(() => import("@/pages/isolation"));
 const HardeningPage        = lazy(() => import("@/pages/hardening"));
 const LegalOSPage          = lazy(() => import("@/pages/legal-os"));
+const SelfHealingPage      = lazy(() => import("@/pages/self-healing"));
 const AuditLogsPage        = lazy(() => import("@/pages/audit-logs"));
 const LoginTrackingPage    = lazy(() => import("@/pages/login-tracking"));
 const MySessionsPage       = lazy(() => import("@/pages/my-sessions"));
@@ -546,6 +547,7 @@ function AppRoutes() {
             <Route path="/isolation"><AdminRoute><IsolationPage /></AdminRoute></Route>
             <Route path="/hardening"><AdminRoute><HardeningPage /></AdminRoute></Route>
             <Route path="/legal-os"><ProtectedRoute><LegalOSPage /></ProtectedRoute></Route>
+            <Route path="/self-healing"><AdminRoute><SelfHealingPage /></AdminRoute></Route>
             <Route path="/activity-stream"><WorkspaceRoute><ActivityStreamPage /></WorkspaceRoute></Route>
 
             {/* Admin & Settings (law firm admins) */}
