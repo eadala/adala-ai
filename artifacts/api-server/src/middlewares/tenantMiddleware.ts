@@ -68,11 +68,11 @@ export async function resolveTenantId(userId: string, headerTenantId?: string): 
       SELECT id::text AS id FROM office_page ORDER BY created_at ASC LIMIT 1
     `);
     const pageId = ((pageRows as any)?.rows ?? [])[0]?.id as string | undefined;
-    const officeId = pageId ?? "default";
-    CACHE.set(userId, { officeId, ts: Date.now() });
-    return officeId;
+    if (!pageId) return null;
+    CACHE.set(userId, { officeId: pageId, ts: Date.now() });
+    return pageId;
   } catch {
-    return "default";
+    return null;
   }
 }
 
@@ -112,7 +112,10 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
 
   const headerTenant = req.headers["x-tenant-id"] as string | undefined;
   const tenantId = await resolveTenantId(userId, headerTenant);
-  const officeId = tenantId ?? "default";
+  if (!tenantId) {
+    return res.status(403).json({ error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب." });
+  }
+  const officeId = tenantId;
   (req as any).tenantId = officeId;
 
   // Delegate to the canonical implementation in requireAuth.ts

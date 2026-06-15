@@ -22,16 +22,8 @@ const TYPE_AR: Record<string, string> = {
   labor: "عمالية", real_estate: "عقارية", family: "أسرية",
 };
 
-function useClientAuth() {
-  const token = typeof window !== "undefined" ? localStorage.getItem("client_session_token") : null;
-  const clientRaw = typeof window !== "undefined" ? localStorage.getItem("client_info") : null;
-  const client = clientRaw ? JSON.parse(clientRaw) : null;
-  return { token, client, isLoggedIn: !!token };
-}
-
 export default function PortalMyCases() {
   const [, nav] = useLocation();
-  const { token, client, isLoggedIn } = useClientAuth();
   const qc = useQueryClient();
   const [linkInput, setLinkInput] = useState("");
   const [linking, setLinking] = useState(false);
@@ -41,25 +33,28 @@ export default function PortalMyCases() {
   const [editPw, setEditPw] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
 
-  useEffect(() => {
-    if (!isLoggedIn) nav("/portal/login");
-  }, [isLoggedIn]);
-
-  const { data: me, isLoading } = useQuery({
+  const { data: me, isLoading, isError } = useQuery({
     queryKey: ["client-me"],
     queryFn: () => fetch(`${BASE}api/client-auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    enabled: !!token,
+      credentials: "include",
+    }).then(r => {
+      if (r.status === 401) throw new Error("unauthenticated");
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      return r.json();
+    }),
+    retry: false,
   });
+
+  useEffect(() => {
+    if (isError) nav("/portal/login");
+  }, [isError]);
 
   const logout = async () => {
     await fetch(`${BASE}api/client-auth/logout`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
     });
-    localStorage.removeItem("client_session_token");
-    localStorage.removeItem("client_info");
+    sessionStorage.removeItem("client_info");
     toast.success("تم تسجيل الخروج");
     nav("/portal/login");
   };
@@ -70,7 +65,8 @@ export default function PortalMyCases() {
     setLinking(true);
     const r = await fetch(`${BASE}api/client-auth/link-token`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ portalToken }),
     });
     const d = await r.json();
@@ -89,21 +85,32 @@ export default function PortalMyCases() {
     if (editPw) body.password = editPw;
     const r = await fetch(`${BASE}api/client-auth/me`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     const d = await r.json();
     setSavingProfile(false);
     if (d.error) { toast.error(d.error); return; }
     toast.success("تم حفظ بياناتك");
-    if (editName) localStorage.setItem("client_info", JSON.stringify({ ...client, name: editName }));
     setEditName(""); setEditPhone(""); setEditPw("");
     setShowProfile(false);
     qc.invalidateQueries({ queryKey: ["client-me"] });
   };
 
   const cases: any[] = me?.linkedCases ?? [];
-  const displayName = me?.name ?? client?.email ?? "العميل";
+  const displayName = me?.name ?? me?.email ?? "العميل";
+
+  if (isLoading) {
+    return (
+      <div dir="rtl" className="min-h-screen bg-[#0d1b2a] flex items-center justify-center" style={{ fontFamily: "'Cairo', sans-serif" }}>
+        <div className="flex items-center gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-[#C9A84C]" />
+          <span className="text-muted-foreground">جاري التحقق من هويتك...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="min-h-screen bg-[#0d1b2a] text-foreground" style={{ fontFamily: "'Cairo', sans-serif" }}>
@@ -177,7 +184,7 @@ export default function PortalMyCases() {
             <div>
               <p className="font-bold text-[#C9A84C] text-lg">مرحباً، {displayName}</p>
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Mail className="h-3 w-3" />{me?.email ?? client?.email}
+                <Mail className="h-3 w-3" />{me?.email}
               </p>
             </div>
             <div className="mr-auto text-left">
@@ -188,12 +195,7 @@ export default function PortalMyCases() {
         </div>
 
         {/* Cases list */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12 gap-3">
-            <Loader2 className="h-6 w-6 animate-spin text-[#C9A84C]" />
-            <span className="text-muted-foreground">جاري التحميل...</span>
-          </div>
-        ) : cases.length === 0 ? (
+        {cases.length === 0 ? (
           <div className="bg-[#0a1520] border border-[#C9A84C]/10 rounded-2xl p-8 text-center space-y-3">
             <FileText className="h-12 w-12 text-[#C9A84C]/30 mx-auto" />
             <p className="font-bold text-muted-foreground">لا توجد قضايا مرتبطة بعد</p>

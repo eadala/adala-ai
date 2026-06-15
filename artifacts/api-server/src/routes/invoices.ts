@@ -4,6 +4,7 @@ import { db, clientInvoicesTable as invoicesTable, clientsTable } from "@workspa
 import { eq, desc, and } from "drizzle-orm";
 import { getUncachableStripeClient } from "../stripeClient";
 import { eventBus } from "../core/eventBus";
+import { auditLog, auditMeta } from "../lib/auditLogger";
 
 const router = Router();
 
@@ -75,6 +76,7 @@ router.post("/invoices", requireAuthWithTenant, async (req: Request, res: Respon
       data: { invoiceNumber, clientId, caseId, title, total, currency: currency ?? "SAR" },
     }).catch(() => {});
 
+    auditLog({ ...auditMeta(req), action: "create", resource: "invoice", resourceId: String(invoice.id), details: `رقم: ${invoiceNumber} — المبلغ: ${total}` }).catch(() => {});
     res.status(201).json(invoice);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -125,6 +127,7 @@ router.delete("/invoices/:id", requireAuthWithTenant, async (req: Request, res: 
     const tenantId = (req as any).tenantId;
     await db.delete(invoicesTable)
       .where(and(eq(invoicesTable.id, String(req.params.id)), eq((invoicesTable as any).officeId, tenantId)));
+    auditLog({ ...auditMeta(req), action: "delete", resource: "invoice", resourceId: String(req.params.id) }).catch(() => {});
     res.json({ ok: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

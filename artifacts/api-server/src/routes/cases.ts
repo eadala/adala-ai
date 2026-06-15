@@ -16,7 +16,7 @@ import { CaseDocuments }                           from "../case/modules/documen
 import { db }                                      from "@workspace/db";
 import { sql }                                     from "drizzle-orm";
 import { runCaseAutopilot, ensureAutopilotTable }  from "../agents/caseAutopilot";
-import { auditLog }                                from "../lib/auditLogger";
+import { auditLog, auditMeta }                      from "../lib/auditLogger";
 import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace/api-zod";
 import { runAIAnalysis, getLatestInsight, approveAITask, rejectAITask } from "../case/case.ai";
 
@@ -93,6 +93,7 @@ router.post("/cases", requireAuthWithTenant, async (req, res) => {
       clientName:  body.clientName,
       assignedTo:  body.assignedTo,
     });
+    auditLog({ ...auditMeta(req), action: "create", resource: "case", resourceId: String(created.id), details: `عنوان: ${body.title}` }).catch(() => {});
     res.status(201).json(serializeCase(created));
   } catch (e: any) {
     res.status(e.statusCode ?? 400).json({ error: e.message });
@@ -170,6 +171,7 @@ router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
       clientName:  body.clientName,
       assignedTo:  body.assignedTo,
     });
+    auditLog({ ...auditMeta(req), action: "update", resource: "case", resourceId: id }).catch(() => {});
     res.json(serializeCase(after));
   } catch (e: any) {
     res.status(e.statusCode ?? 400).json({ error: e.message });
@@ -179,7 +181,9 @@ router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
 /* DELETE /cases/:id */
 router.delete("/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    await getService(req).deleteCase(String(req.params.id));
+    const delId = String(req.params.id);
+    await getService(req).deleteCase(delId);
+    auditLog({ ...auditMeta(req), action: "delete", resource: "case", resourceId: delId }).catch(() => {});
     res.status(204).end();
   } catch (e: any) {
     res.status(e.statusCode ?? 500).json({ error: e.message });

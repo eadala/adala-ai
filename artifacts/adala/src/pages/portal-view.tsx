@@ -23,21 +23,29 @@ function ClientAccountBanner({ portalToken }: { portalToken: string }) {
   const [, nav] = useLocation();
   const [linked, setLinked] = useState(false);
   const [linking, setLinking] = useState(false);
-  const sessionToken = typeof window !== "undefined" ? localStorage.getItem("client_session_token") : null;
-  const clientInfo = typeof window !== "undefined" ? localStorage.getItem("client_info") : null;
+  const clientInfo = typeof window !== "undefined" ? sessionStorage.getItem("client_info") : null;
   const client = clientInfo ? JSON.parse(clientInfo) : null;
+  const [hasSession, setHasSession] = useState(false);
+
+  // Check if user has active session via cookie (fire-and-forget auth check)
+  useEffect(() => {
+    fetch(`${BASE}api/client-auth/me`, { credentials: "include" })
+      .then(r => { if (r.ok) setHasSession(true); })
+      .catch(() => {});
+  }, []);
 
   // Auto-link token to account if logged in
   useEffect(() => {
-    if (!sessionToken || !portalToken || linked) return;
+    if (!hasSession || !portalToken || linked) return;
     fetch(`${BASE}api/client-auth/link-token`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ portalToken }),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }).then(d => { if (!d.error) setLinked(true); }).catch(() => {});
-  }, [sessionToken, portalToken]);
+  }, [hasSession, portalToken]);
 
-  if (sessionToken && client) {
+  if (hasSession && client) {
     return (
       <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-2xl p-3.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">

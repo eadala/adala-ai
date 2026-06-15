@@ -304,12 +304,37 @@ router.get("/storage/files", requireAuthWithTenant, async (req, res) => {
   res.json(rows);
 });
 
+/* Allowed file types for upload */
+const ALLOWED_MIMES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "image/jpeg", "image/jpg", "image/png",
+]);
+const ALLOWED_EXTS = new Set([".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png"]);
+const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50MB
+
 /* REGISTER FILE (metadata) */
 router.post("/storage/files", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
   const { originalName, mimeType, fileSize, fileUrl, storageKey, category = "document", caseId, clientId } = req.body;
   if (!originalName) return res.status(400).json({ error: "اسم الملف مطلوب" });
+
+  // ── File type & size validation ────────────────────────────────────
+  if (mimeType && !ALLOWED_MIMES.has(mimeType)) {
+    return res.status(415).json({ error: `نوع الملف غير مسموح به: ${mimeType}. الأنواع المسموح بها: PDF, DOCX, XLSX, JPG, PNG` });
+  }
+  const ext = "." + (originalName as string).split(".").pop()?.toLowerCase();
+  if (!ALLOWED_EXTS.has(ext)) {
+    return res.status(415).json({ error: `امتداد الملف غير مسموح به: ${ext}. الأنواع المسموح بها: pdf, docx, xlsx, jpg, png` });
+  }
+  if (fileSize && fileSize > MAX_FILE_BYTES) {
+    return res.status(413).json({ error: `حجم الملف (${Math.round(fileSize / 1024 / 1024)} MB) يتجاوز الحد الأقصى المسموح به (50 MB)` });
+  }
+  // ──────────────────────────────────────────────────────────────────
 
   if (!u.isSA) {
     const quotaRows = await dbRows(sql`SELECT used_bytes, max_bytes FROM office_storage_quota WHERE office_id=${u.officeId}`);

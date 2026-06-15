@@ -33,9 +33,12 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
   try {
     tenantId = await resolveTenantId(userId, headerTenant);
   } catch {
-    /* resolveTenantId failure is non-fatal — fallback to "default" */
+    return res.status(403).json({ error: "خطأ في تحديد المكتب — حاول مجدداً." });
   }
-  const officeId = tenantId ?? "default";
+  if (!tenantId) {
+    return res.status(403).json({ error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب." });
+  }
+  const officeId = tenantId;
   (req as any).tenantId = officeId;
 
   // 🔑 Layer 1: AsyncLocalStorage — getTenant() works anywhere in the stack
