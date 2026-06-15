@@ -1,227 +1,127 @@
 /**
- * Case Detail — صفحة تفاصيل القضية
- * ────────────────────────────────────
- * Architecture: Clean tabs — each tab is an isolated component
- * 7 tabs: Overview | Timeline | Tasks | Documents | Sessions | Messages | AI
+ * Case Detail — Control Center
+ * ─────────────────────────────
+ * Layout: Header → Action Bar → [Feed | Sidebar]
+ * No tabs — كل شيء في صفحة واحدة
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useGetCase, getGetCaseQueryKey, useUpdateCase } from "@workspace/api-client-react";
-import { useQuery, useMutation, useQueryClient }          from "@tanstack/react-query";
+import { useQuery, useQueryClient }                       from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle }       from "@/components/ui/card";
 import { Button }                                          from "@/components/ui/button";
 import { Badge }                                           from "@/components/ui/badge";
 import { Skeleton }                                        from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger }        from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input }                                           from "@/components/ui/input";
 import { Label }                                           from "@/components/ui/label";
 import { Textarea }                                        from "@/components/ui/textarea";
-import { Separator }                                       from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  ArrowRight, FileText, MessageSquare, Bot, User, Clock, Scale,
-  Receipt, CalendarDays, Sparkles, AlertTriangle, Plus,
-  CheckCheck, Circle, Loader2, Send, Paperclip, History,
-  CheckSquare, ListTodo, Shield, TrendingUp, Lightbulb,
+  ArrowRight, Plus, MessageSquare, Bot, User, Clock,
+  FileText, CalendarDays, CheckCheck, CheckSquare, Circle,
+  Loader2, Send, History, Receipt, AlertTriangle,
+  Sparkles, Shield, TrendingUp, ChevronRight, Scale,
+  Paperclip, Zap, X, ListTodo,
 } from "lucide-react";
-import { Link }            from "wouter";
-import { useToast }        from "@/hooks/use-toast";
-import { useLang }         from "@/hooks/use-lang";
-import { cn }              from "@/lib/utils";
-import { CaseAutopilotCard } from "@/components/case-autopilot-card";
+import { Link }           from "wouter";
+import { useToast }       from "@/hooks/use-toast";
+import { useLang }        from "@/hooks/use-lang";
+import { cn }             from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-/* ══════════════════════════════════════════
-   CONSTANTS
-══════════════════════════════════════════ */
-const STATUS_MAP: Record<string, { label: string; bg: string }> = {
-  open:        { label: "مفتوحة",       bg: "bg-blue-50 text-blue-700 border-blue-200" },
-  in_progress: { label: "قيد التنفيذ",  bg: "bg-amber-50 text-amber-700 border-amber-200" },
-  closed:      { label: "مغلقة",        bg: "bg-slate-100 text-slate-600 border-slate-200" },
+/* ══════════════════ CONSTANTS ══════════════════ */
+const STATUS_CFG: Record<string, { label: string; bg: string; dot: string }> = {
+  open:        { label: "مفتوحة",       bg: "bg-blue-50 text-blue-700 border-blue-200",   dot: "bg-blue-500"   },
+  in_progress: { label: "قيد التنفيذ",  bg: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500"  },
+  closed:      { label: "مغلقة",        bg: "bg-slate-100 text-slate-600 border-slate-300", dot: "bg-slate-400"  },
 };
 const TYPE_MAP: Record<string, string> = {
-  criminal:    "جنائية",
-  civil:       "مدنية",
-  commercial:  "تجارية",
-  labor:       "عمالية",
-  real_estate: "عقارية",
-};
-const TASK_STATUS: Record<string, { label: string; color: string }> = {
-  todo:        { label: "لم تبدأ",  color: "text-slate-500" },
-  in_progress: { label: "جارية",    color: "text-amber-600" },
-  done:        { label: "منجزة",    color: "text-emerald-600" },
-};
-const PRIORITY_COLOR: Record<string, string> = {
-  high:   "text-red-600",
-  medium: "text-amber-600",
-  low:    "text-slate-400",
+  criminal: "جنائية", civil: "مدنية", commercial: "تجارية",
+  labor: "عمالية", real_estate: "عقارية",
 };
 const ENTRY_ICON: Record<string, any> = {
-  hearing:      CalendarDays,
-  note:         FileText,
-  document:     Paperclip,
-  decision:     CheckCheck,
-  consultation: MessageSquare,
+  hearing: CalendarDays, note: FileText, document: Paperclip,
+  decision: CheckCheck, consultation: MessageSquare,
+};
+const ENTRY_COLOR: Record<string, string> = {
+  hearing:      "bg-blue-100 text-blue-700 border-blue-200",
+  note:         "bg-slate-100 text-slate-600 border-slate-200",
+  document:     "bg-violet-100 text-violet-700 border-violet-200",
+  decision:     "bg-emerald-100 text-emerald-700 border-emerald-200",
+  consultation: "bg-amber-100 text-amber-700 border-amber-200",
+};
+const GRADE_COLOR: Record<string, string> = {
+  A: "text-emerald-600", B: "text-blue-600",
+  C: "text-amber-600",   D: "text-orange-600", F: "text-red-600",
+};
+const PRIORITY_DOT: Record<string, string> = {
+  high: "bg-red-500", medium: "bg-amber-400", low: "bg-slate-300",
 };
 
-/* ══════════════════════════════════════════
-   HOOKS
-══════════════════════════════════════════ */
-function useHub(id: string) {
-  return useQuery<any>({
-    queryKey: ["case-hub", id],
-    queryFn: () => fetch(`${BASE}/api/cases/${id}/hub`).then(r => r.json()),
-    enabled: !!id,
-  });
-}
-function useTimeline(id: string) {
-  return useQuery<any[]>({
-    queryKey: ["case-timeline", id],
-    queryFn: () => fetch(`${BASE}/api/cases/${id}/timeline`).then(r => r.json()),
-    enabled: !!id,
-  });
-}
-function useCaseTasks(id: string) {
-  return useQuery<any[]>({
-    queryKey: ["case-tasks", id],
-    queryFn: () => fetch(`${BASE}/api/cases/${id}/tasks`).then(r => r.json()),
-    enabled: !!id,
-  });
-}
-function useCaseMessages(id: string) {
-  return useQuery<any[]>({
-    queryKey: ["case-msgs", id],
-    queryFn: () => fetch(`${BASE}/api/cases/${id}/messages`).then(r => r.json()),
-    enabled: !!id,
-    staleTime: 15_000,
+/* ══════════════════ HOOKS ══════════════════ */
+function api<T>(key: any[], url: string) {
+  return useQuery<T>({
+    queryKey: key,
+    queryFn: () => fetch(`${BASE}${url}`).then(r => r.json()),
+    enabled: !url.includes("undefined"),
+    staleTime: 30_000,
   });
 }
 
-/* ══════════════════════════════════════════
-   SUB-COMPONENTS
-══════════════════════════════════════════ */
-
-/* ── Overview tab ── */
-function OverviewTab({ caseData, hub }: { caseData: any; hub: any }) {
-  const invoices  = hub?.invoices  ?? [];
-  const contracts = hub?.contracts ?? [];
-  const events    = hub?.events    ?? [];
-  const documents = hub?.documents ?? [];
-
-  const totalInvoiced = invoices.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0);
-  const paidCount     = invoices.filter((i: any) => i.status === "paid").length;
-
+/* ══════════════════ SCORE RING ══════════════════ */
+function ScoreRing({ score, grade }: { score: number; grade: string }) {
+  const r = 22, circ = 2 * Math.PI * r;
+  const dash = (score / 100) * circ;
+  const col = score >= 70 ? "#22c55e" : score >= 45 ? "#f59e0b" : "#ef4444";
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* ── Client + Case info ── */}
-      <div className="space-y-4">
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <User className="h-4 w-4 text-primary" />بيانات الموكل
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <Row label="الاسم"     value={caseData.clientName ?? "—"} />
-            <Row label="المحامي"   value={caseData.assignedTo ?? "—"} />
-            <Row label="نوع القضية" value={TYPE_MAP[caseData.caseType] ?? caseData.caseType} />
-            <Row label="المصدر"    value={caseData.source === "store" ? "متجر" : "يدوي"} />
-            {caseData.createdBy && <Row label="أنشأها" value={caseData.createdBy} />}
-            <Row
-              label="تاريخ الإنشاء"
-              value={caseData.createdAt ? new Date(caseData.createdAt).toLocaleDateString("ar-SA") : "—"}
-            />
-          </CardContent>
-        </Card>
+    <svg width={60} height={60} viewBox="0 0 56 56">
+      <circle cx={28} cy={28} r={r} fill="none" stroke="#e5e7eb" strokeWidth={5} />
+      <circle cx={28} cy={28} r={r} fill="none" stroke={col} strokeWidth={5}
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+        transform="rotate(-90 28 28)" />
+      <text x={28} y={32} textAnchor="middle" fontSize={13} fontWeight={700} fill={col}>{score}</text>
+    </svg>
+  );
+}
 
-        {caseData.description && (
-          <Card className="border shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">وصف القضية</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground leading-relaxed">{caseData.description}</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* ── Stats + Recent entities ── */}
-      <div className="lg:col-span-2 space-y-4">
-        {/* Mini KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <MiniStat label="فواتير"   value={invoices.length}  color="bg-blue-50 text-blue-700" />
-          <MiniStat label="عقود"     value={contracts.length} color="bg-violet-50 text-violet-700" />
-          <MiniStat label="جلسات"    value={events.length}    color="bg-amber-50 text-amber-700" />
-          <MiniStat label="مستندات"  value={documents.length} color="bg-emerald-50 text-emerald-700" />
-        </div>
-
-        {/* Recent Invoices */}
-        {invoices.length > 0 && (
-          <Card className="border shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-primary" />الفواتير ({invoices.length})
-                <span className="text-xs text-muted-foreground me-auto">
-                  مدفوع: {paidCount} · الإجمالي: {totalInvoiced.toLocaleString("ar-SA")} ر.س
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="divide-y">
-              {invoices.slice(0, 4).map((inv: any) => (
-                <div key={inv.id} className="flex items-center justify-between py-2 text-sm">
-                  <span className="font-medium">{inv.title ?? inv.invoice_number}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">{Number(inv.total ?? 0).toLocaleString("ar-SA")} ر.س</span>
-                    <Badge variant="outline" className={cn("text-xs",
-                      inv.status === "paid"    ? "bg-emerald-50 text-emerald-700" :
-                      inv.status === "overdue" ? "bg-red-50 text-red-700"         : "")}>
-                      {inv.status === "paid" ? "مدفوعة" : inv.status === "overdue" ? "متأخرة" : "معلقة"}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Recent Events */}
-        {events.length > 0 && (
-          <Card className="border shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-primary" />الجلسات ({events.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="divide-y">
-              {events.slice(0, 3).map((ev: any) => (
-                <div key={ev.id} className="flex items-center justify-between py-2 text-sm">
-                  <div>
-                    <span className="font-medium">{ev.title}</span>
-                    {ev.location && <span className="text-xs text-muted-foreground ms-2">📍{ev.location}</span>}
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {ev.start_at ? new Date(ev.start_at).toLocaleDateString("ar-SA") : "—"}
-                  </span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-      </div>
+/* ══════════════════ ACTION BAR ══════════════════ */
+function ActionBar({
+  onTask, onMessage, onTimeline, onAI, onClose,
+  status, closing,
+}: {
+  onTask: () => void; onMessage: () => void; onTimeline: () => void;
+  onAI: () => void; onClose: () => void; status: string; closing: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 p-3 bg-muted/30 rounded-xl border">
+      <Button size="sm" onClick={onTask} className="gap-1.5">
+        <Plus className="h-3.5 w-3.5" />مهمة
+      </Button>
+      <Button size="sm" variant="outline" onClick={onMessage} className="gap-1.5">
+        <MessageSquare className="h-3.5 w-3.5" />رسالة
+      </Button>
+      <Button size="sm" variant="outline" onClick={onTimeline} className="gap-1.5">
+        <History className="h-3.5 w-3.5" />قيد جديد
+      </Button>
+      <Button size="sm" variant="outline" onClick={onAI} className="gap-1.5">
+        <Sparkles className="h-3.5 w-3.5" />تحليل AI
+      </Button>
+      {status !== "closed" && (
+        <Button size="sm" variant="destructive" onClick={onClose} disabled={closing} className="gap-1.5 ms-auto">
+          {closing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+          إغلاق القضية
+        </Button>
+      )}
     </div>
   );
 }
 
-/* ── Timeline tab ── */
-function TimelineTab({ id }: { id: string }) {
-  const { data: entries = [], refetch } = useTimeline(id);
-  const [open, setOpen]   = useState(false);
-  const [form, setForm]   = useState({ entry_type: "note", title: "", description: "", is_shared: true });
+/* ══════════════════ TIMELINE FEED ══════════════════ */
+function TimelineFeed({ caseId, open, setOpen }: { caseId: string; open: boolean; setOpen: (v: boolean) => void }) {
+  const { data: entries = [], refetch } = api<any[]>(["case-timeline", caseId], `/api/cases/${caseId}/timeline`);
+  const [form, setForm]   = useState({ entry_type: "note", title: "", description: "" });
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -229,88 +129,86 @@ function TimelineTab({ id }: { id: string }) {
     if (!form.title.trim()) return;
     setSaving(true);
     try {
-      await fetch(`${BASE}/api/cases/${id}/timeline`, {
+      await fetch(`${BASE}/api/cases/${caseId}/timeline`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       setOpen(false);
-      setForm({ entry_type: "note", title: "", description: "", is_shared: true });
+      setForm({ entry_type: "note", title: "", description: "" });
       refetch();
-      toast({ title: "✅ تم إضافة القيد" });
-    } catch { toast({ variant: "destructive", title: "خطأ في الحفظ" }); }
+      toast({ title: "✅ تمت الإضافة" });
+    } catch { toast({ variant: "destructive", title: "خطأ" }); }
     setSaving(false);
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4 me-2" />إضافة قيد
-        </Button>
-      </div>
-
-      {entries.length === 0 && (
-        <div className="text-center py-16 text-muted-foreground space-y-2">
-          <History className="h-10 w-10 mx-auto opacity-20" />
-          <p className="text-sm">لا يوجد سجل بعد</p>
-        </div>
-      )}
-
-      <div className="relative">
-        {entries.length > 0 && <div className="absolute start-5 top-0 bottom-0 w-px bg-border" />}
-        <div className="space-y-4">
-          {entries.map((entry: any) => {
-            const Icon = ENTRY_ICON[entry.entry_type] ?? Circle;
-            return (
-              <div key={entry.id} className="flex gap-4 relative">
-                <div className="flex-none w-10 h-10 rounded-full bg-background border-2 border-primary/30 flex items-center justify-center z-10">
-                  <Icon className="h-4 w-4 text-primary" />
-                </div>
-                <Card className="flex-1 border shadow-sm hover:shadow transition-shadow">
-                  <CardContent className="py-3 px-4">
+    <Card className="border shadow-sm">
+      <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <History className="h-4 w-4 text-primary" />السجل الزمني
+        </CardTitle>
+        <span className="text-xs text-muted-foreground">{entries.length} قيد</span>
+      </CardHeader>
+      <CardContent className="space-y-0 pt-0">
+        {entries.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            <History className="h-8 w-8 mx-auto mb-2 opacity-20" />لا يوجد سجل بعد
+          </div>
+        )}
+        <div className="relative">
+          {entries.length > 0 && (
+            <div className="absolute start-[18px] top-0 bottom-0 w-px bg-border" />
+          )}
+          <div className="space-y-3">
+            {entries.map((e: any) => {
+              const Icon = ENTRY_ICON[e.entry_type] ?? Circle;
+              const col  = ENTRY_COLOR[e.entry_type] ?? "bg-slate-100 text-slate-600 border-slate-200";
+              return (
+                <div key={e.id} className="flex gap-3 relative">
+                  <div className={cn("w-9 h-9 rounded-full border flex items-center justify-center z-10 shrink-0", col)}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 bg-muted/20 rounded-xl px-3 py-2.5 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-sm">{entry.title}</p>
-                        {entry.description && <p className="text-xs text-muted-foreground mt-1">{entry.description}</p>}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-xs text-muted-foreground">
-                          {entry.happened_at ? new Date(entry.happened_at).toLocaleDateString("ar-SA") : "—"}
-                        </p>
-                        {entry.created_by && <p className="text-xs text-muted-foreground">{entry.created_by}</p>}
-                      </div>
+                      <p className="text-sm font-medium leading-snug">{e.title}</p>
+                      <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
+                        {e.happened_at ? new Date(e.happened_at).toLocaleDateString("ar-SA") : ""}
+                      </span>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-            );
-          })}
+                    {e.description && <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{e.description}</p>}
+                    {e.created_by && <p className="text-xs text-muted-foreground/60 mt-1">{e.created_by}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      </CardContent>
 
+      {/* Add timeline dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>إضافة قيد للجدول الزمني</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>إضافة قيد للسجل</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>النوع</Label>
               <Select value={form.entry_type} onValueChange={v => setForm(p => ({ ...p, entry_type: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="hearing">جلسة</SelectItem>
-                  <SelectItem value="note">ملاحظة</SelectItem>
-                  <SelectItem value="document">مستند</SelectItem>
+                  <SelectItem value="hearing">جلسة محكمة</SelectItem>
+                  <SelectItem value="note">ملاحظة قانونية</SelectItem>
+                  <SelectItem value="document">رفع مستند</SelectItem>
                   <SelectItem value="decision">قرار</SelectItem>
                   <SelectItem value="consultation">استشارة</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>العنوان *</Label>
-              <Input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="وصف القيد..." />
+              <Label>الوصف *</Label>
+              <Input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="ما الذي حدث؟" />
             </div>
             <div className="space-y-1.5">
-              <Label>تفاصيل</Label>
+              <Label>تفاصيل إضافية</Label>
               <Textarea rows={3} className="resize-none" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
             </div>
           </div>
@@ -322,37 +220,191 @@ function TimelineTab({ id }: { id: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </Card>
   );
 }
 
-/* ── Tasks tab ── */
-function TasksTab({ id, caseTitle }: { id: string; caseTitle: string }) {
-  const { data: tasks = [], refetch } = useCaseTasks(id);
-  const [open, setOpen]   = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm]   = useState({ title: "", priority: "medium", assignee_name: "", due_date: "" });
+/* ══════════════════ MESSAGES CHAT ══════════════════ */
+function MessagesChat({ caseId, open, setOpen }: { caseId: string; open: boolean; setOpen: (v: boolean) => void }) {
+  const { data: msgs = [], refetch } = api<any[]>(["case-msgs", caseId], `/api/cases/${caseId}/messages`);
+  const [body, setBody]     = useState("");
+  const [sending, setSending] = useState(false);
+  const endRef              = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  const add = async () => {
-    if (!form.title.trim()) return;
-    setSaving(true);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+
+  const send = async () => {
+    if (!body.trim()) return;
+    setSending(true);
     try {
-      await fetch(`${BASE}/api/cases/${id}/tasks`, {
+      await fetch(`${BASE}/api/cases/${caseId}/messages`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ body, sender_name: "المحامي" }),
       });
-      setOpen(false);
-      setForm({ title: "", priority: "medium", assignee_name: "", due_date: "" });
+      setBody("");
       refetch();
-      toast({ title: "✅ تم إضافة المهمة" });
-    } catch { toast({ variant: "destructive", title: "خطأ" }); }
-    setSaving(false);
+    } catch { toast({ variant: "destructive", title: "فشل الإرسال" }); }
+    setSending(false);
   };
 
-  const toggle = async (taskId: string, current: string) => {
-    const next = current === "done" ? "todo" : current === "todo" ? "in_progress" : "done";
-    await fetch(`${BASE}/api/tasks/${taskId}`, {
+  return (
+    <Card className="border shadow-sm">
+      <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-primary" />مراسلات الفريق
+        </CardTitle>
+        <span className="text-xs text-muted-foreground">{msgs.length} رسالة</span>
+      </CardHeader>
+      <CardContent className="space-y-3 pt-0">
+        {/* Message thread */}
+        <div className="max-h-64 overflow-y-auto space-y-2 ps-1">
+          {msgs.length === 0 && (
+            <div className="text-center py-6 text-muted-foreground text-sm">
+              <MessageSquare className="h-6 w-6 mx-auto mb-1.5 opacity-20" />لا توجد رسائل بعد
+            </div>
+          )}
+          {msgs.map((m: any) => (
+            <div key={m.id} className="flex gap-2.5 group">
+              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                <User className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-xs font-semibold">{m.sender_name ?? "المحامي"}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {m.created_at ? new Date(m.created_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : ""}
+                  </span>
+                </div>
+                <div className="bg-muted/50 rounded-xl rounded-ss-none px-3 py-2 text-sm">{m.body}</div>
+              </div>
+            </div>
+          ))}
+          <div ref={endRef} />
+        </div>
+
+        {/* Compose — visible when dialog open or as expand */}
+        <div className="flex gap-2 border-t pt-3">
+          <Input
+            className="flex-1 text-sm h-9"
+            placeholder="اكتب رسالة للفريق... (Enter للإرسال)"
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); send(); } }}
+          />
+          <Button size="sm" onClick={send} disabled={sending || !body.trim()} className="h-9 px-3">
+            {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ══════════════════ SIDEBAR CARDS ══════════════════ */
+
+/* Case info */
+function InfoCard({ c }: { c: any }) {
+  const s = STATUS_CFG[c.status] ?? STATUS_CFG.open;
+  const rows = [
+    { icon: User,        label: "الموكل",       val: c.clientName ?? "—" },
+    { icon: Scale,       label: "المحامي",       val: c.assignedTo ?? "—" },
+    { icon: FileText,    label: "نوع القضية",    val: TYPE_MAP[c.caseType] ?? c.caseType },
+    { icon: Clock,       label: "تاريخ الإنشاء", val: c.createdAt ? new Date(c.createdAt).toLocaleDateString("ar-SA") : "—" },
+  ];
+  return (
+    <Card className="border shadow-sm">
+      <CardContent className="p-4 space-y-3">
+        {/* Status pill */}
+        <div className="flex items-center gap-2">
+          <span className={cn("h-2 w-2 rounded-full shrink-0", s.dot)} />
+          <Badge variant="outline" className={cn("text-xs", s.bg)}>{s.label}</Badge>
+        </div>
+        <div className="space-y-2.5">
+          {rows.map(({ icon: Icon, label, val }) => (
+            <div key={label} className="flex items-center gap-2.5">
+              <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground">{label}</span>
+              <span className="text-xs font-medium ms-auto text-end max-w-[140px] truncate">{val}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* AI Health mini */
+function AIHealthCard({ caseId, onAnalyze }: { caseId: string; onAnalyze: () => void }) {
+  const { data, isLoading, refetch } = api<any>(
+    ["case-health", caseId],
+    `/api/cases/${caseId}/health`,
+  );
+  const [running, setRunning] = useState(false);
+  const { toast } = useToast();
+
+  const analyze = async () => {
+    setRunning(true);
+    try {
+      await fetch(`${BASE}/api/cases/${caseId}/autopilot`, { method: "POST" });
+      refetch();
+      toast({ title: "✅ اكتمل التحليل" });
+    } catch { toast({ variant: "destructive", title: "خطأ في التحليل" }); }
+    setRunning(false);
+  };
+
+  return (
+    <Card className="border shadow-sm bg-gradient-to-br from-background to-primary/3">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xs font-semibold flex items-center gap-1.5">
+          <Bot className="h-3.5 w-3.5 text-primary" />تحليل AI Autopilot
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-3">
+        {isLoading && <Skeleton className="h-12 w-full rounded-lg" />}
+        {!isLoading && data && (
+          <>
+            <div className="flex items-center gap-3">
+              <ScoreRing score={data.healthScore ?? 0} grade={data.grade ?? "C"} />
+              <div>
+                <p className="text-xs text-muted-foreground">درجة الصحة</p>
+                <p className={cn("text-2xl font-bold", GRADE_COLOR[data.grade] ?? "text-foreground")}>
+                  {data.grade}
+                </p>
+                {data.outcomePrediction?.successProbability != null && (
+                  <p className="text-xs text-muted-foreground">
+                    نجاح: <span className="font-medium text-foreground">{data.outcomePrediction.successProbability}%</span>
+                  </p>
+                )}
+              </div>
+            </div>
+            {(data.risks ?? []).slice(0, 2).map((r: string, i: number) => (
+              <div key={i} className="flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />{r}
+              </div>
+            ))}
+          </>
+        )}
+        {!isLoading && !data && (
+          <p className="text-xs text-muted-foreground text-center py-2">لم يتم التحليل بعد</p>
+        )}
+        <Button size="sm" variant="outline" onClick={analyze} disabled={running} className="w-full text-xs h-7">
+          {running ? <Loader2 className="h-3 w-3 animate-spin me-1" /> : <Zap className="h-3 w-3 me-1" />}
+          {data ? "إعادة التحليل" : "تحليل الآن"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* Tasks mini */
+function TasksMini({ caseId, onAdd }: { caseId: string; onAdd: () => void }) {
+  const { data: tasks = [], refetch } = api<any[]>(["case-tasks", caseId], `/api/cases/${caseId}/tasks`);
+  const pending = tasks.filter((t: any) => t.status !== "done");
+
+  const toggle = async (id: string, cur: string) => {
+    const next = cur === "done" ? "todo" : "done";
+    await fetch(`${BASE}/api/tasks/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: next }),
     }).catch(() => {});
@@ -360,308 +412,191 @@ function TasksTab({ id, caseTitle }: { id: string; caseTitle: string }) {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{tasks.length} مهمة</span>
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4 me-2" />مهمة جديدة
-        </Button>
-      </div>
-
-      {tasks.length === 0 && (
-        <div className="text-center py-16 text-muted-foreground space-y-2">
-          <ListTodo className="h-10 w-10 mx-auto opacity-20" />
-          <p className="text-sm">لا توجد مهام مرتبطة بهذه القضية</p>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {tasks.map((t: any) => (
-          <Card key={t.id} className="border shadow-sm hover:shadow transition-shadow">
-            <CardContent className="py-3 px-4">
-              <div className="flex items-start gap-3">
-                <button onClick={() => toggle(t.id, t.status)} className="mt-0.5 shrink-0">
-                  {t.status === "done"
-                    ? <CheckSquare className="h-5 w-5 text-emerald-500" />
-                    : <Circle className="h-5 w-5 text-slate-300 hover:text-primary transition-colors" />}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className={cn("text-sm font-medium", t.status === "done" && "line-through text-muted-foreground")}>
-                    {t.title}
-                  </p>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                    <span className={PRIORITY_COLOR[t.priority ?? "medium"]}>
-                      {t.priority === "high" ? "عالية" : t.priority === "low" ? "منخفضة" : "متوسطة"}
-                    </span>
-                    {t.assignee_name && <span>👤 {t.assignee_name}</span>}
-                    {t.due_date && <span>📅 {new Date(t.due_date).toLocaleDateString("ar-SA")}</span>}
-                    <span className={TASK_STATUS[t.status]?.color}>{TASK_STATUS[t.status]?.label}</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>مهمة جديدة</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>عنوان المهمة *</Label>
-              <Input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="ماذا يجب القيام به؟" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>الأولوية</Label>
-                <Select value={form.priority} onValueChange={v => setForm(p => ({ ...p, priority: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="high">عالية 🔴</SelectItem>
-                    <SelectItem value="medium">متوسطة 🟡</SelectItem>
-                    <SelectItem value="low">منخفضة 🟢</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>تاريخ الاستحقاق</Label>
-                <Input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))} />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>المسؤول</Label>
-              <Input value={form.assignee_name} onChange={e => setForm(p => ({ ...p, assignee_name: e.target.value }))} placeholder="اسم المحامي أو الموظف" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
-            <Button onClick={add} disabled={saving || !form.title.trim()}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "إضافة"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-/* ── Documents tab ── */
-function DocumentsTab({ hub }: { hub: any }) {
-  const documents = hub?.documents ?? [];
-  return (
-    <div className="space-y-3">
-      {documents.length === 0 && (
-        <div className="text-center py-16 text-muted-foreground space-y-2">
-          <FileText className="h-10 w-10 mx-auto opacity-20" />
-          <p className="text-sm">لا توجد مستندات مرفقة</p>
-        </div>
-      )}
-      {documents.map((doc: any) => (
-        <Card key={doc.id} className="border shadow-sm hover:shadow transition-shadow">
-          <CardContent className="py-3 px-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <FileText className="h-4 w-4 text-primary" />
-            </div>
+    <Card className="border shadow-sm">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="text-xs font-semibold flex items-center gap-1.5">
+          <ListTodo className="h-3.5 w-3.5 text-primary" />المهام
+          {pending.length > 0 && (
+            <Badge className="text-xs h-4 px-1.5 rounded-full bg-primary/10 text-primary border-0">{pending.length}</Badge>
+          )}
+        </CardTitle>
+        <button onClick={onAdd} className="text-primary hover:text-primary/80 transition-colors">
+          <Plus className="h-4 w-4" />
+        </button>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-1.5">
+        {tasks.length === 0 && <p className="text-xs text-muted-foreground text-center py-3">لا توجد مهام</p>}
+        {tasks.slice(0, 5).map((t: any) => (
+          <div key={t.id} className="flex items-start gap-2 group">
+            <button onClick={() => toggle(t.id, t.status)} className="shrink-0 mt-0.5">
+              {t.status === "done"
+                ? <CheckSquare className="h-4 w-4 text-emerald-500" />
+                : <Circle className="h-4 w-4 text-slate-300 group-hover:text-primary transition-colors" />}
+            </button>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{doc.file_name}</p>
-              <p className="text-xs text-muted-foreground">{doc.file_type} · {new Date(doc.created_at).toLocaleDateString("ar-SA")}</p>
+              <p className={cn("text-xs leading-snug", t.status === "done" && "line-through text-muted-foreground")}>
+                {t.title}
+              </p>
+              {t.due_date && (
+                <p className="text-xs text-muted-foreground/70 mt-0.5">
+                  📅 {new Date(t.due_date).toLocaleDateString("ar-SA")}
+                </p>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+            <span className={cn("w-1.5 h-1.5 rounded-full mt-1.5 shrink-0", PRIORITY_DOT[t.priority] ?? "bg-slate-300")} />
+          </div>
+        ))}
+        {tasks.length > 5 && (
+          <p className="text-xs text-muted-foreground text-center pt-1">+{tasks.length - 5} مهام أخرى</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
-/* ── Sessions tab ── */
-function SessionsTab({ hub }: { hub: any }) {
-  const events = hub?.events ?? [];
+/* Hub mini (docs + invoices) */
+function HubMini({ caseId }: { caseId: string }) {
+  const { data: hub } = api<any>(["case-hub", caseId], `/api/cases/${caseId}/hub`);
+  const docs     = hub?.documents ?? [];
+  const invoices = hub?.invoices  ?? [];
+  const events   = hub?.events    ?? [];
+  const total    = invoices.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0);
+
   return (
-    <div className="space-y-3">
-      {events.length === 0 && (
-        <div className="text-center py-16 text-muted-foreground space-y-2">
-          <CalendarDays className="h-10 w-10 mx-auto opacity-20" />
-          <p className="text-sm">لا توجد جلسات مسجلة</p>
-        </div>
-      )}
-      {events.map((ev: any) => (
-        <Card key={ev.id} className="border shadow-sm hover:shadow transition-shadow">
-          <CardContent className="py-3 px-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="font-medium text-sm">{ev.title}</p>
-                {ev.location && <p className="text-xs text-muted-foreground mt-0.5">📍 {ev.location}</p>}
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-sm font-medium">{ev.start_at ? new Date(ev.start_at).toLocaleDateString("ar-SA") : "—"}</p>
-                <Badge variant="outline" className="text-xs mt-1">
-                  {ev.event_type === "hearing" ? "جلسة" : ev.event_type === "meeting" ? "اجتماع" : ev.event_type}
-                </Badge>
-              </div>
+    <Card className="border shadow-sm">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xs font-semibold flex items-center gap-1.5">
+          <Paperclip className="h-3.5 w-3.5 text-primary" />ملفات &amp; فواتير
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-3">
+        {/* Quick stats row */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "فواتير",  val: invoices.length,  color: "text-blue-600" },
+            { label: "مستندات", val: docs.length,       color: "text-violet-600" },
+            { label: "جلسات",   val: events.length,    color: "text-amber-600" },
+          ].map(({ label, val, color }) => (
+            <div key={label} className="text-center bg-muted/30 rounded-lg py-1.5">
+              <p className={cn("text-base font-bold", color)}>{val}</p>
+              <p className="text-xs text-muted-foreground">{label}</p>
             </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+          ))}
+        </div>
+
+        {/* Recent invoices */}
+        {invoices.slice(0, 3).map((inv: any) => (
+          <div key={inv.id} className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground truncate max-w-[120px]">{inv.title ?? inv.invoice_number}</span>
+            <span className={cn("font-medium", inv.status === "paid" ? "text-emerald-600" : inv.status === "overdue" ? "text-red-600" : "text-foreground")}>
+              {Number(inv.total ?? 0).toLocaleString("ar-SA")} ر.س
+            </span>
+          </div>
+        ))}
+
+        {total > 0 && (
+          <div className="flex items-center justify-between text-xs border-t pt-2">
+            <span className="text-muted-foreground">إجمالي الفواتير</span>
+            <span className="font-semibold">{total.toLocaleString("ar-SA")} ر.س</span>
+          </div>
+        )}
+
+        {/* Recent docs */}
+        {docs.slice(0, 2).map((d: any) => (
+          <div key={d.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <FileText className="h-3 w-3 shrink-0" />
+            <span className="truncate">{d.file_name}</span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
-/* ── Messages tab ── */
-function MessagesTab({ id }: { id: string }) {
-  const { data: messages = [], refetch } = useCaseMessages(id);
-  const [body, setBody]     = useState("");
-  const [sending, setSending] = useState(false);
+/* ══════════════════ DIALOGS ══════════════════ */
+function TaskDialog({ open, onClose, caseId, caseTitle }: { open: boolean; onClose: () => void; caseId: string; caseTitle: string }) {
+  const [form, setForm] = useState({ title: "", priority: "medium", assignee_name: "", due_date: "" });
+  const [saving, setSaving] = useState(false);
+  const qc = useQueryClient();
   const { toast } = useToast();
 
-  const send = async () => {
-    if (!body.trim()) return;
-    setSending(true);
+  const save = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
     try {
-      await fetch(`${BASE}/api/cases/${id}/messages`, {
+      await fetch(`${BASE}/api/cases/${caseId}/tasks`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body, sender_name: "المحامي" }),
+        body: JSON.stringify(form),
       });
-      setBody("");
-      refetch();
-    } catch { toast({ variant: "destructive", title: "خطأ في الإرسال" }); }
-    setSending(false);
+      qc.invalidateQueries({ queryKey: ["case-tasks", caseId] });
+      onClose();
+      setForm({ title: "", priority: "medium", assignee_name: "", due_date: "" });
+      toast({ title: "✅ تمت إضافة المهمة" });
+    } catch { toast({ variant: "destructive", title: "خطأ" }); }
+    setSaving(false);
   };
 
   return (
-    <div className="flex flex-col h-[500px]">
-      {/* Messages list */}
-      <div className="flex-1 overflow-y-auto space-y-3 pb-4">
-        {messages.length === 0 && (
-          <div className="text-center py-16 text-muted-foreground space-y-2">
-            <MessageSquare className="h-10 w-10 mx-auto opacity-20" />
-            <p className="text-sm">لا توجد رسائل بعد</p>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>مهمة جديدة</DialogTitle></DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label>عنوان المهمة *</Label>
+            <Input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="ماذا يجب القيام به؟" />
           </div>
-        )}
-        {messages.map((msg: any) => (
-          <div key={msg.id} className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-              <User className="h-4 w-4 text-primary" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>الأولوية</Label>
+              <Select value={form.priority} onValueChange={v => setForm(p => ({ ...p, priority: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">عالية 🔴</SelectItem>
+                  <SelectItem value="medium">متوسطة 🟡</SelectItem>
+                  <SelectItem value="low">منخفضة 🟢</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-semibold">{msg.sender_name ?? "المحامي"}</span>
-                <span className="text-xs text-muted-foreground">
-                  {msg.created_at ? new Date(msg.created_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : ""}
-                </span>
-              </div>
-              <div className="bg-muted/50 rounded-xl px-3 py-2 text-sm">{msg.body}</div>
+            <div className="space-y-1.5">
+              <Label>الاستحقاق</Label>
+              <Input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))} />
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Compose */}
-      <div className="border-t pt-4 flex gap-2">
-        <Textarea
-          className="flex-1 resize-none min-h-[60px] text-sm"
-          placeholder="اكتب رسالة داخلية للفريق..."
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-        />
-        <Button size="sm" onClick={send} disabled={sending || !body.trim()} className="self-end">
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </Button>
-      </div>
-    </div>
+          <div className="space-y-1.5">
+            <Label>المسؤول</Label>
+            <Input value={form.assignee_name} onChange={e => setForm(p => ({ ...p, assignee_name: e.target.value }))} placeholder="المحامي أو الموظف" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>إلغاء</Button>
+          <Button onClick={save} disabled={saving || !form.title.trim()}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "إضافة"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-/* ── AI tab ── */
-function AITab({ id, caseData }: { id: string; caseData: any }) {
-  const [brief, setBrief]     = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded]   = useState(false);
-
-  const loadBrief = useCallback(async () => {
-    if (loaded) return;
-    setLoading(true);
-    try {
-      const r = await fetch(`${BASE}/api/ai/case-brief/${id}`);
-      if (r.ok) { const d = await r.json(); setBrief(d.brief); }
-    } catch {}
-    setLoading(false);
-    setLoaded(true);
-  }, [id, loaded]);
-
-  useEffect(() => { loadBrief(); }, [loadBrief]);
-
-  return (
-    <div className="space-y-6">
-      {/* Autopilot health card */}
-      <CaseAutopilotCard caseId={id} />
-
-      {/* AI Brief */}
-      <Card className="border shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />ملخص القضية بالذكاء الاصطناعي
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-              <Loader2 className="h-4 w-4 animate-spin" />جارٍ التحليل...
-            </div>
-          )}
-          {!loading && brief && (
-            <p className="text-sm leading-relaxed text-foreground">{brief}</p>
-          )}
-          {!loading && !brief && (
-            <div className="text-center py-6 space-y-2">
-              <Bot className="h-8 w-8 mx-auto text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">لم يتمكن AI من توليد ملخص</p>
-              <Button size="sm" variant="outline" onClick={() => { setLoaded(false); loadBrief(); }}>
-                إعادة المحاولة
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-/* ── Helpers ── */
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-end">{value}</span>
-    </div>
-  );
-}
-function MiniStat({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className={cn("rounded-xl p-3 text-center", color)}>
-      <p className="text-xl font-bold">{value}</p>
-      <p className="text-xs">{label}</p>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════
-   MAIN COMPONENT
-══════════════════════════════════════════ */
+/* ══════════════════ MAIN COMPONENT ══════════════════ */
 export default function CaseDetail({ id }: { id: string }) {
-  const { data: caseData, isLoading } = useGetCase(id, {
+  const { data: c, isLoading } = useGetCase(id, {
     query: { enabled: !!id, queryKey: getGetCaseQueryKey(id) },
   });
-  const { data: hub, isLoading: hubLoading } = useHub(id);
-  const updateCase = useUpdateCase();
-  const qc         = useQueryClient();
-  const { toast }  = useToast();
-  const { dir }    = useLang();
+  const updateCase  = useUpdateCase();
+  const qc          = useQueryClient();
+  const { toast }   = useToast();
+  const { dir }     = useLang();
 
-  const handleStatusChange = (status: string) => {
+  /* Dialog states */
+  const [taskOpen,     setTaskOpen]     = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [msgFocus,     setMsgFocus]     = useState(false);
+  const msgRef = useRef<HTMLDivElement>(null);
+
+  const changeStatus = (status: string) => {
     updateCase.mutate(
-      { params: { id }, body: { status } as any },
+      { id, data: { status } as any },
       {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetCaseQueryKey(id) });
@@ -673,61 +608,74 @@ export default function CaseDetail({ id }: { id: string }) {
     );
   };
 
+  const handleMsgAction = () => {
+    msgRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setMsgFocus(true);
+    setTimeout(() => setMsgFocus(false), 100);
+  };
+
+  /* ── Loading ── */
   if (isLoading) {
     return (
-      <div className="space-y-6" dir="rtl">
-        <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <Skeleton className="h-48 lg:col-span-1" />
-          <Skeleton className="h-48 lg:col-span-3" />
+      <div className="space-y-5 animate-pulse" dir="rtl">
+        <Skeleton className="h-10 w-72" />
+        <Skeleton className="h-12 w-full rounded-xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            <Skeleton className="h-64 rounded-xl" />
+            <Skeleton className="h-48 rounded-xl" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-48 rounded-xl" />
+            <Skeleton className="h-40 rounded-xl" />
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!caseData) {
+  if (!c) {
     return (
-      <div className="text-center py-20 space-y-3">
-        <AlertTriangle className="h-12 w-12 text-muted-foreground/30 mx-auto" />
-        <p className="text-muted-foreground">القضية غير موجودة أو لا تملك صلاحية الوصول</p>
+      <div className="text-center py-24 space-y-4" dir="rtl">
+        <AlertTriangle className="h-14 w-14 text-muted-foreground/20 mx-auto" />
+        <p className="text-muted-foreground font-medium">القضية غير موجودة أو ليس لديك صلاحية الوصول</p>
         <Link href="/cases">
-          <Button variant="outline" size="sm">
-            <ArrowRight className="h-4 w-4 me-2" />العودة للقضايا
-          </Button>
+          <Button variant="outline" size="sm"><ArrowRight className="h-4 w-4 me-2" />العودة للقضايا</Button>
         </Link>
       </div>
     );
   }
 
-  const s = STATUS_MAP[caseData.status as string] ?? STATUS_MAP.open;
+  const s = STATUS_CFG[c.status as string] ?? STATUS_CFG.open;
 
   return (
-    <div className="space-y-6" dir={dir}>
-      {/* ── Header ── */}
-      <div className="flex items-start gap-4">
+    <div className="space-y-5" dir={dir}>
+
+      {/* ══ HEADER ══ */}
+      <div className="flex items-start gap-3">
         <Link href="/cases">
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0 mt-0.5 shrink-0">
+          <Button variant="ghost" size="sm" className="h-9 w-9 p-0 shrink-0 mt-0.5">
             <ArrowRight className="h-4 w-4" />
           </Button>
         </Link>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-bold truncate">{caseData.title}</h1>
-            <Badge variant="outline" className={cn("text-xs shrink-0", s.bg)}>{s.label}</Badge>
-            <Badge variant="outline" className="text-xs shrink-0">
-              {TYPE_MAP[caseData.caseType as string] ?? caseData.caseType}
-            </Badge>
+          <h1 className="text-xl font-bold text-foreground leading-tight">{c.title}</h1>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className={cn("inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium", s.bg)}>
+              <span className={cn("h-1.5 w-1.5 rounded-full", s.dot)} />{s.label}
+            </span>
+            <Badge variant="outline" className="text-xs">{TYPE_MAP[c.caseType as string] ?? c.caseType}</Badge>
+            {c.clientName && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <User className="h-3 w-3" />{c.clientName as string}
+              </span>
+            )}
           </div>
-          {caseData.clientName && (
-            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5" />{caseData.clientName}
-              {caseData.assignedTo && <><span className="mx-1">·</span><span>{caseData.assignedTo}</span></>}
-            </p>
-          )}
         </div>
 
         {/* Status selector */}
-        <Select value={caseData.status as string} onValueChange={handleStatusChange} disabled={updateCase.isPending}>
+        <Select value={c.status as string} onValueChange={changeStatus} disabled={updateCase.isPending}>
           <SelectTrigger className="w-36 h-9 text-xs shrink-0">
             <SelectValue />
           </SelectTrigger>
@@ -739,46 +687,52 @@ export default function CaseDetail({ id }: { id: string }) {
         </Select>
       </div>
 
-      {/* ── Tabs ── */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="h-9 gap-1 flex-wrap">
-          <TabsTrigger value="overview"  className="text-xs gap-1.5"><Scale className="h-3.5 w-3.5" />نظرة عامة</TabsTrigger>
-          <TabsTrigger value="timeline"  className="text-xs gap-1.5"><History className="h-3.5 w-3.5" />السجل</TabsTrigger>
-          <TabsTrigger value="tasks"     className="text-xs gap-1.5"><CheckSquare className="h-3.5 w-3.5" />المهام</TabsTrigger>
-          <TabsTrigger value="documents" className="text-xs gap-1.5"><FileText className="h-3.5 w-3.5" />المستندات</TabsTrigger>
-          <TabsTrigger value="sessions"  className="text-xs gap-1.5"><CalendarDays className="h-3.5 w-3.5" />الجلسات</TabsTrigger>
-          <TabsTrigger value="messages"  className="text-xs gap-1.5"><MessageSquare className="h-3.5 w-3.5" />الرسائل</TabsTrigger>
-          <TabsTrigger value="ai"        className="text-xs gap-1.5"><Bot className="h-3.5 w-3.5" />AI</TabsTrigger>
-        </TabsList>
+      {/* ══ ACTION BAR ══ */}
+      <ActionBar
+        onTask={()     => setTaskOpen(true)}
+        onMessage={()  => handleMsgAction()}
+        onTimeline={()  => setTimelineOpen(true)}
+        onAI={()       => {}}
+        onClose={()    => changeStatus("closed")}
+        status={c.status as string}
+        closing={updateCase.isPending}
+      />
 
-        <TabsContent value="overview">
-          <OverviewTab caseData={caseData} hub={hub} />
-        </TabsContent>
+      {/* ══ MAIN GRID ══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-        <TabsContent value="timeline">
-          <TimelineTab id={id} />
-        </TabsContent>
+        {/* ── CENTER (Timeline + Messages) ── */}
+        <div className="lg:col-span-2 space-y-5">
+          <TimelineFeed
+            caseId={id}
+            open={timelineOpen}
+            setOpen={setTimelineOpen}
+          />
+          <div ref={msgRef}>
+            <MessagesChat
+              caseId={id}
+              open={msgFocus}
+              setOpen={setMsgFocus}
+            />
+          </div>
+        </div>
 
-        <TabsContent value="tasks">
-          <TasksTab id={id} caseTitle={caseData.title as string} />
-        </TabsContent>
+        {/* ── SIDEBAR ── */}
+        <div className="space-y-4">
+          <InfoCard c={c} />
+          <AIHealthCard caseId={id} onAnalyze={() => {}} />
+          <TasksMini caseId={id} onAdd={() => setTaskOpen(true)} />
+          <HubMini caseId={id} />
+        </div>
+      </div>
 
-        <TabsContent value="documents">
-          <DocumentsTab hub={hub} />
-        </TabsContent>
-
-        <TabsContent value="sessions">
-          <SessionsTab hub={hub} />
-        </TabsContent>
-
-        <TabsContent value="messages">
-          <MessagesTab id={id} />
-        </TabsContent>
-
-        <TabsContent value="ai">
-          <AITab id={id} caseData={caseData} />
-        </TabsContent>
-      </Tabs>
+      {/* ══ DIALOGS ══ */}
+      <TaskDialog
+        open={taskOpen}
+        onClose={() => setTaskOpen(false)}
+        caseId={id}
+        caseTitle={c.title as string}
+      />
     </div>
   );
 }

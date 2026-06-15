@@ -392,7 +392,7 @@ export default function Cases() {
         </DialogContent>
       </Dialog>
 
-      <ImportDialog open={importOpen} onOpenChange={setImportOpen} entityType="cases" />
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} type="cases" queryKey={[...getListCasesQueryKey()] as string[]} />
     </div>
   );
 }
