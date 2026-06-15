@@ -193,6 +193,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/super-admin",        labelKey: "nav.items.super_admin_panel", icon: Shield },
       { href: "/studio",             labelKey: "nav.items.studio",            icon: Cpu },
       { href: "/engineering-center", labelKey: "مركز الهندسة",               icon: Briefcase },
+      { href: "/monitoring",         labelKey: "مركز المراقبة والإصلاح",     icon: Activity },
     ],
   },
 ];
