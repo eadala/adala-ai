@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   User, Building2, RefreshCw, Shield, KeyRound, Smartphone,
-  Settings, Bell, Moon, Sun, Globe2, BookOpen, MessageCircle,
+  Settings, Bell, Globe2, BookOpen, MessageCircle,
   LogOut, LogIn, ChevronDown, Check, Plus, Monitor,
   Crown, ChevronRight, ExternalLink, AlertTriangle
 } from "lucide-react";
@@ -72,17 +72,10 @@ export function AccountMenu() {
   const { user, isLoaded } = useUser();
   const { signOut, openUserProfile } = useClerk();
   const [open, setOpen] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">(() => {
-    return (localStorage.getItem("adala-theme") as "dark" | "light") || "light";
-  });
   const [officeOpen, setOfficeOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [, setLocation] = useLocation();
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem("adala-theme", theme);
-  }, [theme]);
 
   const { data: branding } = useQuery<Branding>({
     queryKey: ["branding"],
@@ -128,11 +121,6 @@ export function AccountMenu() {
     openUserProfile({ initialPage: "security" } as any);
   };
 
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    document.documentElement.classList.toggle("dark", next === "dark");
-  };
 
   return (
     <div className="relative" ref={menuRef}>
@@ -290,24 +278,6 @@ export function AccountMenu() {
               icon={Bell} label="تفضيلات الإشعارات" color="#06B6D4"
               href="/office-settings" onClick={() => setOpen(false)}
             />
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted/30 text-[#C8D3E8] hover:text-white transition-all group"
-            >
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-muted/30 group-hover:bg-white/10">
-                {theme === "dark"
-                  ? <Moon className="h-4 w-4 text-[#A0ADB8]" />
-                  : <Sun className="h-4 w-4" style={{ color: GOLD }} />}
-              </div>
-              <span className="flex-1 text-sm font-medium text-right">
-                {theme === "dark" ? "الوضع الليلي" : "الوضع النهاري"}
-              </span>
-              <div className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 ${theme === "dark" ? "bg-indigo-600" : "bg-amber-500"}`}>
-                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${theme === "dark" ? "right-0.5" : "left-0.5"}`} />
-              </div>
-            </button>
-
             <MenuItem
               icon={Globe2} label="اللغة" desc="العربية — AR" color="#A0ADB8" disabled
               badge="قريباً"

@@ -20,9 +20,6 @@
   <body>
     <script>
       (function(){
-        var t = localStorage.getItem('adala-theme') || 'light';
-        document.documentElement.classList.toggle('dark', t === 'dark');
-
         /* ── Catch ALL JS errors before React loads ── */
         window.__adalaErrors = [];
         window.addEventListener("error", function(e) {
