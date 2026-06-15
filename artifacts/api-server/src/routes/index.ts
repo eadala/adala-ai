@@ -179,6 +179,7 @@ import uiBuilderRouter from "./uiBuilder";
 import adoulRouter from "./adoul";
 import monitoringRouter from "./monitoring";
 import preventionRouter from "./prevention";
+import smartAlertsRouter from "./smart-alerts";
 router.use(aiEventsRouter);
 router.use(searchRouter);
 router.use(platformCommandRouter);
@@ -188,5 +189,6 @@ router.use(uiBuilderRouter);
 router.use("/adoul", adoulRouter);
 router.use(monitoringRouter);
 router.use(preventionRouter);
+router.use(smartAlertsRouter);
 
 export default router;

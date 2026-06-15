@@ -196,6 +196,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/engineering-center", labelKey: "مركز الهندسة",               icon: Briefcase },
       { href: "/monitoring",         labelKey: "مركز المراقبة والإصلاح",     icon: Activity },
       { href: "/prevention",         labelKey: "منع الانهيار",               icon: Shield },
+      { href: "/alerts",             labelKey: "التنبيهات الذكية",           icon: Bell },
     ],
   },
 ];
