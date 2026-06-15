@@ -256,31 +256,7 @@ router.get("/finance/collections/profitability", requireAuthWithTenant, async (r
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-/* ─── GET /finance/intelligence ─────────────────────────────────────── */
-router.get("/finance/intelligence", requireAuthWithTenant, async (req, res) => {
-  try {
-    const tenantId = (req as any).tenantId;
-    const [invSummary, topClients] = await Promise.all([
-      sqlOne(sql`
-        SELECT
-          COUNT(*) FILTER (WHERE status='paid') AS paid,
-          COUNT(*) FILTER (WHERE status='overdue') AS overdue,
-          COUNT(*) FILTER (WHERE status='sent') AS sent,
-          COALESCE(SUM(total) FILTER (WHERE status='paid'),0) AS paid_amt,
-          COALESCE(SUM(total) FILTER (WHERE status='overdue'),0) AS overdue_amt
-        FROM client_invoices WHERE office_id = ${tenantId}
-      `),
-      sqlAll(sql`
-        SELECT c.full_name, COALESCE(SUM(i.total) FILTER (WHERE i.status='paid'),0) AS revenue
-        FROM clients c
-        LEFT JOIN client_invoices i ON i.client_id = c.id AND i.office_id = ${tenantId}
-        WHERE c.office_id = ${tenantId}
-        GROUP BY c.full_name ORDER BY revenue DESC LIMIT 5
-      `),
-    ]);
-    res.json({ summary: invSummary, topClients });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
+/* GET /finance/intelligence — served by financialIntelligence.ts (registered first) */
 
 /* ─── POST /finance/collections/bulk-reminder ────────────────────── */
 router.post("/finance/collections/bulk-reminder", requireAuthWithTenant, async (req, res) => {

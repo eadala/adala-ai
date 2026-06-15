@@ -7,15 +7,9 @@ import {
   officeDomainsTable,
 } from "@workspace/db/schema";
 import { eq, desc, and } from "drizzle-orm";
-import Stripe from "stripe";
+import { getUncachableStripeClient } from "../stripeClient";
 
 const router = Router();
-
-function getStripe(): Stripe | null {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) return null;
-  return new Stripe(key, { apiVersion: "2026-05-27.dahlia" as any });
-}
 
 /* ═══ PUBLIC ROUTES (no auth) ═══════════════════════════════ */
 
@@ -64,8 +58,9 @@ router.post("/office/public/:slug/order", async (req, res) => {
 
 /* POST: Stripe checkout for a service (public) */
 router.post("/office/public/:slug/checkout", async (req, res) => {
-  const stripe = getStripe();
-  if (!stripe) return res.status(503).json({ error: "الدفع الإلكتروني غير مفعّل حالياً" });
+  let stripe: Awaited<ReturnType<typeof getUncachableStripeClient>>;
+  try { stripe = await getUncachableStripeClient(); }
+  catch { return res.status(503).json({ error: "الدفع الإلكتروني غير مفعّل حالياً" }); }
 
   const office = await db.select().from(officePageTable)
     .where(eq(officePageTable.slug, String(req.params.slug))).limit(1);

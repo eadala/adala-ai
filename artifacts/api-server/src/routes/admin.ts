@@ -125,28 +125,9 @@ router.patch("/admin/users/:id", adminOnly, async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════════
-   PLANS
+   PLANS — managed exclusively by planCms.ts
+   (GET/DELETE here were duplicates; planCms.ts is authoritative)
 ══════════════════════════════════════════════════════ */
-router.get("/admin/plans", adminOnly, async (_req, res) => {
-  const plans = await db.select().from(plansTable).orderBy(plansTable.displayOrder);
-  res.json(plans);
-});
-
-router.post("/admin/plans", adminOnly, async (req, res) => {
-  const plan = await db.insert(plansTable).values(req.body).returning();
-  res.json(plan[0]);
-});
-
-router.patch("/admin/plans/:id", adminOnly, async (req, res) => {
-  const { id } = req.params as Record<string, string>;
-  const updated = await db.update(plansTable).set({ ...req.body, updatedAt: new Date() }).where(eq(plansTable.id, id)).returning();
-  res.json(updated[0]);
-});
-
-router.delete("/admin/plans/:id", adminOnly, async (req, res) => {
-  await db.delete(plansTable).where(eq(plansTable.id, String(req.params.id)));
-  res.json({ ok: true });
-});
 
 /* ══════════════════════════════════════════════════════
    DISCOUNT CODES
