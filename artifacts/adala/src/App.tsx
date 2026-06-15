@@ -55,6 +55,7 @@ const Revenues             = lazy(() => import("@/pages/revenues"));
 const Expenses             = lazy(() => import("@/pages/expenses"));
 const FinancialReports     = lazy(() => import("@/pages/financial-reports"));
 const FinancialStatements  = lazy(() => import("@/pages/financial-statements"));
+const UIBuilder            = lazy(() => import("@/pages/ui-builder"));
 const Cashflow             = lazy(() => import("@/pages/cashflow"));
 const BankAccounts         = lazy(() => import("@/pages/bank-accounts"));
 const Advances             = lazy(() => import("@/pages/advances"));
@@ -494,6 +495,7 @@ function AppRoutes() {
             <Route path="/expenses"><ProtectedRoute><Expenses /></ProtectedRoute></Route>
             <Route path="/financial-reports"><ProtectedRoute><FinancialReports /></ProtectedRoute></Route>
             <Route path="/financial-statements"><ProtectedRoute><FinancialStatements /></ProtectedRoute></Route>
+            <Route path="/ui-builder"><ProtectedRoute><UIBuilder /></ProtectedRoute></Route>
             <Route path="/cashflow"><ProtectedRoute><Cashflow /></ProtectedRoute></Route>
             <Route path="/bank-accounts"><ProtectedRoute><BankAccounts /></ProtectedRoute></Route>
             <Route path="/advances"><ProtectedRoute><Advances /></ProtectedRoute></Route>

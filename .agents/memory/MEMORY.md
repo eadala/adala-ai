@@ -1,3 +1,4 @@
+- [Adala AI UI Builder](adala-ui-builder.md) — /ui-builder page; Gemini prompt→JSON schema→live React preview; 7 component types (hero/stats/table/card/timeline/form/alert); 6 legal templates; split-screen RTL
 - [Adala Double-Entry Accounting](adala-double-entry.md) — chart_of_accounts+journal_entries+journal_items; auto-post on revenue/expense; income/balance-sheet/trial-balance endpoints; /financial-statements page (4 tabs + print)
 - [Adala Case Autopilot](adala-case-autopilot.md) — AI health score (0-100) + auto-task engine; EventBus CASE_CREATED→3s delay; GET+POST /cases/:id/health|autopilot; case_autopilot_reports table; ScoreRing UI card in case-detail sidebar
 - [Adala Operating Centers Nav](adala-operating-centers.md) — layout.tsx replaced with 7 collapsible OperatingCenterDef centers; Layout is named export only (NOT default); engineering-center.tsx must use named import
