@@ -35,10 +35,8 @@ router.get("/mediators/tasks", requireAuth, async (req: any, res) => {
     if (category) { q += ` AND mt.category = $${idx++}`; params.push(category); }
     if (search) { q += ` AND (mt.title ILIKE $${idx++} OR mt.description ILIKE $${idx - 1})`; params.push(`%${search}%`); }
     q += ` ORDER BY mt.created_at DESC`;
-    const rows = await exAll((sql.raw as any)(
-      q.replace(/\$(\d+)/g, (_, n) => `$${n}`),
-      ...params
-    ));
+    const pgResult = await (db as any).$client.query(q, params);
+    const rows = pgResult.rows ?? [];
     res.json(rows);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
