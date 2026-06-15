@@ -233,7 +233,7 @@ function PageLoader() {
 function SignInPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center px-4" style={{ background: "linear-gradient(135deg, #0F1B35 0%, #1A2744 50%, #0F1B35 100%)" }}>
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} fallbackRedirectUrl={`${basePath}/dashboard`} />
     </div>
   );
 }
@@ -241,7 +241,7 @@ function SignInPage() {
 function SignUpPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center px-4" style={{ background: "linear-gradient(135deg, #0F1B35 0%, #1A2744 50%, #0F1B35 100%)" }}>
-      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} fallbackRedirectUrl={`${basePath}/dashboard`} />
     </div>
   );
 }
@@ -418,6 +418,8 @@ function AppRoutes() {
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
+      signInFallbackRedirectUrl={`${basePath}/dashboard`}
+      signUpFallbackRedirectUrl={`${basePath}/dashboard`}
       localization={{
         signIn: { start: { title: "مرحباً بعودتك", subtitle: "سجّل دخولك إلى منصة عدالة AI" } },
         signUp: { start: { title: "انضم إلى عدالة AI", subtitle: "أنشئ حسابك وابدأ الآن" } },
