@@ -67,3 +67,4 @@
 - [Adala light theme showcase](adala-light-showcase.md) — platform-showcase + payment-showcase fully converted to white/blue (#1A56DB); G const = blue not gold
 - [Adala Theme Refactor](adala-theme-refactor.md) — full platform rebrand to white/blue SaaS; :root CSS vars key; light mode default
 - [Adala Express 5 req.params](adala-express5-params.md) — String() wrap for direct, 'as Record<string,string>' for destructured; routes without :id get params={} type
+- [Adala SA refactor constants](adala-sa-refactor-constants.md) — when extracting tabs from a monolith, module-level constants defined BEFORE a function must be explicitly injected into each tab file; Python `if 'X' not in content` check must use `'const X'` not `'X'` (usage sites cause false positives)
