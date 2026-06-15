@@ -55,7 +55,7 @@
 - [Adala Office Management](adala-office-mgmt.md) — /office-management page; 8 tabs: overview(default)/appearance/orders/services/team/reviews/articles/domains; overview tab has slug editor+URL card+publish toggle+stats+quick-actions; appearance tab has inline color picker+logo/cover upload+name/tagline/about form; appLogoUpload/appCoverUpload hooks defined before conditional returns
 - [Adala Payment Center](adala-payment-center.md) — Settlement system + Moyasar gateway + 6-tab dashboard; settlement_status separate from payment status; getUncachableStripeClient() always
 - [Adala Checkout.com](adala-checkout.md) — user requested Checkout.com+Mada+Apple Pay as MENA payment gateway alongside Stripe; Tabby/Tamara for installments
-- [Adala Floating Copilot](adala-copilot.md) — /api/copilot/chat+snapshot routes; FloatingCopilot in layout.tsx; full Gemini context + action parsing
+- [Adala Legal Copilot v2](adala-copilot-v2.md) — Intent Engine + Tool Registry + Memory + Case Intelligence; src/copilot/ folder; 6 API endpoints; /ai-copilot page with probability rings
 - [Adala Command Bar](adala-command-bar.md) — ⌘K global palette; window.__openCommandBar(); routes at /search/global; router mounted at /api so no /api prefix in route files
 - [Adala PCC & Agent Runtime](adala-pcc-agents.md) — PCC tab: /pcc/system-health|tenant-matrix|event-stream|ai-ops; Agents tab: /agents/status|run|actions; tables: ai_agents+agent_actions; pccOnly+agentOnly guards
 - [Adala query performance](adala-query-perf.md) — QueryClient: staleTime=5min, gcTime=30min, refetchOnWindowFocus=false; vite manualChunks as function (not object); don't add babel plugins to vite react() without installing them first

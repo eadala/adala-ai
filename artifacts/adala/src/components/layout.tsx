@@ -93,6 +93,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
     icon: Sparkles,
     color: "#2563EB",
     items: [
+      { href: "/ai-copilot",          labelKey: "nav.items.ai_copilot",          icon: BrainCircuit, feature: "ai" },
       { href: "/ai-hub",             labelKey: "nav.items.ai_hub",             icon: Sparkles,   feature: "ai" },
       { href: "/adoul",              labelKey: "nav.items.adoul",              icon: Scale,      feature: "ai" },
       { href: "/ui-builder",         labelKey: "nav.items.ui_builder",         icon: Wand2,      feature: "ai" },

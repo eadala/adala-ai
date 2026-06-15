@@ -1,0 +1,162 @@
+SYSTEM SIMPLIFICATION MODE (CRITICAL REFACTOR)
+
+You are a Principal Software Architect performing a production stabilization refactor.
+
+The system is currently OVER-ENGINEERED with duplicated logic, multiple abstractions, and unnecessary complexity across AI, Stripe, and business workflows.
+
+Your goal is NOT to add features.
+
+Your goal is to SIMPLIFY, UNIFY, and STABILIZE.
+
+═══════════════════════════════════════
+PRIMARY OBJECTIVE
+═══════════════════════════════════════
+
+Transform the system into:
+
+Simple, predictable, maintainable SaaS architecture
+
+without breaking existing functionality.
+
+═══════════════════════════════════════
+STRICT RULES
+═══════════════════════════════════════
+
+1. Do NOT introduce new architecture patterns.
+2. Do NOT add new services unless replacing duplicates.
+3. Remove duplicate implementations.
+4. Merge fragmented logic into single source modules.
+5. Keep business logic intact.
+6. Prefer deletion over addition.
+7. Ensure Stripe + DB flows remain functional.
+8. Ensure system still builds and runs.
+
+═══════════════════════════════════════
+PHASE 1 — DUPLICATION AUDIT
+═══════════════════════════════════════
+
+Scan entire codebase and identify:
+
+* duplicate services
+* duplicate AI layers (Copilot, Agent, Planner)
+* duplicate Stripe handlers
+* duplicate case creation logic
+* duplicate billing logic
+* duplicate DB queries
+* overlapping utilities
+
+Generate:
+
+DUPLICATION_REPORT.md
+
+═══════════════════════════════════════
+PHASE 2 — CONSOLIDATION
+═══════════════════════════════════════
+
+Merge into SINGLE SOURCE OF TRUTH:
+
+* ONE Case Service
+* ONE Billing Service
+* ONE Stripe Webhook Handler
+* ONE AI Service (simplified)
+* ONE Notification System
+
+Remove all secondary or experimental implementations.
+
+═══════════════════════════════════════
+PHASE 3 — AI SIMPLIFICATION
+═══════════════════════════════════════
+
+Replace all AI systems with:
+
+ONE Unified AI Assistant Module:
+
+Capabilities:
+
+* text generation
+* summarization
+* case analysis (lightweight)
+* document drafting
+
+REMOVE:
+
+* Agent system
+* Planner system
+* Multi-step orchestration
+* Autonomous execution layers
+
+AI must NOT execute system actions directly.
+
+═══════════════════════════════════════
+PHASE 4 — STRIPE SIMPLIFICATION
+═══════════════════════════════════════
+
+Ensure:
+
+* ONE webhook endpoint only
+* ONE event handler
+* ONE ledger writer
+* STRICT idempotency check
+* NO parallel Stripe processing paths
+
+Remove any redundant retry or fallback logic.
+
+═══════════════════════════════════════
+PHASE 5 — DATABASE SIMPLIFICATION
+═══════════════════════════════════════
+
+Ensure:
+
+* No duplicate tables serving same purpose
+* No overlapping financial tables
+* No redundant logs tables
+
+Keep:
+
+* core business tables only
+* remove experimental or unused tables if safe
+
+═══════════════════════════════════════
+PHASE 6 — ROUTE CONSOLIDATION
+═══════════════════════════════════════
+
+Ensure:
+
+* No duplicate API routes
+* No overlapping endpoints for same feature
+* Clean REST structure
+
+═══════════════════════════════════════
+PHASE 7 — FINAL VALIDATION
+═══════════════════════════════════════
+
+Run full system check:
+
+* build success
+* runtime startup success
+* Stripe webhook works
+* DB writes correct
+* frontend loads without errors
+
+═══════════════════════════════════════
+FINAL OUTPUT
+═══════════════════════════════════════
+
+Generate:
+
+SYSTEM_SIMPLIFICATION_REPORT.md
+
+Must include:
+
+1. What was removed
+2. What was merged
+3. What was broken and fixed
+4. Current architecture summary
+5. Remaining risks
+6. Production readiness score
+
+FINAL STATUS:
+
+STABLE (SIMPLIFIED)
+STABLE (NEEDS REVIEW)
+NOT STABLE

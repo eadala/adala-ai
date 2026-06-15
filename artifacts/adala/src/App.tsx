@@ -33,6 +33,7 @@ const Warnings             = lazy(() => import("@/pages/warnings"));
 // AI Suite
 const AiTasks              = lazy(() => import("@/pages/ai-tasks"));
 const AIHub                = lazy(() => import("@/pages/ai-hub"));
+const AICopilotPage        = lazy(() => import("@/pages/ai-copilot"));
 const AiChat               = lazy(() => import("@/pages/ai-chat"));
 const AdoulPage            = lazy(() => import("@/pages/adoul"));
 const OpponentSimulator    = lazy(() => import("@/pages/opponent-simulator"));
@@ -477,6 +478,7 @@ function AppRoutes() {
             {/* AI */}
             <Route path="/ai-tasks"><ProtectedRoute><AiTasks /></ProtectedRoute></Route>
             <Route path="/ai-hub"><ProtectedRoute><AIHub /></ProtectedRoute></Route>
+            <Route path="/ai-copilot"><ProtectedRoute><AICopilotPage /></ProtectedRoute></Route>
             <Route path="/adoul"><ProtectedRoute><AdoulPage /></ProtectedRoute></Route>
             <Route path="/ai-chat"><ProtectedRoute><AiChat /></ProtectedRoute></Route>
             <Route path="/opponent-simulator"><ProtectedRoute><OpponentSimulator /></ProtectedRoute></Route>
