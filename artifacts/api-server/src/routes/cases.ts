@@ -149,7 +149,7 @@ function isValidUuid(v: string) { return UUID_RE.test(v); }
 router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const caseId = String(req.params.id);
-    if (!isValidUuid(caseId)) return res.status(404).json({ error: "القضية غير موجودة" });
+    if (!caseId || caseId.length > 200) return res.status(400).json({ error: "معرف غير صالح" });
     const tenantId = (req as any).tenantId;
     const rows = await db.execute(sql`
       SELECT
@@ -271,7 +271,7 @@ router.get("/cases/:id/hub", requireAuthWithTenant, async (req, res) => {
 
     let contractRows: any[] = [];
     if (isUuid) {
-      const contractsResult = await db.execute(sql`SELECT id, title, type, status, expires_at, created_at FROM contracts WHERE case_id = ${caseId}::uuid AND office_id = ${tenantId} ORDER BY created_at DESC`);
+      const contractsResult = await db.execute(sql`SELECT id, title, type, status, expires_at, created_at FROM contracts WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC`);
       contractRows = contractsResult.rows ?? [];
     }
 
