@@ -331,14 +331,14 @@ export default function PricingPage() {
 
   return (
     <div
-      className="min-h-screen font-['Cairo',sans-serif] text-white"
+      className="min-h-screen font-['Cairo',sans-serif] text-slate-800"
       dir="rtl"
-      style={{ background: "linear-gradient(160deg, #060b18 0%, #0a1224 60%, #06101e 100%)" }}
+      style={{ background: "#F8FAFC" }}
     >
       {/* ── NAV ── */}
-      <nav className="sticky top-0 z-50 border-b border-white/5" style={{ background: "rgba(6,11,24,0.95)", backdropFilter: "blur(16px)" }}>
+      <nav className="sticky top-0 z-50 border-b border-slate-200" style={{ background: "rgba(255,255,255,0.95)", backdropFilter: "blur(16px)" }}>
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm">
+          <a href="/" className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm">
             <ArrowLeft className="h-4 w-4" />
             الرئيسية
           </a>
@@ -360,15 +360,15 @@ export default function PricingPage() {
       <section className="text-center pt-20 pb-12 px-6">
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
           <div className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-6"
-            style={{ background: `${GOLD}12`, color: GOLD, border: `1px solid ${GOLD}30` }}>
+            style={{ background: `${GOLD}15`, color: GOLD, border: `1px solid ${GOLD}40` }}>
             <Sparkles className="h-3.5 w-3.5" />
             ٧ باقات · شفافية كاملة · بدون رسوم خفية
           </div>
-          <h1 className="text-5xl md:text-6xl font-black mb-5 leading-tight">
+          <h1 className="text-5xl md:text-6xl font-black mb-5 leading-tight text-slate-900">
             خطط تناسب
             <span className="block" style={{ color: GOLD }}>جميع المكاتب القانونية</span>
           </h1>
-          <p className="text-white/50 text-lg max-w-xl mx-auto leading-relaxed">
+          <p className="text-slate-500 text-lg max-w-xl mx-auto leading-relaxed">
             من المحامي المستقل إلى المجموعة القانونية الكبرى — ابدأ مجاناً وقم بالترقية عندما ينمو مكتبك.
           </p>
         </motion.div>
@@ -387,7 +387,7 @@ export default function PricingPage() {
               <div className="text-3xl font-black" style={{ color: GOLD }}>
                 <Counter to={s.n} suffix={s.suf} />
               </div>
-              <div className="text-xs text-white/40 mt-0.5">{s.label}</div>
+              <div className="text-xs text-slate-400 mt-0.5">{s.label}</div>
             </div>
           ))}
         </motion.div>
@@ -398,7 +398,7 @@ export default function PricingPage() {
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }}
           className="p-1.5 rounded-2xl flex gap-1"
-          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+          style={{ background: "#F1F5F9", border: "1px solid #E2E8F0" }}
         >
           {(["monthly", "yearly"] as const).map(c => (
             <button
@@ -406,7 +406,7 @@ export default function PricingPage() {
               onClick={() => setCycle(c)}
               className={cn(
                 "relative px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 flex items-center gap-2",
-                cycle === c ? "text-black shadow-lg" : "text-white/50 hover:text-white/80"
+                cycle === c ? "text-white shadow-lg" : "text-slate-400 hover:text-slate-600"
               )}
               style={cycle === c ? { background: GOLD } : {}}
             >
@@ -414,7 +414,7 @@ export default function PricingPage() {
               {c === "yearly" && (
                 <span className={cn(
                   "text-[10px] font-black px-1.5 py-0.5 rounded-md",
-                  cycle === "yearly" ? "bg-black/20 text-black" : "bg-emerald-500/20 text-emerald-400"
+                  cycle === "yearly" ? "bg-white/20 text-white" : "bg-emerald-500/20 text-emerald-600"
                 )}>
                   وفّر ٢٠٪
                 </span>
@@ -440,10 +440,10 @@ export default function PricingPage() {
                 className={cn("relative rounded-3xl flex flex-col overflow-hidden", plan.recommended && "ring-2")}
                 style={{
                   background: plan.recommended
-                    ? `linear-gradient(160deg, ${plan.color}18, ${plan.color}08)`
-                    : "rgba(255,255,255,0.03)",
-                  border: `1px solid ${plan.color}${plan.recommended ? "50" : "25"}`,
-                  boxShadow: plan.recommended ? `0 0 60px ${plan.color}20` : "none",
+                    ? `linear-gradient(160deg, ${plan.color}12, ${plan.color}05)`
+                    : "#ffffff",
+                  border: `1px solid ${plan.color}${plan.recommended ? "50" : "20"}`,
+                  boxShadow: plan.recommended ? `0 8px 40px ${plan.color}18` : "0 1px 4px rgba(0,0,0,0.06)",
                   ...(plan.recommended ? { ringColor: plan.color } : {}),
                 }}
               >
@@ -474,8 +474,8 @@ export default function PricingPage() {
                       <Icon className="h-4.5 w-4.5" style={{ color: plan.color }} />
                     </div>
                     <div>
-                      <div className="font-black text-sm">{plan.nameAr}</div>
-                      <div className="text-[10px] text-white/35">{plan.nameEn}</div>
+                      <div className="font-black text-sm text-slate-800">{plan.nameAr}</div>
+                      <div className="text-[10px] text-slate-400">{plan.nameEn}</div>
                     </div>
                   </div>
 
@@ -496,14 +496,14 @@ export default function PricingPage() {
                               {price?.toLocaleString("ar-SA")}
                             </motion.span>
                           </AnimatePresence>
-                          <span className="text-white/40 text-xs">ر.س / شهر</span>
+                          <span className="text-slate-400 text-xs">ر.س / شهر</span>
                         </div>
-                        <div className="text-[10px] text-white/30 mt-0.5">أو تواصل للحصول على عرض خاص</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">أو تواصل للحصول على عرض خاص</div>
                       </div>
                     ) : plan.monthly === 0 ? (
                       <div>
                         <div className="text-3xl font-black" style={{ color: plan.color }}>مجاناً</div>
-                        <div className="text-[10px] text-white/30 mt-0.5">دائماً · بدون انتهاء</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">دائماً · بدون انتهاء</div>
                       </div>
                     ) : (
                       <div>
@@ -520,10 +520,10 @@ export default function PricingPage() {
                               {price?.toLocaleString("ar-SA")}
                             </motion.span>
                           </AnimatePresence>
-                          <span className="text-white/40 text-xs">ر.س / شهر</span>
+                          <span className="text-slate-400 text-xs">ر.س / شهر</span>
                         </div>
                         {cycle === "yearly" && plan.monthly && plan.yearly && (
-                          <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">
+                          <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">
                             توفر {((plan.monthly - plan.yearly) * 12).toLocaleString("ar-SA")} ر.س سنوياً
                           </div>
                         )}
@@ -531,7 +531,7 @@ export default function PricingPage() {
                     )}
                   </div>
 
-                  <p className="text-[11px] text-white/35 mb-4 leading-relaxed">{plan.desc}</p>
+                  <p className="text-[11px] text-slate-400 mb-4 leading-relaxed">{plan.desc}</p>
 
                   {/* Features */}
                   <div className="space-y-2 flex-1 mb-5">
@@ -541,7 +541,7 @@ export default function PricingPage() {
                           style={{ background: `${plan.color}20` }}>
                           <Check className="h-2 w-2" style={{ color: plan.color }} />
                         </div>
-                        <span className="text-[11px] text-white/65 leading-relaxed">{f}</span>
+                        <span className="text-[11px] text-slate-600 leading-relaxed">{f}</span>
                       </div>
                     ))}
                   </div>
@@ -562,7 +562,7 @@ export default function PricingPage() {
                   </a>
 
                   {plan.monthly !== 0 && plan.id !== "elite" && (
-                    <p className="text-center text-[9px] text-white/25 mt-1.5">
+                    <p className="text-center text-[9px] text-slate-400 mt-1.5">
                       ٣٠ يوم تجربة مجانية · بدون بطاقة
                     </p>
                   )}
@@ -582,11 +582,11 @@ export default function PricingPage() {
           className="text-center mb-12"
         >
           <div className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-4"
-            style={{ background: `${GOLD}12`, color: GOLD, border: `1px solid ${GOLD}25` }}>
+            style={{ background: `${GOLD}15`, color: GOLD, border: `1px solid ${GOLD}35` }}>
             مقارنة شاملة لجميع الباقات
           </div>
-          <h2 className="text-3xl font-black">قارن جميع المزايا</h2>
-          <p className="text-white/40 text-sm mt-2">٧ باقات · ٢٥ ميزة · اختر ما يناسب مكتبك</p>
+          <h2 className="text-3xl font-black text-slate-900">قارن جميع المزايا</h2>
+          <p className="text-slate-400 text-sm mt-2">٧ باقات · ٢٥ ميزة · اختر ما يناسب مكتبك</p>
         </motion.div>
 
         <motion.div
@@ -594,13 +594,13 @@ export default function PricingPage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="rounded-3xl overflow-hidden"
-          style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}
+          style={{ border: "1px solid #E2E8F0", background: "#ffffff" }}
         >
           <div className="overflow-x-auto">
             <div style={{ minWidth: "1000px" }}>
               {/* Table header */}
-              <div className="grid border-b border-white/7" style={{ gridTemplateColumns: "220px repeat(7, 1fr)" }}>
-                <div className="p-4 text-sm font-bold text-white/40">الميزة</div>
+              <div className="grid border-b border-slate-100" style={{ gridTemplateColumns: "220px repeat(7, 1fr)" }}>
+                <div className="p-4 text-sm font-bold text-slate-400">الميزة</div>
                 {PLANS_LIVE.map((p: any, i: number) => (
                   <div
                     key={p.id}
@@ -611,7 +611,7 @@ export default function PricingPage() {
                   >
                     <div className="font-black text-xs" style={{ color: p.color }}>{p.nameAr}</div>
                     {p.monthly !== null && (
-                      <div className="text-[9px] text-white/25 mt-0.5">
+                      <div className="text-[9px] text-slate-400 mt-0.5">
                         {p.monthly === 0 ? "مجاناً" : `${cycle === "monthly" ? p.monthly : p.yearly} ر.س`}
                       </div>
                     )}
@@ -629,7 +629,7 @@ export default function PricingPage() {
                 return (
                   <div
                     key={ri}
-                    className={cn("transition-colors", ri % 2 === 0 ? "" : "bg-white/[0.012]")}
+                    className={cn("transition-colors", ri % 2 === 0 ? "" : "bg-slate-50")}
                     style={{ display: "grid", gridTemplateColumns: "220px repeat(7, 1fr)" }}
                   >
                     <div className="p-3 flex items-center gap-2.5">
@@ -637,7 +637,7 @@ export default function PricingPage() {
                         style={{ background: `${GOLD}10` }}>
                         <Icon className="h-3 w-3" style={{ color: GOLD }} />
                       </div>
-                      <span className="text-[11px] text-white/65 font-semibold">{row.label}</span>
+                      <span className="text-[11px] text-slate-600 font-semibold">{row.label}</span>
                     </div>
                     {row.vals.map((v, vi) => (
                       <div
@@ -656,7 +656,7 @@ export default function PricingPage() {
 
               {/* Footer CTAs */}
               <div
-                className="border-t border-white/7 p-3"
+                className="border-t border-slate-100 p-3"
                 style={{ display: "grid", gridTemplateColumns: "220px repeat(7, 1fr)" }}
               >
                 <div />
