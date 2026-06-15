@@ -1,14 +1,16 @@
 import cron from "node-cron";
 import { systemHealthCheck } from "../observability/healthcheck";
-import { sendAlert } from "../monitoring/alerts";
+import { sendSmartAlert, checkTrendAlerts } from "../alerts/smart.alerts";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 let lastStatus = "healthy";
+let cronTick = 0;
 
 export function startMonitoringCron() {
-  /* ── Every 60 seconds: health check + log to DB + alert if degraded ── */
+  /* ── Every 60 seconds: health check + log to DB + smart alerts ── */
   cron.schedule("*/60 * * * * *", async () => {
+    cronTick++;
     try {
       const health = await systemHealthCheck();
       const { score, status, metrics, checks } = health;
@@ -33,30 +35,35 @@ export function startMonitoringCron() {
 
       /* Alert on status transitions */
       if (status === "critical" && lastStatus !== "critical") {
-        await sendAlert("critical", `🔴 النظام في حالة حرجة — درجة الصحة: ${score}/100`);
+        await sendSmartAlert("critical", `🔴 النظام في حالة حرجة — درجة الصحة: ${score}/100`, { channel: "both" });
       } else if (status === "degraded" && lastStatus === "healthy") {
-        await sendAlert("high", `🟠 أداء النظام متدهور — درجة الصحة: ${score}/100`);
+        await sendSmartAlert("high", `🟠 أداء النظام متدهور — درجة الصحة: ${score}/100`, { channel: "both" });
       } else if (status === "healthy" && lastStatus !== "healthy") {
-        await sendAlert("low", `🟢 النظام عاد للعمل الطبيعي — درجة الصحة: ${score}/100`);
+        await sendSmartAlert("low", `🟢 النظام عاد للعمل الطبيعي — درجة الصحة: ${score}/100`, { channel: "in-app" });
       }
 
-      /* Alert on specific thresholds */
+      /* Alert on specific thresholds (with dedup built into sendSmartAlert) */
       if (metrics.dbLatency > 800) {
-        await sendAlert("high", `⚠️ تأخر عالٍ في قاعدة البيانات: ${metrics.dbLatency}ms`);
+        await sendSmartAlert("high", `⚠️ تأخر عالٍ في قاعدة البيانات: ${metrics.dbLatency}ms`);
       }
       if (metrics.errorRate > 0.05) {
-        await sendAlert("high", `⚠️ معدل أخطاء عالٍ: ${(metrics.errorRate * 100).toFixed(1)}%`);
+        await sendSmartAlert("high", `⚠️ معدل أخطاء عالٍ: ${(metrics.errorRate * 100).toFixed(1)}%`);
       }
       if (metrics.webhookFailures >= 5) {
-        await sendAlert("critical", `🔴 فشل متكرر في Webhook: ${metrics.webhookFailures} خطأ`);
+        await sendSmartAlert("critical", `🔴 فشل متكرر في Webhook: ${metrics.webhookFailures} خطأ`, { channel: "both" });
       }
       if (metrics.memory.percent > 90) {
-        await sendAlert("high", `⚠️ استهلاك ذاكرة عالٍ: ${metrics.memory.percent}%`);
+        await sendSmartAlert("high", `⚠️ استهلاك ذاكرة عالٍ: ${metrics.memory.percent}%`);
+      }
+
+      /* Trend analysis — every 5 ticks (5 min) */
+      if (cronTick % 5 === 0) {
+        await checkTrendAlerts();
       }
 
       lastStatus = status;
     } catch { /* non-blocking — never crash the cron */ }
   });
 
-  console.log("[Monitoring Cron] ✅ Started — health check every 60s");
+  console.log("[Monitoring Cron] ✅ Started — health check every 60s (smart alerts enabled)");
 }
