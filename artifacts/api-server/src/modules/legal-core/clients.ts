@@ -1,5 +1,7 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { validate } from "../../middlewares/validate";
 import { Router } from "express";
+import { z } from "zod";
 import { db } from "@workspace/db";
 import { clientsTable } from "@workspace/db/schema";
 import { eq, desc, and } from "drizzle-orm";
@@ -9,32 +11,47 @@ import { auditLog, auditMeta } from "../../lib/auditLogger";
 
 const router = Router();
 
+// ── Zod schemas ───────────────────────────────────────────────────────────────
+const CreateClientSchema = z.object({
+  fullName:   z.string().min(2, "الاسم يجب أن يكون حرفين على الأقل"),
+  type:       z.enum(["individual", "company"]).default("individual"),
+  email:      z.string().email("بريد إلكتروني غير صحيح").optional().nullable(),
+  phone:      z.string().max(20).optional().nullable(),
+  nationalId: z.string().max(20).optional().nullable(),
+  company:    z.string().max(200).optional().nullable(),
+  notes:      z.string().max(2000).optional().nullable(),
+  status:     z.enum(["active", "potential", "inactive"]).default("active"),
+  source:     z.string().max(50).optional().nullable(),
+  tags:       z.array(z.string()).optional().default([]),
+});
+
+const UpdateClientSchema = CreateClientSchema.partial();
+
+// ── Unified error helper ──────────────────────────────────────────────────────
+function apiErr(res: any, status: number, code: string, message: string) {
+  return res.status(status).json({ success: false, error: { code, message } });
+}
+
 // ── GET /clients ──────────────────────────────────────────────────────────────
 router.get("/clients", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
+    if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
     const clients = await db.select().from(clientsTable)
       .where(eq((clientsTable as any).officeId, tenantId))
       .orderBy(desc(clientsTable.createdAt));
     res.json(clients);
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
   }
 });
 
 // ── POST /clients ─────────────────────────────────────────────────────────────
-router.post("/clients", requireAuthWithTenant, async (req, res) => {
+router.post("/clients", requireAuthWithTenant, validate(CreateClientSchema), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const {
-      fullName, type = "individual", email, phone,
-      nationalId, company, notes, status = "active", source, tags,
-    } = req.body as {
-      fullName: string; type?: string; email?: string; phone?: string;
-      nationalId?: string; company?: string; notes?: string;
-      status?: string; source?: string; tags?: string[];
-    };
-    if (!fullName) return res.status(400).json({ error: "اسم الموكل مطلوب" });
+    if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
+    const { fullName, type, email, phone, nationalId, company, notes, status, source, tags } = req.body;
 
     const [client] = await db.insert(clientsTable).values({
       fullName, type,
@@ -44,8 +61,8 @@ router.post("/clients", requireAuthWithTenant, async (req, res) => {
       company:    company    ?? null,
       notes:      notes      ?? null,
       status,
-      source:     source     ?? "direct",
-      tags:       tags       ?? [],
+      source:     source ?? "direct",
+      tags:       tags   ?? [],
       officeId:   tenantId,
     } as any).returning();
 
@@ -55,16 +72,17 @@ router.post("/clients", requireAuthWithTenant, async (req, res) => {
     }).catch(() => {});
 
     auditLog({ ...auditMeta(req), action: "create", resource: "client", resourceId: String((client as any)?.id ?? ""), details: `اسم: ${fullName}` }).catch(() => {});
-    res.json(client);
+    res.status(201).json(client);
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
   }
 });
 
 // ── PATCH /clients/:id ────────────────────────────────────────────────────────
-router.patch("/clients/:id", requireAuthWithTenant, async (req, res) => {
+router.patch("/clients/:id", requireAuthWithTenant, validate(UpdateClientSchema), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
+    if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
     const { fullName, type, email, phone, nationalId, company, notes, status, source, tags } = req.body;
     const [updated] = await db.update(clientsTable)
       .set({
@@ -82,11 +100,11 @@ router.patch("/clients/:id", requireAuthWithTenant, async (req, res) => {
       })
       .where(and(eq(clientsTable.id, String(req.params.id)), eq((clientsTable as any).officeId, tenantId)))
       .returning();
-    if (!updated) return res.status(404).json({ error: "الموكل غير موجود" });
+    if (!updated) return apiErr(res, 404, "NOT_FOUND", "الموكل غير موجود");
     auditLog({ ...auditMeta(req), action: "update", resource: "client", resourceId: String(req.params.id) }).catch(() => {});
     res.json(updated);
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
   }
 });
 
@@ -94,12 +112,13 @@ router.patch("/clients/:id", requireAuthWithTenant, async (req, res) => {
 router.delete("/clients/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
+    if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
     await db.delete(clientsTable)
       .where(and(eq(clientsTable.id, String(req.params.id)), eq((clientsTable as any).officeId, tenantId)));
     auditLog({ ...auditMeta(req), action: "delete", resource: "client", resourceId: String(req.params.id) }).catch(() => {});
     res.json({ success: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
   }
 });
 
@@ -107,6 +126,7 @@ router.delete("/clients/:id", requireAuthWithTenant, async (req, res) => {
 router.get("/clients/stats", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
+    if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
     const all = await db.select().from(clientsTable)
       .where(eq((clientsTable as any).officeId, tenantId));
     res.json({
@@ -117,7 +137,7 @@ router.get("/clients/stats", requireAuthWithTenant, async (req, res) => {
       individuals: all.filter(c => c.type   === "individual").length,
     });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
   }
 });
 
@@ -125,12 +145,13 @@ router.get("/clients/stats", requireAuthWithTenant, async (req, res) => {
 router.get("/clients/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
+    if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
     const [client] = await db.select().from(clientsTable)
       .where(and(eq(clientsTable.id, String(req.params.id)), eq((clientsTable as any).officeId, tenantId)));
-    if (!client) return res.status(404).json({ error: "الموكل غير موجود" });
+    if (!client) return apiErr(res, 404, "NOT_FOUND", "الموكل غير موجود");
     res.json(client);
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
   }
 });
 
@@ -138,11 +159,12 @@ router.get("/clients/:id", requireAuthWithTenant, async (req, res) => {
 router.get("/clients/:id/overview", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
+    if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
     const { id } = req.params as Record<string, string>;
 
     const [client] = await db.select().from(clientsTable)
       .where(and(eq(clientsTable.id, id), eq((clientsTable as any).officeId, tenantId)));
-    if (!client) return res.status(404).json({ error: "الموكل غير موجود" });
+    if (!client) return apiErr(res, 404, "NOT_FOUND", "الموكل غير موجود");
 
     async function safeRows(q: any): Promise<any[]> {
       try {
@@ -185,7 +207,7 @@ router.get("/clients/:id/overview", requireAuthWithTenant, async (req, res) => {
       },
     });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
   }
 });
 
@@ -193,13 +215,13 @@ router.get("/clients/:id/overview", requireAuthWithTenant, async (req, res) => {
 router.get("/clients/:id/accounting", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
+    if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
     const { id } = req.params as Record<string, string>;
     const { period = "annual", year = new Date().getFullYear(), month = "1" } = req.query as any;
 
-    // Verify client belongs to this office
     const [client] = await db.select().from(clientsTable)
       .where(and(eq(clientsTable.id, id), eq((clientsTable as any).officeId, tenantId)));
-    if (!client) return res.status(404).json({ error: "الموكل غير موجود" });
+    if (!client) return apiErr(res, 404, "NOT_FOUND", "الموكل غير موجود");
 
     async function safeRows(q: any): Promise<any[]> {
       try {
@@ -299,7 +321,7 @@ router.get("/clients/:id/accounting", requireAuthWithTenant, async (req, res) =>
       invoicesCount: invoices.length,
     });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
   }
 });
 
