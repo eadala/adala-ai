@@ -922,7 +922,7 @@ export default function PlatformShowcase() {
   const Screen = screen.component;
 
   return (
-    <section id="showcase" className="py-24 px-4 relative overflow-hidden">
+    <section id="showcase" className="py-24 px-4 relative overflow-hidden" style={{ background: "#0F172A" }}>
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] rounded-full blur-[180px] opacity-[0.05]" style={{ background: G }} />
       </div>
