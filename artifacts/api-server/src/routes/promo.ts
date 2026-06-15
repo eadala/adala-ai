@@ -72,10 +72,10 @@ router.post("/admin/promo", adminOnly, async (req, res) => {
 });
 
 /* PATCH /admin/promo-codes/:id */
-router.patch("/admin/promo", adminOnly, async (req, res) => {
+router.patch("/admin/promo/:id", adminOnly, async (req, res) => {
   if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { is_active, notes, max_uses, expires_at } = req.body;
     await db.execute(sql`
       UPDATE promo_codes SET
@@ -90,10 +90,10 @@ router.patch("/admin/promo", adminOnly, async (req, res) => {
 });
 
 /* DELETE /admin/promo-codes/:id */
-router.delete("/admin/promo", adminOnly, async (req, res) => {
+router.delete("/admin/promo/:id", adminOnly, async (req, res) => {
   if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
   try {
-    await db.execute(sql`DELETE FROM promo_codes WHERE id = ${req.params.id}`);
+    await db.execute(sql`DELETE FROM promo_codes WHERE id = ${String(req.params.id)}`);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -134,7 +134,7 @@ router.post("/admin/gift", adminOnly, async (req, res) => {
 });
 
 /* POST /admin/gift-subscriptions/:id/renew */
-router.post("/admin/gift", adminOnly, async (req, res) => {
+router.post("/admin/gift/:id/renew", adminOnly, async (req, res) => {
   if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
   try {
     const { days } = req.body;
@@ -144,7 +144,7 @@ router.post("/admin/gift", adminOnly, async (req, res) => {
       SET end_date      = GREATEST(end_date, NOW()) + (${Number(days)} || ' days')::INTERVAL,
           status        = 'active',
           renewed_count = renewed_count + 1
-      WHERE id = ${req.params.id}
+      WHERE id = ${String(req.params.id)}
       RETURNING *
     `);
     if (!row) return res.status(404).json({ error: "غير موجود" });
@@ -153,10 +153,10 @@ router.post("/admin/gift", adminOnly, async (req, res) => {
 });
 
 /* PATCH /admin/gift-subscriptions/:id/cancel */
-router.patch("/admin/gift", adminOnly, async (req, res) => {
+router.patch("/admin/gift/:id/cancel", adminOnly, async (req, res) => {
   if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
   try {
-    await db.execute(sql`UPDATE gift_subscriptions SET status = 'cancelled' WHERE id = ${req.params.id}`);
+    await db.execute(sql`UPDATE gift_subscriptions SET status = 'cancelled' WHERE id = ${String(req.params.id)}`);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

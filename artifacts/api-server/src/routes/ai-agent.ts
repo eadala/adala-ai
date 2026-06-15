@@ -3,7 +3,6 @@ import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { getTenantSafe } from "../core/tenantContext";
 
 const router = Router();
@@ -375,7 +374,7 @@ router.post("/ai-agent/workflows", requireAuth, async (req: Request, res: Respon
 
 // ─── PUT /ai-agent/workflows/:id ──────────────────────────────────────────────
 router.put("/ai-agent/workflows/:id", requireAuth, async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const { id } = req.params as Record<string, string>;
   const { isActive, mode } = req.body;
   await db.execute(sql`
     UPDATE ai_workflows SET
@@ -388,7 +387,7 @@ router.put("/ai-agent/workflows/:id", requireAuth, async (req: Request, res: Res
 
 // ─── DELETE /ai-agent/workflows/:id ───────────────────────────────────────────
 router.delete("/ai-agent/workflows/:id", requireAuth, async (req: Request, res: Response) => {
-  await db.execute(sql`DELETE FROM ai_workflows WHERE id = ${req.params.id}`);
+  await db.execute(sql`DELETE FROM ai_workflows WHERE id = ${String(req.params.id)}`);
   res.json({ success: true });
 });
 

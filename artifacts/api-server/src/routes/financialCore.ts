@@ -248,8 +248,8 @@ router.get("/fincore/wallets", requireAuthWithTenant, async (_req, res) => {
 /* GET /api/fincore/wallets/:ownerId */
 router.get("/fincore/wallets/:ownerId", requireAuthWithTenant, async (req, res) => {
   try {
-    const wallet = await one(sql`SELECT * FROM wallets WHERE owner_id = ${req.params.ownerId} LIMIT 1`);
-    if (!wallet) return res.json({ owner_id: req.params.ownerId, available_balance: 0, pending_balance: 0 });
+    const wallet = await one(sql`SELECT * FROM wallets WHERE owner_id = ${String(req.params.ownerId)} LIMIT 1`);
+    if (!wallet) return res.json({ owner_id: String(req.params.ownerId), available_balance: 0, pending_balance: 0 });
     res.json(wallet);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -325,7 +325,7 @@ router.patch("/fincore/payouts/:id/process", requireAuthWithTenant, async (req, 
           provider = ${provider},
           processed_at = ${status === "sent" ? sql`NOW()` : sql`processed_at`},
           updated_at = NOW()
-      WHERE id = ${req.params.id}::uuid
+      WHERE id = ${String(req.params.id)}::uuid
     `);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -334,7 +334,7 @@ router.patch("/fincore/payouts/:id/process", requireAuthWithTenant, async (req, 
 /* DELETE /api/fincore/payouts/:id */
 router.delete("/fincore/payouts/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    await db.execute(sql`DELETE FROM lawyer_payouts WHERE id = ${req.params.id}::uuid`);
+    await db.execute(sql`DELETE FROM lawyer_payouts WHERE id = ${String(req.params.id)}::uuid`);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

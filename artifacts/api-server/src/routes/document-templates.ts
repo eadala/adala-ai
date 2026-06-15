@@ -2,8 +2,6 @@ import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
-
 const router = Router();
 
 function sanitizeHtml(html: string): string {
@@ -20,12 +18,6 @@ function parseFields(fields: any): any[] {
     try { return JSON.parse(fields); } catch { return []; }
   }
   return [];
-}
-
-function requireAuth(req: any, res: any): boolean {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "غير مصرح" }); return false; }
-  return true;
 }
 
 async function sqlOne(q: any) {
@@ -365,7 +357,6 @@ async function seedDefaultTemplates() {
 }
 
 router.get("/document-templates", requireAuthWithTenant, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const rows = await sqlAll(sql`
@@ -379,11 +370,10 @@ router.get("/document-templates", requireAuthWithTenant, async (req, res) => {
 });
 
 router.get("/document-templates/:id", requireAuthWithTenant, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const row = await sqlOne(sql`
-      SELECT * FROM document_templates WHERE id = ${parseInt(req.params.id)} AND office_id = 'default'
+      SELECT * FROM document_templates WHERE id = ${parseInt(String(req.params.id))} AND office_id = 'default'
     `);
     if (!row) return res.status(404).json({ error: "القالب غير موجود" });
     res.json(row);
@@ -391,7 +381,6 @@ router.get("/document-templates/:id", requireAuthWithTenant, async (req, res) =>
 });
 
 router.post("/document-templates", requireAuthWithTenant, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const { name, type, category, description, body, fields } = req.body;
@@ -408,11 +397,10 @@ router.post("/document-templates", requireAuthWithTenant, async (req, res) => {
 });
 
 router.put("/document-templates/:id", requireAuthWithTenant, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const { name, type, category, description, body, fields } = req.body;
-    const existing = await sqlOne(sql`SELECT * FROM document_templates WHERE id = ${parseInt(req.params.id)}`);
+    const existing = await sqlOne(sql`SELECT * FROM document_templates WHERE id = ${parseInt(String(req.params.id))}`);
     if (!existing) return res.status(404).json({ error: "القالب غير موجود" });
     if (existing.is_default) return res.status(403).json({ error: "لا يمكن تعديل القوالب الافتراضية" });
     const safeBody = body ? sanitizeHtml(body) : existing.body;
@@ -426,7 +414,7 @@ router.put("/document-templates/:id", requireAuthWithTenant, async (req, res) =>
         body = ${safeBody},
         fields = ${JSON.stringify(parsedFields)}::jsonb,
         updated_at = NOW()
-      WHERE id = ${parseInt(req.params.id)}
+      WHERE id = ${parseInt(String(req.params.id))}
       RETURNING id, name, type, category, description, fields, is_default, is_custom, created_at
     `);
     res.json(row);
@@ -434,22 +422,20 @@ router.put("/document-templates/:id", requireAuthWithTenant, async (req, res) =>
 });
 
 router.delete("/document-templates/:id", requireAuthWithTenant, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
-    const existing = await sqlOne(sql`SELECT * FROM document_templates WHERE id = ${parseInt(req.params.id)}`);
+    const existing = await sqlOne(sql`SELECT * FROM document_templates WHERE id = ${parseInt(String(req.params.id))}`);
     if (!existing) return res.status(404).json({ error: "القالب غير موجود" });
     if (existing.is_default) return res.status(403).json({ error: "لا يمكن حذف القوالب الافتراضية" });
-    await db.execute(sql`DELETE FROM document_templates WHERE id = ${parseInt(req.params.id)}`);
+    await db.execute(sql`DELETE FROM document_templates WHERE id = ${parseInt(String(req.params.id))}`);
     res.status(204).end();
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.post("/document-templates/:id/generate", requireAuthWithTenant, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
-    const template = await sqlOne(sql`SELECT * FROM document_templates WHERE id = ${parseInt(req.params.id)}`);
+    const template = await sqlOne(sql`SELECT * FROM document_templates WHERE id = ${parseInt(String(req.params.id))}`);
     if (!template) return res.status(404).json({ error: "القالب غير موجود" });
 
     const { filledData, caseId, clientId, documentName } = req.body;
@@ -474,7 +460,6 @@ router.post("/document-templates/:id/generate", requireAuthWithTenant, async (re
 });
 
 router.get("/generated-documents", requireAuthWithTenant, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const rows = await sqlAll(sql`
@@ -487,11 +472,10 @@ router.get("/generated-documents", requireAuthWithTenant, async (req, res) => {
 });
 
 router.get("/generated-documents/:id", requireAuthWithTenant, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const row = await sqlOne(sql`
-      SELECT * FROM generated_documents WHERE id = ${parseInt(req.params.id)} AND office_id = 'default'
+      SELECT * FROM generated_documents WHERE id = ${parseInt(String(req.params.id))} AND office_id = 'default'
     `);
     if (!row) return res.status(404).json({ error: "الوثيقة غير موجودة" });
     res.json(row);

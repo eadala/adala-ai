@@ -62,8 +62,8 @@ router.post("/studio/tables", adminOnly, async (req, res) => {
 
 router.delete("/studio/tables/:id", adminOnly, async (req, res) => {
   try {
-    await db.execute(sql`DELETE FROM studio_custom_fields WHERE table_id=${req.params.id}::uuid`);
-    await db.execute(sql`DELETE FROM studio_custom_tables WHERE id=${req.params.id}::uuid`);
+    await db.execute(sql`DELETE FROM studio_custom_fields WHERE table_id=${String(req.params.id)}::uuid`);
+    await db.execute(sql`DELETE FROM studio_custom_tables WHERE id=${String(req.params.id)}::uuid`);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -71,7 +71,7 @@ router.delete("/studio/tables/:id", adminOnly, async (req, res) => {
 /* ── Custom Fields ── */
 router.get("/studio/tables/:id/fields", adminOnly, async (req, res) => {
   const rows = await safeRows(sql`
-    SELECT * FROM studio_custom_fields WHERE table_id=${req.params.id}::uuid ORDER BY sort_order, created_at
+    SELECT * FROM studio_custom_fields WHERE table_id=${String(req.params.id)}::uuid ORDER BY sort_order, created_at
   `);
   res.json(rows);
 });
@@ -82,7 +82,7 @@ router.post("/studio/tables/:id/fields", adminOnly, async (req, res) => {
   try {
     const rows = await safeRows(sql`
       INSERT INTO studio_custom_fields (table_id, field_name, field_label, field_type, required, default_value, options)
-      VALUES (${req.params.id}::uuid, ${fieldName}, ${fieldLabel ?? fieldName}, ${fieldType}, ${required}, ${defaultValue ?? null}, ${options ? JSON.stringify(options) : null})
+      VALUES (${String(req.params.id)}::uuid, ${fieldName}, ${fieldLabel ?? fieldName}, ${fieldType}, ${required}, ${defaultValue ?? null}, ${options ? JSON.stringify(options) : null})
       RETURNING *
     `);
     res.json(rows[0]);
@@ -90,7 +90,7 @@ router.post("/studio/tables/:id/fields", adminOnly, async (req, res) => {
 });
 
 router.delete("/studio/fields/:id", adminOnly, async (req, res) => {
-  await db.execute(sql`DELETE FROM studio_custom_fields WHERE id=${req.params.id}::uuid`);
+  await db.execute(sql`DELETE FROM studio_custom_fields WHERE id=${String(req.params.id)}::uuid`);
   res.json({ ok: true });
 });
 
@@ -127,14 +127,14 @@ router.patch("/studio/forms/:id", adminOnly, async (req, res) => {
         fields=${fields ? JSON.stringify(fields) : sql`fields`},
         settings=${settings ? JSON.stringify(settings) : sql`settings`},
         updated_at=NOW()
-      WHERE id=${req.params.id}::uuid RETURNING *
+      WHERE id=${String(req.params.id)}::uuid RETURNING *
     `);
     res.json(rows[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.delete("/studio/forms/:id", adminOnly, async (req, res) => {
-  await db.execute(sql`DELETE FROM studio_forms WHERE id=${req.params.id}::uuid`);
+  await db.execute(sql`DELETE FROM studio_forms WHERE id=${String(req.params.id)}::uuid`);
   res.json({ ok: true });
 });
 
@@ -161,13 +161,13 @@ router.post("/studio/workflows", adminOnly, async (req, res) => {
 
 router.patch("/studio/workflows/:id/toggle", adminOnly, async (req, res) => {
   const rows = await safeRows(sql`
-    UPDATE studio_workflows SET is_active=NOT is_active WHERE id=${req.params.id}::uuid RETURNING *
+    UPDATE studio_workflows SET is_active=NOT is_active WHERE id=${String(req.params.id)}::uuid RETURNING *
   `);
   res.json(rows[0] ?? { ok: true });
 });
 
 router.delete("/studio/workflows/:id", adminOnly, async (req, res) => {
-  await db.execute(sql`DELETE FROM studio_workflows WHERE id=${req.params.id}::uuid`);
+  await db.execute(sql`DELETE FROM studio_workflows WHERE id=${String(req.params.id)}::uuid`);
   res.json({ ok: true });
 });
 
@@ -184,7 +184,7 @@ router.patch("/studio/plugins/:id/toggle", adminOnly, async (req, res) => {
     UPDATE studio_plugins
     SET is_enabled=NOT is_enabled,
         installed_at=CASE WHEN NOT is_enabled THEN NOW() ELSE NULL END
-    WHERE id=${req.params.id}::uuid RETURNING *
+    WHERE id=${String(req.params.id)}::uuid RETURNING *
   `);
   res.json(rows[0] ?? { ok: true });
 });
@@ -212,12 +212,12 @@ router.post("/studio/api-keys", adminOnly, async (req, res) => {
 });
 
 router.patch("/studio/api-keys/:id/toggle", adminOnly, async (req, res) => {
-  const rows = await safeRows(sql`UPDATE studio_api_keys SET is_active=NOT is_active WHERE id=${req.params.id}::uuid RETURNING id, name, is_active`);
+  const rows = await safeRows(sql`UPDATE studio_api_keys SET is_active=NOT is_active WHERE id=${String(req.params.id)}::uuid RETURNING id, name, is_active`);
   res.json(rows[0] ?? { ok: true });
 });
 
 router.delete("/studio/api-keys/:id", adminOnly, async (req, res) => {
-  await db.execute(sql`DELETE FROM studio_api_keys WHERE id=${req.params.id}::uuid`);
+  await db.execute(sql`DELETE FROM studio_api_keys WHERE id=${String(req.params.id)}::uuid`);
   res.json({ ok: true });
 });
 
@@ -255,7 +255,7 @@ router.post("/studio/ai-tasks", adminOnly, async (req, res) => {
 });
 
 router.get("/studio/ai-tasks/:id", adminOnly, async (req, res) => {
-  const rows = await safeRows(sql`SELECT * FROM studio_ai_tasks WHERE id=${req.params.id}::uuid`);
+  const rows = await safeRows(sql`SELECT * FROM studio_ai_tasks WHERE id=${String(req.params.id)}::uuid`);
   res.json(rows[0] ?? { error: "not found" });
 });
 

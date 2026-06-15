@@ -2,16 +2,9 @@ import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import { randomUUID } from "crypto";
 
 const router = Router();
-
-function requireAuth(req: any, res: any): boolean {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "غير مصرح" }); return false; }
-  return true;
-}
 
 async function ensureTables() {
   await db.execute(sql`
@@ -120,7 +113,6 @@ export async function notifyTelegramCaseStatus(updatedCase: any) {
 
 // ── GET /telegram/settings ────────────────────────────────────────────────────
 router.get("/telegram/settings", requireAuthWithTenant, async (req: Request, res: Response) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     let row = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = 'default'`);
@@ -135,7 +127,6 @@ router.get("/telegram/settings", requireAuthWithTenant, async (req: Request, res
 
 // ── PATCH /telegram/settings ─────────────────────────────────────────────────
 router.patch("/telegram/settings", requireAuthWithTenant, async (req: Request, res: Response) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const {
@@ -172,7 +163,6 @@ router.patch("/telegram/settings", requireAuthWithTenant, async (req: Request, r
 
 // ── POST /telegram/test ───────────────────────────────────────────────────────
 router.post("/telegram/test", requireAuthWithTenant, async (req: Request, res: Response) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = 'default'`);
@@ -199,7 +189,6 @@ router.post("/telegram/test", requireAuthWithTenant, async (req: Request, res: R
 
 // ── POST /telegram/send (manual send) ────────────────────────────────────────
 router.post("/telegram/send", requireAuthWithTenant, async (req: Request, res: Response) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const { message } = req.body;
@@ -220,7 +209,6 @@ router.post("/telegram/send", requireAuthWithTenant, async (req: Request, res: R
 // ── POST /telegram/forward-file ───────────────────────────────────────────────
 // Forward a file URL to the Telegram channel as backup storage
 router.post("/telegram/forward-file", requireAuthWithTenant, async (req: Request, res: Response) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const { fileUrl, fileName, caption } = req.body;
@@ -252,7 +240,6 @@ router.post("/telegram/forward-file", requireAuthWithTenant, async (req: Request
 
 // ── GET /telegram/bot-info ────────────────────────────────────────────────────
 router.get("/telegram/bot-info", requireAuthWithTenant, async (req: Request, res: Response) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = 'default'`);
@@ -264,7 +251,6 @@ router.get("/telegram/bot-info", requireAuthWithTenant, async (req: Request, res
 
 // ── GET /telegram/logs ────────────────────────────────────────────────────────
 router.get("/telegram/logs", requireAuthWithTenant, async (req: Request, res: Response) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const rows = await sqlAll(sql`

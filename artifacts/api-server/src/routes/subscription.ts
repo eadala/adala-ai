@@ -1,4 +1,5 @@
 import { requireAuth } from "../middlewares/requireAuth";
+import { getAuth } from "@clerk/express";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { plansTable, officePageTable } from "@workspace/db/schema";
@@ -164,8 +165,7 @@ router.get("/office/subscription", requireAuth, async (_req, res) => {
       trialDaysLeft: null,
     });
   } catch (err) {
-    console.error("Error fetching office subscription:", err);
-    res.status(500).json({ error: "خطأ في جلب بيانات الباقة" });
+        res.status(500).json({ error: "خطأ في جلب بيانات الباقة" });
   }
 });
 
@@ -183,8 +183,7 @@ router.get("/office/plan-notifications", requireAuth, async (_req, res) => {
     `);
     res.json(rows.rows ?? []);
   } catch (e: any) {
-    console.error("[plan-notifications]", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
@@ -202,8 +201,7 @@ router.patch("/office/plan-notifications/read-all", requireAuth, async (req, res
     await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE WHERE office_id = ${officeId}`);
     res.json({ ok: true });
   } catch (e: any) {
-    console.error("[plan-notifications/read-all]", e);
-    res.status(500).json({ error: e.message, ok: false });
+        res.status(500).json({ error: e.message, ok: false });
   }
 });
 

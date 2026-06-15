@@ -3,7 +3,6 @@ import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { callAI } from "./aiChat";
-import { requireAuth } from "../middlewares/requireAuth";
 import { getTenantSafe } from "../core/tenantContext";
 
 const router = Router();

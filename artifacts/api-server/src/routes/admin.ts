@@ -79,7 +79,7 @@ router.get("/admin/offices", adminOnly, async (_req, res) => {
 });
 
 router.patch("/admin/offices/:id", adminOnly, async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params as Record<string, string>;
 
   /* Detect plan change and log notification */
   if (req.body.plan) {
@@ -103,8 +103,7 @@ router.patch("/admin/offices/:id", adminOnly, async (req, res) => {
         invalidateFeatureCache();
       }
     } catch (e) {
-      console.error("Plan notification error:", e);
-    }
+          }
   }
 
   const updated = await db.update(officePageTable).set({ ...req.body }).where(eq(officePageTable.id, id)).returning();
@@ -120,7 +119,7 @@ router.get("/admin/users", adminOnly, async (_req, res) => {
 });
 
 router.patch("/admin/users/:id", adminOnly, async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params as Record<string, string>;
   const updated = await db.update(usersTable).set(req.body).where(eq(usersTable.id, id)).returning();
   res.json(updated[0]);
 });
@@ -139,13 +138,13 @@ router.post("/admin/plans", adminOnly, async (req, res) => {
 });
 
 router.patch("/admin/plans/:id", adminOnly, async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params as Record<string, string>;
   const updated = await db.update(plansTable).set({ ...req.body, updatedAt: new Date() }).where(eq(plansTable.id, id)).returning();
   res.json(updated[0]);
 });
 
 router.delete("/admin/plans/:id", adminOnly, async (req, res) => {
-  await db.delete(plansTable).where(eq(plansTable.id, req.params.id));
+  await db.delete(plansTable).where(eq(plansTable.id, String(req.params.id)));
   res.json({ ok: true });
 });
 
@@ -163,12 +162,12 @@ router.post("/admin/discounts", adminOnly, async (req, res) => {
 });
 
 router.patch("/admin/discounts/:id", adminOnly, async (req, res) => {
-  const updated = await db.update(discountCodesTable).set(req.body).where(eq(discountCodesTable.id, req.params.id)).returning();
+  const updated = await db.update(discountCodesTable).set(req.body).where(eq(discountCodesTable.id, String(req.params.id))).returning();
   res.json(updated[0]);
 });
 
 router.delete("/admin/discounts/:id", adminOnly, async (req, res) => {
-  await db.delete(discountCodesTable).where(eq(discountCodesTable.id, req.params.id));
+  await db.delete(discountCodesTable).where(eq(discountCodesTable.id, String(req.params.id)));
   res.json({ ok: true });
 });
 
@@ -196,12 +195,12 @@ router.post("/admin/ai-keys", adminOnly, async (req, res) => {
 
 router.patch("/admin/ai-keys/:id", adminOnly, async (req, res) => {
   const { isActive } = req.body;
-  const updated = await db.update(aiApiKeysTable).set({ isActive }).where(eq(aiApiKeysTable.id, req.params.id)).returning();
+  const updated = await db.update(aiApiKeysTable).set({ isActive }).where(eq(aiApiKeysTable.id, String(req.params.id))).returning();
   res.json(updated[0]);
 });
 
 router.delete("/admin/ai-keys/:id", adminOnly, async (req, res) => {
-  await db.delete(aiApiKeysTable).where(eq(aiApiKeysTable.id, req.params.id));
+  await db.delete(aiApiKeysTable).where(eq(aiApiKeysTable.id, String(req.params.id)));
   res.json({ ok: true });
 });
 
@@ -225,7 +224,7 @@ router.get("/admin/settings", adminOnly, async (_req, res) => {
 });
 
 router.put("/admin/settings/:key", adminOnly, async (req, res) => {
-  const { key } = req.params;
+  const { key } = req.params as Record<string, string>;
   const upserted = await db.insert(platformSettingsTable)
     .values({ key, ...req.body, updatedAt: new Date() })
     .onConflictDoUpdate({ target: platformSettingsTable.key, set: { value: req.body.value, updatedAt: new Date() } })
@@ -255,12 +254,12 @@ router.post("/admin/departments", adminOnly, async (req, res) => {
 });
 
 router.patch("/admin/departments/:id", adminOnly, async (req, res) => {
-  const updated = await db.update(departmentsTable).set(req.body).where(eq(departmentsTable.id, req.params.id)).returning();
+  const updated = await db.update(departmentsTable).set(req.body).where(eq(departmentsTable.id, String(req.params.id))).returning();
   res.json(updated[0]);
 });
 
 router.delete("/admin/departments/:id", adminOnly, async (req, res) => {
-  await db.delete(departmentsTable).where(eq(departmentsTable.id, req.params.id));
+  await db.delete(departmentsTable).where(eq(departmentsTable.id, String(req.params.id)));
   res.json({ ok: true });
 });
 
@@ -276,7 +275,7 @@ router.post("/admin/job-titles", adminOnly, async (req, res) => {
 });
 
 router.delete("/admin/job-titles/:id", adminOnly, async (req, res) => {
-  await db.delete(jobTitlesTable).where(eq(jobTitlesTable.id, req.params.id));
+  await db.delete(jobTitlesTable).where(eq(jobTitlesTable.id, String(req.params.id)));
   res.json({ ok: true });
 });
 
@@ -294,12 +293,12 @@ router.post("/admin/legal-systems", adminOnly, async (req, res) => {
 });
 
 router.patch("/admin/legal-systems/:id", adminOnly, async (req, res) => {
-  const updated = await db.update(legalSystemsTable).set({ ...req.body, updatedAt: new Date() }).where(eq(legalSystemsTable.id, req.params.id)).returning();
+  const updated = await db.update(legalSystemsTable).set({ ...req.body, updatedAt: new Date() }).where(eq(legalSystemsTable.id, String(req.params.id))).returning();
   res.json(updated[0]);
 });
 
 router.delete("/admin/legal-systems/:id", adminOnly, async (req, res) => {
-  await db.delete(legalSystemsTable).where(eq(legalSystemsTable.id, req.params.id));
+  await db.delete(legalSystemsTable).where(eq(legalSystemsTable.id, String(req.params.id)));
   res.json({ ok: true });
 });
 
@@ -317,7 +316,7 @@ router.post("/admin/support", requireAuth, async (req, res) => {
 });
 
 router.patch("/admin/support/:id", adminOnly, async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params as Record<string, string>;
   const data: any = { ...req.body, updatedAt: new Date() };
   if (req.body.status === "resolved" && !data.resolvedAt) data.resolvedAt = new Date();
   const updated = await db.update(supportTicketsTable).set(data).where(eq(supportTicketsTable.id, id)).returning();
@@ -327,7 +326,7 @@ router.patch("/admin/support/:id", adminOnly, async (req, res) => {
 router.get("/admin/support/:id/messages", adminOnly, async (req, res) => {
   try {
     const messages = await db.select().from(supportMessagesTable)
-      .where(eq(supportMessagesTable.ticketId, req.params.id))
+      .where(eq(supportMessagesTable.ticketId, String(req.params.id)))
       .orderBy(supportMessagesTable.createdAt);
     res.json(messages);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -335,7 +334,7 @@ router.get("/admin/support/:id/messages", adminOnly, async (req, res) => {
 
 router.post("/admin/support/:id/reply", adminOnly, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { message = "" } = req.body;
     if (!message.trim()) return res.status(400).json({ error: "الرسالة مطلوبة" });
     const [msg] = await db.insert(supportMessagesTable).values({
@@ -424,8 +423,7 @@ router.get("/admin/enhanced-stats", adminOnly, async (_req, res) => {
       recentActivity,
     });
   } catch (e: any) {
-    console.error("enhanced-stats:", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
@@ -624,15 +622,14 @@ router.get("/admin/billing/overview", adminOnly, async (_req, res) => {
       recent:  (recent  as any)?.rows ?? [],
     });
   } catch (e: any) {
-    console.error("[admin/billing/overview]", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
 /* ── تسديد فاتورة من لوحة الإدارة ──────────────────── */
 router.post("/admin/billing/pay/:id", adminOnly, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     await db.execute(sql`
       UPDATE platform_billing_invoices
       SET status = 'paid', paid_at = NOW()
@@ -806,7 +803,7 @@ router.get("/admin/tenants/revenue", adminOnly, async (_req, res) => {
 /* ── GET /api/admin/tenants/:id — single tenant detail ── */
 router.get("/admin/tenants/:id", adminOnly, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
 
     const office = await db.execute(sql`
       SELECT id::text, name, email, plan, stripe_customer_id, domain,
@@ -850,7 +847,7 @@ router.get("/admin/tenants/:id", adminOnly, async (req, res) => {
 /* ── POST /api/admin/tenants/:id/plan — change tenant plan ── */
 router.post("/admin/tenants/:id/plan", adminOnly, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { plan } = req.body as { plan: string };
     if (!plan) return res.status(400).json({ error: "الباقة مطلوبة" });
 
@@ -866,7 +863,7 @@ router.post("/admin/tenants/:id/plan", adminOnly, async (req, res) => {
 /* ── POST /api/admin/tenants/:id/members — add user to office ── */
 router.post("/admin/tenants/:id/members", adminOnly, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { userId, role = "member" } = req.body as { userId: string; role?: string };
     if (!userId) return res.status(400).json({ error: "userId مطلوب" });
 
@@ -1207,7 +1204,7 @@ router.get("/admin/trials", adminOnly, async (_req, res) => {
 
 /* POST /api/admin/trials/:subId/extend — extend trial by N days */
 router.post("/admin/trials/:subId/extend", adminOnly, async (req, res) => {
-  const { subId } = req.params;
+  const { subId } = req.params as Record<string, string>;
   const { days = 14 } = req.body as { days?: number };
   try {
     const stripe = await getUncachableStripeClient();
@@ -1223,7 +1220,7 @@ router.post("/admin/trials/:subId/extend", adminOnly, async (req, res) => {
 
 /* POST /api/admin/trials/:subId/cancel — end trial immediately */
 router.post("/admin/trials/:subId/cancel", adminOnly, async (req, res) => {
-  const { subId } = req.params;
+  const { subId } = req.params as Record<string, string>;
   try {
     const stripe = await getUncachableStripeClient();
     await stripe.subscriptions.update(subId, { trial_end: "now" } as any);

@@ -131,8 +131,7 @@ router.get("/dashboard/overview", requireAuthWithTenant, async (req, res) => {
       revenueChart,
     });
   } catch (e: any) {
-    console.error("dashboard/overview:", e);
-    res.json({ kpis: {}, alerts: [], upcomingEvents: [], todayEvents: [], recentCases: [], recentInvoices: [], revenueChart: [] });
+        res.json({ kpis: {}, alerts: [], upcomingEvents: [], todayEvents: [], recentCases: [], recentInvoices: [], revenueChart: [] });
   }
 });
 
@@ -220,8 +219,8 @@ router.get("/dashboard/executive", requireAuthWithTenant, async (req, res) => {
     const activeCases   = cases.filter(c => ["open","in_progress"].includes(c.status)).length;
     const criticalCases = cases.filter(c => {
       if (!["open","in_progress"].includes(c.status)) return false;
-      if (!c.nextHearingDate) return false;
-      const d = new Date(c.nextHearingDate as any);
+      if (!(c as any).nextHearingDate) return false;
+      const d = new Date((c as any).nextHearingDate as any);
       return d >= now && d <= in3Days;
     }).length;
 
@@ -262,8 +261,7 @@ router.get("/dashboard/executive", requireAuthWithTenant, async (req, res) => {
       healthStatus,
     });
   } catch (e: any) {
-    console.error("dashboard/executive:", e);
-    res.json({ todayRevenue: 0, monthRevenue: 0, outstanding: 0, overdueCount: 0, collectionRate: 0, activeCases: 0, criticalCases: 0, newClientsThisWeek: 0, aiUsageThisMonth: 0, activeEmployees: 0, healthScore: 100, healthStatus: "excellent" });
+        res.json({ todayRevenue: 0, monthRevenue: 0, outstanding: 0, overdueCount: 0, collectionRate: 0, activeCases: 0, criticalCases: 0, newClientsThisWeek: 0, aiUsageThisMonth: 0, activeEmployees: 0, healthScore: 100, healthStatus: "excellent" });
   }
 });
 
@@ -315,7 +313,7 @@ router.get("/dashboard/intelligence", requireAuthWithTenant, async (req, res) =>
     const overdueInv= invoices.filter((i: any) => i.status === "overdue" || (i.due_date && new Date(i.due_date) < now && i.status === "unpaid"));
     const activeCases = cases.filter((c: any) => ["open","in_progress"].includes(c.status));
     const stale7 = activeCases.filter((c: any) => new Date(c.updatedAt ?? c.created_at ?? 0) < start7);
-    const critical = activeCases.filter((c: any) => c.nextHearingDate && new Date(c.nextHearingDate) <= in72h);
+    const critical = activeCases.filter((c: any) => (c as any).nextHearingDate && new Date((c as any).nextHearingDate) <= in72h);
 
     // Engagement (0-100)
     const engagementScore = Math.min(100, Math.round(
@@ -466,8 +464,7 @@ router.get("/dashboard/intelligence", requireAuthWithTenant, async (req, res) =>
       stats: { activeCases: activeCases.length, overdueInv: overdueInv.length, stale: stale7.length, critical: critical.length },
     });
   } catch (e: any) {
-    console.error("dashboard/intelligence:", e);
-    res.json({
+        res.json({
       scores: { engagement: 50, collection: 50, activity: 50, ai: 0, risk: 80 },
       officeScore: 50, tier: "نشط", tierEn: "Active",
       smartActions: [], clientRisks: [], stats: {},

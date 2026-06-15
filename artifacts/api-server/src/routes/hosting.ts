@@ -109,7 +109,7 @@ router.patch("/hosting/domains/:id/verify", adminOnly, async (req, res) => {
     const rows = await safeRows(sql`
       UPDATE hosting_domains
       SET dns_verified = NOT dns_verified, status = CASE WHEN NOT dns_verified THEN 'active' ELSE 'pending' END, updated_at = NOW()
-      WHERE id = ${req.params.id}::uuid
+      WHERE id = ${String(req.params.id)}::uuid
       RETURNING *
     `);
     res.json(rows[0] ?? { ok: true });
@@ -120,7 +120,7 @@ router.patch("/hosting/domains/:id/ssl", adminOnly, async (req, res) => {
   try {
     const rows = await safeRows(sql`
       UPDATE hosting_domains SET ssl_enabled = NOT ssl_enabled, updated_at = NOW()
-      WHERE id = ${req.params.id}::uuid RETURNING *
+      WHERE id = ${String(req.params.id)}::uuid RETURNING *
     `);
     res.json(rows[0] ?? { ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -128,7 +128,7 @@ router.patch("/hosting/domains/:id/ssl", adminOnly, async (req, res) => {
 
 router.delete("/hosting/domains/:id", adminOnly, async (req, res) => {
   try {
-    await db.execute(sql`DELETE FROM hosting_domains WHERE id=${req.params.id}::uuid`);
+    await db.execute(sql`DELETE FROM hosting_domains WHERE id=${String(req.params.id)}::uuid`);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -161,7 +161,7 @@ router.post("/hosting/providers", adminOnly, async (req, res) => {
 router.patch("/hosting/providers/:id/toggle", adminOnly, async (req, res) => {
   try {
     const rows = await safeRows(sql`
-      UPDATE hosting_providers SET is_active = NOT is_active WHERE id=${req.params.id}::uuid RETURNING *
+      UPDATE hosting_providers SET is_active = NOT is_active WHERE id=${String(req.params.id)}::uuid RETURNING *
     `);
     res.json(rows[0] ?? { ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -169,7 +169,7 @@ router.patch("/hosting/providers/:id/toggle", adminOnly, async (req, res) => {
 
 router.delete("/hosting/providers/:id", adminOnly, async (req, res) => {
   try {
-    await db.execute(sql`DELETE FROM hosting_providers WHERE id=${req.params.id}::uuid`);
+    await db.execute(sql`DELETE FROM hosting_providers WHERE id=${String(req.params.id)}::uuid`);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

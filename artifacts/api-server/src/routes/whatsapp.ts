@@ -2,15 +2,8 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 
 const router = Router();
-
-function requireAuth(req: any, res: any): boolean {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "غير مصرح" }); return false; }
-  return true;
-}
 
 async function ensureTables() {
   await db.execute(sql`
@@ -56,7 +49,6 @@ async function sqlAll(q: any) {
 }
 
 router.get("/whatsapp/settings", requireAuth, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     let row = await sqlOne(sql`SELECT * FROM whatsapp_settings WHERE office_id = 'default'`);
@@ -74,7 +66,6 @@ router.get("/whatsapp/settings", requireAuth, async (req, res) => {
 });
 
 router.put("/whatsapp/settings", requireAuth, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const { enabled, provider, accountSid, authToken, fromNumber, metaToken, metaPhoneId } = req.body;
@@ -152,7 +143,6 @@ async function sendWhatsAppMessage(settings: any, to: string, message: string): 
 }
 
 router.post("/whatsapp/send", requireAuth, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const { to, message, template } = req.body;
@@ -177,7 +167,6 @@ router.post("/whatsapp/send", requireAuth, async (req, res) => {
 });
 
 router.post("/whatsapp/test", requireAuth, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const { to } = req.body;
@@ -194,7 +183,6 @@ router.post("/whatsapp/test", requireAuth, async (req, res) => {
 });
 
 router.get("/whatsapp/logs", requireAuth, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   await ensureTables();
   try {
     const rows = await sqlAll(sql`
@@ -206,7 +194,6 @@ router.get("/whatsapp/logs", requireAuth, async (req, res) => {
 });
 
 router.get("/whatsapp/templates", requireAuth, async (req, res) => {
-  if (!requireAuth(req, res)) return;
   res.json([
     { key: "invoice", label: "إشعار فاتورة", body: "السلام عليكم {name}،\nيرجى سداد الفاتورة رقم {invoice_number} بمبلغ {amount} ر.س\nتاريخ الاستحقاق: {due_date}\nرابط الدفع: {link}" },
     { key: "case_update", label: "تحديث القضية", body: "السلام عليكم {name}،\nتحديث على قضيتكم رقم {case_number}:\nالحالة الجديدة: {status}\nللمزيد من المعلومات تواصلوا معنا." },

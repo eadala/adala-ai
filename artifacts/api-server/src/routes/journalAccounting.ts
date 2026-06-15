@@ -294,7 +294,7 @@ router.post("/accounting/journal/entries", requireAuthWithTenant, async (req, re
 router.get("/accounting/statements/income", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const from     = (req.query.from as string) ?? `${new Date().getFullYear()}-01-01`;
+    const from     = (String(req.query.from)) ?? `${new Date().getFullYear()}-01-01`;
     const to       = (req.query.to   as string) ?? new Date().toISOString().split("T")[0];
 
     await ensureJournalTables(tenantId);
@@ -379,7 +379,7 @@ router.get("/accounting/statements/income", requireAuthWithTenant, async (req, r
 router.get("/accounting/statements/balance-sheet", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const asOf     = (req.query.asOf as string) ?? new Date().toISOString().split("T")[0];
+    const asOf     = (String(req.query.asOf)) ?? new Date().toISOString().split("T")[0];
 
     await ensureJournalTables(tenantId);
 
@@ -440,7 +440,7 @@ router.get("/accounting/statements/balance-sheet", requireAuthWithTenant, async 
 router.get("/accounting/statements/trial-balance", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const asOf     = (req.query.asOf as string) ?? new Date().toISOString().split("T")[0];
+    const asOf     = (String(req.query.asOf)) ?? new Date().toISOString().split("T")[0];
 
     await ensureJournalTables(tenantId);
 

@@ -386,8 +386,8 @@ router.post("/engineering/ip-whitelist", engineeringOnly, async (req: any, res) 
 router.delete("/engineering/ip-whitelist/:id", engineeringOnly, async (req: any, res) => {
   try {
     const userId = getAuth(req)?.userId ?? "owner";
-    await db.execute(sql`DELETE FROM engineering_ip_whitelist WHERE id::text = ${req.params.id}`);
-    await logAction("ip_remove", { id: req.params.id }, userId);
+    await db.execute(sql`DELETE FROM engineering_ip_whitelist WHERE id::text = ${String(req.params.id)}`);
+    await logAction("ip_remove", { id: String(req.params.id) }, userId);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -432,7 +432,7 @@ router.patch("/engineering/tasks/:id", engineeringOnly, async (req: any, res) =>
           result      = CASE WHEN ${JSON.stringify(result ?? null)}::jsonb IS NOT NULL
                              THEN ${JSON.stringify(result ?? null)}::jsonb ELSE result END,
           completed_at = CASE WHEN ${status ?? null} IN ('done','failed') THEN NOW() ELSE completed_at END
-      WHERE id::text = ${req.params.id}
+      WHERE id::text = ${String(req.params.id)}
     `);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -440,7 +440,7 @@ router.patch("/engineering/tasks/:id", engineeringOnly, async (req: any, res) =>
 
 router.delete("/engineering/tasks/:id", engineeringOnly, async (req: any, res) => {
   try {
-    await db.execute(sql`DELETE FROM engineering_tasks WHERE id::text = ${req.params.id}`);
+    await db.execute(sql`DELETE FROM engineering_tasks WHERE id::text = ${String(req.params.id)}`);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

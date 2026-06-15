@@ -5,7 +5,6 @@ import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { getAuth } from "@clerk/express";
 import { createClerkClient } from "@clerk/express";
-import { requireAuth } from "../middlewares/requireAuth";
 import nodemailer from "nodemailer";
 import { objectStorageClient, parseObjectPath } from "../lib/objectStorage";
 
@@ -154,8 +153,7 @@ async function notifyClientByEmail(clientEmail: string, clientName: string | nul
       html,
     });
   } catch (e) {
-    console.error("Portal email notification failed:", e);
-    // Non-fatal — log and continue
+        // Non-fatal — log and continue
   }
 }
 
@@ -186,15 +184,14 @@ router.post("/portal/create-token", requireAuth, async (req: Request, res: Respo
     const baseUrl = `${req.protocol}://${req.get("host")}`;
     res.json({ token, url: `${baseUrl}/portal/${token}`, expiresAt });
   } catch (e: any) {
-    console.error("portal/create-token:", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
 // ─── GET /portal/:token (PUBLIC — client-facing) ──────────────────────────────
 router.get("/portal/:token", async (req: Request, res: Response) => {
   try {
-    const { token } = req.params;
+    const { token } = req.params as Record<string, string>;
     const pRows = await db.execute(sql`SELECT * FROM client_portal_tokens WHERE token = ${token} LIMIT 1`);
     const portalRow = sqlOne(pRows) as any;
     if (!portalRow) { res.status(404).json({ error: "رابط البوابة غير صالح" }); return; }
@@ -264,8 +261,7 @@ router.get("/portal/:token", async (req: Request, res: Response) => {
       uploads: sqlAll(uploadRows),
     });
   } catch (e: any) {
-    console.error("portal/:token:", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
@@ -273,7 +269,7 @@ router.get("/portal/:token", async (req: Request, res: Response) => {
 router.get("/portal/tokens/:caseId", requireAuth, async (req: Request, res: Response) => {
   try {
     const rows = await db.execute(sql`
-      SELECT * FROM client_portal_tokens WHERE case_id = ${req.params.caseId} ORDER BY created_at DESC
+      SELECT * FROM client_portal_tokens WHERE case_id = ${String(req.params.caseId)} ORDER BY created_at DESC
     `);
     res.json(sqlAll(rows));
   } catch {
@@ -289,7 +285,7 @@ router.delete("/portal/tokens/:id", requireAuth, async (req: Request, res: Respo
     res.status(403).json({ error: "ليس لديك صلاحية إلغاء بوابة العملاء", code: "NO_PORTAL_PERM" }); return;
   }
   try {
-    await db.execute(sql`DELETE FROM client_portal_tokens WHERE id = ${req.params.id}`);
+    await db.execute(sql`DELETE FROM client_portal_tokens WHERE id = ${String(req.params.id)}`);
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -310,7 +306,7 @@ router.put("/portal/tokens/:id/settings", requireAuth, async (req: Request, res:
       SET show_invoices = ${showInvoices ?? true},
           show_timeline = ${showTimeline ?? true},
           allowed_to_upload = ${allowedToUpload ?? false}
-      WHERE id = ${req.params.id}
+      WHERE id = ${String(req.params.id)}
     `);
     res.json({ success: true });
   } catch (e: any) {
@@ -329,7 +325,7 @@ router.post("/portal/tokens/:id/share-doc", requireAuth, async (req: Request, re
     const { docId } = req.body;
     if (!docId) { res.status(400).json({ error: "docId مطلوب" }); return; }
 
-    const rows = await db.execute(sql`SELECT shared_documents FROM client_portal_tokens WHERE id = ${req.params.id}`);
+    const rows = await db.execute(sql`SELECT shared_documents FROM client_portal_tokens WHERE id = ${String(req.params.id)}`);
     const row = sqlOne(rows) as any;
     if (!row) { res.status(404).json({ error: "رابط غير موجود" }); return; }
 
@@ -340,7 +336,7 @@ router.post("/portal/tokens/:id/share-doc", requireAuth, async (req: Request, re
     if (!current.includes(docId)) {
       current.push(docId);
       await db.execute(sql`
-        UPDATE client_portal_tokens SET shared_documents = ${JSON.stringify(current)}::jsonb WHERE id = ${req.params.id}
+        UPDATE client_portal_tokens SET shared_documents = ${JSON.stringify(current)}::jsonb WHERE id = ${String(req.params.id)}
       `);
     }
     res.json({ success: true, sharedDocuments: current });
@@ -357,16 +353,16 @@ router.delete("/portal/tokens/:id/share-doc/:docId", requireAuth, async (req: Re
     res.status(403).json({ error: "ليس لديك صلاحية إدارة مشاركة المستندات", code: "NO_REPLY_PERM" }); return;
   }
   try {
-    const rows = await db.execute(sql`SELECT shared_documents FROM client_portal_tokens WHERE id = ${req.params.id}`);
+    const rows = await db.execute(sql`SELECT shared_documents FROM client_portal_tokens WHERE id = ${String(req.params.id)}`);
     const row = sqlOne(rows) as any;
     if (!row) { res.status(404).json({ error: "رابط غير موجود" }); return; }
 
     const current: string[] = Array.isArray(row.shared_documents)
       ? row.shared_documents
       : JSON.parse(row.shared_documents || "[]");
-    const updated = current.filter(id => id !== req.params.docId);
+    const updated = current.filter(id => id !== String(req.params.docId));
     await db.execute(sql`
-      UPDATE client_portal_tokens SET shared_documents = ${JSON.stringify(updated)}::jsonb WHERE id = ${req.params.id}
+      UPDATE client_portal_tokens SET shared_documents = ${JSON.stringify(updated)}::jsonb WHERE id = ${String(req.params.id)}
     `);
     res.json({ success: true, sharedDocuments: updated });
   } catch (e: any) {
@@ -378,7 +374,7 @@ router.delete("/portal/tokens/:id/share-doc/:docId", requireAuth, async (req: Re
 router.get("/portal/timeline/:caseId", requireAuth, async (req: Request, res: Response) => {
   try {
     const rows = await db.execute(sql`
-      SELECT * FROM case_timeline WHERE case_id = ${req.params.caseId} ORDER BY happened_at ASC
+      SELECT * FROM case_timeline WHERE case_id = ${String(req.params.caseId)} ORDER BY happened_at ASC
     `);
     res.json(sqlAll(rows));
   } catch (e: any) {
@@ -404,7 +400,7 @@ router.post("/portal/timeline/:caseId", requireAuth, async (req: Request, res: R
     await db.execute(sql`
       INSERT INTO case_timeline (id, case_id, entry_type, title, description, happened_at, is_shared, created_by, created_at)
       VALUES (
-        ${id}, ${req.params.caseId}, ${entryType}, ${title}, ${description ?? null},
+        ${id}, ${String(req.params.caseId)}, ${entryType}, ${title}, ${description ?? null},
         ${happenedAt ?? new Date().toISOString()}, ${isShared}, ${auth.userId ?? "system"}, NOW()
       )
     `);
@@ -414,7 +410,7 @@ router.post("/portal/timeline/:caseId", requireAuth, async (req: Request, res: R
       try {
         const pRows = await db.execute(sql`
           SELECT client_email, client_name, token FROM client_portal_tokens
-          WHERE case_id = ${req.params.caseId} AND client_email IS NOT NULL
+          WHERE case_id = ${String(req.params.caseId)} AND client_email IS NOT NULL
             AND (expires_at IS NULL OR expires_at > NOW())
           LIMIT 1
         `);
@@ -430,15 +426,14 @@ router.post("/portal/timeline/:caseId", requireAuth, async (req: Request, res: R
 
     res.json({ success: true, id });
   } catch (e: any) {
-    console.error("portal/timeline POST:", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
 // ─── POST /portal/:token/upload (PUBLIC — client-facing) ─────────────────────
 router.post("/portal/:token/upload", async (req: Request, res: Response) => {
   try {
-    const { token } = req.params;
+    const { token } = req.params as Record<string, string>;
     const { fileName, fileType, fileSize, fileData } = req.body;
 
     const pRows = await db.execute(sql`SELECT * FROM client_portal_tokens WHERE token = ${token} LIMIT 1`);
@@ -478,8 +473,7 @@ router.post("/portal/:token/upload", async (req: Request, res: Response) => {
         await file.save(buffer, { metadata: { contentType: fileType ?? "application/octet-stream" } });
         storedPath = objectPath;
       } catch (storageErr) {
-        console.error("Object storage upload failed:", storageErr);
-        res.status(500).json({ error: "فشل رفع الملف لمنظومة التخزين" }); return;
+                res.status(500).json({ error: "فشل رفع الملف لمنظومة التخزين" }); return;
       }
     } else if (!privateDir) {
       res.status(503).json({ error: "منظومة التخزين غير مضبوطة (PRIVATE_OBJECT_DIR)" }); return;
@@ -498,8 +492,7 @@ router.post("/portal/:token/upload", async (req: Request, res: Response) => {
 
     res.json({ success: true, id });
   } catch (e: any) {
-    console.error("portal/:token/upload:", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
@@ -511,7 +504,7 @@ router.get("/portal/uploads/:caseId", requireAuth, async (req: Request, res: Res
              pu.is_read, pu.file_data, cpt.client_name, cpt.token
       FROM portal_uploads pu
       JOIN client_portal_tokens cpt ON cpt.token = pu.portal_token
-      WHERE cpt.case_id = ${req.params.caseId}
+      WHERE cpt.case_id = ${String(req.params.caseId)}
       ORDER BY pu.uploaded_at DESC
     `);
     res.json(sqlAll(rows));
@@ -525,7 +518,7 @@ router.get("/portal/:token/uploads", async (req: Request, res: Response) => {
   try {
     const rows = await db.execute(sql`
       SELECT id, file_name, file_type, file_size, uploaded_at, is_read
-      FROM portal_uploads WHERE portal_token = ${req.params.token} ORDER BY uploaded_at DESC
+      FROM portal_uploads WHERE portal_token = ${String(req.params.token)} ORDER BY uploaded_at DESC
     `);
     res.json(sqlAll(rows));
   } catch {
@@ -536,7 +529,7 @@ router.get("/portal/:token/uploads", async (req: Request, res: Response) => {
 // ─── POST /portal/:token/message (PUBLIC — client-facing) ─────────────────────
 router.post("/portal/:token/message", async (req: Request, res: Response) => {
   try {
-    const { token } = req.params;
+    const { token } = req.params as Record<string, string>;
     const { message, senderName, senderEmail } = req.body;
     const rows = await db.execute(sql`SELECT * FROM client_portal_tokens WHERE token = ${token} LIMIT 1`);
     const portalRow = sqlOne(rows) as any;
@@ -620,8 +613,7 @@ router.patch("/comm-settings", requireAuth, async (req: Request, res: Response) 
     const updated = sqlAll(await db.execute(sql`SELECT * FROM client_comm_settings WHERE office_id=${u.officeId}`));
     res.json(updated[0] ?? { ok: true });
   } catch (e: any) {
-    console.error("comm-settings PATCH:", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 

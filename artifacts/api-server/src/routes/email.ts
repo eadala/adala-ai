@@ -1,7 +1,6 @@
 import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
 import nodemailer from "nodemailer";
-import { requireAuth } from "../middlewares/requireAuth";
 
 const router = Router();
 

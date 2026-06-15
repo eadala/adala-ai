@@ -12,11 +12,7 @@ import { getAuth } from "@clerk/express";
 
 const router = Router();
 
-function requireAuth(req: any, res: any): string | null {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "غير مصرح" }); return null; }
-  return userId;
-}
+
 
 async function safeRows(q: any): Promise<any[]> {
   try {
@@ -28,8 +24,8 @@ async function safeRows(q: any): Promise<any[]> {
 /* ── List own tickets ──────────────────────────────── */
 router.get("/support/tickets", requireAuth, async (req, res) => {
   try {
-    const userId = requireAuth(req, res);
-    if (!userId) return;
+    const { userId } = getAuth(req);
+    if (!userId) { res.status(401).json({ error: "غير مصرح" }); return; }
     const tickets = await db.select().from(supportTicketsTable)
       .where(eq(supportTicketsTable.userId, userId))
       .orderBy(desc(supportTicketsTable.createdAt));
@@ -42,8 +38,8 @@ router.get("/support/tickets", requireAuth, async (req, res) => {
 /* ── Create ticket ─────────────────────────────────── */
 router.post("/support/tickets", requireAuth, async (req, res) => {
   try {
-    const userId = requireAuth(req, res);
-    if (!userId) return;
+    const { userId } = getAuth(req);
+    if (!userId) { res.status(401).json({ error: "غير مصرح" }); return; }
     const { subject, body, priority = "medium", category = "technical" } = req.body;
     if (!subject || !body) return res.status(400).json({ error: "الموضوع والتفاصيل مطلوبة" });
 
@@ -76,9 +72,9 @@ router.post("/support/tickets", requireAuth, async (req, res) => {
 /* ── Get single ticket + messages ──────────────────── */
 router.get("/support/tickets/:id", requireAuth, async (req, res) => {
   try {
-    const userId = requireAuth(req, res);
-    if (!userId) return;
-    const { id } = req.params;
+    const { userId } = getAuth(req);
+    if (!userId) { res.status(401).json({ error: "غير مصرح" }); return; }
+    const { id } = req.params as Record<string, string>;
 
     const [ticket] = await db.select().from(supportTicketsTable)
       .where(and(eq(supportTicketsTable.id, id), eq(supportTicketsTable.userId, userId)));
@@ -97,9 +93,9 @@ router.get("/support/tickets/:id", requireAuth, async (req, res) => {
 /* ── Reply to ticket ───────────────────────────────── */
 router.post("/support/tickets/:id/messages", requireAuth, async (req, res) => {
   try {
-    const userId = requireAuth(req, res);
-    if (!userId) return;
-    const { id } = req.params;
+    const { userId } = getAuth(req);
+    if (!userId) { res.status(401).json({ error: "غير مصرح" }); return; }
+    const { id } = req.params as Record<string, string>;
     const { message, senderName = "المستخدم" } = req.body;
     if (!message) return res.status(400).json({ error: "الرسالة مطلوبة" });
 
@@ -129,9 +125,9 @@ router.post("/support/tickets/:id/messages", requireAuth, async (req, res) => {
 /* ── Close ticket ──────────────────────────────────── */
 router.patch("/support/tickets/:id/close", requireAuth, async (req, res) => {
   try {
-    const userId = requireAuth(req, res);
-    if (!userId) return;
-    const { id } = req.params;
+    const { userId } = getAuth(req);
+    if (!userId) { res.status(401).json({ error: "غير مصرح" }); return; }
+    const { id } = req.params as Record<string, string>;
     const [updated] = await db.update(supportTicketsTable)
       .set({ status: "closed", updatedAt: new Date() })
       .where(and(eq(supportTicketsTable.id, id), eq(supportTicketsTable.userId, userId)))

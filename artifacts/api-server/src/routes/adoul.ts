@@ -7,12 +7,22 @@
  * POST /api/adoul/lead       (public, save lead to DB)
  */
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { callAI } from "./aiChat";
 import { requireAuth } from "../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 const router = Router();
+
+const publicLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { error: "طلبات كثيرة، حاول لاحقاً" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_STREAM_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?key=${GEMINI_API_KEY}&alt=sse`;
 
@@ -162,8 +172,7 @@ router.post("/stream", requireAuth, async (req, res) => {
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
   } catch (err: any) {
-    console.error("[adoul] stream error:", err);
-    res.write(`data: ${JSON.stringify({ error: "انقطع الاتصال، يرجى المحاولة مجدداً" })}\n\n`);
+        res.write(`data: ${JSON.stringify({ error: "انقطع الاتصال، يرجى المحاولة مجدداً" })}\n\n`);
     res.end();
   }
 });
@@ -198,8 +207,7 @@ router.post("/chat", requireAuth, async (req, res) => {
 
     return res.json({ reply, modelUsed });
   } catch (err: any) {
-    console.error("[adoul] chat error:", err);
-    return res.status(500).json({ error: "فشل في معالجة طلبك، يرجى المحاولة مرة أخرى" });
+        return res.status(500).json({ error: "فشل في معالجة طلبك، يرجى المحاولة مرة أخرى" });
   }
 });
 
@@ -314,14 +322,13 @@ async function streamFromGemini(
     }
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   } catch (err) {
-    console.error("[adoul] gemini stream error:", err);
-    res.write(`data: ${JSON.stringify({ error: "انقطع الاتصال" })}\n\n`);
+        res.write(`data: ${JSON.stringify({ error: "انقطع الاتصال" })}\n\n`);
   }
   res.end();
 }
 
 /* ─── Marketing streaming endpoint (public — no auth) ────────── */
-router.post("/marketing", async (req, res) => {
+router.post("/marketing", publicLimiter, async (req, res) => {
   const { messages } = req.body as { messages: { role: string; content: string }[] };
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "messages required" });
@@ -349,7 +356,7 @@ async function ensureLeadsTable() {
 }
 let leadsTableReady = false;
 
-router.post("/lead", async (req, res) => {
+router.post("/lead", publicLimiter, async (req, res) => {
   try {
     const { phone, name, message } = req.body as { phone?: string; name?: string; message?: string };
     if (!leadsTableReady) { await ensureLeadsTable(); leadsTableReady = true; }
@@ -359,8 +366,7 @@ router.post("/lead", async (req, res) => {
     `);
     return res.json({ ok: true });
   } catch (err) {
-    console.error("[adoul] lead error:", err);
-    return res.status(500).json({ error: "failed" });
+        return res.status(500).json({ error: "failed" });
   }
 });
 

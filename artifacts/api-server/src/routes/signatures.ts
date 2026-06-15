@@ -3,7 +3,6 @@ import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { requireAuth } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -73,7 +72,7 @@ router.get("/signatures/token/:token", async (req: Request, res: Response) => {
     const row = await sqlOne(sql`
       SELECT id, document_title, document_content, signer_name, signer_email,
              status, created_at, signed_at
-      FROM document_signatures WHERE sign_token = ${req.params.token} LIMIT 1
+      FROM document_signatures WHERE sign_token = ${String(req.params.token)} LIMIT 1
     `);
     if (!row) { res.status(404).json({ error: "رابط التوقيع غير صالح" }); return; }
     res.json(row);
@@ -87,7 +86,7 @@ router.post("/signatures/token/:token/sign", async (req: Request, res: Response)
   try {
     const { signatureText, fullName } = req.body;
     if (!signatureText?.trim()) { res.status(400).json({ error: "التوقيع مطلوب" }); return; }
-    const row = await sqlOne(sql`SELECT * FROM document_signatures WHERE sign_token = ${req.params.token} LIMIT 1`);
+    const row = await sqlOne(sql`SELECT * FROM document_signatures WHERE sign_token = ${String(req.params.token)} LIMIT 1`);
     if (!row) { res.status(404).json({ error: "رابط التوقيع غير صالح" }); return; }
     if (row.status === "signed") { res.status(400).json({ error: "تم التوقيع على هذه الوثيقة مسبقاً" }); return; }
     const ip = String(req.headers["x-forwarded-for"] ?? req.ip ?? "unknown");
@@ -98,7 +97,7 @@ router.post("/signatures/token/:token/sign", async (req: Request, res: Response)
           signed_at = NOW(),
           ip_address = ${ip},
           signer_name = COALESCE(${fullName ?? null}, signer_name)
-      WHERE sign_token = ${req.params.token}
+      WHERE sign_token = ${String(req.params.token)}
     `);
     res.json({ success: true, message: "تم التوقيع بنجاح" });
   } catch (e: any) {
@@ -112,7 +111,7 @@ router.get("/signatures/document/:docId", requireAuth, async (req: Request, res:
     await ensureSchema();
     const rows = await sqlAll(sql`
       SELECT id, signer_name, signer_email, status, signed_at, created_at, sign_token
-      FROM document_signatures WHERE document_id = ${req.params.docId}
+      FROM document_signatures WHERE document_id = ${String(req.params.docId)}
       ORDER BY created_at DESC
     `);
     res.json(rows);

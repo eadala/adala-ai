@@ -1,6 +1,5 @@
 import { requireAuth } from "../middlewares/requireAuth";
 import { Router } from "express";
-import { requireAuth } from "../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -175,7 +174,7 @@ router.get("/ai-events", requireAuth, async (req, res) => {
 /* ── POST /api/ai-events/:id/dismiss ─────────────── */
 router.post("/ai-events/:id/dismiss", requireAuth, async (req, res) => {
   const officeId = (req as any).officeId as string;
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   if (!officeId || isNaN(id)) { res.status(400).json({ error: "invalid" }); return; }
   try {
     await db.execute(sql`

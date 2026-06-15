@@ -53,7 +53,7 @@ router.post("/storage/uploads/request-url", requireAuthWithTenant, async (req: R
  */
 router.get("/storage/public-objects/*filePath", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const raw = req.params.filePath;
+    const raw = String(req.params.filePath);
     const filePath = Array.isArray(raw) ? raw.join("/") : raw;
     const file = await objectStorageService.searchPublicObject(filePath);
     if (!file) {
@@ -87,7 +87,7 @@ router.get("/storage/public-objects/*filePath", requireAuthWithTenant, async (re
  */
 router.get("/storage/objects/*path", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const raw = req.params.path;
+    const raw = String(req.params.path);
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
@@ -336,7 +336,7 @@ router.post("/storage/files", requireAuthWithTenant, async (req, res) => {
 router.patch("/storage/files/:id/archive", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const rows = await dbRows(sql`UPDATE storage_files SET is_archived=NOT is_archived, archived_at=CASE WHEN NOT is_archived THEN NOW() ELSE NULL END, updated_at=NOW() WHERE id=${req.params.id}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING *`);
+  const rows = await dbRows(sql`UPDATE storage_files SET is_archived=NOT is_archived, archived_at=CASE WHEN NOT is_archived THEN NOW() ELSE NULL END, updated_at=NOW() WHERE id=${String(req.params.id)}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING *`);
   res.json(rows[0] ?? { ok: true });
 });
 
@@ -344,7 +344,7 @@ router.patch("/storage/files/:id/archive", requireAuthWithTenant, async (req, re
 router.patch("/storage/files/:id/trash", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const rows = await dbRows(sql`UPDATE storage_files SET is_deleted=true, deleted_at=NOW(), updated_at=NOW() WHERE id=${req.params.id}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING *`);
+  const rows = await dbRows(sql`UPDATE storage_files SET is_deleted=true, deleted_at=NOW(), updated_at=NOW() WHERE id=${String(req.params.id)}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING *`);
   res.json(rows[0] ?? { ok: true });
 });
 
@@ -352,7 +352,7 @@ router.patch("/storage/files/:id/trash", requireAuthWithTenant, async (req, res)
 router.patch("/storage/files/:id/restore", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const rows = await dbRows(sql`UPDATE storage_files SET is_deleted=false, deleted_at=NULL, updated_at=NOW() WHERE id=${req.params.id}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING *`);
+  const rows = await dbRows(sql`UPDATE storage_files SET is_deleted=false, deleted_at=NULL, updated_at=NOW() WHERE id=${String(req.params.id)}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING *`);
   res.json(rows[0] ?? { ok: true });
 });
 
@@ -360,10 +360,10 @@ router.patch("/storage/files/:id/restore", requireAuthWithTenant, async (req, re
 router.delete("/storage/files/:id", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const file = await dbRows(sql`SELECT file_size, office_id FROM storage_files WHERE id=${req.params.id}::uuid`);
+  const file = await dbRows(sql`SELECT file_size, office_id FROM storage_files WHERE id=${String(req.params.id)}::uuid`);
   if (!file.length) return res.status(404).json({ error: "الملف غير موجود" });
   if (!u.isSA && file[0].office_id !== u.officeId) return res.status(403).json({ error: "غير مصرح" });
-  await db.execute(sql`DELETE FROM storage_files WHERE id=${req.params.id}::uuid`);
+  await db.execute(sql`DELETE FROM storage_files WHERE id=${String(req.params.id)}::uuid`);
   const sz = Number(file[0].file_size ?? 0);
   if (sz > 0) await db.execute(sql`UPDATE office_storage_quota SET used_bytes=GREATEST(0,used_bytes-${sz}), files_count=GREATEST(0,files_count-1), updated_at=NOW() WHERE office_id=${file[0].office_id}`);
   res.json({ ok: true });
@@ -395,7 +395,7 @@ router.patch("/storage/quotas/:officeId", requireAuthWithTenant, async (req, res
   const u = await getMgmtUser(req);
   if (!u?.isSA) return res.status(403).json({ error: "غير مصرح" });
   const { maxBytes } = req.body;
-  await db.execute(sql`INSERT INTO office_storage_quota (office_id,max_bytes) VALUES (${req.params.officeId},${maxBytes}) ON CONFLICT (office_id) DO UPDATE SET max_bytes=${maxBytes},updated_at=NOW()`);
+  await db.execute(sql`INSERT INTO office_storage_quota (office_id,max_bytes) VALUES (${String(req.params.officeId)},${maxBytes}) ON CONFLICT (office_id) DO UPDATE SET max_bytes=${maxBytes},updated_at=NOW()`);
   res.json({ ok: true });
 });
 
@@ -472,8 +472,7 @@ router.post("/storage/analyze", requireAuthWithTenant, async (req, res) => {
 
     res.json({ ok: true, ...result });
   } catch (err: any) {
-    console.error("[storage/analyze]", err.message);
-    res.json({ ok: false, error: err.message });
+        res.json({ ok: false, error: err.message });
   }
 });
 
@@ -583,8 +582,7 @@ router.post("/storage/import-url", requireAuthWithTenant, async (req, res) => {
 
     res.json({ ok: true, record: rows[0] });
   } catch (e: any) {
-    console.error("[storage/import-url]", e.message);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
@@ -657,11 +655,11 @@ router.post("/storage/folders", requireAuthWithTenant, async (req, res) => {
 router.patch("/storage/folders/:id/rename", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const ok = await getFolderAccess(req.params.id, u, "manage");
+  const ok = await getFolderAccess(String(req.params.id), u, "manage");
   if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية تعديل هذا المجلد" });
   const { name } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: "الاسم مطلوب" });
-  const rows = await dbRows(sql`UPDATE storage_folders SET name=${name.trim()}, updated_at=NOW() WHERE id=${req.params.id}::uuid AND office_id=${u.officeId} RETURNING *`);
+  const rows = await dbRows(sql`UPDATE storage_folders SET name=${name.trim()}, updated_at=NOW() WHERE id=${String(req.params.id)}::uuid AND office_id=${u.officeId} RETURNING *`);
   if (!rows.length) return res.status(404).json({ error: "المجلد غير موجود" });
   res.json(rows[0]);
 });
@@ -670,12 +668,12 @@ router.patch("/storage/folders/:id/rename", requireAuthWithTenant, async (req, r
 router.delete("/storage/folders/:id", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const ok = await getFolderAccess(req.params.id, u, "manage");
+  const ok = await getFolderAccess(String(req.params.id), u, "manage");
   if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية حذف هذا المجلد" });
-  const folder = await dbRows(sql`SELECT parent_id FROM storage_folders WHERE id=${req.params.id}::uuid AND office_id=${u.officeId}`);
+  const folder = await dbRows(sql`SELECT parent_id FROM storage_folders WHERE id=${String(req.params.id)}::uuid AND office_id=${u.officeId}`);
   if (!folder.length) return res.status(404).json({ error: "المجلد غير موجود" });
-  await db.execute(sql`UPDATE storage_files SET folder_id=${folder[0].parent_id??null} WHERE folder_id=${req.params.id}::uuid`);
-  await db.execute(sql`DELETE FROM storage_folders WHERE id=${req.params.id}::uuid AND office_id=${u.officeId}`);
+  await db.execute(sql`UPDATE storage_files SET folder_id=${folder[0].parent_id??null} WHERE folder_id=${String(req.params.id)}::uuid`);
+  await db.execute(sql`DELETE FROM storage_folders WHERE id=${String(req.params.id)}::uuid AND office_id=${u.officeId}`);
   res.json({ ok: true });
 });
 
@@ -688,7 +686,7 @@ router.patch("/storage/files/:id/folder", requireAuthWithTenant, async (req, res
     const ok = await getFolderAccess(folderId, u, "write");
     if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية النقل إلى هذا المجلد" });
   }
-  const rows = await dbRows(sql`UPDATE storage_files SET folder_id=${folderId??null}, updated_at=NOW() WHERE id=${req.params.id}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING id`);
+  const rows = await dbRows(sql`UPDATE storage_files SET folder_id=${folderId??null}, updated_at=NOW() WHERE id=${String(req.params.id)}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING id`);
   if (!rows.length) return res.status(404).json({ error: "الملف غير موجود" });
   res.json({ ok: true });
 });
@@ -701,12 +699,12 @@ router.patch("/storage/files/:id/folder", requireAuthWithTenant, async (req, res
 router.get("/storage/folders/:id/permissions", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const ok = await getFolderAccess(req.params.id, u, "manage");
+  const ok = await getFolderAccess(String(req.params.id), u, "manage");
   if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إدارة هذا المجلد" });
 
   const [folder, grants, members] = await Promise.all([
-    dbRows(sql`SELECT id, name, visibility, created_by FROM storage_folders WHERE id=${req.params.id}::uuid AND office_id=${u.officeId}`),
-    dbRows(sql`SELECT fp.user_id, fp.user_name, fp.can_read, fp.can_write, fp.can_delete, fp.granted_at FROM folder_permissions fp WHERE fp.folder_id=${req.params.id}::uuid`),
+    dbRows(sql`SELECT id, name, visibility, created_by FROM storage_folders WHERE id=${String(req.params.id)}::uuid AND office_id=${u.officeId}`),
+    dbRows(sql`SELECT fp.user_id, fp.user_name, fp.can_read, fp.can_write, fp.can_delete, fp.granted_at FROM folder_permissions fp WHERE fp.folder_id=${String(req.params.id)}::uuid`),
     dbRows(sql`SELECT om.user_id, om.role, COALESCE(u2.full_name, om.user_id) AS name FROM office_members om LEFT JOIN users u2 ON u2.id=om.user_id WHERE om.office_id=${u.officeId} AND om.status='active' ORDER BY name`),
   ]);
   if (!folder.length) return res.status(404).json({ error: "المجلد غير موجود" });
@@ -717,14 +715,14 @@ router.get("/storage/folders/:id/permissions", requireAuthWithTenant, async (req
 router.patch("/storage/folders/:id/permissions", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const ok = await getFolderAccess(req.params.id, u, "manage");
+  const ok = await getFolderAccess(String(req.params.id), u, "manage");
   if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إدارة هذا المجلد" });
 
   const { visibility } = req.body;
   const allowed = ["everyone", "admins_only", "owner_only", "custom"];
   if (!allowed.includes(visibility)) return res.status(400).json({ error: "قيمة الرؤية غير صالحة" });
 
-  const rows = await dbRows(sql`UPDATE storage_folders SET visibility=${visibility}, updated_at=NOW() WHERE id=${req.params.id}::uuid AND office_id=${u.officeId} RETURNING id, name, visibility`);
+  const rows = await dbRows(sql`UPDATE storage_folders SET visibility=${visibility}, updated_at=NOW() WHERE id=${String(req.params.id)}::uuid AND office_id=${u.officeId} RETURNING id, name, visibility`);
   res.json(rows[0] ?? { ok: true });
 });
 
@@ -732,14 +730,14 @@ router.patch("/storage/folders/:id/permissions", requireAuthWithTenant, async (r
 router.post("/storage/folders/:id/permissions/users", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const ok = await getFolderAccess(req.params.id, u, "manage");
+  const ok = await getFolderAccess(String(req.params.id), u, "manage");
   if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إدارة هذا المجلد" });
 
   const { userId, userName, canRead = true, canWrite = false, canDelete = false } = req.body;
   if (!userId) return res.status(400).json({ error: "userId مطلوب" });
   const rows = await dbRows(sql`
     INSERT INTO folder_permissions (folder_id, user_id, user_name, can_read, can_write, can_delete)
-    VALUES (${req.params.id}::uuid, ${userId}, ${userName??null}, ${canRead}, ${canWrite}, ${canDelete})
+    VALUES (${String(req.params.id)}::uuid, ${userId}, ${userName??null}, ${canRead}, ${canWrite}, ${canDelete})
     ON CONFLICT (folder_id, user_id) DO UPDATE
       SET can_read=${canRead}, can_write=${canWrite}, can_delete=${canDelete}, user_name=COALESCE(${userName??null}, folder_permissions.user_name)
     RETURNING *`);
@@ -750,9 +748,9 @@ router.post("/storage/folders/:id/permissions/users", requireAuthWithTenant, asy
 router.delete("/storage/folders/:id/permissions/users/:userId", requireAuthWithTenant, async (req, res) => {
   const u = await getMgmtUser(req);
   if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const ok = await getFolderAccess(req.params.id, u, "manage");
+  const ok = await getFolderAccess(String(req.params.id), u, "manage");
   if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إدارة هذا المجلد" });
-  await db.execute(sql`DELETE FROM folder_permissions WHERE folder_id=${req.params.id}::uuid AND user_id=${req.params.userId}`);
+  await db.execute(sql`DELETE FROM folder_permissions WHERE folder_id=${String(req.params.id)}::uuid AND user_id=${String(req.params.userId)}`);
   res.json({ ok: true });
 });
 

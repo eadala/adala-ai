@@ -3,7 +3,6 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -83,8 +82,7 @@ router.get("/finance/dashboard", requireAuthWithTenant, async (req, res) => {
       revenueCategories: revCats.map(r => ({ name: r.category ?? "أخرى", value: num(r.total) })),
     });
   } catch (e: any) {
-    console.error("finance/dashboard:", e);
-    res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
   }
 });
 
@@ -333,7 +331,7 @@ router.post("/finance/collections/:id/payment", requireAuthWithTenant, async (re
   try {
     const tenantId = (req as any).tenantId;
     const { amount, paymentMethod = "bank_transfer", notes } = req.body;
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
 
     // CRITICAL: always scope to tenant to prevent cross-office invoice manipulation
     const updated = await sqlOne(sql`
@@ -368,7 +366,7 @@ router.post("/finance/collections/:id/payment", requireAuthWithTenant, async (re
 router.post("/finance/collections/:id/reminder", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const rows = await sqlAll(sql`
       SELECT i.*, c.full_name AS client_name, c.email AS client_email
       FROM client_invoices i LEFT JOIN clients c ON i.client_id=c.id
@@ -419,7 +417,7 @@ router.post("/finance/collections/:id/reminder", requireAuthWithTenant, async (r
 router.post("/finance/collections/:id/stage", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { stage, notes } = req.body;
     // Verify invoice belongs to this tenant before updating
     const inv = await sqlOne(sql`SELECT id FROM client_invoices WHERE id=${id} AND office_id=${tenantId} LIMIT 1`);
@@ -441,7 +439,7 @@ router.post("/finance/collections/:id/stage", requireAuthWithTenant, async (req,
 router.post("/finance/collections/:id/partial-payment", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { amount, paymentMethod = "bank_transfer", referenceNumber, notes } = req.body;
     const amtHalalas = Math.round(Number(amount) * 100);
 
@@ -471,7 +469,7 @@ router.post("/finance/collections/:id/partial-payment", requireAuthWithTenant, a
 router.get("/finance/collections/:id/activities", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     // Verify invoice belongs to tenant
     const inv = await sqlOne(sql`SELECT id FROM client_invoices WHERE id=${id} AND office_id=${tenantId} LIMIT 1`);
     if (!inv?.id) { res.status(404).json({ error: "فاتورة غير موجودة" }); return; }

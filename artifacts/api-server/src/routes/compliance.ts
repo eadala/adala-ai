@@ -2,7 +2,6 @@ import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -22,7 +21,7 @@ router.get("/compliance/items", requireAuthWithTenant, async (req, res) => {
 // PUT /compliance/items/:frameworkKey/:itemId — upsert status
 router.put("/compliance/items/:frameworkKey/:itemId", requireAuthWithTenant, async (req, res) => {
   try {
-    const { frameworkKey, itemId } = req.params;
+    const { frameworkKey, itemId } = req.params as Record<string, string>;
     const { status, notes, updatedBy } = req.body as { status: string; notes?: string; updatedBy?: string };
     if (!["done", "partial", "pending"].includes(status)) {
       return res.status(400).json({ error: "Invalid status" });

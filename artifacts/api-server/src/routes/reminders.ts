@@ -2,7 +2,6 @@ import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -88,7 +87,7 @@ router.patch("/reminders/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTable();
   try {
     const tenantId = (req as any).tenantId;
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { title, body, dueDate, dueTime, priority, category, done } = req.body;
     const row = await sqlOne(sql`
       UPDATE reminders SET
@@ -111,7 +110,7 @@ router.delete("/reminders/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTable();
   try {
     const tenantId = (req as any).tenantId;
-    await db.execute(sql`DELETE FROM reminders WHERE id = ${parseInt(req.params.id)} AND office_id = ${tenantId}`);
+    await db.execute(sql`DELETE FROM reminders WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tenantId}`);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

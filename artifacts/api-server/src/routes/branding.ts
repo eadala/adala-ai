@@ -1,6 +1,5 @@
 import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { officeBrandingTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
@@ -10,7 +9,7 @@ const router = Router();
 const DEFAULT_TENANT = "default";
 
 router.get("/branding", requireAuthWithTenant, async (req, res) => {
-  const tenantId = (req.query.tenantId as string) || DEFAULT_TENANT;
+  const tenantId = (String(req.query.tenantId)) || DEFAULT_TENANT;
   const rows = await db.select().from(officeBrandingTable).where(eq(officeBrandingTable.tenantId, tenantId));
   if (rows.length === 0) {
     return res.json(null);
@@ -37,7 +36,7 @@ router.put("/branding/:id", requireAuthWithTenant, async (req, res) => {
   const [updated] = await db
     .update(officeBrandingTable)
     .set({ ...req.body, updatedAt: new Date() })
-    .where(eq(officeBrandingTable.id, req.params.id))
+    .where(eq(officeBrandingTable.id, String(req.params.id)))
     .returning();
   if (!updated) return res.status(404).json({ error: "Not found" });
   res.json(updated);

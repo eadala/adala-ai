@@ -251,7 +251,7 @@ router.get("/ai/case-brief/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { sql } = await import("drizzle-orm");
     const { db } = await import("@workspace/db");
-    const id = req.params.id;
+    const id = String(req.params.id);
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 

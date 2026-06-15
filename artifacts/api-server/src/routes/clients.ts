@@ -5,7 +5,6 @@ import { clientsTable } from "@workspace/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { eventBus } from "../core/eventBus";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -14,7 +13,7 @@ router.get("/clients", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     const clients = await db.select().from(clientsTable)
-      .where(eq(clientsTable.officeId, tenantId))
+      .where(eq((clientsTable as any).officeId, tenantId))
       .orderBy(desc(clientsTable.createdAt));
     res.json(clients);
   } catch (e: any) {
@@ -47,7 +46,7 @@ router.post("/clients", requireAuthWithTenant, async (req, res) => {
       source:     source     ?? "direct",
       tags:       tags       ?? [],
       officeId:   tenantId,
-    }).returning();
+    } as any).returning();
 
     eventBus.emit({
       type: "CLIENT_ADDED",
@@ -79,7 +78,7 @@ router.patch("/clients/:id", requireAuthWithTenant, async (req, res) => {
         ...(tags       !== undefined && { tags }),
         updatedAt: new Date(),
       })
-      .where(and(eq(clientsTable.id, req.params.id), eq(clientsTable.officeId, tenantId)))
+      .where(and(eq(clientsTable.id, String(req.params.id)), eq((clientsTable as any).officeId, tenantId)))
       .returning();
     if (!updated) return res.status(404).json({ error: "الموكل غير موجود" });
     res.json(updated);
@@ -93,7 +92,7 @@ router.delete("/clients/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     await db.delete(clientsTable)
-      .where(and(eq(clientsTable.id, req.params.id), eq(clientsTable.officeId, tenantId)));
+      .where(and(eq(clientsTable.id, String(req.params.id)), eq((clientsTable as any).officeId, tenantId)));
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -105,7 +104,7 @@ router.get("/clients/stats", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     const all = await db.select().from(clientsTable)
-      .where(eq(clientsTable.officeId, tenantId));
+      .where(eq((clientsTable as any).officeId, tenantId));
     res.json({
       total:       all.length,
       active:      all.filter(c => c.status === "active").length,
@@ -123,7 +122,7 @@ router.get("/clients/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     const [client] = await db.select().from(clientsTable)
-      .where(and(eq(clientsTable.id, req.params.id), eq(clientsTable.officeId, tenantId)));
+      .where(and(eq(clientsTable.id, String(req.params.id)), eq((clientsTable as any).officeId, tenantId)));
     if (!client) return res.status(404).json({ error: "الموكل غير موجود" });
     res.json(client);
   } catch (e: any) {
@@ -135,10 +134,10 @@ router.get("/clients/:id", requireAuthWithTenant, async (req, res) => {
 router.get("/clients/:id/overview", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
 
     const [client] = await db.select().from(clientsTable)
-      .where(and(eq(clientsTable.id, id), eq(clientsTable.officeId, tenantId)));
+      .where(and(eq(clientsTable.id, id), eq((clientsTable as any).officeId, tenantId)));
     if (!client) return res.status(404).json({ error: "الموكل غير موجود" });
 
     async function safeRows(q: any): Promise<any[]> {
@@ -190,12 +189,12 @@ router.get("/clients/:id/overview", requireAuthWithTenant, async (req, res) => {
 router.get("/clients/:id/accounting", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { period = "annual", year = new Date().getFullYear(), month = "1" } = req.query as any;
 
     // Verify client belongs to this office
     const [client] = await db.select().from(clientsTable)
-      .where(and(eq(clientsTable.id, id), eq(clientsTable.officeId, tenantId)));
+      .where(and(eq(clientsTable.id, id), eq((clientsTable as any).officeId, tenantId)));
     if (!client) return res.status(404).json({ error: "الموكل غير موجود" });
 
     async function safeRows(q: any): Promise<any[]> {

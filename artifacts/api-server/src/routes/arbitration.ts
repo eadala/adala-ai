@@ -84,7 +84,7 @@ router.patch("/arbitration/cases/:id", requireAuthWithTenant, async (req, res) =
         ...(status      !== undefined && { status }),
         updatedAt: new Date(),
       })
-      .where(eq(arbitrationCasesTable.id, req.params.id))
+      .where(eq(arbitrationCasesTable.id, String(req.params.id)))
       .returning();
 
     if (!updated) return res.status(404).json({ error: "القضية غير موجودة" });
@@ -100,7 +100,7 @@ router.delete("/arbitration/cases/:id", requireAuthWithTenant, async (req, res) 
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
     await db.delete(arbitrationCasesTable)
-      .where(eq(arbitrationCasesTable.id, req.params.id));
+      .where(eq(arbitrationCasesTable.id, String(req.params.id)));
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -113,7 +113,7 @@ router.post("/arbitration/cases/:id/session", requireAuthWithTenant, async (req,
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
     const [existing] = await db.select().from(arbitrationCasesTable)
-      .where(eq(arbitrationCasesTable.id, req.params.id));
+      .where(eq(arbitrationCasesTable.id, String(req.params.id)));
     if (!existing) return res.status(404).json({ error: "القضية غير موجودة" });
 
     /* Validate session fields explicitly */
@@ -132,7 +132,7 @@ router.post("/arbitration/cases/:id/session", requireAuthWithTenant, async (req,
 
     const [updated] = await db.update(arbitrationCasesTable)
       .set({ sessions, updatedAt: new Date() })
-      .where(eq(arbitrationCasesTable.id, req.params.id))
+      .where(eq(arbitrationCasesTable.id, String(req.params.id)))
       .returning();
     res.json(updated);
   } catch (e: any) {
@@ -146,7 +146,7 @@ router.post("/arbitration/cases/:id/generate-decision", requireAuthWithTenant, a
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
     const [c] = await db.select().from(arbitrationCasesTable)
-      .where(eq(arbitrationCasesTable.id, req.params.id));
+      .where(eq(arbitrationCasesTable.id, String(req.params.id)));
     if (!c) return res.status(404).json({ error: "القضية غير موجودة" });
 
     const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
@@ -194,8 +194,7 @@ router.post("/arbitration/cases/:id/generate-decision", requireAuthWithTenant, a
         decision = d.choices?.[0]?.message?.content ?? "";
       }
     } catch (aiErr) {
-      console.error("[Arbitration AI]", aiErr);
-    }
+          }
 
     if (!decision) {
       decision = `قرار ${c.type === "arbitration" ? "تحكيمي" : "وساطة"}\n\nفي النزاع القائم بين:\nالمدّعي: ${c.claimant}\nالمدّعى عليه: ${c.respondent}\n\nالوقائع:\nبناءً على الأوراق والمستندات المقدّمة في النزاع المتعلق بـ ${c.title}.\n\nالقرار:\nبعد دراسة وقائع النزاع والمستندات المقدّمة، يرى المحكّم أن الطرفين يتحملان مسؤولية مشتركة ويُوصي بالتسوية الودية وفق الشروط المتفق عليها.\n\nحرر بتاريخ: ${new Date().toLocaleDateString("ar-SA")}\nالمحكّم: ${c.arbitrator ?? "المحكّم المعيّن"}`;

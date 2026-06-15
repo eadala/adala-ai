@@ -1,6 +1,5 @@
 import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { CreateUserBody, UpdateUserBody } from "@workspace/api-zod";
@@ -40,7 +39,7 @@ router.patch("/users/:id", requireAuthWithTenant, async (req, res) => {
       ...(body.phone !== undefined && { phone: body.phone }),
       ...(body.role !== undefined && { role: body.role }),
       ...(body.status !== undefined && { status: body.status }),
-    }).where(eq(usersTable.id, req.params.id)).returning();
+    }).where(eq(usersTable.id, String(req.params.id))).returning();
     if (!updated) return res.status(404).json({ error: "Not found" });
     res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
   } catch (e: any) {
@@ -50,7 +49,7 @@ router.patch("/users/:id", requireAuthWithTenant, async (req, res) => {
 
 router.delete("/users/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    await db.delete(usersTable).where(eq(usersTable.id, req.params.id));
+    await db.delete(usersTable).where(eq(usersTable.id, String(req.params.id)));
     res.status(204).end();
   } catch (e: any) {
     res.status(500).json({ error: e.message });

@@ -226,7 +226,7 @@ router.patch("/rbac/roles/:id", requireAuthWithTenant, async (req, res) => {
       displayName?: string; description?: string; permissions?: string[];
     };
 
-    const existing = await db.select().from(rolesTable).where(eq(rolesTable.id, req.params.id)).limit(1);
+    const existing = await db.select().from(rolesTable).where(eq(rolesTable.id, String(req.params.id))).limit(1);
     if (!existing.length) return res.status(404).json({ error: "الدور غير موجود" });
     if (existing[0].isSystem && permissions) {
       return res.status(403).json({ error: "لا يمكن تعديل صلاحيات الأدوار الأساسية" });
@@ -237,7 +237,7 @@ router.patch("/rbac/roles/:id", requireAuthWithTenant, async (req, res) => {
       ...(description !== undefined && { description }),
       ...(permissions !== undefined && { permissions: JSON.stringify(permissions) }),
       updatedAt: new Date(),
-    }).where(eq(rolesTable.id, req.params.id)).returning();
+    }).where(eq(rolesTable.id, String(req.params.id))).returning();
 
     await logAudit("update", "role", updated.id, `تعديل دور: ${updated.displayName}`);
     res.json({ ...updated, permissions: JSON.parse(updated.permissions) });
@@ -248,12 +248,12 @@ router.patch("/rbac/roles/:id", requireAuthWithTenant, async (req, res) => {
 
 router.delete("/rbac/roles/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const existing = await db.select().from(rolesTable).where(eq(rolesTable.id, req.params.id)).limit(1);
+    const existing = await db.select().from(rolesTable).where(eq(rolesTable.id, String(req.params.id))).limit(1);
     if (!existing.length) return res.status(404).json({ error: "الدور غير موجود" });
     if (existing[0].isSystem) return res.status(403).json({ error: "لا يمكن حذف الأدوار الأساسية" });
 
-    await db.delete(rolesTable).where(eq(rolesTable.id, req.params.id));
-    await logAudit("delete", "role", req.params.id, `حذف دور: ${existing[0].displayName}`);
+    await db.delete(rolesTable).where(eq(rolesTable.id, String(req.params.id)));
+    await logAudit("delete", "role", String(req.params.id), `حذف دور: ${existing[0].displayName}`);
     res.status(204).end();
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -297,7 +297,7 @@ router.patch("/rbac/invitations/:id/resend", requireAuthWithTenant, async (req, 
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const [updated] = await db.update(invitationsTable)
       .set({ status: "pending", expiresAt })
-      .where(eq(invitationsTable.id, req.params.id))
+      .where(eq(invitationsTable.id, String(req.params.id)))
       .returning();
     if (!updated) return res.status(404).json({ error: "الدعوة غير موجودة" });
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), expiresAt: updated.expiresAt.toISOString() });
@@ -308,7 +308,7 @@ router.patch("/rbac/invitations/:id/resend", requireAuthWithTenant, async (req, 
 
 router.delete("/rbac/invitations/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    await db.delete(invitationsTable).where(eq(invitationsTable.id, req.params.id));
+    await db.delete(invitationsTable).where(eq(invitationsTable.id, String(req.params.id)));
     res.status(204).end();
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -335,11 +335,11 @@ router.patch("/rbac/users/:id/role", requireAuthWithTenant, async (req, res) => 
 
     const [updated] = await db.update(usersTable)
       .set({ role })
-      .where(eq(usersTable.id, req.params.id))
+      .where(eq(usersTable.id, String(req.params.id)))
       .returning();
 
     if (!updated) return res.status(404).json({ error: "المستخدم غير موجود" });
-    await logAudit("update_role", "user", req.params.id, `تغيير دور ${updated.fullName} إلى ${role}`);
+    await logAudit("update_role", "user", String(req.params.id), `تغيير دور ${updated.fullName} إلى ${role}`);
     res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -351,10 +351,10 @@ router.patch("/rbac/users/:id/status", requireAuthWithTenant, async (req, res) =
     const { status } = req.body as { status: string };
     const [updated] = await db.update(usersTable)
       .set({ status })
-      .where(eq(usersTable.id, req.params.id))
+      .where(eq(usersTable.id, String(req.params.id)))
       .returning();
     if (!updated) return res.status(404).json({ error: "المستخدم غير موجود" });
-    await logAudit("update_status", "user", req.params.id, `تغيير حالة ${updated.fullName} إلى ${status}`);
+    await logAudit("update_status", "user", String(req.params.id), `تغيير حالة ${updated.fullName} إلى ${status}`);
     res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -444,10 +444,10 @@ router.patch("/rbac/members/:memberId/role", requireAuthWithTenant, async (req, 
 
     await db.execute(sql`
       UPDATE office_members SET role = ${role}
-      WHERE user_id = ${req.params.memberId} AND office_id = ${officeId}
+      WHERE user_id = ${String(req.params.memberId)} AND office_id = ${officeId}
     `);
 
-    await logAudit("update_role", "member", req.params.memberId, `تغيير الدور إلى ${role}`, currentUserId);
+    await logAudit("update_role", "member", String(req.params.memberId), `تغيير الدور إلى ${role}`, currentUserId);
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -461,7 +461,7 @@ router.delete("/rbac/members/:memberId", requireAuthWithTenant, async (req, res)
     const currentUserId = auth?.userId;
     if (!currentUserId) return res.status(401).json({ error: "غير مصرح" });
 
-    if (req.params.memberId === currentUserId) {
+    if (String(req.params.memberId) === currentUserId) {
       return res.status(400).json({ error: "لا يمكنك إزالة نفسك من المكتب" });
     }
 
@@ -470,10 +470,10 @@ router.delete("/rbac/members/:memberId", requireAuthWithTenant, async (req, res)
 
     await db.execute(sql`
       UPDATE office_members SET status = 'inactive'
-      WHERE user_id = ${req.params.memberId} AND office_id = ${officeId}
+      WHERE user_id = ${String(req.params.memberId)} AND office_id = ${officeId}
     `);
 
-    await logAudit("remove_member", "member", req.params.memberId, "إزالة عضو من المكتب", currentUserId);
+    await logAudit("remove_member", "member", String(req.params.memberId), "إزالة عضو من المكتب", currentUserId);
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

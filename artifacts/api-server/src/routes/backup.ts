@@ -184,8 +184,7 @@ router.post("/backup/create", requireAuthWithTenant, async (req, res) => {
 
     res.json({ ok: true, jobId: job.id, fileName, sizeBytes });
   } catch (err) {
-    console.error("Backup create error:", err);
-    res.status(500).json({ error: "خطأ في إنشاء النسخة الاحتياطية" });
+        res.status(500).json({ error: "خطأ في إنشاء النسخة الاحتياطية" });
   }
 });
 
@@ -195,7 +194,7 @@ router.get("/backup/jobs/:id/download", requireAuthWithTenant, async (req, res) 
     const [job] = await db
       .select()
       .from(backupJobsTable)
-      .where(eq(backupJobsTable.id, req.params.id))
+      .where(eq(backupJobsTable.id, String(req.params.id)))
       .limit(1);
     if (!job) return res.status(404).json({ error: "النسخة الاحتياطية غير موجودة" });
     res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -209,7 +208,7 @@ router.get("/backup/jobs/:id/download", requireAuthWithTenant, async (req, res) 
 /* DELETE /api/backup/jobs/:id */
 router.delete("/backup/jobs/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    await db.delete(backupJobsTable).where(eq(backupJobsTable.id, req.params.id));
+    await db.delete(backupJobsTable).where(eq(backupJobsTable.id, String(req.params.id)));
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "خطأ في حذف النسخة الاحتياطية" });
@@ -266,8 +265,7 @@ router.get("/backup/local-download", requireAuthWithTenant, async (req, res) => 
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     res.json(payload);
   } catch (err) {
-    console.error("Local backup error:", err);
-    res.status(500).json({ error: "خطأ في إنشاء النسخة الاحتياطية" });
+        res.status(500).json({ error: "خطأ في إنشاء النسخة الاحتياطية" });
   }
 });
 
@@ -305,7 +303,7 @@ router.get("/export/all", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/revenues?format=csv|json */
 router.get("/export/revenues", requireAuthWithTenant, async (req, res) => {
   try {
-    const fmt = (req.query.format as string) ?? "json";
+    const fmt = (String(req.query.format)) ?? "json";
     const rows = await db.execute(sql`SELECT * FROM revenues LIMIT 10000`).then(r => r.rows);
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -322,7 +320,7 @@ router.get("/export/revenues", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/expenses?format=csv|json */
 router.get("/export/expenses", requireAuthWithTenant, async (req, res) => {
   try {
-    const fmt = (req.query.format as string) ?? "json";
+    const fmt = (String(req.query.format)) ?? "json";
     const rows = await db.execute(sql`SELECT * FROM expenses LIMIT 10000`).then(r => r.rows);
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -339,7 +337,7 @@ router.get("/export/expenses", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/employees?format=csv|json */
 router.get("/export/employees", requireAuthWithTenant, async (req, res) => {
   try {
-    const fmt = (req.query.format as string) ?? "json";
+    const fmt = (String(req.query.format)) ?? "json";
     const rows = await db.execute(sql`SELECT * FROM employees LIMIT 10000`).then(r => r.rows);
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -356,7 +354,7 @@ router.get("/export/employees", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/payroll?format=csv|json */
 router.get("/export/payroll", requireAuthWithTenant, async (req, res) => {
   try {
-    const fmt = (req.query.format as string) ?? "json";
+    const fmt = (String(req.query.format)) ?? "json";
     const rows = await db.execute(sql`SELECT * FROM payroll LIMIT 10000`).then(r => r.rows);
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -373,7 +371,7 @@ router.get("/export/payroll", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/clients?format=csv|json */
 router.get("/export/clients", requireAuthWithTenant, async (req, res) => {
   try {
-    const fmt = (req.query.format as string) ?? "json";
+    const fmt = (String(req.query.format)) ?? "json";
     const rows = await db.select().from(clientsTable).limit(10000);
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -392,7 +390,7 @@ router.get("/export/clients", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/cases?format=csv|json */
 router.get("/export/cases", requireAuthWithTenant, async (req, res) => {
   try {
-    const fmt = (req.query.format as string) ?? "json";
+    const fmt = (String(req.query.format)) ?? "json";
     const rows = await db.select().from(casesTable).limit(10000);
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -411,7 +409,7 @@ router.get("/export/cases", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/invoices?format=csv|json */
 router.get("/export/invoices", requireAuthWithTenant, async (req, res) => {
   try {
-    const fmt = (req.query.format as string) ?? "json";
+    const fmt = (String(req.query.format)) ?? "json";
     const rows = await db.select().from(clientInvoicesTable).limit(10000);
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -430,7 +428,7 @@ router.get("/export/invoices", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/contracts?format=csv|json */
 router.get("/export/contracts", requireAuthWithTenant, async (req, res) => {
   try {
-    const fmt = (req.query.format as string) ?? "json";
+    const fmt = (String(req.query.format)) ?? "json";
     const rows = await db.select().from(contractsTable).limit(10000);
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -537,8 +535,7 @@ router.post("/import", requireAuthWithTenant, async (req, res) => {
 
     res.json({ ok: true, imported });
   } catch (err) {
-    console.error("Import error:", err);
-    res.status(500).json({ error: "خطأ في استيراد البيانات" });
+        res.status(500).json({ error: "خطأ في استيراد البيانات" });
   }
 });
 

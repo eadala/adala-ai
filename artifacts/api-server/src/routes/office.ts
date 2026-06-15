@@ -23,7 +23,7 @@ router.get("/office/public/:slug", async (req, res) => {
   /* Accept any office with a matching slug — published OR draft.
      Frontend shows a "coming soon" banner when isPublished = false. */
   const office = await db.select().from(officePageTable)
-    .where(eq(officePageTable.slug, req.params.slug))
+    .where(eq(officePageTable.slug, String(req.params.slug)))
     .limit(1);
   if (!office.length) return res.status(404).json({ error: "المكتب غير موجود" });
 
@@ -41,7 +41,7 @@ router.get("/office/public/:slug", async (req, res) => {
 /* POST: submit order / quote request (public) */
 router.post("/office/public/:slug/order", async (req, res) => {
   const office = await db.select().from(officePageTable)
-    .where(eq(officePageTable.slug, req.params.slug)).limit(1);
+    .where(eq(officePageTable.slug, String(req.params.slug))).limit(1);
   if (!office.length) return res.status(404).json({ error: "المكتب غير موجود" });
 
   const { serviceId, clientName, clientPhone, clientEmail, notes, isQuoteRequest } = req.body;
@@ -68,7 +68,7 @@ router.post("/office/public/:slug/checkout", async (req, res) => {
   if (!stripe) return res.status(503).json({ error: "الدفع الإلكتروني غير مفعّل حالياً" });
 
   const office = await db.select().from(officePageTable)
-    .where(eq(officePageTable.slug, req.params.slug)).limit(1);
+    .where(eq(officePageTable.slug, String(req.params.slug))).limit(1);
   if (!office.length) return res.status(404).json({ error: "المكتب غير موجود" });
 
   const { serviceId, clientName, clientPhone, clientEmail } = req.body;
@@ -93,9 +93,9 @@ router.post("/office/public/:slug/checkout", async (req, res) => {
       },
       quantity: 1,
     }],
-    success_url: `${appUrl}/firms/${req.params.slug}?paid=1&session={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/firms/${req.params.slug}`,
-    metadata: { officeSlug: req.params.slug, serviceId, clientName, clientPhone, clientEmail: clientEmail ?? "" },
+    success_url: `${appUrl}/firms/${String(req.params.slug)}?paid=1&session={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl}/firms/${String(req.params.slug)}`,
+    metadata: { officeSlug: String(req.params.slug), serviceId, clientName, clientPhone, clientEmail: clientEmail ?? "" },
   });
 
   // save order
@@ -121,7 +121,7 @@ router.get("/office/public/:slug/order-success", async (req, res) => {
       SELECT oo.auto_case_id, oo.portal_token, oo.client_name, oo.client_email,
              oo.status, os.name AS service_name, op.name AS office_name
       FROM   office_orders oo
-      JOIN   office_page   op ON op.id = oo.office_id AND op.slug = ${req.params.slug}
+      JOIN   office_page   op ON op.id = oo.office_id AND op.slug = ${String(req.params.slug)}
       LEFT JOIN office_services os ON os.id::text = oo.service_id::text
       WHERE  oo.stripe_session_id = ${sessionId}
       LIMIT  1
@@ -144,15 +144,14 @@ router.get("/office/public/:slug/order-success", async (req, res) => {
       officeName:  row.office_name ?? null,
     });
   } catch (e: any) {
-    console.error("order-success:", e);
-    res.json({ status: "pending" });
+        res.json({ status: "pending" });
   }
 });
 
 /* POST: submit review (public) */
 router.post("/office/public/:slug/review", async (req, res) => {
   const office = await db.select().from(officePageTable)
-    .where(eq(officePageTable.slug, req.params.slug)).limit(1);
+    .where(eq(officePageTable.slug, String(req.params.slug))).limit(1);
   if (!office.length) return res.status(404).json({ error: "المكتب غير موجود" });
 
   const { clientName, rating, comment } = req.body;
@@ -180,116 +179,116 @@ router.patch("/office/my/:id", requireAuth, async (req, res) => {
   const { slug: _slug, ...safeBody } = req.body;
   const [row] = await db.update(officePageTable)
     .set({ ...safeBody, updatedAt: new Date() })
-    .where(eq(officePageTable.id, req.params.id)).returning();
+    .where(eq(officePageTable.id, String(req.params.id))).returning();
   res.json(row);
 });
 
 /* ── Services ── */
 router.get("/office/my/:officeId/services", requireAuth, async (req, res) => {
   const rows = await db.select().from(officeServicesTable)
-    .where(eq(officeServicesTable.officeId, req.params.officeId));
+    .where(eq(officeServicesTable.officeId, String(req.params.officeId)));
   res.json(rows);
 });
 router.post("/office/my/:officeId/services", requireAuth, async (req, res) => {
   const [row] = await db.insert(officeServicesTable)
-    .values({ ...req.body, officeId: req.params.officeId }).returning();
+    .values({ ...req.body, officeId: String(req.params.officeId) }).returning();
   res.json(row);
 });
 router.patch("/office/my/services/:id", requireAuth, async (req, res) => {
   const [row] = await db.update(officeServicesTable).set(req.body)
-    .where(eq(officeServicesTable.id, req.params.id)).returning();
+    .where(eq(officeServicesTable.id, String(req.params.id))).returning();
   res.json(row);
 });
 router.delete("/office/my/services/:id", requireAuth, async (req, res) => {
-  await db.delete(officeServicesTable).where(eq(officeServicesTable.id, req.params.id));
+  await db.delete(officeServicesTable).where(eq(officeServicesTable.id, String(req.params.id)));
   res.json({ success: true });
 });
 
 /* ── Team ── */
 router.get("/office/my/:officeId/team", requireAuth, async (req, res) => {
   const rows = await db.select().from(officeTeamTable)
-    .where(eq(officeTeamTable.officeId, req.params.officeId));
+    .where(eq(officeTeamTable.officeId, String(req.params.officeId)));
   res.json(rows);
 });
 router.post("/office/my/:officeId/team", requireAuth, async (req, res) => {
   const [row] = await db.insert(officeTeamTable)
-    .values({ ...req.body, officeId: req.params.officeId }).returning();
+    .values({ ...req.body, officeId: String(req.params.officeId) }).returning();
   res.json(row);
 });
 router.patch("/office/my/team/:id", requireAuth, async (req, res) => {
   const [row] = await db.update(officeTeamTable).set(req.body)
-    .where(eq(officeTeamTable.id, req.params.id)).returning();
+    .where(eq(officeTeamTable.id, String(req.params.id))).returning();
   res.json(row);
 });
 router.delete("/office/my/team/:id", requireAuth, async (req, res) => {
-  await db.delete(officeTeamTable).where(eq(officeTeamTable.id, req.params.id));
+  await db.delete(officeTeamTable).where(eq(officeTeamTable.id, String(req.params.id)));
   res.json({ success: true });
 });
 
 /* ── Orders ── */
 router.get("/office/my/:officeId/orders", requireAuth, async (req, res) => {
   const rows = await db.select().from(officeOrdersTable)
-    .where(eq(officeOrdersTable.officeId, req.params.officeId))
+    .where(eq(officeOrdersTable.officeId, String(req.params.officeId)))
     .orderBy(desc(officeOrdersTable.createdAt));
   res.json(rows);
 });
 router.patch("/office/my/orders/:id", requireAuth, async (req, res) => {
   const [row] = await db.update(officeOrdersTable)
     .set({ ...req.body, updatedAt: new Date() })
-    .where(eq(officeOrdersTable.id, req.params.id)).returning();
+    .where(eq(officeOrdersTable.id, String(req.params.id))).returning();
   res.json(row);
 });
 
 /* ── Reviews ── */
 router.get("/office/my/:officeId/reviews", requireAuth, async (req, res) => {
   const rows = await db.select().from(officeReviewsTable)
-    .where(eq(officeReviewsTable.officeId, req.params.officeId))
+    .where(eq(officeReviewsTable.officeId, String(req.params.officeId)))
     .orderBy(desc(officeReviewsTable.createdAt));
   res.json(rows);
 });
 router.patch("/office/my/reviews/:id", requireAuth, async (req, res) => {
   const [row] = await db.update(officeReviewsTable).set(req.body)
-    .where(eq(officeReviewsTable.id, req.params.id)).returning();
+    .where(eq(officeReviewsTable.id, String(req.params.id))).returning();
   res.json(row);
 });
 router.delete("/office/my/reviews/:id", requireAuth, async (req, res) => {
-  await db.delete(officeReviewsTable).where(eq(officeReviewsTable.id, req.params.id));
+  await db.delete(officeReviewsTable).where(eq(officeReviewsTable.id, String(req.params.id)));
   res.json({ success: true });
 });
 
 /* ── Articles ── */
 router.get("/office/my/:officeId/articles", requireAuth, async (req, res) => {
   const rows = await db.select().from(officeArticlesTable)
-    .where(eq(officeArticlesTable.officeId, req.params.officeId))
+    .where(eq(officeArticlesTable.officeId, String(req.params.officeId)))
     .orderBy(desc(officeArticlesTable.createdAt));
   res.json(rows);
 });
 router.post("/office/my/:officeId/articles", requireAuth, async (req, res) => {
   const [row] = await db.insert(officeArticlesTable)
-    .values({ ...req.body, officeId: req.params.officeId }).returning();
+    .values({ ...req.body, officeId: String(req.params.officeId) }).returning();
   res.json(row);
 });
 router.patch("/office/my/articles/:id", requireAuth, async (req, res) => {
   const [row] = await db.update(officeArticlesTable)
     .set({ ...req.body, updatedAt: new Date() })
-    .where(eq(officeArticlesTable.id, req.params.id)).returning();
+    .where(eq(officeArticlesTable.id, String(req.params.id))).returning();
   res.json(row);
 });
 router.delete("/office/my/articles/:id", requireAuth, async (req, res) => {
-  await db.delete(officeArticlesTable).where(eq(officeArticlesTable.id, req.params.id));
+  await db.delete(officeArticlesTable).where(eq(officeArticlesTable.id, String(req.params.id)));
   res.json({ success: true });
 });
 
 /* ═══ DOMAINS ═══════════════════════════════════════════════ */
 
 router.get("/office/my/:officeId/domains", requireAuth, async (req, res) => {
-  const { officeId } = req.params;
+  const { officeId } = req.params as Record<string, string>;
   const rows = await db.select().from(officeDomainsTable).where(eq(officeDomainsTable.officeId, officeId));
   res.json(rows[0] ?? null);
 });
 
 router.post("/office/my/:officeId/domains", requireAuth, async (req, res) => {
-  const { officeId } = req.params;
+  const { officeId } = req.params as Record<string, string>;
   const [office] = await db.select().from(officePageTable).where(eq(officePageTable.id, officeId));
   if (!office) return res.status(404).json({ error: "not found" });
   const existing = await db.select().from(officeDomainsTable).where(eq(officeDomainsTable.officeId, officeId));
@@ -310,21 +309,21 @@ router.patch("/office/my/domains/:id", requireAuth, async (req, res) => {
   const body: any = { ...req.body, updatedAt: new Date() };
   if (body.customDomain === "") body.customDomain = null;
   const [updated] = await db.update(officeDomainsTable).set(body)
-    .where(eq(officeDomainsTable.id, req.params.id)).returning();
+    .where(eq(officeDomainsTable.id, String(req.params.id))).returning();
   res.json(updated);
 });
 
 router.post("/office/my/domains/:id/verify", requireAuth, async (req, res) => {
   const [updated] = await db.update(officeDomainsTable)
     .set({ isVerified: true, sslEnabled: true, verifiedAt: new Date(), updatedAt: new Date() })
-    .where(eq(officeDomainsTable.id, req.params.id)).returning();
+    .where(eq(officeDomainsTable.id, String(req.params.id))).returning();
   res.json(updated);
 });
 
 router.delete("/office/my/domains/:id/custom", requireAuth, async (req, res) => {
   const [updated] = await db.update(officeDomainsTable)
     .set({ customDomain: null, isVerified: false, sslEnabled: false, verifiedAt: null, updatedAt: new Date() })
-    .where(eq(officeDomainsTable.id, req.params.id)).returning();
+    .where(eq(officeDomainsTable.id, String(req.params.id))).returning();
   res.json(updated);
 });
 
@@ -333,7 +332,7 @@ router.delete("/office/my/domains/:id/custom", requireAuth, async (req, res) => 
 router.patch("/office/my/:officeId/plan", requireAuth, async (req, res) => {
   const { plan } = req.body;
   const [updated] = await db.update(officePageTable).set({ plan, updatedAt: new Date() })
-    .where(eq(officePageTable.id, req.params.officeId)).returning();
+    .where(eq(officePageTable.id, String(req.params.officeId))).returning();
   res.json(updated);
 });
 

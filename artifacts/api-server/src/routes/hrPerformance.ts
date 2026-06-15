@@ -2,7 +2,6 @@ import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -190,7 +189,7 @@ router.get("/hr-perf/evaluations/:employeeId", requireAuthWithTenant, async (req
       SELECT pe.*, e.full_name as employee_name, e.salary
       FROM performance_evaluations pe
       LEFT JOIN employees e ON pe.employee_id = e.id::text
-      WHERE pe.employee_id = ${req.params.employeeId}
+      WHERE pe.employee_id = ${String(req.params.employeeId)}
       ORDER BY pe.created_at DESC
     `);
     res.json(rows);
@@ -222,7 +221,7 @@ router.post("/hr-perf/evaluate", requireAuthWithTenant, async (req, res) => {
 
 router.delete("/hr-perf/evaluations/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  await db.execute(sql`DELETE FROM performance_evaluations WHERE id = ${parseInt(req.params.id)}`);
+  await db.execute(sql`DELETE FROM performance_evaluations WHERE id = ${parseInt(String(req.params.id))}`);
   res.status(204).end();
 });
 
@@ -258,7 +257,7 @@ router.post("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
 
 router.delete("/hr-perf/incentives/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  await db.execute(sql`DELETE FROM employee_incentives WHERE id = ${parseInt(req.params.id)}`);
+  await db.execute(sql`DELETE FROM employee_incentives WHERE id = ${parseInt(String(req.params.id))}`);
   res.status(204).end();
 });
 

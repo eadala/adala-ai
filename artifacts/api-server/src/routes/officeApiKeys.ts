@@ -14,7 +14,6 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { generateApiKey } from "../services/tenantProvisioning";
-import { requireAuthWithTenant } from "../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 
 const router = Router();
@@ -103,12 +102,12 @@ router.patch("/office/api-keys/:id/revoke", requireAuthWithTenant, async (req, r
   try {
     /* Verify ownership before revoking */
     const key = await one(sql`
-      SELECT id FROM office_api_keys WHERE id = ${req.params.id}::uuid AND office_id = ${officeId}
+      SELECT id FROM office_api_keys WHERE id = ${String(req.params.id)}::uuid AND office_id = ${officeId}
     `);
     if (!key) return res.status(404).json({ error: "المفتاح غير موجود" });
 
     await db.execute(sql`
-      UPDATE office_api_keys SET is_active = FALSE WHERE id = ${req.params.id}::uuid AND office_id = ${officeId}
+      UPDATE office_api_keys SET is_active = FALSE WHERE id = ${String(req.params.id)}::uuid AND office_id = ${officeId}
     `);
     res.json({ ok: true });
   } catch (err: any) {
@@ -123,12 +122,12 @@ router.patch("/office/api-keys/:id/activate", requireAuthWithTenant, async (req,
 
   try {
     const key = await one(sql`
-      SELECT id FROM office_api_keys WHERE id = ${req.params.id}::uuid AND office_id = ${officeId}
+      SELECT id FROM office_api_keys WHERE id = ${String(req.params.id)}::uuid AND office_id = ${officeId}
     `);
     if (!key) return res.status(404).json({ error: "المفتاح غير موجود" });
 
     await db.execute(sql`
-      UPDATE office_api_keys SET is_active = TRUE WHERE id = ${req.params.id}::uuid AND office_id = ${officeId}
+      UPDATE office_api_keys SET is_active = TRUE WHERE id = ${String(req.params.id)}::uuid AND office_id = ${officeId}
     `);
     res.json({ ok: true });
   } catch (err: any) {
@@ -145,7 +144,7 @@ router.delete("/office/api-keys/:id", requireAuthWithTenant, async (req, res) =>
     /* Scope delete to caller's office — prevents cross-tenant deletion */
     const result = await rows(sql`
       DELETE FROM office_api_keys
-      WHERE id = ${req.params.id}::uuid AND office_id = ${officeId}
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${officeId}
       RETURNING id
     `);
     if (result.length === 0) return res.status(404).json({ error: "المفتاح غير موجود" });
