@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient";
 import { startEmailCron } from "./cron/emailCron";
+import { startMonitoringCron } from "./cron/monitoringCron";
 import { registerAllListeners } from "./core/listeners/index";
 import { ensureStripeBufferTables } from "./services/stripeEventBuffer";
 import { ensureReconciliationTable, startReconciliationCron } from "./jobs/stripeReconcile";
@@ -68,6 +69,7 @@ ensureStripeBufferTables().catch(e => logger.error({ e }, "ensureStripeBufferTab
 ensureReconciliationTable().catch(e => logger.error({ e }, "ensureReconciliationTable failed"));
 initStripe();
 startEmailCron();
+startMonitoringCron();
 startReconciliationCron();
 registerAllListeners();
 initVapid().catch(e => console.error("[WebPush] init error:", e));
