@@ -19,6 +19,8 @@ import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./webhookHandlers";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { requestIdMiddleware } from "./middlewares/requestId";
+import { globalErrorHandler } from "./middlewares/errorHandler";
 
 const app: Express = express();
 
@@ -63,9 +65,26 @@ app.use(
   }),
 );
 
-// ─── Security & Performance middleware ───
+// ─── Request ID — attach before anything else ───────────────────────────────
+app.use(requestIdMiddleware);
+
+// ─── Security & Performance middleware ───────────────────────────────────────
 app.use(helmet({
-  contentSecurityPolicy: false,   // handled by frontend
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:     ["'self'"],
+      scriptSrc:      ["'self'"],
+      styleSrc:       ["'self'", "'unsafe-inline'"],
+      imgSrc:         ["'self'", "data:", "blob:", "https:"],
+      connectSrc:     ["'self'", "https:"],
+      fontSrc:        ["'self'", "https://fonts.gstatic.com", "data:"],
+      objectSrc:      ["'none'"],
+      frameSrc:       ["https://js.stripe.com"],
+      baseUri:        ["'self'"],
+      formAction:     ["'self'"],
+      upgradeInsecureRequests: [],
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }));
 app.use(compression());
@@ -166,5 +185,6 @@ app.use("/api", requestGuard);
 app.use("/api", IsolationMiddleware);
 app.use("/api", router);
 app.use(preventionErrorHandler);
+app.use(globalErrorHandler);
 
 export default app;

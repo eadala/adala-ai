@@ -128,16 +128,18 @@ export default defineConfig({
     host: "0.0.0.0",
     allowedHosts: true,
     headers: {
-      "Content-Security-Policy-Report-Only": [
+      "Content-Security-Policy": [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://clerk.accounts.dev https://*.clerk.accounts.dev https://js.stripe.com",
+        // Clerk needs unsafe-inline for injected styles; unsafe-eval removed
+        "script-src 'self' 'unsafe-inline' https://clerk.accounts.dev https://*.clerk.accounts.dev https://js.stripe.com https://cdn.jsdelivr.net",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com data:",
         "img-src 'self' data: blob: https:",
         "connect-src 'self' https: wss:",
-        "frame-src https://js.stripe.com",
+        "frame-src https://js.stripe.com https://clerk.accounts.dev https://*.clerk.accounts.dev",
         "object-src 'none'",
         "base-uri 'self'",
+        "form-action 'self'",
       ].join("; "),
     },
     fs: {

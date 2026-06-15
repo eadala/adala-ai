@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { randomBytes, randomUUID } from "crypto";
 import nodemailer from "nodemailer";
+import { auditLog, buildLogLine } from "./lib/auditLogger";
 
 /* ── Revenue calculation (mirrors the document spec) ──────────────
    Platform fee : 10%
@@ -157,6 +158,15 @@ export class WebhookHandlers {
             stripeEventId: eventId,
           });
           console.log(`[Webhook] invoice.paid: gross=${grossSAR} platform=${rev.platformFee} stripe=${rev.stripeFee} net=${rev.net}`);
+
+          /* Audit log — append-only, Elastic/Loki compatible */
+          auditLog({
+            officeId,
+            action:     "stripe.invoice.paid",
+            resource:   "subscription",
+            resourceId: inv.id,
+            details:    JSON.stringify({ grossSAR, plan, email, eventId, ...buildLogLine({ action: "stripe.invoice.paid", resource: "subscription", officeId }) }),
+          }).catch(() => {});
 
           /* Also update platform_billing_invoices status */
           await db.execute(sql`
@@ -373,6 +383,81 @@ export class WebhookHandlers {
         } catch (err) {
           console.error('[Webhook] charge.refunded error:', err);
         }
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       9. charge.failed → audit log + notify office
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'charge.failed') {
+      const charge     = event.data.object as any;
+      const chargeId   = charge?.id as string;
+      const piId       = charge?.payment_intent as string;
+      const amountSAR  = (charge?.amount ?? 0) / 100;
+      const failReason = charge?.failure_message ?? charge?.failure_code ?? 'unknown';
+
+      try {
+        /* Resolve officeId via payment_transactions */
+        const txRow: any = piId
+          ? ((await db.execute(sql`
+              SELECT office_id FROM payment_transactions
+              WHERE stripe_payment_intent_id = ${piId} LIMIT 1
+            `)?.then?.((r: any) => r?.rows?.[0] ?? null)))
+          : null;
+        const officeId = txRow?.office_id ?? null;
+
+        /* Audit log — append-only */
+        auditLog({
+          officeId: officeId ?? undefined,
+          action:   "stripe.charge.failed",
+          resource: "payment",
+          resourceId: chargeId,
+          details:  JSON.stringify({ amountSAR, failReason, chargeId, eventId }),
+        }).catch(() => {});
+
+        /* Notify office if known */
+        if (officeId) {
+          await db.execute(sql`
+            INSERT INTO plan_notifications (office_id, type, old_plan, new_plan, title, message, is_read)
+            VALUES (${officeId}, 'info', '', '',
+              'فشلت عملية الدفع ❌',
+              ${`فشلت عملية دفع بمبلغ ${amountSAR} ر.س — السبب: ${failReason}`}, FALSE)
+          `).catch(() => {});
+        }
+
+        console.log(`[Webhook] charge.failed — chargeId=${chargeId} amount=${amountSAR} reason=${failReason}`);
+      } catch (err) {
+        console.error('[Webhook] charge.failed error:', err);
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       10. payment_intent.succeeded → audit log
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'payment_intent.succeeded') {
+      const pi       = event.data.object as any;
+      const piId     = pi?.id as string;
+      const amountSAR = (pi?.amount ?? 0) / 100;
+      const currency  = pi?.currency?.toUpperCase() ?? 'SAR';
+
+      try {
+        const piResult: any = await db.execute(sql`
+          SELECT office_id FROM payment_transactions
+          WHERE stripe_payment_intent_id = ${piId} LIMIT 1
+        `);
+        const officeId: string | null = (Array.isArray(piResult) ? piResult[0] : piResult?.rows?.[0])?.office_id ?? null;
+
+        auditLog({
+          officeId: officeId ?? undefined,
+          action:   "stripe.payment_intent.succeeded",
+          resource: "payment",
+          resourceId: piId,
+          details:  JSON.stringify({ amountSAR, currency, piId, eventId }),
+        }).catch(() => {});
+
+        console.log(`[Webhook] payment_intent.succeeded — piId=${piId} amount=${amountSAR} ${currency}`);
+      } catch (err) {
+        console.error('[Webhook] payment_intent.succeeded error:', err);
       }
     }
 
