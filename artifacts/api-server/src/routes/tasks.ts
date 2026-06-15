@@ -16,12 +16,22 @@ function sqlOne(r: any): any {
   return rows[0] ?? null;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function toUuid(v: any): string | null {
+  if (!v || !UUID_RE.test(String(v))) return null;
+  return String(v);
+}
+
 router.get("/office-tasks", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? null;
+    const officeId = toUuid((req as any).tenantId);
     const r = await db.execute(sql`
       SELECT * FROM tasks
-      WHERE (office_id = ${officeId}::uuid OR office_id IS NULL)
+      WHERE (
+        ${officeId} IS NULL
+        OR office_id = ${officeId}::uuid
+        OR office_id IS NULL
+      )
       ORDER BY
         CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
         COALESCE(due_date, '9999-12-31'::date),
@@ -33,8 +43,9 @@ router.get("/office-tasks", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.get("/office-tasks/stats", requireAuthWithTenant, async (_req, res) => {
+router.get("/office-tasks/stats", requireAuthWithTenant, async (req, res) => {
   try {
+    const officeId = toUuid((req as any).tenantId);
     const r = await db.execute(sql`
       SELECT
         COUNT(*) as total,
@@ -43,6 +54,11 @@ router.get("/office-tasks/stats", requireAuthWithTenant, async (_req, res) => {
         COUNT(*) FILTER (WHERE status = 'done') as done,
         COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status != 'done') as overdue
       FROM tasks
+      WHERE (
+        ${officeId} IS NULL
+        OR office_id = ${officeId}::uuid
+        OR office_id IS NULL
+      )
     `);
     res.json(sqlOne(r) ?? { total: 0, todo: 0, in_progress: 0, done: 0, overdue: 0 });
   } catch (e: any) {
@@ -54,12 +70,14 @@ router.post("/office-tasks", requireAuthWithTenant, async (req, res) => {
   try {
     const { title, description, status = "todo", priority = "medium", assigneeName, dueDate, caseTitle, createdBy } = req.body;
     if (!title) return res.status(400).json({ error: "عنوان المهمة مطلوب" });
-    const officeId = (req as any).tenantId ?? null;
+
+    const officeId = toUuid((req as any).tenantId);
     const dueDateVal = dueDate || null;
+
     const r = await db.execute(sql`
       INSERT INTO tasks (office_id, title, description, status, priority, assignee_name, due_date, case_title, created_by)
       VALUES (
-        ${officeId}::uuid,
+        ${officeId ? sql`${officeId}::uuid` : sql`NULL`},
         ${title},
         ${description || null},
         ${status},
@@ -80,16 +98,17 @@ router.post("/office-tasks", requireAuthWithTenant, async (req, res) => {
 router.patch("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, status, priority, assigneeName, dueDate, caseTitle, tags } = req.body;
+    const { title, description, status, priority, assigneeName, dueDate, caseTitle } = req.body;
+    const dueDateVal = dueDate || null;
     const r = await db.execute(sql`
       UPDATE tasks SET
-        title = COALESCE(${title ?? null}, title),
-        description = COALESCE(${description ?? null}, description),
-        status = COALESCE(${status ?? null}, status),
-        priority = COALESCE(${priority ?? null}, priority),
-        assignee_name = COALESCE(${assigneeName ?? null}, assignee_name),
-        due_date = COALESCE(${dueDate ?? null}, due_date),
-        case_title = COALESCE(${caseTitle ?? null}, case_title),
+        title = COALESCE(${title || null}, title),
+        description = COALESCE(${description || null}, description),
+        status = COALESCE(${status || null}, status),
+        priority = COALESCE(${priority || null}, priority),
+        assignee_name = COALESCE(${assigneeName || null}, assignee_name),
+        due_date = COALESCE(${dueDateVal ? sql`${dueDateVal}::date` : sql`NULL`}, due_date),
+        case_title = COALESCE(${caseTitle || null}, case_title),
         updated_at = NOW()
       WHERE id = ${id}::uuid
       RETURNING *
