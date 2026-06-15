@@ -200,6 +200,8 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/financial-engine",   labelKey: "المحرك المالي",               icon: DollarSign },
       { href: "/finance-dashboard",  labelKey: "التقارير المالية",             icon: BarChart2 },
       { href: "/isolation",          labelKey: "عزل المستأجرين",               icon: Lock },
+      { href: "/hardening",          labelKey: "قفل الإنتاج",                  icon: Shield },
+      { href: "/legal-os",           labelKey: "نظام التشغيل القانوني",        icon: Cpu },
     ],
   },
 ];

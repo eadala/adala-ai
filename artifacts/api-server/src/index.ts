@@ -8,6 +8,7 @@ import { registerAllListeners } from "./core/listeners/index";
 import { ensureStripeBufferTables } from "./services/stripeEventBuffer";
 import { ensureReconciliationTable, startReconciliationCron } from "./jobs/stripeReconcile";
 import { initVapid } from "./lib/webPush";
+import { loadHardeningState } from "./hardening/production.lock";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -73,6 +74,7 @@ startMonitoringCron();
 startReconciliationCron();
 registerAllListeners();
 initVapid().catch(e => console.error("[WebPush] init error:", e));
+loadHardeningState().catch(() => {});
 
 app.listen(port, (err) => {
   if (err) {
