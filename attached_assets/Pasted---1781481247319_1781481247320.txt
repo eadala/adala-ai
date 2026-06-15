@@ -1,0 +1,48 @@
+رائع، بما أنك أكدت البدء في تنفيذ هيكلية قاعدة البيانات لـ "عدالة"، سأقوم بكتابة نموذج برمجي مبسط باستخدام **SQL** (وهو المتوافق مع معظم قواعد البيانات مثل SQLite أو PostgreSQL التي تستخدمها في Replit) لإنشاء هذه الجداول.
+هذا التصميم سيمكنك من استخراج القوائم المالية برمجياً وبشكل دقيق.
+### 1. إنشاء جداول قاعدة البيانات (SQL Schema)
+```sql
+-- 1. جدول دليل الحسابات
+CREATE TABLE ChartOfAccounts (
+    account_code VARCHAR(20) PRIMARY KEY,
+    account_name VARCHAR(100) NOT NULL,
+    account_type VARCHAR(20) CHECK (account_type IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense')),
+    parent_account VARCHAR(20)
+);
+
+-- 2. جدول القيود اليومية (الرأس)
+CREATE TABLE JournalEntries (
+    entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    description TEXT,
+    reference_number VARCHAR(50) -- ربط برقم العقد أو الفاتورة
+);
+
+-- 3. جدول تفاصيل القيود (المدين والدائن)
+CREATE TABLE JournalItems (
+    item_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entry_id INTEGER,
+    account_code VARCHAR(20),
+    debit DECIMAL(15, 2) DEFAULT 0,
+    credit DECIMAL(15, 2) DEFAULT 0,
+    FOREIGN KEY (entry_id) REFERENCES JournalEntries(entry_id),
+    FOREIGN KEY (account_code) REFERENCES ChartOfAccounts(account_code)
+);
+
+```
+### 2. كيف ستستفيد من هذا الهيكل؟
+بمجرد وجود البيانات في هذه الجداول، يمكنك استخراج **"قائمة الدخل"** (لأي فترة زمنية) عبر استعلام بسيط يجمع الإيرادات والمصروفات:
+```sql
+SELECT 
+    account_name, 
+    SUM(credit - debit) AS balance 
+FROM JournalItems 
+JOIN ChartOfAccounts ON JournalItems.account_code = ChartOfAccounts.account_code
+WHERE account_type IN ('Revenue', 'Expense')
+GROUP BY account_name;
+
+```
+### الخطوة القادمة المقترحة:
+بما أننا وضعنا "الهيكل العظمي"، الخطوة التالية هي **أتمتة القيود**.
+هل تفضل أن ننتقل الآن إلى كيفية **ربط "بوابة الدفع" (مثل Moyasar/Tap)** بهذا النظام؟ أي: عندما يقوم العميل بالدفع، يقوم النظام **تلقائياً** بإنشاء قيد في JournalEntries و JournalItems دون تدخل يدوي من المحامي؟
+هذه الميزة هي التي ستجعل منصة "عدالة" متفوقة على الأنظمة التقليدية. **هل أبدأ بشرح كود الربط (API Webhook)؟**
