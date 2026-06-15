@@ -183,6 +183,8 @@ import smartAlertsRouter from "./smart-alerts";
 import financialEngineRouter from "./financial-engine";
 import financeDashboardRouter from "./finance-dashboard";
 import isolationRouter from "./isolation";
+import hardeningRouter from "./hardening";
+import legalOsRouter   from "./legal-os";
 router.use(aiEventsRouter);
 router.use(searchRouter);
 router.use(platformCommandRouter);
@@ -196,5 +198,7 @@ router.use(smartAlertsRouter);
 router.use(financialEngineRouter);
 router.use(financeDashboardRouter);
 router.use(isolationRouter);
+router.use(hardeningRouter);
+router.use(legalOsRouter);
 
 export default router;
