@@ -267,7 +267,7 @@ export default function TeamPage() {
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" dir="rtl">
+                          <DropdownMenuContent align="end">
                             <p className="text-[10px] text-muted-foreground px-2 py-1">تغيير الدور</p>
                             {Object.entries(ROLE_CFG).map(([key, cfg]) => (
                               <DropdownMenuItem key={key}

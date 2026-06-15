@@ -552,7 +552,7 @@ function ServiceCard({ svc, lang, gold, slug, whatsappBase, onOrder }: { svc: an
 
       <div className="flex items-start gap-3 mb-3">
         <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-colors group-hover:ring-1"
-          style={{ background: `${gold}12`, color: gold, ringColor: `${gold}30` }}>
+          style={{ background: `${gold}12`, color: gold }}>
           <Icon className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">

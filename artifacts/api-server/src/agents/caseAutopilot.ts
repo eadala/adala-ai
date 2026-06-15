@@ -261,7 +261,7 @@ async function generateAISummary(ctx: CaseContext, score: number, risks: string[
 
   try {
     const summary = await callAI(prompt, "gemini");
-    return summary.slice(0, 500);
+    return (typeof summary === "string" ? summary : summary.reply).slice(0, 500);
   } catch {
     const statusMap: Record<string, string> = {
       open:        "مفتوحة",
