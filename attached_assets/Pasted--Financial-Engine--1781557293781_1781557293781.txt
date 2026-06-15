@@ -1,0 +1,256 @@
+تمام—هذه خطوة مهمة لأنها تحول الـ Financial Engine إلى منتج مفهوم للإدارة وليس مجرد بيانات خلفية.
+
+سأبني لك تصميم Financial Reporting Dashboard جاهز للتنفيذ داخل “عدالة”.
+
+⸻
+
+📊 Adala AI — Financial Reporting Dashboard (SaaS Grade)
+
+⸻
+
+🧠 الهدف
+
+تحويل بيانات:
+
+* ledger
+* transactions
+* Stripe
+* invoices
+
+إلى لوحة واحدة مفهومة:
+
+💰 “ما الذي يحدث مالياً داخل كل مكتب الآن؟”
+
+⸻
+
+🧱 1. DASHBOARD ARCHITECTURE
+
+Financial Engine
+      ↓
+Aggregation Layer
+      ↓
+Metrics Engine
+      ↓
+Reporting API
+      ↓
+Frontend Dashboard
+
+⸻
+
+📊 2. CORE METRICS (الواجهة الأساسية)
+
+🟢 KPIs الرئيسية
+
+💰 إجمالي الإيرادات
+
+* Gross Revenue
+* Net Revenue
+* Platform Fee
+* Stripe Fees
+
+⸻
+
+📈 التدفق النقدي
+
+* Cash In
+* Cash Out
+* Net Flow
+
+⸻
+
+🧾 الفواتير
+
+* Paid Invoices
+* Pending
+* Overdue
+
+⸻
+
+⚖️ الرصيد العام
+
+* Current Balance per tenant
+
+⸻
+
+🧠 3. AGGREGATION ENGINE
+
+يحول ledger إلى أرقام جاهزة
+
+export async function getFinancialSummary(tenant_id) {
+  const ledger = await db.ledger.findMany({
+    where: { tenant_id }
+  });
+  const summary = ledger.reduce((acc, entry) => {
+    acc.credit += entry.credit;
+    acc.debit += entry.debit;
+    return acc;
+  }, { credit: 0, debit: 0 });
+  return {
+    totalRevenue: summary.credit,
+    totalExpenses: summary.debit,
+    net: summary.credit - summary.debit
+  };
+}
+
+⸻
+
+📊 4. DASHBOARD API
+
+app.get("/api/finance/dashboard", async (req, res) => {
+  const tenant_id = req.user.tenant_id;
+  const summary = await getFinancialSummary(tenant_id);
+  const invoices = await getInvoiceStats(tenant_id);
+  const cashflow = await getCashFlow(tenant_id);
+  res.json({
+    summary,
+    invoices,
+    cashflow
+  });
+});
+
+⸻
+
+📈 5. CASHFLOW ENGINE
+
+export async function getCashFlow(tenant_id) {
+  const transactions = await db.transaction.findMany({
+    where: { tenant_id }
+  });
+  const daily = groupByDay(transactions);
+  return daily.map(day => ({
+    date: day.date,
+    income: day.income,
+    expenses: day.expenses,
+    net: day.income - day.expenses
+  }));
+}
+
+⸻
+
+🧾 6. INVOICE ANALYTICS
+
+export async function getInvoiceStats(tenant_id) {
+  const invoices = await db.invoices.findMany({
+    where: { tenant_id }
+  });
+  return {
+    paid: count(invoices, "paid"),
+    pending: count(invoices, "pending"),
+    overdue: count(invoices, "overdue")
+  };
+}
+
+⸻
+
+📊 7. FRONTEND STRUCTURE (UI)
+
+Dashboard Layout
+
+------------------------------------------------
+| 💰 Total Revenue | 💳 Net Profit | ⚖️ Balance |
+------------------------------------------------
+| 📈 Cash Flow Chart                              |
+------------------------------------------------
+| 🧾 Invoices | 📊 Expenses | 📉 Growth Trend     |
+------------------------------------------------
+| 🔍 Recent Transactions (ledger feed)          |
+------------------------------------------------
+
+⸻
+
+📉 8. FINANCIAL INSIGHTS ENGINE (خفيف)
+
+يعطي تفسير بسيط للأرقام
+
+export function generateInsights(data) {
+  const insights = [];
+  if (data.cashflow.trend === "down") {
+    insights.push("⚠️ انخفاض في التدفق النقدي هذا الأسبوع");
+  }
+  if (data.invoices.overdue > 5) {
+    insights.push("⚠️ عدد فواتير متأخرة مرتفع");
+  }
+  if (data.netProfit < 0) {
+    insights.push("🔴 المصاريف أعلى من الإيرادات");
+  }
+  return insights;
+}
+
+⸻
+
+📡 9. REAL-TIME UPDATES
+
+كل حركة مالية تحدث تحديث مباشر:
+
+* Stripe webhook → update dashboard
+* ledger update → refresh KPIs
+
+⸻
+
+🔐 10. TENANT ISOLATION (مهم جداً)
+
+كل شيء:
+
+WHERE tenant_id = currentTenant
+
+بدون استثناء.
+
+⸻
+
+📊 11. FINAL DASHBOARD METRICS
+
+لكل مكتب:
+
+* 💰 Revenue
+* 💳 Net Profit
+* ⚖️ Balance
+* 🧾 Invoice status
+* 📉 Cashflow trend
+* ⚠️ Alerts
+
+⸻
+
+🚀 النتيجة النهائية
+
+بدل نظام:
+
+بيانات مالية خام
+
+تصبح عندك:
+
+📊 لوحة تحكم مالية SaaS حقيقية (مثل Stripe Dashboard لكن للمحامين)
+
+⸻
+
+💡 أهم قيمة هنا
+
+النظام الآن:
+
+* يفهم المال
+* لا يعرض بيانات فقط
+* بل يشرحها ويحللها
+
+⸻
+
+⚠️ ملاحظة مهمة
+
+هذه اللوحة تعتمد بالكامل على:
+
+Ledger = Source of Truth
+
+إذا كان الـ ledger صحيح → كل شيء صحيح
+
+⸻
+
+🚀 الخطوة التالية (اختياري قوي)
+
+أقدر أبني لك:
+
+🔥 “AI Financial Analyst”
+
+* يقرأ لوحة التقارير
+* يقول لك: لماذا الأرباح انخفضت
+* يقترح تحسينات مالية
+* يتوقع مشاكل التدفق النقدي
+
+فقط قل: ￼ حلل مالي بالذكاء الاصطناعي

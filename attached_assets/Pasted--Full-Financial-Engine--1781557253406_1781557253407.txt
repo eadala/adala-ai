@@ -1,0 +1,283 @@
+واضح أنك تقصد: “ابني المحرك المالي الكامل” (Full Financial Engine).
+
+سأبنيه لك الآن بشكل هندسي جاهز للتنفيذ داخل نظام “عدالة” بدون تعقيد زائد، لكن بمستوى SaaS احترافي فعلي.
+
+⸻
+
+💰 Adala AI — FULL FINANCIAL ENGINE (Production Design)
+
+⸻
+
+🧠 الهدف
+
+تحويل النظام من:
+
+فواتير + Stripe + جداول متفرقة
+
+إلى:
+
+💰 محرك مالي موحد (Financial Core Engine)
+
+يعتمد على:
+
+* Ledger واحد = مصدر الحقيقة
+* Stripe = مصدر إدخال فقط
+* DB = تخزين محاسبي منظم
+
+⸻
+
+🧱 1. CORE ARCHITECTURE
+
+Stripe Webhook
+      ↓
+Transaction Ingestion Layer
+      ↓
+Financial Engine Core
+      ↓
+Ledger System (Source of Truth)
+      ↓
+Revenue Allocation
+      ↓
+Tenant Financial Reports
+
+⸻
+
+📦 2. CORE DATA MODEL
+
+🏢 Tenant (عزل مالي كامل)
+
+type Tenant = {
+  id: string;
+  name: string;
+};
+
+⸻
+
+💳 Transaction (كل حركة مالية)
+
+type Transaction = {
+  id: string;
+  tenant_id: string;
+  source: "stripe" | "manual" | "system";
+  type: "payment" | "refund" | "invoice";
+  amount: number;
+  currency: "SAR";
+  stripe_event_id?: string;
+  status: "pending" | "processed" | "failed";
+  created_at: Date;
+};
+
+⸻
+
+📒 Ledger Entry (الحقيقة المالية)
+
+type LedgerEntry = {
+  id: string;
+  tenant_id: string;
+  transaction_id: string;
+  debit: number;
+  credit: number;
+  balance_after: number;
+  created_at: Date;
+};
+
+⸻
+
+💰 Revenue Split
+
+type RevenueSplit = {
+  gross: number;
+  platform_fee: number;
+  stripe_fee: number;
+  net: number;
+};
+
+⸻
+
+⚙️ 3. FINANCIAL ENGINE CORE
+
+🧠 المعالج الرئيسي
+
+export async function processTransaction(tx) {
+  // 1. idempotency check
+  const exists = await db.transaction.findUnique({
+    where: { stripe_event_id: tx.stripe_event_id }
+  });
+  if (exists) return;
+  // 2. save transaction
+  const transaction = await db.transaction.create(tx);
+  // 3. calculate revenue split
+  const split = calculateRevenue(tx.amount);
+  // 4. update ledger
+  await createLedgerEntry({
+    tenant_id: tx.tenant_id,
+    transaction_id: transaction.id,
+    credit: split.net,
+    debit: 0
+  });
+  // 5. update balances
+  await updateTenantBalance(tx.tenant_id);
+  return transaction;
+}
+
+⸻
+
+💰 4. REVENUE CALCULATION
+
+export function calculateRevenue(amount: number) {
+  const platform_fee = amount * 0.10;
+  const stripe_fee = amount * 0.029 + 1.0;
+  return {
+    gross: amount,
+    platform_fee,
+    stripe_fee,
+    net: amount - platform_fee - stripe_fee
+  };
+}
+
+⸻
+
+📡 5. STRIPE WEBHOOK PIPELINE
+
+نقطة الدخول الوحيدة:
+
+app.post("/api/stripe/webhook", async (req, res) => {
+  const event = verifyStripeEvent(req);
+  switch (event.type) {
+    case "checkout.session.completed":
+      await financialEngine.processTransaction({
+        tenant_id: event.metadata.tenant_id,
+        stripe_event_id: event.id,
+        amount: event.amount_total,
+        source: "stripe",
+        type: "payment"
+      });
+      break;
+    case "invoice.payment_failed":
+      await markFailed(event);
+      break;
+  }
+  res.json({ received: true });
+});
+
+⸻
+
+📒 6. LEDGER ENGINE (مصدر الحقيقة)
+
+export async function createLedgerEntry(data) {
+  const lastBalance = await getLastBalance(data.tenant_id);
+  const entry = await db.ledger.create({
+    ...data,
+    debit: data.debit || 0,
+    credit: data.credit || 0,
+    balance_after:
+      lastBalance + (data.credit - data.debit)
+  });
+  return entry;
+}
+
+⸻
+
+🧾 7. TENANT BALANCE SYSTEM
+
+export async function updateTenantBalance(tenant_id) {
+  const balance = await db.ledger.aggregate({
+    where: { tenant_id },
+    _sum: {
+      credit: true,
+      debit: true
+    }
+  });
+  return (balance._sum.credit || 0) -
+         (balance._sum.debit || 0);
+}
+
+⸻
+
+🔐 8. IDENTITY + ISOLATION RULE
+
+WHERE tenant_id = CURRENT_TENANT
+
+❗ أي استعلام بدون tenant_id = مرفوض
+
+⸻
+
+📊 9. RECONCILIATION ENGINE
+
+يقارن بين:
+
+* Stripe
+* Transactions
+* Ledger
+
+if (stripeTotal !== ledgerTotal) {
+  createAlert("FINANCIAL_MISMATCH");
+}
+
+⸻
+
+⚠️ 10. SAFETY RULES
+
+ممنوع:
+
+* تعديل ledger مباشرة
+* حذف transactions
+* إنشاء عمليات بدون tenant_id
+* تخطي idempotency
+
+⸻
+
+📡 11. EVENT FLOW
+
+Stripe Event
+   ↓
+Transaction Ingest
+   ↓
+Financial Engine
+   ↓
+Ledger Update
+   ↓
+Balance Update
+   ↓
+Report Ready
+
+⸻
+
+📈 12. الناتج النهائي للنظام
+
+يصبح عندك:
+
+💰 نظام محاسبي SaaS حقيقي:
+
+* Ledger-based accounting
+* Multi-tenant isolation
+* Stripe reconciliation
+* Revenue split automatic
+* Audit-ready system
+
+⸻
+
+🚀 النتيجة
+
+بدل نظام:
+
+يدير دفعات
+
+تصبح عندك:
+
+💰 Financial Operating System للمكاتب
+
+⸻
+
+إذا تبغى الخطوة التالية (مهم جداً)
+
+أقدر أبني لك:
+
+🔥 “Financial Dashboard + Reports Engine”
+
+* أرباح كل مكتب لحظياً
+* تقارير شهرية تلقائية
+* كشف التدفق النقدي
+* تحليل الأداء المالي
+
+فقط قل: ￼ ابني لوحة التقارير المالية
