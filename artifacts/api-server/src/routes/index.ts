@@ -174,11 +174,13 @@ import platformCommandRouter from "./platformCommand";
 import agentRuntimeRouter from "./agentRuntime";
 import journalAccountingRouter from "./journalAccounting";
 import uiBuilderRouter from "./uiBuilder";
+import adoulRouter from "./adoul";
 router.use(aiEventsRouter);
 router.use(searchRouter);
 router.use(platformCommandRouter);
 router.use(agentRuntimeRouter);
 router.use(journalAccountingRouter);
 router.use(uiBuilderRouter);
+router.use("/adoul", adoulRouter);
 
 export default router;

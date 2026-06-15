@@ -34,6 +34,7 @@ const Warnings             = lazy(() => import("@/pages/warnings"));
 const AiTasks              = lazy(() => import("@/pages/ai-tasks"));
 const AIHub                = lazy(() => import("@/pages/ai-hub"));
 const AiChat               = lazy(() => import("@/pages/ai-chat"));
+const AdoulPage            = lazy(() => import("@/pages/adoul"));
 const OpponentSimulator    = lazy(() => import("@/pages/opponent-simulator"));
 const AiAgents             = lazy(() => import("@/pages/ai-agents"));
 const CommandCenter        = lazy(() => import("@/pages/command-center"));
@@ -473,6 +474,7 @@ function AppRoutes() {
             {/* AI */}
             <Route path="/ai-tasks"><ProtectedRoute><AiTasks /></ProtectedRoute></Route>
             <Route path="/ai-hub"><ProtectedRoute><AIHub /></ProtectedRoute></Route>
+            <Route path="/adoul"><ProtectedRoute><AdoulPage /></ProtectedRoute></Route>
             <Route path="/ai-chat"><ProtectedRoute><AiChat /></ProtectedRoute></Route>
             <Route path="/opponent-simulator"><ProtectedRoute><OpponentSimulator /></ProtectedRoute></Route>
             <Route path="/ai-agents"><ProtectedRoute><AiAgents /></ProtectedRoute></Route>
