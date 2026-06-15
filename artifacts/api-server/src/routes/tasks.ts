@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -25,20 +25,28 @@ function toUuid(v: any): string | null {
 router.get("/office-tasks", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = toUuid((req as any).tenantId);
-    const r = await db.execute(sql`
-      SELECT * FROM tasks
-      WHERE (
-        ${officeId} IS NULL
-        OR office_id = ${officeId}::uuid
-        OR office_id IS NULL
-      )
-      ORDER BY
-        CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
-        COALESCE(due_date, '9999-12-31'::date),
-        created_at DESC
-    `);
+    let r;
+    if (officeId) {
+      r = await db.execute(sql`
+        SELECT * FROM tasks
+        WHERE office_id = ${officeId}::uuid OR office_id IS NULL
+        ORDER BY
+          CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
+          COALESCE(due_date, '9999-12-31'::date),
+          created_at DESC
+      `);
+    } else {
+      r = await db.execute(sql`
+        SELECT * FROM tasks
+        ORDER BY
+          CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
+          COALESCE(due_date, '9999-12-31'::date),
+          created_at DESC
+      `);
+    }
     res.json(sqlAll(r));
   } catch (e: any) {
+    console.error("[office-tasks] GET error:", e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -46,22 +54,32 @@ router.get("/office-tasks", requireAuthWithTenant, async (req, res) => {
 router.get("/office-tasks/stats", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = toUuid((req as any).tenantId);
-    const r = await db.execute(sql`
-      SELECT
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = 'todo') as todo,
-        COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress,
-        COUNT(*) FILTER (WHERE status = 'done') as done,
-        COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status != 'done') as overdue
-      FROM tasks
-      WHERE (
-        ${officeId} IS NULL
-        OR office_id = ${officeId}::uuid
-        OR office_id IS NULL
-      )
-    `);
+    let r;
+    if (officeId) {
+      r = await db.execute(sql`
+        SELECT
+          COUNT(*)::int as total,
+          COUNT(*) FILTER (WHERE status = 'todo')::int as todo,
+          COUNT(*) FILTER (WHERE status = 'in_progress')::int as in_progress,
+          COUNT(*) FILTER (WHERE status = 'done')::int as done,
+          COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status != 'done')::int as overdue
+        FROM tasks
+        WHERE office_id = ${officeId}::uuid OR office_id IS NULL
+      `);
+    } else {
+      r = await db.execute(sql`
+        SELECT
+          COUNT(*)::int as total,
+          COUNT(*) FILTER (WHERE status = 'todo')::int as todo,
+          COUNT(*) FILTER (WHERE status = 'in_progress')::int as in_progress,
+          COUNT(*) FILTER (WHERE status = 'done')::int as done,
+          COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status != 'done')::int as overdue
+        FROM tasks
+      `);
+    }
     res.json(sqlOne(r) ?? { total: 0, todo: 0, in_progress: 0, done: 0, overdue: 0 });
   } catch (e: any) {
+    console.error("[office-tasks/stats] GET error:", e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -91,6 +109,7 @@ router.post("/office-tasks", requireAuthWithTenant, async (req, res) => {
     `);
     res.json(sqlOne(r));
   } catch (e: any) {
+    console.error("[office-tasks] POST error:", e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -98,6 +117,7 @@ router.post("/office-tasks", requireAuthWithTenant, async (req, res) => {
 router.patch("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { id } = req.params as Record<string, string>;
+    if (!UUID_RE.test(id)) return res.status(400).json({ error: "معرف غير صالح" });
     const { title, description, status, priority, assigneeName, dueDate, caseTitle } = req.body;
     const dueDateVal = dueDate || null;
     const r = await db.execute(sql`
@@ -115,15 +135,19 @@ router.patch("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
     `);
     res.json(sqlOne(r));
   } catch (e: any) {
+    console.error("[office-tasks] PATCH error:", e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
 router.delete("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    await db.execute(sql`DELETE FROM tasks WHERE id = ${String(req.params.id)}::uuid`);
+    const { id } = req.params as Record<string, string>;
+    if (!UUID_RE.test(id)) return res.status(400).json({ error: "معرف غير صالح" });
+    await db.execute(sql`DELETE FROM tasks WHERE id = ${id}::uuid`);
     res.json({ ok: true });
   } catch (e: any) {
+    console.error("[office-tasks] DELETE error:", e.message);
     res.status(500).json({ error: e.message });
   }
 });

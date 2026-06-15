@@ -172,9 +172,9 @@ export default function CaseDetail({ id }: { id: string }) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-10 w-1/2" />
-        <div className="grid grid-cols-4 gap-6">
-          <Skeleton className="h-64 col-span-1" />
-          <Skeleton className="h-64 col-span-3" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Skeleton className="h-64 md:col-span-1" />
+          <Skeleton className="h-64 md:col-span-3" />
         </div>
       </div>
     );

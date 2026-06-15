@@ -199,7 +199,7 @@ export default function Clients() {
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} type="clients" queryKey={["clients"]} />
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: tx("إجمالي العملاء", "Total Clients"),    value: stats.total,     icon: Users,      color: "#6366F1" },
           { label: tx("عملاء نشطون", "Active Clients"),      value: stats.active,    icon: Star,       color: "#10B981" },
