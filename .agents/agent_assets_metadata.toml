@@ -12,3 +12,9 @@ id = "REHR6shEEaLc5CWWwuaNt"
 uri = "file://FINAL_PRODUCTION_READINESS_REPORT.md"
 type = "text"
 title = "FINAL_PRODUCTION_READINESS_REPORT.md"
+
+[[outputs]]
+id = "ZN-z-ka_gKXrD13Ne5XmT"
+uri = "file://LAUNCH_BLOCKERS_REPORT.md"
+type = "text"
+title = "LAUNCH_BLOCKERS_REPORT.md"
