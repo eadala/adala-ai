@@ -16,126 +16,126 @@ import { OfficeThemeProvider } from "@/components/office-theme-provider";
 // Core (likely first visit)
 const Dashboard            = lazy(() => import("@/pages/dashboard"));
 // Landing is eagerly imported above — do NOT add it here
-const OnboardingPage       = lazy(() => import("@/pages/onboarding"));
+const OnboardingPage       = lazy(() => import("@/pages/platform/onboarding"));
 
 // Cases & Clients
-const Cases                = lazy(() => import("@/pages/cases"));
-const CaseDetail           = lazy(() => import("@/pages/case-detail"));
-const Clients              = lazy(() => import("@/pages/clients"));
-const ClientDetail         = lazy(() => import("@/pages/client-detail"));
-const Contracts            = lazy(() => import("@/pages/contracts"));
+const Cases                = lazy(() => import("@/pages/legal-core/cases"));
+const CaseDetail           = lazy(() => import("@/pages/legal-core/case-detail"));
+const Clients              = lazy(() => import("@/pages/legal-core/clients"));
+const ClientDetail         = lazy(() => import("@/pages/legal-core/client-detail"));
+const Contracts            = lazy(() => import("@/pages/legal-core/contracts"));
 
 // Documents & Files
-const Documents            = lazy(() => import("@/pages/documents"));
-const Letters              = lazy(() => import("@/pages/letters"));
-const Warnings             = lazy(() => import("@/pages/warnings"));
+const Documents            = lazy(() => import("@/pages/legal-core/documents"));
+const Letters              = lazy(() => import("@/pages/legal-core/letters"));
+const Warnings             = lazy(() => import("@/pages/legal-core/warnings"));
 
 // AI Suite
-const AiTasks              = lazy(() => import("@/pages/ai-tasks"));
-const AIHub                = lazy(() => import("@/pages/ai-hub"));
-const AICopilotPage        = lazy(() => import("@/pages/ai-copilot"));
-const AiChat               = lazy(() => import("@/pages/ai-chat"));
-const AdoulPage            = lazy(() => import("@/pages/adoul"));
-const OpponentSimulator    = lazy(() => import("@/pages/opponent-simulator"));
-const AiAgents             = lazy(() => import("@/pages/ai-agents"));
-const CommandCenter        = lazy(() => import("@/pages/command-center"));
-const LegalAIPage          = lazy(() => import("@/pages/legal-ai"));
-const AIAssistant          = lazy(() => import("@/pages/ai-assistant"));
+const AiTasks              = lazy(() => import("@/pages/ai/ai-tasks"));
+const AIHub                = lazy(() => import("@/pages/ai/ai-hub"));
+const AICopilotPage        = lazy(() => import("@/pages/ai/ai-copilot"));
+const AiChat               = lazy(() => import("@/pages/ai/ai-chat"));
+const AdoulPage            = lazy(() => import("@/pages/legal-core/adoul"));
+const OpponentSimulator    = lazy(() => import("@/pages/legal-core/opponent-simulator"));
+const AiAgents             = lazy(() => import("@/pages/ai/ai-agents"));
+const CommandCenter        = lazy(() => import("@/pages/ai/command-center"));
+const LegalAIPage          = lazy(() => import("@/pages/legal-core/legal-ai"));
+const AIAssistant          = lazy(() => import("@/pages/ai/ai-assistant"));
 
 // Legal & Research
-const LegalResearch        = lazy(() => import("@/pages/legal-research"));
-const Arbitration          = lazy(() => import("@/pages/arbitration"));
-const JudgePrep            = lazy(() => import("@/pages/judge-prep"));
-const SaudiSystems         = lazy(() => import("@/pages/saudi-systems"));
-const MediatorsPage        = lazy(() => import("@/pages/mediators"));
-const RiskManagement       = lazy(() => import("@/pages/risk-management"));
-const Compliance           = lazy(() => import("@/pages/compliance"));
+const LegalResearch        = lazy(() => import("@/pages/legal-core/legal-research"));
+const Arbitration          = lazy(() => import("@/pages/legal-core/arbitration"));
+const JudgePrep            = lazy(() => import("@/pages/legal-core/judge-prep"));
+const SaudiSystems         = lazy(() => import("@/pages/legal-core/saudi-systems"));
+const MediatorsPage        = lazy(() => import("@/pages/legal-core/mediators"));
+const RiskManagement       = lazy(() => import("@/pages/legal-core/risk-management"));
+const Compliance           = lazy(() => import("@/pages/legal-core/compliance"));
 
 // Finance & Accounting
-const Invoices             = lazy(() => import("@/pages/invoices"));
-const Revenues             = lazy(() => import("@/pages/revenues"));
-const Expenses             = lazy(() => import("@/pages/expenses"));
-const FinancialReports     = lazy(() => import("@/pages/financial-reports"));
-const FinancialStatements  = lazy(() => import("@/pages/financial-statements"));
-const UIBuilder            = lazy(() => import("@/pages/ui-builder"));
-const Cashflow             = lazy(() => import("@/pages/cashflow"));
-const BankAccounts         = lazy(() => import("@/pages/bank-accounts"));
-const Advances             = lazy(() => import("@/pages/advances"));
-const PaymentCenter        = lazy(() => import("@/pages/payment-center"));
-const FinanceCenter        = lazy(() => import("@/pages/finance-center"));
-const Collections          = lazy(() => import("@/pages/collections"));
-const FinancialIntelligence = lazy(() => import("@/pages/financial-intelligence"));
-const FinancialCore        = lazy(() => import("@/pages/financial-core"));
+const Invoices             = lazy(() => import("@/pages/financial/invoices"));
+const Revenues             = lazy(() => import("@/pages/financial/revenues"));
+const Expenses             = lazy(() => import("@/pages/financial/expenses"));
+const FinancialReports     = lazy(() => import("@/pages/financial/financial-reports"));
+const FinancialStatements  = lazy(() => import("@/pages/financial/financial-statements"));
+const UIBuilder            = lazy(() => import("@/pages/ai/ui-builder"));
+const Cashflow             = lazy(() => import("@/pages/financial/cashflow"));
+const BankAccounts         = lazy(() => import("@/pages/financial/bank-accounts"));
+const Advances             = lazy(() => import("@/pages/financial/advances"));
+const PaymentCenter        = lazy(() => import("@/pages/financial/payment-center"));
+const FinanceCenter        = lazy(() => import("@/pages/financial/finance-center"));
+const Collections          = lazy(() => import("@/pages/financial/collections"));
+const FinancialIntelligence = lazy(() => import("@/pages/financial/financial-intelligence"));
+const FinancialCore        = lazy(() => import("@/pages/financial/financial-core"));
 
 // HR
-const Employees            = lazy(() => import("@/pages/employees"));
-const Attendance           = lazy(() => import("@/pages/attendance"));
-const Leaves               = lazy(() => import("@/pages/leaves"));
-const Payroll              = lazy(() => import("@/pages/payroll"));
-const HRCenter             = lazy(() => import("@/pages/hr-center"));
-const HRSystems            = lazy(() => import("@/pages/hr-systems"));
-const OrgStructure         = lazy(() => import("@/pages/org-structure"));
+const Employees            = lazy(() => import("@/pages/hr/employees"));
+const Attendance           = lazy(() => import("@/pages/hr/attendance"));
+const Leaves               = lazy(() => import("@/pages/hr/leaves"));
+const Payroll              = lazy(() => import("@/pages/hr/payroll"));
+const HRCenter             = lazy(() => import("@/pages/hr/hr-center"));
+const HRSystems            = lazy(() => import("@/pages/hr/hr-systems"));
+const OrgStructure         = lazy(() => import("@/pages/hr/org-structure"));
 
 // Admin & Settings
-const Users                = lazy(() => import("@/pages/users"));
-const Team                 = lazy(() => import("@/pages/team"));
-const OfficeSettings       = lazy(() => import("@/pages/office-settings"));
-const OfficeManagement     = lazy(() => import("@/pages/office-management"));
-const SuperAdmin           = lazy(() => import("@/pages/super-admin"));
-const FirmAdmin            = lazy(() => import("@/pages/firm-admin"));
-const BackupCenter         = lazy(() => import("@/pages/backup"));
-const StorageSettings      = lazy(() => import("@/pages/storage-settings"));
-const AdalaBuildStudio     = lazy(() => import("@/pages/studio"));
-const ThemeBuilderPage     = lazy(() => import("@/pages/theme-builder"));
-const EngineeringCenter    = lazy(() => import("@/pages/engineering-center"));
-const MonitoringPage       = lazy(() => import("@/pages/monitoring"));
-const PreventionPage       = lazy(() => import("@/pages/prevention"));
-const AlertsPage           = lazy(() => import("@/pages/alerts"));
-const FinancialEnginePage  = lazy(() => import("@/pages/financial-engine"));
-const FinanceDashboard     = lazy(() => import("@/pages/finance-dashboard"));
-const IsolationPage        = lazy(() => import("@/pages/isolation"));
-const HardeningPage        = lazy(() => import("@/pages/hardening"));
-const LegalOSPage          = lazy(() => import("@/pages/legal-os"));
-const SelfHealingPage      = lazy(() => import("@/pages/self-healing"));
-const AuditLogsPage        = lazy(() => import("@/pages/audit-logs"));
-const LoginTrackingPage    = lazy(() => import("@/pages/login-tracking"));
-const MySessionsPage       = lazy(() => import("@/pages/my-sessions"));
-const ActivityStreamPage   = lazy(() => import("@/pages/activity-stream"));
+const Users                = lazy(() => import("@/pages/platform/users"));
+const Team                 = lazy(() => import("@/pages/platform/team"));
+const OfficeSettings       = lazy(() => import("@/pages/platform/office-settings"));
+const OfficeManagement     = lazy(() => import("@/pages/platform/office-management"));
+const SuperAdmin           = lazy(() => import("@/pages/platform/super-admin"));
+const FirmAdmin            = lazy(() => import("@/pages/platform/firm-admin"));
+const BackupCenter         = lazy(() => import("@/pages/platform/backup"));
+const StorageSettings      = lazy(() => import("@/pages/platform/storage-settings"));
+const AdalaBuildStudio     = lazy(() => import("@/pages/platform/studio"));
+const ThemeBuilderPage     = lazy(() => import("@/pages/platform/theme-builder"));
+const EngineeringCenter    = lazy(() => import("@/pages/platform/engineering-center"));
+const MonitoringPage       = lazy(() => import("@/pages/monitoring/monitoring"));
+const PreventionPage       = lazy(() => import("@/pages/monitoring/prevention"));
+const AlertsPage           = lazy(() => import("@/pages/monitoring/alerts"));
+const FinancialEnginePage  = lazy(() => import("@/pages/financial/financial-engine"));
+const FinanceDashboard     = lazy(() => import("@/pages/financial/finance-dashboard"));
+const IsolationPage        = lazy(() => import("@/pages/monitoring/isolation"));
+const HardeningPage        = lazy(() => import("@/pages/monitoring/hardening"));
+const LegalOSPage          = lazy(() => import("@/pages/legal-core/legal-os"));
+const SelfHealingPage      = lazy(() => import("@/pages/monitoring/self-healing"));
+const AuditLogsPage        = lazy(() => import("@/pages/platform/audit-logs"));
+const LoginTrackingPage    = lazy(() => import("@/pages/platform/login-tracking"));
+const MySessionsPage       = lazy(() => import("@/pages/platform/my-sessions"));
+const ActivityStreamPage   = lazy(() => import("@/pages/monitoring/activity-stream"));
 
 // Communication
-const Messages             = lazy(() => import("@/pages/messages"));
-const RemindersPage        = lazy(() => import("@/pages/reminders"));
-const EmailNotificationsPage = lazy(() => import("@/pages/email-notifications"));
-const WhatsAppSettingsPage  = lazy(() => import("@/pages/whatsapp-settings"));
-const TelegramSettingsPage  = lazy(() => import("@/pages/telegram-settings"));
-const DocumentTemplatesPage = lazy(() => import("@/pages/document-templates"));
-const SupportPage          = lazy(() => import("@/pages/support"));
+const Messages             = lazy(() => import("@/pages/operations/messages"));
+const RemindersPage        = lazy(() => import("@/pages/legal-core/reminders"));
+const EmailNotificationsPage = lazy(() => import("@/pages/operations/email-notifications"));
+const WhatsAppSettingsPage  = lazy(() => import("@/pages/operations/whatsapp-settings"));
+const TelegramSettingsPage  = lazy(() => import("@/pages/operations/telegram-settings"));
+const DocumentTemplatesPage = lazy(() => import("@/pages/legal-core/document-templates"));
+const SupportPage          = lazy(() => import("@/pages/platform/support"));
 
 // Analytics & Reports
-const Analytics            = lazy(() => import("@/pages/analytics"));
-const Tasks                = lazy(() => import("@/pages/tasks"));
-const CalendarPage         = lazy(() => import("@/pages/calendar"));
+const Analytics            = lazy(() => import("@/pages/operations/analytics"));
+const Tasks                = lazy(() => import("@/pages/operations/tasks"));
+const CalendarPage         = lazy(() => import("@/pages/operations/calendar"));
 
 // Client Portal
-const ClientPortal         = lazy(() => import("@/pages/client-portal"));
-const PortalView           = lazy(() => import("@/pages/portal-view"));
-const PortalLogin          = lazy(() => import("@/pages/portal-login"));
-const PortalMyCases        = lazy(() => import("@/pages/portal-my-cases"));
-const SignPage              = lazy(() => import("@/pages/sign"));
+const ClientPortal         = lazy(() => import("@/pages/marketplace/client-portal"));
+const PortalView           = lazy(() => import("@/pages/marketplace/portal-view"));
+const PortalLogin          = lazy(() => import("@/pages/marketplace/portal-login"));
+const PortalMyCases        = lazy(() => import("@/pages/marketplace/portal-my-cases"));
+const SignPage              = lazy(() => import("@/pages/legal-core/sign"));
 
 // Marketplace & Public
-const Marketplace          = lazy(() => import("@/pages/marketplace"));
-const Billing              = lazy(() => import("@/pages/billing"));
-const PricingPage          = lazy(() => import("@/pages/pricing"));
+const Marketplace          = lazy(() => import("@/pages/marketplace/marketplace"));
+const Billing              = lazy(() => import("@/pages/financial/billing"));
+const PricingPage          = lazy(() => import("@/pages/marketplace/pricing"));
 const DemoPage             = lazy(() => import("@/pages/demo"));
-const OfficePage           = lazy(() => import("@/pages/office-public"));
-const OfficeServiceDetail  = lazy(() => import("@/pages/office-service-detail"));
-const OfficeStore          = lazy(() => import("@/pages/office-store"));
-const OfficeBook           = lazy(() => import("@/pages/office-book"));
+const OfficePage           = lazy(() => import("@/pages/marketplace/office-public"));
+const OfficeServiceDetail  = lazy(() => import("@/pages/marketplace/office-service-detail"));
+const OfficeStore          = lazy(() => import("@/pages/marketplace/office-store"));
+const OfficeBook           = lazy(() => import("@/pages/marketplace/office-book"));
 const TermsPage            = lazy(() => import("@/pages/terms"));
 const PrivacyPage          = lazy(() => import("@/pages/privacy"));
 const SecurityPage         = lazy(() => import("@/pages/security"));
-const ReferralPage         = lazy(() => import("@/pages/referral"));
+const ReferralPage         = lazy(() => import("@/pages/marketplace/referral"));
 const NotFound             = lazy(() => import("@/pages/not-found"));
 
 // ── Query client ───────────────────────────────────────────────────────────────

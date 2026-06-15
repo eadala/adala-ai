@@ -11,7 +11,7 @@
 
 import { db }    from "@workspace/db";
 import { sql }   from "drizzle-orm";
-import { callAI } from "../routes/aiChat";
+import { callAI } from "../modules/ai/aiChat";
 
 /* ── helpers ────────────────────────────────────── */
 function sqlOne(r: any)  { return (r?.rows ?? r)?.[0] ?? null; }
