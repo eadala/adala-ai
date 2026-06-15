@@ -265,7 +265,7 @@ function WhatsAppSettings() {
 
   const { data: status } = useQuery({
     queryKey: ["wa-settings"],
-    queryFn:  () => fetch(`${BASE}api/webhook/whatsapp/settings`).then(r => r.json()),
+    queryFn:  () => fetch(`${BASE}api/webhook/whatsapp/settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const webhookUrl = status?.webhookUrl || `${window.location.origin}${BASE}api/webhook/whatsapp`;

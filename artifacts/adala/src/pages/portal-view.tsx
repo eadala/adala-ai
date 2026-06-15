@@ -34,7 +34,7 @@ function ClientAccountBanner({ portalToken }: { portalToken: string }) {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
       body: JSON.stringify({ portalToken }),
-    }).then(r => r.json()).then(d => { if (!d.error) setLinked(true); }).catch(() => {});
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }).then(d => { if (!d.error) setLinked(true); }).catch(() => {});
   }, [sessionToken, portalToken]);
 
   if (sessionToken && client) {
@@ -135,7 +135,7 @@ export default function PortalView() {
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["portal-view", token],
-    queryFn: () => fetch(`${BASE}api/portal/${token}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/portal/${token}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!token,
     retry: false,
   });
@@ -145,7 +145,7 @@ export default function PortalView() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: msgText, senderName: msgSender, senderEmail: msgEmail }),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d?.error) { toast.error(d.error); return; }
       toast.success("تم إرسال رسالتك ✅");

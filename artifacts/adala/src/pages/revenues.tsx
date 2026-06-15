@@ -33,19 +33,19 @@ export default function Revenues() {
 
   const { data: rows = [], isLoading } = useQuery<Revenue[]>({
     queryKey: ["accounting-revenues"],
-    queryFn: () => fetch(`${BASE}/api/accounting/revenues`).then(r=>r.json()),
+    queryFn: () => fetch(`${BASE}/api/accounting/revenues`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const saveMut = useMutation({
     mutationFn: (data:any) => editing
-      ? fetch(`${BASE}/api/accounting/revenues/${editing.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}).then(r=>r.json())
-      : fetch(`${BASE}/api/accounting/revenues`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}).then(r=>r.json()),
+      ? fetch(`${BASE}/api/accounting/revenues/${editing.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); })
+      : fetch(`${BASE}/api/accounting/revenues`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({queryKey:["accounting-revenues"]}); qc.invalidateQueries({queryKey:["accounting-summary"]}); toast.success(editing?"تم تعديل الإيراد":"تم إضافة الإيراد"); closeDialog(); },
     onError: () => toast.error("خطأ في الحفظ"),
   });
 
   const delMut = useMutation({
-    mutationFn: (id:string) => fetch(`${BASE}/api/accounting/revenues/${id}`,{method:"DELETE"}).then(r=>r.json()),
+    mutationFn: (id:string) => fetch(`${BASE}/api/accounting/revenues/${id}`,{method:"DELETE"}).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({queryKey:["accounting-revenues"]}); qc.invalidateQueries({queryKey:["accounting-summary"]}); toast.success("تم الحذف"); setDelId(null); },
   });
 

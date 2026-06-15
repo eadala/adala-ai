@@ -72,7 +72,7 @@ const QUICK_LINKS = [
 export default function FinanceCenter() {
   const { data, isLoading } = useQuery<any>({
     queryKey: ["finance-dashboard"],
-    queryFn: () => fetch(`${BASE}/api/finance/dashboard`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/finance/dashboard`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 2 * 60 * 1000,
   });
 

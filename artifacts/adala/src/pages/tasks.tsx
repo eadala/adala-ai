@@ -51,17 +51,17 @@ export default function Tasks() {
 
   const { data: tasks = [], isLoading } = useQuery<any[]>({
     queryKey: ["tasks"],
-    queryFn: () => fetch("/api/office-tasks").then(r => r.json()),
+    queryFn: () => fetch("/api/office-tasks").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: stats } = useQuery<any>({
     queryKey: ["tasks-stats"],
-    queryFn: () => fetch("/api/office-tasks/stats").then(r => r.json()),
+    queryFn: () => fetch("/api/office-tasks/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: employees = [] } = useQuery<any[]>({
     queryKey: ["employees"],
-    queryFn: () => fetch("/api/hr/employees").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const cleanPayload = (data: any) => ({

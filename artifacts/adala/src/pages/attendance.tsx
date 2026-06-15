@@ -74,26 +74,26 @@ export default function Attendance() {
 
   const { data: records = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["attendance", dateFilter],
-    queryFn: () => fetch(`/api/hr/attendance${dateFilter ? `?date=${dateFilter}` : ""}`).then(r => r.json()),
+    queryFn: () => fetch(`/api/hr/attendance${dateFilter ? `?date=${dateFilter}` : ""}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
     refetchInterval: 120_000,
   });
 
   const { data: stats } = useQuery<any>({
     queryKey: ["attendance-stats"],
-    queryFn: () => fetch("/api/hr/attendance/stats").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/attendance/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
     refetchInterval: 120_000,
   });
 
   const { data: employees = [] } = useQuery<any[]>({
     queryKey: ["employees"],
-    queryFn: () => fetch("/api/hr/employees").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: officeLocation, refetch: refetchOffice } = useQuery<any>({
     queryKey: ["office-location"],
-    queryFn: () => fetch("/api/hr/office-location").then(r => r.json()),
+    queryFn: () => fetch("/api/hr/office-location").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const checkInMutation = useMutation({
@@ -127,14 +127,14 @@ export default function Attendance() {
   const manualMutation = useMutation({
     mutationFn: (data: any) => fetch("/api/hr/attendance", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["attendance"] }); setShowManual(false); toast({ title: "تم تسجيل الحضور اليدوي" }); },
   });
 
   const officeSetupMutation = useMutation({
     mutationFn: (data: any) => fetch("/api/hr/office-location", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       refetchOffice();
       setShowOfficeSetup(false);

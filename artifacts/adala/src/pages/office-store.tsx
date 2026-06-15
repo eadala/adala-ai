@@ -60,7 +60,7 @@ export default function OfficeStore() {
 
   const { data, isLoading, isError } = useQuery<any>({
     queryKey: ["office-public", slug],
-    queryFn: () => fetch(`/api/office/public/${slug}`).then(r => r.json()),
+    queryFn: () => fetch(`/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const orderMutation = useMutation({

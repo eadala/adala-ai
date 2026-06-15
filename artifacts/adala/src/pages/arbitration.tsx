@@ -271,18 +271,18 @@ export default function Arbitration() {
 
   const { data: cases = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["arbitration"],
-    queryFn: () => fetch("/api/arbitration/cases").then(r => r.json()),
+    queryFn: () => fetch("/api/arbitration/cases").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: stats } = useQuery<any>({
     queryKey: ["arbitration-stats"],
-    queryFn: () => fetch("/api/arbitration/stats").then(r => r.json()),
+    queryFn: () => fetch("/api/arbitration/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMutation = useMutation({
     mutationFn: (data: any) => fetch("/api/arbitration/cases", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["arbitration"] });
       setShowCreate(false);

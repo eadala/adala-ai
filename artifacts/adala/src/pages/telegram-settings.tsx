@@ -33,7 +33,7 @@ export default function TelegramSettings() {
 
   const { data: settings = {} as any, isLoading } = useQuery({
     queryKey: ["telegram-settings"],
-    queryFn: () => fetch(`${BASE}/api/telegram/settings`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/telegram/settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   useEffect(() => {
@@ -45,13 +45,13 @@ export default function TelegramSettings() {
 
   const { data: logs = [] } = useQuery<any[]>({
     queryKey: ["telegram-logs"],
-    queryFn: () => fetch(`${BASE}/api/telegram/logs`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/telegram/logs`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 10_000,
   });
 
   const { data: botInfo } = useQuery({
     queryKey: ["telegram-bot-info"],
-    queryFn: () => fetch(`${BASE}/api/telegram/bot-info`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/telegram/bot-info`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!settings?.bot_token,
     staleTime: 60_000,
   });
@@ -62,7 +62,7 @@ export default function TelegramSettings() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       toast.success("تم حفظ الإعدادات");
       qc.invalidateQueries({ queryKey: ["telegram-settings"] });
@@ -74,7 +74,7 @@ export default function TelegramSettings() {
 
   const testMut = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/telegram/test`, { method: "POST" }).then(r => r.json()),
+      fetch(`${BASE}/api/telegram/test`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d: any) => {
       if (d.ok) toast.success("✅ وصلت رسالة الاختبار إلى تليجرام!");
       else toast.error(`فشل: ${d.error ?? "خطأ غير معروف"}`);
@@ -315,7 +315,7 @@ export default function TelegramSettings() {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ fileUrl: "https://telegram.org/img/t_logo.png", fileName: "اختبار_تخزين.png", caption: "🧪 اختبار التخزين عبر تليجرام من عدالة AI" }),
-                    }).then(r => r.json()).then(d => {
+                    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }).then(d => {
                       if (d.ok) toast.success("✅ تم إرسال ملف الاختبار للقناة!");
                       else toast.error(`فشل: ${d.error}`);
                     });

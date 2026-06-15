@@ -44,7 +44,7 @@ export default function AiTasks() {
 
   const { data: cases = [] } = useQuery<any[]>({
     queryKey: ["cases-mini"],
-    queryFn: () => fetch(`${BASE}/api/cases?limit=100`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/cases?limit=100`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMut = useMutation({
@@ -52,7 +52,7 @@ export default function AiTasks() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["listAiTasks"] });
       toast({ title: "✅ تم إنشاء المهمة — ستبدأ المعالجة خلال ثوانٍ" });

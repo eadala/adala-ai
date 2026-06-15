@@ -367,28 +367,28 @@ export default function HRCenter() {
 
   const { data: employees = [] } = useQuery<Employee[]>({
     queryKey: ["hr-employees-list"],
-    queryFn: () => fetch(`${BASE}/api/hr/employees`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/hr/employees`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
   const activeEmps = employees.filter(e => e.status === "active");
 
   const { data: dashboard, isLoading: dashLoading, refetch: refetchDash } = useQuery<any>({
     queryKey: ["hr-dashboard"],
-    queryFn: () => fetch(`${BASE}/api/hr-perf/dashboard`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/hr-perf/dashboard`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: evaluations = [], isLoading: evalLoading } = useQuery<Evaluation[]>({
     queryKey: ["hr-evaluations"],
-    queryFn: () => fetch(`${BASE}/api/hr-perf/evaluations`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/hr-perf/evaluations`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: incentives = [], isLoading: incLoading } = useQuery<Incentive[]>({
     queryKey: ["hr-incentives"],
-    queryFn: () => fetch(`${BASE}/api/hr-perf/incentives`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/hr-perf/incentives`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: smartPayroll, isLoading: payLoading, refetch: refetchPay } = useQuery<any>({
     queryKey: ["smart-payroll", payPeriod],
-    queryFn: () => fetch(`${BASE}/api/hr-perf/smart-payroll/preview?period=${encodeURIComponent(payPeriod)}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/hr-perf/smart-payroll/preview?period=${encodeURIComponent(payPeriod)}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const delEval = useMutation({
@@ -874,7 +874,7 @@ function SettingsTab() {
 
   const { data: cfg, isLoading } = useQuery<Record<string, string>>({
     queryKey: ["hr-perf-settings"],
-    queryFn: () => fetch(`${BASE}/api/hr-perf/settings`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/hr-perf/settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d: any) => setForm(d),
   } as any);
 
@@ -882,7 +882,7 @@ function SettingsTab() {
     mutationFn: () => fetch(`${BASE}/api/hr-perf/settings`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => toast({ title: "✅ تم حفظ الإعدادات" }),
   });
 

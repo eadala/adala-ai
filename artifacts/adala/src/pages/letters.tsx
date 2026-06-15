@@ -433,7 +433,7 @@ export default function Letters() {
 
   const { data: smtpStatus } = useQuery<{ configured: boolean }>({
     queryKey: ["smtp-status"],
-    queryFn: () => fetch("/api/email/smtp-status").then(r => r.json()),
+    queryFn: () => fetch("/api/email/smtp-status").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const sendEmailMutation = useMutation({
@@ -441,7 +441,7 @@ export default function Letters() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (data) => {
       if (data.mailtoFallback) {
         const mailtoLink = `mailto:${toEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(previewText.replace(/\*\*(.*?)\*\*/g, "$1"))}`;

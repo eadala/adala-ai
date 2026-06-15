@@ -399,18 +399,18 @@ export default function FirmAdmin() {
 
   const { data: overview, isLoading, refetch } = useQuery<FirmOverview>({
     queryKey: ["firm-overview"],
-    queryFn: () => fetch("/api/firm-admin/overview").then(r => r.json()),
+    queryFn: () => fetch("/api/firm-admin/overview").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 60_000,
   });
 
   const { data: roles = [] } = useQuery<Role[]>({
     queryKey: ["firm-roles"],
-    queryFn: () => fetch("/api/rbac/roles").then(r => r.json()),
+    queryFn: () => fetch("/api/rbac/roles").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: invitations = [] } = useQuery<Invitation[]>({
     queryKey: ["firm-invitations"],
-    queryFn: () => fetch("/api/rbac/invitations").then(r => r.json()),
+    queryFn: () => fetch("/api/rbac/invitations").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const changeRole = async (userId: string, role: string) => {

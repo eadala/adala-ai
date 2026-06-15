@@ -323,7 +323,7 @@ export default function PricingPage() {
   /* fetch live plans from DB (falls back to hardcoded PLANS) */
   const { data: apiPlans } = useQuery({
     queryKey: ["billing-plans"],
-    queryFn: () => fetch(`${BASE}/api/billing/plans`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/billing/plans`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 5 * 60 * 1000,
     retry: false,
   });

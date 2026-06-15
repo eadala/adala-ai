@@ -259,7 +259,7 @@ export function OfficeThemeProvider() {
 
   const { data: themeData } = useQuery({
     queryKey: ["office-theme-tokens"],
-    queryFn: () => fetch(`${BASE}/api/theme-builder/tokens`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/theme-builder/tokens`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });

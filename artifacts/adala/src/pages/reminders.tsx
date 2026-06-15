@@ -49,7 +49,7 @@ export default function RemindersPage() {
     queryKey: ["reminders", filter],
     queryFn: () => {
       const q = filter === "pending" ? "?done=false" : filter === "done" ? "?done=true" : "";
-      return fetch(`${BASE}/api/reminders${q}`).then(r => r.json());
+      return fetch(`${BASE}/api/reminders${q}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
     },
     staleTime: 60_000,
     refetchInterval: 2 * 60_000,
@@ -59,7 +59,7 @@ export default function RemindersPage() {
     mutationFn: (data: any) => {
       const url = editing ? `${BASE}/api/reminders/${editing.id}` : `${BASE}/api/reminders`;
       const method = editing ? "PATCH" : "POST";
-      return fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json());
+      return fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reminders"] });
@@ -72,7 +72,7 @@ export default function RemindersPage() {
 
   const doneMut = useMutation({
     mutationFn: ({ id, done }: { id: number; done: boolean }) =>
-      fetch(`${BASE}/api/reminders/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done }) }).then(r => r.json()),
+      fetch(`${BASE}/api/reminders/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reminders"] });
       qc.invalidateQueries({ queryKey: ["reminders-count"] });
@@ -80,7 +80,7 @@ export default function RemindersPage() {
   });
 
   const delMut = useMutation({
-    mutationFn: (id: number) => fetch(`${BASE}/api/reminders/${id}`, { method: "DELETE" }).then(r => r.json()),
+    mutationFn: (id: number) => fetch(`${BASE}/api/reminders/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reminders"] });
       qc.invalidateQueries({ queryKey: ["reminders-count"] });

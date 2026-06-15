@@ -109,7 +109,7 @@ export default function FinancialIntelligencePage() {
 
   const { data, isLoading, isError } = useQuery<any>({
     queryKey: ["finance-intelligence"],
-    queryFn:  () => fetch(`${BASE}/api/finance/intelligence`).then(r => r.json()),
+    queryFn:  () => fetch(`${BASE}/api/finance/intelligence`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 120_000,
   });
 

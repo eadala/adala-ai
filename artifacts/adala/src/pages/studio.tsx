@@ -132,7 +132,7 @@ export default function AdalaBuildStudio() {
 function OverviewSection({ toast, onNav }: any) {
   const [stats, setStats] = useState<any>(null);
   useEffect(() => {
-    BASE("/studio/stats").then(r => r.json()).then(setStats).catch(() => {});
+    BASE("/studio/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }).then(setStats).catch(() => {});
   }, []);
 
   const cards = [

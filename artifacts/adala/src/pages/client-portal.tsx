@@ -56,7 +56,7 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ caseId, clientEmail, clientName, expiryDays, showInvoices, showTimeline, allowedToUpload }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (data) => {
       if (data?.error) { toast.error(data.error); return; }
       setResult(data);
@@ -170,7 +170,7 @@ function AddTimelineDialog({ caseId, onAdded }: { caseId: string; onAdded: () =>
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, description, entryType, happenedAt, isShared }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d?.error) { toast.error(d.error); return; }
       toast.success(isShared ? "تم إضافة التحديث وإشعار العميل ✅" : "تم إضافة الحدث ✅");
@@ -313,7 +313,7 @@ function CreateClientAccountDialog({ cases, onCreated }: { cases: Case[]; onCrea
     // If a case is selected, get the portal token for it if available
     let portalToken: string | undefined;
     if (caseId) {
-      const r = await fetch(`${BASE}api/portal/tokens/${caseId}`).then(r => r.json()).catch(() => []);
+      const r = await fetch(`${BASE}api/portal/tokens/${caseId}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }).catch(() => []);
       const tokens: any[] = Array.isArray(r) ? r : [];
       portalToken = tokens[0]?.token;
     }
@@ -503,7 +503,7 @@ function CommSettingsDialog() {
 
   const { data: settings, isLoading, refetch } = useQuery<CommSettings>({
     queryKey: ["comm-settings"],
-    queryFn: () => fetch(`${BASE}api/comm-settings`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/comm-settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: open,
   });
 
@@ -636,14 +636,14 @@ export default function ClientPortal() {
 
   const { data: cases = [] } = useQuery<Case[]>({
     queryKey: ["cases-list"],
-    queryFn: () => fetch(`${BASE}api/cases`).then(r => r.json()).then(d => Array.isArray(d) ? d : d.cases ?? []),
+    queryFn: () => fetch(`${BASE}api/cases`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }).then(d => Array.isArray(d) ? d : d.cases ?? []),
   });
 
   const { data: allTokens = [], isLoading, refetch } = useQuery<PortalToken[]>({
     queryKey: ["portal-all-tokens"],
     queryFn: async () => {
       const results = await Promise.all(
-        cases.slice(0, 30).map(c => fetch(`${BASE}api/portal/tokens/${c.id}`).then(r => r.json()))
+        cases.slice(0, 30).map(c => fetch(`${BASE}api/portal/tokens/${c.id}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }))
       );
       return results.flat().filter(Boolean);
     },
@@ -651,7 +651,7 @@ export default function ClientPortal() {
   });
 
   const deleteToken = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}api/portal/tokens/${id}`, { method: "DELETE" }).then(r => r.json()),
+    mutationFn: (id: string) => fetch(`${BASE}api/portal/tokens/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast.success("تم حذف الرابط"); qc.invalidateQueries({ queryKey: ["portal-all-tokens"] }); },
   });
 

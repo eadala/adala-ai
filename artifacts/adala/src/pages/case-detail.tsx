@@ -86,17 +86,17 @@ export default function CaseDetail({ id }: { id: string }) {
 
   const { data: portalTokens = [] } = useQuery<any[]>({
     queryKey: ["portal-tokens", id],
-    queryFn: () => fetch(`${BASE}/api/portal/tokens/${id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/portal/tokens/${id}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!id,
   });
   const { data: portalTimeline = [], refetch: refetchTimeline } = useQuery<any[]>({
     queryKey: ["portal-timeline", id],
-    queryFn: () => fetch(`${BASE}/api/portal/timeline/${id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/portal/timeline/${id}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!id,
   });
   const { data: portalUploads = [] } = useQuery<any[]>({
     queryKey: ["portal-uploads", id],
-    queryFn: () => fetch(`${BASE}/api/portal/uploads/${id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/portal/uploads/${id}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!id,
   });
 
@@ -126,7 +126,7 @@ export default function CaseDetail({ id }: { id: string }) {
 
   const { data: caseMsgs = [], refetch: refetchMsgs } = useQuery<any[]>({
     queryKey: ["case-messages", id],
-    queryFn: () => fetch(`${BASE}/api/internal-messages/case/${id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/internal-messages/case/${id}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!id,
     staleTime: 30_000,
   });
@@ -137,7 +137,7 @@ export default function CaseDetail({ id }: { id: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...d, caseId: id, folder: "sent" }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       refetchMsgs();
       setMsgComposeOpen(false);

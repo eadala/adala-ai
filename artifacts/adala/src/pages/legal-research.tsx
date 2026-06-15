@@ -39,7 +39,7 @@ export default function LegalResearch() {
 
   const { data: featured = [] } = useQuery<any[]>({
     queryKey: ["legal-research-featured"],
-    queryFn: () => fetch("/api/legal-research/featured").then(r => r.json()),
+    queryFn: () => fetch("/api/legal-research/featured").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const searchMutation = useMutation({
@@ -48,7 +48,7 @@ export default function LegalResearch() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: q, category: cat }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const handleSearch = (q = query) => {

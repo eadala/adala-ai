@@ -60,7 +60,7 @@ export default function MySessionsPage() {
 
   const { data, isLoading, refetch, isFetching } = useQuery<any>({
     queryKey: ["my-sessions"],
-    queryFn: () => fetch(`${BASE}/api/security/my-sessions`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/security/my-sessions`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
   });
 

@@ -49,7 +49,7 @@ export default function PortalMyCases() {
     queryKey: ["client-me"],
     queryFn: () => fetch(`${BASE}api/client-auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!token,
   });
 

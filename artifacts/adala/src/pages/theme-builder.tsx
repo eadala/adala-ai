@@ -589,14 +589,14 @@ export default function ThemeBuilderPage() {
   /* Load saved tokens */
   const { data: saved } = useQuery({
     queryKey: ["theme-builder-tokens"],
-    queryFn: () => fetch(`${BASE}/api/theme-builder/tokens`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/theme-builder/tokens`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
   });
 
   /* Load presets */
   const { data: presets = [] } = useQuery<any[]>({
     queryKey: ["theme-builder-presets"],
-    queryFn: () => fetch(`${BASE}/api/theme-builder/presets`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/theme-builder/presets`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: Infinity,
   });
 
@@ -611,7 +611,7 @@ export default function ThemeBuilderPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tokens, name: themeName }),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       toast.success("تم حفظ الثيم وتطبيقه على التطبيق ✨");
       setDirty(false);

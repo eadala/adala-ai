@@ -200,7 +200,7 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
         title, items, vatRate, dueDate: dueDate || undefined,
         notes: notes || undefined, clientId: clientId || undefined,
       }),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d.error) { toast.error(d.error); return; }
       toast.success("تم إنشاء الفاتورة ✅");
@@ -349,7 +349,7 @@ function InvoiceSheet({
   };
 
   const markPaid = useMutation({
-    mutationFn: () => fetch(`${BASE}api/invoices/${invoice!.id}/mark-paid`, { method: "POST" }).then(r => r.json()),
+    mutationFn: () => fetch(`${BASE}api/invoices/${invoice!.id}/mark-paid`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast.success("تم تسجيل الدفع ✅"); onRefresh(); onClose(); },
   });
 
@@ -357,7 +357,7 @@ function InvoiceSheet({
     mutationFn: (status: string) => fetch(`${BASE}api/invoices/${invoice!.id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
-    }).then(r => r.json()),
+    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast.success("تم تحديث الحالة ✅"); onRefresh(); },
   });
 
@@ -1016,12 +1016,12 @@ export default function Invoices() {
 
   const { data: allInvoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["invoices"],
-    queryFn: () => fetch(`${BASE}api/invoices`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/invoices`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: clients = [] } = useQuery<Client[]>({
     queryKey: ["clients-list"],
-    queryFn: () => fetch(`${BASE}api/clients`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/clients`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["invoices"] });
@@ -1048,7 +1048,7 @@ export default function Invoices() {
   }, [allInvoices]);
 
   const deleteInv = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}api/invoices/${id}`, { method: "DELETE" }).then(r => r.json()),
+    mutationFn: (id: string) => fetch(`${BASE}api/invoices/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast.success("تم حذف الفاتورة"); refresh(); },
     onError: () => toast.error("فشل الحذف"),
   });
@@ -1063,7 +1063,7 @@ export default function Invoices() {
   };
 
   const markPaidDirect = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}api/invoices/${id}/mark-paid`, { method: "POST" }).then(r => r.json()),
+    mutationFn: (id: string) => fetch(`${BASE}api/invoices/${id}/mark-paid`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast.success("تم تسجيل الدفع ✅"); refresh(); },
   });
 

@@ -103,12 +103,12 @@ export default function RiskManagement() {
 
   const { data: contracts = [] } = useQuery<any[]>({
     queryKey: ["contracts"],
-    queryFn: () => fetch("/api/contracts").then(r => r.json()),
+    queryFn: () => fetch("/api/contracts").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: cases = [] } = useQuery<any[]>({
     queryKey: ["cases"],
-    queryFn: () => fetch("/api/cases").then(r => r.json()),
+    queryFn: () => fetch("/api/cases").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   // Build risk items from real data

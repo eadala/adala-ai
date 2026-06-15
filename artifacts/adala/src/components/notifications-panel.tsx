@@ -123,7 +123,7 @@ export function NotificationsPanel() {
 
   const { data, isLoading, refetch } = useQuery<NotificationsResponse>({
     queryKey: ["notifications"],
-    queryFn: () => fetch(`${BASE}/api/notifications`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/notifications`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 60_000,
     staleTime: 30_000,
   });

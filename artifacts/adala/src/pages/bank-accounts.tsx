@@ -27,19 +27,19 @@ export default function BankAccounts() {
 
   const { data: rows = [], isLoading } = useQuery<BankAccount[]>({
     queryKey: ["accounting-bank-accounts"],
-    queryFn: () => fetch(`${BASE}/api/accounting/bank-accounts`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/accounting/bank-accounts`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const saveMut = useMutation({
     mutationFn: (data: any) => editing
-      ? fetch(`${BASE}/api/accounting/bank-accounts/${editing.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json())
-      : fetch(`${BASE}/api/accounting/bank-accounts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
+      ? fetch(`${BASE}/api/accounting/bank-accounts/${editing.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); })
+      : fetch(`${BASE}/api/accounting/bank-accounts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounting-bank-accounts"] }); toast.success(editing ? "تم التعديل" : "تم الإضافة"); close_(); },
     onError: () => toast.error("خطأ في الحفظ"),
   });
 
   const delMut = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/accounting/bank-accounts/${id}`, { method: "DELETE" }).then(r => r.json()),
+    mutationFn: (id: string) => fetch(`${BASE}/api/accounting/bank-accounts/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounting-bank-accounts"] }); toast.success("تم الحذف"); setDelId(null); },
   });
 

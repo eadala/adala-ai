@@ -81,21 +81,21 @@ function getTypeLabel(type: string) {
 function useUnits() {
   return useQuery<OrgUnit[]>({
     queryKey: ["org-units"],
-    queryFn: () => fetch(`${BASE}/api/org-units`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/org-units`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 }
 
 function useDashboard() {
   return useQuery<any>({
     queryKey: ["org-units-dashboard"],
-    queryFn: () => fetch(`${BASE}/api/org-units-dashboard`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/org-units-dashboard`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 }
 
 function useUsers() {
   return useQuery<any[]>({
     queryKey: ["org-units-users"],
-    queryFn: () => fetch(`${BASE}/api/org-units-users`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/org-units-users`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
   });
 }

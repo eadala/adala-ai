@@ -104,17 +104,17 @@ export default function TeamPage() {
   /* ── Queries ── */
   const { data: members = [], isLoading: membersLoading } = useQuery<any[]>({
     queryKey: ["rbac-members"],
-    queryFn: () => fetch(`${BASE}/api/rbac/members`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/rbac/members`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: roles = [], isLoading: rolesLoading } = useQuery<any[]>({
     queryKey: ["rbac-roles"],
-    queryFn: () => fetch(`${BASE}/api/rbac/roles`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/rbac/roles`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: invitations = [] } = useQuery<any[]>({
     queryKey: ["rbac-invitations"],
-    queryFn: () => fetch(`${BASE}/api/rbac/invitations`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/rbac/invitations`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   /* ── Mutations ── */
@@ -124,13 +124,13 @@ export default function TeamPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["rbac-members"] }); toast({ title: "تم تحديث الدور" }); },
   });
 
   const removeMember = useMutation({
     mutationFn: (userId: string) =>
-      fetch(`${BASE}/api/rbac/members/${userId}`, { method: "DELETE" }).then(r => r.json()),
+      fetch(`${BASE}/api/rbac/members/${userId}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["rbac-members"] }); toast({ title: "تم إزالة العضو" }); },
   });
 
@@ -140,7 +140,7 @@ export default function TeamPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["rbac-invitations"] });
       setInviteOpen(false);
@@ -151,13 +151,13 @@ export default function TeamPage() {
 
   const cancelInvite = useMutation({
     mutationFn: (id: string) =>
-      fetch(`${BASE}/api/rbac/invitations/${id}`, { method: "DELETE" }).then(r => r.json()),
+      fetch(`${BASE}/api/rbac/invitations/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["rbac-invitations"] }),
   });
 
   const resendInvite = useMutation({
     mutationFn: (id: string) =>
-      fetch(`${BASE}/api/rbac/invitations/${id}/resend`, { method: "PATCH" }).then(r => r.json()),
+      fetch(`${BASE}/api/rbac/invitations/${id}/resend`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => toast({ title: "تم إعادة إرسال الدعوة" }),
   });
 

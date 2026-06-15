@@ -274,14 +274,14 @@ export default function AIHub() {
   /* Fetch which models have API keys configured */
   const { data: availableModels } = useQuery<{ gemini: boolean; claude: boolean; openai: boolean }>({
     queryKey: ["ai-models-available"],
-    queryFn: () => fetch(`${BASE}/api/ai-models/available`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/ai-models/available`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
   });
 
   /* Fetch AI credits balance */
   const { data: credits, refetch: refetchCredits } = useQuery<{ balance: number; monthly_allowance: number; used_this_month: number }>({
     queryKey: ["office-ai-credits"],
-    queryFn: () => fetch(`${BASE}/api/office/ai-credits`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/office/ai-credits`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });

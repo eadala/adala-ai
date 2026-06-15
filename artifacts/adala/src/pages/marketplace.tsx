@@ -100,7 +100,7 @@ function BuyNowDialog({ service, onClose }: { service: Service; onClose: () => v
           serviceId: service.id, buyerName: name,
           buyerEmail: email || undefined, buyerPhone: phone || undefined, notes: notes || undefined,
         }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d?.error) { toast({ title: "خطأ", description: d.error, variant: "destructive" }); return; }
       toast({ title: "✅ تم إرسال طلبك بنجاح!", description: "سيتواصل معك فريق المكتب قريباً" });
@@ -183,7 +183,7 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
 
   const { data: deal } = useQuery<any>({
     queryKey: ["deal", dealId],
-    queryFn: () => fetch(`${BASE}/api/marketplace/deals/${dealId}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/marketplace/deals/${dealId}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!dealId,
     refetchInterval: 5000,
   });
@@ -198,7 +198,7 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
           buyerEmail: email || undefined, buyerPhone: phone || undefined,
           initialPrice: parseFloat(myPrice), notes: message || undefined,
         }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d?.error) { toast({ title: "خطأ", description: d.error, variant: "destructive" }); return; }
       setDealId(d.id);
@@ -385,7 +385,7 @@ function AddServiceDialog({ onCreated }: { onCreated: () => void }) {
           durationMinutes: dur ? parseInt(dur) : undefined,
           tags: tags || undefined,
         }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d?.error) { toast({ title: "خطأ", description: d.error, variant: "destructive" }); return; }
       toast({ title: "✅ تم نشر الخدمة" });
@@ -491,7 +491,7 @@ function ServiceCard({
       fetch(`${BASE}/api/marketplace/services/${service.id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !service.is_active }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["marketplace"] }),
   });
 
@@ -606,18 +606,18 @@ function DealsDashboard() {
 
   const { data: deals = [], isLoading: dealsLoading } = useQuery<any[]>({
     queryKey: ["my-deals"],
-    queryFn: () => fetch(`${BASE}/api/marketplace/deals/my`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/marketplace/deals/my`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 15000,
   });
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery<any[]>({
     queryKey: ["my-orders"],
-    queryFn: () => fetch(`${BASE}/api/marketplace/orders/my`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/marketplace/orders/my`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: dealDetail } = useQuery<any>({
     queryKey: ["deal-detail", openDeal],
-    queryFn: () => fetch(`${BASE}/api/marketplace/deals/${openDeal}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/marketplace/deals/${openDeal}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!openDeal,
     refetchInterval: 5000,
   });
@@ -627,13 +627,13 @@ function DealsDashboard() {
       fetch(`${BASE}/api/marketplace/deals/${dealId}/offer`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ price: parseFloat(counterPrice[dealId] ?? "0"), message: counterMsg[dealId] || undefined }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["deal-detail", openDeal] }); qc.invalidateQueries({ queryKey: ["my-deals"] }); toast({ title: "تم إرسال الرد" }); },
   });
 
   const acceptDeal = useMutation({
     mutationFn: (dealId: string) =>
-      fetch(`${BASE}/api/marketplace/deals/${dealId}/accept`, { method: "POST" }).then(r => r.json()),
+      fetch(`${BASE}/api/marketplace/deals/${dealId}/accept`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ["my-deals"] });
       qc.invalidateQueries({ queryKey: ["deal-detail", openDeal] });
@@ -643,7 +643,7 @@ function DealsDashboard() {
 
   const rejectDeal = useMutation({
     mutationFn: (dealId: string) =>
-      fetch(`${BASE}/api/marketplace/deals/${dealId}/reject`, { method: "POST" }).then(r => r.json()),
+      fetch(`${BASE}/api/marketplace/deals/${dealId}/reject`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-deals"] }); toast({ title: "تم رفض الصفقة" }); },
   });
 
@@ -652,7 +652,7 @@ function DealsDashboard() {
       fetch(`${BASE}/api/marketplace/orders/${id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
-      }).then(r => r.json()),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-orders"] }); toast({ title: "تم التحديث" }); },
   });
 
@@ -840,7 +840,7 @@ export default function Marketplace() {
   /* ── Queries ── */
   const { data: stats } = useQuery<any>({
     queryKey: ["marketplace-stats"],
-    queryFn: () => fetch(`${BASE}/api/marketplace/stats`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/marketplace/stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -850,19 +850,19 @@ export default function Marketplace() {
       const p = new URLSearchParams();
       if (activeCategory !== "all") p.set("category", activeCategory);
       if (search) p.set("search", search);
-      return fetch(`${BASE}/api/marketplace/services?${p}`).then(r => r.json());
+      return fetch(`${BASE}/api/marketplace/services?${p}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
     },
   });
 
   const { data: myServices = [] } = useQuery<Service[]>({
     queryKey: ["marketplace-my"],
-    queryFn: () => fetch(`${BASE}/api/marketplace/services/my`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/marketplace/services/my`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!user?.id,
   });
 
   const deleteService = useMutation({
     mutationFn: (id: string) =>
-      fetch(`${BASE}/api/marketplace/services/${id}`, { method: "DELETE" }).then(r => r.json()),
+      fetch(`${BASE}/api/marketplace/services/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       toast({ title: "تم حذف الخدمة" });
       qc.invalidateQueries({ queryKey: ["marketplace"] });

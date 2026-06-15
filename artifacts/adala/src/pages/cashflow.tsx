@@ -26,7 +26,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function Cashflow() {
   const { data = [], isLoading } = useQuery<any[]>({
     queryKey: ["accounting-cashflow"],
-    queryFn: () => fetch(`${BASE}/api/accounting/cashflow`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/accounting/cashflow`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const totalIn = data.reduce((s, m) => s + (m.inflow ?? 0), 0);
