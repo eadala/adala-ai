@@ -362,22 +362,41 @@ function OperatingCenter({
 function TrialBanner() {
   const { isTrial, trialDaysLeft } = useOfficePlan();
   if (!isTrial) return null;
-  const urgent = (trialDaysLeft ?? 30) <= 7;
-  return (
-    <div className={`flex items-center justify-between gap-2 px-4 py-2 text-xs font-medium z-50 shrink-0 ${urgent ? "bg-amber-50 border-b border-amber-200 text-amber-700" : "bg-emerald-50 border-b border-emerald-100 text-emerald-700"}`}>
+  const days = trialDaysLeft ?? 30;
+  const critical = days <= 2;
+  const urgent   = days <= 7;
+  if (critical) return (
+    <div className="flex items-center justify-between gap-2 px-4 py-2 text-xs font-medium z-50 shrink-0 bg-red-600 text-white">
       <div className="flex items-center gap-2">
-        <span className="text-base">🎁</span>
+        <span className="animate-pulse text-base">⚠️</span>
         <span>
-          فترة تجريبية مجانية — جميع الميزات مفعّلة
+          تنتهي تجربتك خلال{" "}
+          <strong className="font-black">
+            {days === 0 ? "أقل من 24 ساعة" : `${days} ${days === 1 ? "يوم" : "أيام"}`}
+          </strong>
+          {" "}— حوّل مكتبك الآن وحافظ على بياناتك
+        </span>
+      </div>
+      <a href="/upgrade" className="shrink-0 px-3 py-1 rounded-full text-[10px] font-black border border-white/50 hover:bg-white/20 transition-colors whitespace-nowrap">
+        اشترك الآن 🔥
+      </a>
+    </div>
+  );
+  return (
+    <div className={`flex items-center justify-between gap-2 px-4 py-2 text-xs font-medium z-50 shrink-0 ${urgent ? "bg-amber-50 border-b border-amber-200 text-amber-800" : "bg-emerald-50 border-b border-emerald-100 text-emerald-700"}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-base">{urgent ? "⏳" : "🎁"}</span>
+        <span>
+          {urgent ? "تجربتك المجانية تقترب من نهايتها — " : "فترة تجريبية مجانية — جميع الميزات مفعّلة"}
           {trialDaysLeft != null && (
-            <span className={`mr-1 font-bold ${urgent ? "text-amber-800" : "text-blue-800"}`}>
-              ({trialDaysLeft} {trialDaysLeft === 1 ? "يوم" : "أيام"} متبقية)
+            <span className={`${urgent ? "" : "mr-1"} font-bold ${urgent ? "text-amber-900" : "text-blue-800"}`}>
+              {urgent && `تبقى `}{trialDaysLeft} {trialDaysLeft === 1 ? "يوم" : "أيام"}{urgent && " فقط"}
             </span>
           )}
         </span>
       </div>
-      <a href="/billing" className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${urgent ? "border-amber-300 text-amber-700 hover:bg-amber-100" : "border-emerald-200 text-emerald-700 hover:bg-emerald-100"}`}>
-        اشترك الآن
+      <a href="/upgrade" className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors whitespace-nowrap ${urgent ? "border-amber-400 text-amber-800 hover:bg-amber-100 bg-amber-50" : "border-emerald-300 text-emerald-700 hover:bg-emerald-100"}`}>
+        {urgent ? "اشترك الآن ←" : "عرض الخطط"}
       </a>
     </div>
   );

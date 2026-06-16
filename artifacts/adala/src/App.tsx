@@ -130,6 +130,7 @@ const SignPage              = lazy(() => import("@/pages/legal-core/sign"));
 // Marketplace & Public
 const Marketplace          = lazy(() => import("@/pages/marketplace/marketplace"));
 const Billing              = lazy(() => import("@/pages/financial/billing"));
+const UpgradePage          = lazy(() => import("@/pages/platform/upgrade"));
 const PricingPage          = lazy(() => import("@/pages/marketplace/pricing"));
 const DemoPage             = lazy(() => import("@/pages/demo"));
 const OfficePage           = lazy(() => import("@/pages/marketplace/office-public"));
@@ -584,6 +585,7 @@ function AppRoutes() {
             <Route path="/client-portal"><ProtectedRoute><ClientPortal /></ProtectedRoute></Route>
             <Route path="/marketplace"><ProtectedRoute><Marketplace /></ProtectedRoute></Route>
             <Route path="/billing"><ProtectedRoute><Billing /></ProtectedRoute></Route>
+            <Route path="/upgrade"><ProtectedRoute><Suspense fallback={<PageLoader />}><UpgradePage /></Suspense></ProtectedRoute></Route>
 
             {/* 404 */}
             <Route><Layout><Suspense fallback={<PageLoader />}><NotFound /></Suspense></Layout></Route>
