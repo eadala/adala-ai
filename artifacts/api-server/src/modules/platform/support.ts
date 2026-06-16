@@ -2,6 +2,7 @@ import { requireAuth } from "../../middlewares/requireAuth";
 /**
  * Office-facing Support Ticket routes
  * Offices can create, view, and reply to their own tickets.
+ * AI pipeline is triggered automatically on every new ticket.
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -62,6 +63,13 @@ router.post("/support/tickets", requireAuth, async (req, res) => {
       senderName: userName,
       message: body,
     });
+
+    // 🤖 Trigger AI pipeline fire-and-forget (3s delay so ticket is committed)
+    setTimeout(() => {
+      import("./support-ai").then(({ runSupportAIPipeline }) =>
+        runSupportAIPipeline(ticket.id, subject, body)
+      ).catch(() => {});
+    }, 3000);
 
     res.json(ticket);
   } catch (e: any) {
