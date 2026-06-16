@@ -3,6 +3,9 @@ import AdoulWidget from "@/components/adoul-widget";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { LandingBento }   from "@/pages/landing-bento";
+import { LandingStripe }  from "@/pages/landing-stripe";
+import { LandingHubspot } from "@/pages/landing-hubspot";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import {
   Scale, Shield, Bot, FileText, Users, ArrowLeft, CheckCircle, Star,
@@ -245,6 +248,22 @@ export default function Landing() {
   const isAr = i18n.language === "ar";
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  /* ── قراءة الـ variant المفعّل من query param (معاينة) أو من API ── */
+  const urlVariant = new URLSearchParams(window.location.search).get("preview");
+
+  const { data: variantData } = useQuery<{ variant: string }>({
+    queryKey: ["landing-variant-public"],
+    queryFn: () => fetch(`${BASE}/api/landing-variant`).then(r => r.json()).catch(() => ({ variant: "original" })),
+    staleTime: 1000 * 60,
+    enabled: !urlVariant,
+  });
+
+  const activeVariant = urlVariant ?? variantData?.variant ?? "original";
+
+  if (activeVariant === "bento")   return <LandingBento />;
+  if (activeVariant === "stripe")  return <LandingStripe />;
+  if (activeVariant === "hubspot") return <LandingHubspot />;
 
   const { data: cms } = useQuery({
     queryKey: ["home-cms"],

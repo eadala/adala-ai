@@ -42,6 +42,7 @@ const PromoCodesTab             = lazy(() => import("@/features/super-admin/tabs
 const GhostCenterTab            = lazy(() => import("@/features/super-admin/tabs/GhostCenterTab").then(m => ({ default: m.GhostCenterTab })));
 const PlatformCommandCenterTab  = lazy(() => import("@/features/super-admin/tabs/PlatformCommandCenterTab").then(m => ({ default: m.PlatformCommandCenterTab })));
 const DesignCenterTab           = lazy(() => import("@/features/super-admin/tabs/DesignCenterTab").then(m => ({ default: m.DesignCenterTab })));
+const LandingDesignTab          = lazy(() => import("@/features/super-admin/tabs/LandingDesignTab").then(m => ({ default: m.LandingDesignTab })));
 const InfrastructureTab         = lazy(() => import("@/features/super-admin/tabs/InfrastructureTab").then(m => ({ default: m.InfrastructureTab })));
 const DataVaultTab              = lazy(() => import("@/features/super-admin/tabs/DataVaultTab").then(m => ({ default: m.DataVaultTab })));
 
@@ -207,6 +208,11 @@ export default function SuperAdmin() {
         <TabsContent value="pcc"            className="mt-4">
           <Suspense fallback={<TabFallback />}>
             <PlatformCommandCenterTab toast={toast} />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="landing-design"  className="mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <LandingDesignTab toast={toast} />
           </Suspense>
         </TabsContent>
         <TabsContent value="design"         className="mt-4">
