@@ -254,77 +254,140 @@ export default function Cases() {
 
       {/* ── TABLE VIEW ── */}
       {!isLoading && filtered.length > 0 && view === "table" && (
-        <Card className="border shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">القضية</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">الموكل</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">النوع</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">المحامي</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">الحالة</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">تاريخ الإنشاء</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((c, i) => {
-                  const s = STATUS_CFG[c.status as keyof typeof STATUS_CFG];
-                  return (
-                    <tr key={c.id} className={cn("border-b transition-colors hover:bg-muted/20 group", i % 2 === 0 ? "" : "bg-muted/5")}>
-                      <td className="px-4 py-3.5">
-                        <Link href={`/cases/${c.id}`}>
-                          <span className="font-medium text-foreground group-hover:text-primary transition-colors cursor-pointer line-clamp-1 max-w-xs block">
-                            {c.title}
-                          </span>
-                        </Link>
-                        {c.description && (
-                          <span className="text-xs text-muted-foreground line-clamp-1">{c.description}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 text-muted-foreground">{c.clientName ?? "—"}</td>
-                      <td className="px-4 py-3.5">
-                        <Badge variant="outline" className={cn("text-xs", TYPE_COLOR[c.caseType] ?? "")}>
+        <>
+          {/* ─── Desktop Table (md+) ─── */}
+          <Card className="border shadow-sm overflow-hidden hidden md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">القضية</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">الموكل</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">النوع</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">المحامي</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">الحالة</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">تاريخ الإنشاء</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((c, i) => {
+                    const s = STATUS_CFG[c.status as keyof typeof STATUS_CFG];
+                    return (
+                      <tr key={c.id} className={cn("border-b transition-colors hover:bg-muted/20 group", i % 2 === 0 ? "" : "bg-muted/5")}>
+                        <td className="px-4 py-3.5">
+                          <Link href={`/cases/${c.id}`}>
+                            <span className="font-medium text-foreground group-hover:text-primary transition-colors cursor-pointer line-clamp-1 max-w-xs block">
+                              {c.title}
+                            </span>
+                          </Link>
+                          {c.description && (
+                            <span className="text-xs text-muted-foreground line-clamp-1">{c.description}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 text-muted-foreground">{c.clientName ?? "—"}</td>
+                        <td className="px-4 py-3.5">
+                          <Badge variant="outline" className={cn("text-xs", TYPE_COLOR[c.caseType] ?? "")}>
+                            {TYPE_MAP[c.caseType] ?? c.caseType}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3.5 text-muted-foreground text-xs">{c.assignedTo ?? "—"}</td>
+                        <td className="px-4 py-3.5">
+                          {s && (
+                            <Badge variant="outline" className={cn("text-xs gap-1.5", s.bg)}>
+                              <s.icon className="h-3 w-3" />
+                              {s.label}
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
+                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString("ar-SA") : "—"}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link href={`/cases/${c.id}`}>عرض التفاصيل</Link>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-4 py-2 bg-muted/10 border-t text-xs text-muted-foreground">
+              {filtered.length} قضية
+            </div>
+          </Card>
+
+          {/* ─── Mobile Cards (< md) ─── */}
+          <div className="md:hidden space-y-2.5">
+            {filtered.map(c => {
+              const s = STATUS_CFG[c.status as keyof typeof STATUS_CFG];
+              return (
+                <Link key={c.id} href={`/cases/${c.id}`}>
+                  <div className="data-card flex items-start gap-3">
+                    {/* Status color strip */}
+                    <div className={cn(
+                      "mt-1 w-1 self-stretch rounded-full shrink-0",
+                      c.status === "open"        ? "bg-blue-500" :
+                      c.status === "in_progress" ? "bg-amber-500" : "bg-slate-300"
+                    )} />
+
+                    <div className="flex-1 min-w-0">
+                      {/* Title + type */}
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-foreground line-clamp-2 leading-tight flex-1">
+                          {c.title}
+                        </p>
+                        <Badge variant="outline" className={cn("text-[10px] shrink-0", TYPE_COLOR[c.caseType] ?? "")}>
                           {TYPE_MAP[c.caseType] ?? c.caseType}
                         </Badge>
-                      </td>
-                      <td className="px-4 py-3.5 text-muted-foreground text-xs">{c.assignedTo ?? "—"}</td>
-                      <td className="px-4 py-3.5">
+                      </div>
+
+                      {/* Client + lawyer */}
+                      <div className="flex items-center gap-3 mt-1.5">
+                        {c.clientName && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Users className="h-3 w-3" />{c.clientName}
+                          </span>
+                        )}
+                        {c.assignedTo && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Briefcase className="h-3 w-3" />{c.assignedTo}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Status + date */}
+                      <div className="flex items-center justify-between mt-2">
                         {s && (
-                          <Badge variant="outline" className={cn("text-xs gap-1.5", s.bg)}>
-                            <s.icon className="h-3 w-3" />
-                            {s.label}
+                          <Badge variant="outline" className={cn("text-[10px] gap-1", s.bg)}>
+                            <s.icon className="h-2.5 w-2.5" />{s.label}
                           </Badge>
                         )}
-                      </td>
-                      <td className="px-4 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
-                        {c.createdAt ? new Date(c.createdAt).toLocaleDateString("ar-SA") : "—"}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/cases/${c.id}`}>عرض التفاصيل</Link>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <span className="text-[10px] text-muted-foreground">
+                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString("ar-SA") : ""}
+                        </span>
+                      </div>
+                    </div>
+
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-1" />
+                  </div>
+                </Link>
+              );
+            })}
+            <p className="text-center text-xs text-muted-foreground py-2">{filtered.length} قضية</p>
           </div>
-          <div className="px-4 py-2 bg-muted/10 border-t text-xs text-muted-foreground">
-            {filtered.length} قضية
-          </div>
-        </Card>
+        </>
       )}
 
       {/* ── KANBAN VIEW ── */}

@@ -853,8 +853,8 @@ ${isPaid ? `<div class="watermark">PAID ✓</div>` : isOverdue ? `<div class="wa
           {/* Items Table */}
           <div>
             <p className="text-sm font-semibold mb-2">بنود الفاتورة</p>
-            <div className="border border-border/40 rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="border border-border/40 rounded-xl overflow-hidden overflow-x-auto">
+              <table className="w-full text-sm min-w-[340px]">
                 <thead>
                   <tr className="border-b border-border/40 bg-muted/30">
                     <th className="p-3 text-right text-xs text-muted-foreground">البيان</th>
