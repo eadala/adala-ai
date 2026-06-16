@@ -154,19 +154,19 @@ export default function CommandCenter() {
 
   const { data: workflows = [], refetch: refetchWf } = useQuery<WorkflowRow[]>({
     queryKey: ["ai-workflows"],
-    queryFn: () => fetch(`${BASE}api/ai-agent/workflows`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/ai-agent/workflows`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: logs = [] } = useQuery<any[]>({
     queryKey: ["ai-agent-logs"],
-    queryFn: () => fetch(`${BASE}api/ai-agent/logs?limit=20`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/ai-agent/logs?limit=20`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
 
   const execMut = useMutation({
     mutationFn: (body: { command: string; mode: string }) =>
-      fetch(`${BASE}api/ai-agent/execute`, {
+      fetch(`${BASE}/api/ai-agent/execute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...body, userEmail: user?.primaryEmailAddress?.emailAddress }),
@@ -175,7 +175,7 @@ export default function CommandCenter() {
 
   const toggleWf = useMutation({
     mutationFn: ({ id, v }: { id: string; v: boolean }) =>
-      fetch(`${BASE}api/ai-agent/workflows/${id}`, {
+      fetch(`${BASE}/api/ai-agent/workflows/${id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: v }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -183,7 +183,7 @@ export default function CommandCenter() {
   });
 
   const deleteWf = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}api/ai-agent/workflows/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => fetch(`${BASE}/api/ai-agent/workflows/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => refetchWf(),
   });
 
@@ -235,7 +235,7 @@ export default function CommandCenter() {
 
   async function createDefaults() {
     for (const wf of DEFAULT_WFS) {
-      await fetch(`${BASE}api/ai-agent/workflows`, {
+      await fetch(`${BASE}/api/ai-agent/workflows`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...wf, createdBy: user?.primaryEmailAddress?.emailAddress }),
       });

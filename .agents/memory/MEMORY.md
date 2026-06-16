@@ -72,3 +72,4 @@
 - [Adala SA refactor constants](adala-sa-refactor-constants.md) — when extracting tabs from a monolith, module-level constants defined BEFORE a function must be explicitly injected into each tab file; Python `if 'X' not in content` check must use `'const X'` not `'X'` (usage sites cause false positives)
 - [Adala AI Gateway](adala-ai-gateway.md) — POST /api/ai/query unified entry point; 7 query types; 10-min cache; never call AI directly from frontend modules
 - [Adala Core Cache](adala-cache-core.md) — src/core/cache.ts TTL Map; dashboard:summary:tenantId (60s); ai:sha256 (600s); Redis-ready API
+- [Adala Tenant Isolation Audit](adala-tenant-isolation-audit.md) — analytics/accounting/auditLogs/legalAI/ai-agent all fixed; requireAuthWithTenant+office_id filter+per-tenant cache key required on every report/data endpoint; legal_documents needed ALTER TABLE ADD COLUMN office_id

@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -43,9 +43,10 @@ function periodStartDate(period: string): string {
 }
 
 /* ─── FINANCIAL analytics ─────────────────────────────────── */
-router.get("/analytics/financial", requireAuth, async (req, res) => {
+router.get("/analytics/financial", requireAuthWithTenant, async (req, res) => {
   try {
     const period = String(req.query.period ?? "1y");
+    const tenantId = (req as any).tenantId as string;
     const startDate = periodStartDate(period);
     const months = periodMonths(period);
 
@@ -56,7 +57,7 @@ router.get("/analytics/financial", requireAuth, async (req, res) => {
         TO_CHAR(date, 'Mon') AS month_label,
         SUM(amount) AS revenue
       FROM revenues
-      WHERE date >= ${startDate}::timestamptz
+      WHERE office_id = ${tenantId} AND date >= ${startDate}::timestamptz
       GROUP BY month_key, month_label
       ORDER BY month_key
     `);
@@ -67,7 +68,8 @@ router.get("/analytics/financial", requireAuth, async (req, res) => {
         TO_CHAR(paid_at::date, 'YYYY-MM') AS month_key,
         SUM(total) / 100.0 AS inv_revenue
       FROM client_invoices
-      WHERE status = 'paid'
+      WHERE office_id = ${tenantId}
+        AND status = 'paid'
         AND paid_at IS NOT NULL
         AND paid_at::date >= ${startDate}::timestamptz
       GROUP BY month_key
@@ -81,7 +83,7 @@ router.get("/analytics/financial", requireAuth, async (req, res) => {
         TO_CHAR(date, 'Mon') AS month_label,
         SUM(amount) AS expenses
       FROM expenses
-      WHERE date >= ${startDate}::timestamptz
+      WHERE office_id = ${tenantId} AND date >= ${startDate}::timestamptz
       GROUP BY month_key, month_label
       ORDER BY month_key
     `);
@@ -115,9 +117,9 @@ router.get("/analytics/financial", requireAuth, async (req, res) => {
     }));
 
     // Totals
-    const totRev = await sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM revenues WHERE date >= ${startDate}::timestamptz`);
-    const totInv = await sqlOne(sql`SELECT COALESCE(SUM(total),0)/100.0 AS total FROM client_invoices WHERE status='paid' AND paid_at IS NOT NULL AND paid_at::date >= ${startDate}::timestamptz`);
-    const totExp = await sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE date >= ${startDate}::timestamptz`);
+    const totRev = await sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM revenues WHERE office_id = ${tenantId} AND date >= ${startDate}::timestamptz`);
+    const totInv = await sqlOne(sql`SELECT COALESCE(SUM(total),0)/100.0 AS total FROM client_invoices WHERE office_id = ${tenantId} AND status='paid' AND paid_at IS NOT NULL AND paid_at::date >= ${startDate}::timestamptz`);
+    const totExp = await sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE office_id = ${tenantId} AND date >= ${startDate}::timestamptz`);
     const totalRevenue = num(totRev.total) + num(totInv.total);
     const totalExpenses = num(totExp.total);
     const netProfit = totalRevenue - totalExpenses;
@@ -131,7 +133,7 @@ router.get("/analytics/financial", requireAuth, async (req, res) => {
         COALESCE(SUM(total) FILTER (WHERE status = 'paid'), 0) / 100.0 AS paid_amount,
         COALESCE(SUM(total), 0) / 100.0 AS total_amount
       FROM client_invoices
-      WHERE created_at >= ${startDate}::timestamptz
+      WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz
     `);
     const collectionRate = num(invStats.total_amount) > 0
       ? (num(invStats.paid_amount) / num(invStats.total_amount)) * 100
@@ -141,7 +143,7 @@ router.get("/analytics/financial", requireAuth, async (req, res) => {
     const revCategories = await sqlAll(sql`
       SELECT category AS name, SUM(amount) AS value
       FROM revenues
-      WHERE date >= ${startDate}::timestamptz
+      WHERE office_id = ${tenantId} AND date >= ${startDate}::timestamptz
       GROUP BY category ORDER BY value DESC LIMIT 6
     `);
 
@@ -149,7 +151,7 @@ router.get("/analytics/financial", requireAuth, async (req, res) => {
     const expCategories = await sqlAll(sql`
       SELECT category AS name, SUM(amount) AS value
       FROM expenses
-      WHERE date >= ${startDate}::timestamptz
+      WHERE office_id = ${tenantId} AND date >= ${startDate}::timestamptz
       GROUP BY category ORDER BY value DESC LIMIT 6
     `);
 
@@ -171,9 +173,10 @@ router.get("/analytics/financial", requireAuth, async (req, res) => {
 });
 
 /* ─── CASES analytics ─────────────────────────────────────── */
-router.get("/analytics/cases", requireAuth, async (req, res) => {
+router.get("/analytics/cases", requireAuthWithTenant, async (req, res) => {
   try {
     const period = String(req.query.period ?? "1y");
+    const tenantId = (req as any).tenantId as string;
     const startDate = periodStartDate(period);
     const months = periodMonths(period);
 
@@ -181,7 +184,7 @@ router.get("/analytics/cases", requireAuth, async (req, res) => {
     const byType = await sqlAll(sql`
       SELECT case_type AS name, COUNT(*) AS value
       FROM cases
-      WHERE created_at >= ${startDate}::timestamptz
+      WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz
       GROUP BY case_type ORDER BY value DESC
     `);
 
@@ -189,7 +192,7 @@ router.get("/analytics/cases", requireAuth, async (req, res) => {
     const byStatus = await sqlAll(sql`
       SELECT status AS name, COUNT(*) AS value
       FROM cases
-      WHERE created_at >= ${startDate}::timestamptz
+      WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz
       GROUP BY status ORDER BY value DESC
     `);
 
@@ -209,7 +212,7 @@ router.get("/analytics/cases", requireAuth, async (req, res) => {
         COUNT(*) FILTER (WHERE status IN ('closed','مغلقة','فائزة','فاز')) AS closed,
         COUNT(*) FILTER (WHERE status NOT IN ('closed','مغلقة','فائزة','فاز')) AS open
       FROM cases
-      WHERE created_at >= ${startDate}::timestamptz
+      WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz
       GROUP BY month_key ORDER BY month_key
     `);
 
@@ -230,7 +233,7 @@ router.get("/analytics/cases", requireAuth, async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'in_progress' OR status = 'قيد النظر') AS in_progress,
         ROUND(AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400)) AS avg_days
       FROM cases
-      WHERE created_at >= ${startDate}::timestamptz
+      WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz
     `);
 
     const total = num(totals.total);
@@ -255,9 +258,10 @@ router.get("/analytics/cases", requireAuth, async (req, res) => {
 });
 
 /* ─── TEAM analytics ──────────────────────────────────────── */
-router.get("/analytics/team", requireAuth, async (req, res) => {
+router.get("/analytics/team", requireAuthWithTenant, async (req, res) => {
   try {
     const period = String(req.query.period ?? "1y");
+    const tenantId = (req as any).tenantId as string;
     const startDate = periodStartDate(period);
 
     // Cases per assignee
@@ -267,13 +271,13 @@ router.get("/analytics/team", requireAuth, async (req, res) => {
         COUNT(*) AS total,
         COUNT(*) FILTER (WHERE status IN ('closed','مغلقة','فائزة','فاز')) AS closed
       FROM cases
-      WHERE created_at >= ${startDate}::timestamptz
+      WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz
       GROUP BY assigned_to ORDER BY total DESC LIMIT 10
     `);
 
     // Employees list for enrichment
     const employees = await sqlAll(sql`
-      SELECT full_name, job_title, department, status FROM employees WHERE status = 'active' LIMIT 20
+      SELECT full_name, job_title, department, status FROM employees WHERE office_id = ${tenantId} AND status = 'active' LIMIT 20
     `);
 
     // Team size
@@ -282,6 +286,7 @@ router.get("/analytics/team", requireAuth, async (req, res) => {
         COUNT(*) AS total,
         COUNT(*) FILTER (WHERE status = 'active') AS active
       FROM employees
+      WHERE office_id = ${tenantId}
     `);
 
     // Invoice revenue per assignee (via cases)
@@ -291,7 +296,7 @@ router.get("/analytics/team", requireAuth, async (req, res) => {
         COALESCE(SUM(i.total), 0) / 100.0 AS revenue
       FROM cases c
       JOIN client_invoices i ON i.case_id = c.id AND i.status = 'paid'
-      WHERE c.created_at >= ${startDate}::timestamptz
+      WHERE c.office_id = ${tenantId} AND c.created_at >= ${startDate}::timestamptz
       GROUP BY c.assigned_to ORDER BY revenue DESC LIMIT 10
     `);
 
@@ -320,9 +325,10 @@ router.get("/analytics/team", requireAuth, async (req, res) => {
 });
 
 /* ─── CLIENTS analytics ───────────────────────────────────── */
-router.get("/analytics/clients", requireAuth, async (req, res) => {
+router.get("/analytics/clients", requireAuthWithTenant, async (req, res) => {
   try {
     const period = String(req.query.period ?? "1y");
+    const tenantId = (req as any).tenantId as string;
     const startDate = periodStartDate(period);
     const months = periodMonths(period);
 
@@ -338,7 +344,7 @@ router.get("/analytics/clients", requireAuth, async (req, res) => {
     const clientsMonthly = await sqlAll(sql`
       SELECT TO_CHAR(created_at, 'YYYY-MM') AS month_key, COUNT(*) AS cnt
       FROM clients
-      WHERE created_at >= ${startDate}::timestamptz
+      WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz
       GROUP BY month_key ORDER BY month_key
     `);
     for (const r of clientsMonthly) {
@@ -349,6 +355,7 @@ router.get("/analytics/clients", requireAuth, async (req, res) => {
     const byType = await sqlAll(sql`
       SELECT type AS name, COUNT(*) AS value
       FROM clients
+      WHERE office_id = ${tenantId}
       GROUP BY type ORDER BY value DESC
     `);
 
@@ -364,12 +371,13 @@ router.get("/analytics/clients", requireAuth, async (req, res) => {
       LEFT JOIN (
         SELECT client_name, COUNT(*) AS cases_count
         FROM cases
+        WHERE office_id = ${tenantId}
         GROUP BY client_name
       ) cc ON cc.client_name = cl.full_name
       LEFT JOIN (
         SELECT client_id, SUM(total) / 100.0 AS revenue
         FROM client_invoices
-        WHERE status = 'paid'
+        WHERE office_id = ${tenantId} AND status = 'paid'
         GROUP BY client_id
       ) inv ON inv.client_id = cl.id::text
       ORDER BY revenue DESC NULLS LAST, cases_count DESC
@@ -383,6 +391,7 @@ router.get("/analytics/clients", requireAuth, async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'active') AS active,
         COUNT(*) FILTER (WHERE created_at >= ${startDate}::timestamptz) AS new_in_period
       FROM clients
+      WHERE office_id = ${tenantId}
     `);
 
     res.json({
@@ -404,11 +413,12 @@ router.get("/analytics/clients", requireAuth, async (req, res) => {
 });
 
 /* ── AI INSIGHTS ──────────────────────────────────────────── */
-router.get("/analytics/ai-insights", requireAuth, async (req, res) => {
+router.get("/analytics/ai-insights", requireAuthWithTenant, async (req, res) => {
   try {
     const period = String(req.query.period ?? "1y");
+    const tenantId = (req as any).tenantId as string;
     const force  = req.query.force === "1";
-    const cacheKey = `ai_insights_${period}`;
+    const cacheKey = `ai_insights_${(req as any).tenantId}_${period}`;
 
     if (!force) {
       const cached = await sqlOne(sql`
@@ -423,24 +433,24 @@ router.get("/analytics/ai-insights", requireAuth, async (req, res) => {
     const startDate = periodStartDate(period);
 
     const [rev, exp, casesRow, topLawyer, invRow] = await Promise.all([
-      sqlOne(sql`SELECT COALESCE(SUM(amount)/100.0,0)::numeric AS total FROM revenues WHERE date >= ${startDate}::timestamptz`),
-      sqlOne(sql`SELECT COALESCE(SUM(amount)/100.0,0)::numeric AS total FROM expenses WHERE date >= ${startDate}::timestamptz`),
+      sqlOne(sql`SELECT COALESCE(SUM(amount)/100.0,0)::numeric AS total FROM revenues WHERE office_id = ${tenantId} AND date >= ${startDate}::timestamptz`),
+      sqlOne(sql`SELECT COALESCE(SUM(amount)/100.0,0)::numeric AS total FROM expenses WHERE office_id = ${tenantId} AND date >= ${startDate}::timestamptz`),
       sqlOne(sql`
         SELECT COUNT(*) AS total,
           COUNT(*) FILTER (WHERE status='open')   AS open,
           COUNT(*) FILTER (WHERE status='closed') AS closed
-        FROM cases WHERE created_at >= ${startDate}::timestamptz
+        FROM cases WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz
       `),
       sqlOne(sql`
         SELECT assigned_to AS name, COUNT(*) AS cnt FROM cases
-        WHERE assigned_to IS NOT NULL AND created_at >= ${startDate}::timestamptz
+        WHERE office_id = ${tenantId} AND assigned_to IS NOT NULL AND created_at >= ${startDate}::timestamptz
         GROUP BY assigned_to ORDER BY cnt DESC LIMIT 1
       `),
       sqlOne(sql`
         SELECT COUNT(*) AS total,
           COUNT(*) FILTER (WHERE status='paid') AS paid,
           COALESCE(SUM(total) FILTER (WHERE status='paid')/100.0,0)::numeric AS collected
-        FROM client_invoices WHERE created_at >= ${startDate}::timestamptz
+        FROM client_invoices WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz
       `),
     ]);
 
@@ -488,9 +498,10 @@ router.get("/analytics/ai-insights", requireAuth, async (req, res) => {
 export default router;
 
 /* ─── PERFORMANCE SCORE ───────────────────────────────────────── */
-router.get("/analytics/performance", requireAuth, async (req, res) => {
+router.get("/analytics/performance", requireAuthWithTenant, async (req, res) => {
   try {
     const period = String(req.query.period ?? "1y");
+    const tenantId = (req as any).tenantId as string;
     const startDate = periodStartDate(period);
 
     /* 1. Financial health */
@@ -502,10 +513,10 @@ router.get("/analytics/performance", requireAuth, async (req, res) => {
           COALESCE(SUM(total) FILTER (WHERE status='paid'),0)/100.0 AS paid_amt,
           COALESCE(SUM(total),0)/100.0             AS total_amt
         FROM client_invoices
-        WHERE created_at >= ${startDate}::timestamptz
+        WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz
       `),
-      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS r FROM revenues  WHERE date >= ${startDate}::timestamptz`),
-      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS e FROM expenses  WHERE date >= ${startDate}::timestamptz`),
+      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS r FROM revenues  WHERE office_id = ${tenantId} AND date >= ${startDate}::timestamptz`),
+      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS e FROM expenses  WHERE office_id = ${tenantId} AND date >= ${startDate}::timestamptz`),
     ]);
     const collectionRate = num(invStats.total_amt) > 0 ? (num(invStats.paid_amt) / num(invStats.total_amt)) * 100 : 0;
     const totalRevenue   = num(revRow.r) + num(invStats.paid_amt);
@@ -522,7 +533,7 @@ router.get("/analytics/performance", requireAuth, async (req, res) => {
         COUNT(*) FILTER (WHERE status='closed') AS closed,
         AVG(EXTRACT(EPOCH FROM (updated_at - created_at))/86400) FILTER (WHERE status IN ('won','lost','closed')) AS avg_days
       FROM cases
-      WHERE created_at >= ${startDate}::timestamptz
+      WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz
     `);
     const totalCases  = num(casesRow.total);
     const decidedCases = num(casesRow.won) + num(casesRow.lost);
@@ -533,13 +544,13 @@ router.get("/analytics/performance", requireAuth, async (req, res) => {
 
     /* 3. Client retention */
     const [clientsNow, clientsPrev] = await Promise.all([
-      sqlOne(sql`SELECT COUNT(DISTINCT client_id) AS c FROM cases WHERE created_at >= ${startDate}::timestamptz`),
-      sqlOne(sql`SELECT COUNT(DISTINCT client_id) AS c FROM cases WHERE created_at < ${startDate}::timestamptz AND created_at >= NOW() - INTERVAL '2 years'`),
+      sqlOne(sql`SELECT COUNT(DISTINCT client_id) AS c FROM cases WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz`),
+      sqlOne(sql`SELECT COUNT(DISTINCT client_id) AS c FROM cases WHERE office_id = ${tenantId} AND created_at < ${startDate}::timestamptz AND created_at >= NOW() - INTERVAL '2 years'`),
     ]);
     const repeatClients = await sqlOne(sql`
       SELECT COUNT(*) AS c FROM (
         SELECT client_id FROM cases
-        WHERE created_at >= ${startDate}::timestamptz
+        WHERE office_id = ${tenantId} AND created_at >= ${startDate}::timestamptz
         GROUP BY client_id HAVING COUNT(*) > 1
       ) t
     `);
@@ -582,7 +593,7 @@ router.get("/analytics/performance", requireAuth, async (req, res) => {
         COALESCE(SUM(total) FILTER (WHERE status='paid'),0)/100.0 AS paid_amt,
         COALESCE(SUM(total),0)/100.0 AS total_amt
       FROM client_invoices
-      WHERE created_at >= NOW() - INTERVAL '2 years'
+      WHERE office_id = ${tenantId} AND created_at >= NOW() - INTERVAL '2 years'
         AND created_at < ${startDate}::timestamptz
     `);
     const prevCollRate = num(prevInv.total_amt) > 0 ? (num(prevInv.paid_amt) / num(prevInv.total_amt)) * 100 : 0;
@@ -591,7 +602,7 @@ router.get("/analytics/performance", requireAuth, async (req, res) => {
         COUNT(*) FILTER (WHERE status='won')  AS won,
         COUNT(*) FILTER (WHERE status='lost') AS lost
       FROM cases
-      WHERE created_at >= NOW() - INTERVAL '2 years'
+      WHERE office_id = ${tenantId} AND created_at >= NOW() - INTERVAL '2 years'
         AND created_at < ${startDate}::timestamptz
     `);
     const prevDecided = num(prevCases.won) + num(prevCases.lost);

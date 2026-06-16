@@ -43,7 +43,7 @@ export default function PortalLogin() {
   const handleLogin = async () => {
     if (!email || !password) { toast.error("أدخل البريد وكلمة المرور"); return; }
     setLoading(true);
-    const r = await fetch(`${BASE}api/client-auth/login`, {
+    const r = await fetch(`${BASE}/api/client-auth/login`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -61,7 +61,7 @@ export default function PortalLogin() {
     if (!email || !password) { toast.error("أدخل البريد وكلمة المرور"); return; }
     if (password.length < 6) { toast.error("كلمة المرور 6 أحرف على الأقل"); return; }
     setLoading(true);
-    const r = await fetch(`${BASE}api/client-auth/register`, {
+    const r = await fetch(`${BASE}/api/client-auth/register`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -78,7 +78,7 @@ export default function PortalLogin() {
   const handleRequestOtp = async () => {
     if (!email) { toast.error("أدخل بريدك الإلكتروني"); return; }
     setLoading(true);
-    const r = await fetch(`${BASE}api/client-auth/request-otp`, {
+    const r = await fetch(`${BASE}/api/client-auth/request-otp`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -94,7 +94,7 @@ export default function PortalLogin() {
   const handleVerifyOtp = async () => {
     if (!otp) { toast.error("أدخل الرمز"); return; }
     setLoading(true);
-    const r = await fetch(`${BASE}api/client-auth/verify-otp`, {
+    const r = await fetch(`${BASE}/api/client-auth/verify-otp`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -117,7 +117,7 @@ export default function PortalLogin() {
         <div className="mb-5 flex flex-col items-center gap-2 animate-in fade-in-0 slide-in-from-top-2 duration-300">
           {logoUrl ? (
             <img src={logoUrl} alt={officeName} className="h-14 w-14 rounded-2xl object-cover ring-2 shadow-lg"
-              style={{ ringColor: `${primaryColor}40` }} />
+              style={{ outline: `2px solid ${primaryColor}40` }} />
           ) : (
             <div className="h-14 w-14 rounded-2xl flex items-center justify-center text-xl font-black shadow-lg"
               style={{ background: `${primaryColor}20`, border: `2px solid ${primaryColor}40`, color: primaryColor }}>

@@ -309,14 +309,15 @@ router.post("/ai-agent/execute", requireAuthWithTenant, async (req: Request, res
 });
 
 // ─── GET /ai-agent/briefing ───────────────────────────────────────────────────
-router.get("/ai-agent/briefing", requireAuth, async (_req: Request, res: Response) => {
+router.get("/ai-agent/briefing", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tid = (req as any).tenantId as string;
     const [eventsR, overdueR, casesR, contractsR, invoicesR] = await Promise.all([
-      db.execute(sql`SELECT id, title, event_type, start_at, location FROM events WHERE start_at >= NOW()::date AND start_at < NOW()::date + INTERVAL '1 day' ORDER BY start_at LIMIT 5`),
-      db.execute(sql`SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as total FROM client_invoices WHERE status='overdue'`),
-      db.execute(sql`SELECT COUNT(*) as cnt FROM cases WHERE status='open'`),
-      db.execute(sql`SELECT COUNT(*) as cnt FROM contracts WHERE status IN ('active','pending')`),
-      db.execute(sql`SELECT COUNT(*) as cnt FROM client_invoices WHERE status='draft'`),
+      db.execute(sql`SELECT id, title, event_type, start_at, location FROM events WHERE office_id = ${tid} AND start_at >= NOW()::date AND start_at < NOW()::date + INTERVAL '1 day' ORDER BY start_at LIMIT 5`),
+      db.execute(sql`SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as total FROM client_invoices WHERE office_id = ${tid} AND status='overdue'`),
+      db.execute(sql`SELECT COUNT(*) as cnt FROM cases WHERE office_id = ${tid} AND status='open'`),
+      db.execute(sql`SELECT COUNT(*) as cnt FROM contracts WHERE office_id = ${tid} AND status IN ('active','pending')`),
+      db.execute(sql`SELECT COUNT(*) as cnt FROM client_invoices WHERE office_id = ${tid} AND status='draft'`),
     ]);
     const todayEvents = eventsR.rows ?? [];
     const overdueInfo = (overdueR.rows?.[0] as any) ?? {};

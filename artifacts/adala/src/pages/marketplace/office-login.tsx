@@ -256,7 +256,7 @@ export default function OfficeLogin() {
           {logoSrc ? (
             <img src={logoSrc} alt={officeName}
               className="h-20 w-20 rounded-2xl object-cover ring-4 shadow-2xl"
-              style={{ ringColor: `${primaryColor}60` }} />
+              style={{ outline: `3px solid ${primaryColor}60` }} />
           ) : (
             <div className="h-20 w-20 rounded-2xl flex items-center justify-center text-3xl font-black shadow-2xl"
               style={{ background: `${primaryColor}25`, border: `2px solid ${primaryColor}50`, color: primaryColor }}>

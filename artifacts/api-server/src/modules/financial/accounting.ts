@@ -262,16 +262,17 @@ router.delete("/accounting/advances/:id", requireAuthWithTenant, async (req, res
    FINANCIAL REPORTS  (P&L)
 ══════════════════════════════════════════════════════════ */
 
-router.get("/accounting/reports/summary", requireAuthWithTenant, async (_req, res) => {
+router.get("/accounting/reports/summary", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const year = new Date().getFullYear();
 
     /* ── Aggregate totals ── */
-    const revRow  = await sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM revenues`);
-    const invRow  = await sqlOne(sql`SELECT COALESCE(SUM(total),0) AS total FROM client_invoices WHERE status='paid'`);
-    const expRow  = await sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM expenses`);
-    const payRow  = await sqlOne(sql`SELECT COALESCE(SUM(net_salary),0) AS total FROM payroll WHERE status='paid'`);
-    const advRow  = await sqlOne(sql`SELECT COALESCE(SUM(amount - COALESCE(amount_repaid,0)),0) AS total FROM cash_advances WHERE status NOT IN ('repaid','rejected')`);
+    const revRow  = await sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM revenues WHERE office_id = ${tenantId}`);
+    const invRow  = await sqlOne(sql`SELECT COALESCE(SUM(total),0) AS total FROM client_invoices WHERE office_id = ${tenantId} AND status='paid'`);
+    const expRow  = await sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE office_id = ${tenantId}`);
+    const payRow  = await sqlOne(sql`SELECT COALESCE(SUM(net_salary),0) AS total FROM payroll WHERE office_id = ${tenantId} AND status='paid'`);
+    const advRow  = await sqlOne(sql`SELECT COALESCE(SUM(amount - COALESCE(amount_repaid,0)),0) AS total FROM cash_advances WHERE office_id = ${tenantId} AND status NOT IN ('repaid','rejected')`);
 
     const directRevenue  = num(revRow.total);
     const invoiceRevenue = num(invRow.total);
@@ -291,10 +292,10 @@ router.get("/accounting/reports/summary", requireAuthWithTenant, async (_req, re
       const from = `${year}-${m}-01`;
       const to   = `${year}-${m}-01`;
       const [mr, ir, me, mp] = await Promise.all([
-        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE date >= ${from}::date AND date < ${to}::date + interval '1 month'`),
-        sqlOne(sql`SELECT COALESCE(SUM(total),0) AS v FROM client_invoices WHERE status='paid' AND created_at >= ${from}::timestamp AND created_at < ${to}::timestamp + interval '1 month'`),
-        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM expenses WHERE date >= ${from}::date AND date < ${to}::date + interval '1 month'`),
-        sqlOne(sql`SELECT COALESCE(SUM(net_salary),0) AS v FROM payroll WHERE status='paid' AND year=${year} AND month LIKE ${"%" + m + "%"}`),
+        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE office_id = ${tenantId} AND date >= ${from}::date AND date < ${to}::date + interval '1 month'`),
+        sqlOne(sql`SELECT COALESCE(SUM(total),0) AS v FROM client_invoices WHERE office_id = ${tenantId} AND status='paid' AND created_at >= ${from}::timestamp AND created_at < ${to}::timestamp + interval '1 month'`),
+        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM expenses WHERE office_id = ${tenantId} AND date >= ${from}::date AND date < ${to}::date + interval '1 month'`),
+        sqlOne(sql`SELECT COALESCE(SUM(net_salary),0) AS v FROM payroll WHERE office_id = ${tenantId} AND status='paid' AND year=${year} AND month LIKE ${"%" + m + "%"}`),
       ]);
       const rev = num(mr.v) + num(ir.v);
       const exp = num(me.v) + num(mp.v);
@@ -302,8 +303,8 @@ router.get("/accounting/reports/summary", requireAuthWithTenant, async (_req, re
     }));
 
     /* ── Category breakdowns ── */
-    const expCatRows = await sqlAll(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses GROUP BY category ORDER BY total DESC LIMIT 8`);
-    const revCatRows = await sqlAll(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM revenues GROUP BY category ORDER BY total DESC LIMIT 8`);
+    const expCatRows = await sqlAll(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses WHERE office_id = ${tenantId} GROUP BY category ORDER BY total DESC LIMIT 8`);
+    const revCatRows = await sqlAll(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM revenues WHERE office_id = ${tenantId} GROUP BY category ORDER BY total DESC LIMIT 8`);
 
     res.json({
       totalRevenue: grossRevenue,
@@ -323,8 +324,9 @@ router.get("/accounting/reports/summary", requireAuthWithTenant, async (_req, re
 });
 
 /* ── Cashflow: last 12 months ───────────────────────────── */
-router.get("/accounting/cashflow", requireAuthWithTenant, async (_req, res) => {
+router.get("/accounting/cashflow", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
     let runningBalance = 0;
     const now = new Date();
@@ -336,9 +338,9 @@ router.get("/accounting/cashflow", requireAuthWithTenant, async (_req, res) => {
         const m = String(d.getMonth() + 1).padStart(2, "0");
         const from = `${y}-${m}-01`;
         const [rr, ir, er] = await Promise.all([
-          sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
-          sqlOne(sql`SELECT COALESCE(SUM(total),0) AS v FROM client_invoices WHERE status='paid' AND created_at >= ${from}::timestamp AND created_at < ${from}::timestamp + interval '1 month'`),
-          sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM expenses WHERE date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
+          sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE office_id = ${tenantId} AND date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
+          sqlOne(sql`SELECT COALESCE(SUM(total),0) AS v FROM client_invoices WHERE office_id = ${tenantId} AND status='paid' AND created_at >= ${from}::timestamp AND created_at < ${from}::timestamp + interval '1 month'`),
+          sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM expenses WHERE office_id = ${tenantId} AND date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
         ]);
         const inflow  = num(rr.v) + num(ir.v);
         const outflow = num(er.v);

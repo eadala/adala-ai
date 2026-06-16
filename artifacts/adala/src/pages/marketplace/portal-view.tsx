@@ -29,7 +29,7 @@ function ClientAccountBanner({ portalToken }: { portalToken: string }) {
 
   // Check if user has active session via cookie (fire-and-forget auth check)
   useEffect(() => {
-    fetch(`${BASE}api/client-auth/me`, { credentials: "include" })
+    fetch(`${BASE}/api/client-auth/me`, { credentials: "include" })
       .then(r => { if (r.ok) setHasSession(true); })
       .catch(() => {});
   }, []);
@@ -37,7 +37,7 @@ function ClientAccountBanner({ portalToken }: { portalToken: string }) {
   // Auto-link token to account if logged in
   useEffect(() => {
     if (!hasSession || !portalToken || linked) return;
-    fetch(`${BASE}api/client-auth/link-token`, {
+    fetch(`${BASE}/api/client-auth/link-token`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -143,13 +143,13 @@ export default function PortalView() {
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["portal-view", token],
-    queryFn: () => fetch(`${BASE}api/portal/${token}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/portal/${token}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!token,
     retry: false,
   });
 
   const sendMessage = useMutation({
-    mutationFn: () => fetch(`${BASE}api/portal/${token}/message`, {
+    mutationFn: () => fetch(`${BASE}/api/portal/${token}/message`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: msgText, senderName: msgSender, senderEmail: msgEmail }),
@@ -169,7 +169,7 @@ export default function PortalView() {
       const reader = new FileReader();
       reader.onload = async (e) => {
         const fileData = (e.target?.result as string)?.split(",")[1];
-        const r = await fetch(`${BASE}api/portal/${token}/upload`, {
+        const r = await fetch(`${BASE}/api/portal/${token}/upload`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
