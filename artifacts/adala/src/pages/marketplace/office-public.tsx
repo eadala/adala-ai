@@ -8,7 +8,7 @@ import {
   Shield, Trophy, ArrowLeft, Quote, Gavel, Home, Building,
   Car, Heart, DollarSign, ChevronDown, ChevronRight,
   Instagram, Facebook, Globe, Calendar, Sparkles, Zap,
-  ArrowRight, Play, ChevronLeft,
+  ArrowRight, Play, ChevronLeft, LogIn, UserCheck, Store,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -429,6 +429,17 @@ export default function OfficePage() {
   const [filterCat, setFilterCat] = useState("الكل");
   const [showAllSvc, setShowAllSvc] = useState(false);
   const [reviewPage, setReviewPage] = useState(0);
+  const [loginMenu, setLoginMenu] = useState(false);
+  const loginMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!loginMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (loginMenuRef.current && !loginMenuRef.current.contains(e.target as Node)) setLoginMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [loginMenu]);
 
   const heroRef    = useRef<HTMLElement>(null);
   const aboutRef   = useRef<HTMLElement>(null);
@@ -563,6 +574,8 @@ export default function OfficePage() {
     { id: "contact",  label: lang === "ar" ? "تواصل"   : "Contact",  ref: contactRef },
   ];
 
+  const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
   const cats = ["الكل", ...Array.from(new Set(services.map((s: any) => s.category).filter(Boolean)))];
   const filtered = filterCat === "الكل" ? services : services.filter((s: any) => s.category === filterCat);
   const visibleSvc = showAllSvc ? filtered : filtered.slice(0, 6);
@@ -638,6 +651,55 @@ export default function OfficePage() {
                 </button>
               </a>
             )}
+            {/* Store link */}
+            <a href={`/firms/${slug}/store`}>
+              <button className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-bold border transition-colors hover:opacity-80"
+                style={{ background: `${c}12`, color: c, borderColor: `${c}30` }}>
+                <Store className="h-3.5 w-3.5" />
+                {lang === "ar" ? "المتجر" : "Store"}
+              </button>
+            </a>
+            {/* Login dropdown */}
+            <div className="relative" ref={loginMenuRef}>
+              <button
+                onClick={() => setLoginMenu(v => !v)}
+                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                {lang === "ar" ? "دخول" : "Login"}
+                <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${loginMenu ? "rotate-180" : ""}`} />
+              </button>
+              {loginMenu && (
+                <div className="absolute top-10 left-0 z-50 bg-white rounded-xl shadow-xl border border-slate-100 p-1 min-w-[180px] animate-in slide-in-from-top-1 fade-in-0 duration-150">
+                  <a
+                    href={`${BASE_URL}/sign-in`}
+                    onClick={() => setLoginMenu(false)}
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${c}15` }}>
+                      <UserCheck className="h-4 w-4" style={{ color: c }} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800">{lang === "ar" ? "دخول الموظفين" : "Staff Login"}</div>
+                      <div className="text-[10px] text-slate-400">{lang === "ar" ? "للمحامين والإداريين" : "For lawyers & staff"}</div>
+                    </div>
+                  </a>
+                  <a
+                    href={`${BASE_URL}/portal/login?office=${slug}`}
+                    onClick={() => setLoginMenu(false)}
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-50">
+                      <Users className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800">{lang === "ar" ? "بوابة العملاء" : "Client Portal"}</div>
+                      <div className="text-[10px] text-slate-400">{lang === "ar" ? "متابعة القضايا والفواتير" : "Track cases & invoices"}</div>
+                    </div>
+                  </a>
+                </div>
+              )}
+            </div>
             <a href={`/firms/${slug}/book`}>
               <button className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
                 style={{ background: c }}>
@@ -689,6 +751,30 @@ export default function OfficePage() {
                   {lang === "ar" ? "احجز" : "Book"}
                 </button>
               </a>
+            </div>
+            {/* Mobile: Store + Login */}
+            <div className="flex gap-2 pt-1">
+              <a href={`/firms/${slug}/store`} className="flex-1">
+                <button className="w-full flex items-center justify-center gap-1.5 text-xs py-2 rounded-xl font-bold border"
+                  style={{ background: `${c}10`, color: c, borderColor: `${c}25` }}>
+                  <Store className="h-3.5 w-3.5" />
+                  {lang === "ar" ? "المتجر" : "Store"}
+                </button>
+              </a>
+              <div className="flex-1 space-y-1">
+                <a href={`${BASE_URL}/sign-in`} className="block">
+                  <button className="w-full flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-lg font-bold border border-slate-200 bg-white text-slate-700">
+                    <UserCheck className="h-3 w-3" />
+                    {lang === "ar" ? "دخول الموظفين" : "Staff"}
+                  </button>
+                </a>
+                <a href={`${BASE_URL}/portal/login?office=${slug}`} className="block">
+                  <button className="w-full flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-lg font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <Users className="h-3 w-3" />
+                    {lang === "ar" ? "بوابة العملاء" : "Clients"}
+                  </button>
+                </a>
+              </div>
             </div>
           </div>
         )}
