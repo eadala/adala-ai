@@ -74,6 +74,7 @@ const Attendance           = lazy(() => import("@/pages/hr/attendance"));
 const Leaves               = lazy(() => import("@/pages/hr/leaves"));
 const Payroll              = lazy(() => import("@/pages/hr/payroll"));
 const HRCenter             = lazy(() => import("@/pages/hr/hr-center"));
+const HREnterprise         = lazy(() => import("@/pages/hr/hr-enterprise"));
 const HRSystems            = lazy(() => import("@/pages/hr/hr-systems"));
 const OrgStructure         = lazy(() => import("@/pages/hr/org-structure"));
 
@@ -530,6 +531,7 @@ function AppRoutes() {
             <Route path="/leaves"><ProtectedRoute><Leaves /></ProtectedRoute></Route>
             <Route path="/payroll"><ProtectedRoute><Payroll /></ProtectedRoute></Route>
             <Route path="/hr-center"><ProtectedRoute><HRCenter /></ProtectedRoute></Route>
+            <Route path="/hr-enterprise"><ProtectedRoute><HREnterprise /></ProtectedRoute></Route>
             <Route path="/hr-systems"><ProtectedRoute><HRSystems /></ProtectedRoute></Route>
             <Route path="/org-structure"><ProtectedRoute><OrgStructure /></ProtectedRoute></Route>
 

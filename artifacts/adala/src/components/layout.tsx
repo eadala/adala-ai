@@ -152,6 +152,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
     icon: Users,
     color: "#F59E0B",
     items: [
+      { href: "/hr-enterprise", labelKey: "nav.items.hr_enterprise", icon: Shield },
       { href: "/hr-center",  labelKey: "nav.items.hr_center",  icon: Award },
       { href: "/hr-systems", labelKey: "nav.items.hr_systems", icon: Building2 },
       { href: "/employees",  labelKey: "nav.items.employees",  icon: UserCog },

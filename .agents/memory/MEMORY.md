@@ -33,6 +33,7 @@
 - [Adala email cron](adala-email-cron.md) — node-cron hourly job in src/cron/emailCron.ts; triggers: invoice_due/case_session/reminder_due/case_deadline; dedup via recipient_ref col; /email-notifications/run-now for manual trigger
 - [Adala org structure](adala-org-structure.md) — organization_units table (ensureTables); /api/org-units/* routes in orgStructure.ts; /org-structure page (4 tabs: tree/list/stats/scope); nav in admin group with Network icon; ?? mixed with || needs parens
 - [Adala HR Center](adala-hr-center.md) — performance_evaluations + employee_incentives + hr_settings tables; hrPerformance.ts routes; /hr-center page (6 tabs); Award icon must be imported in layout.tsx
+- [Adala Enterprise HR](adala-hr-enterprise.md) — hr_roles+hr_memberships+hr_workflows+hr_audit_logs; authorize() engine; INNER JOIN pattern for office isolation; SOC via eventBus; /hr-enterprise (6 tabs)
 - [Adala AI Hub](adala-ai-hub.md) — 7 AI pages unified into /ai-hub; 3 chat modes + 4 tool cards; nav collapsed from 7→4 items; existing AI pages still accessible
 - [Adala AI Credits](adala-ai-credits.md) — per-office credit balance (gemini=1pt, claude/openai=3pt); deduction non-blocking in callAI(); super-admin tab + ai-hub sidebar widget
 - [Adala Legal AI Engine](adala-legal-ai.md) — legal_documents table; /api/legal-ai/* routes in legalAI.ts; callAI() exported from aiChat.ts; /legal-ai page (2-col: type tree + form + output); 11 doc types across 6 categories
