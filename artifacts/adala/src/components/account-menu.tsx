@@ -7,7 +7,7 @@ import {
   User, Building2, RefreshCw, Shield, KeyRound, Smartphone,
   Settings, Bell, Globe2, BookOpen, MessageCircle,
   LogOut, LogIn, ChevronDown, Check, Plus, Monitor,
-  Crown, ChevronRight, ExternalLink, AlertTriangle
+  Crown, ChevronRight, ExternalLink, AlertTriangle, Code2, Briefcase
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -286,17 +286,36 @@ export function AccountMenu() {
             />
           </div>
 
+          {/* ── صلاحيات مالك المنصة (Super Admin) ── */}
           {isSuperAdmin && (
             <>
               <div className="h-px mx-3" style={{ background: "rgba(45,61,107,0.6)" }} />
               <div className="p-2 space-y-0.5">
-                <SectionLabel label="صلاحيات خاصة" />
+                <SectionLabel label="صلاحيات مالك المنصة" />
                 <MenuItem
-                  icon={Crown} label="لوحة التحكم العليا" desc="إدارة المنصة"
+                  icon={Crown} label="لوحة التحكم العليا" desc="إدارة المنصة كاملاً"
                   color={GOLD} href="/super-admin" onClick={() => setOpen(false)}
                 />
                 <MenuItem
-                  icon={Settings} label="لوحة مدير المكتب"
+                  icon={Code2} label="لوحة المطور" desc="API tokens · DB · Impersonation"
+                  color="#8B5CF6" href="/super-admin?tab=developer" onClick={() => setOpen(false)}
+                />
+                <MenuItem
+                  icon={Briefcase} label="لوحة مدير المكتب" desc="إدارة الفريق والصلاحيات"
+                  color="#6366F1" href="/firm-admin" onClick={() => setOpen(false)}
+                />
+              </div>
+            </>
+          )}
+
+          {/* ── صلاحيات مدير المكتب (admin, not super admin) ── */}
+          {!isSuperAdmin && role === "admin" && (
+            <>
+              <div className="h-px mx-3" style={{ background: "rgba(45,61,107,0.6)" }} />
+              <div className="p-2 space-y-0.5">
+                <SectionLabel label="إدارة المكتب" />
+                <MenuItem
+                  icon={Briefcase} label="لوحة مدير المكتب" desc="الفريق والصلاحيات والإعدادات"
                   color="#6366F1" href="/firm-admin" onClick={() => setOpen(false)}
                 />
               </div>
