@@ -1288,6 +1288,334 @@ function ClientPortalSection() {
   );
 }
 
+/* ── OFFICE PROFILE SECTION ───────────────────── */
+function OfficeProfileSection() {
+  const [activeReview, setActiveReview] = useState(0);
+  const TEAM = [
+    { name: "أ. خالد الشمري",   role: "محامٍ أول — مدير المكتب", spec: "قانون تجاري",  exp: "12 سنة", color: "from-blue-600 to-blue-700",    cases: 148 },
+    { name: "أ. سلطان القحطاني", role: "محامٍ شريك",              spec: "قانون مدني",   exp: "8 سنوات", color: "from-indigo-600 to-indigo-700", cases: 94  },
+    { name: "أ. ريم الغامدي",    role: "محامية",                  spec: "قانون عمالي",  exp: "5 سنوات", color: "from-emerald-600 to-teal-600",  cases: 61  },
+    { name: "أ. فيصل العمري",    role: "محامٍ",                   spec: "قانون عقاري",  exp: "4 سنوات", color: "from-amber-600 to-orange-600",  cases: 42  },
+  ];
+  const REVIEWS = [
+    { name: "أحمد السعيد",    text: "مكتب احترافي من الدرجة الأولى، تابعوا قضيتي باستمرار حتى صدر الحكم لصالحي.",  rating: 5, date: "مارس 2026" },
+    { name: "شركة النخيل",    text: "أنصح بهم بشدة لقضايا التجارية، فريق متمكن وردود سريعة على جميع الاستفسارات.", rating: 5, date: "فبراير 2026" },
+    { name: "خالد الحربي",    text: "أنهوا قضية الميراث الخاصة بنا في وقت قياسي، شكراً لفريق مكتب الشمال.",         rating: 5, date: "يناير 2026" },
+  ];
+  const SPECS = ["القانون التجاري","القانون المدني","العقارات","العمالي","الميراث والأحوال الشخصية","التحكيم والوساطة"];
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-2 mb-1"><DemoBadge /><span className="text-xs text-slate-500">صفحة المكتب التعريفية العامة</span></div>
+
+      {/* Cover Photo */}
+      <div className="relative rounded-2xl overflow-hidden h-48 sm:h-64 shadow-md">
+        <img
+          src="https://images.unsplash.com/photo-1497366216548-37526070297c?w=900&q=80"
+          alt="مكتب الشمال القانوني"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
+        <div className="absolute bottom-4 right-4 flex items-end gap-3">
+          <div className="w-16 h-16 rounded-2xl bg-white shadow-lg flex items-center justify-center border-2 border-white">
+            <Scale className="w-8 h-8 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-white">مكتب الشمال القانوني</h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="flex items-center gap-1 text-amber-400 text-xs font-bold">
+                {[1,2,3,4,5].map(i=><Star key={i} className="w-3 h-3 fill-current"/>)}
+                4.9
+              </span>
+              <span className="text-white/60 text-xs">• 127 تقييم</span>
+            </div>
+          </div>
+        </div>
+        <div className="absolute top-4 left-4">
+          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500 text-white shadow">
+            <BadgeCheck className="w-3.5 h-3.5" /> مكتب موثّق
+          </span>
+        </div>
+      </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: "قضية مُنجزة", value: "345+", color: "text-blue-600" },
+          { label: "سنوات خبرة",  value: "12",   color: "text-amber-600" },
+          { label: "نسبة الفوز",  value: "91%",  color: "text-emerald-600" },
+          { label: "محامٍ متخصص", value: "4",    color: "text-indigo-600" },
+        ].map(s => (
+          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-3 text-center shadow-sm">
+            <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Info + About */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+          <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-blue-500" /> طريق الملك فهد، الرياض</span>
+          <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-emerald-500" /> 966-11-555-0001+</span>
+          <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5 text-amber-500" /> info@north-legal.sa</span>
+          <span className="flex items-center gap-1"><Globe className="w-3.5 h-3.5 text-indigo-500" /> north-legal.adala.sa</span>
+        </div>
+        <p className="text-sm text-slate-600 leading-relaxed">
+          مكتب الشمال القانوني مكتب محاماة سعودي متخصص تأسّس عام 2013 في الرياض. نُقدّم خدمات قانونية شاملة للأفراد والشركات، ونتميّز بكفاءة فريقنا المتخصص وسرعة الاستجابة. مرخّص من وزارة العدل ومعتمد من هيئة المحامين السعوديين.
+        </p>
+        <div>
+          <p className="text-xs font-bold text-slate-700 mb-2">التخصصات</p>
+          <div className="flex flex-wrap gap-1.5">
+            {SPECS.map(s => (
+              <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-medium">{s}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Team */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <Users className="w-4 h-4 text-blue-600" /> فريق المكتب
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          {TEAM.map((m, i) => (
+            <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
+              className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 transition-all cursor-pointer">
+              <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${m.color} flex items-center justify-center text-white font-black text-sm shrink-0`}>
+                {m.name[3]}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-800 truncate">{m.name}</p>
+                <p className="text-[10px] text-slate-500 truncate">{m.spec} • {m.exp}</p>
+                <p className="text-[10px] text-blue-600 font-semibold">{m.cases} قضية</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Photo Gallery */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <Palette className="w-4 h-4 text-indigo-600" /> صور المكتب
+        </h3>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            "https://images.unsplash.com/photo-1568992688065-536aad8a12f6?w=400&q=75",
+            "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=400&q=75",
+            "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=400&q=75",
+          ].map((url, i) => (
+            <div key={i} className="aspect-square rounded-xl overflow-hidden">
+              <img src={url} alt={`صورة المكتب ${i+1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Reviews */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <Star className="w-4 h-4 text-amber-500 fill-amber-500" /> تقييمات العملاء
+        </h3>
+        <div className="space-y-3">
+          {REVIEWS.map((r, i) => (
+            <div key={i} className={`p-4 rounded-xl border transition-all cursor-pointer ${activeReview === i ? "border-blue-300 bg-blue-50" : "border-slate-100 hover:border-slate-200"}`}
+              onClick={() => setActiveReview(i)}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">{r.name[0]}</div>
+                  <span className="text-sm font-semibold text-slate-800">{r.name}</span>
+                </div>
+                <span className="text-[10px] text-slate-400">{r.date}</span>
+              </div>
+              <div className="flex mb-2">{[1,2,3,4,5].map(s=><Star key={s} className="w-3 h-3 fill-amber-400 text-amber-400"/>)}</div>
+              <p className="text-xs text-slate-600 leading-relaxed">{r.text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="bg-gradient-to-l from-blue-600 to-blue-700 rounded-2xl p-5 flex items-center justify-between shadow-lg">
+        <div>
+          <p className="text-white font-black text-base">احجز استشارة قانونية</p>
+          <p className="text-blue-100 text-xs mt-0.5">متاح السبت – الخميس · 9ص – 6م</p>
+        </div>
+        <button className="px-5 py-2.5 bg-white text-blue-700 rounded-xl font-bold text-sm hover:bg-blue-50 transition-all shadow">
+          احجز الآن
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── OFFICE STORE SECTION ──────────────────────── */
+function OfficeStoreSection() {
+  const [cart, setCart] = useState<string[]>([]);
+  const SERVICES = [
+    {
+      id: "consult",
+      title: "استشارة قانونية",
+      desc: "جلسة مباشرة مع محامٍ متخصص لتقييم وضعك القانوني وتحديد الخطوات المناسبة.",
+      price: "350",
+      duration: "60 دقيقة",
+      badge: "الأكثر طلباً",
+      badgeColor: "bg-amber-500",
+      img: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=500&q=80",
+      features: ["تقييم القضية", "خطة العمل", "توصيات مكتوبة"],
+    },
+    {
+      id: "contract",
+      title: "صياغة عقد قانوني",
+      desc: "صياغة عقود تجارية أو عمالية أو توريد بمعايير نظامية معتمدة ومراجعة من محامٍ.",
+      price: "800",
+      duration: "3–5 أيام",
+      badge: "موصى به",
+      badgeColor: "bg-blue-600",
+      img: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=500&q=80",
+      features: ["مراجعة قانونية", "بنود حماية", "نسختان معدّلتان"],
+    },
+    {
+      id: "represent",
+      title: "تمثيل قضائي",
+      desc: "تمثيل احترافي أمام المحاكم السعودية بجميع درجاتها مع متابعة كاملة لملف القضية.",
+      price: "3,500",
+      duration: "حتى صدور الحكم",
+      badge: "شامل",
+      badgeColor: "bg-emerald-600",
+      img: "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=500&q=80",
+      features: ["إعداد اللوائح", "الحضور الكامل", "الاستئناف مشمول"],
+    },
+    {
+      id: "notary",
+      title: "توثيق وتصديق",
+      desc: "خدمات التوثيق الرسمي للعقود والوثائق وتصديقها لدى الجهات الحكومية المختصة.",
+      price: "250",
+      duration: "يوم عمل واحد",
+      badge: "سريع",
+      badgeColor: "bg-indigo-600",
+      img: "https://images.unsplash.com/photo-1568992688065-536aad8a12f6?w=500&q=80",
+      features: ["توثيق رسمي", "تصديق وزارة العدل", "توصيل إلكتروني"],
+    },
+  ];
+
+  function addToCart(id: string) {
+    setCart(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2"><DemoBadge /><span className="text-xs text-slate-500">متجر الخدمات القانونية</span></div>
+        <div className="flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-full">
+          <ShoppingCart className="w-3.5 h-3.5" />
+          السلة ({cart.length})
+        </div>
+      </div>
+
+      {/* Store Banner */}
+      <div className="relative rounded-2xl overflow-hidden h-36 shadow-md">
+        <img
+          src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=900&q=80"
+          alt="متجر الخدمات القانونية"
+          className="w-full h-full object-cover object-top"
+        />
+        <div className="absolute inset-0 bg-gradient-to-l from-blue-900/90 via-blue-800/70 to-transparent" />
+        <div className="absolute inset-0 flex flex-col items-start justify-center pr-6 gap-1">
+          <div className="flex items-center gap-2">
+            <Link2 className="w-4 h-4 text-blue-300" />
+            <span className="text-xs text-blue-200 font-semibold">متصل بمنصة عدالة AI</span>
+          </div>
+          <h2 className="text-xl font-black text-white">متجر مكتب الشمال</h2>
+          <p className="text-sm text-blue-100">خدمات قانونية احترافية بأسعار شفافة</p>
+        </div>
+        <div className="absolute top-3 left-3">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white flex items-center gap-1">
+            <BadgeCheck className="w-3 h-3" /> موثّق ومرخّص
+          </span>
+        </div>
+      </div>
+
+      {/* Platform Integration Badge */}
+      <div className="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+        <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
+          <Scale className="w-5 h-5 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold text-indigo-900">مدعوم بمنصة عدالة AI</p>
+          <p className="text-[10px] text-indigo-600">عند شراء خدمة، تُنشَأ القضية والعميل تلقائياً في المنصة ويتابعها الفريق القانوني مباشرةً</p>
+        </div>
+        <Zap className="w-5 h-5 text-indigo-400 shrink-0" />
+      </div>
+
+      {/* Service Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {SERVICES.map((s, i) => {
+          const inCart = cart.includes(s.id);
+          return (
+            <motion.div key={s.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
+              className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group">
+              {/* Service Image */}
+              <div className="relative h-40 overflow-hidden">
+                <img src={s.img} alt={s.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent" />
+                <span className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${s.badgeColor}`}>
+                  {s.badge}
+                </span>
+                <span className="absolute bottom-3 left-3 text-lg font-black text-white">
+                  {s.price} <span className="text-sm font-medium">﷼</span>
+                </span>
+              </div>
+              {/* Service Info */}
+              <div className="p-4 space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-sm font-black text-slate-900">{s.title}</h3>
+                    <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{s.duration}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed">{s.desc}</p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {s.features.map(f => (
+                    <span key={f} className="text-[10px] flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
+                      <CheckCircle className="w-2.5 h-2.5" />{f}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  onClick={() => addToCart(s.id)}
+                  className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    inCart
+                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                      : "bg-blue-600 text-white hover:bg-blue-700 hover:scale-[1.01]"
+                  }`}
+                >
+                  {inCart ? <><CheckCircle className="w-3.5 h-3.5" /> أُضيف للسلة</> : <><ShoppingBag className="w-3.5 h-3.5" /> اطلب الخدمة</>}
+                </button>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Checkout CTA */}
+      {cart.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-l from-emerald-600 to-teal-600 rounded-2xl p-5 flex items-center justify-between shadow-lg">
+          <div>
+            <p className="text-white font-black">لديك {cart.length} خدمة في السلة</p>
+            <p className="text-emerald-100 text-xs mt-0.5">ستُنشأ القضية تلقائياً بعد الدفع عبر المنصة</p>
+          </div>
+          <button className="px-5 py-2.5 bg-white text-emerald-700 rounded-xl font-bold text-sm hover:bg-emerald-50 transition-all shadow flex items-center gap-1.5">
+            <ShoppingCart className="w-4 h-4" /> إتمام الطلب
+          </button>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 /* ── MAIN TABS CONFIG ─────────────────────────── */
 const TABS = [
   { id: "overview",   label: "نظرة عامة",       icon: LayoutGrid,    component: PlatformOverviewSection, isNew: true },
@@ -1311,6 +1639,8 @@ const TABS = [
   { id: "opponent",   label: "محاكي الخصم",       icon: Shield,        component: OpponentSection,         isNew: false },
   { id: "research",   label: "البحث القانوني",    icon: Search,        component: LegalResearchSection,    isNew: false },
   { id: "portal",     label: "بوابة العملاء",    icon: Globe,         component: ClientPortalSection,     isNew: false },
+  { id: "profile",    label: "الصفحة التعريفية", icon: Building2,     component: OfficeProfileSection,    isNew: true  },
+  { id: "store",      label: "المتجر القانوني",  icon: ShoppingBag,   component: OfficeStoreSection,      isNew: true  },
 ];
 
 /* ── PAGE ─────────────────────────────────────── */
@@ -1356,13 +1686,13 @@ export default function DemoPage() {
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-4 bg-blue-50 border border-blue-200 text-blue-600">
               <Sparkles className="w-3.5 h-3.5" />
-              استكشاف تفاعلي حقيقي للمنصة — البيانات التجريبية معزولة تماماً
+              17 وحدة حقيقية — بيانات تجريبية معزولة تماماً
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">
-              استكشف <span className="text-blue-600">عدالة AI</span> بالكامل
+              شاهد كيف تعمل <span className="text-blue-600">عدالة AI</span>
             </h1>
             <p className="text-slate-500 text-sm max-w-xl mx-auto">
-              ابدأ من "نظرة عامة" لاستعراض جميع الوحدات الحقيقية للمنصة، ثم انتقل لأي قسم لترى التفاصيل ببيانات تجريبية معزولة.
+              تصفّح 17 وحدة حقيقية من المنصة وشاهد كيف تُدار القضية كاملةً من الاستقبال حتى التحصيل — بما فيها الصفحة التعريفية والمتجر القانوني.
             </p>
           </motion.div>
         </div>
