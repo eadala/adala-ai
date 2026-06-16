@@ -9,13 +9,14 @@ export function useRole(): { role: AppRole; isLoaded: boolean } {
   if (!isLoaded) return { role: "law_firm_user", isLoaded: false };
   if (!user)     return { role: "law_firm_user", isLoaded: true  };
 
-  const superAdminEmails = (import.meta.env.VITE_SUPER_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e: string) => e.trim())
-    .filter(Boolean);
+  const superAdminEmails = [
+    ...(import.meta.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(","),
+    ...(import.meta.env.VITE_PLATFORM_OWNER_EMAIL ?? "").split(","),
+  ].map((e: string) => e.trim()).filter(Boolean);
 
   const email   = user.primaryEmailAddress?.emailAddress ?? "";
-  const byRole  = user.publicMetadata?.role === "super_admin";
+  const byRole  = user.publicMetadata?.role === "super_admin"
+               || user.publicMetadata?.role === "platform_admin";
   const byEmail = superAdminEmails.length > 0 && superAdminEmails.includes(email);
 
   const role: AppRole = byRole || byEmail ? "platform_admin" : "law_firm_user";
