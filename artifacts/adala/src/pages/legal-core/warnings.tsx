@@ -426,7 +426,7 @@ export default function Warnings() {
           </DialogHeader>
           {showWarnDetail && (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <div><span className="text-muted-foreground text-xs">الموظف</span><div className="font-semibold">{showWarnDetail.employeeName}</div></div>
                 <div><span className="text-muted-foreground text-xs">النوع</span><div className="font-semibold">{WARNING_TYPES[showWarnDetail.type]?.label}</div></div>
                 <div className="col-span-2"><span className="text-muted-foreground text-xs">السبب</span><div className="font-semibold">{showWarnDetail.reason}</div></div>
@@ -482,7 +482,7 @@ export default function Warnings() {
               <Label className="text-xs font-semibold mb-1 block">وقائع وتفاصيل القضية</Label>
               <Textarea value={iForm.description} onChange={e => setIForm(f => ({ ...f, description: e.target.value }))} placeholder="اسرد الوقائع المؤدية لفتح التحقيق..." rows={3} className="resize-none" />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs font-semibold mb-1 block">من فتح التحقيق</Label>
                 <Input value={iForm.openedBy} onChange={e => setIForm(f => ({ ...f, openedBy: e.target.value }))} placeholder="المدير المباشر" />
@@ -543,7 +543,7 @@ function InvDetailDialog({ inv, onClose, onSave, isPending }: {
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             <div><span className="text-muted-foreground text-xs">الموظف</span><div className="font-semibold">{inv.employeeName}</div></div>
             <div><span className="text-muted-foreground text-xs">الحالة</span><div className="font-semibold">{INV_STATUS[inv.status]?.label}</div></div>
             <div className="col-span-2"><span className="text-muted-foreground text-xs">الموضوع</span><div className="font-semibold">{inv.subject}</div></div>

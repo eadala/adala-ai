@@ -169,7 +169,7 @@ function EvaluationPanel({ evaluation, onReset }: { evaluation: Evaluation; onRe
       </Card>
 
       {/* Strong / Weak */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm flex items-center gap-2 text-emerald-400">
@@ -361,7 +361,7 @@ export default function OpponentSimulator() {
             {/* Side */}
             <div className="space-y-2">
               <Label className="text-sm font-semibold">موقفك في القضية</Label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {SIDES.map(s => (
                   <button
                     key={s.value}

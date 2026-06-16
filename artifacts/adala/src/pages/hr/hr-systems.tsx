@@ -142,8 +142,8 @@ function PayslipModal({ payroll, onClose }: { payroll: any; onClose: () => void 
 
           {/* Salary breakdown */}
           <div className="section-title text-xs font-bold text-primary mb-2 border-r-2 border-primary pr-2">تفاصيل الراتب</div>
-          <div className="rounded-xl border overflow-hidden mb-4">
-            <table className="w-full text-xs">
+          <div className="rounded-xl border overflow-hidden overflow-x-auto mb-4">
+            <table className="w-full text-xs min-w-[280px]">
               <thead className="bg-muted/40">
                 <tr>
                   <th className="text-right px-4 py-2 font-semibold">البند</th>
@@ -581,8 +581,8 @@ export default function HRSystems() {
             </div>
           ) : (
             <Card className="border-border/50">
-              <CardContent className="p-0">
-                <table className="w-full text-sm">
+              <CardContent className="p-0 overflow-x-auto">
+                <table className="w-full text-sm min-w-[420px]">
                   <thead className="bg-muted/30 border-b border-border/50">
                     <tr>
                       <th className="text-right px-4 py-2.5 text-xs font-semibold">الموظف</th>
@@ -718,8 +718,8 @@ export default function HRSystems() {
             </div>
           ) : (
             <Card className="border-border/50">
-              <CardContent className="p-0">
-                <table className="w-full text-sm">
+              <CardContent className="p-0 overflow-x-auto">
+                <table className="w-full text-sm min-w-[420px]">
                   <thead className="bg-muted/30 border-b border-border/50">
                     <tr>
                       <th className="text-right px-4 py-2.5 text-xs font-semibold">الموظف</th>

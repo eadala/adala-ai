@@ -119,7 +119,7 @@ export default function TelegramSettings() {
       </div>
 
       <Tabs defaultValue="setup" dir="rtl">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
           <TabsTrigger value="setup" className="gap-1.5 text-xs"><Settings className="h-3.5 w-3.5" /> الإعداد</TabsTrigger>
           <TabsTrigger value="notifications" className="gap-1.5 text-xs"><Bell className="h-3.5 w-3.5" /> الإشعارات</TabsTrigger>
           <TabsTrigger value="storage" className="gap-1.5 text-xs"><HardDrive className="h-3.5 w-3.5" /> التخزين</TabsTrigger>
@@ -273,7 +273,7 @@ export default function TelegramSettings() {
               <CardDescription>استخدم قناة تليجرام الخاصة بالمكتب كتخزين سحابي مجاني وغير محدود</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {[
                   { label: "مجاني 100%", value: "بدون رسوم", icon: "💰" },
                   { label: "حد الملف",   value: "2 GB",      icon: "📁" },

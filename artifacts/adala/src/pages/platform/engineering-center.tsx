@@ -707,8 +707,8 @@ export default function EngineeringCenter() {
               {dbLoading
                 ? <div className="flex items-center justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-violet-400" /></div>
                 : (
-                  <div className="rounded-lg border border-border overflow-hidden">
-                    <table className="w-full text-xs">
+                  <div className="rounded-lg border border-border overflow-hidden overflow-x-auto">
+                    <table className="w-full text-xs min-w-[320px]">
                       <thead className="bg-muted/30 border-b border-border">
                         <tr>
                           <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">#</th>

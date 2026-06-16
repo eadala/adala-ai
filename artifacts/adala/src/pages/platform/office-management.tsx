@@ -993,6 +993,7 @@ export default function OfficeManagement() {
                 </div>
                 <p className="text-xs text-muted-foreground">أضف السجل التالي في لوحة DNS الخاصة بك (GoDaddy / Namecheap / Cloudflare...)</p>
                 <div className="rounded-lg border border-border/60 overflow-hidden">
+                  <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead className="bg-muted/50">
                       <tr>
@@ -1015,7 +1016,7 @@ export default function OfficeManagement() {
                         </td>
                       </tr>
                     </tbody>
-                  </table>
+                  </table></div>
                 </div>
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                   <RefreshCw className="h-3 w-3" /> قد يستغرق الانتشار من ٥ دقائق إلى ٤٨ ساعة

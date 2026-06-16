@@ -282,7 +282,7 @@ export default function PortalView() {
             {c?.description && (
               <p className="text-sm text-muted-foreground leading-relaxed border-r-2 border-[#C9A84C]/40 pr-3">{c.description}</p>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {c?.clientName && (
                 <div className="bg-muted/20 rounded-xl p-3">
                   <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1"><User className="h-3 w-3" />المُوكّل</p>
@@ -504,7 +504,7 @@ export default function PortalView() {
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">اسمك الكامل</Label>
                     <Input placeholder="الاسم" value={msgSender} onChange={e => setMsgSender(e.target.value)} />

@@ -126,7 +126,7 @@ export default function ReferralPage() {
       {/* Hero */}
       <section className="py-20 px-4 text-center relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full blur-[140px] opacity-15" style={{ background: "#6366F1" }} />
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-full max-w-full h-[400px] rounded-full blur-[140px] opacity-15" style={{ background: "#6366F1" }} />
         </div>
         <div className="relative max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-6"

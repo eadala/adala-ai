@@ -857,7 +857,7 @@ export default function OfficeSettingsPage() {
                       </div>
                     </div>
 
-                    <table className="w-full text-sm mb-4">
+                    <div className="overflow-x-auto"><table className="w-full text-sm mb-4 min-w-[340px]">
                       <thead>
                         <tr className="text-xs text-muted-foreground border-b border-border/40">
                           <th className="py-2 text-right">الوصف</th>
@@ -877,7 +877,7 @@ export default function OfficeSettingsPage() {
                           <td className="py-2 text-left">١٥٠٠ ريال</td>
                         </tr>
                       </tbody>
-                    </table>
+                    </table></div>
 
                     <div className="flex justify-end">
                       <div className="w-48 space-y-1 text-sm">

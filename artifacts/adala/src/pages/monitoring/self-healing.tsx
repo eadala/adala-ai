@@ -127,7 +127,7 @@ export default function SelfHealingPage() {
       {tab === "dashboard" && (
         <div className="space-y-5">
           {/* Health + KPIs */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className={`col-span-1 rounded-2xl border p-5 flex flex-col items-center justify-center ${HEALTH_BG(health)}`}>
               <ScoreRing score={health} />
               <div className={`text-xs font-semibold mt-2 ${HEALTH_COLOR(health)}`}>
@@ -135,7 +135,7 @@ export default function SelfHealingPage() {
               </div>
               <div className="text-xs text-gray-500">صحة النظام</div>
             </div>
-            <div className="col-span-3 grid grid-cols-3 gap-4">
+            <div className="col-span-3 grid grid-cols-2 sm:grid-cols-3 gap-4">
               {[
                 { label: "إجراءات (24h)",  value: stats.total,   color: "gray"    },
                 { label: "ناجحة",          value: stats.success, color: "emerald" },
@@ -197,7 +197,7 @@ export default function SelfHealingPage() {
           {Object.keys(bySev).length > 0 && (
             <div className="bg-white border border-gray-200 rounded-2xl p-5">
               <div className="font-semibold text-sm text-gray-800 mb-4">توزيع الأحداث (24h) حسب الخطورة</div>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {(["critical","high","medium","low"] as const).map(sev => (
                   <div key={sev} className={`p-3 rounded-xl text-center border ${SEV_STYLE[sev]}`}>
                     <div className="text-xl font-bold">{bySev[sev] ?? 0}</div>
@@ -251,7 +251,7 @@ export default function SelfHealingPage() {
               <div className="font-semibold text-emerald-800 mb-3 flex items-center gap-2">
                 <Shield className="h-4 w-4" /> آخر حالة مستقرة (في الذاكرة)
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {[
                   { label: "الإصدار",   value: stateQ.data.current.version },
                   { label: "درجة الصحة", value: `${stateQ.data.current.healthScore}/100` },
