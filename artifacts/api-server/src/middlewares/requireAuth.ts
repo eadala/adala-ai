@@ -73,10 +73,16 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
   (req as any).tenantId = officeId;
 
   // 🔑 Layer 1: AsyncLocalStorage — getTenant() works anywhere in the stack
-  // 🔑 Layer 2: PostgreSQL RLS session variable — DB-level enforcement
-  // Both run asynchronously but are set before any route handler executes.
-  db.execute(sql`SELECT set_config('app.current_tenant', ${officeId}, false)`)
-    .catch(() => {}); // Non-blocking — app-level filter is the primary guard
+  // 🔑 Layer 2: PostgreSQL RLS session variable — DB-level enforcement (AWAITED)
+  // set_config(..., false) = session-level — persists on pooled connection for
+  // the lifetime of this request. Must be awaited before route handler runs.
+  try {
+    await db.execute(sql`
+      SELECT
+        set_config('app.current_tenant', ${officeId}, false),
+        set_config('app.tenant_id',      ${officeId}, false)
+    `);
+  } catch { /* DB config failure is non-fatal — app-level WHERE is primary guard */ }
 
   runWithTenant({ userId, officeId }, () => next());
 }

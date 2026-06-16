@@ -203,6 +203,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/finance-dashboard",  labelKey: "التقارير المالية",             icon: BarChart2 },
       { href: "/isolation",          labelKey: "عزل المستأجرين",               icon: Lock },
       { href: "/hardening",          labelKey: "قفل الإنتاج",                  icon: Shield },
+      { href: "/zero-trust",         labelKey: "Zero Trust Shield",             icon: Shield },
       { href: "/legal-os",           labelKey: "نظام التشغيل القانوني",        icon: Cpu },
       { href: "/self-healing",       labelKey: "الإصلاح الذاتي",               icon: Activity },
     ],

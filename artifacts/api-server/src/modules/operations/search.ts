@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -9,17 +9,22 @@ function sqlRows(r: any): any[] {
   return Array.isArray(r) ? r : (r?.rows ?? []);
 }
 
+/** Zero Trust: sanitize ILIKE pattern — escape % and _ to prevent pattern injection */
+function safeILIKE(q: string): string {
+  return `%${q.replace(/[%_\\]/g, "\\$&")}%`;
+}
+
 /* ── GET /api/search/global?q=&limit= ────────────── */
-router.get("/search/global", requireAuth, async (req, res) => {
-  const officeId = (req as any).officeId as string;
-  if (!officeId) { res.json({ results: [] }); return; }
+router.get("/search/global", requireAuthWithTenant, async (req, res) => {
+  const officeId = (req as any).tenantId as string;
+  if (!officeId || officeId === "platform") { res.json({ results: [] }); return; }
 
   const q = String(req.query.q ?? "").trim();
-  const limit = Math.min(parseInt(String(req.query.limit ?? "5")), 10);
+  const limit = Math.min(parseInt(String(req.query.limit ?? "5")) || 5, 20);
 
   if (!q || q.length < 2) { res.json({ results: [] }); return; }
 
-  const pattern = `%${q}%`;
+  const pattern = safeILIKE(q);
 
   try {
     const [caseRes, clientRes, invoiceRes] = await Promise.allSettled([
@@ -42,7 +47,7 @@ router.get("/search/global", requireAuth, async (req, res) => {
         LIMIT ${limit}
       `),
       db.execute(sql`
-        SELECT id, invoice_number, amount, status
+        SELECT id, invoice_number, total, status
         FROM client_invoices
         WHERE office_id = ${officeId}
           AND COALESCE(invoice_number, '') ILIKE ${pattern}
@@ -56,34 +61,27 @@ router.get("/search/global", requireAuth, async (req, res) => {
     if (caseRes.status === "fulfilled") {
       for (const r of sqlRows(caseRes.value) as any[]) {
         results.push({
-          id: r.id,
-          type: "case",
-          title: r.title,
+          id: r.id, type: "case", title: r.title,
           subtitle: r.case_number ? `رقم: ${r.case_number}` : undefined,
           href: `/case-detail/${r.id}`,
         });
       }
     }
-
     if (clientRes.status === "fulfilled") {
       for (const r of sqlRows(clientRes.value) as any[]) {
         results.push({
-          id: r.id,
-          type: "client",
-          title: r.full_name,
+          id: r.id, type: "client", title: r.full_name,
           subtitle: r.phone ?? r.email ?? undefined,
           href: `/client-detail/${r.id}`,
         });
       }
     }
-
     if (invoiceRes.status === "fulfilled") {
       for (const r of sqlRows(invoiceRes.value) as any[]) {
         results.push({
-          id: r.id,
-          type: "invoice",
+          id: r.id, type: "invoice",
           title: r.invoice_number ?? `فاتورة #${r.id}`,
-          subtitle: r.amount ? `${(Number(r.amount) / 100).toLocaleString("ar-SA")} ر.س · ${r.status}` : undefined,
+          subtitle: r.total ? `${Number(r.total).toLocaleString("ar-SA")} ر.س · ${r.status}` : undefined,
           href: `/invoices`,
         });
       }

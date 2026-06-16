@@ -6,6 +6,7 @@ import monitoringRouter        from "../modules/monitoring/monitoring";
 import preventionRouter        from "../modules/monitoring/prevention";
 import smartAlertsRouter       from "../modules/monitoring/smart-alerts";
 import isolationRouter         from "../modules/monitoring/isolation";
+import zeroTrustRouter         from "../security/zero-trust-router";
 import hardeningRouter         from "../modules/monitoring/hardening";
 import selfHealingRouter       from "../modules/monitoring/self-healing";
 
@@ -124,6 +125,7 @@ router.use(monitoringRouter);
 router.use(preventionRouter);
 router.use(smartAlertsRouter);
 router.use(isolationRouter);
+router.use(zeroTrustRouter);
 router.use(hardeningRouter);
 router.use(selfHealingRouter);
 
