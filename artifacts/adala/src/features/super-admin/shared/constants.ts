@@ -2,7 +2,7 @@ import {
   ShieldCheck, Building2, Users, Package, Tag, KeyRound, Activity,
   Settings, FolderTree, BookOpen, HeadphonesIcon, Plus,
   Trash2, BarChart3, Crown, Zap, Bell, Lock, Code2, Cpu,
-  Server, Fingerprint, Wifi, Database, Shield,
+  Server, Fingerprint, Wifi, Database, Shield, HardDrive,
   Gift, Percent, Bot, Radar, Globe, CreditCard, Banknote,
   FileBarChart2, Gavel, FileSignature, ShieldCheck as SecurityIcon,
   Layout, Globe2, AlertOctagon, RotateCcw, ScanLine, Palette,
@@ -111,6 +111,7 @@ export const TABS = [
   { id: "pcc",            label: "مركز القيادة",            icon: Radar },
   { id: "agents",         label: "وكلاء AI",                icon: Bot },
   { id: "design",         label: "لوحة التصميم",            icon: Palette },
+  { id: "infrastructure", label: "البنية التحتية",           icon: Server },
 ];
 
 export const PERM_LABELS: Record<string, { label: string; color: string }> = {

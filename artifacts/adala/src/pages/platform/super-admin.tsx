@@ -42,6 +42,7 @@ const PromoCodesTab             = lazy(() => import("@/features/super-admin/tabs
 const GhostCenterTab            = lazy(() => import("@/features/super-admin/tabs/GhostCenterTab").then(m => ({ default: m.GhostCenterTab })));
 const PlatformCommandCenterTab  = lazy(() => import("@/features/super-admin/tabs/PlatformCommandCenterTab").then(m => ({ default: m.PlatformCommandCenterTab })));
 const DesignCenterTab           = lazy(() => import("@/features/super-admin/tabs/DesignCenterTab").then(m => ({ default: m.DesignCenterTab })));
+const InfrastructureTab         = lazy(() => import("@/features/super-admin/tabs/InfrastructureTab").then(m => ({ default: m.InfrastructureTab })));
 
 function TabFallback() {
   return (
@@ -210,6 +211,11 @@ export default function SuperAdmin() {
         <TabsContent value="design"         className="mt-4">
           <Suspense fallback={<TabFallback />}>
             <DesignCenterTab />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="infrastructure" className="mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <InfrastructureTab toast={toast} />
           </Suspense>
         </TabsContent>
       </Tabs>
