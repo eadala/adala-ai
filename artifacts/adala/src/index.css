@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -55,7 +55,7 @@
   --color-sidebar-accent-border: var(--sidebar-accent-border);
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
-  --font-sans: 'Cairo', sans-serif;
+  --font-sans: 'IBM Plex Sans Arabic', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
 
@@ -73,51 +73,51 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* Professional White & Teal Theme */
-  --background: 0 0% 100%;
-  --foreground: 215 25% 12%;
+  /* Adala Design System — Legal Blue (#1E3A8A) + Clean White */
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
 
   --card: 0 0% 100%;
-  --card-foreground: 215 25% 12%;
-  --card-border: 220 13% 91%;
+  --card-foreground: 222 47% 11%;
+  --card-border: 214 32% 91%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 215 25% 12%;
-  --popover-border: 220 13% 91%;
+  --popover-foreground: 222 47% 11%;
+  --popover-border: 214 32% 91%;
 
-  --primary: 158 64% 32%;
+  --primary: 221 63% 33%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 13% 91%;
-  --secondary-foreground: 215 25% 12%;
+  --secondary: 214 32% 91%;
+  --secondary-foreground: 222 47% 11%;
 
-  --muted: 220 14% 96%;
-  --muted-foreground: 220 9% 46%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
 
-  --accent: 220 13% 92%;
-  --accent-foreground: 215 25% 12%;
+  --accent: 214 32% 93%;
+  --accent-foreground: 222 47% 11%;
 
-  --destructive: 0 84.2% 60.2%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 220 13% 91%;
-  --input: 220 13% 91%;
-  --ring: 158 64% 32%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 221 63% 33%;
 
-  --chart-1: 158 64% 32%;
-  --chart-2: 30 80% 55%;
-  --chart-3: 250 60% 55%;
-  --chart-4: 340 75% 55%;
-  --chart-5: 45 90% 50%;
+  --chart-1: 221 63% 33%;
+  --chart-2: 142 71% 40%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 0 72% 51%;
+  --chart-5: 271 81% 56%;
 
   --sidebar: 0 0% 100%;
-  --sidebar-foreground: 215 25% 12%;
-  --sidebar-border: 220 13% 91%;
-  --sidebar-primary: 158 64% 32%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-border: 214 32% 91%;
+  --sidebar-primary: 221 63% 33%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 220 13% 95%;
-  --sidebar-accent-foreground: 215 25% 12%;
-  --sidebar-ring: 158 64% 32%;
+  --sidebar-accent: 210 40% 96%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-ring: 221 63% 33%;
 
   --radius: 0.5rem;
 
