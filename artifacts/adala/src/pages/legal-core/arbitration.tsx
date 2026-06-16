@@ -20,6 +20,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
   pending: { label: "قيد التسجيل", color: "text-yellow-400", icon: Clock },
   active: { label: "جارية", color: "text-blue-400", icon: Scale },
@@ -117,7 +119,7 @@ function CaseDetail({ c, onClose, onRefresh }: { c: any; onClose: () => void; on
     if (!newSession.date) return;
     setAddingSession(true);
     try {
-      await fetch(`/api/arbitration/cases/${c.id}/session`, {
+      await fetch(`${BASE}/api/arbitration/cases/${c.id}/session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newSession),
@@ -133,7 +135,7 @@ function CaseDetail({ c, onClose, onRefresh }: { c: any; onClose: () => void; on
   const generateDecision = async () => {
     setGeneratingDecision(true);
     try {
-      const r = await fetch(`/api/arbitration/cases/${c.id}/generate-decision`, { method: "POST" });
+      const r = await fetch(`${BASE}/api/arbitration/cases/${c.id}/generate-decision`, { method: "POST" });
       const d = await r.json();
       qc.invalidateQueries({ queryKey: ["arbitration"] });
       onRefresh();
@@ -143,7 +145,7 @@ function CaseDetail({ c, onClose, onRefresh }: { c: any; onClose: () => void; on
   };
 
   const updateStatus = async (status: string) => {
-    await fetch(`/api/arbitration/cases/${c.id}`, {
+    await fetch(`${BASE}/api/arbitration/cases/${c.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -271,16 +273,16 @@ export default function Arbitration() {
 
   const { data: cases = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["arbitration"],
-    queryFn: () => fetch("/api/arbitration/cases").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/arbitration/cases`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: stats } = useQuery<any>({
     queryKey: ["arbitration-stats"],
-    queryFn: () => fetch("/api/arbitration/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/arbitration/stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => fetch("/api/arbitration/cases", {
+    mutationFn: (data: any) => fetch(`${BASE}/api/arbitration/cases`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
@@ -292,7 +294,7 @@ export default function Arbitration() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetch(`/api/arbitration/cases/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => fetch(`${BASE}/api/arbitration/cases/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["arbitration"] }); if (selectedCase) setSelectedCase(null); toast({ title: "تم الحذف" }); },
   });
 
