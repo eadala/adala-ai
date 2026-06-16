@@ -42,6 +42,9 @@ import financialEngineRouter       from "../modules/financial/financial-engine";
 import subscriptionRouter          from "../modules/financial/subscription";
 import promoRouter                 from "../modules/financial/promo";
 import stripeAdminRouter           from "../modules/financial/stripeAdmin";
+import erpLedgerRouter             from "../modules/financial/erp-ledger";
+import reconciliationRouter        from "../modules/financial/reconciliation";
+import financialGuardRouter        from "../modules/financial/financial-guard";
 
 // ── AI ───────────────────────────────────────────────────────────────────────
 import aiGatewayRouter     from "../modules/ai/aiGateway";
@@ -167,6 +170,9 @@ router.use(financialEngineRouter);
 router.use(subscriptionRouter);
 router.use(promoRouter);
 router.use(stripeAdminRouter);
+router.use(erpLedgerRouter);
+router.use(reconciliationRouter);
+router.use(financialGuardRouter);
 
 // AI — Gateway first (unified entry point)
 router.use(aiGatewayRouter);

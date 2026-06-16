@@ -105,6 +105,16 @@ router.post("/invoices", requireAuthWithTenant, validate(CreateInvoiceSchema), a
       data: { invoiceNumber, clientId, caseId, title, total, currency: currency ?? "SAR" },
     }).catch(() => {});
 
+    /* ── ERP: إنشاء قيد مدين الذمم المدينة ← دائن الإيرادات ── */
+    import("../financial/financial-event-engine").then(({ recordFinancialEvent }) =>
+      recordFinancialEvent({
+        officeId: tenantId, type: "INVOICE_CREATED",
+        amount: total, currency: currency ?? "SAR",
+        referenceId: String(invoice.id),
+        description: `فاتورة رقم ${invoiceNumber} — ${title}`,
+      })
+    ).catch(() => {});
+
     auditLog({ ...auditMeta(req), action: "create", resource: "invoice", resourceId: String(invoice.id), details: `رقم: ${invoiceNumber} — المبلغ: ${total}` }).catch(() => {});
     res.status(201).json(invoice);
   } catch (err: any) {
@@ -241,6 +251,17 @@ router.post("/invoices/:id/mark-paid", requireAuthWithTenant, async (req: Reques
       .where(and(eq(invoicesTable.id, String(req.params.id)), eq((invoicesTable as any).officeId, tenantId)))
       .returning();
     if (!updated) return apiErr(res, 404, "NOT_FOUND", "الفاتورة غير موجودة");
+
+    /* ── ERP: مدين الصندوق/البنك ← دائن الذمم المدينة ── */
+    import("../financial/financial-event-engine").then(({ recordFinancialEvent }) =>
+      recordFinancialEvent({
+        officeId: tenantId, type: "INVOICE_PAID",
+        amount: (updated as any).total ?? 0, currency: (updated as any).currency ?? "SAR",
+        referenceId: String(req.params.id),
+        description: `تحصيل فاتورة رقم ${(updated as any).invoiceNumber ?? ""}`,
+      })
+    ).catch(() => {});
+
     auditLog({ action: "mark_paid", resource: "invoice", resourceId: String(req.params.id), officeId: tenantId }).catch(() => {});
     res.json(updated);
   } catch (err: any) {

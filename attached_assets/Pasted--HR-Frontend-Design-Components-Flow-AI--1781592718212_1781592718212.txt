@@ -1,0 +1,296 @@
+تمام — سأبني لك واجهة HR كاملة جاهزة للإنتاج (Frontend Design + Components + Flow) لمنصة عدالة AI.
+
+الهدف هنا: لوحة تحكم موارد بشرية + صلاحيات + موافقات + تدقيق، بأسلوب SaaS حديث.
+
+⸻
+
+🧱 HR DASHBOARD — الهيكل العام
+
+📊 الصفحات الأساسية
+
+1. 👥 الموظفون (Employees)
+2. 🏢 الهيكل التنظيمي (Organization)
+3. 🔐 الأدوار والصلاحيات (Roles & Permissions)
+4. 📥 طلبات التغيير (Approvals)
+5. 🧾 سجل التدقيق (Audit Logs)
+6. ⚙️ إعدادات HR
+
+⸻
+
+🎨 1) LAYOUT (App Shell)
+
+export default function HRLayout({ children }) {
+  return (
+    <div className="flex h-screen bg-gray-50">
+      
+      {/* Sidebar */}
+      <aside className="w-72 bg-white border-r p-4">
+        <h1 className="text-xl font-bold mb-6">HR System</h1>
+        <nav className="space-y-2">
+          <NavItem label="Employees" />
+          <NavItem label="Organization" />
+          <NavItem label="Roles & Permissions" />
+          <NavItem label="Approvals" />
+          <NavItem label="Audit Logs" />
+          <NavItem label="Settings" />
+        </nav>
+      </aside>
+      {/* Main */}
+      <main className="flex-1 p-6 overflow-auto">
+        {children}
+      </main>
+    </div>
+  );
+}
+
+⸻
+
+👥 2) EMPLOYEES PAGE (الأهم)
+
+📌 وظائف الصفحة:
+
+* عرض الموظفين حسب المكتب
+* تغيير الدور
+* تعليق / تفعيل
+* فتح ملف الموظف
+
+⸻
+
+export function EmployeesPage({ employees }) {
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-4">Employees</h2>
+      <div className="grid gap-4">
+        {employees.map(emp => (
+          <div className="bg-white p-4 rounded-xl border flex justify-between items-center">
+            
+            <div>
+              <p className="font-semibold">{emp.name}</p>
+              <p className="text-sm text-gray-500">{emp.email}</p>
+              <span className="text-xs px-2 py-1 bg-gray-100 rounded">
+                {emp.role}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button className="px-3 py-1 bg-blue-600 text-white rounded">
+                View
+              </button>
+              <button className="px-3 py-1 bg-yellow-500 text-white rounded">
+                Change Role
+              </button>
+              <button className="px-3 py-1 bg-red-500 text-white rounded">
+                Suspend
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+⸻
+
+🧠 3) ROLE & PERMISSION MATRIX (قلب النظام)
+
+🔐 واجهة التحكم بالصلاحيات
+
+export function RolesPage({ roles, permissions }) {
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-6">Roles & Permissions</h2>
+      <div className="grid grid-cols-3 gap-4">
+        
+        {roles.map(role => (
+          <div className="bg-white p-4 rounded-xl border">
+            <h3 className="font-bold mb-2">{role.name}</h3>
+            <div className="space-y-2">
+              {permissions.map(p => (
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={role.permissions.includes(p.key)} />
+                  {p.key}
+                </label>
+              ))}
+            </div>
+            <button className="mt-4 w-full bg-black text-white py-2 rounded">
+              Save
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+⸻
+
+🏢 4) ORGANIZATION CHART (هيكل المكتب)
+
+export function OrgChart() {
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-6">Organization</h2>
+      <div className="bg-white p-6 rounded-xl border">
+        <div className="space-y-4">
+          <Node title="Partner" />
+          <div className="ml-6 border-l pl-4">
+            <Node title="Office Manager" />
+            <div className="ml-6 border-l pl-4">
+              <Node title="Lawyers" />
+              <Node title="Accountant" />
+              <Node title="Assistants" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function Node({ title }) {
+  return (
+    <div className="p-2 bg-gray-100 rounded w-fit">
+      {title}
+    </div>
+  );
+}
+
+⸻
+
+📥 5) APPROVALS SYSTEM (ميزة مؤسسية مهمة)
+
+طلبات تغيير الصلاحيات / التوظيف
+
+export function ApprovalsPage({ requests }) {
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-4">Approvals</h2>
+      <div className="space-y-3">
+        {requests.map(req => (
+          <div className="bg-white p-4 border rounded-xl flex justify-between">
+            
+            <div>
+              <p className="font-semibold">{req.type}</p>
+              <p className="text-sm text-gray-500">{req.user}</p>
+            </div>
+            <div className="flex gap-2">
+              <button className="bg-green-600 text-white px-3 py-1 rounded">
+                Approve
+              </button>
+              <button className="bg-red-600 text-white px-3 py-1 rounded">
+                Reject
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+⸻
+
+🧾 6) AUDIT LOGS (مهم للأمان)
+
+export function AuditLogs({ logs }) {
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-4">Audit Logs</h2>
+      <div className="bg-white border rounded-xl">
+        {logs.map(log => (
+          <div className="p-3 border-b text-sm flex justify-between">
+            <span>{log.action}</span>
+            <span className="text-gray-500">{log.user}</span>
+            <span className="text-gray-400">{log.date}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+⸻
+
+🔐 7) HR GUARD UI (تحذيرات الصلاحيات)
+
+export function PermissionWarning({ user }) {
+  if (!user.hasPermission) {
+    return (
+      <div className="bg-red-100 text-red-700 p-4 rounded-xl">
+        ⚠️ You do not have permission to access this module
+      </div>
+    );
+  }
+  return null;
+}
+
+⸻
+
+📊 8) DASHBOARD OVERVIEW (الرئيسية)
+
+export function HRDashboard() {
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-6">HR Overview</h2>
+      <div className="grid grid-cols-4 gap-4">
+        <Card title="Employees" value="128" />
+        <Card title="Active Roles" value="6" />
+        <Card title="Pending Approvals" value="9" />
+        <Card title="Audit Events" value="1,240" />
+      </div>
+    </div>
+  );
+}
+function Card({ title, value }) {
+  return (
+    <div className="bg-white p-4 border rounded-xl">
+      <p className="text-gray-500 text-sm">{title}</p>
+      <p className="text-2xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+⸻
+
+🧠 9) كيف ترتبط مع النظام الأمني (SOC)
+
+كل حدث في هذه الواجهة يرسل إلى:
+
+* SOC monitoring
+* audit_logs
+* security_events
+
+مثال:
+
+emitSecurityEvent({
+  type: "HR_ROLE_CHANGED",
+  severity: "HIGH"
+});
+
+⸻
+
+🧭 النتيجة النهائية
+
+واجهة HR في عدالة AI الآن أصبحت:
+
+🔐 نظام متكامل يشمل:
+
+* إدارة موظفين
+* صلاحيات RBAC
+* هيكل تنظيمي
+* طلبات موافقة
+* تدقيق كامل
+* ربط مباشر مع SOC
+
+⸻
+
+🚀 إذا تريد الخطوة التالية
+
+أقدر أبني لك مباشرة:
+
+🔥 “HR Backend API + Database Full Schema”
+
+أو
+
+🔥 “Drag & Drop HR Admin Panel (مثل Notion Admin UI)”
+
+فقط قل: ￼ ابنِ الـ Backend الخاص بـ HR

@@ -1,0 +1,229 @@
+واضح أن المقصود من “نظام HR المؤسسي الكامل” هو بناء طبقة موارد بشرية وصلاحيات بمستوى Enterprise حقيقي داخل منصة عدالة AI — وليس مجرد users + roles.
+
+سأحوّلها لك إلى تصميم عملي واضح بدون تعقيد زائد.
+
+⸻
+
+🧱 نظام HR المؤسسي الكامل (Enterprise HR System)
+
+🧠 الفكرة الأساسية
+
+بدل ما يكون HR مجرد:
+
+* مستخدم
+* دور (Role)
+
+يصير نظام كامل فيه:
+
+Identity + Membership + Permissions + Workflow + Audit + SOC integration
+
+⸻
+
+👤 1) Identity Layer (المستخدم الأساسي)
+
+users
+- id
+- name
+- email
+- phone
+- status
+- created_at
+
+🔴 مهم: هذا جدول عالمي (Global)
+
+⸻
+
+🏢 2) Tenant Membership (الانتماء للمكتب)
+
+office_users
+- id
+- user_id
+- office_id
+- role_id
+- status (active / suspended)
+- joined_at
+
+✔ هنا يتم تحديد:
+
+* أي مكتب
+* صلاحية داخل المكتب
+
+⸻
+
+🔐 3) RBAC (الصلاحيات الحقيقية)
+
+Roles
+
+roles
+- id
+- name (Partner, Manager, Lawyer, Accountant)
+- scope (tenant / system)
+
+⸻
+
+Permissions
+
+permissions
+- id
+- key (cases.read, cases.write, invoices.approve)
+
+⸻
+
+ربط الصلاحيات
+
+role_permissions
+- role_id
+- permission_id
+
+⸻
+
+🧠 4) Authorization Engine (القلب الحقيقي)
+
+كل Request لازم يمر من هنا:
+
+export async function authorize(userId, officeId, permission) {
+  const result = await db.query(`
+    SELECT 1
+    FROM office_users ou
+    JOIN role_permissions rp ON ou.role_id = rp.role_id
+    JOIN permissions p ON rp.permission_id = p.id
+    WHERE ou.user_id = $1
+      AND ou.office_id = $2
+      AND p.key = $3
+      AND ou.status = 'active'
+    LIMIT 1
+  `, [userId, officeId, permission]);
+  return result.rowCount > 0;
+}
+
+⸻
+
+🧭 5) Hierarchy (هيكل المكاتب القانونية)
+
+Partner
+ ├── Office Manager
+ │     ├── Lawyer
+ │     ├── Assistant
+ │     └── Intern
+ └── Accountant
+
+✔ هذا مهم لأن الصلاحيات ليست “Flat”
+
+⸻
+
+🔄 6) HR Workflows (الميزة المؤسسية)
+
+أمثلة:
+
+📌 طلب إجازة
+
+* User → Manager → Approval
+
+📌 تعيين موظف جديد
+
+* Manager → Partner → Approval
+
+📌 رفع صلاحية
+
+* Request → Audit → Approval
+
+⸻
+
+نموذج Workflow:
+
+{
+  type: "permission_upgrade",
+  fromRole: "Lawyer",
+  toRole: "Manager",
+  status: "pending_approval"
+}
+
+⸻
+
+🧾 7) Audit Layer (إلزامي)
+
+كل تغيير HR يتم تسجيله:
+
+hr_audit_logs
+- id
+- office_id
+- user_id
+- action
+- old_value
+- new_value
+- created_at
+
+⸻
+
+🔐 8) ربط HR مع نظام الأمان (SOC)
+
+بما أن عندك SOC شغال:
+
+أي حدث HR مهم يدخل مباشرة:
+
+* role change
+* permission escalation
+* login anomaly
+
+emitSecurityEvent({
+  type: "HR_PERMISSION_CHANGE",
+  severity: "HIGH"
+});
+
+⸻
+
+⚠️ 9) أخطر مشاكل لو HR غير مضبوط
+
+في منصة مثل عدالة AI:
+
+🔴 1. صلاحية admin عامة = كارثة
+
+🔴 2. role بدون office scope = تسريب بين المكاتب
+
+🔴 3. بدون audit = لا يمكن تتبع التلاعب
+
+🔴 4. AI يقرأ HR بدون فلترة = تسريب موظفين
+
+⸻
+
+🧠 10) الشكل النهائي للنظام (مختصر قوي)
+
+USER
+  ↓
+OFFICE MEMBERSHIP
+  ↓
+ROLE
+  ↓
+PERMISSIONS
+  ↓
+AUTH ENGINE
+  ↓
+SOC + AUDIT
+
+⸻
+
+🏁 الخلاصة
+
+النظام المؤسسي HR عندك الآن (إذا طبقناه صح) يصبح:
+
+🔐 نظام تحكم صلاحيات + هوية + موافقات + تدقيق + مراقبة أمنية
+
+وليس مجرد إدارة موظفين.
+
+⸻
+
+🚀 إذا تريد الخطوة التالية
+
+أقدر أبني لك فوق هذا مباشرة:
+
+🔥 “HR SaaS Module كامل جاهز للإنتاج”
+
+يشمل:
+
+* شاشة إدارة الموظفين
+* RBAC UI
+* workflow approvals
+* audit dashboard
+* SOC integration panel
+
+فقط قل: ￼ ابنِ واجهة HR الكاملة

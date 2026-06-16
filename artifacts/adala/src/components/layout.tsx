@@ -125,6 +125,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/financial-reports",    labelKey: "nav.items.financial_reports",    icon: BarChart2 },
       { href: "/financial-statements", labelKey: "nav.items.financial_statements", icon: Scale },
       { href: "/financial-core",       labelKey: "nav.items.financial_core",       icon: BarChart3 },
+      { href: "/enterprise-finance",   labelKey: "المالية الاحترافية ERP",          icon: Scale },
       { href: "/billing",           labelKey: "nav.items.billing",           icon: CreditCard },
     ],
   },

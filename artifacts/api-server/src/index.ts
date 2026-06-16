@@ -9,6 +9,7 @@ import { ensureStripeBufferTables } from "./services/stripeEventBuffer";
 import { ensureReconciliationTable, startReconciliationCron } from "./jobs/stripeReconcile";
 import { initVapid } from "./lib/webPush";
 import { loadHardeningState } from "./hardening/production.lock";
+import { ensureERPTables } from "./modules/financial/erp-ledger";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -68,6 +69,7 @@ async function initStripe() {
 ensureAdHocColumns().catch(e => logger.error({ e }, "ensureAdHocColumns failed"));
 ensureStripeBufferTables().catch(e => logger.error({ e }, "ensureStripeBufferTables failed"));
 ensureReconciliationTable().catch(e => logger.error({ e }, "ensureReconciliationTable failed"));
+ensureERPTables().catch(e => logger.error({ e }, "ensureERPTables failed"));
 initStripe();
 startEmailCron();
 startMonitoringCron();
