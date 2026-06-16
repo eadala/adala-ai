@@ -1,0 +1,273 @@
+تم تفعيل Zero Trust Hardening Patch Pack لمنصة عدالة AI.
+
+سأعطيك الحزمة بشكل “جاهز للتنفيذ” على Replit/Node/PostgreSQL بدون تنظير.
+
+⸻
+
+🔐 1) DATABASE LAYER — Row Level Security (RLS) CORE
+
+✅ تفعيل العزل على مستوى PostgreSQL (الأساس الحقيقي)
+
+🧱 1.1 تفعيل RLS لكل الجداول الحساسة
+
+ALTER TABLE cases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contracts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE client_invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_tasks ENABLE ROW LEVEL SECURITY;
+
+⸻
+
+🧱 1.2 سياسة العزل الموحدة
+
+CREATE POLICY tenant_isolation_cases
+ON cases
+USING (office_id = current_setting('app.tenant_id')::text);
+CREATE POLICY tenant_isolation_clients
+ON clients
+USING (office_id = current_setting('app.tenant_id')::text);
+CREATE POLICY tenant_isolation_contracts
+ON contracts
+USING (office_id = current_setting('app.tenant_id')::text);
+CREATE POLICY tenant_isolation_invoices
+ON client_invoices
+USING (office_id = current_setting('app.tenant_id')::text);
+
+⸻
+
+🧱 1.3 إجبار السياق في كل Request
+
+في middleware الأساسي:
+
+export async function setTenantContext(req, res, next) {
+  const tenantId = req.officeId;
+  await db.execute(sql`
+    SELECT set_config('app.tenant_id', ${tenantId}, true);
+  `);
+  next();
+}
+
+🔥 الآن:
+حتى لو نسي أي مطور شرط WHERE → قاعدة البيانات تمنعه تلقائيًا.
+
+⸻
+
+🧠 2) AI DATA FIREWALL (أهم طبقة)
+
+🚫 منع AI من الوصول المباشر للـ DB
+
+❌ ممنوع:
+
+* raw SQL داخل AI
+* dynamic query builder
+
+⸻
+
+✅ الحل: AI TOOL GATEWAY
+
+📦 أنشئ طبقة واحدة فقط:
+
+export const AIDataGateway = {
+  getCase: (id, tenantId) =>
+    db.execute(sql`
+      SELECT id, title, status
+      FROM cases
+      WHERE id = ${id}
+      AND office_id = ${tenantId}
+    `),
+  listCases: (tenantId) =>
+    db.execute(sql`
+      SELECT id, title, status
+      FROM cases
+      WHERE office_id = ${tenantId}
+      LIMIT 100
+    `),
+  getClient: (id, tenantId) =>
+    db.execute(sql`
+      SELECT id, name
+      FROM clients
+      WHERE id = ${id}
+      AND office_id = ${tenantId}
+    `)
+};
+
+⸻
+
+🚨 قاعدة ذهبية:
+
+AI لا يكتب SQL. AI يستدعي أدوات فقط.
+
+⸻
+
+🧱 3) ORM / QUERY FIREWALL (منع الأخطاء البشرية)
+
+🛑 Wrapper إلزامي لكل الاستعلامات
+
+export function tenantQuery(req, queryFn) {
+  const tenantId = req.officeId;
+  return queryFn(tenantId);
+}
+
+⸻
+
+مثال إلزامي:
+
+❌ خطأ:
+
+db.execute(sql`SELECT * FROM cases WHERE id = ${id}`);
+
+✅ صحيح:
+
+tenantQuery(req, (tenantId) =>
+  db.execute(sql`
+    SELECT * FROM cases
+    WHERE id = ${id}
+    AND office_id = ${tenantId}
+  `)
+);
+
+⸻
+
+🔐 4) EXPORT HARD LIMITER (منع Data Dump)
+
+🚫 حماية التصدير
+
+const MAX_EXPORT_LIMIT = 500;
+export async function exportCases(req, res) {
+  const tenantId = req.officeId;
+  const data = await db.execute(sql`
+    SELECT * FROM cases
+    WHERE office_id = ${tenantId}
+    LIMIT ${MAX_EXPORT_LIMIT}
+  `);
+  return res.json({
+    count: data.length,
+    data
+  });
+}
+
+⸻
+
+🧨 تحسين أقوى (Recommended):
+
+* async export job
+* signed URL download
+* TTL 10 minutes
+
+⸻
+
+🔎 5) SEARCH SECURITY HARDENING
+
+export async function globalSearch(req, query) {
+  const tenantId = req.officeId;
+  const safePattern = query.replace(/[%_]/g, "\\$&");
+  return db.execute(sql`
+    SELECT id, title
+    FROM cases
+    WHERE office_id = ${tenantId}
+    AND title ILIKE ${'%' + safePattern + '%'}
+    LIMIT 50
+  `);
+}
+
+⸻
+
+📦 6) AI TASKS MULTI-TENANT LOCK
+
+ALTER TABLE ai_tasks
+ADD COLUMN office_id TEXT NOT NULL;
+
+⸻
+
+await db.execute(sql`
+  UPDATE ai_tasks
+  SET office_id = ${tenantId}
+  WHERE office_id IS NULL
+`);
+
+⸻
+
+Worker Guard:
+
+if (task.office_id !== currentTenant) {
+  throw new Error("TENANT_MISMATCH_BLOCKED");
+}
+
+⸻
+
+🧠 7) AI CONTEXT ISOLATION RULES
+
+❌ ممنوع:
+
+* shared memory
+* global vector DB
+* cross-tenant embeddings
+
+✅ مطلوب:
+
+const namespace = `tenant_${tenantId}`;
+
+⸻
+
+🧱 8) AUDIT & LOG ISOLATION FIX
+
+ALTER TABLE audit_logs ADD COLUMN office_id TEXT;
+ALTER TABLE login_logs ADD COLUMN office_id TEXT;
+
+⸻
+
+WHERE office_id = current_setting('app.tenant_id')
+
+⸻
+
+🧪 9) RED TEAM REGRESSION SUITE (إلزامي)
+
+اختبار منع أي تسريب مستقبلي:
+
+describe("Zero Trust Enforcement", () => {
+  it("blocks cross-tenant access", async () => {
+    const res = await api.get("/api/cases?id=OTHER_TENANT_CASE");
+    expect(res.status).toBe(401);
+  });
+  it("AI cannot bypass tenant filter", async () => {
+    const result = await ai.getCase("fake-id-from-other-tenant");
+    expect(result).toBeNull();
+  });
+});
+
+⸻
+
+🧨 النتيجة بعد التطبيق
+
+بعد هذه الحزمة:
+
+الطبقة	الحالة
+DB Isolation	🔒 Enforced (RLS)
+API Security	🔒 Hardened
+AI Layer	🔒 Tool-restricted
+Export Risk	🔒 Controlled
+Query Safety	🔒 Firewalled
+
+⸻
+
+🏁 الخلاصة النهائية
+
+بعد تفعيل هذه الحزمة في عدالة AI:
+
+النظام ينتقل من “Secure by Code”
+إلى:
+Secure by Design + Secure by Database
+
+⸻
+
+إذا تريد الخطوة التالية، أقدر أبني لك:
+
+🚀 “Production Shield Layer”
+
+* مراقبة تسريب لحظي (Real-time Leak Detection)
+* تنبيه عند أي cross-tenant anomaly
+* dashboard أمني كامل
+* AI firewall visual inspector
+
+فقط قل: ￼ فعّل طبقة المراقبة الحية
