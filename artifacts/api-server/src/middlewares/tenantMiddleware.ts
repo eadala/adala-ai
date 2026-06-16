@@ -11,9 +11,22 @@
  * Sets req.tenantId on success; returns 401/403 on failure.
  */
 import type { Request, Response, NextFunction } from "express";
-import { getAuth } from "@clerk/express";
+import { getAuth, createClerkClient } from "@clerk/express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+
+let _saClerk2: ReturnType<typeof createClerkClient> | null = null;
+async function isSuperAdminUser(userId: string): Promise<boolean> {
+  const raw = process.env.SUPER_ADMIN_EMAILS ?? process.env.PLATFORM_OWNER_EMAIL ?? "";
+  const saEmails = raw.split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+  if (!saEmails.length) return false;
+  try {
+    if (!_saClerk2) _saClerk2 = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+    const user = await _saClerk2.users.getUser(userId);
+    const email = (user.emailAddresses[0]?.emailAddress ?? "").toLowerCase();
+    return saEmails.includes(email) || user.publicMetadata?.role === "super_admin";
+  } catch { return false; }
+}
 
 /* Simple in-memory cache: userId → officeId (TTL 5 min) */
 const CACHE = new Map<string, { officeId: string; ts: number }>();
@@ -113,6 +126,14 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
   const headerTenant = req.headers["x-tenant-id"] as string | undefined;
   const tenantId = await resolveTenantId(userId, headerTenant);
   if (!tenantId) {
+    /* Super-admin has no office — allow with synthetic "platform" tenant */
+    const isSA = await isSuperAdminUser(userId);
+    if (isSA) {
+      (req as any).isSuperAdmin = true;
+      (req as any).tenantId = "platform";
+      const { runWithTenant } = await import("../core/tenantContext");
+      return runWithTenant({ userId, officeId: "platform" }, () => next());
+    }
     return res.status(403).json({ error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب." });
   }
   const officeId = tenantId;
