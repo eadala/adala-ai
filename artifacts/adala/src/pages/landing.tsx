@@ -515,19 +515,50 @@ export default function Landing() {
               {c("hero", "subtitle", t("landing.hero.subtitle"))}
             </p>
 
-            <div className="lp-hero-3 flex flex-wrap gap-3 mb-8">
-              <Link href={`${BASE}/sign-up`}>
-                <button className="flex items-center gap-2 font-bold px-7 py-3.5 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
-                  style={{ background: BLUE, color: WHITE, boxShadow: `0 8px 28px rgba(26,86,219,0.30)` }}>
-                  {t("landing.startFree")}
-                  {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
-                </button>
-              </Link>
+            <div className="lp-hero-3 mb-8 space-y-3">
+              {/* Primary actions */}
+              <div className="flex flex-wrap gap-3">
+                <Link href={`${BASE}/sign-up`}>
+                  <button className="flex items-center gap-2 font-bold px-6 py-3.5 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
+                    style={{ background: BLUE, color: WHITE, boxShadow: `0 8px 28px rgba(26,86,219,0.30)` }}>
+                    {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+                    {t("landing.startFree")}
+                  </button>
+                </Link>
+                <Link href={`${BASE}/sign-in`}>
+                  <button className="flex items-center gap-2 font-semibold px-6 py-3.5 rounded-xl text-base border-2 transition-all hover:bg-slate-50"
+                    style={{ borderColor: BORDER2, color: DARK, background: WHITE }}>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                    {isAr ? "تسجيل الدخول" : "Sign In"}
+                  </button>
+                </Link>
+              </div>
+
+              {/* Separator */}
+              <div className="flex items-center gap-3 max-w-xs">
+                <div className="h-px flex-1" style={{ background: BORDER }} />
+                <span className="text-xs font-medium" style={{ color: MUTED }}>{isAr ? "أو" : "or"}</span>
+                <div className="h-px flex-1" style={{ background: BORDER }} />
+              </div>
+
+              {/* Demo entry */}
               <Link href={`${BASE}/demo-login`}>
-                <button className="flex items-center gap-2 font-semibold px-7 py-3.5 rounded-xl text-base border transition-all hover:bg-blue-50"
-                  style={{ borderColor: BLUE_T, color: BLUE, background: BLUE_L }}>
-                  <Sparkles className="w-4 h-4" />
-                  {t("landing.hero.explore")}
+                <button className="group flex items-center gap-3 px-5 py-3 rounded-xl border-2 border-dashed transition-all hover:border-blue-300 hover:bg-blue-50/60 w-full max-w-xs"
+                  style={{ borderColor: BLUE_T, background: `${BLUE}06` }}>
+                  <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-110"
+                    style={{ background: BLUE_M }}>
+                    <Sparkles className="w-4 h-4" style={{ color: BLUE }} />
+                  </span>
+                  <div className="text-right flex-1">
+                    <p className="text-sm font-bold leading-tight" style={{ color: BLUE }}>
+                      {isAr ? "دخول تجريبي مجاني" : "Free Demo Access"}
+                    </p>
+                    <p className="text-xs leading-tight mt-0.5" style={{ color: MUTED }}>
+                      {isAr ? "بدون تسجيل · بدون بطاقة ائتمانية" : "No registration · No credit card"}
+                    </p>
+                  </div>
+                  {isAr ? <ArrowLeft className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-x-1" style={{ color: BLUE }} />
+                         : <ArrowRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-1" style={{ color: BLUE }} />}
                 </button>
               </Link>
             </div>
