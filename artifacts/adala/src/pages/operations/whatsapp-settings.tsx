@@ -155,7 +155,7 @@ export default function WhatsAppSettingsPage() {
             </CardHeader>
             <CardContent className="space-y-5">
               {/* Provider selector */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   onClick={() => setForm(f => ({ ...f, provider: "twilio" }))}
                   className={`p-4 rounded-xl border-2 text-right transition-all ${form.provider === "twilio" ? "border-primary bg-primary/5" : "border-border hover:border-border/80"}`}

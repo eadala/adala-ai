@@ -451,8 +451,8 @@ function VisibilityScopeTable() {
   ];
 
   return (
-    <div className="rounded-xl border overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="rounded-xl border overflow-hidden overflow-x-auto">
+      <table className="w-full text-sm min-w-[400px]">
         <thead className="bg-muted/40 border-b">
           <tr>
             <th className="text-right px-4 py-2.5 font-semibold text-xs">الدور</th>
@@ -788,8 +788,8 @@ export default function OrgStructure() {
                   أكثر الوحدات نشاطاً (حسب القضايا)
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
-                <table className="w-full text-sm">
+              <CardContent className="p-0 overflow-x-auto">
+                <table className="w-full text-sm min-w-[380px]">
                   <thead className="bg-muted/30 border-b border-border/50">
                     <tr>
                       <th className="text-right px-4 py-2 text-xs font-semibold">الوحدة</th>

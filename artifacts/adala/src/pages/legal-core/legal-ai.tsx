@@ -351,7 +351,7 @@ export default function LegalAIPage() {
                   </div>
 
                   {/* link to case/client */}
-                  <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg bg-muted/30 border border-border">
                     <div className="space-y-1">
                       <Label className="text-[11px] text-white/50">ربط بقضية (اختياري)</Label>
                       <Select value={linkedCaseId || "__none__"} onValueChange={v => setLinkedCaseId(v === "__none__" ? "" : v)}>

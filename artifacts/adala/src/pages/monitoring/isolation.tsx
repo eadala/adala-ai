@@ -112,7 +112,7 @@ export default function IsolationPage() {
           </div>
 
           {/* 3 pillars */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {[
               {
                 label: "حماية DB (RLS)",
@@ -183,7 +183,7 @@ export default function IsolationPage() {
         <div className="space-y-5">
           {/* Summary */}
           {rlsQ.data?.summary && (
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
                 { label: "إجمالي الجداول",    value: rlsQ.data.summary.totalTables    },
                 { label: "لديها tenant key",   value: rlsQ.data.summary.withTenantKey  },
@@ -262,7 +262,7 @@ export default function IsolationPage() {
           {auditQ.data && (
             <>
               {/* Summary */}
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
                   { label: "إجمالي الملفات",    value: auditQ.data.summary.totalFiles },
                   { label: "آمنة (≥80)",         value: auditQ.data.summary.safeFiles  },
@@ -317,7 +317,7 @@ export default function IsolationPage() {
           {leakQ.data?.stats && (() => {
             const st = leakQ.data.stats;
             return (
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
                   { label: "طلبات فُحصت",   value: st.totalChecked                                          },
                   { label: "طلبات حُجبت",   value: st.totalBlocked, warn: st.totalBlocked > 0               },

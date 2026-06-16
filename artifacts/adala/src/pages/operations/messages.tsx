@@ -354,7 +354,7 @@ export default function Messages() {
               {detail?.sender_ip && (
                 <div className="mt-6 p-3 rounded-lg bg-slate-500/5 border border-slate-500/10">
                   <p className="text-[11px] text-muted-foreground font-medium mb-1.5">معلومات الإرسال</p>
-                  <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-muted-foreground">
                     <span>IP المرسِل: <strong className="text-foreground">{detail.sender_ip}</strong></span>
                     <span className="flex items-center gap-1">{deviceIcon(detail.device_info)} الجهاز: <strong className="text-foreground">{detail.device_info ?? "—"}</strong></span>
                   </div>

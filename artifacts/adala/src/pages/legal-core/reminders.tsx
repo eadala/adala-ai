@@ -235,7 +235,7 @@ export default function RemindersPage() {
               <Label>{tx("التفاصيل", "Details")}</Label>
               <Textarea value={form.body} onChange={e => set("body", e.target.value)} placeholder={tx("وصف اختياري...", "Optional description...")} rows={2} className="mt-1" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>{tx("التاريخ", "Date")}</Label>
                 <Input type="date" value={form.dueDate} onChange={e => set("dueDate", e.target.value)} className="mt-1" />
@@ -245,7 +245,7 @@ export default function RemindersPage() {
                 <Input type="time" value={form.dueTime} onChange={e => set("dueTime", e.target.value)} className="mt-1" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>{tx("الأولوية", "Priority")}</Label>
                 <Select value={form.priority} onValueChange={v => set("priority", v)}>

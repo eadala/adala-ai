@@ -800,7 +800,7 @@ export default function OfficePage() {
               <div className="absolute inset-0 opacity-[0.04]"
                 style={{ backgroundImage: `repeating-linear-gradient(45deg, white 0, white 1px, transparent 0, transparent 50%)`, backgroundSize: "24px 24px" }} />
               {/* glow blobs */}
-              <div className="absolute top-1/4 right-1/4 w-[600px] h-[600px] rounded-full blur-[120px] opacity-20"
+              <div className="absolute top-1/4 right-1/4 w-full max-w-full h-[600px] rounded-full blur-[120px] opacity-20"
                 style={{ background: c }} />
               <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[80px] opacity-10"
                 style={{ background: c }} />

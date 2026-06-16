@@ -317,7 +317,7 @@ export default function OnboardingPage() {
 
                 <div className="space-y-2">
                   <Label className="font-semibold text-sm">التخصص القانوني *</Label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {SPECIALTIES.map(s => (
                       <button
                         key={s.label}
@@ -489,7 +489,7 @@ export default function OnboardingPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {[
                     { icon: "⚖️", label: "القضايا", sub: "إدارة كاملة" },
                     { icon: "💰", label: "الفوترة",  sub: "مدفوعات ذكية" },

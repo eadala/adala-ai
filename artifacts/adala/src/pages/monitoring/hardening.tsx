@@ -100,7 +100,7 @@ export default function HardeningPage() {
       {tab === "status" && (
         <div className="space-y-5">
           {/* KPI row */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {[
               { label: "الوضع الحالي",    value: MODE_LABEL[mode] ?? mode, sub: `منذ: ${s.activatedBy ?? "—"}` },
               { label: "درجة المالية",    value: `${s.financial?.score ?? "—"}/100`, sub: s.financial?.allPassed ? "✅ كل الفحوصات ناجحة" : "⚠️ توجد مشاكل" },

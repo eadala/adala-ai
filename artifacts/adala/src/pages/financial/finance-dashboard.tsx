@@ -335,7 +335,7 @@ export default function FinanceDashboard() {
               {/* Monthly Table */}
               <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 font-semibold text-gray-800 text-sm">تفصيل شهري</div>
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto"><table className="w-full text-sm min-w-[380px]">
                   <thead className="bg-gray-50">
                     <tr className="text-xs text-gray-500">
                       <th className="text-right px-5 py-2">الشهر</th>
@@ -356,7 +356,7 @@ export default function FinanceDashboard() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             </>
           )}
@@ -427,7 +427,7 @@ export default function FinanceDashboard() {
                       <AlertTriangle className="h-4 w-4 text-red-500" />
                       <span className="font-semibold text-red-700 text-sm">فواتير تجاوزت تاريخ الاستحقاق ({overdue.length})</span>
                     </div>
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto"><table className="w-full text-sm min-w-[380px]">
                       <thead className="bg-red-50">
                         <tr className="text-xs text-red-600">
                           <th className="text-right px-5 py-2">رقم الفاتورة</th>
@@ -448,7 +448,7 @@ export default function FinanceDashboard() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </table></div>
                   </div>
                 )}
                 {overdue.length === 0 && (

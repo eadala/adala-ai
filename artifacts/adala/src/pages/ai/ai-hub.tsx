@@ -533,7 +533,7 @@ export default function AIHub() {
               {/* Specialized Tools hint */}
               <div className="mt-8 w-full">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center mb-3">أدوات متخصصة</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {TOOLS.map(t => {
                     const Icon = t.icon;
                     return (
