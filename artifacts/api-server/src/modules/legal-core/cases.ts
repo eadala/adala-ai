@@ -122,7 +122,7 @@ router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
         osvc.name      AS order_service_name,
         osvc.description AS order_service_desc
       FROM cases c
-      LEFT JOIN office_orders   oo   ON oo.id  = c.store_order_id
+      LEFT JOIN office_orders   oo   ON oo.id::text = c.store_order_id
       LEFT JOIN office_services osvc ON osvc.id = oo.service_id
       WHERE c.id = ${id} AND c.office_id = ${tenantId}
       LIMIT 1
