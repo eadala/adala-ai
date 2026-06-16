@@ -15,6 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 const LEAVE_TYPES: Record<string, { label: string; color: string }> = {
   annual: { label: "سنوية", color: "#6366F1" },
   sick: { label: "مرضية", color: "#EF4444" },
@@ -61,7 +63,7 @@ export default function Leaves() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      fetch(`/api/hr/leaves/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, approvedBy: "مدير الموارد البشرية" }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      fetch(`${BASE}/api/hr/leaves/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, approvedBy: "مدير الموارد البشرية" }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (_, { status }) => { qc.invalidateQueries({ queryKey: ["leaves"] }); qc.invalidateQueries({ queryKey: ["leaves-stats"] }); toast({ title: status === "approved" ? "تمت الموافقة" : "تم الرفض" }); },
   });
 

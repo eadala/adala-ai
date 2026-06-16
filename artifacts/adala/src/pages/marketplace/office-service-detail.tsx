@@ -11,6 +11,8 @@ import {
   CreditCard, Phone, Mail, User, AlertCircle, Loader2
 } from "lucide-react";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 type Lang = "ar" | "en";
 const t = (ar: string, en: string, lang: Lang) => lang === "ar" ? ar : en;
 
@@ -30,7 +32,7 @@ export default function OfficeServiceDetail() {
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["office-public", params.slug],
-    queryFn: () => fetch(`/api/office/public/${params.slug}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/office/public/${params.slug}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 5 * 60 * 1000,
   });
   /* API returns { office: {...}, services: [...], team: [...], ... } */
@@ -97,7 +99,7 @@ export default function OfficeServiceDetail() {
     setOrdering(true);
     try {
       if (!svc.isCustomQuote) {
-        const r = await fetch(`/api/office/public/${params.slug}/checkout`, {
+        const r = await fetch(`${BASE}/api/office/public/${params.slug}/checkout`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ serviceId: svc.id, ...form }),
@@ -105,7 +107,7 @@ export default function OfficeServiceDetail() {
         if (r.url) { window.location.href = r.url; return; }
         setFormError(r.error ?? (lang === "ar" ? "حدث خطأ" : "An error occurred"));
       } else {
-        await fetch(`/api/office/public/${params.slug}/order`, {
+        await fetch(`${BASE}/api/office/public/${params.slug}/order`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ serviceId: svc.id, ...form }),

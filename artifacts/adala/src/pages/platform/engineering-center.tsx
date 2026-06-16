@@ -289,7 +289,7 @@ export default function EngineeringCenter() {
 
         {/* ── Main Tabs ── */}
         <Tabs value={tab} onValueChange={setTab} className="flex-1 overflow-hidden flex flex-col min-h-0">
-          <TabsList className="mx-6 mt-4 shrink-0 flex-wrap h-auto gap-1 bg-transparent p-0">
+          <TabsList className="flex-wrap mx-6 mt-4 shrink-0 flex-wrap h-auto gap-1 bg-transparent p-0">
             {[
               { v: "overview",     label: "نظرة عامة",   icon: BarChart3 },
               { v: "code-review",  label: "تحليل AI",     icon: Code2 },

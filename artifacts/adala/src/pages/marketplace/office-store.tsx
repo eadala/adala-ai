@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 type Lang = "ar" | "en";
 function t(ar: string | null | undefined, en: string | null | undefined, lang: Lang): string {
   if (lang === "en" && en) return en;
@@ -60,20 +62,20 @@ export default function OfficeStore() {
 
   const { data, isLoading, isError } = useQuery<any>({
     queryKey: ["office-public", slug],
-    queryFn: () => fetch(`/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const orderMutation = useMutation({
     mutationFn: async () => {
       if (orderDialog?.price && !orderDialog.isCustomQuote) {
-        const r = await fetch(`/api/office/public/${slug}/checkout`, {
+        const r = await fetch(`${BASE}/api/office/public/${slug}/checkout`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ serviceId: orderDialog.id, ...orderForm }),
         });
         const d = await r.json();
         if (d.url) { window.location.href = d.url; return; }
       }
-      await fetch(`/api/office/public/${slug}/order`, {
+      await fetch(`${BASE}/api/office/public/${slug}/order`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ serviceId: orderDialog?.id, ...orderForm, isQuoteRequest: orderDialog?.isCustomQuote }),
       });

@@ -111,7 +111,7 @@ export default function AiTasks() {
             </SelectContent>
           </Select>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>

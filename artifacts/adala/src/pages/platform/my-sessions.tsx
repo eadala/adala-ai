@@ -96,7 +96,7 @@ export default function MySessionsPage() {
         </div>
 
         {/* ── Stats Row ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: "إجمالي الجلسات",      value: sessions.length,      icon: Clock,       color: "#6366F1" },
             { label: "عناوين IP مختلفة",     value: uniqueIps,            icon: Globe,       color: "#10B981" },

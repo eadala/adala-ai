@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 type Lang = "ar" | "en";
 function t(ar: string | null | undefined, en: string | null | undefined, lang: Lang) {
   if (lang === "en" && en) return en;
@@ -62,11 +64,11 @@ export default function OfficeBook() {
 
   const { data, isLoading, isError } = useQuery<any>({
     queryKey: ["office-public", slug],
-    queryFn: () => fetch(`/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const bookMutation = useMutation({
-    mutationFn: () => fetch(`/api/office/public/${slug}/order`, {
+    mutationFn: () => fetch(`${BASE}/api/office/public/${slug}/order`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

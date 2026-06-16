@@ -218,7 +218,7 @@ export default function OfficeLogin() {
 
   const { data, isLoading } = useQuery<any>({
     queryKey: ["office-public", slug],
-    queryFn: () => fetch(`/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
     staleTime: 10 * 60 * 1000,
     retry: false,
   });

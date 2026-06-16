@@ -16,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   todo:        { label: "قيد الانتظار",  color: "text-slate-400",   bg: "bg-slate-500/10 border-slate-500/30",   icon: Circle },
   in_progress: { label: "جارٍ التنفيذ",  color: "text-blue-400",    bg: "bg-blue-500/10 border-blue-500/30",     icon: Clock },
@@ -97,7 +99,7 @@ export default function Tasks() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...data }: any) => {
-      const r = await fetch(`/api/office-tasks/${id}`, {
+      const r = await fetch(`${BASE}/api/office-tasks/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cleanPayload(data)),
@@ -118,7 +120,7 @@ export default function Tasks() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetch(`/api/office-tasks/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => fetch(`${BASE}/api/office-tasks/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["tasks-stats"] });
