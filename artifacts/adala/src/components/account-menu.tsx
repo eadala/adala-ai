@@ -150,8 +150,8 @@ export function AccountMenu() {
       {/* ── Dropdown ── */}
       {open && (
         <div
-          className="absolute left-0 top-12 z-50 w-76 rounded-2xl shadow-xl border border-border bg-card overflow-hidden animate-in slide-in-from-top-2 fade-in-0 duration-200"
-          style={{ width: "308px", boxShadow: "0 20px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.08)" }}
+          className="absolute left-0 top-12 z-50 rounded-2xl shadow-xl border border-border bg-card animate-in slide-in-from-top-2 fade-in-0 duration-200 flex flex-col"
+          style={{ width: "308px", maxHeight: "calc(100vh - 80px)", boxShadow: "0 20px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.08)" }}
         >
           {/* ── Identity Card ── */}
           <div className="px-4 pt-4 pb-3 bg-gradient-to-br from-primary/5 via-transparent to-transparent">
@@ -187,117 +187,128 @@ export function AccountMenu() {
             </div>
           </div>
 
-          <Divider />
+          {/* ── Scrollable body ── */}
+          <div className="overflow-y-auto flex-1 min-h-0">
+            <Divider />
 
-          {/* ── Office Switcher ── */}
-          <div className="p-2">
-            <button
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors"
-              onClick={() => setOfficeOpen(v => !v)}
-            >
-              <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
-                <Building2 className="h-3.5 w-3.5 text-primary" />
-              </div>
-              <span className="flex-1 text-sm font-medium text-foreground text-right truncate">{officeName}</span>
-              <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${officeOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {officeOpen && (
-              <div className="mt-1 mx-1 rounded-xl border border-border bg-background p-1.5 animate-in slide-in-from-top-1 fade-in-0 duration-150">
-                <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-primary/5 border border-primary/15">
-                  <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                  <span className="text-sm text-foreground font-medium flex-1 truncate">{officeName}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">حالي</span>
+            {/* ── Office Switcher ── */}
+            <div className="p-2">
+              <button
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors"
+                onClick={() => setOfficeOpen(v => !v)}
+              >
+                <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+                  <Building2 className="h-3.5 w-3.5 text-primary" />
                 </div>
-                <button
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg mt-1 hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-                  onClick={() => { setOpen(false); setLocation("/office-settings"); }}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span className="text-sm">إضافة مكتب جديد</span>
-                </button>
-              </div>
+                <span className="flex-1 text-sm font-medium text-foreground text-right truncate">{officeName}</span>
+                <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${officeOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {officeOpen && (
+                <div className="mt-1 mx-1 rounded-xl border border-border bg-background p-1.5 animate-in slide-in-from-top-1 fade-in-0 duration-150">
+                  <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-primary/5 border border-primary/15">
+                    <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span className="text-sm text-foreground font-medium flex-1 truncate">{officeName}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">حالي</span>
+                  </div>
+                  <button
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg mt-1 hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                    onClick={() => { setOpen(false); setLocation("/office-settings"); }}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span className="text-sm">إضافة مكتب جديد</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <Divider />
+
+            {/* ── الحساب ── */}
+            <div className="p-2 space-y-0.5">
+              <SectionLabel label="الحساب" />
+              <MenuItem icon={User} label="الملف الشخصي" desc="عرض وتعديل بياناتك"
+                onClick={() => { setOpen(false); openUserProfile(); }} />
+              <MenuItem icon={Shield} label="إعدادات الأمان" desc="كلمة المرور والتحقق الثنائي"
+                href="/office-settings" onClick={() => setOpen(false)} />
+              <MenuItem icon={KeyRound} label="تغيير كلمة المرور"
+                onClick={() => { setOpen(false); openUserProfile({ initialPage: "security" } as any); }} />
+              <MenuItem icon={Monitor} label="جلساتي وأجهزتي" desc="تتبع جميع عمليات الدخول"
+                href="/my-sessions" onClick={() => setOpen(false)} />
+            </div>
+
+            <Divider />
+
+            {/* ── الإدارة ── */}
+            <div className="p-2 space-y-0.5">
+              <SectionLabel label="الإدارة" />
+              <MenuItem icon={Settings} label="إعدادات النظام"
+                href="/office-settings" onClick={() => setOpen(false)} />
+              <MenuItem icon={Bell} label="تفضيلات الإشعارات"
+                href="/office-settings" onClick={() => setOpen(false)} />
+              <MenuItem icon={Globe2} label="اللغة" desc="العربية — AR" disabled badge="قريباً" />
+            </div>
+
+            {/* ── مالك المنصة ── */}
+            {isSuperAdmin && (
+              <>
+                <Divider />
+                <div className="p-2 space-y-0.5">
+                  <SectionLabel label="صلاحيات مالك المنصة" />
+                  <MenuItem icon={Crown} label="لوحة التحكم العليا" desc="إدارة المنصة كاملاً"
+                    highlight href="/super-admin" onClick={() => setOpen(false)} />
+                  <MenuItem icon={Code2} label="لوحة المطور" desc="API · DB · Impersonation"
+                    href="/super-admin?tab=developer" onClick={() => setOpen(false)} />
+                  <MenuItem icon={Briefcase} label="لوحة مدير المكتب"
+                    href="/firm-admin" onClick={() => setOpen(false)} />
+                </div>
+              </>
             )}
+
+            {/* ── مدير المكتب فقط ── */}
+            {!isSuperAdmin && role === "admin" && (
+              <>
+                <Divider />
+                <div className="p-2 space-y-0.5">
+                  <SectionLabel label="إدارة المكتب" />
+                  <MenuItem icon={Briefcase} label="لوحة مدير المكتب" desc="الفريق والصلاحيات"
+                    href="/firm-admin" onClick={() => setOpen(false)} />
+                </div>
+              </>
+            )}
+
+            <Divider />
+
+            {/* ── الدعم ── */}
+            <div className="p-2 pb-3 space-y-0.5">
+              <SectionLabel label="الدعم" />
+              <MenuItem icon={BookOpen} label="مركز المساعدة" desc="الوثائق والأدلة"
+                onClick={() => { setOpen(false); window.open("https://docs.adalaai.com", "_blank"); }} />
+              <MenuItem icon={MessageCircle} label="تواصل مع الدعم الفني"
+                href="/messages" onClick={() => setOpen(false)} />
+            </div>
           </div>
 
-          <Divider />
-
-          {/* ── الحساب ── */}
-          <div className="p-2 space-y-0.5">
-            <SectionLabel label="الحساب" />
-            <MenuItem icon={User} label="الملف الشخصي" desc="عرض وتعديل بياناتك"
-              onClick={() => { setOpen(false); openUserProfile(); }} />
-            <MenuItem icon={Shield} label="إعدادات الأمان" desc="كلمة المرور والتحقق الثنائي"
-              href="/office-settings" onClick={() => setOpen(false)} />
-            <MenuItem icon={KeyRound} label="تغيير كلمة المرور"
-              onClick={() => { setOpen(false); openUserProfile({ initialPage: "security" } as any); }} />
-            <MenuItem icon={Monitor} label="جلساتي وأجهزتي" desc="تتبع جميع عمليات الدخول"
-              href="/my-sessions" onClick={() => setOpen(false)} />
-          </div>
-
-          <Divider />
-
-          {/* ── الإدارة ── */}
-          <div className="p-2 space-y-0.5">
-            <SectionLabel label="الإدارة" />
-            <MenuItem icon={Settings} label="إعدادات النظام"
-              href="/office-settings" onClick={() => setOpen(false)} />
-            <MenuItem icon={Bell} label="تفضيلات الإشعارات"
-              href="/office-settings" onClick={() => setOpen(false)} />
-            <MenuItem icon={Globe2} label="اللغة" desc="العربية — AR" disabled badge="قريباً" />
-          </div>
-
-          {/* ── مالك المنصة ── */}
-          {isSuperAdmin && (
-            <>
-              <Divider />
-              <div className="p-2 space-y-0.5">
-                <SectionLabel label="صلاحيات مالك المنصة" />
-                <MenuItem icon={Crown} label="لوحة التحكم العليا" desc="إدارة المنصة كاملاً"
-                  highlight href="/super-admin" onClick={() => setOpen(false)} />
-                <MenuItem icon={Code2} label="لوحة المطور" desc="API · DB · Impersonation"
-                  href="/super-admin?tab=developer" onClick={() => setOpen(false)} />
-                <MenuItem icon={Briefcase} label="لوحة مدير المكتب"
-                  href="/firm-admin" onClick={() => setOpen(false)} />
+          {/* ── زر الخروج — مثبّت في الأسفل دائماً ── */}
+          <div className="border-t border-border p-2 pb-3 space-y-1 flex-shrink-0 bg-card rounded-b-2xl">
+            <button
+              onClick={handleSignOutAll}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors group text-right"
+            >
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-muted group-hover:bg-red-100 transition-colors">
+                <AlertTriangle className="h-4 w-4 text-muted-foreground group-hover:text-red-500 transition-colors" />
               </div>
-            </>
-          )}
-
-          {/* ── مدير المكتب فقط ── */}
-          {!isSuperAdmin && role === "admin" && (
-            <>
-              <Divider />
-              <div className="p-2 space-y-0.5">
-                <SectionLabel label="إدارة المكتب" />
-                <MenuItem icon={Briefcase} label="لوحة مدير المكتب" desc="الفريق والصلاحيات"
-                  href="/firm-admin" onClick={() => setOpen(false)} />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-foreground group-hover:text-red-600">تسجيل الخروج من جميع الأجهزة</div>
+                <div className="text-[11px] text-muted-foreground">إنهاء جميع الجلسات النشطة</div>
               </div>
-            </>
-          )}
-
-          <Divider />
-
-          {/* ── الدعم ── */}
-          <div className="p-2 space-y-0.5">
-            <SectionLabel label="الدعم" />
-            <MenuItem icon={BookOpen} label="مركز المساعدة" desc="الوثائق والأدلة"
-              onClick={() => { setOpen(false); window.open("https://docs.adalaai.com", "_blank"); }} />
-            <MenuItem icon={MessageCircle} label="تواصل مع الدعم الفني"
-              href="/messages" onClick={() => setOpen(false)} />
-          </div>
-
-          <Divider />
-
-          {/* ── تسجيل الخروج ── */}
-          <div className="p-2 pb-3 space-y-0.5">
-            <MenuItem icon={AlertTriangle} label="تسجيل الخروج من جميع الأجهزة"
-              desc="إنهاء جميع الجلسات النشطة" danger onClick={handleSignOutAll} />
+            </button>
             <button
               onClick={handleSignOut}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group
                 bg-red-50 hover:bg-red-100 border border-red-100 hover:border-red-200"
             >
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-100 group-hover:bg-red-200 transition-colors">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-100 group-hover:bg-red-200 transition-colors flex-shrink-0">
                 <LogOut className="h-4 w-4 text-red-500" />
               </div>
               <span className="flex-1 text-sm font-semibold text-red-500 group-hover:text-red-600 text-right">
