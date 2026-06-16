@@ -5,7 +5,7 @@ import {
   Server, Fingerprint, Wifi, Database, Shield, Smartphone,
   Gift, Percent, Bot, Radar, Globe, CreditCard, Banknote,
   FileBarChart2, Gavel, FileSignature, ShieldCheck as SecurityIcon,
-  Layout, Globe2, AlertOctagon, RotateCcw, ScanLine,
+  Layout, Globe2, AlertOctagon, RotateCcw, ScanLine, Palette,
 } from "lucide-react";
 
 export const PLAN_SLUG_COLORS: Record<string, string> = {
@@ -111,6 +111,7 @@ export const TABS = [
   { id: "engineering",    label: "مركز الهندسة",            icon: Cpu },
   { id: "pcc",            label: "مركز القيادة",            icon: Radar },
   { id: "agents",         label: "وكلاء AI",                icon: Bot },
+  { id: "design",         label: "لوحة التصميم",            icon: Palette },
 ];
 
 export const PERM_LABELS: Record<string, { label: string; color: string }> = {

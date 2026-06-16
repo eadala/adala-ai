@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 interface Branding { officeName?: string | null; logoUrl?: string | null; primaryColor?: string | null }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const GOLD = "#1a9c6e";
+const GOLD = "#1E3A8A";
 const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 function MenuItem({
