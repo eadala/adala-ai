@@ -447,13 +447,16 @@ export default function Tasks() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>المسؤول</Label>
-                <Select value={form.assigneeName} onValueChange={v => setForm(p => ({ ...p, assigneeName: v }))}>
+                <Select
+                  value={form.assigneeName || "__none__"}
+                  onValueChange={v => setForm(p => ({ ...p, assigneeName: v === "__none__" ? "" : v }))}
+                >
                   <SelectTrigger><SelectValue placeholder="اختر موظفاً" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">بدون تعيين</SelectItem>
-                    {employees.map((e: any) => (
+                    <SelectItem value="__none__">بدون تعيين</SelectItem>
+                    {(employees ?? []).map((e: any) => e?.fullName ? (
                       <SelectItem key={e.id} value={e.fullName}>{e.fullName}</SelectItem>
-                    ))}
+                    ) : null)}
                   </SelectContent>
                 </Select>
               </div>
