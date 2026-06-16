@@ -28,7 +28,8 @@ async function checkIsSuperAdmin(userId: string): Promise<boolean> {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const auth = getAuth(req);
+  let auth: ReturnType<typeof getAuth> | null = null;
+  try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
   const userId = auth?.userId;
   if (!userId) {
     return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
@@ -43,7 +44,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
  * (kernel pattern). All async work triggered by next() sees the same context.
  */
 export async function requireAuthWithTenant(req: Request, res: Response, next: NextFunction) {
-  const auth = getAuth(req);
+  let auth: ReturnType<typeof getAuth> | null = null;
+  try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
   const userId = auth?.userId;
   if (!userId) {
     return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });

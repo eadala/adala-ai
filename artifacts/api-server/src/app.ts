@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type ErrorRequestHandler } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import helmet from "helmet";
@@ -165,6 +165,25 @@ app.use(
     secretKey:      process.env.CLERK_SECRET_KEY,
   }),
 );
+
+// ─── Clerk JWT error guard ──────────────────────────────────────────────────
+// Clerk throws synchronously on malformed/tampered tokens before routes run.
+// Catch those errors and return 401 instead of crashing with 500.
+app.use(((err: any, _req, res, next) => {
+  const stack: string = err?.stack ?? "";
+  const isClerkAuthError =
+    err?.clerkError === true ||
+    err?.status === 401 || err?.statusCode === 401 ||
+    err?.name === "TokenExpiredError" ||
+    err?.name === "JsonWebTokenError" ||
+    (err?.name === "SyntaxError" && (stack.includes("@clerk") || stack.includes("decodeJwt") || stack.includes("verifyJwt"))) ||
+    err?.message?.includes("Invalid token") ||
+    err?.message?.includes("Unauthenticated");
+  if (isClerkAuthError) {
+    return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+  }
+  next(err);
+}) as ErrorRequestHandler);
 
 // ─── RLS Session Reset ─────────────────────────────────────────────────────
 // After each response, clear the tenant session variable.
