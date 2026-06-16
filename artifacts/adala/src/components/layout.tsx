@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUser, useClerk } from "@clerk/react";
 import { useLoginTracker } from "@/hooks/useLoginTracker";
+import { useIsSuperAdmin } from "@/hooks/use-role";
 import { FloatingCopilot } from "@/components/floating-copilot";
 import { CommandBar } from "@/components/command-bar";
 
@@ -395,11 +396,7 @@ export function Layout({ children }: { children: ReactNode }) {
     : t("systemAdmin");
   const initials = displayName.slice(0, 2);
 
-  const userEmail = user?.emailAddresses[0]?.emailAddress ?? "";
-  const ownerEmail = (import.meta.env.VITE_PLATFORM_OWNER_EMAIL ?? "").trim();
-  const isSuperAdmin =
-    (!!ownerEmail && userEmail === ownerEmail) ||
-    user?.publicMetadata?.role === "super_admin";
+  const isSuperAdmin = useIsSuperAdmin();
 
   useLoginTracker();
 

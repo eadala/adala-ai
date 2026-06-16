@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useUser, useClerk } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useIsSuperAdmin } from "@/hooks/use-role";
 import {
   User, Building2, RefreshCw, Shield, KeyRound, Smartphone,
   Settings, Bell, Globe2, BookOpen, MessageCircle,
@@ -83,6 +84,9 @@ export function AccountMenu() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // ─── All hooks must be called before any early return ───────────────────────
+  const isSuperAdmin = useIsSuperAdmin();
+
   // Close on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -107,8 +111,6 @@ export function AccountMenu() {
     viewer: "مراقب", super_admin: "مالك المنصة",
   };
   const userRole = roleLabel[role] ?? "عضو";
-  const isSuperAdmin = role === "super_admin" ||
-    email === (import.meta.env.VITE_PLATFORM_OWNER_EMAIL ?? "").trim();
 
   const handleSignOut = () => {
     setOpen(false);
