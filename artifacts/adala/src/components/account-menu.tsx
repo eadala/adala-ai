@@ -75,7 +75,7 @@ function Divider() {
 
 export function AccountMenu() {
   const { user, isLoaded } = useUser();
-  const { signOut, openUserProfile } = useClerk();
+  const { signOut } = useClerk();
   const [open, setOpen] = useState(false);
   const [officeOpen, setOfficeOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -149,7 +149,7 @@ export function AccountMenu() {
 
   const handleSignOutAll = () => {
     setOpen(false);
-    openUserProfile({ initialPage: "security" } as any);
+    setLocation(`${basePath}/my-profile`);
   };
 
   return (
@@ -258,11 +258,11 @@ export function AccountMenu() {
             <div className="p-2 space-y-0.5">
               <SectionLabel label="الحساب" />
               <MenuItem icon={User} label="الملف الشخصي" desc="عرض وتعديل بياناتك"
-                onClick={() => { setOpen(false); openUserProfile(); }} />
+                href="/my-profile" onClick={() => setOpen(false)} />
               <MenuItem icon={Shield} label="إعدادات الأمان" desc="كلمة المرور والتحقق الثنائي"
-                href="/office-settings" onClick={() => setOpen(false)} />
+                href="/my-profile" onClick={() => setOpen(false)} />
               <MenuItem icon={KeyRound} label="تغيير كلمة المرور"
-                onClick={() => { setOpen(false); openUserProfile({ initialPage: "security" } as any); }} />
+                href="/my-profile" onClick={() => setOpen(false)} />
               <MenuItem icon={Monitor} label="جلساتي وأجهزتي" desc="تتبع جميع عمليات الدخول"
                 href="/my-sessions" onClick={() => setOpen(false)} />
             </div>

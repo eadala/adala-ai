@@ -104,6 +104,7 @@ const SelfHealingPage      = lazy(() => import("@/pages/monitoring/self-healing"
 const AuditLogsPage        = lazy(() => import("@/pages/platform/audit-logs"));
 const LoginTrackingPage    = lazy(() => import("@/pages/platform/login-tracking"));
 const MySessionsPage       = lazy(() => import("@/pages/platform/my-sessions"));
+const MyProfilePage        = lazy(() => import("@/pages/my-profile"));
 const ActivityStreamPage   = lazy(() => import("@/pages/monitoring/activity-stream"));
 
 // Communication
@@ -588,6 +589,7 @@ function AppRoutes() {
             <Route path="/theme-builder"><ProtectedRoute><ThemeBuilderPage /></ProtectedRoute></Route>
             <Route path="/login-tracking"><ProtectedRoute><LoginTrackingPage /></ProtectedRoute></Route>
             <Route path="/my-sessions"><ProtectedRoute><MySessionsPage /></ProtectedRoute></Route>
+            <Route path="/my-profile"><ProtectedRoute><MyProfilePage /></ProtectedRoute></Route>
 
             {/* Communication */}
             <Route path="/messages"><ProtectedRoute><Messages /></ProtectedRoute></Route>
