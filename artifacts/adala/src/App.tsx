@@ -88,6 +88,7 @@ const StorageSettings      = lazy(() => import("@/pages/platform/storage-setting
 const AdalaBuildStudio     = lazy(() => import("@/pages/platform/studio"));
 const ThemeBuilderPage     = lazy(() => import("@/pages/platform/theme-builder"));
 const EngineeringCenter    = lazy(() => import("@/pages/platform/engineering-center"));
+const AICommandCenter      = lazy(() => import("@/pages/platform/ai-command-center"));
 const MonitoringPage       = lazy(() => import("@/pages/monitoring/monitoring"));
 const PreventionPage       = lazy(() => import("@/pages/monitoring/prevention"));
 const AlertsPage           = lazy(() => import("@/pages/monitoring/alerts"));
@@ -541,6 +542,7 @@ function AppRoutes() {
             <Route path="/financial-core"><AdminRoute><FinancialCore /></AdminRoute></Route>
             <Route path="/audit-logs"><AdminRoute><AuditLogsPage /></AdminRoute></Route>
             <Route path="/engineering-center"><AdminRoute><EngineeringCenter /></AdminRoute></Route>
+            <Route path="/ai-command-center"><AdminRoute><AICommandCenter /></AdminRoute></Route>
             <Route path="/monitoring"><AdminRoute><MonitoringPage /></AdminRoute></Route>
             <Route path="/prevention"><AdminRoute><PreventionPage /></AdminRoute></Route>
             <Route path="/alerts"><AdminRoute><AlertsPage /></AdminRoute></Route>
