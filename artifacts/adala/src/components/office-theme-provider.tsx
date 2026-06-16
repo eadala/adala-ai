@@ -133,7 +133,7 @@ function applyDesignTokens(tokens: any) {
 
   /* ── Typography ── */
   if (t.fontFamily) {
-    const stack = `'${t.fontFamily}', 'Cairo', sans-serif`;
+    const stack = `'${t.fontFamily}', 'IBM Plex Sans Arabic', 'Cairo', sans-serif`;
     set("--font-sans", stack);
     document.body.style.fontFamily = stack;
   }
