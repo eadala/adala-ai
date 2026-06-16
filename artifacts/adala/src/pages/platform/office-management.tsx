@@ -11,7 +11,7 @@ import {
   Handshake, TrendingUp, ArrowUpRight,
   Crown, Zap, AlertCircle, RefreshCw,
   Palette, LayoutDashboard, QrCode, Sparkles, ToggleRight,
-  MessageCircle, Send
+  MessageCircle, Send, LogIn
 } from "lucide-react";
 import { getPlanFeatures, canUseFeature, generateSubdomain, PLAN_FEATURES } from "@/lib/plan-features";
 import { Button } from "@/components/ui/button";
@@ -376,10 +376,10 @@ export default function OfficeManagement() {
                 </div>
               </div>
 
-              {/* Store link specifically */}
+              {/* Store link */}
               <div className="flex items-center gap-2 p-3 rounded-xl border border-border/30 bg-muted/20 text-xs text-muted-foreground">
                 <ShoppingBag className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span>رابط المتجر المباشر:</span>
+                <span>رابط المتجر:</span>
                 <a href={`/firms/${office.slug}/store`} target="_blank" rel="noreferrer" className="font-mono text-primary hover:underline flex-1 dir-ltr text-left">
                   adalah.sa/firms/{office.slug}/store
                 </a>
@@ -387,6 +387,24 @@ export default function OfficeManagement() {
                   onClick={() => navigator.clipboard.writeText(window.location.origin + `/firms/${office.slug}/store`)}>
                   <Copy className="h-3 w-3" />
                 </Button>
+              </div>
+
+              {/* Login portal link */}
+              <div className="flex items-center gap-2 p-3 rounded-xl border border-border/30 bg-muted/20 text-xs text-muted-foreground">
+                <LogIn className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                <span className="text-foreground font-medium">رابط الدخول الخاص بمكتبك:</span>
+                <a href={`/firms/${office.slug}/login`} target="_blank" rel="noreferrer" className="font-mono text-emerald-600 hover:underline flex-1 dir-ltr text-left">
+                  adalah.sa/firms/{office.slug}/login
+                </a>
+                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" title="نسخ رابط الدخول"
+                  onClick={() => { navigator.clipboard.writeText(window.location.origin + `/firms/${office.slug}/login`); toast({ title: "تم نسخ رابط الدخول ✅" }); }}>
+                  <Copy className="h-3 w-3" />
+                </Button>
+                <a href={`/firms/${office.slug}/login`} target="_blank" rel="noreferrer">
+                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" title="فتح بوابة الدخول">
+                    <ExternalLink className="h-3 w-3 text-emerald-500" />
+                  </Button>
+                </a>
               </div>
             </CardContent>
           </Card>
