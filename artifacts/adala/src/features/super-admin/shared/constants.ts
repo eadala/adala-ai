@@ -110,6 +110,7 @@ export const TABS = [
   { id: "engineering",    label: "مركز الهندسة",            icon: Cpu },
   { id: "pcc",            label: "مركز القيادة",            icon: Radar },
   { id: "agents",         label: "وكلاء AI",                icon: Bot },
+  { id: "landing-design",  label: "تصميم الصفحة الرئيسية",   icon: Layout },
   { id: "design",         label: "لوحة التصميم",            icon: Palette },
   { id: "infrastructure", label: "البنية التحتية",           icon: Server },
   { id: "data-vault",     label: "مخزن البيانات الآمن",      icon: ShieldCheck },

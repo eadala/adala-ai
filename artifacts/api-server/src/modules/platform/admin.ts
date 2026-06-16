@@ -1211,4 +1211,38 @@ router.post("/admin/trials/:subId/cancel", adminOnly, async (req, res) => {
   }
 });
 
+/* ══════════════════════════════════════════════════════
+   LANDING PAGE VARIANT
+══════════════════════════════════════════════════════ */
+router.get("/admin/landing-variant", adminOnly, async (_req, res) => {
+  try {
+    const r = await db.execute(sql`SELECT value FROM platform_settings WHERE key = 'landing_variant' LIMIT 1`) as any;
+    const rows = Array.isArray(r) ? r : (r?.rows ?? []);
+    res.json({ variant: rows[0]?.value ?? "original" });
+  } catch { res.json({ variant: "original" }); }
+});
+
+router.put("/admin/landing-variant", adminOnly, async (req, res) => {
+  try {
+    const { variant } = req.body as { variant: string };
+    if (!["original","bento","stripe","hubspot"].includes(variant))
+      return res.status(400).json({ error: "variant غير صالح" });
+    await db.execute(sql`
+      INSERT INTO platform_settings (key, value, updated_at)
+      VALUES ('landing_variant', ${variant}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = ${variant}, updated_at = NOW()
+    `);
+    res.json({ ok: true, variant });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* Public — used by landing.tsx */
+router.get("/landing-variant", async (_req, res) => {
+  try {
+    const r = await db.execute(sql`SELECT value FROM platform_settings WHERE key = 'landing_variant' LIMIT 1`) as any;
+    const rows = Array.isArray(r) ? r : (r?.rows ?? []);
+    res.json({ variant: rows[0]?.value ?? "original" });
+  } catch { res.json({ variant: "original" }); }
+});
+
 export default router;
