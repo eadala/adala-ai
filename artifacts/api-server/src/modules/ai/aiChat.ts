@@ -313,8 +313,9 @@ router.post("/ai-chat/message", requireAuth, async (req, res) => {
   let context = "";
   if (caseId) {
     try {
-      const userId = (req as any).userId;
-      const caseRows = await db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} AND (created_by = ${userId} OR office_id IS NOT NULL) LIMIT 1`) as any;
+      const tenantId = (req as any).tenantId as string;
+      if (!tenantId) throw new Error("no tenant");
+      const caseRows = await db.execute(sql`SELECT id, title, case_type, status FROM cases WHERE id = ${caseId} AND office_id = ${tenantId} LIMIT 1`) as any;
       const caseArr = Array.isArray(caseRows) ? caseRows : (caseRows?.rows ?? []);
       if (caseArr.length > 0) {
         const c = caseArr[0];
@@ -332,9 +333,10 @@ router.post("/ai-chat/message", requireAuth, async (req, res) => {
 router.post("/ai-tasks/:id/process", requireAuth, async (req, res) => {
   const id = parseInt(String(req.params.id));
   if (isNaN(id)) return res.status(400).json({ error: "معرف غير صالح" });
+  const tenantId = (req as any).tenantId as string | undefined;
 
   try {
-    const taskRows = await db.execute(sql`SELECT * FROM ai_tasks WHERE id = ${id} LIMIT 1`) as any;
+    const taskRows = await db.execute(sql`SELECT * FROM ai_tasks WHERE id = ${id} AND (office_id IS NULL OR office_id = ${tenantId ?? ''}) LIMIT 1`) as any;
     const taskArr = Array.isArray(taskRows) ? taskRows : (taskRows?.rows ?? []);
     if (!taskArr.length) return res.status(404).json({ error: "المهمة غير موجودة" });
     const t = taskArr[0];
