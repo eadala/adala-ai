@@ -360,7 +360,7 @@ function TrialBanner() {
   if (!isTrial) return null;
   const urgent = (trialDaysLeft ?? 30) <= 7;
   return (
-    <div className={`flex items-center justify-between gap-2 px-4 py-2 text-xs font-medium z-50 shrink-0 ${urgent ? "bg-amber-50 border-b border-amber-200 text-amber-700" : "bg-blue-50 border-b border-blue-100 text-blue-700"}`}>
+    <div className={`flex items-center justify-between gap-2 px-4 py-2 text-xs font-medium z-50 shrink-0 ${urgent ? "bg-amber-50 border-b border-amber-200 text-amber-700" : "bg-emerald-50 border-b border-emerald-100 text-emerald-700"}`}>
       <div className="flex items-center gap-2">
         <span className="text-base">🎁</span>
         <span>
@@ -372,7 +372,7 @@ function TrialBanner() {
           )}
         </span>
       </div>
-      <a href="/billing" className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${urgent ? "border-amber-300 text-amber-700 hover:bg-amber-100" : "border-blue-200 text-blue-700 hover:bg-blue-100"}`}>
+      <a href="/billing" className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${urgent ? "border-amber-300 text-amber-700 hover:bg-amber-100" : "border-emerald-200 text-emerald-700 hover:bg-emerald-100"}`}>
         اشترك الآن
       </a>
     </div>
