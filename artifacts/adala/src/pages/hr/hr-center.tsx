@@ -138,7 +138,7 @@ function EvalDialog({ open, onClose, employees }: { open: boolean; onClose: () =
             <Label className="text-xs font-semibold">الموظف *</Label>
             <Select value={form.employeeId} onValueChange={v => updStr("employeeId", v)}>
               <SelectTrigger><SelectValue placeholder="اختر..." /></SelectTrigger>
-              <SelectContent>{employees.map(e => <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>)}</SelectContent>
+              <SelectContent>{employees.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.full_name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
@@ -333,7 +333,7 @@ function IncentiveDialog({ open, onClose, employees }: { open: boolean; onClose:
             <Label className="text-xs font-semibold">الموظف *</Label>
             <Select value={form.employeeId} onValueChange={v => upd("employeeId", v)}>
               <SelectTrigger><SelectValue placeholder="اختر..." /></SelectTrigger>
-              <SelectContent>{employees.map(e => <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>)}</SelectContent>
+              <SelectContent>{employees.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.full_name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-1">

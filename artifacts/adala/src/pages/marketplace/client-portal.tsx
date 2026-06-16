@@ -408,7 +408,7 @@ function CreateClientAccountDialog({ cases, onCreated }: { cases: Case[]; onCrea
                   <SelectContent dir="rtl">
                     <SelectItem value="__none__">بدون ربط بقضية</SelectItem>
                     {cases.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.title} — {c.clientName}</SelectItem>
+                      <SelectItem key={c.id} value={String(c.id)}>{c.title} — {c.clientName}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

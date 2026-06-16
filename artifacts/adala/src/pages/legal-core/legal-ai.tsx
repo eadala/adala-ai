@@ -361,7 +361,7 @@ export default function LegalAIPage() {
                         <SelectContent>
                           <SelectItem value="__none__">— بدون ربط —</SelectItem>
                           {(casesList as any[]).map((c: any) => (
-                            <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                            <SelectItem key={c.id} value={String(c.id)}>{c.title}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -375,7 +375,7 @@ export default function LegalAIPage() {
                         <SelectContent>
                           <SelectItem value="__none__">— بدون ربط —</SelectItem>
                           {(clientsList as any[]).map((c: any) => (
-                            <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                            <SelectItem key={c.id} value={String(c.id)}>{c.full_name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

@@ -419,7 +419,7 @@ function AddServiceDialog({ onCreated }: { onCreated: () => void }) {
                   <SelectTrigger className="h-9 text-sm" dir="rtl"><SelectValue /></SelectTrigger>
                   <SelectContent dir="rtl">
                     {CATEGORIES.filter(c => c.id !== "all").map(c => (
-                      <SelectItem key={c.id} value={c.id} className="text-sm">{c.label}</SelectItem>
+                      <SelectItem key={c.id} value={String(c.id)} className="text-sm">{c.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
