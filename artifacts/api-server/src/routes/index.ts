@@ -118,6 +118,7 @@ import storageRouter          from "../modules/operations/storage";
 import hrRouter               from "../modules/operations/hr";
 import hrPerformanceRouter    from "../modules/operations/hrPerformance";
 import hrInternalRouter       from "../modules/operations/hrInternal";
+import hrEnterpriseRouter     from "../modules/operations/hr-enterprise";
 
 // ─────────────────────────────────────────────────────────────────────────────
 const router: IRouter = Router();
@@ -252,5 +253,6 @@ router.use(storageRouter);
 router.use(hrRouter);
 router.use(hrPerformanceRouter);
 router.use(hrInternalRouter);
+router.use(hrEnterpriseRouter);
 
 export default router;
