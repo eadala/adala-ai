@@ -37,6 +37,7 @@ router.get("/events/stream", requireAuth, (req: Request, res: Response) => {
 router.get("/events/recent", requireAuth, async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
+    if (!tenantId) { res.json({ events: [], total: 0 }); return; }
     const limit  = Math.min(parseInt(String(req.query.limit  ?? 50)), 200);
     const type   = req.query.type   as string | undefined;
 
@@ -66,6 +67,7 @@ router.get("/events/recent", requireAuth, async (req: Request, res: Response) =>
 router.get("/events/stats", requireAuth, async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
+    if (!tenantId) { res.json({ total30d: 0, byType: [], byDay: [], liveClients: 0 }); return; }
     const [totals, byType, byDay] = await Promise.all([
       db.execute(sql`
         SELECT COUNT(*) as total FROM system_events WHERE created_at > NOW() - INTERVAL '30 days' AND office_id=${tenantId}

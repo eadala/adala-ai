@@ -6,8 +6,8 @@ import { sql } from "drizzle-orm";
 const router = Router();
 
 async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS hr_announcements (
+  const tables = [
+    sql`CREATE TABLE IF NOT EXISTS hr_announcements (
       id          SERIAL PRIMARY KEY,
       title       TEXT NOT NULL,
       content     TEXT NOT NULL,
@@ -17,10 +17,8 @@ async function ensureTables() {
       author_id   TEXT,
       expires_at  DATE,
       created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS employee_requests (
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS employee_requests (
       id           SERIAL PRIMARY KEY,
       employee_id  TEXT NOT NULL,
       type         TEXT NOT NULL DEFAULT 'document',
@@ -31,10 +29,8 @@ async function ensureTables() {
       resolved_by  TEXT,
       resolved_at  TIMESTAMPTZ,
       created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS leave_balances (
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS leave_balances (
       id          SERIAL PRIMARY KEY,
       employee_id TEXT NOT NULL,
       leave_type  TEXT NOT NULL DEFAULT 'annual',
@@ -42,8 +38,11 @@ async function ensureTables() {
       quota       INTEGER NOT NULL DEFAULT 21,
       used        INTEGER NOT NULL DEFAULT 0,
       UNIQUE(employee_id, leave_type, year)
-    )
-  `);
+    )`,
+  ];
+  for (const q of tables) {
+    try { await db.execute(q); } catch { /* table already exists — ignore */ }
+  }
 }
 
 async function sqlAll(q: any): Promise<any[]> {
