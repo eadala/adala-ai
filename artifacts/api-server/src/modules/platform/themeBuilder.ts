@@ -7,25 +7,25 @@ import { getAuth } from "@clerk/express";
 const router = Router();
 
 /* ═══════════════════════════════════════════════════
-   DEFAULT TOKENS  (dark navy — platform default)
+   DEFAULT TOKENS  (Legal Blue — Adala Design System)
 ═══════════════════════════════════════════════════ */
 export const DEFAULT_TOKENS = {
   colors: {
-    primary:    "#1A2744",
-    accent:     "#C9A84C",
-    background: "#0D1526",
-    surface:    "#1E2D4A",
-    sidebar:    "#0F1C35",
-    text:       "#E8EAF0",
-    textMuted:  "#8899AA",
-    border:     "#2A3A58",
-    success:    "#10B981",
+    primary:    "#FFFFFF",
+    accent:     "#1E3A8A",
+    background: "#F8FAFC",
+    surface:    "#FFFFFF",
+    sidebar:    "#FFFFFF",
+    text:       "#1E293B",
+    textMuted:  "#64748B",
+    border:     "#E2E8F0",
+    success:    "#16A34A",
     warning:    "#F59E0B",
-    danger:     "#EF4444",
+    danger:     "#DC2626",
   },
   typography: {
-    fontFamily:    "Cairo",
-    headingFont:   "Cairo",
+    fontFamily:    "IBM Plex Sans Arabic",
+    headingFont:   "IBM Plex Sans Arabic",
     baseSize:      "14",
     headingWeight: "700",
     bodyWeight:    "400",
@@ -33,8 +33,8 @@ export const DEFAULT_TOKENS = {
   radius:  { card: "12", button: "8",  input: "8",  badge: "6"  },
   spacing: { sm:  "8",   md:     "16", lg:    "24", xl:   "32" },
   shadows: {
-    card:   "0 4px 24px rgba(0,0,0,0.3)",
-    button: "0 2px 8px rgba(201,168,76,0.25)",
+    card:   "0 2px 12px rgba(0,0,0,0.06)",
+    button: "0 2px 6px rgba(30,58,138,0.2)",
   },
   scope: "both" as const,
 };
