@@ -672,7 +672,7 @@ export default function OfficePage() {
               {loginMenu && (
                 <div className="absolute top-10 left-0 z-50 bg-white rounded-xl shadow-xl border border-slate-100 p-1 min-w-[180px] animate-in slide-in-from-top-1 fade-in-0 duration-150">
                   <a
-                    href={`${BASE_URL}/sign-in`}
+                    href={`/firms/${slug}/login`}
                     onClick={() => setLoginMenu(false)}
                     className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors group"
                   >
@@ -685,7 +685,7 @@ export default function OfficePage() {
                     </div>
                   </a>
                   <a
-                    href={`${BASE_URL}/portal/login?office=${slug}`}
+                    href={`/firms/${slug}/login`}
                     onClick={() => setLoginMenu(false)}
                     className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors group"
                   >
@@ -762,13 +762,13 @@ export default function OfficePage() {
                 </button>
               </a>
               <div className="flex-1 space-y-1">
-                <a href={`${BASE_URL}/sign-in`} className="block">
+                <a href={`/firms/${slug}/login`} className="block">
                   <button className="w-full flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-lg font-bold border border-slate-200 bg-white text-slate-700">
                     <UserCheck className="h-3 w-3" />
                     {lang === "ar" ? "دخول الموظفين" : "Staff"}
                   </button>
                 </a>
-                <a href={`${BASE_URL}/portal/login?office=${slug}`} className="block">
+                <a href={`/firms/${slug}/login`} className="block">
                   <button className="w-full flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-lg font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <Users className="h-3 w-3" />
                     {lang === "ar" ? "بوابة العملاء" : "Clients"}

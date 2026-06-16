@@ -1,0 +1,222 @@
+ADALA AI — CRITICAL STABILIZATION & RECOVERY DIRECTIVE
+
+You are the Lead Software Architect and Principal Engineer responsible for stabilizing the entire Adala AI platform before any new feature development.
+
+Priority
+
+STOP adding new features.
+
+DO NOT build anything new until the platform is stable.
+
+Your mission is to find and fix all existing issues preventing reliable operation.
+
+⸻
+
+PHASE 1 — FULL SYSTEM AUDIT
+
+Perform a complete audit of:
+
+* Frontend
+* Backend
+* Database
+* Authentication
+* Routing
+* Permissions
+* API integrations
+* Mobile responsiveness
+* Analytics
+* Case Management
+* Task Management
+* Client Management
+
+Generate a report containing:
+
+* Issue
+* Root Cause
+* Severity
+* Proposed Fix
+
+⸻
+
+PHASE 2 — CRITICAL FUNCTIONAL REPAIR
+
+Investigate and repair:
+
+Case Management
+
+Users report:
+
+* Unable to open case details
+* Case hub fails to load
+* Clicking cases sometimes does nothing
+* Related pages return errors
+
+Tasks:
+
+* Trace routing
+* Verify API responses
+* Verify database queries
+* Verify tenant filtering
+* Verify permissions
+
+Repair all issues.
+
+⸻
+
+Navigation System
+
+Users report:
+
+* Clicking menu items leads to errors
+* Some pages fail to load
+* Broken navigation behavior
+
+Tasks:
+
+* Scan all routes
+* Detect missing routes
+* Detect incorrect route definitions
+* Detect frontend/backend mismatches
+
+Repair all broken routes.
+
+⸻
+
+White Screen Investigation
+
+Users report:
+
+* White screen on some pages
+* Blank rendering after login
+
+Tasks:
+
+* Detect React rendering failures
+* Detect runtime exceptions
+* Detect Clerk initialization issues
+* Detect loading state deadlocks
+
+Repair all rendering failures.
+
+⸻
+
+Mobile Optimization
+
+Users report:
+
+* Some pages render as desktop only
+* Layout issues on phones
+* Large containers with small text
+
+Tasks:
+
+* Audit every page
+* Implement mobile-first responsive design
+* Repair overflow issues
+* Repair viewport issues
+* Repair responsive grids
+
+All pages must function correctly on mobile devices.
+
+⸻
+
+PHASE 3 — PERMISSION & RBAC VALIDATION
+
+Verify:
+
+* Super Admin permissions
+* Firm Admin permissions
+* Manager permissions
+* Lawyer permissions
+* Staff permissions
+
+Tasks:
+
+* Detect hidden pages caused by permission errors
+* Detect incorrect permission checks
+* Detect missing role mappings
+
+Repair all access control problems.
+
+⸻
+
+PHASE 4 — DATA & ANALYTICS VALIDATION
+
+Verify:
+
+* Dashboard statistics
+* Analytics calculations
+* Case counters
+* Financial summaries
+* Client metrics
+
+Tasks:
+
+* Detect incorrect calculations
+* Detect stale queries
+* Detect missing tenant filters
+
+Repair all statistics.
+
+⸻
+
+PHASE 5 — PERFORMANCE OPTIMIZATION
+
+Target:
+
+* Dashboard load < 1 second
+* API response < 300ms
+* Mobile rendering smooth
+* No unnecessary rerenders
+
+Tasks:
+
+* Remove dead code
+* Optimize database queries
+* Add missing indexes
+* Fix N+1 queries
+
+⸻
+
+PHASE 6 — AUDIT LOG COVERAGE
+
+Verify all sensitive operations are logged:
+
+* Case creation
+* Case updates
+* Client creation
+* Billing actions
+* Permission changes
+* AI actions
+
+Store:
+
+* user_id
+* office_id
+* timestamp
+* IP
+* user_agent
+* action
+
+⸻
+
+PHASE 7 — FINAL VALIDATION
+
+After repairs:
+
+1. Test all routes.
+2. Test all menus.
+3. Test all dashboards.
+4. Test all mobile views.
+5. Test all permissions.
+6. Test all APIs.
+7. Test all analytics.
+
+Generate a final report:
+
+* Issues found
+* Issues fixed
+* Remaining risks
+* Production readiness score
+
+Do not stop until the platform is fully operational and stable.
