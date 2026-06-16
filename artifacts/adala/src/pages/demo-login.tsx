@@ -55,10 +55,10 @@ export default function DemoLoginPage() {
   const office = OFFICES.find(o => o.id === selectedOffice);
 
   function handleLogin() {
-    if (!selectedOffice) return;
+    if (!selectedOffice || selectedUser === null) return;
     setLoading(true);
     setTimeout(() => {
-      nav(`${BASE}/demo`);
+      nav(`${BASE}/live-demo?office=${selectedOffice}&user=${selectedUser}`);
     }, 1200);
   }
 
