@@ -1,4 +1,3 @@
-import { requireAuth } from "../../middlewares/requireAuth";
 /**
  * Office-facing Support Ticket routes
  * Offices can create, view, and reply to their own tickets.
@@ -10,10 +9,44 @@ import { supportTicketsTable, supportMessagesTable } from "@workspace/db/schema"
 import { eq, desc, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
+import { requireAuth } from "../../middlewares/requireAuth";
 
 const router = Router();
 
-
+/* ── Ensure tables exist at module load ──────────────── */
+(async () => {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS support_tickets (
+        id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        subject     TEXT NOT NULL,
+        body        TEXT NOT NULL,
+        status      TEXT NOT NULL DEFAULT 'open',
+        priority    TEXT NOT NULL DEFAULT 'medium',
+        category    TEXT NOT NULL DEFAULT 'technical',
+        user_id     TEXT,
+        user_email  TEXT NOT NULL DEFAULT '',
+        user_name   TEXT NOT NULL DEFAULT 'مستخدم',
+        office_name TEXT,
+        assigned_to TEXT,
+        response    TEXT,
+        resolved_at TIMESTAMPTZ,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS support_messages (
+        id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        ticket_id    TEXT NOT NULL,
+        sender_type  TEXT NOT NULL DEFAULT 'office',
+        sender_name  TEXT NOT NULL,
+        message      TEXT NOT NULL,
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+  } catch { /* already exists */ }
+})();
 
 async function safeRows(q: any): Promise<any[]> {
   try {

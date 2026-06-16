@@ -1,70 +1,61 @@
 /**
- * مركز الدعم الفني الذكي — AI Support Agent
- * ─────────────────────────────────────────────────────────────────
- * - قائمة التذاكر + تفاصيل المحادثة
- * - لوحة تحليل AI (نوع / سبب جذري / اقتراحات / ثقة)
- * - مقاييس أداء AI
- * - قاعدة المعرفة
+ * مركز الدعم الفني — Support Center
+ * تذاكر دعم متخصصة ترسل لفريق إدارة المنصة
  */
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   HeadphonesIcon, Plus, Loader2, Send, Clock, CheckCircle2,
-  AlertCircle, XCircle, ChevronRight, MessageSquare, LifeBuoy,
-  Bot, Brain, Shield, Bug, CreditCard, Zap, Star, RefreshCw,
-  BookOpen, BarChart3, TrendingUp,
+  AlertCircle, XCircle, ChevronLeft, LifeBuoy, Bot,
+  Shield, Bug, CreditCard, Zap, Star, RefreshCw, MessageSquare,
+  Ticket, ArrowUpRight, Inbox, User2, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-const PRIORITY: Record<string, { label: string; color: string; dot: string }> = {
-  low:     { label: "منخفض",  color: "bg-gray-500/10 text-gray-400",    dot: "bg-gray-400" },
-  medium:  { label: "متوسط",  color: "bg-yellow-500/10 text-yellow-400", dot: "bg-yellow-400" },
-  high:    { label: "عالٍ",   color: "bg-orange-500/10 text-orange-400", dot: "bg-orange-400" },
-  urgent:  { label: "عاجل",   color: "bg-red-500/10 text-red-400",       dot: "bg-red-500" },
-  critical:{ label: "حرج",    color: "bg-red-700/20 text-red-500",       dot: "bg-red-600" },
+/* ── Constants ─────────────────────────────────────────────── */
+const PRIORITY: Record<string, { label: string; bg: string; text: string; ring: string }> = {
+  low:      { label: "منخفض",  bg: "bg-slate-100 dark:bg-slate-800",   text: "text-slate-600 dark:text-slate-300",   ring: "ring-slate-300" },
+  medium:   { label: "متوسط",  bg: "bg-amber-50 dark:bg-amber-950/40",  text: "text-amber-700 dark:text-amber-300",   ring: "ring-amber-300" },
+  high:     { label: "عالٍ",   bg: "bg-orange-50 dark:bg-orange-950/30",text: "text-orange-700 dark:text-orange-300", ring: "ring-orange-300" },
+  urgent:   { label: "عاجل",   bg: "bg-red-50 dark:bg-red-950/30",      text: "text-red-700 dark:text-red-300",       ring: "ring-red-400" },
+  critical: { label: "حرج",    bg: "bg-red-100 dark:bg-red-900/40",     text: "text-red-800 dark:text-red-200",       ring: "ring-red-600" },
 };
 
-const STATUS: Record<string, { label: string; color: string; icon: any }> = {
-  open:        { label: "مفتوح",         color: "bg-blue-500/10 text-blue-400",       icon: AlertCircle },
-  in_progress: { label: "قيد المعالجة", color: "bg-amber-500/10 text-amber-400",     icon: Clock },
-  resolved:    { label: "محلول",         color: "bg-emerald-500/10 text-emerald-400", icon: CheckCircle2 },
-  closed:      { label: "مغلق",          color: "bg-muted text-muted-foreground",     icon: XCircle },
-};
-
-const AI_TYPES: Record<string, { label: string; icon: any; color: string }> = {
-  security:    { label: "أمني",       icon: Shield,        color: "text-red-500" },
-  bug:         { label: "خلل تقني",  icon: Bug,           color: "text-orange-500" },
-  billing:     { label: "مالي",       icon: CreditCard,    color: "text-blue-500" },
-  performance: { label: "أداء",       icon: Zap,           color: "text-yellow-500" },
-  feature:     { label: "طلب ميزة",  icon: Star,          color: "text-purple-500" },
-  general:     { label: "عام",        icon: MessageSquare, color: "text-gray-400" },
+const STATUS: Record<string, { label: string; color: string; icon: any; dot: string }> = {
+  open:        { label: "مفتوح",        color: "bg-blue-500/15 text-blue-600 dark:text-blue-400",    icon: AlertCircle,   dot: "bg-blue-500" },
+  in_progress: { label: "قيد المعالجة",color: "bg-amber-500/15 text-amber-600 dark:text-amber-400", icon: Clock,         dot: "bg-amber-500" },
+  resolved:    { label: "محلول",        color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", icon: CheckCircle2, dot: "bg-emerald-500" },
+  closed:      { label: "مغلق",         color: "bg-slate-100 text-slate-500 dark:bg-slate-800",      icon: XCircle,       dot: "bg-slate-400" },
 };
 
 const CATEGORIES = [
-  { value: "technical", label: "دعم تقني" },
-  { value: "billing",   label: "فواتير ومدفوعات" },
-  { value: "account",   label: "إدارة الحساب" },
-  { value: "feature",   label: "طلب ميزة" },
-  { value: "bug",       label: "الإبلاغ عن خلل" },
-  { value: "other",     label: "أخرى" },
+  { value: "technical",    label: "دعم تقني",          icon: Zap,         color: "text-blue-500",    desc: "مشاكل تقنية وأخطاء في النظام" },
+  { value: "billing",      label: "فواتير ومدفوعات",   icon: CreditCard,  color: "text-green-500",   desc: "أسئلة عن الاشتراكات والدفع" },
+  { value: "account",      label: "إدارة الحساب",      icon: User2,       color: "text-violet-500",  desc: "صلاحيات وإعدادات الحساب" },
+  { value: "feature",      label: "طلب ميزة جديدة",   icon: Star,        color: "text-amber-500",   desc: "اقتراح تحسين أو ميزة" },
+  { value: "bug",          label: "الإبلاغ عن خلل",   icon: Bug,         color: "text-red-500",     desc: "خطأ أو سلوك غير متوقع" },
+  { value: "security",     label: "مخاوف أمنية",       icon: Shield,      color: "text-rose-600",    desc: "ثغرات أو مشاكل أمنية" },
+  { value: "performance",  label: "مشكلة أداء",        icon: Zap,         color: "text-orange-500",  desc: "بطء أو استهلاك موارد" },
+  { value: "other",        label: "أخرى",              icon: MessageSquare, color: "text-slate-500", desc: "استفسار عام" },
 ];
 
-async function apiCall(path: string, opts?: RequestInit) {
+async function api(path: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}/api${path}`, {
     headers: { "Content-Type": "application/json" },
     ...opts,
@@ -73,587 +64,588 @@ async function apiCall(path: string, opts?: RequestInit) {
   return res.json();
 }
 
-/* ─── AI Analysis Panel ───────────────────────────────────────────────────── */
-function AIAnalysisPanel({ ticketId }: { ticketId: string }) {
-  const qc = useQueryClient();
-  const { toast } = useToast();
+function ticketNumber(id: string) {
+  return "#" + id.replace(/-/g, "").slice(0, 8).toUpperCase();
+}
 
-  const { data: analysis, isLoading } = useQuery<any>({
-    queryKey: ["ticket-ai", ticketId],
-    queryFn: () => apiCall(`/support/tickets/${ticketId}/ai-analysis`),
-    refetchInterval: (query) => (!query.state.data ? 5000 : false),
-    staleTime: 30_000,
-  });
-
-  const reAnalyze = useMutation({
-    mutationFn: () => apiCall(`/support/tickets/${ticketId}/ai-analyze`, { method: "POST" }),
-    onSuccess: () => {
-      toast({ title: "🤖 AI يعيد التحليل..." });
-      setTimeout(() => qc.invalidateQueries({ queryKey: ["ticket-ai", ticketId] }), 5000);
-    },
-  });
-
-  if (isLoading) {
-    return (
-      <div className="p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          <span>وكيل الدعم الذكي يحلل التذكرة...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!analysis) {
-    return (
-      <div className="p-3 rounded-xl border border-dashed bg-muted/20">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <Bot className="h-3.5 w-3.5" /> لم يتم التحليل بعد
-          </span>
-          <Button size="sm" variant="outline" className="h-6 text-xs"
-            onClick={() => reAnalyze.mutate()} disabled={reAnalyze.isPending}>
-            {reAnalyze.isPending ? <Loader2 className="h-3 w-3 animate-spin ml-1" /> : <Brain className="h-3 w-3 ml-1" />}
-            تحليل AI
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const typeInfo = AI_TYPES[analysis.ai_type] ?? AI_TYPES.general;
-  const TypeIcon = typeInfo.icon;
-  const confidence = Math.round((analysis.ai_confidence ?? 0) * 100);
-  const suggestions: string[] = analysis.ai_suggestions ?? [];
-
+/* ── Empty state ────────────────────────────────────────────── */
+function EmptyTickets({ onNew }: { onNew: () => void }) {
   return (
-    <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-blue-500/5 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-primary" />
-          <span className="text-sm font-bold text-primary">تحليل وكيل الدعم الذكي</span>
-        </div>
-        <Button size="sm" variant="ghost" className="h-6 w-6 p-0"
-          onClick={() => reAnalyze.mutate()} disabled={reAnalyze.isPending}>
-          <RefreshCw className={cn("h-3.5 w-3.5", reAnalyze.isPending && "animate-spin")} />
-        </Button>
+    <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+      <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+        <Ticket className="h-10 w-10 text-primary opacity-60" />
       </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Badge className={cn("text-xs gap-1", typeInfo.color, "bg-current/10 border-current/20")}>
-          <TypeIcon className="h-3 w-3" />
-          {typeInfo.label}
-        </Badge>
-        <Badge className={cn("text-xs", (PRIORITY[analysis.ai_priority] ?? PRIORITY.low).color)}>
-          أولوية: {(PRIORITY[analysis.ai_priority] ?? PRIORITY.low).label}
-        </Badge>
-        {analysis.soc_alerted && (
-          <Badge variant="destructive" className="text-xs gap-1">
-            <Shield className="h-3 w-3" /> SOC Alert
-          </Badge>
-        )}
-      </div>
-
-      <div className="space-y-1">
-        <div className="flex justify-between text-xs">
-          <span className="text-muted-foreground">مستوى الثقة</span>
-          <span className={cn("font-bold",
-            confidence >= 80 ? "text-green-500" : confidence >= 60 ? "text-amber-500" : "text-red-400")}>
-            {confidence}%
-          </span>
-        </div>
-        <Progress value={confidence} className="h-1.5" />
-      </div>
-
-      {analysis.ai_root_cause && (
-        <div className="bg-background/60 rounded-lg p-3">
-          <p className="text-xs font-semibold text-muted-foreground mb-1">السبب الجذري المحتمل</p>
-          <p className="text-sm leading-relaxed">{analysis.ai_root_cause}</p>
-        </div>
-      )}
-
-      {analysis.ai_summary && (
-        <p className="text-xs text-muted-foreground leading-relaxed border-r-2 border-primary/30 pr-2">
-          {analysis.ai_summary}
+      <div>
+        <p className="font-bold text-foreground mb-1">لا توجد تذاكر دعم بعد</p>
+        <p className="text-sm text-muted-foreground max-w-xs">
+          هل تواجه مشكلة؟ فريق دعم عدالة AI جاهز للمساعدة
         </p>
-      )}
-
-      {suggestions.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold mb-2">الإجراءات المقترحة</p>
-          <div className="space-y-1.5">
-            {suggestions.map((s, i) => (
-              <div key={i} className="flex items-start gap-2 text-xs">
-                <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{s}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <p className="text-[10px] text-muted-foreground/50 text-left ltr">
-        Model: {analysis.model_used ?? "—"} · {new Date(analysis.created_at).toLocaleString("ar-SA")}
-      </p>
+      </div>
+      <Button onClick={onNew} className="gap-2 bg-primary hover:bg-primary/90 text-white font-bold">
+        <Plus className="h-4 w-4" /> افتح تذكرة الآن
+      </Button>
     </div>
   );
 }
 
-/* ─── AI Stats Tab ────────────────────────────────────────────────────────── */
-function AIStatsTab() {
-  const { data, isLoading } = useQuery<any>({
-    queryKey: ["support-ai-stats"],
-    queryFn: () => apiCall("/support/ai-stats"),
-    staleTime: 60_000,
-  });
-  const { data: kb = [], isLoading: kbLoading } = useQuery<any[]>({
-    queryKey: ["support-kb"],
-    queryFn: () => apiCall("/support/knowledge-base"),
-    staleTime: 120_000,
-  });
-
-  const ai = data?.ai ?? {};
-  const tickets = data?.tickets ?? {};
-
-  const typeStats = [
-    { key: "security_tickets",    label: "أمنية",    icon: Shield,        color: "text-red-500" },
-    { key: "bug_tickets",         label: "أخطاء",    icon: Bug,           color: "text-orange-500" },
-    { key: "billing_tickets",     label: "مالية",    icon: CreditCard,    color: "text-blue-500" },
-    { key: "performance_tickets", label: "أداء",     icon: Zap,           color: "text-yellow-500" },
-    { key: "feature_tickets",     label: "ميزات",    icon: Star,          color: "text-purple-500" },
-    { key: "general_tickets",     label: "عامة",     icon: MessageSquare, color: "text-gray-400" },
-  ];
-
-  if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+/* ── Ticket Row ─────────────────────────────────────────────── */
+function TicketRow({ ticket, selected, onClick }: { ticket: any; selected: boolean; onClick: () => void }) {
+  const sm = STATUS[ticket.status] ?? STATUS.open;
+  const pm = PRIORITY[ticket.priority] ?? PRIORITY.medium;
+  const StatusIcon = sm.icon;
+  const cat = CATEGORIES.find(c => c.value === ticket.category);
+  const CatIcon = cat?.icon ?? MessageSquare;
 
   return (
-    <div className="space-y-5" dir="rtl">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: "إجمالي التذاكر",  val: tickets.total ?? 0,                  sub: `${tickets.active ?? 0} نشطة`,          color: "text-primary" },
-          { label: "حُللت بـ AI",     val: ai.total_analyzed ?? 0,              sub: `${ai.ai_resolution_rate ?? 0}% حُلّ تلقائياً`, color: "text-blue-500" },
-          { label: "متوسط الثقة",    val: `${ai.avg_confidence_pct ?? 0}%`,    sub: `${ai.escalated ?? 0} مُصعَّدة`,        color: "text-green-500" },
-          { label: "تنبيهات SOC",    val: ai.soc_alerts ?? 0,                  sub: `${ai.security_tickets ?? 0} تذكرة أمنية`, color: "text-red-500" },
-        ].map(k => (
-          <Card key={k.label}>
-            <CardContent className="p-3">
-              <div className={cn("text-2xl font-black", k.color)}>{k.val}</div>
-              <div className="text-xs font-medium mt-0.5">{k.label}</div>
-              <div className="text-[10px] text-muted-foreground">{k.sub}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" /> مقاييس أداء AI
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {[
-            { label: "معدل الحل التلقائي", value: Number(ai.ai_resolution_rate ?? 0), color: "bg-green-500" },
-            { label: "معدل التصعيد",       value: Number(ai.escalation_rate ?? 0),   color: "bg-orange-500" },
-            { label: "متوسط الثقة",        value: Number(ai.avg_confidence_pct ?? 0),color: "bg-blue-500" },
-          ].map(m => (
-            <div key={m.label} className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">{m.label}</span>
-                <span className="font-bold">{m.value}%</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className={cn("h-full rounded-full transition-all", m.color)}
-                  style={{ width: `${Math.min(m.value, 100)}%` }} />
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" /> توزيع أنواع التذاكر
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-3">
-            {typeStats.map(t => {
-              const Icon = t.icon;
-              return (
-                <div key={t.key} className="text-center p-3 bg-muted/20 rounded-lg">
-                  <Icon className={cn("h-5 w-5 mx-auto mb-1", t.color)} />
-                  <div className="text-lg font-bold">{(ai as any)[t.key] ?? 0}</div>
-                  <div className="text-[10px] text-muted-foreground">{t.label}</div>
-                </div>
-              );
-            })}
+    <div onClick={onClick}
+      className={cn(
+        "group relative p-4 rounded-xl border cursor-pointer transition-all duration-150",
+        selected
+          ? "border-primary/60 bg-primary/5 shadow-sm shadow-primary/10"
+          : "border-border/60 hover:border-border hover:bg-muted/30",
+      )}>
+      {selected && (
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-8 bg-primary rounded-l-full" />
+      )}
+      <div className="flex items-start gap-3">
+        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5", pm.bg)}>
+          <CatIcon className={cn("h-4 w-4", cat?.color ?? "text-slate-500")} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className="font-semibold text-sm line-clamp-1 text-foreground flex-1">{ticket.subject}</span>
+            <Badge className={cn("text-[10px] shrink-0 gap-1 font-medium border-0", sm.color)}>
+              <span className={cn("w-1.5 h-1.5 rounded-full", sm.dot)} />
+              {sm.label}
+            </Badge>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <BookOpen className="h-4 w-4" /> قاعدة المعرفة
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {kbLoading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : (
-            <div className="space-y-2 max-h-72 overflow-y-auto">
-              {(kb as any[]).map((entry: any) => (
-                <div key={entry.id} className="p-3 border rounded-lg text-xs">
-                  <div className="flex items-center justify-between mb-1">
-                    <Badge variant="outline" className="text-[10px]">{entry.category}</Badge>
-                    <span className="text-muted-foreground">{entry.hits} استخدام</span>
-                  </div>
-                  <p className="font-medium">{entry.issue}</p>
-                  <p className="text-muted-foreground mt-0.5">{entry.fix}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="font-mono text-primary/70 font-medium">{ticketNumber(ticket.id)}</span>
+            <span>·</span>
+            <span className={cn("px-1.5 py-0.5 rounded-md text-[10px] font-medium", pm.bg, pm.text)}>
+              {pm.label}
+            </span>
+            <span>·</span>
+            <span>{new Date(ticket.createdAt ?? ticket.created_at).toLocaleDateString("ar-SA", { month: "short", day: "numeric" })}</span>
+          </div>
+        </div>
+        <ChevronLeft className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-primary/50 transition-colors" />
+      </div>
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   MAIN PAGE
-══════════════════════════════════════════════════════════════════════════ */
-export default function SupportPage() {
-  const { user } = useUser();
+/* ── Message bubble ─────────────────────────────────────────── */
+function Bubble({ msg }: { msg: any }) {
+  const isAdmin = msg.senderType === "admin" || msg.sender_type === "admin";
+  const isBot   = (msg.senderName ?? msg.sender_name ?? "")?.includes("🤖");
+
+  return (
+    <div className={cn("flex items-end gap-2.5", isAdmin ? "flex-row-reverse" : "")}>
+      <div className={cn(
+        "w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black",
+        isBot   ? "bg-primary/20 text-primary"
+        : isAdmin ? "bg-blue-500/20 text-blue-600 dark:text-blue-400"
+        : "bg-muted text-muted-foreground",
+      )}>
+        {isBot ? <Bot className="h-3.5 w-3.5" /> : isAdmin ? <HeadphonesIcon className="h-3 w-3" /> : <User2 className="h-3 w-3" />}
+      </div>
+      <div className={cn("max-w-[78%]", isAdmin ? "items-end" : "")}>
+        <div className={cn(
+          "rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line",
+          isBot   ? "bg-primary/10 border border-primary/20 rounded-tr-sm"
+          : isAdmin ? "bg-blue-500/10 border border-blue-200 dark:border-blue-800 rounded-tl-sm"
+          : "bg-muted/60 border border-border/40 rounded-tr-sm",
+        )}>
+          {msg.message}
+        </div>
+        <div className={cn("flex items-center gap-1.5 mt-1 px-1", isAdmin ? "justify-end" : "")}>
+          <span className="text-[10px] text-muted-foreground font-medium">{msg.senderName ?? msg.sender_name}</span>
+          <span className="text-[10px] text-muted-foreground/50">·</span>
+          <span className="text-[10px] text-muted-foreground/70">
+            {new Date(msg.createdAt ?? msg.created_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CREATE DIALOG
+══════════════════════════════════════════════════════════════ */
+function CreateDialog({
+  open, onClose, onCreated, user,
+}: { open: boolean; onClose: () => void; onCreated: (id: string) => void; user: any }) {
   const { toast } = useToast();
-  const qc = useQueryClient();
-
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [reply, setReply] = useState("");
-  const [form, setForm] = useState({ subject: "", body: "", priority: "medium", category: "technical" });
-
-  const { data: tickets = [], isLoading } = useQuery<any[]>({
-    queryKey: ["support-tickets"],
-    queryFn: () => apiCall("/support/tickets"),
-    staleTime: 30_000,
+  const [step, setStep] = useState<"category" | "form">("category");
+  const [form, setForm] = useState({
+    subject: "", body: "", priority: "medium", category: "",
   });
 
-  const { data: detail, isLoading: detailLoading } = useQuery<any>({
-    queryKey: ["support-ticket", selectedId],
-    queryFn: () => apiCall(`/support/tickets/${selectedId}`),
-    enabled: !!selectedId,
-    refetchInterval: 12_000,
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (data: any) => apiCall("/support/tickets", { method: "POST", body: JSON.stringify(data) }),
+  const create = useMutation({
+    mutationFn: (data: any) => api("/support/tickets", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: (t) => {
-      qc.invalidateQueries({ queryKey: ["support-tickets"] });
-      setShowCreate(false);
-      setSelectedId(t.id);
-      setForm({ subject: "", body: "", priority: "medium", category: "technical" });
-      toast({ title: "✅ تم الإرسال — AI يحلل التذكرة..." });
+      toast({ title: "✅ تم إرسال تذكرتك", description: "فريق الدعم سيرد قريباً" });
+      onCreated(t.id);
+      setForm({ subject: "", body: "", priority: "medium", category: "" });
+      setStep("category");
     },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
-  const replyMutation = useMutation({
-    mutationFn: (data: any) => apiCall(`/support/tickets/${selectedId}/messages`, { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["support-ticket", selectedId] }); setReply(""); },
-    onError: (e: any) => toast({ title: "خطأ في الإرسال", description: e.message, variant: "destructive" }),
-  });
+  function handleClose() {
+    onClose();
+    setTimeout(() => { setStep("category"); setForm({ subject: "", body: "", priority: "medium", category: "" }); }, 300);
+  }
 
-  const closeMutation = useMutation({
-    mutationFn: () => apiCall(`/support/tickets/${selectedId}/close`, { method: "PATCH" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["support-tickets"] });
-      qc.invalidateQueries({ queryKey: ["support-ticket", selectedId] });
-      toast({ title: "تم إغلاق التذكرة" });
-    },
-  });
-
-  const ticket = detail?.ticket;
-  const messages: any[] = detail?.messages ?? [];
-  const openCount = (tickets as any[]).filter((t: any) => t.status === "open" || t.status === "in_progress").length;
+  const selectedCat = CATEGORIES.find(c => c.value === form.category);
 
   return (
-    <div className="space-y-4" dir="rtl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <HeadphonesIcon className="h-5 w-5 text-primary" />
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-[560px] p-0 overflow-hidden" dir="rtl">
+        {/* Top bar */}
+        <div className="bg-gradient-to-r from-primary to-primary/80 p-5 text-primary-foreground">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+              <HeadphonesIcon className="h-5 w-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-base font-black text-white">فتح تذكرة دعم فني</DialogTitle>
+              <p className="text-xs text-primary-foreground/70 mt-0.5">سيصلك رد من فريق عدالة AI خلال 24 ساعة</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-black flex items-center gap-2">
-              مركز الدعم الفني
-              <Badge className="text-[10px] bg-primary/10 text-primary border border-primary/20 gap-1">
-                <Bot className="h-3 w-3" /> AI Agent
-              </Badge>
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              {openCount > 0 ? `${openCount} تذكرة نشطة` : "لا توجد تذاكر نشطة"}
-            </p>
-          </div>
-        </div>
-        <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90 text-white font-bold"
-          onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4" /> تذكرة جديدة
-        </Button>
-      </div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="tickets">
-        <TabsList className="w-full grid grid-cols-2">
-          <TabsTrigger value="tickets" className="text-xs">
-            <MessageSquare className="h-3.5 w-3.5 ml-1" /> التذاكر
-          </TabsTrigger>
-          <TabsTrigger value="ai-stats" className="text-xs">
-            <Brain className="h-3.5 w-3.5 ml-1" /> إحصاءات AI
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ── Tickets Tab ── */}
-        <TabsContent value="tickets" className="mt-3">
-          {/* Stats row */}
-          <div className="grid grid-cols-4 gap-2 mb-4">
-            {[
-              { label: "الكل",        value: (tickets as any[]).length, color: "text-primary" },
-              { label: "مفتوحة",      value: (tickets as any[]).filter((t:any) => t.status === "open").length, color: "text-blue-400" },
-              { label: "قيد المعالجة",value: (tickets as any[]).filter((t:any) => t.status === "in_progress").length, color: "text-amber-400" },
-              { label: "محلولة",      value: (tickets as any[]).filter((t:any) => t.status === "resolved").length, color: "text-emerald-400" },
-            ].map(s => (
-              <Card key={s.label} className="border-0 bg-card/60">
-                <CardContent className="p-3">
-                  <div className={cn("text-2xl font-black", s.color)}>{s.value}</div>
-                  <div className="text-[10px] text-muted-foreground">{s.label}</div>
-                </CardContent>
-              </Card>
+          {/* Step indicator */}
+          <div className="flex items-center gap-2 mt-4">
+            {[{ n: 1, label: "التصنيف" }, { n: 2, label: "التفاصيل" }].map((s, i) => (
+              <div key={s.n} className="flex items-center gap-2">
+                {i > 0 && <div className="h-px w-6 bg-white/30" />}
+                <div className={cn("flex items-center gap-1.5", step === (s.n === 1 ? "category" : "form") ? "opacity-100" : "opacity-50")}>
+                  <div className={cn("w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center",
+                    step === (s.n === 1 ? "category" : "form") ? "bg-white text-primary" : "bg-white/30 text-white"
+                  )}>{s.n}</div>
+                  <span className="text-xs font-medium text-white">{s.label}</span>
+                </div>
+              </div>
             ))}
           </div>
+        </div>
 
-          {/* Two-column */}
-          <div className="grid md:grid-cols-5 gap-4">
-            {/* List */}
-            <div className="md:col-span-2 space-y-2">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">التذاكر</p>
-              {isLoading ? (
-                <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-              ) : (tickets as any[]).length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
-                  <LifeBuoy className="h-12 w-12 opacity-20" />
-                  <p className="text-sm text-center">لا توجد تذاكر بعد<br />
-                    <span className="text-xs">أنشئ تذكرة — سيحللها AI فوراً</span>
+        <div className="p-5">
+          <AnimatePresence mode="wait">
+            {step === "category" ? (
+              <motion.div key="category" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                <p className="text-sm font-bold text-foreground mb-3">ما نوع مشكلتك؟</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {CATEGORIES.map(cat => {
+                    const Icon = cat.icon;
+                    return (
+                      <button key={cat.value}
+                        onClick={() => { setForm(f => ({ ...f, category: cat.value })); setStep("form"); }}
+                        className={cn(
+                          "flex items-start gap-3 p-3.5 rounded-xl border-2 text-right transition-all hover:border-primary/40 hover:bg-primary/5",
+                          form.category === cat.value ? "border-primary bg-primary/5" : "border-border/50 bg-muted/20",
+                        )}>
+                        <div className="w-8 h-8 rounded-lg bg-background shadow-sm border border-border/50 flex items-center justify-center shrink-0">
+                          <Icon className={cn("h-4 w-4", cat.color)} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-foreground leading-tight">{cat.label}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{cat.desc}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div key="form" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                className="space-y-4">
+                {selectedCat && (
+                  <button onClick={() => setStep("category")}
+                    className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <ChevronLeft className="h-3.5 w-3.5 rotate-180" />
+                    <selectedCat.icon className={cn("h-3.5 w-3.5", selectedCat.color)} />
+                    <span className="font-medium">{selectedCat.label}</span>
+                    <span className="text-muted-foreground/50">— تغيير التصنيف</span>
+                  </button>
+                )}
+
+                <div>
+                  <Label className="text-xs font-bold mb-1.5 block">موضوع التذكرة <span className="text-red-500">*</span></Label>
+                  <Input
+                    placeholder="وصف مختصر وواضح للمشكلة"
+                    value={form.subject}
+                    onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
+                    className="text-sm"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold mb-1.5 block">مستوى الأولوية</Label>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {(["low", "medium", "high", "urgent"] as const).map(p => (
+                      <button key={p}
+                        onClick={() => setForm(f => ({ ...f, priority: p }))}
+                        className={cn(
+                          "py-2 rounded-lg text-[11px] font-bold border-2 transition-all",
+                          form.priority === p
+                            ? `${PRIORITY[p].bg} ${PRIORITY[p].text} border-current/40`
+                            : "bg-muted/30 text-muted-foreground border-transparent hover:border-border",
+                        )}>
+                        {PRIORITY[p].label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold mb-1.5 block">تفاصيل المشكلة <span className="text-red-500">*</span></Label>
+                  <Textarea
+                    placeholder={`اشرح المشكلة بالتفصيل:\n• ماذا كنت تفعل؟\n• ما الخطأ الذي ظهر؟\n• هل حدث فجأة أم تدريجياً؟`}
+                    value={form.body}
+                    onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
+                    rows={5}
+                    className="resize-none text-sm"
+                  />
+                </div>
+
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                  <Building2 className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                    تذكرتك سترسل مباشرة لفريق دعم <strong>عدالة AI</strong> — وليس لمراسلات القضايا. متوسط وقت الرد أقل من 24 ساعة.
                   </p>
                 </div>
-              ) : (
-                (tickets as any[]).map((t: any) => {
-                  const sm = STATUS[t.status] ?? STATUS.open;
-                  const pm = PRIORITY[t.priority] ?? PRIORITY.medium;
-                  return (
-                    <div key={t.id} onClick={() => setSelectedId(t.id)}
-                      className={cn("p-3.5 rounded-xl border cursor-pointer transition-all", selectedId === t.id
-                        ? "border-primary/50 bg-primary/5 shadow-sm"
-                        : "border-border/50 hover:bg-muted/20 hover:border-border")}>
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <span className="font-semibold text-sm line-clamp-1 flex-1">{t.subject}</span>
-                        <Badge className={cn("text-[9px] shrink-0 px-1.5 font-medium", sm.color)}>
-                          {sm.label}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                        <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", pm.dot)} />
-                        <span>{pm.label}</span>
-                        <span>·</span>
-                        <span>{new Date(t.createdAt).toLocaleDateString("ar-SA")}</span>
-                        <ChevronRight className="h-3 w-3 mr-auto opacity-40" />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
-            {/* Detail */}
-            <div className="md:col-span-3 space-y-3">
-              {!selectedId ? (
-                <Card className="h-[400px] flex items-center justify-center border-dashed border-2">
-                  <div className="text-center text-muted-foreground">
-                    <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                    <p className="text-sm">اختر تذكرة لعرض المحادثة</p>
-                  </div>
-                </Card>
-              ) : detailLoading ? (
-                <div className="flex justify-center py-20">
-                  <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
-                </div>
-              ) : ticket ? (
-                <>
-                  <AIAnalysisPanel ticketId={ticket.id} />
-                  <Card>
-                    <CardHeader className="pb-3 border-b border-border/40">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h2 className="font-bold text-base line-clamp-1">{ticket.subject}</h2>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <Badge className={cn("text-[9px]", STATUS[ticket.status]?.color)}>
-                              {STATUS[ticket.status]?.label}
-                            </Badge>
-                            <Badge className={cn("text-[9px]", PRIORITY[ticket.priority]?.color)}>
-                              {PRIORITY[ticket.priority]?.label}
-                            </Badge>
-                            <span className="text-[10px] text-muted-foreground">
-                              {CATEGORIES.find(c => c.value === ticket.category)?.label ?? ticket.category}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground mr-auto">
-                              {new Date(ticket.createdAt).toLocaleDateString("ar-SA", { day: "numeric", month: "long" })}
-                            </span>
-                          </div>
-                        </div>
-                        {ticket.status !== "closed" && (
-                          <Button size="sm" variant="outline" className="h-7 text-xs shrink-0 gap-1"
-                            onClick={() => closeMutation.mutate()}>
-                            {closeMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
-                            إغلاق
-                          </Button>
-                        )}
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="p-4 space-y-3 max-h-[320px] overflow-y-auto">
-                      {messages.length === 0 ? (
-                        <div className="text-center text-muted-foreground py-6 text-sm">لا توجد رسائل</div>
-                      ) : messages.map((msg: any) => {
-                        const isAI = msg.senderName?.includes("🤖");
-                        const isAdmin = msg.senderType === "admin";
-                        return (
-                          <div key={msg.id} className={cn("flex gap-3", isAdmin ? "flex-row-reverse" : "")}>
-                            <div className={cn(
-                              "w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold",
-                              isAI ? "bg-primary/20 text-primary" : isAdmin ? "bg-blue-500/20 text-blue-400" : "bg-muted text-muted-foreground"
-                            )}>
-                              {isAI ? <Bot className="h-3.5 w-3.5" /> : isAdmin ? "دعم" : "أنا"}
-                            </div>
-                            <div className={cn("flex-1 max-w-[82%]", isAdmin ? "items-end" : "")}>
-                              <div className={cn(
-                                "rounded-xl p-3 text-sm leading-relaxed whitespace-pre-line",
-                                isAI ? "bg-primary/10 border border-primary/20"
-                                : isAdmin ? "bg-blue-500/10 border border-blue-500/20"
-                                : "bg-muted/40 border border-border/30"
-                              )}>
-                                {msg.message}
-                              </div>
-                              <div className={cn("flex items-center gap-1 mt-1", isAdmin ? "justify-end" : "")}>
-                                <span className="text-[10px] text-muted-foreground">{msg.senderName}</span>
-                                <span className="text-[10px] text-muted-foreground">·</span>
-                                <span className="text-[10px] text-muted-foreground">
-                                  {new Date(msg.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </CardContent>
-
-                    {ticket.status !== "closed" && (
-                      <div className="px-4 pb-4 pt-2 border-t border-border/40">
-                        <div className="flex gap-2">
-                          <Textarea value={reply} onChange={e => setReply(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === "Enter" && e.ctrlKey)
-                                replyMutation.mutate({ message: reply, senderName: user?.fullName ?? "المستخدم" });
-                            }}
-                            placeholder="اكتب ردك... (Ctrl+Enter للإرسال)"
-                            rows={2} className="resize-none text-sm flex-1" />
-                          <Button size="icon" className="h-full aspect-square bg-primary hover:bg-primary/90 text-white"
-                            onClick={() => replyMutation.mutate({ message: reply, senderName: user?.fullName ?? "المستخدم" })}
-                            disabled={!reply.trim() || replyMutation.isPending}>
-                            {replyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </Card>
-                </>
-              ) : null}
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* ── AI Stats Tab ── */}
-        <TabsContent value="ai-stats" className="mt-3">
-          <AIStatsTab />
-        </TabsContent>
-      </Tabs>
-
-      {/* Create Dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="sm:max-w-[500px]" dir="rtl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <HeadphonesIcon className="h-5 w-5 text-primary" />
-              تذكرة دعم فني جديدة
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <Alert className="bg-blue-50/50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
-              <Brain className="h-4 w-4 text-blue-500" />
-              <AlertDescription className="text-xs text-blue-700 dark:text-blue-300">
-                بعد الإرسال، يقوم وكيل الدعم الذكي بتحليل التذكرة وإرسال رد تشخيصي فوري.
-              </AlertDescription>
-            </Alert>
-            <div>
-              <Label className="text-xs font-semibold mb-1.5 block">الموضوع *</Label>
-              <Input placeholder="وصف مختصر للمشكلة" value={form.subject}
-                onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold mb-1.5 block">الأولوية</Label>
-                <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
-                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {["low","medium","high","urgent"].map(v => (
-                      <SelectItem key={v} value={v}>{(PRIORITY[v] ?? PRIORITY.medium).label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs font-semibold mb-1.5 block">التصنيف</Label>
-                <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
-                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs font-semibold mb-1.5 block">التفاصيل *</Label>
-              <Textarea placeholder="اشرح المشكلة بالتفصيل — AI سيستخدم هذا للتشخيص..."
-                value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-                rows={5} className="resize-none text-sm" />
-            </div>
-          </div>
-          <DialogFooter className="flex-row-reverse gap-2">
+        {step === "form" && (
+          <DialogFooter className="px-5 pb-5 flex-row-reverse gap-2">
             <Button
-              onClick={() => createMutation.mutate({
+              disabled={!form.subject.trim() || !form.body.trim() || create.isPending}
+              onClick={() => create.mutate({
                 ...form,
                 userEmail: user?.primaryEmailAddress?.emailAddress ?? "",
                 userName: user?.fullName ?? user?.firstName ?? "مستخدم",
               })}
-              disabled={createMutation.isPending}
-              className="gap-2 bg-primary hover:bg-primary/90 text-white font-bold">
-              {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              إرسال + تحليل AI
+              className="gap-2 bg-primary hover:bg-primary/90 text-white font-bold flex-1">
+              {create.isPending
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Send className="h-4 w-4" />}
+              {create.isPending ? "جارٍ الإرسال..." : "إرسال التذكرة"}
             </Button>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setStep("category")}>رجوع</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TICKET DETAIL PANEL
+══════════════════════════════════════════════════════════════ */
+function TicketDetail({
+  ticketId, currentUser, onClose,
+}: { ticketId: string; currentUser: any; onClose: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [reply, setReply] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const { data, isLoading, refetch } = useQuery<any>({
+    queryKey: ["support-ticket", ticketId],
+    queryFn: () => api(`/support/tickets/${ticketId}`),
+    refetchInterval: 15_000,
+  });
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [data]);
+
+  const sendReply = useMutation({
+    mutationFn: (msg: string) => api(`/support/tickets/${ticketId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ message: msg, senderName: currentUser?.fullName ?? "المستخدم" }),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["support-ticket", ticketId] });
+      qc.invalidateQueries({ queryKey: ["support-tickets"] });
+      setReply("");
+    },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const closeTicket = useMutation({
+    mutationFn: () => api(`/support/tickets/${ticketId}/close`, { method: "PATCH" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["support-tickets"] });
+      qc.invalidateQueries({ queryKey: ["support-ticket", ticketId] });
+      toast({ title: "تم إغلاق التذكرة" });
+    },
+  });
+
+  const reAnalyze = useMutation({
+    mutationFn: () => api(`/support/tickets/${ticketId}/ai-analyze`, { method: "POST" }),
+    onSuccess: () => {
+      toast({ title: "🤖 AI يعيد التحليل..." });
+      setTimeout(() => qc.invalidateQueries({ queryKey: ["support-ticket", ticketId] }), 5000);
+    },
+  });
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-full">
+      <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+    </div>
+  );
+
+  const ticket = data?.ticket;
+  const messages: any[] = data?.messages ?? [];
+  if (!ticket) return null;
+
+  const sm = STATUS[ticket.status] ?? STATUS.open;
+  const pm = PRIORITY[ticket.priority] ?? PRIORITY.medium;
+  const cat = CATEGORIES.find(c => c.value === ticket.category);
+  const CatIcon = cat?.icon ?? MessageSquare;
+  const StatusIcon = sm.icon;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Detail header */}
+      <div className="flex items-start justify-between gap-3 p-4 border-b border-border/40">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="font-mono text-xs text-primary/70 font-bold">{ticketNumber(ticket.id)}</span>
+            <Badge className={cn("text-[10px] gap-1 border-0", sm.color)}>
+              <span className={cn("w-1.5 h-1.5 rounded-full", sm.dot)} />
+              {sm.label}
+            </Badge>
+            <Badge className={cn("text-[10px] border-0", pm.bg, pm.text)}>{pm.label}</Badge>
+          </div>
+          <h2 className="font-bold text-sm text-foreground leading-tight line-clamp-2">{ticket.subject}</h2>
+          <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
+            <CatIcon className={cn("h-3 w-3", cat?.color)} />
+            <span>{cat?.label ?? ticket.category}</span>
+            <span>·</span>
+            <span>{new Date(ticket.createdAt ?? ticket.created_at).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => reAnalyze.mutate()} disabled={reAnalyze.isPending}>
+            <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", reAnalyze.isPending && "animate-spin")} />
+          </Button>
+          {ticket.status !== "closed" && (
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30"
+              onClick={() => closeTicket.mutate()} disabled={closeTicket.isPending}>
+              <XCircle className="h-3 w-3" /> إغلاق
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 py-10">
+            <Inbox className="h-8 w-8 opacity-30" />
+            <p className="text-xs">لا توجد رسائل بعد</p>
+          </div>
+        ) : messages.map((msg: any) => (
+          <Bubble key={msg.id} msg={msg} />
+        ))}
+      </div>
+
+      {/* Reply input */}
+      {ticket.status !== "closed" ? (
+        <div className="p-4 border-t border-border/40 bg-muted/10">
+          <div className="flex gap-2">
+            <Textarea
+              value={reply}
+              onChange={e => setReply(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && e.ctrlKey && reply.trim()) {
+                  sendReply.mutate(reply.trim());
+                }
+              }}
+              placeholder="اكتب ردك... (Ctrl+Enter للإرسال)"
+              rows={2}
+              className="resize-none text-sm flex-1 min-h-[56px]"
+            />
+            <Button
+              size="icon"
+              className="h-full aspect-square bg-primary hover:bg-primary/90 text-white shrink-0"
+              onClick={() => { if (reply.trim()) sendReply.mutate(reply.trim()); }}
+              disabled={!reply.trim() || sendReply.isPending}>
+              {sendReply.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+            <Bot className="h-3 w-3" />
+            ردك يصل لفريق دعم عدالة AI مباشرةً — لا لمراسلات القضايا
+          </p>
+        </div>
+      ) : (
+        <div className="p-4 border-t border-border/40">
+          <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-muted/30 border border-dashed border-border/60">
+            <XCircle className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">هذه التذكرة مغلقة</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MAIN PAGE
+══════════════════════════════════════════════════════════════ */
+export default function SupportPage() {
+  const { user } = useUser();
+  const qc = useQueryClient();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [filter, setFilter] = useState<"all" | "open" | "resolved" | "closed">("all");
+
+  const { data: tickets = [], isLoading } = useQuery<any[]>({
+    queryKey: ["support-tickets"],
+    queryFn: () => api("/support/tickets"),
+    staleTime: 30_000,
+  });
+
+  const allTickets = tickets as any[];
+  const filtered = filter === "all" ? allTickets : allTickets.filter(t => {
+    if (filter === "open") return t.status === "open" || t.status === "in_progress";
+    return t.status === filter;
+  });
+
+  const counts = {
+    all:      allTickets.length,
+    open:     allTickets.filter(t => t.status === "open" || t.status === "in_progress").length,
+    resolved: allTickets.filter(t => t.status === "resolved").length,
+    closed:   allTickets.filter(t => t.status === "closed").length,
+  };
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-90px)] overflow-hidden" dir="rtl">
+      {/* ── Top Hero Bar ── */}
+      <div className="shrink-0 bg-gradient-to-l from-primary/8 via-card to-card border-b border-border/50 px-5 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-sm shadow-primary/20">
+              <HeadphonesIcon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-black text-foreground">مركز الدعم الفني</h1>
+                <Badge className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-0 font-medium gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  فريق الدعم متاح
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                تواصل مباشرة مع فريق عدالة AI · رد ضمان أقل من 24 ساعة
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={() => setShowCreate(true)}
+            className="gap-2 bg-primary hover:bg-primary/90 text-white font-bold shadow-sm shadow-primary/20">
+            <Plus className="h-4 w-4" />
+            تذكرة جديدة
+          </Button>
+        </div>
+
+        {/* Quick stats */}
+        <div className="grid grid-cols-4 gap-3 mt-4">
+          {[
+            { key: "all",      label: "جميع التذاكر",   color: "text-foreground",            bg: "bg-background" },
+            { key: "open",     label: "نشطة",            color: "text-blue-600 dark:text-blue-400",    bg: "bg-blue-50 dark:bg-blue-950/30" },
+            { key: "resolved", label: "محلولة",          color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
+            { key: "closed",   label: "مغلقة",           color: "text-slate-500",             bg: "bg-slate-50 dark:bg-slate-800/40" },
+          ].map(s => (
+            <button key={s.key}
+              onClick={() => { setFilter(s.key as any); setSelectedId(null); }}
+              className={cn(
+                "p-3 rounded-xl border-2 text-right transition-all",
+                filter === s.key
+                  ? `${s.bg} border-current/30`
+                  : "bg-background border-border/40 hover:border-border",
+              )}>
+              <div className={cn("text-xl font-black", s.color)}>{(counts as any)[s.key]}</div>
+              <div className="text-[11px] text-muted-foreground font-medium">{s.label}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Main split panel ── */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* Left: ticket list */}
+        <div className={cn(
+          "flex flex-col border-l border-border/40 overflow-hidden transition-all",
+          selectedId ? "w-[340px] shrink-0" : "flex-1",
+        )}>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {isLoading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+              </div>
+            ) : filtered.length === 0 ? (
+              <EmptyTickets onNew={() => setShowCreate(true)} />
+            ) : filtered.map((t: any) => (
+              <TicketRow
+                key={t.id}
+                ticket={t}
+                selected={selectedId === t.id}
+                onClick={() => setSelectedId(t.id)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Right: ticket detail */}
+        <AnimatePresence>
+          {selectedId && (
+            <motion.div
+              key={selectedId}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
+              className="flex-1 flex flex-col overflow-hidden border-r-0">
+              <TicketDetail
+                ticketId={selectedId}
+                currentUser={user}
+                onClose={() => setSelectedId(null)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Right placeholder when no ticket selected and list is full-width */}
+        {!selectedId && !isLoading && filtered.length > 0 && (
+          <div className="hidden md:flex flex-col items-center justify-center flex-1 text-muted-foreground bg-muted/10 border-r border-border/40">
+            <LifeBuoy className="h-14 w-14 opacity-10 mb-3" />
+            <p className="text-sm font-medium opacity-50">اختر تذكرة لعرض المحادثة</p>
+          </div>
+        )}
+      </div>
+
+      {/* Create dialog */}
+      <CreateDialog
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={(id) => {
+          qc.invalidateQueries({ queryKey: ["support-tickets"] });
+          setSelectedId(id);
+          setShowCreate(false);
+        }}
+        user={user}
+      />
     </div>
   );
 }
