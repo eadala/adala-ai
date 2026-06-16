@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useUser, useClerk } from "@clerk/react";
+import { useUser, useClerk, useAuth } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useIsSuperAdmin } from "@/hooks/use-role";
@@ -28,7 +28,7 @@ function MenuItem({
   const handleClick = () => {
     if (disabled) return;
     if (onClick) onClick();
-    else if (href) setLocation(href);
+    if (href) setLocation(href);
   };
   return (
     <button
@@ -89,17 +89,28 @@ export function AccountMenu() {
 
   const isSuperAdmin = useIsSuperAdmin();
   const qc = useQueryClient();
+  const { getToken } = useAuth();
+
+  /* Direct API call using Clerk token — avoids _getToken singleton */
+  const devFetch = async (path: string, opts?: RequestInit) => {
+    const token = await getToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${basePath}/api/developer${path}`, { headers, ...opts });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  };
 
   const { data: ghostStatus } = useQuery<any>({
     queryKey: ["ghost", "status"],
-    queryFn: () => DEV_API("/impersonate/status"),
+    queryFn: () => devFetch("/impersonate/status"),
     enabled: isSuperAdmin,
     refetchInterval: 60_000,
     retry: false,
   });
 
   const exitGhost = useMutation({
-    mutationFn: () => DEV_API("/impersonate", { method: "DELETE" }),
+    mutationFn: () => devFetch("/impersonate", { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["ghost"] });
       setOpen(false);
