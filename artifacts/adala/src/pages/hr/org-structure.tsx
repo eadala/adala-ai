@@ -237,7 +237,7 @@ function UnitDialog({
                 <SelectContent>
                   <SelectItem value="__none__">— غير محدد —</SelectItem>
                   {users.map(u => (
-                    <SelectItem key={u.id} value={u.id}>
+                    <SelectItem key={u.id} value={String(u.id)}>
                       {u.full_name}
                     </SelectItem>
                   ))}

@@ -404,7 +404,7 @@ export default function Attendance() {
             <div><Label>الموظف *</Label>
               <Select value={selectedEmp} onValueChange={setSelectedEmp}>
                 <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
-                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.fullName}</SelectItem>)}</SelectContent>
+                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.fullName}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div><Label>التاريخ</Label><Input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} /></div>

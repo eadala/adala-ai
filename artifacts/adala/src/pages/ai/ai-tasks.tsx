@@ -211,7 +211,7 @@ export default function AiTasks() {
                 <SelectContent>
                   <SelectItem value="__none__">— بدون ربط —</SelectItem>
                   {(cases as any[]).map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                    <SelectItem key={c.id} value={String(c.id)}>{c.title}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

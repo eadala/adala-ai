@@ -147,7 +147,7 @@ export function DepartmentsTab({ qc, toast }: any) {
             <div><Label className="text-xs font-semibold mb-1 block">القسم</Label>
               <Select value={titleForm.departmentId} onValueChange={v => setTitleForm(f => ({ ...f, departmentId: v }))}>
                 <SelectTrigger><SelectValue placeholder="اختر قسماً" /></SelectTrigger>
-                <SelectContent>{(depts as any[]).map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{(depts as any[]).map((d: any) => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div><Label className="text-xs font-semibold mb-1 block">المستوى</Label>

@@ -373,7 +373,7 @@ export default function Warnings() {
               <Label className="text-xs font-semibold mb-1 block">الموظف *</Label>
               <Select value={wForm.employeeId} onValueChange={v => setWForm(f => ({ ...f, employeeId: v }))}>
                 <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
-                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.fullName} — {e.jobTitle}</SelectItem>)}</SelectContent>
+                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.fullName} — {e.jobTitle}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
@@ -469,7 +469,7 @@ export default function Warnings() {
               <Label className="text-xs font-semibold mb-1 block">الموظف المُحقَّق معه *</Label>
               <Select value={iForm.employeeId} onValueChange={v => setIForm(f => ({ ...f, employeeId: v }))}>
                 <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
-                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.fullName} — {e.jobTitle}</SelectItem>)}</SelectContent>
+                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.fullName} — {e.jobTitle}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>

@@ -238,7 +238,7 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
                 <SelectTrigger><SelectValue placeholder="اختر العميل (اختياري)" /></SelectTrigger>
                 <SelectContent>
                   {clients.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.fullName}</SelectItem>
+                    <SelectItem key={c.id} value={String(c.id)}>{c.fullName}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
