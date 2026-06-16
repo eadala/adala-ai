@@ -26,7 +26,6 @@ import { PlatformFinanceTab }    from "@/features/super-admin/tabs/PlatformFinan
 import { PlatformReportsTab }    from "@/features/super-admin/tabs/PlatformReportsTab";
 import { PlatformSecurityTab }   from "@/features/super-admin/tabs/PlatformSecurityTab";
 import { PlatformWebsiteTab }    from "@/features/super-admin/tabs/PlatformWebsiteTab";
-import { MobileAppTab }          from "@/features/super-admin/tabs/MobileAppTab";
 import { EngineeringHeroTab }    from "@/features/super-admin/tabs/EngineeringHeroTab";
 import { AgentRuntimeTab }       from "@/features/super-admin/tabs/AgentRuntimeTab";
 
@@ -149,7 +148,6 @@ export default function SuperAdmin() {
         <TabsContent value="security"    className="mt-4"><PlatformSecurityTab /></TabsContent>
         <TabsContent value="website"     className="mt-4"><PlatformWebsiteTab qc={qc} toast={toast} /></TabsContent>
         <TabsContent value="settings"    className="mt-4"><SettingsTab qc={qc} toast={toast} /></TabsContent>
-        <TabsContent value="mobile-app"  className="mt-4"><MobileAppTab qc={qc} toast={toast} /></TabsContent>
         <TabsContent value="engineering" className="mt-4"><EngineeringHeroTab /></TabsContent>
         <TabsContent value="agents"      className="mt-4"><AgentRuntimeTab toast={toast} /></TabsContent>
 
