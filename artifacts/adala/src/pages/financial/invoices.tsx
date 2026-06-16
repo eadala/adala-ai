@@ -1344,6 +1344,7 @@ export default function Invoices() {
           </CardContent>
         ) : (
           <>
+            <div className="overflow-x-auto w-full">
             <Table dir="rtl">
               <TableHeader>
                 {table.getHeaderGroups().map(hg => (
@@ -1379,6 +1380,7 @@ export default function Invoices() {
                 ))}
               </TableBody>
             </Table>
+            </div>
 
             {/* Pagination */}
             <div className="flex items-center justify-between px-4 py-3 border-t border-border/40">

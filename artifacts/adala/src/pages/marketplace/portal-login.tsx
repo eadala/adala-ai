@@ -24,7 +24,7 @@ export default function PortalLogin() {
 
   const { data: officeData } = useQuery<any>({
     queryKey: ["office-public-mini", officeSlug],
-    queryFn: () => fetch(`/api/office/public/${officeSlug}`).then(r => r.ok ? r.json() : null),
+    queryFn: () => fetch(`${BASE}/api/office/public/${officeSlug}`).then(r => r.ok ? r.json() : null),
     enabled: !!officeSlug,
     staleTime: 10 * 60 * 1000,
     retry: false,

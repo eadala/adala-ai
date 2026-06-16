@@ -27,6 +27,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 /* ── helpers ─────────────────────────────────── */
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending:    { label: "انتظار",   color: "text-yellow-400" },
@@ -71,95 +73,95 @@ export default function OfficeManagement() {
   });
 
   const updateOfficeMutation = useMutation({
-    mutationFn: ({ id, ...d }: any) => fetch(`/api/office/my/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: ({ id, ...d }: any) => fetch(`${BASE}/api/office/my/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-office"] }); setPageForm(null); toast({ title: "تم الحفظ ✓" }); },
   });
 
   /* ── Services ── */
   const { data: services = [] } = useQuery<any[]>({
     queryKey: ["my-services", office?.id],
-    queryFn: () => fetch(`/api/office/my/${office.id}/services`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/office/my/${office.id}/services`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!office?.id,
   });
   const [showSvcForm, setShowSvcForm] = useState(false);
   const [svcForm, setSvcForm] = useState({ name: "", description: "", price: "", isCustomQuote: false, category: "استشارات", deliveryDays: "1" });
   const addSvc = useMutation({
-    mutationFn: (d: any) => fetch(`/api/office/my/${office.id}/services`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (d: any) => fetch(`${BASE}/api/office/my/${office.id}/services`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-services", office.id] }); setShowSvcForm(false); toast({ title: "تمت إضافة الخدمة ✓" }); },
   });
   const deleteSvc = useMutation({
-    mutationFn: (id: string) => fetch(`/api/office/my/services/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => fetch(`${BASE}/api/office/my/services/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-services", office.id] }),
   });
   const [editSvcDialog, setEditSvcDialog] = useState<any>(null);
   const [editSvcForm, setEditSvcForm] = useState({ name: "", description: "", price: "", isCustomQuote: false, category: "استشارات", deliveryDays: "1" });
   const updateSvc = useMutation({
-    mutationFn: ({ id, ...d }: any) => fetch(`/api/office/my/services/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: ({ id, ...d }: any) => fetch(`${BASE}/api/office/my/services/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-services", office?.id] }); setEditSvcDialog(null); toast({ title: "تم تحديث الخدمة ✓" }); },
   });
 
   /* ── Team ── */
   const { data: team = [] } = useQuery<any[]>({
     queryKey: ["my-team", office?.id],
-    queryFn: () => fetch(`/api/office/my/${office.id}/team`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/office/my/${office.id}/team`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!office?.id,
   });
   const [showTeamForm, setShowTeamForm] = useState(false);
   const [teamForm, setTeamForm] = useState({ name: "", title: "", specialties: "", bio: "", linkedin: "", photoUrl: "" });
   const addTeam = useMutation({
-    mutationFn: (d: any) => fetch(`/api/office/my/${office.id}/team`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (d: any) => fetch(`${BASE}/api/office/my/${office.id}/team`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-team", office.id] }); setShowTeamForm(false); toast({ title: "تمت إضافة العضو ✓" }); },
   });
   const deleteTeam = useMutation({
-    mutationFn: (id: string) => fetch(`/api/office/my/team/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => fetch(`${BASE}/api/office/my/team/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-team", office.id] }),
   });
 
   /* ── Orders ── */
   const { data: orders = [] } = useQuery<any[]>({
     queryKey: ["my-orders", office?.id],
-    queryFn: () => fetch(`/api/office/my/${office.id}/orders`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/office/my/${office.id}/orders`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!office?.id,
   });
   const updateOrder = useMutation({
-    mutationFn: ({ id, ...d }: any) => fetch(`/api/office/my/orders/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: ({ id, ...d }: any) => fetch(`${BASE}/api/office/my/orders/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-orders", office.id] }),
   });
 
   /* ── Reviews ── */
   const { data: reviews = [] } = useQuery<any[]>({
     queryKey: ["my-reviews", office?.id],
-    queryFn: () => fetch(`/api/office/my/${office.id}/reviews`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/office/my/${office.id}/reviews`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!office?.id,
   });
   const updateReview = useMutation({
-    mutationFn: ({ id, ...d }: any) => fetch(`/api/office/my/reviews/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: ({ id, ...d }: any) => fetch(`${BASE}/api/office/my/reviews/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-reviews", office.id] }),
   });
   const deleteReview = useMutation({
-    mutationFn: (id: string) => fetch(`/api/office/my/reviews/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => fetch(`${BASE}/api/office/my/reviews/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-reviews", office?.id] }),
   });
 
   /* ── Articles ── */
   const { data: articles = [] } = useQuery<any[]>({
     queryKey: ["my-articles", office?.id],
-    queryFn: () => fetch(`/api/office/my/${office.id}/articles`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/office/my/${office.id}/articles`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!office?.id,
   });
   const [showArticleForm, setShowArticleForm] = useState(false);
   const [editArticle, setEditArticle] = useState<any>(null);
   const [articleForm, setArticleForm] = useState({ title: "", slug: "", excerpt: "", content: "", category: "قانوني", isPublished: false });
   const addArticle = useMutation({
-    mutationFn: (d: any) => fetch(`/api/office/my/${office.id}/articles`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (d: any) => fetch(`${BASE}/api/office/my/${office.id}/articles`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-articles", office.id] }); setShowArticleForm(false); toast({ title: "تمت إضافة المقال ✓" }); },
   });
   const updateArticle = useMutation({
-    mutationFn: ({ id, ...d }: any) => fetch(`/api/office/my/articles/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: ({ id, ...d }: any) => fetch(`${BASE}/api/office/my/articles/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-articles", office?.id] }); setEditArticle(null); toast({ title: "تم تحديث المقال ✓" }); },
   });
   const deleteArticle = useMutation({
-    mutationFn: (id: string) => fetch(`/api/office/my/articles/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => fetch(`${BASE}/api/office/my/articles/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-articles", office?.id] }),
   });
   function slugify(s: string) { return s.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^\u0600-\u06FFa-z0-9-]/g, ""); }
@@ -167,26 +169,26 @@ export default function OfficeManagement() {
   /* ── Domains ── */
   const { data: domainData, refetch: refetchDomain } = useQuery<any>({
     queryKey: ["my-domains", office?.id],
-    queryFn: () => fetch(`/api/office/my/${office.id}/domains`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/office/my/${office.id}/domains`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!office?.id,
   });
   const [customDomainInput, setCustomDomainInput] = useState("");
   const [copiedSub, setCopiedSub] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
   const initDomain = useMutation({
-    mutationFn: () => fetch(`/api/office/my/${office.id}/domains`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: () => fetch(`${BASE}/api/office/my/${office.id}/domains`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-domains", office?.id] }),
   });
   const connectCustomDomain = useMutation({
-    mutationFn: (d: any) => fetch(`/api/office/my/domains/${domainData.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (d: any) => fetch(`${BASE}/api/office/my/domains/${domainData.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-domains", office?.id] }); setCustomDomainInput(""); toast({ title: "تم إضافة الدومين — أضف DNS CNAME الآن" }); },
   });
   const removeCustomDomain = useMutation({
-    mutationFn: () => fetch(`/api/office/my/domains/${domainData.id}/custom`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: () => fetch(`${BASE}/api/office/my/domains/${domainData.id}/custom`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-domains", office?.id] }); toast({ title: "تم إزالة الدومين الخاص" }); },
   });
   const verifyDomain = useMutation({
-    mutationFn: () => fetch(`/api/office/my/domains/${domainData.id}/verify`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: () => fetch(`${BASE}/api/office/my/domains/${domainData.id}/verify`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-domains", office?.id] }); toast({ title: "تم التحقق من الدومين ✓" }); },
   });
   const planFeatures = getPlanFeatures(office?.plan);

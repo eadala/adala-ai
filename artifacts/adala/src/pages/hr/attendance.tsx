@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   present: { label: "حاضر", color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/30", icon: CheckCircle2 },
   absent: { label: "غائب", color: "text-red-400", bg: "bg-red-500/10 border-red-500/30", icon: XCircle },
@@ -74,7 +76,7 @@ export default function Attendance() {
 
   const { data: records = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["attendance", dateFilter],
-    queryFn: () => fetch(`/api/hr/attendance${dateFilter ? `?date=${dateFilter}` : ""}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/hr/attendance${dateFilter ? `?date=${dateFilter}` : ""}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
     refetchInterval: 120_000,
   });

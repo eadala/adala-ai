@@ -818,7 +818,7 @@ export default function Users() {
             />
           </div>
           <Card className="border-border/50">
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow>
@@ -1034,7 +1034,7 @@ export default function Users() {
         {/* ══ TAB 4: INVITATIONS ══ */}
         <TabsContent value="invitations" className="mt-4">
           <Card className="border-border/50">
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow>

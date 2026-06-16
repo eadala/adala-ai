@@ -18,6 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 const DEPARTMENTS = ["القانوني", "الإداري", "المالي", "تقنية المعلومات", "الموارد البشرية", "خدمة العملاء"];
 const CONTRACT_TYPES: Record<string, string> = { permanent: "دائم", temporary: "مؤقت", parttime: "جزء من الوقت", freelance: "مستقل" };
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -158,12 +160,12 @@ export default function Employees() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: any) => fetch(`/api/hr/employees/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: ({ id, data }: any) => fetch(`${BASE}/api/hr/employees/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); setEditEmp(null); toast({ title: "تم التحديث" }); },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetch(`/api/hr/employees/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => fetch(`${BASE}/api/hr/employees/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); qc.invalidateQueries({ queryKey: ["employees-stats"] }); toast({ title: "تم الحذف" }); },
   });
 

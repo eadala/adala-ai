@@ -229,7 +229,7 @@ export default function FinanceDashboard() {
               <div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <FileText className="h-4 w-4 text-blue-600" /> حالة الفواتير
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   { label: "مدفوعة",    value: iv.paid ?? 0,    amount: iv.paidAmount ?? 0,    color: "emerald", icon: CheckCircle2 },
                   { label: "معلقة",     value: iv.pending ?? 0, amount: iv.pendingAmount ?? 0, color: "amber",   icon: Clock },
@@ -279,7 +279,7 @@ export default function FinanceDashboard() {
           {cf && (
             <>
               {/* Summary */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
                   { label: "إجمالي الإيرادات",  value: cf.totals.revenue,  color: "emerald" },
                   { label: "إجمالي المصاريف",   value: cf.totals.expenses, color: "red" },

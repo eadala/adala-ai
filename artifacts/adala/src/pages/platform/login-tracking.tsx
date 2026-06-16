@@ -231,7 +231,7 @@ export default function LoginTrackingPage() {
               <Users className="h-4 w-4 text-primary" /> أكثر المستخدمين نشاطاً
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -267,7 +267,7 @@ export default function LoginTrackingPage() {
             </CardTitle>
             <CardDescription>دخول تم تصنيفه كمشبوه — يستوجب المراجعة</CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -326,7 +326,7 @@ export default function LoginTrackingPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

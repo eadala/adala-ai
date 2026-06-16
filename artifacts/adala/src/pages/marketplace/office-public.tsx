@@ -18,6 +18,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 /* ═══════════════════════════════════════════════════════════════════
    UTILITIES
 ═══════════════════════════════════════════════════════════════════ */
@@ -259,14 +261,14 @@ function OrderDialog({
   const mut = useMutation({
     mutationFn: async () => {
       if (svc.price && !svc.isCustomQuote) {
-        const r = await fetch(`/api/office/public/${slug}/checkout`, {
+        const r = await fetch(`${BASE}/api/office/public/${slug}/checkout`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ serviceId: svc.id, ...form }),
         });
         const d = await r.json();
         if (d.url) { window.location.href = d.url; return; }
       }
-      await fetch(`/api/office/public/${slug}/order`, {
+      await fetch(`${BASE}/api/office/public/${slug}/order`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ serviceId: svc.id, ...form, isQuoteRequest: svc.isCustomQuote }),
       });
@@ -352,7 +354,7 @@ function ReviewDialog({ slug, lang, theme, onClose }: {
   const [form, setForm] = useState({ clientName: "", rating: 5, comment: "" });
   const [done, setDone] = useState(false);
   const mut = useMutation({
-    mutationFn: () => fetch(`/api/office/public/${slug}/review`, {
+    mutationFn: () => fetch(`${BASE}/api/office/public/${slug}/review`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
@@ -475,7 +477,7 @@ export default function OfficePage() {
   /* Queries */
   const { data: orderSuccess } = useQuery<any>({
     queryKey: ["order-success", paidSession],
-    queryFn: () => fetch(`/api/office/public/${slug}/order-success?sessionId=${paidSession}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}/api/office/public/${slug}/order-success?sessionId=${paidSession}`).then(r => r.json()),
     enabled: isPaid && !!paidSession,
     refetchInterval: (d) => (!d?.state?.data || d.state.data.status === "pending" ? 3000 : false),
     staleTime: Infinity, retry: 5,
@@ -483,7 +485,7 @@ export default function OfficePage() {
 
   const { data, isLoading, isError } = useQuery<any>({
     queryKey: ["office-public", slug],
-    queryFn: () => fetch(`/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/office/public/${slug}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
   });
 
   /* ── Payment success screen ── */

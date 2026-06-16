@@ -2,6 +2,7 @@
  * Events Routes — SSE stream + event history + analytics
  */
 import { Router, Request, Response } from "express";
+import { requireAuth } from "../../middlewares/requireAuth";
 import { eventBus } from "../../core/eventBus";
 import { EVENT_LABELS } from "../../core/listeners/analyticsListener";
 import { db } from "@workspace/db";
@@ -10,7 +11,7 @@ import { sql } from "drizzle-orm";
 const router = Router();
 
 /* ── GET /api/events/stream — SSE real-time feed ── */
-router.get("/events/stream", (req: Request, res: Response) => {
+router.get("/events/stream", requireAuth, (req: Request, res: Response) => {
   res.setHeader("Content-Type",  "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection",    "keep-alive");
@@ -33,20 +34,16 @@ router.get("/events/stream", (req: Request, res: Response) => {
 });
 
 /* ── GET /api/events/recent — last N events ── */
-router.get("/events/recent", async (req: Request, res: Response) => {
+router.get("/events/recent", requireAuth, async (req: Request, res: Response) => {
   try {
+    const tenantId = (req as any).tenantId;
     const limit  = Math.min(parseInt(String(req.query.limit  ?? 50)), 200);
     const type   = req.query.type   as string | undefined;
-    const office = req.query.office as string | undefined;
 
     const rows = await db.execute(
-      type && office
-        ? sql`SELECT id, event_type, office_id, actor_id, payload, created_at FROM system_events WHERE event_type=${type} AND office_id=${office} ORDER BY created_at DESC LIMIT ${limit}`
-        : type
-        ? sql`SELECT id, event_type, office_id, actor_id, payload, created_at FROM system_events WHERE event_type=${type} ORDER BY created_at DESC LIMIT ${limit}`
-        : office
-        ? sql`SELECT id, event_type, office_id, actor_id, payload, created_at FROM system_events WHERE office_id=${office} ORDER BY created_at DESC LIMIT ${limit}`
-        : sql`SELECT id, event_type, office_id, actor_id, payload, created_at FROM system_events ORDER BY created_at DESC LIMIT ${limit}`
+      type
+        ? sql`SELECT id, event_type, office_id, actor_id, payload, created_at FROM system_events WHERE event_type=${type} AND office_id=${tenantId} ORDER BY created_at DESC LIMIT ${limit}`
+        : sql`SELECT id, event_type, office_id, actor_id, payload, created_at FROM system_events WHERE office_id=${tenantId} ORDER BY created_at DESC LIMIT ${limit}`
     );
 
     const events = (rows.rows as any[]).map(e => ({
@@ -66,22 +63,23 @@ router.get("/events/recent", async (req: Request, res: Response) => {
 });
 
 /* ── GET /api/events/stats — counts by type (last 30d) ── */
-router.get("/events/stats", async (_req: Request, res: Response) => {
+router.get("/events/stats", requireAuth, async (req: Request, res: Response) => {
   try {
+    const tenantId = (req as any).tenantId;
     const [totals, byType, byDay] = await Promise.all([
       db.execute(sql`
-        SELECT COUNT(*) as total FROM system_events WHERE created_at > NOW() - INTERVAL '30 days'
+        SELECT COUNT(*) as total FROM system_events WHERE created_at > NOW() - INTERVAL '30 days' AND office_id=${tenantId}
       `),
       db.execute(sql`
         SELECT event_type, COUNT(*) as count
         FROM system_events
-        WHERE created_at > NOW() - INTERVAL '30 days'
+        WHERE created_at > NOW() - INTERVAL '30 days' AND office_id=${tenantId}
         GROUP BY event_type ORDER BY count DESC
       `),
       db.execute(sql`
         SELECT DATE(created_at) as day, COUNT(*) as count
         FROM system_events
-        WHERE created_at > NOW() - INTERVAL '14 days'
+        WHERE created_at > NOW() - INTERVAL '14 days' AND office_id=${tenantId}
         GROUP BY day ORDER BY day
       `),
     ]);
