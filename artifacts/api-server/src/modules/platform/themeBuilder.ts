@@ -43,63 +43,13 @@ export const DEFAULT_TOKENS = {
    PRESET DEFINITIONS  (12 Arabic-named presets)
 ═══════════════════════════════════════════════════ */
 const PRESETS = [
-  /* ── DARK ── */
+  /* ── عدالة الافتراضي (مقفول) ── */
   {
-    id: "dark-navy",
-    name: "أزرق داكن (الافتراضي)",
-    category: "dark",
-    preview: "#1A2744",
+    id: "adala-default",
+    name: "عدالة الافتراضي",
+    category: "light",
+    preview: "#1E3A8A",
     tokens: DEFAULT_TOKENS,
-  },
-  {
-    id: "midnight-gold",
-    name: "ليلي ذهبي",
-    category: "dark",
-    preview: "#0A0A1A",
-    tokens: {
-      ...DEFAULT_TOKENS,
-      colors: { ...DEFAULT_TOKENS.colors, primary: "#0A0A1A", accent: "#FFD700", background: "#05050F", surface: "#111125", sidebar: "#080818", border: "#1E1E38", textMuted: "#888AAA" },
-    },
-  },
-  {
-    id: "deep-teal",
-    name: "فيروزي داكن",
-    category: "dark",
-    preview: "#0A2E2E",
-    tokens: {
-      ...DEFAULT_TOKENS,
-      colors: { ...DEFAULT_TOKENS.colors, primary: "#0A2E2E", accent: "#00C9A7", background: "#071E1E", surface: "#0D2A2A", sidebar: "#071E1E", border: "#1A4040", textMuted: "#669988" },
-    },
-  },
-  {
-    id: "royal-purple",
-    name: "بنفسجي ملكي",
-    category: "dark",
-    preview: "#1A0A3D",
-    tokens: {
-      ...DEFAULT_TOKENS,
-      colors: { ...DEFAULT_TOKENS.colors, primary: "#1A0A3D", accent: "#9F7AEA", background: "#0D0520", surface: "#180940", sidebar: "#0D0520", border: "#2D1060", textMuted: "#8070B0" },
-    },
-  },
-  {
-    id: "charcoal-slate",
-    name: "فحمي رمادي",
-    category: "dark",
-    preview: "#1E2430",
-    tokens: {
-      ...DEFAULT_TOKENS,
-      colors: { ...DEFAULT_TOKENS.colors, primary: "#1E2430", accent: "#64B5F6", background: "#12151C", surface: "#1E2430", sidebar: "#12151C", border: "#2C3440", textMuted: "#7A8898" },
-    },
-  },
-  {
-    id: "dark-green-legal",
-    name: "أخضر قضائي",
-    category: "dark",
-    preview: "#0D2820",
-    tokens: {
-      ...DEFAULT_TOKENS,
-      colors: { ...DEFAULT_TOKENS.colors, primary: "#0D2820", accent: "#4CAF76", background: "#081812", surface: "#0D2820", sidebar: "#081812", border: "#1A3D2E", textMuted: "#5D9B78" },
-    },
   },
 
   /* ── LIGHT ── */
@@ -277,8 +227,13 @@ router.get("/theme-builder/tokens", requireAuth, async (req, res) => {
       WHERE user_id = ${uid} AND is_active = true
       ORDER BY updated_at DESC LIMIT 1
     `);
-    res.json({ tokens: row?.tokens ?? DEFAULT_TOKENS });
-  } catch { res.json({ tokens: DEFAULT_TOKENS }); }
+    if (row?.tokens) {
+      res.json({ tokens: row.tokens, hasCustomTheme: true });
+    } else {
+      /* No saved custom theme — tell frontend to use CSS vars as-is */
+      res.json({ tokens: null, hasCustomTheme: false });
+    }
+  } catch { res.json({ tokens: null, hasCustomTheme: false }); }
 });
 
 /* GET /theme-builder/public-tokens — public (no auth) for landing page */
