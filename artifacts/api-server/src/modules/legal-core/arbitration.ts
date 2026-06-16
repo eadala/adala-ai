@@ -5,11 +5,12 @@ import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAut
  *  2. Replaced direct req.body spread with explicit field extraction
  *  3. Added try/catch to all routes
  *  4. Added ownership validation on session/decision routes
+ *  5. Added office_id tenant isolation on all routes
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { arbitrationCasesTable } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, sql as drizzleSql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 
 const router = Router();
@@ -26,7 +27,9 @@ router.get("/arbitration/cases", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const tenantId = (req as any).tenantId as string;
     const cases = await db.select().from(arbitrationCasesTable)
+      .where(drizzleSql`office_id = ${tenantId}`)
       .orderBy(desc(arbitrationCasesTable.createdAt));
     res.json(cases);
   } catch (e: any) {
@@ -38,6 +41,7 @@ router.post("/arbitration/cases", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const tenantId = (req as any).tenantId as string;
 
     /* Extract and validate specific fields — no req.body spread */
     const {
@@ -58,6 +62,7 @@ router.post("/arbitration/cases", requireAuthWithTenant, async (req, res) => {
       claimAmount: claimAmount != null ? String(claimAmount) : null,
       arbitrator:  arbitrator  ?? null,
       status,
+      ...(tenantId && { officeId: tenantId } as any),
     }).returning();
     res.json(newCase);
   } catch (e: any) {
@@ -69,6 +74,7 @@ router.patch("/arbitration/cases/:id", requireAuthWithTenant, async (req, res) =
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const tenantId = (req as any).tenantId as string;
 
     const { title, type, claimant, respondent, description, claimAmount, arbitrator, status } = req.body;
 
@@ -84,7 +90,7 @@ router.patch("/arbitration/cases/:id", requireAuthWithTenant, async (req, res) =
         ...(status      !== undefined && { status }),
         updatedAt: new Date(),
       })
-      .where(eq(arbitrationCasesTable.id, String(req.params.id)))
+      .where(and(eq(arbitrationCasesTable.id, String(req.params.id)), drizzleSql`office_id = ${tenantId}`))
       .returning();
 
     if (!updated) return res.status(404).json({ error: "القضية غير موجودة" });
@@ -98,9 +104,10 @@ router.delete("/arbitration/cases/:id", requireAuthWithTenant, async (req, res) 
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const tenantId = (req as any).tenantId as string;
 
     await db.delete(arbitrationCasesTable)
-      .where(eq(arbitrationCasesTable.id, String(req.params.id)));
+      .where(and(eq(arbitrationCasesTable.id, String(req.params.id)), drizzleSql`office_id = ${tenantId}`));
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -111,9 +118,10 @@ router.post("/arbitration/cases/:id/session", requireAuthWithTenant, async (req,
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const tenantId = (req as any).tenantId as string;
 
     const [existing] = await db.select().from(arbitrationCasesTable)
-      .where(eq(arbitrationCasesTable.id, String(req.params.id)));
+      .where(and(eq(arbitrationCasesTable.id, String(req.params.id)), drizzleSql`office_id = ${tenantId}`));
     if (!existing) return res.status(404).json({ error: "القضية غير موجودة" });
 
     /* Validate session fields explicitly */
@@ -144,9 +152,10 @@ router.post("/arbitration/cases/:id/generate-decision", requireAuthWithTenant, a
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const tenantId = (req as any).tenantId as string;
 
     const [c] = await db.select().from(arbitrationCasesTable)
-      .where(eq(arbitrationCasesTable.id, String(req.params.id)));
+      .where(and(eq(arbitrationCasesTable.id, String(req.params.id)), drizzleSql`office_id = ${tenantId}`));
     if (!c) return res.status(404).json({ error: "القضية غير موجودة" });
 
     const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
@@ -214,8 +223,10 @@ router.get("/arbitration/stats", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const tenantId = (req as any).tenantId as string;
 
-    const all = await db.select().from(arbitrationCasesTable);
+    const all = await db.select().from(arbitrationCasesTable)
+      .where(drizzleSql`office_id = ${tenantId}`);
     res.json({
       total:       all.length,
       pending:     all.filter(c => c.status === "pending").length,

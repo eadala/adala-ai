@@ -21,6 +21,8 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 function riskColor(score: string | null) {
   if (!score) return "text-muted-foreground";
   const n = parseInt(score);
@@ -63,11 +65,11 @@ export default function Contracts() {
 
   const { data: contracts = [], isLoading } = useQuery<any[]>({
     queryKey: ["contracts"],
-    queryFn: () => fetch("/api/contracts").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/contracts`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => fetch("/api/contracts", {
+    mutationFn: (data: any) => fetch(`${BASE}/api/contracts`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
@@ -80,12 +82,12 @@ export default function Contracts() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetch(`/api/contracts/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => fetch(`${BASE}/api/contracts/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["contracts"] }); toast({ title: tx("تم الحذف", "Deleted") }); },
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => fetch(`/api/contracts/${id}`, {
+    mutationFn: ({ id, status }: { id: string; status: string }) => fetch(`${BASE}/api/contracts/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["contracts"] }),
@@ -96,7 +98,7 @@ export default function Contracts() {
     setAnalyzing(true);
     setAnalysisResult("");
     try {
-      const res = await fetch(`/api/contracts/${contract.id}/analyze`, { method: "POST" });
+      const res = await fetch(`${BASE}/api/contracts/${contract.id}/analyze`, { method: "POST" });
       const data = await res.json();
       setAnalysisResult(data.analysis);
       qc.invalidateQueries({ queryKey: ["contracts"] });
