@@ -134,6 +134,7 @@ const UpgradePage          = lazy(() => import("@/pages/platform/upgrade"));
 const PricingPage          = lazy(() => import("@/pages/marketplace/pricing"));
 const DemoPage             = lazy(() => import("@/pages/demo"));
 const DemoLoginPage        = lazy(() => import("@/pages/demo-login"));
+const LiveDemoPage         = lazy(() => import("@/pages/live-demo"));
 const OfficePage           = lazy(() => import("@/pages/marketplace/office-public"));
 const OfficeServiceDetail  = lazy(() => import("@/pages/marketplace/office-service-detail"));
 const OfficeStore          = lazy(() => import("@/pages/marketplace/office-store"));
@@ -465,6 +466,7 @@ function AppRoutes() {
             <Route path="/pricing"><PublicPage><PricingPage /></PublicPage></Route>
             <Route path="/demo"><PublicPage><DemoPage /></PublicPage></Route>
             <Route path="/demo-login"><Suspense fallback={<PageLoader />}><DemoLoginPage /></Suspense></Route>
+            <Route path="/live-demo"><Suspense fallback={<PageLoader />}><LiveDemoPage /></Suspense></Route>
             <Route path="/terms"><PublicPage><TermsPage /></PublicPage></Route>
             <Route path="/privacy"><PublicPage><PrivacyPage /></PublicPage></Route>
             <Route path="/security"><PublicPage><SecurityPage /></PublicPage></Route>
