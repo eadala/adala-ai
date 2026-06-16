@@ -265,7 +265,7 @@ function WhatsAppSettings() {
 
   const { data: status } = useQuery({
     queryKey: ["wa-settings"],
-    queryFn:  () => fetch(`${BASE}api/webhook/whatsapp/settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn:  () => fetch(`${BASE}/api/webhook/whatsapp/settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const webhookUrl = status?.webhookUrl || `${window.location.origin}${BASE}api/webhook/whatsapp`;
@@ -281,7 +281,7 @@ function WhatsAppSettings() {
     setTesting(true);
     setTestResult(null);
     try {
-      const r = await fetch(`${BASE}api/webhook/whatsapp/test`, {
+      const r = await fetch(`${BASE}/api/webhook/whatsapp/test`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumberId: phoneId, accessToken: token }),

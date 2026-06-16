@@ -193,7 +193,7 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
   const total    = subtotal + vatAmt;
 
   const create = useMutation({
-    mutationFn: () => fetch(`${BASE}api/invoices`, {
+    mutationFn: () => fetch(`${BASE}/api/invoices`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -340,7 +340,7 @@ function InvoiceSheet({
     if (!invoice) return;
     setLoadingLink(true);
     try {
-      const r = await fetch(`${BASE}api/invoices/${invoice.id}/payment-link`, { method: "POST" });
+      const r = await fetch(`${BASE}/api/invoices/${invoice.id}/payment-link`, { method: "POST" });
       const d = await r.json();
       if (d.error) { toast.error(d.error); }
       else { toast.success(d.existing ? "تم استرجاع رابط الدفع ✅" : "تم إنشاء رابط الدفع ✅"); onRefresh(); onClose(); }
@@ -349,12 +349,12 @@ function InvoiceSheet({
   };
 
   const markPaid = useMutation({
-    mutationFn: () => fetch(`${BASE}api/invoices/${invoice!.id}/mark-paid`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: () => fetch(`${BASE}/api/invoices/${invoice!.id}/mark-paid`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast.success("تم تسجيل الدفع ✅"); onRefresh(); onClose(); },
   });
 
   const updateStatus = useMutation({
-    mutationFn: (status: string) => fetch(`${BASE}api/invoices/${invoice!.id}`, {
+    mutationFn: (status: string) => fetch(`${BASE}/api/invoices/${invoice!.id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -376,7 +376,7 @@ function InvoiceSheet({
     const message = `السلام عليكم،\nيرجى سداد الفاتورة رقم ${invoice.invoiceNumber} بمبلغ ${fmt(invoice.total)} ر.س${invoice.stripePaymentLinkUrl ? `\nرابط الدفع: ${invoice.stripePaymentLinkUrl}` : ""}`;
     setWaSending(true);
     try {
-      const r = await fetch(`${BASE}api/whatsapp/send`, {
+      const r = await fetch(`${BASE}/api/whatsapp/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to: phone, message, template: "invoice" }),
@@ -1016,12 +1016,12 @@ export default function Invoices() {
 
   const { data: allInvoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["invoices"],
-    queryFn: () => fetch(`${BASE}api/invoices`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/invoices`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: clients = [] } = useQuery<Client[]>({
     queryKey: ["clients-list"],
-    queryFn: () => fetch(`${BASE}api/clients`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/clients`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["invoices"] });
@@ -1048,14 +1048,14 @@ export default function Invoices() {
   }, [allInvoices]);
 
   const deleteInv = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}api/invoices/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => fetch(`${BASE}/api/invoices/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast.success("تم حذف الفاتورة"); refresh(); },
     onError: () => toast.error("فشل الحذف"),
   });
 
   const generateLink = async (invoice: Invoice) => {
     try {
-      const r = await fetch(`${BASE}api/invoices/${invoice.id}/payment-link`, { method: "POST" });
+      const r = await fetch(`${BASE}/api/invoices/${invoice.id}/payment-link`, { method: "POST" });
       const d = await r.json();
       if (d.error) toast.error(d.error);
       else { toast.success("تم إنشاء رابط الدفع ✅"); refresh(); }
@@ -1063,7 +1063,7 @@ export default function Invoices() {
   };
 
   const markPaidDirect = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}api/invoices/${id}/mark-paid`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => fetch(`${BASE}/api/invoices/${id}/mark-paid`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast.success("تم تسجيل الدفع ✅"); refresh(); },
   });
 

@@ -175,7 +175,7 @@ router.get("/isolation/summary", requireAuthWithTenant, guard, async (_req, res)
         rlsTables:    Number(rls.rls_tables   ?? 0),
         coverage:     rlsCoverage,
       },
-      code:    { overallScore: auditResult.summary.overallScore, ...auditResult.summary },
+      code:    { ...auditResult.summary },
       runtime: leakStats,
       grade:   isolationScore >= 90 ? "A" : isolationScore >= 75 ? "B" : isolationScore >= 60 ? "C" : "D",
     });

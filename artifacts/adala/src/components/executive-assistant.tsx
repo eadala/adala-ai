@@ -30,7 +30,7 @@ function greetMsg() {
 export function ExecutiveAssistant() {
   const { data, isLoading } = useQuery<Briefing>({
     queryKey: ["ai-briefing"],
-    queryFn: () => fetch(`${BASE}api/ai-agent/briefing`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/ai-agent/briefing`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 120_000,
   });
 

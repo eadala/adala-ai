@@ -35,7 +35,7 @@ export default function PortalMyCases() {
 
   const { data: me, isLoading, isError } = useQuery({
     queryKey: ["client-me"],
-    queryFn: () => fetch(`${BASE}api/client-auth/me`, {
+    queryFn: () => fetch(`${BASE}/api/client-auth/me`, {
       credentials: "include",
     }).then(r => {
       if (r.status === 401) throw new Error("unauthenticated");
@@ -50,7 +50,7 @@ export default function PortalMyCases() {
   }, [isError]);
 
   const logout = async () => {
-    await fetch(`${BASE}api/client-auth/logout`, {
+    await fetch(`${BASE}/api/client-auth/logout`, {
       method: "POST",
       credentials: "include",
     });
@@ -63,7 +63,7 @@ export default function PortalMyCases() {
     const portalToken = linkInput.trim().split("/portal/").pop()?.trim() ?? linkInput.trim();
     if (!portalToken) { toast.error("أدخل الرابط أو الرمز"); return; }
     setLinking(true);
-    const r = await fetch(`${BASE}api/client-auth/link-token`, {
+    const r = await fetch(`${BASE}/api/client-auth/link-token`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -83,7 +83,7 @@ export default function PortalMyCases() {
     if (editName) body.name = editName;
     if (editPhone) body.phone = editPhone;
     if (editPw) body.password = editPw;
-    const r = await fetch(`${BASE}api/client-auth/me`, {
+    const r = await fetch(`${BASE}/api/client-auth/me`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },

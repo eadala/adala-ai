@@ -78,14 +78,14 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
   const [selectedReminders, setSelectedReminders] = useState<number[]>([60]);
   const [email, setEmail]             = useState(user?.primaryEmailAddress?.emailAddress ?? "");
 
-  const { data: cases = [] }   = useQuery<any[]>({ queryKey: ["cases-list"],   queryFn: () => fetch(`${BASE}api/cases`).then(r=>r.ok?r.json():[]) });
-  const { data: clients = [] } = useQuery<any[]>({ queryKey: ["clients-list"], queryFn: () => fetch(`${BASE}api/clients`).then(r=>r.ok?r.json():[]) });
+  const { data: cases = [] }   = useQuery<any[]>({ queryKey: ["cases-list"],   queryFn: () => fetch(`${BASE}/api/cases`).then(r=>r.ok?r.json():[]) });
+  const { data: clients = [] } = useQuery<any[]>({ queryKey: ["clients-list"], queryFn: () => fetch(`${BASE}/api/clients`).then(r=>r.ok?r.json():[]) });
 
   const create = useMutation({
     mutationFn: async () => {
       const startAt = allDay ? `${date}T00:00:00` : `${date}T${time}:00`;
       const endAt   = allDay ? `${date}T23:59:00` : `${date}T${endTime}:00`;
-      const r = await fetch(`${BASE}api/calendar/events`, {
+      const r = await fetch(`${BASE}/api/calendar/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -312,16 +312,16 @@ export default function Calendar() {
 
   const { data: events = [], isLoading, refetch } = useQuery<CalEvent[]>({
     queryKey: ["calendar-events", year, month],
-    queryFn: () => fetch(`${BASE}api/calendar/events?year=${year}&month=${month}`).then(r => r.ok ? r.json() : []),
+    queryFn: () => fetch(`${BASE}/api/calendar/events?year=${year}&month=${month}`).then(r => r.ok ? r.json() : []),
   });
 
   const { data: upcomingEvents = [] } = useQuery<CalEvent[]>({
     queryKey: ["calendar-upcoming"],
-    queryFn: () => fetch(`${BASE}api/calendar/events/upcoming?days=14`).then(r => r.ok ? r.json() : []),
+    queryFn: () => fetch(`${BASE}/api/calendar/events/upcoming?days=14`).then(r => r.ok ? r.json() : []),
   });
 
   const deleteEvent = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}api/calendar/events/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => fetch(`${BASE}/api/calendar/events/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       toast.success("تم حذف الحدث");
       qc.invalidateQueries({ queryKey: ["calendar-events"] });
@@ -335,7 +335,7 @@ export default function Calendar() {
   };
 
   const exportIcal = () => {
-    window.open(`${BASE}api/calendar/events/export.ics`, "_blank");
+    window.open(`${BASE}/api/calendar/events/export.ics`, "_blank");
   };
 
   const firstDay = new Date(year, month - 1, 1).getDay();

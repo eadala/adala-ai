@@ -653,7 +653,7 @@ export default function Dashboard() {
 
   const { data, isLoading } = useQuery<Overview>({
     queryKey: ["dashboard-overview"],
-    queryFn: () => fetch(`${BASE}api/dashboard/overview`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => fetch(`${BASE}/api/dashboard/overview`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 3 * 60_000,
     refetchInterval: 5 * 60_000,
   });

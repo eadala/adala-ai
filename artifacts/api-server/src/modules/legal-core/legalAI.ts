@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -293,8 +293,9 @@ router.get("/legal-ai/templates", (_req, res) => {
 });
 
 /* ── Route: generate document ── */
-router.post("/legal-ai/generate", requireAuth, async (req, res) => {
+router.post("/legal-ai/generate", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const { docType, variables = {}, caseId, clientId, model = "auto" } = req.body as {
       docType: string;
       variables: Record<string, string>;
@@ -327,11 +328,11 @@ router.post("/legal-ai/generate", requireAuth, async (req, res) => {
 
     const title = `${template.label} — ${new Date().toLocaleDateString("ar-SA")}`;
     await db.execute(sql`
-      INSERT INTO legal_documents (id, doc_type, doc_category, title, content, case_id, client_id, variables, model_used)
+      INSERT INTO legal_documents (id, doc_type, doc_category, title, content, case_id, client_id, variables, model_used, office_id)
       VALUES (
         gen_random_uuid()::text, ${docType}, ${template.category}, ${title}, ${reply},
         ${caseId ?? null}, ${clientId ?? null},
-        ${JSON.stringify(variables)}::jsonb, ${modelUsed}
+        ${JSON.stringify(variables)}::jsonb, ${modelUsed}, ${tenantId}
       )
     `);
 
@@ -344,10 +345,11 @@ router.post("/legal-ai/generate", requireAuth, async (req, res) => {
 });
 
 /* ── Route: refine existing document ── */
-router.post("/legal-ai/:id/refine", requireAuth, async (req, res) => {
+router.post("/legal-ai/:id/refine", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const { instruction, model = "auto" } = req.body as { instruction: string; model?: string };
-    const rows = await sqlAll(sql`SELECT * FROM legal_documents WHERE id = ${String(req.params.id)} LIMIT 1`);
+    const rows = await sqlAll(sql`SELECT * FROM legal_documents WHERE id = ${String(req.params.id)} AND office_id = ${tenantId} LIMIT 1`);
     if (!rows[0]) { res.status(404).json({ error: "الوثيقة غير موجودة" }); return; }
 
     const { reply } = await callAI(
@@ -356,7 +358,7 @@ router.post("/legal-ai/:id/refine", requireAuth, async (req, res) => {
       [], model as any
     );
 
-    await db.execute(sql`UPDATE legal_documents SET content = ${reply} WHERE id = ${String(req.params.id)}`);
+    await db.execute(sql`UPDATE legal_documents SET content = ${reply} WHERE id = ${String(req.params.id)} AND office_id = ${tenantId}`);
     res.json({ content: reply });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -364,12 +366,15 @@ router.post("/legal-ai/:id/refine", requireAuth, async (req, res) => {
 });
 
 /* ── Route: history ── */
-router.get("/legal-ai/history", requireAuth, async (_req, res) => {
+router.get("/legal-ai/history", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const rows = await sqlAll(sql`
       SELECT id, doc_type, doc_category, title, model_used, created_at,
              LEFT(content, 250) AS preview
-      FROM legal_documents ORDER BY created_at DESC LIMIT 30
+      FROM legal_documents
+      WHERE office_id = ${tenantId}
+      ORDER BY created_at DESC LIMIT 30
     `);
     res.json(rows);
   } catch (e: any) {
@@ -378,9 +383,10 @@ router.get("/legal-ai/history", requireAuth, async (_req, res) => {
 });
 
 /* ── Route: get single document ── */
-router.get("/legal-ai/:id", requireAuth, async (req, res) => {
+router.get("/legal-ai/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const rows = await sqlAll(sql`SELECT * FROM legal_documents WHERE id = ${String(req.params.id)} LIMIT 1`);
+    const tenantId = (req as any).tenantId as string;
+    const rows = await sqlAll(sql`SELECT * FROM legal_documents WHERE id = ${String(req.params.id)} AND office_id = ${tenantId} LIMIT 1`);
     if (!rows[0]) { res.status(404).json({ error: "الوثيقة غير موجودة" }); return; }
     res.json(rows[0]);
   } catch (e: any) {
@@ -389,9 +395,10 @@ router.get("/legal-ai/:id", requireAuth, async (req, res) => {
 });
 
 /* ── Route: delete document ── */
-router.delete("/legal-ai/:id", requireAuth, async (req, res) => {
+router.delete("/legal-ai/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    await db.execute(sql`DELETE FROM legal_documents WHERE id = ${String(req.params.id)}`);
+    const tenantId = (req as any).tenantId as string;
+    await db.execute(sql`DELETE FROM legal_documents WHERE id = ${String(req.params.id)} AND office_id = ${tenantId}`);
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
