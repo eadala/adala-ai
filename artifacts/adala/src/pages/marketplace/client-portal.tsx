@@ -403,10 +403,10 @@ function CreateClientAccountDialog({ cases, onCreated }: { cases: Case[]; onCrea
             {cases.length > 0 && (
               <div className="space-y-1.5">
                 <Label className="text-xs">ربط بقضية (اختياري)</Label>
-                <Select value={caseId} onValueChange={setCaseId}>
+                <Select value={caseId || "__none__"} onValueChange={v => setCaseId(v === "__none__" ? "" : v)}>
                   <SelectTrigger dir="rtl"><SelectValue placeholder="اختر قضية — سيُربط الحساب بها تلقائياً" /></SelectTrigger>
                   <SelectContent dir="rtl">
-                    <SelectItem value="">بدون ربط بقضية</SelectItem>
+                    <SelectItem value="__none__">بدون ربط بقضية</SelectItem>
                     {cases.map(c => (
                       <SelectItem key={c.id} value={c.id}>{c.title} — {c.clientName}</SelectItem>
                     ))}

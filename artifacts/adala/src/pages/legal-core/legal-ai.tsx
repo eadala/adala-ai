@@ -354,12 +354,12 @@ export default function LegalAIPage() {
                   <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/30 border border-border">
                     <div className="space-y-1">
                       <Label className="text-[11px] text-white/50">ربط بقضية (اختياري)</Label>
-                      <Select value={linkedCaseId} onValueChange={setLinkedCaseId}>
+                      <Select value={linkedCaseId || "__none__"} onValueChange={v => setLinkedCaseId(v === "__none__" ? "" : v)}>
                         <SelectTrigger className="bg-muted border-border text-white text-xs h-8">
                           <SelectValue placeholder="اختر قضية..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">— بدون ربط —</SelectItem>
+                          <SelectItem value="__none__">— بدون ربط —</SelectItem>
                           {(casesList as any[]).map((c: any) => (
                             <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
                           ))}
@@ -368,12 +368,12 @@ export default function LegalAIPage() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[11px] text-white/50">ربط بعميل (اختياري)</Label>
-                      <Select value={linkedClientId} onValueChange={setLinkedClientId}>
+                      <Select value={linkedClientId || "__none__"} onValueChange={v => setLinkedClientId(v === "__none__" ? "" : v)}>
                         <SelectTrigger className="bg-muted border-border text-white text-xs h-8">
                           <SelectValue placeholder="اختر عميل..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">— بدون ربط —</SelectItem>
+                          <SelectItem value="__none__">— بدون ربط —</SelectItem>
                           {(clientsList as any[]).map((c: any) => (
                             <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
                           ))}

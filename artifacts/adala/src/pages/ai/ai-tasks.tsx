@@ -204,12 +204,12 @@ export default function AiTasks() {
             </div>
             <div>
               <Label>القضية المرتبطة (اختياري)</Label>
-              <Select value={form.caseId} onValueChange={v => setForm(p => ({ ...p, caseId: v }))}>
+              <Select value={form.caseId || "__none__"} onValueChange={v => setForm(p => ({ ...p, caseId: v === "__none__" ? "" : v }))}>
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="اختر قضية..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">— بدون ربط —</SelectItem>
+                  <SelectItem value="__none__">— بدون ربط —</SelectItem>
                   {(cases as any[]).map((c: any) => (
                     <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
                   ))}
