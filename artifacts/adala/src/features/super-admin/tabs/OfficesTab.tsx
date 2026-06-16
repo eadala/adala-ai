@@ -43,20 +43,39 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, AreaChart, Area,
 } from "recharts";
-import { API, useAdmin } from "../shared/api";
+import { API, DEV_API, useAdmin } from "../shared/api";
 import { StatCard } from "../shared/components";
 import {
   PLAN_SLUG_COLORS, PLAN_SLUG_LABELS, PLAN_FEATURE_FLAGS, TABS,
   arabicToSlug, PERM_LABELS
 } from "../shared/constants";
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 export function OfficesTab({ qc, toast }: any) {
   const { data: offices = [], isLoading } = useAdmin<any[]>("/offices");
   const { data: plans = [] } = useAdmin<any[]>("/plans");
   const [search, setSearch] = useState("");
-  const [planDialog, setPlanDialog] = useState<any>(null); // { id, currentPlan }
-  const [slugDialog, setSlugDialog] = useState<any>(null); // { id, name, slug }
+  const [planDialog, setPlanDialog] = useState<any>(null);
+  const [slugDialog, setSlugDialog] = useState<any>(null);
   const [slugInput, setSlugInput] = useState("");
+  const [enteringId, setEnteringId] = useState<string | null>(null);
+
+  const enterOffice = useMutation({
+    mutationFn: async (officeId: string) => {
+      setEnteringId(officeId);
+      return DEV_API(`/impersonate/${officeId}`, { method: "POST" });
+    },
+    onSuccess: (_data, officeId) => {
+      const office = (offices as any[]).find((o: any) => o.id === officeId);
+      toast({ title: `🔮 دخول المكتب: ${office?.name ?? officeId}` });
+      setTimeout(() => { window.location.href = `${BASE}/dashboard`; }, 400);
+    },
+    onError: () => {
+      setEnteringId(null);
+      toast({ title: "فشل الدخول للمكتب", variant: "destructive" });
+    },
+  });
 
   const updateOffice = useMutation({
     mutationFn: ({ id, ...d }: any) => API(`/offices/${id}`, { method: "PATCH", body: JSON.stringify(d) }),
@@ -120,6 +139,18 @@ export function OfficesTab({ qc, toast }: any) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs gap-1.5 bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
+                          disabled={enteringId === o.id}
+                          onClick={() => enterOffice.mutate(o.id)}
+                          title="دخول المكتب بصلاحيات كاملة (Ghost Access)"
+                        >
+                          {enteringId === o.id
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <Fingerprint className="h-3 w-3" />}
+                          دخول
+                        </Button>
                         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1"
                           onClick={() => updateOffice.mutate({ id: o.id, isPublished: !o.isPublished })}>
                           {o.isPublished ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
