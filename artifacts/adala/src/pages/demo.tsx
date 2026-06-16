@@ -11,6 +11,7 @@ import {
   Banknote, BookOpen, PieChart, Send, Mic, CircleCheck, Globe,
   Brain, Layers, HardDrive, Palette, CheckSquare, Store,
   TrendingUp as TU, ArrowUpRight, LayoutGrid, ExternalLink,
+  MapPin, ShoppingBag, ShoppingCart, BadgeCheck, Link2,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
