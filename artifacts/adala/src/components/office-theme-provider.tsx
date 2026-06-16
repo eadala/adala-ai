@@ -264,9 +264,11 @@ export function OfficeThemeProvider() {
     refetchOnWindowFocus: false,
   });
 
-  /* Apply design tokens + landing vars — only on mount/update, not on every cleanup */
+  /* Apply design tokens ONLY when the office has a saved custom theme.
+     When hasCustomTheme is false the CSS vars in index.css are the source
+     of truth — we must not touch them so the platform design stays locked. */
   useEffect(() => {
-    if (themeData?.tokens) {
+    if (themeData?.hasCustomTheme && themeData?.tokens) {
       applyDesignTokens(themeData.tokens);
       applyLandingVars(themeData.tokens);
     }
