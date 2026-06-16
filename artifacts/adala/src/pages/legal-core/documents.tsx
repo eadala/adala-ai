@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/hooks/use-lang";
 import { SmartUploader } from "@/components/smart-uploader";
 import { cn } from "@/lib/utils";
+import { useImageViewer } from "@/components/ui/image-viewer";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -478,6 +479,7 @@ function FolderNode({ node, currentId, onNavigate, onCreateSub, onRename, onDele
 function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; folders: any[]; onShare:(f:any)=>void; onMove:(f:any)=>void; tx:any }) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { open: openImage, viewer: imageViewer } = useImageViewer();
 
   const trashMut = useMutation({
     mutationFn: () => fetch(`${BASE}/api/storage/files/${file.id}/trash`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -492,10 +494,18 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
 
   return (
     <Card className="hover-elevate group transition-all overflow-hidden">
+      {imageViewer}
       <CardContent className="p-0">
         {preview && (
-          <div className="h-28 overflow-hidden bg-muted/40">
-            <img src={preview} className="w-full h-full object-cover" alt="" loading="lazy" />
+          <div
+            className="h-28 overflow-hidden bg-muted/40 cursor-zoom-in relative"
+            onClick={() => openImage(preview)}
+            title={tx("انقر للتكبير", "Click to enlarge")}
+          >
+            <img src={preview} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt="" loading="lazy" />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+              <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+            </div>
           </div>
         )}
         <div className="p-4">
