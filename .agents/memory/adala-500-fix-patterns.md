@@ -41,8 +41,22 @@ if (!UUID_RE.test(id)) return res.status(400).json({ error: "معرف غير ص�
 **Problem:** `parseInt("abc")` = NaN breaks SQL integer comparisons.
 **Fix:** Check `isNaN()` before using parsed integer in SQL.
 
+## Pattern 5: UUID vs TEXT JOIN mismatch
+
+**Problem:** `office_orders.id` is UUID type but `cases.store_order_id` is TEXT.
+`LEFT JOIN office_orders oo ON oo.id = c.store_order_id` → PostgreSQL error: `operator does not exist: uuid = text` → 500 on every `GET /api/cases/:id`.
+**Fix:** Cast the UUID side: `ON oo.id::text = c.store_order_id`
+**Why:** When joining a UUID column to a TEXT column, always cast UUID→text (not text→uuid, which fails on non-UUID text values).
+
+## Pattern 6: clerkMiddleware publishableKeyFromHost on Replit
+
+**Problem:** `publishableKeyFromHost(host, fallback)` from `@clerk/shared/keys` may return wrong key for Replit .replit.app/.replit.dev domains → all `getAuth(req)` calls return `{ userId: null }` → 401 on every protected route.
+**Fix:** Use env vars directly: `clerkMiddleware({ publishableKey: process.env.CLERK_PUBLISHABLE_KEY, secretKey: process.env.CLERK_SECRET_KEY })`
+**Location:** `artifacts/api-server/src/app.ts`
+
 ## DB Schema Notes
 - `events` table uses `start_at` (not `start_time`) for the event time column
 - `audit_logs` table has NO `office_id` column (by design — logs all offices)
 - There is no `notifications` table — it's `plan_notifications` for billing alerts
 - `office_tasks` route is in `tasks.ts` (not `office-tasks.ts`)
+- `office_orders.id` is UUID; `cases.store_order_id` is TEXT — always cast when joining
