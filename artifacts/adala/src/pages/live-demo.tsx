@@ -9,7 +9,10 @@ import {
   BookOpen, ChevronDown, LayoutDashboard, Bell, ClipboardList, Globe,
   LogOut, Menu, Gavel, Zap, Brain, BarChart2, CreditCard, Wallet,
   TrendingUp as TU, ArrowUpRight, Plus, X, Send, Loader2, ChevronRight,
-  CalendarDays, PieChart, Handshake, BadgeCheck, Lock,
+  CalendarDays, PieChart, Handshake, BadgeCheck,
+  FileSignature, MessageCircle, UserCog, ArrowRightLeft, Network,
+  Palette, Database, HardDrive, Wand2, Swords, LifeBuoy,
+  ShoppingBag, Crown, AlertTriangle, Cpu, BrainCircuit, LibraryBig,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -21,7 +24,7 @@ const OFFICES = {
     tagline: "قانون تجاري · مدني · عقاري",
     city: "الرياض",
     color: "#6366F1",
-    plan: "باقة Pro",
+    plan: "باقة Ultimate",
     users: [
       { name: "أ. خالد الشمري",   role: "محامٍ أول — مدير المكتب", avatar: "خ", color: "bg-indigo-600" },
       { name: "أ. سلطان القحطاني", role: "محامٍ شريك",              avatar: "س", color: "bg-blue-600"   },
@@ -60,7 +63,7 @@ const OFFICES = {
     tagline: "قانون أسرة · عمالي · جنائي",
     city: "جدة",
     color: "#10B981",
-    plan: "باقة Starter",
+    plan: "باقة Ultimate",
     users: [
       { name: "أ. منى الغامدي",    role: "محامية أولى — مديرة المكتب", avatar: "م", color: "bg-emerald-600" },
       { name: "أ. ريم الزهراني",   role: "محامية",                    avatar: "ر", color: "bg-teal-600"    },
@@ -118,29 +121,103 @@ function PriBadge({ p }: { p: string }) {
 }
 
 /* ══ NAV STRUCTURE ══════════════════════════════════════════════════ */
-type Page = "dashboard"|"cases"|"clients"|"contracts"|"invoices"|"employees"|"ai"|"calendar"|"documents";
+type Page =
+  | "dashboard" | "cases" | "calendar" | "tasks" | "reminders"
+  | "clients" | "client-portal" | "mediators"
+  | "contracts" | "documents" | "doc-templates" | "letters"
+  | "ai-copilot" | "ai-hub" | "adoul" | "ui-builder" | "ai-agents"
+  | "legal-ai" | "legal-research" | "judge-prep" | "opponent-sim" | "arbitration"
+  | "finance" | "invoices" | "collections" | "payment-center" | "revenues"
+  | "expenses" | "cashflow" | "bank-accounts" | "advances"
+  | "financial-reports" | "financial-statements" | "financial-core" | "billing"
+  | "messages" | "email-notif" | "whatsapp" | "telegram"
+  | "office-mgmt" | "marketplace" | "support"
+  | "hr-enterprise" | "hr-center" | "hr-systems" | "employees"
+  | "attendance" | "leaves" | "payroll" | "warnings"
+  | "analytics" | "fin-intelligence" | "risk-mgmt" | "activity-stream"
+  | "audit-logs" | "compliance" | "firm-admin" | "org-structure"
+  | "team" | "office-settings" | "theme-builder" | "backup" | "storage";
+
 interface CenterDef { id: string; label: string; icon: any; color: string; items: { id: Page; label: string; icon: any }[] }
 const CENTERS: CenterDef[] = [
   { id: "cases", label: "إدارة القضايا", icon: Scale, color: "#6366F1", items: [
-    { id: "dashboard", label: "لوحة التحكم",   icon: LayoutDashboard },
-    { id: "cases",     label: "القضايا",         icon: Scale },
-    { id: "calendar",  label: "المواعيد",         icon: CalendarDays },
+    { id: "dashboard",   label: "لوحة التحكم",   icon: LayoutDashboard },
+    { id: "cases",       label: "القضايا",         icon: Scale },
+    { id: "calendar",    label: "المواعيد",         icon: CalendarDays },
+    { id: "tasks",       label: "المهام",            icon: ClipboardList },
+    { id: "reminders",   label: "التذكيرات",        icon: Bell },
   ]},
   { id: "crm", label: "إدارة العملاء", icon: UserCircle, color: "#0EA5E9", items: [
-    { id: "clients",   label: "الموكلون",         icon: Users },
+    { id: "clients",       label: "الموكلون",          icon: Users },
+    { id: "client-portal", label: "بوابة الموكل",      icon: Globe },
+    { id: "mediators",     label: "الوسطاء",            icon: Handshake },
   ]},
-  { id: "docs", label: "العقود والمستندات", icon: FileCheck, color: "#F59E0B", items: [
-    { id: "contracts", label: "العقود",            icon: Handshake },
-    { id: "documents", label: "المستندات",         icon: BookOpen },
+  { id: "docs", label: "العقود والمستندات", icon: FileSignature, color: "#F59E0B", items: [
+    { id: "contracts",     label: "العقود",             icon: Handshake },
+    { id: "documents",     label: "المستندات",          icon: BookOpen },
+    { id: "doc-templates", label: "قوالب المستندات",    icon: FileSignature },
+    { id: "letters",       label: "المراسلات",           icon: Mail },
   ]},
-  { id: "finance", label: "المالية والفواتير", icon: DollarSign, color: "#10B981", items: [
-    { id: "invoices",  label: "الفواتير",          icon: Receipt },
+  { id: "ai", label: "مركز الذكاء الاصطناعي", icon: Sparkles, color: "#8B5CF6", items: [
+    { id: "ai-copilot",    label: "المساعد القانوني AI", icon: BrainCircuit },
+    { id: "ai-hub",        label: "مركز الذكاء AI",     icon: Sparkles },
+    { id: "adoul",         label: "عدول AI",             icon: Scale },
+    { id: "ui-builder",    label: "منشئ الواجهات AI",   icon: Wand2 },
+    { id: "ai-agents",     label: "وكلاء AI",            icon: Bot },
+    { id: "legal-ai",      label: "المحرر القانوني",     icon: FileText },
+    { id: "legal-research",label: "البحث القانوني",      icon: LibraryBig },
+    { id: "judge-prep",    label: "تحضير الجلسة",        icon: Gavel },
+    { id: "opponent-sim",  label: "محاكاة الخصم",        icon: Swords },
+    { id: "arbitration",   label: "التحكيم الذكي",       icon: Handshake },
   ]},
-  { id: "hr", label: "الموارد البشرية", icon: Award, color: "#F43F5E", items: [
-    { id: "employees", label: "الموظفون",          icon: UserCircle },
+  { id: "finance", label: "العمليات المالية", icon: DollarSign, color: "#10B981", items: [
+    { id: "finance",            label: "لوحة المالية",      icon: DollarSign },
+    { id: "invoices",           label: "الفواتير",           icon: Receipt },
+    { id: "collections",        label: "التحصيل",            icon: TrendingUp },
+    { id: "payment-center",     label: "مركز الدفع",         icon: Landmark },
+    { id: "revenues",           label: "الإيرادات",          icon: TrendingUp },
+    { id: "expenses",           label: "المصروفات",          icon: TrendingDown },
+    { id: "cashflow",           label: "التدفق النقدي",      icon: ArrowRightLeft },
+    { id: "bank-accounts",      label: "الحسابات البنكية",   icon: Landmark },
+    { id: "advances",           label: "السلف",               icon: Wallet },
+    { id: "financial-reports",  label: "التقارير المالية",   icon: BarChart2 },
+    { id: "financial-statements",label: "القوائم المالية",   icon: Scale },
+    { id: "financial-core",     label: "المحرك المالي",      icon: BarChart3 },
+    { id: "billing",            label: "الاشتراك والباقة",   icon: CreditCard },
   ]},
-  { id: "ai", label: "الذكاء الاصطناعي", icon: Brain, color: "#8B5CF6", items: [
-    { id: "ai",        label: "مساعد AI",          icon: Sparkles },
+  { id: "comms", label: "مركز الاتصالات", icon: MessageCircle, color: "#F97316", items: [
+    { id: "messages",     label: "الرسائل الداخلية",   icon: MessageCircle },
+    { id: "email-notif",  label: "إشعارات البريد",     icon: Mail },
+    { id: "whatsapp",     label: "واتساب",              icon: MessageSquare },
+    { id: "telegram",     label: "تيليغرام",            icon: Send },
+    { id: "office-mgmt",  label: "المكتب الإلكتروني",  icon: Globe },
+    { id: "marketplace",  label: "سوق الخدمات",         icon: ShoppingBag },
+    { id: "support",      label: "الدعم الفني",          icon: LifeBuoy },
+  ]},
+  { id: "hr", label: "رأس المال البشري", icon: Users, color: "#F43F5E", items: [
+    { id: "hr-enterprise", label: "HR المؤسسي",          icon: Shield },
+    { id: "hr-center",     label: "مركز HR",              icon: Award },
+    { id: "hr-systems",    label: "أنظمة HR",             icon: Building2 },
+    { id: "employees",     label: "الموظفون",             icon: UserCog },
+    { id: "attendance",    label: "الحضور والغياب",       icon: Clock },
+    { id: "leaves",        label: "الإجازات",             icon: CalendarDays },
+    { id: "payroll",       label: "الرواتب",              icon: DollarSign },
+    { id: "warnings",      label: "التنبيهات التأديبية",  icon: AlertTriangle },
+  ]},
+  { id: "settings", label: "التحليلات والإعدادات", icon: BarChart3, color: "#64748B", items: [
+    { id: "analytics",         label: "تحليلات الأداء",   icon: BarChart3 },
+    { id: "fin-intelligence",  label: "الذكاء المالي",    icon: BrainCircuit },
+    { id: "risk-mgmt",         label: "إدارة المخاطر",    icon: AlertTriangle },
+    { id: "activity-stream",   label: "سجل النشاط",       icon: Activity },
+    { id: "audit-logs",        label: "سجلات التدقيق",    icon: Activity },
+    { id: "compliance",        label: "الامتثال",          icon: Shield },
+    { id: "firm-admin",        label: "إدارة المكتب",     icon: Crown },
+    { id: "org-structure",     label: "الهيكل التنظيمي",  icon: Network },
+    { id: "team",              label: "الفريق والصلاحيات", icon: Shield },
+    { id: "office-settings",   label: "إعدادات المكتب",   icon: Building2 },
+    { id: "theme-builder",     label: "منشئ الثيم",        icon: Palette },
+    { id: "backup",            label: "النسخ الاحتياطي",  icon: Database },
+    { id: "storage",           label: "إدارة التخزين",    icon: HardDrive },
   ]},
 ];
 
@@ -149,7 +226,7 @@ function Sidebar({ office, userIdx, activePage, onNav, onClose }: {
   office: typeof OFFICES[OfficeKey]; userIdx: number; activePage: Page;
   onNav: (p: Page) => void; onClose?: () => void;
 }) {
-  const [open, setOpen] = useState<Record<string,boolean>>({ cases: true, crm: true, docs: false, finance: true, hr: false, ai: false });
+  const [open, setOpen] = useState<Record<string,boolean>>({ cases: true, crm: true, docs: true, ai: true, finance: true, comms: true, hr: true, settings: true });
   const user = office.users[userIdx] ?? office.users[0];
   const color = office.color;
 
@@ -309,7 +386,7 @@ function DashboardPage({ office, userIdx, onNav }: { office: typeof OFFICES[Offi
           ) : (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1">
               <p className="text-sm text-muted-foreground leading-relaxed">{office.aiSummary}</p>
-              <button onClick={() => onNav("ai")} className="mt-4 w-full py-2 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-bold transition-colors border border-violet-200">
+              <button onClick={() => onNav("ai-hub")} className="mt-4 w-full py-2 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-bold transition-colors border border-violet-200">
                 افتح مساعد AI ←
               </button>
             </motion.div>
@@ -660,6 +737,130 @@ function DocumentsPage() {
   );
 }
 
+/* ══ FEATURE SHOWCASE PAGE (for pages without full implementations) ══ */
+const FEATURE_META: Record<string, { title: string; desc: string; color: string; icon: any; highlights: string[]; stats?: { label: string; value: string }[] }> = {
+  "tasks":             { title: "إدارة المهام",           color: "#6366F1", icon: ClipboardList, desc: "تنظيم مهام الفريق وتوزيعها على المحامين مع متابعة الإنجاز بشكل لحظي.", highlights: ["إنشاء مهام وتعيينها للمحامين","تتبع حالة الإنجاز","أولويات ومواعيد نهائية","ربط المهام بالقضايا"], stats: [{label:"مهمة نشطة",value:"14"},{label:"مكتملة هذا الشهر",value:"67"},{label:"معدل الإنجاز",value:"91%"}] },
+  "reminders":         { title: "التذكيرات الذكية",        color: "#6366F1", icon: Bell,          desc: "تذكيرات آلية للجلسات والمواعيد والفواتير — واتساب وبريد وتيليغرام في آنٍ واحد.", highlights: ["تذكيرات متعددة القنوات","توقيت مخصص قبل الحدث","ربط بالقضايا والعملاء","لوجز الإرسال"], stats: [{label:"تذكير مُرسَل هذا الشهر",value:"143"},{label:"معدل الاستلام",value:"99%"}] },
+  "client-portal":     { title: "بوابة الموكل",            color: "#0EA5E9", icon: Globe,         desc: "بوابة خاصة لكل موكل يتابع فيها قضاياه ومستنداته وفواتيره بشكل آمن.", highlights: ["دخول آمن بكلمة مرور","متابعة حالة القضايا","تحميل المستندات","سداد الفواتير عبر البوابة"], stats: [{label:"موكل نشط في البوابة",value:"24"},{label:"رضا العملاء",value:"4.9/5"}] },
+  "mediators":         { title: "الوسطاء والمحكمون",       color: "#0EA5E9", icon: Handshake,     desc: "قاعدة بيانات شاملة للوسطاء والمحكمين مع إدارة ملفاتهم وتواصل مباشر.", highlights: ["قاعدة وسطاء معتمدين","ربط بقضايا التحكيم","تقييمات وسجلات","جدولة جلسات وساطة"] },
+  "doc-templates":     { title: "قوالب المستندات",         color: "#F59E0B", icon: FileSignature,  desc: "مكتبة قوالب قانونية جاهزة تُملأ آلياً ببيانات الموكل والقضية.", highlights: ["50+ قالب قانوني جاهز","ملء آلي بالبيانات","تخصيص القوالب","توقيع إلكتروني مدمج"], stats: [{label:"قالب جاهز",value:"54"},{label:"مستند مُنشأ هذا الشهر",value:"29"}] },
+  "letters":           { title: "المراسلات الرسمية",        color: "#F59E0B", icon: Mail,          desc: "إنشاء خطابات وإشعارات رسمية مع إمكانية الإرسال المباشر بريدياً.", highlights: ["قوالب خطابات رسمية","إرسال بريدي مباشر","أرشفة المراسلات","ختم رقمي"] },
+  "ai-copilot":        { title: "المساعد القانوني AI",      color: "#8B5CF6", icon: BrainCircuit,  desc: "مساعد ذكي يتفهم سياق قضاياك ويُجيب بعمق قانوني مُستند إلى ملفاتك الفعلية.", highlights: ["ذاكرة قضايا المكتب","مرجع أنظمة سعودية","اقتراحات استراتيجية","ربط بالمستندات"], stats: [{label:"استعلام هذا الشهر",value:"312"},{label:"دقة الإجابات",value:"96%"}] },
+  "ai-hub":            { title: "مركز الذكاء AI",           color: "#8B5CF6", icon: Sparkles,      desc: "مركز موحّد لجميع أدوات الذكاء الاصطناعي في المنصة — كل الطاقة في مكان واحد.", highlights: ["7 أوضاع محادثة AI","أدوات قانونية متخصصة","تاريخ المحادثات","مشاركة التحليلات"] },
+  "adoul":             { title: "عدول AI",                  color: "#8B5CF6", icon: Scale,         desc: "توثيق العقود وصياغتها بذكاء اصطناعي وفق الأنظمة السعودية.", highlights: ["صياغة عقود آلية","توثيق رقمي","امتثال أنظمة المملكة","توقيع إلكتروني"] },
+  "ui-builder":        { title: "منشئ الواجهات AI",         color: "#8B5CF6", icon: Wand2,         desc: "أنشئ صفحات ولوحات تحكم مخصصة لمكتبك بمجرد وصف ما تريد.", highlights: ["توليد واجهات من النص","7 أنواع مكونات","قوالب قانونية جاهزة","تصدير مباشر"], stats: [{label:"واجهة مُنشأة",value:"12"}] },
+  "ai-agents":         { title: "وكلاء AI",                 color: "#8B5CF6", icon: Bot,           desc: "وكلاء ذكاء اصطناعي يعملون باستقلالية لأتمتة المهام المتكررة.", highlights: ["وكيل متابعة الجلسات","وكيل التحصيل","وكيل تحضير المرافعات","سجل تفصيلي للأفعال"] },
+  "legal-ai":          { title: "المحرر القانوني",           color: "#8B5CF6", icon: FileText,      desc: "توليد لوائح ومذكرات ومستندات قانونية احترافية بضغطة واحدة.", highlights: ["11 نوع مستند","صياغة باللغة القانونية","تعديل وتخصيص","تصدير PDF/Word"], stats: [{label:"مستند مُنشأ",value:"48"},{label:"ساعة وُفّرت",value:"96"}] },
+  "legal-research":    { title: "البحث القانوني",            color: "#8B5CF6", icon: LibraryBig,    desc: "بحث فوري في الأنظمة واللوائح والأحكام السعودية مدعوم بالذكاء الاصطناعي.", highlights: ["قاعدة أنظمة سعودية كاملة","بحث طبيعي","اقتباس تلقائي","مقارنة الأحكام"] },
+  "judge-prep":        { title: "تحضير الجلسة",              color: "#8B5CF6", icon: Gavel,         desc: "أداة ذكية تُحضّر لك حزمة الجلسة الكاملة: ملخص + حجج + أسئلة متوقعة.", highlights: ["ملخص القضية تلقائياً","توقع أسئلة القاضي","ترتيب الحجج","تقدير نسبة الفوز"] },
+  "opponent-sim":      { title: "محاكاة الخصم",              color: "#8B5CF6", icon: Swords,        desc: "ذكاء اصطناعي يُمثّل محامي الخصم ويُدرّبك على الرد على حججه.", highlights: ["محاكاة حجج الخصم","كشف نقاط الضعف","تدريب تفاعلي","تقرير نقاط القوة"] },
+  "arbitration":       { title: "التحكيم الذكي",             color: "#8B5CF6", icon: Handshake,     desc: "إدارة قضايا التحكيم من الألف إلى الياء مع دعم AI للإجراءات.", highlights: ["إدارة دورة التحكيم","ربط الوسطاء","جلسات افتراضية","قرارات موثقة"] },
+  "finance":           { title: "لوحة المالية",              color: "#10B981", icon: DollarSign,    desc: "نظرة شاملة على الوضع المالي: إيرادات، مصروفات، تدفق نقدي، ومؤشرات الأداء.", highlights: ["لوحة تحكم مالية متكاملة","مؤشرات KPI مالية","مقارنة الأهداف","توقعات الإيرادات"], stats: [{label:"إيرادات هذا الشهر",value:"156,667 ﷼"},{label:"نمو عن الشهر السابق",value:"+18%"}] },
+  "collections":       { title: "مركز التحصيل",              color: "#10B981", icon: TrendingUp,    desc: "تتبع المبالغ المستحقة وأتمتة التذكيرات وإدارة خطط السداد.", highlights: ["قائمة المتأخرين تلقائياً","تذكيرات آلية","خطط تقسيط","تقارير التحصيل"] },
+  "payment-center":    { title: "مركز الدفع",                color: "#10B981", icon: Landmark,      desc: "بوابة دفع متكاملة تدعم مدى وبطاقات ائتمانية وتحويل بنكي.", highlights: ["Stripe + مدى","رسوم منصة شفافة","سجل كامل للمعاملات","تسويات تلقائية"] },
+  "revenues":          { title: "الإيرادات",                 color: "#10B981", icon: TrendingUp,    desc: "تسجيل وتصنيف جميع إيرادات المكتب مع ربطها بالقضايا والعملاء.", highlights: ["تسجيل آلي من الفواتير","تصنيف حسب نوع القضية","رسوم بيانية شهرية","مقارنة سنوية"] },
+  "expenses":          { title: "المصروفات",                 color: "#10B981", icon: TrendingDown,  desc: "تتبع مصروفات المكتب وتصنيفها بالفئات مع رفع الإيصالات.", highlights: ["رفع الإيصالات","تصنيف المصروفات","حدود الميزانية","تقارير الإنفاق"] },
+  "cashflow":          { title: "التدفق النقدي",              color: "#10B981", icon: ArrowRightLeft,desc: "تحليل مدفوعات ومقبوضات المكتب بشكل أسبوعي وشهري وسنوي.", highlights: ["رسم بياني تفاعلي","توقعات 90 يوم","تنبيه نقص السيولة","تصدير Excel"] },
+  "bank-accounts":     { title: "الحسابات البنكية",           color: "#10B981", icon: Landmark,      desc: "ربط وإدارة حسابات المكتب البنكية مع تسوية آلية.", highlights: ["ربط بالبنوك السعودية","تسوية آلية","كشف حساب مفصّل","فصل الأموال"] },
+  "advances":          { title: "السلف والمُقدَّمات",          color: "#10B981", icon: Wallet,        desc: "إدارة السلف المدفوعة للموظفين والمُقدَّمات المستلمة من العملاء.", highlights: ["سلف الموظفين","مُقدَّمات العملاء","خصم تلقائي من الراتب","تقارير السلف"] },
+  "financial-reports": { title: "التقارير المالية",           color: "#10B981", icon: BarChart2,     desc: "تقارير مالية احترافية جاهزة للطباعة: الأرباح والخسائر، المقارنات، التوقعات.", highlights: ["P&L تلقائي","مقارنة الأشهر","تصدير PDF","تقارير مخصصة"] },
+  "financial-statements":{ title:"القوائم المالية",          color: "#10B981", icon: Scale,         desc: "قوائم مالية محاسبية: الميزانية العمومية، قائمة الدخل، التدفقات النقدية.", highlights: ["قيد مزدوج محاسبي","ميزانية عمومية","قائمة دخل","ميزان المراجعة"] },
+  "financial-core":    { title: "المحرك المالي",              color: "#10B981", icon: BarChart3,     desc: "طبقة الدفع المتقدمة: Stripe + Moyasar + Checkout.com مع تسويات لحظية.", highlights: ["3 بوابات دفع MENA","عمولات شفافة","مستوى المؤسسة","Mada + Apple Pay"] },
+  "billing":           { title: "الاشتراك والباقة",           color: "#10B981", icon: CreditCard,    desc: "إدارة خطة اشتراكك والفوترة وسجل المدفوعات.", highlights: ["تغيير الباقة","فواتير الاشتراك","رموز الخصم","هدايا الاشتراك"] },
+  "messages":          { title: "الرسائل الداخلية",           color: "#F97316", icon: MessageCircle, desc: "نظام مراسلة داخلي آمن بين أعضاء الفريق مع مرفقات وتنبيهات.", highlights: ["محادثات فريق","مرفقات","تنبيهات فورية","أرشيف منظّم"], stats: [{label:"رسالة هذا الشهر",value:"234"},{label:"عضو الفريق",value:"4"}] },
+  "email-notif":       { title: "إشعارات البريد الإلكتروني", color: "#F97316", icon: Mail,          desc: "إرسال إشعارات بريد آلية للعملاء: جلسات، فواتير، عقود، مواعيد.", highlights: ["قوالب بريد عربية","جدولة الإرسال","متابعة الفتح","سجل الإرسال"] },
+  "whatsapp":          { title: "واتساب للأعمال",             color: "#F97316", icon: MessageSquare, desc: "ربط رقم واتساب المكتب لإرسال تذكيرات وإشعارات آلية للموكلين.", highlights: ["واتساب Business API","قوالب رسائل","إرسال جماعي","رد آلي"] },
+  "telegram":          { title: "تيليغرام",                  color: "#F97316", icon: Send,          desc: "إشعارات فورية عبر تيليغرام لأعضاء الفريق عند أي حدث مهم.", highlights: ["بوت تيليغرام مخصص","تنبيهات القضايا","إشعارات الدفع","تقارير يومية"] },
+  "office-mgmt":       { title: "المكتب الإلكتروني",         color: "#F97316", icon: Globe,         desc: "صفحة عامة لمكتبك على الإنترنت: معلومات، خدمات، تقييمات، حجوزات.", highlights: ["صفحة مكتب احترافية","عرض الخدمات","تقييمات الموكلين","حجز استشارة"] },
+  "marketplace":       { title: "سوق الخدمات القانونية",     color: "#F97316", icon: ShoppingBag,   desc: "نشر خدماتك القانونية على سوق عدالة وتلقّي عملاء جدد تلقائياً.", highlights: ["نشر الخدمات بالسعر","طلبات مباشرة","دفع آمن عبر المنصة","إنشاء قضية تلقائي"] },
+  "support":           { title: "الدعم الفني",               color: "#F97316", icon: LifeBuoy,      desc: "فريق دعم متاح 24/7 بالعربية — محادثة فورية، تذاكر، قاعدة المعرفة.", highlights: ["دعم 24/7 عربي","محادثة فورية","تذاكر الدعم","قاعدة المعرفة"] },
+  "hr-enterprise":     { title: "HR المؤسسي",               color: "#F43F5E", icon: Shield,        desc: "حلول الموارد البشرية على مستوى المؤسسة: سياسات، امتثال، تخطيط.", highlights: ["سياسات HR رسمية","امتثال نظام العمل","تخطيط الكوادر","تقارير الإنتاجية"] },
+  "hr-center":         { title: "مركز HR",                   color: "#F43F5E", icon: Award,         desc: "تقييم أداء المحامين والموظفين مع خطط التطوير والحوافز.", highlights: ["تقييم الأداء الدوري","خطط التطوير","الحوافز والمكافآت","مؤشرات الإنتاجية"] },
+  "hr-systems":        { title: "أنظمة HR",                  color: "#F43F5E", icon: Building2,     desc: "ربط منظومة الموارد البشرية بنظام حماية الأجور GOSI وسجلات HRDF.", highlights: ["حماية الأجور WPS","GOSI آلي","تسجيل HRDF","سجلات التأمين"] },
+  "attendance":        { title: "الحضور والغياب",            color: "#F43F5E", icon: Clock,         desc: "تتبع حضور الموظفين يومياً مع تقارير الالتزام وربط بالرواتب.", highlights: ["تسجيل رقمي يومي","تقارير الالتزام","ربط بالرواتب","إشعارات التأخر"] },
+  "leaves":            { title: "الإجازات",                  color: "#F43F5E", icon: CalendarDays,  desc: "إدارة طلبات الإجازات والموافقات مع رصيد الإجازات لكل موظف.", highlights: ["طلب إجازة إلكتروني","موافقة المدير","رصيد تلقائي","تقارير الغياب"] },
+  "payroll":           { title: "مسير الرواتب",              color: "#F43F5E", icon: DollarSign,    desc: "احتساب الرواتب الشهرية آلياً مع البدلات والخصومات والضرائب.", highlights: ["احتساب آلي","بدلات وخصومات","ملف WPS","قسائم راتب PDF"] },
+  "warnings":          { title: "التنبيهات التأديبية",        color: "#F43F5E", icon: AlertTriangle, desc: "توثيق الإنذارات والإجراءات التأديبية وفق نظام العمل السعودي.", highlights: ["إنذار رسمي رقمي","امتثال نظام العمل","سجل تأديبي","موافقة القانونية"] },
+  "analytics":         { title: "تحليلات الأداء",            color: "#64748B", icon: BarChart3,     desc: "تحليلات عميقة لأداء المكتب: نسب الفوز، الإيرادات، رضا العملاء، إنتاجية الفريق.", highlights: ["17 مؤشر KPI","تحليل AI ذكي","مقارنة الأشهر","تصدير التقارير"], stats: [{label:"نسبة الفوز",value:"91%"},{label:"معدل رضا الموكلين",value:"4.9/5"},{label:"متوسط مدة القضية",value:"4.2 شهر"}] },
+  "fin-intelligence":  { title: "الذكاء المالي",             color: "#64748B", icon: BrainCircuit,  desc: "تحليل ذكي للوضع المالي مع توقعات الإيرادات ومؤشرات المخاطر.", highlights: ["توقعات إيرادات AI","كشف الشذوذ المالي","مؤشرات المخاطر","تنبيهات ذكية"] },
+  "risk-mgmt":         { title: "إدارة المخاطر",             color: "#64748B", icon: AlertTriangle, desc: "تحليل مخاطر القضايا والعملاء مع تنبيهات استباقية.", highlights: ["درجة مخاطر القضية","تنبيه مواعيد التقادم","مخاطر العميل","خطط التخفيف"] },
+  "activity-stream":   { title: "سجل النشاط",               color: "#64748B", icon: Activity,      desc: "سجل شامل لجميع الأحداث والعمليات في المنصة بشكل لحظي.", highlights: ["أحداث لحظية","فلترة حسب النوع","بحث في السجل","تصدير سجلات"] },
+  "audit-logs":        { title: "سجلات التدقيق",            color: "#64748B", icon: Activity,      desc: "سجل قانوني لمن قام بماذا ومتى — لأغراض التدقيق والامتثال.", highlights: ["سجل كامل لكل حدث","من/متى/ماذا","حماية من التعديل","تقارير التدقيق"] },
+  "compliance":        { title: "الامتثال",                  color: "#64748B", icon: Shield,        desc: "أدوات الامتثال القانوني والتنظيمي: PDPL، نظام مكافحة الفساد، الأنظمة المهنية.", highlights: ["امتثال PDPL","أنظمة هيئة المحامين","فحص تضارب المصالح","تقارير الامتثال"] },
+  "firm-admin":        { title: "إدارة المكتب",              color: "#64748B", icon: Crown,         desc: "لوحة تحكم المدير العام: نظرة شاملة على كل شيء في مكتبك.", highlights: ["نظرة مدير كاملة","إدارة الصلاحيات","سياسات المكتب","إعدادات متقدمة"] },
+  "org-structure":     { title: "الهيكل التنظيمي",           color: "#64748B", icon: Network,       desc: "رسم الهيكل التنظيمي للمكتب مع الأقسام والوظائف والصلاحيات.", highlights: ["شجرة تنظيمية تفاعلية","الأقسام والوحدات","ربط الوظائف","تصدير PDF"] },
+  "team":              { title: "الفريق والصلاحيات",          color: "#64748B", icon: Shield,        desc: "إدارة أعضاء الفريق وتحديد صلاحيات كل دور بدقة.", highlights: ["أدوار مخصصة","صلاحيات دقيقة","دعوة أعضاء","سجل الدخول"] },
+  "office-settings":   { title: "إعدادات المكتب",            color: "#64748B", icon: Building2,     desc: "إعدادات المكتب الأساسية: الاسم، الشعار، اللغة، التوقيت، الضريبة.", highlights: ["بيانات المكتب","الشعار والهوية","ضريبة القيمة المضافة","إعدادات الفواتير"] },
+  "theme-builder":     { title: "منشئ الثيم",                color: "#64748B", icon: Palette,       desc: "خصّص مظهر منصتك بالكامل: ألوان، خطوط، 12 ثيم جاهز بالعربي.", highlights: ["12 ثيم عربي جاهز","ألوان مخصصة","فاتح/داكن","معاينة فورية"] },
+  "backup":            { title: "النسخ الاحتياطي",           color: "#64748B", icon: Database,      desc: "نسخ احتياطية آلية لبيانات مكتبك مع استعادة بنقرة واحدة.", highlights: ["نسخ يومية آلية","استعادة فورية","تشفير البيانات","تاريخ 90 يوم"] },
+  "storage":           { title: "إدارة التخزين",             color: "#64748B", icon: HardDrive,     desc: "إدارة مساحة تخزين الملفات مع صلاحيات المجلدات والمشاركة الآمنة.", highlights: ["مجلدات مع صلاحيات","مشاركة آمنة","بحث فوري","50 GB مضمونة"] },
+};
+
+function FeaturePage({ page }: { page: Page }) {
+  const meta = FEATURE_META[page];
+  if (!meta) return null;
+  const Icon = meta.icon;
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 max-w-3xl">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm" style={{ backgroundColor: `${meta.color}15` }}>
+          <Icon className="h-7 w-7" style={{ color: meta.color }} />
+        </div>
+        <div>
+          <h1 className="text-2xl font-black text-foreground">{meta.title}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{meta.desc}</p>
+        </div>
+      </div>
+
+      {/* Stats if available */}
+      {meta.stats && (
+        <div className="grid grid-cols-3 gap-4">
+          {meta.stats.map((s, i) => (
+            <div key={i} className="bg-card border border-border rounded-xl p-4 text-right">
+              <p className="text-2xl font-black" style={{ color: meta.color }}>{s.value}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Feature highlights */}
+      <div className="bg-card border border-border rounded-2xl p-6">
+        <h2 className="font-bold text-foreground mb-4 flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-violet-500" />
+          ما ستجده في هذه الوحدة
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {meta.highlights.map((h, i) => (
+            <motion.div key={i} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}
+              className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border/50">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${meta.color}20` }}>
+                <CheckCircle className="h-3.5 w-3.5" style={{ color: meta.color }} />
+              </div>
+              <span className="text-sm text-foreground font-medium">{h}</span>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="rounded-2xl p-6 border text-center" style={{ backgroundColor: `${meta.color}08`, borderColor: `${meta.color}25` }}>
+        <div className="w-10 h-10 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${meta.color}15` }}>
+          <Zap className="h-5 w-5" style={{ color: meta.color }} />
+        </div>
+        <h3 className="font-bold text-foreground mb-1">هذه الوحدة متاحة الآن في نسختك التجريبية</h3>
+        <p className="text-sm text-muted-foreground mb-4">بعد الاشتراك ستجد بياناتك الحقيقية هنا — كل شيء محفوظ وجاهز</p>
+        <a href={`${BASE}/sign-up`}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+          style={{ backgroundColor: meta.color }}>
+          <ArrowLeft className="h-4 w-4" /> ابدأ الاشتراك مجاناً
+        </a>
+      </div>
+    </motion.div>
+  );
+}
+
 /* ══ MAIN LIVE DEMO PAGE ═════════════════════════════════════════════ */
 export default function LiveDemoPage() {
   const search = useSearch();
@@ -673,16 +874,73 @@ export default function LiveDemoPage() {
 
   useEffect(() => { setMobileOpen(false); }, [activePage]);
 
+  const FP = (p: Page) => <FeaturePage page={p} />;
   const CONTENT: Record<Page, ReactElement> = {
-    dashboard: <DashboardPage office={office} userIdx={userIdx} onNav={setActivePage} />,
-    cases:     <CasesPage office={office} />,
-    clients:   <ClientsPage office={office} />,
-    contracts: <ContractsPage />,
-    documents: <DocumentsPage />,
-    invoices:  <InvoicesPage office={office} />,
-    employees: <EmployeesPage office={office} />,
-    ai:        <AiPage office={office} />,
-    calendar:  <CalendarPage office={office} />,
+    /* ── Dedicated pages ── */
+    dashboard:   <DashboardPage office={office} userIdx={userIdx} onNav={setActivePage} />,
+    cases:       <CasesPage office={office} />,
+    clients:     <ClientsPage office={office} />,
+    contracts:   <ContractsPage />,
+    documents:   <DocumentsPage />,
+    invoices:    <InvoicesPage office={office} />,
+    employees:   <EmployeesPage office={office} />,
+    "ai-hub":    <AiPage office={office} />,
+    calendar:    <CalendarPage office={office} />,
+    /* ── Feature showcase pages ── */
+    tasks:               FP("tasks"),
+    reminders:           FP("reminders"),
+    "client-portal":     FP("client-portal"),
+    mediators:           FP("mediators"),
+    "doc-templates":     FP("doc-templates"),
+    letters:             FP("letters"),
+    "ai-copilot":        FP("ai-copilot"),
+    adoul:               FP("adoul"),
+    "ui-builder":        FP("ui-builder"),
+    "ai-agents":         FP("ai-agents"),
+    "legal-ai":          FP("legal-ai"),
+    "legal-research":    FP("legal-research"),
+    "judge-prep":        FP("judge-prep"),
+    "opponent-sim":      FP("opponent-sim"),
+    arbitration:         FP("arbitration"),
+    finance:             FP("finance"),
+    collections:         FP("collections"),
+    "payment-center":    FP("payment-center"),
+    revenues:            FP("revenues"),
+    expenses:            FP("expenses"),
+    cashflow:            FP("cashflow"),
+    "bank-accounts":     FP("bank-accounts"),
+    advances:            FP("advances"),
+    "financial-reports": FP("financial-reports"),
+    "financial-statements": FP("financial-statements"),
+    "financial-core":    FP("financial-core"),
+    billing:             FP("billing"),
+    messages:            FP("messages"),
+    "email-notif":       FP("email-notif"),
+    whatsapp:            FP("whatsapp"),
+    telegram:            FP("telegram"),
+    "office-mgmt":       FP("office-mgmt"),
+    marketplace:         FP("marketplace"),
+    support:             FP("support"),
+    "hr-enterprise":     FP("hr-enterprise"),
+    "hr-center":         FP("hr-center"),
+    "hr-systems":        FP("hr-systems"),
+    attendance:          FP("attendance"),
+    leaves:              FP("leaves"),
+    payroll:             FP("payroll"),
+    warnings:            FP("warnings"),
+    analytics:           FP("analytics"),
+    "fin-intelligence":  FP("fin-intelligence"),
+    "risk-mgmt":         FP("risk-mgmt"),
+    "activity-stream":   FP("activity-stream"),
+    "audit-logs":        FP("audit-logs"),
+    compliance:          FP("compliance"),
+    "firm-admin":        FP("firm-admin"),
+    "org-structure":     FP("org-structure"),
+    team:                FP("team"),
+    "office-settings":   FP("office-settings"),
+    "theme-builder":     FP("theme-builder"),
+    backup:              FP("backup"),
+    storage:             FP("storage"),
   };
 
   return (
