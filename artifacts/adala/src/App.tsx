@@ -133,6 +133,7 @@ const Billing              = lazy(() => import("@/pages/financial/billing"));
 const UpgradePage          = lazy(() => import("@/pages/platform/upgrade"));
 const PricingPage          = lazy(() => import("@/pages/marketplace/pricing"));
 const DemoPage             = lazy(() => import("@/pages/demo"));
+const DemoLoginPage        = lazy(() => import("@/pages/demo-login"));
 const OfficePage           = lazy(() => import("@/pages/marketplace/office-public"));
 const OfficeServiceDetail  = lazy(() => import("@/pages/marketplace/office-service-detail"));
 const OfficeStore          = lazy(() => import("@/pages/marketplace/office-store"));
@@ -248,8 +249,20 @@ function PageLoader() {
 // ── Auth pages ─────────────────────────────────────────────────────────────────
 function SignInPage() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center px-4" style={{ background: "linear-gradient(135deg, #0F1B35 0%, #1A2744 50%, #0F1B35 100%)" }}>
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center px-4 gap-6" style={{ background: "linear-gradient(135deg, #0F1B35 0%, #1A2744 50%, #0F1B35 100%)" }}>
       <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} fallbackRedirectUrl={`${basePath}/dashboard`} />
+      <div className="w-full max-w-sm" dir="rtl">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-xs text-white/30 whitespace-nowrap">أو جرّب بدون تسجيل</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+        <a href={`${basePath}/demo-login`} className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 transition-all text-white text-sm font-bold hover:scale-[1.01]">
+          <span className="text-base">🧪</span>
+          دخول تجريبي سريع — بدون حساب
+        </a>
+        <p className="text-center text-xs text-white/20 mt-2">مكاتب تجريبية جاهزة · بيانات معزولة · كل الميزات مفتوحة</p>
+      </div>
     </div>
   );
 }
@@ -451,6 +464,7 @@ function AppRoutes() {
             <Route path="/" component={HomeRedirect} />
             <Route path="/pricing"><PublicPage><PricingPage /></PublicPage></Route>
             <Route path="/demo"><PublicPage><DemoPage /></PublicPage></Route>
+            <Route path="/demo-login"><Suspense fallback={<PageLoader />}><DemoLoginPage /></Suspense></Route>
             <Route path="/terms"><PublicPage><TermsPage /></PublicPage></Route>
             <Route path="/privacy"><PublicPage><PrivacyPage /></PublicPage></Route>
             <Route path="/security"><PublicPage><SecurityPage /></PublicPage></Route>

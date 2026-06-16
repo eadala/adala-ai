@@ -523,7 +523,7 @@ export default function Landing() {
                   {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
                 </button>
               </Link>
-              <Link href={`${BASE}/demo`}>
+              <Link href={`${BASE}/demo-login`}>
                 <button className="flex items-center gap-2 font-semibold px-7 py-3.5 rounded-xl text-base border transition-all hover:bg-blue-50"
                   style={{ borderColor: BLUE_T, color: BLUE, background: BLUE_L }}>
                   <Sparkles className="w-4 h-4" />
