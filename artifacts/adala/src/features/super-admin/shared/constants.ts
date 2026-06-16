@@ -112,6 +112,7 @@ export const TABS = [
   { id: "agents",         label: "وكلاء AI",                icon: Bot },
   { id: "design",         label: "لوحة التصميم",            icon: Palette },
   { id: "infrastructure", label: "البنية التحتية",           icon: Server },
+  { id: "data-vault",     label: "مخزن البيانات الآمن",      icon: ShieldCheck },
 ];
 
 export const PERM_LABELS: Record<string, { label: string; color: string }> = {
