@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useUser, useClerk } from "@clerk/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useIsSuperAdmin } from "@/hooks/use-role";
 import {
@@ -8,8 +8,9 @@ import {
   Settings, Bell, Globe2, BookOpen, MessageCircle,
   LogOut, ChevronDown, Check, Plus,
   Crown, ChevronRight, AlertTriangle, Code2, Briefcase,
-  Sparkles,
+  Sparkles, Fingerprint, XCircle,
 } from "lucide-react";
+import { DEV_API } from "@/features/super-admin/shared/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Branding { officeName?: string | null; logoUrl?: string | null; primaryColor?: string | null }
@@ -87,6 +88,24 @@ export function AccountMenu() {
   });
 
   const isSuperAdmin = useIsSuperAdmin();
+  const qc = useQueryClient();
+
+  const { data: ghostStatus } = useQuery<any>({
+    queryKey: ["ghost", "status"],
+    queryFn: () => DEV_API("/impersonate/status"),
+    enabled: isSuperAdmin,
+    refetchInterval: 60_000,
+    retry: false,
+  });
+
+  const exitGhost = useMutation({
+    mutationFn: () => DEV_API("/impersonate", { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ghost"] });
+      setOpen(false);
+      window.location.href = `${basePath}/super-admin`;
+    },
+  });
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -255,6 +274,26 @@ export function AccountMenu() {
                 <Divider />
                 <div className="p-2 space-y-0.5">
                   <SectionLabel label="صلاحيات مالك المنصة" />
+
+                  {/* Ghost mode active banner */}
+                  {ghostStatus?.active && (
+                    <div className="mx-1 mb-1.5 flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-500/25 animate-pulse">
+                      <Fingerprint className="h-4 w-4 text-violet-400 flex-shrink-0 animate-none" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-violet-300 leading-tight">وضع الدخول الخفي</div>
+                        <div className="text-[10px] text-violet-400/80 truncate leading-tight">{ghostStatus.officeName}</div>
+                      </div>
+                      <button
+                        onClick={() => exitGhost.mutate()}
+                        disabled={exitGhost.isPending}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-semibold transition-colors flex-shrink-0"
+                      >
+                        <XCircle className="h-3 w-3" />
+                        خروج
+                      </button>
+                    </div>
+                  )}
+
                   <MenuItem icon={Crown} label="لوحة التحكم العليا" desc="إدارة المنصة كاملاً"
                     highlight href="/super-admin" onClick={() => setOpen(false)} />
                   <MenuItem icon={Code2} label="لوحة المطور" desc="API · DB · Impersonation"
