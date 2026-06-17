@@ -148,6 +148,30 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   MOBILE SIDEBAR ANIMATION
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes slideInFromRight {
+  from { transform: translateX(100%); opacity: 0.4; }
+  to   { transform: translateX(0);    opacity: 1;   }
+}
+@keyframes slideInFromLeft {
+  from { transform: translateX(-100%); opacity: 0.4; }
+  to   { transform: translateX(0);     opacity: 1;   }
+}
+
+/* Custom slim scrollbar for the sidebar */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--sidebar-border)) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--sidebar-border));
+  border-radius: 20px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    LANDING PAGE FADE-IN ANIMATIONS
    lp-fade / lp-hero-* initial hidden state → JS adds lp-visible
    ═══════════════════════════════════════════════════════════════ */

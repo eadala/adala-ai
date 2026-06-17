@@ -7,7 +7,7 @@ import {
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
   FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity, Send,
-  ChevronDown, Briefcase, Wand2,
+  ChevronDown, Briefcase, Wand2, X,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -250,16 +250,16 @@ function NavItemLink({ item, isActive, onClick, badge, accentColor }: {
   const isLocked = isLoaded && item.feature ? !hasFeature(item.feature) : false;
   const label = t(item.labelKey);
 
-  const baseClass = "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150 w-full text-right";
+  const baseClass = "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 w-full text-right min-h-[40px]";
 
   if (isLocked) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <Link href="/billing" className={`${baseClass} text-sidebar-foreground/40 cursor-default`} onClick={onClick}>
-            <item.icon className="h-3.5 w-3.5 flex-shrink-0 opacity-40" />
+          <Link href="/billing" className={`${baseClass} text-sidebar-foreground/35 cursor-default`} onClick={onClick}>
+            <item.icon className="h-4 w-4 flex-shrink-0 opacity-35" />
             <span className="truncate flex-1">{label}</span>
-            <Lock className="h-3 w-3 opacity-50 flex-shrink-0" />
+            <Lock className="h-3.5 w-3.5 opacity-40 flex-shrink-0" />
           </Link>
         </TooltipTrigger>
         <TooltipContent side="left" className="text-xs max-w-48">{t("featureLocked")}</TooltipContent>
@@ -270,21 +270,23 @@ function NavItemLink({ item, isActive, onClick, badge, accentColor }: {
   return (
     <Link
       href={item.href}
-      className={`${baseClass} ${  
+      className={`${baseClass} ${
         isActive
-          ? "text-primary font-semibold"
-          : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/70"
+          ? "text-primary font-semibold bg-primary/8"
+          : "text-sidebar-foreground/65 hover:text-sidebar-foreground hover:bg-sidebar-accent/80"
       }`}
-      style={isActive && accentColor ? { backgroundColor: `${accentColor}18`, borderRight: `2px solid ${accentColor}` } : {}}
+      style={isActive && accentColor
+        ? { backgroundColor: `${accentColor}14`, borderRight: `3px solid ${accentColor}`, color: accentColor }
+        : {}}
       onClick={onClick}
     >
       <item.icon
-        className="h-3.5 w-3.5 flex-shrink-0"
+        className="h-4 w-4 flex-shrink-0"
         style={isActive && accentColor ? { color: accentColor } : {}}
       />
       <span className="truncate flex-1">{label}</span>
       {badge != null && badge > 0 && (
-        <span className="bg-red-500 text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+        <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center leading-none">
           {badge > 99 ? "99+" : badge}
         </span>
       )}
@@ -313,32 +315,35 @@ function OperatingCenter({
   const CenterIcon = center.icon;
 
   return (
-    <div>
+    <div className="mb-1">
       {/* Center header */}
       <button
         onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-widest transition-all mb-0.5 ${
+        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 min-h-[40px] ${
           isAnyActive
-            ? "text-sidebar-foreground"
-            : "text-sidebar-foreground/40 hover:text-sidebar-foreground/70 hover:bg-sidebar-accent/60"
+            ? "text-sidebar-foreground bg-sidebar-accent/60"
+            : "text-sidebar-foreground/50 hover:text-sidebar-foreground/80 hover:bg-sidebar-accent/40"
         }`}
       >
         <div
-          className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: isAnyActive ? `${center.color}25` : "transparent" }}
+          className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+          style={{
+            backgroundColor: isAnyActive ? `${center.color}22` : "transparent",
+            boxShadow: isAnyActive ? `0 0 0 1px ${center.color}30` : "none"
+          }}
         >
-          <CenterIcon className="h-3 w-3" style={{ color: isAnyActive ? center.color : "currentColor" }} />
+          <CenterIcon className="h-3.5 w-3.5" style={{ color: isAnyActive ? center.color : "currentColor" }} />
         </div>
-        <span className="flex-1 text-right truncate leading-tight">{center.label}</span>
+        <span className="flex-1 text-right truncate">{center.label}</span>
         <ChevronDown
-          className={`h-3 w-3 flex-shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          className={`h-3.5 w-3.5 flex-shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           style={{ color: isAnyActive ? center.color : "currentColor" }}
         />
       </button>
 
       {/* Items */}
       {open && (
-        <div className="mb-2 space-y-0.5 pr-2 mr-3 border-r border-dashed" style={{ borderColor: `${center.color}35` }}>
+        <div className="mt-0.5 mb-1 space-y-0.5 pr-2 mr-4 border-r-2 border-dashed" style={{ borderColor: `${center.color}30` }}>
           {center.items.map((item) => {
             const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
             return (
@@ -452,7 +457,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const visibleCenters = OPERATING_CENTERS.filter(c => !c.superAdminOnly || isSuperAdmin);
 
   const SidebarNav = ({ onItemClick }: { onItemClick?: () => void }) => (
-    <nav className="px-2 py-2 space-y-0.5">
+    <nav className="px-2 py-3 space-y-1">
       {visibleCenters.map((center) => (
         <OperatingCenter
           key={center.id}
@@ -496,32 +501,44 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* ── Mobile Menu ── */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-[200] md:hidden">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
           <aside
-            className="absolute right-0 top-0 bottom-0 w-[280px] max-w-[85vw] bg-sidebar border-l border-sidebar-border flex flex-col shadow-2xl"
-            style={{ animation: "slideInFromRight 0.22s ease-out" }}
+            className="absolute right-0 top-0 bottom-0 w-[300px] max-w-[88vw] bg-sidebar border-l border-sidebar-border flex flex-col shadow-2xl"
+            style={{ animation: "slideInFromRight 0.25s cubic-bezier(0.16,1,0.3,1)" }}
           >
-            <div className="flex items-center justify-between px-3 pt-3 pb-1 border-b border-sidebar-border/50">
-              <OfficeLogo />
+            {/* Mobile sidebar header */}
+            <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border shrink-0 gap-2">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="h-8 w-8 rounded-xl flex items-center justify-center text-white font-black text-sm shrink-0 shadow-sm"
+                  style={{ background: "linear-gradient(135deg, #2563EB, #2563EBcc)" }}>
+                  ع
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-bold text-sidebar-foreground truncate leading-tight">عدالة AI</span>
+                  <span className="text-[11px] text-sidebar-foreground/45 truncate leading-tight">منصة إدارة قانونية</span>
+                </div>
+              </div>
               <Button variant="ghost" size="icon"
-                className="h-8 w-8 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent shrink-0"
+                className="h-9 w-9 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent shrink-0 rounded-lg"
                 onClick={() => setIsMobileMenuOpen(false)}>
-                <span className="text-lg leading-none">✕</span>
+                <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex-1 overflow-y-auto py-1">
+            <div className="flex-1 overflow-y-auto scrollbar-thin">
               <SidebarNav onItemClick={() => setIsMobileMenuOpen(false)} />
             </div>
-            <div className="border-t border-sidebar-border p-3">
+            <div className="border-t border-sidebar-border p-4 shrink-0">
               <div className="flex items-center gap-3">
-                <Avatar className="h-8 w-8 border border-sidebar-border">
+                <Avatar className="h-9 w-9 border border-sidebar-border shrink-0">
                   {user?.imageUrl && <AvatarImage src={user.imageUrl} alt={displayName} />}
-                  <AvatarFallback className="bg-sidebar-primary text-primary-foreground text-xs">{initials}</AvatarFallback>
+                  <AvatarFallback className="bg-sidebar-primary text-primary-foreground text-xs font-semibold">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col flex-1 min-w-0">
-                  <span className="text-sm font-medium text-sidebar-foreground truncate">{displayName}</span>
+                  <span className="text-sm font-semibold text-sidebar-foreground truncate">{displayName}</span>
+                  <span className="text-[11px] text-sidebar-foreground/50">المستخدم النشط</span>
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500/70 hover:text-red-500"
+                <Button variant="ghost" size="icon"
+                  className="h-8 w-8 text-red-400/70 hover:text-red-500 hover:bg-red-500/10 shrink-0 rounded-lg"
                   onClick={() => signOut({ redirectUrl: basePath || "/" })}>
                   <LogOut className="h-4 w-4" />
                 </Button>
@@ -532,51 +549,68 @@ export function Layout({ children }: { children: ReactNode }) {
       )}
 
       {/* ── Main Content ── */}
-      <main className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6">
-          <div className="flex items-center md:hidden">
-            <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+      <main className="flex flex-1 flex-col overflow-hidden min-w-0">
+        {/* Top Header Bar */}
+        <header className="flex h-14 md:h-16 items-center justify-between border-b bg-card px-3 sm:px-5 gap-2 shrink-0">
+
+          {/* Mobile: Hamburger + App Name */}
+          <div className="flex items-center gap-2 md:hidden shrink-0">
+            <Button
+              variant="ghost" size="icon"
+              className="h-9 w-9 rounded-lg"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
               <Menu className="h-5 w-5" />
             </Button>
-            <div className="mr-4 flex items-center gap-2">
-              <Scale className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold text-foreground">{t("appName")}</span>
+            <div className="flex items-center gap-1.5">
+              <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                <Scale className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <span className="text-base font-bold text-foreground">عدالة</span>
             </div>
           </div>
 
-          {/* ⌘K Command Bar Trigger */}
+          {/* Desktop: ⌘K Search */}
           <div className="hidden md:flex flex-1 items-center max-w-sm">
             <button
               onClick={() => (window as any).__openCommandBar?.()}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg border border-border/60 bg-muted/30 hover:bg-muted/60 hover:border-border transition-all text-sm text-muted-foreground group"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg border border-border/50 bg-muted/40 hover:bg-muted/70 hover:border-border/80 transition-all text-sm text-muted-foreground group"
             >
               <Search className="h-3.5 w-3.5 shrink-0 group-hover:text-foreground transition-colors" />
               <span className="flex-1 text-right text-[13px]">ابحث أو اكتب أمراً...</span>
-              <kbd className="hidden sm:flex items-center gap-0.5 text-[10px] font-mono border border-border/60 rounded px-1.5 py-0.5 bg-background/60 shrink-0">
+              <kbd className="hidden sm:flex items-center gap-0.5 text-[10px] font-mono border border-border/50 rounded px-1.5 py-0.5 bg-background/70 shrink-0">
                 <span className="text-[11px]">⌘</span>K
               </kbd>
             </button>
           </div>
 
-          <div className="flex items-center gap-1 mr-auto">
+          {/* Right actions */}
+          <div className="flex items-center gap-1 mr-auto shrink-0">
+            {/* Mobile: search icon only */}
+            <button
+              className="md:hidden h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted/60 text-muted-foreground transition-colors"
+              onClick={() => (window as any).__openCommandBar?.()}
+            >
+              <Search className="h-4.5 w-4.5" />
+            </button>
             <LanguageSwitcher />
             <NotificationsPanel />
             <AccountMenu />
             <button
               onClick={() => signOut({ redirectUrl: basePath || "/" })}
               title="تسجيل الخروج"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-red-400 border border-red-500/20 bg-red-500/5 hover:bg-red-500/15 hover:border-red-500/40 hover:text-red-300 transition-all duration-150 mr-1 shrink-0"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-red-400 border border-red-500/20 bg-red-500/5 hover:bg-red-500/15 hover:border-red-500/40 hover:text-red-300 transition-all duration-150 mr-1 shrink-0"
             >
               <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">خروج</span>
+              <span>خروج</span>
             </button>
           </div>
         </header>
 
         <TrialBanner />
 
-        <div className="flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl">
+        <div className="flex-1 overflow-y-auto bg-muted/20 p-3 sm:p-5 lg:p-8">
+          <div className="mx-auto max-w-7xl w-full">
             {children}
           </div>
         </div>
