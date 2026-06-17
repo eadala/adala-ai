@@ -1,0 +1,80 @@
+Memory Optimization & Event Bus Audit
+
+Perform a full production-grade audit of the codebase with focus on memory usage, Event Bus, caches, timers, and background workers.
+
+Requirements:
+
+1. Do NOT remove any existing functionality.
+2. Do NOT change business logic.
+3. Do NOT modify permissions, authentication, billing, tenant isolation, or AI features.
+4. Focus only on performance, memory consumption, and stability.
+
+Audit and optimize the following:
+
+Event Bus
+
+* Detect event accumulation.
+* Detect unbounded event history arrays.
+* Limit event history retention to the latest 1000 events.
+* Ensure old events are automatically discarded.
+* Detect duplicate event listeners.
+* Detect listener leaks.
+
+Cache Layer
+
+* Inspect all in-memory caches.
+* Add TTL expiration where missing.
+* Reduce AI cache lifetime from 10 minutes to 5 minutes.
+* Add maximum cache size limits.
+* Automatically purge expired cache entries.
+
+Timers & Intervals
+
+* Detect excessive setInterval usage.
+* Prevent duplicate intervals.
+* Optimize cleanup intervals to run every 30 seconds when appropriate.
+* Ensure intervals are destroyed correctly.
+
+Memory Monitoring
+
+* Add production memory monitoring.
+* Log:
+    * RSS
+    * Heap Used
+    * Heap Total
+    * External Memory
+* Generate warning logs when memory exceeds safe thresholds.
+
+Node.js Runtime
+
+Recommend production settings:
+
+NODE_OPTIONS=”–max-old-space-size=512”
+
+Only increase if actual workload requires it.
+
+WebSocket & Real-Time Services
+
+* Detect abandoned connections.
+* Remove stale sockets.
+* Ensure proper cleanup on disconnect.
+
+Database Layer
+
+* Detect unnecessary memory retention.
+* Prevent loading large datasets into memory.
+* Prefer pagination and streaming where possible.
+
+Deliverables
+
+Provide:
+
+1. Full findings report.
+2. List of detected memory leaks.
+3. List of Event Bus issues.
+4. Cache optimization report.
+5. Before/after memory estimates.
+6. Exact code changes applied.
+
+Goal:
+Reduce memory consumption while preserving 100% of existing functionality and production behavior.

@@ -66,19 +66,36 @@ async function ensureEventsTable() {
 }
 ensureEventsTable();
 
+/* ── Limits ───────────────────────────────────────────── */
+const MAX_SSE_CLIENTS       = 50;   // حد أقصى للاتصالات SSE المتزامنة
+const MAX_LISTENERS_PER_EVT = 20;   // حد أقصى للـ listeners لكل نوع حدث
+const MAX_WILDCARD_LISTENERS = 10;  // حد أقصى للـ wildcard listeners
+
 /* ── Event Bus ────────────────────────────────────────── */
 class EventBus {
   private listeners: Map<string, EventHandler[]> = new Map();
   private wildcardListeners: EventHandler[] = [];
   private sseClients: Set<Response> = new Set();
 
-  /* Register listener for specific event */
+  /* Register listener — مع dedup وحد أقصى */
   on(event: EventType | "*", handler: EventHandler): void {
     if (event === "*") {
+      /* منع التسجيل المكرر لنفس الـ handler */
+      if (this.wildcardListeners.includes(handler)) return;
+      if (this.wildcardListeners.length >= MAX_WILDCARD_LISTENERS) {
+        console.warn(`[EventBus] تحذير: تم الوصول للحد الأقصى للـ wildcard listeners (${MAX_WILDCARD_LISTENERS})`);
+        return;
+      }
       this.wildcardListeners.push(handler);
       return;
     }
     const existing = this.listeners.get(event) ?? [];
+    /* منع التسجيل المكرر */
+    if (existing.includes(handler)) return;
+    if (existing.length >= MAX_LISTENERS_PER_EVT) {
+      console.warn(`[EventBus] تحذير: تم الوصول للحد الأقصى للـ listeners لحدث "${event}" (${MAX_LISTENERS_PER_EVT})`);
+      return;
+    }
     this.listeners.set(event, [...existing, handler]);
   }
 
@@ -124,8 +141,17 @@ class EventBus {
     return stored;
   }
 
-  /* SSE client management */
+  /* SSE client management — مع حد أقصى */
   addSSEClient(res: Response): void {
+    /* إذا تجاوزنا الحد، أغلق أقدم اتصال */
+    if (this.sseClients.size >= MAX_SSE_CLIENTS) {
+      const oldest = this.sseClients.values().next().value;
+      if (oldest) {
+        try { oldest.end(); } catch { /* ignore */ }
+        this.sseClients.delete(oldest);
+        console.warn(`[EventBus] SSE clients limit (${MAX_SSE_CLIENTS}) reached — أُغلق أقدم اتصال`);
+      }
+    }
     this.sseClients.add(res);
     res.on("close", () => this.sseClients.delete(res));
   }
@@ -138,6 +164,16 @@ class EventBus {
   }
 
   get clientCount(): number { return this.sseClients.size; }
+
+  /** إحصائيات الذاكرة للـ monitoring */
+  stats() {
+    return {
+      sseClients:       this.sseClients.size,
+      wildcardListeners: this.wildcardListeners.length,
+      eventTypes:       this.listeners.size,
+      totalListeners:   [...this.listeners.values()].reduce((s, a) => s + a.length, 0),
+    };
+  }
 }
 
 export const eventBus = new EventBus();

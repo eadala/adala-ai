@@ -39,6 +39,15 @@ const dedupeMap = new Map<string, DedupeEntry>();   // key → last sent
 const alertStore: SmartAlert[] = [];                 // live alert feed
 let suppressedUntil = 0;                             // maintenance mode
 
+/* ─── Cleanup dedupeMap كل 30 دقيقة ─── */
+/* المدخلات الأقدم من ساعتين تُحذف تلقائياً */
+setInterval(() => {
+  const cutoff = Date.now() - 2 * 60 * 60 * 1000; // ساعتان
+  for (const [key, entry] of dedupeMap) {
+    if (entry.lastSent < cutoff) dedupeMap.delete(key);
+  }
+}, 30 * 60 * 1000).unref();
+
 const DEDUP_WINDOWS: Record<AlertSeverity, number> = {
   low:      10 * 60 * 1000,   // 10 دقائق
   medium:    5 * 60 * 1000,   //  5 دقائق
