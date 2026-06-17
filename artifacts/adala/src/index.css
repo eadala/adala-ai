@@ -73,53 +73,53 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* Adala Design System — Legal Blue (#1E3A8A) + Clean White */
+  /* Adala Design System v2 — Primary #0B1F3B + Accent #2563EB */
   --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
+  --foreground: 215 69% 14%;
 
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --card-border: 214 32% 91%;
+  --card-foreground: 215 69% 14%;
+  --card-border: 214 32% 90%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --popover-border: 214 32% 91%;
+  --popover-foreground: 215 69% 14%;
+  --popover-border: 214 32% 90%;
 
-  --primary: 221 63% 33%;
+  --primary: 221 83% 53%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 214 32% 91%;
-  --secondary-foreground: 222 47% 11%;
+  --secondary-foreground: 215 69% 14%;
 
   --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
+  --muted-foreground: 215 20% 48%;
 
-  --accent: 214 32% 93%;
-  --accent-foreground: 222 47% 11%;
+  --accent: 221 83% 96%;
+  --accent-foreground: 221 83% 35%;
 
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 221 63% 33%;
+  --border: 214 32% 90%;
+  --input: 214 32% 90%;
+  --ring: 221 83% 53%;
 
-  --chart-1: 221 63% 33%;
+  --chart-1: 221 83% 53%;
   --chart-2: 142 71% 40%;
   --chart-3: 38 92% 50%;
   --chart-4: 0 72% 51%;
   --chart-5: 271 81% 56%;
 
   --sidebar: 0 0% 100%;
-  --sidebar-foreground: 222 47% 11%;
-  --sidebar-border: 214 32% 91%;
-  --sidebar-primary: 221 63% 33%;
+  --sidebar-foreground: 215 69% 14%;
+  --sidebar-border: 214 32% 90%;
+  --sidebar-primary: 221 83% 53%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 210 40% 96%;
-  --sidebar-accent-foreground: 222 47% 11%;
-  --sidebar-ring: 221 63% 33%;
+  --sidebar-accent: 221 83% 96%;
+  --sidebar-accent-foreground: 221 83% 35%;
+  --sidebar-ring: 221 83% 53%;
 
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 
   --primary-border: hsl(var(--primary));
   --secondary-border: hsl(var(--secondary));
@@ -145,6 +145,64 @@
     max-width: 100%;
     position: relative;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LANDING PAGE FADE-IN ANIMATIONS
+   lp-fade / lp-hero-* initial hidden state → JS adds lp-visible
+   ═══════════════════════════════════════════════════════════════ */
+.lp-fade,
+.lp-hero-0, .lp-hero-1, .lp-hero-2, .lp-hero-3, .lp-hero-4,
+.lp-hero-mock {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.65s cubic-bezier(0.16,1,0.3,1),
+              transform 0.65s cubic-bezier(0.16,1,0.3,1);
+  will-change: opacity, transform;
+}
+.lp-fade.lp-visible,
+.lp-hero-0.lp-visible, .lp-hero-1.lp-visible,
+.lp-hero-2.lp-visible, .lp-hero-3.lp-visible,
+.lp-hero-4.lp-visible, .lp-hero-mock.lp-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GLOBAL DESIGN SYSTEM REFINEMENTS — v2
+   Applies Adala's professional look across ALL pages
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Elevated card style — used throughout the app */
+.card-elevated {
+  box-shadow: 0 1px 3px rgba(11,31,59,0.06), 0 4px 16px rgba(11,31,59,0.04);
+  border-color: hsl(var(--border));
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-elevated:hover {
+  box-shadow: 0 2px 8px rgba(11,31,59,0.10), 0 8px 24px rgba(37,99,235,0.06);
+  border-color: hsl(var(--primary) / 0.2);
+}
+
+/* Page header consistency */
+.page-header {
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  padding: 1rem 1.5rem;
+}
+
+/* Subtle gradient background for key sections */
+.section-gradient {
+  background: linear-gradient(160deg, hsl(var(--background)) 0%, hsl(221 83% 97%) 100%);
+}
+
+/* Professional table header */
+thead tr th {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 /* ═══════════════════════════════════════════════════════════════
