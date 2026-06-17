@@ -137,7 +137,7 @@ export default function HREnterprise() {
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto" dir="rtl">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Shield className="h-7 w-7 text-blue-600" />
@@ -147,7 +147,7 @@ export default function HREnterprise() {
             Identity · RBAC · Workflows · Audit · SOC Integration
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {(ov.workflows?.pending ?? 0) > 0 && (
             <Badge variant="destructive" className="text-sm px-3 py-1">
               <Clock className="h-4 w-4 ml-1" />

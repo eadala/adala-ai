@@ -190,12 +190,12 @@ export default function Clients() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black">{tx("إدارة العملاء", "Client Management")}</h1>
           <p className="text-muted-foreground text-sm">{tx("قاعدة بيانات عملائك الكاملة", "Your complete client database")}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1.5 text-sm">
             <Upload className="h-4 w-4" /> {tx("استيراد CSV", "Import CSV")}
           </Button>

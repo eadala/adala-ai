@@ -93,7 +93,7 @@ export default function ClientDetail() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-10 w-1/3" />
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[1,2,3,4].map(i => <Skeleton key={i} className="h-24" />)}
         </div>
         <Skeleton className="h-64" />
@@ -209,7 +209,7 @@ export default function ClientDetail() {
 
       {/* ── Tabs ── */}
       <Tabs defaultValue="cases" dir="rtl">
-        <TabsList className="grid w-full grid-cols-9 h-9">
+        <TabsList className="flex w-full overflow-x-auto h-9 justify-start">
           <TabsTrigger value="cases" className="text-xs px-1.5">
             <Scale className="h-3.5 w-3.5 ml-1 hidden sm:block" />القضايا
             {cases.length > 0 && <span className="mr-1 text-[10px] bg-blue-500/20 text-blue-400 rounded px-1">{cases.length}</span>}

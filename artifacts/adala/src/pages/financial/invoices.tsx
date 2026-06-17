@@ -1233,7 +1233,7 @@ export default function Invoices() {
   return (
     <div className="space-y-5 max-w-7xl">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">الفواتير</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
@@ -1344,7 +1344,45 @@ export default function Invoices() {
           </CardContent>
         ) : (
           <>
-            <div className="overflow-x-auto w-full">
+            {/* Mobile card view */}
+            <div className="md:hidden divide-y">
+              {table.getRowModel().rows.length === 0 ? (
+                <p className="text-center py-10 text-muted-foreground text-sm">لا توجد نتائج مطابقة</p>
+              ) : table.getRowModel().rows.map(row => {
+                const inv = row.original;
+                return (
+                  <button
+                    key={inv.id}
+                    className="w-full text-right p-4 hover:bg-muted/30 transition-colors block"
+                    onClick={() => { setSelectedInvoice(inv); setSheetOpen(true); }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-mono text-[11px] text-muted-foreground">{inv.invoiceNumber}</span>
+                          <StatusBadge status={inv.status} />
+                        </div>
+                        <p className="text-sm font-medium truncate">{inv.title}</p>
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                          {inv.dueDate && (
+                            <span className={new Date(inv.dueDate) < new Date() && inv.status !== "paid" ? "text-red-400" : ""}>
+                              استحقاق: {fmtDate(inv.dueDate)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-left flex-shrink-0">
+                        <p className="font-mono font-bold text-primary text-base">{fmt(inv.total)}</p>
+                        <p className="text-[11px] text-muted-foreground text-left">ر.س</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Desktop table view */}
+            <div className="hidden md:block overflow-x-auto w-full">
             <Table dir="rtl">
               <TableHeader>
                 {table.getHeaderGroups().map(hg => (
