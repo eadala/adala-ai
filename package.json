@@ -4,9 +4,20 @@
   "license": "MIT",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "prepare": "husky",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "lint": "pnpm -r --filter \"./artifacts/**\" --if-present run lint",
+    "lint:fix": "pnpm -r --filter \"./artifacts/**\" --if-present run lint:fix"
+  },
+  "lint-staged": {
+    "artifacts/adala/src/**/*.{ts,tsx}": [
+      "pnpm --filter @workspace/adala exec eslint --fix --max-warnings=0"
+    ],
+    "artifacts/api-server/src/**/*.ts": [
+      "pnpm --filter @workspace/api-server exec eslint --fix --max-warnings=0"
+    ]
   },
   "private": true,
   "pnpm": {
@@ -100,6 +111,8 @@
     }
   },
   "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
     "prettier": "^3.8.3",
     "typescript": "~5.9.3"
   },

@@ -48,7 +48,7 @@ const CAT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 /* ── Theme: derive from primaryColor ──────────────────────────── */
-function useTheme(primaryColor: string | null | undefined) {
+function getOfficeTheme(primaryColor: string | null | undefined) {
   const c = primaryColor ?? "#1A56DB";
   return { c, cLight: `${c}15`, cBorder: `${c}30`, cGlow: `${c}40` };
 }
@@ -97,7 +97,7 @@ function Stars({ n, size = "h-4 w-4", color = "#FBBF24" }: { n: number; size?: s
 
 /* Service card — premium bento style */
 function ServiceCard({ svc, lang, theme, slug, onOrder, onNegotiate }: {
-  svc: any; lang: Lang; theme: ReturnType<typeof useTheme>;
+  svc: any; lang: Lang; theme: ReturnType<typeof getOfficeTheme>;
   slug: string; onOrder: () => void; onNegotiate?: () => void;
 }) {
   const { c, cLight, cBorder } = theme;
@@ -178,7 +178,7 @@ function ServiceCard({ svc, lang, theme, slug, onOrder, onNegotiate }: {
 }
 
 /* Team member card */
-function TeamCard({ m, lang, theme }: { m: any; lang: Lang; theme: ReturnType<typeof useTheme> }) {
+function TeamCard({ m, lang, theme }: { m: any; lang: Lang; theme: ReturnType<typeof getOfficeTheme> }) {
   const { c, cLight } = theme;
   const name = t(m.name, m.nameEn, lang);
   const role = t(m.title ?? m.role, m.titleEn ?? m.roleEn, lang);
@@ -228,7 +228,7 @@ function TeamCard({ m, lang, theme }: { m: any; lang: Lang; theme: ReturnType<ty
 }
 
 /* Review card */
-function ReviewCard({ r, theme }: { r: any; theme: ReturnType<typeof useTheme> }) {
+function ReviewCard({ r, theme }: { r: any; theme: ReturnType<typeof getOfficeTheme> }) {
   const { c, cLight } = theme;
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-all">
@@ -253,7 +253,7 @@ function ReviewCard({ r, theme }: { r: any; theme: ReturnType<typeof useTheme> }
 ═══════════════════════════════════════════════════════════════════ */
 function OrderDialog({
   svc, slug, lang, theme, onClose,
-}: { svc: any; slug: string; lang: Lang; theme: ReturnType<typeof useTheme>; onClose: () => void }) {
+}: { svc: any; slug: string; lang: Lang; theme: ReturnType<typeof getOfficeTheme>; onClose: () => void }) {
   const { c, cLight } = theme;
   const [form, setForm] = useState({ clientName: "", clientPhone: "", clientEmail: "", notes: "" });
   const [done, setDone] = useState(false);
@@ -349,7 +349,7 @@ function OrderDialog({
 }
 
 function ReviewDialog({ slug, lang, theme, onClose }: {
-  slug: string; lang: Lang; theme: ReturnType<typeof useTheme>; onClose: () => void;
+  slug: string; lang: Lang; theme: ReturnType<typeof getOfficeTheme>; onClose: () => void;
 }) {
   const { toast } = useToast();
   const { c, cLight } = theme;
@@ -556,7 +556,7 @@ export default function OfficePage() {
   );
 
   const { office, services = [], team = [], reviews = [], articles = [] } = data;
-  const theme = useTheme(office.primaryColor);
+  const theme = getOfficeTheme(office.primaryColor);
   const { c, cLight, cBorder, cGlow } = theme;
   const avgRating = reviews.length
     ? +(reviews.reduce((a: number, r: any) => a + r.rating, 0) / reviews.length).toFixed(1)
@@ -1417,7 +1417,7 @@ export default function OfficePage() {
    CONTACT FORM (standalone to avoid stale closures)
 ═══════════════════════════════════════════════════════════════════ */
 function ContactForm({ lang, theme, whatsappUrl, slug }: {
-  lang: Lang; theme: ReturnType<typeof useTheme>; whatsappUrl: (msg?: string) => string; slug: string;
+  lang: Lang; theme: ReturnType<typeof getOfficeTheme>; whatsappUrl: (msg?: string) => string; slug: string;
 }) {
   const { c, cLight, cBorder } = theme;
   const subjects = lang === "ar"

@@ -346,20 +346,12 @@ export default function Landing() {
     queryFn: () => fetch(`${BASE}/api/landing-variant`).then(r => r.json()).catch(() => ({ variant: "original" })),
     staleTime: 1000 * 60, enabled: !urlVariant,
   });
-  const activeVariant = urlVariant ?? variantData?.variant ?? "original";
-  if (activeVariant === "bento")   return <LandingBento />;
-  if (activeVariant === "stripe")  return <LandingStripe />;
-  if (activeVariant === "hubspot") return <LandingHubspot />;
-
-  /* CMS */
+  /* CMS — must be before early returns to satisfy rules-of-hooks */
   const { data: cms } = useQuery({
     queryKey: ["home-cms"],
     queryFn: () => fetch(`${BASE}/api/home/content`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
     staleTime: 5 * 60 * 1000, retry: false,
   });
-  function c(section: string, key: string, fallback: string): string {
-    return (cms?.[section]?.[key] as string | undefined) || fallback;
-  }
 
   /* SEO */
   useEffect(() => {
@@ -388,6 +380,15 @@ export default function Landing() {
     }, 100);
     return () => clearTimeout(t);
   }, []);
+
+  const activeVariant = urlVariant ?? variantData?.variant ?? "original";
+  if (activeVariant === "bento")   return <LandingBento />;
+  if (activeVariant === "stripe")  return <LandingStripe />;
+  if (activeVariant === "hubspot") return <LandingHubspot />;
+
+  function c(section: string, key: string, fallback: string): string {
+    return (cms?.[section]?.[key] as string | undefined) || fallback;
+  }
 
   /* i18n */
   const pricingPlans = (t("landing.pricing.plans", { returnObjects: true }) as { name: string; price: string; period: string; cta: string; features: string[] }[]);
