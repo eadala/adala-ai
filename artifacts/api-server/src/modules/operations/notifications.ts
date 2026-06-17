@@ -344,3 +344,70 @@ router.post("/notifications/mark-read/:planId", requireAuth, async (req, res) =>
     res.json({ ok: false });
   }
 });
+
+/* ══════════════════════════════════════════════════════════
+   PER-OFFICE NOTIFICATION SETTINGS
+══════════════════════════════════════════════════════════ */
+
+(async () => {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS office_notification_settings (
+      id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id      TEXT NOT NULL,
+      event_type     TEXT NOT NULL,
+      push_enabled   BOOLEAN NOT NULL DEFAULT true,
+      in_app_enabled BOOLEAN NOT NULL DEFAULT true,
+      email_enabled  BOOLEAN NOT NULL DEFAULT false,
+      updated_at     TIMESTAMP DEFAULT NOW(),
+      UNIQUE(office_id, event_type)
+    )
+  `).catch(() => {});
+})();
+
+/* GET /api/notifications/settings */
+router.get("/notifications/settings", requireAuth, async (req, res) => {
+  try {
+    const officeId = (req as any).auth?.officeId ?? (req as any).tenantId ?? "default";
+    const rows = await db.execute(sql`
+      SELECT event_type, push_enabled, in_app_enabled, email_enabled
+      FROM office_notification_settings
+      WHERE office_id = ${officeId}
+    `);
+    res.json({ settings: rows.rows ?? [] });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* PATCH /api/notifications/settings */
+router.patch("/notifications/settings", requireAuth, async (req, res) => {
+  try {
+    const officeId = (req as any).auth?.officeId ?? (req as any).tenantId ?? "default";
+    const updates = req.body.settings as Array<{
+      event_type: string;
+      push_enabled: boolean;
+      in_app_enabled: boolean;
+      email_enabled: boolean;
+    }>;
+    if (!Array.isArray(updates)) return res.status(400).json({ error: "settings must be array" });
+
+    for (const s of updates) {
+      await db.execute(sql`
+        INSERT INTO office_notification_settings
+          (office_id, event_type, push_enabled, in_app_enabled, email_enabled, updated_at)
+        VALUES
+          (${officeId}, ${s.event_type},
+           ${s.push_enabled ?? true}, ${s.in_app_enabled ?? true}, ${s.email_enabled ?? false},
+           NOW())
+        ON CONFLICT (office_id, event_type) DO UPDATE
+          SET push_enabled   = EXCLUDED.push_enabled,
+              in_app_enabled = EXCLUDED.in_app_enabled,
+              email_enabled  = EXCLUDED.email_enabled,
+              updated_at     = NOW()
+      `);
+    }
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
