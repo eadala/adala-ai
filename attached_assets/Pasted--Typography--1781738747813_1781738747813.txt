@@ -1,0 +1,173 @@
+تمام — سنبني لك نظام Typography عربي “فاخر” على مستوى منصات قانونية احترافية (يشبه أنظمة القضاء/إدارة المكاتب الكبيرة).
+
+الهدف:
+👉 إحساس “هيبة + وضوح + ثقة + نظام مؤسسي”
+
+⸻
+
+🏛️ نظام الخطوط الفاخر لمنصة “عدالة”
+
+1) اختيار الخط (Premium Arabic Stack)
+
+🔥 الخط الأساسي (Primary)
+
+* IBM Plex Sans Arabic
+
+يعطي إحساس مؤسسي/قانوني/رسمي جدًا
+
+🔥 الخط المساند (Secondary)
+
+* Tajawal
+
+خفيف وحديث لواجهات الاستخدام اليومية
+
+🔥 خط الأرقام (مهم للفواتير)
+
+* IBM Plex Sans Arabic (Tabular Numbers)
+
+⸻
+
+2) إعداد Tailwind Typography (جاهز للإدراج)
+
+// tailwind.config.ts
+module.exports = {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ["IBM Plex Sans Arabic", "Tajawal", "sans-serif"],
+      },
+      fontWeight: {
+        thin: "300",
+        normal: "400",
+        medium: "500",
+        semibold: "600",
+        bold: "700",
+      },
+      letterSpacing: {
+        tightest: "-0.03em",
+        tighter: "-0.02em",
+        tight: "-0.01em",
+      },
+      lineHeight: {
+        relaxed: "1.9",
+        cozy: "1.75",
+      },
+    },
+  },
+};
+
+⸻
+
+3) نظام Typography كامل (Design System)
+
+🧠 العناوين (Headings)
+
+.h1 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.4;
+}
+.h2 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.h3 {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+⸻
+
+📄 النصوص (Body)
+
+.body-lg {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.9;
+}
+.body {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.85;
+}
+.caption {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+⸻
+
+4) تحسين “الفخامة” (هذا أهم جزء)
+
+✨ قاعدة ذهبية:
+
+الخط الفخم ليس نوع الخط فقط — بل التوازن بين الوزن + المسافة + الصمت البصري
+
+أضف هذا:
+
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+  line-height: 1.8;
+}
+
+⸻
+
+5) نظام الفواتير والتقارير (Legal Grade UI)
+
+الفواتير يجب أن تكون:
+
+* الأرقام: Tabular (ثابتة العرض)
+* الوزن: 500–600
+* اللون: #111827 (ليس رمادي خفيف)
+
+.invoice-number {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+⸻
+
+6) الفرق قبل / بعد (مهم لفهم التأثير)
+
+❌ قبل:
+
+* خط خفيف
+* وزن 300–400 فقط
+* تباعد عشوائي
+* إحساس “تطبيق عادي”
+
+✅ بعد:
+
+* هرم بصري واضح
+* إحساس “نظام قانوني رسمي”
+* وضوح أعلى 40–60%
+* فخامة SaaS حكومي
+
+⸻
+
+7) لمسة احترافية إضافية (سر الأنظمة الكبيرة)
+
+أضف هذا في كل النصوص:
+
+font-feature-settings: "ss01" 1, "calt" 1;
+
+⸻
+
+🚀 إذا تريد ترقية أعلى مستوى
+
+أقدر أجهز لك مباشرة:
+
+* ￼ Design System كامل (Colors + Typography + Spacing)
+* ￼ نسخة “Dashboard قانوني فاخر”
+* ￼ تحسين الفواتير لتصبح بمستوى أنظمة حكومية
+* ￼ إعادة تصميم UI identity لمنصة عدالة بالكامل
+
+فقط قل:
+“ارفعها مستوى حكومي فاخر”
