@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Cairo:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -55,7 +55,7 @@
   --color-sidebar-accent-border: var(--sidebar-accent-border);
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
-  --font-sans: 'IBM Plex Sans Arabic', 'Cairo', sans-serif;
+  --font-sans: 'IBM Plex Sans Arabic', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
 
@@ -139,12 +139,104 @@
   html {
     overflow-x: hidden;
     max-width: 100%;
+    /* Typography System — Adala v2 */
+    font-size: 16px;
   }
   body {
     @apply font-sans antialiased bg-background text-foreground;
     overflow-x: hidden;
     max-width: 100%;
     position: relative;
+    /* ── Unified Typography Foundation ── */
+    font-family: 'IBM Plex Sans Arabic', sans-serif;
+    font-weight: 400;
+    font-size: 0.9375rem;       /* 15px — slightly denser than 16 for dashboard */
+    line-height: 1.8;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ── Heading scale (H1 → H6) ── */
+  h1, .h1 {
+    font-size: 1.875rem;   /* 30px */
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+  }
+  h2, .h2 {
+    font-size: 1.5rem;     /* 24px */
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+  }
+  h3, .h3 {
+    font-size: 1.25rem;    /* 20px */
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.015em;
+  }
+  h4, .h4 {
+    font-size: 1.0625rem;  /* 17px */
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+  }
+  h5, .h5 {
+    font-size: 0.9375rem;  /* 15px */
+    font-weight: 600;
+    line-height: 1.55;
+  }
+  h6, .h6 {
+    font-size: 0.875rem;   /* 14px */
+    font-weight: 600;
+    line-height: 1.55;
+  }
+
+  /* ── Paragraph & inline ── */
+  p {
+    font-weight: 400;
+    line-height: 1.8;
+  }
+
+  /* ── Labels, captions, small ── */
+  label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+  small, .text-xs {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  /* ── Table base ── */
+  td {
+    font-size: 0.875rem;   /* 14px */
+    font-weight: 400;
+    line-height: 1.6;
+  }
+  th {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ── Input / select / textarea ── */
+  input, select, textarea {
+    font-family: 'IBM Plex Sans Arabic', sans-serif;
+    font-weight: 400;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  /* ── Button base ── */
+  button {
+    font-family: 'IBM Plex Sans Arabic', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.005em;
   }
 }
 
@@ -355,14 +447,135 @@ thead tr th {
 /* ── App page title ── */
 .app-page-title {
   font-size: 1.5rem;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.025em;
   color: hsl(215 69% 14%);
-  line-height: 1.2;
+  line-height: 1.25;
 }
 @media (min-width: 768px) {
   .app-page-title { font-size: 1.875rem; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   TYPOGRAPHY SYSTEM v2 — DASHBOARD ENHANCEMENTS
+   Ensures dashboard matches landing page visual weight
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Card titles & headings inside the app shell ── */
+.card-title,
+[class*="card"] h2,
+[class*="card"] h3,
+[class*="card"] h4 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+}
+
+/* ── Shadcn CardTitle component override ── */
+.text-card-foreground {
+  font-weight: 600;
+}
+
+/* ── Sidebar nav items — medium weight for clarity ── */
+.sidebar-item,
+[class*="sidebar"] span,
+[class*="sidebar"] a {
+  font-weight: 500;
+}
+
+/* ── Muted text — slightly heavier than browser default ── */
+.text-muted-foreground {
+  font-weight: 400;
+}
+
+/* ── Data values in tables / stat cards ── */
+.font-mono,
+[class*="tabular-nums"] {
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  font-weight: 500;
+}
+
+/* ── Badge / pill text — must be legible ── */
+[class*="badge"],
+[class*="pill-"] {
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+/* ── Form labels — consistent with design system ── */
+[class*="FormLabel"],
+[class*="form-label"],
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+/* ── Select / Dropdown item text ── */
+[role="option"],
+[role="menuitem"],
+[role="menuitemradio"] {
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+/* ── Dialog / Sheet titles ── */
+[role="dialog"] h2,
+[role="dialog"] [class*="DialogTitle"],
+[role="dialog"] [class*="SheetTitle"] {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+/* ── Tooltip text ── */
+[role="tooltip"] {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* ── Navigation breadcrumbs ── */
+[aria-label="breadcrumb"] * {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* ── Empty state text ── */
+.empty-state-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.empty-state-desc {
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.75;
+}
+
+/* ── KPI / stat numbers — bold & impactful ── */
+.kpi-value,
+.stat-number {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+/* ── Section labels — all-caps micro labels ── */
+.section-label,
+.group-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── Prevent any class from going below weight 400 ── */
+.font-thin   { font-weight: 400 !important; }
+.font-light  { font-weight: 400 !important; }
+.font-extralight { font-weight: 400 !important; }
 
 /* ═══════════════════════════════════════════════════════════════
    @media print — PDF / طباعة
