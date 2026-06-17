@@ -6,8 +6,8 @@ import {
   CheckCircle2, Clock, GitBranch, GitCommit,
   Building2, Users, Briefcase, FileText, Banknote,
   Bot, Shield, Database, Activity, Archive,
-  ChevronDown, ChevronUp, Download, Plus,
-  Circle, Loader2,
+  ChevronDown, ChevronUp, Plus,
+  Circle, Loader2, Play, Zap, XCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -123,6 +123,20 @@ function UsageBar({ label, used, total, percent, color = "blue" }: {
   );
 }
 
+/* ── Agent constants ───────────────────────────── */
+const AGENT_LABELS: Record<string, string> = {
+  case_review:      "مراجعة القضايا",
+  invoice_reminder: "الفواتير المتأخرة",
+  daily_snapshot:   "اللقطة اليومية",
+  ai_health_check:  "فحص AI",
+};
+const AGENT_ICONS: Record<string, React.ReactNode> = {
+  case_review:      <Briefcase className="h-3.5 w-3.5 text-blue-500" />,
+  invoice_reminder: <Banknote className="h-3.5 w-3.5 text-amber-500" />,
+  daily_snapshot:   <BarChart3 className="h-3.5 w-3.5 text-violet-500" />,
+  ai_health_check:  <Bot className="h-3.5 w-3.5 text-cyan-500" />,
+};
+
 /* ══════════════════════════════════════════════════
    Main Tab
 ══════════════════════════════════════════════════ */
@@ -150,6 +164,19 @@ export function DeploymentCenterTab() {
     staleTime: 300_000,
   });
 
+  const { data: agentsData } = useQuery<{ logs: any[]; stats: any }>({
+    queryKey: ["deployment-agents"],
+    queryFn: () => API("/deployment/agents?limit=20"),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const { data: ollamaData } = useQuery<any>({
+    queryKey: ["deployment-ollama"],
+    queryFn: () => API("/deployment/ollama"),
+    staleTime: 60_000,
+  });
+
   const backupMutation = useMutation({
     mutationFn: () => API("/deployment/backup", { method: "POST" }),
     onSuccess: () => {
@@ -158,6 +185,15 @@ export function DeploymentCenterTab() {
       qc.invalidateQueries({ queryKey: ["deployment-overview"] });
     },
     onError: (err: any) => toast.error(err.message ?? "فشل إنشاء النسخة الاحتياطية"),
+  });
+
+  const agentRunMutation = useMutation({
+    mutationFn: (type: string) => API("/deployment/agents/run", { method: "POST", body: JSON.stringify({ type }) }),
+    onSuccess: (_, type) => {
+      toast.success(`تم تشغيل الوكيل: ${AGENT_LABELS[type] ?? type}`);
+      qc.invalidateQueries({ queryKey: ["deployment-agents"] });
+    },
+    onError: (err: any) => toast.error(err.message ?? "فشل تشغيل الوكيل"),
   });
 
   if (isLoading) {
@@ -522,6 +558,205 @@ export function DeploymentCenterTab() {
               <Shield className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
               <span>المتغيرات الحساسة مخفية. تُدار عبر Coolify أو GitHub Secrets فقط.</span>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          ROW 4 — AI Agents + Ollama Status
+      ══════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* 8️⃣ وكلاء AI التلقائيون */}
+        <Card className="border-blue-100 dark:border-blue-900/40">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Bot className="h-4 w-4 text-blue-500" />
+                وكلاء AI التلقائيون
+                {agentsData?.stats && (
+                  <Badge variant="outline" className="text-[10px] py-0 h-4 mr-auto">
+                    {agentsData.stats.last24h} / 24h
+                  </Badge>
+                )}
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Kpis */}
+            {agentsData?.stats && (
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/30 rounded-lg px-2 py-2 text-center">
+                  <p className="text-lg font-bold text-emerald-600">{agentsData.stats.completed}</p>
+                  <p className="text-[10px] text-muted-foreground">مكتملة</p>
+                </div>
+                <div className="bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/30 rounded-lg px-2 py-2 text-center">
+                  <p className="text-lg font-bold text-red-600">{agentsData.stats.failed}</p>
+                  <p className="text-[10px] text-muted-foreground">فشل</p>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/30 rounded-lg px-2 py-2 text-center">
+                  <p className="text-lg font-bold text-blue-600">{agentsData.stats.total}</p>
+                  <p className="text-[10px] text-muted-foreground">إجمالي</p>
+                </div>
+              </div>
+            )}
+
+            {/* Quick run buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(AGENT_LABELS).map(([type, label]) => (
+                <Button
+                  key={type}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs gap-1.5 justify-start"
+                  disabled={agentRunMutation.isPending}
+                  onClick={() => agentRunMutation.mutate(type)}
+                >
+                  {agentRunMutation.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Play className="h-3 w-3 text-blue-500" />
+                  )}
+                  {label}
+                </Button>
+              ))}
+            </div>
+
+            <Separator />
+
+            {/* Recent logs */}
+            <div className="space-y-1.5 max-h-44 overflow-y-auto">
+              {(agentsData?.logs ?? []).slice(0, 8).map((log: any) => (
+                <div key={log.id} className="flex items-start gap-2 text-xs rounded-lg px-2.5 py-2 bg-muted/40">
+                  {AGENT_ICONS[log.agent_type] ?? <Bot className="h-3.5 w-3.5" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{AGENT_LABELS[log.agent_type] ?? log.agent_type}</p>
+                    <p className="text-muted-foreground truncate text-[11px]">{log.summary}</p>
+                    <p className="text-muted-foreground/60 text-[10px]">{timeAgo(log.created_at)}</p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] py-0 flex-shrink-0 ${
+                      log.status === "completed" ? "text-emerald-600 border-emerald-200" :
+                      log.status === "running"   ? "text-blue-600 border-blue-200" :
+                      "text-red-600 border-red-200"
+                    }`}
+                  >
+                    {log.status === "completed" ? "✓" : log.status === "running" ? "⟳" : "✗"}
+                  </Badge>
+                </div>
+              ))}
+              {(!agentsData?.logs || agentsData.logs.length === 0) && (
+                <div className="flex flex-col items-center py-4 gap-2 text-muted-foreground">
+                  <Bot className="h-6 w-6" />
+                  <p className="text-xs">لم يعمل أي وكيل بعد — سيبدأ في الساعة القادمة</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 9️⃣ Ollama — النموذج المحلي */}
+        <Card className="border-cyan-100 dark:border-cyan-900/40">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Zap className="h-4 w-4 text-cyan-500" />
+              Ollama — نموذج AI محلي
+              {ollamaData?.online && (
+                <Badge className="mr-auto text-[10px] py-0 h-4 bg-emerald-500">متصل</Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {!ollamaData ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : !ollamaData.configured ? (
+              <div className="space-y-3">
+                <div className="flex flex-col gap-2 items-center py-4 text-muted-foreground">
+                  <XCircle className="h-7 w-7 text-zinc-400" />
+                  <p className="text-sm font-medium">Ollama غير مُفعَّل</p>
+                  <p className="text-xs text-center">أضف OLLAMA_BASE_URL في متغيرات البيئة لتفعيل النموذج المحلي</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono space-y-1">
+                  <p className="text-muted-foreground"># على خادم Hetzner:</p>
+                  <p>curl -fsSL https://ollama.ai/install.sh | sh</p>
+                  <p>ollama pull gemma3:4b</p>
+                  <p className="text-muted-foreground mt-2"># في متغيرات Coolify:</p>
+                  <p>OLLAMA_BASE_URL=http://localhost:11434</p>
+                  <p>OLLAMA_MODEL=gemma3:4b</p>
+                  <p>OLLAMA_FALLBACK_ENABLED=true</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Status card */}
+                <div className={`flex items-center gap-3 rounded-xl p-3 border ${
+                  ollamaData.online
+                    ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40"
+                    : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/40"
+                }`}>
+                  <div className={`p-2 rounded-lg ${ollamaData.online ? "bg-emerald-100" : "bg-red-100"}`}>
+                    <Zap className={`h-4 w-4 ${ollamaData.online ? "text-emerald-600" : "text-red-600"}`} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">{ollamaData.online ? "متصل ويعمل" : "غير متاح"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {ollamaData.online ? `زمن الاستجابة: ${ollamaData.latencyMs}ms` : ollamaData.error}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Info rows */}
+                <div className="space-y-2">
+                  <GithubRow icon={<Database className="h-3.5 w-3.5 text-cyan-500" />} label="الخادم" value={ollamaData.base ?? "—"} mono />
+                  <GithubRow icon={<Bot className="h-3.5 w-3.5 text-violet-500" />}    label="النموذج" value={ollamaData.model} mono />
+                  <GithubRow
+                    icon={<Shield className="h-3.5 w-3.5 text-emerald-500" />}
+                    label="كاحتياطي"
+                    value={ollamaData.fallbackEnabled ? "مفعّل ✓" : "معطّل"}
+                  />
+                  {ollamaData.modelReady !== undefined && (
+                    <GithubRow
+                      icon={<CheckCircle2 className={`h-3.5 w-3.5 ${ollamaData.modelReady ? "text-emerald-500" : "text-amber-500"}`} />}
+                      label="النموذج جاهز"
+                      value={ollamaData.modelReady ? "نعم" : "يحتاج تحميل: ollama pull " + ollamaData.model}
+                    />
+                  )}
+                </div>
+
+                {/* Available models */}
+                {ollamaData.availableModels && ollamaData.availableModels.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">النماذج المحمّلة</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ollamaData.availableModels.map((m: string) => (
+                        <Badge key={m} variant="outline" className="text-[10px] py-0 font-mono">
+                          {m}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-start gap-2 text-[11px] text-muted-foreground bg-cyan-50 dark:bg-cyan-950/20 rounded-lg px-3 py-2 border border-cyan-100 dark:border-cyan-900/30">
+                  <Shield className="h-3.5 w-3.5 text-cyan-500 flex-shrink-0 mt-0.5" />
+                  <span>
+                    {ollamaData.fallbackEnabled
+                      ? "إذا فشل Gemini/OpenAI، يتولى Ollama المحلي تلقائياً."
+                      : "فعّل OLLAMA_FALLBACK_ENABLED=true للتبديل التلقائي عند انقطاع الخدمات السحابية."}
+                  </span>
+                </div>
+
+                <Button
+                  variant="outline" size="sm" className="w-full text-xs gap-1.5"
+                  onClick={() => qc.invalidateQueries({ queryKey: ["deployment-ollama"] })}
+                >
+                  <RefreshCw className="h-3 w-3" /> تحديث حالة Ollama
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
