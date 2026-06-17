@@ -21,6 +21,7 @@ import { sql } from "drizzle-orm";
 import { requestIdMiddleware } from "./middlewares/requestId";
 import { globalErrorHandler } from "./middlewares/errorHandler";
 import { registerSwaggerDocs } from "./docs/swagger";
+import { prometheusMiddleware, registry } from "./observability/prometheus";
 
 /* ── Sentry (backend) — initialise before Express ─────────────────────── */
 if (process.env.SENTRY_DSN) {
@@ -77,6 +78,9 @@ app.use(
 
 // ─── Request ID — attach before anything else ───────────────────────────────
 app.use(requestIdMiddleware);
+
+// ─── Prometheus request tracking ─────────────────────────────────────────────
+app.use(prometheusMiddleware());
 
 // ─── Security & Performance middleware ───────────────────────────────────────
 app.use(helmet({
@@ -210,6 +214,16 @@ app.use((_req, res, next) => {
     db.execute(sql`SELECT set_config('app.current_tenant', '', false)`).catch(() => {});
   });
   next();
+});
+
+/* ── Prometheus scrape endpoint — public, no auth ─────────────────────── */
+app.get("/metrics", async (_req, res) => {
+  try {
+    res.set("Content-Type", registry.contentType);
+    res.end(await registry.metrics());
+  } catch (err) {
+    res.status(500).end(String(err));
+  }
 });
 
 app.use("/api", requestGuard);
