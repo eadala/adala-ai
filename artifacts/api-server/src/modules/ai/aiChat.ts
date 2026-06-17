@@ -5,11 +5,76 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_KEY    = process.env.GEMINI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY    = process.env.OPENAI_API_KEY;
+const DEEPSEEK_API_KEY  = process.env.DEEPSEEK_API_KEY;
 
-export type ModelKey = "auto" | "gemini" | "claude" | "openai" | "ollama";
+export type ModelKey = "auto" | "gemini" | "claude" | "openai" | "ollama" | "deepseek";
+
+/* ══════════════════════════════════════════════════════════════════
+   COST TIER CLASSIFIER
+   ─────────────────────────────────────────────────────────────────
+   cheap   → DeepSeek (0.5pt) — بسيط، قصير، غير قانوني
+   mid     → Gemini   (1pt)   — متوسط أو قانوني أساسي
+   premium → Claude/OpenAI (3pt) — تحليل قانوني معقد
+══════════════════════════════════════════════════════════════════ */
+export type CostTier = "cheap" | "mid" | "premium";
+
+const PREMIUM_KEYWORDS = ["عقد", "تحليل", "مخاطر", "دعوى", "صياغة", "مراجعة", "استئناف", "تحكيم", "حكم", "مذكرة", "لائحة", "طعن"];
+
+export function classifyPrompt(input: string): CostTier {
+  const len = input.length;
+  const isLegal = PREMIUM_KEYWORDS.some(k => input.includes(k));
+  if (len < 80 && !isLegal) return "cheap";
+  if (len < 600 && !isLegal) return "mid";
+  if (isLegal && len >= 400) return "premium";
+  return "mid";
+}
+
+/* ── Usage logging ──────────────────────────────────────────────── */
+export async function logAIUsage(opts: {
+  officeId: string;
+  queryType: string;
+  modelUsed: string;
+  tier: CostTier;
+  costPoints: number;
+  cached: boolean;
+  responseMs?: number;
+  promptLength?: number;
+}): Promise<void> {
+  try {
+    await db.execute(sql`
+      INSERT INTO ai_usage_logs
+        (office_id, query_type, model_used, tier, cost_points, cached, response_ms, prompt_length)
+      VALUES
+        (${opts.officeId}, ${opts.queryType}, ${opts.modelUsed}, ${opts.tier},
+         ${opts.costPoints}, ${opts.cached}, ${opts.responseMs ?? null}, ${opts.promptLength ?? null})
+    `);
+  } catch { /* non-blocking */ }
+}
+
+async function ensureUsageTable(): Promise<void> {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS ai_usage_logs (
+        id            SERIAL PRIMARY KEY,
+        office_id     TEXT NOT NULL DEFAULT 'default',
+        query_type    TEXT NOT NULL DEFAULT 'custom',
+        model_used    TEXT NOT NULL,
+        tier          TEXT NOT NULL DEFAULT 'mid',
+        cost_points   REAL NOT NULL DEFAULT 1,
+        cached        BOOLEAN NOT NULL DEFAULT FALSE,
+        response_ms   INTEGER,
+        prompt_length INTEGER,
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ai_usage_office ON ai_usage_logs(office_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ai_usage_created ON ai_usage_logs(created_at)`);
+  } catch { /* already exists */ }
+}
+ensureUsageTable();
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL;
 const OLLAMA_MODEL    = process.env.OLLAMA_MODEL ?? "gemma3:4b";
@@ -106,6 +171,25 @@ async function callClaudeAI(systemPrompt: string, userMessage: string, history: 
   return data.content?.[0]?.text ?? "عذراً، لم أتمكن من معالجة الطلب.";
 }
 
+/* ── DeepSeek (اقتصادي للطلبات البسيطة) ────────────────────────── */
+async function callDeepSeekAI(systemPrompt: string, userMessage: string, history: { role: string; content: string }[] = []): Promise<string> {
+  if (!DEEPSEEK_API_KEY) throw new Error("DEEPSEEK_API_KEY غير متوفر");
+  const messages = [
+    { role: "system" as const, content: systemPrompt },
+    ...history.map(h => ({ role: h.role as "user" | "assistant", content: h.content })),
+    { role: "user" as const, content: userMessage },
+  ];
+  const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${DEEPSEEK_API_KEY}` },
+    body: JSON.stringify({ model: "deepseek-chat", max_tokens: 2048, messages }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const data = await res.json() as any;
+  if (data.error) throw new Error(data.error.message ?? "خطأ DeepSeek");
+  return data.choices?.[0]?.message?.content ?? "عذراً، لم أتمكن من معالجة الطلب.";
+}
+
 async function callOpenAI(systemPrompt: string, userMessage: string, history: { role: string; content: string }[] = []): Promise<string> {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY غير متوفر");
   const messages = [
@@ -123,7 +207,7 @@ async function callOpenAI(systemPrompt: string, userMessage: string, history: { 
   return data.choices?.[0]?.message?.content ?? "عذراً، لم أتمكن من معالجة الطلب.";
 }
 
-const MODEL_CREDIT_COST: Record<string, number> = { gemini: 1, claude: 3, openai: 3, fallback: 0 };
+const MODEL_CREDIT_COST: Record<string, number> = { gemini: 1, claude: 3, openai: 3, deepseek: 0.5, ollama: 0, fallback: 0 };
 
 async function deductCredits(officeId: string, model: string): Promise<void> {
   try {
@@ -179,68 +263,70 @@ export async function callAI(
   userMessage: string,
   history: { role: string; content: string }[] = [],
   preferredModel: ModelKey = "auto",
-  officeId: string = "default"
-): Promise<{ reply: string; modelUsed: string }> {
+  officeId: string = "default",
+  queryType: string = "custom",
+): Promise<{ reply: string; modelUsed: string; tier: CostTier }> {
 
-  /* forced model */
-  if (preferredModel === "gemini" && GEMINI_API_KEY) {
-    const reply = await callGeminiAI(systemPrompt, userMessage, history);
-    deductCredits(officeId, "gemini");
-    return { reply, modelUsed: "gemini" };
-  }
-  if (preferredModel === "claude" && ANTHROPIC_API_KEY) {
-    const reply = await callClaudeAI(systemPrompt, userMessage, history);
-    deductCredits(officeId, "claude");
-    return { reply, modelUsed: "claude" };
-  }
-  if (preferredModel === "openai" && OPENAI_API_KEY) {
-    const reply = await callOpenAI(systemPrompt, userMessage, history);
-    deductCredits(officeId, "openai");
-    return { reply, modelUsed: "openai" };
-  }
-  if (preferredModel === "ollama" && OLLAMA_BASE_URL) {
-    const reply = await callOllamaAI(systemPrompt, userMessage, history);
-    deductCredits(officeId, "ollama");
-    return { reply, modelUsed: `ollama:${OLLAMA_MODEL}` };
-  }
-  /* requested model not available → fall through to auto */
+  const t0 = Date.now();
 
-  /* auto: priority Gemini → Claude → OpenAI → Ollama (local) → static fallback */
-  if (GEMINI_API_KEY) {
+  /* ── Forced model (explicit choice) ────────────────────────────── */
+  const forced = async (model: string, fn: () => Promise<string>): Promise<{ reply: string; modelUsed: string; tier: CostTier }> => {
+    const reply = await fn();
+    const tier = classifyPrompt(userMessage);
+    deductCredits(officeId, model);
+    logAIUsage({ officeId, queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: userMessage.length });
+    return { reply, modelUsed: model, tier };
+  };
+
+  if (preferredModel === "deepseek" && DEEPSEEK_API_KEY)
+    return forced("deepseek", () => callDeepSeekAI(systemPrompt, userMessage, history));
+  if (preferredModel === "gemini"   && GEMINI_API_KEY)
+    return forced("gemini",   () => callGeminiAI(systemPrompt, userMessage, history));
+  if (preferredModel === "claude"   && ANTHROPIC_API_KEY)
+    return forced("claude",   () => callClaudeAI(systemPrompt, userMessage, history));
+  if (preferredModel === "openai"   && OPENAI_API_KEY)
+    return forced("openai",   () => callOpenAI(systemPrompt, userMessage, history));
+  if (preferredModel === "ollama"   && OLLAMA_BASE_URL)
+    return forced(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(systemPrompt, userMessage, history));
+  /* forced model not available → fall through to smart auto */
+
+  /* ── Smart auto routing by cost tier ───────────────────────────── */
+  const tier = classifyPrompt(userMessage);
+
+  const tryModel = async (model: string, fn: () => Promise<string>): Promise<{ reply: string; modelUsed: string; tier: CostTier } | null> => {
     try {
-      const reply = await callGeminiAI(systemPrompt, userMessage, history);
-      deductCredits(officeId, "gemini");
-      return { reply, modelUsed: "gemini" };
-    } catch (e) {
-      if (!OLLAMA_FALLBACK || !OLLAMA_BASE_URL) throw e;
-      /* Gemini failed → try Ollama fallback */
-    }
+      const reply = await fn();
+      deductCredits(officeId, model);
+      logAIUsage({ officeId, queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: userMessage.length });
+      return { reply, modelUsed: model, tier };
+    } catch { return null; }
+  };
+
+  if (tier === "cheap") {
+    /* cheap: DeepSeek → Gemini → Ollama */
+    if (DEEPSEEK_API_KEY)  { const r = await tryModel("deepseek", () => callDeepSeekAI(systemPrompt, userMessage, history)); if (r) return r; }
+    if (GEMINI_API_KEY)    { const r = await tryModel("gemini",   () => callGeminiAI(systemPrompt, userMessage, history));   if (r) return r; }
+    if (OLLAMA_BASE_URL)   { const r = await tryModel(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(systemPrompt, userMessage, history)); if (r) return r; }
   }
-  if (ANTHROPIC_API_KEY) {
-    try {
-      const reply = await callClaudeAI(systemPrompt, userMessage, history);
-      deductCredits(officeId, "claude");
-      return { reply, modelUsed: "claude" };
-    } catch (e) {
-      if (!OLLAMA_FALLBACK || !OLLAMA_BASE_URL) throw e;
-    }
+
+  if (tier === "mid") {
+    /* mid: Gemini → DeepSeek → Ollama */
+    if (GEMINI_API_KEY)    { const r = await tryModel("gemini",   () => callGeminiAI(systemPrompt, userMessage, history));   if (r) return r; }
+    if (DEEPSEEK_API_KEY)  { const r = await tryModel("deepseek", () => callDeepSeekAI(systemPrompt, userMessage, history)); if (r) return r; }
+    if (OLLAMA_BASE_URL)   { const r = await tryModel(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(systemPrompt, userMessage, history)); if (r) return r; }
   }
-  if (OPENAI_API_KEY) {
-    try {
-      const reply = await callOpenAI(systemPrompt, userMessage, history);
-      deductCredits(officeId, "openai");
-      return { reply, modelUsed: "openai" };
-    } catch (e) {
-      if (!OLLAMA_FALLBACK || !OLLAMA_BASE_URL) throw e;
-    }
+
+  if (tier === "premium") {
+    /* premium: Claude → OpenAI → Gemini → Ollama */
+    if (ANTHROPIC_API_KEY) { const r = await tryModel("claude",   () => callClaudeAI(systemPrompt, userMessage, history));   if (r) return r; }
+    if (OPENAI_API_KEY)    { const r = await tryModel("openai",   () => callOpenAI(systemPrompt, userMessage, history));     if (r) return r; }
+    if (GEMINI_API_KEY)    { const r = await tryModel("gemini",   () => callGeminiAI(systemPrompt, userMessage, history));   if (r) return r; }
+    if (OLLAMA_BASE_URL)   { const r = await tryModel(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(systemPrompt, userMessage, history)); if (r) return r; }
   }
-  /* Ollama local fallback (runs on your Hetzner server) */
-  if (OLLAMA_BASE_URL) {
-    const reply = await callOllamaAI(systemPrompt, userMessage, history);
-    deductCredits(officeId, "ollama");
-    return { reply, modelUsed: `ollama:${OLLAMA_MODEL}` };
-  }
-  return { reply: generateSmartResponse(userMessage), modelUsed: "fallback" };
+
+  /* final static fallback */
+  logAIUsage({ officeId, queryType, modelUsed: "fallback", tier, costPoints: 0, cached: false, responseMs: Date.now() - t0, promptLength: userMessage.length });
+  return { reply: generateSmartResponse(userMessage), modelUsed: "fallback", tier };
 }
 
 function generateSmartResponse(query: string): string {

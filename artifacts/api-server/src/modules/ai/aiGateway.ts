@@ -23,10 +23,12 @@
 
 import { Router }            from "express";
 import { requireAuth }       from "../../middlewares/requireAuth";
-import { callAI }            from "./aiChat";
+import { callAI, classifyPrompt, logAIUsage } from "./aiChat";
 import { cache }             from "../../core/cache";
 import { eventBus }          from "../../core/eventBus";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
+import { db }                from "@workspace/db";
+import { sql }               from "drizzle-orm";
 import crypto                from "crypto";
 
 const router = Router();
@@ -114,28 +116,29 @@ router.post("/ai/query", requireAuth, async (req, res) => {
     : input;
 
   try {
-    const { reply, modelUsed } = await callAI(
+    const { reply, modelUsed, tier } = await callAI(
       systemPrompt,
       fullInput,
       [],
       model as any,
       officeId,
+      type,
     );
 
-    const result = { reply, modelUsed, cached: false };
+    const result = { reply, modelUsed, tier, cached: false };
 
     /* ── Cache for 10 minutes ───────────────────────────────── */
     cache.set(cacheKey, result, 600);
 
     /* ── Emit event (non-blocking) ──────────────────────────── */
-    eventBus.emit({ type: "AI_QUERY", data: { queryType: type, modelUsed, officeId } }).catch(() => {});
+    eventBus.emit({ type: "AI_QUERY", data: { queryType: type, modelUsed, tier, officeId } }).catch(() => {});
 
     /* ── Audit log ──────────────────────────────────────────── */
     auditLog({
       ...auditMeta(req),
       action:   "ai.query",
       resource: "ai_gateway",
-      details:  `type=${type} model=${modelUsed}`,
+      details:  `type=${type} model=${modelUsed} tier=${tier}`,
     }).catch(() => {});
 
     res.json({ success: true, ...result, type });
@@ -145,6 +148,148 @@ router.post("/ai/query", requireAuth, async (req, res) => {
       error: { code: "AI_ERROR", message: err.message ?? "خطأ في معالجة الطلب" },
     });
   }
+});
+
+/* ─────────────────────────────────────────────────────────────────
+   GET /api/ai/analytics/summary
+───────────────────────────────────────────────────────────────── */
+router.get("/ai/analytics/summary", requireAuth, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+    const isAdmin  = (req as any).isAdmin === true;
+    const whereClause = isAdmin ? sql`` : sql`WHERE office_id = ${officeId}`;
+    const rows = await db.execute(sql`
+      SELECT
+        COUNT(*)                                      AS total_queries,
+        COUNT(*) FILTER (WHERE cached = true)         AS cache_hits,
+        COALESCE(SUM(cost_points), 0)                 AS total_cost,
+        COALESCE(AVG(response_ms) FILTER
+          (WHERE response_ms IS NOT NULL), 0)::int    AS avg_response_ms,
+        COUNT(DISTINCT office_id)                     AS active_offices,
+        COUNT(*) FILTER (WHERE model_used='gemini')   AS gemini_count,
+        COUNT(*) FILTER (WHERE model_used='claude')   AS claude_count,
+        COUNT(*) FILTER (WHERE model_used='openai')   AS openai_count,
+        COUNT(*) FILTER (WHERE model_used='deepseek') AS deepseek_count,
+        COUNT(*) FILTER (WHERE model_used LIKE 'ollama%') AS ollama_count,
+        COUNT(*) FILTER (WHERE model_used='fallback') AS fallback_count,
+        COUNT(*) FILTER (WHERE tier='cheap')          AS cheap_count,
+        COUNT(*) FILTER (WHERE tier='mid')            AS mid_count,
+        COUNT(*) FILTER (WHERE tier='premium')        AS premium_count,
+        COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24h') AS last24h
+      FROM ai_usage_logs
+      ${whereClause}
+    `) as any;
+    const r = (rows?.rows ?? rows)?.[0] ?? {};
+    const total    = Number(r.total_queries ?? 0);
+    const cacheHits = Number(r.cache_hits ?? 0);
+    const cacheRate = total > 0 ? Math.round((cacheHits / total) * 100) : 0;
+    const premiumIfAll = (Number(r.cheap_count ?? 0) + Number(r.mid_count ?? 0)) * 3;
+    const actualCost   = Number(r.total_cost ?? 0);
+    const savedPoints  = Math.max(0, premiumIfAll - actualCost);
+    res.json({
+      success: true, total, cacheHits, cacheRate, savedPoints,
+      totalCostPoints: actualCost,
+      avgResponseMs:   Number(r.avg_response_ms ?? 0),
+      activeOffices:   Number(r.active_offices  ?? 0),
+      last24h:         Number(r.last24h         ?? 0),
+      models: {
+        gemini:   Number(r.gemini_count   ?? 0),
+        claude:   Number(r.claude_count   ?? 0),
+        openai:   Number(r.openai_count   ?? 0),
+        deepseek: Number(r.deepseek_count ?? 0),
+        ollama:   Number(r.ollama_count   ?? 0),
+        fallback: Number(r.fallback_count ?? 0),
+      },
+      tiers: {
+        cheap:   Number(r.cheap_count   ?? 0),
+        mid:     Number(r.mid_count     ?? 0),
+        premium: Number(r.premium_count ?? 0),
+      },
+      cacheStats: cache.stats(),
+    });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+/* ─────────────────────────────────────────────────────────────────
+   GET /api/ai/analytics/daily  — 30-day trend
+───────────────────────────────────────────────────────────────── */
+router.get("/ai/analytics/daily", requireAuth, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+    const isAdmin  = (req as any).isAdmin === true;
+    const rows = await db.execute(sql`
+      SELECT
+        DATE(created_at)                         AS day,
+        COUNT(*)                                 AS total,
+        COUNT(*) FILTER (WHERE cached = true)    AS cached,
+        COALESCE(SUM(cost_points), 0)            AS cost,
+        COUNT(*) FILTER (WHERE tier='cheap')     AS cheap,
+        COUNT(*) FILTER (WHERE tier='mid')       AS mid,
+        COUNT(*) FILTER (WHERE tier='premium')   AS premium
+      FROM ai_usage_logs
+      WHERE created_at > NOW() - INTERVAL '30 days'
+        ${isAdmin ? sql`` : sql`AND office_id = ${officeId}`}
+      GROUP BY DATE(created_at)
+      ORDER BY day ASC
+    `) as any;
+    res.json({
+      success: true,
+      data: (rows?.rows ?? rows ?? []).map((r: any) => ({
+        day:     String(r.day).slice(0, 10),
+        total:   Number(r.total   ?? 0),
+        cached:  Number(r.cached  ?? 0),
+        cost:    Number(r.cost    ?? 0),
+        cheap:   Number(r.cheap   ?? 0),
+        mid:     Number(r.mid     ?? 0),
+        premium: Number(r.premium ?? 0),
+      })),
+    });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+/* ─────────────────────────────────────────────────────────────────
+   GET /api/ai/analytics/by-office  — per-office breakdown
+───────────────────────────────────────────────────────────────── */
+router.get("/ai/analytics/by-office", requireAuth, async (_req, res) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT office_id,
+        COUNT(*)                              AS total,
+        COALESCE(SUM(cost_points), 0)         AS cost,
+        COUNT(*) FILTER (WHERE cached = true) AS cached,
+        MAX(created_at)                       AS last_used
+      FROM ai_usage_logs
+      GROUP BY office_id
+      ORDER BY total DESC LIMIT 20
+    `) as any;
+    res.json({
+      success: true,
+      data: (rows?.rows ?? rows ?? []).map((r: any) => ({
+        officeId: r.office_id,
+        total:    Number(r.total  ?? 0),
+        cost:     Number(r.cost   ?? 0),
+        cached:   Number(r.cached ?? 0),
+        lastUsed: r.last_used,
+      })),
+    });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+/* ─────────────────────────────────────────────────────────────────
+   GET /api/ai/analytics/recent  — last 50 queries
+───────────────────────────────────────────────────────────────── */
+router.get("/ai/analytics/recent", requireAuth, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+    const isAdmin  = (req as any).isAdmin === true;
+    const rows = await db.execute(sql`
+      SELECT id, office_id, query_type, model_used, tier, cost_points, cached, response_ms, created_at
+      FROM ai_usage_logs
+      ${isAdmin ? sql`` : sql`WHERE office_id = ${officeId}`}
+      ORDER BY created_at DESC LIMIT 50
+    `) as any;
+    res.json({ success: true, data: rows?.rows ?? rows ?? [] });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 /* ─────────────────────────────────────────────────────────────────
