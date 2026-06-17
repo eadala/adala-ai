@@ -252,22 +252,139 @@ function PageLoader() {
   );
 }
 
+// ── Auth Brand Panel — shared between sign-in & sign-up ─────────────────────
+const AUTH_FEATURES = [
+  { icon: "⚖️", text: "إدارة القضايا والجلسات بذكاء اصطناعي متقدم" },
+  { icon: "📄", text: "عقود وفواتير احترافية في دقائق معدودة" },
+  { icon: "🤖", text: "مساعد قانوني ذكي يحلل ويقترح في الحال" },
+  { icon: "🔒", text: "بيانات مشفرة ومعزولة لكل مكتب" },
+];
+
+const AUTH_STATS = [
+  { value: "+٤٥", label: "مكتب محاماة" },
+  { value: "٩٩٪", label: "وقت تشغيل" },
+  { value: "+٤٥٨٣", label: "قضية مُدارة" },
+];
+
+function AuthBrandPanel({ mode }: { mode: "signin" | "signup" }) {
+  const isSignIn = mode === "signin";
+  return (
+    <div
+      className="hidden lg:flex flex-col justify-between h-full p-12 relative overflow-hidden"
+      style={{ background: "linear-gradient(155deg, #0B1F3B 0%, #132848 60%, #0D2040 100%)" }}
+      dir="rtl"
+    >
+      {/* Decorative blobs */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/3 right-1/4 w-72 h-72 rounded-full blur-[100px]"
+          style={{ background: "rgba(37,99,235,0.18)" }} />
+        <div className="absolute bottom-1/4 left-1/3 w-56 h-56 rounded-full blur-[80px]"
+          style={{ background: "rgba(124,58,237,0.10)" }} />
+        {/* Dot grid */}
+        <div className="absolute inset-0 opacity-[0.04]"
+          style={{ backgroundImage: "radial-gradient(#fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+      </div>
+
+      {/* Logo */}
+      <div className="relative flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ background: "#2563EB", boxShadow: "0 4px 14px rgba(37,99,235,0.45)" }}>
+          <svg viewBox="0 0 24 24" className="w-5 h-5 text-white fill-none stroke-white stroke-[2]">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <span className="font-black text-xl text-white">
+          عدالة <span style={{ color: "#60A5FA" }}>AI</span>
+        </span>
+      </div>
+
+      {/* Main copy */}
+      <div className="relative space-y-8">
+        <div>
+          <h1 className="text-3xl font-black text-white leading-tight mb-3" style={{ letterSpacing: "-0.02em" }}>
+            {isSignIn ? (
+              <>مرحباً بعودتك<br /><span style={{ color: "#60A5FA" }}>إلى منصتك القانونية</span></>
+            ) : (
+              <>ابدأ مكتبك القانوني<br /><span style={{ color: "#60A5FA" }}>بذكاء اصطناعي حقيقي</span></>
+            )}
+          </h1>
+          <p className="text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>
+            {isSignIn
+              ? "ادخل إلى لوحة التحكم وتابع قضاياك وعملاءك وفرقك في مكان واحد."
+              : "منصة متكاملة لإدارة القضايا والعملاء والفوترة والذكاء الاصطناعي."}
+          </p>
+        </div>
+
+        {/* Features */}
+        <ul className="space-y-4">
+          {AUTH_FEATURES.map((f, i) => (
+            <li key={i} className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
+                style={{ background: "rgba(37,99,235,0.20)", border: "1px solid rgba(37,99,235,0.30)" }}>
+                {f.icon}
+              </div>
+              <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.75)" }}>{f.text}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Stats strip */}
+      <div className="relative grid grid-cols-3 gap-4 pt-8"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        {AUTH_STATS.map((s, i) => (
+          <div key={i} className="text-center">
+            <div className="text-2xl font-black text-white">{s.value}</div>
+            <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Auth pages ─────────────────────────────────────────────────────────────────
 function SignInPage() {
   return (
-    <div className="min-h-[100dvh] flex flex-col items-center justify-center px-4 gap-6" style={{ background: "linear-gradient(135deg, #0F1B35 0%, #1A2744 50%, #0F1B35 100%)" }}>
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} fallbackRedirectUrl={`${basePath}/dashboard`} />
-      <div className="w-full max-w-sm" dir="rtl">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="text-xs text-white/30 whitespace-nowrap">أو جرّب بدون تسجيل</span>
-          <div className="flex-1 h-px bg-white/10" />
+    <div className="min-h-[100dvh] lg:grid lg:grid-cols-2" dir="rtl">
+      {/* Brand panel */}
+      <AuthBrandPanel mode="signin" />
+
+      {/* Form panel */}
+      <div
+        className="min-h-[100dvh] flex flex-col items-center justify-center px-4 py-10"
+        style={{ background: "linear-gradient(160deg, #F0F4FF 0%, #EEF2FF 100%)" }}
+      >
+        {/* Mobile-only logo */}
+        <div className="lg:hidden flex items-center gap-2.5 mb-8">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: "#2563EB", boxShadow: "0 4px 12px rgba(37,99,235,0.35)" }}>
+            <svg viewBox="0 0 24 24" className="w-4.5 h-4.5 fill-none stroke-white stroke-[2]">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <span className="font-black text-lg" style={{ color: "#0B1F3B" }}>
+            عدالة <span style={{ color: "#2563EB" }}>AI</span>
+          </span>
         </div>
-        <a href={`${basePath}/demo-login`} className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 transition-all text-white text-sm font-bold hover:scale-[1.01]">
-          <span className="text-base">🧪</span>
-          دخول تجريبي سريع — بدون حساب
-        </a>
-        <p className="text-center text-xs text-white/20 mt-2">مكاتب تجريبية جاهزة · بيانات معزولة · كل الميزات مفتوحة</p>
+
+        {/* Clerk sign-in */}
+        <SignIn
+          routing="path"
+          path={`${basePath}/sign-in`}
+          signUpUrl={`${basePath}/sign-up`}
+          fallbackRedirectUrl={`${basePath}/dashboard`}
+        />
+
+        {/* Try simulation link */}
+        <p className="mt-6 text-sm" style={{ color: "#64748B" }}>
+          تريد الاستكشاف أولاً؟{" "}
+          <a href={`${basePath}/demo-login`}
+            className="font-semibold underline underline-offset-2 transition-opacity hover:opacity-70"
+            style={{ color: "#2563EB" }}>
+            جرّب بيئة المحاكاة
+          </a>
+        </p>
       </div>
     </div>
   );
@@ -275,8 +392,36 @@ function SignInPage() {
 
 function SignUpPage() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center px-4" style={{ background: "linear-gradient(135deg, #0F1B35 0%, #1A2744 50%, #0F1B35 100%)" }}>
-      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} fallbackRedirectUrl={`${basePath}/dashboard`} />
+    <div className="min-h-[100dvh] lg:grid lg:grid-cols-2" dir="rtl">
+      {/* Brand panel */}
+      <AuthBrandPanel mode="signup" />
+
+      {/* Form panel */}
+      <div
+        className="min-h-[100dvh] flex flex-col items-center justify-center px-4 py-10"
+        style={{ background: "linear-gradient(160deg, #F0F4FF 0%, #EEF2FF 100%)" }}
+      >
+        {/* Mobile-only logo */}
+        <div className="lg:hidden flex items-center gap-2.5 mb-8">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: "#2563EB", boxShadow: "0 4px 12px rgba(37,99,235,0.35)" }}>
+            <svg viewBox="0 0 24 24" className="w-4.5 h-4.5 fill-none stroke-white stroke-[2]">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <span className="font-black text-lg" style={{ color: "#0B1F3B" }}>
+            عدالة <span style={{ color: "#2563EB" }}>AI</span>
+          </span>
+        </div>
+
+        {/* Clerk sign-up */}
+        <SignUp
+          routing="path"
+          path={`${basePath}/sign-up`}
+          signInUrl={`${basePath}/sign-in`}
+          fallbackRedirectUrl={`${basePath}/dashboard`}
+        />
+      </div>
     </div>
   );
 }
