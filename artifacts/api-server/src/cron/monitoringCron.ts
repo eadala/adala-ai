@@ -8,8 +8,14 @@ import { sql } from "drizzle-orm";
 
 let lastStatus = "healthy";
 let cronTick = 0;
+let _started = false; // guard ضد التشغيل المكرر
 
 export function startMonitoringCron() {
+  if (_started) {
+    console.warn("[Monitoring Cron] ⚠️ Already started — skip duplicate registration");
+    return;
+  }
+  _started = true;
   /* ── Every 60 seconds: health check + log to DB + smart alerts ── */
   cron.schedule("*/60 * * * * *", async () => {
     cronTick++;

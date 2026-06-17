@@ -4,18 +4,18 @@
  * Simple, zero-dependency, Map-backed cache with per-entry TTL.
  * Redis-ready: swap the backing store without changing call sites.
  *
- * Usage:
- *   import { cache } from "../core/cache";
- *   cache.set("key", value, 600);         // 600s TTL
- *   const v = cache.get<MyType>("key");   // undefined if expired
- *   cache.del("key");
- *   cache.flush("ai:");                   // flush all keys with prefix
+ * Limits:
+ *   MAX_SIZE = 500 entries — when exceeded, evicts expired entries
+ *   first, then oldest entries (LRU-lite)
  */
 
 interface CacheEntry<T> {
   value: T;
   expiresAt: number; // Unix ms
+  insertedAt: number; // Unix ms — for LRU eviction
 }
+
+const MAX_SIZE = 500; // حد أقصى لعدد المدخلات في الـ cache
 
 class InMemoryCache {
   private store = new Map<string, CacheEntry<unknown>>();
@@ -23,7 +23,6 @@ class InMemoryCache {
 
   constructor(sweepIntervalMs = 30_000) {
     this.sweepIntervalMs = sweepIntervalMs;
-    // Periodic sweep to free memory of expired entries
     const sweep = () => {
       const now = Date.now();
       for (const [k, v] of this.store) {
@@ -35,9 +34,14 @@ class InMemoryCache {
 
   /** Store a value with TTL in seconds (default 5 min) */
   set<T>(key: string, value: T, ttlSeconds = 300): void {
+    /* إذا الـ cache ممتلئ، نحذف أولاً المنتهية ثم الأقدم */
+    if (this.store.size >= MAX_SIZE && !this.store.has(key)) {
+      this._evict();
+    }
     this.store.set(key, {
       value,
-      expiresAt: Date.now() + ttlSeconds * 1000,
+      expiresAt:  Date.now() + ttlSeconds * 1000,
+      insertedAt: Date.now(),
     });
   }
 
@@ -80,13 +84,36 @@ class InMemoryCache {
   }
 
   /** Stats for monitoring */
-  stats(): { size: number; keys: string[] } {
+  stats(): { size: number; keys: string[]; maxSize: number } {
     const now = Date.now();
     const keys: string[] = [];
     for (const [k, v] of this.store) {
       if (v.expiresAt > now) keys.push(k);
     }
-    return { size: keys.length, keys };
+    return { size: keys.length, keys, maxSize: MAX_SIZE };
+  }
+
+  /**
+   * Eviction: حذف المنتهية أولاً — ثم الأقدم insertedAt
+   * يُشغَّل فقط عند امتلاء الـ cache
+   */
+  private _evict(): void {
+    const now = Date.now();
+
+    /* 1. حذف المنتهية */
+    for (const [k, v] of this.store) {
+      if (v.expiresAt <= now) this.store.delete(k);
+    }
+
+    /* 2. إذا لا يزال ممتلئاً → احذف الأقدم 10% */
+    if (this.store.size >= MAX_SIZE) {
+      const entries = [...this.store.entries()]
+        .sort((a, b) => a[1].insertedAt - b[1].insertedAt);
+      const toRemove = Math.ceil(MAX_SIZE * 0.1);
+      for (let i = 0; i < toRemove && i < entries.length; i++) {
+        this.store.delete(entries[i][0]);
+      }
+    }
   }
 }
 
