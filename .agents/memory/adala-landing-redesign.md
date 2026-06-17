@@ -1,20 +1,37 @@
 ---
 name: Adala Landing Page Redesign
-description: Modern redesign of landing.tsx — bento features, sticky side nav, tabbed sections
+description: Full rewrite of landing.tsx v2 — new design system #0B1F3B + #2563EB, 6 sections, high-conversion SaaS layout
 ---
 
-## What was done
-- `featureItems.slice(0,8)` shown as bento grid (BENTO_SPANS array drives col-span)
-- Wide cards (index 0 and 5) get `lg:col-span-2 md:col-span-2` + glow effect + extra badge line
-- Side nav dots: `SIDE_DOTS` array, IntersectionObserver sets `activeSection` state, fixed right-5 top-1/2
-- Stats (`STATS` array) moved inline to Hero bottom — Trust Strip section removed
-- How + Security combined: `howTab` state (0/1), tab switcher renders either steps or secItems
-- Removed sections: Urgency Bar, Competitor Table, Referral Banner, Privacy Trust
+## Design Tokens (v2 system)
+- PRIMARY / DARK = "#0B1F3B" (dark navy — headings, footer background)
+- ACCENT = "#2563EB" (blue — CTAs, badges, highlights)
+- ACCENT_D = "#1D4ED8", ACCENT_L = "#EFF6FF", ACCENT_M = "#DBEAFE", ACCENT_T = "#93C5FD"
+- SUCCESS = "#16A34A", WARN = "#F59E0B"
+- Hero background: WHITE → ACCENT_L gradient + grid dot overlay
 
-## Why
-Page was 16 sections / 1110 lines — too long for SaaS landing. Modern pattern is fewer focused sections.
+## Page Structure (condensed to 5-6 screens)
+1. Navbar — transparent → frosted glass on scroll (boxShadow + backdrop-filter)
+2. Hero — split layout (copy right RTL, DashboardMock left) + proof strip at bottom
+   - Exactly 2 CTAs: "ابدأ مجاناً" (ACCENT solid) + "جرّب المنصة" (outlined)
+   - Proof numbers: +500 مكتب | +50,000 قضية | 99.9% uptime | 4 دول الخليج
+3. PlatformShowcase (lazy Suspense)
+4. 6 Features Grid — SIX_FEATURES const, 3-col desktop / 2 tablet / 1 mobile, hover lift
+5. UI Preview — "شاهد المنصة في العمل" — 2-col with DashboardMock + floating badge
+6. PaymentShowcase (lazy)
+7. Pricing — 3 plans; Popular card uses PRIMARY dark bg + ACCENT CTA button
+8. FAQ — accordion (kept)
+9. CTA — PRIMARY dark bg, ACCENT glow, 2 CTAs
+10. Footer — DARK bg, 4 columns, CMS-aware
 
-## How to apply
-- `privacyItems` is still declared in state (used to be in Privacy Trust section) — safe to remove in future
-- `XCircle`, `Minus`, `TrendingDown`, `Copy`, `Share2` imports were removed (were only used by deleted sections)
-- Side nav only shows on `xl:` breakpoint (1280px+)
+## Key Preserved Infrastructure
+- Variant routing (bento/stripe/hubspot) at top of component — untouched
+- CMS integration via c(section, key, fallback) — all text CMS-editable
+- i18n keys unchanged — same translation keys used throughout
+- FadeIn / Counter / DashboardMock / FAQItem helpers kept
+- Lazy Suspense for PlatformShowcase + PaymentShowcase
+- AdoulWidget (WhatsApp) at bottom
+- Footer link arrays (platformLinks / companyLinks / supportLinks) CMS-aware
+
+**Why:** Design doc specified 5-6 screen max, #0B1F3B + #2563EB tokens, exactly 6 features, 3 pricing plans, Apple-level conversion
+**How to apply:** Always preserve variant routing block at top and CMS c() calls; SIX_FEATURES is hardcoded not i18n (intentional — keeps exactly 6)

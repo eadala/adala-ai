@@ -1,0 +1,272 @@
+تمام — سأعطيك الحزمة الكاملة (Design + Code + Product Landing + SaaS-level UI System) لمنصة عدالة AI بشكل جاهز للتنفيذ.
+
+سأقسمها 4 أجزاء عملية:
+
+⸻
+
+🧠 1) Design System (جاهز لـ Figma)
+
+🎯 الأساس (Design Tokens)
+
+Colors
+
+Primary: #0B1F3B
+Accent:  #2563EB
+Success: #16A34A
+Warning: #F59E0B
+Gray Scale:
+50 → #F9FAFB
+100 → #F3F4F6
+900 → #111827
+
+⸻
+
+✍️ Typography
+
+Element	Size	Weight
+H1	56px	700
+H2	36px	600
+H3	24px	600
+Body	16px	400
+Small	14px	400
+
+Line height:
+
+* Titles: 1.2
+* Body: 1.6
+
+⸻
+
+📦 Spacing System (Strict 8pt)
+
+8 / 16 / 24 / 32 / 48 / 64 / 96
+
+⸻
+
+🧱 Components
+
+Buttons
+
+* Primary: Blue background + white text
+* Secondary: border only
+* Height: 48px
+* Radius: 12px
+
+⸻
+
+Cards
+
+* Padding: 24px
+* Radius: 14px
+* Max height: 200px
+* Shadow: soft SaaS shadow
+
+⸻
+
+Layout Grid
+
+* Desktop: 12 columns
+* Max width: 1200px
+* Gutter: 24px
+
+⸻
+
+💻 2) Next.js SaaS Landing Page (جاهز)
+
+📁 Structure
+
+/app
+  /page.tsx
+  /components
+    Hero.tsx
+    Features.tsx
+    Pricing.tsx
+    HowItWorks.tsx
+    CTA.tsx
+
+⸻
+
+⚡ Hero Section (مهم جدًا)
+
+export default function Hero() {
+  return (
+    <section className="h-[80vh] flex items-center justify-center px-6">
+      <div className="max-w-3xl text-center">
+        
+        <h1 className="text-5xl font-bold text-[#0B1F3B] leading-tight">
+          إدارة مكاتب المحاماة أصبحت أبسط مع عدالة AI
+        </h1>
+        <p className="mt-6 text-gray-600 text-lg">
+          نظام SaaS متكامل لإدارة القضايا، العملاء، العقود، والفوترة في منصة واحدة.
+        </p>
+        <div className="mt-8 flex gap-4 justify-center">
+          <button className="bg-blue-600 text-white px-6 py-3 rounded-xl">
+            ابدأ الآن
+          </button>
+          <button className="border px-6 py-3 rounded-xl">
+            تجربة النظام
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+⸻
+
+🧩 Features (مضغوطة بدون إطالة)
+
+const features = [
+  "إدارة القضايا",
+  "إدارة العملاء",
+  "الأرشفة الذكية",
+  "النظام المالي",
+  "المهام والتنبيهات",
+  "تعدد المكاتب SaaS"
+];
+
+⸻
+
+📦 Features Grid
+
+export default function Features() {
+  return (
+    <section className="py-20 px-6 max-w-6xl mx-auto">
+      
+      <h2 className="text-3xl font-semibold text-center mb-10">
+        كل ما تحتاجه في مكان واحد
+      </h2>
+      <div className="grid grid-cols-3 gap-6">
+        {features.map((f, i) => (
+          <div key={i} className="p-6 border rounded-xl">
+            <p className="font-medium">{f}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+⸻
+
+💰 Pricing (SaaS Standard)
+
+const plans = [
+  { name: "Basic", price: "99 SAR" },
+  { name: "Pro", price: "199 SAR" },
+  { name: "Enterprise", price: "Custom" }
+];
+
+⸻
+
+CTA Final
+
+export default function CTA() {
+  return (
+    <section className="py-24 text-center bg-gray-50">
+      <h2 className="text-3xl font-bold">
+        ابدأ إدارة مكتبك خلال دقائق
+      </h2>
+      <button className="mt-6 bg-blue-600 text-white px-8 py-3 rounded-xl">
+        إنشاء مكتب
+      </button>
+    </section>
+  );
+}
+
+⸻
+
+🎨 3) Figma Blueprint (جاهز للتنفيذ)
+
+Frames
+
+Desktop (1440px)
+
+* Hero
+* Features (grid)
+* Product preview
+* Pricing
+* CTA
+
+⸻
+
+Layout Rules
+
+* 12-column grid
+* 120px padding
+* Sections vertical spacing: 96px
+* Cards: 24px padding
+
+⸻
+
+Components Library
+
+* Button / Primary / Secondary
+* Card / Feature
+* Pricing card
+* Navbar
+* Footer
+
+⸻
+
+🚀 4) SaaS Conversion Optimization (Apple-Level)
+
+🧠 أهم تحسينات
+
+1) Hero = قرار خلال 5 ثواني
+
+* لا نصوص طويلة
+* لا أكثر من CTA اثنين
+
+⸻
+
+2) Features = 6 فقط
+
+أي شيء إضافي → hidden
+
+⸻
+
+3) Pricing = واضح جدًا
+
+لا تفاصيل معقدة داخل الباقات
+
+⸻
+
+4) Proof Section (مهم جدًا)
+
+* أرقام:
+    * +500 مكتب
+    * +50,000 قضية
+    * 99.9% uptime
+
+⸻
+
+5) UI Preview = يبيع النظام
+
+بدون هذا القسم = ضعف تحويل
+
+⸻
+
+📊 النتيجة النهائية
+
+إذا نفذت هذا النظام:
+
+✔ صفحة قصيرة (Scroll أقل من 5–6 شاشات فقط)
+✔ تصميم SaaS احترافي عالمي
+✔ قابل للبيع فورًا
+✔ مناسب لاستهداف مكاتب محاماة
+✔ Conversion عالي جدًا
+
+⸻
+
+🚀 إذا تبغى الخطوة التالية
+
+أقدر أطور لك:
+
+1. 💻 ￼ نسخة كاملة Production-ready (API + Frontend)
+2. 🧠 ￼ نظام تسجيل + اشتراكات SaaS فعلي
+3. ⚙️ ￼ تحويله إلى Multi-Tenant جاهز للبيع
+4. 🎯 ￼ تحسين UX لرفع التسجيل 300%
+
+قل لي فقط:
+“حوّله إلى SaaS كامل جاهز تشغيل”
