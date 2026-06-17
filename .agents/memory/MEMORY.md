@@ -77,3 +77,4 @@
 - [Adala Test Offices](adala-test-offices.md) — OA=aaaabbbb-0001-0001-0001-000000000001 (الشمال), OB=bbbbcccc-0002-0002-0002-000000000002 (الجنوب); office_members+office_page+office_registry created; test-user-north/test-user-south as clerk IDs
 
 - [Adala AI Command Center](adala-ai-command-center.md) — /ai-command-center (AdminRoute); 8 AI agents; devCommander scan+proposals+approve; ai_command_sessions+dev_commander_proposals tables; isSuperAdmin guard on all routes- [Adala ERP Financial Upgrade](adala-erp-financial.md) — per-office double-entry ERP ledger + reconciliation + AI guard; accounting.ts FIXED (was missing WHERE office_id)
+- [Adala cache isolation](adala-cache-isolation.md) — cache.ts MAX_ENTRIES=500+flushTenant(); gcTime=10min; ClerkInvalidator uses removeQueries not qc.clear()

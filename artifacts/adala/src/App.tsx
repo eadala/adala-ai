@@ -154,15 +154,16 @@ const TwoFactorSetup       = lazy(() => import("@/pages/2fa-setup"));
 const TwoFactorVerify      = lazy(() => import("@/pages/2fa-verify"));
 
 // ── Query client ───────────────────────────────────────────────────────────────
-// staleTime=5min: data is fresh for 5 minutes, no duplicate network calls
-// gcTime=30min: cached data stays in memory for 30 minutes after last use
-// refetchOnWindowFocus=false: tab switching doesn't trigger floods of requests
-// retry=1: fail fast on bad routes, don't spam the server
+// staleTime=5min : data is fresh for 5 minutes, no duplicate network calls
+// gcTime=10min   : reduced from 30min — frees stale office data faster,
+//                  prevents cross-tenant data lingering in memory
+// refetchOnWindowFocus=false: tab switching doesn't trigger request floods
+// retry=1        : fail fast on bad routes, don't spam the server
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60_000,
-      gcTime: 30 * 60_000,
+      gcTime:    10 * 60_000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: "always",
       retry: 1,
@@ -464,8 +465,10 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, EBState> {
 }
 
 // ── Clerk cache invalidator ────────────────────────────────────────────────────
-// Safe: guards against useClerk() returning undefined when Clerk singleton
-// is not yet ready (e.g. ClerkProvider still initializing in production).
+// On user change (login / logout / office switch):
+//   1. Remove queries whose key contains the old userId (tenant-scoped data)
+//   2. Invalidate shared queries so they re-fetch fresh for the new user
+//   3. Public/shared queries (landing, plans, cms) are intentionally kept
 function ClerkQueryClientCacheInvalidator() {
   const clerk = useClerk();
   const qc = useQueryClient();
@@ -474,11 +477,27 @@ function ClerkQueryClientCacheInvalidator() {
   useEffect(() => {
     if (!clerk?.addListener) return;
     const unsubscribe = clerk.addListener(({ user }) => {
-      const userId = user?.id ?? null;
-      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
-        qc.clear();
+      const nextUserId = user?.id ?? null;
+      const prevUserId = prevUserIdRef.current;
+
+      if (prevUserId !== undefined && prevUserId !== nextUserId) {
+        // Selective removal: purge only queries that are user/office-scoped.
+        // Keys that are arrays whose first element is a user-specific string,
+        // or string keys that contain the previous userId.
+        qc.removeQueries({
+          predicate: (query) => {
+            const key = query.queryKey;
+            // Keep public/shared queries (landing, plans, cms variants)
+            const publicKeys = ["landing-variant-public", "home-cms", "pricing-plans"];
+            if (Array.isArray(key) && publicKeys.includes(key[0] as string)) return false;
+            // Remove everything user-specific
+            return true;
+          },
+        });
+        // Also invalidate remaining shared queries so they re-fetch
+        qc.invalidateQueries({ refetchType: "none" });
       }
-      prevUserIdRef.current = userId;
+      prevUserIdRef.current = nextUserId;
     });
     return unsubscribe;
   }, [clerk, qc]);
