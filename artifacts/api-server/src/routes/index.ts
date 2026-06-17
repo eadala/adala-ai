@@ -93,6 +93,7 @@ import platformCommandRouter from "../modules/platform/platformCommand";
 import agentRuntimeRouter    from "../modules/platform/agentRuntime";
 import importDataRouter      from "../modules/platform/importData";
 import officeApiKeysRouter   from "../modules/platform/officeApiKeys";
+import controlTowerRouter    from "../modules/platform/control-tower";
 
 // ── Integrations ─────────────────────────────────────────────────────────────
 import emailRouter              from "../modules/integrations/email";
@@ -226,6 +227,7 @@ router.use(platformCommandRouter);
 router.use(agentRuntimeRouter);
 router.use(importDataRouter);
 router.use(officeApiKeysRouter);
+router.use(controlTowerRouter);
 
 // Integrations
 router.use(emailRouter);

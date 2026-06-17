@@ -1,0 +1,182 @@
+تمام—سأعطيك كود جاهز فعلي (Production-style minimal) لدمج:
+
+* Prometheus Metrics
+* Express API
+* Endpoint /metrics
+* تتبع Requests + Latency + Errors
+* Multi-tenant (office_id)
+
+هذا هو الأساس الذي تبني عليه Grafana لاحقًا.
+
+⸻
+
+🚀 1. تثبيت الحزم (في Replit أو أي Node project)
+
+npm install express prom-client
+
+⸻
+
+🧠 2. كود السيرفر الكامل (Express + Prometheus)
+
+📌 server.js
+
+const express = require("express");
+const client = require("prom-client");
+const app = express();
+app.use(express.json());
+/**
+ * =========================
+ * PROMETHEUS SETUP
+ * =========================
+ */
+// Collect default metrics (CPU, memory, event loop)
+client.collectDefaultMetrics();
+// Metrics: request count
+const httpRequestsTotal = new client.Counter({
+  name: "http_requests_total",
+  help: "Total HTTP requests",
+  labelNames: ["method", "route", "status", "tenant"]
+});
+// Metrics: request duration
+const httpRequestDuration = new client.Histogram({
+  name: "http_request_duration_ms",
+  help: "HTTP request duration in ms",
+  labelNames: ["method", "route", "tenant"],
+  buckets: [50, 100, 200, 300, 500, 1000, 2000]
+});
+// Errors counter
+const httpErrorsTotal = new client.Counter({
+  name: "http_errors_total",
+  help: "Total HTTP errors",
+  labelNames: ["route", "tenant"]
+});
+/**
+ * =========================
+ * MIDDLEWARE (OBSERVABILITY)
+ * =========================
+ */
+app.use((req, res, next) => {
+  const start = Date.now();
+  // simulate tenant (in real system: from JWT)
+  const tenant = req.headers["x-office-id"] || "unknown";
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    // request counter
+    httpRequestsTotal
+      .labels(req.method, req.path, res.statusCode, tenant)
+      .inc();
+    // latency
+    httpRequestDuration
+      .labels(req.method, req.path, tenant)
+      .observe(duration);
+    // errors tracking
+    if (res.statusCode >= 400) {
+      httpErrorsTotal.labels(req.path, tenant).inc();
+    }
+  });
+  next();
+});
+/**
+ * =========================
+ * SAMPLE API ROUTE
+ * =========================
+ */
+app.get("/api/cases", async (req, res) => {
+  const tenant = req.headers["x-office-id"];
+  // fake delay
+  await new Promise(r => setTimeout(r, Math.random() * 300));
+  res.json({
+    tenant,
+    data: ["case1", "case2", "case3"]
+  });
+});
+/**
+ * =========================
+ * PROMETHEUS ENDPOINT
+ * =========================
+ */
+app.get("/metrics", async (req, res) => {
+  res.set("Content-Type", client.register.contentType);
+  res.end(await client.register.metrics());
+});
+/**
+ * =========================
+ * HEALTH CHECK
+ * =========================
+ */
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+/**
+ * =========================
+ * START SERVER
+ * =========================
+ */
+app.listen(3000, () => {
+  console.log("Server running on port 3000");
+});
+
+⸻
+
+📊 3. كيف تختبره بسرعة
+
+افتح Replit Terminal أو Postman:
+
+طلب عادي:
+
+curl -H "x-office-id: office-1" http://localhost:3000/api/cases
+
+metrics:
+
+curl http://localhost:3000/metrics
+
+⸻
+
+📈 4. ماذا ستحصل الآن؟
+
+Prometheus will see:
+
+Requests:
+
+http_requests_total
+
+Latency:
+
+http_request_duration_ms
+
+Errors:
+
+http_errors_total
+
+⸻
+
+🧠 5. كيف هذا يخدم “عدالة AI”
+
+أنت الآن عندك:
+
+✔ قياس لكل مكتب (multi-tenant SLA)
+✔ أداء كل API endpoint
+✔ كشف الأخطاء تلقائي
+✔ أساس Grafana dashboard
+
+⸻
+
+🔥 6. الخطوة التالية (لو تبغى أقوى)
+
+أقدر أضيف لك مباشرة:
+
+🟡 OpenTelemetry tracing (مسار الطلب كامل)
+
+🔴 Redis rate limiting لكل مكتب
+
+🟢 Slack alerts عند ارتفاع الأخطاء
+
+📊 Grafana dashboard JSON جاهز import
+
+⸻
+
+إذا تبغى نكمل صح، قل لي فقط:
+
+“Grafana dashboard”
+
+وأبني لك لوحة جاهزة مثل Stripe Monitoring.
