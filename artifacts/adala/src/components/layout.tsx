@@ -56,8 +56,9 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
     color: "#6366F1",
     items: [
       { href: "/dashboard", labelKey: "nav.items.dashboard", icon: LayoutDashboard },
-      { href: "/cases",     labelKey: "nav.items.cases",     icon: Scale },
-      { href: "/calendar",  labelKey: "nav.items.calendar",  icon: CalendarDays, feature: "calendar" },
+      { href: "/cases",              labelKey: "nav.items.cases",             icon: Scale },
+      { href: "/hearings-calendar", labelKey: "nav.items.hearings_calendar", icon: Gavel },
+      { href: "/calendar",          labelKey: "nav.items.calendar",          icon: CalendarDays, feature: "calendar" },
       { href: "/tasks",     labelKey: "nav.items.tasks",     icon: ClipboardList },
       { href: "/reminders", labelKey: "nav.items.reminders", icon: Bell },
     ],

@@ -1,3 +1,4 @@
+- [Adala Hearings Engine](adala-hearings.md) — case_hearings table + 6 routes in cases.ts; GET /cases/hearings/calendar MUST be before /:id; syncNextHearing auto-updates cases.next_hearing_date; CourtInfoCard+HearingsSection in case-detail; /hearings-calendar page
 - [Adala Case Module Architecture](case-module-architecture.md) — src/case/ modular system: entity/repository/service/events + 4 modules; tasks.case_id needs ::uuid cast; CASE_DELETED local only
 - [Adala 500-error fix patterns](adala-500-fix-patterns.md) — requireAuthWithTenant try/catch; UUID validation; NaN guard; 9 tables needed office_id ALTER TABLE
 - [Adala route dedup](adala-route-dedup.md) — GET /admin/plans + GET /finance/intelligence were duplicated; check index.ts registration order (first wins)

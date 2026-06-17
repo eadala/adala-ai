@@ -28,18 +28,26 @@ function getService(req: any)        { return new CaseService(getTenant(req), ge
 
 function serializeCase(c: any) {
   return {
-    id:          c.id,
-    title:       c.title,
-    description: c.description,
-    caseType:    c.caseType,
-    status:      c.status,
-    clientName:  c.clientName,
-    assignedTo:  c.assignedTo,
-    source:      c.source ?? "manual",
-    storeOrderId: c.storeOrderId ?? null,
-    createdBy:   c.createdBy ?? null,
-    createdAt:   c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
-    updatedAt:   c.updatedAt instanceof Date ? c.updatedAt?.toISOString() ?? null : c.updatedAt ?? null,
+    id:                  c.id,
+    title:               c.title,
+    description:         c.description,
+    caseType:            c.caseType   ?? c.case_type,
+    status:              c.status,
+    clientName:          c.clientName ?? c.client_name,
+    assignedTo:          c.assignedTo ?? c.assigned_to,
+    source:              c.source     ?? "manual",
+    storeOrderId:        c.storeOrderId ?? c.store_order_id ?? null,
+    createdBy:           c.createdBy   ?? c.created_by    ?? null,
+    /* ── Court & Hearing fields ── */
+    caseNumber:          c.caseNumber  ?? c.case_number   ?? null,
+    courtName:           c.courtName   ?? c.court_name    ?? null,
+    courtCode:           c.courtCode   ?? c.court_code    ?? null,
+    courtCity:           c.courtCity   ?? c.court_city    ?? null,
+    courtDistrictNumber: c.courtDistrictNumber ?? c.court_district_number ?? null,
+    courtDistrictType:   c.courtDistrictType   ?? c.court_district_type   ?? null,
+    nextHearingDate:     c.nextHearingDate      ?? c.next_hearing_date     ?? null,
+    createdAt:           c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+    updatedAt:           c.updatedAt instanceof Date ? c.updatedAt?.toISOString() ?? null : c.updatedAt ?? null,
   };
 }
 
@@ -113,6 +121,8 @@ router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
         c.id, c.title, c.description, c.case_type, c.status,
         c.client_name, c.assigned_to, c.created_at, c.updated_at,
         COALESCE(c.source,'manual') AS source, c.store_order_id, c.created_by,
+        c.case_number, c.court_name, c.court_code, c.court_city,
+        c.court_district_number, c.court_district_type, c.next_hearing_date,
         oo.id          AS order_db_id,
         oo.amount      AS order_amount,
         oo.client_email AS order_client_email,
@@ -150,6 +160,14 @@ router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
       storeOrderId: c.store_order_id ?? null,
       createdBy: c.created_by ?? null,
       orderDetails,
+      /* ── Court & Hearing ── */
+      caseNumber:          c.case_number          ?? null,
+      courtName:           c.court_name           ?? null,
+      courtCode:           c.court_code           ?? null,
+      courtCity:           c.court_city           ?? null,
+      courtDistrictNumber: c.court_district_number ?? null,
+      courtDistrictType:   c.court_district_type  ?? null,
+      nextHearingDate:     c.next_hearing_date     ?? null,
       createdAt: c.created_at instanceof Date ? c.created_at.toISOString() : c.created_at,
       updatedAt: c.updated_at instanceof Date ? c.updated_at?.toISOString() ?? null : c.updated_at ?? null,
     });
@@ -408,6 +426,156 @@ router.post("/cases/:id/ai-insights/reject-task", requireAuthWithTenant, async (
     const { insightId, taskId } = req.body as { insightId: string; taskId: string };
     const result = await rejectAITask(insightId, taskId, getTenant(req));
     res.json(result);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   COURT INFO — PATCH /cases/:id/court
+══════════════════════════════════════════════════════ */
+router.patch("/cases/:id/court", requireAuthWithTenant, async (req, res) => {
+  try {
+    const id       = String(req.params.id);
+    const tenantId = getTenant(req);
+    const { caseNumber, courtName, courtCode, courtCity, districtNumber, districtType } = req.body;
+    await db.execute(sql`
+      UPDATE cases SET
+        case_number            = ${caseNumber ?? null},
+        court_name             = ${courtName ?? null},
+        court_code             = ${courtCode ?? null},
+        court_city             = ${courtCity ?? null},
+        court_district_number  = ${districtNumber ? Number(districtNumber) : null},
+        court_district_type    = ${districtType ?? null},
+        updated_at             = NOW()
+      WHERE id = ${id} AND office_id = ${tenantId}
+    `);
+    auditLog({ ...auditMeta(req), action: "update", resource: "case_court", resourceId: id }).catch(() => {});
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   HEARINGS CALENDAR — GET /cases/hearings/calendar
+   (must be registered BEFORE /:id routes to avoid conflict)
+══════════════════════════════════════════════════════ */
+router.get("/cases/hearings/calendar", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = getTenant(req);
+    const rows = await db.execute(sql`
+      SELECT
+        h.id, h.case_id, h.hearing_date, h.court_room, h.status, h.notes, h.outcome,
+        c.title AS case_title, c.case_number, c.court_name, c.case_type, c.status AS case_status,
+        c.client_name, c.assigned_to
+      FROM case_hearings h
+      JOIN cases c ON c.id = h.case_id
+      WHERE h.office_id = ${tenantId}
+        AND h.hearing_date >= NOW() - INTERVAL '7 days'
+      ORDER BY h.hearing_date ASC
+      LIMIT 200
+    `);
+    res.json((rows as any).rows ?? []);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   HEARINGS CRUD — /cases/:id/hearings
+══════════════════════════════════════════════════════ */
+
+async function syncNextHearing(caseId: string, tenantId: string) {
+  const next = await db.execute(sql`
+    SELECT hearing_date FROM case_hearings
+    WHERE case_id = ${caseId} AND office_id = ${tenantId}
+      AND hearing_date > NOW()
+      AND status != 'cancelled'
+    ORDER BY hearing_date ASC LIMIT 1
+  `);
+  const row = ((next as any).rows ?? [])[0];
+  await db.execute(sql`
+    UPDATE cases SET next_hearing_date = ${row?.hearing_date ?? null}
+    WHERE id = ${caseId} AND office_id = ${tenantId}
+  `);
+}
+
+/* GET /cases/:id/hearings */
+router.get("/cases/:id/hearings", requireAuthWithTenant, async (req, res) => {
+  try {
+    const caseId   = String(req.params.id);
+    const tenantId = getTenant(req);
+    const rows = await db.execute(sql`
+      SELECT id, case_id, hearing_date, court_room, status, notes, outcome, created_at
+      FROM case_hearings
+      WHERE case_id = ${caseId} AND office_id = ${tenantId}
+      ORDER BY hearing_date DESC
+    `);
+    res.json((rows as any).rows ?? []);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* POST /cases/:id/hearings */
+router.post("/cases/:id/hearings", requireAuthWithTenant, async (req, res) => {
+  try {
+    const caseId   = String(req.params.id);
+    const tenantId = getTenant(req);
+    const { hearingDate, courtRoom, status = "scheduled", notes } = req.body;
+    if (!hearingDate) return res.status(400).json({ error: "تاريخ الجلسة مطلوب" });
+
+    const ins = await db.execute(sql`
+      INSERT INTO case_hearings (case_id, office_id, hearing_date, court_room, status, notes)
+      VALUES (${caseId}, ${tenantId}, ${hearingDate}, ${courtRoom ?? null}, ${status}, ${notes ?? null})
+      RETURNING *
+    `);
+    await syncNextHearing(caseId, tenantId);
+    auditLog({ ...auditMeta(req), action: "create", resource: "hearing", resourceId: caseId,
+      details: `جلسة: ${hearingDate}` }).catch(() => {});
+    res.status(201).json(((ins as any).rows ?? [])[0]);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+/* PATCH /cases/:id/hearings/:hid */
+router.patch("/cases/:id/hearings/:hid", requireAuthWithTenant, async (req, res) => {
+  try {
+    const caseId   = String(req.params.id);
+    const hid      = String(req.params.hid);
+    const tenantId = getTenant(req);
+    const { hearingDate, courtRoom, status, notes, outcome } = req.body;
+    await db.execute(sql`
+      UPDATE case_hearings SET
+        hearing_date = COALESCE(${hearingDate ?? null}::timestamptz, hearing_date),
+        court_room   = COALESCE(${courtRoom ?? null}, court_room),
+        status       = COALESCE(${status ?? null}, status),
+        notes        = COALESCE(${notes ?? null}, notes),
+        outcome      = COALESCE(${outcome ?? null}, outcome),
+        updated_at   = NOW()
+      WHERE id = ${hid}::uuid AND case_id = ${caseId} AND office_id = ${tenantId}
+    `);
+    await syncNextHearing(caseId, tenantId);
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+/* DELETE /cases/:id/hearings/:hid */
+router.delete("/cases/:id/hearings/:hid", requireAuthWithTenant, async (req, res) => {
+  try {
+    const caseId   = String(req.params.id);
+    const hid      = String(req.params.hid);
+    const tenantId = getTenant(req);
+    await db.execute(sql`
+      DELETE FROM case_hearings
+      WHERE id = ${hid}::uuid AND case_id = ${caseId} AND office_id = ${tenantId}
+    `);
+    await syncNextHearing(caseId, tenantId);
+    res.status(204).end();
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
