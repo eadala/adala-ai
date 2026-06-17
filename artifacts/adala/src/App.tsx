@@ -7,10 +7,13 @@ import { ClerkProvider, SignIn, SignUp, useClerk, useAuth } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Layout } from "@/components/layout";
-import { AdminLayout } from "@/components/admin-layout";
 import { useRole } from "@/hooks/use-role";
 import { OfficeThemeProvider } from "@/components/office-theme-provider";
+
+// Layout shells are only needed for authenticated routes — lazy so landing-page
+// visitors never download 900 lines of nav/sidebar code on initial load.
+const Layout      = lazy(() => import("@/components/layout").then(m => ({ default: m.Layout })));
+const AdminLayout = lazy(() => import("@/components/admin-layout").then(m => ({ default: m.AdminLayout })));
 
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────────
 // Core (likely first visit)
@@ -543,9 +546,11 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   if (role !== "platform_admin") return <Redirect to="/dashboard" />;
 
   return (
-    <AdminLayout>
-      <Suspense fallback={<PageLoader />}>{children}</Suspense>
-    </AdminLayout>
+    <Suspense fallback={<PageLoader />}>
+      <AdminLayout>
+        <Suspense fallback={<PageLoader />}>{children}</Suspense>
+      </AdminLayout>
+    </Suspense>
   );
 }
 
@@ -561,9 +566,11 @@ function WorkspaceRoute({ children }: { children: React.ReactNode }) {
 
   return (
     <OnboardingGate>
-      <Layout>
-        <Suspense fallback={<PageLoader />}>{children}</Suspense>
-      </Layout>
+      <Suspense fallback={<PageLoader />}>
+        <Layout>
+          <Suspense fallback={<PageLoader />}>{children}</Suspense>
+        </Layout>
+      </Suspense>
     </OnboardingGate>
   );
 }
@@ -578,9 +585,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   return (
     <OnboardingGate>
-      <Layout>
-        <Suspense fallback={<PageLoader />}>{children}</Suspense>
-      </Layout>
+      <Suspense fallback={<PageLoader />}>
+        <Layout>
+          <Suspense fallback={<PageLoader />}>{children}</Suspense>
+        </Layout>
+      </Suspense>
     </OnboardingGate>
   );
 }
