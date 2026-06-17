@@ -331,82 +331,56 @@
       ]
     },
     "pricing": {
-      "label": "Pricing",
-      "title": "Plans for Every Firm",
-      "subtitle": "Start free — no credit card required",
-      "mostPopular": "Most Popular",
+      "label": "Plans & Pricing",
+      "title": "Invest in Your Firm's Growth — Not Software",
+      "subtitle": "Start free · Upgrade when ready · No credit card · No contracts",
+      "mostPopular": "⭐ Most Popular",
       "allServices": "All Services",
-      "viewAll": "View Full Plan Comparison",
+      "viewAll": "Compare All 7 Plans in Detail",
       "plans": [
         {
-          "name": "Basic",
-          "price": "Free",
-          "period": "Forever",
-          "cta": "Start Free",
+          "name": "Explorer — Free Forever",
+          "price": "0",
+          "period": "SAR · Always",
+          "cta": "Start Free Now",
           "features": [
-            "3 users",
-            "20 active cases",
-            "Client management",
-            "Appointment calendar",
-            "Basic invoicing"
+            "5 active cases",
+            "1 user",
+            "1 GB secure storage",
+            "5 AI requests/day",
+            "Smart legal reminders",
+            "Built-in legal calendar",
+            "Professional PDF export"
           ]
         },
         {
-          "name": "Professional",
+          "name": "Master — Most Popular",
           "price": "299",
           "period": "SAR/month",
-          "cta": "Try Free for 30 Days",
+          "cta": "Start Now — Top Pick",
           "features": [
-            "15 users",
-            "Unlimited cases",
-            "AI Legal Agents",
-            "Client portal",
-            "Contract & document management",
-            "Financial reports",
-            "Priority support"
+            "100 active cases · 5 users",
+            "Invoices + payments + store",
+            "🤖 AI Smart Contracts",
+            "💬 WhatsApp Business integrated",
+            "📲 Telegram — instant notifications",
+            "🔐 Smart Client Portal",
+            "AI analytics + OCR + auto-backup"
           ]
         },
         {
-          "name": "Enterprise",
-          "price": "999",
-          "period": "SAR/month",
-          "cta": "Try Free for 30 Days",
-          "features": [
-            "50 users",
-            "Full White Label",
-            "Opponent Simulator",
-            "Smart Legal Research",
-            "Office website & store",
-            "HR & payroll",
-            "Dedicated account manager"
-          ]
-        },
-        {
-          "name": "Open ✦",
+          "name": "Legend — For the Elite",
           "price": "Contact Us",
           "period": "",
-          "cta": "Contact Us",
+          "cta": "Book a Call with Our Team",
           "features": [
-            "Unlimited users",
-            "Full case management",
-            "AI Legal Agents (6 agents)",
-            "Contract & document management",
-            "Client CRM",
-            "Appointments & sessions",
-            "Invoices & collections",
-            "Client portal",
-            "Opponent Simulator",
-            "Smart Legal Research",
-            "Financial reports",
-            "HR management",
-            "Payroll & attendance",
-            "Office website & store",
-            "Official letters",
-            "Payment center",
-            "Full White Label",
-            "Custom API",
-            "99.9% SLA guarantee",
-            "Full training & onboarding"
+            "Everything unlimited, no restrictions",
+            "🤖 AI trained on your firm's data",
+            "🏗️ Dedicated private infrastructure",
+            "📜 99.99% SLA with legal contract",
+            "🌟 Dedicated success manager 24/7",
+            "🚀 Free data migration from any system",
+            "🔒 Highest security standards on the market"
           ]
         }
       ]
