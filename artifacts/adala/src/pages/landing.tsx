@@ -68,12 +68,12 @@ function Counter({ to, suffix = "", duration = 2, locale = "ar-SA" }: { to: numb
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && !started.current) {
         started.current = true;
-        let start = 0; const step = to / (duration * 60);
+        let start = 0; const step = to / (duration * 30);
         const timer = setInterval(() => {
           start += step;
           if (start >= to) { setCount(to); clearInterval(timer); }
           else setCount(Math.floor(start));
-        }, 1000 / 60);
+        }, 1000 / 30);
         observer.disconnect();
       }
     }, { threshold: 0.3 });

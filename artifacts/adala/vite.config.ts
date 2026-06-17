@@ -25,7 +25,7 @@ export default defineConfig({
   base: basePath,
   plugins: [
     react(),
-    tailwindcss({ optimize: false }),
+    tailwindcss(),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
@@ -52,9 +52,20 @@ export default defineConfig({
     include: [
       "react",
       "react-dom",
+      "react/jsx-runtime",
       "@tanstack/react-table",
       "@tanstack/react-query",
       "wouter",
+      "lucide-react",
+      "i18next",
+      "react-i18next",
+      "clsx",
+      "class-variance-authority",
+      "tailwind-merge",
+      "date-fns",
+      "recharts",
+      "framer-motion",
+      "zod",
     ],
     exclude: [
       "@replit/vite-plugin-cartographer",
