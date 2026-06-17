@@ -1,0 +1,249 @@
+تمام—سنحوّل لوحة المراقبة إلى Control Tower احترافية (SOC + Admin Observatory) مع صلاحيات “اطلاع + متابعة + دخول عميق” لكن بطريقة آمنة (بدون فتح ثغرة super-admin عشوائية).
+
+⸻
+
+🏛️⚖️ Adala Control Tower (Full Access Monitoring System)
+
+🎯 الفكرة
+
+لوحة واحدة تعطيك:
+
+🧠 رؤية كاملة + تحكم + تتبع + دخول سياقي لكل حدث داخل النظام
+
+لكن مع صلاحيات مضبوطة وليس “فتح كامل خطر”.
+
+⸻
+
+🔐 1) نظام الصلاحيات (Critical Upgrade)
+
+بدل “صلاحية مطلقة غير مقيدة”، نستخدم:
+
+👑 Role: PLATFORM_CONTROL_TOWER
+
+type Role =
+  | "PLATFORM_OWNER"
+  | "CONTROL_TOWER_ADMIN"
+  | "SECURITY_ANALYST"
+  | "AUDITOR";
+
+⸻
+
+🧱 Capabilities (صلاحيات دقيقة)
+
+type Capability =
+  | "VIEW_ALL_TENANTS"
+  | "VIEW_SENSITIVE_LOGS"
+  | "IMPERSONATE_OFFICE"
+  | "VIEW_PAYMENTS"
+  | "VIEW_AUDIT_TRAIL"
+  | "FREEZE_TENANT"
+  | "ACCESS_SYSTEM_EVENTS";
+
+⸻
+
+🔐 Middleware حماية
+
+export function requireControlTower(req, res, next) {
+  const user = req.user;
+  if (
+    user.role !== "CONTROL_TOWER_ADMIN" &&
+    user.role !== "PLATFORM_OWNER"
+  ) {
+    return res.status(403).json({ error: "FORBIDDEN" });
+  }
+  next();
+}
+
+⸻
+
+📡 2) Control Tower API (العمود الفقري)
+
+📁 server/routes/control-tower.ts
+
+router.get("/metrics", requireControlTower, async (req, res) => {
+  res.json({
+    systemHealth: getSystemHealth(),
+    activeUsers: getActiveUsers(),
+    tenantActivity: getTenantActivity(),
+    aiLoad: getAILoad(),
+    securityEvents: getSecurityEvents(),
+  });
+});
+
+⸻
+
+👁️ Live Event Stream
+
+router.get("/stream", requireControlTower, (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  const interval = setInterval(() => {
+    res.write(`data: ${JSON.stringify(getMetrics())}\n\n`);
+  }, 2000);
+  req.on("close", () => clearInterval(interval));
+});
+
+⸻
+
+🧠 3) “Deep Inspect Mode” (دخول لأي شيء داخل النظام)
+
+👇 أهم ميزة
+
+router.get("/inspect/:tenantId", requireControlTower, async (req, res) => {
+  const { tenantId } = req.params;
+  const data = {
+    cases: await getCases(tenantId),
+    clients: await getClients(tenantId),
+    invoices: await getInvoices(tenantId),
+    audit: await getAuditLogs(tenantId),
+  };
+  res.json(data);
+});
+
+⸻
+
+👤 4) Impersonation Mode (دخول كأي مكتب)
+
+⚠️ خطير لكن مقنن
+
+router.post("/impersonate/:officeId", requireControlTower, (req, res) => {
+  const token = generateScopedToken({
+    officeId: req.params.officeId,
+    mode: "impersonation",
+  });
+  res.json({ token });
+});
+
+⸻
+
+📊 5) Control Tower UI (لوحة احترافية)
+
+📁 client/pages/ControlTower.tsx
+
+import { useEffect, useState } from "react";
+export default function ControlTower() {
+  const [data, setData] = useState<any>(null);
+  useEffect(() => {
+    const ws = new EventSource("/api/control-tower/stream");
+    ws.onmessage = (e) => {
+      setData(JSON.parse(e.data));
+    };
+    return () => ws.close();
+  }, []);
+  return (
+    <div className="min-h-screen bg-white p-6 grid grid-cols-3 gap-4">
+      <div className="card">
+        <h2>System Health</h2>
+        <p>{data?.systemHealth}</p>
+      </div>
+      <div className="card">
+        <h2>Active Users</h2>
+        <p>{data?.activeUsers}</p>
+      </div>
+      <div className="card text-red-600">
+        <h2>Security Events</h2>
+        <p>{data?.securityEvents}</p>
+      </div>
+      <div className="col-span-3 border p-4">
+        <h2>Tenant Activity Live Feed</h2>
+        <pre>{JSON.stringify(data?.tenantActivity, null, 2)}</pre>
+      </div>
+    </div>
+  );
+}
+
+⸻
+
+🚨 6) Security Feed (SOC Style)
+
+export function pushSecurityEvent(event) {
+  if (event.severity === "HIGH") {
+    notifyControlTower({
+      type: "SECURITY_ALERT",
+      payload: event,
+    });
+  }
+}
+
+⸻
+
+🧱 7) System Features داخل Control Tower
+
+👁️ رؤية كاملة:
+
+* كل المكاتب (multi-tenant)
+* كل العمليات الحية
+* كل AI requests
+
+⸻
+
+🔍 تحليل عميق:
+
+* فتح أي مكتب
+* مشاهدة كل البيانات
+* تتبع أي عملية
+
+⸻
+
+🧨 تحكم مباشر:
+
+* إيقاف مكتب (Freeze Tenant)
+* تعطيل API key
+* إيقاف مستخدم
+* تعطيل AI
+
+⸻
+
+📡 مراقبة لحظية:
+
+* requests/sec
+* latency
+* errors
+* AI load
+
+⸻
+
+⚖️ 8) الفرق بين النظام القديم والجديد
+
+العنصر	قبل	الآن
+مراقبة	بسيطة	Control Tower
+الوصول	محدود	عميق + سياقي
+الرؤية	جزئية	100% system-wide
+التحكم	لا يوجد	Freeze / Inspect / Impersonate
+
+⸻
+
+🧠 9) أهم نقطة هندسية
+
+أنت الآن بنيت:
+
+🏛️ “Platform Operations Layer”
+
+ليس مجرد Dashboard
+
+بل:
+
+🧠 نظام تشغيل كامل للمراقبة والتحكم في SaaS
+
+⸻
+
+🚀 إذا تبغى الخطوة التالية (مستوى أعلى جدًا)
+
+أقدر أبني لك:
+
+🔵 AI SOC Agent
+
+يراقب النظام ويقول:
+
+* “في خطر قادم”
+* “هذا المكتب سيواجه مشكلة”
+* “هناك تسريب محتمل”
+
+🔵 أو Auto-Healing System
+
+يصلح الأخطاء تلقائيًا بدون تدخل بشر
+
+🔵 أو Government-grade Audit System
+
+جاهز لهيئات رسمية
+
+قل: أبغى ￼ AI SOC Agent
