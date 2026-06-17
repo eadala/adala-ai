@@ -25,7 +25,7 @@ export default defineConfig({
   base: basePath,
   plugins: [
     react(),
-    tailwindcss(),
+    tailwindcss({ optimize: false }),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
@@ -52,22 +52,9 @@ export default defineConfig({
     include: [
       "react",
       "react-dom",
-      "react/jsx-runtime",
       "@tanstack/react-table",
       "@tanstack/react-query",
       "wouter",
-      "lucide-react",
-      "i18next",
-      "react-i18next",
-      "@clerk/react",
-      "@clerk/themes",
-      "clsx",
-      "class-variance-authority",
-      "tailwind-merge",
-      "date-fns",
-      "recharts",
-      "framer-motion",
-      "zod",
     ],
     exclude: [
       "@replit/vite-plugin-cartographer",
@@ -140,16 +127,6 @@ export default defineConfig({
     strictPort: true,
     host: "0.0.0.0",
     allowedHosts: true,
-    warmup: {
-      clientFiles: [
-        "./src/main.tsx",
-        "./src/App.tsx",
-        "./src/pages/landing.tsx",
-        "./src/components/ui/button.tsx",
-        "./src/components/ui/card.tsx",
-        "./src/i18n/i18n.ts",
-      ],
-    },
     headers: {
       "Content-Security-Policy": [
         "default-src 'self'",

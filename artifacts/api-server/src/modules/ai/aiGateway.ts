@@ -124,8 +124,8 @@ router.post("/ai/query", requireAuth, async (req, res) => {
 
     const result = { reply, modelUsed, cached: false };
 
-    /* ── Cache for 5 minutes ────────────────────────────────── */
-    cache.set(cacheKey, result, 300);
+    /* ── Cache for 10 minutes ───────────────────────────────── */
+    cache.set(cacheKey, result, 600);
 
     /* ── Emit event (non-blocking) ──────────────────────────── */
     eventBus.emit({ type: "AI_QUERY", data: { queryType: type, modelUsed, officeId } }).catch(() => {});

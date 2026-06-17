@@ -68,12 +68,12 @@ function Counter({ to, suffix = "", duration = 2, locale = "ar-SA" }: { to: numb
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && !started.current) {
         started.current = true;
-        let start = 0; const step = to / (duration * 30);
+        let start = 0; const step = to / (duration * 60);
         const timer = setInterval(() => {
           start += step;
           if (start >= to) { setCount(to); clearInterval(timer); }
           else setCount(Math.floor(start));
-        }, 1000 / 30);
+        }, 1000 / 60);
         observer.disconnect();
       }
     }, { threshold: 0.3 });
@@ -259,7 +259,7 @@ export default function Landing() {
   const _plI18n = (t("landing.footer.platformLinks", { returnObjects: true }) as string[]);
   const _coI18n = (t("landing.footer.companyLinks",  { returnObjects: true }) as string[]);
   const _suI18n = (t("landing.footer.supportLinks",  { returnObjects: true }) as string[]);
-  const _suHref = ["/contact", "/privacy", "/terms", "/security"];
+  const _suHref = ["#", "/privacy", "/terms", "/security"];
   type FooterLink = { label: string; href: string };
   const platformLinks: FooterLink[] = (cmsFooter?.platformLinks?.some((l: any) => l.label))
     ? (cmsFooter.platformLinks as any[]).filter((l: any) => l.label).map((l: any) => ({ label: l.label, href: l.href || "#" }))

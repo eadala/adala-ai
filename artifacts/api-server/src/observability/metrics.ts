@@ -31,11 +31,7 @@ export function resetWebhookFailures() { _webhookFailures = 0; }
 
 export async function collectMetrics(): Promise<SystemMetrics> {
   const mem = process.memoryUsage();
-  // Use --max-old-space-size cap (350MB) as the true ceiling, not heapTotal.
-  // heapTotal is only what V8 has allocated so far and grows lazily, so
-  // heapUsed/heapTotal gives false 95-99% readings even when we have headroom.
-  const MAX_HEAP_BYTES = 350 * 1024 * 1024;
-  const total = MAX_HEAP_BYTES;
+  const total = mem.heapTotal;
   const used  = mem.heapUsed;
 
   const window = Date.now() - 60_000;
