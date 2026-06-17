@@ -217,15 +217,16 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 function OfficeLogo() {
   const { data: branding } = useBranding();
   const { t } = useTranslation();
-  const primary = branding?.primaryColor || "#1e3a5f";
+  const primary = branding?.primaryColor || "#2563EB";
   return (
-    <div className="flex h-16 items-center px-4 border-b border-sidebar-border gap-3 shrink-0">
+    <div className="flex h-16 items-center px-4 border-b border-sidebar-border gap-3 shrink-0"
+      style={{ background: "hsl(var(--sidebar))" }}>
       {branding?.logoUrl ? (
         <img src={branding.logoUrl} alt={branding.officeName || t("appName")}
-          className="h-9 w-9 object-contain rounded-md bg-white/10 p-0.5" />
+          className="h-9 w-9 object-contain rounded-xl bg-white/10 p-0.5" />
       ) : (
-        <div className="h-9 w-9 rounded-md flex items-center justify-center text-white font-bold text-base shrink-0"
-          style={{ backgroundColor: primary }}>
+        <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white font-black text-base shrink-0 shadow-sm"
+          style={{ background: `linear-gradient(135deg, ${primary}, ${primary}cc)` }}>
           {(branding?.officeName || t("appName"))[0]}
         </div>
       )}
@@ -233,11 +234,9 @@ function OfficeLogo() {
         <span className="text-sm font-bold tracking-tight text-sidebar-foreground truncate leading-tight">
           {branding?.officeName || t("appName")}
         </span>
-        {branding?.tagline && (
-          <span className="text-[10px] text-sidebar-foreground/50 truncate leading-tight">
-            {branding.tagline}
-          </span>
-        )}
+        <span className="text-[10px] text-sidebar-foreground/45 truncate leading-tight">
+          {branding?.tagline || "عدالة AI"}
+        </span>
       </div>
     </div>
   );
@@ -251,7 +250,7 @@ function NavItemLink({ item, isActive, onClick, badge, accentColor }: {
   const isLocked = isLoaded && item.feature ? !hasFeature(item.feature) : false;
   const label = t(item.labelKey);
 
-  const baseClass = "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-all w-full text-right";
+  const baseClass = "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150 w-full text-right";
 
   if (isLocked) {
     return (
@@ -271,7 +270,7 @@ function NavItemLink({ item, isActive, onClick, badge, accentColor }: {
   return (
     <Link
       href={item.href}
-      className={`${baseClass} ${
+      className={`${baseClass} ${  
         isActive
           ? "text-primary font-semibold"
           : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/70"
