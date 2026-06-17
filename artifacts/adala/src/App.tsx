@@ -114,7 +114,8 @@ const Messages             = lazy(() => import("@/pages/operations/messages"));
 const RemindersPage        = lazy(() => import("@/pages/legal-core/reminders"));
 const EmailNotificationsPage = lazy(() => import("@/pages/operations/email-notifications"));
 const WhatsAppSettingsPage  = lazy(() => import("@/pages/operations/whatsapp-settings"));
-const TelegramSettingsPage  = lazy(() => import("@/pages/operations/telegram-settings"));
+const TelegramSettingsPage        = lazy(() => import("@/pages/operations/telegram-settings"));
+const NotificationSettingsPage   = lazy(() => import("@/pages/operations/notification-settings"));
 const DocumentTemplatesPage = lazy(() => import("@/pages/legal-core/document-templates"));
 const SupportPage          = lazy(() => import("@/pages/platform/support"));
 
@@ -769,6 +770,7 @@ function AppRoutes() {
             <Route path="/email-notifications"><ProtectedRoute><EmailNotificationsPage /></ProtectedRoute></Route>
             <Route path="/whatsapp-settings"><ProtectedRoute><WhatsAppSettingsPage /></ProtectedRoute></Route>
             <Route path="/telegram-settings"><ProtectedRoute><TelegramSettingsPage /></ProtectedRoute></Route>
+            <Route path="/notification-settings"><ProtectedRoute><NotificationSettingsPage /></ProtectedRoute></Route>
             <Route path="/support"><ProtectedRoute><SupportPage /></ProtectedRoute></Route>
 
             {/* Portal & Marketplace */}

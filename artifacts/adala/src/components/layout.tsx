@@ -7,7 +7,7 @@ import {
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
   FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity, Send,
-  ChevronDown, Briefcase, Wand2, X,
+  ChevronDown, Briefcase, Wand2, X, BellRing,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -139,7 +139,8 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/messages",            labelKey: "nav.items.messages",            icon: MessageCircle },
       { href: "/email-notifications", labelKey: "nav.items.email_notifications", icon: MailIcon },
       { href: "/whatsapp-settings",   labelKey: "nav.items.whatsapp",            icon: MessageSquare },
-      { href: "/telegram-settings",   labelKey: "nav.items.telegram",            icon: Send },
+      { href: "/telegram-settings",         labelKey: "nav.items.telegram",            icon: Send },
+      { href: "/notification-settings",    labelKey: "nav.items.notification_settings", icon: BellRing },
       { href: "/office-management",   labelKey: "nav.items.office_management",   icon: Globe,       feature: "website" },
       { href: "/marketplace",         labelKey: "nav.items.marketplace",         icon: ShoppingBag, feature: "serviceStore" },
       { href: "/support",             labelKey: "nav.items.support",             icon: LifeBuoy },
