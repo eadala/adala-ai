@@ -27,7 +27,7 @@ const CATEGORIES: Record<string, { icon: typeof FileText; color: string; bg: str
   "ردود قانونية":     { icon: RefreshCw,     color: "text-green-400",  bg: "bg-green-500/10" },
   "خطابات قانونية":   { icon: Mail,          color: "text-purple-400", bg: "bg-purple-500/10" },
   "وثائق رسمية":      { icon: Scroll,        color: "text-rose-400",   bg: "bg-rose-500/10" },
-  "صياغة مخصصة":     { icon: Sparkles,      color: "text-gold",       bg: "bg-amber-500/10" },
+  "صياغة مخصصة":     { icon: Sparkles,      color: "text-primary",       bg: "bg-amber-500/10" },
 };
 
 type FieldDef = {
@@ -192,8 +192,8 @@ export default function LegalAIPage() {
       {/* header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gold/20 flex items-center justify-center">
-            <FileSignature className="w-5 h-5 text-gold" />
+          <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+            <FileSignature className="w-5 h-5 text-primary" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-foreground">محرك الوثائق القانونية</h1>
@@ -256,7 +256,7 @@ export default function LegalAIPage() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 px-2 text-xs text-gold hover:bg-gold/10"
+                        className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
                         onClick={() => loadHistoryItem(doc.id)}
                       >
                         عرض
@@ -265,7 +265,7 @@ export default function LegalAIPage() {
                         size="sm"
                         variant="ghost"
                         className="h-7 w-7 p-0 text-white/40 hover:text-red-400 hover:bg-red-400/10"
-                        onClick={() => deleteMutation.mutate(doc.id)}
+                        onClick={() => { if (window.confirm("هل تريد حذف هذا المستند نهائياً؟")) deleteMutation.mutate(doc.id); }}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
@@ -302,13 +302,13 @@ export default function LegalAIPage() {
                             className={cn(
                               "w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-all text-right",
                               selectedType === item.id
-                                ? "bg-gold/20 text-gold border border-gold/30"
+                                ? "bg-primary/20 text-primary border border-primary/30"
                                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
                             )}
                           >
                             <span>{item.label}</span>
                             {selectedType === item.id && (
-                              <ChevronRight className="w-3 h-3 text-gold" />
+                              <ChevronRight className="w-3 h-3 text-primary" />
                             )}
                           </button>
                         ))}
@@ -324,8 +324,8 @@ export default function LegalAIPage() {
           <div className="flex-1 flex flex-col overflow-hidden">
             {!selectedType ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-4 text-white/30 p-8">
-                <div className="w-20 h-20 rounded-2xl bg-gold/10 flex items-center justify-center">
-                  <Wand2 className="w-10 h-10 text-gold/50" />
+                <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <Wand2 className="w-10 h-10 text-primary/50" />
                 </div>
                 <div className="text-center">
                   <p className="text-base font-medium text-white/40">اختر نوع الوثيقة</p>
@@ -413,7 +413,7 @@ export default function LegalAIPage() {
                   </div>
 
                   <Button
-                    className="w-full gap-2 bg-gold hover:bg-gold/90 text-navy font-bold"
+                    className="w-full gap-2 bg-primary hover:bg-primary/90 text-white font-bold"
                     disabled={!canGenerate}
                     onClick={() => generateMutation.mutate()}
                   >
@@ -447,7 +447,7 @@ export default function LegalAIPage() {
                           </Button>
                           <Button
                             size="sm" variant="ghost"
-                            className="h-7 px-2 text-xs text-gold hover:bg-gold/10 gap-1"
+                            className="h-7 px-2 text-xs text-primary hover:bg-primary/10 gap-1"
                             onClick={() => setRefineMode(r => !r)}
                           >
                             <Wand2 className="w-3 h-3" />تحسين
@@ -474,8 +474,8 @@ export default function LegalAIPage() {
                       </div>
 
                       {refineMode && (
-                        <div className="bg-gold/5 rounded-xl border border-gold/20 p-4 space-y-3">
-                          <p className="text-xs text-gold font-medium">تعليمات التحسين</p>
+                        <div className="bg-primary/5 rounded-xl border border-primary/20 p-4 space-y-3">
+                          <p className="text-xs text-primary font-medium">تعليمات التحسين</p>
                           <Textarea
                             dir="rtl"
                             rows={2}
@@ -486,7 +486,7 @@ export default function LegalAIPage() {
                           />
                           <Button
                             size="sm"
-                            className="w-full bg-gold hover:bg-gold/90 text-navy font-semibold gap-1"
+                            className="w-full bg-primary hover:bg-primary/90 text-white font-semibold gap-1"
                             disabled={!refineText.trim() || refineMutation.isPending}
                             onClick={() => {
                               if (generatedId) refineMutation.mutate(generatedId);

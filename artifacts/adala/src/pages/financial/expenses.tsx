@@ -138,7 +138,7 @@ export default function Expenses() {
                     <SelectTrigger className="bg-background/50 border-border mt-1 text-sm h-9"><SelectValue/></SelectTrigger>
                     <SelectContent>{CATEGORIES.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                   </Select></div>
-                <div><Label className="text-xs text-muted-foreground">المبلغ (ر.س) *</Label><Input type="number" value={form.amount??""} onChange={e=>set("amount",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
+                <div><Label className="text-xs text-muted-foreground">المبلغ (ر.س) *</Label><Input type="number" min="0" value={form.amount??""} onChange={e=>set("amount",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label className="text-xs text-muted-foreground">طريقة الدفع</Label>

@@ -101,7 +101,7 @@ function EmployeeForm({ form, setForm, onSubmit, loading, isEdit, onClose }: any
             <SelectContent>{DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div><Label>الراتب الأساسي (ريال) *</Label><Input value={form.salary} onChange={e => setForm((p: any) => ({ ...p, salary: e.target.value }))} type="number" /></div>
+        <div><Label>الراتب الأساسي (ريال) *</Label><Input value={form.salary} onChange={e => setForm((p: any) => ({ ...p, salary: e.target.value }))} type="number" min="0" /></div>
         <div><Label>نوع العقد</Label>
           <Select value={form.contractType} onValueChange={v => setForm((p: any) => ({ ...p, contractType: v }))}>
             <SelectTrigger><SelectValue /></SelectTrigger>
@@ -249,7 +249,7 @@ export default function Employees() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(e => <EmployeeCard key={e.id} emp={e} onEdit={openEdit} onDelete={(id: string) => deleteMutation.mutate(id)} />)}
+          {filtered.map(e => <EmployeeCard key={e.id} emp={e} onEdit={openEdit} onDelete={(id: string) => { if (window.confirm(`هل تريد حذف الموظف "${e.fullName}"؟`)) deleteMutation.mutate(id); }} />)}
         </div>
       )}
 

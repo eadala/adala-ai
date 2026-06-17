@@ -37,7 +37,7 @@ const RISK_BADGE: Record<string, string> = {
   critical: "bg-red-100 text-red-700 border-red-200",
   high:     "bg-orange-100 text-orange-700 border-orange-200",
   medium:   "bg-amber-100 text-amber-700 border-amber-200",
-  low:      "bg-gray-100 text-gray-600 border-gray-200",
+  low:      "bg-gray-100 text-gray-600 border-border",
 };
 
 export default function HardeningPage() {
@@ -62,7 +62,7 @@ export default function HardeningPage() {
   const mode = s.mode ?? "stable";
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 rtl" dir="rtl">
+    <div className="min-h-screen bg-muted/30 p-6 rtl" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -79,14 +79,14 @@ export default function HardeningPage() {
             {MODE_LABEL[mode] ?? mode}
           </span>
           <button onClick={() => qc.invalidateQueries({ queryKey: ["harden-status"] })}
-            className="p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition">
+            className="p-2 rounded-lg bg-card border border-border hover:bg-muted/50 transition">
             <RefreshCw className="h-4 w-4 text-gray-500" />
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-white border border-gray-200 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-6 bg-card border border-border rounded-xl p-1 w-fit">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
@@ -106,7 +106,7 @@ export default function HardeningPage() {
               { label: "درجة المالية",    value: `${s.financial?.score ?? "—"}/100`, sub: s.financial?.allPassed ? "✅ كل الفحوصات ناجحة" : "⚠️ توجد مشاكل" },
               { label: "وحدات محمية",    value: s.immutableCount ?? "—", sub: "IMMUTABLE MODULES" },
             ].map((m, i) => (
-              <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5 text-center">
+              <div key={i} className="bg-card border border-border rounded-2xl p-5 text-center">
                 <div className="text-2xl font-bold text-gray-900">{m.value}</div>
                 <div className="text-xs text-gray-500 mt-1">{m.label}</div>
                 <div className="text-xs text-gray-400 mt-0.5">{m.sub}</div>
@@ -115,7 +115,7 @@ export default function HardeningPage() {
           </div>
 
           {/* Safe Mode toggle */}
-          <div className={`rounded-2xl p-5 border ${mode === "safe_mode" ? "bg-red-50 border-red-300" : "bg-white border-gray-200"}`}>
+          <div className={`rounded-2xl p-5 border ${mode === "safe_mode" ? "bg-red-50 border-red-300" : "bg-white border-border"}`}>
             <div className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
               <ShieldAlert className="h-4 w-4 text-red-500" /> الوضع الآمن
             </div>
@@ -125,7 +125,7 @@ export default function HardeningPage() {
             <div className="flex gap-2">
               <input value={safeReason} onChange={e => setSafeReason(e.target.value)}
                 placeholder="السبب (اختياري)"
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-800" />
               {mode !== "safe_mode" ? (
                 <button onClick={() => safeMut.mutate({ activate: true, reason: safeReason })} disabled={safeMut.isPending}
                   className="px-4 py-2 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-1.5">
@@ -141,7 +141,7 @@ export default function HardeningPage() {
           </div>
 
           {/* AI Lock */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="bg-card border border-border rounded-2xl p-5">
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-semibold text-gray-800 flex items-center gap-2">
@@ -159,7 +159,7 @@ export default function HardeningPage() {
           </div>
 
           {/* Validation Pipeline */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="bg-card border border-border rounded-2xl p-5">
             <div className="flex items-center justify-between mb-3">
               <div className="font-semibold text-gray-800 flex items-center gap-2">
                 <Zap className="h-4 w-4 text-blue-500" /> خط التحقق
@@ -177,7 +177,7 @@ export default function HardeningPage() {
                   {validateResult.deployAllowed ? "✅ النشر مسموح" : "❌ النشر محظور"} — درجة: {validateResult.score}/100
                 </div>
                 {validateResult.checks?.map((ch: any) => (
-                  <div key={ch.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50">
+                  <div key={ch.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30">
                     {STATUS_ICON(ch.status)}
                     <span className="text-sm text-gray-700 flex-1">{ch.name}</span>
                     <span className="text-xs text-gray-400">{ch.durationMs}ms</span>
@@ -211,7 +211,7 @@ export default function HardeningPage() {
               <div className="space-y-2">
                 {finQ.data.checks?.map((ch: any) => (
                   <div key={ch.name} className={`flex items-center gap-3 p-4 rounded-xl border
-                    ${ch.status === "pass" ? "bg-white border-gray-200" : ch.status === "warn" ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}`}>
+                    ${ch.status === "pass" ? "bg-white border-border" : ch.status === "warn" ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}`}>
                     {STATUS_ICON(ch.status)}
                     <div className="flex-1">
                       <div className="text-sm font-medium text-gray-800">{ch.name}</div>
@@ -234,7 +234,7 @@ export default function HardeningPage() {
             هذه الوحدات <strong>محمية من التعديل</strong> — أي تغيير يمر عبر بوابة التغيير ويستوجب موافقة.
           </div>
           {(modulesQ.data?.modules ?? []).map((m: any) => (
-            <div key={m.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4">
+            <div key={m.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
               <Lock className="h-4 w-4 text-slate-500 shrink-0" />
               <div className="flex-1">
                 <div className="text-sm font-semibold text-gray-800">{m.label}</div>
@@ -245,22 +245,22 @@ export default function HardeningPage() {
           ))}
 
           {/* Change Gate form */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-5 mt-4">
+          <div className="bg-card border border-border rounded-2xl p-5 mt-4">
             <div className="font-semibold text-gray-800 mb-3">بوابة التغيير — تسجيل طلب تعديل</div>
             <div className="space-y-2">
               <div className="flex gap-2">
                 <select value={changeMeta.type} onChange={e => setChangeMeta(p => ({ ...p, type: e.target.value }))}
-                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none">
+                  className="px-3 py-2 border border-border rounded-lg text-sm focus:outline-none">
                   {["config","route","finance","stripe","ai","schema","module"].map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <input value={changeMeta.affects} onChange={e => setChangeMeta(p => ({ ...p, affects: e.target.value }))}
                   placeholder="affects (فصل بفاصلة: finance, stripe)"
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                  className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none" />
               </div>
               <div className="flex gap-2">
                 <input value={changeMeta.description} onChange={e => setChangeMeta(p => ({ ...p, description: e.target.value }))}
                   placeholder="وصف التغيير"
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                  className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none" />
                 <button onClick={() => gateMut.mutate()} disabled={!changeMeta.description || gateMut.isPending}
                   className="px-4 py-2 rounded-lg text-sm bg-slate-800 text-white hover:bg-slate-900 transition disabled:opacity-50">
                   تسجيل
@@ -284,9 +284,9 @@ export default function HardeningPage() {
             <div className="p-8 text-center text-gray-400 text-sm">لا سجلات بعد</div>
           )}
           {(logQ.data?.log ?? []).map((entry: any) => (
-            <div key={entry.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div key={entry.id} className="bg-card border border-border rounded-xl overflow-hidden">
               <button onClick={() => setExpandedLog(expandedLog === entry.id ? null : entry.id)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-right">
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-right">
                 <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${RISK_BADGE[entry.risk_level]}`}>{entry.risk_level}</span>
                 <span className="text-sm text-gray-700 flex-1">{entry.description}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium

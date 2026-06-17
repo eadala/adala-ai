@@ -157,8 +157,14 @@ export default function Clients() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => fetch(`${BASE}/api/clients/${id}`, { method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); toast({ title: tx("تم الحذف", "Deleted") }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); toast({ title: tx("تم حذف العميل", "Client deleted") }); },
+    onError: () => toast({ title: tx("خطأ في الحذف", "Delete failed"), variant: "destructive" }),
   });
+
+  const handleDelete = (id: string, name: string) => {
+    if (!window.confirm(tx(`هل تريد حذف العميل "${name}" نهائياً؟`, `Delete client "${name}" permanently?`))) return;
+    deleteMutation.mutate(id);
+  };
 
   const openEdit = (client: any) => { setEditing(client); setForm({ ...client }); setShowForm(true); };
   const closeForm = () => { setShowForm(false); setEditing(null); setForm(EMPTY_FORM); };
@@ -254,7 +260,7 @@ export default function Clients() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(c => <ClientCard key={c.id} client={c} onEdit={openEdit} onDelete={(id: string) => deleteMutation.mutate(id)} tx={tx} dir={dir} />)}
+          {filtered.map(c => <ClientCard key={c.id} client={c} onEdit={openEdit} onDelete={(id: string) => handleDelete(id, c.fullName)} tx={tx} dir={dir} />)}
         </div>
       )}
 

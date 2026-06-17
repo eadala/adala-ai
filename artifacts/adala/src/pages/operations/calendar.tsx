@@ -32,7 +32,7 @@ const EVENT_TYPES: Record<string, { label: string; color: string; bg: string; ic
   client_meeting:{ label: "اجتماع عميل",  color: "text-blue-400",   bg: "bg-blue-500/80",   icon: Users },
   team_meeting:  { label: "اجتماع فريق",  color: "text-green-400",  bg: "bg-green-500/80",  icon: Briefcase },
   task:          { label: "مهمة",          color: "text-purple-400", bg: "bg-purple-500/80", icon: Star },
-  other:         { label: "أخرى",          color: "text-gray-400",   bg: "bg-gray-500/80",   icon: CalendarDays },
+  other:         { label: "أخرى",          color: "text-muted-foreground",   bg: "bg-gray-500/80",   icon: CalendarDays },
 };
 
 const REMINDER_OPTIONS = [
@@ -559,7 +559,7 @@ export default function Calendar() {
             <DayPanel
               date={selectedDate}
               events={selectedDayEvents}
-              onDelete={id => deleteEvent.mutate(id)}
+              onDelete={id => { if (window.confirm("هل تريد حذف هذا الحدث من التقويم؟")) deleteEvent.mutate(id); }}
               onRefresh={refresh}
             />
           </CardContent>
@@ -605,7 +605,7 @@ export default function Calendar() {
                       }`}>
                         {diffDays <= 0 ? "اليوم" : diffDays === 1 ? "غداً" : `${diffDays} أيام`}
                       </Badge>
-                      <button onClick={() => deleteEvent.mutate(ev.id)}
+                      <button onClick={() => { if (window.confirm("هل تريد حذف هذا الحدث؟")) deleteEvent.mutate(ev.id); }}
                         className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all">
                         <X className="h-3.5 w-3.5" />
                       </button>

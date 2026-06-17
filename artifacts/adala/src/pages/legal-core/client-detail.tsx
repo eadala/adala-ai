@@ -506,7 +506,7 @@ export default function ClientDetail() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Activity className="h-4 w-4 text-gold" />
+                <Activity className="h-4 w-4 text-primary" />
                 سجل النشاطات
               </CardTitle>
             </CardHeader>

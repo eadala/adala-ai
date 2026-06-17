@@ -131,7 +131,7 @@ export default function Messages() {
       {/* ── Sidebar ── */}
       <div className="w-56 flex-shrink-0 border-l flex flex-col bg-muted/20">
         <div className="p-3 border-b">
-          <Button size="sm" className="w-full gap-2 bg-gold hover:bg-gold/90 text-navy font-bold" onClick={() => setComposeOpen(true)}>
+          <Button size="sm" className="w-full gap-2 bg-primary hover:bg-primary/90 text-white font-bold" onClick={() => setComposeOpen(true)}>
             <Plus className="h-4 w-4" />رسالة جديدة
           </Button>
         </div>
@@ -146,7 +146,7 @@ export default function Messages() {
                 onClick={() => { setFolder(f); setSelected(null); }}
                 className={cn(
                   "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
-                  folder === f ? "bg-gold/10 text-gold font-medium" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  folder === f ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
               >
                 <Icon className={cn("h-4 w-4 flex-shrink-0", folder === f ? meta.color : "")} />
@@ -285,7 +285,7 @@ export default function Messages() {
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => archiveMut.mutate(selected.id)}>
                   <Archive className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-300" onClick={() => deleteMut.mutate(selected.id)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-300" onClick={() => { if (window.confirm("هل تريد حذف هذه الرسالة نهائياً؟")) deleteMut.mutate(selected.id); }}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -301,8 +301,8 @@ export default function Messages() {
                   <div className="flex flex-wrap gap-2">
                     {(detail?.recipients ?? selected.recipients).map((r: any) => (
                       <div key={r.userId} className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2.5 py-1">
-                        <div className="w-5 h-5 rounded-full bg-gold/20 flex items-center justify-center">
-                          <span className="text-[10px] text-gold font-bold">{(r.userName ?? r.userId).charAt(0)}</span>
+                        <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+                          <span className="text-[10px] text-primary font-bold">{(r.userName ?? r.userId).charAt(0)}</span>
                         </div>
                         <span className="text-xs">{r.userName ?? r.userId}</span>
                         {r.isRead ? (
@@ -341,7 +341,7 @@ export default function Messages() {
                         rel="noreferrer"
                         className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors text-xs"
                       >
-                        <Paperclip className="h-3.5 w-3.5 text-gold" />
+                        <Paperclip className="h-3.5 w-3.5 text-primary" />
                         <span>{att.fileName}</span>
                         {att.fileSize && <span className="text-muted-foreground">({(att.fileSize / 1024).toFixed(0)} KB)</span>}
                       </a>
@@ -418,7 +418,7 @@ function ComposeDialog({ open, onClose, onSent }: { open: boolean; onClose: () =
       <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Send className="h-5 w-5 text-gold" />رسالة داخلية جديدة
+            <Send className="h-5 w-5 text-primary" />رسالة داخلية جديدة
           </DialogTitle>
         </DialogHeader>
 
@@ -428,7 +428,7 @@ function ComposeDialog({ open, onClose, onSent }: { open: boolean; onClose: () =
             <Label className="text-xs mb-1.5 block">المستلمون</Label>
             <div className="flex flex-wrap gap-1.5 p-2 border rounded-lg min-h-[42px] cursor-text" onClick={() => setShowRecipients(true)}>
               {recipients.map(r => (
-                <span key={r.userId} className="flex items-center gap-1 bg-gold/10 text-gold rounded-full px-2.5 py-0.5 text-xs">
+                <span key={r.userId} className="flex items-center gap-1 bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-xs">
                   {r.userName}
                   <button onClick={() => setRecipients(prev => prev.filter(x => x.userId !== r.userId))}>
                     <X className="h-3 w-3" />
@@ -455,8 +455,8 @@ function ComposeDialog({ open, onClose, onSent }: { open: boolean; onClose: () =
                       setShowRecipients(false);
                     }}
                   >
-                    <div className="w-6 h-6 rounded-full bg-gold/15 flex items-center justify-center">
-                      <span className="text-[10px] text-gold font-bold">{(u.fullName ?? u.email ?? "").charAt(0)}</span>
+                    <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center">
+                      <span className="text-[10px] text-primary font-bold">{(u.fullName ?? u.email ?? "").charAt(0)}</span>
                     </div>
                     <div>
                       <p className="text-xs font-medium">{u.fullName ?? u.full_name}</p>
@@ -491,7 +491,7 @@ function ComposeDialog({ open, onClose, onSent }: { open: boolean; onClose: () =
           <Button
             onClick={() => sendMut.mutate("sent")}
             disabled={!subject.trim() || !body.trim() || recipients.length === 0 || sendMut.isPending}
-            className="gap-2 bg-gold hover:bg-gold/90 text-navy"
+            className="gap-2 bg-primary hover:bg-primary/90 text-white"
           >
             <Send className="h-4 w-4" />
             {sendMut.isPending ? "جارٍ الإرسال..." : `إرسال (${recipients.length})`}

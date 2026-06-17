@@ -724,7 +724,7 @@ export default function PaymentCenter() {
                                     <ArrowDownToLine className="h-3 w-3" />
                                   </Button>
                                 )}
-                                <Button size="icon" variant="ghost" className="h-6 w-6 text-red-500" onClick={() => deleteTx.mutate(tx.id)}>
+                                <Button size="icon" variant="ghost" className="h-6 w-6 text-red-500" onClick={() => { if (window.confirm("هل تريد حذف هذه المعاملة؟")) deleteTx.mutate(tx.id); }}>
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
                               </div>

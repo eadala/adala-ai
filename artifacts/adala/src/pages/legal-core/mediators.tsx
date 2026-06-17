@@ -293,7 +293,7 @@ export default function MediatorsPage() {
                     <Users className="h-3.5 w-3.5 ml-1" />
                     الطلبات
                   </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => deleteTask.mutate(task.id)}>
+                  <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => { if (window.confirm("هل تريد حذف هذه المهمة؟")) deleteTask.mutate(task.id); }}>
                     حذف
                   </Button>
                 </div>
@@ -359,7 +359,7 @@ export default function MediatorsPage() {
               </div>
               <div>
                 <Label className="text-xs font-semibold mb-1 block">العمولة (ر.س)</Label>
-                <Input type="number" value={newTask.commission} onChange={e => setNewTask(f => ({ ...f, commission: e.target.value }))} placeholder="500" dir="ltr" />
+                <Input type="number" min="0" value={newTask.commission} onChange={e => setNewTask(f => ({ ...f, commission: e.target.value }))} placeholder="500" dir="ltr" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">

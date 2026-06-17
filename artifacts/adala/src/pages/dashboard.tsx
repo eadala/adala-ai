@@ -840,7 +840,7 @@ export default function Dashboard() {
         <div className="section-label">{tx("التحليلات والجدول", "Analytics & Schedule")}</div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Revenue Chart — 2/3 width */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+          <div className="lg:col-span-2 bg-card rounded-2xl border border-border/60 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -883,7 +883,7 @@ export default function Dashboard() {
           </div>
 
           {/* Today Schedule — 1/3 width */}
-          <div className="bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border/60 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-4 py-4 border-b border-border/40">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
@@ -949,7 +949,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
           {/* Recent Cases */}
-          <div className="bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border/60 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/40">
               <div className="flex items-center gap-2">
                 <Scale className="h-4 w-4 text-primary" />
@@ -987,7 +987,7 @@ export default function Dashboard() {
           </div>
 
           {/* Recent Invoices */}
-          <div className="bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border/60 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/40">
               <div className="flex items-center gap-2">
                 <Receipt className="h-4 w-4 text-emerald-600" />
@@ -1025,7 +1025,7 @@ export default function Dashboard() {
           </div>
 
           {/* Quick Actions — landing page CTA style */}
-          <div className="bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border/60 shadow-sm overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-3.5 border-b border-border/40">
               <Zap className="h-4 w-4 text-amber-500" />
               <span className="text-sm font-bold">{tx("إجراءات سريعة", "Quick Actions")}</span>
@@ -1066,7 +1066,7 @@ export default function Dashboard() {
       {(data?.upcomingEvents ?? []).length > 0 && (
         <div className="app-fade app-fade-6">
           <div className="section-label">{tx("المواعيد القادمة", "Upcoming Events")}</div>
-          <div className="bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border/60 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
               <div className="flex items-center gap-2">
                 <Bell className="h-4 w-4 text-primary" />

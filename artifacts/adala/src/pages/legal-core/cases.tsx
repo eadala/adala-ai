@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useListCases, useCreateCase } from "@workspace/api-client-react";
-import { useQuery }        from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button }          from "@/components/ui/button";
 import { Input }           from "@/components/ui/input";
@@ -11,10 +11,12 @@ import {
   Search, Plus, Scale, Clock, CheckCheck, Filter,
   LayoutGrid, List, MoreHorizontal, Upload,
   ChevronRight, Users, Briefcase, TrendingUp,
+  Trash2,
 } from "lucide-react";
 import { ImportDialog }    from "@/components/import-dialog";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -25,7 +27,6 @@ import {
 import { Label }           from "@/components/ui/label";
 import { Textarea }        from "@/components/ui/textarea";
 import { useToast }        from "@/hooks/use-toast";
-import { useQueryClient }  from "@tanstack/react-query";
 import { getListCasesQueryKey } from "@workspace/api-client-react";
 import { useLang }         from "@/hooks/use-lang";
 import { cn }              from "@/lib/utils";
@@ -77,7 +78,7 @@ function KanbanCard({ c }: { c: any }) {
   const typeCfg = TYPE_COLOR[c.caseType] ?? "bg-slate-50 text-slate-700 border-slate-200";
   return (
     <Link href={`/cases/${c.id}`}>
-      <div className="group bg-white border rounded-xl p-4 hover:shadow-md hover:border-primary/40 transition-all cursor-pointer space-y-3">
+      <div className="group bg-card border rounded-xl p-4 hover:shadow-md hover:border-primary/40 transition-all cursor-pointer space-y-3">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-medium text-sm line-clamp-2 leading-snug group-hover:text-primary transition-colors">{c.title}</h3>
           <Badge variant="outline" className={cn("text-xs shrink-0", typeCfg)}>{TYPE_MAP[c.caseType] ?? c.caseType}</Badge>
@@ -111,6 +112,7 @@ export default function Cases() {
   const [view, setView]               = useState<"table" | "kanban">("table");
   const [importOpen, setImportOpen]   = useState(false);
   const [newOpen, setNewOpen]         = useState(false);
+  const [clientInput, setClientInput] = useState<"select" | "text">("select");
   const [form, setForm]               = useState({ title: "", caseType: "civil", clientName: "", description: "" });
 
   const { data: cases, isLoading }    = useListCases();
@@ -119,10 +121,39 @@ export default function Cases() {
     queryFn:  () => fetch(`${BASE}/api/cases/stats`).then(r => r.json()),
     staleTime: 30_000,
   });
+  const { data: clientsList = [] }    = useQuery<{ id: string; fullName: string }[]>({
+    queryKey: ["clients-for-cases"],
+    queryFn:  () => fetch(`${BASE}/api/clients`).then(r => r.ok ? r.json() : []),
+    staleTime: 60_000,
+  });
   const createCase  = useCreateCase();
   const { toast }   = useToast();
   const qc          = useQueryClient();
   const { dir }     = useLang();
+
+  const invalidateCases = () => {
+    qc.invalidateQueries({ queryKey: getListCasesQueryKey() });
+    qc.invalidateQueries({ queryKey: ["cases-stats"] });
+  };
+
+  const updateCaseMut = useMutation({
+    mutationFn: ({ id, ...data }: any) =>
+      fetch(`${BASE}/api/cases/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    onSuccess: () => { invalidateCases(); toast({ title: "✅ تم تحديث القضية" }); },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteCaseMut = useMutation({
+    mutationFn: (id: string) =>
+      fetch(`${BASE}/api/cases/${id}`, { method: "DELETE" })
+        .then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    onSuccess: () => { invalidateCases(); toast({ title: "🗑️ تم حذف القضية" }); },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
 
   const filtered = cases?.filter(c => {
     const q = search.toLowerCase();
@@ -141,18 +172,23 @@ export default function Cases() {
   const handleCreate = () => {
     if (!form.title.trim()) return;
     createCase.mutate(
-      { data: { title: form.title, caseType: form.caseType, clientName: form.clientName, status: "open" } as any },
+      { data: { title: form.title, caseType: form.caseType, clientName: form.clientName, description: form.description, status: "open" } as any },
       {
         onSuccess: () => {
           setNewOpen(false);
           setForm({ title: "", caseType: "civil", clientName: "", description: "" });
-          qc.invalidateQueries({ queryKey: getListCasesQueryKey() });
-          qc.invalidateQueries({ queryKey: ["cases-stats"] });
+          setClientInput("select");
+          invalidateCases();
           toast({ title: "✅ تم إنشاء القضية بنجاح" });
         },
         onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
       }
     );
+  };
+
+  const handleDeleteCase = (id: string, title: string) => {
+    if (!window.confirm(`هل تريد حذف القضية "${title}" نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+    deleteCaseMut.mutate(id);
   };
 
   return (
@@ -314,6 +350,29 @@ export default function Cases() {
                               <DropdownMenuItem asChild>
                                 <Link href={`/cases/${c.id}`}>عرض التفاصيل</Link>
                               </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {c.status !== "open" && (
+                                <DropdownMenuItem onClick={() => updateCaseMut.mutate({ id: c.id, status: "open" })}>
+                                  <Scale className="h-3.5 w-3.5 me-2 text-blue-500" />تحويل إلى مفتوحة
+                                </DropdownMenuItem>
+                              )}
+                              {c.status !== "in_progress" && (
+                                <DropdownMenuItem onClick={() => updateCaseMut.mutate({ id: c.id, status: "in_progress" })}>
+                                  <Clock className="h-3.5 w-3.5 me-2 text-amber-500" />قيد التنفيذ
+                                </DropdownMenuItem>
+                              )}
+                              {c.status !== "closed" && (
+                                <DropdownMenuItem onClick={() => updateCaseMut.mutate({ id: c.id, status: "closed" })}>
+                                  <CheckCheck className="h-3.5 w-3.5 me-2 text-slate-500" />إغلاق القضية
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-red-500 focus:text-red-500"
+                                onClick={() => handleDeleteCase(c.id, c.title)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 me-2" />حذف القضية
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
@@ -412,20 +471,57 @@ export default function Cases() {
       )}
 
       {/* ── New Case Dialog ── */}
-      <Dialog open={newOpen} onOpenChange={setNewOpen}>
+      <Dialog open={newOpen} onOpenChange={v => { setNewOpen(v); if (!v) { setForm({ title: "", caseType: "civil", clientName: "", description: "" }); setClientInput("select"); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>قضية جديدة</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>عنوان القضية *</Label>
+              <Label>عنوان القضية <span className="text-red-500">*</span></Label>
               <Input placeholder="مثال: نزاع تجاري على عقد توريد" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
             </div>
+
+            {/* ── Client picker: Select from list OR type manually ── */}
             <div className="space-y-1.5">
-              <Label>الموكل</Label>
-              <Input placeholder="اسم الموكل أو الشركة" value={form.clientName} onChange={e => setForm(p => ({ ...p, clientName: e.target.value }))} />
+              <div className="flex items-center justify-between">
+                <Label>الموكل</Label>
+                {clientsList.length > 0 && (
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => {
+                      setClientInput(p => p === "select" ? "text" : "select");
+                      setForm(p => ({ ...p, clientName: "" }));
+                    }}
+                  >
+                    {clientInput === "select" ? "أدخل اسماً جديداً ＋" : "← اختر من القائمة"}
+                  </button>
+                )}
+              </div>
+              {clientsList.length > 0 && clientInput === "select" ? (
+                <Select
+                  value={form.clientName}
+                  onValueChange={v => setForm(p => ({ ...p, clientName: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر موكلاً من القائمة..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientsList.map(c => (
+                      <SelectItem key={c.id} value={c.fullName}>{c.fullName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  placeholder="اسم الموكل أو الشركة"
+                  value={form.clientName}
+                  onChange={e => setForm(p => ({ ...p, clientName: e.target.value }))}
+                />
+              )}
             </div>
+
             <div className="space-y-1.5">
               <Label>نوع القضية</Label>
               <Select value={form.caseType} onValueChange={v => setForm(p => ({ ...p, caseType: v }))}>

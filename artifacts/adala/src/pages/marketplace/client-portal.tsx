@@ -789,7 +789,7 @@ export default function ClientPortal() {
                         <Settings className="h-3.5 w-3.5" />
                       </Button>
                       <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 w-7 p-0"
-                        onClick={() => deleteToken.mutate(token.id)}>
+                        onClick={() => { if (window.confirm("هل تريد حذف هذه البوابة؟ سيتوقف العميل عن الوصول فوراً.")) deleteToken.mutate(token.id); }}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>

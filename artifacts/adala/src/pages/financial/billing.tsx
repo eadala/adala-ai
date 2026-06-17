@@ -1560,7 +1560,7 @@ export default function Billing() {
                             {k.is_active ? <ToggleRight className="h-4 w-4 text-emerald-400" /> : <ToggleLeft className="h-4 w-4" />}
                           </Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-300"
-                            onClick={() => deleteKeyMutation.mutate(k.id)}>
+                            onClick={() => { if (window.confirm("هل تريد حذف مفتاح API هذا؟ لا يمكن التراجع عن هذا الإجراء.")) deleteKeyMutation.mutate(k.id); }}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>

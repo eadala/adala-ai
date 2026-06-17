@@ -196,7 +196,7 @@ function InvoiceTemplateCard({ template, selected, onSelect, primaryColor, secon
       }`}
     >
       {/* Mini preview */}
-      <div className="p-3 bg-white  border-b border-border/40" style={{ direction: "rtl" }}>
+      <div className="p-3 bg-card  border-b border-border/40" style={{ direction: "rtl" }}>
         {template.preview === "classic" && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between border-b pb-1.5" style={{ borderColor: sc }}>
@@ -715,7 +715,7 @@ export default function OfficeSettingsPage() {
               <div>
                 <h3 className="font-semibold mb-3 flex items-center gap-2"><FileText className="h-4 w-4" />معاينة رأس المستند (مباشر)</h3>
                 <div className="border border-border rounded-xl overflow-hidden shadow-sm">
-                  <div className="p-6 bg-white " style={{ direction: "rtl" }}>
+                  <div className="p-6 bg-card " style={{ direction: "rtl" }}>
                     <div className="flex items-start justify-between border-b pb-4 mb-4" style={{ borderColor: form.secondaryColor || "#2563EB" }}>
                       <div className="flex items-center gap-3">
                         {form.logoUrl ? (
@@ -793,7 +793,7 @@ export default function OfficeSettingsPage() {
               <div>
                 <h3 className="font-semibold mb-3">معاينة الفاتورة الكاملة</h3>
                 <div className="border border-border rounded-xl overflow-hidden shadow-sm">
-                  <div className="bg-white  p-6" style={{ direction: "rtl" }}>
+                  <div className="bg-card  p-6" style={{ direction: "rtl" }}>
                     {/* Header */}
                     {(form.invoiceTemplate === "modern_blue") ? (
                       <div className="rounded-lg p-4 mb-4 text-white" style={{ background: `linear-gradient(135deg, ${form.primaryColor || "#1d4ed8"}, ${form.secondaryColor || "#60a5fa"})` }}>

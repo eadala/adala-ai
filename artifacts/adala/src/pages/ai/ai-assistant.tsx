@@ -48,7 +48,7 @@ const CAPABILITY_CARDS = [
   { icon: Receipt,     label: "الفواتير",       example: "ملخص الفواتير المتأخرة",       color: "text-amber-400",   bg: "bg-amber-500/10" },
   { icon: Handshake,   label: "العقود",         example: "ما العقود التي ستنتهي قريباً؟",color: "text-violet-400",  bg: "bg-violet-500/10" },
   { icon: Database,    label: "العملاء",        example: "كم عدد العملاء النشطين؟",       color: "text-pink-400",    bg: "bg-pink-500/10" },
-  { icon: Sparkles,    label: "ملخص المكتب",   example: "ملخص المكتب اليوم",            color: "text-gold",        bg: "bg-gold/10" },
+  { icon: Sparkles,    label: "ملخص المكتب",   example: "ملخص المكتب اليوم",            color: "text-primary",        bg: "bg-primary/10" },
 ];
 
 function formatResponse(text: string) {
@@ -70,7 +70,7 @@ function formatResponse(text: string) {
       const content = line.slice(2).replace(/\*\*(.+?)\*\*/g, (_, m) => `<b>${m}</b>`);
       return (
         <p key={i} className="flex gap-2 mb-0.5">
-          <span className="text-gold flex-shrink-0">•</span>
+          <span className="text-primary flex-shrink-0">•</span>
           <span dangerouslySetInnerHTML={{ __html: content }} />
         </p>
       );
@@ -168,8 +168,8 @@ export default function AIAssistant() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center">
-              <BrainCircuit className="h-6 w-6 text-gold" />
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <BrainCircuit className="h-6 w-6 text-primary" />
             </div>
             <div>
               <h1 className="text-xl font-bold">المساعد الإداري الذكي</h1>
@@ -199,8 +199,8 @@ export default function AIAssistant() {
               <div className="space-y-6 py-4">
                 {/* Welcome */}
                 <div className="text-center py-6">
-                  <div className="w-16 h-16 rounded-2xl bg-gold/10 flex items-center justify-center mx-auto mb-4">
-                    <Sparkles className="h-8 w-8 text-gold" />
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <Sparkles className="h-8 w-8 text-primary" />
                   </div>
                   <h2 className="text-lg font-semibold mb-1">مرحباً! كيف يمكنني مساعدتك؟</h2>
                   <p className="text-sm text-muted-foreground">أنا قادر على الوصول إلى بيانات المكتب والإجابة على أسئلتك بالعربية</p>
@@ -253,10 +253,10 @@ export default function AIAssistant() {
                     {/* Avatar */}
                     <div className={cn(
                       "w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center",
-                      msg.role === "user" ? "bg-gold/15" : "bg-blue-500/10"
+                      msg.role === "user" ? "bg-primary/15" : "bg-blue-500/10"
                     )}>
                       {msg.role === "user"
-                        ? <span className="text-sm font-bold text-gold">أ</span>
+                        ? <span className="text-sm font-bold text-primary">أ</span>
                         : <BrainCircuit className="h-4 w-4 text-blue-400" />
                       }
                     </div>
@@ -265,7 +265,7 @@ export default function AIAssistant() {
                     <div className={cn(
                       "flex-1 max-w-[80%] rounded-xl px-4 py-3 text-sm",
                       msg.role === "user"
-                        ? "bg-gold/10 text-foreground ml-auto"
+                        ? "bg-primary/10 text-foreground ml-auto"
                         : "bg-muted/50 text-foreground"
                     )}>
                       <div className="leading-relaxed">
@@ -335,7 +335,7 @@ export default function AIAssistant() {
               <Button
                 onClick={handleSend}
                 disabled={!input.trim() || askMut.isPending}
-                className="gap-2 bg-gold hover:bg-gold/90 text-navy"
+                className="gap-2 bg-primary hover:bg-primary/90 text-white"
               >
                 {askMut.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 إرسال
@@ -355,7 +355,7 @@ export default function AIAssistant() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center justify-between">
                 <span className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-gold" />سجل المحادثات
+                  <Clock className="h-4 w-4 text-primary" />سجل المحادثات
                 </span>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowHistory(false)}>
                   <span className="text-lg leading-none">×</span>
@@ -390,7 +390,7 @@ export default function AIAssistant() {
                           {new Date(item.created_at).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })}
                         </span>
                         {item.context_used && item.context_used !== "none" && (
-                          <span className="text-[10px] text-gold">{item.context_used}</span>
+                          <span className="text-[10px] text-primary">{item.context_used}</span>
                         )}
                       </div>
                     </button>
