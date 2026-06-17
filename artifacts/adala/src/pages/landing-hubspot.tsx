@@ -98,9 +98,9 @@ export function LandingHubspot() {
           <p style={{ fontSize:18,color:S,maxWidth:560,margin:"0 auto 36px",lineHeight:1.9 }}>
             منصة واحدة تجمع إدارة القضايا، العملاء، الفواتير، العقود، والذكاء الاصطناعي — صُمّمت للمحامي السعودي
           </p>
-          <div style={{ display:"flex",gap:10,justifyContent:"center",marginBottom:48 }}>
+          <div style={{ display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap",marginBottom:48 }}>
             <Link href={`${BASE}/sign-up`}><button style={{padding:"14px 32px",borderRadius:10,background:B,border:"none",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:`0 6px 24px ${B}33`}}>ابدأ مجاناً — ١٤ يوم</button></Link>
-            <button style={{ padding:"14px 26px",borderRadius:10,background:G,border:`1px solid ${BD}`,color:T,fontSize:15,cursor:"pointer" }}>▶ شاهد كيف يعمل</button>
+            <Link href={`${BASE}/demo-login`}><button style={{ padding:"14px 24px",borderRadius:10,background:"#EEF2FF",border:`1px solid #C7D2FE`,color:B,fontSize:15,cursor:"pointer",fontWeight:700 }}>🎭 جرّب المنصة</button></Link>
           </div>
           <DashPreview/>
         </div>

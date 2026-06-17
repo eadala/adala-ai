@@ -1,4 +1,6 @@
 import { Router, type IRouter } from "express";
+import twoFactorRouter from "../modules/auth/twoFactor";
+import demoRouter      from "../modules/platform/demoMode";
 
 // ── Monitoring & Health ──────────────────────────────────────────────────────
 import healthRouter            from "../modules/monitoring/health";
@@ -232,6 +234,10 @@ router.use(whatsappRouter);
 router.use(telegramRouter);
 router.use(pushRouter);
 router.use(webhookRouter);
+
+// Auth extensions (2FA + Demo)
+router.use("/2fa",  twoFactorRouter);
+router.use("/demo", demoRouter);
 
 // Marketplace
 router.use(marketplaceRouter);

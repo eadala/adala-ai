@@ -117,9 +117,9 @@ export function LandingStripe() {
             <span style={{ background:`linear-gradient(135deg,${B} 0%,${B2} 100%)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>الأذكى والأسهل</span>
           </h1>
           <p style={{ fontSize:18,color:S,maxWidth:540,margin:"0 auto 40px",lineHeight:1.9 }}>كل ما يحتاجه مكتبك — قضايا، عملاء، فواتير، عقود، تقارير — في منصة واحدة بالذكاء الاصطناعي</p>
-          <div style={{ display:"flex",gap:12,justifyContent:"center",marginBottom:56 }}>
+          <div style={{ display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap",marginBottom:56 }}>
             <Link href={`${BASE}/sign-up`}><button style={{padding:"14px 32px",borderRadius:10,background:B,border:"none",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:`0 6px 24px ${B}33`}}>ابدأ الآن مجاناً</button></Link>
-            <button style={{ padding:"14px 28px",borderRadius:10,background:G,border:`1px solid ${BD}`,color:T,fontSize:15,cursor:"pointer" }}>تحدّث مع المبيعات</button>
+            <Link href={`${BASE}/demo-login`}><button style={{ padding:"14px 24px",borderRadius:10,background:"#EEF2FF",border:`1px solid #C7D2FE`,color:B,fontSize:15,cursor:"pointer",fontWeight:700 }}>🎭 جرّب المنصة</button></Link>
           </div>
           <div style={{ display:"flex",gap:0,borderTop:`1px solid ${BD}`,paddingTop:32,justifyContent:"center" }}>
             {[["+٢٠٠","مكتب قانوني"],["٩٨٪","رضا العملاء"],["٣×","أسرع في الإنجاز"],["٢٤/٧","دعم متواصل"]].map(([v,l],i)=>(

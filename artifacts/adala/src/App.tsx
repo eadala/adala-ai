@@ -147,6 +147,10 @@ const SecurityPage         = lazy(() => import("@/pages/security"));
 const ReferralPage         = lazy(() => import("@/pages/marketplace/referral"));
 const NotFound             = lazy(() => import("@/pages/not-found"));
 
+// Security
+const TwoFactorSetup       = lazy(() => import("@/pages/2fa-setup"));
+const TwoFactorVerify      = lazy(() => import("@/pages/2fa-verify"));
+
 // ── Query client ───────────────────────────────────────────────────────────────
 // staleTime=5min: data is fresh for 5 minutes, no duplicate network calls
 // gcTime=30min: cached data stays in memory for 30 minutes after last use
@@ -604,6 +608,10 @@ function AppRoutes() {
             <Route path="/marketplace"><ProtectedRoute><Marketplace /></ProtectedRoute></Route>
             <Route path="/billing"><ProtectedRoute><Billing /></ProtectedRoute></Route>
             <Route path="/upgrade"><ProtectedRoute><Suspense fallback={<PageLoader />}><UpgradePage /></Suspense></ProtectedRoute></Route>
+
+            {/* Security */}
+            <Route path="/2fa-setup"><ProtectedRoute><TwoFactorSetup /></ProtectedRoute></Route>
+            <Route path="/2fa-verify"><PublicPage><TwoFactorVerify /></PublicPage></Route>
 
             {/* 404 */}
             <Route><Layout><Suspense fallback={<PageLoader />}><NotFound /></Suspense></Layout></Route>
