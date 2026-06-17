@@ -361,22 +361,24 @@ export default function Landing() {
       ══════════════════════════════════════════════════════════ */}
       <nav className="fixed top-0 inset-x-0 z-50 transition-all duration-300"
         style={{
-          background: scrolled ? "rgba(255,255,255,0.96)" : "transparent",
-          backdropFilter: scrolled ? "blur(12px)" : "none",
-          borderBottom: scrolled ? `1px solid ${BORDER}` : "none",
+          background: scrolled
+            ? "rgba(255,255,255,0.96)"
+            : "rgba(255,255,255,0.88)",   /* always visible on mobile */
+          backdropFilter: "blur(12px)",
+          borderBottom: `1px solid ${scrolled ? BORDER : "rgba(229,231,235,0.6)"}`,
           boxShadow: scrolled ? "0 1px 12px rgba(11,31,59,0.06)" : "none",
         }}>
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo */}
           <Link href="/">
-            <div className="flex items-center gap-2.5 cursor-pointer select-none">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+            <div className="flex items-center gap-2 cursor-pointer select-none">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0"
                 style={{ background: ACCENT, boxShadow: `0 4px 12px rgba(37,99,235,0.35)` }}>
-                <Scale className="w-5 h-5 text-white" />
+                <Scale className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div>
-                <span className="font-black text-lg" style={{ color: DARK }}>عدالة <span style={{ color: ACCENT }}>AI</span></span>
-                <div className="text-[10px] leading-none" style={{ color: MUTED }}>منصة قانونية ذكية</div>
+                <span className="font-black text-base sm:text-lg" style={{ color: DARK }}>عدالة <span style={{ color: ACCENT }}>AI</span></span>
+                <div className="hidden sm:block text-[10px] leading-none" style={{ color: MUTED }}>منصة قانونية ذكية</div>
               </div>
             </div>
           </Link>
@@ -558,28 +560,6 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Feature quick strip */}
-        <FadeIn delay={0.3} className="relative w-full max-w-7xl mx-auto mt-16 pt-10"
-          style={{ borderTop: `1px solid ${BORDER}` }}>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[
-              { icon: <Scale className="w-5 h-5" />,        label: "إدارة القضايا والملفات القانونية",  color: ACCENT   },
-              { icon: <Users className="w-5 h-5" />,        label: "إدارة العملاء والعلاقات",            color: "#4F46E5" },
-              { icon: <FileText className="w-5 h-5" />,     label: "العقود والمستندات والأرشفة الذكية", color: "#0891B2" },
-              { icon: <Receipt className="w-5 h-5" />,      label: "الفوترة والمحاسبة والتحصيل",        color: WARN      },
-              { icon: <UserCheck className="w-5 h-5" />,    label: "الموارد البشرية وإدارة الموظفين",   color: "#7C3AED" },
-              { icon: <Bot className="w-5 h-5" />,          label: "مساعد قانوني بالذكاء الاصطناعي",   color: SUCCESS   },
-              { icon: <Globe className="w-5 h-5" />,        label: "موقع إلكتروني ومتجر خدمات قانونية",color: "#0891B2" },
-              { icon: <BarChart3 className="w-5 h-5" />,    label: "تقارير ولوحات تحكم لحظية",          color: "#DC2626" },
-            ].map((f, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl"
-                style={{ background: WHITE, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                <span style={{ color: f.color }}>{f.icon}</span>
-                <span className="text-xs font-medium leading-tight" style={{ color: BODY }}>{f.label}</span>
-              </div>
-            ))}
-          </div>
-        </FadeIn>
       </section>
 
       {/* ══════════════════════════════════════════════════════════
@@ -946,9 +926,8 @@ export default function Landing() {
                 ابدأ رحلتك مع<br />
                 <span style={{ color: ACCENT_T }}>عدالة AI اليوم</span>
               </h2>
-              <p className="text-lg mb-10 max-w-2xl mx-auto" style={{ color: "rgba(255,255,255,0.60)", lineHeight: "1.75" }}>
-                إدارة القضايا والعملاء والعقود والفواتير والمحاسبة والموارد البشرية والذكاء الاصطناعي
-                — كل شيء في منصة واحدة، سحابية، آمنة، وجاهزة للنمو العالمي.
+              <p className="text-lg mb-10 max-w-xl mx-auto" style={{ color: "rgba(255,255,255,0.60)", lineHeight: "1.75" }}>
+                لا عقود طويلة. لا بطاقة ائتمان. فقط أنشئ حسابك وابدأ في 5 دقائق.
               </p>
 
               <div className="flex flex-col items-center gap-4">
