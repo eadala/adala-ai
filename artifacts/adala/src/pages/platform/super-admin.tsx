@@ -46,6 +46,7 @@ const LandingDesignTab          = lazy(() => import("@/features/super-admin/tabs
 const InfrastructureTab         = lazy(() => import("@/features/super-admin/tabs/InfrastructureTab").then(m => ({ default: m.InfrastructureTab })));
 const DataVaultTab              = lazy(() => import("@/features/super-admin/tabs/DataVaultTab").then(m => ({ default: m.DataVaultTab })));
 const InvestorTab               = lazy(() => import("@/features/super-admin/tabs/InvestorTab").then(m => ({ default: m.InvestorTab })));
+const DeploymentCenterTab       = lazy(() => import("@/features/super-admin/tabs/DeploymentCenterTab").then(m => ({ default: m.DeploymentCenterTab })));
 
 function TabFallback() {
   return (
@@ -234,6 +235,11 @@ export default function SuperAdmin() {
         <TabsContent value="investor" className="mt-4">
           <Suspense fallback={<TabFallback />}>
             <InvestorTab />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="deployment" className="mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <DeploymentCenterTab />
           </Suspense>
         </TabsContent>
       </Tabs>
