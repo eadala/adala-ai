@@ -377,13 +377,22 @@ export default function Landing() {
                 {n.label}
               </a>
             ))}
-            <Link href={`${BASE}/demo-login`}>
-              <button className="w-full mt-2 py-3 rounded-xl text-sm font-bold transition-all"
-                style={{ background: ACCENT_L, color: ACCENT, border: `1px solid ${ACCENT_T}` }}
-                onClick={() => setMenuOpen(false)}>
-                {isAr ? "🎭 جرّب تجريبياً" : "🎭 Try Demo"}
-              </button>
-            </Link>
+            <div className="flex flex-col gap-2 mt-2">
+              <Link href={`${BASE}/sign-in`}>
+                <button className="w-full py-3 rounded-xl text-sm font-bold transition-all"
+                  style={{ background: ACCENT, color: WHITE, boxShadow: `0 4px 12px rgba(37,99,235,0.25)` }}
+                  onClick={() => setMenuOpen(false)}>
+                  {isAr ? "تسجيل الدخول" : "Sign In"}
+                </button>
+              </Link>
+              <Link href={`${BASE}/demo-login`}>
+                <button className="w-full py-3 rounded-xl text-sm font-semibold transition-all"
+                  style={{ background: ACCENT_L, color: ACCENT, border: `1px solid ${ACCENT_T}` }}
+                  onClick={() => setMenuOpen(false)}>
+                  {isAr ? "🎯 جرّب بيئة المحاكاة" : "🎯 Try Simulation"}
+                </button>
+              </Link>
+            </div>
           </div>
         )}
       </nav>
@@ -426,22 +435,36 @@ export default function Landing() {
               {c("hero", "subtitle", t("landing.hero.subtitle"))}
             </p>
 
-            {/* CTA buttons — exactly 2 */}
-            <div className="lp-hero-3 flex flex-wrap gap-3 mb-8">
-              <Link href={`${BASE}/sign-up`}>
-                <button className="flex items-center gap-2 font-bold px-7 py-3.5 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
-                  style={{ background: ACCENT, color: WHITE, boxShadow: `0 8px 28px rgba(37,99,235,0.30)`, height: "48px" }}>
-                  {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
-                  {t("landing.startFree")}
-                </button>
-              </Link>
-              <Link href={`${BASE}/demo-login`}>
-                <button className="flex items-center gap-2 font-semibold px-7 py-3.5 rounded-xl text-base border-2 transition-all hover:bg-slate-50"
-                  style={{ borderColor: BORDER2, color: DARK, background: WHITE, height: "48px" }}>
-                  <Play className="w-4 h-4" style={{ color: ACCENT }} />
-                  {isAr ? "جرّب المنصة" : "Try Demo"}
-                </button>
-              </Link>
+            {/* CTA buttons — 3-path hierarchy */}
+            <div className="lp-hero-3 space-y-3 mb-8">
+              {/* Primary: ابدأ مكتبك الآن */}
+              <div className="flex flex-wrap gap-3">
+                <Link href={`${BASE}/sign-up`}>
+                  <button className="flex items-center gap-2.5 font-bold px-8 py-3.5 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
+                    style={{ background: ACCENT, color: WHITE, boxShadow: `0 8px 28px rgba(37,99,235,0.35)`, height: "52px" }}>
+                    {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+                    {isAr ? "ابدأ مكتبك الآن" : "Start Your Office Now"}
+                  </button>
+                </Link>
+                {/* Secondary: بيئة المحاكاة */}
+                <Link href={`${BASE}/demo-login`}>
+                  <button className="flex items-center gap-2 font-semibold px-6 py-3.5 rounded-xl text-base border-2 transition-all hover:bg-slate-50 hover:border-slate-300"
+                    style={{ borderColor: BORDER2, color: DARK, background: WHITE, height: "52px" }}>
+                    <Play className="w-4 h-4 flex-shrink-0" style={{ color: ACCENT }} />
+                    {isAr ? "جرّب بيئة المحاكاة" : "Try Simulation"}
+                  </button>
+                </Link>
+              </div>
+              {/* Tertiary: sign-in link — for existing users */}
+              <p className="text-sm" style={{ color: MUTED }}>
+                {isAr ? "لديك حساب؟ " : "Already have an account? "}
+                <Link href={`${BASE}/sign-in`}>
+                  <span className="font-semibold underline underline-offset-2 cursor-pointer transition-colors hover:opacity-70"
+                    style={{ color: ACCENT }}>
+                    {isAr ? "سجّل دخولك" : "Sign in"}
+                  </span>
+                </Link>
+              </p>
             </div>
 
             {/* Trust signals */}
@@ -561,13 +584,22 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
-              <Link href={`${BASE}/demo-login`}>
-                <button className="inline-flex items-center gap-2 font-bold px-6 py-3 rounded-xl text-sm transition-all hover:opacity-90"
-                  style={{ background: ACCENT, color: WHITE, boxShadow: `0 4px 16px rgba(37,99,235,0.25)` }}>
-                  <Play className="w-4 h-4" />
-                  {isAr ? "جرّب الآن مجاناً" : "Try Now — Free"}
-                </button>
-              </Link>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link href={`${BASE}/sign-up`}>
+                  <button className="inline-flex items-center gap-2 font-bold px-6 py-3 rounded-xl text-sm transition-all hover:opacity-90 hover:scale-[1.02]"
+                    style={{ background: ACCENT, color: WHITE, boxShadow: `0 4px 16px rgba(37,99,235,0.25)` }}>
+                    {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+                    {isAr ? "ابدأ مكتبك الآن" : "Start Your Office"}
+                  </button>
+                </Link>
+                <Link href={`${BASE}/demo-login`}>
+                  <button className="inline-flex items-center gap-2 font-semibold px-5 py-3 rounded-xl text-sm border-2 transition-all hover:bg-slate-50"
+                    style={{ borderColor: BORDER2, color: DARK, background: WHITE }}>
+                    <Play className="w-3.5 h-3.5" style={{ color: ACCENT }} />
+                    {isAr ? "جرّب المحاكاة" : "Try Demo"}
+                  </button>
+                </Link>
+              </div>
             </FadeIn>
 
             <FadeIn delay={0.15}>
@@ -712,20 +744,33 @@ export default function Landing() {
               <p className="text-lg mb-10 max-w-xl mx-auto" style={{ color: "rgba(255,255,255,0.65)", lineHeight: "1.75" }}>
                 {c("cta_section", "subtitle", t("landing.cta.subtitle"))}
               </p>
-              <div className="flex flex-wrap justify-center gap-4">
-                <Link href={`${BASE}/sign-up`}>
-                  <button className="flex items-center gap-2 font-bold px-8 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02]"
-                    style={{ background: ACCENT, color: WHITE, boxShadow: `0 8px 28px rgba(37,99,235,0.40)`, height: "56px" }}>
-                    {isAr ? <ArrowLeft className="w-5 h-5" /> : <ArrowRight className="w-5 h-5" />}
-                    {isAr ? "أنشئ مكتبك الآن" : "Create Your Office Now"}
-                  </button>
-                </Link>
-                <Link href={`${BASE}/demo-login`}>
-                  <button className="flex items-center gap-2 font-semibold px-8 py-4 rounded-xl text-base transition-all hover:bg-white/10"
-                    style={{ color: WHITE, border: "2px solid rgba(255,255,255,0.20)", height: "56px" }}>
-                    {isAr ? "جرّب تجريبياً" : "Try Demo"}
-                  </button>
-                </Link>
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex flex-wrap justify-center gap-4">
+                  <Link href={`${BASE}/sign-up`}>
+                    <button className="flex items-center gap-2 font-bold px-8 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02]"
+                      style={{ background: ACCENT, color: WHITE, boxShadow: `0 8px 28px rgba(37,99,235,0.40)`, height: "56px" }}>
+                      {isAr ? <ArrowLeft className="w-5 h-5" /> : <ArrowRight className="w-5 h-5" />}
+                      {isAr ? "ابدأ مكتبك الآن" : "Start Your Office Now"}
+                    </button>
+                  </Link>
+                  <Link href={`${BASE}/demo-login`}>
+                    <button className="flex items-center gap-2 font-semibold px-8 py-4 rounded-xl text-base transition-all hover:bg-white/10"
+                      style={{ color: WHITE, border: "2px solid rgba(255,255,255,0.20)", height: "56px" }}>
+                      <Play className="w-4 h-4" />
+                      {isAr ? "جرّب بيئة المحاكاة" : "Try Simulation"}
+                    </button>
+                  </Link>
+                </div>
+                {/* Sign-in tertiary link */}
+                <p className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  {isAr ? "لديك حساب؟ " : "Already have an account? "}
+                  <Link href={`${BASE}/sign-in`}>
+                    <span className="font-semibold underline underline-offset-2 cursor-pointer transition-opacity hover:opacity-70"
+                      style={{ color: "rgba(255,255,255,0.75)" }}>
+                      {isAr ? "سجّل دخولك" : "Sign in"}
+                    </span>
+                  </Link>
+                </p>
               </div>
               {/* Trust strip */}
               <div className="mt-10 flex items-center justify-center gap-6 flex-wrap">
