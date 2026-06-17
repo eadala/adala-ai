@@ -593,148 +593,129 @@ export default function Landing() {
       </nav>
 
       {/* ══════════════════════════════════════════════════════════
-          1. HERO SECTION
+          1. HERO SECTION — Spur-style: centered copy + full-width product
       ══════════════════════════════════════════════════════════ */}
-      <section id="hero" className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-24 pb-16 overflow-hidden"
-        style={{ background: `linear-gradient(160deg, ${WHITE} 0%, ${ACCENT_L} 55%, ${WHITE} 100%)` }}>
+      <section id="hero" className="relative flex flex-col items-center px-6 pt-28 pb-0 overflow-hidden"
+        style={{ background: BG }}>
 
-        {/* Decorative blobs */}
+        {/* Decorative blobs + grid */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-1/4 right-1/3 w-[600px] h-[600px] rounded-full blur-[160px]"
-            style={{ background: ACCENT_M, opacity: 0.6 }} />
-          <div className="absolute bottom-1/4 left-1/4 w-96 h-96 rounded-full blur-[120px]"
-            style={{ background: "#E0E7FF", opacity: 0.5 }} />
-          <div className="absolute inset-0 opacity-[0.02]"
-            style={{ backgroundImage: `linear-gradient(${DARK} 1px, transparent 1px), linear-gradient(90deg, ${DARK} 1px, transparent 1px)`, backgroundSize: "64px 64px" }} />
+          <div className="absolute top-0 right-1/4 w-[700px] h-[700px] rounded-full blur-[200px]"
+            style={{ background: ACCENT_M, opacity: 0.55 }} />
+          <div className="absolute top-10 left-1/4 w-[500px] h-[500px] rounded-full blur-[160px]"
+            style={{ background: "#E0E7FF", opacity: 0.45 }} />
+          <div className="absolute inset-0 opacity-[0.025]"
+            style={{ backgroundImage: `linear-gradient(${DARK} 1px, transparent 1px), linear-gradient(90deg, ${DARK} 1px, transparent 1px)`, backgroundSize: "60px 60px" }} />
         </div>
 
-        <div className="relative max-w-7xl mx-auto w-full grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+        <div className="relative w-full max-w-4xl mx-auto flex flex-col items-center text-center">
 
-          {/* ── Left: Copy ──────────────────────────────────────── */}
-          <div className="text-right">
-
-            {/* Category badge */}
-            <div className="lp-hero-0 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-6"
-              style={{ background: ACCENT_M, border: `1px solid ${ACCENT_T}`, color: ACCENT }}>
-              <Sparkles className="w-3.5 h-3.5" />
-              منصة SaaS قانونية متكاملة للمكاتب القانونية حول العالم
-            </div>
-
-            {/* H1 — Big marketing headline */}
-            <h1 className="lp-hero-1 font-black leading-[1.15] mb-5"
-              style={{ fontSize: "clamp(32px, 5vw, 56px)", color: DARK, letterSpacing: "-0.02em" }}>
-              كل ما يحتاجه<br />
-              مكتب المحاماة<br />
-              <span style={{ color: ACCENT }}>في منصة واحدة</span>
-            </h1>
-
-            {/* H2 — Value proposition */}
-            <p className="lp-hero-2 text-xl font-semibold mb-4" style={{ color: DARK }}>
-              إدارة قانونية أكثر ذكاءً مدعومة بالذكاء الاصطناعي
-            </p>
-
-            {/* Description */}
-            <p className="lp-hero-2 text-base mb-8 leading-[1.85] max-w-xl" style={{ color: BODY }}>
-              عدالة AI منصة متكاملة لإدارة وتشغيل المكاتب القانونية والشركات القانونية من مكان واحد.
-              تجمع إدارة القضايا والعملاء والعقود والمستندات والفوترة والمحاسبة والموارد البشرية
-              والأتمتة والذكاء الاصطناعي في نظام سحابي آمن وقابل للتوسع عالميًا.
-            </p>
-
-            {/* CTA — 3 levels */}
-            <div className="lp-hero-3 space-y-3 mb-8">
-              {/* Primary */}
-              <div className="flex flex-wrap gap-3">
-                <Link href={`${BASE}/sign-up`}>
-                  <button className="flex items-center gap-2.5 font-bold px-8 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
-                    style={{ background: ACCENT, color: WHITE, boxShadow: `0 8px 28px rgba(37,99,235,0.38)`, minHeight: 54 }}>
-                    <ArrowLeft className="w-4 h-4" />
-                    ابدأ مجاناً لمدة 90 يوماً
-                  </button>
-                </Link>
-                {/* Secondary */}
-                <Link href={`${BASE}/demo-login`}>
-                  <button className="flex items-center gap-2 font-semibold px-6 py-4 rounded-xl text-base border-2 transition-all hover:bg-slate-50 hover:border-slate-300"
-                    style={{ borderColor: BORDER2, color: DARK, background: WHITE, minHeight: 54 }}>
-                    <Play className="w-4 h-4 flex-shrink-0" style={{ color: ACCENT }} />
-                    احجز عرضاً تجريبياً
-                  </button>
-                </Link>
-              </div>
-              {/* Tertiary */}
-              <p className="text-sm" style={{ color: MUTED }}>
-                لديك حساب؟{" "}
-                <Link href={`${BASE}/sign-in`}>
-                  <span className="font-semibold underline underline-offset-2 cursor-pointer transition-colors hover:opacity-70"
-                    style={{ color: ACCENT }}>
-                    تسجيل الدخول
-                  </span>
-                </Link>
-              </p>
-            </div>
-
-            {/* Trust signals */}
-            <div className="lp-hero-4 flex items-center gap-5 flex-wrap">
-              {["بدون بطاقة ائتمان", "إعداد خلال 5 دقائق", "دعم عربي كامل", "SSL آمن 100%"].map(label => (
-                <span key={label} className="flex items-center gap-1.5 text-sm" style={{ color: MUTED }}>
-                  <Check className="w-3.5 h-3.5 shrink-0" style={{ color: SUCCESS }} />
-                  {label}
-                </span>
-              ))}
-            </div>
+          {/* Category badge */}
+          <div className="lp-hero-0 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-7"
+            style={{ background: ACCENT_M, border: `1px solid ${ACCENT_T}`, color: ACCENT }}>
+            <Sparkles className="w-3.5 h-3.5" />
+            منصة SaaS قانونية متكاملة للمكاتب القانونية حول العالم
           </div>
 
-          {/* ── Right: Dashboard preview ─────────────────────── */}
-          <div className="lp-hero-mock w-full">
-            <div className="relative pt-6 pb-6">
+          {/* H1 */}
+          <h1 className="lp-hero-1 font-black leading-[1.12] mb-6"
+            style={{ fontSize: "clamp(38px, 5.5vw, 64px)", color: DARK, letterSpacing: "-0.025em" }}>
+            أدِر مكتبك القانوني<br />
+            <span style={{ color: ACCENT }}>بذكاء اصطناعي حقيقي</span>
+          </h1>
 
-              {/* Floating chip — top right */}
-              <div className="absolute -top-1 right-2 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold"
-                style={{ background: WHITE, border: `1px solid ${BORDER}`, color: SUCCESS, boxShadow: "0 8px 24px rgba(0,0,0,0.10)" }}>
-                <CheckCircle className="w-3.5 h-3.5 shrink-0" style={{ color: SUCCESS }} />
-                بيانات حقيقية مباشرة
-              </div>
+          {/* Description */}
+          <p className="lp-hero-2 text-lg mb-10 leading-[1.85] max-w-2xl" style={{ color: BODY }}>
+            قضايا، عملاء، عقود، فواتير، محاسبة، وموارد بشرية — كلها مع مساعد AI يعمل بالعربية على مدار الساعة.
+          </p>
 
-              {/* Floating chip — top left */}
-              <div className="absolute -top-1 left-2 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold"
-                style={{ background: WHITE, border: `1px solid ${BORDER}`, color: "#7C3AED", boxShadow: "0 8px 24px rgba(0,0,0,0.10)" }}>
-                <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: "#7C3AED" }} />
-                جلسة تمييز — بعد ساعتين
-              </div>
-
-              <DashboardMock />
-
-              {/* Floating chip — bottom left */}
-              <div className="absolute -bottom-1 left-2 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold"
-                style={{ background: DARK, color: WHITE, boxShadow: "0 8px 24px rgba(0,0,0,0.22)" }}>
-                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />
-                نشط الآن — ٤٧ مكتب
-              </div>
-
-              {/* Floating chip — bottom right */}
-              <div className="absolute -bottom-1 right-2 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold"
-                style={{ background: `${ACCENT}F0`, color: WHITE, boxShadow: `0 8px 24px rgba(37,99,235,0.30)` }}>
-                <Zap className="w-3.5 h-3.5 shrink-0" />
-                AI أنجز ١٢ مهمة اليوم
-              </div>
-
-            </div>
+          {/* CTAs */}
+          <div className="lp-hero-3 flex flex-wrap justify-center gap-3 mb-8">
+            <Link href={`${BASE}/sign-up`}>
+              <button className="flex items-center gap-2.5 font-bold px-8 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
+                style={{ background: ACCENT, color: WHITE, boxShadow: `0 8px 28px rgba(37,99,235,0.38)`, minHeight: 54 }}>
+                <ArrowLeft className="w-4 h-4" />
+                ابدأ مجاناً لمدة 90 يوماً
+              </button>
+            </Link>
+            <Link href={`${BASE}/demo-login`}>
+              <button className="flex items-center gap-2 font-semibold px-6 py-4 rounded-xl text-base border-2 transition-all hover:bg-white hover:border-slate-300"
+                style={{ borderColor: BORDER2, color: DARK, background: WHITE, minHeight: 54 }}>
+                <Play className="w-4 h-4 flex-shrink-0" style={{ color: ACCENT }} />
+                احجز عرضاً تجريبياً
+              </button>
+            </Link>
           </div>
+
+          {/* Trust signals */}
+          <div className="lp-hero-4 flex items-center justify-center gap-5 flex-wrap mb-14">
+            {["بدون بطاقة ائتمان", "إعداد خلال 5 دقائق", "دعم عربي كامل", "SSL آمن 100%"].map(label => (
+              <span key={label} className="flex items-center gap-1.5 text-sm" style={{ color: MUTED }}>
+                <Check className="w-3.5 h-3.5 shrink-0" style={{ color: SUCCESS }} />
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Full-width product mockup (Spur-style) ──────────── */}
+        <div className="lp-hero-mock relative w-full max-w-6xl mx-auto">
+
+          {/* Floating chip — top right */}
+          <div className="absolute -top-4 right-8 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold shadow-lg"
+            style={{ background: WHITE, border: `1px solid ${BORDER}`, color: SUCCESS }}>
+            <CheckCircle className="w-3.5 h-3.5 shrink-0" style={{ color: SUCCESS }} />
+            بيانات حقيقية مباشرة
+          </div>
+
+          {/* Floating chip — top left */}
+          <div className="absolute -top-4 left-8 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold shadow-lg"
+            style={{ background: WHITE, border: `1px solid ${BORDER}`, color: "#7C3AED" }}>
+            <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: "#7C3AED" }} />
+            جلسة تمييز — بعد ساعتين
+          </div>
+
+          {/* Floating chip — bottom left */}
+          <div className="absolute -bottom-4 left-8 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold shadow-xl"
+            style={{ background: DARK, color: WHITE }}>
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />
+            نشط الآن — ٤٧ مكتب
+          </div>
+
+          {/* Floating chip — bottom right */}
+          <div className="absolute -bottom-4 right-8 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold"
+            style={{ background: `${ACCENT}F0`, color: WHITE, boxShadow: `0 8px 24px rgba(37,99,235,0.30)` }}>
+            <Zap className="w-3.5 h-3.5 shrink-0" />
+            AI أنجز ١٢ مهمة اليوم
+          </div>
+
+          {/* Gradient fade at bottom so mockup blends into next section */}
+          <div className="absolute bottom-0 inset-x-0 h-24 z-10 pointer-events-none"
+            style={{ background: `linear-gradient(to bottom, transparent, ${PRIMARY})` }} />
+
+          <DashboardMock />
         </div>
 
       </section>
 
       {/* ══════════════════════════════════════════════════════════
-          2. STATS / PROOF NUMBERS
+          2. STATS / PROOF NUMBERS — Dark Premium cards
       ══════════════════════════════════════════════════════════ */}
-      <section style={{ background: PRIMARY, padding: "64px 24px" }}>
-        <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+      <section style={{ background: PRIMARY, padding: "72px 24px", position: "relative" }}>
+        {/* Subtle glow blobs */}
+        <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
+          <div style={{ position: "absolute", top: "50%", right: "20%", width: 400, height: 400, borderRadius: "50%", background: `${ACCENT}18`, filter: "blur(120px)", transform: "translateY(-50%)" }} />
+          <div style={{ position: "absolute", top: "50%", left: "20%", width: 300, height: 300, borderRadius: "50%", background: "#7C3AED18", filter: "blur(100px)", transform: "translateY(-50%)" }} />
+        </div>
+        <div className="max-w-5xl mx-auto relative">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
             {STATS.map(s => (
-              <div key={s.label}>
+              <div key={s.label} className="text-center py-7 px-4 rounded-2xl transition-transform hover:-translate-y-0.5"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                 <div className="text-4xl font-black mb-2" style={{ color: s.color }}>
                   <Counter to={s.to} suffix={s.suffix} locale={counterLocale} />
                 </div>
-                <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.55)" }}>{s.label}</p>
+                <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.50)" }}>{s.label}</p>
               </div>
             ))}
           </div>
