@@ -48,9 +48,9 @@ export function LandingBento() {
           <p style={{ fontSize:18,color:S,maxWidth:520,margin:"0 auto 36px",lineHeight:1.9 }}>
             منصة واحدة لإدارة القضايا والعملاء والفواتير والعقود، مدعومة بذكاء اصطناعي يفهم القانون السعودي
           </p>
-          <div style={{ display:"flex",gap:10,justifyContent:"center",marginBottom:52 }}>
+          <div style={{ display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap",marginBottom:52 }}>
             <Link href={`${BASE}/sign-up`}><button style={{padding:"12px 28px",borderRadius:10,background:B,border:"none",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:`0 4px 18px ${B}33`}}>ابدأ مجاناً — ١٤ يوم</button></Link>
-            <button style={{ padding:"12px 24px",borderRadius:10,background:"#fff",border:`1px solid ${BD}`,color:T,fontSize:15,cursor:"pointer" }}>شاهد العرض ▶</button>
+            <Link href={`${BASE}/demo-login`}><button style={{ padding:"12px 24px",borderRadius:10,background:"#EEF2FF",border:`1px solid #C7D2FE`,color:B,fontSize:15,cursor:"pointer",fontWeight:700 }}>🎭 جرّب المنصة الآن</button></Link>
           </div>
           <div style={{ display:"flex",gap:10,justifyContent:"center" }}>
             {[["+٢٠٠ مكتب","🏢"],["٩٨٪ رضا","⭐"],["٣× أسرع","⚡"],["٢٤/٧ دعم","💬"]].map(([l,e])=>(

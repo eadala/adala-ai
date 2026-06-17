@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 import { createRoot } from "react-dom/client";
 import { Component } from "react";
 import type { ReactNode } from "react";
@@ -5,6 +6,17 @@ import App from "./App";
 import "./index.css";
 import "./print.css";
 import "./i18n/i18n";
+
+/* ── Sentry (frontend) — initialise once at app startup ─────────────────── */
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    environment: import.meta.env.MODE,
+    integrations: [Sentry.browserTracingIntegration()],
+    tracesSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
+  });
+}
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   constructor(props: { children: ReactNode }) {

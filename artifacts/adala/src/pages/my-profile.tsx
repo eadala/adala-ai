@@ -209,9 +209,10 @@ export default function MyProfilePage() {
                   </p>
                 </div>
               </div>
-              <span className={`text-xs px-2 py-1 rounded-full font-bold ${has2FA ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
-                {has2FA ? "نشط" : "معطّل"}
-              </span>
+              <button onClick={() => nav(`${BASE}/2fa-setup`)}
+                className={`text-xs font-bold hover:underline flex items-center gap-1 ${has2FA ? "text-emerald-600" : "text-amber-600"}`}>
+                {has2FA ? "إدارة" : "تفعيل"} <ArrowRight className="h-3 w-3" />
+              </button>
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50 border border-border/60">

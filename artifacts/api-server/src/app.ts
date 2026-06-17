@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import express, { type Express, type ErrorRequestHandler } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
@@ -19,6 +20,17 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { requestIdMiddleware } from "./middlewares/requestId";
 import { globalErrorHandler } from "./middlewares/errorHandler";
+import { registerSwaggerDocs } from "./docs/swagger";
+
+/* ── Sentry (backend) — initialise before Express ─────────────────────── */
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV ?? "development",
+    tracesSampleRate: 0.1,
+  });
+  logger.info("[Sentry] ✅ Backend monitoring active");
+}
 
 const app: Express = express();
 
@@ -205,5 +217,8 @@ app.use("/api", IsolationMiddleware);
 app.use("/api", router);
 app.use(preventionErrorHandler);
 app.use(globalErrorHandler);
+
+/* ── Swagger API docs (/api/docs) ─────────────────────────────────────── */
+registerSwaggerDocs(app);
 
 export default app;
