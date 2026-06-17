@@ -180,4 +180,36 @@ router.patch("/support/tickets/:id/close", requireAuth, async (req, res) => {
   }
 });
 
+/* ── PUBLIC: submit support request (no auth) ──────────────────── */
+router.post("/support/public-request", async (req, res) => {
+  try {
+    const {
+      name, email, phone = "", subject, body,
+      category = "general", priority = "medium",
+    } = req.body ?? {};
+    if (!name || !email || !subject || !body) {
+      return res.status(400).json({ error: "الاسم والبريد الإلكتروني والموضوع والتفاصيل مطلوبة" });
+    }
+
+    const phoneNote = phone ? `الهاتف: ${phone}` : "الهاتف: لم يذكر";
+    const fullBody  = `[طلب عام - ${name}] ${phoneNote}\n\n${body}`;
+
+    await db.insert(supportTicketsTable).values({
+      subject,
+      body:       fullBody,
+      status:     "open",
+      priority,
+      category,
+      userId:     null,
+      userEmail:  email,
+      userName:   name,
+      officeName: `زائر - ${phone || email}`,
+    });
+
+    res.json({ ok: true, message: "تم استلام طلبك بنجاح. سيتواصل معك فريق الدعم قريباً." });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
