@@ -92,71 +92,211 @@ function DashboardMock() {
     t("landing.dashboard.tab4"),
   ];
   const [active, setActive] = useState(0);
+  const NAV_DOTS = [
+    { color: ACCENT }, { color: "#4F46E5" }, { color: SUCCESS },
+    { color: WARN }, { color: "#7C3AED" }, { color: MUTED },
+  ];
   return (
-    <div className="rounded-2xl overflow-hidden"
-      style={{ border: `1px solid ${BORDER}`, background: WHITE, boxShadow: "0 20px 60px rgba(11,31,59,0.12), 0 4px 12px rgba(0,0,0,0.06)" }}>
-      <div className="flex items-center gap-2 px-4 py-3" style={{ background: BG2, borderBottom: `1px solid ${BORDER}` }}>
-        <div className="w-3 h-3 rounded-full" style={{ background: "#FC8181" }} />
-        <div className="w-3 h-3 rounded-full" style={{ background: WARN }} />
-        <div className="w-3 h-3 rounded-full" style={{ background: SUCCESS }} />
-        <div className="flex-1 mx-4 px-3 py-1 rounded-lg text-xs text-center"
-          style={{ background: WHITE, color: MUTED, border: `1px solid ${BORDER}` }}>
-          app.adalah-ai.sa
+    <div className="rounded-2xl overflow-hidden flex"
+      style={{ border: `1px solid ${BORDER}`, background: WHITE, boxShadow: "0 24px 80px rgba(11,31,59,0.16), 0 4px 16px rgba(0,0,0,0.08)" }}>
+
+      {/* Sidebar strip */}
+      <div className="hidden sm:flex flex-col items-center gap-3 py-4 px-2.5 shrink-0"
+        style={{ background: PRIMARY, width: 48, borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center mb-2" style={{ background: ACCENT }}>
+          <Scale className="w-3.5 h-3.5 text-white" />
         </div>
-      </div>
-      <div className="flex gap-1 px-4 pt-3 overflow-x-auto" style={{ borderBottom: `1px solid ${BORDER}`, scrollbarWidth: "none" }}>
-        {TABS.map((tab, i) => (
-          <button key={i} onClick={() => setActive(i)}
-            className="flex-shrink-0 px-3 py-2 text-xs font-semibold rounded-t transition-all"
-            style={{ color: active === i ? ACCENT : MUTED, borderBottom: active === i ? `2px solid ${ACCENT}` : "2px solid transparent" }}>
-            {tab}
-          </button>
+        {NAV_DOTS.map((d, i) => (
+          <div key={i} className="w-6 h-6 rounded-lg opacity-60" style={{ background: d.color + "30", border: `1px solid ${d.color}40` }} />
         ))}
       </div>
-      <div className="p-4 h-64 md:h-72" style={{ background: BG }}>
-        {active === 0 && (
-          <div className="grid grid-cols-2 gap-3 h-full">
-            {[
-              [t("landing.dashboard.openCases"),       "٤٧",  "#4F46E5"],
-              [t("landing.dashboard.upcomingSessions"), "١٢",  ACCENT],
-              [t("landing.dashboard.activeClients"),    "١٨٣", SUCCESS],
-              [t("landing.dashboard.pendingInvoices"),  "٨",   WARN],
-            ].map(([l, v, c]) => (
-              <div key={l as string} className="rounded-xl p-3 flex flex-col justify-between"
-                style={{ background: WHITE, border: `1px solid ${BORDER}`, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-                <p className="text-xs" style={{ color: MUTED }}>{l as string}</p>
-                <p className="text-2xl font-black" style={{ color: c as string }}>{v as string}</p>
-              </div>
-            ))}
+
+      {/* Main content */}
+      <div className="flex-1 min-w-0">
+        {/* Browser chrome */}
+        <div className="flex items-center gap-2 px-3 py-2.5" style={{ background: BG2, borderBottom: `1px solid ${BORDER}` }}>
+          <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#FC8181" }} />
+          <div className="w-2.5 h-2.5 rounded-full" style={{ background: WARN }} />
+          <div className="w-2.5 h-2.5 rounded-full" style={{ background: SUCCESS }} />
+          <div className="flex-1 mx-3 px-2 py-0.5 rounded-md text-[10px] text-center truncate"
+            style={{ background: WHITE, color: MUTED, border: `1px solid ${BORDER}` }}>
+            app.adalah-ai.sa
           </div>
-        )}
-        {active === 1 && (
-          <div className="space-y-2">
-            {[
-              ["قضية العقار - شركة الأمل",  "مفتوحة",     SUCCESS],
-              ["نزاع تجاري - حمدان المطيري", "قيد التنفيذ", WARN],
-              ["قضية عمالية - مصنع الخليج", "جلسة قريبة", "#4F46E5"],
-              ["عقد استشارة - شركة تقنية",  "مغلقة",      "#EF4444"],
-            ].map(([n, s, c]) => (
-              <div key={n as string} className="flex items-center justify-between p-3 rounded-xl"
-                style={{ background: WHITE, border: `1px solid ${BORDER}` }}>
-                <span className="text-xs" style={{ color: BODY }}>{n as string}</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: `${c as string}15`, color: c as string }}>{s as string}</span>
+        </div>
+        {/* Tabs */}
+        <div className="flex gap-0.5 px-3 pt-2 overflow-x-auto" style={{ borderBottom: `1px solid ${BORDER}`, scrollbarWidth: "none" }}>
+          {TABS.map((tab, i) => (
+            <button key={i} onClick={() => setActive(i)}
+              className="flex-shrink-0 px-2.5 py-1.5 text-[11px] font-semibold rounded-t transition-all"
+              style={{ color: active === i ? ACCENT : MUTED, borderBottom: active === i ? `2px solid ${ACCENT}` : "2px solid transparent" }}>
+              {tab}
+            </button>
+          ))}
+        </div>
+        {/* Tab content */}
+        <div className="p-3" style={{ background: BG, minHeight: 220 }}>
+          {active === 0 && (
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  [t("landing.dashboard.openCases"),       "٤٧",  "#4F46E5"],
+                  [t("landing.dashboard.upcomingSessions"), "١٢",  ACCENT],
+                  [t("landing.dashboard.activeClients"),    "١٨٣", SUCCESS],
+                  [t("landing.dashboard.pendingInvoices"),  "٨",   WARN],
+                ].map(([l, v, c]) => (
+                  <div key={l as string} className="rounded-xl p-2.5 flex flex-col justify-between"
+                    style={{ background: WHITE, border: `1px solid ${BORDER}` }}>
+                    <p className="text-[10px]" style={{ color: MUTED }}>{l as string}</p>
+                    <p className="text-xl font-black mt-1" style={{ color: c as string }}>{v as string}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-        {(active === 2 || active === 3 || active === 4) && (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: ACCENT_M }}>
-                <BarChart3 className="w-6 h-6" style={{ color: ACCENT }} />
+              {/* AI Insights mini card */}
+              <div className="rounded-xl p-3 flex items-start gap-2.5"
+                style={{ background: `${ACCENT}08`, border: `1px solid ${ACCENT}20` }}>
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{ background: ACCENT_M }}>
+                  <Sparkles className="w-3 h-3" style={{ color: ACCENT }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold mb-0.5" style={{ color: ACCENT }}>توصية AI</p>
+                  <p className="text-[10px] leading-relaxed" style={{ color: BODY }}>
+                    قضية "العمري vs شركة النور" — الجلسة القادمة بعد ٣ أيام. يُوصى بتحضير مستند الدفوع.
+                  </p>
+                </div>
               </div>
-              <p className="text-sm font-medium" style={{ color: DARK }}>{TABS[active]}</p>
-              <p className="text-xs mt-1" style={{ color: MUTED }}>بيانات حية ومحدّثة</p>
             </div>
+          )}
+          {active === 1 && (
+            <div className="space-y-1.5">
+              {[
+                ["قضية العقار - شركة الأمل",  "مفتوحة",     SUCCESS],
+                ["نزاع تجاري - حمدان المطيري", "قيد التنفيذ", WARN],
+                ["قضية عمالية - مصنع الخليج", "جلسة قريبة", "#4F46E5"],
+                ["عقد استشارة - شركة تقنية",  "مغلقة",      "#EF4444"],
+              ].map(([n, s, c]) => (
+                <div key={n as string} className="flex items-center justify-between p-2.5 rounded-xl"
+                  style={{ background: WHITE, border: `1px solid ${BORDER}` }}>
+                  <span className="text-[11px] truncate ml-2" style={{ color: BODY }}>{n as string}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: `${c as string}15`, color: c as string }}>{s as string}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {(active === 2 || active === 3 || active === 4) && (
+            <div className="h-full flex items-center justify-center py-10">
+              <div className="text-center">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2" style={{ background: ACCENT_M }}>
+                  <BarChart3 className="w-5 h-5" style={{ color: ACCENT }} />
+                </div>
+                <p className="text-xs font-medium" style={{ color: DARK }}>{TABS[active]}</p>
+                <p className="text-[10px] mt-1" style={{ color: MUTED }}>بيانات حية ومحدّثة</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── AI Chat Mock — animated live conversation ───────────────────── */
+function AIChatMock() {
+  // phase drives which messages are visible
+  const [phase, setPhase] = useState(0);
+  // 0=empty 1=user1 2=typing1 3=ai1 4=user2 5=typing2 6=ai2 7=action 8=pause→reset
+  const DELAYS = [700, 800, 1600, 1000, 800, 1700, 800, 3200];
+  useEffect(() => {
+    const d = DELAYS[Math.min(phase, DELAYS.length - 1)];
+    const t = setTimeout(() => setPhase(p => (p >= 8 ? 0 : p + 1)), d);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  const Bubble = ({ children, fromUser, isAction }: { children: React.ReactNode; fromUser?: boolean; isAction?: boolean }) => {
+    if (isAction) return (
+      <div className="flex justify-center">
+        <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold"
+          style={{ background: "rgba(16,185,129,0.15)", color: "#34D399", border: "1px solid rgba(16,185,129,0.2)" }}>
+          <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+          {children}
+        </div>
+      </div>
+    );
+    return (
+      <div className={`flex ${fromUser ? "justify-start" : "justify-end"}`}>
+        <div className="max-w-[88%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed text-right"
+          style={fromUser
+            ? { background: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.85)", borderRadius: "16px 16px 16px 4px" }
+            : { background: ACCENT, color: WHITE, borderRadius: "16px 16px 4px 16px" }}>
+          {children}
+        </div>
+      </div>
+    );
+  };
+
+  const TypingDots = () => (
+    <div className="flex justify-end">
+      <div className="px-4 py-3 rounded-2xl flex items-center gap-1.5" style={{ background: ACCENT, borderRadius: "16px 16px 4px 16px" }}>
+        {[0, 1, 2].map(i => (
+          <span key={i} className="w-2 h-2 rounded-full bg-white animate-bounce"
+            style={{ animationDelay: `${i * 0.18}s`, animationDuration: "0.9s" }} />
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="rounded-2xl overflow-hidden flex flex-col"
+      style={{ background: PRIMARY, border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 24px 80px rgba(11,31,59,0.35)" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: ACCENT, boxShadow: `0 4px 12px rgba(37,99,235,0.4)` }}>
+            <Bot className="w-5 h-5 text-white" />
           </div>
+          <div>
+            <p className="font-bold text-white text-sm">المساعد القانوني — عدالة AI</p>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.38)" }}>مدعوم بـ Gemini + Claude</p>
+          </div>
+        </div>
+        <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "#34D399" }}>
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          متصل
+        </span>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 px-4 py-4 space-y-3" style={{ minHeight: 260 }}>
+        {phase >= 1 && (
+          <Bubble fromUser>اكتب لي عقد إيجار تجاري لمحل في الرياض لمدة سنتين</Bubble>
         )}
+        {phase === 2 && <TypingDots />}
+        {phase >= 3 && (
+          <Bubble>
+            <p className="font-semibold mb-1">تم إنشاء عقد الإيجار التجاري ✅</p>
+            <p className="text-xs opacity-75">١٤ بنداً • متوافق مع نظام الإيجار السعودي ١٤٤٣هـ • يشمل حقوق وضمانات الطرفين</p>
+          </Bubble>
+        )}
+        {phase >= 4 && (
+          <Bubble fromUser>أضف شرط غرامة تأخير 5% شهرياً</Bubble>
+        )}
+        {phase === 5 && <TypingDots />}
+        {phase >= 6 && (
+          <Bubble>تم إضافة البند ١٥: غرامة التأخير ✓ — العقد محدَّث وجاهز</Bubble>
+        )}
+        {phase >= 7 && (
+          <Bubble isAction>العقد جاهز للتوقيع الإلكتروني • تم الحفظ في ملف العميل</Bubble>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="px-4 pb-4">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
+          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <span className="flex-1 text-sm text-right" style={{ color: "rgba(255,255,255,0.25)" }}>اسأل المساعد القانوني...</span>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: ACCENT }}>
+            <ArrowLeft className="w-4 h-4 text-white" />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -545,17 +685,38 @@ export default function Landing() {
 
           {/* ── Right: Dashboard preview ─────────────────────── */}
           <div className="lp-hero-mock w-full">
-            <div className="relative">
-              <div className="absolute -top-3 -right-3 z-10 px-4 py-2.5 rounded-xl shadow-lg text-sm font-bold"
+            <div className="relative pt-6 pb-6">
+
+              {/* Floating chip — top right */}
+              <div className="absolute -top-1 right-2 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold"
                 style={{ background: WHITE, border: `1px solid ${BORDER}`, color: SUCCESS, boxShadow: "0 8px 24px rgba(0,0,0,0.10)" }}>
-                ✓ بيانات حقيقية مباشرة
+                <CheckCircle className="w-3.5 h-3.5 shrink-0" style={{ color: SUCCESS }} />
+                بيانات حقيقية مباشرة
               </div>
-              <div className="absolute -bottom-3 -left-3 z-10 px-4 py-2.5 rounded-xl shadow-lg text-sm font-bold flex items-center gap-2"
-                style={{ background: DARK, color: WHITE, boxShadow: "0 8px 24px rgba(0,0,0,0.20)" }}>
-                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                نشط الآن
+
+              {/* Floating chip — top left */}
+              <div className="absolute -top-1 left-2 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold"
+                style={{ background: WHITE, border: `1px solid ${BORDER}`, color: "#7C3AED", boxShadow: "0 8px 24px rgba(0,0,0,0.10)" }}>
+                <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: "#7C3AED" }} />
+                جلسة تمييز — بعد ساعتين
               </div>
+
               <DashboardMock />
+
+              {/* Floating chip — bottom left */}
+              <div className="absolute -bottom-1 left-2 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold"
+                style={{ background: DARK, color: WHITE, boxShadow: "0 8px 24px rgba(0,0,0,0.22)" }}>
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />
+                نشط الآن — ٤٧ مكتب
+              </div>
+
+              {/* Floating chip — bottom right */}
+              <div className="absolute -bottom-1 right-2 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold"
+                style={{ background: `${ACCENT}F0`, color: WHITE, boxShadow: `0 8px 24px rgba(37,99,235,0.30)` }}>
+                <Zap className="w-3.5 h-3.5 shrink-0" />
+                AI أنجز ١٢ مهمة اليوم
+              </div>
+
             </div>
           </div>
         </div>
@@ -680,45 +841,9 @@ export default function Landing() {
               </FadeIn>
             </div>
 
-            {/* AI feature list visual */}
+            {/* AI Chat Mock — live animated */}
             <FadeIn delay={0.15}>
-              <div className="rounded-2xl overflow-hidden"
-                style={{ background: PRIMARY, border: `1px solid rgba(255,255,255,0.08)`, boxShadow: "0 20px 60px rgba(11,31,59,0.25)" }}>
-                <div className="px-6 pt-6 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: ACCENT }}>
-                      <Bot className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-white text-sm">المساعد القانوني الذكي</p>
-                      <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>مدعوم بـ Gemini + Claude</p>
-                    </div>
-                    <span className="mr-auto flex items-center gap-1.5 text-xs"
-                      style={{ color: "#34D399" }}>
-                      <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                      متصل
-                    </span>
-                  </div>
-                </div>
-                <div className="p-5 space-y-3">
-                  {[
-                    { q: "اكتب عقد إيجار تجاري بشروط حماية المستأجر", icon: "📝" },
-                    { q: "حلّل مخاطر قضية نزاع عمالي وأعطني توصيات", icon: "⚖️" },
-                    { q: "ابحث في قانون الشركات عن أحكام الاندماج", icon: "🔍" },
-                    { q: "أنشئ تقريراً مالياً لمكتبي خلال الربع الأخير", icon: "📊" },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-start gap-3 px-4 py-3 rounded-xl"
-                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                      <span className="text-lg shrink-0">{item.icon}</span>
-                      <span className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{item.q}</span>
-                      <ChevronRight className="w-4 h-4 shrink-0 mt-0.5" style={{ color: ACCENT_T }} />
-                    </div>
-                  ))}
-                  <div className="pt-2 px-1 text-xs text-center" style={{ color: "rgba(255,255,255,0.3)" }}>
-                    وأكثر من 50 حالة استخدام قانونية...
-                  </div>
-                </div>
-              </div>
+              <AIChatMock />
             </FadeIn>
           </div>
         </div>
