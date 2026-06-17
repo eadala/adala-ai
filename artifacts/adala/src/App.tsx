@@ -30,6 +30,9 @@ const Documents            = lazy(() => import("@/pages/legal-core/documents"));
 const Letters              = lazy(() => import("@/pages/legal-core/letters"));
 const Warnings             = lazy(() => import("@/pages/legal-core/warnings"));
 
+// Platform
+const BranchesPage         = lazy(() => import("@/pages/platform/branches"));
+
 // AI Suite
 const AiTasks              = lazy(() => import("@/pages/ai/ai-tasks"));
 const AIRouterDashboard    = lazy(() => import("@/pages/ai/ai-router-dashboard"));
@@ -724,6 +727,7 @@ function AppRoutes() {
             <Route path="/hr-center"><ProtectedRoute><HRCenter /></ProtectedRoute></Route>
             <Route path="/hr-enterprise"><ProtectedRoute><HREnterprise /></ProtectedRoute></Route>
             <Route path="/hr-systems"><ProtectedRoute><HRSystems /></ProtectedRoute></Route>
+            <Route path="/branches"><ProtectedRoute><BranchesPage /></ProtectedRoute></Route>
             <Route path="/org-structure"><ProtectedRoute><OrgStructure /></ProtectedRoute></Route>
 
             {/* Analytics & Calendar */}
