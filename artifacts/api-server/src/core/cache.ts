@@ -21,7 +21,7 @@ class InMemoryCache {
   private store = new Map<string, CacheEntry<unknown>>();
   private sweepIntervalMs: number;
 
-  constructor(sweepIntervalMs = 60_000) {
+  constructor(sweepIntervalMs = 30_000) {
     this.sweepIntervalMs = sweepIntervalMs;
     // Periodic sweep to free memory of expired entries
     const sweep = () => {
