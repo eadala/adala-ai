@@ -91,7 +91,8 @@ import dataVaultRouter       from "../modules/platform/dataVault";
 import platformCommandRouter from "../modules/platform/platformCommand";
 import agentRuntimeRouter    from "../modules/platform/agentRuntime";
 import importDataRouter      from "../modules/platform/importData";
-import investorMetricsRouter from "../modules/platform/investorMetrics";
+import investorMetricsRouter  from "../modules/platform/investorMetrics";
+import deploymentCenterRouter from "../modules/platform/deploymentCenter";
 import officeApiKeysRouter   from "../modules/platform/officeApiKeys";
 import controlTowerRouter    from "../modules/platform/control-tower";
 import saasOsRouter          from "../modules/platform/saas-os";
@@ -230,6 +231,7 @@ router.use(officeApiKeysRouter);
 router.use(controlTowerRouter);
 router.use(saasOsRouter);
 router.use(investorMetricsRouter);
+router.use(deploymentCenterRouter);
 
 // Integrations
 router.use(emailRouter);
