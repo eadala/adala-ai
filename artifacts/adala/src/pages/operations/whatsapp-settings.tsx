@@ -226,7 +226,7 @@ export default function WhatsAppSettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>رقم الهاتف</Label>
-                <Input dir="ltr" placeholder="+966501234567 أو 0501234567"
+                <Input type="tel" dir="ltr" placeholder="+966501234567 أو 0501234567"
                   value={testPhone} onChange={e => setTestPhone(e.target.value)} />
               </div>
               <Button
@@ -272,7 +272,7 @@ export default function WhatsAppSettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>رقم الهاتف</Label>
-                <Input dir="ltr" placeholder="+966501234567 أو 0501234567"
+                <Input type="tel" dir="ltr" placeholder="+966501234567 أو 0501234567"
                   value={customTo} onChange={e => setCustomTo(e.target.value)} />
               </div>
               <div className="space-y-2">

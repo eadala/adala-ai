@@ -106,6 +106,7 @@ function BuyNowDialog({ service, onClose }: { service: Service; onClose: () => v
       toast({ title: "✅ تم إرسال طلبك بنجاح!", description: "سيتواصل معك فريق المكتب قريباً" });
       onClose();
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   return (
@@ -144,7 +145,7 @@ function BuyNowDialog({ service, onClose }: { service: Service; onClose: () => v
             </div>
             <div className="space-y-1">
               <Label className="text-xs">البريد الإلكتروني</Label>
-              <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" className="h-9 text-sm" dir="ltr" />
+              <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" className="h-9 text-sm" dir="ltr" />
             </div>
           </div>
           <div className="space-y-1">
@@ -204,6 +205,7 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
       setDealId(d.id);
       setStep("room");
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const DEAL_STATUS_CFG: Record<string, { label: string; color: string }> = {
@@ -249,7 +251,7 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">البريد الإلكتروني</Label>
-              <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" className="h-9 text-sm" dir="ltr" />
+              <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" className="h-9 text-sm" dir="ltr" />
             </div>
 
             {/* Price input */}
@@ -393,6 +395,7 @@ function AddServiceDialog({ onCreated }: { onCreated: () => void }) {
       setTitle(""); setDesc(""); setPrice(""); setDur(""); setTags(""); setAgreed(false);
       onCreated();
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   return (
@@ -482,6 +485,7 @@ function ServiceCard({
   service: Service; canEdit?: boolean;
   onDelete?: () => void; onBuyNow?: () => void; onNegotiate?: () => void;
 }) {
+  const { toast } = useToast();
   const qc = useQueryClient();
   const cat = CAT_MAP[service.category];
   const Icon = cat?.icon ?? Package;
@@ -492,7 +496,8 @@ function ServiceCard({
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !service.is_active }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["marketplace"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["marketplace"] }); toast({ title: "تم تحديث حالة الخدمة ✓" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   return (
@@ -629,6 +634,7 @@ function DealsDashboard() {
         body: JSON.stringify({ price: parseFloat(counterPrice[dealId] ?? "0"), message: counterMsg[dealId] || undefined }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["deal-detail", openDeal] }); qc.invalidateQueries({ queryKey: ["my-deals"] }); toast({ title: "تم إرسال الرد" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const acceptDeal = useMutation({
@@ -639,12 +645,14 @@ function DealsDashboard() {
       qc.invalidateQueries({ queryKey: ["deal-detail", openDeal] });
       toast({ title: "✅ تم قبول الصفقة", description: d.caseId ? "تم إنشاء القضية تلقائياً" : undefined });
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const rejectDeal = useMutation({
     mutationFn: (dealId: string) =>
       fetch(`${BASE}/api/marketplace/deals/${dealId}/reject`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-deals"] }); toast({ title: "تم رفض الصفقة" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const updateOrder = useMutation({
@@ -654,6 +662,7 @@ function DealsDashboard() {
         body: JSON.stringify({ status }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-orders"] }); toast({ title: "تم التحديث" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
@@ -868,6 +877,7 @@ export default function Marketplace() {
       qc.invalidateQueries({ queryKey: ["marketplace"] });
       qc.invalidateQueries({ queryKey: ["marketplace-my"] });
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const refresh = () => {

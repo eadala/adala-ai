@@ -195,7 +195,7 @@ export default function NotificationSettingsPage() {
                 <BellRing className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-black text-gray-900">إعدادات الإشعارات</h1>
+                <h1 className="text-xl font-black text-foreground">إعدادات الإشعارات</h1>
                 <p className="text-sm text-muted-foreground">خصّص الإشعارات التي تصلك لكل حدث وقناة</p>
               </div>
             </div>
@@ -318,9 +318,9 @@ export default function NotificationSettingsPage() {
                       const row = local[ev.type];
                       return (
                         <div key={ev.type}
-                          className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+                          className="flex items-center justify-between px-5 py-4 hover:bg-muted/30 transition-colors">
                           <div className="flex-1 min-w-0 ml-4">
-                            <p className="text-sm font-semibold text-gray-900">{ev.label}</p>
+                            <p className="text-sm font-semibold text-foreground">{ev.label}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">{ev.desc}</p>
                           </div>
                           <div className="flex items-center gap-8 shrink-0">

@@ -193,7 +193,7 @@ function SectionHeader({ title, desc, children }: { title: string; desc?: string
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border shadow-xl p-3 text-xs" style={{ background: "#F8FAFC", borderColor: "#E2E8F0" }}>
+    <div className="rounded-xl border shadow-xl p-3 text-xs" style={{ background: "hsl(var(--card))", borderColor: "hsl(var(--border))" }}>
       <p className="font-bold mb-2" style={{ color: GOLD }}>{label}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2 mb-1">

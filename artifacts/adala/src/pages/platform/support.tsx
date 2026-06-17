@@ -30,7 +30,7 @@ const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 /* ── Constants ─────────────────────────────────────────────── */
 const PRIORITY: Record<string, { label: string; bg: string; text: string; ring: string }> = {
-  low:      { label: "منخفض",  bg: "bg-slate-100 dark:bg-slate-800",   text: "text-slate-600 dark:text-slate-300",   ring: "ring-slate-300" },
+  low:      { label: "منخفض",  bg: "bg-muted/50 dark:bg-slate-800",   text: "text-muted-foreground dark:text-slate-300",   ring: "ring-slate-300" },
   medium:   { label: "متوسط",  bg: "bg-amber-50 dark:bg-amber-950/40",  text: "text-amber-700 dark:text-amber-300",   ring: "ring-amber-300" },
   high:     { label: "عالٍ",   bg: "bg-orange-50 dark:bg-orange-950/30",text: "text-orange-700 dark:text-orange-300", ring: "ring-orange-300" },
   urgent:   { label: "عاجل",   bg: "bg-red-50 dark:bg-red-950/30",      text: "text-red-700 dark:text-red-300",       ring: "ring-red-400" },
@@ -41,7 +41,7 @@ const STATUS: Record<string, { label: string; color: string; icon: any; dot: str
   open:        { label: "مفتوح",        color: "bg-blue-500/15 text-blue-600 dark:text-blue-400",    icon: AlertCircle,   dot: "bg-blue-500" },
   in_progress: { label: "قيد المعالجة",color: "bg-amber-500/15 text-amber-600 dark:text-amber-400", icon: Clock,         dot: "bg-amber-500" },
   resolved:    { label: "محلول",        color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", icon: CheckCircle2, dot: "bg-emerald-500" },
-  closed:      { label: "مغلق",         color: "bg-slate-100 text-slate-500 dark:bg-slate-800",      icon: XCircle,       dot: "bg-slate-400" },
+  closed:      { label: "مغلق",         color: "bg-muted/50 text-muted-foreground dark:bg-slate-800",      icon: XCircle,       dot: "bg-slate-400" },
 };
 
 const CATEGORIES = [
@@ -52,7 +52,7 @@ const CATEGORIES = [
   { value: "bug",          label: "الإبلاغ عن خلل",   icon: Bug,         color: "text-red-500",     desc: "خطأ أو سلوك غير متوقع" },
   { value: "security",     label: "مخاوف أمنية",       icon: Shield,      color: "text-rose-600",    desc: "ثغرات أو مشاكل أمنية" },
   { value: "performance",  label: "مشكلة أداء",        icon: Zap,         color: "text-orange-500",  desc: "بطء أو استهلاك موارد" },
-  { value: "other",        label: "أخرى",              icon: MessageSquare, color: "text-slate-500", desc: "استفسار عام" },
+  { value: "other",        label: "أخرى",              icon: MessageSquare, color: "text-muted-foreground", desc: "استفسار عام" },
 ];
 
 async function api(path: string, opts?: RequestInit) {
@@ -109,7 +109,7 @@ function TicketRow({ ticket, selected, onClick }: { ticket: any; selected: boole
       )}
       <div className="flex items-start gap-3">
         <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5", pm.bg)}>
-          <CatIcon className={cn("h-4 w-4", cat?.color ?? "text-slate-500")} />
+          <CatIcon className={cn("h-4 w-4", cat?.color ?? "text-muted-foreground")} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -565,7 +565,7 @@ export default function SupportPage() {
             { key: "all",      label: "جميع التذاكر",   color: "text-foreground",            bg: "bg-background" },
             { key: "open",     label: "نشطة",            color: "text-blue-600 dark:text-blue-400",    bg: "bg-blue-50 dark:bg-blue-950/30" },
             { key: "resolved", label: "محلولة",          color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
-            { key: "closed",   label: "مغلقة",           color: "text-slate-500",             bg: "bg-slate-50 dark:bg-slate-800/40" },
+            { key: "closed",   label: "مغلقة",           color: "text-muted-foreground",             bg: "bg-muted/30 dark:bg-slate-800/40" },
           ].map(s => (
             <button key={s.key}
               onClick={() => { setFilter(s.key as any); setSelectedId(null); }}

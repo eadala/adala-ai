@@ -404,19 +404,19 @@ export default function BackupCenter() {
               <HardDrive className="h-3.5 w-3.5" /> النسخ المحلي
               <span className="text-[9px] bg-emerald-500/20 text-emerald-300 rounded px-1 py-0 mr-0.5">مجاني</span>
             </TabsTrigger>
-            <TabsTrigger value="settings"  className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-black">
+            <TabsTrigger value="settings"  className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Settings2 className="h-3.5 w-3.5" /> نسخ المنصة
             </TabsTrigger>
-            <TabsTrigger value="export"    className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-black">
+            <TabsTrigger value="export"    className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <ArrowDownToLine className="h-3.5 w-3.5" /> تصدير الأقسام
             </TabsTrigger>
-            <TabsTrigger value="history"   className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-black">
+            <TabsTrigger value="history"   className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <History className="h-3.5 w-3.5" /> السجل
             </TabsTrigger>
-            <TabsTrigger value="cloud"     className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-black">
+            <TabsTrigger value="cloud"     className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <UploadCloud className="h-3.5 w-3.5" /> التخزين السحابي
             </TabsTrigger>
-            <TabsTrigger value="import"    className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-black">
+            <TabsTrigger value="import"    className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Upload className="h-3.5 w-3.5" /> الاستيراد
             </TabsTrigger>
           </TabsList>
@@ -627,7 +627,7 @@ export default function BackupCenter() {
                 </div>
 
                 <Button onClick={saveSettings} disabled={saveSettingsMut.isPending}
-                  className="bg-primary hover:bg-[#b8943f] text-black font-bold w-full">
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold w-full">
                   {saveSettingsMut.isPending && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
                   حفظ الإعدادات
                 </Button>
@@ -661,7 +661,7 @@ export default function BackupCenter() {
                   </div>
                 </div>
                 <Button onClick={createBackup} disabled={isCreatingBackup}
-                  className="w-full bg-[#1e3a5f] hover:bg-[#1e3a5f]/80 border border-primary/40 text-primary font-bold">
+                  className="w-full bg-primary/10 hover:bg-primary/20 border border-primary/40 text-primary font-bold">
                   {isCreatingBackup
                     ? <><Loader2 className="h-4 w-4 ml-2 animate-spin" /> جارٍ إنشاء النسخة...</>
                     : <><Database className="h-4 w-4 ml-2" /> إنشاء نسخة احتياطية الآن</>
@@ -749,7 +749,7 @@ export default function BackupCenter() {
                       </div>
                     </div>
                     <Button onClick={exportAll}
-                      className="bg-primary hover:bg-[#b8943f] text-black font-bold shrink-0">
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shrink-0">
                       <Download className="h-4 w-4 ml-1.5" />
                       تصدير الكل
                     </Button>
@@ -817,7 +817,7 @@ export default function BackupCenter() {
                           </Button>
                           <Button variant="ghost" size="icon"
                             className="h-7 w-7 hover:text-red-400 hover:bg-red-400/10"
-                            onClick={() => deleteJobMut.mutate(job.id)}>
+                            onClick={() => { if (confirm(`حذف نسخة الـ Backup؟ لا يمكن التراجع.`)) deleteJobMut.mutate(job.id); }}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -907,7 +907,7 @@ export default function BackupCenter() {
                   )}
 
                   <Button onClick={saveSettings} disabled={saveSettingsMut.isPending}
-                    className="bg-primary hover:bg-[#b8943f] text-black font-bold w-full">
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold w-full">
                     {saveSettingsMut.isPending && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
                     حفظ إعدادات التخزين
                   </Button>
@@ -963,7 +963,7 @@ export default function BackupCenter() {
                     </div>
 
                     <Button onClick={handleImport} disabled={!importFile}
-                      className="bg-primary hover:bg-[#b8943f] text-black font-bold w-full">
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold w-full">
                       <Upload className="h-4 w-4 ml-2" /> بدء الاستيراد
                     </Button>
                   </CardContent>

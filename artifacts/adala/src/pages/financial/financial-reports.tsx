@@ -62,7 +62,7 @@ function KPICard({ title, value, sub, icon: Icon, color, trend }: any) {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-lg p-3 text-xs shadow-xl" dir="rtl">
+    <div className="bg-card border border-border rounded-lg p-3 text-xs shadow-xl" dir="rtl">
       <p className="text-primary font-medium mb-2">{label}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2 mb-1">

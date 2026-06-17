@@ -140,8 +140,7 @@ function MarkdownContent({ text, color }: { text: string; color: string }) {
             return <strong key={pi} style={{ color, fontWeight: 700 }}>{p.slice(2, -2)}</strong>;
           if (p.startsWith("`") && p.endsWith("`"))
             return (
-              <code key={pi} className="px-1.5 py-0.5 rounded text-[11px] font-mono"
-                style={{ background: "#F1F5F9", color: "#1E293B", border: "1px solid #E2E8F0" }}>
+              <code key={pi} className="px-1.5 py-0.5 rounded text-[11px] font-mono bg-muted/40 text-foreground border border-border">
                 {p.slice(1, -1)}
               </code>
             );
@@ -217,7 +216,7 @@ function CopyButton({ text }: { text: string }) {
       className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] transition-all opacity-0 group-hover:opacity-100 hover:scale-105"
       style={{ background: BLUE_L, color: BLUE, border: `1px solid ${BLUE_M}` }}
     >
-      {copied ? <Check className="w-3 h-3" style={{ color: "#059669" }} /> : <Copy className="w-3 h-3" />}
+      {copied ? <Check className="w-3 h-3" style={{ color: "hsl(var(--chart-2))" }} /> : <Copy className="w-3 h-3" />}
       {copied ? "تم النسخ" : "نسخ"}
     </button>
   );
@@ -365,7 +364,7 @@ function WelcomeScreen({ mode, colors, onSuggest }: {
                 </div>
                 <div>
                   <div className="text-[10px] mb-1 font-bold uppercase tracking-wide" style={{ color: colors.main }}>{s.cat}</div>
-                  <p className="text-xs leading-relaxed text-right" style={{ color: "#475569" }}>{s.text}</p>
+                  <p className="text-xs leading-relaxed text-right" >{s.text}</p>
                 </div>
               </div>
             </button>
@@ -523,8 +522,7 @@ export default function AdoulPage() {
             <h2 className="font-bold text-base leading-none" style={{ color: DARK }}>عدول</h2>
             <p className="text-[11px] mt-0.5" style={{ color: BLUE }}>مساعد قانوني ذكي</p>
           </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold mr-1"
-            style={{ background: "#ECFDF5", color: "#059669", border: "1px solid #A7F3D0" }}>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold mr-1 bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             متاح الآن
           </div>
@@ -598,8 +596,7 @@ export default function AdoulPage() {
               {loading && !streaming && <TypingIndicator color={colors.main} />}
 
               {error && (
-                <div className="flex items-center justify-between p-4 rounded-2xl mb-4 text-sm"
-                  style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#DC2626" }}>
+                <div className="flex items-center justify-between p-4 rounded-2xl mb-4 text-sm bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30">
                   <span>{error}</span>
                   <button onClick={() => setError(null)}><X className="w-4 h-4" /></button>
                 </div>

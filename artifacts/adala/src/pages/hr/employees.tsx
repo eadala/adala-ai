@@ -92,7 +92,7 @@ function EmployeeForm({ form, setForm, onSubmit, loading, isEdit, onClose }: any
         <div><Label>رقم الموظف *</Label><Input value={form.employeeNo} onChange={e => setForm((p: any) => ({ ...p, employeeNo: e.target.value }))} placeholder="EMP-001" /></div>
         <div><Label>الاسم الكامل *</Label><Input value={form.fullName} onChange={e => setForm((p: any) => ({ ...p, fullName: e.target.value }))} /></div>
         <div><Label>البريد الإلكتروني</Label><Input value={form.email} onChange={e => setForm((p: any) => ({ ...p, email: e.target.value }))} type="email" /></div>
-        <div><Label>الجوال</Label><Input value={form.phone} onChange={e => setForm((p: any) => ({ ...p, phone: e.target.value }))} /></div>
+        <div><Label>الجوال</Label><Input type="tel" value={form.phone} onChange={e => setForm((p: any) => ({ ...p, phone: e.target.value }))} placeholder="05xxxxxxxx" /></div>
         <div><Label>رقم الهوية</Label><Input value={form.nationalId} onChange={e => setForm((p: any) => ({ ...p, nationalId: e.target.value }))} /></div>
         <div><Label>المسمى الوظيفي *</Label><Input value={form.jobTitle} onChange={e => setForm((p: any) => ({ ...p, jobTitle: e.target.value }))} /></div>
         <div><Label>القسم</Label>
@@ -129,7 +129,7 @@ function EmployeeForm({ form, setForm, onSubmit, loading, isEdit, onClose }: any
           </Select>
         </div>
       )}
-      <div><Label>ملاحظات</Label><Textarea value={form.notes} onChange={e => setForm((p: any) => ({ ...p, notes: e.target.value }))} className="resize-none min-h-[60px] text-sm" /></div>
+      <div><Label>ملاحظات</Label><Textarea rows={3} value={form.notes} onChange={e => setForm((p: any) => ({ ...p, notes: e.target.value }))} className="resize-none min-h-[60px] text-sm" /></div>
     </div>
   );
 }
@@ -157,16 +157,19 @@ export default function Employees() {
   const createMutation = useMutation({
     mutationFn: (data: any) => fetch("/api/hr/employees", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); qc.invalidateQueries({ queryKey: ["employees-stats"] }); setShowCreate(false); setForm({ ...EMPTY_FORM }); toast({ title: "تم إضافة الموظف" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: any) => fetch(`${BASE}/api/hr/employees/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); setEditEmp(null); toast({ title: "تم التحديث" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => fetch(`${BASE}/api/hr/employees/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); qc.invalidateQueries({ queryKey: ["employees-stats"] }); toast({ title: "تم الحذف" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const filtered = employees.filter(e => {

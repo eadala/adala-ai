@@ -161,14 +161,17 @@ export default function PaymentCenter() {
       getOnboardingLink.mutate({ stripeAccountId: data.stripeAccountId });
       setShowConnect(false);
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const getOnboardingLink = useMutation({
     mutationFn: (body: any) => API(`${BASE}/api/payments/connect/onboarding`, { method: "POST", body: JSON.stringify(body) }),
-    onSuccess: (data) => { if (data.url) window.open(data.url, "_blank"); },
+    onSuccess: (data) => { if (data.url) window.open(data.url, "_blank", "noopener,noreferrer"); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const getLoginLink = useMutation({
     mutationFn: (accountId: string) => API(`${BASE}/api/payments/connect/login-link`, { method: "POST", body: JSON.stringify({ stripeAccountId: accountId }) }),
-    onSuccess: (data) => { if (data.url) window.open(data.url, "_blank"); },
+    onSuccess: (data) => { if (data.url) window.open(data.url, "_blank", "noopener,noreferrer"); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const addTransaction = useMutation({
     mutationFn: (body: any) => API(`${BASE}/api/payments/transactions`, { method: "POST", body: JSON.stringify(body) }),
@@ -179,10 +182,12 @@ export default function PaymentCenter() {
       setTxForm({ clientName: "", description: "", amount: "", status: "completed", paymentMethod: "bank_transfer", invoiceId: "", caseId: "" });
       toast({ title: "تم إضافة المعاملة" });
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: any) => API(`${BASE}/api/payments/transactions/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["payment-transactions"] }); qc.invalidateQueries({ queryKey: ["payment-wallet"] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["payment-transactions"] }); qc.invalidateQueries({ queryKey: ["payment-wallet"] }); toast({ title: "تم تحديث الحالة ✓" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const settleOne = useMutation({
     mutationFn: ({ id, ref }: any) => API(`${BASE}/api/payments/transactions/${id}/settle`, { method: "PATCH", body: JSON.stringify({ settlementRef: ref }) }),
@@ -192,6 +197,7 @@ export default function PaymentCenter() {
       setShowSettleDialog(null); setSettleRef("");
       toast({ title: "✅ تم تأكيد التحويل" });
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const batchSettle = useMutation({
     mutationFn: () => API(`${BASE}/api/payments/batch-settle`, { method: "POST", body: JSON.stringify({ settlementRef: `BATCH-${Date.now()}` }) }),
@@ -200,18 +206,22 @@ export default function PaymentCenter() {
       qc.invalidateQueries({ queryKey: ["payment-wallet"] });
       toast({ title: `✅ تم تسوية ${data.settled} معاملة` });
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const deleteTx = useMutation({
     mutationFn: (id: string) => API(`${BASE}/api/payments/transactions/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payment-transactions"] }); qc.invalidateQueries({ queryKey: ["payment-wallet"] }); toast({ title: "تم الحذف" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const saveMoyasar = useMutation({
     mutationFn: (body: any) => API(`${BASE}/api/payments/moyasar/settings`, { method: "PUT", body: JSON.stringify(body) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["moyasar-settings"] }); toast({ title: "✅ تم حفظ إعدادات Moyasar" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const saveCheckout = useMutation({
     mutationFn: (body: any) => API(`${BASE}/api/payments/checkout/settings`, { method: "PUT", body: JSON.stringify(body) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["checkout-settings"] }); toast({ title: "✅ تم حفظ إعدادات Checkout.com" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const generatePayLink = useMutation({
     mutationFn: (body: any) => API(`${BASE}/api/payments/payment-link`, { method: "POST", body: JSON.stringify(body) }),
@@ -221,6 +231,7 @@ export default function PaymentCenter() {
       qc.invalidateQueries({ queryKey: ["payment-wallet"] });
       toast({ title: "✅ تم إنشاء رابط الدفع" });
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const COMMISSION = connectStatus?.commissionPercent ?? 10;
@@ -856,7 +867,7 @@ export default function PaymentCenter() {
                       </div>
                       <div>
                         <Label className="text-xs font-semibold mb-1 block">جوال العميل</Label>
-                        <Input dir="ltr" placeholder="05xxxxxxxx" value={payLinkForm.clientPhone}
+                        <Input type="tel" dir="ltr" placeholder="05xxxxxxxx" value={payLinkForm.clientPhone}
                           onChange={e => setPayLinkForm(f => ({ ...f, clientPhone: e.target.value }))} className="text-xs" />
                       </div>
                     </div>
@@ -898,7 +909,7 @@ export default function PaymentCenter() {
                           <Button size="icon" variant="outline" onClick={() => copyToClipboard(generatedLink.paymentUrl, "رابط Moyasar", toast)}>
                             <Copy className="h-3.5 w-3.5" />
                           </Button>
-                          <Button size="icon" variant="outline" onClick={() => window.open(generatedLink.paymentUrl, "_blank")}>
+                          <Button size="icon" variant="outline" onClick={() => window.open(generatedLink.paymentUrl, "_blank", "noopener,noreferrer")}>
                             <ExternalLink className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -1036,7 +1047,7 @@ export default function PaymentCenter() {
           <div className="flex flex-wrap gap-2">
             {[
               { label: "مدى",         color: "bg-green-500/10 text-green-400 border-green-500/20" },
-              { label: "Apple Pay",   color: "bg-gray-500/10 text-gray-300 border-gray-500/20" },
+              { label: "Apple Pay",   color: "bg-muted/30 10 text-gray-300 border-gray-500/20" },
               { label: "STC Pay",     color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
               { label: "Visa",        color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
               { label: "Mastercard",  color: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
@@ -1152,7 +1163,7 @@ export default function PaymentCenter() {
                 ))}
                 <div className="mt-2 pt-2 border-t border-border/50">
                   <Button variant="outline" size="sm" className="w-full gap-2 text-xs border-[#0ABD8C]/30 text-[#0ABD8C] hover:bg-[#0ABD8C]/10"
-                    onClick={() => window.open("https://www.checkout.com/ar-ae", "_blank")}>
+                    onClick={() => window.open("https://www.checkout.com/ar-ae", "_blank", "noopener,noreferrer")}>
                     <ExternalLink className="h-3.5 w-3.5" /> فتح موقع Checkout.com
                   </Button>
                 </div>
@@ -1301,7 +1312,7 @@ export default function PaymentCenter() {
                 </div>
                 <div>
                   <Label className="text-xs font-semibold mb-1 block">جوال العميل</Label>
-                  <Input dir="ltr" placeholder="05xxxxxxxx" value={payLinkForm.clientPhone} onChange={e => setPayLinkForm(f => ({ ...f, clientPhone: e.target.value }))} />
+                  <Input type="tel" dir="ltr" placeholder="05xxxxxxxx" value={payLinkForm.clientPhone} onChange={e => setPayLinkForm(f => ({ ...f, clientPhone: e.target.value }))} />
                 </div>
               </div>
               <DialogFooter>
@@ -1326,7 +1337,7 @@ export default function PaymentCenter() {
                   <div className="flex gap-2">
                     <Input dir="ltr" readOnly value={generatedLink.paymentUrl} className="text-[10px] font-mono" />
                     <Button size="icon" variant="outline" onClick={() => copyToClipboard(generatedLink.paymentUrl, "الرابط", toast)}><Copy className="h-3.5 w-3.5" /></Button>
-                    <Button size="icon" variant="outline" onClick={() => window.open(generatedLink.paymentUrl, "_blank")}><ExternalLink className="h-3.5 w-3.5" /></Button>
+                    <Button size="icon" variant="outline" onClick={() => window.open(generatedLink.paymentUrl, "_blank", "noopener,noreferrer")}><ExternalLink className="h-3.5 w-3.5" /></Button>
                   </div>
                 </div>
               ) : (

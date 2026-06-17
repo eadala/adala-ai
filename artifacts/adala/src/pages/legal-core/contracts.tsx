@@ -53,7 +53,7 @@ interface Version    { id: string; version_number: number; note: string; created
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
-  draft:      { label: "مسودة",        color: "text-slate-400",   bg: "bg-slate-400/10",   icon: PenLine    },
+  draft:      { label: "مسودة",        color: "text-muted-foreground",   bg: "bg-slate-400/10",   icon: PenLine    },
   review:     { label: "قيد المراجعة", color: "text-blue-400",    bg: "bg-blue-400/10",    icon: Eye        },
   signed:     { label: "موقّع",         color: "text-emerald-400", bg: "bg-emerald-400/10", icon: CheckCircle},
   expired:    { label: "منتهي",         color: "text-red-400",     bg: "bg-red-400/10",     icon: XCircle   },
@@ -532,7 +532,7 @@ function CreateContractDialog({ open, onClose, initialData, defaultTemplateId }:
               </div>
             </div>
             <div><Label>تفاصيل إضافية</Label>
-              <Textarea value={form.details} onChange={e => setForm(p => ({ ...p, details: e.target.value }))} placeholder="الموضوع والشروط الجوهرية..." className="min-h-[60px] resize-none" />
+              <Textarea rows={3} value={form.details} onChange={e => setForm(p => ({ ...p, details: e.target.value }))} placeholder="الموضوع والشروط الجوهرية..." className="min-h-[60px] resize-none" />
             </div>
             {!initialData?.content && (
               <div className="flex items-center justify-between rounded-xl border border-primary/20 p-3 bg-primary/5">

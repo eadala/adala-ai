@@ -18,7 +18,7 @@ const PLANS = [
     nameAr: "مبدئي",
     price: { monthly: 99, yearly: 79 },
     color: "from-slate-500 to-slate-700",
-    accent: "border-slate-300",
+    accent: "border-border",
     icon: FileText,
     badge: null,
     features: [

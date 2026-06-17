@@ -37,7 +37,7 @@ const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const STATUS_CFG = {
   open:        { label: "مفتوحة",       icon: Scale,      color: "text-blue-600",    bg: "bg-blue-50 text-blue-700 border-blue-200" },
   in_progress: { label: "قيد التنفيذ",  icon: Clock,      color: "text-amber-600",   bg: "bg-amber-50 text-amber-700 border-amber-200" },
-  closed:      { label: "مغلقة",        icon: CheckCheck, color: "text-slate-500",   bg: "bg-slate-50 text-slate-600 border-slate-200" },
+  closed:      { label: "مغلقة",        icon: CheckCheck, color: "text-muted-foreground",   bg: "bg-muted/30 text-muted-foreground border-border" },
 } as const;
 
 const TYPE_MAP: Record<string, string> = {
@@ -75,7 +75,7 @@ function StatCard({ label, value, icon: Icon, color }: { label: string; value: n
 
 /* ─── Kanban card ─── */
 function KanbanCard({ c }: { c: any }) {
-  const typeCfg = TYPE_COLOR[c.caseType] ?? "bg-slate-50 text-slate-700 border-slate-200";
+  const typeCfg = TYPE_COLOR[c.caseType] ?? "bg-muted/30 text-foreground/70 border-border";
   return (
     <Link href={`/cases/${c.id}`}>
       <div className="group bg-card border rounded-xl p-4 hover:shadow-md hover:border-primary/40 transition-all cursor-pointer space-y-3">
@@ -214,7 +214,7 @@ export default function Cases() {
         <StatCard label="إجمالي القضايا" value={stats?.total ?? cases?.length ?? 0}           icon={Briefcase}  color="text-primary" />
         <StatCard label="مفتوحة"          value={stats?.open ?? 0}                             icon={Scale}       color="text-blue-600" />
         <StatCard label="قيد التنفيذ"     value={stats?.inProgress ?? 0}                       icon={Clock}       color="text-amber-600" />
-        <StatCard label="مغلقة"           value={stats?.closed ?? 0}                           icon={CheckCheck}  color="text-slate-500" />
+        <StatCard label="مغلقة"           value={stats?.closed ?? 0}                           icon={CheckCheck}  color="text-muted-foreground" />
       </div>
 
       {/* ── Filters ── */}
@@ -363,7 +363,7 @@ export default function Cases() {
                               )}
                               {c.status !== "closed" && (
                                 <DropdownMenuItem onClick={() => updateCaseMut.mutate({ id: c.id, status: "closed" })}>
-                                  <CheckCheck className="h-3.5 w-3.5 me-2 text-slate-500" />إغلاق القضية
+                                  <CheckCheck className="h-3.5 w-3.5 me-2 text-muted-foreground" />إغلاق القضية
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />

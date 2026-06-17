@@ -49,7 +49,7 @@ const TIERS = [
   {
     id: "basic",
     label: "الأساسية",
-    color: "bg-slate-100 text-slate-700",
+    color: "bg-muted/50 text-foreground/70",
     features: ["شعار المكتب ✓", "شعار عدالة AI كامل ✓", "تذييل عدالة AI ✓"],
     adalalahSize: "normal",
     canHide: false,
@@ -504,11 +504,11 @@ export default function OfficeSettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label><Phone className="inline h-4 w-4 ml-1" />الهاتف</Label>
-                <Input value={form.phone || ""} onChange={e => set("phone", e.target.value)} placeholder="+966 5X XXX XXXX" />
+                <Input type="tel" value={form.phone || ""} onChange={e => set("phone", e.target.value)} placeholder="+966 5X XXX XXXX" dir="ltr" />
               </div>
               <div className="space-y-2">
                 <Label><Mail className="inline h-4 w-4 ml-1" />البريد الإلكتروني</Label>
-                <Input value={form.email || ""} onChange={e => set("email", e.target.value)} placeholder="info@lawoffice.sa" />
+                <Input type="email" value={form.email || ""} onChange={e => set("email", e.target.value)} placeholder="info@lawoffice.sa" dir="ltr" />
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label><Globe className="inline h-4 w-4 ml-1" />الموقع الإلكتروني</Label>
@@ -729,8 +729,8 @@ export default function OfficeSettingsPage() {
                           <h2 className="text-xl font-bold" style={{ color: form.primaryColor || "#1e3a5f" }}>
                             {form.officeName || "اسم المكتب القانوني"}
                           </h2>
-                          {form.tagline && <p className="text-sm text-gray-500">{form.tagline}</p>}
-                          {form.phone && <p className="text-xs text-gray-400">📞 {form.phone}</p>}
+                          {form.tagline && <p className="text-sm text-muted-foreground">{form.tagline}</p>}
+                          {form.phone && <p className="text-xs text-muted-foreground">📞 {form.phone}</p>}
                         </div>
                       </div>
                       {(form.showAdalalahLogo !== false) && (
@@ -740,9 +740,9 @@ export default function OfficeSettingsPage() {
                         </div>
                       )}
                     </div>
-                    <p className="text-center text-sm text-gray-400 italic">... محتوى المستند ...</p>
+                    <p className="text-center text-sm text-muted-foreground italic">... محتوى المستند ...</p>
                     {(form.showAdalalahFooter !== false) && (
-                      <div className="mt-4 pt-3 border-t text-center text-xs text-gray-400" style={{ borderColor: form.secondaryColor || "#2563EB" }}>
+                      <div className="mt-4 pt-3 border-t text-center text-xs text-muted-foreground" style={{ borderColor: form.secondaryColor || "#2563EB" }}>
                         تم إنشاء هذا المستند بواسطة منصة <span className="font-semibold">عدالة AI</span> — Powered by Adalah AI
                       </div>
                     )}
@@ -833,12 +833,12 @@ export default function OfficeSettingsPage() {
                           )}
                           <div>
                             <h2 className="text-lg font-bold" style={{ color: form.primaryColor || "#1e3a5f" }}>{form.officeName || "مكتب الزهراني للمحاماة"}</h2>
-                            {form.tagline && <p className="text-xs text-gray-500">{form.tagline}</p>}
+                            {form.tagline && <p className="text-xs text-muted-foreground">{form.tagline}</p>}
                           </div>
                         </div>
                         <div className="text-left">
                           <p className="text-2xl font-bold" style={{ color: form.secondaryColor || "#2563EB" }}>فاتورة</p>
-                          <p className="text-sm text-gray-500">#INV-2024-001</p>
+                          <p className="text-sm text-muted-foreground">#INV-2024-001</p>
                         </div>
                       </div>
                     )}

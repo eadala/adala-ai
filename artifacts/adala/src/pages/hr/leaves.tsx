@@ -59,12 +59,14 @@ export default function Leaves() {
   const createMutation = useMutation({
     mutationFn: (data: any) => fetch("/api/hr/leaves", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["leaves"] }); qc.invalidateQueries({ queryKey: ["leaves-stats"] }); setShowCreate(false); setForm({ ...EMPTY_FORM }); toast({ title: "تم تقديم طلب الإجازة" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       fetch(`${BASE}/api/hr/leaves/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, approvedBy: "مدير الموارد البشرية" }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (_, { status }) => { qc.invalidateQueries({ queryKey: ["leaves"] }); qc.invalidateQueries({ queryKey: ["leaves-stats"] }); toast({ title: status === "approved" ? "تمت الموافقة" : "تم الرفض" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const calcDays = (start: string, end: string) => {
@@ -203,7 +205,7 @@ export default function Leaves() {
             {form.startDate && form.endDate && (
               <p className="text-xs text-primary font-semibold">عدد الأيام: {calcDays(form.startDate, form.endDate)} يوم</p>
             )}
-            <div><Label>السبب</Label><Textarea value={form.reason} onChange={e => setForm(p => ({ ...p, reason: e.target.value }))} className="resize-none min-h-[70px] text-sm" /></div>
+            <div><Label>السبب</Label><Textarea rows={3} value={form.reason} onChange={e => setForm(p => ({ ...p, reason: e.target.value }))} className="resize-none min-h-[70px] text-sm" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>إلغاء</Button>

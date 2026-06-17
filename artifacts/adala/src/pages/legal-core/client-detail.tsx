@@ -32,18 +32,18 @@ const TYPE_LABELS: Record<string, { label: string; icon: any; color: string }> =
 const CASE_STATUS: Record<string, { label: string; color: string }> = {
   open:        { label: "مفتوحة",      color: "bg-blue-500/15 text-blue-400" },
   in_progress: { label: "قيد التنفيذ", color: "bg-amber-500/15 text-amber-400" },
-  closed:      { label: "مغلقة",       color: "bg-slate-500/15 text-slate-400" },
+  closed:      { label: "مغلقة",       color: "bg-muted/30 15 text-muted-foreground" },
 };
 
 const INV_STATUS: Record<string, { label: string; color: string }> = {
-  draft:   { label: "مسودة",  color: "bg-slate-500/15 text-slate-400" },
+  draft:   { label: "مسودة",  color: "bg-muted/30 15 text-muted-foreground" },
   sent:    { label: "مُرسَلة", color: "bg-blue-500/15 text-blue-400" },
   paid:    { label: "مدفوعة", color: "bg-emerald-500/15 text-emerald-400" },
   overdue: { label: "متأخرة", color: "bg-red-500/15 text-red-400" },
 };
 
 const CONTRACT_STATUS: Record<string, { label: string; color: string }> = {
-  draft:     { label: "مسودة",  color: "bg-slate-500/15 text-slate-400" },
+  draft:     { label: "مسودة",  color: "bg-muted/30 15 text-muted-foreground" },
   active:    { label: "نشط",    color: "bg-emerald-500/15 text-emerald-400" },
   expired:   { label: "منتهي", color: "bg-red-500/15 text-red-400" },
   cancelled: { label: "ملغى",   color: "bg-orange-500/15 text-orange-400" },
@@ -150,7 +150,7 @@ export default function ClientDetail() {
                 <h1 className="text-2xl font-bold leading-tight">{client.fullName}</h1>
                 <Badge variant="outline" className="text-xs">{typeInfo.label}</Badge>
                 {client.status && (
-                  <Badge className={`text-xs px-2 ${client.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-slate-500/15 text-slate-400"}`}>
+                  <Badge className={`text-xs px-2 ${client.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-muted/30 15 text-muted-foreground"}`}>
                     {client.status === "active" ? "نشط" : client.status === "potential" ? "محتمل" : "غير نشط"}
                   </Badge>
                 )}
@@ -395,8 +395,8 @@ export default function ClientDetail() {
                     return (
                       <div key={ev.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isPast ? "bg-slate-500/15" : "bg-emerald-500/15"}`}>
-                            <CalendarDays className={`h-4 w-4 ${isPast ? "text-slate-400" : "text-emerald-400"}`} />
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isPast ? "bg-muted/30 15" : "bg-emerald-500/15"}`}>
+                            <CalendarDays className={`h-4 w-4 ${isPast ? "text-muted-foreground" : "text-emerald-400"}`} />
                           </div>
                           <div>
                             <p className="text-sm font-medium">{ev.title}</p>
@@ -537,7 +537,7 @@ export default function ClientDetail() {
                               </span>
                             </div>
                             {act.status && (
-                              <Badge className={`text-[10px] px-1.5 mt-1 ${INV_STATUS[act.status]?.color ?? "bg-slate-500/15 text-slate-400"}`}>
+                              <Badge className={`text-[10px] px-1.5 mt-1 ${INV_STATUS[act.status]?.color ?? "bg-muted/30 15 text-muted-foreground"}`}>
                                 {INV_STATUS[act.status]?.label ?? act.status}
                               </Badge>
                             )}
@@ -796,7 +796,7 @@ function ClientAccountingTab({ clientId }: { clientId: string }) {
                     { key: "paid",    label: "مدفوعة",  color: "text-emerald-400", bg: "bg-emerald-500/10" },
                     { key: "sent",    label: "مُرسَلة",  color: "text-blue-400",    bg: "bg-blue-500/10" },
                     { key: "overdue", label: "متأخرة",  color: "text-red-400",     bg: "bg-red-500/10" },
-                    { key: "draft",   label: "مسودة",   color: "text-slate-400",   bg: "bg-slate-500/10" },
+                    { key: "draft",   label: "مسودة",   color: "text-muted-foreground",   bg: "bg-muted/30 10" },
                   ].map(s => (
                     <div key={s.key} className={`rounded-xl p-3 ${s.bg}`}>
                       <div className={`text-2xl font-black ${s.color}`}>{data.byStatus[s.key] ?? 0}</div>

@@ -65,7 +65,7 @@ export default function Expenses() {
             </div>
             <div><h1 className="text-xl font-bold text-foreground">المصاريف</h1><p className="text-xs text-muted-foreground">إدارة المصروفات والتكاليف</p></div>
           </div>
-          <Button onClick={openCreate} className="bg-primary hover:bg-[#b8943f] text-black font-bold gap-1.5"><Plus className="h-4 w-4"/>إضافة مصروف</Button>
+          <Button onClick={openCreate} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-1.5"><Plus className="h-4 w-4"/>إضافة مصروف</Button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -153,7 +153,7 @@ export default function Expenses() {
             </div>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={close_}>إلغاء</Button>
-              <Button className="bg-primary hover:bg-[#b8943f] text-black font-bold" disabled={!form.title||!form.amount||saveMut.isPending} onClick={()=>saveMut.mutate(form)}>
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" disabled={!form.title||!form.amount||saveMut.isPending} onClick={()=>saveMut.mutate(form)}>
                 {saveMut.isPending&&<Loader2 className="h-4 w-4 ml-1 animate-spin"/>}حفظ
               </Button>
             </DialogFooter>

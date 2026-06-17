@@ -37,7 +37,7 @@ const ChartTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-card border border-border rounded-lg p-3 shadow-lg text-xs rtl" dir="rtl">
-      <div className="font-semibold text-gray-700 mb-2">{label}</div>
+      <div className="font-semibold text-foreground/70 mb-2">{label}</div>
       {payload.map((p: any, i: number) => (
         <div key={i} style={{ color: p.color }} className="flex items-center gap-2 py-0.5">
           <div className="w-2 h-2 rounded-full" style={{ background: p.color }} />
@@ -100,7 +100,7 @@ export default function FinanceDashboard() {
             <DollarSign className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">لوحة التقارير المالية</h1>
+            <h1 className="text-xl font-bold text-foreground">لوحة التقارير المالية</h1>
             <p className="text-sm text-muted-foreground">Financial Reporting Dashboard — SaaS Grade</p>
           </div>
         </div>
@@ -170,7 +170,7 @@ export default function FinanceDashboard() {
                     <kpi.icon className={`h-4 w-4 text-${kpi.color}-600`} />
                   </div>
                 </div>
-                <div className={`text-2xl font-bold ${kpi.warn ? "text-amber-600" : "text-gray-900"}`}>{kpi.value}</div>
+                <div className={`text-2xl font-bold ${kpi.warn ? "text-amber-600" : "text-foreground"}`}>{kpi.value}</div>
                 <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                   {kpi.growth !== undefined && kpi.growth !== 0 && (
                     <span className={kpi.growth > 0 ? "text-emerald-600" : "text-red-500"}>
@@ -187,7 +187,7 @@ export default function FinanceDashboard() {
           <div className="grid md:grid-cols-2 gap-5">
             {/* Revenue by Category */}
             <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <div className="font-semibold text-foreground mb-4 flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-emerald-600" /> الإيرادات حسب الفئة
               </div>
               {revCats.length === 0
@@ -205,7 +205,7 @@ export default function FinanceDashboard() {
 
             {/* Expenses by Category */}
             <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <div className="font-semibold text-foreground mb-4 flex items-center gap-2">
                 <TrendingDown className="h-4 w-4 text-red-500" /> المصاريف حسب الفئة
               </div>
               {expCats.length === 0
@@ -226,7 +226,7 @@ export default function FinanceDashboard() {
           <div className="grid md:grid-cols-2 gap-5">
             {/* Invoice quick status */}
             <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <div className="font-semibold text-foreground mb-4 flex items-center gap-2">
                 <FileText className="h-4 w-4 text-blue-600" /> حالة الفواتير
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -250,20 +250,20 @@ export default function FinanceDashboard() {
 
             {/* Recent Transactions */}
             <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <div className="font-semibold text-foreground mb-4 flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-violet-600" /> آخر الحركات المالية
               </div>
               <div className="space-y-2">
                 {recentTx.length === 0 && <div className="text-xs text-muted-foreground text-center py-4">لا توجد حركات</div>}
                 {recentTx.map((tx: any) => (
-                  <div key={tx.id} className="flex items-center gap-2 py-1 border-b border-gray-50 last:border-0">
+                  <div key={tx.id} className="flex items-center gap-2 py-1 border-b border-border/20 last:border-0">
                     <span className="text-base shrink-0">{GW_ICON[tx.gateway] ?? "💰"}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-gray-800 truncate">{tx.client_name ?? tx.description ?? "معاملة"}</div>
+                      <div className="text-xs font-medium text-foreground truncate">{tx.client_name ?? tx.description ?? "معاملة"}</div>
                       <div className="text-xs text-muted-foreground">{new Date(tx.created_at).toLocaleDateString("ar-SA")}</div>
                     </div>
                     <div className="text-sm font-semibold text-emerald-700 shrink-0">{SAR(tx.amount)}</div>
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_STYLE[tx.status] ?? "bg-gray-100 text-muted-foreground"}`}>{tx.status}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_STYLE[tx.status] ?? "bg-muted/50 text-muted-foreground"}`}>{tx.status}</span>
                   </div>
                 ))}
               </div>
@@ -298,7 +298,7 @@ export default function FinanceDashboard() {
 
               {/* Bar Chart */}
               <div className="bg-card border border-border rounded-2xl p-5">
-                <div className="font-semibold text-gray-800 mb-5">التدفق النقدي الشهري</div>
+                <div className="font-semibold text-foreground mb-5">التدفق النقدي الشهري</div>
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={cf.cashflow} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -314,7 +314,7 @@ export default function FinanceDashboard() {
 
               {/* Net Flow Area */}
               <div className="bg-card border border-border rounded-2xl p-5">
-                <div className="font-semibold text-gray-800 mb-5">صافي التدفق الشهري</div>
+                <div className="font-semibold text-foreground mb-5">صافي التدفق الشهري</div>
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={cf.cashflow}>
                     <defs>
@@ -334,7 +334,7 @@ export default function FinanceDashboard() {
 
               {/* Monthly Table */}
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-border/50 font-semibold text-gray-800 text-sm">تفصيل شهري</div>
+                <div className="px-5 py-4 border-b border-border/50 font-semibold text-foreground text-sm">تفصيل شهري</div>
                 <div className="overflow-x-auto"><table className="w-full text-sm min-w-[380px]">
                   <thead className="bg-muted/30">
                     <tr className="text-xs text-muted-foreground">
@@ -346,8 +346,8 @@ export default function FinanceDashboard() {
                   </thead>
                   <tbody>
                     {cf.cashflow.map((row: any) => (
-                      <tr key={row.month} className="border-t border-gray-50 hover:bg-muted/30">
-                        <td className="px-5 py-2.5 font-medium text-gray-700">{row.label}</td>
+                      <tr key={row.month} className="border-t border-border/20 hover:bg-muted/30">
+                        <td className="px-5 py-2.5 font-medium text-foreground/70">{row.label}</td>
                         <td className="py-2.5 text-emerald-700 font-semibold">{SAR(row.revenue)}</td>
                         <td className="py-2.5 text-red-600">{SAR(row.expenses)}</td>
                         <td className={`py-2.5 font-bold ${row.net >= 0 ? "text-blue-700" : "text-red-600"}`}>
@@ -385,7 +385,7 @@ export default function FinanceDashboard() {
                 {/* Donut + Monthly */}
                 <div className="grid md:grid-cols-2 gap-5">
                   <div className="bg-card border border-border rounded-2xl p-5">
-                    <div className="font-semibold text-gray-800 mb-4">توزيع الفواتير</div>
+                    <div className="font-semibold text-foreground mb-4">توزيع الفواتير</div>
                     {byStatus.length === 0
                       ? <div className="text-center text-muted-foreground text-sm py-6">لا توجد فواتير</div>
                       : <ResponsiveContainer width="100%" height={220}>
@@ -402,7 +402,7 @@ export default function FinanceDashboard() {
                   </div>
 
                   <div className="bg-card border border-border rounded-2xl p-5">
-                    <div className="font-semibold text-gray-800 mb-4">الفواتير الشهرية</div>
+                    <div className="font-semibold text-foreground mb-4">الفواتير الشهرية</div>
                     {monthly.length === 0
                       ? <div className="text-center text-muted-foreground text-sm py-6">لا توجد بيانات</div>
                       : <ResponsiveContainer width="100%" height={220}>
@@ -439,7 +439,7 @@ export default function FinanceDashboard() {
                       <tbody>
                         {overdue.map((inv: any) => (
                           <tr key={inv.id} className="border-t border-red-50">
-                            <td className="px-5 py-2.5 font-mono text-xs text-gray-700">{inv.number ?? inv.id?.slice(0, 8)}</td>
+                            <td className="px-5 py-2.5 font-mono text-xs text-foreground/70">{inv.number ?? inv.id?.slice(0, 8)}</td>
                             <td className="py-2.5 font-semibold text-red-700">{SAR(inv.total / 100)}</td>
                             <td className="py-2.5 text-red-600">{inv.due_date}</td>
                             <td className="py-2.5">
@@ -468,7 +468,7 @@ export default function FinanceDashboard() {
           <div className="bg-card border border-border rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-5">
               <Lightbulb className="h-5 w-5 text-amber-500" />
-              <span className="font-semibold text-gray-800">الرؤى المالية التلقائية</span>
+              <span className="font-semibold text-foreground">الرؤى المالية التلقائية</span>
               <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200 mr-2">Rules-Based Engine</span>
             </div>
             <div className="space-y-3">
@@ -492,7 +492,7 @@ export default function FinanceDashboard() {
 
           {/* Financial ratios */}
           <div className="bg-card border border-border rounded-2xl p-6">
-            <div className="font-semibold text-gray-800 mb-4">المؤشرات المالية الرئيسية</div>
+            <div className="font-semibold text-foreground mb-4">المؤشرات المالية الرئيسية</div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {[
                 {

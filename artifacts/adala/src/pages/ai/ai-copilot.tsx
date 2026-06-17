@@ -39,9 +39,9 @@ const INTENT_LABELS: Record<string, { label: string; icon: any; color: string }>
   ANALYZE_CASE:         { label: "تحليل قضية",    icon: Brain,      color: "bg-indigo-100 text-indigo-700" },
   CALCULATE_PROBABILITY:{ label: "احتمالية الفوز", icon: TrendingUp, color: "bg-rose-100 text-rose-700" },
   FINANCIAL_SUMMARY:    { label: "ملخص مالي",     icon: DollarSign, color: "bg-green-100 text-green-700" },
-  SEARCH_DATA:          { label: "بحث",            icon: Search,     color: "bg-gray-100 text-gray-700" },
-  NAVIGATE:             { label: "تنقل",            icon: ChevronRight, color: "bg-slate-100 text-slate-700" },
-  GENERAL_QUESTION:     { label: "سؤال",           icon: MessageSquare, color: "bg-gray-100 text-gray-600" },
+  SEARCH_DATA:          { label: "بحث",            icon: Search,     color: "bg-muted/50 text-foreground/70" },
+  NAVIGATE:             { label: "تنقل",            icon: ChevronRight, color: "bg-muted/50 text-foreground/70" },
+  GENERAL_QUESTION:     { label: "سؤال",           icon: MessageSquare, color: "bg-muted/50 text-muted-foreground" },
 };
 
 const QUICK_COMMANDS = [
@@ -85,7 +85,7 @@ function IntelligenceCard({ intel }: { intel: any }) {
       <div className="flex items-center gap-4">
         <ProbabilityRing pct={intel.probabilityOfWin} size={70} />
         <div>
-          <div className="text-xs text-gray-500 mb-0.5">احتمالية الفوز</div>
+          <div className="text-xs text-muted-foreground mb-0.5">احتمالية الفوز</div>
           <div className="text-2xl font-bold text-blue-700">{intel.probabilityOfWin}%</div>
           <div className={`text-sm font-medium ${riskColor}`}>خطر: {riskLabel}</div>
         </div>
@@ -94,7 +94,7 @@ function IntelligenceCard({ intel }: { intel: any }) {
         <div>
           <div className="text-xs font-semibold text-emerald-700 mb-1">✅ نقاط القوة</div>
           {intel.keyStrengths.map((s: string, i: number) => (
-            <div key={i} className="text-xs text-gray-700 flex gap-1.5"><span className="text-emerald-500">•</span>{s}</div>
+            <div key={i} className="text-xs text-foreground/70 flex gap-1.5"><span className="text-emerald-500">•</span>{s}</div>
           ))}
         </div>
       )}
@@ -102,7 +102,7 @@ function IntelligenceCard({ intel }: { intel: any }) {
         <div>
           <div className="text-xs font-semibold text-red-600 mb-1">⚠️ نقاط الضعف</div>
           {intel.keyWeakPoints.map((w: string, i: number) => (
-            <div key={i} className="text-xs text-gray-700 flex gap-1.5"><span className="text-red-400">•</span>{w}</div>
+            <div key={i} className="text-xs text-foreground/70 flex gap-1.5"><span className="text-red-400">•</span>{w}</div>
           ))}
         </div>
       )}
@@ -140,7 +140,7 @@ function MessageBubble({ msg, onAction }: { msg: Message; onAction: (url: string
         <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed
           ${isUser
             ? "bg-blue-600 text-white rounded-tr-sm"
-            : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm"}`}
+            : "bg-white border border-border text-foreground rounded-tl-sm shadow-sm"}`}
           dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
 
         {/* Intelligence card */}
@@ -154,7 +154,7 @@ function MessageBubble({ msg, onAction }: { msg: Message; onAction: (url: string
           </button>
         )}
 
-        <div className="text-xs text-gray-400 px-1">
+        <div className="text-xs text-muted-foreground px-1">
           {new Date(msg.ts).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
         </div>
       </div>
@@ -244,7 +244,7 @@ export default function AICopilotPage() {
   const clearChat = () => setMessages(prev => [prev[0]]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-gray-50" dir="rtl">
+    <div className="flex flex-col h-[calc(100vh-4rem)] bg-muted/30" dir="rtl">
       {/* Header */}
       <div className="bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
@@ -252,8 +252,8 @@ export default function AICopilotPage() {
             <Brain className="h-5 w-5 text-white" />
           </div>
           <div>
-            <div className="font-bold text-gray-900 text-lg">عدل — المساعد القانوني الذكي</div>
-            <div className="text-xs text-gray-500 flex items-center gap-1">
+            <div className="font-bold text-foreground text-lg">عدل — المساعد القانوني الذكي</div>
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
               AI Legal Copilot v2 — Intent Engine + Tool Registry + Memory
             </div>
@@ -261,7 +261,7 @@ export default function AICopilotPage() {
         </div>
         <div className="flex items-center gap-2">
           {snap && (
-            <div className="hidden md:flex items-center gap-3 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+            <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground bg-muted/30 border border-border rounded-xl px-3 py-2">
               <span><Scale className="h-3 w-3 inline ml-1 text-blue-500" />{snap.activeCases} قضية</span>
               <span><Clock className="h-3 w-3 inline ml-1 text-amber-500" />{snap.pendingTasks} مهمة</span>
               <span><Calendar className="h-3 w-3 inline ml-1 text-purple-500" />{snap.upcomingEvents} موعد</span>
@@ -269,7 +269,7 @@ export default function AICopilotPage() {
             </div>
           )}
           <button onClick={clearChat} title="مسح المحادثة"
-            className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition">
+            className="p-2 rounded-xl hover:bg-muted/50 text-muted-foreground hover:text-foreground/70 transition">
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
@@ -279,8 +279,8 @@ export default function AICopilotPage() {
       <div className="bg-card border-b border-border/50 px-4 py-2 flex gap-2 overflow-x-auto shrink-0 scrollbar-hide">
         {QUICK_COMMANDS.map((cmd) => (
           <button key={cmd.label} onClick={() => sendMessage(cmd.prompt)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200
-              text-xs font-medium text-gray-700 whitespace-nowrap hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition shrink-0">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted/30 border border-border
+              text-xs font-medium text-foreground/70 whitespace-nowrap hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition shrink-0">
             <cmd.icon className="h-3.5 w-3.5" />
             {cmd.label}
           </button>
@@ -314,7 +314,7 @@ export default function AICopilotPage() {
       {/* Input */}
       <div className="bg-card border-t border-border px-4 md:px-8 py-4 shrink-0">
         <div className="max-w-3xl mx-auto">
-          <div className="flex items-end gap-3 bg-gray-50 border border-gray-200 rounded-2xl p-3
+          <div className="flex items-end gap-3 bg-muted/30 border border-border rounded-2xl p-3
             focus-within:border-blue-400 focus-within:bg-white transition">
             <textarea
               ref={inputRef}
@@ -323,7 +323,7 @@ export default function AICopilotPage() {
               onKeyDown={handleKey}
               placeholder="اكتب أمرك… مثلاً: افتح قضية ضد شركة X، أو حلل قضية c1، أو الملخص المالي"
               rows={1}
-              className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 resize-none
+              className="flex-1 bg-transparent text-sm text-foreground placeholder-gray-400 resize-none
                 outline-none max-h-32 leading-relaxed"
               style={{ minHeight: "24px" }}
               onInput={e => {
@@ -333,7 +333,7 @@ export default function AICopilotPage() {
               }}
             />
             <div className="flex items-center gap-1 shrink-0">
-              <kbd className="text-xs text-gray-400 hidden sm:block">⏎ إرسال</kbd>
+              <kbd className="text-xs text-muted-foreground hidden sm:block">⏎ إرسال</kbd>
               <button
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim() || isTyping}
@@ -344,11 +344,11 @@ export default function AICopilotPage() {
             </div>
           </div>
           <div className="flex items-center justify-between mt-2 px-1">
-            <div className="text-xs text-gray-400 flex items-center gap-1">
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
               <Sparkles className="h-3 w-3 text-indigo-400" />
               يعمل بـ Gemini 2.5 Flash + Intent Engine + Tool Registry
             </div>
-            <div className="text-xs text-gray-400">Shift+Enter للسطر الجديد</div>
+            <div className="text-xs text-muted-foreground">Shift+Enter للسطر الجديد</div>
           </div>
         </div>
       </div>

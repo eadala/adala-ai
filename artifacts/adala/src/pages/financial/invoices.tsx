@@ -93,7 +93,7 @@ type Invoice = {
 type Client = { id: string; fullName: string; type?: string };
 
 const STATUS_MAP: Record<string, { label: string; cls: string; icon: any }> = {
-  draft:    { label: "مسودة",    cls: "bg-gray-500/10 text-gray-400 border-gray-500/20",    icon: FileText },
+  draft:    { label: "مسودة",    cls: "bg-muted/30 10 text-muted-foreground border-gray-500/20",    icon: FileText },
   sent:     { label: "مُرسَلة",   cls: "bg-blue-500/10 text-blue-400 border-blue-500/20",     icon: Send },
   paid:     { label: "مدفوعة",   cls: "bg-green-500/10 text-green-400 border-green-500/20",  icon: CheckCircle2 },
   overdue:  { label: "متأخرة",   cls: "bg-red-500/10 text-red-400 border-red-500/20",        icon: AlertCircle },

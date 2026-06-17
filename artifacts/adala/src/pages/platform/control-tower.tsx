@@ -173,6 +173,8 @@ export default function ControlTower() {
       toast({ title: freeze ? "تم تجميد المكتب ❄️" : "تم رفع التجميد ✅" });
       qc.invalidateQueries({ queryKey: ["control-tower-metrics"] });
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
+
   });
 
   const aiLockMut = useMutation({
@@ -186,6 +188,8 @@ export default function ControlTower() {
       toast({ title: locked ? "🔒 AI مُقفَل" : "🤖 AI مفعَّل مجدداً" });
       refreshMetrics();
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
+
   });
 
   /* ── Derived values ─────────────────────────────────────────────── */
@@ -227,14 +231,14 @@ export default function ControlTower() {
                   {sysMode.toUpperCase()}
                 </Badge>
               </h1>
-              <p className="text-xs text-slate-500 font-mono">منصة عدالة AI — مركز المراقبة المركزي</p>
+              <p className="text-xs text-muted-foreground font-mono">منصة عدالة AI — مركز المراقبة المركزي</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {/* SSE indicator */}
             <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-mono ${
               connected ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
-                        : "text-slate-500 border-slate-600/30 bg-slate-800/50"
+                        : "text-muted-foreground border-slate-600/30 bg-slate-800/50"
             }`}>
               {connected
                 ? <><Radio className="h-3 w-3 animate-pulse" /> LIVE</>
@@ -274,12 +278,12 @@ export default function ControlTower() {
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
                 <Building2 className="h-4 w-4 text-blue-400" />
                 Tenant Matrix
-                <Badge variant="secondary" className="text-[10px] bg-slate-800 text-slate-400 border-slate-700">
+                <Badge variant="secondary" className="text-[10px] bg-slate-800 text-muted-foreground border-slate-700">
                   {tenants.length} مكتب
                 </Badge>
               </div>
               {live && (
-                <span className="text-[10px] text-slate-600 font-mono">
+                <span className="text-[10px] text-muted-foreground font-mono">
                   {new Date(live.timestamp).toLocaleTimeString("ar-SA")}
                 </span>
               )}
@@ -289,19 +293,19 @@ export default function ControlTower() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-800/40">
-                    <th className="text-right px-4 py-2.5 text-slate-500 font-medium">المكتب</th>
-                    <th className="text-center px-3 py-2.5 text-slate-500 font-medium">أعضاء</th>
-                    <th className="text-center px-3 py-2.5 text-slate-500 font-medium">قضايا</th>
-                    <th className="text-center px-3 py-2.5 text-slate-500 font-medium">فواتير</th>
-                    <th className="text-center px-3 py-2.5 text-slate-500 font-medium">آخر نشاط</th>
-                    <th className="text-center px-3 py-2.5 text-slate-500 font-medium">الحالة</th>
-                    <th className="text-center px-3 py-2.5 text-slate-500 font-medium">إجراء</th>
+                    <th className="text-right px-4 py-2.5 text-muted-foreground font-medium">المكتب</th>
+                    <th className="text-center px-3 py-2.5 text-muted-foreground font-medium">أعضاء</th>
+                    <th className="text-center px-3 py-2.5 text-muted-foreground font-medium">قضايا</th>
+                    <th className="text-center px-3 py-2.5 text-muted-foreground font-medium">فواتير</th>
+                    <th className="text-center px-3 py-2.5 text-muted-foreground font-medium">آخر نشاط</th>
+                    <th className="text-center px-3 py-2.5 text-muted-foreground font-medium">الحالة</th>
+                    <th className="text-center px-3 py-2.5 text-muted-foreground font-medium">إجراء</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tenants.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-10 text-slate-600">
+                      <td colSpan={7} className="text-center py-10 text-muted-foreground">
                         <Building2 className="h-6 w-6 mx-auto mb-2 opacity-30" />
                         لا توجد مكاتب
                       </td>
@@ -314,14 +318,14 @@ export default function ControlTower() {
                           {t.frozen && <Snowflake className="h-3 w-3 text-blue-400 shrink-0" />}
                           <div>
                             <p className="font-medium text-slate-200 truncate max-w-[140px]">{t.office_name}</p>
-                            <p className="text-[10px] text-slate-600 font-mono">{t.office_id.slice(0, 8)}…</p>
+                            <p className="text-[10px] text-muted-foreground font-mono">{t.office_id.slice(0, 8)}…</p>
                           </div>
                         </div>
                       </td>
-                      <td className="text-center px-3 py-3 text-slate-400 tabular-nums">{t.members}</td>
-                      <td className="text-center px-3 py-3 text-slate-400 tabular-nums">{t.cases}</td>
-                      <td className="text-center px-3 py-3 text-slate-400 tabular-nums">{t.invoices}</td>
-                      <td className="text-center px-3 py-3 text-slate-500 text-[10px]">
+                      <td className="text-center px-3 py-3 text-muted-foreground tabular-nums">{t.members}</td>
+                      <td className="text-center px-3 py-3 text-muted-foreground tabular-nums">{t.cases}</td>
+                      <td className="text-center px-3 py-3 text-muted-foreground tabular-nums">{t.invoices}</td>
+                      <td className="text-center px-3 py-3 text-muted-foreground text-[10px]">
                         {relTime(t.last_activity)}
                       </td>
                       <td className="text-center px-3 py-3">
@@ -336,7 +340,7 @@ export default function ControlTower() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button size="sm" variant="ghost"
-                                className="h-7 w-7 p-0 text-slate-500 hover:text-blue-400 hover:bg-blue-400/10"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10"
                                 onClick={() => { setInspectId(t.office_id); setInspectTab("cases"); }}>
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
@@ -348,7 +352,7 @@ export default function ControlTower() {
                               <Button size="sm" variant="ghost"
                                 className={`h-7 w-7 p-0 ${t.frozen
                                   ? "text-blue-400 hover:text-slate-300 hover:bg-slate-700/50"
-                                  : "text-slate-500 hover:text-amber-400 hover:bg-amber-400/10"}`}
+                                  : "text-muted-foreground hover:text-amber-400 hover:bg-amber-400/10"}`}
                                 onClick={() => freezeMut.mutate({ id: t.office_id, freeze: !t.frozen })}
                                 disabled={freezeMut.isPending}>
                                 {t.frozen
@@ -400,7 +404,7 @@ export default function ControlTower() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-slate-300">AI Kill Switch</p>
-                    <p className="text-[10px] text-slate-600">
+                    <p className="text-[10px] text-muted-foreground">
                       {aiLocked ? "كل عمليات الذكاء الاصطناعي مُوقفة" : "الذكاء الاصطناعي يعمل بشكل طبيعي"}
                     </p>
                   </div>
@@ -416,9 +420,9 @@ export default function ControlTower() {
                   </Button>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-slate-800/60">
-                  <p className="text-xs text-slate-500">مهام AI معلّقة</p>
+                  <p className="text-xs text-muted-foreground">مهام AI معلّقة</p>
                   <Badge className={`text-[10px] font-mono ${
-                    aiLoad === 0 ? "bg-slate-800 text-slate-500"
+                    aiLoad === 0 ? "bg-slate-800 text-muted-foreground"
                     : aiLoad < 10 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
                     : "bg-amber-500/10 text-amber-400 border-amber-500/30"
                   }`}>
@@ -457,7 +461,7 @@ export default function ControlTower() {
           </div>
           <div className="divide-y divide-slate-800/30 max-h-64 overflow-y-auto">
             {secFeed.length === 0 ? (
-              <div className="py-8 text-center text-slate-600 text-xs">
+              <div className="py-8 text-center text-muted-foreground text-xs">
                 <CheckCircle2 className="h-5 w-5 mx-auto mb-2 opacity-30" />
                 لا أحداث أمنية مسجّلة
               </div>
@@ -469,13 +473,13 @@ export default function ControlTower() {
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs font-mono font-medium ${s.color}`}>{ev.event_type}</p>
                     {ev.office_id && (
-                      <p className="text-[10px] text-slate-600 font-mono truncate">{ev.office_id.slice(0, 16)}…</p>
+                      <p className="text-[10px] text-muted-foreground font-mono truncate">{ev.office_id.slice(0, 16)}…</p>
                     )}
                   </div>
                   <Badge variant="outline" className={`text-[10px] border shrink-0 ${
-                    ev.source === "audit" ? "border-purple-500/30 text-purple-400" : "border-slate-600 text-slate-500"
+                    ev.source === "audit" ? "border-purple-500/30 text-purple-400" : "border-slate-600 text-muted-foreground"
                   }`}>{ev.source}</Badge>
-                  <span className="text-[10px] text-slate-600 font-mono shrink-0 hidden md:block">
+                  <span className="text-[10px] text-muted-foreground font-mono shrink-0 hidden md:block">
                     {relTime(ev.created_at)}
                   </span>
                 </div>
@@ -509,7 +513,7 @@ export default function ControlTower() {
                   className={`text-xs px-3 py-2 rounded-t-md transition-colors border-b-2 -mb-px ${
                     inspectTab === t.id
                       ? "border-blue-500 text-blue-400 bg-blue-500/5"
-                      : "border-transparent text-slate-500 hover:text-slate-300"
+                      : "border-transparent text-muted-foreground hover:text-slate-300"
                   }`}>
                   {t.label}
                 </button>
@@ -519,7 +523,7 @@ export default function ControlTower() {
             {/* Tab Content */}
             <div className="max-h-80 overflow-y-auto">
               {inspecting ? (
-                <div className="flex items-center justify-center py-10 text-slate-500 text-xs gap-2">
+                <div className="flex items-center justify-center py-10 text-muted-foreground text-xs gap-2">
                   <RefreshCw className="h-4 w-4 animate-spin" /> جارٍ التحميل…
                 </div>
               ) : (
@@ -542,7 +546,7 @@ export default function ControlTower() {
                     : <><Snowflake className="h-3 w-3 mr-1" />تجميد المكتب</>}
                 </Button>
                 <Button size="sm" variant="ghost"
-                  className="text-slate-500 hover:text-slate-300 text-xs"
+                  className="text-muted-foreground hover:text-slate-300 text-xs"
                   onClick={() => setInspectId(null)}>
                   إغلاق
                 </Button>
@@ -565,7 +569,7 @@ function KpiCard({ icon, label, value, status, mono, children }: {
   const colors = { good: "text-emerald-400", warn: "text-amber-400", bad: "text-red-400" };
   return (
     <div className="bg-[#0D1629] border border-slate-800/60 rounded-xl p-3">
-      <div className="flex items-center gap-1.5 text-slate-500 text-[10px] mb-1.5">
+      <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] mb-1.5">
         {icon} {label}
       </div>
       <p className={`text-lg font-bold ${colors[status]} ${mono ? "font-mono" : ""}`}>{value}</p>
@@ -577,7 +581,7 @@ function KpiCard({ icon, label, value, status, mono, children }: {
 function HealthRow({ label, value, ok }: { label: string; value: string; ok: boolean }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-xs text-slate-500">{label}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
       <div className="flex items-center gap-1.5">
         {ok
           ? <CheckCircle2 className="h-3 w-3 text-emerald-400" />
@@ -594,7 +598,7 @@ function StatMini({ label, value, highlight }: { label: string; value: number; h
       <p className={`text-lg font-bold font-mono ${highlight && value > 0 ? "text-amber-400" : "text-slate-200"}`}>
         {value}
       </p>
-      <p className="text-[10px] text-slate-600">{label}</p>
+      <p className="text-[10px] text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -611,7 +615,7 @@ function InspectPanel({ data, tab }: { data: InspectData | undefined; tab: strin
 
   const items = rows[tab] ?? [];
   if (items.length === 0)
-    return <div className="text-center py-8 text-slate-600 text-xs">لا توجد بيانات</div>;
+    return <div className="text-center py-8 text-muted-foreground text-xs">لا توجد بيانات</div>;
 
   return (
     <table className="w-full text-xs">
@@ -619,10 +623,10 @@ function InspectPanel({ data, tab }: { data: InspectData | undefined; tab: strin
         {items.map(row => (
           <tr key={row.key} className="border-b border-slate-800/30 hover:bg-slate-800/20">
             {row.cols.map((c, ci) => (
-              <td key={ci} className="px-3 py-2 text-slate-400 font-mono truncate max-w-[180px]">{c}</td>
+              <td key={ci} className="px-3 py-2 text-muted-foreground font-mono truncate max-w-[180px]">{c}</td>
             ))}
             <td className="px-3 py-2 text-right">
-              <ChevronRight className="h-3 w-3 text-slate-700" />
+              <ChevronRight className="h-3 w-3 text-foreground/70" />
             </td>
           </tr>
         ))}

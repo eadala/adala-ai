@@ -222,11 +222,11 @@ const ROLE_META: Record<string, { color: string; bg: string; icon: React.Compone
   secretary:      { color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/20",      icon: ClipboardList,  scope: "العملاء والوثائق — محدود" },
   broker:         { color: "text-orange-400",  bg: "bg-orange-500/10 border-orange-500/20",  icon: Handshake,      scope: "الإحالات الخاصة به فقط" },
   collaborator:   { color: "text-rose-400",    bg: "bg-rose-500/10 border-rose-500/20",      icon: Globe,          scope: "المهام المشتركة فقط" },
-  client:         { color: "text-slate-400",   bg: "bg-slate-500/10 border-slate-500/20",    icon: UsersIcon,      scope: "ملفه الشخصي فقط" },
+  client:         { color: "text-muted-foreground",   bg: "bg-muted/30 10 border-slate-500/20",    icon: UsersIcon,      scope: "ملفه الشخصي فقط" },
   // legacy / custom
   admin:          { color: "text-red-400",     bg: "bg-red-500/10 border-red-500/20",        icon: Shield,         scope: "كامل" },
   paralegal:      { color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20",icon: BookOpen,       scope: "محدود" },
-  viewer:         { color: "text-slate-400",   bg: "bg-slate-500/10 border-slate-500/20",    icon: Eye,            scope: "قراءة فقط" },
+  viewer:         { color: "text-muted-foreground",   bg: "bg-muted/30 10 border-slate-500/20",    icon: Eye,            scope: "قراءة فقط" },
 };
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {

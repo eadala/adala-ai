@@ -72,7 +72,7 @@ const hierarchyColors: Record<number, string> = {
   2: "bg-blue-100 border-blue-400 text-blue-800",
   3: "bg-green-100 border-green-400 text-green-800",
   4: "bg-purple-100 border-purple-400 text-purple-800",
-  5: "bg-gray-100 border-gray-400 text-gray-700",
+  5: "bg-muted/50 border-gray-400 text-foreground/70",
 };
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -198,7 +198,7 @@ export default function HREnterprise() {
                   <p className="text-xs text-muted-foreground mb-4">هيكل الصلاحيات الهرمي — Partner → Intern</p>
                   {rows(orgChart.data).map((node: any) => (
                     <div key={node.role_name}
-                      className={`p-3 rounded-lg border-r-4 ${hierarchyColors[node.hierarchy] ?? "bg-gray-50 border-gray-300"}`}
+                      className={`p-3 rounded-lg border-r-4 ${hierarchyColors[node.hierarchy] ?? "bg-muted/30 border-border"}`}
                       style={{ marginRight: `${(node.hierarchy - 1) * 20}px` }}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -301,7 +301,7 @@ export default function HREnterprise() {
                     const perms: string[] = role.permissions ?? [];
                     const isFullAccess = perms.includes("*");
                     return (
-                      <div key={role.name} className={`p-4 rounded-lg border-2 ${hierarchyColors[role.hierarchy] ?? "bg-gray-50 border-gray-200"}`}>
+                      <div key={role.name} className={`p-4 rounded-lg border-2 ${hierarchyColors[role.hierarchy] ?? "bg-muted/30 border-border"}`}>
                         <div className="flex items-center justify-between mb-3">
                           <div>
                             <h3 className="font-bold text-sm">{role.display_name}</h3>

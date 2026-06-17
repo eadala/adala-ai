@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import {
   DollarSign, TrendingUp, BarChart2, BookOpen, ArrowRightLeft,
   CheckCircle2, AlertTriangle, RefreshCw, Zap, Building2,
@@ -29,6 +30,7 @@ const TABS = [
 ];
 
 export default function FinancialEnginePage() {
+  const { toast } = useToast();
   const qc  = useQueryClient();
   const [tab, setTab] = useState("overview");
 
@@ -42,6 +44,7 @@ export default function FinancialEnginePage() {
   const testMut = useMutation({
     mutationFn: () => post(api("/api/financial-engine/test"), { officeId: "test-office", amount: 500 }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["fe-summary"] }); qc.invalidateQueries({ queryKey: ["fe-tx"] }); qc.invalidateQueries({ queryKey: ["fe-ledger"] }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const platform = summaryQ.data?.platform ?? {};
@@ -66,7 +69,7 @@ export default function FinancialEnginePage() {
             <DollarSign className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">المحرك المالي</h1>
+            <h1 className="text-xl font-bold text-foreground">المحرك المالي</h1>
             <p className="text-sm text-muted-foreground">Financial Engine — Ledger · Revenue Split · Reconciliation</p>
           </div>
         </div>
@@ -125,7 +128,7 @@ export default function FinancialEnginePage() {
                     <m.icon className={`h-4 w-4 text-${m.color}-600`} />
                   </div>
                 </div>
-                <div className="text-xl font-bold text-gray-900">{m.value}</div>
+                <div className="text-xl font-bold text-foreground">{m.value}</div>
                 <div className="text-xs text-muted-foreground mt-1">{platform.officeCount ?? 0} مكتب</div>
               </div>
             ))}
@@ -134,7 +137,7 @@ export default function FinancialEnginePage() {
           <div className="grid md:grid-cols-2 gap-5">
             {/* Revenue Split */}
             <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <div className="font-semibold text-foreground mb-4 flex items-center gap-2">
                 <PieChart className="h-4 w-4 text-emerald-600" /> توزيع الإيرادات (على 1000 ر.س)
               </div>
               <div className="space-y-3">
@@ -146,8 +149,8 @@ export default function FinancialEnginePage() {
                 ].map((r, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <div className={`w-3 h-3 rounded-sm shrink-0 ${r.color}`} />
-                    <div className="flex-1 text-sm text-gray-700">{r.label}</div>
-                    <div className="text-sm font-semibold text-gray-900">{r.value}</div>
+                    <div className="flex-1 text-sm text-foreground/70">{r.label}</div>
+                    <div className="text-sm font-semibold text-foreground">{r.value}</div>
                     <div className="text-xs text-muted-foreground w-12 text-left">{r.pct}</div>
                   </div>
                 ))}
@@ -160,7 +163,7 @@ export default function FinancialEnginePage() {
 
             {/* Recent Transactions */}
             <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <div className="font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Clock className="h-4 w-4 text-emerald-600" /> آخر المعاملات
               </div>
               <div className="space-y-2">
@@ -169,7 +172,7 @@ export default function FinancialEnginePage() {
                   <div key={tx.id} className="flex items-center gap-2 py-1.5 border-b border-gray-50">
                     <span className="text-base">{GW_ICON[tx.gateway] ?? "💰"}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-gray-800 truncate">{tx.client_name ?? tx.description ?? "معاملة"}</div>
+                      <div className="text-xs font-medium text-foreground truncate">{tx.client_name ?? tx.description ?? "معاملة"}</div>
                       <div className="text-xs text-muted-foreground">{tx.office_id ?? ""} · {new Date(tx.created_at).toLocaleDateString("ar-SA")}</div>
                     </div>
                     <div className="text-sm font-semibold text-emerald-700">{SAR(tx.amount)}</div>
@@ -183,7 +186,7 @@ export default function FinancialEnginePage() {
           {/* Offices */}
           {(officesQ.data?.offices ?? []).length > 0 && (
             <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <div className="font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-emerald-600" /> ملخص المكاتب
               </div>
               <div className="overflow-x-auto">
@@ -200,7 +203,7 @@ export default function FinancialEnginePage() {
                   <tbody>
                     {(officesQ.data?.offices ?? []).map((o: any) => (
                       <tr key={o.office_id} className="border-b border-gray-50 hover:bg-muted/30">
-                        <td className="py-2 pr-1 font-medium text-gray-800">{o.office_id}</td>
+                        <td className="py-2 pr-1 font-medium text-foreground">{o.office_id}</td>
                         <td className="py-2 text-emerald-700 font-semibold">{SAR(o.net_balance)}</td>
                         <td className="py-2 text-violet-700">{SAR(o.platform_earned)}</td>
                         <td className="py-2 text-muted-foreground">{o.entry_count}</td>
@@ -236,10 +239,10 @@ export default function FinancialEnginePage() {
                 {(txQ.data?.transactions ?? []).map((tx: any) => (
                   <tr key={tx.id} className="border-b border-gray-50 hover:bg-muted/30">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-800">{tx.client_name ?? "—"}</div>
+                      <div className="font-medium text-foreground">{tx.client_name ?? "—"}</div>
                       <div className="text-xs text-muted-foreground truncate max-w-40">{tx.description ?? tx.office_id}</div>
                     </td>
-                    <td className="py-3 font-semibold text-gray-900">{SAR(tx.amount)}</td>
+                    <td className="py-3 font-semibold text-foreground">{SAR(tx.amount)}</td>
                     <td className="py-3 text-violet-700">{SAR(tx.platform_fee ?? 0)}</td>
                     <td className="py-3 text-emerald-700 font-semibold">{SAR(tx.net_amount ?? 0)}</td>
                     <td className="py-3">{GW_ICON[tx.gateway] ?? "💰"} {tx.gateway}</td>
@@ -279,7 +282,7 @@ export default function FinancialEnginePage() {
               <tbody>
                 {(ledgerQ.data?.entries ?? []).map((e: any) => (
                   <tr key={e.id} className="border-b border-gray-50 hover:bg-muted/30 font-mono text-xs">
-                    <td className="px-4 py-2.5 font-sans text-gray-800">{e.office_id ?? "—"}</td>
+                    <td className="px-4 py-2.5 font-sans text-foreground">{e.office_id ?? "—"}</td>
                     <td className="py-2.5">
                       <span className={`px-1.5 py-0.5 rounded text-xs font-sans
                         ${e.entry_type === "payment" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
@@ -289,7 +292,7 @@ export default function FinancialEnginePage() {
                     <td className="py-2.5 text-emerald-700 font-semibold">{SAR(e.amount)}</td>
                     <td className="py-2.5 text-violet-700">{SAR(e.platform_fee ?? 0)}</td>
                     <td className="py-2.5 text-blue-700">{SAR(e.stripe_fee ?? 0)}</td>
-                    <td className="py-2.5 font-bold text-gray-900">{SAR(e.balance_after ?? 0)}</td>
+                    <td className="py-2.5 font-bold text-foreground">{SAR(e.balance_after ?? 0)}</td>
                     <td className="py-2.5 text-muted-foreground font-sans">{e.source ?? "—"}</td>
                     <td className="py-2.5 text-muted-foreground font-sans">{new Date(e.created_at).toLocaleDateString("ar-SA")}</td>
                   </tr>
@@ -315,7 +318,7 @@ export default function FinancialEnginePage() {
               ? <CheckCircle2 className="h-8 w-8 text-emerald-500 shrink-0 mt-0.5" />
               : <AlertTriangle className="h-8 w-8 text-red-500 shrink-0 mt-0.5" />}
             <div>
-              <div className="text-lg font-bold text-gray-900">{reconQ.data?.message ?? "جارٍ الفحص…"}</div>
+              <div className="text-lg font-bold text-foreground">{reconQ.data?.message ?? "جارٍ الفحص…"}</div>
               <div className="text-sm text-muted-foreground mt-2 grid grid-cols-3 gap-4">
                 <div>دفتر الأستاذ: <strong>{SAR(reconQ.data?.ledgerTotal ?? 0)}</strong></div>
                 <div>المعاملات: <strong>{SAR(reconQ.data?.transactionTotal ?? 0)}</strong></div>
@@ -327,7 +330,7 @@ export default function FinancialEnginePage() {
           {/* By Office */}
           {(reconQ.data?.byOffice ?? []).length > 0 && (
             <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="font-semibold text-gray-800 mb-4">تفصيل حسب المكتب</div>
+              <div className="font-semibold text-foreground mb-4">تفصيل حسب المكتب</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -344,7 +347,7 @@ export default function FinancialEnginePage() {
                       <tr key={o.office_id} className="border-b border-gray-50">
                         <td className="py-2 pr-1 font-medium">{o.office_id}</td>
                         <td className="py-2 text-muted-foreground">{o.tx_count}</td>
-                        <td className="py-2 text-gray-800 font-semibold">{SAR(o.gross_total)}</td>
+                        <td className="py-2 text-foreground font-semibold">{SAR(o.gross_total)}</td>
                         <td className="py-2 text-emerald-700 font-semibold">{SAR(o.net_total)}</td>
                         <td className="py-2 text-violet-700">{SAR(o.fee_total)}</td>
                       </tr>

@@ -77,7 +77,7 @@ export default function DemoLoginPage() {
 
       <div className="w-full max-w-md relative z-10">
         <Link href={`${BASE}/sign-in`}>
-          <button className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors mb-8">
+          <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-white transition-colors mb-8">
             <ChevronLeft className="h-4 w-4" />
             العودة لتسجيل الدخول
           </button>
@@ -91,7 +91,7 @@ export default function DemoLoginPage() {
             <span className="text-xl font-black text-white">عدالة AI</span>
           </div>
           <h1 className="text-2xl font-black text-white mb-2">دخول تجريبي سريع</h1>
-          <p className="text-slate-400 text-sm">
+          <p className="text-muted-foreground text-sm">
             اختر مكتباً وادخل فوراً — لا حاجة لتسجيل أو بطاقة ائتمانية
           </p>
         </div>
@@ -100,7 +100,7 @@ export default function DemoLoginPage() {
           <div className="space-y-4">
             {!selectedOffice ? (
               <>
-                <p className="text-xs text-slate-500 text-center mb-4">اختر المكتب الذي تريد تجربته</p>
+                <p className="text-xs text-muted-foreground text-center mb-4">اختر المكتب الذي تريد تجربته</p>
                 {OFFICES.map(o => (
                   <button
                     key={o.id}
@@ -120,8 +120,8 @@ export default function DemoLoginPage() {
                           <span className="font-bold text-white text-sm">{o.name}</span>
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-slate-300">{o.city}</span>
                         </div>
-                        <p className="text-xs text-slate-400 mb-2">{o.specialty}</p>
-                        <div className="flex items-center gap-3 text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground mb-2">{o.specialty}</p>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Star className="h-3 w-3 text-amber-400" />
                             {o.rating}
@@ -136,7 +136,7 @@ export default function DemoLoginPage() {
                           </span>
                         </div>
                       </div>
-                      <ChevronLeft className="h-4 w-4 text-slate-600 shrink-0 mt-1 rotate-180" />
+                      <ChevronLeft className="h-4 w-4 text-muted-foreground shrink-0 mt-1 rotate-180" />
                     </div>
                   </button>
                 ))}
@@ -145,7 +145,7 @@ export default function DemoLoginPage() {
               <>
                 <button
                   onClick={() => { setSelectedOffice(null); setSelectedUser(null); }}
-                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-2"
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-slate-300 transition-colors mb-2"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   تغيير المكتب
@@ -158,13 +158,13 @@ export default function DemoLoginPage() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-white">{office?.name}</p>
-                      <p className="text-xs text-slate-400">{office?.specialty}</p>
+                      <p className="text-xs text-muted-foreground">{office?.specialty}</p>
                     </div>
                     <CheckCircle2 className="h-4 w-4 text-green-400 mr-auto" />
                   </div>
                 </div>
 
-                <p className="text-xs text-slate-500 mb-3">اختر الشخصية التي تريد الدخول بها</p>
+                <p className="text-xs text-muted-foreground mb-3">اختر الشخصية التي تريد الدخول بها</p>
                 {office?.users.map((u, i) => (
                   <button
                     key={i}
@@ -181,7 +181,7 @@ export default function DemoLoginPage() {
                     </div>
                     <div className="flex-1">
                       <p className="font-bold text-white text-sm">{u.name}</p>
-                      <p className="text-xs text-slate-400">{u.role}</p>
+                      <p className="text-xs text-muted-foreground">{u.role}</p>
                     </div>
                     {selectedUser === i && <CheckCircle2 className="h-4 w-4 text-blue-400 shrink-0" />}
                   </button>
@@ -209,7 +209,7 @@ export default function DemoLoginPage() {
                 "جميع الميزات متاحة: القضايا، الفوترة، AI، الموظفون",
                 "لا تسجيل ولا بطاقة ائتمانية مطلوبة",
               ].map(t => (
-                <div key={t} className="flex items-start gap-2 text-xs text-slate-400">
+                <div key={t} className="flex items-start gap-2 text-xs text-muted-foreground">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" />
                   {t}
                 </div>
@@ -217,7 +217,7 @@ export default function DemoLoginPage() {
             </div>
 
             <div className="text-center mt-4">
-              <span className="text-xs text-slate-600">تريد حساباً حقيقياً؟ </span>
+              <span className="text-xs text-muted-foreground">تريد حساباً حقيقياً؟ </span>
               <Link href={`${BASE}/sign-up`}>
                 <span className="text-xs text-blue-400 hover:text-blue-300 font-bold cursor-pointer">
                   سجّل مجاناً ←
@@ -231,10 +231,10 @@ export default function DemoLoginPage() {
               <Loader2 className="h-8 w-8 text-blue-400 animate-spin" />
             </div>
             <p className="text-white font-bold mb-1">جارٍ تحميل بيئة المكتب…</p>
-            <p className="text-slate-500 text-sm">
+            <p className="text-muted-foreground text-sm">
               {office?.name}
             </p>
-            <div className="flex items-center justify-center gap-1.5 mt-4 text-xs text-slate-600">
+            <div className="flex items-center justify-center gap-1.5 mt-4 text-xs text-muted-foreground">
               <Sparkles className="h-3.5 w-3.5 text-amber-400" />
               بيانات تجريبية واقعية جاهزة
             </div>
