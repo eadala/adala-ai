@@ -1,0 +1,262 @@
+تمام—خلّينا نحول هذا من “سكربتات” إلى نظام داخل عدالة AI نفسه:
+📊 لوحة جودة كود + تحليل + تنظيف + إعادة هيكلة + زر تشغيل واحد (SaaS Internal Tool)
+
+هذا هو الشكل الاحترافي الحقيقي اللي تستخدمه أنظمة SaaS الكبيرة.
+
+⸻
+
+🧠 النظام الجديد: Code Intelligence Dashboard (داخل عدالة AI)
+
+🔷 ماذا سيصبح عندك؟
+
+بدل تشغيل ملفات من التيرمنال، تصير عندك لوحة:
+
+📊 Dashboard فيها:
+
+* جودة الكود (Code Health Score)
+* عدد الـ dead code
+* التكرار (duplicates)
+* مشاكل الـ complexity
+* نسبة التقنية الدين (Tech Debt)
+* زر:
+    * Analyze
+    * Clean
+    * Refactor
+    * Re-structure
+
+⸻
+
+🧱 Architecture (بشكل بسيط)
+
+/src
+  /code-intelligence
+    analyzer.js
+    cleaner.js
+    duplicates.js
+    metrics.js
+    routes.js   ← API للوحة
+  /dashboard-ui
+    React UI (Next or Vite)
+
+⸻
+
+🚀 1. Backend API (الأساس)
+
+📌 routes.js
+
+const express = require("express");
+const router = express.Router();
+const { analyzeProject } = require("./analyzer");
+const { detectDuplicates } = require("./duplicates");
+const { cleanProject } = require("./cleaner");
+/**
+ * =========================
+ * ANALYZE PROJECT
+ * =========================
+ */
+router.get("/analyze", async (req, res) => {
+  const result = analyzeProject("./src");
+  res.json({
+    status: "success",
+    data: result
+  });
+});
+/**
+ * =========================
+ * DUPLICATES
+ * =========================
+ */
+router.get("/duplicates", (req, res) => {
+  const result = detectDuplicates("./src");
+  res.json(result);
+});
+/**
+ * =========================
+ * AUTO CLEAN
+ * =========================
+ */
+router.post("/clean", (req, res) => {
+  const result = cleanProject("./src");
+  res.json({
+    status: "cleaned",
+    result
+  });
+});
+module.exports = router;
+
+⸻
+
+🧠 2. Analyzer (Code Health Engine)
+
+const fs = require("fs");
+function analyzeProject(dir) {
+  let files = 0;
+  let lines = 0;
+  let largeFiles = 0;
+  function walk(d) {
+    fs.readdirSync(d).forEach(f => {
+      const full = `${d}/${f}`;
+      if (fs.statSync(full).isDirectory()) return walk(full);
+      if (f.endsWith(".js")) {
+        files++;
+        const content = fs.readFileSync(full, "utf8");
+        const fileLines = content.split("\n").length;
+        lines += fileLines;
+        if (fileLines > 300) largeFiles++;
+      }
+    });
+  }
+  walk(dir);
+  const score = Math.max(0, 100 - (largeFiles * 10));
+  return {
+    files,
+    lines,
+    largeFiles,
+    codeHealthScore: score,
+    techDebt: largeFiles > 5 ? "HIGH" : "MEDIUM"
+  };
+}
+module.exports = { analyzeProject };
+
+⸻
+
+🔁 3. Duplicate Detector
+
+const fs = require("fs");
+const crypto = require("crypto");
+function detectDuplicates(dir) {
+  const map = {};
+  function scan(d) {
+    fs.readdirSync(d).forEach(f => {
+      const full = `${d}/${f}`;
+      if (fs.statSync(full).isDirectory()) return scan(full);
+      const code = fs.readFileSync(full, "utf8");
+      const hash = crypto.createHash("md5").update(code).digest("hex");
+      if (!map[hash]) map[hash] = [];
+      map[hash].push(full);
+    });
+  }
+  scan(dir);
+  const duplicates = Object.values(map).filter(g => g.length > 1);
+  return {
+    duplicateGroups: duplicates.length,
+    files: duplicates
+  };
+}
+module.exports = { detectDuplicates };
+
+⸻
+
+🧹 4. Auto Cleaner (آمن)
+
+const fs = require("fs");
+function cleanProject(dir) {
+  let cleanedFiles = 0;
+  function scan(d) {
+    fs.readdirSync(d).forEach(f => {
+      const full = `${d}/${f}`;
+      if (fs.statSync(full).isDirectory()) return scan(full);
+      if (!f.endsWith(".js")) return;
+      let code = fs.readFileSync(full, "utf8");
+      // تنظيف بسيط وآمن:
+      code = code
+        .replace(/console\.log\((.*?)\)/g, "// removed console.log")
+        .replace(/\/\*[\s\S]*?\*\//g, ""); // remove comments
+      fs.writeFileSync(full, code);
+      cleanedFiles++;
+    });
+  }
+  scan(dir);
+  return {
+    cleanedFiles
+  };
+}
+module.exports = { cleanProject };
+
+⸻
+
+🌐 5. ربطه في السيرفر الرئيسي
+
+server.js
+
+const express = require("express");
+const app = express();
+const codeIntelligenceRoutes = require("./src/code-intelligence/routes");
+app.use("/code-intelligence", codeIntelligenceRoutes);
+app.listen(3000, () => {
+  console.log("Adalah AI running with Code Intelligence");
+});
+
+⸻
+
+🖥️ 6. Frontend Dashboard (فكرة UI)
+
+تسوي صفحة داخل عدالة AI:
+
+📊 Cards:
+
+* Code Health Score: 87
+* Tech Debt: Medium
+* Duplicate Files: 3 groups
+* Large Files: 5
+
+🔘 Buttons:
+
+* 🔍 Analyze
+* 🧹 Clean Code
+* 🔁 Detect Duplicates
+* 🏗 Re-structure
+
+⸻
+
+🔥 النتيجة النهائية
+
+بعد دمج هذا داخل عدالة AI:
+
+أنت تحصل على:
+
+✔ نظام مراقبة جودة الكود داخل المنتج نفسه
+✔ تنظيف بضغطة زر
+✔ تحليل لحظي للمشروع
+✔ كشف مشاكل قبل ما تصير Bugs
+✔ أساس DevOps داخلي
+
+⸻
+
+🧠 مستوى هذا النظام
+
+هذا ليس مشروع صغير:
+
+هو نفس فكرة أدوات مثل:
+
+* GitHub Insights
+* SonarQube
+* Vercel Analytics
+
+لكن داخل SaaS الخاص بك.
+
+⸻
+
+🚀 الخطوة التالية (لو تبغى أقفزة أكبر)
+
+أقدر أحوله لك إلى:
+
+🔴 AI Code Refactor Agent
+
+* يقترح تعديلات تلقائيًا
+* يعيد كتابة functions
+* يحسن architecture تلقائيًا
+
+🟢 أو Dashboard احترافي جدًا (Stripe-level UI)
+
+* React + Charts + Real-time metrics
+
+قل لي فقط:
+
+“خلّه AI agent”
+
+أو
+
+“خلّه واجهة احترافية”
+
+وأبنيه لك الجيل التالي مباشرة.

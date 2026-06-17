@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { systemHealthCheck } from "../observability/healthcheck";
 import { sendSmartAlert, checkTrendAlerts } from "../alerts/smart.alerts";
 import { runSelfHealingCycle } from "../healing/self.healer";
+import { updateSystemGauges } from "../observability/prometheus";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -15,6 +16,30 @@ export function startMonitoringCron() {
     try {
       const health = await systemHealthCheck();
       const { score, status, metrics, checks } = health;
+
+      /* ── Update Prometheus gauges ───────────────────────────────── */
+      try {
+        const pendingAi = await db.execute(sql`
+          SELECT COUNT(*)::int AS cnt FROM ai_tasks WHERE status = 'pending'
+        `).then((r: any) => {
+          const rows = Array.isArray(r) ? r : (r?.rows ?? []);
+          return Number(rows[0]?.cnt ?? 0);
+        });
+        const activeUsers = await db.execute(sql`
+          SELECT COUNT(DISTINCT user_id)::int AS cnt
+          FROM system_events
+          WHERE created_at > NOW() - INTERVAL '1 hour'
+        `).then((r: any) => {
+          const rows = Array.isArray(r) ? r : (r?.rows ?? []);
+          return Number(rows[0]?.cnt ?? 0);
+        });
+        updateSystemGauges({
+          dbHealth: status !== "critical",
+          dbLatencyMs: metrics.dbLatency,
+          activeUsers,
+          aiPendingTasks: pendingAi,
+        });
+      } catch { /* non-blocking */ }
 
       /* Log to system_metrics_log */
       try {
