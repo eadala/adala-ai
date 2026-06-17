@@ -13,7 +13,7 @@ import {
   Shield, BarChart3, Users, CreditCard, Globe, Database,
   Code2, Server, Settings, LogOut, Menu, X, ChevronRight,
   Zap, Building2, Coins, Landmark, Activity, GitBranch,
-  BookOpen, Crown, LayoutDashboard, Radio,
+  BookOpen, Crown, LayoutDashboard, Radio, BrainCircuit,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -36,6 +36,7 @@ const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { href: "/super-admin",     label: "لوحة التحكم",        icon: LayoutDashboard },
       { href: "/control-tower",   label: "Control Tower",       icon: Radio,           badge: "SOC" },
+      { href: "/saas-os",         label: "SaaS OS",             icon: BrainCircuit,    badge: "AI" },
       { href: "/financial-core",  label: "النواة المالية",      icon: BarChart3 },
       { href: "/audit-logs",      label: "سجل المراجعة",        icon: Activity },
     ],
