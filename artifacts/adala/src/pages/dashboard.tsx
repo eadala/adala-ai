@@ -717,318 +717,395 @@ export default function Dashboard() {
     { label: tx("التقويم", "Calendar"),         icon: CalendarDays, href: "/calendar",  color: "border-orange-500/30 hover:bg-orange-500/10" },
   ];
 
+  /* ── KPI card configs with gradient accents ── */
+  const KPI_ACCENTS = [
+    { gradient: "from-blue-500/10 to-blue-600/5",   iconBg: "bg-blue-500/15",   iconColor: "text-blue-600",   valueCls: "text-blue-700"   },
+    { gradient: "from-violet-500/10 to-violet-600/5",iconBg: "bg-violet-500/15", iconColor: "text-violet-600", valueCls: "text-violet-700" },
+    { gradient: "from-emerald-500/10 to-emerald-600/5",iconBg:"bg-emerald-500/15",iconColor:"text-emerald-600",valueCls:"text-emerald-700"},
+    { gradient: "from-purple-500/10 to-purple-600/5", iconBg: "bg-purple-500/15", iconColor: "text-purple-600", valueCls: "text-purple-700" },
+  ];
+
   return (
     <div className="space-y-6 max-w-7xl">
-      {/* ── Smart Briefing — Adaptive Greeting + Priority Actions */}
-      <SmartBriefing user={user} />
 
-      {/* ── Executive Pulse Bar — 10 مؤشرات فورية */}
-      <ExecutivePulseBar />
-
-      {/* ── Office Intelligence Score — 5 Dimensions */}
-      <OfficePerfScore />
-
-      {/* ── AI Intelligence Panel — Autonomous Monitoring */}
-      <AiEventsPanel />
-
-      {/* ── Executive Assistant Widget */}
-      <ExecutiveAssistant />
-
-      {/* ── KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {isLoading
-          ? Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
-          : kpiCards.map(k => {
-              const Icon = k.icon;
-              return (
-                <Link key={k.label} href={k.href}>
-                  <Card className="hover:border-primary/30 transition-all cursor-pointer group">
-                    <CardContent className="pt-5 pb-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-xs text-muted-foreground">{k.label}</p>
-                          <p className={`text-2xl font-black mt-1 ${k.color} font-mono`}>{k.value}</p>
-                          <p className="text-[10px] text-muted-foreground mt-1 leading-tight">{k.sub}</p>
-                        </div>
-                        <div className={`p-2 rounded-xl ${k.bg}`}>
-                          <Icon className={`h-5 w-5 ${k.color}`} />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
+      {/* ══════════════════════════════════════════════
+          HERO BRIEFING — same bold Arabic energy as landing
+      ══════════════════════════════════════════════ */}
+      <div className="app-fade app-fade-1 rounded-2xl border border-border/60 bg-white overflow-hidden shadow-sm">
+        {/* Blue accent top strip */}
+        <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #2563EB 0%, #0B1F3B 100%)" }} />
+        <div className="p-5 sm:p-6">
+          <SmartBriefing user={user} />
+        </div>
       </div>
 
-      {/* ── Smart Alerts */}
+      {/* ══════════════════════════════════════════════
+          EXECUTIVE PULSE — 10 مؤشرات فورية
+      ══════════════════════════════════════════════ */}
+      <div className="app-fade app-fade-2">
+        <ExecutivePulseBar />
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          KPI STAT CARDS — landing page stat style
+      ══════════════════════════════════════════════ */}
+      <div className="app-fade app-fade-3">
+        <div className="section-label">{tx("المؤشرات الرئيسية", "Key Metrics")}</div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {isLoading
+            ? Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)
+            : kpiCards.map((k, i) => {
+                const Icon = k.icon;
+                const accent = KPI_ACCENTS[i % KPI_ACCENTS.length];
+                return (
+                  <Link key={k.label} href={k.href}>
+                    <div className={`stat-card bg-gradient-to-br ${accent.gradient} cursor-pointer`}>
+                      {/* Icon top-left */}
+                      <div className={`stat-icon ${accent.iconBg}`}>
+                        <Icon className={`h-5 w-5 ${accent.iconColor}`} />
+                      </div>
+                      {/* Value — large + bold */}
+                      <div className="mt-8">
+                        <div className={`stat-value ${accent.valueCls} font-mono`}>{k.value}</div>
+                        <div className="stat-label">{k.label}</div>
+                        <div className="text-[10px] text-muted-foreground/70 mt-1.5 leading-tight">{k.sub}</div>
+                      </div>
+                      {/* Hover arrow */}
+                      <ChevronRight className="absolute bottom-3 left-3 h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+                    </div>
+                  </Link>
+                );
+              })}
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          OFFICE INTELLIGENCE SCORE
+      ══════════════════════════════════════════════ */}
+      <div className="app-fade app-fade-3">
+        <OfficePerfScore />
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          AI INTELLIGENCE PANEL
+      ══════════════════════════════════════════════ */}
+      <div className="app-fade app-fade-4">
+        <AiEventsPanel />
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          SMART ALERTS
+      ══════════════════════════════════════════════ */}
       {(data?.alerts ?? []).length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {(data?.alerts ?? []).map((alert, i) => (
-            <Link key={i} href={alert.action}>
-              <div className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all hover:opacity-80 ${
-                alert.type === "warning" ? "border-orange-500/30 bg-orange-500/5" :
-                alert.type === "info"    ? "border-blue-500/30 bg-blue-500/5" :
-                "border-primary/30 bg-primary/5"
-              }`}>
-                <AlertCircle className={`h-4 w-4 mt-0.5 shrink-0 ${
-                  alert.type === "warning" ? "text-orange-400" :
-                  alert.type === "info"    ? "text-blue-400" : "text-primary"
-                }`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold leading-tight">{alert.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{alert.body}</p>
+        <div className="app-fade app-fade-4">
+          <div className="section-label">{tx("تنبيهات ذكية", "Smart Alerts")}</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {(data?.alerts ?? []).map((alert, i) => (
+              <Link key={i} href={alert.action}>
+                <div className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 ${
+                  alert.type === "warning" ? "border-orange-500/30 bg-orange-500/5 hover:border-orange-500/50" :
+                  alert.type === "info"    ? "border-blue-500/30 bg-blue-500/5 hover:border-blue-500/50" :
+                  "border-primary/30 bg-primary/5 hover:border-primary/50"
+                }`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    alert.type === "warning" ? "bg-orange-500/15" : alert.type === "info" ? "bg-blue-500/15" : "bg-primary/15"
+                  }`}>
+                    <AlertCircle className={`h-4 w-4 ${
+                      alert.type === "warning" ? "text-orange-500" : alert.type === "info" ? "text-blue-500" : "text-primary"
+                    }`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold leading-tight">{alert.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{alert.body}</p>
+                  </div>
+                  <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 mt-0.5" />
                 </div>
-                <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-              </div>
-            </Link>
-          ))}
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ── Revenue Chart */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              {tx("الإيرادات (6 أشهر)", "Revenue (6 months)")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? <Skeleton className="h-[200px]" /> : (
-              <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data?.revenueChart ?? []}>
-                    <defs>
-                      <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false}
-                      tickFormatter={v => `${v.toLocaleString(dateLocale)} ${tx("ر.س","SAR")}`} width={75} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }}
-                      formatter={(v: any) => [`${Number(v).toLocaleString(dateLocale)} ${tx("ر.س","SAR")}`, tx("الإيرادات","Revenue")]}
-                    />
-                    <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))"
-                      strokeWidth={2} fill="url(#revGrad)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ── Today Schedule */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-primary" />
-                {tx("جدول اليوم", "Today's Schedule")}
-              </CardTitle>
-              <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" asChild>
-                <Link href="/calendar"><ExternalLink className="h-3 w-3" />{tx("الكل", "All")}</Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-2">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
-            ) : (data?.todayEvents ?? []).length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-2">
-                <CalendarDays className="h-8 w-8 text-muted-foreground/30" />
-                <p className="text-xs text-muted-foreground">{tx("لا توجد مواعيد اليوم", "No appointments today")}</p>
-                <Button size="sm" variant="outline" className="text-xs gap-1 h-7 mt-1" asChild>
-                  <Link href="/calendar"><Plus className="h-3 w-3" />{tx("إضافة موعد", "Add appointment")}</Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {(data?.todayEvents ?? []).map((ev: any) => {
-                  const colorClass = EVENT_COLORS[ev.event_type] ?? EVENT_COLORS.other;
-                  const time = ev.all_day ? tx("طوال اليوم","All day") : new Date(ev.start_at).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" });
-                  return (
-                    <div key={ev.id} className={`rounded-xl border p-2.5 ${colorClass}`}>
-                      <p className="text-xs font-semibold leading-tight truncate">{ev.title}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] flex items-center gap-1">
-                          <Clock className="h-2.5 w-2.5" />{time}
-                        </span>
-                        {ev.location && (
-                          <span className="text-[10px] flex items-center gap-1 truncate">
-                            <MapPin className="h-2.5 w-2.5" />{ev.location}
-                          </span>
-                        )}
-                        <span className="text-[10px] opacity-70">{EVENT_TYPE_LABEL[ev.event_type] ?? tx("حدث","Event")}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* ══════════════════════════════════════════════
+          EXECUTIVE ASSISTANT
+      ══════════════════════════════════════════════ */}
+      <div className="app-fade app-fade-4">
+        <ExecutiveAssistant />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ── Recent Cases */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Scale className="h-4 w-4 text-primary" />{tx("آخر القضايا", "Recent Cases")}
-              </CardTitle>
-              <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" asChild>
+      {/* ══════════════════════════════════════════════
+          REVENUE CHART + TODAY SCHEDULE
+      ══════════════════════════════════════════════ */}
+      <div className="app-fade app-fade-5">
+        <div className="section-label">{tx("التحليلات والجدول", "Analytics & Schedule")}</div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Revenue Chart — 2/3 width */}
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <BarChart3 className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">{tx("الإيرادات", "Revenue")}</p>
+                  <p className="text-[11px] text-muted-foreground">{tx("آخر 6 أشهر", "Last 6 months")}</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" className="text-xs h-7 gap-1 rounded-lg" asChild>
+                <Link href="/revenues"><ExternalLink className="h-3 w-3" />{tx("تفاصيل", "Details")}</Link>
+              </Button>
+            </div>
+            <div className="p-5">
+              {isLoading ? <Skeleton className="h-[220px] rounded-xl" /> : (
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={data?.revenueChart ?? []} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%"   stopColor="#2563EB" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="#2563EB" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false}
+                        tickFormatter={v => `${(v/1000).toFixed(0)}k`} width={40} />
+                      <Tooltip
+                        contentStyle={{ background: "white", border: "1px solid hsl(var(--border))", borderRadius: "10px", fontSize: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
+                        formatter={(v: any) => [`${Number(v).toLocaleString(dateLocale)} ${tx("ر.س","SAR")}`, tx("الإيرادات","Revenue")]}
+                      />
+                      <Area type="monotone" dataKey="revenue" stroke="#2563EB" strokeWidth={2.5} fill="url(#revGrad)" dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Today Schedule — 1/3 width */}
+          <div className="bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-border/40">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                  <CalendarDays className="h-4 w-4 text-orange-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">{tx("جدول اليوم", "Today")}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {new Date().toLocaleDateString(dateLocale, { weekday: "long" })}
+                  </p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" className="text-xs h-7 gap-1 rounded-lg" asChild>
+                <Link href="/calendar"><ExternalLink className="h-3 w-3" /></Link>
+              </Button>
+            </div>
+            <div className="p-4">
+              {isLoading ? (
+                <div className="space-y-2">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}</div>
+              ) : (data?.todayEvents ?? []).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <div className="w-12 h-12 rounded-full bg-muted/40 flex items-center justify-center">
+                    <CalendarDays className="h-5 w-5 text-muted-foreground/40" />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">{tx("يوم فارغ — أضف موعداً", "Free day — add an event")}</p>
+                  <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8 rounded-lg" asChild>
+                    <Link href="/calendar"><Plus className="h-3 w-3" />{tx("إضافة موعد", "Add")}</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {(data?.todayEvents ?? []).map((ev: any) => {
+                    const colorClass = EVENT_COLORS[ev.event_type] ?? EVENT_COLORS.other;
+                    const time = ev.all_day ? tx("طوال اليوم","All day") : new Date(ev.start_at).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" });
+                    return (
+                      <div key={ev.id} className={`rounded-xl border p-3 ${colorClass}`}>
+                        <p className="text-xs font-semibold leading-tight truncate">{ev.title}</p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="text-[10px] flex items-center gap-1 opacity-80">
+                            <Clock className="h-2.5 w-2.5" />{time}
+                          </span>
+                          {ev.location && (
+                            <span className="text-[10px] flex items-center gap-1 truncate opacity-70">
+                              <MapPin className="h-2.5 w-2.5" />{ev.location}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          RECENT ACTIVITY — Cases + Invoices + Quick Actions
+      ══════════════════════════════════════════════ */}
+      <div className="app-fade app-fade-5">
+        <div className="section-label">{tx("النشاط الأخير والإجراءات السريعة", "Recent Activity & Quick Actions")}</div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+          {/* Recent Cases */}
+          <div className="bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/40">
+              <div className="flex items-center gap-2">
+                <Scale className="h-4 w-4 text-primary" />
+                <span className="text-sm font-bold">{tx("آخر القضايا", "Recent Cases")}</span>
+              </div>
+              <Button variant="ghost" size="sm" className="text-xs h-7 gap-1 rounded-lg" asChild>
                 <Link href="/cases"><ArrowLeft className="h-3 w-3" />{tx("الكل", "All")}</Link>
               </Button>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {isLoading ? Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-12" />) :
-              (data?.recentCases ?? []).length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">{tx("لا توجد قضايا بعد", "No cases yet")}</p>
-              ) : (
-                (data?.recentCases ?? []).map((c: any) => {
-                  const st = STATUS_MAP[c.status] ?? STATUS_MAP.open;
-                  return (
-                    <Link key={c.id} href="/cases">
-                      <div className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer">
-                        <div className="p-1.5 rounded-lg bg-primary/10">
-                          <Scale className="h-3.5 w-3.5 text-primary" />
+            <div className="p-3 space-y-2">
+              {isLoading ? Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />) :
+                (data?.recentCases ?? []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-6">{tx("لا توجد قضايا بعد", "No cases yet")}</p>
+                ) : (
+                  (data?.recentCases ?? []).map((c: any) => {
+                    const st = STATUS_MAP[c.status] ?? STATUS_MAP.open;
+                    return (
+                      <Link key={c.id} href="/cases">
+                        <div className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/40 transition-all cursor-pointer group">
+                          <div className="p-1.5 rounded-lg bg-primary/8 group-hover:bg-primary/15 transition-colors">
+                            <Scale className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{c.title}</p>
+                            <p className="text-[10px] text-muted-foreground">{new Date(c.createdAt).toLocaleDateString(dateLocale)}</p>
+                          </div>
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${st.color}`}>{st.label}</Badge>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{c.title}</p>
-                          <p className="text-[10px] text-muted-foreground">{new Date(c.createdAt).toLocaleDateString(dateLocale)}</p>
-                        </div>
-                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${st.color}`}>{st.label}</Badge>
-                      </div>
-                    </Link>
-                  );
-                })
-              )
-            }
-          </CardContent>
-        </Card>
+                      </Link>
+                    );
+                  })
+                )
+              }
+            </div>
+          </div>
 
-        {/* ── Recent Invoices */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-primary" />{tx("آخر الفواتير", "Recent Invoices")}
-              </CardTitle>
-              <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" asChild>
+          {/* Recent Invoices */}
+          <div className="bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/40">
+              <div className="flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-emerald-600" />
+                <span className="text-sm font-bold">{tx("آخر الفواتير", "Recent Invoices")}</span>
+              </div>
+              <Button variant="ghost" size="sm" className="text-xs h-7 gap-1 rounded-lg" asChild>
                 <Link href="/invoices"><ArrowLeft className="h-3 w-3" />{tx("الكل", "All")}</Link>
               </Button>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {isLoading ? Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-12" />) :
-              (data?.recentInvoices ?? []).length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">{tx("لا توجد فواتير بعد", "No invoices yet")}</p>
-              ) : (
-                (data?.recentInvoices ?? []).map((inv: any) => {
-                  const st = INV_STATUS[inv.status] ?? INV_STATUS.draft;
-                  return (
-                    <Link key={inv.id} href="/invoices">
-                      <div className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer">
-                        <div className="p-1.5 rounded-lg bg-green-500/10">
-                          <Banknote className="h-3.5 w-3.5 text-green-400" />
+            <div className="p-3 space-y-2">
+              {isLoading ? Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />) :
+                (data?.recentInvoices ?? []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-6">{tx("لا توجد فواتير بعد", "No invoices yet")}</p>
+                ) : (
+                  (data?.recentInvoices ?? []).map((inv: any) => {
+                    const st = INV_STATUS[inv.status] ?? INV_STATUS.draft;
+                    return (
+                      <Link key={inv.id} href="/invoices">
+                        <div className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/40 transition-all cursor-pointer group">
+                          <div className="p-1.5 rounded-lg bg-emerald-500/8 group-hover:bg-emerald-500/15 transition-colors">
+                            <Banknote className="h-3.5 w-3.5 text-emerald-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{inv.title}</p>
+                            <p className={`text-[10px] font-mono font-semibold ${st.color}`}>{((inv.total ?? 0) / 100).toLocaleString(dateLocale)} {tx("ر.س","SAR")}</p>
+                          </div>
+                          <span className={`text-[10px] font-medium ${st.color}`}>{st.label}</span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{inv.title}</p>
-                          <p className={`text-[10px] font-mono ${st.color}`}>{((inv.total ?? 0) / 100).toLocaleString(dateLocale)} {tx("ر.س","SAR")}</p>
-                        </div>
-                        <span className={`text-[10px] ${st.color}`}>{st.label}</span>
-                      </div>
-                    </Link>
-                  );
-                })
-              )
-            }
-          </CardContent>
-        </Card>
+                      </Link>
+                    );
+                  })
+                )
+              }
+            </div>
+          </div>
 
-        {/* ── Quick Actions */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" />{tx("إجراءات سريعة", "Quick Actions")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-2">
+          {/* Quick Actions — landing page CTA style */}
+          <div className="bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3.5 border-b border-border/40">
+              <Zap className="h-4 w-4 text-amber-500" />
+              <span className="text-sm font-bold">{tx("إجراءات سريعة", "Quick Actions")}</span>
+            </div>
+            <div className="p-3 grid grid-cols-2 gap-2">
               {quickActions.map(a => {
                 const Icon = a.icon;
                 return (
                   <Link key={a.label} href={a.href}>
-                    <button className={`w-full flex flex-col items-center gap-2 p-3 rounded-xl border ${a.color} transition-all text-center`}>
-                      <Icon className="h-4 w-4" />
-                      <span className="text-[10px] font-medium leading-tight">{a.label}</span>
-                    </button>
+                    <div className="quick-action">
+                      <div className="w-9 h-9 rounded-xl bg-muted/50 flex items-center justify-center transition-colors group-hover:bg-primary/10">
+                        <Icon className="h-4 w-4 text-foreground/70" />
+                      </div>
+                      <span className="text-[11px] font-semibold text-foreground/80 leading-tight">{a.label}</span>
+                    </div>
                   </Link>
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
-      {/* ── Client Risk Matrix — AI-Driven Client Health */}
-      <ClientRiskMatrix />
+      {/* ══════════════════════════════════════════════
+          CLIENT RISK MATRIX + LIVE FEED
+      ══════════════════════════════════════════════ */}
+      <div className="app-fade app-fade-6">
+        <ClientRiskMatrix />
+      </div>
 
-      {/* ── Live Event Feed ── */}
-      <LiveEventFeed />
+      <div className="app-fade app-fade-6">
+        <LiveEventFeed />
+      </div>
 
-      {/* ── Upcoming Events */}
+      {/* ══════════════════════════════════════════════
+          UPCOMING EVENTS
+      ══════════════════════════════════════════════ */}
       {(data?.upcomingEvents ?? []).length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
+        <div className="app-fade app-fade-6">
+          <div className="section-label">{tx("المواعيد القادمة", "Upcoming Events")}</div>
+          <div className="bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
+              <div className="flex items-center gap-2">
                 <Bell className="h-4 w-4 text-primary" />
-                {tx("المواعيد القادمة (7 أيام)", "Upcoming Events (7 days)")}
-              </CardTitle>
-              <Button variant="ghost" size="sm" className="text-xs h-7" asChild>
-                <Link href="/calendar">{tx("عرض التقويم", "View Calendar")}</Link>
+                <span className="text-sm font-bold">{tx("المواعيد القادمة (7 أيام)", "Upcoming (7 days)")}</span>
+              </div>
+              <Button variant="outline" size="sm" className="text-xs h-7 rounded-lg" asChild>
+                <Link href="/calendar">{tx("عرض التقويم", "Calendar")}</Link>
               </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {(data?.upcomingEvents ?? []).map((ev: any) => {
                 const colorClass = EVENT_COLORS[ev.event_type] ?? EVENT_COLORS.other;
                 const date = new Date(ev.start_at);
                 const diffDays = Math.ceil((date.getTime() - Date.now()) / 86400000);
                 return (
-                  <div key={ev.id} className={`rounded-xl border p-3 ${colorClass}`}>
+                  <div key={ev.id} className={`rounded-xl border p-3.5 ${colorClass} transition-all hover:shadow-sm`}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold leading-tight truncate">{ev.title}</p>
-                        <p className="text-[10px] mt-1 opacity-80">
+                        <p className="text-[10px] mt-1.5 opacity-80">
                           {date.toLocaleDateString(dateLocale, { weekday: "short", day: "numeric", month: "short" })}
                           {" · "}
                           {ev.all_day ? tx("طوال اليوم","All day") : date.toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" })}
                         </p>
                       </div>
-                      <Badge variant="outline" className={`text-[9px] px-1 py-0 shrink-0 ${
-                        diffDays <= 1 ? "border-red-500/40 text-red-400" :
-                        diffDays <= 3 ? "border-orange-500/40 text-orange-400" : "border-current/20"
+                      <Badge variant="outline" className={`text-[9px] px-1.5 py-0.5 shrink-0 font-bold ${
+                        diffDays <= 1 ? "border-red-500/40 text-red-400 bg-red-500/10" :
+                        diffDays <= 3 ? "border-orange-500/40 text-orange-400 bg-orange-500/10" :
+                        "border-current/20 bg-white/50"
                       }`}>
-                        {diffDays <= 0 ? tx("اليوم","Today") : diffDays === 1 ? tx("غداً","Tomorrow") : `${diffDays}${tx("د","d")}`}
+                        {diffDays <= 0 ? tx("اليوم","Today") : diffDays === 1 ? tx("غداً","Tomorrow") : `${diffDays} ${tx("أيام","days")}`}
                       </Badge>
                     </div>
                   </div>
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );
