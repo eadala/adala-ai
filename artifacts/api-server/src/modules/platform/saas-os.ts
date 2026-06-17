@@ -1,14 +1,21 @@
 /**
- * 🧠 SaaS Operating System — عدالة AI
- * ═══════════════════════════════════════
- * Company OS: يقرأ الواقع → يتنبأ → يُحسّن → يُقرر
+ * 🧠 SaaS Operating System — عدالة AI  (Core OS v2)
+ * ════════════════════════════════════════════════════
+ * 4 طبقات:
+ *  1. 📡 Event System    — تتبع الأحداث الحية
+ *  2. 🧠 AI CEO Engine   — القرار الاستراتيجي
+ *  3. ⚙️  Action Queue   — تنفيذ آمن (بدون تعديل Prod)
+ *  4. 🧪 Safety Guard    — حماية من القرارات الخاطئة
  *
  * Routes (all isSuperAdmin):
+ *  POST /saas-os/track         — تتبع حدث
+ *  GET  /saas-os/events        — عرض الأحداث + مقاييسها
+ *  GET  /saas-os/actions       — قائمة انتظار الإجراءات
  *  GET  /saas-os/snapshot      — لقطة مقاييس المنصة الحية
  *  GET  /saas-os/optimize      — محرك التحسين التلقائي
  *  POST /saas-os/forecast      — AI Forecasting (Gemini)
  *  POST /saas-os/ceo-decision  — AI CEO Decision Layer
- *  POST /saas-os/run           — Orchestrator كامل
+ *  POST /saas-os/run           — Orchestrator كامل + Safety
  */
 
 import { Router } from "express";
@@ -303,6 +310,154 @@ ${topActions}
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   LAYER 1 — EVENT SYSTEM  📡
+   جدول: os_events (auto-created)
+═══════════════════════════════════════════════════════════════════ */
+
+async function ensureOsEventTables() {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS os_events (
+      id         BIGSERIAL PRIMARY KEY,
+      event      TEXT        NOT NULL,
+      data       JSONB       NOT NULL DEFAULT '{}',
+      source     TEXT        NOT NULL DEFAULT 'manual',
+      office_id  TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS os_action_queue (
+      id          BIGSERIAL PRIMARY KEY,
+      type        TEXT        NOT NULL,
+      payload     JSONB       NOT NULL DEFAULT '{}',
+      status      TEXT        NOT NULL DEFAULT 'queued',
+      safety_ok   BOOLEAN     NOT NULL DEFAULT TRUE,
+      triggered_by TEXT,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+ensureOsEventTables().catch(() => {});
+
+/** تسجيل حدث في الـ DB */
+async function trackEvent(event: string, data: Record<string, any> = {}, source = "api", officeId?: string) {
+  await db.execute(sql`
+    INSERT INTO os_events (event, data, source, office_id)
+    VALUES (${event}, ${JSON.stringify(data)}::jsonb, ${source}, ${officeId ?? null})
+  `);
+}
+
+/** احسب مقاييس الأحداث خلال فترة (hours) */
+async function calcEventMetrics(hours = 24) {
+  const rows = toRows(await db.execute(sql`
+    SELECT event, COUNT(*)::int AS cnt,
+           COALESCE(SUM((data->>'amount')::float), 0)::float AS total_amount
+    FROM os_events
+    WHERE created_at > NOW() - (${hours} || ' hours')::interval
+    GROUP BY event
+    ORDER BY cnt DESC
+  `));
+
+  const byEvent: Record<string, { count: number; amount: number }> = {};
+  for (const r of rows) {
+    byEvent[r.event] = { count: Number(r.cnt), amount: Number(r.total_amount) };
+  }
+
+  return {
+    signups:  byEvent["signup"]?.count  ?? 0,
+    payments: byEvent["payment"]?.count ?? 0,
+    revenue:  byEvent["payment"]?.amount ?? 0,
+    cancels:  byEvent["cancel"]?.count  ?? 0,
+    logins:   byEvent["login"]?.count   ?? 0,
+    errors:   byEvent["error"]?.count   ?? 0,
+    total:    rows.reduce((s, r) => s + Number(r.cnt), 0),
+    growth:   (byEvent["signup"]?.count ?? 0) - (byEvent["cancel"]?.count ?? 0),
+    byEvent,
+    windowHours: hours,
+  };
+}
+
+/** آخر N حدث */
+async function getRecentEvents(limit = 30) {
+  return toRows(await db.execute(sql`
+    SELECT id, event, data, source, office_id, created_at
+    FROM os_events
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `));
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LAYER 3 — ACTION QUEUE  ⚙️
+   تنفيذ آمن: تسجيل فقط، لا تعديل في Prod
+═══════════════════════════════════════════════════════════════════ */
+
+async function enqueueAction(type: string, payload: Record<string, any>, safetyOk: boolean, triggeredBy = "ai-os") {
+  await db.execute(sql`
+    INSERT INTO os_action_queue (type, payload, status, safety_ok, triggered_by)
+    VALUES (${type}, ${JSON.stringify(payload)}::jsonb, 'queued', ${safetyOk}, ${triggeredBy})
+  `);
+}
+
+async function getActionQueue(limit = 20) {
+  return toRows(await db.execute(sql`
+    SELECT id, type, payload, status, safety_ok, triggered_by, created_at
+    FROM os_action_queue
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `));
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LAYER 4 — SAFETY GUARD  🧪
+   يمنع تنفيذ القرارات الخاطئة
+═══════════════════════════════════════════════════════════════════ */
+
+interface SafetyResult {
+  ok: boolean;
+  score: number;       /* 0-100 */
+  violations: string[];
+  warnings: string[];
+}
+
+function runSafetyCheck(snap: Awaited<ReturnType<typeof buildSnapshot>>, eventMetrics?: Awaited<ReturnType<typeof calcEventMetrics>>): SafetyResult {
+  const violations: string[] = [];
+  const warnings:  string[] = [];
+  let score = 100;
+
+  /* Critical violations — يوقف التنفيذ */
+  if (snap.finance.totalRevenue < 0) {
+    violations.push("إيرادات سالبة — بيانات مشبوهة");
+    score -= 40;
+  }
+  if (snap.system.memPct > 95) {
+    violations.push(`الذاكرة بلغت ${snap.system.memPct}% — خطر الانهيار`);
+    score -= 30;
+  }
+  if (snap.system.dbLatencyMs > 2000) {
+    violations.push(`DB latency: ${snap.system.dbLatencyMs}ms — اتصال غير مستقر`);
+    score -= 25;
+  }
+  if (eventMetrics && eventMetrics.cancels > eventMetrics.signups * 2 && eventMetrics.signups > 0) {
+    violations.push(`Churn متسارع: ${eventMetrics.cancels} إلغاء مقابل ${eventMetrics.signups} تسجيل`);
+    score -= 20;
+  }
+
+  /* Warnings — يُنبّه لكن لا يوقف */
+  if (snap.platform.churnRisk > 30) warnings.push(`خطر churn مرتفع: ${snap.platform.churnRisk}%`);
+  if (snap.finance.overdueInvoices > 10) warnings.push(`${snap.finance.overdueInvoices} فاتورة متأخرة`);
+  if (snap.system.memPct > 80) warnings.push(`ذاكرة: ${snap.system.memPct}%`);
+  if (eventMetrics && eventMetrics.errors > 20) warnings.push(`${eventMetrics.errors} خطأ في آخر 24h`);
+
+  return {
+    ok: violations.length === 0,
+    score: Math.max(0, score),
+    violations,
+    warnings,
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    ROUTES
 ═══════════════════════════════════════════════════════════════════ */
 
@@ -350,23 +505,105 @@ router.post("/saas-os/ceo-decision", ctGuard, async (req, res) => {
   }
 });
 
-/* POST /saas-os/run — Full Orchestrator */
+/* POST /saas-os/track — Event System */
+router.post("/saas-os/track", ctGuard, async (req, res) => {
+  const { event, data = {}, source = "manual", office_id } = req.body ?? {};
+  if (!event || typeof event !== "string") {
+    return res.status(400).json({ ok: false, error: "event name required" });
+  }
+  try {
+    await trackEvent(event, data, source, office_id);
+    res.json({ ok: true, event, ts: new Date().toISOString() });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/* GET /saas-os/events — Event stream + metrics */
+router.get("/saas-os/events", ctGuard, async (req, res) => {
+  const hours = Number(req.query.hours ?? 24);
+  try {
+    const [metrics, recent] = await Promise.all([
+      calcEventMetrics(hours),
+      getRecentEvents(40),
+    ]);
+    res.json({ ok: true, data: { metrics, recent } });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/* GET /saas-os/actions — Action queue */
+router.get("/saas-os/actions", ctGuard, async (_req, res) => {
+  try {
+    const actions = await getActionQueue(30);
+    res.json({ ok: true, data: actions });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/* POST /saas-os/run — Full Orchestrator + Safety */
 router.post("/saas-os/run", ctGuard, async (_req, res) => {
   try {
-    const snap     = await buildSnapshot();
-    const actions  = runOptimizer(snap);
+    const [snap, eventMetrics] = await Promise.all([
+      buildSnapshot(),
+      calcEventMetrics(24),
+    ]);
+
+    /* 🧪 Safety Check — قبل أي قرار */
+    const safety  = runSafetyCheck(snap, eventMetrics);
+    const actions = runOptimizer(snap);
+
+    if (!safety.ok) {
+      /* سجّل المحاولة المحجوبة */
+      await enqueueAction("blocked_run", {
+        violations: safety.violations,
+        score: safety.score,
+      }, false, "saas-os").catch(() => {});
+
+      return res.json({
+        ok: true,
+        data: {
+          snapshot: snap,
+          eventMetrics,
+          safety,
+          actions,
+          forecast:  null,
+          decision:  null,
+          blocked:   true,
+          blockReason: safety.violations.join(" | "),
+        },
+      });
+    }
+
+    /* ✅ Safety passed — run AI layers */
     const forecast = await runForecast(snap);
     const decision = await runCeoDecision(snap, forecast, actions);
 
-    /* Persist to system_events for audit trail */
+    /* ⚙️ Enqueue top-3 proposed actions */
+    for (const a of actions.slice(0, 3)) {
+      await enqueueAction("ai_proposal", {
+        priority: a.priority, category: a.category,
+        action: a.action, reason: a.reason,
+      }, true, "ceo-ai").catch(() => {});
+    }
+
+    /* Persist to system_events */
     await db.execute(sql`
       INSERT INTO system_events (type, payload, severity, source)
-      VALUES ('saas_os_run', ${JSON.stringify({ offices: snap.platform.activeOffices, mrr: snap.finance.mrr, churnRisk: snap.platform.churnRisk })}::jsonb, 'info', 'saas-os')
+      VALUES ('saas_os_run', ${JSON.stringify({
+        offices: snap.platform.activeOffices,
+        mrr: snap.finance.mrr,
+        churnRisk: snap.platform.churnRisk,
+        safetyScore: safety.score,
+        actionsCount: actions.length,
+      })}::jsonb, 'info', 'saas-os')
     `).catch(() => {});
 
     res.json({
       ok: true,
-      data: { snapshot: snap, actions, forecast, decision },
+      data: { snapshot: snap, eventMetrics, safety, actions, forecast, decision, blocked: false },
     });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err.message });
