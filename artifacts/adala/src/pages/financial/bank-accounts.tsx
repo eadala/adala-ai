@@ -57,7 +57,7 @@ export default function BankAccounts() {
             <div className="h-10 w-10 rounded-xl bg-blue-500/20 flex items-center justify-center"><Landmark className="h-5 w-5 text-blue-400" /></div>
             <div><h1 className="text-xl font-bold text-foreground">الحسابات البنكية</h1><p className="text-xs text-muted-foreground">إدارة الحسابات والأرصدة</p></div>
           </div>
-          <Button onClick={openCreate} className="bg-primary hover:bg-[#1D4ED8] text-black font-bold gap-1.5"><Plus className="h-4 w-4" />إضافة حساب</Button>
+          <Button onClick={openCreate} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-1.5"><Plus className="h-4 w-4" />إضافة حساب</Button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -115,7 +115,7 @@ export default function BankAccounts() {
               </div>
               <div><Label className="text-xs text-muted-foreground">IBAN (اختياري)</Label><Input value={form.iban ?? ""} onChange={e => set("iban", e.target.value)} className="bg-background/50 border-border mt-1 text-sm" dir="ltr" placeholder="SA..." /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-xs text-muted-foreground">الرصيد الحالي (ر.س)</Label><Input type="number" value={form.currentBalance ?? ""} onChange={e => set("currentBalance", e.target.value)} className="bg-background/50 border-border mt-1 text-sm" /></div>
+                <div><Label className="text-xs text-muted-foreground">الرصيد الحالي (ر.س)</Label><Input type="number" min="0" step="0.01" value={form.currentBalance ?? ""} onChange={e => set("currentBalance", e.target.value)} className="bg-background/50 border-border mt-1 text-sm" /></div>
                 <div className="flex items-center justify-between rounded-lg border border-border p-3 mt-1">
                   <Label className="text-xs text-muted-foreground">الحساب الافتراضي</Label>
                   <Switch checked={form.isDefault ?? false} onCheckedChange={v => set("isDefault", v)} />
@@ -125,7 +125,7 @@ export default function BankAccounts() {
             </div>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={close_}>إلغاء</Button>
-              <Button className="bg-primary hover:bg-[#1D4ED8] text-black font-bold" disabled={!form.bankName || !form.accountName || !form.accountNumber || saveMut.isPending} onClick={() => saveMut.mutate(form)}>
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" disabled={!form.bankName || !form.accountName || !form.accountNumber || saveMut.isPending} onClick={() => saveMut.mutate(form)}>
                 {saveMut.isPending && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}حفظ
               </Button>
             </DialogFooter>

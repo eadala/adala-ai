@@ -53,7 +53,7 @@ const QUICK_CMDS = [
 
 const INTENT_META: Record<string, { label: string; icon: string; color: string }> = {
   create_case:          { label: "إنشاء قضية",      icon: "⚖️", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  close_case:           { label: "إغلاق قضية",       icon: "🔒", color: "bg-gray-500/10 text-gray-400 border-gray-500/20" },
+  close_case:           { label: "إغلاق قضية",       icon: "🔒", color: "bg-muted/30 10 text-muted-foreground border-gray-500/20" },
   list_cases:           { label: "عرض القضايا",      icon: "📋", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
   create_client:        { label: "إضافة عميل",       icon: "👤", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
   list_clients:         { label: "عرض العملاء",      icon: "👥", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
@@ -65,7 +65,7 @@ const INTENT_META: Record<string, { label: string; icon: string; color: string }
   send_reminder:        { label: "إرسال تذكير",      icon: "🔔", color: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
   generate_report:      { label: "تقرير تنفيذي",     icon: "📊", color: "bg-teal-500/10 text-teal-400 border-teal-500/20" },
   get_briefing:         { label: "إحاطة يومية",      icon: "☀️", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  unknown:              { label: "غير محدد",          icon: "❓", color: "bg-gray-500/10 text-gray-400 border-gray-500/20" },
+  unknown:              { label: "غير محدد",          icon: "❓", color: "bg-muted/30 10 text-muted-foreground border-gray-500/20" },
 };
 
 type MsgEntry = {
@@ -180,11 +180,15 @@ export default function CommandCenter() {
         body: JSON.stringify({ isActive: v }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => refetchWf(),
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
+
   });
 
   const deleteWf = useMutation({
     mutationFn: (id: string) => fetch(`${BASE}/api/ai-agent/workflows/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => refetchWf(),
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
+
   });
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
@@ -457,7 +461,7 @@ export default function CommandCenter() {
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <Switch checked={wf.is_active} onCheckedChange={v => toggleWf.mutate({ id: wf.id, v })} className="scale-[0.65] origin-right" />
-                          <button onClick={() => deleteWf.mutate(wf.id)}
+                          <button onClick={() => { if (confirm(`حذف سير العمل "${wf.name}"؟`)) deleteWf.mutate(wf.id); }}
                             className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all">
                             <Trash2 className="h-3 w-3" />
                           </button>

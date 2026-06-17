@@ -316,7 +316,7 @@ export default function LoginTrackingPage() {
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                     statusFilter === f.key
-                      ? "bg-primary text-black"
+                      ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground border border-border/40"
                   )}
                 >

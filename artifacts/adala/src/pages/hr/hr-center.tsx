@@ -481,7 +481,7 @@ export default function HRCenter() {
                   const sc = scoreColor(emp.score);
                   return (
                     <div key={emp.name} className="flex items-center gap-3 rounded-xl border border-border/40 px-3 py-2">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${i === 0 ? "bg-yellow-500/20 text-yellow-400" : i === 1 ? "bg-slate-400/20 text-slate-400" : "bg-amber-700/20 text-amber-600"}`}>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${i === 0 ? "bg-yellow-500/20 text-yellow-400" : i === 1 ? "bg-slate-400/20 text-muted-foreground" : "bg-amber-700/20 text-amber-600"}`}>
                         {i + 1}
                       </div>
                       <div className="flex-1 min-w-0">

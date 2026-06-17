@@ -286,7 +286,7 @@ export default function Clients() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>{tx("البريد الإلكتروني", "Email")}</Label><Input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} /></div>
-              <div><Label>{tx("رقم الجوال", "Phone")}</Label><Input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="05xxxxxxxx" /></div>
+              <div><Label>{tx("رقم الجوال", "Phone")}</Label><Input type="tel" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="05xxxxxxxx" /></div>
             </div>
             {form.type === "company" && <div><Label>{tx("اسم الشركة", "Company Name")}</Label><Input value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))} /></div>}
             <div className="grid grid-cols-2 gap-3">
@@ -298,7 +298,7 @@ export default function Clients() {
                 </Select>
               </div>
             </div>
-            <div><Label>{tx("ملاحظات", "Notes")}</Label><Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} className="resize-none min-h-[70px]" /></div>
+            <div><Label>{tx("ملاحظات", "Notes")}</Label><Textarea rows={3} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} className="resize-none min-h-[70px]" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeForm}>{tx("إلغاء", "Cancel")}</Button>

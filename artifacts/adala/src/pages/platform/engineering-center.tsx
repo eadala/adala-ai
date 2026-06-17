@@ -68,20 +68,20 @@ const SEVERITY_STYLES: Record<string, string> = {
   high:     "bg-red-500/10 text-red-400 border-red-500/20",
   critical: "bg-red-900/30 text-red-300 border-red-400/30",
   secure:   "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
-  disabled: "bg-slate-500/10 text-slate-400 border-slate-500/20",
+  disabled: "bg-muted/30 10 text-muted-foreground border-slate-500/20",
   active:   "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
   planned:  "bg-violet-500/10 text-violet-300 border-violet-500/20",
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  low:      "text-slate-400",
+  low:      "text-muted-foreground",
   medium:   "text-amber-400",
   high:     "text-orange-400",
   critical: "text-red-400",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  pending:    "bg-slate-500/20 text-slate-300",
+  pending:    "bg-muted/30 20 text-slate-300",
   running:    "bg-blue-500/20 text-blue-300",
   done:       "bg-emerald-500/20 text-emerald-300",
   failed:     "bg-red-500/20 text-red-300",
@@ -594,7 +594,7 @@ export default function EngineeringCenter() {
                               {ip.label && <p className="text-[10px] text-muted-foreground">{ip.label}</p>}
                             </div>
                             <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-400 hover:text-red-300"
-                              onClick={() => removeIpMut.mutate(ip.id)}>
+                              onClick={() => { if (confirm(`إزالة IP "${ip.ip_address}" من القائمة البيضاء؟`)) removeIpMut.mutate(ip.id); }}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
@@ -824,7 +824,7 @@ export default function EngineeringCenter() {
                               </Button>
                             )}
                             <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-400/60 hover:text-red-400"
-                              onClick={() => deleteTaskMut.mutate(task.id)}>
+                              onClick={() => { if (confirm(`حذف المهمة "${task.title ?? task.id}"؟`)) deleteTaskMut.mutate(task.id); }}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>

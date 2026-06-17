@@ -74,7 +74,7 @@ function OverviewTab() {
 
   const catColors: Record<string, string> = {
     document: "bg-blue-500", image: "bg-green-500", video: "bg-purple-500",
-    contract: "bg-amber-500", invoice: "bg-cyan-500", evidence: "bg-red-500", other: "bg-gray-500",
+    contract: "bg-amber-500", invoice: "bg-cyan-500", evidence: "bg-red-500", other: "bg-muted/30",
   };
 
   return (
@@ -130,7 +130,7 @@ function OverviewTab() {
                     <span className="text-muted-foreground/60">{cat.cnt} ملف • {fmtBytes(Number(cat.bytes))}</span>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div className={`h-full ${catColors[cat.category] ?? "bg-gray-500"} rounded-full`} style={{ width: `${pct}%` }} />
+                    <div className={`h-full ${catColors[cat.category] ?? "bg-muted/30"} rounded-full`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
@@ -190,26 +190,31 @@ function FileManagerTab() {
   const archiveMut = useMutation({
     mutationFn: (id: string) => api(`/storage/files/${id}/archive`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["storage-files"] }); qc.invalidateQueries({ queryKey: ["storage-stats"] }); toast.success("تم تحديث الأرشيف"); },
+    onError: () => toast.error("حدث خطأ، يرجى المحاولة مجدداً"),
   });
 
   const trashMut = useMutation({
     mutationFn: (id: string) => api(`/storage/files/${id}/trash`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["storage-files"] }); qc.invalidateQueries({ queryKey: ["storage-stats"] }); toast.success("نُقل إلى سلة المحذوفات"); },
+    onError: () => toast.error("حدث خطأ، يرجى المحاولة مجدداً"),
   });
 
   const restoreMut = useMutation({
     mutationFn: (id: string) => api(`/storage/files/${id}/restore`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["storage-files"] }); toast.success("تمت الاستعادة"); },
+    onError: () => toast.error("حدث خطأ، يرجى المحاولة مجدداً"),
   });
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => api(`/storage/files/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["storage-files"] }); qc.invalidateQueries({ queryKey: ["storage-stats"] }); toast.success("حُذف نهائياً"); },
+    onError: () => toast.error("حدث خطأ، يرجى المحاولة مجدداً"),
   });
 
   const emptyTrashMut = useMutation({
     mutationFn: () => api("/storage/trash/empty", { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => { qc.invalidateQueries({ queryKey: ["storage-files"] }); qc.invalidateQueries({ queryKey: ["storage-stats"] }); toast.success(`فُرّغت سلة المحذوفات — تم توفير ${d.freedFmt ?? "0 B"}`); },
+    onError: () => toast.error("حدث خطأ، يرجى المحاولة مجدداً"),
   });
 
   const categories = ["", "document", "image", "video", "contract", "invoice", "evidence", "other"];
@@ -439,6 +444,7 @@ function SettingsTab() {
     mutationFn: (settings: Record<string, string>) =>
       api("/storage/settings", { method: "PATCH", body: JSON.stringify({ settings }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["storage-settings"] }); toast.success("تم حفظ الإعدادات"); },
+    onError: () => toast.error("حدث خطأ، يرجى المحاولة مجدداً"),
   });
 
   if (!isSA) return (

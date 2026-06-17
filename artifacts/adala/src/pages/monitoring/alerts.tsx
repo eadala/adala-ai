@@ -5,6 +5,7 @@ import {
   TrendingUp, Send, Wifi, WifiOff, RefreshCw, Clock,
   Activity, MessageCircle, Mail, Smartphone, Volume2, VolumeX
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (path: string) => `${BASE}${path}`;
@@ -38,6 +39,7 @@ const TAB_ITEMS = [
 ];
 
 export default function AlertsPage() {
+  const { toast } = useToast();
   const qc = useQueryClient();
   const [tab, setTab] = useState("feed");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
@@ -68,6 +70,7 @@ export default function AlertsPage() {
   const ackMut = useMutation({
     mutationFn: (id: string) => fetchJ(api(`/api/smart-alerts/acknowledge/${id}`), { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["alerts-feed"] }),
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const ackAllMut = useMutation({
     mutationFn: () => fetchJ(api("/api/smart-alerts/acknowledge-all"), { method: "POST" }),
@@ -83,10 +86,12 @@ export default function AlertsPage() {
       body: JSON.stringify({ minutes }),
     }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["alerts-stats"] }),
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const unsuppressMut = useMutation({
     mutationFn: () => fetchJ(api("/api/smart-alerts/unsuppress"), { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["alerts-stats"] }),
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const testMut = useMutation({
     mutationFn: (sev: string) => fetchJ(api("/api/smart-alerts/test"), {
@@ -98,6 +103,7 @@ export default function AlertsPage() {
   const trendMut = useMutation({
     mutationFn: () => fetchJ(api("/api/smart-alerts/check-trends"), { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["alerts-feed"] }),
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const refresh = useCallback(() => {
@@ -130,8 +136,8 @@ export default function AlertsPage() {
             )}
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">التنبيهات الذكية</h1>
-            <p className="text-sm text-gray-500">Smart Alerts — Dedup + Trend + Multi-Channel</p>
+            <h1 className="text-xl font-bold text-foreground">التنبيهات الذكية</h1>
+            <p className="text-sm text-muted-foreground">Smart Alerts — Dedup + Trend + Multi-Channel</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -142,13 +148,13 @@ export default function AlertsPage() {
             </button>
           ) : (
             <button onClick={() => suppressMut.mutate(30)} disabled={suppressMut.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border text-gray-600 hover:bg-muted/50 transition">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border text-muted-foreground hover:bg-muted/50 transition">
               <VolumeX className="h-3 w-3" /> صامت 30 دقيقة
             </button>
           )}
           {unacked > 0 && (
             <button onClick={() => ackAllMut.mutate()} disabled={ackAllMut.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border text-gray-600 hover:bg-muted/50 transition">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border text-muted-foreground hover:bg-muted/50 transition">
               <CheckCheck className="h-3 w-3" /> اعتراف بالكل
             </button>
           )}
@@ -172,7 +178,7 @@ export default function AlertsPage() {
         {TAB_ITEMS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
-              ${tab === t.id ? "bg-violet-600 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}>
+              ${tab === t.id ? "bg-violet-600 text-white shadow-sm" : "text-muted-foreground hover:bg-muted/50"}`}>
             <t.icon className="h-4 w-4" />{t.label}
             {t.id === "feed" && unacked > 0 && (
               <span className="bg-red-500 text-white text-xs rounded-full px-1.5 font-bold">{unacked}</span>
@@ -190,36 +196,36 @@ export default function AlertsPage() {
               {["all", "critical", "high", "medium", "low"].map(s => (
                 <button key={s} onClick={() => setSeverityFilter(s)}
                   className={`px-3 py-1 rounded-md text-xs font-medium transition
-                    ${severityFilter === s ? "bg-violet-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+                    ${severityFilter === s ? "bg-violet-600 text-white" : "text-muted-foreground hover:bg-muted/50"}`}>
                   {s === "all" ? "الكل" : `${SEV_ICON[s]} ${s}`}
                 </button>
               ))}
             </div>
             <button onClick={() => setShowAcked(v => !v)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition
-                ${showAcked ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-border hover:bg-muted/50"}`}>
+                ${showAcked ? "bg-gray-900 text-white border-gray-900" : "bg-white text-muted-foreground border-border hover:bg-muted/50"}`}>
               <CheckCircle2 className="h-3 w-3" />
               {showAcked ? "إخفاء المعترَف بها" : "عرض المعترَف بها"}
             </button>
             <button onClick={() => trendMut.mutate()} disabled={trendMut.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-card border border-border text-gray-600 hover:bg-muted/50 transition">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-card border border-border text-muted-foreground hover:bg-muted/50 transition">
               <TrendingUp className="h-3 w-3" />
               {trendMut.isPending ? "جارٍ الفحص…" : "فحص الاتجاهات"}
             </button>
           </div>
 
           {/* Alert list */}
-          {feedQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ التحميل…</div>}
+          {feedQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm">جارٍ التحميل…</div>}
           {visibleAlerts.length === 0 && !feedQ.isLoading && (
             <div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center gap-3 text-center">
               <Bell className="h-10 w-10 text-gray-300" />
-              <div className="font-semibold text-gray-500">لا توجد تنبيهات</div>
-              <div className="text-xs text-gray-400">النظام يعمل بهدوء — ستظهر التنبيهات هنا فور حدوثها</div>
+              <div className="font-semibold text-muted-foreground">لا توجد تنبيهات</div>
+              <div className="text-xs text-muted-foreground">النظام يعمل بهدوء — ستظهر التنبيهات هنا فور حدوثها</div>
             </div>
           )}
           <div className="space-y-2">
             {visibleAlerts.map((al: any) => (
-              <div key={al.id} className={`rounded-xl p-4 flex items-start gap-3 transition ${SEV_STYLES[al.severity] ?? "bg-white border"} ${al.acknowledged ? "opacity-50" : ""}`}>
+              <div key={al.id} className={`rounded-xl p-4 flex items-start gap-3 transition ${SEV_STYLES[al.severity] ?? "bg-card border"} ${al.acknowledged ? "opacity-50" : ""}`}>
                 <span className="text-xl mt-0.5 shrink-0">{SEV_ICON[al.severity]}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -227,7 +233,7 @@ export default function AlertsPage() {
                       {al.severity.toUpperCase()}
                     </span>
                     {al.count > 1 && (
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
                         ×{al.count} مرة
                       </span>
                     )}
@@ -237,15 +243,15 @@ export default function AlertsPage() {
                       </span>
                     )}
                   </div>
-                  <div className="text-sm font-medium text-gray-800 mt-1">{al.message}</div>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                  <div className="text-sm font-medium text-foreground mt-1">{al.message}</div>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                     <span><Clock className="h-3 w-3 inline ml-1" />{new Date(al.lastSeen).toLocaleString("ar-SA")}</span>
                     <span>القناة: {al.channel}</span>
                   </div>
                 </div>
                 {!al.acknowledged && (
                   <button onClick={() => ackMut.mutate(al.id)} disabled={ackMut.isPending}
-                    className="shrink-0 px-2 py-1 rounded-lg text-xs bg-white border border-gray-300 text-gray-600 hover:bg-muted/50 transition">
+                    className="shrink-0 px-2 py-1 rounded-lg text-xs bg-white border border-border text-muted-foreground hover:bg-muted/50 transition">
                     اعتراف
                   </button>
                 )}
@@ -266,8 +272,8 @@ export default function AlertsPage() {
               { label: "وضع صامت",         value: stats.suppressed ? "نشط" : "معطل", color: stats.suppressed ? "amber" : "emerald" },
             ].map((m, i) => (
               <div key={i} className={`bg-card border rounded-2xl p-5 ${m.warn ? "border-red-300" : "border-border"}`}>
-                <div className="text-xs text-gray-500 mb-2">{m.label}</div>
-                <div className={`text-2xl font-bold ${m.warn ? "text-red-600" : "text-gray-900"}`}>{m.value}</div>
+                <div className="text-xs text-muted-foreground mb-2">{m.label}</div>
+                <div className={`text-2xl font-bold ${m.warn ? "text-red-600" : "text-foreground"}`}>{m.value}</div>
               </div>
             ))}
           </div>
@@ -275,7 +281,7 @@ export default function AlertsPage() {
           {/* Last Hour */}
           {stats.lastHour && (
             <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="text-sm font-semibold text-gray-700 mb-4">آخر ساعة</div>
+              <div className="text-sm font-semibold text-foreground/70 mb-4">آخر ساعة</div>
               <div className="grid grid-cols-4 gap-3">
                 {[
                   { label: "حرجة", value: stats.lastHour.critical, color: "red" },
@@ -285,7 +291,7 @@ export default function AlertsPage() {
                 ].map((m, i) => (
                   <div key={i} className="text-center p-3 rounded-xl bg-muted/30">
                     <div className={`text-2xl font-bold text-${m.color}-600`}>{m.value}</div>
-                    <div className="text-xs text-gray-500 mt-1">{m.label}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{m.label}</div>
                   </div>
                 ))}
               </div>
@@ -294,7 +300,7 @@ export default function AlertsPage() {
 
           {/* Test alert */}
           <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="text-sm font-semibold text-gray-700 mb-4">اختبار التسليم</div>
+            <div className="text-sm font-semibold text-foreground/70 mb-4">اختبار التسليم</div>
             <div className="flex gap-2 flex-wrap">
               {["low", "medium", "high", "critical"].map(sev => (
                 <button key={sev} onClick={() => testMut.mutate(sev)} disabled={testMut.isPending}
@@ -313,11 +319,11 @@ export default function AlertsPage() {
 
           {/* Suppress controls */}
           <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="text-sm font-semibold text-gray-700 mb-4">وضع الصمت (Maintenance Window)</div>
+            <div className="text-sm font-semibold text-foreground/70 mb-4">وضع الصمت (Maintenance Window)</div>
             <div className="flex gap-2 flex-wrap">
               {[15, 30, 60, 120].map(min => (
                 <button key={min} onClick={() => suppressMut.mutate(min)} disabled={suppressMut.isPending}
-                  className="px-3 py-1.5 rounded-lg text-xs bg-card border border-border text-gray-600 hover:bg-amber-50 hover:border-amber-300 transition">
+                  className="px-3 py-1.5 rounded-lg text-xs bg-card border border-border text-muted-foreground hover:bg-amber-50 hover:border-amber-300 transition">
                   {min < 60 ? `${min} دقيقة` : `${min / 60} ساعة`}
                 </button>
               ))}
@@ -335,7 +341,7 @@ export default function AlertsPage() {
       {/* ── Channels Tab ── */}
       {tab === "channels" && (
         <div className="space-y-4">
-          {channelsQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ التحميل…</div>}
+          {channelsQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm">جارٍ التحميل…</div>}
           {channelsQ.data && (() => {
             const ch = channelsQ.data.channels ?? {};
             return (
@@ -370,17 +376,17 @@ export default function AlertsPage() {
                   const active = d.configured && (d.activeCount > 0 || d.configured === true);
                   return (
                     <div key={channel.key} className={`bg-card border rounded-2xl p-5 flex items-center justify-between
-                      ${active ? "border-border" : "border-dashed border-gray-300"}`}>
+                      ${active ? "border-border" : "border-dashed border-border"}`}>
                       <div className="flex items-center gap-4">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center
-                          ${active ? `bg-${channel.color}-50` : "bg-gray-100"}`}>
-                          <channel.icon className={`h-5 w-5 ${active ? `text-${channel.color}-600` : "text-gray-400"}`} />
+                          ${active ? `bg-${channel.color}-50` : "bg-muted/50"}`}>
+                          <channel.icon className={`h-5 w-5 ${active ? `text-${channel.color}-600` : "text-muted-foreground"}`} />
                         </div>
                         <div>
-                          <div className="font-semibold text-gray-800">{channel.label}</div>
-                          <div className="text-xs text-gray-400 mt-0.5">{d.note ?? ""}</div>
+                          <div className="font-semibold text-foreground">{channel.label}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{d.note ?? ""}</div>
                           {channel.key === "telegram" && d.configured && (
-                            <div className="text-xs text-gray-500 mt-1">
+                            <div className="text-xs text-muted-foreground mt-1">
                               {d.activeCount} مكتب مُفعَّل ·
                               تنبيهات النظام: {d.systemAlertsEnabled ? "✅ نشطة" : "❌ معطلة"}
                             </div>
@@ -391,11 +397,11 @@ export default function AlertsPage() {
                         <div className="flex items-center gap-1.5">
                           {active
                             ? <><Wifi className="h-4 w-4 text-emerald-500" /><span className="text-xs text-emerald-600 font-medium">متصل</span></>
-                            : <><WifiOff className="h-4 w-4 text-gray-400" /><span className="text-xs text-gray-400">{d.configured ? "غير مُفعَّل" : "غير مُكوَّن"}</span></>}
+                            : <><WifiOff className="h-4 w-4 text-muted-foreground" /><span className="text-xs text-muted-foreground">{d.configured ? "غير مُفعَّل" : "غير مُكوَّن"}</span></>}
                         </div>
                         {channel.configLink && (
                           <a href={channel.configLink}
-                            className="px-3 py-1 rounded-lg text-xs bg-card border border-border text-gray-600 hover:bg-muted/50 transition">
+                            className="px-3 py-1 rounded-lg text-xs bg-card border border-border text-muted-foreground hover:bg-muted/50 transition">
                             إعداد
                           </a>
                         )}
@@ -420,23 +426,23 @@ export default function AlertsPage() {
             {["all", "critical", "high", "medium", "low"].map(s => (
               <button key={s} onClick={() => setSeverityFilter(s)}
                 className={`px-3 py-1 rounded-md text-xs font-medium transition
-                  ${severityFilter === s ? "bg-violet-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+                  ${severityFilter === s ? "bg-violet-600 text-white" : "text-muted-foreground hover:bg-muted/50"}`}>
                 {s === "all" ? "الكل" : `${SEV_ICON[s]} ${s}`}
               </button>
             ))}
           </div>
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="divide-y divide-gray-50 max-h-[540px] overflow-y-auto">
-              {historyQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ التحميل…</div>}
+              {historyQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm">جارٍ التحميل…</div>}
               {(historyQ.data?.history ?? []).length === 0 && !historyQ.isLoading && (
-                <div className="p-8 text-center text-gray-400 text-sm">لا توجد سجلات</div>
+                <div className="p-8 text-center text-muted-foreground text-sm">لا توجد سجلات</div>
               )}
               {(historyQ.data?.history ?? []).map((ev: any) => (
                 <div key={ev.id} className="px-4 py-3 flex items-center gap-3 hover:bg-muted/50">
                   <span className="text-base">{SEV_ICON[ev.severity] ?? "⚪"}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm text-gray-800">{ev.message}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">
+                    <div className="text-sm text-foreground">{ev.message}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       {new Date(ev.created_at).toLocaleString("ar-SA")}
                     </div>
                   </div>

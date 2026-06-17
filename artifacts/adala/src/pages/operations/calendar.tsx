@@ -32,7 +32,7 @@ const EVENT_TYPES: Record<string, { label: string; color: string; bg: string; ic
   client_meeting:{ label: "اجتماع عميل",  color: "text-blue-400",   bg: "bg-blue-500/80",   icon: Users },
   team_meeting:  { label: "اجتماع فريق",  color: "text-green-400",  bg: "bg-green-500/80",  icon: Briefcase },
   task:          { label: "مهمة",          color: "text-purple-400", bg: "bg-purple-500/80", icon: Star },
-  other:         { label: "أخرى",          color: "text-muted-foreground",   bg: "bg-gray-500/80",   icon: CalendarDays },
+  other:         { label: "أخرى",          color: "text-muted-foreground",   bg: "bg-muted/30 80",   icon: CalendarDays },
 };
 
 const REMINDER_OPTIONS = [

@@ -142,7 +142,7 @@ export default function EmailNotificationsPage() {
             </div>
             <div>
               <Label className="text-xs">اسم المستخدم</Label>
-              <Input value={form.smtpUser} onChange={e => setF("smtpUser", e.target.value)} placeholder="user@gmail.com" className="mt-1 text-sm" dir="ltr" />
+              <Input type="email" value={form.smtpUser} onChange={e => setF("smtpUser", e.target.value)} placeholder="user@gmail.com" className="mt-1 text-sm" dir="ltr" />
             </div>
             <div>
               <Label className="text-xs">كلمة المرور / App Password</Label>
@@ -155,10 +155,10 @@ export default function EmailNotificationsPage() {
               </div>
               <div>
                 <Label className="text-xs">بريد المُرسِل</Label>
-                <Input value={form.fromEmail} onChange={e => setF("fromEmail", e.target.value)} placeholder="no-reply@..." className="mt-1 text-sm" dir="ltr" />
+                <Input type="email" value={form.fromEmail} onChange={e => setF("fromEmail", e.target.value)} placeholder="no-reply@..." className="mt-1 text-sm" dir="ltr" />
               </div>
             </div>
-            <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="w-full bg-primary hover:bg-[#b8943f] text-black font-bold mt-1">
+            <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold mt-1">
               {saveMut.isPending && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}
               حفظ الإعدادات
             </Button>

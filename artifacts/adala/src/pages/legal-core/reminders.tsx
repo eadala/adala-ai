@@ -77,6 +77,7 @@ export default function RemindersPage() {
       qc.invalidateQueries({ queryKey: ["reminders"] });
       qc.invalidateQueries({ queryKey: ["reminders-count"] });
     },
+    onError: () => toast.error("حدث خطأ، يرجى المحاولة مجدداً"),
   });
 
   const delMut = useMutation({
@@ -118,7 +119,7 @@ export default function RemindersPage() {
             <p className="text-xs text-muted-foreground">{pending} {tx("تذكير معلق", "pending reminder(s)")}</p>
           </div>
         </div>
-        <Button onClick={openCreate} className="bg-primary hover:bg-[#b8943f] text-black font-bold gap-1.5">
+        <Button onClick={openCreate} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-1.5">
           <Plus className="h-4 w-4" /> {tx("تذكير جديد", "New Reminder")}
         </Button>
       </div>
@@ -264,7 +265,7 @@ export default function RemindersPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>{tx("إلغاء", "Cancel")}</Button>
-            <Button onClick={submit} disabled={saveMut.isPending} className="bg-primary hover:bg-[#b8943f] text-black font-bold">
+            <Button onClick={submit} disabled={saveMut.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
               {saveMut.isPending && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}
               {editing ? tx("حفظ التعديلات", "Save Changes") : tx("إضافة", "Add")}
             </Button>

@@ -139,11 +139,13 @@ export default function FinancialCore() {
         body: JSON.stringify({ status }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { refetchPayouts(); toast({ title: "تم تحديث حالة التحويل" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const deletePayout = useMutation({
     mutationFn: (id: string) => fetch(`${BASE}/api/fincore/payouts/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { refetchPayouts(); toast({ title: "تم حذف التحويل" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const runSettlement = useMutation({

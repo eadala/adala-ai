@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -350,6 +351,7 @@ function OrderDialog({
 function ReviewDialog({ slug, lang, theme, onClose }: {
   slug: string; lang: Lang; theme: ReturnType<typeof useTheme>; onClose: () => void;
 }) {
+  const { toast } = useToast();
   const { c, cLight } = theme;
   const [form, setForm] = useState({ clientName: "", rating: 5, comment: "" });
   const [done, setDone] = useState(false);
@@ -359,6 +361,7 @@ function ReviewDialog({ slug, lang, theme, onClose }: {
       body: JSON.stringify(form),
     }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
     onSuccess: () => setDone(true),
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   return (
     <Dialog open onOpenChange={onClose}>
@@ -413,6 +416,7 @@ function ReviewDialog({ slug, lang, theme, onClose }: {
    MAIN PAGE
 ═══════════════════════════════════════════════════════════════════ */
 export default function OfficePage() {
+  const { toast } = useToast();
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
   const [, navigate] = useLocation();

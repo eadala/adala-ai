@@ -338,7 +338,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
                         {g.can_write ? "قراءة + كتابة" : "قراءة فقط"}
                       </p>
                     </div>
-                    <button onClick={() => revokeMut.mutate(g.user_id)}
+                    <button onClick={() => { if (confirm(`سحب صلاحية "${g.full_name ?? g.user_id}"؟`)) revokeMut.mutate(g.user_id); }}
                       className="p-1 rounded hover:bg-red-500/15 text-red-400 transition-colors" title="سحب الصلاحية">
                       <X className="h-3.5 w-3.5" />
                     </button>

@@ -27,7 +27,7 @@ interface LiveEvent {
 const EVENT_META: Record<string, { icon: any; color: string; bg: string; ring: string }> = {
   CASE_CREATED:        { icon: Scale,       color: "text-blue-400",    bg: "bg-blue-500/10",    ring: "ring-blue-500/30" },
   CASE_UPDATED:        { icon: Scale,       color: "text-blue-300",    bg: "bg-blue-500/8",     ring: "ring-blue-500/20" },
-  CASE_CLOSED:         { icon: Scale,       color: "text-slate-400",   bg: "bg-slate-500/10",   ring: "ring-slate-500/20" },
+  CASE_CLOSED:         { icon: Scale,       color: "text-muted-foreground",   bg: "bg-muted/30 10",   ring: "ring-slate-500/20" },
   CLIENT_ADDED:        { icon: Users,       color: "text-emerald-400", bg: "bg-emerald-500/10", ring: "ring-emerald-500/30" },
   INVOICE_CREATED:     { icon: Receipt,     color: "text-amber-400",   bg: "bg-amber-500/10",   ring: "ring-amber-500/30" },
   INVOICE_PAID:        { icon: Receipt,     color: "text-green-400",   bg: "bg-green-500/10",   ring: "ring-green-500/30" },
@@ -41,7 +41,7 @@ const EVENT_META: Record<string, { icon: any; color: string; bg: string; ring: s
   AI_QUERY:            { icon: BrainCircuit,color: "text-purple-400",  bg: "bg-purple-500/10",  ring: "ring-purple-500/30" },
   SUBSCRIPTION_RENEWED:{ icon: Zap,         color: "text-primary",   bg: "bg-primary/10",  ring: "ring-primary/30" },
   DOCUMENT_GENERATED:  { icon: FileText,    color: "text-indigo-400",  bg: "bg-indigo-500/10",  ring: "ring-indigo-500/30" },
-  USER_LOGIN:          { icon: Shield,      color: "text-slate-400",   bg: "bg-slate-500/10",   ring: "ring-slate-500/20" },
+  USER_LOGIN:          { icon: Shield,      color: "text-muted-foreground",   bg: "bg-muted/30 10",   ring: "ring-slate-500/20" },
 };
 
 const DEFAULT_META = { icon: Activity, color: "text-muted-foreground", bg: "bg-muted/30", ring: "ring-border" };
@@ -269,7 +269,7 @@ export default function ActivityStream() {
             </CardTitle>
             <div className="flex items-center gap-2">
               {newCount > 0 && (
-                <Button size="sm" className="h-7 text-xs gap-1 bg-primary hover:bg-[#a8882e] text-[#0B1B2B]"
+                <Button size="sm" className="h-7 text-xs gap-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                   onClick={resumeFeed}>
                   <ChevronRight className="h-3 w-3" /> {newCount} حدث جديد
                 </Button>

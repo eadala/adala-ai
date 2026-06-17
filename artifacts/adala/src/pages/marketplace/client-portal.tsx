@@ -396,7 +396,7 @@ function CreateClientAccountDialog({ cases, onCreated }: { cases: Case[]; onCrea
             {/* Phone */}
             <div className="space-y-1.5">
               <Label className="text-xs flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-muted-foreground" />رقم الجوال (اختياري)</Label>
-              <Input placeholder="05xxxxxxxx" value={phone} onChange={e => setPhone(e.target.value)} />
+              <Input type="tel" dir="ltr" placeholder="05xxxxxxxx" value={phone} onChange={e => setPhone(e.target.value)} />
             </div>
 
             {/* Link to case */}

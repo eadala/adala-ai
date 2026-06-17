@@ -51,7 +51,7 @@ const FOLDER_META: Record<Folder, { label: string; icon: any; color: string }> =
   inbox:   { label: "الوارد",   icon: Inbox,    color: "text-blue-400" },
   sent:    { label: "المُرسَل",  icon: Send,     color: "text-emerald-400" },
   drafts:  { label: "المسودات", icon: FileText,  color: "text-amber-400" },
-  archive: { label: "الأرشيف",  icon: Archive,  color: "text-slate-400" },
+  archive: { label: "الأرشيف",  icon: Archive,  color: "text-muted-foreground" },
 };
 
 function deviceIcon(info?: string) {
@@ -352,7 +352,7 @@ export default function Messages() {
 
               {/* IP Tracking Info */}
               {detail?.sender_ip && (
-                <div className="mt-6 p-3 rounded-lg bg-slate-500/5 border border-slate-500/10">
+                <div className="mt-6 p-3 rounded-lg bg-muted/30 5 border border-slate-500/10">
                   <p className="text-[11px] text-muted-foreground font-medium mb-1.5">معلومات الإرسال</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-muted-foreground">
                     <span>IP المرسِل: <strong className="text-foreground">{detail.sender_ip}</strong></span>

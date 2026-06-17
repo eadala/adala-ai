@@ -6,6 +6,7 @@ import {
   Wifi, WifiOff, ChevronRight, Terminal, BarChart3, FlaskConical,
   CreditCard, Bell, ShieldCheck, AlertCircle
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (path: string) => `${BASE}${path}`;
@@ -77,6 +78,7 @@ const TAB_ITEMS = [
 ];
 
 export default function MonitoringPage() {
+  const { toast } = useToast();
   const qc = useQueryClient();
   const [tab, setTab] = useState("overview");
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -124,6 +126,7 @@ export default function MonitoringPage() {
   const healMut = useMutation({
     mutationFn: () => fetchJ(api("/api/monitoring/heal"), { method: "POST" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["monitoring-health"] }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const simulateMut = useMutation({
@@ -168,8 +171,8 @@ export default function MonitoringPage() {
             <Shield className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">مركز المراقبة والإصلاح الذاتي</h1>
-            <p className="text-sm text-gray-500">Monitoring + Auto-Healing System</p>
+            <h1 className="text-xl font-bold text-foreground">مركز المراقبة والإصلاح الذاتي</h1>
+            <p className="text-sm text-muted-foreground">Monitoring + Auto-Healing System</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -177,7 +180,7 @@ export default function MonitoringPage() {
             onClick={() => setAutoRefresh(v => !v)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition
               ${autoRefresh ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                           : "bg-gray-100 text-gray-500 border-border"}`}>
+                           : "bg-muted/50 text-muted-foreground border-border"}`}>
             {autoRefresh ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
             {autoRefresh ? "تحديث تلقائي" : "إيقاف التحديث"}
           </button>
@@ -208,7 +211,7 @@ export default function MonitoringPage() {
         {TAB_ITEMS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
-              ${tab === t.id ? "bg-blue-600 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}>
+              ${tab === t.id ? "bg-blue-600 text-white shadow-sm" : "text-muted-foreground hover:bg-muted/50"}`}>
             <t.icon className="h-4 w-4" />{t.label}
           </button>
         ))}
@@ -222,14 +225,14 @@ export default function MonitoringPage() {
             <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-6">
               <ScoreRing score={score} />
               <div>
-                <div className="text-xs text-gray-500 mb-1">صحة النظام</div>
+                <div className="text-xs text-muted-foreground mb-1">صحة النظام</div>
                 <div className={`text-2xl font-bold ${statusColor}`}>{statusLabel}</div>
-                <div className="text-sm text-gray-400 mt-1">{anomalies.length} شذوذ نشط</div>
+                <div className="text-sm text-muted-foreground mt-1">{anomalies.length} شذوذ نشط</div>
               </div>
             </div>
 
             <div className="bg-card border border-border rounded-2xl p-6 space-y-3">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">فحوصات النظام</div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">فحوصات النظام</div>
               {Object.entries(checks).map(([k, v]: any) => (
                 <div key={k} className="flex items-center justify-between">
                   <StatusBadge ok={v.ok} label={
@@ -239,13 +242,13 @@ export default function MonitoringPage() {
                     k === "db_latency" ? "سرعة DB" :
                     k === "webhook"  ? "Webhooks" : k
                   } />
-                  <span className="text-xs text-gray-400">{v.detail ?? (v.latency ? `${v.latency}ms` : "")}</span>
+                  <span className="text-xs text-muted-foreground">{v.detail ?? (v.latency ? `${v.latency}ms` : "")}</span>
                 </div>
               ))}
             </div>
 
             <div className="bg-card border border-border rounded-2xl p-6 space-y-3">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">المقاييس الآنية</div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">المقاييس الآنية</div>
               {metrics && (
                 <>
                   <MetricRow icon={<Database className="h-3.5 w-3.5 text-blue-500" />}
@@ -272,7 +275,7 @@ export default function MonitoringPage() {
             <div className="bg-card border border-orange-400/30 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <AlertTriangle className="h-4 w-4 text-orange-500" />
-                <span className="font-semibold text-gray-800">شذوذات مكتشفة ({anomalies.length})</span>
+                <span className="font-semibold text-foreground">شذوذات مكتشفة ({anomalies.length})</span>
               </div>
               <div className="space-y-2">
                 {anomalies.map((a: any, i: number) => (
@@ -280,11 +283,11 @@ export default function MonitoringPage() {
                     <div className="flex items-center gap-3">
                       <SeverityChip s={a.severity} />
                       <div>
-                        <div className="text-sm font-medium text-gray-800">{a.message}</div>
-                        <div className="text-xs text-gray-500 font-mono">{a.code}</div>
+                        <div className="text-sm font-medium text-foreground">{a.message}</div>
+                        <div className="text-xs text-muted-foreground font-mono">{a.code}</div>
                       </div>
                     </div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-muted-foreground">
                       القيمة: {typeof a.value === "number" && a.value < 1 ? `${(a.value * 100).toFixed(1)}%` : a.value}
                     </div>
                   </div>
@@ -308,19 +311,19 @@ export default function MonitoringPage() {
       {/* ── Events Tab ── */}
       {tab === "events" && (
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="p-4 border-b border-border/40 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Terminal className="h-4 w-4 text-gray-500" />
-              <span className="font-semibold text-gray-800">سجل أحداث الإصلاح الذاتي</span>
+              <Terminal className="h-4 w-4 text-muted-foreground" />
+              <span className="font-semibold text-foreground">سجل أحداث الإصلاح الذاتي</span>
             </div>
-            <span className="text-xs text-gray-400">{eventsQ.data?.events?.length ?? 0} حدث</span>
+            <span className="text-xs text-muted-foreground">{eventsQ.data?.events?.length ?? 0} حدث</span>
           </div>
           <div className="divide-y divide-gray-50 max-h-[520px] overflow-y-auto">
             {eventsQ.isLoading && (
-              <div className="p-8 text-center text-gray-400 text-sm">جارٍ التحميل…</div>
+              <div className="p-8 text-center text-muted-foreground text-sm">جارٍ التحميل…</div>
             )}
             {(eventsQ.data?.events ?? []).length === 0 && !eventsQ.isLoading && (
-              <div className="p-8 text-center text-gray-400 text-sm">لا توجد أحداث بعد — شغّل الإصلاح الذاتي أو محاكاة الأخطاء</div>
+              <div className="p-8 text-center text-muted-foreground text-sm">لا توجد أحداث بعد — شغّل الإصلاح الذاتي أو محاكاة الأخطاء</div>
             )}
             {(eventsQ.data?.events ?? []).map((ev: any) => (
               <div key={ev.id} className="p-4 hover:bg-muted/50 transition flex items-start gap-3">
@@ -329,7 +332,7 @@ export default function MonitoringPage() {
                     ev.fix_success === false ? "bg-red-500" : "bg-blue-400"}`} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-gray-800">{ev.message}</span>
+                    <span className="text-sm font-medium text-foreground">{ev.message}</span>
                     <SeverityChip s={ev.severity} />
                     {ev.fix_applied && (
                       <span className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
@@ -337,7 +340,7 @@ export default function MonitoringPage() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                     <span className="font-mono">{ev.event_type}</span>
                     {ev.duration_ms > 0 && <span>{ev.duration_ms}ms</span>}
                     <span><Clock className="h-3 w-3 inline mr-0.5" />
@@ -375,9 +378,9 @@ export default function MonitoringPage() {
             <div key={i} className={`bg-card border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-border"}`}>
               <div className="flex items-center gap-2 mb-3">
                 <m.icon className={`h-4 w-4 text-${m.color}-500`} />
-                <span className="text-xs text-gray-500">{m.label}</span>
+                <span className="text-xs text-muted-foreground">{m.label}</span>
               </div>
-              <div className={`text-2xl font-bold ${m.warn ? "text-orange-600" : "text-gray-900"}`}>{m.value}</div>
+              <div className={`text-2xl font-bold ${m.warn ? "text-orange-600" : "text-foreground"}`}>{m.value}</div>
               {m.warn && <div className="text-xs text-orange-500 mt-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />يتجاوز الحد</div>}
             </div>
           ))}
@@ -387,7 +390,7 @@ export default function MonitoringPage() {
       {/* ── Stripe Tab ── */}
       {tab === "stripe" && (
         <div className="space-y-5">
-          {stripeQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ فحص Stripe…</div>}
+          {stripeQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm">جارٍ فحص Stripe…</div>}
           {stripeQ.data && (() => {
             const d = stripeQ.data;
             return (
@@ -403,9 +406,9 @@ export default function MonitoringPage() {
                     <div key={i} className={`bg-card border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-border"}`}>
                       <div className="flex items-center gap-2 mb-2">
                         <m.icon className={`h-4 w-4 text-${m.color}-500`} />
-                        <span className="text-xs text-gray-500">{m.label}</span>
+                        <span className="text-xs text-muted-foreground">{m.label}</span>
                       </div>
-                      <div className={`text-2xl font-bold ${m.warn ? "text-red-600" : "text-gray-900"}`}>{m.value}</div>
+                      <div className={`text-2xl font-bold ${m.warn ? "text-red-600" : "text-foreground"}`}>{m.value}</div>
                     </div>
                   ))}
                 </div>
@@ -422,14 +425,14 @@ export default function MonitoringPage() {
                 {/* Events last 24h */}
                 {(d.last24h ?? []).length > 0 && (
                   <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                    <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-gray-500" />
-                      <span className="font-semibold text-gray-800 text-sm">أحداث آخر 24 ساعة</span>
+                    <div className="p-4 border-b border-border/40 flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-semibold text-foreground text-sm">أحداث آخر 24 ساعة</span>
                     </div>
                     <div className="divide-y divide-gray-50">
                       {d.last24h.map((row: any, i: number) => (
                         <div key={i} className="px-4 py-3 flex items-center justify-between">
-                          <span className="text-sm font-mono text-gray-700">{row.type}</span>
+                          <span className="text-sm font-mono text-foreground/70">{row.type}</span>
                           <span className="text-sm font-bold text-blue-600">{row.cnt}</span>
                         </div>
                       ))}
@@ -445,7 +448,7 @@ export default function MonitoringPage() {
       {/* ── DB Integrity Tab ── */}
       {tab === "integrity" && (
         <div className="space-y-5">
-          {integrityQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ فحص سلامة قاعدة البيانات…</div>}
+          {integrityQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm">جارٍ فحص سلامة قاعدة البيانات…</div>}
           {integrityQ.data && (() => {
             const d = integrityQ.data;
             const orphans = d.orphans ?? {};
@@ -462,18 +465,18 @@ export default function MonitoringPage() {
                     <div key={i} className={`bg-card border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-border"}`}>
                       <div className="flex items-center gap-2 mb-2">
                         <m.icon className={`h-4 w-4 text-${m.color}-500`} />
-                        <span className="text-xs text-gray-500">{m.label}</span>
+                        <span className="text-xs text-muted-foreground">{m.label}</span>
                       </div>
-                      <div className={`text-2xl font-bold ${m.warn ? "text-orange-600" : "text-gray-900"}`}>{m.value}</div>
+                      <div className={`text-2xl font-bold ${m.warn ? "text-orange-600" : "text-foreground"}`}>{m.value}</div>
                     </div>
                   ))}
                 </div>
                 {/* Orphan breakdown */}
                 <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                  <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-gray-500" />
-                    <span className="font-semibold text-gray-800 text-sm">تفاصيل السجلات اليتيمة</span>
-                    <span className="text-xs text-gray-400 mr-auto">آخر فحص: {new Date(d.checkedAt).toLocaleTimeString("ar-SA")}</span>
+                  <div className="p-4 border-b border-border/40 flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold text-foreground text-sm">تفاصيل السجلات اليتيمة</span>
+                    <span className="text-xs text-muted-foreground mr-auto">آخر فحص: {new Date(d.checkedAt).toLocaleTimeString("ar-SA")}</span>
                   </div>
                   <div className="divide-y divide-gray-50">
                     {[
@@ -482,7 +485,7 @@ export default function MonitoringPage() {
                       { label: "جدول زمني بلا قضية", value: orphans.timeline ?? 0 },
                     ].map((row, i) => (
                       <div key={i} className="px-4 py-3 flex items-center justify-between">
-                        <span className="text-sm text-gray-700">{row.label}</span>
+                        <span className="text-sm text-foreground/70">{row.label}</span>
                         <span className={`text-sm font-bold ${row.value > 0 ? "text-orange-600" : "text-emerald-600"}`}>
                           {row.value > 0 ? <><AlertTriangle className="h-3 w-3 inline ml-1" />{row.value}</> : "✓ لا شيء"}
                         </span>
@@ -506,17 +509,17 @@ export default function MonitoringPage() {
       {tab === "alerts" && (
         <div className="space-y-4">
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="p-4 border-b border-border/40 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Bell className="h-4 w-4 text-gray-500" />
-                <span className="font-semibold text-gray-800">سجل التنبيهات التاريخي</span>
+                <Bell className="h-4 w-4 text-muted-foreground" />
+                <span className="font-semibold text-foreground">سجل التنبيهات التاريخي</span>
               </div>
-              <span className="text-xs text-gray-400">{alertsLogQ.data?.alerts?.length ?? 0} تنبيه</span>
+              <span className="text-xs text-muted-foreground">{alertsLogQ.data?.alerts?.length ?? 0} تنبيه</span>
             </div>
             <div className="divide-y divide-gray-50 max-h-[540px] overflow-y-auto">
-              {alertsLogQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ التحميل…</div>}
+              {alertsLogQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm">جارٍ التحميل…</div>}
               {!alertsLogQ.isLoading && (alertsLogQ.data?.alerts ?? []).length === 0 && (
-                <div className="p-8 text-center text-gray-400 text-sm flex flex-col items-center gap-2">
+                <div className="p-8 text-center text-muted-foreground text-sm flex flex-col items-center gap-2">
                   <Bell className="h-8 w-8 text-gray-300" />
                   لا توجد تنبيهات مسجلة — النظام يعمل بسلاسة
                 </div>
@@ -525,9 +528,9 @@ export default function MonitoringPage() {
                 <div key={al.id} className="px-4 py-3 flex items-center justify-between hover:bg-muted/50">
                   <div className="flex items-center gap-3">
                     <SeverityChip s={al.severity} />
-                    <span className="text-sm text-gray-800">{al.message}</span>
+                    <span className="text-sm text-foreground">{al.message}</span>
                   </div>
-                  <span className="text-xs text-gray-400 shrink-0 mr-4">
+                  <span className="text-xs text-muted-foreground shrink-0 mr-4">
                     {new Date(al.created_at).toLocaleString("ar-SA")}
                   </span>
                 </div>
@@ -558,8 +561,8 @@ export default function MonitoringPage() {
               <div className="flex items-start gap-3">
                 <span className="text-2xl">{sim.icon}</span>
                 <div>
-                  <div className="font-semibold text-gray-800 text-sm">{sim.label}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{sim.desc}</div>
+                  <div className="font-semibold text-foreground text-sm">{sim.label}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{sim.desc}</div>
                 </div>
               </div>
               <button
@@ -574,8 +577,8 @@ export default function MonitoringPage() {
             <div className="flex items-start gap-3">
               <span className="text-2xl">🔄</span>
               <div>
-                <div className="font-semibold text-gray-800 text-sm">تشغيل دورة إصلاح ذاتي كاملة</div>
-                <div className="text-xs text-gray-400 mt-0.5">يفحص + يصلح كل الشذوذات</div>
+                <div className="font-semibold text-foreground text-sm">تشغيل دورة إصلاح ذاتي كاملة</div>
+                <div className="text-xs text-muted-foreground mt-0.5">يفحص + يصلح كل الشذوذات</div>
               </div>
             </div>
             <button
@@ -601,10 +604,10 @@ function MetricRow({ icon, label, value, warn }: {
 }) {
   return (
     <div className="flex items-center justify-between py-1">
-      <div className="flex items-center gap-2 text-xs text-gray-600">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         {icon} {label}
       </div>
-      <span className={`text-xs font-semibold ${warn ? "text-orange-600" : "text-gray-800"}`}>
+      <span className={`text-xs font-semibold ${warn ? "text-orange-600" : "text-foreground"}`}>
         {warn && <AlertTriangle className="h-3 w-3 inline ml-1" />}{value}
       </span>
     </div>

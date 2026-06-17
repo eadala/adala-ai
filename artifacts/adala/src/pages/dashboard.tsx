@@ -163,7 +163,7 @@ function SmartBriefing({ user }: { user: any }) {
     "ممتاز": "bg-emerald-500/15 border-emerald-500/30 text-emerald-400",
     "متقدم": "bg-blue-500/15 border-blue-500/30 text-blue-400",
     "نشط":   "bg-primary/15 border-primary/30 text-primary",
-    "ناشئ":  "bg-slate-500/15 border-slate-500/30 text-slate-400",
+    "ناشئ":  "bg-muted/30 15 border-slate-500/30 text-muted-foreground",
   };
 
   return (
@@ -498,7 +498,7 @@ function ExecutivePulseBar() {
     green:   { bg: "bg-emerald-500/8 hover:bg-emerald-500/15 border-emerald-500/20",   text: "text-emerald-400",  dot: "bg-emerald-400" },
     amber:   { bg: "bg-amber-500/8 hover:bg-amber-500/15 border-amber-500/20",         text: "text-amber-400",    dot: "bg-amber-400" },
     red:     { bg: "bg-red-500/8 hover:bg-red-500/15 border-red-500/20",               text: "text-red-400",      dot: "bg-red-400" },
-    neutral: { bg: "bg-muted/30 hover:bg-muted/50 border-border/40",                   text: "text-muted-foreground", dot: "bg-slate-500" },
+    neutral: { bg: "bg-muted/30 hover:bg-muted/50 border-border/40",                   text: "text-muted-foreground", dot: "bg-muted/30" },
   };
 
   return (
@@ -674,7 +674,7 @@ export default function Dashboard() {
   };
 
   const INV_STATUS: Record<string, { label: string; color: string }> = {
-    draft:    { label: tx("مسودة", "Draft"),      color: "text-gray-400" },
+    draft:    { label: tx("مسودة", "Draft"),      color: "text-muted-foreground" },
     sent:     { label: tx("مُرسَلة", "Sent"),      color: "text-blue-400" },
     paid:     { label: tx("مدفوعة", "Paid"),       color: "text-green-400" },
     overdue:  { label: tx("متأخرة", "Overdue"),    color: "text-red-400" },
@@ -731,7 +731,7 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════
           HERO BRIEFING — same bold Arabic energy as landing
       ══════════════════════════════════════════════ */}
-      <div className="app-fade app-fade-1 rounded-2xl border border-border/60 bg-white overflow-hidden shadow-sm">
+      <div className="app-fade app-fade-1 rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm">
         {/* Blue accent top strip */}
         <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #2563EB 0%, #0B1F3B 100%)" }} />
         <div className="p-5 sm:p-6">

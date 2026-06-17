@@ -229,7 +229,7 @@ function CaseDetail({ c, onClose, onRefresh }: { c: any; onClose: () => void; on
             <p className="text-xs font-semibold">إضافة جلسة جديدة</p>
             <Input type="date" value={newSession.date} onChange={e => setNewSession(p => ({ ...p, date: e.target.value }))} className="h-9" />
             <Input placeholder="نتيجة الجلسة (اختياري)" value={newSession.outcome} onChange={e => setNewSession(p => ({ ...p, outcome: e.target.value }))} className="h-9" />
-            <Textarea placeholder="ملاحظات الجلسة..." value={newSession.notes} onChange={e => setNewSession(p => ({ ...p, notes: e.target.value }))} className="resize-none min-h-[60px] text-sm" />
+            <Textarea rows={3} placeholder="ملاحظات الجلسة..." value={newSession.notes} onChange={e => setNewSession(p => ({ ...p, notes: e.target.value }))} className="resize-none min-h-[60px] text-sm" />
             <Button onClick={addSession} disabled={!newSession.date || addingSession} className="w-full h-9 gap-2">
               {addingSession && <Loader2 className="h-4 w-4 animate-spin" />}
               إضافة الجلسة
@@ -291,11 +291,13 @@ export default function Arbitration() {
       setForm(EMPTY_FORM);
       toast({ title: "تم تسجيل القضية" });
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => fetch(`${BASE}/api/arbitration/cases/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["arbitration"] }); if (selectedCase) setSelectedCase(null); toast({ title: "تم الحذف" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const filtered = cases.filter(c => typeFilter === "all" || c.type === typeFilter);
@@ -401,7 +403,7 @@ export default function Arbitration() {
               <div><Label>المحكّم / الوسيط</Label><Input value={form.arbitrator} onChange={e => setForm(p => ({ ...p, arbitrator: e.target.value }))} /></div>
               <div><Label>المبلغ المطالَب به</Label><Input value={form.claimAmount} onChange={e => setForm(p => ({ ...p, claimAmount: e.target.value }))} placeholder="مثال: 500,000 ريال" /></div>
             </div>
-            <div><Label>وصف النزاع</Label><Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} className="resize-none min-h-[80px]" /></div>
+            <div><Label>وصف النزاع</Label><Textarea rows={3} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} className="resize-none min-h-[80px]" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>إلغاء</Button>

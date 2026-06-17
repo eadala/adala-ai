@@ -119,6 +119,8 @@ export default function OnboardingPage() {
         body: JSON.stringify({ completed: true, step: 10, data: {} }),
       }).then(r => r.json()),
     onSuccess: afterComplete,
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
+
   });
 
   function goNext() {

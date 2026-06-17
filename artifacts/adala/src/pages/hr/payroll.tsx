@@ -57,11 +57,13 @@ export default function Payroll() {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => { qc.invalidateQueries({ queryKey: ["payroll"] }); qc.invalidateQueries({ queryKey: ["payroll-stats"] }); setShowGenerate(false); toast({ title: `تم توليد ${d.generated} قسيمة راتب` }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const payMutation = useMutation({
     mutationFn: (id: string) => fetch(`${BASE}/api/hr/payroll/${id}/pay`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); qc.invalidateQueries({ queryKey: ["payroll-stats"] }); toast({ title: "تم صرف الراتب" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const payAllMutation = useMutation({
@@ -69,6 +71,7 @@ export default function Payroll() {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, year: parseInt(year) }),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); qc.invalidateQueries({ queryKey: ["payroll-stats"] }); toast({ title: "تم صرف جميع الرواتب" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const months = [...new Set(payroll.map(p => p.month))];

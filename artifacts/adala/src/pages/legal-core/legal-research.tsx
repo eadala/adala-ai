@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ const SAMPLE_QUERIES = [
 ];
 
 export default function LegalResearch() {
+  const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [selectedResult, setSelectedResult] = useState<any>(null);
@@ -49,6 +51,7 @@ export default function LegalResearch() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: q, category: cat }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    onError: () => toast({ title: "حدث خطأ في البحث، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const handleSearch = (q = query) => {

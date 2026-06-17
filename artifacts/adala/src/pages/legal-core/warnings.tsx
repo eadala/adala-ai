@@ -79,16 +79,19 @@ export default function Warnings() {
   const addWarning = useMutation({
     mutationFn: (d: any) => fetch(`${BASE}/api/hr/warnings`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["warnings"] }); setShowWarnForm(false); setWForm({ employeeId: "", type: "written", reason: "", description: "", issuedBy: "" }); toast({ title: "تم إصدار الإنذار ✓" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const updateWarning = useMutation({
     mutationFn: ({ id, ...d }: any) => fetch(`${BASE}/api/hr/warnings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["warnings"] }); toast({ title: "تم التحديث ✓" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const deleteWarning = useMutation({
     mutationFn: (id: string) => fetch(`${BASE}/api/hr/warnings/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["warnings"] }); toast({ title: "تم الحذف" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const filteredW = warnings.filter(w => {
@@ -114,16 +117,19 @@ export default function Warnings() {
   const addInvestigation = useMutation({
     mutationFn: (d: any) => fetch(`${BASE}/api/hr/investigations`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["investigations"] }); setShowInvForm(false); setIForm({ employeeId: "", subject: "", description: "", openedBy: "", committee: "", sessionDate: "" }); toast({ title: "تم فتح التحقيق ✓" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const updateInvestigation = useMutation({
     mutationFn: ({ id, ...d }: any) => fetch(`${BASE}/api/hr/investigations/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["investigations"] }); setShowInvDetail(null); toast({ title: "تم التحديث ✓" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const deleteInvestigation = useMutation({
     mutationFn: (id: string) => fetch(`${BASE}/api/hr/investigations/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["investigations"] }); toast({ title: "تم الحذف" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const filteredI = investigations.filter(i => {

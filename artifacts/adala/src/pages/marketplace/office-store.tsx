@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -50,6 +51,7 @@ const SORT_OPTIONS_AR = ["الأحدث", "السعر: من الأقل", "الس�
 const SORT_OPTIONS_EN = ["Newest", "Price: Low to High", "Price: High to Low", "By Delivery"];
 
 export default function OfficeStore() {
+  const { toast } = useToast();
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
   const [lang, setLang] = useState<Lang>("ar");
@@ -82,6 +84,7 @@ export default function OfficeStore() {
       setSuccess(true);
       setOrderDialog(null);
     },
+    onError: () => toast({ title: "حدث خطأ في إرسال الطلب، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   if (isLoading) return (

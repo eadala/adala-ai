@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -53,6 +54,7 @@ const TIMES_EN = ["9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", "2:0
 
 /* ══════════════════════════════════════════════════════════════ */
 export default function OfficeBook() {
+  const { toast } = useToast();
   const { slug } = useParams<{ slug: string }>();
   const [lang, setLang] = useState<Lang>("ar");
   const [step, setStep] = useState<"form" | "success">("form");
@@ -85,6 +87,7 @@ export default function OfficeBook() {
       }),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => setStep("success"),
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const isValid = form.clientName.trim() && form.clientPhone.trim() && form.serviceType;

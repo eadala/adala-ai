@@ -21,6 +21,7 @@ export default function SignPage({ token }: { token: string }) {
   const [signMode, setSignMode]         = useState<"draw" | "type">("draw");
   const [isDrawing, setIsDrawing]       = useState(false);
   const [hasDrawing, setHasDrawing]     = useState(false);
+  const [error, setError]               = useState<string>("");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastPos   = useRef<{ x: number; y: number } | null>(null);
@@ -116,6 +117,7 @@ export default function SignPage({ token }: { token: string }) {
         return r.json();
       }),
     onSuccess: () => setDone(true),
+    onError: (e: any) => setError(e.message ?? "حدث خطأ في التوقيع"),
   });
 
   /* ── Loading ── */
@@ -288,7 +290,7 @@ export default function SignPage({ token }: { token: string }) {
               <p className="text-red-400 text-xs">{(signMutation.error as any)?.message}</p>
             )}
 
-            <Button className="w-full bg-primary hover:bg-[#b8973e] text-black font-bold h-11"
+            <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-11"
               disabled={!isReady || signMutation.isPending}
               onClick={() => signMutation.mutate()}>
               {signMutation.isPending

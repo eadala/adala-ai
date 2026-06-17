@@ -154,6 +154,7 @@ function DevCommanderPanel() {
     mutationFn: (id: string) =>
       fetch(`${BASE}/api/dev-commander/proposals/${id}/approve`, { method: "POST" }).then(r => r.json()),
     onSuccess: (d) => { toast({ title: "✅ تمت الموافقة", description: d.result }); qc.invalidateQueries({ queryKey: ["dev-proposals"] }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const rejectMut = useMutation({
     mutationFn: (id: string) =>
@@ -162,6 +163,7 @@ function DevCommanderPanel() {
         body: JSON.stringify({ reason: "رُفض من المشرف" }),
       }).then(r => r.json()),
     onSuccess: () => { toast({ title: "❌ رُفض الاقتراح" }); qc.invalidateQueries({ queryKey: ["dev-proposals"] }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   async function runScan() {

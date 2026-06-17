@@ -34,9 +34,9 @@ const PLAN_ICONS: Record<string, any> = {
 };
 
 const PLAN_COLORS: Record<string, { color: string; border: string; badge: string; btn: string; glow: string }> = {
-  free:       { color: "#64748B", border: "border-slate-500/30",   badge: "bg-slate-500/10 text-slate-300 border-slate-500/30",       btn: "bg-slate-700 hover:bg-slate-600 text-white",      glow: "" },
+  free:       { color: "#64748B", border: "border-slate-500/30",   badge: "bg-muted/30 10 text-slate-300 border-slate-500/30",       btn: "bg-slate-700 hover:bg-slate-600 text-white",      glow: "" },
   basic:      { color: "#3B82F6", border: "border-blue-500/30",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/30",           btn: "bg-blue-600 hover:bg-blue-700 text-white",        glow: "" },
-  pro:        { color: "#2563EB", border: "border-primary/50",   badge: "bg-primary/10 text-primary border-primary/30",      btn: "bg-primary hover:bg-[#b8943e] text-black",     glow: "shadow-[0_0_30px_rgba(201,168,76,0.15)]" },
+  pro:        { color: "#2563EB", border: "border-primary/50",   badge: "bg-primary/10 text-primary border-primary/30",      btn: "bg-primary hover:bg-primary/90 text-primary-foreground",     glow: "shadow-[0_0_30px_rgba(201,168,76,0.15)]" },
   growth:     { color: "#8B5CF6", border: "border-violet-500/30",  badge: "bg-violet-500/10 text-violet-400 border-violet-500/30",     btn: "bg-violet-600 hover:bg-violet-700 text-white",    glow: "" },
   advanced:   { color: "#EC4899", border: "border-pink-500/30",    badge: "bg-pink-500/10 text-pink-400 border-pink-500/30",           btn: "bg-pink-600 hover:bg-pink-700 text-white",        glow: "" },
   enterprise: { color: "#10B981", border: "border-emerald-500/30", badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",  btn: "bg-emerald-600 hover:bg-emerald-700 text-white",  glow: "" },
@@ -465,7 +465,7 @@ export default function Billing() {
         body: JSON.stringify({ planId, billingPeriod: period }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (data) => {
-      if (data.url) window.open(data.url, "_blank");
+      if (data.url) window.open(data.url, "_blank", "noopener,noreferrer");
       else toast({ title: "خطأ", description: data.error ?? data.hint ?? "فشل إنشاء جلسة الدفع", variant: "destructive" });
       setLoadingPlan(null);
     },
@@ -529,7 +529,7 @@ export default function Billing() {
     active:         { label: "نشط",           cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
     past_due:       { label: "دفعة متأخرة",   cls: "bg-red-500/10 text-red-400 border-red-500/30" },
     unpaid:         { label: "غير مدفوع",     cls: "bg-red-500/10 text-red-400 border-red-500/30" },
-    canceled:       { label: "ملغى",           cls: "bg-slate-500/10 text-slate-300 border-slate-500/30" },
+    canceled:       { label: "ملغى",           cls: "bg-muted/30 10 text-slate-300 border-slate-500/30" },
     trialing:       { label: "فترة تجريبية",  cls: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
     incomplete:     { label: "غير مكتمل",     cls: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30" },
   };
@@ -617,7 +617,7 @@ export default function Billing() {
                 value: overviewLoading ? "…" : String(overview?.alerts?.length ?? 0),
                 icon: overview?.alerts?.length > 0
                   ? <BellRing className="h-5 w-5 text-yellow-400" />
-                  : <Bell className="h-5 w-5 text-slate-400" />,
+                  : <Bell className="h-5 w-5 text-muted-foreground" />,
                 sub: overview?.alerts?.length > 0 ? "تحتاج انتباهك" : "كل شيء على ما يرام",
                 color: overview?.alerts?.length > 0 ? "#F59E0B" : "#64748B",
               },
@@ -888,8 +888,8 @@ export default function Billing() {
                   )}>
                     {/* Top badges row */}
                     <div className="absolute -top-3.5 right-1/2 translate-x-1/2 flex gap-1.5 z-10 whitespace-nowrap">
-                      {isCurrent && <Badge className="bg-primary text-black text-[10px] font-black px-3 py-1 shadow">✓ باقتك الحالية</Badge>}
-                      {!isCurrent && plan.popular && <Badge className="bg-primary text-black text-[10px] font-black px-3 py-1 shadow">⭐ الأكثر طلباً</Badge>}
+                      {isCurrent && <Badge className="bg-primary text-primary-foreground text-[10px] font-black px-3 py-1 shadow">✓ باقتك الحالية</Badge>}
+                      {!isCurrent && plan.popular && <Badge className="bg-primary text-primary-foreground text-[10px] font-black px-3 py-1 shadow">⭐ الأكثر طلباً</Badge>}
                       {showAnnual && !isCurrent && pricing && (
                         <Badge className="bg-emerald-500 text-white text-[9px] font-black px-2 py-1 shadow">
                           🎉 وفّر {pricing.savings.toLocaleString("ar-SA")} ر.س
@@ -993,7 +993,7 @@ export default function Billing() {
                             <Phone className="h-4 w-4" /> تواصل معنا
                           </Button>
                         ) : plan.isFree ? (
-                          <Button variant="outline" className="w-full gap-2 font-bold border-slate-500/30 text-slate-300 hover:bg-slate-500/10"
+                          <Button variant="outline" className="w-full gap-2 font-bold border-slate-500/30 text-slate-300 hover:bg-muted/30 10"
                             onClick={() => setSelectedPlan(plan)}>
                             <ArrowDown className="h-4 w-4" /> الرجوع للمجاني
                           </Button>
@@ -1267,7 +1267,7 @@ export default function Billing() {
                 <Button
                   onClick={() => promoCode && redeemMutation.mutate(promoCode)}
                   disabled={!promoCode || redeemMutation.isPending}
-                  className="gap-2 bg-primary hover:bg-[#b8943d] text-black font-bold"
+                  className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                 >
                   {redeemMutation.isPending
                     ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -1339,7 +1339,7 @@ export default function Billing() {
                 onClick={() => { qc.invalidateQueries({ queryKey: ["platform-invoices"] }); qc.invalidateQueries({ queryKey: ["platform-invoice-stats"] }); }}>
                 <RefreshCw className="h-3.5 w-3.5" /> تحديث
               </Button>
-              <Button size="sm" className="gap-2 text-xs bg-primary hover:bg-[#b8943e] text-black font-bold"
+              <Button size="sm" className="gap-2 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                 onClick={() => genInvoiceMutation.mutate(currentPlanSlug || "free")}
                 disabled={genInvoiceMutation.isPending}>
                 {genInvoiceMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
@@ -1480,7 +1480,7 @@ export default function Billing() {
               <h2 className="text-lg font-bold">مفاتيح API</h2>
               <p className="text-xs text-muted-foreground mt-0.5">مفاتيح الوصول للتكامل مع أنظمة خارجية</p>
             </div>
-            <Button size="sm" className="gap-2 bg-primary hover:bg-[#b8943e] text-black font-bold" onClick={() => setShowNewKey(v => !v)}>
+            <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold" onClick={() => setShowNewKey(v => !v)}>
               <Plus className="h-3.5 w-3.5" /> مفتاح جديد
             </Button>
           </div>
@@ -1509,7 +1509,7 @@ export default function Billing() {
                   <input type="text" placeholder="اسم المفتاح (مثال: نظام CRM)" value={newKeyName}
                     onChange={e => setNewKeyName(e.target.value)}
                     className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
-                  <Button className="bg-primary hover:bg-[#b8943e] text-black font-bold"
+                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                     disabled={!newKeyName.trim() || createKeyMutation.isPending}
                     onClick={() => createKeyMutation.mutate(newKeyName.trim())}>
                     {createKeyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "إنشاء"}
@@ -1640,7 +1640,7 @@ export default function Billing() {
                             <div className="flex-1 bg-muted/40 rounded-full h-5 overflow-hidden">
                               <div className="h-full bg-gradient-to-r from-[#2563EB] to-[#F59E0B] rounded-full flex items-center justify-end px-2 transition-all"
                                 style={{ width: `${Math.max(pct, 4)}%` }}>
-                                <span className="text-[10px] font-bold text-black">{m.revenue.toLocaleString("ar-SA")}</span>
+                                <span className="text-[10px] font-bold text-white">{m.revenue.toLocaleString("ar-SA")}</span>
                               </div>
                             </div>
                             <span className="text-xs text-muted-foreground w-12 text-left">{m.transactions} عملية</span>

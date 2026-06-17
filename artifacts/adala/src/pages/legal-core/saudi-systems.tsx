@@ -468,7 +468,7 @@ export default function SaudiSystems() {
                           variant="outline"
                           size="sm"
                           className="flex-1 h-7 text-xs gap-1"
-                          onClick={() => window.open(sys.url, "_blank")}
+                          onClick={() => window.open(sys.url, "_blank", "noopener,noreferrer")}
                         >
                           <ExternalLink className="h-3 w-3" />
                           فتح النظام

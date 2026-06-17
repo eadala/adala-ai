@@ -36,7 +36,7 @@ const CATEGORY_MAP: Record<string, { label: string; color: string }> = {
   contracts:  { label: "عقود",        color: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
   litigation: { label: "تقاضي",       color: "bg-red-500/15 text-red-400 border-red-500/30" },
   corporate:  { label: "شركات",       color: "bg-violet-500/15 text-violet-400 border-violet-500/30" },
-  other:      { label: "أخرى",        color: "bg-slate-500/15 text-slate-400 border-slate-500/30" },
+  other:      { label: "أخرى",        color: "bg-muted/30 15 text-muted-foreground border-slate-500/30" },
 };
 
 const TYPE_MAP: Record<string, { label: string; icon: any }> = {

@@ -5,6 +5,7 @@ import {
   XCircle, RefreshCw, Zap, Bot, DollarSign, FileCode2,
   ToggleLeft, ToggleRight, ClipboardList, ChevronDown, ChevronRight
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api  = (p: string) => `${BASE}${p}`;
@@ -37,10 +38,11 @@ const RISK_BADGE: Record<string, string> = {
   critical: "bg-red-100 text-red-700 border-red-200",
   high:     "bg-orange-100 text-orange-700 border-orange-200",
   medium:   "bg-amber-100 text-amber-700 border-amber-200",
-  low:      "bg-gray-100 text-gray-600 border-border",
+  low:      "bg-muted/50 text-muted-foreground border-border",
 };
 
 export default function HardeningPage() {
+  const { toast } = useToast();
   const qc   = useQueryClient();
   const [tab, setTab]        = useState("status");
   const [safeReason, setSafeReason] = useState("");
@@ -53,10 +55,10 @@ export default function HardeningPage() {
   const modulesQ = useQuery({ queryKey: ["harden-modules"],  queryFn: () => get(api("/api/hardening/modules")),   enabled: tab === "modules" });
   const logQ     = useQuery({ queryKey: ["harden-log"],      queryFn: () => get(api("/api/hardening/change-log")), enabled: tab === "changelog", refetchInterval: 30000 });
 
-  const safeMut     = useMutation({ mutationFn: (v: { activate: boolean; reason: string }) => post(api("/api/hardening/safe-mode"), v), onSuccess: () => qc.invalidateQueries({ queryKey: ["harden-status"] }) });
-  const aiLockMut   = useMutation({ mutationFn: (locked: boolean) => post(api("/api/hardening/ai-lock"), { locked }), onSuccess: () => qc.invalidateQueries({ queryKey: ["harden-status"] }) });
+  const safeMut     = useMutation({ mutationFn: (v: { activate: boolean; reason: string }) => post(api("/api/hardening/safe-mode"), v), onSuccess: () => qc.invalidateQueries({ queryKey: ["harden-status"] }), onError: () => toast({ title: "حدث خطأ", variant: "destructive" }) });;
+  const aiLockMut   = useMutation({ mutationFn: (locked: boolean) => post(api("/api/hardening/ai-lock"), { locked }), onSuccess: () => qc.invalidateQueries({ queryKey: ["harden-status"] }), onError: () => toast({ title: "حدث خطأ", variant: "destructive" }) });;
   const gateMut     = useMutation({ mutationFn: () => post(api("/api/hardening/change-gate"), { type: changeMeta.type, affects: changeMeta.affects.split(",").map(s => s.trim()).filter(Boolean), description: changeMeta.description }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["harden-log"] }); setChangeMeta({ type: "config", affects: "", description: "" }); } });
-  const validateMut = useMutation({ mutationFn: () => post(api("/api/hardening/validate")), onSuccess: (d) => setValidateResult(d) });
+  const validateMut = useMutation({ mutationFn: () => post(api("/api/hardening/validate")), onSuccess: (d) => setValidateResult(d), onError: () => toast({ title: "حدث خطأ", variant: "destructive" }) });;
 
   const s = statusQ.data ?? {};
   const mode = s.mode ?? "stable";
@@ -70,8 +72,8 @@ export default function HardeningPage() {
             <Lock className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">قفل الإنتاج</h1>
-            <p className="text-sm text-gray-500">Production Hardening System</p>
+            <h1 className="text-xl font-bold text-foreground">قفل الإنتاج</h1>
+            <p className="text-sm text-muted-foreground">Production Hardening System</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -80,7 +82,7 @@ export default function HardeningPage() {
           </span>
           <button onClick={() => qc.invalidateQueries({ queryKey: ["harden-status"] })}
             className="p-2 rounded-lg bg-card border border-border hover:bg-muted/50 transition">
-            <RefreshCw className="h-4 w-4 text-gray-500" />
+            <RefreshCw className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
       </div>
@@ -90,7 +92,7 @@ export default function HardeningPage() {
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
-              ${tab === t.id ? "bg-slate-900 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}>
+              ${tab === t.id ? "bg-slate-900 text-white shadow-sm" : "text-muted-foreground hover:bg-muted/50"}`}>
             <t.icon className="h-4 w-4" />{t.label}
           </button>
         ))}
@@ -107,19 +109,19 @@ export default function HardeningPage() {
               { label: "وحدات محمية",    value: s.immutableCount ?? "—", sub: "IMMUTABLE MODULES" },
             ].map((m, i) => (
               <div key={i} className="bg-card border border-border rounded-2xl p-5 text-center">
-                <div className="text-2xl font-bold text-gray-900">{m.value}</div>
-                <div className="text-xs text-gray-500 mt-1">{m.label}</div>
-                <div className="text-xs text-gray-400 mt-0.5">{m.sub}</div>
+                <div className="text-2xl font-bold text-foreground">{m.value}</div>
+                <div className="text-xs text-muted-foreground mt-1">{m.label}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{m.sub}</div>
               </div>
             ))}
           </div>
 
           {/* Safe Mode toggle */}
-          <div className={`rounded-2xl p-5 border ${mode === "safe_mode" ? "bg-red-50 border-red-300" : "bg-white border-border"}`}>
-            <div className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <div className={`rounded-2xl p-5 border ${mode === "safe_mode" ? "bg-red-50/20 border-red-300" : "bg-card border-border"}`}>
+            <div className="font-semibold text-foreground mb-3 flex items-center gap-2">
               <ShieldAlert className="h-4 w-4 text-red-500" /> الوضع الآمن
             </div>
-            <div className="text-sm text-gray-600 mb-3">
+            <div className="text-sm text-muted-foreground mb-3">
               يوقف جميع العمليات الحساسة (Finance/Stripe/AI) ويتيح القراءة فقط.
             </div>
             <div className="flex gap-2">
@@ -144,15 +146,15 @@ export default function HardeningPage() {
           <div className="bg-card border border-border rounded-2xl p-5">
             <div className="flex items-center justify-between">
               <div>
-                <div className="font-semibold text-gray-800 flex items-center gap-2">
+                <div className="font-semibold text-foreground flex items-center gap-2">
                   <Bot className="h-4 w-4 text-violet-500" /> قفل تنفيذ الذكاء الاصطناعي
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-muted-foreground mt-1">
                   {s.aiLocked ? "🔒 AI في وضع القراءة — لا يُنفّذ أي عمليات مباشرة" : "✅ AI يعمل بشكل طبيعي (توليد فقط، لا تنفيذ)"}
                 </div>
               </div>
               <button onClick={() => aiLockMut.mutate(!s.aiLocked)} disabled={aiLockMut.isPending}
-                className={`p-2 rounded-xl transition ${s.aiLocked ? "bg-violet-100 text-violet-700" : "bg-gray-100 text-gray-500"}`}>
+                className={`p-2 rounded-xl transition ${s.aiLocked ? "bg-violet-100 text-violet-700" : "bg-muted/50 text-muted-foreground"}`}>
                 {s.aiLocked ? <ToggleRight className="h-6 w-6" /> : <ToggleLeft className="h-6 w-6" />}
               </button>
             </div>
@@ -161,7 +163,7 @@ export default function HardeningPage() {
           {/* Validation Pipeline */}
           <div className="bg-card border border-border rounded-2xl p-5">
             <div className="flex items-center justify-between mb-3">
-              <div className="font-semibold text-gray-800 flex items-center gap-2">
+              <div className="font-semibold text-foreground flex items-center gap-2">
                 <Zap className="h-4 w-4 text-blue-500" /> خط التحقق
               </div>
               <button onClick={() => validateMut.mutate()} disabled={validateMut.isPending}
@@ -179,9 +181,9 @@ export default function HardeningPage() {
                 {validateResult.checks?.map((ch: any) => (
                   <div key={ch.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30">
                     {STATUS_ICON(ch.status)}
-                    <span className="text-sm text-gray-700 flex-1">{ch.name}</span>
-                    <span className="text-xs text-gray-400">{ch.durationMs}ms</span>
-                    <span className="text-xs text-gray-500">{ch.detail}</span>
+                    <span className="text-sm text-foreground/70 flex-1">{ch.name}</span>
+                    <span className="text-xs text-muted-foreground">{ch.durationMs}ms</span>
+                    <span className="text-xs text-muted-foreground">{ch.detail}</span>
                   </div>
                 ))}
               </div>
@@ -193,7 +195,7 @@ export default function HardeningPage() {
       {/* ══ Financial Tab ══ */}
       {tab === "financial" && (
         <div className="space-y-4">
-          {finQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ فحص المالية…</div>}
+          {finQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm">جارٍ فحص المالية…</div>}
           {finQ.data && (
             <>
               <div className={`rounded-2xl p-6 border flex items-center gap-6
@@ -203,7 +205,7 @@ export default function HardeningPage() {
                   <div className={`text-2xl font-bold ${finQ.data.allPassed ? "text-emerald-700" : "text-red-700"}`}>
                     {finQ.data.score}/100
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">
+                  <div className="text-sm text-muted-foreground mt-1">
                     {finQ.data.allPassed ? "✅ كل الفحوصات المالية ناجحة" : "⚠️ يوجد مشاكل تحتاج انتباهاً"}
                   </div>
                 </div>
@@ -214,8 +216,8 @@ export default function HardeningPage() {
                     ${ch.status === "pass" ? "bg-white border-border" : ch.status === "warn" ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}`}>
                     {STATUS_ICON(ch.status)}
                     <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-800">{ch.name}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">{ch.detail}</div>
+                      <div className="text-sm font-medium text-foreground">{ch.name}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{ch.detail}</div>
                     </div>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${RISK_BADGE[ch.severity]}`}>{ch.severity}</span>
                   </div>
@@ -235,10 +237,10 @@ export default function HardeningPage() {
           </div>
           {(modulesQ.data?.modules ?? []).map((m: any) => (
             <div key={m.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-              <Lock className="h-4 w-4 text-slate-500 shrink-0" />
+              <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
               <div className="flex-1">
-                <div className="text-sm font-semibold text-gray-800">{m.label}</div>
-                <div className="text-xs text-gray-400 font-mono mt-0.5">{m.file}</div>
+                <div className="text-sm font-semibold text-foreground">{m.label}</div>
+                <div className="text-xs text-muted-foreground font-mono mt-0.5">{m.file}</div>
               </div>
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${RISK_BADGE[m.risk]}`}>{m.risk}</span>
             </div>
@@ -246,21 +248,21 @@ export default function HardeningPage() {
 
           {/* Change Gate form */}
           <div className="bg-card border border-border rounded-2xl p-5 mt-4">
-            <div className="font-semibold text-gray-800 mb-3">بوابة التغيير — تسجيل طلب تعديل</div>
+            <div className="font-semibold text-foreground mb-3">بوابة التغيير — تسجيل طلب تعديل</div>
             <div className="space-y-2">
               <div className="flex gap-2">
                 <select value={changeMeta.type} onChange={e => setChangeMeta(p => ({ ...p, type: e.target.value }))}
-                  className="px-3 py-2 border border-border rounded-lg text-sm focus:outline-none">
+                  className="px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/60">
                   {["config","route","finance","stripe","ai","schema","module"].map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <input value={changeMeta.affects} onChange={e => setChangeMeta(p => ({ ...p, affects: e.target.value }))}
                   placeholder="affects (فصل بفاصلة: finance, stripe)"
-                  className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none" />
+                  className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/60" />
               </div>
               <div className="flex gap-2">
                 <input value={changeMeta.description} onChange={e => setChangeMeta(p => ({ ...p, description: e.target.value }))}
                   placeholder="وصف التغيير"
-                  className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none" />
+                  className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/60" />
                 <button onClick={() => gateMut.mutate()} disabled={!changeMeta.description || gateMut.isPending}
                   className="px-4 py-2 rounded-lg text-sm bg-slate-800 text-white hover:bg-slate-900 transition disabled:opacity-50">
                   تسجيل
@@ -279,24 +281,24 @@ export default function HardeningPage() {
       {/* ══ Changelog Tab ══ */}
       {tab === "changelog" && (
         <div className="space-y-2">
-          {logQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ التحميل…</div>}
+          {logQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm">جارٍ التحميل…</div>}
           {(logQ.data?.log ?? []).length === 0 && !logQ.isLoading && (
-            <div className="p-8 text-center text-gray-400 text-sm">لا سجلات بعد</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">لا سجلات بعد</div>
           )}
           {(logQ.data?.log ?? []).map((entry: any) => (
             <div key={entry.id} className="bg-card border border-border rounded-xl overflow-hidden">
               <button onClick={() => setExpandedLog(expandedLog === entry.id ? null : entry.id)}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-right">
                 <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${RISK_BADGE[entry.risk_level]}`}>{entry.risk_level}</span>
-                <span className="text-sm text-gray-700 flex-1">{entry.description}</span>
+                <span className="text-sm text-foreground/70 flex-1">{entry.description}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium
                   ${entry.approved === true ? "bg-emerald-100 text-emerald-700" : entry.approved === false ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
                   {entry.approved === true ? "✅ موافَق" : entry.approved === false ? "❌ مرفوض" : "⏳ انتظار"}
                 </span>
-                {expandedLog === entry.id ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+                {expandedLog === entry.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
               </button>
               {expandedLog === entry.id && (
-                <div className="border-t border-gray-100 px-4 pb-3 pt-2 text-xs text-gray-500 space-y-1">
+                <div className="border-t border-border/40 px-4 pb-3 pt-2 text-xs text-muted-foreground space-y-1">
                   <div>النوع: <strong>{entry.change_type}</strong> · يؤثر على: <strong>{(entry.affects ?? []).join(", ") || "—"}</strong></div>
                   <div>بواسطة: {entry.created_by} · {new Date(entry.created_at).toLocaleString("ar-SA")}</div>
                 </div>

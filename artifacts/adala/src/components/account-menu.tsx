@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { DEV_API } from "@/features/super-admin/shared/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useToast } from "@/hooks/use-toast";
 
 interface Branding { officeName?: string | null; logoUrl?: string | null; primaryColor?: string | null }
 
@@ -74,6 +75,7 @@ function Divider() {
 }
 
 export function AccountMenu() {
+  const { toast } = useToast();
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
   const [open, setOpen] = useState(false);
@@ -116,6 +118,8 @@ export function AccountMenu() {
       setOpen(false);
       window.location.href = `${basePath}/super-admin`;
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
+
   });
 
   useEffect(() => {

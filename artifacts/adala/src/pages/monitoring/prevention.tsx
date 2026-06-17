@@ -5,6 +5,7 @@ import {
   RefreshCw, XCircle, Activity, Database, CreditCard, Cpu,
   ToggleLeft, ToggleRight, Play, BookOpen
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (path: string) => `${BASE}${path}`;
@@ -42,6 +43,7 @@ const TAB_ITEMS = [
 ];
 
 export default function PreventionPage() {
+  const { toast } = useToast();
   const qc = useQueryClient();
   const [tab, setTab] = useState("dashboard");
 
@@ -65,14 +67,17 @@ export default function PreventionPage() {
   const resetMut = useMutation({
     mutationFn: (name: string) => fetchJ(api(`/api/prevention/circuits/${name}/reset`), { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["prevention-status"] }),
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const openMut = useMutation({
     mutationFn: (name: string) => fetchJ(api(`/api/prevention/circuits/${name}/open`), { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["prevention-status"] }),
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   const checkMut = useMutation({
     mutationFn: () => fetchJ(api("/api/prevention/run-check"), { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["prevention-status"] }),
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const refresh = useCallback(() => {
@@ -106,8 +111,8 @@ export default function PreventionPage() {
             <Shield className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">نظام منع الانهيار</h1>
-            <p className="text-sm text-gray-500">Auto Prevention System — Circuit Breakers + Rules Engine</p>
+            <h1 className="text-xl font-bold text-foreground">نظام منع الانهيار</h1>
+            <p className="text-sm text-muted-foreground">Auto Prevention System — Circuit Breakers + Rules Engine</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -128,14 +133,14 @@ export default function PreventionPage() {
         <div className={`flex items-center gap-3 p-4 rounded-2xl border mb-6 ${statusBg}`}>
           {statusIcon}
           <div>
-            <div className="font-semibold text-gray-900">{statusLabel}</div>
-            <div className="text-xs text-gray-500">
+            <div className="font-semibold text-foreground">{statusLabel}</div>
+            <div className="text-xs text-muted-foreground">
               {triggered.length > 0
                 ? `${triggered.length} قاعدة مُفعَّلة — ${triggered.map((r: any) => r.ruleId).join(", ")}`
                 : "لا توجد قواعد مُفعَّلة — النظام سليم"}
             </div>
           </div>
-          <div className="mr-auto flex items-center gap-4 text-xs text-gray-500">
+          <div className="mr-auto flex items-center gap-4 text-xs text-muted-foreground">
             <span>محجوب: <strong className="text-red-600">{counters.blocked ?? 0}</strong></span>
             <span>مُقلَّل: <strong className="text-orange-600">{counters.throttled ?? 0}</strong></span>
             <span>احتياطي: <strong className="text-blue-600">{counters.fallback ?? 0}</strong></span>
@@ -148,7 +153,7 @@ export default function PreventionPage() {
         {TAB_ITEMS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
-              ${tab === t.id ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}>
+              ${tab === t.id ? "bg-indigo-600 text-white shadow-sm" : "text-muted-foreground hover:bg-muted/50"}`}>
             <t.icon className="h-4 w-4" />{t.label}
           </button>
         ))}
@@ -167,10 +172,10 @@ export default function PreventionPage() {
             ].map((m, i) => (
               <div key={i} className={`bg-card border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-border"}`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <m.icon className={`h-4 w-4 ${m.warn ? "text-orange-500" : "text-gray-400"}`} />
-                  <span className="text-xs text-gray-500">{m.label}</span>
+                  <m.icon className={`h-4 w-4 ${m.warn ? "text-orange-500" : "text-muted-foreground"}`} />
+                  <span className="text-xs text-muted-foreground">{m.label}</span>
                 </div>
-                <div className={`text-2xl font-bold ${m.warn ? "text-orange-600" : "text-gray-900"}`}>{m.value}</div>
+                <div className={`text-2xl font-bold ${m.warn ? "text-orange-600" : "text-foreground"}`}>{m.value}</div>
                 {m.warn && <div className="text-xs text-orange-500 mt-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />يتجاوز الحد</div>}
               </div>
             ))}
@@ -178,22 +183,22 @@ export default function PreventionPage() {
 
           {/* Circuit Breakers summary */}
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex items-center gap-2">
+            <div className="p-4 border-b border-border/40 flex items-center gap-2">
               <Zap className="h-4 w-4 text-indigo-500" />
-              <span className="font-semibold text-gray-800 text-sm">Circuit Breakers</span>
+              <span className="font-semibold text-foreground text-sm">Circuit Breakers</span>
             </div>
             <div className="divide-y divide-gray-50">
               {circuits.length === 0 && (
-                <div className="p-6 text-center text-gray-400 text-sm">لم تُستخدم الدوائر بعد — تعمل في الوضع CLOSED</div>
+                <div className="p-6 text-center text-muted-foreground text-sm">لم تُستخدم الدوائر بعد — تعمل في الوضع CLOSED</div>
               )}
               {circuits.map((c: any) => (
                 <div key={c.name} className="px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${STATE_COLORS[c.state] ?? "text-gray-600 bg-muted/30 border-border"}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${STATE_COLORS[c.state] ?? "text-muted-foreground bg-muted/30 border-border"}`}>
                       {c.state}
                     </span>
-                    <span className="text-sm font-medium text-gray-800 capitalize">{c.name}</span>
-                    <span className="text-xs text-gray-400">{(c.failureRate * 100).toFixed(0)}% فشل ({c.failures}/{c.total})</span>
+                    <span className="text-sm font-medium text-foreground capitalize">{c.name}</span>
+                    <span className="text-xs text-muted-foreground">{(c.failureRate * 100).toFixed(0)}% فشل ({c.failures}/{c.total})</span>
                   </div>
                   <div className="flex gap-2">
                     {c.state !== "CLOSED" && (
@@ -213,7 +218,7 @@ export default function PreventionPage() {
             <div className="bg-card border border-orange-400/30 rounded-2xl overflow-hidden">
               <div className="p-4 border-b border-orange-100 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-orange-500" />
-                <span className="font-semibold text-gray-800 text-sm">قواعد مُفعَّلة الآن ({triggered.length})</span>
+                <span className="font-semibold text-foreground text-sm">قواعد مُفعَّلة الآن ({triggered.length})</span>
               </div>
               <div className="divide-y divide-gray-50">
                 {triggered.map((r: any) => (
@@ -223,8 +228,8 @@ export default function PreventionPage() {
                         {r.severity}
                       </span>
                       <div>
-                        <div className="text-sm font-medium text-gray-800">{r.message}</div>
-                        <div className="text-xs text-gray-400 font-mono">{r.ruleId} · {r.condition}</div>
+                        <div className="text-sm font-medium text-foreground">{r.message}</div>
+                        <div className="text-xs text-muted-foreground font-mono">{r.ruleId} · {r.condition}</div>
                       </div>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${ACTION_COLORS[r.action] ?? ""}`}>
@@ -263,8 +268,8 @@ export default function PreventionPage() {
                 <div className="flex items-center gap-4">
                   <div className={`w-3 h-3 rounded-full ${state === "CLOSED" ? "bg-emerald-500" : state === "OPEN" ? "bg-red-500" : "bg-amber-400"}`} />
                   <div>
-                    <div className="font-semibold text-gray-800 capitalize">{name}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">
+                    <div className="font-semibold text-foreground capitalize">{name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       {c ? `${c.failures} فشل / ${c.total} طلب — ${(c.failureRate * 100).toFixed(0)}% معدل فشل` : "لم تُستخدم بعد"}
                     </div>
                   </div>
@@ -291,7 +296,7 @@ export default function PreventionPage() {
       {/* ── Rules Tab ── */}
       {tab === "rules" && (
         <div className="space-y-3">
-          {rulesQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ التحميل…</div>}
+          {rulesQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm">جارٍ التحميل…</div>}
           {(rulesQ.data?.rules ?? []).map((rule: any) => {
             const isTriggered = triggered.some((t: any) => t.ruleId === rule.id);
             return (
@@ -300,12 +305,12 @@ export default function PreventionPage() {
                   ${isTriggered ? "border-orange-300 bg-orange-50/30" : "border-border"}`}>
                 <div className="flex items-start gap-4">
                   <div className="flex flex-col items-center gap-1">
-                    <span className="text-xs font-mono text-gray-400">{rule.id}</span>
+                    <span className="text-xs font-mono text-muted-foreground">{rule.id}</span>
                     {isTriggered && <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />}
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-gray-800">{rule.description}</div>
-                    <div className="text-xs font-mono text-gray-400 mt-1">{rule.condition}</div>
+                    <div className="text-sm font-semibold text-foreground">{rule.description}</div>
+                    <div className="text-xs font-mono text-muted-foreground mt-1">{rule.condition}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
@@ -328,17 +333,17 @@ export default function PreventionPage() {
       {/* ── Events Tab ── */}
       {tab === "events" && (
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="p-4 border-b border-border/40 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-gray-500" />
-              <span className="font-semibold text-gray-800">سجل أحداث المنع</span>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <span className="font-semibold text-foreground">سجل أحداث المنع</span>
             </div>
-            <span className="text-xs text-gray-400">{eventsQ.data?.events?.length ?? 0} حدث</span>
+            <span className="text-xs text-muted-foreground">{eventsQ.data?.events?.length ?? 0} حدث</span>
           </div>
           <div className="divide-y divide-gray-50 max-h-[540px] overflow-y-auto">
-            {eventsQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ التحميل…</div>}
+            {eventsQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm">جارٍ التحميل…</div>}
             {!eventsQ.isLoading && (eventsQ.data?.events ?? []).length === 0 && (
-              <div className="p-8 text-center text-gray-400 text-sm flex flex-col items-center gap-2">
+              <div className="p-8 text-center text-muted-foreground text-sm flex flex-col items-center gap-2">
                 <Shield className="h-8 w-8 text-gray-300" />
                 لا أحداث منع مسجَّلة — طبقة الحماية تعمل بصمت
               </div>
@@ -353,10 +358,10 @@ export default function PreventionPage() {
                       : ev.severity === "medium" ? "bg-amber-400"
                       : "bg-blue-300"}`} />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm text-gray-800">{ev.message}</div>
-                    {meta.path && <div className="text-xs font-mono text-gray-400 mt-0.5">{meta.path}</div>}
+                    <div className="text-sm text-foreground">{ev.message}</div>
+                    {meta.path && <div className="text-xs font-mono text-muted-foreground mt-0.5">{meta.path}</div>}
                   </div>
-                  <span className="text-xs text-gray-400 shrink-0">
+                  <span className="text-xs text-muted-foreground shrink-0">
                     {new Date(ev.created_at).toLocaleString("ar-SA")}
                   </span>
                 </div>

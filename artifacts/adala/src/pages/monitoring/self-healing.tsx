@@ -5,6 +5,7 @@ import {
   Activity, Shield, Clock, TrendingUp, SkipForward, BookOpen,
   Circle, ChevronDown, ChevronRight
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api  = (p: string) => `${BASE}${p}`;
@@ -30,7 +31,7 @@ const SEV_STYLE: Record<string, string> = {
 const RESULT_ICON = (r: string) =>
   r === "success" ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> :
   r === "failed"  ? <XCircle      className="h-4 w-4 text-red-500 shrink-0"     /> :
-                    <SkipForward  className="h-4 w-4 text-gray-400 shrink-0"    />;
+                    <SkipForward  className="h-4 w-4 text-muted-foreground shrink-0"    />;
 
 const HEALTH_COLOR = (s: number) =>
   s >= 90 ? "text-emerald-600" : s >= 70 ? "text-blue-600" : s >= 50 ? "text-amber-600" : "text-red-600";
@@ -54,6 +55,7 @@ function ScoreRing({ score }: { score: number }) {
 }
 
 export default function SelfHealingPage() {
+  const { toast } = useToast();
   const qc    = useQueryClient();
   const [tab, setTab]   = useState("dashboard");
   const [expand, setExpand] = useState<string | null>(null);
@@ -66,6 +68,7 @@ export default function SelfHealingPage() {
   const runMut  = useMutation({
     mutationFn: () => post(api("/api/healing/run")),
     onSuccess:  () => { qc.invalidateQueries({ queryKey: ["heal-status"] }); qc.invalidateQueries({ queryKey: ["heal-events"] }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const d = statusQ.data ?? {} as any;
@@ -83,8 +86,8 @@ export default function SelfHealingPage() {
             <Heart className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">نظام الإصلاح الذاتي</h1>
-            <p className="text-sm text-gray-500">Self-Healing Production System</p>
+            <h1 className="text-xl font-bold text-foreground">نظام الإصلاح الذاتي</h1>
+            <p className="text-sm text-muted-foreground">Self-Healing Production System</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -94,7 +97,7 @@ export default function SelfHealingPage() {
           </button>
           <button onClick={() => qc.invalidateQueries({ queryKey: ["heal-status"] })}
             className="p-2 rounded-lg bg-card border border-border hover:bg-muted/50 transition">
-            <RefreshCw className="h-4 w-4 text-gray-500" />
+            <RefreshCw className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
       </div>
@@ -117,7 +120,7 @@ export default function SelfHealingPage() {
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
-              ${tab === t.id ? "bg-emerald-700 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}>
+              ${tab === t.id ? "bg-emerald-700 text-white shadow-sm" : "text-muted-foreground hover:bg-muted/50"}`}>
             <t.icon className="h-4 w-4" />{t.label}
           </button>
         ))}
@@ -133,7 +136,7 @@ export default function SelfHealingPage() {
               <div className={`text-xs font-semibold mt-2 ${HEALTH_COLOR(health)}`}>
                 {health >= 90 ? "سليم" : health >= 70 ? "جيد" : health >= 50 ? "متدهور" : "حرج"}
               </div>
-              <div className="text-xs text-gray-500">صحة النظام</div>
+              <div className="text-xs text-muted-foreground">صحة النظام</div>
             </div>
             <div className="col-span-3 grid grid-cols-2 sm:grid-cols-3 gap-4">
               {[
@@ -143,7 +146,7 @@ export default function SelfHealingPage() {
               ].map((m, i) => (
                 <div key={i} className="bg-card border border-border rounded-2xl p-5 text-center">
                   <div className={`text-2xl font-bold text-${m.color}-600`}>{m.value}</div>
-                  <div className="text-xs text-gray-500 mt-1">{m.label}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{m.label}</div>
                 </div>
               ))}
               {[
@@ -153,7 +156,7 @@ export default function SelfHealingPage() {
               ].map((m, i) => (
                 <div key={i} className="bg-card border border-border rounded-2xl p-5 text-center">
                   <div className={`text-lg font-bold text-${m.color}-600`}>{m.value}</div>
-                  <div className="text-xs text-gray-500 mt-1">{m.label}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{m.label}</div>
                 </div>
               ))}
             </div>
@@ -161,19 +164,19 @@ export default function SelfHealingPage() {
 
           {/* Anomalies */}
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 font-semibold text-sm text-gray-800 flex items-center gap-2">
+            <div className="px-5 py-4 border-b border-border/40 font-semibold text-sm text-foreground flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
               الأعطال المكتشفة الآن
               {anomalies.length > 0 && (
                 <span className="mr-auto text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{anomalies.length} عطل</span>
               )}
             </div>
-            {statusQ.isLoading && <div className="p-6 text-center text-gray-400 text-sm animate-pulse">جارٍ الفحص…</div>}
+            {statusQ.isLoading && <div className="p-6 text-center text-muted-foreground text-sm animate-pulse">جارٍ الفحص…</div>}
             {anomalies.length === 0 && !statusQ.isLoading && (
               <div className="p-8 flex flex-col items-center gap-2">
                 <CheckCircle2 className="h-10 w-10 text-emerald-300" />
-                <div className="text-sm font-medium text-gray-500">لا أعطال مكتشفة</div>
-                <div className="text-xs text-gray-400">النظام يعمل بصحة جيدة</div>
+                <div className="text-sm font-medium text-muted-foreground">لا أعطال مكتشفة</div>
+                <div className="text-xs text-muted-foreground">النظام يعمل بصحة جيدة</div>
               </div>
             )}
             <div className="divide-y divide-gray-50">
@@ -181,11 +184,11 @@ export default function SelfHealingPage() {
                 <div key={i} className={`px-5 py-3 flex items-center gap-3 ${a.severity === "critical" ? "bg-red-50" : a.severity === "high" ? "bg-orange-50" : ""}`}>
                   <Circle className={`h-2 w-2 shrink-0 fill-current ${a.severity === "critical" ? "text-red-500" : a.severity === "high" ? "text-orange-500" : "text-amber-400"}`} />
                   <div className="flex-1">
-                    <div className="text-sm text-gray-800">{a.message}</div>
-                    <div className="text-xs text-gray-400 mt-0.5 font-mono">{a.type} · قيمة: {a.metric} / حد: {a.threshold}</div>
+                    <div className="text-sm text-foreground">{a.message}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5 font-mono">{a.type} · قيمة: {a.metric} / حد: {a.threshold}</div>
                   </div>
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${SEV_STYLE[a.severity]}`}>{a.severity}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${a.autoHealable ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${a.autoHealable ? "bg-emerald-100 text-emerald-700" : "bg-muted/50 text-muted-foreground"}`}>
                     {a.autoHealable ? "🔧 تلقائي" : "👤 يدوي"}
                   </span>
                 </div>
@@ -196,7 +199,7 @@ export default function SelfHealingPage() {
           {/* Severity breakdown */}
           {Object.keys(bySev).length > 0 && (
             <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="font-semibold text-sm text-gray-800 mb-4">توزيع الأحداث (24h) حسب الخطورة</div>
+              <div className="font-semibold text-sm text-foreground mb-4">توزيع الأحداث (24h) حسب الخطورة</div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {(["critical","high","medium","low"] as const).map(sev => (
                   <div key={sev} className={`p-3 rounded-xl text-center border ${SEV_STYLE[sev]}`}>
@@ -213,9 +216,9 @@ export default function SelfHealingPage() {
       {/* ══ Events ══ */}
       {tab === "events" && (
         <div className="space-y-2">
-          {eventsQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm animate-pulse">جارٍ التحميل…</div>}
+          {eventsQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm animate-pulse">جارٍ التحميل…</div>}
           {(eventsQ.data?.events ?? []).length === 0 && !eventsQ.isLoading && (
-            <div className="p-8 text-center text-gray-400 text-sm">لا سجلات بعد — شغّل دورة إصلاح أولاً</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">لا سجلات بعد — شغّل دورة إصلاح أولاً</div>
           )}
           {(eventsQ.data?.events ?? []).map((ev: any) => (
             <div key={ev.id} className="bg-card border border-border rounded-xl overflow-hidden">
@@ -223,16 +226,16 @@ export default function SelfHealingPage() {
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-right">
                 {RESULT_ICON(ev.action_result)}
                 <div className="flex-1 text-right">
-                  <div className="text-sm text-gray-800 font-mono">{ev.anomaly_type}</div>
-                  <div className="text-xs text-gray-500">{ev.action_taken}</div>
+                  <div className="text-sm text-foreground font-mono">{ev.anomaly_type}</div>
+                  <div className="text-xs text-muted-foreground">{ev.action_taken}</div>
                 </div>
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${SEV_STYLE[ev.severity]}`}>{ev.severity}</span>
-                <span className="text-xs text-gray-400">{ev.duration_ms}ms</span>
-                <span className="text-xs text-gray-400">{new Date(ev.created_at).toLocaleTimeString("ar-SA")}</span>
-                {expand === ev.id ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+                <span className="text-xs text-muted-foreground">{ev.duration_ms}ms</span>
+                <span className="text-xs text-muted-foreground">{new Date(ev.created_at).toLocaleTimeString("ar-SA")}</span>
+                {expand === ev.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
               </button>
               {expand === ev.id && (
-                <div className="border-t border-gray-100 px-4 pb-3 pt-2 text-xs text-gray-500 space-y-1 bg-muted/30">
+                <div className="border-t border-border/40 px-4 pb-3 pt-2 text-xs text-muted-foreground space-y-1 bg-muted/30">
                   <div><strong>التفاصيل:</strong> {ev.detail}</div>
                   <div><strong>التحقق:</strong> {ev.verified ? "✅ تم التحقق" : "⏳ لم يتحقق بعد"}</div>
                   {ev.metrics && <div><strong>المقاييس:</strong> <span className="font-mono">{JSON.stringify(ev.metrics)}</span></div>}
@@ -257,9 +260,9 @@ export default function SelfHealingPage() {
                   { label: "درجة الصحة", value: `${stateQ.data.current.healthScore}/100` },
                   { label: "التوقيت",   value: new Date(stateQ.data.current.timestamp).toLocaleString("ar-SA") },
                 ].map((m, i) => (
-                  <div key={i} className="bg-white rounded-xl p-3 text-center border border-emerald-100">
+                  <div key={i} className="bg-card rounded-xl p-3 text-center border border-emerald-200/40">
                     <div className="font-bold text-emerald-700">{m.value}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{m.label}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{m.label}</div>
                   </div>
                 ))}
               </div>
@@ -271,20 +274,20 @@ export default function SelfHealingPage() {
           )}
 
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 font-semibold text-sm text-gray-700">
+            <div className="px-5 py-4 border-b border-border/40 font-semibold text-sm text-foreground/70">
               تاريخ الحالات المستقرة
             </div>
             <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
               {(stateQ.data?.history ?? []).map((snap: any, i: number) => (
                 <div key={i} className="flex items-center gap-3 px-5 py-3">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                  <span className="text-xs font-mono text-gray-700 flex-1">v{snap.version}</span>
+                  <span className="text-xs font-mono text-foreground/70 flex-1">v{snap.version}</span>
                   <span className="text-xs font-bold text-emerald-600">{snap.health_score}/100</span>
-                  <span className="text-xs text-gray-400">{new Date(snap.created_at).toLocaleString("ar-SA")}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(snap.created_at).toLocaleString("ar-SA")}</span>
                 </div>
               ))}
               {(stateQ.data?.history ?? []).length === 0 && (
-                <div className="p-6 text-center text-gray-400 text-sm">لا سجلات بعد</div>
+                <div className="p-6 text-center text-muted-foreground text-sm">لا سجلات بعد</div>
               )}
             </div>
           </div>
@@ -295,17 +298,17 @@ export default function SelfHealingPage() {
       {tab === "rules" && (
         <div className="space-y-4">
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 font-semibold text-sm text-gray-800">قواعد الإصلاح التلقائي</div>
+            <div className="px-5 py-4 border-b border-border/40 font-semibold text-sm text-foreground">قواعد الإصلاح التلقائي</div>
             <div className="divide-y divide-gray-50">
               {(rulesQ.data?.rules ?? []).map((rule: any, i: number) => (
                 <div key={i} className="flex items-center gap-3 px-5 py-3">
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 ${SEV_STYLE[rule.severity]}`}>{rule.severity}</span>
                   <div className="flex-1">
-                    <div className="text-xs font-mono text-gray-700">{rule.trigger}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">→ {rule.action}</div>
+                    <div className="text-xs font-mono text-foreground/70">{rule.trigger}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">→ {rule.action}</div>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full shrink-0
-                    ${rule.autoHeal ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                    ${rule.autoHeal ? "bg-emerald-100 text-emerald-700" : "bg-muted/50 text-muted-foreground"}`}>
                     {rule.autoHeal ? "🔧 تلقائي" : "👤 يدوي"}
                   </span>
                 </div>

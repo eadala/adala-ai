@@ -37,7 +37,7 @@ function daysLate(inv: any) {
 }
 
 const STAGES: Record<number, { label: string; color: string; bg: string; border: string }> = {
-  0: { label: "جديدة",        color: "#64748B", bg: "bg-slate-500/15", border: "border-slate-500/25"  },
+  0: { label: "جديدة",        color: "#64748B", bg: "bg-muted/30 15", border: "border-slate-500/25"  },
   1: { label: "تواصل أولي",   color: "#3B82F6", bg: "bg-blue-500/15",  border: "border-blue-500/25"   },
   2: { label: "تذكير ثاني",   color: "#F59E0B", bg: "bg-amber-500/15", border: "border-amber-500/25"  },
   3: { label: "إشعار أخير",   color: "#F97316", bg: "bg-orange-500/15",border: "border-orange-500/25" },
@@ -119,6 +119,7 @@ export default function Collections() {
       qc.invalidateQueries({ queryKey: ["collections-profitability"] });
       setPayDialog(null);
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const partialPayMut = useMutation({
@@ -132,6 +133,7 @@ export default function Collections() {
       qc.invalidateQueries({ queryKey: ["collections"] });
       setPartialDialog(null);
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const stageMut = useMutation({
@@ -143,6 +145,7 @@ export default function Collections() {
       toast({ title: "✅ تم تحديث مرحلة التحصيل" });
       setStageDialog(null);
     },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -523,7 +526,7 @@ export default function Collections() {
                                 <Minus className="h-3 w-3" />جزئي
                               </Button>
                               <Button size="sm"
-                                className="h-7 text-xs gap-1 bg-primary hover:bg-[#1D4ED8] text-black font-semibold"
+                                className="h-7 text-xs gap-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                                 onClick={() => { setPayDialog(inv); setPayForm({ amount: String(Number(inv.total ?? 0) / 100), method: "bank_transfer", notes: "" }); }}>
                                 <CreditCard className="h-3 w-3" />كامل
                               </Button>
@@ -647,7 +650,7 @@ export default function Collections() {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPayDialog(null)}>إلغاء</Button>
             <Button onClick={() => recordPayMut.mutate()} disabled={recordPayMut.isPending || !payForm.amount}
-              className="bg-primary hover:bg-[#1D4ED8] text-black font-bold gap-2">
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-2">
               {recordPayMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}تأكيد الدفعة
             </Button>
           </DialogFooter>
@@ -784,7 +787,7 @@ function ActivityLog({ invoiceId }: { invoiceId: string }) {
     payment_recorded: { icon: CreditCard, color: "text-emerald-400" },
     partial_payment:  { icon: Minus,      color: "text-amber-400"   },
     stage_changed:    { icon: Layers,     color: "text-violet-400"  },
-    note_added:       { icon: Receipt,    color: "text-slate-400"   },
+    note_added:       { icon: Receipt,    color: "text-muted-foreground"   },
   };
 
   const stg = STAGES[currentStage] ?? STAGES[0];

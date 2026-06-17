@@ -37,7 +37,7 @@ const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const STATUS_CFG: Record<string, { label: string; bg: string; dot: string }> = {
   open:        { label: "مفتوحة",       bg: "bg-blue-50 text-blue-700 border-blue-200",   dot: "bg-blue-500"   },
   in_progress: { label: "قيد التنفيذ",  bg: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500"  },
-  closed:      { label: "مغلقة",        bg: "bg-slate-100 text-slate-600 border-slate-300", dot: "bg-slate-400"  },
+  closed:      { label: "مغلقة",        bg: "bg-muted/50 text-muted-foreground border-border", dot: "bg-slate-400"  },
 };
 const TYPE_MAP: Record<string, string> = {
   criminal: "جنائية", civil: "مدنية", commercial: "تجارية",
@@ -49,7 +49,7 @@ const ENTRY_ICON: Record<string, any> = {
 };
 const ENTRY_COLOR: Record<string, string> = {
   hearing:      "bg-blue-100 text-blue-700 border-blue-200",
-  note:         "bg-slate-100 text-slate-600 border-slate-200",
+  note:         "bg-muted/50 text-muted-foreground border-border",
   document:     "bg-violet-100 text-violet-700 border-violet-200",
   decision:     "bg-emerald-100 text-emerald-700 border-emerald-200",
   consultation: "bg-amber-100 text-amber-700 border-amber-200",
@@ -164,7 +164,7 @@ function TimelineFeed({ caseId, open, setOpen }: { caseId: string; open: boolean
           <div className="space-y-3">
             {entries.map((e: any) => {
               const Icon = ENTRY_ICON[e.entry_type] ?? Circle;
-              const col  = ENTRY_COLOR[e.entry_type] ?? "bg-slate-100 text-slate-600 border-slate-200";
+              const col  = ENTRY_COLOR[e.entry_type] ?? "bg-muted/50 text-muted-foreground border-border";
               return (
                 <div key={e.id} className="flex gap-3 relative">
                   <div className={cn("w-9 h-9 rounded-full border flex items-center justify-center z-10 shrink-0", col)}>
@@ -412,7 +412,7 @@ const ACTION_TYPE_LABEL: Record<string, string> = {
 const PRIORITY_BADGE: Record<string, string> = {
   high:   "bg-red-50 text-red-700 border-red-200",
   medium: "bg-amber-50 text-amber-700 border-amber-200",
-  low:    "bg-slate-50 text-slate-600 border-slate-200",
+  low:    "bg-muted/30 text-muted-foreground border-border",
 };
 const PRIORITY_LABEL: Record<string, string> = {
   high: "عالية", medium: "متوسطة", low: "منخفضة",
@@ -583,7 +583,7 @@ function AutonomousAIPanel({ caseId }: { caseId: string }) {
                           "rounded-lg border px-2.5 py-2 text-xs space-y-1.5 transition-all",
                           t.status === "pending_approval" && "bg-violet-50 border-violet-200",
                           t.status === "approved"         && "bg-emerald-50 border-emerald-200 opacity-70",
-                          t.status === "rejected"         && "bg-slate-50 border-slate-200 opacity-50",
+                          t.status === "rejected"         && "bg-muted/30 border-border opacity-50",
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -599,7 +599,7 @@ function AutonomousAIPanel({ caseId }: { caseId: string }) {
                             </div>
                           </div>
                           {t.status === "approved" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />}
-                          {t.status === "rejected" && <XCircle     className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />}
+                          {t.status === "rejected" && <XCircle     className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
                         </div>
 
                         {t.description && (
@@ -622,7 +622,7 @@ function AutonomousAIPanel({ caseId }: { caseId: string }) {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-6 text-xs flex-1 border-slate-200 text-slate-500 hover:text-red-600"
+                              className="h-6 text-xs flex-1 border-border text-muted-foreground hover:text-red-600"
                               onClick={() => rejectTask(t.id)}
                               disabled={!!rejecting}
                             >

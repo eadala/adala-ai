@@ -73,7 +73,7 @@ export default function Advances() {
             <div className="h-10 w-10 rounded-xl bg-purple-500/20 flex items-center justify-center"><Wallet className="h-5 w-5 text-purple-400" /></div>
             <div><h1 className="text-xl font-bold text-foreground">العهد والسلف</h1><p className="text-xs text-muted-foreground">إدارة السلف والقروض للموظفين</p></div>
           </div>
-          <Button onClick={() => { setForm(empty()); setOpen(true); }} className="bg-primary hover:bg-[#b8943f] text-black font-bold gap-1.5"><Plus className="h-4 w-4" />سلفة جديدة</Button>
+          <Button onClick={() => { setForm(empty()); setOpen(true); }} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-1.5"><Plus className="h-4 w-4" />سلفة جديدة</Button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -138,7 +138,7 @@ export default function Advances() {
                             <Button size="sm" variant="outline" className="text-xs border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
                               onClick={() => { setRepayId(r.id); setRepayAmt(""); }}>سداد</Button>
                           )}
-                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-red-400" onClick={() => delMut.mutate(r.id)}><Loader2 className={`h-3.5 w-3.5 ${delMut.isPending ? "animate-spin" : "hidden"}`} /><XCircle className={`h-3.5 w-3.5 ${delMut.isPending ? "hidden" : ""}`} /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-red-400" disabled={delMut.isPending} onClick={() => delMut.mutate(r.id)}><Loader2 className={`h-3.5 w-3.5 ${delMut.isPending ? "animate-spin" : "hidden"}`} /><XCircle className={`h-3.5 w-3.5 ${delMut.isPending ? "hidden" : ""}`} /></Button>
                         </div>
                       </div>
                     </div>
@@ -165,7 +165,7 @@ export default function Advances() {
             </div>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={()=>setOpen(false)}>إلغاء</Button>
-              <Button className="bg-primary hover:bg-[#b8943f] text-black font-bold" disabled={!form.employeeName||!form.amount||!form.purpose||createMut.isPending} onClick={()=>createMut.mutate(form)}>
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" disabled={!form.employeeName||!form.amount||!form.purpose||createMut.isPending} onClick={()=>createMut.mutate(form)}>
                 {createMut.isPending&&<Loader2 className="h-4 w-4 ml-1 animate-spin"/>}حفظ
               </Button>
             </DialogFooter>
@@ -182,7 +182,7 @@ export default function Advances() {
             </div>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={()=>setRepayId(null)}>إلغاء</Button>
-              <Button className="bg-primary hover:bg-[#b8943f] text-black font-bold" disabled={!repayAmt||repayMut.isPending}
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" disabled={!repayAmt||repayMut.isPending}
                 onClick={()=>repayMut.mutate({id:repayId!,amount:parseFloat(repayAmt)})}>
                 {repayMut.isPending&&<Loader2 className="h-4 w-4 ml-1 animate-spin"/>}تسجيل
               </Button>

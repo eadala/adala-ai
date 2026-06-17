@@ -19,13 +19,13 @@ import { cn } from "@/lib/utils";
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
-  todo:        { label: "قيد الانتظار",  color: "text-slate-400",   bg: "bg-slate-500/10 border-slate-500/30",   icon: Circle },
+  todo:        { label: "قيد الانتظار",  color: "text-muted-foreground",   bg: "bg-muted/30 10 border-slate-500/30",   icon: Circle },
   in_progress: { label: "جارٍ التنفيذ",  color: "text-blue-400",    bg: "bg-blue-500/10 border-blue-500/30",     icon: Clock },
   done:        { label: "مكتملة",        color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/30", icon: CheckCircle2 },
 };
 
 const PRIORITY_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
-  low:    { label: "منخفضة", color: "text-slate-400",   dot: "bg-slate-400" },
+  low:    { label: "منخفضة", color: "text-muted-foreground",   dot: "bg-slate-400" },
   medium: { label: "متوسطة", color: "text-blue-400",    dot: "bg-blue-400" },
   high:   { label: "عالية",  color: "text-orange-400",  dot: "bg-orange-400" },
   urgent: { label: "عاجلة",  color: "text-red-400",     dot: "bg-red-500" },

@@ -34,7 +34,7 @@ const ROLE_CFG: Record<string, { label: string; icon: any; color: string; bg: st
   trainee_lawyer: { label: "محامي متدرب",    icon: FileText,  color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/30" },
   accountant:     { label: "محاسب",          icon: FileText,  color: "text-green-400",   bg: "bg-green-500/10 border-green-500/30" },
   secretary:      { label: "سكرتير",         icon: Users,     color: "text-pink-400",    bg: "bg-pink-500/10 border-pink-500/30" },
-  collaborator:   { label: "متعاون",         icon: Users,     color: "text-slate-400",   bg: "bg-slate-500/10 border-slate-500/30" },
+  collaborator:   { label: "متعاون",         icon: Users,     color: "text-muted-foreground",   bg: "bg-muted/30 10 border-slate-500/30" },
   broker:         { label: "وسيط",           icon: Users,     color: "text-orange-400",  bg: "bg-orange-500/10 border-orange-500/30" },
 };
 
@@ -126,12 +126,14 @@ export default function TeamPage() {
         body: JSON.stringify({ role }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["rbac-members"] }); toast({ title: "تم تحديث الدور" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const removeMember = useMutation({
     mutationFn: (userId: string) =>
       fetch(`${BASE}/api/rbac/members/${userId}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["rbac-members"] }); toast({ title: "تم إزالة العضو" }); },
+    onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const sendInvite = useMutation({
@@ -152,7 +154,7 @@ export default function TeamPage() {
   const cancelInvite = useMutation({
     mutationFn: (id: string) =>
       fetch(`${BASE}/api/rbac/invitations/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["rbac-invitations"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["rbac-invitations"] }); toast({ title: "تم إلغاء الدعوة" }); },
   });
 
   const resendInvite = useMutation({
@@ -457,7 +459,7 @@ export default function TeamPage() {
                           </Button>
                         )}
                         <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                          onClick={() => cancelInvite.mutate(inv.id)}>
+                          onClick={() => { if (confirm("إلغاء هذه الدعوة؟")) cancelInvite.mutate(inv.id); }}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>

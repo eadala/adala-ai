@@ -183,7 +183,7 @@ export function ImportDialog({ open, onOpenChange, type, queryKey }: ImportDialo
           <Button
             onClick={() => importMut.mutate()}
             disabled={rows.length === 0 || importMut.isPending}
-            className="bg-primary hover:bg-primary/90 text-black font-bold gap-1.5"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-1.5"
           >
             {importMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             استيراد {rows.length > 0 ? `(${rows.length})` : ""}
