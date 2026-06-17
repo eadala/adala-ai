@@ -7,13 +7,10 @@ import { ClerkProvider, SignIn, SignUp, useClerk, useAuth } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Layout } from "@/components/layout";
+import { AdminLayout } from "@/components/admin-layout";
 import { useRole } from "@/hooks/use-role";
 import { OfficeThemeProvider } from "@/components/office-theme-provider";
-
-// Layout shells are only needed for authenticated routes — lazy so landing-page
-// visitors never download 900 lines of nav/sidebar code on initial load.
-const Layout      = lazy(() => import("@/components/layout").then(m => ({ default: m.Layout })));
-const AdminLayout = lazy(() => import("@/components/admin-layout").then(m => ({ default: m.AdminLayout })));
 
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────────
 // Core (likely first visit)
@@ -149,7 +146,6 @@ const OfficeLogin          = lazy(() => import("@/pages/marketplace/office-login
 const TermsPage            = lazy(() => import("@/pages/terms"));
 const PrivacyPage          = lazy(() => import("@/pages/privacy"));
 const SecurityPage         = lazy(() => import("@/pages/security"));
-const ContactPage          = lazy(() => import("@/pages/contact"));
 const ReferralPage         = lazy(() => import("@/pages/marketplace/referral"));
 const NotFound             = lazy(() => import("@/pages/not-found"));
 
@@ -546,11 +542,9 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   if (role !== "platform_admin") return <Redirect to="/dashboard" />;
 
   return (
-    <Suspense fallback={<PageLoader />}>
-      <AdminLayout>
-        <Suspense fallback={<PageLoader />}>{children}</Suspense>
-      </AdminLayout>
-    </Suspense>
+    <AdminLayout>
+      <Suspense fallback={<PageLoader />}>{children}</Suspense>
+    </AdminLayout>
   );
 }
 
@@ -566,11 +560,9 @@ function WorkspaceRoute({ children }: { children: React.ReactNode }) {
 
   return (
     <OnboardingGate>
-      <Suspense fallback={<PageLoader />}>
-        <Layout>
-          <Suspense fallback={<PageLoader />}>{children}</Suspense>
-        </Layout>
-      </Suspense>
+      <Layout>
+        <Suspense fallback={<PageLoader />}>{children}</Suspense>
+      </Layout>
     </OnboardingGate>
   );
 }
@@ -585,11 +577,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   return (
     <OnboardingGate>
-      <Suspense fallback={<PageLoader />}>
-        <Layout>
-          <Suspense fallback={<PageLoader />}>{children}</Suspense>
-        </Layout>
-      </Suspense>
+      <Layout>
+        <Suspense fallback={<PageLoader />}>{children}</Suspense>
+      </Layout>
     </OnboardingGate>
   );
 }
@@ -632,7 +622,6 @@ function AppRoutes() {
             <Route path="/terms"><PublicPage><TermsPage /></PublicPage></Route>
             <Route path="/privacy"><PublicPage><PrivacyPage /></PublicPage></Route>
             <Route path="/security"><PublicPage><SecurityPage /></PublicPage></Route>
-            <Route path="/contact"><PublicPage><ContactPage /></PublicPage></Route>
             <Route path="/referral"><PublicPage><ReferralPage /></PublicPage></Route>
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
