@@ -7,7 +7,7 @@ import {
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
   FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity, Send,
-  ChevronDown, Briefcase, Wand2, X, BellRing,
+  ChevronDown, Briefcase, Wand2, X, BellRing, GitBranch,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -179,6 +179,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/compliance",             labelKey: "nav.items.compliance",             icon: Shield },
       { href: "/login-tracking",         labelKey: "nav.items.login_tracking",         icon: Lock },
       { href: "/firm-admin",             labelKey: "nav.items.firm_admin",             icon: Crown },
+      { href: "/branches",               labelKey: "nav.items.branches",               icon: GitBranch },
       { href: "/org-structure",          labelKey: "nav.items.org_structure",          icon: Network },
       { href: "/team",                   labelKey: "nav.items.team_permissions",       icon: Shield },
       { href: "/users",                  labelKey: "nav.items.users",                  icon: Users },

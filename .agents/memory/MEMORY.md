@@ -80,3 +80,4 @@
 - [Adala ERP Financial Upgrade](adala-erp-financial.md) — per-office double-entry ERP ledger + reconciliation + AI guard; accounting.ts FIXED (was missing WHERE office_id)
 - [Adala Deployment Center](adala-deployment-center.md) — mركز النشر super-admin tab; agentCron (4 agents hourly+daily); Ollama local fallback; Dockerfile+docker-compose; DEPLOY.md; app.ts serves static in production
 - [Adala cache isolation](adala-cache-isolation.md) — cache.ts MAX_ENTRIES=500+flushTenant(); gcTime=10min; ClerkInvalidator uses removeQueries not qc.clear()
+- [Adala Multi-Branch System](adala-branches.md) — office_branches table + branch_id on cases/clients/invoices/tasks; API at /api/branches; plan limits inline (no frontend import); db import is @workspace/db not ../../core/db
