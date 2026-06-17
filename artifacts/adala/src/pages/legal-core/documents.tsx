@@ -21,7 +21,7 @@ import {
   FileImage, Archive, Sheet, Trash2, RefreshCw,
   Folder, FolderOpen, FolderPlus, ChevronLeft,
   Pencil, Home, FolderInput, ShieldCheck, LockKeyhole,
-  Users, Eye, EyeOff, Settings2, UserPlus, X,
+  Users, Eye, EyeOff, Settings2, UserPlus, X, ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/hooks/use-lang";
@@ -484,7 +484,13 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
   const trashMut = useMutation({
     mutationFn: () => fetch(`${BASE}/api/storage/files/${file.id}/trash`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast({ title: tx("تم النقل إلى المهملات","Moved to trash") }); qc.invalidateQueries({ queryKey: ["storage-files"] }); },
+    onError: () => toast({ title: tx("❌ فشل الحذف","❌ Delete failed"), variant: "destructive" }),
   });
+
+  const handleDelete = () => {
+    if (!window.confirm(tx(`حذف الملف "${file.original_name}"؟ سيُنقل إلى المهملات ويمكن استعادته لاحقاً.`, `Delete "${file.original_name}"? It will be moved to trash.`))) return;
+    trashMut.mutate();
+  };
 
   const fileUrl = file.file_url
     ? (file.file_url.startsWith("/") ? `${BASE}${file.file_url}` : file.file_url)
@@ -521,12 +527,20 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 {fileUrl && (
-                  <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
-                    <a href={fileUrl} download={file.original_name} target="_blank" rel="noreferrer">
-                      <Download className="h-4 w-4" />{tx("تحميل","Download")}
-                    </a>
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                      <a href={fileUrl} target="_blank" rel="noreferrer">
+                        <ExternalLink className="h-4 w-4" />{tx("فتح","Open")}
+                      </a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                      <a href={fileUrl} download={file.original_name}>
+                        <Download className="h-4 w-4" />{tx("تحميل","Download")}
+                      </a>
+                    </DropdownMenuItem>
+                  </>
                 )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onMove(file)}>
                   <FolderInput className="h-4 w-4" />
                   {tx("نقل إلى مجلد","Move to folder")}
@@ -537,8 +551,13 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2 cursor-pointer text-red-400 focus:text-red-400" onClick={() => trashMut.mutate()}>
-                  <Trash2 className="h-4 w-4" />{tx("حذف","Delete")}
+                <DropdownMenuItem className="gap-2 cursor-pointer text-red-400 focus:text-red-400"
+                  disabled={trashMut.isPending}
+                  onClick={handleDelete}>
+                  {trashMut.isPending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Trash2 className="h-4 w-4" />}
+                  {tx("حذف","Delete")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -557,6 +576,109 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/* ── Legacy documents tab ────────────────────────────────────────────────── */
+function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc, tx, dateLocale, qc }: any) {
+  const { toast } = useToast();
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) =>
+      fetch(`${BASE}/api/documents/${id}`, { method: "DELETE" }).then(r => { if (!r.ok && r.status !== 204) throw new Error("خطأ في الخادم"); }),
+    onSuccess: () => { toast({ title: tx("تم حذف المستند","Document deleted") }); qc.invalidateQueries({ queryKey: ["documents"] }); },
+    onError: () => toast({ title: tx("❌ فشل الحذف","❌ Delete failed"), variant: "destructive" }),
+  });
+
+  const handleDelete = (doc: any) => {
+    if (!window.confirm(tx(`حذف المستند "${doc.fileName}"؟ لا يمكن التراجع عن هذا الإجراء.`, `Delete "${doc.fileName}"? This cannot be undone.`))) return;
+    deleteMut.mutate(String(doc.id));
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder={tx("البحث في المستندات...","Search documents...")}
+            value={search} onChange={e => setSearch(e.target.value)} className="pl-4 pr-10" />
+        </div>
+      </div>
+      {loadingOld ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_,i) => <Card key={i}><CardContent className="p-6 h-32"><Skeleton className="h-full w-full" /></CardContent></Card>)}
+        </div>
+      ) : filteredOld.length === 0 ? (
+        <div className="text-center py-20 bg-card rounded-xl border border-dashed">
+          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/40" />
+          <h3 className="text-lg font-medium">{tx("لا توجد مستندات","No Documents")}</h3>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredOld.map((doc: any) => (
+            <Card key={doc.id} className="hover-elevate group cursor-pointer transition-all">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="p-3 bg-secondary/10 rounded-lg text-secondary"><File className="h-6 w-6" /></div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      {doc.fileUrl && (
+                        <>
+                          <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                            <a href={doc.fileUrl} target="_blank" rel="noreferrer">
+                              <ExternalLink className="h-4 w-4" />{tx("فتح","Open")}
+                            </a>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                            <a href={doc.fileUrl} download={doc.fileName}>
+                              <Download className="h-4 w-4" />{tx("تحميل","Download")}
+                            </a>
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {!doc.fileUrl && (
+                        <DropdownMenuItem className="gap-2 cursor-pointer" disabled>
+                          <Download className="h-4 w-4" />{tx("تحميل","Download")}
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="gap-2 cursor-pointer text-primary focus:text-primary" onClick={() => setShareDoc(doc)} disabled={!doc.caseId}>
+                        <Share2 className="h-4 w-4" />{tx("مشاركة مع العميل","Share with Client")}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="gap-2 cursor-pointer text-red-400 focus:text-red-400"
+                        disabled={deleteMut.isPending}
+                        onClick={() => handleDelete(doc)}>
+                        {deleteMut.isPending && deleteMut.variables === String(doc.id)
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <Trash2 className="h-4 w-4" />}
+                        {tx("حذف","Delete")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <h3 className="font-semibold text-base line-clamp-1">{doc.fileName}</h3>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <Badge variant="outline" className="text-xs font-normal">{doc.fileType}</Badge>
+                  <span className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleDateString(dateLocale)}</span>
+                  {doc.fileSize && <span className="text-xs text-muted-foreground">{fmtSize(doc.fileSize)}</span>}
+                </div>
+                {doc.caseName && (
+                  <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
+                    <span className="font-medium text-foreground">{tx("القضية:","Case:")}</span> {doc.caseName}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -862,60 +984,7 @@ export default function Documents() {
 
         {/* ══ Legacy Case Documents Tab ══ */}
         <TabsContent value="legacy">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder={tx("البحث في المستندات...","Search documents...")}
-                value={search} onChange={e => setSearch(e.target.value)} className="pl-4 pr-10" />
-            </div>
-          </div>
-          {loadingOld ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 6 }).map((_,i) => <Card key={i}><CardContent className="p-6 h-32"><Skeleton className="h-full w-full" /></CardContent></Card>)}
-            </div>
-          ) : filteredOld.length === 0 ? (
-            <div className="text-center py-20 bg-card rounded-xl border border-dashed">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/40" />
-              <h3 className="text-lg font-medium">{tx("لا توجد مستندات","No Documents")}</h3>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredOld.map((doc: any) => (
-                <Card key={doc.id} className="hover-elevate group cursor-pointer transition-all">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="p-3 bg-secondary/10 rounded-lg text-secondary"><File className="h-6 w-6" /></div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                          <DropdownMenuItem className="gap-2 cursor-pointer"><Download className="h-4 w-4" />{tx("تحميل","Download")}</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="gap-2 cursor-pointer text-primary focus:text-primary" onClick={() => setShareDoc(doc)} disabled={!doc.caseId}>
-                            <Share2 className="h-4 w-4" />{tx("مشاركة مع العميل","Share with Client")}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                    <h3 className="font-semibold text-base line-clamp-1">{doc.fileName}</h3>
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <Badge variant="outline" className="text-xs font-normal">{doc.fileType}</Badge>
-                      <span className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleDateString(dateLocale)}</span>
-                      {doc.fileSize && <span className="text-xs text-muted-foreground">{fmtSize(doc.fileSize)}</span>}
-                    </div>
-                    {doc.caseName && (
-                      <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
-                        <span className="font-medium text-foreground">{tx("القضية:","Case:")}</span> {doc.caseName}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          <LegacyDocTab filteredOld={filteredOld} loadingOld={loadingOld} search={search} setSearch={setSearch} setShareDoc={setShareDoc} tx={tx} dateLocale={dateLocale} qc={qc} />
         </TabsContent>
       </Tabs>
 
