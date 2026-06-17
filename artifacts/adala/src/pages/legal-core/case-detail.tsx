@@ -25,6 +25,7 @@ import {
   Paperclip, Zap, X, ListTodo,
   Brain, ThumbsUp, ThumbsDown, ShieldAlert, Lightbulb,
   BellRing, CheckCircle2, XCircle, RefreshCw,
+  Gavel, MapPin, Hash, Building2, Edit3, Trash2, GanttChartSquare,
 } from "lucide-react";
 import { Link }           from "wouter";
 import { useToast }       from "@/hooks/use-toast";
@@ -90,16 +91,20 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
 
 /* ══════════════════ ACTION BAR ══════════════════ */
 function ActionBar({
-  onTask, onMessage, onTimeline, onAI, onClose,
+  onTask, onMessage, onTimeline, onAI, onHearing, onClose,
   status, closing,
 }: {
   onTask: () => void; onMessage: () => void; onTimeline: () => void;
-  onAI: () => void; onClose: () => void; status: string; closing: boolean;
+  onAI: () => void; onHearing: () => void; onClose: () => void;
+  status: string; closing: boolean;
 }) {
   return (
     <div className="flex flex-wrap gap-2 p-3 bg-muted/30 rounded-xl border">
       <Button size="sm" onClick={onTask} className="gap-1.5">
         <Plus className="h-3.5 w-3.5" />مهمة
+      </Button>
+      <Button size="sm" variant="outline" onClick={onHearing} className="gap-1.5">
+        <Gavel className="h-3.5 w-3.5" />جلسة
       </Button>
       <Button size="sm" variant="outline" onClick={onMessage} className="gap-1.5">
         <MessageSquare className="h-3.5 w-3.5" />رسالة
@@ -782,6 +787,414 @@ function HubMini({ caseId }: { caseId: string }) {
   );
 }
 
+/* ══════════════════ COURT INFO CARD ══════════════════ */
+const DISTRICT_TYPE: Record<string, string> = {
+  appeal: "استئناف", first: "ابتدائي", summary: "جزئي", admin: "إداري",
+};
+function CourtInfoCard({ c, caseId, onSaved }: { c: any; caseId: string; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    caseNumber:   c.caseNumber   ?? "",
+    courtName:    c.courtName    ?? "",
+    courtCode:    c.courtCode    ?? "",
+    courtCity:    c.courtCity    ?? "",
+    districtNumber: String(c.courtDistrictNumber ?? ""),
+    districtType:   c.courtDistrictType   ?? "",
+  });
+  const { toast } = useToast();
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await fetch(`${BASE}/api/cases/${caseId}/court`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          districtNumber: form.districtNumber ? Number(form.districtNumber) : null,
+        }),
+      });
+      setEditing(false);
+      onSaved();
+      toast({ title: "✅ تم حفظ بيانات المحكمة" });
+    } catch { toast({ variant: "destructive", title: "خطأ في الحفظ" }); }
+    setSaving(false);
+  };
+
+  const hasData = c.courtName || c.caseNumber;
+  const nextHearing = c.nextHearingDate ? new Date(c.nextHearingDate) : null;
+  const daysUntil   = nextHearing ? Math.ceil((nextHearing.getTime() - Date.now()) / 86400000) : null;
+
+  return (
+    <Card className="border shadow-sm">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="text-xs font-semibold flex items-center gap-1.5">
+          <Building2 className="h-3.5 w-3.5 text-primary" />بيانات المحكمة
+        </CardTitle>
+        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setEditing(true)}>
+          <Edit3 className="h-3 w-3" />
+        </Button>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-2 text-xs">
+        {!hasData && !editing && (
+          <p className="text-muted-foreground text-center py-2">
+            لم تُضَف بيانات المحكمة بعد
+          </p>
+        )}
+        {hasData && !editing && (
+          <div className="space-y-1.5">
+            {c.caseNumber && (
+              <div className="flex items-center gap-1.5">
+                <Hash className="h-3 w-3 text-muted-foreground shrink-0" />
+                <span className="font-mono font-semibold">{c.caseNumber}</span>
+              </div>
+            )}
+            {c.courtName && (
+              <div className="flex items-center gap-1.5">
+                <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                <span>{c.courtName}</span>
+                {c.courtCode && <span className="text-muted-foreground">({c.courtCode})</span>}
+              </div>
+            )}
+            {c.courtCity && (
+              <div className="flex items-center gap-1.5">
+                <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                <span>{c.courtCity}</span>
+              </div>
+            )}
+            {(c.courtDistrictNumber || c.courtDistrictType) && (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Scale className="h-3 w-3 shrink-0" />
+                <span>
+                  {c.courtDistrictNumber && `دائرة ${c.courtDistrictNumber}`}
+                  {c.courtDistrictType && ` · ${DISTRICT_TYPE[c.courtDistrictType] ?? c.courtDistrictType}`}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Next hearing badge */}
+        {nextHearing && (
+          <div className={cn(
+            "mt-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium",
+            daysUntil !== null && daysUntil <= 3
+              ? "bg-red-50 text-red-700 border border-red-200"
+              : daysUntil !== null && daysUntil <= 7
+              ? "bg-amber-50 text-amber-700 border border-amber-200"
+              : "bg-blue-50 text-blue-700 border border-blue-200",
+          )}>
+            <CalendarDays className="h-3 w-3 shrink-0" />
+            <span>
+              الجلسة القادمة: {nextHearing.toLocaleDateString("ar-SA")}
+              {daysUntil !== null && daysUntil >= 0 && ` · بعد ${daysUntil} يوم`}
+              {daysUntil !== null && daysUntil < 0 && ` · مضى ${Math.abs(daysUntil)} يوم`}
+            </span>
+          </div>
+        )}
+
+        {/* Edit form */}
+        {editing && (
+          <div className="space-y-2 pt-1 border-t mt-2">
+            <div className="grid grid-cols-2 gap-1.5">
+              <div>
+                <Label className="text-xs">رقم القضية</Label>
+                <Input className="h-7 text-xs mt-0.5" value={form.caseNumber}
+                  onChange={e => setForm(p => ({ ...p, caseNumber: e.target.value }))} placeholder="1234/2025" />
+              </div>
+              <div>
+                <Label className="text-xs">رمز المحكمة</Label>
+                <Input className="h-7 text-xs mt-0.5" value={form.courtCode}
+                  onChange={e => setForm(p => ({ ...p, courtCode: e.target.value }))} placeholder="BHR" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">اسم المحكمة</Label>
+              <Input className="h-7 text-xs mt-0.5" value={form.courtName}
+                onChange={e => setForm(p => ({ ...p, courtName: e.target.value }))} placeholder="محكمة الاستئناف" />
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <div>
+                <Label className="text-xs">المدينة</Label>
+                <Input className="h-7 text-xs mt-0.5" value={form.courtCity}
+                  onChange={e => setForm(p => ({ ...p, courtCity: e.target.value }))} placeholder="الرياض" />
+              </div>
+              <div>
+                <Label className="text-xs">رقم الدائرة</Label>
+                <Input className="h-7 text-xs mt-0.5" type="number" value={form.districtNumber}
+                  onChange={e => setForm(p => ({ ...p, districtNumber: e.target.value }))} placeholder="3" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">نوع الدائرة</Label>
+              <Select value={form.districtType || "__none__"} onValueChange={v => setForm(p => ({ ...p, districtType: v === "__none__" ? "" : v }))}>
+                <SelectTrigger className="h-7 text-xs mt-0.5"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">-- اختر --</SelectItem>
+                  <SelectItem value="appeal">استئناف</SelectItem>
+                  <SelectItem value="first">ابتدائي</SelectItem>
+                  <SelectItem value="summary">جزئي</SelectItem>
+                  <SelectItem value="admin">إداري</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-1.5 pt-1">
+              <Button size="sm" className="h-7 text-xs flex-1" onClick={save} disabled={saving}>
+                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : "حفظ"}
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditing(false)}>إلغاء</Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ══════════════════ HEARINGS SECTION ══════════════════ */
+const HEARING_STATUS: Record<string, { label: string; color: string }> = {
+  scheduled:  { label: "مجدولة",  color: "bg-blue-100 text-blue-700 border-blue-200" },
+  completed:  { label: "منتهية",  color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  postponed:  { label: "مؤجلة",   color: "bg-amber-100 text-amber-700 border-amber-200" },
+  cancelled:  { label: "ملغاة",   color: "bg-red-100 text-red-700 border-red-200" },
+};
+
+function HearingRow({
+  h, caseId, onEdit, onDelete,
+}: {
+  h: any; caseId: string; onEdit: (h: any) => void; onDelete: (id: string) => void;
+}) {
+  const st  = HEARING_STATUS[h.status] ?? HEARING_STATUS.scheduled;
+  const dt  = new Date(h.hearing_date);
+  const isPast = dt < new Date();
+  return (
+    <div className={cn("flex items-start gap-3 p-3 rounded-xl border", isPast ? "bg-muted/20" : "bg-background")}>
+      <div className="shrink-0 text-center min-w-[48px]">
+        <p className="text-lg font-bold text-primary leading-none">{dt.getDate()}</p>
+        <p className="text-xs text-muted-foreground">{dt.toLocaleDateString("ar-SA", { month: "short" })}</p>
+        <p className="text-xs text-muted-foreground/70">{dt.getFullYear()}</p>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", st.color)}>{st.label}</span>
+          {h.court_room && (
+            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+              <MapPin className="h-3 w-3" />{h.court_room}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground ms-auto">
+            {dt.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </div>
+        {h.notes && <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{h.notes}</p>}
+        {h.outcome && (
+          <div className="mt-1.5 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg px-2 py-1">
+            <span className="font-medium">النتيجة:</span> {h.outcome}
+          </div>
+        )}
+      </div>
+      <div className="flex gap-1 shrink-0">
+        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(h)}>
+          <Edit3 className="h-3 w-3" />
+        </Button>
+        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => onDelete(h.id)}>
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function HearingsSection({
+  caseId, addOpen, setAddOpen,
+}: {
+  caseId: string; addOpen: boolean; setAddOpen: (v: boolean) => void;
+}) {
+  const { data: hearings = [], refetch } = useApi<any[]>(["case-hearings", caseId], `/api/cases/${caseId}/hearings`);
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const deleteHearing = async (id: string) => {
+    if (!confirm("حذف هذه الجلسة؟")) return;
+    try {
+      await fetch(`${BASE}/api/cases/${caseId}/hearings/${id}`, { method: "DELETE" });
+      refetch();
+      qc.invalidateQueries({ queryKey: ["case", caseId] });
+      toast({ title: "تم الحذف" });
+    } catch { toast({ variant: "destructive", title: "خطأ" }); }
+  };
+
+  const upcoming = hearings.filter((h: any) => new Date(h.hearing_date) >= new Date() && h.status !== "cancelled");
+  const past     = hearings.filter((h: any) => new Date(h.hearing_date) < new Date() || h.status === "cancelled");
+
+  return (
+    <Card className="border shadow-sm">
+      <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <Gavel className="h-4 w-4 text-primary" />جلسات المحكمة
+        </CardTitle>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{hearings.length} جلسة</span>
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setAddOpen(true)}>
+            <Plus className="h-3 w-3" />إضافة
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-3">
+        {hearings.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            <Gavel className="h-8 w-8 mx-auto mb-2 opacity-20" />لا توجد جلسات مسجلة بعد
+          </div>
+        )}
+
+        {upcoming.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">القادمة</p>
+            {upcoming.map((h: any) => (
+              <HearingRow key={h.id} h={h} caseId={caseId} onEdit={setEditTarget} onDelete={deleteHearing} />
+            ))}
+          </div>
+        )}
+
+        {past.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">السابقة</p>
+            {past.slice(0, 5).map((h: any) => (
+              <HearingRow key={h.id} h={h} caseId={caseId} onEdit={setEditTarget} onDelete={deleteHearing} />
+            ))}
+            {past.length > 5 && (
+              <p className="text-xs text-muted-foreground text-center">+{past.length - 5} جلسة أخرى</p>
+            )}
+          </div>
+        )}
+      </CardContent>
+
+      <HearingDialog
+        open={addOpen || !!editTarget}
+        editing={editTarget}
+        caseId={caseId}
+        onClose={() => { setAddOpen(false); setEditTarget(null); }}
+        onSaved={() => {
+          refetch();
+          qc.invalidateQueries({ queryKey: ["case", caseId] });
+          setAddOpen(false);
+          setEditTarget(null);
+        }}
+      />
+    </Card>
+  );
+}
+
+/* ══════════════════ HEARING DIALOG ══════════════════ */
+function HearingDialog({
+  open, editing, caseId, onClose, onSaved,
+}: {
+  open: boolean; editing: any | null; caseId: string; onClose: () => void; onSaved: () => void;
+}) {
+  const isEdit = !!editing;
+  const [form, setForm] = useState({
+    hearingDate: "", courtRoom: "", status: "scheduled", notes: "", outcome: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (editing) {
+      const d = new Date(editing.hearing_date);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const local = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      setForm({
+        hearingDate: local,
+        courtRoom:   editing.court_room ?? "",
+        status:      editing.status ?? "scheduled",
+        notes:       editing.notes  ?? "",
+        outcome:     editing.outcome ?? "",
+      });
+    } else {
+      setForm({ hearingDate: "", courtRoom: "", status: "scheduled", notes: "", outcome: "" });
+    }
+  }, [editing, open]);
+
+  const save = async () => {
+    if (!form.hearingDate) return;
+    setSaving(true);
+    try {
+      const url    = isEdit
+        ? `${BASE}/api/cases/${caseId}/hearings/${editing.id}`
+        : `${BASE}/api/cases/${caseId}/hearings`;
+      const method = isEdit ? "PATCH" : "POST";
+      const r = await fetch(url, {
+        method, headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, hearingDate: new Date(form.hearingDate).toISOString() }),
+      });
+      if (!r.ok) throw new Error();
+      toast({ title: isEdit ? "✅ تم التحديث" : "✅ تمت إضافة الجلسة" });
+      onSaved();
+    } catch { toast({ variant: "destructive", title: "خطأ في الحفظ" }); }
+    setSaving(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Gavel className="h-5 w-5 text-primary" />
+            {isEdit ? "تعديل الجلسة" : "إضافة جلسة جديدة"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label>تاريخ ووقت الجلسة *</Label>
+            <Input type="datetime-local" value={form.hearingDate}
+              onChange={e => setForm(p => ({ ...p, hearingDate: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>قاعة / دائرة</Label>
+              <Input value={form.courtRoom}
+                onChange={e => setForm(p => ({ ...p, courtRoom: e.target.value }))} placeholder="قاعة 5" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>الحالة</Label>
+              <Select value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="scheduled">مجدولة</SelectItem>
+                  <SelectItem value="completed">منتهية</SelectItem>
+                  <SelectItem value="postponed">مؤجلة</SelectItem>
+                  <SelectItem value="cancelled">ملغاة</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>ملاحظات</Label>
+            <Textarea rows={2} className="resize-none" value={form.notes}
+              onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+              placeholder="ملاحظات قبل الجلسة..." />
+          </div>
+          {(isEdit || form.status === "completed") && (
+            <div className="space-y-1.5">
+              <Label>نتيجة الجلسة</Label>
+              <Textarea rows={2} className="resize-none" value={form.outcome}
+                onChange={e => setForm(p => ({ ...p, outcome: e.target.value }))}
+                placeholder="ما الذي تقرر في الجلسة؟" />
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>إلغاء</Button>
+          <Button onClick={save} disabled={saving || !form.hearingDate}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : isEdit ? "تحديث" : "إضافة"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ══════════════════ DIALOGS ══════════════════ */
 function TaskDialog({ open, onClose, caseId, caseTitle }: { open: boolean; onClose: () => void; caseId: string; caseTitle: string }) {
   const [form, setForm] = useState({ title: "", priority: "medium", assignee_name: "", due_date: "" });
@@ -861,6 +1274,7 @@ export default function CaseDetail({ id }: { id: string }) {
   const [taskOpen,     setTaskOpen]     = useState(false);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [msgFocus,     setMsgFocus]     = useState(false);
+  const [hearingOpen,  setHearingOpen]  = useState(false);
   const msgRef = useRef<HTMLDivElement>(null);
 
   const changeStatus = (status: string) => {
@@ -962,6 +1376,7 @@ export default function CaseDetail({ id }: { id: string }) {
         onMessage={()  => handleMsgAction()}
         onTimeline={()  => setTimelineOpen(true)}
         onAI={()       => {}}
+        onHearing={()  => setHearingOpen(true)}
         onClose={()    => changeStatus("closed")}
         status={c.status as string}
         closing={updateCase.isPending}
@@ -970,8 +1385,13 @@ export default function CaseDetail({ id }: { id: string }) {
       {/* ══ MAIN GRID ══ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-        {/* ── CENTER (Timeline + Messages) ── */}
+        {/* ── CENTER (Hearings + Timeline + Messages) ── */}
         <div className="lg:col-span-2 space-y-5">
+          <HearingsSection
+            caseId={id}
+            addOpen={hearingOpen}
+            setAddOpen={setHearingOpen}
+          />
           <TimelineFeed
             caseId={id}
             open={timelineOpen}
@@ -989,6 +1409,11 @@ export default function CaseDetail({ id }: { id: string }) {
         {/* ── SIDEBAR ── */}
         <div className="space-y-4">
           <InfoCard c={c} />
+          <CourtInfoCard
+            c={c}
+            caseId={id}
+            onSaved={() => qc.invalidateQueries({ queryKey: getGetCaseQueryKey(id) })}
+          />
           <AIHealthCard caseId={id} onAnalyze={() => {}} />
           <AutonomousAIPanel caseId={id} />
           <TasksMini caseId={id} onAdd={() => setTaskOpen(true)} />

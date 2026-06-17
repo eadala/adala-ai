@@ -21,6 +21,7 @@ const OnboardingPage       = lazy(() => import("@/pages/platform/onboarding"));
 // Cases & Clients
 const Cases                = lazy(() => import("@/pages/legal-core/cases"));
 const CaseDetail           = lazy(() => import("@/pages/legal-core/case-detail"));
+const HearingsCalendar     = lazy(() => import("@/pages/legal-core/hearings-calendar"));
 const Clients              = lazy(() => import("@/pages/legal-core/clients"));
 const ClientDetail         = lazy(() => import("@/pages/legal-core/client-detail"));
 const Contracts            = lazy(() => import("@/pages/legal-core/contracts"));
@@ -670,6 +671,7 @@ function AppRoutes() {
             {/* Cases */}
             <Route path="/cases"><WorkspaceRoute><Cases /></WorkspaceRoute></Route>
             <Route path="/cases/:id">{p => <WorkspaceRoute><CaseDetail id={p.id} /></WorkspaceRoute>}</Route>
+            <Route path="/hearings-calendar"><WorkspaceRoute><HearingsCalendar /></WorkspaceRoute></Route>
 
             {/* Clients */}
             <Route path="/clients"><WorkspaceRoute><Clients /></WorkspaceRoute></Route>
