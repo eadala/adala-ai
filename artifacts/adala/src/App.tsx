@@ -146,6 +146,7 @@ const OfficeLogin          = lazy(() => import("@/pages/marketplace/office-login
 const TermsPage            = lazy(() => import("@/pages/terms"));
 const PrivacyPage          = lazy(() => import("@/pages/privacy"));
 const SecurityPage         = lazy(() => import("@/pages/security"));
+const ContactPage          = lazy(() => import("@/pages/contact"));
 const ReferralPage         = lazy(() => import("@/pages/marketplace/referral"));
 const NotFound             = lazy(() => import("@/pages/not-found"));
 
@@ -622,6 +623,7 @@ function AppRoutes() {
             <Route path="/terms"><PublicPage><TermsPage /></PublicPage></Route>
             <Route path="/privacy"><PublicPage><PrivacyPage /></PublicPage></Route>
             <Route path="/security"><PublicPage><SecurityPage /></PublicPage></Route>
+            <Route path="/contact"><PublicPage><ContactPage /></PublicPage></Route>
             <Route path="/referral"><PublicPage><ReferralPage /></PublicPage></Route>
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
