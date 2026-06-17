@@ -349,7 +349,7 @@ function ReportView({ report, onReset }: { report: PrepReport; onReset: () => vo
   return (
     <div className="space-y-5">
       {/* Top Bar */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">تقرير الاستعداد للجلسة</h1>
           <p className="text-muted-foreground text-sm">{report.questions.length} سؤالاً محتملاً في {CATEGORIES.length} فئات</p>

@@ -105,9 +105,9 @@ export default function TelegramSettings() {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6" dir="rtl">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#229ED9]/15 flex items-center justify-center">
+          <div className="h-10 w-10 rounded-xl bg-[#229ED9]/15 flex items-center justify-center flex-shrink-0">
             <TelegramIcon className="h-5 w-5 text-[#229ED9]" />
           </div>
           <div>
