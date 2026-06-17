@@ -609,7 +609,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
         <TrialBanner />
 
-        <div className="flex-1 overflow-y-auto bg-muted/20 p-3 sm:p-5 lg:p-8">
+        <div className="flex-1 overflow-y-auto app-bg p-3 sm:p-5 lg:p-8">
           <div className="mx-auto max-w-7xl w-full">
             {children}
           </div>

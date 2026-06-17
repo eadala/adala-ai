@@ -110,14 +110,15 @@
   --chart-4: 0 72% 51%;
   --chart-5: 271 81% 56%;
 
-  --sidebar: 0 0% 100%;
-  --sidebar-foreground: 215 69% 14%;
-  --sidebar-border: 214 32% 90%;
-  --sidebar-primary: 221 83% 53%;
+  /* ── Sidebar: dark navy — matches landing page nav (PRIMARY=#0B1F3B) ── */
+  --sidebar: 215 73% 9%;
+  --sidebar-foreground: 210 40% 94%;
+  --sidebar-border: 215 50% 16%;
+  --sidebar-primary: 221 83% 58%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 221 83% 96%;
-  --sidebar-accent-foreground: 221 83% 35%;
-  --sidebar-ring: 221 83% 53%;
+  --sidebar-accent: 215 55% 14%;
+  --sidebar-accent-foreground: 210 40% 94%;
+  --sidebar-ring: 221 83% 58%;
 
   --radius: 0.625rem;
 
@@ -193,40 +194,174 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   GLOBAL DESIGN SYSTEM REFINEMENTS — v2
-   Applies Adala's professional look across ALL pages
+   GLOBAL DESIGN SYSTEM v3 — ADALA PLATFORM
+   Same spirit as the landing page — dark navy + vivid blue
    ═══════════════════════════════════════════════════════════════ */
 
-/* Elevated card style — used throughout the app */
-.card-elevated {
-  box-shadow: 0 1px 3px rgba(11,31,59,0.06), 0 4px 16px rgba(11,31,59,0.04);
-  border-color: hsl(var(--border));
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-}
-.card-elevated:hover {
-  box-shadow: 0 2px 8px rgba(11,31,59,0.10), 0 8px 24px rgba(37,99,235,0.06);
-  border-color: hsl(var(--primary) / 0.2);
+/* ── App content area: subtle dot-grid (matches landing page) ── */
+.app-bg {
+  background-color: hsl(210 40% 97%);
+  background-image:
+    radial-gradient(hsl(221 83% 53% / 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
 }
 
-/* Page header consistency */
+/* ── Premium card — glassy with depth ── */
+.card-elevated {
+  background: hsl(0 0% 100%);
+  border: 1px solid hsl(214 32% 91%);
+  box-shadow:
+    0 1px 2px rgba(11,31,59,0.04),
+    0 4px 12px rgba(11,31,59,0.05);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+.card-elevated:hover {
+  box-shadow:
+    0 2px 6px rgba(11,31,59,0.08),
+    0 10px 28px rgba(37,99,235,0.08);
+  border-color: hsl(221 83% 53% / 0.25);
+  transform: translateY(-1px);
+}
+
+/* ── Section header label — like landing page section titles ── */
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 0.75rem;
+}
+.section-label::before {
+  content: "";
+  display: block;
+  width: 2px;
+  height: 14px;
+  background: hsl(var(--primary));
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Stat card — landing-style big number ── */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.875rem;
+  padding: 1.25rem 1.5rem;
+  background: white;
+  border: 1px solid hsl(214 32% 91%);
+  box-shadow: 0 2px 8px rgba(11,31,59,0.05);
+  transition: all 0.2s ease;
+}
+.stat-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 60%, rgba(37,99,235,0.04) 100%);
+  pointer-events: none;
+}
+.stat-card:hover {
+  box-shadow: 0 4px 20px rgba(37,99,235,0.1);
+  border-color: hsl(221 83% 53% / 0.3);
+  transform: translateY(-2px);
+}
+.stat-card .stat-value {
+  font-size: 2rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: hsl(215 69% 14%);
+}
+.stat-card .stat-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(215 20% 48%);
+  margin-top: 0.25rem;
+}
+.stat-card .stat-icon {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Page header consistency ── */
 .page-header {
   border-bottom: 1px solid hsl(var(--border));
   background: hsl(var(--background));
   padding: 1rem 1.5rem;
 }
 
-/* Subtle gradient background for key sections */
+/* ── Gradient section background ── */
 .section-gradient {
   background: linear-gradient(160deg, hsl(var(--background)) 0%, hsl(221 83% 97%) 100%);
 }
 
-/* Professional table header */
+/* ── App fade-in — staggered entrance for dashboard sections ── */
+.app-fade {
+  animation: appFadeUp 0.5s cubic-bezier(0.16,1,0.3,1) both;
+}
+.app-fade-1 { animation-delay: 0.05s; }
+.app-fade-2 { animation-delay: 0.12s; }
+.app-fade-3 { animation-delay: 0.19s; }
+.app-fade-4 { animation-delay: 0.26s; }
+.app-fade-5 { animation-delay: 0.33s; }
+.app-fade-6 { animation-delay: 0.40s; }
+
+@keyframes appFadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* ── Quick action button — landing style ── */
+.quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  background: white;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: center;
+}
+.quick-action:hover {
+  border-color: hsl(var(--primary) / 0.4);
+  background: hsl(var(--primary) / 0.04);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(37,99,235,0.1);
+}
+
+/* ── Professional table header ── */
 thead tr th {
   color: hsl(var(--muted-foreground));
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+/* ── App page title ── */
+.app-page-title {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+  color: hsl(215 69% 14%);
+  line-height: 1.2;
+}
+@media (min-width: 768px) {
+  .app-page-title { font-size: 1.875rem; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
