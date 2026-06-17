@@ -76,5 +76,7 @@
 - [Adala Tenant Isolation Audit](adala-tenant-isolation-audit.md) — 17/17 tables isolated 100%; compliance+events secured; 72 frontend fetch calls fixed; 13 indexes; migration 001_tenant_isolation.sql; audit report in api-server/SECURITY_AUDIT_REPORT.md
 - [Adala Test Offices](adala-test-offices.md) — OA=aaaabbbb-0001-0001-0001-000000000001 (الشمال), OB=bbbbcccc-0002-0002-0002-000000000002 (الجنوب); office_members+office_page+office_registry created; test-user-north/test-user-south as clerk IDs
 
-- [Adala AI Command Center](adala-ai-command-center.md) — /ai-command-center (AdminRoute); 8 AI agents; devCommander scan+proposals+approve; ai_command_sessions+dev_commander_proposals tables; isSuperAdmin guard on all routes- [Adala ERP Financial Upgrade](adala-erp-financial.md) — per-office double-entry ERP ledger + reconciliation + AI guard; accounting.ts FIXED (was missing WHERE office_id)
+- [Adala AI Command Center](adala-ai-command-center.md) — /ai-command-center (AdminRoute); 8 AI agents; devCommander scan+proposals+approve; ai_command_sessions+dev_commander_proposals tables; isSuperAdmin guard on all routes
+- [Adala ERP Financial Upgrade](adala-erp-financial.md) — per-office double-entry ERP ledger + reconciliation + AI guard; accounting.ts FIXED (was missing WHERE office_id)
+- [Adala Deployment Center](adala-deployment-center.md) — mركز النشر super-admin tab; agentCron (4 agents hourly+daily); Ollama local fallback; Dockerfile+docker-compose; DEPLOY.md; app.ts serves static in production
 - [Adala cache isolation](adala-cache-isolation.md) — cache.ts MAX_ENTRIES=500+flushTenant(); gcTime=10min; ClerkInvalidator uses removeQueries not qc.clear()

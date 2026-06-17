@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
 import * as os from "os";
+import { runAgentManually } from "../../cron/agentCron";
 
 const router = Router();
 
@@ -265,6 +266,100 @@ router.get("/admin/deployment/environments", adminOnly, (_req, res) => {
     safeVars: safeEnv,
     note: "المتغيرات الحساسة محمية ولا تظهر في هذه الواجهة.",
   });
+});
+
+/* ══════════════════════════════════════════════════════════
+   GET /api/admin/deployment/agents
+   سجلّ تشغيل الوكلاء التلقائيين
+══════════════════════════════════════════════════════════ */
+router.get("/admin/deployment/agents", adminOnly, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(String((req.query as any).limit ?? "30")), 100);
+    const type  = (req.query as any).type as string | undefined;
+
+    const rows = await sqlAll(sql`
+      SELECT id, agent_type, status, office_id, summary, details, duration_ms, created_at, completed_at
+      FROM agent_job_logs
+      ${type ? sql`WHERE agent_type = ${type}` : sql``}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `).catch(() => []);
+
+    /* إحصائيات سريعة */
+    const stats = await sqlOne(sql`
+      SELECT
+        COUNT(*)::int                                                 AS total,
+        COUNT(*) FILTER (WHERE status = 'completed')::int             AS completed,
+        COUNT(*) FILTER (WHERE status = 'failed')::int                AS failed,
+        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24h')::int AS last24h
+      FROM agent_job_logs
+    `).catch(() => ({ total: 0, completed: 0, failed: 0, last24h: 0 }));
+
+    res.json({ logs: rows, stats });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════════
+   POST /api/admin/deployment/agents/run
+   تشغيل وكيل يدوياً
+══════════════════════════════════════════════════════════ */
+router.post("/admin/deployment/agents/run", adminOnly, async (req, res) => {
+  try {
+    const { type } = req.body as { type: string };
+    if (!type) return res.status(400).json({ error: "type مطلوب" });
+    const result = await runAgentManually(type);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════════
+   GET /api/admin/deployment/ollama
+   حالة Ollama المحلي
+══════════════════════════════════════════════════════════ */
+router.get("/admin/deployment/ollama", adminOnly, async (_req, res) => {
+  const base = process.env.OLLAMA_BASE_URL;
+  const model = process.env.OLLAMA_MODEL ?? "gemma3:4b";
+  const fallbackEnabled = process.env.OLLAMA_FALLBACK_ENABLED === "true";
+
+  if (!base) {
+    return res.json({
+      configured: false,
+      message: "OLLAMA_BASE_URL غير مضبوط",
+      model,
+      fallbackEnabled,
+    });
+  }
+
+  try {
+    const t = Date.now();
+    const r = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(5000) });
+    const data = await r.json() as any;
+    const latency = Date.now() - t;
+    const models: string[] = (data.models ?? []).map((m: any) => m.name);
+    res.json({
+      configured: true,
+      online: r.ok,
+      base,
+      model,
+      fallbackEnabled,
+      latencyMs: latency,
+      availableModels: models,
+      modelReady: models.some(m => m.startsWith(model.split(":")[0])),
+    });
+  } catch (err: any) {
+    res.json({
+      configured: true,
+      online: false,
+      base,
+      model,
+      fallbackEnabled,
+      error: err.message,
+    });
+  }
 });
 
 export default router;

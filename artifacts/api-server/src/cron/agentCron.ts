@@ -1,0 +1,405 @@
+/**
+ * Agent Cron — وكلاء الذكاء الاصطناعي التلقائيون
+ *
+ * يعمل كل ساعة على الخادم السحابي ويُنفّذ 4 وكلاء:
+ *  1. case_review      — مراجعة القضايا والجلسات القادمة
+ *  2. invoice_reminder — تتبع الفواتير المتأخرة
+ *  3. daily_snapshot   — لقطة إحصائية يومية لكل مكتب
+ *  4. ai_health_check  — فحص حالة خدمات AI المتصلة
+ */
+
+import cron from "node-cron";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import { logger } from "../lib/logger";
+import { callAI } from "../modules/ai/aiChat";
+
+/* ── DB helpers ─────────────────────────────────────── */
+async function sqlAll(q: any): Promise<Record<string, any>[]> {
+  try {
+    const r = await db.execute(q) as any;
+    return Array.isArray(r) ? r : (r?.rows ?? []);
+  } catch { return []; }
+}
+async function sqlOne(q: any): Promise<Record<string, any>> {
+  return (await sqlAll(q))[0] ?? {};
+}
+async function sqlExec(q: any): Promise<void> {
+  try { await db.execute(q); } catch { /* best-effort */ }
+}
+
+/* ── Ensure tables exist ─────────────────────────────── */
+async function ensureTables() {
+  await sqlExec(sql`
+    CREATE TABLE IF NOT EXISTS agent_job_logs (
+      id          BIGSERIAL PRIMARY KEY,
+      agent_type  TEXT NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'running',
+      office_id   TEXT,
+      summary     TEXT,
+      details     JSONB,
+      duration_ms INTEGER,
+      created_at  TIMESTAMPTZ DEFAULT NOW(),
+      completed_at TIMESTAMPTZ
+    )
+  `);
+  await sqlExec(sql`
+    CREATE INDEX IF NOT EXISTS idx_agent_job_logs_created ON agent_job_logs(created_at DESC)
+  `);
+  await sqlExec(sql`
+    CREATE INDEX IF NOT EXISTS idx_agent_job_logs_type ON agent_job_logs(agent_type)
+  `);
+}
+
+/* ── Log helpers ────────────────────────────────────── */
+async function logStart(type: string, officeId?: string): Promise<number> {
+  const row = await sqlOne(sql`
+    INSERT INTO agent_job_logs (agent_type, status, office_id, created_at)
+    VALUES (${type}, 'running', ${officeId ?? null}, NOW())
+    RETURNING id
+  `);
+  return Number(row.id ?? 0);
+}
+
+async function logDone(id: number, summary: string, details: Record<string, any> = {}) {
+  if (!id) return;
+  const now = Date.now();
+  await sqlExec(sql`
+    UPDATE agent_job_logs
+    SET status = 'completed', summary = ${summary}, details = ${JSON.stringify(details)}::jsonb,
+        completed_at = NOW()
+    WHERE id = ${id}
+  `);
+}
+
+async function logFail(id: number, error: string) {
+  if (!id) return;
+  await sqlExec(sql`
+    UPDATE agent_job_logs
+    SET status = 'failed', summary = ${error}, completed_at = NOW()
+    WHERE id = ${id}
+  `);
+}
+
+/* ════════════════════════════════════════════════════════
+   AGENT 1 — مراجعة القضايا (Case Review)
+   يفحص القضايا التي لها جلسة خلال 24 ساعة أو موعد نهائي
+   قادم ويُنشئ ملخصاً بالذكاء الاصطناعي
+════════════════════════════════════════════════════════ */
+async function runCaseReviewAgent() {
+  const jobId = await logStart("case_review");
+  const t0 = Date.now();
+  try {
+    /* قضايا لها جلسة خلال 24 ساعة */
+    const upcomingSessions = await sqlAll(sql`
+      SELECT c.id, c.title, c.office_id, c.status, c.type,
+             s.session_date, s.court, s.notes
+      FROM cases c
+      JOIN case_sessions s ON s.case_id = c.id::text
+      WHERE s.session_date BETWEEN NOW() AND NOW() + INTERVAL '24 hours'
+        AND c.status != 'closed'
+      ORDER BY s.session_date ASC
+      LIMIT 50
+    `).catch(() => []);
+
+    /* قضايا متأخرة (بدون نشاط منذ 7 أيام) */
+    const staleCases = await sqlAll(sql`
+      SELECT id, title, office_id, status, updated_at
+      FROM cases
+      WHERE status IN ('open','active','in_progress')
+        AND updated_at < NOW() - INTERVAL '7 days'
+      LIMIT 30
+    `).catch(() => []);
+
+    let aiSummary = "";
+    if (upcomingSessions.length > 0 || staleCases.length > 0) {
+      const prompt = `أنت وكيل مراجعة قانوني. فيما يلي بيانات القضايا:
+
+جلسات خلال 24 ساعة (${upcomingSessions.length}):
+${upcomingSessions.slice(0, 5).map(s => `- "${s.title}" — المحكمة: ${s.court ?? "غير محددة"} — ${new Date(s.session_date).toLocaleString("ar-SA")}`).join("\n") || "لا توجد"}
+
+قضايا بدون نشاط منذ 7 أيام (${staleCases.length}):
+${staleCases.slice(0, 5).map(c => `- "${c.title}" (${c.status})`).join("\n") || "لا توجد"}
+
+أعطِ ملخصاً موجزاً (3-4 جمل) بالعربية للوضع العام وأي توصيات عاجلة.`;
+
+      const { reply } = await callAI(
+        "أنت وكيل ذكاء اصطناعي متخصص في مراجعة القضايا القانونية. ردودك موجزة واحترافية.",
+        prompt
+      ).catch(() => ({ reply: "تعذّر إنشاء الملخص — سيُعاد المحاولة في الدورة القادمة." }));
+      aiSummary = reply;
+    }
+
+    await logDone(jobId, aiSummary || "لا توجد قضايا تستوجب المتابعة الآن", {
+      upcomingSessions: upcomingSessions.length,
+      staleCases: staleCases.length,
+      durationMs: Date.now() - t0,
+    });
+    logger.info(`[AgentCron] case_review ✅ — ${upcomingSessions.length} جلسات، ${staleCases.length} قضايا متأخرة`);
+  } catch (err: any) {
+    await logFail(jobId, err.message);
+    logger.error({ err }, "[AgentCron] case_review ❌");
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   AGENT 2 — متابعة الفواتير المتأخرة (Invoice Reminder)
+   يفحص الفواتير المتأخرة ويُنشئ سجلاً بالمتعثرين
+════════════════════════════════════════════════════════ */
+async function runInvoiceReminderAgent() {
+  const jobId = await logStart("invoice_reminder");
+  const t0 = Date.now();
+  try {
+    const overdueInvoices = await sqlAll(sql`
+      SELECT
+        ci.id, ci.invoice_number, ci.office_id,
+        ci.total_amount, ci.due_date, ci.status,
+        cl.name AS client_name
+      FROM client_invoices ci
+      LEFT JOIN clients cl ON cl.id = ci.client_id
+      WHERE ci.status IN ('sent','overdue','partially_paid')
+        AND ci.due_date < NOW()
+      ORDER BY ci.due_date ASC
+      LIMIT 100
+    `).catch(() => []);
+
+    /* تحديث حالة الفواتير المنتهية الصلاحية إلى overdue */
+    await sqlExec(sql`
+      UPDATE client_invoices
+      SET status = 'overdue'
+      WHERE status = 'sent'
+        AND due_date < NOW()
+    `);
+
+    const totalOverdue = overdueInvoices.reduce((sum: number, inv: any) =>
+      sum + parseFloat(String(inv.total_amount ?? "0")), 0
+    );
+
+    const groupedByOffice = overdueInvoices.reduce((acc: Record<string, number>, inv: any) => {
+      acc[inv.office_id] = (acc[inv.office_id] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    await logDone(jobId, `${overdueInvoices.length} فاتورة متأخرة — إجمالي: ${totalOverdue.toLocaleString("ar-SA")} ريال`, {
+      overdueCount: overdueInvoices.length,
+      totalOverdueAmount: totalOverdue,
+      byOffice: groupedByOffice,
+      durationMs: Date.now() - t0,
+    });
+    logger.info(`[AgentCron] invoice_reminder ✅ — ${overdueInvoices.length} فاتورة متأخرة`);
+  } catch (err: any) {
+    await logFail(jobId, err.message);
+    logger.error({ err }, "[AgentCron] invoice_reminder ❌");
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   AGENT 3 — اللقطة اليومية (Daily Snapshot)
+   يجمع إحصائيات يومية لكل مكتب ويخزنها
+   يعمل مرة واحدة فقط في اليوم (الساعة 2 صباحاً)
+════════════════════════════════════════════════════════ */
+async function runDailySnapshotAgent() {
+  const jobId = await logStart("daily_snapshot");
+  const t0 = Date.now();
+  try {
+    /* إحصائيات المنصة الكاملة */
+    const [
+      totalOffices, totalUsers, totalCases, totalContracts,
+      todayRevenue, newCasesToday, aiUsageToday
+    ] = await Promise.all([
+      sqlOne(sql`SELECT COUNT(*)::int AS cnt FROM offices`).catch(() => ({ cnt: 0 })),
+      sqlOne(sql`SELECT COUNT(*)::int AS cnt FROM office_members WHERE status='active'`).catch(() => ({ cnt: 0 })),
+      sqlOne(sql`SELECT COUNT(*)::int AS cnt FROM cases`).catch(() => ({ cnt: 0 })),
+      sqlOne(sql`SELECT COUNT(*)::int AS cnt FROM contracts`).catch(() => ({ cnt: 0 })),
+      sqlOne(sql`
+        SELECT COALESCE(SUM(amount)::numeric,0) AS total FROM client_invoices
+        WHERE status='paid' AND paid_at::date = CURRENT_DATE
+      `).catch(() => ({ total: 0 })),
+      sqlOne(sql`SELECT COUNT(*)::int AS cnt FROM cases WHERE created_at::date = CURRENT_DATE`).catch(() => ({ cnt: 0 })),
+      sqlOne(sql`
+        SELECT COALESCE(SUM(credits_used)::numeric,0) AS total FROM ai_credit_log
+        WHERE created_at::date = CURRENT_DATE
+      `).catch(() => ({ total: 0 })),
+    ]);
+
+    const snapshot = {
+      date: new Date().toISOString().split("T")[0],
+      offices: Number(totalOffices.cnt),
+      users: Number(totalUsers.cnt),
+      cases: Number(totalCases.cnt),
+      contracts: Number(totalContracts.cnt),
+      todayRevenue: parseFloat(String(todayRevenue.total ?? 0)),
+      newCasesToday: Number(newCasesToday.cnt),
+      aiCreditsToday: parseFloat(String(aiUsageToday.total ?? 0)),
+    };
+
+    await logDone(jobId,
+      `لقطة ${snapshot.date}: ${snapshot.offices} مكتب، ${snapshot.cases} قضية، ${snapshot.todayRevenue.toLocaleString()} ريال`,
+      { snapshot, durationMs: Date.now() - t0 }
+    );
+    logger.info(`[AgentCron] daily_snapshot ✅ — ${snapshot.offices} مكاتب، ${snapshot.todayRevenue} ريال اليوم`);
+  } catch (err: any) {
+    await logFail(jobId, err.message);
+    logger.error({ err }, "[AgentCron] daily_snapshot ❌");
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   AGENT 4 — فحص حالة AI (AI Health Check)
+   يختبر الاتصال بخدمات AI ويسجّل النتائج
+════════════════════════════════════════════════════════ */
+async function runAiHealthCheckAgent() {
+  const jobId = await logStart("ai_health_check");
+  const t0 = Date.now();
+  try {
+    const results: Record<string, { ok: boolean; latencyMs?: number; error?: string }> = {};
+
+    /* فحص Gemini */
+    if (process.env.GEMINI_API_KEY) {
+      const t = Date.now();
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: "ping" }] }],
+              generationConfig: { maxOutputTokens: 5 },
+            }),
+            signal: AbortSignal.timeout(8000),
+          }
+        );
+        results.gemini = { ok: res.ok, latencyMs: Date.now() - t };
+      } catch (e: any) {
+        results.gemini = { ok: false, error: e.message, latencyMs: Date.now() - t };
+      }
+    } else {
+      results.gemini = { ok: false, error: "GEMINI_API_KEY غير موجود" };
+    }
+
+    /* فحص OpenAI */
+    if (process.env.OPENAI_API_KEY) {
+      const t = Date.now();
+      try {
+        const res = await fetch("https://api.openai.com/v1/models", {
+          headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+          signal: AbortSignal.timeout(8000),
+        });
+        results.openai = { ok: res.ok, latencyMs: Date.now() - t };
+      } catch (e: any) {
+        results.openai = { ok: false, error: e.message, latencyMs: Date.now() - t };
+      }
+    } else {
+      results.openai = { ok: false, error: "OPENAI_API_KEY غير موجود" };
+    }
+
+    /* فحص Anthropic */
+    if (process.env.ANTHROPIC_API_KEY) {
+      const t = Date.now();
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/models", {
+          headers: {
+            "x-api-key": process.env.ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          signal: AbortSignal.timeout(8000),
+        });
+        results.anthropic = { ok: res.ok, latencyMs: Date.now() - t };
+      } catch (e: any) {
+        results.anthropic = { ok: false, error: e.message, latencyMs: Date.now() - t };
+      }
+    } else {
+      results.anthropic = { ok: false, error: "ANTHROPIC_API_KEY غير موجود" };
+    }
+
+    /* فحص Ollama (إذا كان مفعّلاً) */
+    const ollamaUrl = process.env.OLLAMA_BASE_URL;
+    if (ollamaUrl) {
+      const t = Date.now();
+      try {
+        const res = await fetch(`${ollamaUrl}/api/tags`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        const data = await res.json() as any;
+        results.ollama = {
+          ok: res.ok,
+          latencyMs: Date.now() - t,
+          error: res.ok ? undefined : `HTTP ${res.status}`,
+        };
+        if (res.ok && data.models) {
+          (results.ollama as any).models = (data.models as any[]).map((m: any) => m.name).join(", ");
+        }
+      } catch (e: any) {
+        results.ollama = { ok: false, error: e.message, latencyMs: Date.now() - t };
+      }
+    } else {
+      results.ollama = { ok: false, error: "OLLAMA_BASE_URL غير مضبوط" };
+    }
+
+    const okCount = Object.values(results).filter(r => r.ok).length;
+    const summary = `${okCount}/${Object.keys(results).length} خدمات AI متصلة`;
+
+    await logDone(jobId, summary, { results, durationMs: Date.now() - t0 });
+    logger.info(`[AgentCron] ai_health_check ✅ — ${summary}`);
+  } catch (err: any) {
+    await logFail(jobId, err.message);
+    logger.error({ err }, "[AgentCron] ai_health_check ❌");
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   ENTRY POINT — تسجيل جميع الوكلاء مع Cron
+════════════════════════════════════════════════════════ */
+export function startAgentCron() {
+  ensureTables().then(() => {
+    /* ── كل ساعة: مراجعة القضايا + الفواتير + فحص AI ── */
+    cron.schedule("0 * * * *", async () => {
+      logger.info("[AgentCron] 🤖 Starting hourly agent run…");
+      await Promise.allSettled([
+        runCaseReviewAgent(),
+        runInvoiceReminderAgent(),
+        runAiHealthCheckAgent(),
+      ]);
+      logger.info("[AgentCron] ✅ Hourly run complete");
+    });
+
+    /* ── يومياً الساعة 2 صباحاً: اللقطة اليومية ── */
+    cron.schedule("0 2 * * *", async () => {
+      logger.info("[AgentCron] 📊 Starting daily snapshot…");
+      await runDailySnapshotAgent();
+    });
+
+    /* ── تشغيل فوري عند البدء (بعد 10 ثوانٍ) ── */
+    setTimeout(async () => {
+      logger.info("[AgentCron] 🚀 Initial AI health check…");
+      await runAiHealthCheckAgent();
+    }, 10_000);
+
+    logger.info("[AgentCron] ✅ All agents registered — hourly + daily at 02:00");
+  }).catch(err => {
+    logger.error({ err }, "[AgentCron] ❌ Failed to initialize tables");
+  });
+}
+
+/* ── تشغيل يدوي لأي وكيل (للـ API) ────────────────── */
+export async function runAgentManually(type: string): Promise<{ ok: boolean; message: string }> {
+  switch (type) {
+    case "case_review":
+      await runCaseReviewAgent();
+      return { ok: true, message: "تم تشغيل وكيل مراجعة القضايا" };
+    case "invoice_reminder":
+      await runInvoiceReminderAgent();
+      return { ok: true, message: "تم تشغيل وكيل الفواتير المتأخرة" };
+    case "daily_snapshot":
+      await runDailySnapshotAgent();
+      return { ok: true, message: "تم تشغيل وكيل اللقطة اليومية" };
+    case "ai_health_check":
+      await runAiHealthCheckAgent();
+      return { ok: true, message: "تم تشغيل وكيل فحص AI" };
+    default:
+      return { ok: false, message: `نوع الوكيل "${type}" غير معروف` };
+  }
+}
+
+export { sqlAll };

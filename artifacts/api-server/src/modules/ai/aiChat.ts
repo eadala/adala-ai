@@ -9,14 +9,50 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-export type ModelKey = "auto" | "gemini" | "claude" | "openai";
+export type ModelKey = "auto" | "gemini" | "claude" | "openai" | "ollama";
+
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL;
+const OLLAMA_MODEL    = process.env.OLLAMA_MODEL ?? "gemma3:4b";
+const OLLAMA_FALLBACK = process.env.OLLAMA_FALLBACK_ENABLED === "true";
 
 export function getAvailableModels() {
   return {
-    gemini: !!GEMINI_API_KEY,
-    claude: !!ANTHROPIC_API_KEY,
-    openai: !!OPENAI_API_KEY,
+    gemini:  !!GEMINI_API_KEY,
+    claude:  !!ANTHROPIC_API_KEY,
+    openai:  !!OPENAI_API_KEY,
+    ollama:  !!OLLAMA_BASE_URL,
   };
+}
+
+/* ── Ollama (نموذج AI محلي على الخادم) ─────────────────────── */
+async function callOllamaAI(
+  systemPrompt: string,
+  userMessage:  string,
+  history: { role: string; content: string }[] = []
+): Promise<string> {
+  if (!OLLAMA_BASE_URL) throw new Error("OLLAMA_BASE_URL غير مضبوط");
+  const messages = [
+    { role: "system",    content: systemPrompt },
+    ...history.map(h => ({ role: h.role, content: h.content })),
+    { role: "user",      content: userMessage },
+  ];
+  const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model:    OLLAMA_MODEL,
+      messages,
+      stream:   false,
+      options:  { num_predict: 4096, temperature: 0.7 },
+    }),
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => `HTTP ${res.status}`);
+    throw new Error(`Ollama error: ${txt}`);
+  }
+  const data = await res.json() as any;
+  return data.message?.content ?? data.response ?? "لم أتمكن من معالجة الطلب.";
 }
 
 async function callGeminiAI(systemPrompt: string, userMessage: string, history: { role: string; content: string }[] = []): Promise<string> {
@@ -162,23 +198,47 @@ export async function callAI(
     deductCredits(officeId, "openai");
     return { reply, modelUsed: "openai" };
   }
+  if (preferredModel === "ollama" && OLLAMA_BASE_URL) {
+    const reply = await callOllamaAI(systemPrompt, userMessage, history);
+    deductCredits(officeId, "ollama");
+    return { reply, modelUsed: `ollama:${OLLAMA_MODEL}` };
+  }
   /* requested model not available → fall through to auto */
 
-  /* auto: priority Gemini → Claude → OpenAI → fallback */
+  /* auto: priority Gemini → Claude → OpenAI → Ollama (local) → static fallback */
   if (GEMINI_API_KEY) {
-    const reply = await callGeminiAI(systemPrompt, userMessage, history);
-    deductCredits(officeId, "gemini");
-    return { reply, modelUsed: "gemini" };
+    try {
+      const reply = await callGeminiAI(systemPrompt, userMessage, history);
+      deductCredits(officeId, "gemini");
+      return { reply, modelUsed: "gemini" };
+    } catch (e) {
+      if (!OLLAMA_FALLBACK || !OLLAMA_BASE_URL) throw e;
+      /* Gemini failed → try Ollama fallback */
+    }
   }
   if (ANTHROPIC_API_KEY) {
-    const reply = await callClaudeAI(systemPrompt, userMessage, history);
-    deductCredits(officeId, "claude");
-    return { reply, modelUsed: "claude" };
+    try {
+      const reply = await callClaudeAI(systemPrompt, userMessage, history);
+      deductCredits(officeId, "claude");
+      return { reply, modelUsed: "claude" };
+    } catch (e) {
+      if (!OLLAMA_FALLBACK || !OLLAMA_BASE_URL) throw e;
+    }
   }
   if (OPENAI_API_KEY) {
-    const reply = await callOpenAI(systemPrompt, userMessage, history);
-    deductCredits(officeId, "openai");
-    return { reply, modelUsed: "openai" };
+    try {
+      const reply = await callOpenAI(systemPrompt, userMessage, history);
+      deductCredits(officeId, "openai");
+      return { reply, modelUsed: "openai" };
+    } catch (e) {
+      if (!OLLAMA_FALLBACK || !OLLAMA_BASE_URL) throw e;
+    }
+  }
+  /* Ollama local fallback (runs on your Hetzner server) */
+  if (OLLAMA_BASE_URL) {
+    const reply = await callOllamaAI(systemPrompt, userMessage, history);
+    deductCredits(officeId, "ollama");
+    return { reply, modelUsed: `ollama:${OLLAMA_MODEL}` };
   }
   return { reply: generateSmartResponse(userMessage), modelUsed: "fallback" };
 }
