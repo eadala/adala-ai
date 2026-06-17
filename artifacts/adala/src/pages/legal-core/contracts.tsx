@@ -608,7 +608,7 @@ export default function Contracts() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["contracts"] }); qc.invalidateQueries({ queryKey: ["contracts-stats"] }); toast({ title: "تم الحذف" }); },
   });
 
-  const useTemplate = (t: Template) => {
+  const applyTemplate = (t: Template) => {
     setCreateInitialData({ title: t.name, type: "general", content: t.content });
     setCreateTemplateId(t.id);
     setShowCreate(true);
@@ -829,7 +829,7 @@ export default function Contracts() {
                   {templates.map(t => {
                     const Icon = ICON_MAP[t.category_icon] ?? FileText;
                     return (
-                      <Card key={t.id} className="group hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer" onClick={() => useTemplate(t)}>
+                      <Card key={t.id} className="group hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer" onClick={() => applyTemplate(t)}>
                         <CardContent className="p-3 sm:p-4">
                           <div className="flex items-start gap-2.5 sm:gap-3 mb-3">
                             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0"

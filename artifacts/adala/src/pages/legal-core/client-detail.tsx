@@ -89,6 +89,21 @@ export default function ClientDetail() {
   const id = params.id ?? "";
   const { data, isLoading, error } = useClientOverview(id);
 
+  /* waLogs must be declared before any early returns to satisfy rules-of-hooks */
+  const clientPhone = (data as any)?.client?.phone as string | undefined;
+  const { data: waLogs = [] } = useQuery<any[]>({
+    queryKey: ["whatsapp-logs-client", clientPhone],
+    queryFn: async () => {
+      if (!clientPhone) return [];
+      const r = await fetch(`${BASE}/api/whatsapp/logs`);
+      if (!r.ok) return [];
+      const all = await r.json();
+      const normalized = clientPhone.replace(/\D/g, "");
+      return all.filter((l: any) => l.to_number?.replace(/\D/g, "")?.includes(normalized));
+    },
+    enabled: !!clientPhone,
+  });
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -112,19 +127,6 @@ export default function ClientDetail() {
   }
 
   const { client, cases, invoices, contracts, events, messages = [], activities = [], stats } = data;
-
-  const { data: waLogs = [] } = useQuery<any[]>({
-    queryKey: ["whatsapp-logs-client", client.phone],
-    queryFn: async () => {
-      const r = await fetch(`${BASE}/api/whatsapp/logs`);
-      if (!r.ok) return [];
-      const all = await r.json();
-      if (!client.phone) return [];
-      const normalized = client.phone.replace(/\D/g, "");
-      return all.filter((l: any) => l.to_number?.replace(/\D/g, "")?.includes(normalized));
-    },
-    enabled: !!client.phone,
-  });
   const typeInfo = TYPE_LABELS[client.type] ?? TYPE_LABELS.individual;
   const TypeIcon = typeInfo.icon;
 

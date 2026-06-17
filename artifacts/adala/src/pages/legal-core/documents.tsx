@@ -734,7 +734,7 @@ export default function Documents() {
     mutationFn: ({ name, parentId }: { name: string; parentId: string | null }) =>
       fetch(`${BASE}/api/storage/folders`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, parentId }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
-      if (d?.error) { useToast().toast({ title: `❌ ${d.error}`, variant: "destructive" }); return; }
+      if (d?.error) { toast({ title: `❌ ${d.error}`, variant: "destructive" }); return; }
       qc.invalidateQueries({ queryKey: ["storage-folders"] });
       setNewFolderParent("NONE");
     },

@@ -63,7 +63,7 @@ const PRIORITY_DOT: Record<string, string> = {
 };
 
 /* ══════════════════ HOOKS ══════════════════ */
-function api<T>(key: any[], url: string) {
+function useApi<T>(key: any[], url: string) {
   return useQuery<T>({
     queryKey: key,
     queryFn: () => fetch(`${BASE}${url}`).then(r => r.json()),
@@ -122,7 +122,7 @@ function ActionBar({
 
 /* ══════════════════ TIMELINE FEED ══════════════════ */
 function TimelineFeed({ caseId, open, setOpen }: { caseId: string; open: boolean; setOpen: (v: boolean) => void }) {
-  const { data: entries = [], refetch } = api<any[]>(["case-timeline", caseId], `/api/cases/${caseId}/timeline`);
+  const { data: entries = [], refetch } = useApi<any[]>(["case-timeline", caseId], `/api/cases/${caseId}/timeline`);
   const [form, setForm]   = useState({ entry_type: "note", title: "", description: "" });
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -228,7 +228,7 @@ function TimelineFeed({ caseId, open, setOpen }: { caseId: string; open: boolean
 
 /* ══════════════════ MESSAGES CHAT ══════════════════ */
 function MessagesChat({ caseId, open, setOpen }: { caseId: string; open: boolean; setOpen: (v: boolean) => void }) {
-  const { data: msgs = [], refetch } = api<any[]>(["case-msgs", caseId], `/api/cases/${caseId}/messages`);
+  const { data: msgs = [], refetch } = useApi<any[]>(["case-msgs", caseId], `/api/cases/${caseId}/messages`);
   const [body, setBody]     = useState("");
   const [sending, setSending] = useState(false);
   const endRef              = useRef<HTMLDivElement>(null);
@@ -338,7 +338,7 @@ function InfoCard({ c }: { c: any }) {
 
 /* AI Health mini */
 function AIHealthCard({ caseId, onAnalyze }: { caseId: string; onAnalyze: () => void }) {
-  const { data, isLoading, refetch } = api<any>(
+  const { data, isLoading, refetch } = useApi<any>(
     ["case-health", caseId],
     `/api/cases/${caseId}/health`,
   );
@@ -426,7 +426,7 @@ function AutonomousAIPanel({ caseId }: { caseId: string }) {
   const [rejecting, setRejecting]        = useState<string | null>(null);
   const [expanded, setExpanded]          = useState(true);
 
-  const { data: insight, refetch } = api<any>(
+  const { data: insight, refetch } = useApi<any>(
     ["case-ai-insights", caseId],
     `/api/cases/${caseId}/ai-insights`,
   );
@@ -668,7 +668,7 @@ function AutonomousAIPanel({ caseId }: { caseId: string }) {
 
 /* Tasks mini */
 function TasksMini({ caseId, onAdd }: { caseId: string; onAdd: () => void }) {
-  const { data: tasks = [], refetch } = api<any[]>(["case-tasks", caseId], `/api/cases/${caseId}/tasks`);
+  const { data: tasks = [], refetch } = useApi<any[]>(["case-tasks", caseId], `/api/cases/${caseId}/tasks`);
   const pending = tasks.filter((t: any) => t.status !== "done");
 
   const toggle = async (id: string, cur: string) => {
@@ -725,7 +725,7 @@ function TasksMini({ caseId, onAdd }: { caseId: string; onAdd: () => void }) {
 
 /* Hub mini (docs + invoices) */
 function HubMini({ caseId }: { caseId: string }) {
-  const { data: hub } = api<any>(["case-hub", caseId], `/api/cases/${caseId}/hub`);
+  const { data: hub } = useApi<any>(["case-hub", caseId], `/api/cases/${caseId}/hub`);
   const docs     = hub?.documents ?? [];
   const invoices = hub?.invoices  ?? [];
   const events   = hub?.events    ?? [];
