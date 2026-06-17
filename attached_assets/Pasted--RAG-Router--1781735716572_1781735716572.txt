@@ -1,0 +1,263 @@
+تمام — الآن نرفع عدالة من “RAG + Router” إلى مستوى أعلى فعلياً:
+
+⚖️ نظام الوكلاء القانونيين المتعددين (Multi-Agent Legal System)
+
+هذا هو الشكل الذي تستخدمه منصات Legal AI المتقدمة: بدل “ذكاء واحد”، عندك فريق محامين ذكاء اصطناعي متخصصين.
+
+⸻
+
+1. الفكرة الأساسية
+
+بدلاً من:
+
+User → AI واحد → جواب
+
+تصبح:
+
+User
+ ↓
+AI Orchestrator (مدير الوكلاء)
+ ↓
+Agents متخصصين:
+   - Agent العقود
+   - Agent القضايا
+   - Agent الأنظمة السعودية
+   - Agent المخاطر
+   - Agent الصياغة
+ ↓
+دمج النتائج
+ ↓
+إجابة نهائية قانونية
+
+⸻
+
+2. شكل النظام داخل عدالة
+
+                ┌──────────────┐
+                │   المستخدم   │
+                └──────┬───────┘
+                       ↓
+          ┌─────────────────────────┐
+          │ Orchestrator (Router++) │
+          └──────┬──────┬──────────┘
+                 ↓      ↓
+      ┌────────────┐  ┌────────────┐
+      │ Contract   │  │ Litigation  │
+      │ Agent      │  │ Agent       │
+      └────┬───────┘  └────┬───────┘
+           ↓               ↓
+      ┌────────────┐  ┌────────────┐
+      │ Risk Agent │  │ Draft Agent │
+      └────┬───────┘  └────┬───────┘
+               ↓        ↓
+            ┌────────────────┐
+            │ Final Synth AI │
+            └────────────────┘
+
+⸻
+
+3. بناء Orchestrator (القلب)
+
+import { contractAgent } from "./agents/contract.js";
+import { litigationAgent } from "./agents/litigation.js";
+import { riskAgent } from "./agents/risk.js";
+import { draftAgent } from "./agents/draft.js";
+function routeAgents(prompt) {
+  const keywords = {
+    contract: ["عقد", "بند", "اتفاقية", "شروط"],
+    litigation: ["دعوى", "محكمة", "قضية", "جلسة"],
+    risk: ["مخاطر", "مشاكل", "تحذير"],
+    draft: ["صياغة", "اكتب", "حرر", "أنشئ"],
+  };
+  const selected = [];
+  if (keywords.contract.some(k => prompt.includes(k))) selected.push("contract");
+  if (keywords.litigation.some(k => prompt.includes(k))) selected.push("litigation");
+  if (keywords.risk.some(k => prompt.includes(k))) selected.push("risk");
+  if (keywords.draft.some(k => prompt.includes(k))) selected.push("draft");
+  return selected.length ? selected : ["contract"];
+}
+export async function orchestrator(prompt, context) {
+  const agents = routeAgents(prompt);
+  const results = [];
+  for (const agent of agents) {
+    if (agent === "contract") results.push(await contractAgent(prompt, context));
+    if (agent === "litigation") results.push(await litigationAgent(prompt, context));
+    if (agent === "risk") results.push(await riskAgent(prompt, context));
+    if (agent === "draft") results.push(await draftAgent(prompt, context));
+  }
+  return results.join("\n\n");
+}
+
+⸻
+
+4. مثال Agent (العقود)
+
+import axios from "axios";
+export async function contractAgent(prompt, context) {
+  const res = await axios.post(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `
+أنت محامي متخصص في العقود.
+ركز على:
+- البنود
+- الالتزامات
+- الثغرات القانونية
+          `,
+        },
+        {
+          role: "user",
+          content: `السياق:\n${context}\n\nالسؤال:\n${prompt}`,
+        },
+      ],
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+    }
+  );
+  return "📄 تحليل العقود:\n" + res.data.choices[0].message.content;
+}
+
+⸻
+
+5. Agent المخاطر (Risk Engine)
+
+export async function riskAgent(prompt, context) {
+  return `
+⚠️ تحليل المخاطر:
+- احتمالية وجود ثغرات قانونية
+- التزامات غير واضحة
+- بنود قد تسبب نزاع مستقبلي
+(يتم ربطه لاحقاً بـ GPT للتفصيل)
+  `;
+}
+
+⸻
+
+6. Agent القضايا
+
+export async function litigationAgent(prompt, context) {
+  return `
+⚖️ تحليل القضية:
+- تصنيف نوع الدعوى
+- نقاط القوة والضعف
+- الإجراءات المتوقعة
+(مربوط لاحقاً بنظام RAG + أحكام سابقة)
+  `;
+}
+
+⸻
+
+7. دمج النتائج (Final Synth AI)
+
+import axios from "axios";
+export async function synthesize(results, prompt) {
+  const res = await axios.post(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "أنت محامي خبير يقوم بتجميع التحليلات في جواب واحد متكامل.",
+        },
+        {
+          role: "user",
+          content: `
+السؤال:
+${prompt}
+تحليلات الوكلاء:
+${results}
+          `,
+        },
+      ],
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+    }
+  );
+  return res.data.choices[0].message.content;
+}
+
+⸻
+
+8. الربط النهائي داخل عدالة
+
+import { orchestrator } from "./orch.js";
+import { synthesize } from "./synth.js";
+export async function legalAI(prompt, context) {
+  const agentResults = await orchestrator(prompt, context);
+  const finalAnswer = await synthesize(agentResults, prompt);
+  return finalAnswer;
+}
+
+⸻
+
+9. ماذا أصبحت عدالة الآن؟
+
+✔ ليست AI واحدة
+
+بل:
+
+“فريق محامين ذكاء اصطناعي”
+
+⸻
+
+✔ كل Agent متخصص
+
+* عقود
+* قضايا
+* مخاطر
+* صياغة
+
+⸻
+
+✔ نتائج أدق بكثير
+
+لأن كل جزء يعالج من زاوية مختلفة
+
+⸻
+
+✔ قابل للتوسع العالمي
+
+يمكنك لاحقاً إضافة:
+
+* Agent الأنظمة السعودية
+* Agent التحكيم التجاري
+* Agent الشركات
+* Agent الامتثال القانوني
+
+⸻
+
+10. أقوى ميزة استراتيجية
+
+هذا النظام يعطيك:
+
+🧠 “Legal Firm AI Simulation”
+
+يعني:
+
+كأن عندك مكتب محاماة كامل داخل النظام
+
+⸻
+
+11. الخطوة التالية (مهم جداً)
+
+إذا تريد المستوى الأعلى فعلاً، أقدر أبني لك:
+
+🔥 Autonomous Legal AI System
+
+* وكلاء يتناقشون مع بعض
+* يختلفون في الرأي
+* ثم يصدرون “حكم نهائي موحد”
+* مع تقييم المخاطر والاحتمالات
+
+وهذا أقرب شيء لـ “محامي AI حقيقي” في السوق.
