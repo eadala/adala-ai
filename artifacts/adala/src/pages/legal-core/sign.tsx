@@ -256,7 +256,7 @@ export default function SignPage({ token }: { token: string }) {
                       </div>
                     )}
                     <Button size="sm" variant="ghost" onClick={clearCanvas}
-                      className="absolute top-2 left-2 h-7 w-7 p-0 text-gray-400 hover:text-red-400 hover:bg-red-50">
+                      className="absolute top-2 left-2 h-7 w-7 p-0 text-muted-foreground hover:text-red-400 hover:bg-red-50">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

@@ -57,7 +57,7 @@ export default function IsolationPage() {
   const grade = s.grade ?? "—";
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 rtl" dir="rtl">
+    <div className="min-h-screen bg-muted/30 p-6 rtl" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -70,13 +70,13 @@ export default function IsolationPage() {
           </div>
         </div>
         <button onClick={() => { qc.invalidateQueries({ queryKey: ["iso-summary"] }); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-white border border-gray-200 hover:bg-gray-50 transition">
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-card border border-border hover:bg-muted/50 transition">
           <RefreshCw className="h-3 w-3" /> تحديث
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-white border border-gray-200 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-6 bg-card border border-border rounded-xl p-1 w-fit">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
@@ -90,14 +90,14 @@ export default function IsolationPage() {
       {tab === "summary" && (
         <div className="space-y-5">
           {/* Grade + Score */}
-          <div className={`rounded-2xl p-8 border flex items-center gap-8 ${GRADE_BG[grade] ?? "bg-white border-gray-200"}`}>
+          <div className={`rounded-2xl p-8 border flex items-center gap-8 ${GRADE_BG[grade] ?? "bg-white border-border"}`}>
             <div className="text-center shrink-0">
               <div className={`text-7xl font-black ${GRADE_COLORS[grade] ?? "text-gray-400"}`}>{grade}</div>
               <div className="text-xs text-gray-500 mt-1">درجة العزل</div>
             </div>
             <div className="flex-1">
               <div className="text-3xl font-bold text-gray-900 mb-1">{s.isolationScore ?? "—"}<span className="text-base text-gray-400">/100</span></div>
-              <div className="w-full bg-white rounded-full h-3 mt-2 overflow-hidden border border-gray-200">
+              <div className="w-full bg-white rounded-full h-3 mt-2 overflow-hidden border border-border">
                 <div className={`h-3 rounded-full transition-all ${
                   (s.isolationScore ?? 0) >= 90 ? "bg-emerald-500" : (s.isolationScore ?? 0) >= 75 ? "bg-blue-500" : (s.isolationScore ?? 0) >= 60 ? "bg-amber-400" : "bg-red-500"
                 }`} style={{ width: `${s.isolationScore ?? 0}%` }} />
@@ -136,7 +136,7 @@ export default function IsolationPage() {
                 color: (s.runtime?.leakCount ?? 0) === 0 ? "emerald" : "red",
               },
             ].map((p, i) => (
-              <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5">
+              <div key={i} className="bg-card border border-border rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <p.icon className={`h-4 w-4 text-${p.color}-600`} />
                   <span className="text-sm font-medium text-gray-700">{p.label}</span>
@@ -151,7 +151,7 @@ export default function IsolationPage() {
           </div>
 
           {/* Architecture Layers */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="bg-card border border-border rounded-2xl p-5">
             <div className="font-semibold text-gray-800 mb-4">طبقات العزل المُطبَّقة</div>
             <div className="space-y-2">
               {[
@@ -163,7 +163,7 @@ export default function IsolationPage() {
                 { label: "Response Leak Detector — فحص الاستجابات",       status: true  },
                 { label: "Code Audit — فحص الكود الثابت",                 status: true  },
               ].map((layer, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
+                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30">
                   {layer.status
                     ? <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
                     : <ShieldAlert className="h-4 w-4 text-amber-500 shrink-0" />}
@@ -190,7 +190,7 @@ export default function IsolationPage() {
                 { label: "RLS مُفعَّل",        value: rlsQ.data.summary.rlsEnabled     },
                 { label: "تغطية %",           value: `${rlsQ.data.summary.coveragePct}%`, warn: rlsQ.data.summary.coveragePct < 80 },
               ].map((m, i) => (
-                <div key={i} className={`bg-white border rounded-2xl p-5 text-center ${m.warn ? "border-amber-300" : "border-gray-200"}`}>
+                <div key={i} className={`bg-card border rounded-2xl p-5 text-center ${m.warn ? "border-amber-300" : "border-border"}`}>
                   <div className={`text-2xl font-bold ${m.warn ? "text-amber-600" : "text-gray-900"}`}>{m.value}</div>
                   <div className="text-xs text-gray-500 mt-1">{m.label}</div>
                 </div>
@@ -199,12 +199,12 @@ export default function IsolationPage() {
           )}
 
           {/* Enable RLS manually */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="bg-card border border-border rounded-2xl p-5">
             <div className="font-semibold text-gray-800 mb-3">تفعيل RLS يدوياً</div>
             <div className="flex gap-2">
               <input value={enableTable} onChange={e => setEnableTable(e.target.value)}
                 placeholder="اسم الجدول (مثال: lawyers)"
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-800" />
               <button onClick={() => enableMut.mutate()} disabled={!enableTable || enableMut.isPending}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm bg-slate-800 text-white hover:bg-slate-900 transition disabled:opacity-50">
                 <Lock className="h-3.5 w-3.5" /> تفعيل RLS
@@ -215,11 +215,11 @@ export default function IsolationPage() {
           </div>
 
           {/* Tables list */}
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             {rlsQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ الفحص…</div>}
             <div className="max-h-[480px] overflow-y-auto divide-y divide-gray-50">
               {(rlsQ.data?.tables ?? []).map((t: any) => (
-                <div key={t.tablename} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50">
+                <div key={t.tablename} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/50">
                   {t.rls_enabled
                     ? <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
                     : t.has_office_id
@@ -269,7 +269,7 @@ export default function IsolationPage() {
                   { label: "تحتاج مراجعة",       value: auditQ.data.summary.riskFiles, warn: auditQ.data.summary.riskFiles > 0 },
                   { label: "متوسط الدرجة",       value: `${auditQ.data.summary.avgScore}%` },
                 ].map((m, i) => (
-                  <div key={i} className={`bg-white border rounded-2xl p-5 text-center ${m.warn ? "border-amber-300" : "border-gray-200"}`}>
+                  <div key={i} className={`bg-card border rounded-2xl p-5 text-center ${m.warn ? "border-amber-300" : "border-border"}`}>
                     <div className={`text-2xl font-bold ${m.warn ? "text-amber-600" : "text-gray-900"}`}>{m.value}</div>
                     <div className="text-xs text-gray-500 mt-1">{m.label}</div>
                   </div>
@@ -279,7 +279,7 @@ export default function IsolationPage() {
               {/* File list */}
               <div className="space-y-2">
                 {auditQ.data.results.map((r: any) => (
-                  <div key={r.file} className={`bg-white border rounded-xl overflow-hidden ${r.score < 80 ? "border-amber-200" : "border-gray-200"}`}>
+                  <div key={r.file} className={`bg-white border rounded-xl overflow-hidden ${r.score < 80 ? "border-amber-200" : "border-border"}`}>
                     <div className="flex items-center gap-3 px-4 py-3">
                       <Code2 className={`h-4 w-4 shrink-0 ${r.score >= 80 ? "text-emerald-500" : r.score >= 60 ? "text-amber-500" : "text-red-500"}`} />
                       <span className="text-sm font-mono text-gray-700 flex-1">{r.file}</span>
@@ -324,7 +324,7 @@ export default function IsolationPage() {
                   { label: "حوادث تسرب",    value: st.leakCount,    warn: st.leakCount > 0                  },
                   { label: "حوادث حرجة",    value: st.criticalCount, warn: st.criticalCount > 0              },
                 ].map((m, i) => (
-                  <div key={i} className={`bg-white border rounded-2xl p-5 text-center ${m.warn ? "border-red-300" : "border-gray-200"}`}>
+                  <div key={i} className={`bg-card border rounded-2xl p-5 text-center ${m.warn ? "border-red-300" : "border-border"}`}>
                     <div className={`text-2xl font-bold ${m.warn ? "text-red-600" : "text-gray-900"}`}>{m.value}</div>
                     <div className="text-xs text-gray-500 mt-1">{m.label}</div>
                   </div>
@@ -334,13 +334,13 @@ export default function IsolationPage() {
           })()}
 
           {/* Test Runner */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="bg-card border border-border rounded-2xl p-5">
             <div className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
               <Search className="h-4 w-4" /> اختبار العزل
             </div>
             <div className="flex gap-2">
               <select value={testTable} onChange={e => setTestTable(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none">
+                className="px-3 py-2 border border-border rounded-lg text-sm focus:outline-none">
                 {["cases","clients","revenues","expenses","tasks","documents"].map(t => (
                   <option key={t} value={t}>{t}</option>
                 ))}
@@ -363,7 +363,7 @@ export default function IsolationPage() {
           </div>
 
           {/* Leak Events */}
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 font-semibold text-sm text-gray-800 flex items-center gap-2">
               <Activity className="h-4 w-4 text-red-500" /> سجل أحداث التسرب
             </div>

@@ -257,7 +257,7 @@ export default function Warnings() {
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-400" onClick={() => deleteWarning.mutate(w.id)}>
+                            <DropdownMenuItem className="text-red-400" onClick={() => { if (window.confirm("هل تريد حذف هذا الإنذار نهائياً؟")) deleteWarning.mutate(w.id); }}>
                               <Trash2 className="h-3.5 w-3.5 ml-2" /> حذف
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -347,7 +347,7 @@ export default function Warnings() {
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-400" onClick={() => deleteInvestigation.mutate(inv.id)}>
+                            <DropdownMenuItem className="text-red-400" onClick={() => { if (window.confirm("هل تريد حذف هذا التحقيق نهائياً؟")) deleteInvestigation.mutate(inv.id); }}>
                               <Trash2 className="h-3.5 w-3.5 ml-2" /> حذف
                             </DropdownMenuItem>
                           </DropdownMenuContent>

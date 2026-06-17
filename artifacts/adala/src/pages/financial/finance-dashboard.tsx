@@ -36,7 +36,7 @@ const PERIODS = [{ v: "7", l: "7 أيام" }, { v: "30", l: "شهر" }, { v: "90
 const ChartTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg text-xs rtl" dir="rtl">
+    <div className="bg-card border border-border rounded-lg p-3 shadow-lg text-xs rtl" dir="rtl">
       <div className="font-semibold text-gray-700 mb-2">{label}</div>
       {payload.map((p: any, i: number) => (
         <div key={i} style={{ color: p.color }} className="flex items-center gap-2 py-0.5">
@@ -87,12 +87,12 @@ export default function FinanceDashboard() {
 
   /* KPI growth arrow */
   const Growth = ({ pct }: { pct: number }) =>
-    pct === 0 ? <Minus className="h-3 w-3 text-gray-400 inline" />
+    pct === 0 ? <Minus className="h-3 w-3 text-muted-foreground inline" />
     : pct > 0  ? <TrendingUp  className="h-3 w-3 text-emerald-500 inline ml-1" />
     :             <TrendingDown className="h-3 w-3 text-red-500 inline ml-1" />;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 rtl" dir="rtl">
+    <div className="min-h-screen bg-background p-6 rtl" dir="rtl">
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -101,26 +101,26 @@ export default function FinanceDashboard() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">لوحة التقارير المالية</h1>
-            <p className="text-sm text-gray-500">Financial Reporting Dashboard — SaaS Grade</p>
+            <p className="text-sm text-muted-foreground">Financial Reporting Dashboard — SaaS Grade</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Period selector */}
-          <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-0.5">
+          <div className="flex gap-1 bg-card border border-border rounded-lg p-0.5">
             {PERIODS.map(p => (
               <button key={p.v} onClick={() => setPeriod(p.v)}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition
-                  ${period === p.v ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+                  ${period === p.v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50"}`}>
                 {p.l}
               </button>
             ))}
           </div>
           <button onClick={() => overviewQ.refetch()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-white border border-gray-200 hover:bg-gray-50 transition">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-card border border-border hover:bg-muted/30 transition">
             <RefreshCw className={`h-3 w-3 ${overviewQ.isFetching ? "animate-spin" : ""}`} />
           </button>
           <button onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-white border border-gray-200 hover:bg-gray-50 transition print:hidden">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-card border border-border hover:bg-muted/30 transition print:hidden">
             <Printer className="h-3 w-3" /> طباعة
           </button>
         </div>
@@ -142,11 +142,11 @@ export default function FinanceDashboard() {
       )}
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1 mb-6 bg-white border border-gray-200 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-6 bg-card border border-border rounded-xl p-1 w-fit">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
-              ${tab === t.id ? "bg-blue-600 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}>
+              ${tab === t.id ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50"}`}>
             <t.icon className="h-4 w-4" />{t.label}
           </button>
         ))}
@@ -163,15 +163,15 @@ export default function FinanceDashboard() {
               { label: "الرصيد التراكمي",  value: SAR_FULL(s.currentBalance ?? 0), growth: 0,        icon: BarChart2,   color: "violet",  sub: "من دفتر الأستاذ" },
               { label: "الفواتير المعلقة", value: iv.pending ?? 0,          growth: 0,               icon: FileText,    color: "amber",   sub: `${iv.overdue ?? 0} متأخرة`, warn: (iv.overdue ?? 0) > 0 },
             ].map((kpi, i) => (
-              <div key={i} className={`bg-white border rounded-2xl p-5 ${kpi.warn ? "border-amber-300" : "border-gray-200"}`}>
+              <div key={i} className={`bg-card border rounded-2xl p-5 ${kpi.warn ? "border-amber-300" : "border-border"}`}>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs text-gray-500">{kpi.label}</span>
+                  <span className="text-xs text-muted-foreground">{kpi.label}</span>
                   <div className={`w-8 h-8 rounded-xl bg-${kpi.color}-50 flex items-center justify-center`}>
                     <kpi.icon className={`h-4 w-4 text-${kpi.color}-600`} />
                   </div>
                 </div>
                 <div className={`text-2xl font-bold ${kpi.warn ? "text-amber-600" : "text-gray-900"}`}>{kpi.value}</div>
-                <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                   {kpi.growth !== undefined && kpi.growth !== 0 && (
                     <span className={kpi.growth > 0 ? "text-emerald-600" : "text-red-500"}>
                       <Growth pct={kpi.growth} /> {Math.abs(kpi.growth).toFixed(0)}%
@@ -186,12 +186,12 @@ export default function FinanceDashboard() {
           {/* Charts Row */}
           <div className="grid md:grid-cols-2 gap-5">
             {/* Revenue by Category */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <div className="bg-card border border-border rounded-2xl p-5">
               <div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-emerald-600" /> الإيرادات حسب الفئة
               </div>
               {revCats.length === 0
-                ? <div className="text-center text-gray-400 text-sm py-6">لا توجد إيرادات مسجّلة</div>
+                ? <div className="text-center text-muted-foreground text-sm py-6">لا توجد إيرادات مسجّلة</div>
                 : <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
                       <Pie data={revCats} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
@@ -204,12 +204,12 @@ export default function FinanceDashboard() {
             </div>
 
             {/* Expenses by Category */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <div className="bg-card border border-border rounded-2xl p-5">
               <div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <TrendingDown className="h-4 w-4 text-red-500" /> المصاريف حسب الفئة
               </div>
               {expCats.length === 0
-                ? <div className="text-center text-gray-400 text-sm py-6">لا توجد مصاريف مسجّلة</div>
+                ? <div className="text-center text-muted-foreground text-sm py-6">لا توجد مصاريف مسجّلة</div>
                 : <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
                       <Pie data={expCats} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
@@ -225,7 +225,7 @@ export default function FinanceDashboard() {
           {/* Invoice Status + Recent Tx */}
           <div className="grid md:grid-cols-2 gap-5">
             {/* Invoice quick status */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <div className="bg-card border border-border rounded-2xl p-5">
               <div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <FileText className="h-4 w-4 text-blue-600" /> حالة الفواتير
               </div>
@@ -242,28 +242,28 @@ export default function FinanceDashboard() {
                       <span className={`text-xs font-medium text-${s.color}-700`}>{s.label}</span>
                     </div>
                     <div className={`text-2xl font-bold text-${s.color}-700`}>{s.value}</div>
-                    {s.amount > 0 && <div className="text-xs text-gray-500 mt-0.5">{SAR(s.amount)}</div>}
+                    {s.amount > 0 && <div className="text-xs text-muted-foreground mt-0.5">{SAR(s.amount)}</div>}
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Recent Transactions */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <div className="bg-card border border-border rounded-2xl p-5">
               <div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-violet-600" /> آخر الحركات المالية
               </div>
               <div className="space-y-2">
-                {recentTx.length === 0 && <div className="text-xs text-gray-400 text-center py-4">لا توجد حركات</div>}
+                {recentTx.length === 0 && <div className="text-xs text-muted-foreground text-center py-4">لا توجد حركات</div>}
                 {recentTx.map((tx: any) => (
                   <div key={tx.id} className="flex items-center gap-2 py-1 border-b border-gray-50 last:border-0">
                     <span className="text-base shrink-0">{GW_ICON[tx.gateway] ?? "💰"}</span>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-medium text-gray-800 truncate">{tx.client_name ?? tx.description ?? "معاملة"}</div>
-                      <div className="text-xs text-gray-400">{new Date(tx.created_at).toLocaleDateString("ar-SA")}</div>
+                      <div className="text-xs text-muted-foreground">{new Date(tx.created_at).toLocaleDateString("ar-SA")}</div>
                     </div>
                     <div className="text-sm font-semibold text-emerald-700 shrink-0">{SAR(tx.amount)}</div>
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_STYLE[tx.status] ?? "bg-gray-100 text-gray-500"}`}>{tx.status}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_STYLE[tx.status] ?? "bg-gray-100 text-muted-foreground"}`}>{tx.status}</span>
                   </div>
                 ))}
               </div>
@@ -275,7 +275,7 @@ export default function FinanceDashboard() {
       {/* ════════════ CASHFLOW ════════════ */}
       {tab === "cashflow" && (
         <div className="space-y-5">
-          {cashflowQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ تحليل التدفق النقدي…</div>}
+          {cashflowQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm">جارٍ تحليل التدفق النقدي…</div>}
           {cf && (
             <>
               {/* Summary */}
@@ -285,10 +285,10 @@ export default function FinanceDashboard() {
                   { label: "إجمالي المصاريف",   value: cf.totals.expenses, color: "red" },
                   { label: "صافي التدفق",        value: cf.totals.net,      color: cf.totals.net >= 0 ? "blue" : "red" },
                 ].map((m, i) => (
-                  <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5 text-center">
-                    <div className="text-xs text-gray-500 mb-2">{m.label}</div>
+                  <div key={i} className="bg-card border border-border rounded-2xl p-5 text-center">
+                    <div className="text-xs text-muted-foreground mb-2">{m.label}</div>
                     <div className={`text-xl font-bold text-${m.color}-600`}>{SAR(m.value)}</div>
-                    <div className="flex items-center justify-center gap-1 mt-1 text-xs text-gray-400">
+                    <div className="flex items-center justify-center gap-1 mt-1 text-xs text-muted-foreground">
                       {cf.trend === "up" ? <TrendingUp className="h-3 w-3 text-emerald-500" /> : cf.trend === "down" ? <TrendingDown className="h-3 w-3 text-red-500" /> : <Minus className="h-3 w-3" />}
                       اتجاه {cf.trend === "up" ? "صاعد" : cf.trend === "down" ? "هابط" : "مستقر"}
                     </div>
@@ -297,7 +297,7 @@ export default function FinanceDashboard() {
               </div>
 
               {/* Bar Chart */}
-              <div className="bg-white border border-gray-200 rounded-2xl p-5">
+              <div className="bg-card border border-border rounded-2xl p-5">
                 <div className="font-semibold text-gray-800 mb-5">التدفق النقدي الشهري</div>
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={cf.cashflow} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
@@ -313,7 +313,7 @@ export default function FinanceDashboard() {
               </div>
 
               {/* Net Flow Area */}
-              <div className="bg-white border border-gray-200 rounded-2xl p-5">
+              <div className="bg-card border border-border rounded-2xl p-5">
                 <div className="font-semibold text-gray-800 mb-5">صافي التدفق الشهري</div>
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={cf.cashflow}>
@@ -333,11 +333,11 @@ export default function FinanceDashboard() {
               </div>
 
               {/* Monthly Table */}
-              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 font-semibold text-gray-800 text-sm">تفصيل شهري</div>
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-border/50 font-semibold text-gray-800 text-sm">تفصيل شهري</div>
                 <div className="overflow-x-auto"><table className="w-full text-sm min-w-[380px]">
-                  <thead className="bg-gray-50">
-                    <tr className="text-xs text-gray-500">
+                  <thead className="bg-muted/30">
+                    <tr className="text-xs text-muted-foreground">
                       <th className="text-right px-5 py-2">الشهر</th>
                       <th className="text-right py-2">الإيرادات</th>
                       <th className="text-right py-2">المصاريف</th>
@@ -346,7 +346,7 @@ export default function FinanceDashboard() {
                   </thead>
                   <tbody>
                     {cf.cashflow.map((row: any) => (
-                      <tr key={row.month} className="border-t border-gray-50 hover:bg-gray-50">
+                      <tr key={row.month} className="border-t border-gray-50 hover:bg-muted/30">
                         <td className="px-5 py-2.5 font-medium text-gray-700">{row.label}</td>
                         <td className="py-2.5 text-emerald-700 font-semibold">{SAR(row.revenue)}</td>
                         <td className="py-2.5 text-red-600">{SAR(row.expenses)}</td>
@@ -366,7 +366,7 @@ export default function FinanceDashboard() {
       {/* ════════════ INVOICES ════════════ */}
       {tab === "invoices" && (
         <div className="space-y-5">
-          {invoicesQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ التحميل…</div>}
+          {invoicesQ.isLoading && <div className="p-8 text-center text-muted-foreground text-sm">جارٍ التحميل…</div>}
           {invoicesQ.data && (() => {
             const d = invoicesQ.data;
             const byStatus: any[] = d.byStatus ?? [];
@@ -384,10 +384,10 @@ export default function FinanceDashboard() {
               <>
                 {/* Donut + Monthly */}
                 <div className="grid md:grid-cols-2 gap-5">
-                  <div className="bg-white border border-gray-200 rounded-2xl p-5">
+                  <div className="bg-card border border-border rounded-2xl p-5">
                     <div className="font-semibold text-gray-800 mb-4">توزيع الفواتير</div>
                     {byStatus.length === 0
-                      ? <div className="text-center text-gray-400 text-sm py-6">لا توجد فواتير</div>
+                      ? <div className="text-center text-muted-foreground text-sm py-6">لا توجد فواتير</div>
                       : <ResponsiveContainer width="100%" height={220}>
                           <PieChart>
                             <Pie data={byStatus.map(r => ({ name: statusLabel[r.status] ?? r.status, value: Number(r.count), amount: Number(r.amount) }))}
@@ -401,10 +401,10 @@ export default function FinanceDashboard() {
                     }
                   </div>
 
-                  <div className="bg-white border border-gray-200 rounded-2xl p-5">
+                  <div className="bg-card border border-border rounded-2xl p-5">
                     <div className="font-semibold text-gray-800 mb-4">الفواتير الشهرية</div>
                     {monthly.length === 0
-                      ? <div className="text-center text-gray-400 text-sm py-6">لا توجد بيانات</div>
+                      ? <div className="text-center text-muted-foreground text-sm py-6">لا توجد بيانات</div>
                       : <ResponsiveContainer width="100%" height={220}>
                           <BarChart data={monthly.map(r => ({ label: r.month, count: Number(r.count), amount: Number(r.amount) }))}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -422,7 +422,7 @@ export default function FinanceDashboard() {
 
                 {/* Overdue List */}
                 {overdue.length > 0 && (
-                  <div className="bg-white border border-red-200 rounded-2xl overflow-hidden">
+                  <div className="bg-card border border-red-500/30 rounded-2xl overflow-hidden">
                     <div className="px-5 py-4 border-b border-red-100 flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-red-500" />
                       <span className="font-semibold text-red-700 text-sm">فواتير تجاوزت تاريخ الاستحقاق ({overdue.length})</span>
@@ -465,7 +465,7 @@ export default function FinanceDashboard() {
       {/* ════════════ INSIGHTS ════════════ */}
       {tab === "insights" && (
         <div className="space-y-4">
-          <div className="bg-white border border-gray-200 rounded-2xl p-6">
+          <div className="bg-card border border-border rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-5">
               <Lightbulb className="h-5 w-5 text-amber-500" />
               <span className="font-semibold text-gray-800">الرؤى المالية التلقائية</span>
@@ -491,7 +491,7 @@ export default function FinanceDashboard() {
           </div>
 
           {/* Financial ratios */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-6">
+          <div className="bg-card border border-border rounded-2xl p-6">
             <div className="font-semibold text-gray-800 mb-4">المؤشرات المالية الرئيسية</div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {[
@@ -519,9 +519,9 @@ export default function FinanceDashboard() {
                 },
               ].map((r, i) => (
                 <div key={i} className={`p-4 rounded-xl border ${r.good ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"}`}>
-                  <div className="text-xs text-gray-500 mb-1">{r.label}</div>
+                  <div className="text-xs text-muted-foreground mb-1">{r.label}</div>
                   <div className={`text-2xl font-bold ${r.good ? "text-emerald-700" : "text-red-600"}`}>{r.value}</div>
-                  <div className="text-xs text-gray-400 mt-1">{r.desc}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{r.desc}</div>
                 </div>
               ))}
             </div>

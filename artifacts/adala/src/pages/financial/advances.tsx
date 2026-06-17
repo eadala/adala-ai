@@ -156,7 +156,7 @@ export default function Advances() {
             <div className="space-y-3 py-2">
               <div><Label className="text-xs text-muted-foreground">اسم الموظف *</Label><Input value={form.employeeName??""} onChange={e=>set("employeeName",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-xs text-muted-foreground">المبلغ (ر.س) *</Label><Input type="number" value={form.amount??""} onChange={e=>set("amount",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
+                <div><Label className="text-xs text-muted-foreground">المبلغ (ر.س) *</Label><Input type="number" min="0" value={form.amount??""} onChange={e=>set("amount",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
                 <div><Label className="text-xs text-muted-foreground">أقساط السداد (شهر)</Label><Input type="number" value={form.repaymentMonths??1} onChange={e=>set("repaymentMonths",parseInt(e.target.value))} className="bg-background/50 border-border mt-1 text-sm"/></div>
               </div>
               <div><Label className="text-xs text-muted-foreground">الغرض من السلفة *</Label><Input value={form.purpose??""} onChange={e=>set("purpose",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>

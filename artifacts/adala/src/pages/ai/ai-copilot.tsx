@@ -107,7 +107,7 @@ function IntelligenceCard({ intel }: { intel: any }) {
         </div>
       )}
       {intel.recommendedStrategy && (
-        <div className="bg-white rounded-xl p-3 text-xs text-gray-700 border border-blue-100">
+        <div className="bg-card rounded-xl p-3 text-xs text-muted-foreground border border-blue-200/50">
           <div className="font-semibold text-blue-700 mb-1">💡 الاستراتيجية</div>
           {intel.recommendedStrategy}
         </div>
@@ -246,7 +246,7 @@ export default function AICopilotPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] bg-gray-50" dir="rtl">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
+      <div className="bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
             <Brain className="h-5 w-5 text-white" />
@@ -276,7 +276,7 @@ export default function AICopilotPage() {
       </div>
 
       {/* Quick Commands */}
-      <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 overflow-x-auto shrink-0 scrollbar-hide">
+      <div className="bg-card border-b border-border/50 px-4 py-2 flex gap-2 overflow-x-auto shrink-0 scrollbar-hide">
         {QUICK_COMMANDS.map((cmd) => (
           <button key={cmd.label} onClick={() => sendMessage(cmd.prompt)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200
@@ -298,7 +298,7 @@ export default function AICopilotPage() {
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
                 <Bot className="h-4 w-4 text-white" />
               </div>
-              <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+              <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
                 <div className="flex gap-1 items-center h-5">
                   <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
                   <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -312,7 +312,7 @@ export default function AICopilotPage() {
       </div>
 
       {/* Input */}
-      <div className="bg-white border-t border-gray-200 px-4 md:px-8 py-4 shrink-0">
+      <div className="bg-card border-t border-border px-4 md:px-8 py-4 shrink-0">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-end gap-3 bg-gray-50 border border-gray-200 rounded-2xl p-3
             focus-within:border-blue-400 focus-within:bg-white transition">

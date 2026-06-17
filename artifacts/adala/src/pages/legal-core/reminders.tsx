@@ -178,7 +178,7 @@ export default function RemindersPage() {
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(r)}>
                             <Edit3 className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-300" onClick={() => delMut.mutate(r.id)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-300" onClick={() => { if (window.confirm(tx(`حذف التذكير "${r.title}"؟`, `Delete reminder "${r.title}"?`))) delMut.mutate(r.id); }}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>

@@ -98,7 +98,7 @@ export default function PreventionPage() {
     : "يعمل بصحة جيدة";
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 rtl" dir="rtl">
+    <div className="min-h-screen bg-muted/30 p-6 rtl" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -112,7 +112,7 @@ export default function PreventionPage() {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={refresh}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 hover:bg-gray-50 transition">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border hover:bg-muted/50 transition">
             <RefreshCw className="h-3 w-3" /> تحديث
           </button>
           <button onClick={() => checkMut.mutate()} disabled={checkMut.isPending}
@@ -144,7 +144,7 @@ export default function PreventionPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-white border border-gray-200 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-6 bg-card border border-border rounded-xl p-1 w-fit">
         {TAB_ITEMS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
@@ -165,7 +165,7 @@ export default function PreventionPage() {
               { label: "معدل الأخطاء", value: `${((metrics.errorRate ?? 0) * 100).toFixed(1)}%`, icon: Activity, warn: (metrics.errorRate ?? 0) > 0.05 },
               { label: "فشل Webhooks", value: `${metrics.webhookFailures ?? 0}`, icon: CreditCard, warn: (metrics.webhookFailures ?? 0) >= 5 },
             ].map((m, i) => (
-              <div key={i} className={`bg-white border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-gray-200"}`}>
+              <div key={i} className={`bg-card border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-border"}`}>
                 <div className="flex items-center gap-2 mb-2">
                   <m.icon className={`h-4 w-4 ${m.warn ? "text-orange-500" : "text-gray-400"}`} />
                   <span className="text-xs text-gray-500">{m.label}</span>
@@ -177,7 +177,7 @@ export default function PreventionPage() {
           </div>
 
           {/* Circuit Breakers summary */}
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-gray-100 flex items-center gap-2">
               <Zap className="h-4 w-4 text-indigo-500" />
               <span className="font-semibold text-gray-800 text-sm">Circuit Breakers</span>
@@ -189,7 +189,7 @@ export default function PreventionPage() {
               {circuits.map((c: any) => (
                 <div key={c.name} className="px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${STATE_COLORS[c.state] ?? "text-gray-600 bg-gray-50 border-gray-200"}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${STATE_COLORS[c.state] ?? "text-gray-600 bg-muted/30 border-border"}`}>
                       {c.state}
                     </span>
                     <span className="text-sm font-medium text-gray-800 capitalize">{c.name}</span>
@@ -210,7 +210,7 @@ export default function PreventionPage() {
 
           {/* Triggered rules */}
           {triggered.length > 0 && (
-            <div className="bg-white border border-orange-200 rounded-2xl overflow-hidden">
+            <div className="bg-card border border-orange-400/30 rounded-2xl overflow-hidden">
               <div className="p-4 border-b border-orange-100 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-orange-500" />
                 <span className="font-semibold text-gray-800 text-sm">قواعد مُفعَّلة الآن ({triggered.length})</span>
@@ -258,8 +258,8 @@ export default function PreventionPage() {
             const c = circuits.find((x: any) => x.name === name);
             const state: string = c?.state ?? "CLOSED";
             return (
-              <div key={name} className={`bg-white border rounded-2xl p-5 flex items-center justify-between
-                ${state === "OPEN" ? "border-red-300" : state === "HALF_OPEN" ? "border-amber-300" : "border-gray-200"}`}>
+              <div key={name} className={`bg-card border rounded-2xl p-5 flex items-center justify-between
+                ${state === "OPEN" ? "border-red-300" : state === "HALF_OPEN" ? "border-amber-300" : "border-border"}`}>
                 <div className="flex items-center gap-4">
                   <div className={`w-3 h-3 rounded-full ${state === "CLOSED" ? "bg-emerald-500" : state === "OPEN" ? "bg-red-500" : "bg-amber-400"}`} />
                   <div>
@@ -296,8 +296,8 @@ export default function PreventionPage() {
             const isTriggered = triggered.some((t: any) => t.ruleId === rule.id);
             return (
               <div key={rule.id}
-                className={`bg-white border rounded-2xl p-5 flex items-center justify-between
-                  ${isTriggered ? "border-orange-300 bg-orange-50/30" : "border-gray-200"}`}>
+                className={`bg-card border rounded-2xl p-5 flex items-center justify-between
+                  ${isTriggered ? "border-orange-300 bg-orange-50/30" : "border-border"}`}>
                 <div className="flex items-start gap-4">
                   <div className="flex flex-col items-center gap-1">
                     <span className="text-xs font-mono text-gray-400">{rule.id}</span>
@@ -327,7 +327,7 @@ export default function PreventionPage() {
 
       {/* ── Events Tab ── */}
       {tab === "events" && (
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-gray-500" />
@@ -346,7 +346,7 @@ export default function PreventionPage() {
             {(eventsQ.data?.events ?? []).map((ev: any) => {
               const meta = ev.metadata ?? {};
               return (
-                <div key={ev.id} className="px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
+                <div key={ev.id} className="px-4 py-3 hover:bg-muted/50 flex items-start gap-3">
                   <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0
                     ${ev.severity === "critical" ? "bg-red-500"
                       : ev.severity === "high" ? "bg-orange-400"

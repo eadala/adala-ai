@@ -738,7 +738,7 @@ export default function OfficeManagement() {
                     onClick={() => { setEditSvcDialog(s); setEditSvcForm({ name: s.name, description: s.description ?? "", price: s.price?.toString() ?? "", isCustomQuote: s.isCustomQuote ?? false, category: s.category ?? "استشارات", deliveryDays: s.deliveryDays?.toString() ?? "1" }); }}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteSvc.mutate(s.id)}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => { if (window.confirm("هل تريد حذف هذه الخدمة؟")) deleteSvc.mutate(s.id); }}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -763,7 +763,7 @@ export default function OfficeManagement() {
                     {m.specialties && <div className="text-[10px] text-muted-foreground/70 mt-0.5">{m.specialties}</div>}
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteTeam.mutate(m.id)}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => { if (window.confirm(`هل تريد إزالة "${m.name}" من الفريق؟`)) deleteTeam.mutate(m.id); }}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </CardContent>
@@ -793,7 +793,7 @@ export default function OfficeManagement() {
                     </Button>
                   )}
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400"
-                    onClick={() => deleteReview.mutate(r.id)}>
+                    onClick={() => { if (window.confirm("هل تريد حذف هذا التقييم؟")) deleteReview.mutate(r.id); }}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -838,7 +838,7 @@ export default function OfficeManagement() {
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400"
-                        onClick={() => deleteArticle.mutate(a.id)}>
+                        onClick={() => { if (window.confirm("هل تريد حذف هذا المقال نهائياً؟")) deleteArticle.mutate(a.id); }}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>

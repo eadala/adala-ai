@@ -160,7 +160,7 @@ export default function MonitoringPage() {
     : status === "degraded" ? "أداء متدهور" : status === "critical" ? "حالة حرجة" : "جارٍ الفحص…";
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 rtl" dir="rtl">
+    <div className="min-h-screen bg-muted/30 p-6 rtl" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -177,12 +177,12 @@ export default function MonitoringPage() {
             onClick={() => setAutoRefresh(v => !v)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition
               ${autoRefresh ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                           : "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                           : "bg-gray-100 text-gray-500 border-border"}`}>
             {autoRefresh ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
             {autoRefresh ? "تحديث تلقائي" : "إيقاف التحديث"}
           </button>
           <button onClick={refresh}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 hover:bg-gray-50 transition">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border hover:bg-muted/50 transition">
             <RefreshCw className="h-3 w-3" /> تحديث
           </button>
           <button
@@ -204,7 +204,7 @@ export default function MonitoringPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-white border border-gray-200 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-6 bg-card border border-border rounded-xl p-1 w-fit">
         {TAB_ITEMS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
@@ -219,7 +219,7 @@ export default function MonitoringPage() {
         <div className="space-y-5">
           {/* Score + Status */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 flex items-center gap-6">
+            <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-6">
               <ScoreRing score={score} />
               <div>
                 <div className="text-xs text-gray-500 mb-1">صحة النظام</div>
@@ -228,7 +228,7 @@ export default function MonitoringPage() {
               </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-3">
+            <div className="bg-card border border-border rounded-2xl p-6 space-y-3">
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">فحوصات النظام</div>
               {Object.entries(checks).map(([k, v]: any) => (
                 <div key={k} className="flex items-center justify-between">
@@ -244,7 +244,7 @@ export default function MonitoringPage() {
               ))}
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-3">
+            <div className="bg-card border border-border rounded-2xl p-6 space-y-3">
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">المقاييس الآنية</div>
               {metrics && (
                 <>
@@ -269,7 +269,7 @@ export default function MonitoringPage() {
 
           {/* Anomalies */}
           {anomalies.length > 0 && (
-            <div className="bg-white border border-orange-200 rounded-2xl p-5">
+            <div className="bg-card border border-orange-400/30 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <AlertTriangle className="h-4 w-4 text-orange-500" />
                 <span className="font-semibold text-gray-800">شذوذات مكتشفة ({anomalies.length})</span>
@@ -307,7 +307,7 @@ export default function MonitoringPage() {
 
       {/* ── Events Tab ── */}
       {tab === "events" && (
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Terminal className="h-4 w-4 text-gray-500" />
@@ -323,7 +323,7 @@ export default function MonitoringPage() {
               <div className="p-8 text-center text-gray-400 text-sm">لا توجد أحداث بعد — شغّل الإصلاح الذاتي أو محاكاة الأخطاء</div>
             )}
             {(eventsQ.data?.events ?? []).map((ev: any) => (
-              <div key={ev.id} className="p-4 hover:bg-gray-50 transition flex items-start gap-3">
+              <div key={ev.id} className="p-4 hover:bg-muted/50 transition flex items-start gap-3">
                 <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0
                   ${ev.fix_success ? "bg-emerald-500" :
                     ev.fix_success === false ? "bg-red-500" : "bg-blue-400"}`} />
@@ -372,7 +372,7 @@ export default function MonitoringPage() {
             { label: "ذاكرة مستخدمة", value: `${Math.round(metrics.memory.used / 1024 / 1024)}MB`, icon: Cpu, color: "violet" },
             { label: "صحة DB", value: metrics.dbHealth ? "متصل" : "منقطع", icon: Database, color: "green", warn: !metrics.dbHealth },
           ].map((m, i) => (
-            <div key={i} className={`bg-white border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-gray-200"}`}>
+            <div key={i} className={`bg-card border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-border"}`}>
               <div className="flex items-center gap-2 mb-3">
                 <m.icon className={`h-4 w-4 text-${m.color}-500`} />
                 <span className="text-xs text-gray-500">{m.label}</span>
@@ -400,7 +400,7 @@ export default function MonitoringPage() {
                     { label: "صفوف Ledger", value: d.ledger?.rows ?? 0, icon: Database, color: "purple" },
                     { label: "جلسات مكتملة", value: d.ledger?.completedSessions ?? 0, icon: CheckCircle2, color: "teal" },
                   ].map((m, i) => (
-                    <div key={i} className={`bg-white border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-gray-200"}`}>
+                    <div key={i} className={`bg-card border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-border"}`}>
                       <div className="flex items-center gap-2 mb-2">
                         <m.icon className={`h-4 w-4 text-${m.color}-500`} />
                         <span className="text-xs text-gray-500">{m.label}</span>
@@ -421,7 +421,7 @@ export default function MonitoringPage() {
                 </div>
                 {/* Events last 24h */}
                 {(d.last24h ?? []).length > 0 && (
-                  <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                  <div className="bg-card border border-border rounded-2xl overflow-hidden">
                     <div className="p-4 border-b border-gray-100 flex items-center gap-2">
                       <CreditCard className="h-4 w-4 text-gray-500" />
                       <span className="font-semibold text-gray-800 text-sm">أحداث آخر 24 ساعة</span>
@@ -459,7 +459,7 @@ export default function MonitoringPage() {
                     { label: "سجلات يتيمة", value: d.totalOrphans, icon: AlertCircle, color: d.totalOrphans > 0 ? "orange" : "emerald", warn: d.totalOrphans > 0 },
                     { label: "حالة السلامة", value: d.health === "green" ? "سليم" : d.health === "yellow" ? "تحذير" : "خطر", icon: ShieldCheck, color: d.health === "green" ? "emerald" : d.health === "yellow" ? "orange" : "red" },
                   ].map((m, i) => (
-                    <div key={i} className={`bg-white border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-gray-200"}`}>
+                    <div key={i} className={`bg-card border rounded-2xl p-5 ${m.warn ? "border-orange-300" : "border-border"}`}>
                       <div className="flex items-center gap-2 mb-2">
                         <m.icon className={`h-4 w-4 text-${m.color}-500`} />
                         <span className="text-xs text-gray-500">{m.label}</span>
@@ -469,7 +469,7 @@ export default function MonitoringPage() {
                   ))}
                 </div>
                 {/* Orphan breakdown */}
-                <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                <div className="bg-card border border-border rounded-2xl overflow-hidden">
                   <div className="p-4 border-b border-gray-100 flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4 text-gray-500" />
                     <span className="font-semibold text-gray-800 text-sm">تفاصيل السجلات اليتيمة</span>
@@ -505,7 +505,7 @@ export default function MonitoringPage() {
       {/* ── Alerts Tab ── */}
       {tab === "alerts" && (
         <div className="space-y-4">
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bell className="h-4 w-4 text-gray-500" />
@@ -522,7 +522,7 @@ export default function MonitoringPage() {
                 </div>
               )}
               {(alertsLogQ.data?.alerts ?? []).map((al: any) => (
-                <div key={al.id} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50">
+                <div key={al.id} className="px-4 py-3 flex items-center justify-between hover:bg-muted/50">
                   <div className="flex items-center gap-3">
                     <SeverityChip s={al.severity} />
                     <span className="text-sm text-gray-800">{al.message}</span>
@@ -554,7 +554,7 @@ export default function MonitoringPage() {
             { label: "محاكاة معدل أخطاء عالٍ", key: "highErrorRate", icon: "🔴", desc: "يُضخ 30 طلب فاشل" },
             { label: "محاكاة تأخر DB", key: "dbLatency", icon: "🐌", desc: "يُسجل تحذير تأخر" },
           ].map(sim => (
-            <div key={sim.key} className="bg-white border border-gray-200 rounded-2xl p-5 flex items-center justify-between">
+            <div key={sim.key} className="bg-card border border-border rounded-2xl p-5 flex items-center justify-between">
               <div className="flex items-start gap-3">
                 <span className="text-2xl">{sim.icon}</span>
                 <div>
@@ -570,7 +570,7 @@ export default function MonitoringPage() {
               </button>
             </div>
           ))}
-          <div className="bg-white border border-gray-200 rounded-2xl p-5 flex items-center justify-between">
+          <div className="bg-card border border-border rounded-2xl p-5 flex items-center justify-between">
             <div className="flex items-start gap-3">
               <span className="text-2xl">🔄</span>
               <div>

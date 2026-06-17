@@ -212,7 +212,7 @@ export default function Tasks() {
               )}
             </div>
             <button
-              onClick={e => { e.stopPropagation(); deleteMutation.mutate(task.id); }}
+              onClick={e => { e.stopPropagation(); if (window.confirm("هل تريد حذف هذه المهمة؟")) deleteMutation.mutate(task.id); }}
               className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -392,7 +392,7 @@ export default function Tasks() {
                             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEdit(task)}>
                               <Edit2 className="h-3.5 w-3.5" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteMutation.mutate(task.id)}>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => { if (window.confirm("هل تريد حذف هذه المهمة؟")) deleteMutation.mutate(task.id); }}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>

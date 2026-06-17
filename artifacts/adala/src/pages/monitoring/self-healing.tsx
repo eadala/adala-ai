@@ -75,7 +75,7 @@ export default function SelfHealingPage() {
   const bySev = d.bySeverity ?? {};
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 rtl" dir="rtl">
+    <div className="min-h-screen bg-muted/30 p-6 rtl" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -93,7 +93,7 @@ export default function SelfHealingPage() {
             <Zap className="h-4 w-4" /> {runMut.isPending ? "جارٍ الفحص…" : "تشغيل دورة الإصلاح"}
           </button>
           <button onClick={() => qc.invalidateQueries({ queryKey: ["heal-status"] })}
-            className="p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition">
+            className="p-2 rounded-lg bg-card border border-border hover:bg-muted/50 transition">
             <RefreshCw className="h-4 w-4 text-gray-500" />
           </button>
         </div>
@@ -113,7 +113,7 @@ export default function SelfHealingPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-white border border-gray-200 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-6 bg-card border border-border rounded-xl p-1 w-fit">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
@@ -141,7 +141,7 @@ export default function SelfHealingPage() {
                 { label: "ناجحة",          value: stats.success, color: "emerald" },
                 { label: "تجاوزت (يدوي)", value: stats.skipped, color: "amber"   },
               ].map((m, i) => (
-                <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5 text-center">
+                <div key={i} className="bg-card border border-border rounded-2xl p-5 text-center">
                   <div className={`text-2xl font-bold text-${m.color}-600`}>{m.value}</div>
                   <div className="text-xs text-gray-500 mt-1">{m.label}</div>
                 </div>
@@ -151,7 +151,7 @@ export default function SelfHealingPage() {
                 { label: "Throttle",   value: d.queryThrottleActive ? "مفعّل" : "غير مفعّل", color: d.queryThrottleActive ? "amber" : "emerald" },
                 { label: "وضع النظام", value: d.system?.mode ?? "—",                   color: d.system?.mode === "stable" ? "emerald" : "red" },
               ].map((m, i) => (
-                <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5 text-center">
+                <div key={i} className="bg-card border border-border rounded-2xl p-5 text-center">
                   <div className={`text-lg font-bold text-${m.color}-600`}>{m.value}</div>
                   <div className="text-xs text-gray-500 mt-1">{m.label}</div>
                 </div>
@@ -160,7 +160,7 @@ export default function SelfHealingPage() {
           </div>
 
           {/* Anomalies */}
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 font-semibold text-sm text-gray-800 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
               الأعطال المكتشفة الآن
@@ -195,7 +195,7 @@ export default function SelfHealingPage() {
 
           {/* Severity breakdown */}
           {Object.keys(bySev).length > 0 && (
-            <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <div className="bg-card border border-border rounded-2xl p-5">
               <div className="font-semibold text-sm text-gray-800 mb-4">توزيع الأحداث (24h) حسب الخطورة</div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {(["critical","high","medium","low"] as const).map(sev => (
@@ -218,9 +218,9 @@ export default function SelfHealingPage() {
             <div className="p-8 text-center text-gray-400 text-sm">لا سجلات بعد — شغّل دورة إصلاح أولاً</div>
           )}
           {(eventsQ.data?.events ?? []).map((ev: any) => (
-            <div key={ev.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div key={ev.id} className="bg-card border border-border rounded-xl overflow-hidden">
               <button onClick={() => setExpand(expand === ev.id ? null : ev.id)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-right">
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-right">
                 {RESULT_ICON(ev.action_result)}
                 <div className="flex-1 text-right">
                   <div className="text-sm text-gray-800 font-mono">{ev.anomaly_type}</div>
@@ -232,7 +232,7 @@ export default function SelfHealingPage() {
                 {expand === ev.id ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
               </button>
               {expand === ev.id && (
-                <div className="border-t border-gray-100 px-4 pb-3 pt-2 text-xs text-gray-500 space-y-1 bg-gray-50">
+                <div className="border-t border-gray-100 px-4 pb-3 pt-2 text-xs text-gray-500 space-y-1 bg-muted/30">
                   <div><strong>التفاصيل:</strong> {ev.detail}</div>
                   <div><strong>التحقق:</strong> {ev.verified ? "✅ تم التحقق" : "⏳ لم يتحقق بعد"}</div>
                   {ev.metrics && <div><strong>المقاييس:</strong> <span className="font-mono">{JSON.stringify(ev.metrics)}</span></div>}
@@ -270,7 +270,7 @@ export default function SelfHealingPage() {
             </div>
           )}
 
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 font-semibold text-sm text-gray-700">
               تاريخ الحالات المستقرة
             </div>
@@ -294,7 +294,7 @@ export default function SelfHealingPage() {
       {/* ══ Rules ══ */}
       {tab === "rules" && (
         <div className="space-y-4">
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 font-semibold text-sm text-gray-800">قواعد الإصلاح التلقائي</div>
             <div className="divide-y divide-gray-50">
               {(rulesQ.data?.rules ?? []).map((rule: any, i: number) => (

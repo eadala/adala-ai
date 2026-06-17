@@ -26,7 +26,7 @@ const ACTION_CONFIG: Record<string, { label: string; color: string; bg: string; 
   login:   { label: "دخول",  color: "text-blue-400",    bg: "bg-blue-500/15 border-blue-500/30",     icon: LogIn },
   view:    { label: "عرض",   color: "text-muted-foreground",    bg: "bg-muted/50 border-border",            icon: Eye },
   export:  { label: "تصدير", color: "text-purple-400",  bg: "bg-purple-500/15 border-purple-500/30", icon: Download },
-  generate:{ label: "توليد", color: "text-gold",        bg: "bg-gold/15 border-gold/30",             icon: FileText },
+  generate:{ label: "توليد", color: "text-primary",        bg: "bg-primary/15 border-primary/30",             icon: FileText },
 };
 const defaultAction = { label: "أخرى", color: "text-muted-foreground", bg: "bg-muted/50 border-border", icon: Activity };
 

@@ -736,7 +736,7 @@ export default function Contracts() {
                           {c.risk_score && <span className={cn("text-[11px] font-bold hidden sm:inline", riskColor(c.risk_score))}>{c.risk_score}/10</span>}
                           {c.compliance_score && <span className="text-[11px] font-bold text-emerald-400 hidden sm:inline">{c.compliance_score}٪</span>}
                           <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", sc.color, sc.bg)}>{sc.label}</span>
-                          <button onClick={e => { e.stopPropagation(); deleteMutation.mutate(c.id); }}
+                          <button onClick={e => { e.stopPropagation(); if (window.confirm("هل تريد حذف هذا العقد نهائياً؟")) deleteMutation.mutate(c.id); }}
                             className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-400/10 text-red-400 transition-all hidden sm:block">
                             <Trash2 className="h-3 w-3" />
                           </button>
@@ -929,7 +929,7 @@ export default function Contracts() {
                           <PenSquare className="h-3 w-3" /> فتح المحرر
                         </Button>
                         <Button variant="ghost" size="sm" className="h-6 text-[11px] gap-1 text-red-400 hover:text-red-300 hover:bg-red-400/10 px-2"
-                          onClick={e => { e.stopPropagation(); deleteMutation.mutate(c.id); }}>
+                          onClick={e => { e.stopPropagation(); if (window.confirm("هل تريد حذف هذا العقد نهائياً؟")) deleteMutation.mutate(c.id); }}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>

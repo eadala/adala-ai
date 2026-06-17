@@ -157,12 +157,12 @@ function RevenueChart({ invoices }: { invoices: Invoice[] }) {
               ]}
             />
             <Bar dataKey="total" fill="rgba(180,130,60,0.3)" radius={[4, 4, 0, 0]} name="total" />
-            <Bar dataKey="paid" fill="#b4823c" radius={[4, 4, 0, 0]} name="paid" />
+            <Bar dataKey="paid" fill="#1A56DB" radius={[4, 4, 0, 0]} name="paid" />
           </BarChart>
         </ResponsiveContainer>
         <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-2 rounded-sm bg-[#b4823c] inline-block" />محصّل
+            <span className="w-3 h-2 rounded-sm bg-primary inline-block" />محصّل
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-2 rounded-sm bg-[rgba(180,130,60,0.3)] inline-block" />إجمالي
@@ -215,7 +215,7 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 bg-[#b4823c] hover:bg-[#1E40AF] text-white">
+        <Button className="gap-2 bg-primary hover:bg-primary/90 text-white">
           <Plus className="h-4 w-4" />فاتورة جديدة
         </Button>
       </DialogTrigger>
@@ -300,7 +300,7 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
             <Separator />
             <div className="flex justify-between font-bold text-base">
               <span>الإجمالي</span>
-              <span className="text-[#b4823c] font-mono">{fmt(total)} ر.س</span>
+              <span className="text-primary font-mono">{fmt(total)} ر.س</span>
             </div>
           </div>
 
@@ -310,8 +310,8 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
               onChange={e => setNotes(e.target.value)} rows={2} />
           </div>
 
-          <Button className="w-full bg-[#b4823c] hover:bg-[#1E40AF] text-white"
-            onClick={() => create.mutate()} disabled={!title || create.isPending}>
+          <Button className="w-full bg-primary hover:bg-primary/90 text-white"
+            onClick={() => create.mutate()} disabled={!title || items.every(i => !i.description.trim()) || create.isPending}>
             {create.isPending
               ? <Loader2 className="h-4 w-4 animate-spin ml-2" />
               : <Receipt className="h-4 w-4 ml-2" />}
@@ -826,9 +826,9 @@ ${isPaid ? `<div class="watermark">PAID ✓</div>` : isOverdue ? `<div class="wa
 
         <div className="space-y-5 pt-5">
           {/* Amount */}
-          <div className="bg-[#b4823c]/10 border border-[#b4823c]/20 rounded-xl p-4 text-center">
+          <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 text-center">
             <p className="text-xs text-muted-foreground mb-1">المبلغ الإجمالي</p>
-            <p className="text-3xl font-bold text-[#b4823c] font-mono">{fmt(invoice.total)}</p>
+            <p className="text-3xl font-bold text-primary font-mono">{fmt(invoice.total)}</p>
             <p className="text-sm text-muted-foreground mt-0.5">ريال سعودي</p>
           </div>
 
@@ -884,7 +884,7 @@ ${isPaid ? `<div class="watermark">PAID ✓</div>` : isOverdue ? `<div class="wa
                   </tr>
                   <tr className="bg-muted/20">
                     <td colSpan={3} className="p-3 text-right font-bold text-sm">الإجمالي</td>
-                    <td className="p-3 text-left font-bold font-mono text-sm text-[#b4823c]">{fmt(invoice.total)}</td>
+                    <td className="p-3 text-left font-bold font-mono text-sm text-primary">{fmt(invoice.total)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -927,7 +927,7 @@ ${isPaid ? `<div class="watermark">PAID ✓</div>` : isOverdue ? `<div class="wa
             </div>
           ) : (
             invoice.status !== "paid" && invoice.status !== "cancelled" && (
-              <Button className="w-full gap-2 bg-[#b4823c] hover:bg-[#1E40AF] text-white"
+              <Button className="w-full gap-2 bg-primary hover:bg-primary/90 text-white"
                 onClick={generateLink} disabled={loadingLink}>
                 {loadingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
                 {loadingLink ? "جاري إنشاء رابط الدفع..." : "إنشاء رابط دفع Stripe"}
@@ -1127,7 +1127,7 @@ export default function Invoices() {
         </Button>
       ),
       cell: ({ getValue }) => (
-        <span className="font-mono text-sm font-semibold text-[#b4823c]">
+        <span className="font-mono text-sm font-semibold text-primary">
           {fmt(getValue() as number)} <span className="text-xs text-muted-foreground">ر.س</span>
         </span>
       ),
@@ -1205,7 +1205,7 @@ export default function Invoices() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-red-400 focus:text-red-400"
-                onClick={e => { e.stopPropagation(); deleteInv.mutate(inv.id); }}>
+                onClick={e => { e.stopPropagation(); if (window.confirm("هل تريد حذف الفاتورة نهائياً؟ لا يمكن التراجع عن هذا الإجراء.")) deleteInv.mutate(inv.id); }}>
                 <Trash2 className="h-4 w-4 ml-2" />حذف
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -1275,13 +1275,13 @@ export default function Invoices() {
           <RevenueChart invoices={allInvoices} />
         </div>
         <div className="space-y-3">
-          <Card className="border-[#b4823c]/20 bg-[#b4823c]/5">
+          <Card className="border-primary/20 bg-primary/5">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
-                <CheckCircle2 className="h-4 w-4 text-[#b4823c]" />
+                <CheckCircle2 className="h-4 w-4 text-primary" />
                 <span className="text-xs text-muted-foreground">الإيرادات المحصّلة</span>
               </div>
-              <p className="text-2xl font-bold text-[#b4823c] font-mono">{fmt(stats.revenue)}</p>
+              <p className="text-2xl font-bold text-primary font-mono">{fmt(stats.revenue)}</p>
               <p className="text-xs text-muted-foreground mt-0.5">ريال سعودي</p>
             </CardContent>
           </Card>

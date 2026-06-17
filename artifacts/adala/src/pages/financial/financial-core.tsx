@@ -648,7 +648,7 @@ export default function FinancialCore() {
                           )}
                           {(p.status === "pending" || p.status === "failed") && (
                             <Button size="sm" variant="ghost" className="text-xs h-7 text-rose-400"
-                              onClick={() => deletePayout.mutate(p.id)}>حذف</Button>
+                              onClick={() => { if (window.confirm("هل تريد حذف هذه المدفوعات؟")) deletePayout.mutate(p.id); }}>حذف</Button>
                           )}
                         </div>
                       </div>

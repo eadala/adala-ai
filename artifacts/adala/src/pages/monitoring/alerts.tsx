@@ -115,7 +115,7 @@ export default function AlertsPage() {
   const unacked = alerts.filter(a => !a.acknowledged).length;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 rtl" dir="rtl">
+    <div className="min-h-screen bg-muted/30 p-6 rtl" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -142,18 +142,18 @@ export default function AlertsPage() {
             </button>
           ) : (
             <button onClick={() => suppressMut.mutate(30)} disabled={suppressMut.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border text-gray-600 hover:bg-muted/50 transition">
               <VolumeX className="h-3 w-3" /> صامت 30 دقيقة
             </button>
           )}
           {unacked > 0 && (
             <button onClick={() => ackAllMut.mutate()} disabled={ackAllMut.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border text-gray-600 hover:bg-muted/50 transition">
               <CheckCheck className="h-3 w-3" /> اعتراف بالكل
             </button>
           )}
           <button onClick={refresh}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 hover:bg-gray-50 transition">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border hover:bg-muted/50 transition">
             <RefreshCw className="h-3 w-3" /> تحديث
           </button>
         </div>
@@ -168,7 +168,7 @@ export default function AlertsPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-white border border-gray-200 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-6 bg-card border border-border rounded-xl p-1 w-fit">
         {TAB_ITEMS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
@@ -186,7 +186,7 @@ export default function AlertsPage() {
         <div className="space-y-4">
           {/* Filters */}
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1">
+            <div className="flex gap-1 bg-card border border-border rounded-lg p-1">
               {["all", "critical", "high", "medium", "low"].map(s => (
                 <button key={s} onClick={() => setSeverityFilter(s)}
                   className={`px-3 py-1 rounded-md text-xs font-medium transition
@@ -197,12 +197,12 @@ export default function AlertsPage() {
             </div>
             <button onClick={() => setShowAcked(v => !v)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition
-                ${showAcked ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>
+                ${showAcked ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-border hover:bg-muted/50"}`}>
               <CheckCircle2 className="h-3 w-3" />
               {showAcked ? "إخفاء المعترَف بها" : "عرض المعترَف بها"}
             </button>
             <button onClick={() => trendMut.mutate()} disabled={trendMut.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-card border border-border text-gray-600 hover:bg-muted/50 transition">
               <TrendingUp className="h-3 w-3" />
               {trendMut.isPending ? "جارٍ الفحص…" : "فحص الاتجاهات"}
             </button>
@@ -211,7 +211,7 @@ export default function AlertsPage() {
           {/* Alert list */}
           {feedQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ التحميل…</div>}
           {visibleAlerts.length === 0 && !feedQ.isLoading && (
-            <div className="bg-white border border-gray-200 rounded-2xl p-10 flex flex-col items-center gap-3 text-center">
+            <div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center gap-3 text-center">
               <Bell className="h-10 w-10 text-gray-300" />
               <div className="font-semibold text-gray-500">لا توجد تنبيهات</div>
               <div className="text-xs text-gray-400">النظام يعمل بهدوء — ستظهر التنبيهات هنا فور حدوثها</div>
@@ -245,7 +245,7 @@ export default function AlertsPage() {
                 </div>
                 {!al.acknowledged && (
                   <button onClick={() => ackMut.mutate(al.id)} disabled={ackMut.isPending}
-                    className="shrink-0 px-2 py-1 rounded-lg text-xs bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 transition">
+                    className="shrink-0 px-2 py-1 rounded-lg text-xs bg-white border border-gray-300 text-gray-600 hover:bg-muted/50 transition">
                     اعتراف
                   </button>
                 )}
@@ -265,7 +265,7 @@ export default function AlertsPage() {
               { label: "مفاتيح إزالة التكرار", value: stats.dedupeKeys ?? 0, color: "indigo" },
               { label: "وضع صامت",         value: stats.suppressed ? "نشط" : "معطل", color: stats.suppressed ? "amber" : "emerald" },
             ].map((m, i) => (
-              <div key={i} className={`bg-white border rounded-2xl p-5 ${m.warn ? "border-red-300" : "border-gray-200"}`}>
+              <div key={i} className={`bg-card border rounded-2xl p-5 ${m.warn ? "border-red-300" : "border-border"}`}>
                 <div className="text-xs text-gray-500 mb-2">{m.label}</div>
                 <div className={`text-2xl font-bold ${m.warn ? "text-red-600" : "text-gray-900"}`}>{m.value}</div>
               </div>
@@ -274,7 +274,7 @@ export default function AlertsPage() {
 
           {/* Last Hour */}
           {stats.lastHour && (
-            <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <div className="bg-card border border-border rounded-2xl p-5">
               <div className="text-sm font-semibold text-gray-700 mb-4">آخر ساعة</div>
               <div className="grid grid-cols-4 gap-3">
                 {[
@@ -283,7 +283,7 @@ export default function AlertsPage() {
                   { label: "متوسطة", value: stats.lastHour.medium, color: "amber" },
                   { label: "منخفضة", value: stats.lastHour.low, color: "blue" },
                 ].map((m, i) => (
-                  <div key={i} className="text-center p-3 rounded-xl bg-gray-50">
+                  <div key={i} className="text-center p-3 rounded-xl bg-muted/30">
                     <div className={`text-2xl font-bold text-${m.color}-600`}>{m.value}</div>
                     <div className="text-xs text-gray-500 mt-1">{m.label}</div>
                   </div>
@@ -293,7 +293,7 @@ export default function AlertsPage() {
           )}
 
           {/* Test alert */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="bg-card border border-border rounded-2xl p-5">
             <div className="text-sm font-semibold text-gray-700 mb-4">اختبار التسليم</div>
             <div className="flex gap-2 flex-wrap">
               {["low", "medium", "high", "critical"].map(sev => (
@@ -312,12 +312,12 @@ export default function AlertsPage() {
           </div>
 
           {/* Suppress controls */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="bg-card border border-border rounded-2xl p-5">
             <div className="text-sm font-semibold text-gray-700 mb-4">وضع الصمت (Maintenance Window)</div>
             <div className="flex gap-2 flex-wrap">
               {[15, 30, 60, 120].map(min => (
                 <button key={min} onClick={() => suppressMut.mutate(min)} disabled={suppressMut.isPending}
-                  className="px-3 py-1.5 rounded-lg text-xs bg-white border border-gray-200 text-gray-600 hover:bg-amber-50 hover:border-amber-300 transition">
+                  className="px-3 py-1.5 rounded-lg text-xs bg-card border border-border text-gray-600 hover:bg-amber-50 hover:border-amber-300 transition">
                   {min < 60 ? `${min} دقيقة` : `${min / 60} ساعة`}
                 </button>
               ))}
@@ -369,8 +369,8 @@ export default function AlertsPage() {
                   const d = channel.data ?? {};
                   const active = d.configured && (d.activeCount > 0 || d.configured === true);
                   return (
-                    <div key={channel.key} className={`bg-white border rounded-2xl p-5 flex items-center justify-between
-                      ${active ? "border-gray-200" : "border-dashed border-gray-300"}`}>
+                    <div key={channel.key} className={`bg-card border rounded-2xl p-5 flex items-center justify-between
+                      ${active ? "border-border" : "border-dashed border-gray-300"}`}>
                       <div className="flex items-center gap-4">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center
                           ${active ? `bg-${channel.color}-50` : "bg-gray-100"}`}>
@@ -395,7 +395,7 @@ export default function AlertsPage() {
                         </div>
                         {channel.configLink && (
                           <a href={channel.configLink}
-                            className="px-3 py-1 rounded-lg text-xs bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+                            className="px-3 py-1 rounded-lg text-xs bg-card border border-border text-gray-600 hover:bg-muted/50 transition">
                             إعداد
                           </a>
                         )}
@@ -416,7 +416,7 @@ export default function AlertsPage() {
       {/* ── History Tab ── */}
       {tab === "history" && (
         <div className="space-y-4">
-          <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 w-fit">
+          <div className="flex gap-1 bg-card border border-border rounded-lg p-1 w-fit">
             {["all", "critical", "high", "medium", "low"].map(s => (
               <button key={s} onClick={() => setSeverityFilter(s)}
                 className={`px-3 py-1 rounded-md text-xs font-medium transition
@@ -425,14 +425,14 @@ export default function AlertsPage() {
               </button>
             ))}
           </div>
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="divide-y divide-gray-50 max-h-[540px] overflow-y-auto">
               {historyQ.isLoading && <div className="p-8 text-center text-gray-400 text-sm">جارٍ التحميل…</div>}
               {(historyQ.data?.history ?? []).length === 0 && !historyQ.isLoading && (
                 <div className="p-8 text-center text-gray-400 text-sm">لا توجد سجلات</div>
               )}
               {(historyQ.data?.history ?? []).map((ev: any) => (
-                <div key={ev.id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50">
+                <div key={ev.id} className="px-4 py-3 flex items-center gap-3 hover:bg-muted/50">
                   <span className="text-base">{SEV_ICON[ev.severity] ?? "⚪"}</span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-gray-800">{ev.message}</div>

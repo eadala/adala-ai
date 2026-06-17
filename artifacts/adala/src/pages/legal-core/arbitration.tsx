@@ -362,7 +362,7 @@ export default function Arbitration() {
               {filtered.map(c => (
                 <CaseCard key={c.id} c={c}
                   onClick={() => setSelectedCase(c.id === selectedCase?.id ? null : c)}
-                  onDelete={(id: string) => deleteMutation.mutate(id)} />
+                  onDelete={(id: string) => { if (window.confirm("هل تريد حذف هذه القضية نهائياً؟")) deleteMutation.mutate(id); }} />
               ))}
             </div>
           )}
