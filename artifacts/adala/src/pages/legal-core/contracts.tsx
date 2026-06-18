@@ -685,7 +685,7 @@ export default function Contracts() {
                   <div className="min-w-0">
                     <div className="text-base sm:text-xl font-black leading-tight" style={{ color: s.color }}>
                       {s.currency ? (s.value as number).toLocaleString("ar-SA", { maximumFractionDigits: 0 }) : s.value}
-                      {s.currency && <span className="text-[10px] font-normal mr-0.5 text-muted-foreground">ر.س</span>}
+                      {s.currency && <span className="text-[10px] font-normal me-0.5 text-muted-foreground">ر.س</span>}
                     </div>
                     <div className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{s.label}</div>
                   </div>
@@ -700,7 +700,7 @@ export default function Contracts() {
               <CardTitle className="text-sm flex items-center gap-2">
                 <Clock className="h-4 w-4 text-primary" />أحدث العقود
                 <Button size="sm" variant="ghost" className="mr-auto h-6 sm:h-7 text-xs" onClick={() => setActiveTab("list")}>
-                  عرض الكل <ChevronRight className="h-3 w-3 mr-0.5" />
+                  عرض الكل <ChevronRight className="h-3 w-3 me-0.5" />
                 </Button>
               </CardTitle>
             </CardHeader>
@@ -864,7 +864,7 @@ export default function Contracts() {
           <div className="flex gap-2 flex-wrap">
             <div className="relative flex-1 min-w-40">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input placeholder="بحث في العقود..." className="pr-9 h-8 text-xs sm:text-sm" value={search} onChange={e => setSearch(e.target.value)} />
+              <Input placeholder="بحث في العقود..." className="pe-9 h-8 text-xs sm:text-sm" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-28 sm:w-36 h-8 text-xs"><SelectValue /></SelectTrigger>

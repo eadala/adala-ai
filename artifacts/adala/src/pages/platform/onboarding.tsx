@@ -285,7 +285,7 @@ export default function OnboardingPage() {
                       value={officeName}
                       onChange={e => setOfficeName(e.target.value)}
                       placeholder="مثال: مكتب الأحمدي للمحاماة"
-                      className="text-base h-12 pl-10"
+                      className="text-base h-12 ps-10"
                       autoFocus
                     />
                     {officeName && (
@@ -463,7 +463,7 @@ export default function OnboardingPage() {
                         onChange={e => setInviteEmail(e.target.value)}
                         placeholder="colleague@lawfirm.com"
                         type="email"
-                        className="h-11 pl-10"
+                        className="h-11 ps-10"
                         dir="ltr"
                       />
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -518,7 +518,7 @@ export default function OnboardingPage() {
           <div className="flex items-center justify-between px-6 pb-5">
             {step > 0 && step < 3 ? (
               <Button variant="ghost" size="sm" onClick={goPrev} className="text-muted-foreground">
-                <ChevronLeft className="h-4 w-4 ml-1" />
+                <ChevronLeft className="h-4 w-4 ms-1" />
                 السابق
               </Button>
             ) : <div />}
@@ -530,7 +530,7 @@ export default function OnboardingPage() {
                 className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6"
               >
                 التالي
-                <span className="mr-1">←</span>
+                <span className="me-1">←</span>
               </Button>
             )}
 
@@ -541,7 +541,7 @@ export default function OnboardingPage() {
                 className="bg-violet-600 hover:bg-violet-700 text-white font-bold px-6"
               >
                 {submitting
-                  ? <><Loader2 className="h-4 w-4 ml-1 animate-spin" />جاري الإعداد…</>
+                  ? <><Loader2 className="h-4 w-4 ms-1 animate-spin" />جاري الإعداد…</>
                   : <>إنهاء الإعداد ✓</>}
               </Button>
             )}

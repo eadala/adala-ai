@@ -167,9 +167,9 @@ function KpiCard({
           )}
         </div>
         <div className="text-2xl font-bold tracking-tight mt-1">
-          {prefix && <span className="text-sm text-muted-foreground ml-1">{prefix}</span>}
+          {prefix && <span className="text-sm text-muted-foreground ms-1">{prefix}</span>}
           {typeof value === "number" ? fmt(value) : value}
-          {suffix && <span className="text-sm text-muted-foreground mr-1">{suffix}</span>}
+          {suffix && <span className="text-sm text-muted-foreground me-1">{suffix}</span>}
         </div>
         <div className="text-xs text-muted-foreground mt-1">{label}</div>
         {sub && <div className="text-xs mt-1" style={{ color }}>{sub}</div>}
@@ -262,7 +262,7 @@ function InviteDialog({ open, onClose, roles }: { open: boolean; onClose: () => 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>إلغاء</Button>
           <Button onClick={() => mut.mutate()} disabled={!email || mut.isPending}>
-            <Send className="h-4 w-4 ml-2" />
+            <Send className="h-4 w-4 ms-2" />
             {mut.isPending ? "جارٍ الإرسال..." : "إرسال الدعوة"}
           </Button>
         </DialogFooter>
@@ -469,11 +469,11 @@ export default function FirmAdmin() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 ml-1" />
+            <RefreshCw className="h-4 w-4 ms-1" />
             تحديث
           </Button>
           <Button size="sm" onClick={() => setInviteOpen(true)}>
-            <UserPlus className="h-4 w-4 ml-1" />
+            <UserPlus className="h-4 w-4 ms-1" />
             دعوة عضو
           </Button>
         </div>
@@ -736,7 +736,7 @@ export default function FirmAdmin() {
         <TabsContent value="team" className="mt-5 space-y-5">
           <SectionHeader title="أعضاء الفريق" desc="إدارة المحامين والمساعدين والصلاحيات">
             <Button size="sm" onClick={() => setInviteOpen(true)}>
-              <UserPlus className="h-4 w-4 ml-1.5" />
+              <UserPlus className="h-4 w-4 ms-1.5" />
               دعوة عضو
             </Button>
           </SectionHeader>
@@ -768,22 +768,22 @@ export default function FirmAdmin() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem onClick={() => changeRole(member.id, "admin")}>
-                            <Shield className="h-4 w-4 ml-2 text-primary" />تعيين كمدير
+                            <Shield className="h-4 w-4 ms-2 text-primary" />تعيين كمدير
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => changeRole(member.id, "lawyer")}>
-                            <Scale className="h-4 w-4 ml-2 text-blue-400" />تعيين كمحامٍ
+                            <Scale className="h-4 w-4 ms-2 text-blue-400" />تعيين كمحامٍ
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => changeRole(member.id, "paralegal")}>
-                            <FileText className="h-4 w-4 ml-2 text-emerald-400" />تعيين كمساعد
+                            <FileText className="h-4 w-4 ms-2 text-emerald-400" />تعيين كمساعد
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {member.status === "active" ? (
                             <DropdownMenuItem className="text-red-400" onClick={() => changeStatus(member.id, "inactive")}>
-                              <UserX className="h-4 w-4 ml-2" />تعطيل الحساب
+                              <UserX className="h-4 w-4 ms-2" />تعطيل الحساب
                             </DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem className="text-emerald-400" onClick={() => changeStatus(member.id, "active")}>
-                              <UserCheck className="h-4 w-4 ml-2" />تفعيل الحساب
+                              <UserCheck className="h-4 w-4 ms-2" />تفعيل الحساب
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -860,7 +860,7 @@ export default function FirmAdmin() {
                           <div className="flex items-center gap-1">
                             {inv.status === "pending" && (
                               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => resendInvite(inv.id)}>
-                                <RefreshCw className="h-3 w-3 ml-1" />إعادة
+                                <RefreshCw className="h-3 w-3 ms-1" />إعادة
                               </Button>
                             )}
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteInvite(inv.id)}>
@@ -1116,7 +1116,7 @@ export default function FirmAdmin() {
         <TabsContent value="roles" className="mt-5 space-y-5">
           <SectionHeader title="الأدوار والصلاحيات" desc="تحكم في ما يمكن لكل عضو فعله داخل المنصة">
             <Button size="sm" onClick={() => setRoleDialog({ open: true })}>
-              <Plus className="h-4 w-4 ml-1.5" />
+              <Plus className="h-4 w-4 ms-1.5" />
               دور جديد
             </Button>
           </SectionHeader>
@@ -1149,14 +1149,14 @@ export default function FirmAdmin() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setRoleDialog({ open: true, role })}>
-                          <Edit3 className="h-4 w-4 ml-2" />
+                          <Edit3 className="h-4 w-4 ms-2" />
                           {role.isSystem ? "عرض التفاصيل" : "تعديل"}
                         </DropdownMenuItem>
                         {!role.isSystem && (
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-400" onClick={() => deleteRole(role.id)}>
-                              <Trash2 className="h-4 w-4 ml-2" />حذف الدور
+                              <Trash2 className="h-4 w-4 ms-2" />حذف الدور
                             </DropdownMenuItem>
                           </>
                         )}
@@ -1197,7 +1197,7 @@ export default function FirmAdmin() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b" style={{ borderColor: "#E2E8F0" }}>
-                      <th className="text-right py-2 pr-2 font-semibold text-muted-foreground">الصلاحية</th>
+                      <th className="text-right py-2 pe-2 font-semibold text-muted-foreground">الصلاحية</th>
                       {roles.map(r => (
                         <th key={r.id} className="text-center py-2 px-3 font-semibold"
                           style={{ color: r.isSystem ? GOLD : "#A0ADB8" }}>
@@ -1215,7 +1215,7 @@ export default function FirmAdmin() {
                       "billing:view","billing:manage",
                     ].map(perm => (
                       <tr key={perm} className="border-b hover:bg-muted/20 transition-colors" style={{ borderColor: "#E2E8F030" }}>
-                        <td className="py-2 pr-2 font-mono text-muted-foreground">{perm}</td>
+                        <td className="py-2 pe-2 font-mono text-muted-foreground">{perm}</td>
                         {roles.map(r => (
                           <td key={r.id} className="text-center py-2">
                             {r.permissions.includes(perm)

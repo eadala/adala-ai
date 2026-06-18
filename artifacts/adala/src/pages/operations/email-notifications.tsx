@@ -100,7 +100,7 @@ export default function EmailNotificationsPage() {
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-64 text-muted-foreground">
-      <Loader2 className="h-5 w-5 animate-spin ml-2" /> جارٍ التحميل...
+      <Loader2 className="h-5 w-5 animate-spin ms-2" /> جارٍ التحميل...
     </div>
   );
 
@@ -159,7 +159,7 @@ export default function EmailNotificationsPage() {
               </div>
             </div>
             <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold mt-1">
-              {saveMut.isPending && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}
+              {saveMut.isPending && <Loader2 className="h-4 w-4 ms-1 animate-spin" />}
               حفظ الإعدادات
             </Button>
           </CardContent>
@@ -225,8 +225,8 @@ export default function EmailNotificationsPage() {
               variant="outline"
             >
               {runNowMut.isPending
-                ? <><Loader2 className="h-4 w-4 ml-1 animate-spin" /> جارٍ الفحص والإرسال...</>
-                : <><RefreshCw className="h-4 w-4 ml-1" /> تشغيل الآن</>}
+                ? <><Loader2 className="h-4 w-4 ms-1 animate-spin" /> جارٍ الفحص والإرسال...</>
+                : <><RefreshCw className="h-4 w-4 ms-1" /> تشغيل الآن</>}
             </Button>
             {!form.enabled && (
               <p className="text-[11px] text-muted-foreground mt-2 text-center">فعّل الإشعارات أولاً لتتمكن من التشغيل</p>

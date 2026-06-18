@@ -349,7 +349,7 @@ function OperatingCenter({
 
       {/* Items */}
       {open && (
-        <div className="mt-0.5 mb-1 space-y-0.5 pr-2 mr-4 border-r-2 border-dashed" style={{ borderColor: `${center.color}30` }}>
+        <div className="mt-0.5 mb-1 space-y-0.5 pe-2 me-4 border-r-2 border-dashed" style={{ borderColor: `${center.color}30` }}>
           {center.items.map((item) => {
             const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
             return (
@@ -399,7 +399,7 @@ function TrialBanner() {
         <span>
           {urgent ? "تجربتك المجانية تقترب من نهايتها — " : "فترة تجريبية مجانية — جميع الميزات مفعّلة"}
           {trialDaysLeft != null && (
-            <span className={`${urgent ? "" : "mr-1"} font-bold ${urgent ? "text-amber-900" : "text-blue-800"}`}>
+            <span className={`${urgent ? "" : "me-1"} font-bold ${urgent ? "text-amber-900" : "text-blue-800"}`}>
               {urgent && `تبقى `}{trialDaysLeft} {trialDaysLeft === 1 ? "يوم" : "أيام"}{urgent && " فقط"}
             </span>
           )}
@@ -605,7 +605,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <button
               onClick={() => signOut({ redirectUrl: basePath || "/" })}
               title="تسجيل الخروج"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-red-400 border border-red-500/20 bg-red-500/5 hover:bg-red-500/15 hover:border-red-500/40 hover:text-red-300 transition-all duration-150 mr-1 shrink-0"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-red-400 border border-red-500/20 bg-red-500/5 hover:bg-red-500/15 hover:border-red-500/40 hover:text-red-300 transition-all duration-150 me-1 shrink-0"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span>خروج</span>

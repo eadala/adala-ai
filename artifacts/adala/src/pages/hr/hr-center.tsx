@@ -556,7 +556,7 @@ export default function HRCenter() {
                           <td className="px-4 py-2 text-muted-foreground">{ev.period}</td>
                           <td className="px-4 py-2">
                             <span className={`font-bold ${sc.text}`}>{parseFloat(ev.performance_score).toFixed(0)}%</span>
-                            <span className="text-muted-foreground mr-1">— {sc.label}</span>
+                            <span className="text-muted-foreground me-1">— {sc.label}</span>
                           </td>
                         </tr>
                       );
@@ -681,8 +681,8 @@ export default function HRCenter() {
                         <td className="px-4 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{inc.period ?? "—"}</td>
                         <td className="px-4 py-2.5">
                           {inc.type === "bonus"
-                            ? <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30 bg-emerald-500/10"><TrendingUp className="h-3 w-3 ml-1" />مكافأة</Badge>
-                            : <Badge variant="outline" className="text-[10px] text-red-400 border-red-500/30 bg-red-500/10"><TrendingDown className="h-3 w-3 ml-1" />خصم</Badge>}
+                            ? <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30 bg-emerald-500/10"><TrendingUp className="h-3 w-3 ms-1" />مكافأة</Badge>
+                            : <Badge variant="outline" className="text-[10px] text-red-400 border-red-500/30 bg-red-500/10"><TrendingDown className="h-3 w-3 ms-1" />خصم</Badge>}
                         </td>
                         <td className="px-4 py-2.5">
                           <span className={`font-bold text-sm ${inc.type === "bonus" ? "text-emerald-400" : "text-red-400"}`}>
@@ -776,7 +776,7 @@ export default function HRCenter() {
                             <td className="px-4 py-3 text-orange-400">{fmt(emp.gosi)}</td>
                             <td className="px-4 py-3">
                               <span className="font-black text-sm text-primary">{fmt(emp.netSalary)}</span>
-                              <span className="text-[9px] text-muted-foreground mr-1">ر.س</span>
+                              <span className="text-[9px] text-muted-foreground me-1">ر.س</span>
                             </td>
                           </tr>
                         );

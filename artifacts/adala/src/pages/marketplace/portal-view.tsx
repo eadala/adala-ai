@@ -208,7 +208,7 @@ export default function PortalView() {
           <div className="flex items-center gap-2">
             <Scale className="h-5 w-5 text-[#C9A84C]" />
             <span className="font-black text-[#C9A84C]">عدالة AI</span>
-            <span className="text-xs text-muted-foreground mr-1">| بوابة العميل</span>
+            <span className="text-xs text-muted-foreground me-1">| بوابة العميل</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -280,7 +280,7 @@ export default function PortalView() {
               </div>
             </div>
             {c?.description && (
-              <p className="text-sm text-muted-foreground leading-relaxed border-r-2 border-[#C9A84C]/40 pr-3">{c.description}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed border-r-2 border-[#C9A84C]/40 pe-3">{c.description}</p>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {c?.clientName && (

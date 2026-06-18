@@ -255,7 +255,7 @@ export default function OfficeStore() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder={lang === "ar" ? "ابحث عن خدمة..." : "Search services..."}
-              className="bg-white/5 border-white/10 pr-9"
+              className="bg-white/5 border-white/10 pe-9"
             />
             {search && (
               <button onClick={() => setSearch("")} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white">
@@ -442,7 +442,7 @@ export default function OfficeStore() {
                 <div className="p-4 rounded-xl text-center" style={{ background: `${gold}08`, border: `1px solid ${gold}20` }}>
                   <div className="text-[10px] text-white/40 mb-1">{lang === "ar" ? "سعر الخدمة" : "Service Price"}</div>
                   <span className="text-3xl font-black" style={{ color: gold }}>{Number(orderDialog.price).toLocaleString()}</span>
-                  <span className="text-sm text-white/50 mr-1">{lang === "ar" ? " ر.س" : " SAR"}</span>
+                  <span className="text-sm text-white/50 me-1">{lang === "ar" ? " ر.س" : " SAR"}</span>
                   {orderDialog.deliveryDays > 0 && (
                     <div className="flex items-center justify-center gap-1 mt-1 text-[10px] text-white/35">
                       <Clock className="h-3 w-3" />

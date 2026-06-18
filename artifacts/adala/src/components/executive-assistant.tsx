@@ -89,7 +89,7 @@ export function ExecutiveAssistant() {
                       <p className="text-[9px] text-muted-foreground leading-tight mt-0.5">{item.label}</p>
                     </div>
                     {item.urgent && item.value > 0 && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-current animate-pulse mr-0.5 self-start mt-1" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-current animate-pulse me-0.5 self-start mt-1" />
                     )}
                   </div>
                 </Link>

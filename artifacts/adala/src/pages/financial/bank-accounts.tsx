@@ -68,7 +68,7 @@ export default function BankAccounts() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {isLoading ? (
-            <div className="col-span-full flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ml-2" />جارٍ التحميل...</div>
+            <div className="col-span-full flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ms-2" />جارٍ التحميل...</div>
           ) : rows.length === 0 ? (
             <div className="col-span-full flex flex-col items-center py-14 text-muted-foreground"><Landmark className="h-10 w-10 mb-2 opacity-20" /><p className="text-sm">لا توجد حسابات</p><Button size="sm" variant="link" className="text-primary mt-1" onClick={openCreate}>إضافة أول حساب</Button></div>
           ) : rows.map(r => (
@@ -126,7 +126,7 @@ export default function BankAccounts() {
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={close_}>إلغاء</Button>
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" disabled={!form.bankName || !form.accountName || !form.accountNumber || saveMut.isPending} onClick={() => saveMut.mutate(form)}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}حفظ
+                {saveMut.isPending && <Loader2 className="h-4 w-4 ms-1 animate-spin" />}حفظ
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -138,7 +138,7 @@ export default function BankAccounts() {
             <p className="text-sm text-muted-foreground">هل أنت متأكد من حذف هذا الحساب؟</p>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={() => setDelId(null)}>إلغاء</Button>
-              <Button variant="destructive" onClick={() => delMut.mutate(delId!)} disabled={delMut.isPending}>{delMut.isPending && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}حذف</Button>
+              <Button variant="destructive" onClick={() => delMut.mutate(delId!)} disabled={delMut.isPending}>{delMut.isPending && <Loader2 className="h-4 w-4 ms-1 animate-spin" />}حذف</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -97,7 +97,7 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
             <div className="flex gap-2">
               <Button className="flex-1" variant="outline" asChild>
                 <a href={result.url} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 ml-2" />معاينة
+                  <ExternalLink className="h-4 w-4 ms-2" />معاينة
                 </a>
               </Button>
               <Button className="flex-1" onClick={() => setOpen(false)}>إغلاق</Button>
@@ -145,7 +145,7 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
               ))}
             </div>
             <Button className="w-full" onClick={() => create.mutate()} disabled={!caseId || create.isPending}>
-              {create.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Link2 className="h-4 w-4 ml-2" />}
+              {create.isPending ? <Loader2 className="h-4 w-4 animate-spin ms-2" /> : <Link2 className="h-4 w-4 ms-2" />}
               إنشاء الرابط
             </Button>
           </div>
@@ -229,7 +229,7 @@ function AddTimelineDialog({ caseId, onAdded }: { caseId: string; onAdded: () =>
             <Switch checked={isShared} onCheckedChange={setIsShared} />
           </div>
           <Button className="w-full" onClick={() => add.mutate()} disabled={!title || add.isPending}>
-            {add.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <CheckCircle2 className="h-4 w-4 ml-2" />}
+            {add.isPending ? <Loader2 className="h-4 w-4 animate-spin ms-2" /> : <CheckCircle2 className="h-4 w-4 ms-2" />}
             إضافة التحديث
           </Button>
         </div>
@@ -274,7 +274,7 @@ function TokenSettingsPanel({ token, onSaved }: { token: PortalToken; onSaved: (
         </div>
       ))}
       <Button size="sm" className="w-full h-7 text-xs mt-1" onClick={save} disabled={saving}>
-        {saving && <Loader2 className="h-3 w-3 animate-spin ml-1" />}حفظ الإعدادات
+        {saving && <Loader2 className="h-3 w-3 animate-spin ms-1" />}حفظ الإعدادات
       </Button>
     </div>
   );
@@ -374,7 +374,7 @@ function CreateClientAccountDialog({ cases, onCreated }: { cases: Case[]; onCrea
                     placeholder="6 أحرف على الأقل"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className="pl-9"
+                    className="ps-9"
                   />
                   <button type="button" onClick={() => setShowPw(p => !p)}
                     className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -382,7 +382,7 @@ function CreateClientAccountDialog({ cases, onCreated }: { cases: Case[]; onCrea
                   </button>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={genPassword} className="shrink-0 text-xs px-3">
-                  <KeyRound className="h-3.5 w-3.5 ml-1" />توليد
+                  <KeyRound className="h-3.5 w-3.5 ms-1" />توليد
                 </Button>
               </div>
             </div>
@@ -416,7 +416,7 @@ function CreateClientAccountDialog({ cases, onCreated }: { cases: Case[]; onCrea
             )}
 
             <Button className="w-full" onClick={submit} disabled={loading || !email || !password}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <UserPlus className="h-4 w-4 ml-2" />}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin ms-2" /> : <UserPlus className="h-4 w-4 ms-2" />}
               إنشاء الحساب
             </Button>
           </div>
@@ -619,7 +619,7 @@ function CommSettingsDialog() {
 
         {settings?.isAdmin && (
           <Button className="w-full mt-2" onClick={save} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <CheckCircle2 className="h-4 w-4 ml-2" />}
+            {saving ? <Loader2 className="h-4 w-4 animate-spin ms-2" /> : <CheckCircle2 className="h-4 w-4 ms-2" />}
             حفظ الإعدادات
           </Button>
         )}

@@ -402,7 +402,7 @@ export default function BackupCenter() {
           <TabsList className="bg-card border border-border flex-wrap h-auto gap-1 p-1">
             <TabsTrigger value="local" className="gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
               <HardDrive className="h-3.5 w-3.5" /> النسخ المحلي
-              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 rounded px-1 py-0 mr-0.5">مجاني</span>
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 rounded px-1 py-0 me-0.5">مجاني</span>
             </TabsTrigger>
             <TabsTrigger value="settings"  className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Settings2 className="h-3.5 w-3.5" /> نسخ المنصة
@@ -515,7 +515,7 @@ export default function BackupCenter() {
                       <div>
                         <span className="text-sm text-foreground font-medium">{section.label}</span>
                         {section.group !== "core" && (
-                          <span className="mr-2 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary/70">
+                          <span className="me-2 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary/70">
                             {section.group === "hr" ? "الموارد البشرية" : "المحاسبة"}
                           </span>
                         )}
@@ -525,12 +525,12 @@ export default function BackupCenter() {
                       <Button size="sm" variant="outline"
                         className="text-xs border-border hover:border-emerald-500/50 hover:text-emerald-400"
                         onClick={() => exportSection(section.key, "json")}>
-                        <FileJson className="h-3.5 w-3.5 ml-1" /> JSON
+                        <FileJson className="h-3.5 w-3.5 ms-1" /> JSON
                       </Button>
                       <Button size="sm" variant="outline"
                         className="text-xs border-border hover:border-emerald-500/50 hover:text-emerald-400"
                         onClick={() => exportSection(section.key, "csv")}>
-                        <FileSpreadsheet className="h-3.5 w-3.5 ml-1" /> CSV
+                        <FileSpreadsheet className="h-3.5 w-3.5 ms-1" /> CSV
                       </Button>
                     </div>
                   </div>
@@ -628,7 +628,7 @@ export default function BackupCenter() {
 
                 <Button onClick={saveSettings} disabled={saveSettingsMut.isPending}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold w-full">
-                  {saveSettingsMut.isPending && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
+                  {saveSettingsMut.isPending && <Loader2 className="h-4 w-4 ms-2 animate-spin" />}
                   حفظ الإعدادات
                 </Button>
               </CardContent>
@@ -663,8 +663,8 @@ export default function BackupCenter() {
                 <Button onClick={createBackup} disabled={isCreatingBackup}
                   className="w-full bg-primary/10 hover:bg-primary/20 border border-primary/40 text-primary font-bold">
                   {isCreatingBackup
-                    ? <><Loader2 className="h-4 w-4 ml-2 animate-spin" /> جارٍ إنشاء النسخة...</>
-                    : <><Database className="h-4 w-4 ml-2" /> إنشاء نسخة احتياطية الآن</>
+                    ? <><Loader2 className="h-4 w-4 ms-2 animate-spin" /> جارٍ إنشاء النسخة...</>
+                    : <><Database className="h-4 w-4 ms-2" /> إنشاء نسخة احتياطية الآن</>
                   }
                 </Button>
                 {lastJob && (
@@ -711,7 +711,7 @@ export default function BackupCenter() {
                       <div>
                         <span className="text-sm text-foreground font-medium">{section.label}</span>
                         {section.group !== "core" && (
-                          <span className="mr-2 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary/80">
+                          <span className="me-2 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary/80">
                             {section.group === "hr" ? "الموارد البشرية" : "المحاسبة"}
                           </span>
                         )}
@@ -721,12 +721,12 @@ export default function BackupCenter() {
                       <Button size="sm" variant="outline"
                         className="text-xs border-border hover:border-primary/50 hover:text-primary"
                         onClick={() => exportSection(section.key, "json")}>
-                        <FileJson className="h-3.5 w-3.5 ml-1" /> JSON
+                        <FileJson className="h-3.5 w-3.5 ms-1" /> JSON
                       </Button>
                       <Button size="sm" variant="outline"
                         className="text-xs border-border hover:border-primary/50 hover:text-primary"
                         onClick={() => exportSection(section.key, "csv")}>
-                        <FileSpreadsheet className="h-3.5 w-3.5 ml-1" /> CSV
+                        <FileSpreadsheet className="h-3.5 w-3.5 ms-1" /> CSV
                       </Button>
                     </div>
                   </div>
@@ -750,7 +750,7 @@ export default function BackupCenter() {
                     </div>
                     <Button onClick={exportAll}
                       className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shrink-0">
-                      <Download className="h-4 w-4 ml-1.5" />
+                      <Download className="h-4 w-4 ms-1.5" />
                       تصدير الكل
                     </Button>
                   </div>
@@ -769,14 +769,14 @@ export default function BackupCenter() {
                   </CardTitle>
                   <Button variant="outline" size="sm" className="text-xs border-border hover:border-primary/50"
                     onClick={() => qc.invalidateQueries({ queryKey: ["backup-jobs"] })}>
-                    <RefreshCw className="h-3 w-3 ml-1" /> تحديث
+                    <RefreshCw className="h-3 w-3 ms-1" /> تحديث
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
                 {jobsQ.isLoading ? (
                   <div className="flex items-center justify-center py-10 text-muted-foreground">
-                    <Loader2 className="h-5 w-5 animate-spin ml-2" /> جارٍ التحميل...
+                    <Loader2 className="h-5 w-5 animate-spin ms-2" /> جارٍ التحميل...
                   </div>
                 ) : jobs.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -900,7 +900,7 @@ export default function BackupCenter() {
                               else toast.error(r.error ?? "❌ خطأ في الإعدادات");
                             } catch { toast.error("تعذّر الاتصال بالخادم"); }
                           }}>
-                          <Shield className="h-3.5 w-3.5 ml-1.5" /> اختبار الاتصال
+                          <Shield className="h-3.5 w-3.5 ms-1.5" /> اختبار الاتصال
                         </Button>
                       </div>
                     </>
@@ -908,7 +908,7 @@ export default function BackupCenter() {
 
                   <Button onClick={saveSettings} disabled={saveSettingsMut.isPending}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold w-full">
-                    {saveSettingsMut.isPending && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
+                    {saveSettingsMut.isPending && <Loader2 className="h-4 w-4 ms-2 animate-spin" />}
                     حفظ إعدادات التخزين
                   </Button>
                 </CardContent>
@@ -964,7 +964,7 @@ export default function BackupCenter() {
 
                     <Button onClick={handleImport} disabled={!importFile}
                       className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold w-full">
-                      <Upload className="h-4 w-4 ml-2" /> بدء الاستيراد
+                      <Upload className="h-4 w-4 ms-2" /> بدء الاستيراد
                     </Button>
                   </CardContent>
                 </Card>
@@ -992,7 +992,7 @@ export default function BackupCenter() {
                               <Button variant="outline" size="sm"
                                 className="text-xs border-border hover:border-primary/50 hover:text-primary"
                                 onClick={() => downloadBackup(job)}>
-                                <Download className="h-3 w-3 ml-1" /> تحميل
+                                <Download className="h-3 w-3 ms-1" /> تحميل
                               </Button>
                             </div>
                           ))}

@@ -94,7 +94,7 @@ export default function Advances() {
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ml-2" />جارٍ التحميل...</div>
+          <div className="flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ms-2" />جارٍ التحميل...</div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center py-14 text-muted-foreground"><Wallet className="h-10 w-10 mb-2 opacity-20" /><p className="text-sm">لا توجد سلف</p></div>
         ) : (
@@ -111,7 +111,7 @@ export default function Advances() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-bold text-foreground">{r.employeeName}</p>
                           <Badge variant="outline" className={`text-[10px] ${st.color}`}>
-                            <StIcon className="h-2.5 w-2.5 ml-1" />{st.label}
+                            <StIcon className="h-2.5 w-2.5 ms-1" />{st.label}
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">{r.purpose} · {r.date}</p>
@@ -166,7 +166,7 @@ export default function Advances() {
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={()=>setOpen(false)}>إلغاء</Button>
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" disabled={!form.employeeName||!form.amount||!form.purpose||createMut.isPending} onClick={()=>createMut.mutate(form)}>
-                {createMut.isPending&&<Loader2 className="h-4 w-4 ml-1 animate-spin"/>}حفظ
+                {createMut.isPending&&<Loader2 className="h-4 w-4 ms-1 animate-spin"/>}حفظ
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -184,7 +184,7 @@ export default function Advances() {
               <Button variant="ghost" onClick={()=>setRepayId(null)}>إلغاء</Button>
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" disabled={!repayAmt||repayMut.isPending}
                 onClick={()=>repayMut.mutate({id:repayId!,amount:parseFloat(repayAmt)})}>
-                {repayMut.isPending&&<Loader2 className="h-4 w-4 ml-1 animate-spin"/>}تسجيل
+                {repayMut.isPending&&<Loader2 className="h-4 w-4 ms-1 animate-spin"/>}تسجيل
               </Button>
             </DialogFooter>
           </DialogContent>

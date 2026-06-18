@@ -492,7 +492,7 @@ function AgentChat({ agentId, agentName, agentColor }: { agentId: AgentId; agent
                   {prompts.map(q => (
                     <button key={q} onClick={() => send(q)}
                       className="text-right text-xs px-3 py-2 rounded-lg border border-border/50 hover:bg-muted/60 hover:border-border transition-colors text-muted-foreground hover:text-foreground">
-                      <ChevronRight className="h-3 w-3 inline ml-1 opacity-60" />{q}
+                      <ChevronRight className="h-3 w-3 inline ms-1 opacity-60" />{q}
                     </button>
                   ))}
                 </div>

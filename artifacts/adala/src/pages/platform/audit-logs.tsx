@@ -155,7 +155,7 @@ export default function AuditLogsPage() {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
             <Input placeholder="بحث بالمستخدم أو المعرف..." value={search}
               onChange={e => { setSearch(e.target.value); filterChanged(); }}
-              className="h-8 pr-9 w-48 text-xs bg-muted/50 border-border text-white placeholder:text-white/30" />
+              className="h-8 pe-9 w-48 text-xs bg-muted/50 border-border text-white placeholder:text-white/30" />
           </div>
           <Select value={action} onValueChange={v => { setAction(v); filterChanged(); }}>
             <SelectTrigger className="h-8 w-32 text-xs bg-muted/50 border-border">

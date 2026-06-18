@@ -140,9 +140,9 @@ export default function WhatsAppSettingsPage() {
 
       <Tabs defaultValue="settings" dir="rtl">
         <TabsList className="grid grid-cols-3 w-full max-w-md">
-          <TabsTrigger value="settings"><Settings className="h-4 w-4 ml-1.5" />الإعدادات</TabsTrigger>
-          <TabsTrigger value="send"><Send className="h-4 w-4 ml-1.5" />إرسال رسالة</TabsTrigger>
-          <TabsTrigger value="logs"><Clock className="h-4 w-4 ml-1.5" />السجل</TabsTrigger>
+          <TabsTrigger value="settings"><Settings className="h-4 w-4 ms-1.5" />الإعدادات</TabsTrigger>
+          <TabsTrigger value="send"><Send className="h-4 w-4 ms-1.5" />إرسال رسالة</TabsTrigger>
+          <TabsTrigger value="logs"><Clock className="h-4 w-4 ms-1.5" />السجل</TabsTrigger>
         </TabsList>
 
         {/* ── Settings Tab ── */}
@@ -210,7 +210,7 @@ export default function WhatsAppSettingsPage() {
                 onClick={() => saveMut.mutate()}
                 disabled={saveMut.isPending || isLoading}
               >
-                {saveMut.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Settings className="h-4 w-4 ml-2" />}
+                {saveMut.isPending ? <Loader2 className="h-4 w-4 animate-spin ms-2" /> : <Settings className="h-4 w-4 ms-2" />}
                 حفظ الإعدادات
               </Button>
             </CardContent>

@@ -145,7 +145,7 @@ export default function RemindersPage() {
       {/* List */}
       {isLoading ? (
         <div className="flex items-center justify-center h-40 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin ml-2" /> {tx("جارٍ التحميل...", "Loading...")}
+          <Loader2 className="h-5 w-5 animate-spin ms-2" /> {tx("جارٍ التحميل...", "Loading...")}
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">
@@ -193,7 +193,7 @@ export default function RemindersPage() {
                         )}
                         {catConf && (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                            <Tag className="h-2.5 w-2.5 ml-1" />{catConf.label}
+                            <Tag className="h-2.5 w-2.5 ms-1" />{catConf.label}
                           </Badge>
                         )}
                         {r.due_date && (
@@ -266,7 +266,7 @@ export default function RemindersPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>{tx("إلغاء", "Cancel")}</Button>
             <Button onClick={submit} disabled={saveMut.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
-              {saveMut.isPending && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}
+              {saveMut.isPending && <Loader2 className="h-4 w-4 ms-1 animate-spin" />}
               {editing ? tx("حفظ التعديلات", "Save Changes") : tx("إضافة", "Add")}
             </Button>
           </DialogFooter>

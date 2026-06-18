@@ -296,8 +296,8 @@ function UpgradeModal({
                     <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
                     <span className={cn("font-bold", isBetter ? "text-emerald-400" : isWorse ? "text-red-400" : "text-foreground")}>
                       {row.isBool ? (tgtVal ? "✓" : "✗") : String(tgtVal)}
-                      {isBetter && <ArrowUp className="h-3 w-3 inline mr-1" />}
-                      {isWorse  && <ArrowDown className="h-3 w-3 inline mr-1" />}
+                      {isBetter && <ArrowUp className="h-3 w-3 inline me-1" />}
+                      {isWorse  && <ArrowDown className="h-3 w-3 inline me-1" />}
                     </span>
                   </div>
                 </div>
@@ -1124,7 +1124,7 @@ export default function Billing() {
                   {/* Price row */}
                   <TableRow className="bg-muted/10">
                     <TableCell className="font-medium text-sm text-right">
-                      <span className="mr-1">💳</span>
+                      <span className="me-1">💳</span>
                       {billingPeriod === "annual" ? "السعر السنوي/شهر" : "السعر الشهري"}
                     </TableCell>
                     {PLAN_ORDER.map(id => {
@@ -1158,7 +1158,7 @@ export default function Billing() {
                   {COMPARE_ROWS.map(row => (
                     <TableRow key={row.key}>
                       <TableCell className="font-medium text-sm text-right">
-                        <span className="mr-1">{row.icon}</span>{row.label}
+                        <span className="me-1">{row.icon}</span>{row.label}
                       </TableCell>
                       {PLAN_ORDER.map(id => {
                         const val = PLAN_COMPARE[id]?.[row.key];
@@ -1224,7 +1224,7 @@ export default function Billing() {
                       </span>
                       {myGift.promo_code_text && (
                         <>
-                          <Tag className="h-3.5 w-3.5 text-muted-foreground mr-2" />
+                          <Tag className="h-3.5 w-3.5 text-muted-foreground me-2" />
                           <span className="text-xs text-muted-foreground font-mono">{myGift.promo_code_text}</span>
                         </>
                       )}

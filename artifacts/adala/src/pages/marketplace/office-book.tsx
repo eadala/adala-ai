@@ -246,7 +246,7 @@ export default function OfficeBook() {
                 <div>
                   <Label className="text-xs font-semibold mb-1.5 block text-slate-600">
                     {lang === "ar" ? "البريد الإلكتروني" : "Email Address"}
-                    <span className="text-slate-400 font-normal mr-1">{lang === "ar" ? "(اختياري)" : "(optional)"}</span>
+                    <span className="text-slate-400 font-normal me-1">{lang === "ar" ? "(اختياري)" : "(optional)"}</span>
                   </Label>
                   <Input
                     value={form.clientEmail}

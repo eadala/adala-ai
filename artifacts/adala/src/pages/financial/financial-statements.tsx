@@ -64,7 +64,7 @@ function StmtRow({ label = "", amount, bold, indent, sub, separator }: {
     <tr className="border-b border-border/20 last:border-0">
       <td className={`py-2 px-4 text-sm ${cls} ${ind}`}>
         {label}
-        {sub && <span className="text-[10px] text-muted-foreground/60 mr-1">({sub})</span>}
+        {sub && <span className="text-[10px] text-muted-foreground/60 me-1">({sub})</span>}
       </td>
       {amount !== undefined && (
         <td className={`py-2 px-4 text-sm text-left tabular-nums ${bold ? "font-bold " + (amount >= 0 ? "text-white" : "text-red-400") : "text-foreground"}`}>
@@ -106,7 +106,7 @@ function IncomeStatement() {
             تحديث
           </Button>
           <Button size="sm" variant="outline" onClick={() => window.print()}>
-            <Printer className="h-3.5 w-3.5 ml-1.5" /> طباعة
+            <Printer className="h-3.5 w-3.5 ms-1.5" /> طباعة
           </Button>
         </CardContent>
       </Card>
@@ -201,10 +201,10 @@ function BalanceSheet() {
             <Input type="date" value={asOf} onChange={e => setAsOf(e.target.value)} className="h-8 w-36" />
           </div>
           <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isLoading}>
-            <RefreshCw className={`h-3.5 w-3.5 ml-1.5 ${isLoading ? "animate-spin" : ""}`} /> تحديث
+            <RefreshCw className={`h-3.5 w-3.5 ms-1.5 ${isLoading ? "animate-spin" : ""}`} /> تحديث
           </Button>
           <Button size="sm" variant="outline" onClick={() => window.print()}>
-            <Printer className="h-3.5 w-3.5 ml-1.5" /> طباعة
+            <Printer className="h-3.5 w-3.5 ms-1.5" /> طباعة
           </Button>
           {!isLoading && (
             <div className="flex items-center gap-1.5 text-xs">
@@ -301,10 +301,10 @@ function TrialBalance() {
             <Input type="date" value={asOf} onChange={e => setAsOf(e.target.value)} className="h-8 w-36" />
           </div>
           <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isLoading}>
-            <RefreshCw className={`h-3.5 w-3.5 ml-1.5 ${isLoading ? "animate-spin" : ""}`} /> تحديث
+            <RefreshCw className={`h-3.5 w-3.5 ms-1.5 ${isLoading ? "animate-spin" : ""}`} /> تحديث
           </Button>
           <Button size="sm" variant="outline" onClick={() => window.print()}>
-            <Printer className="h-3.5 w-3.5 ml-1.5" /> طباعة
+            <Printer className="h-3.5 w-3.5 ms-1.5" /> طباعة
           </Button>
           {!isLoading && d.accounts?.length > 0 && (
             <div className="flex items-center gap-1.5 text-xs">
@@ -347,7 +347,7 @@ function TrialBalance() {
                   {(d.accounts ?? []).map((a: any, i: number) => (
                     <tr key={i} className="border-b border-border/30 hover:bg-muted/10">
                       <td className="px-4 py-2">
-                        <span className="text-xs text-muted-foreground ml-2">{a.code}</span>
+                        <span className="text-xs text-muted-foreground ms-2">{a.code}</span>
                         {a.name}
                       </td>
                       <td className="px-4 py-2">
@@ -505,10 +505,10 @@ function JournalBook() {
             <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-8 w-36" />
           </div>
           <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isLoading}>
-            <RefreshCw className={`h-3.5 w-3.5 ml-1.5 ${isLoading ? "animate-spin" : ""}`} /> تحديث
+            <RefreshCw className={`h-3.5 w-3.5 ms-1.5 ${isLoading ? "animate-spin" : ""}`} /> تحديث
           </Button>
           <Button size="sm" variant="outline" onClick={() => window.print()}>
-            <Printer className="h-3.5 w-3.5 ml-1.5" /> طباعة
+            <Printer className="h-3.5 w-3.5 ms-1.5" /> طباعة
           </Button>
         </CardContent>
       </Card>
@@ -561,7 +561,7 @@ function JournalBook() {
                       {items.filter(Boolean).map((item: any, i: number) => (
                         <tr key={i} className="border-b border-border/10 last:border-0">
                           <td className="px-4 py-1.5 text-foreground">
-                            {item.account_code && <span className="text-muted-foreground/60 ml-1.5">{item.account_code}</span>}
+                            {item.account_code && <span className="text-muted-foreground/60 ms-1.5">{item.account_code}</span>}
                             {item.account_name}
                           </td>
                           <td className="px-4 py-1.5 text-left tabular-nums text-blue-400">

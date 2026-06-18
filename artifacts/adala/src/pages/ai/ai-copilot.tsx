@@ -262,10 +262,10 @@ export default function AICopilotPage() {
         <div className="flex items-center gap-2">
           {snap && (
             <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground bg-muted/30 border border-border rounded-xl px-3 py-2">
-              <span><Scale className="h-3 w-3 inline ml-1 text-blue-500" />{snap.activeCases} قضية</span>
-              <span><Clock className="h-3 w-3 inline ml-1 text-amber-500" />{snap.pendingTasks} مهمة</span>
-              <span><Calendar className="h-3 w-3 inline ml-1 text-purple-500" />{snap.upcomingEvents} موعد</span>
-              {snap.overdueInvoices > 0 && <span className="text-red-500"><AlertTriangle className="h-3 w-3 inline ml-1" />{snap.overdueInvoices} متأخرة</span>}
+              <span><Scale className="h-3 w-3 inline ms-1 text-blue-500" />{snap.activeCases} قضية</span>
+              <span><Clock className="h-3 w-3 inline ms-1 text-amber-500" />{snap.pendingTasks} مهمة</span>
+              <span><Calendar className="h-3 w-3 inline ms-1 text-purple-500" />{snap.upcomingEvents} موعد</span>
+              {snap.overdueInvoices > 0 && <span className="text-red-500"><AlertTriangle className="h-3 w-3 inline ms-1" />{snap.overdueInvoices} متأخرة</span>}
             </div>
           )}
           <button onClick={clearChat} title="مسح المحادثة"

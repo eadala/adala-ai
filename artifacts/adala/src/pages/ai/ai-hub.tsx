@@ -182,7 +182,7 @@ function formatMsg(text: string) {
       return <p key={i} className="flex gap-2 mb-0.5 text-sm leading-relaxed"><span className="text-primary mt-1 shrink-0">•</span><span dangerouslySetInnerHTML={{ __html: content }} /></p>;
     }
     if (/^\d+\.\s/.test(line)) {
-      return <p key={i} className="mb-1 text-sm leading-relaxed mr-2" dangerouslySetInnerHTML={{ __html: bold }} />;
+      return <p key={i} className="mb-1 text-sm leading-relaxed me-2" dangerouslySetInnerHTML={{ __html: bold }} />;
     }
     if (line.trim() === "") return <div key={i} className="h-1.5" />;
     return <p key={i} className="text-sm leading-relaxed mb-0.5" dangerouslySetInnerHTML={{ __html: bold }} />;
@@ -767,7 +767,7 @@ export default function AIHub() {
                 onKeyDown={handleKey}
                 placeholder={`اسأل ${mode.name}...`}
                 rows={1}
-                className="resize-none bg-transparent border-0 focus-visible:ring-0 py-3 pl-14 pr-4 text-sm min-h-[48px] max-h-[160px] overflow-y-auto"
+                className="resize-none bg-transparent border-0 focus-visible:ring-0 py-3 ps-14 pe-4 text-sm min-h-[48px] max-h-[160px] overflow-y-auto"
                 style={{ direction: "rtl" }}
               />
               <button

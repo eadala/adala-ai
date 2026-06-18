@@ -73,7 +73,7 @@ export default function Cashflow() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex justify-center py-10 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ml-2"/>جارٍ التحميل...</div>
+              <div className="flex justify-center py-10 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ms-2"/>جارٍ التحميل...</div>
             ) : !hasData ? (
               <div className="flex flex-col items-center py-12 text-muted-foreground">
                 <ArrowRightLeft className="h-10 w-10 mb-2 opacity-20"/>

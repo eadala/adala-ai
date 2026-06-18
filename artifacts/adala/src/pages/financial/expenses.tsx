@@ -77,7 +77,7 @@ export default function Expenses() {
         <div className="flex flex-wrap gap-2">
           <div className="relative flex-1 min-w-48">
             <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground"/>
-            <Input placeholder="بحث..." value={search} onChange={e=>setSearch(e.target.value)} className="pr-9 bg-card border-border text-foreground h-9 text-sm"/>
+            <Input placeholder="بحث..." value={search} onChange={e=>setSearch(e.target.value)} className="pe-9 bg-card border-border text-foreground h-9 text-sm"/>
           </div>
           <Select value={catFilter} onValueChange={setCatFilter}>
             <SelectTrigger className="w-44 h-9 bg-card border-border text-sm"><SelectValue placeholder="الفئة"/></SelectTrigger>
@@ -90,7 +90,7 @@ export default function Expenses() {
         <Card className="bg-card border-border">
           <CardContent className="p-0">
             {isLoading?(
-              <div className="flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ml-2"/>جارٍ التحميل...</div>
+              <div className="flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ms-2"/>جارٍ التحميل...</div>
             ):filtered.length===0?(
               <div className="flex flex-col items-center py-14 text-muted-foreground"><TrendingDown className="h-10 w-10 mb-2 opacity-20"/><p className="text-sm">لا توجد مصاريف</p><Button size="sm" variant="link" className="text-primary mt-1" onClick={openCreate}>إضافة أول مصروف</Button></div>
             ):(
@@ -154,7 +154,7 @@ export default function Expenses() {
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={close_}>إلغاء</Button>
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" disabled={!form.title||!form.amount||saveMut.isPending} onClick={()=>saveMut.mutate(form)}>
-                {saveMut.isPending&&<Loader2 className="h-4 w-4 ml-1 animate-spin"/>}حفظ
+                {saveMut.isPending&&<Loader2 className="h-4 w-4 ms-1 animate-spin"/>}حفظ
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -166,7 +166,7 @@ export default function Expenses() {
             <p className="text-sm text-muted-foreground">هل أنت متأكد من حذف هذا المصروف؟</p>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={()=>setDelId(null)}>إلغاء</Button>
-              <Button variant="destructive" onClick={()=>delMut.mutate(delId!)} disabled={delMut.isPending}>{delMut.isPending&&<Loader2 className="h-4 w-4 ml-1 animate-spin"/>}حذف</Button>
+              <Button variant="destructive" onClick={()=>delMut.mutate(delId!)} disabled={delMut.isPending}>{delMut.isPending&&<Loader2 className="h-4 w-4 ms-1 animate-spin"/>}حذف</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

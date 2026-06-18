@@ -170,7 +170,7 @@ export default function SignPage({ token }: { token: string }) {
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px]">
-              <Shield className="h-2.5 w-2.5 ml-1" />آمن ومشفّر
+              <Shield className="h-2.5 w-2.5 ms-1" />آمن ومشفّر
             </Badge>
           </div>
         </div>
@@ -294,8 +294,8 @@ export default function SignPage({ token }: { token: string }) {
               disabled={!isReady || signMutation.isPending}
               onClick={() => signMutation.mutate()}>
               {signMutation.isPending
-                ? <><Loader2 className="h-4 w-4 animate-spin ml-2" />جارٍ التوقيع...</>
-                : <><CheckCircle2 className="h-4 w-4 ml-2" />توقيع الوثيقة رسمياً</>}
+                ? <><Loader2 className="h-4 w-4 animate-spin ms-2" />جارٍ التوقيع...</>
+                : <><CheckCircle2 className="h-4 w-4 ms-2" />توقيع الوثيقة رسمياً</>}
             </Button>
           </CardContent>
         </Card>

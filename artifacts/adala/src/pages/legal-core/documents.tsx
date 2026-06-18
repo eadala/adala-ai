@@ -601,7 +601,7 @@ function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc,
         <div className="relative flex-1 max-w-md">
           <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder={tx("البحث في المستندات...","Search documents...")}
-            value={search} onChange={e => setSearch(e.target.value)} className="pl-4 pr-10" />
+            value={search} onChange={e => setSearch(e.target.value)} className="ps-4 pe-10" />
         </div>
       </div>
       {loadingOld ? (
@@ -908,7 +908,7 @@ export default function Documents() {
                     <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input placeholder={tx("البحث في المستندات...","Search documents...")}
                       value={search} onChange={e => setSearch(e.target.value)}
-                      className="pl-4 pr-10" />
+                      className="ps-4 pe-10" />
                   </div>
                   <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0"
                     onClick={() => { qc.invalidateQueries({ queryKey: ["storage-files"] }); refetchFiles(); }}>

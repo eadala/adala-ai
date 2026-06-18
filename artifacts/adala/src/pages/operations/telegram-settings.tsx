@@ -189,7 +189,7 @@ export default function TelegramSettings() {
 
               <div className="flex gap-2">
                 <Button onClick={handleSave} disabled={saveMut.isPending || !dirty} className="flex-1">
-                  {saveMut.isPending ? <RefreshCw className="h-4 w-4 animate-spin ml-2" /> : null}
+                  {saveMut.isPending ? <RefreshCw className="h-4 w-4 animate-spin ms-2" /> : null}
                   حفظ الإعدادات
                 </Button>
                 <Button
@@ -200,7 +200,7 @@ export default function TelegramSettings() {
                   {testMut.isPending
                     ? <RefreshCw className="h-4 w-4 animate-spin" />
                     : <Send className="h-4 w-4" />}
-                  <span className="mr-1.5">اختبار</span>
+                  <span className="me-1.5">اختبار</span>
                 </Button>
               </div>
             </CardContent>
@@ -322,7 +322,7 @@ export default function TelegramSettings() {
                   }}
                   disabled={!settings?.use_as_storage || !settings?.enabled}
                 >
-                  <HardDrive className="h-4 w-4 ml-1.5" />
+                  <HardDrive className="h-4 w-4 ms-1.5" />
                   اختبار رفع ملف
                 </Button>
               </div>

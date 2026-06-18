@@ -43,11 +43,11 @@ function KpiCard({ label, value, unit = "ر.س", icon: Icon, trend, sub, color =
             <p className="text-xs text-muted-foreground mb-1">{label}</p>
             <p className="text-2xl font-bold tabular-nums leading-none">
               {typeof value === "number" ? fmt(value) : value}
-              {unit && <span className="text-sm font-normal text-muted-foreground mr-1">{unit}</span>}
+              {unit && <span className="text-sm font-normal text-muted-foreground me-1">{unit}</span>}
             </p>
             {sub && <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>}
           </div>
-          <div className="rounded-xl p-2 bg-background/30 shrink-0 mr-2">
+          <div className="rounded-xl p-2 bg-background/30 shrink-0 me-2">
             <Icon className="h-5 w-5 text-foreground/70" />
           </div>
         </div>
@@ -548,7 +548,7 @@ export default function FinancialCore() {
             <div className="flex items-center gap-2">
               <Select value={payoutFilter} onValueChange={setPayoutFilter}>
                 <SelectTrigger className="h-8 text-xs w-32">
-                  <Filter className="h-3 w-3 ml-1" /><SelectValue />
+                  <Filter className="h-3 w-3 ms-1" /><SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">الكل</SelectItem>
@@ -655,7 +655,7 @@ export default function FinancialCore() {
                         </div>
                       </div>
                     </div>
-                    {p.notes && <p className="text-[11px] text-muted-foreground mt-2 pr-11">{p.notes}</p>}
+                    {p.notes && <p className="text-[11px] text-muted-foreground mt-2 pe-11">{p.notes}</p>}
                   </CardContent>
                 </Card>
               ))}
@@ -723,7 +723,7 @@ export default function FinancialCore() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-0.5">
                                 <span className="text-xs truncate font-medium">{c.name}</span>
-                                <span className="text-xs font-semibold tabular-nums shrink-0 mr-2">{fmt(c.total)} ر.س</span>
+                                <span className="text-xs font-semibold tabular-nums shrink-0 me-2">{fmt(c.total)} ر.س</span>
                               </div>
                               <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden">
                                 <div className="h-full rounded-full bg-indigo-500"

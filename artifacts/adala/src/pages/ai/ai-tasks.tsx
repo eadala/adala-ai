@@ -93,7 +93,7 @@ export default function AiTasks() {
             <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="البحث بنوع المهمة أو اسم القضية..."
-              className="pl-4 pr-10"
+              className="ps-4 pe-10"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />

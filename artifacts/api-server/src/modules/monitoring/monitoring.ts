@@ -256,4 +256,18 @@ router.get("/monitoring/metrics-history", requireAuthWithTenant, guard, async (r
   }
 });
 
+/* POST /api/monitoring/client-error — receives frontend ErrorBoundary reports */
+router.post("/monitoring/client-error", async (req, res) => {
+  try {
+    const { errorId, label, message, stack, url, ts } = req.body ?? {};
+    await db.execute(sql`
+      INSERT INTO system_events (event_type, payload, created_at)
+      VALUES ('client_error', ${JSON.stringify({ errorId, label, message: String(message).slice(0, 500), stack: String(stack ?? "").slice(0, 1000), url, ts })}, NOW())
+    `).catch(() => {});
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: true });
+  }
+});
+
 export default router;

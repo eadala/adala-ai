@@ -266,7 +266,7 @@ function Sidebar({ office, userIdx, activePage, onNav, onClose }: {
                 <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${open[c.id] ? "rotate-180" : ""}`} style={{ color: isAny ? c.color : "currentColor" }} />
               </button>
               {open[c.id] && (
-                <div className="mb-2 space-y-0.5 pr-2 mr-3 border-r border-dashed" style={{ borderColor: `${c.color}35` }}>
+                <div className="mb-2 space-y-0.5 pe-2 me-3 border-r border-dashed" style={{ borderColor: `${c.color}35` }}>
                   {c.items.map(item => {
                     const IIcon = item.icon;
                     const isActive = activePage === item.id;
@@ -428,7 +428,7 @@ function CasesPage({ office }: { office: typeof OFFICES[OfficeKey] }) {
         <div><h1 className="text-xl font-black text-foreground">القضايا</h1><p className="text-sm text-muted-foreground">{office.cases.length} قضية إجمالاً</p></div>
         <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:opacity-90 transition-all"><Plus className="h-4 w-4" />قضية جديدة</button>
       </div>
-      <div className="relative mb-4"><Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ابحث في القضايا..." className="w-full bg-card border border-border rounded-xl py-2.5 pr-9 pl-4 text-sm focus:outline-none focus:border-primary/60" /></div>
+      <div className="relative mb-4"><Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ابحث في القضايا..." className="w-full bg-card border border-border rounded-xl py-2.5 pe-9 ps-4 text-sm focus:outline-none focus:border-primary/60" /></div>
       <div className="space-y-3">
         {filtered.map((c, i) => (
           <motion.div key={c.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
@@ -686,7 +686,7 @@ function ContractsPage() {
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-foreground mb-1">{c.title}</p>
                 <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span><UserCircle className="inline h-3 w-3 ml-1"/>{c.client}</span>
+                  <span><UserCircle className="inline h-3 w-3 ms-1"/>{c.client}</span>
                   <span>{c.start} → {c.end}</span>
                   <span className="bg-muted px-2 rounded">{c.type}</span>
                 </div>

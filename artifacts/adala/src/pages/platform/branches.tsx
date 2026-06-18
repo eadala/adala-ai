@@ -129,13 +129,13 @@ function BranchCard({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onEdit(branch)}>
-                  <Pencil className="h-4 w-4 ml-2" /> تعديل
+                  <Pencil className="h-4 w-4 ms-2" /> تعديل
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onTransfer(branch)}>
-                  <ArrowRightLeft className="h-4 w-4 ml-2" /> تحويل قضية لهذا الفرع
+                  <ArrowRightLeft className="h-4 w-4 ms-2" /> تحويل قضية لهذا الفرع
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onDelete(branch)} className="text-destructive focus:text-destructive">
-                  <Trash2 className="h-4 w-4 ml-2" /> تعطيل الفرع
+                  <Trash2 className="h-4 w-4 ms-2" /> تعطيل الفرع
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -326,17 +326,17 @@ export default function BranchesPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4 ml-1.5" /> تحديث
+              <RefreshCw className="h-4 w-4 ms-1.5" /> تحديث
             </Button>
             {atLimit ? (
               <Button size="sm" variant="outline" className="border-amber-400 text-amber-700 hover:bg-amber-50" asChild>
                 <a href="/billing">
-                  <Crown className="h-4 w-4 ml-1.5 text-amber-500" /> ترقية الباقة
+                  <Crown className="h-4 w-4 ms-1.5 text-amber-500" /> ترقية الباقة
                 </a>
               </Button>
             ) : (
               <Button size="sm" onClick={() => { setForm({ ...EMPTY_FORM }); setShowCreate(true); }}>
-                <Plus className="h-4 w-4 ml-1.5" /> فرع جديد
+                <Plus className="h-4 w-4 ms-1.5" /> فرع جديد
               </Button>
             )}
           </div>
@@ -357,7 +357,7 @@ export default function BranchesPage() {
                 </p>
               </div>
               <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white shrink-0" asChild>
-                <a href="/billing"><Crown className="h-4 w-4 ml-1.5" /> ترقية الآن</a>
+                <a href="/billing"><Crown className="h-4 w-4 ms-1.5" /> ترقية الآن</a>
               </Button>
             </CardContent>
           </Card>
@@ -424,10 +424,10 @@ export default function BranchesPage() {
                   : "أنشئ فرعك الأول لتبدأ في توزيع القضايا والموكّلين"}
               </p>
               {limit === 0 ? (
-                <Button asChild><a href="/billing"><Crown className="h-4 w-4 ml-1.5" /> ترقية الباقة</a></Button>
+                <Button asChild><a href="/billing"><Crown className="h-4 w-4 ms-1.5" /> ترقية الباقة</a></Button>
               ) : (
                 <Button onClick={() => { setForm({ ...EMPTY_FORM }); setShowCreate(true); }}>
-                  <Plus className="h-4 w-4 ml-1.5" /> إنشاء أول فرع
+                  <Plus className="h-4 w-4 ms-1.5" /> إنشاء أول فرع
                 </Button>
               )}
             </CardContent>
@@ -476,15 +476,15 @@ export default function BranchesPage() {
                     <Input placeholder="الرياض" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label><Phone className="inline h-3.5 w-3.5 ml-1" />رقم الهاتف</Label>
+                    <Label><Phone className="inline h-3.5 w-3.5 ms-1" />رقم الهاتف</Label>
                     <Input placeholder="0512345678" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label><Mail className="inline h-3.5 w-3.5 ml-1" />البريد الإلكتروني</Label>
+                    <Label><Mail className="inline h-3.5 w-3.5 ms-1" />البريد الإلكتروني</Label>
                     <Input placeholder="branch@firm.com" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
                   </div>
                   <div className="space-y-1.5 col-span-2">
-                    <Label><Users className="inline h-3.5 w-3.5 ml-1" />اسم مدير الفرع</Label>
+                    <Label><Users className="inline h-3.5 w-3.5 ms-1" />اسم مدير الفرع</Label>
                     <Input placeholder="اسم المدير" value={form.manager_name} onChange={e => setForm(f => ({ ...f, manager_name: e.target.value }))} />
                   </div>
                   <div className="space-y-1.5 col-span-2">
@@ -502,7 +502,7 @@ export default function BranchesPage() {
                     else createMut.mutate(form);
                   }}
                 >
-                  {(createMut.isPending || editMut.isPending) && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
+                  {(createMut.isPending || editMut.isPending) && <Loader2 className="h-4 w-4 ms-2 animate-spin" />}
                   {editing ? "حفظ التعديلات" : "إنشاء الفرع"}
                 </Button>
               </DialogFooter>
@@ -526,7 +526,7 @@ export default function BranchesPage() {
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={() => setDeleting(null)}>إلغاء</Button>
                 <Button variant="destructive" disabled={deleteMut.isPending} onClick={() => deleteMut.mutate(deleting.id)}>
-                  {deleteMut.isPending && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
+                  {deleteMut.isPending && <Loader2 className="h-4 w-4 ms-2 animate-spin" />}
                   تعطيل الفرع
                 </Button>
               </DialogFooter>
@@ -570,7 +570,7 @@ export default function BranchesPage() {
                   disabled={!transferCaseId || transferMut.isPending}
                   onClick={() => transferMut.mutate({ case_id: transferCaseId, target_branch_id: transferTarget.id })}
                 >
-                  {transferMut.isPending && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
+                  {transferMut.isPending && <Loader2 className="h-4 w-4 ms-2 animate-spin" />}
                   تحويل القضية
                 </Button>
               </DialogFooter>

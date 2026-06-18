@@ -247,7 +247,7 @@ export default function UpgradePage() {
             <h2 className="font-bold text-foreground text-base">مقارنة الخطط</h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[500px]">
+            <table className="w-full text-sm w-full">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-right p-4 font-semibold text-muted-foreground w-40">الميزة</th>

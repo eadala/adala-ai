@@ -318,7 +318,7 @@ export default function Tasks() {
       <div className="flex gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في المهام..." className="pr-9" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في المهام..." className="pe-9" />
         </div>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
           <SelectTrigger className="w-[130px]"><SelectValue placeholder="الأولوية" /></SelectTrigger>

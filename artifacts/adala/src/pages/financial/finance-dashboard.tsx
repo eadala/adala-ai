@@ -88,8 +88,8 @@ export default function FinanceDashboard() {
   /* KPI growth arrow */
   const Growth = ({ pct }: { pct: number }) =>
     pct === 0 ? <Minus className="h-3 w-3 text-muted-foreground inline" />
-    : pct > 0  ? <TrendingUp  className="h-3 w-3 text-emerald-500 inline ml-1" />
-    :             <TrendingDown className="h-3 w-3 text-red-500 inline ml-1" />;
+    : pct > 0  ? <TrendingUp  className="h-3 w-3 text-emerald-500 inline ms-1" />
+    :             <TrendingDown className="h-3 w-3 text-red-500 inline ms-1" />;
 
   return (
     <div className="min-h-screen bg-background p-6 rtl" dir="rtl">
@@ -469,7 +469,7 @@ export default function FinanceDashboard() {
             <div className="flex items-center gap-2 mb-5">
               <Lightbulb className="h-5 w-5 text-amber-500" />
               <span className="font-semibold text-foreground">الرؤى المالية التلقائية</span>
-              <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200 mr-2">Rules-Based Engine</span>
+              <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200 me-2">Rules-Based Engine</span>
             </div>
             <div className="space-y-3">
               {insights.map((ins, i) => {

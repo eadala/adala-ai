@@ -46,7 +46,7 @@ function KPICard({ title, value, sub, icon: Icon, color, trend }: any) {
           </div>
           {trend !== undefined && (
             <Badge variant="outline" className={trend >= 0 ? "border-green-500/30 text-green-400" : "border-red-500/30 text-red-400"}>
-              {trend >= 0 ? <ArrowUpRight className="h-3 w-3 ml-0.5" /> : <ArrowDownRight className="h-3 w-3 ml-0.5" />}
+              {trend >= 0 ? <ArrowUpRight className="h-3 w-3 ms-0.5" /> : <ArrowDownRight className="h-3 w-3 ms-0.5" />}
               {Math.abs(trend).toFixed(1)}%
             </Badge>
           )}
@@ -83,7 +83,7 @@ export default function FinancialReports() {
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-64 text-muted-foreground">
-      <Loader2 className="h-6 w-6 animate-spin ml-2" /> جارٍ تحميل التقارير...
+      <Loader2 className="h-6 w-6 animate-spin ms-2" /> جارٍ تحميل التقارير...
     </div>
   );
 

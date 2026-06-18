@@ -63,7 +63,7 @@ function MessageBubble({ msg, agentColor }: { msg: Message; agentColor: string }
     if (line.startsWith("**") && line.endsWith("**"))
       return <p key={i} className="font-bold mt-2 mb-0.5 text-sm" style={{ color: agentColor }}>{line.slice(2, -2)}</p>;
     if (line.startsWith("- "))
-      return <p key={i} className="text-sm text-foreground/85 pr-2 before:content-['•'] before:ml-2">{line.slice(2)}</p>;
+      return <p key={i} className="text-sm text-foreground/85 pe-2 before:content-['•'] before:ms-2">{line.slice(2)}</p>;
     if (/^\d+\./.test(line))
       return <p key={i} className="text-sm text-foreground/85">{line}</p>;
     if (!line.trim()) return <div key={i} className="h-1" />;
@@ -167,7 +167,7 @@ export default function AiAgents() {
     <div className="flex flex-col h-[calc(100vh-8rem)] max-w-3xl mx-auto">
       <div className="flex items-center gap-3 mb-4 flex-shrink-0">
         <Button variant="ghost" size="sm" onClick={() => setSelectedAgent(null)}>
-          <ChevronLeft className="w-4 h-4 ml-1 rotate-180" /> الوكلاء
+          <ChevronLeft className="w-4 h-4 ms-1 rotate-180" /> الوكلاء
         </Button>
         <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${selectedAgent.color}20` }}>
           <selectedAgent.icon className="w-5 h-5" style={{ color: selectedAgent.color }} />

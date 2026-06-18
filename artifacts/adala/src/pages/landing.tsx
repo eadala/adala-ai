@@ -176,7 +176,7 @@ function DashboardMock() {
               ].map(([n, s, c]) => (
                 <div key={n as string} className="flex items-center justify-between p-2.5 rounded-xl"
                   style={{ background: WHITE, border: `1px solid ${BORDER}` }}>
-                  <span className="text-[11px] truncate ml-2" style={{ color: BODY }}>{n as string}</span>
+                  <span className="text-[11px] truncate ms-2" style={{ color: BODY }}>{n as string}</span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: `${c as string}15`, color: c as string }}>{s as string}</span>
                 </div>
               ))}
@@ -885,7 +885,7 @@ export default function Landing() {
                     </p>
                     <div className="mb-6">
                       <span className="text-4xl font-black" style={{ color: isPopular ? WHITE : DARK }}>{p.price}</span>
-                      {p.period && <span className="text-sm mr-1" style={{ color: isPopular ? "rgba(255,255,255,0.5)" : MUTED }}>{p.period}</span>}
+                      {p.period && <span className="text-sm me-1" style={{ color: isPopular ? "rgba(255,255,255,0.5)" : MUTED }}>{p.period}</span>}
                     </div>
                     <ul className="space-y-2.5 flex-1 mb-7">
                       {p.features.map((f, fi) => (

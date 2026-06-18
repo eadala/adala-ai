@@ -52,7 +52,7 @@ function StatCard({
           </div>
           {trend && (
             <Badge variant="outline" className="text-emerald-600 border-emerald-200 text-[10px]">
-              <ArrowUpRight className="h-3 w-3 ml-0.5" />{trend}
+              <ArrowUpRight className="h-3 w-3 ms-0.5" />{trend}
             </Badge>
           )}
         </div>
@@ -484,7 +484,7 @@ export default function AIRouterDashboard() {
               <span>المدخلات: <strong>{summary.cacheStats.size}</strong></span>
               <span>الحجم الأقصى: <strong>{summary.cacheStats.maxEntries ?? "∞"}</strong></span>
               <span className="text-emerald-600">
-                <Zap className="h-3 w-3 inline ml-1" />
+                <Zap className="h-3 w-3 inline ms-1" />
                 Cache hit = صفر تكلفة، رد فوري (&lt;5ms)
               </span>
             </div>

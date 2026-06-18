@@ -225,7 +225,7 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
           </div>
 
           <Button className="w-full" onClick={() => create.mutate()} disabled={!title || create.isPending}>
-            {create.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Plus className="h-4 w-4 ml-2" />}
+            {create.isPending ? <Loader2 className="h-4 w-4 animate-spin ms-2" /> : <Plus className="h-4 w-4 ms-2" />}
             حفظ الحدث
           </Button>
         </div>

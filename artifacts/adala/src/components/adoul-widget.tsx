@@ -352,7 +352,7 @@ export default function AdoulWidget() {
                     boxShadow: "0 1px 8px rgba(26,86,219,0.08)",
                   }}>
                   <MD text={streaming} />
-                  <span className="inline-block w-0.5 h-3.5 rounded-full mr-0.5 align-middle animate-pulse"
+                  <span className="inline-block w-0.5 h-3.5 rounded-full me-0.5 align-middle animate-pulse"
                     style={{ background: BLUE }} />
                 </div>
               </div>

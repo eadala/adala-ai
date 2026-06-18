@@ -470,12 +470,12 @@ export default function OfficeSettingsPage() {
 
       <Tabs defaultValue="identity" dir="rtl">
         <TabsList className="grid grid-cols-6 w-full">
-          <TabsTrigger value="identity"><Building2 className="h-4 w-4 ml-1.5" />هوية المكتب</TabsTrigger>
-          <TabsTrigger value="assets"><Image className="h-4 w-4 ml-1.5" />الشعار والختم</TabsTrigger>
-          <TabsTrigger value="branding"><Palette className="h-4 w-4 ml-1.5" />الهوية البصرية</TabsTrigger>
-          <TabsTrigger value="templates"><FileText className="h-4 w-4 ml-1.5" />قوالب الفواتير</TabsTrigger>
-          <TabsTrigger value="subscription"><Crown className="h-4 w-4 ml-1.5" />الاشتراك</TabsTrigger>
-          <TabsTrigger value="whatsapp"><MessageCircle className="h-4 w-4 ml-1.5" />واتساب API</TabsTrigger>
+          <TabsTrigger value="identity"><Building2 className="h-4 w-4 ms-1.5" />هوية المكتب</TabsTrigger>
+          <TabsTrigger value="assets"><Image className="h-4 w-4 ms-1.5" />الشعار والختم</TabsTrigger>
+          <TabsTrigger value="branding"><Palette className="h-4 w-4 ms-1.5" />الهوية البصرية</TabsTrigger>
+          <TabsTrigger value="templates"><FileText className="h-4 w-4 ms-1.5" />قوالب الفواتير</TabsTrigger>
+          <TabsTrigger value="subscription"><Crown className="h-4 w-4 ms-1.5" />الاشتراك</TabsTrigger>
+          <TabsTrigger value="whatsapp"><MessageCircle className="h-4 w-4 ms-1.5" />واتساب API</TabsTrigger>
         </TabsList>
 
         {/* TAB 1: Identity */}
@@ -499,19 +499,19 @@ export default function OfficeSettingsPage() {
                 <Input value={form.tagline || ""} onChange={e => set("tagline", e.target.value)} placeholder="خبرة قانونية متميزة منذ ٢٠١٠" />
               </div>
               <div className="space-y-2">
-                <Label><Hash className="inline h-4 w-4 ml-1" />رقم الترخيص</Label>
+                <Label><Hash className="inline h-4 w-4 ms-1" />رقم الترخيص</Label>
                 <Input value={form.licenseNo || ""} onChange={e => set("licenseNo", e.target.value)} placeholder="LS-2024-XXXX" />
               </div>
               <div className="space-y-2">
-                <Label><Phone className="inline h-4 w-4 ml-1" />الهاتف</Label>
+                <Label><Phone className="inline h-4 w-4 ms-1" />الهاتف</Label>
                 <Input type="tel" value={form.phone || ""} onChange={e => set("phone", e.target.value)} placeholder="+966 5X XXX XXXX" dir="ltr" />
               </div>
               <div className="space-y-2">
-                <Label><Mail className="inline h-4 w-4 ml-1" />البريد الإلكتروني</Label>
+                <Label><Mail className="inline h-4 w-4 ms-1" />البريد الإلكتروني</Label>
                 <Input type="email" value={form.email || ""} onChange={e => set("email", e.target.value)} placeholder="info@lawoffice.sa" dir="ltr" />
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label><Globe className="inline h-4 w-4 ml-1" />الموقع الإلكتروني</Label>
+                <Label><Globe className="inline h-4 w-4 ms-1" />الموقع الإلكتروني</Label>
                 <Input value={form.website || ""} onChange={e => set("website", e.target.value)} placeholder="https://lawoffice.sa" />
               </div>
               <div className="space-y-2 md:col-span-2">

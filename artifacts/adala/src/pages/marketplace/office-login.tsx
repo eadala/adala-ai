@@ -127,7 +127,7 @@ function ClientAuthForm({ primaryColor }: { primaryColor: string }) {
         <div className="relative">
           <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
           <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-            placeholder="example@email.com" className={`${inputCls} pr-9`} />
+            placeholder="example@email.com" className={`${inputCls} pe-9`} />
         </div>
       </div>
 
@@ -149,7 +149,7 @@ function ClientAuthForm({ primaryColor }: { primaryColor: string }) {
             <input type={showPw ? "text" : "password"} value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder={tab === "register" ? "6 أحرف على الأقل" : "••••••••"}
-              className={`${inputCls} pr-9 pl-9`}
+              className={`${inputCls} pe-9 ps-9`}
               onKeyDown={e => e.key === "Enter" && (tab === "login" ? handleLogin() : handleRegister())} />
             <button type="button" onClick={() => setShowPw(p => !p)}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">

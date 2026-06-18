@@ -213,38 +213,38 @@ export default function ClientDetail() {
       <Tabs defaultValue="cases" dir="rtl">
         <TabsList className="flex w-full overflow-x-auto h-9 justify-start">
           <TabsTrigger value="cases" className="text-xs px-1.5">
-            <Scale className="h-3.5 w-3.5 ml-1 hidden sm:block" />القضايا
-            {cases.length > 0 && <span className="mr-1 text-[10px] bg-blue-500/20 text-blue-400 rounded px-1">{cases.length}</span>}
+            <Scale className="h-3.5 w-3.5 ms-1 hidden sm:block" />القضايا
+            {cases.length > 0 && <span className="me-1 text-[10px] bg-blue-500/20 text-blue-400 rounded px-1">{cases.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="invoices" className="text-xs px-1.5">
-            <Receipt className="h-3.5 w-3.5 ml-1 hidden sm:block" />الفواتير
-            {invoices.length > 0 && <span className="mr-1 text-[10px] bg-amber-500/20 text-amber-400 rounded px-1">{invoices.length}</span>}
+            <Receipt className="h-3.5 w-3.5 ms-1 hidden sm:block" />الفواتير
+            {invoices.length > 0 && <span className="me-1 text-[10px] bg-amber-500/20 text-amber-400 rounded px-1">{invoices.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="accounting" className="text-xs px-1.5">
-            <BarChart3 className="h-3.5 w-3.5 ml-1 hidden sm:block" />
+            <BarChart3 className="h-3.5 w-3.5 ms-1 hidden sm:block" />
             <span className="text-primary">المالية</span>
           </TabsTrigger>
           <TabsTrigger value="contracts" className="text-xs px-1.5">
-            <Handshake className="h-3.5 w-3.5 ml-1 hidden sm:block" />العقود
-            {contracts.length > 0 && <span className="mr-1 text-[10px] bg-violet-500/20 text-violet-400 rounded px-1">{contracts.length}</span>}
+            <Handshake className="h-3.5 w-3.5 ms-1 hidden sm:block" />العقود
+            {contracts.length > 0 && <span className="me-1 text-[10px] bg-violet-500/20 text-violet-400 rounded px-1">{contracts.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="sessions" className="text-xs px-1.5">
-            <CalendarDays className="h-3.5 w-3.5 ml-1 hidden sm:block" />المواعيد
-            {events.length > 0 && <span className="mr-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{events.length}</span>}
+            <CalendarDays className="h-3.5 w-3.5 ms-1 hidden sm:block" />المواعيد
+            {events.length > 0 && <span className="me-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{events.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="messages" className="text-xs px-1.5">
-            <MessageSquare className="h-3.5 w-3.5 ml-1 hidden sm:block" />المراسلات
-            {messages.length > 0 && <span className="mr-1 text-[10px] bg-blue-500/20 text-blue-400 rounded px-1">{messages.length}</span>}
+            <MessageSquare className="h-3.5 w-3.5 ms-1 hidden sm:block" />المراسلات
+            {messages.length > 0 && <span className="me-1 text-[10px] bg-blue-500/20 text-blue-400 rounded px-1">{messages.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="activities" className="text-xs px-1.5">
-            <Activity className="h-3.5 w-3.5 ml-1 hidden sm:block" />النشاطات
+            <Activity className="h-3.5 w-3.5 ms-1 hidden sm:block" />النشاطات
           </TabsTrigger>
           <TabsTrigger value="whatsapp" className="text-xs px-1.5">
-            <SmartphoneIcon className="h-3.5 w-3.5 ml-1 hidden sm:block" />واتساب
-            {waLogs.length > 0 && <span className="mr-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{waLogs.length}</span>}
+            <SmartphoneIcon className="h-3.5 w-3.5 ms-1 hidden sm:block" />واتساب
+            {waLogs.length > 0 && <span className="me-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{waLogs.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="ai" className="text-xs px-1.5">
-            <Sparkles className="h-3.5 w-3.5 ml-1" style={{ color: "#2563EB" }} />
+            <Sparkles className="h-3.5 w-3.5 ms-1" style={{ color: "#2563EB" }} />
             <span style={{ color: "#2563EB" }}>AI</span>
           </TabsTrigger>
         </TabsList>
@@ -442,11 +442,11 @@ export default function ClientDetail() {
                           {new Date(msg.created_at).toLocaleDateString("ar-EG")}
                         </p>
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mr-6">{msg.body}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2 me-6">{msg.body}</p>
                       {msg.sender_name && (
-                        <p className="text-[11px] text-muted-foreground mt-1 mr-6">
+                        <p className="text-[11px] text-muted-foreground mt-1 me-6">
                           من: {msg.sender_name}
-                          {msg.sender_ip && <span className="mr-2 opacity-60">IP: {msg.sender_ip}</span>}
+                          {msg.sender_ip && <span className="me-2 opacity-60">IP: {msg.sender_ip}</span>}
                         </p>
                       )}
                     </div>
@@ -488,8 +488,8 @@ export default function ClientDetail() {
                           {new Date(log.sent_at).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mr-6">{log.message}</p>
-                      {log.error && <p className="text-[11px] text-red-400 mt-1 mr-6">{log.error}</p>}
+                      <p className="text-xs text-muted-foreground line-clamp-2 me-6">{log.message}</p>
+                      {log.error && <p className="text-[11px] text-red-400 mt-1 me-6">{log.error}</p>}
                     </div>
                   ))}
                 </div>
@@ -524,7 +524,7 @@ export default function ClientDetail() {
                       const meta = ACTIVITY_ICONS[act.type] ?? ACTIVITY_ICONS.case_created;
                       const Icon = meta.icon;
                       return (
-                        <div key={idx} className="flex items-start gap-4 pr-8 relative">
+                        <div key={idx} className="flex items-start gap-4 pe-8 relative">
                           {/* Dot */}
                           <div className={`absolute right-2 top-3 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 z-10 ${meta.bg}`}>
                             <Icon className={`h-3 w-3 ${meta.color}`} />

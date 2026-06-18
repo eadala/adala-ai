@@ -606,7 +606,7 @@ ${letterhead ? ".page-inner{background:rgba(255,255,255,0.88);}" : ""}
           {/* search */}
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في النماذج..." className="pr-9" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في النماذج..." className="pe-9" />
           </div>
 
           {/* categories */}
@@ -627,7 +627,7 @@ ${letterhead ? ".page-inner{background:rgba(255,255,255,0.88);}" : ""}
 
           {/* template cards */}
           <ScrollArea className="flex-1">
-            <div className="space-y-2 pl-1">
+            <div className="space-y-2 ps-1">
               {filtered.map(t => (
                 <button key={t.id} onClick={() => selectTemplate(t)}
                   className={cn(
@@ -670,7 +670,7 @@ ${letterhead ? ".page-inner{background:rgba(255,255,255,0.88);}" : ""}
                 <div className="text-[11px] text-muted-foreground">{selected.description}</div>
               </div>
               <ScrollArea className="flex-1">
-                <div className="space-y-3 pl-1">
+                <div className="space-y-3 ps-1">
                   {selected.fields.map(f => (
                     <div key={f.key}>
                       <Label className="text-xs font-semibold mb-1 block">{f.label}</Label>

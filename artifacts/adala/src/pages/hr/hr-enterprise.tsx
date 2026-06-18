@@ -150,7 +150,7 @@ export default function HREnterprise() {
         <div className="flex gap-2 flex-wrap">
           {(ov.workflows?.pending ?? 0) > 0 && (
             <Badge variant="destructive" className="text-sm px-3 py-1">
-              <Clock className="h-4 w-4 ml-1" />
+              <Clock className="h-4 w-4 ms-1" />
               {ov.workflows?.pending} طلب معلق
             </Badge>
           )}
@@ -223,7 +223,7 @@ export default function HREnterprise() {
               <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> أعضاء المكتب</CardTitle>
               <Dialog open={newMemberOpen} onOpenChange={setNewMemberOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm"><Plus className="h-4 w-4 ml-1" /> إضافة عضو</Button>
+                  <Button size="sm"><Plus className="h-4 w-4 ms-1" /> إضافة عضو</Button>
                 </DialogTrigger>
                 <DialogContent dir="rtl">
                   <DialogHeader><DialogTitle>إضافة عضو للمكتب</DialogTitle></DialogHeader>
@@ -240,7 +240,7 @@ export default function HREnterprise() {
                         </SelectContent>
                       </Select></div>
                     <Button className="w-full" disabled={addMember.isPending} onClick={() => addMember.mutate(newMember)}>
-                      {addMember.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Plus className="h-4 w-4 ml-1" />}
+                      {addMember.isPending ? <Loader2 className="h-4 w-4 animate-spin ms-1" /> : <Plus className="h-4 w-4 ms-1" />}
                       إضافة
                     </Button>
                   </div>
@@ -352,7 +352,7 @@ export default function HREnterprise() {
                 </Select>
                 <Dialog open={newWfOpen} onOpenChange={setNewWfOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm"><Plus className="h-4 w-4 ml-1" /> طلب جديد</Button>
+                    <Button size="sm"><Plus className="h-4 w-4 ms-1" /> طلب جديد</Button>
                   </DialogTrigger>
                   <DialogContent dir="rtl">
                     <DialogHeader><DialogTitle>إرسال طلب جديد</DialogTitle></DialogHeader>
@@ -383,7 +383,7 @@ export default function HREnterprise() {
                         <Input value={newWf.notes} onChange={e => setNewWf(p => ({ ...p, notes: e.target.value }))} placeholder="سبب الطلب..." /></div>
                       <Button className="w-full" disabled={submitWorkflow.isPending}
                         onClick={() => submitWorkflow.mutate({ ...newWf, payload: { type: newWf.type } })}>
-                        {submitWorkflow.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : null}
+                        {submitWorkflow.isPending ? <Loader2 className="h-4 w-4 animate-spin ms-1" /> : null}
                         إرسال الطلب
                       </Button>
                     </div>
@@ -423,11 +423,11 @@ export default function HREnterprise() {
                         <div className="flex gap-2 mt-2">
                           <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white"
                             disabled={approveWf.isPending} onClick={() => approveWf.mutate(wf.id)}>
-                            <CheckCircle2 className="h-4 w-4 ml-1" /> موافقة
+                            <CheckCircle2 className="h-4 w-4 ms-1" /> موافقة
                           </Button>
                           <Button size="sm" variant="destructive" disabled={rejectWf.isPending}
                             onClick={() => rejectWf.mutate(wf.id)}>
-                            <XCircle className="h-4 w-4 ml-1" /> رفض
+                            <XCircle className="h-4 w-4 ms-1" /> رفض
                           </Button>
                         </div>
                       )}
