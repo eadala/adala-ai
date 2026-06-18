@@ -267,13 +267,13 @@ async function caseDeadlineReminders(settings: any, tr: any) {
   if (triggers.case_deadline === false) return 0;
 
   const rows = await sqlAll(sql`
-    SELECT c.id, c.title, c.case_type, c.next_hearing,
+    SELECT c.id, c.title, c.case_type, c.next_hearing_date AS next_hearing,
            cl.email AS client_email, cl.full_name AS client_name
     FROM cases c
     LEFT JOIN clients cl ON cl.id::text = c.client_id::text
-    WHERE c.next_hearing IS NOT NULL
-      AND c.next_hearing::date BETWEEN CURRENT_DATE + INTERVAL '1 day'
-                                   AND CURRENT_DATE + INTERVAL '3 days'
+    WHERE c.next_hearing_date IS NOT NULL
+      AND c.next_hearing_date::date BETWEEN CURRENT_DATE + INTERVAL '1 day'
+                                        AND CURRENT_DATE + INTERVAL '3 days'
       AND c.status != 'closed'
   `);
 

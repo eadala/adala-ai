@@ -486,6 +486,67 @@ router.get("/cases/hearings/calendar", requireAuthWithTenant, async (req, res) =
    HEARINGS CRUD — /cases/:id/hearings
 ══════════════════════════════════════════════════════ */
 
+async function getCaseTitle(caseId: string, tenantId: string): Promise<string> {
+  try {
+    const r = await db.execute(sql`SELECT title FROM cases WHERE id = ${caseId} AND office_id = ${tenantId} LIMIT 1`);
+    return ((r as any).rows ?? [])[0]?.title ?? "قضية";
+  } catch { return "قضية"; }
+}
+
+async function syncHearingToCalendar(
+  hearingId: string, caseId: string, tenantId: string,
+  hearingDate: string, courtRoom: string | null, hearingStatus: string, caseTitle: string,
+) {
+  try {
+    const eventId  = `hearing-${hearingId}`;
+    const endAt    = new Date(new Date(hearingDate).getTime() + 2 * 60 * 60 * 1000).toISOString();
+    const evtStatus = hearingStatus === "cancelled" ? "cancelled" : "upcoming";
+    const title    = `جلسة: ${caseTitle}`;
+    await db.execute(sql`
+      INSERT INTO events
+        (id, user_id, title, event_type, start_at, end_at, all_day,
+         case_id, office_id, location, status, created_at, updated_at)
+      VALUES
+        (${eventId}, 'system', ${title}, 'court_session',
+         ${hearingDate}::timestamptz, ${endAt}::timestamptz, false,
+         ${caseId}, ${tenantId}, ${courtRoom ?? null}, ${evtStatus}, NOW(), NOW())
+      ON CONFLICT (id) DO UPDATE SET
+        title      = EXCLUDED.title,
+        start_at   = EXCLUDED.start_at,
+        end_at     = EXCLUDED.end_at,
+        location   = EXCLUDED.location,
+        status     = EXCLUDED.status,
+        updated_at = NOW()
+    `);
+  } catch { /* non-blocking */ }
+}
+
+async function deleteHearingFromCalendar(hearingId: string) {
+  try {
+    await db.execute(sql`DELETE FROM events WHERE id = ${"hearing-" + hearingId}`);
+  } catch { /* non-blocking */ }
+}
+
+async function createHearingReminder(
+  tenantId: string, hearingDate: string, caseTitle: string,
+) {
+  try {
+    const d = new Date(hearingDate);
+    d.setDate(d.getDate() - 1);
+    const dueDateStr = d.toISOString().slice(0, 10);
+    await db.execute(sql`
+      INSERT INTO reminders (office_id, title, body, due_date, due_time, priority, category, done, created_at)
+      VALUES (
+        ${tenantId},
+        ${"تذكير جلسة: " + caseTitle},
+        ${"جلسة محكمة مقررة بتاريخ " + new Date(hearingDate).toLocaleDateString("ar-SA")},
+        ${dueDateStr}::date,
+        '08:00', 'high', 'hearing', false, NOW()
+      )
+    `);
+  } catch { /* non-blocking */ }
+}
+
 async function syncNextHearing(caseId: string, tenantId: string) {
   const next = await db.execute(sql`
     SELECT hearing_date FROM case_hearings
@@ -531,10 +592,22 @@ router.post("/cases/:id/hearings", requireAuthWithTenant, async (req, res) => {
       VALUES (${caseId}, ${tenantId}, ${hearingDate}, ${courtRoom ?? null}, ${status}, ${notes ?? null})
       RETURNING *
     `);
+    const newHearing = ((ins as any).rows ?? [])[0];
     await syncNextHearing(caseId, tenantId);
+
+    /* ── مزامنة التقويم والتذكيرات ── */
+    if (newHearing) {
+      const caseTitle = await getCaseTitle(caseId, tenantId);
+      await syncHearingToCalendar(
+        String(newHearing.id), caseId, tenantId,
+        hearingDate, courtRoom ?? null, status, caseTitle,
+      );
+      await createHearingReminder(tenantId, hearingDate, caseTitle);
+    }
+
     auditLog({ ...auditMeta(req), action: "create", resource: "hearing", resourceId: caseId,
       details: `جلسة: ${hearingDate}` }).catch(() => {});
-    res.status(201).json(((ins as any).rows ?? [])[0]);
+    res.status(201).json(newHearing);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
   }
@@ -558,6 +631,21 @@ router.patch("/cases/:id/hearings/:hid", requireAuthWithTenant, async (req, res)
       WHERE id = ${hid}::uuid AND case_id = ${caseId} AND office_id = ${tenantId}
     `);
     await syncNextHearing(caseId, tenantId);
+
+    /* ── مزامنة التقويم بعد التعديل ── */
+    const updated = await db.execute(sql`
+      SELECT hearing_date, court_room, status FROM case_hearings
+      WHERE id = ${hid}::uuid AND office_id = ${tenantId} LIMIT 1
+    `);
+    const upd = ((updated as any).rows ?? [])[0];
+    if (upd) {
+      const caseTitle = await getCaseTitle(caseId, tenantId);
+      await syncHearingToCalendar(
+        hid, caseId, tenantId,
+        upd.hearing_date, upd.court_room ?? null, upd.status ?? "scheduled", caseTitle,
+      );
+    }
+
     res.json({ success: true });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -575,6 +663,7 @@ router.delete("/cases/:id/hearings/:hid", requireAuthWithTenant, async (req, res
       WHERE id = ${hid}::uuid AND case_id = ${caseId} AND office_id = ${tenantId}
     `);
     await syncNextHearing(caseId, tenantId);
+    await deleteHearingFromCalendar(hid);
     res.status(204).end();
   } catch (e: any) {
     res.status(500).json({ error: e.message });
