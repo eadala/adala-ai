@@ -101,6 +101,7 @@ import officeApiKeysRouter   from "../modules/platform/officeApiKeys";
 import controlTowerRouter    from "../modules/platform/control-tower";
 import saasOsRouter          from "../modules/platform/saas-os";
 import productionOsRouter    from "../modules/platform/production-os";
+import demoSyncRouter        from "../modules/platform/demo-sync";
 
 // ── Integrations ─────────────────────────────────────────────────────────────
 import emailRouter              from "../modules/integrations/email";
@@ -242,6 +243,7 @@ router.use(officeApiKeysRouter);
 router.use(controlTowerRouter);
 router.use(saasOsRouter);
 router.use(productionOsRouter);
+router.use(demoSyncRouter);
 router.use(investorMetricsRouter);
 router.use(deploymentCenterRouter);
 
