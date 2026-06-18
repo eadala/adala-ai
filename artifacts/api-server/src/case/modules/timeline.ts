@@ -13,6 +13,7 @@ export class CaseTimeline {
       SELECT id, case_id, entry_type, title, description, happened_at, is_shared, created_by, created_at
       FROM case_timeline
       WHERE case_id = ${caseId}
+        AND office_id::text = ${this.tenantId}
       ORDER BY happened_at DESC
     `);
     return (r as any).rows ?? (r as any) ?? [];
@@ -34,6 +35,9 @@ export class CaseTimeline {
   }
 
   async deleteEntry(entryId: string): Promise<void> {
-    await db.execute(sql`DELETE FROM case_timeline WHERE id = ${entryId}`);
+    await db.execute(sql`
+      DELETE FROM case_timeline
+      WHERE id = ${entryId} AND office_id::text = ${this.tenantId}
+    `);
   }
 }

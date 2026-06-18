@@ -304,7 +304,8 @@ export async function approveAITask(
   /* mark as approved in insight */
   const updated = tasks.map(t => t.id === taskId ? { ...t, status: "approved" as const } : t);
   await db.execute(sql`
-    UPDATE case_ai_insights SET auto_tasks = ${JSON.stringify(updated)}::jsonb WHERE id = ${insightId}
+    UPDATE case_ai_insights SET auto_tasks = ${JSON.stringify(updated)}::jsonb
+    WHERE id = ${insightId} AND office_id = ${officeId}
   `);
 
   return created;
@@ -324,7 +325,8 @@ export async function rejectAITask(
   const updated = ((insight.auto_tasks ?? []) as AIAutoTask[])
     .map(t => t.id === taskId ? { ...t, status: "rejected" as const } : t);
   await db.execute(sql`
-    UPDATE case_ai_insights SET auto_tasks = ${JSON.stringify(updated)}::jsonb WHERE id = ${insightId}
+    UPDATE case_ai_insights SET auto_tasks = ${JSON.stringify(updated)}::jsonb
+    WHERE id = ${insightId} AND office_id = ${officeId}
   `);
   return { ok: true };
 }

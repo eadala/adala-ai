@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -332,12 +332,13 @@ router.get("/notifications", requireAuth, async (_req, res) => {
 export default router;
 
 /* POST /api/notifications/mark-read — mark plan notification as read */
-router.post("/notifications/mark-read/:planId", requireAuth, async (req, res) => {
+router.post("/notifications/mark-read/:planId", requireAuthWithTenant, async (req, res) => {
   try {
     const { planId } = req.params as Record<string, string>;
+    const tenantId = (req as any).tenantId as string;
     if (planId.startsWith("plan-notif-")) {
       const realId = planId.replace("plan-notif-", "");
-      await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE WHERE id = ${realId}`);
+      await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE WHERE id = ${realId} AND office_id = ${tenantId}`);
     }
     res.json({ ok: true });
   } catch {

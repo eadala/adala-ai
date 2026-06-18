@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -276,9 +276,10 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 });
 
 // PUT /api/internal-messages/:id/archive
-router.put("/:id/archive", requireAuth, async (req: Request, res: Response) => {
+router.put("/:id/archive", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    await db.execute(sql`UPDATE office_messages SET folder = 'archive' WHERE id = ${String(req.params.id)}::uuid`);
+    const tenantId = (req as any).tenantId as string;
+    await db.execute(sql`UPDATE office_messages SET folder = 'archive' WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}`);
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -286,9 +287,10 @@ router.put("/:id/archive", requireAuth, async (req: Request, res: Response) => {
 });
 
 // DELETE /api/internal-messages/:id
-router.delete("/:id", requireAuth, async (req: Request, res: Response) => {
+router.delete("/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    await db.execute(sql`DELETE FROM office_messages WHERE id = ${String(req.params.id)}::uuid`);
+    const tenantId = (req as any).tenantId as string;
+    await db.execute(sql`DELETE FROM office_messages WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}`);
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

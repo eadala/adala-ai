@@ -120,6 +120,7 @@ router.patch("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
     if (!UUID_RE.test(id)) return res.status(400).json({ error: "معرف غير صالح" });
     const { title, description, status, priority, assigneeName, dueDate, caseTitle } = req.body;
     const dueDateVal = dueDate || null;
+    const tenantId = (req as any).tenantId as string;
     const r = await db.execute(sql`
       UPDATE tasks SET
         title = COALESCE(${title || null}, title),
@@ -130,7 +131,7 @@ router.patch("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
         due_date = COALESCE(${dueDateVal ? sql`${dueDateVal}::date` : sql`NULL`}, due_date),
         case_title = COALESCE(${caseTitle || null}, case_title),
         updated_at = NOW()
-      WHERE id = ${id}::uuid
+      WHERE id = ${id}::uuid AND office_id = ${tenantId}
       RETURNING *
     `);
     res.json(sqlOne(r));
@@ -144,7 +145,8 @@ router.delete("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { id } = req.params as Record<string, string>;
     if (!UUID_RE.test(id)) return res.status(400).json({ error: "معرف غير صالح" });
-    await db.execute(sql`DELETE FROM tasks WHERE id = ${id}::uuid`);
+    const tenantId = (req as any).tenantId as string;
+    await db.execute(sql`DELETE FROM tasks WHERE id = ${id}::uuid AND office_id = ${tenantId}`);
     res.json({ ok: true });
   } catch (e: any) {
     console.error("[office-tasks] DELETE error:", e.message);

@@ -487,7 +487,7 @@ router.post("/ai-tasks/:id/process", requireAuth, async (req, res) => {
     if (!taskArr.length) return res.status(404).json({ error: "المهمة غير موجودة" });
     const t = taskArr[0];
 
-    await db.execute(sql`UPDATE ai_tasks SET status = 'running' WHERE id = ${id}`);
+    await db.execute(sql`UPDATE ai_tasks SET status = 'running' WHERE id = ${id} AND (office_id IS NULL OR office_id = ${tenantId ?? ''})`);
 
     let docContent = "";
     if (t.document_id) {
@@ -501,7 +501,7 @@ router.post("/ai-tasks/:id/process", requireAuth, async (req, res) => {
 
     await db.execute(sql`
       UPDATE ai_tasks SET status = 'done', output_text = ${result}, updated_at = NOW()
-      WHERE id = ${id}
+      WHERE id = ${id} AND (office_id IS NULL OR office_id = ${tenantId ?? ''})
     `);
 
     return res.json({ success: true, result });

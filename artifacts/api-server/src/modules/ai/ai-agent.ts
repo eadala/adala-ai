@@ -98,10 +98,10 @@ async function executeAction(
   switch (intent) {
     case "get_briefing": {
       const [events, overdue, openCases, contracts] = await Promise.all([
-        db.execute(sql`SELECT id, title, event_type, start_at, location FROM events WHERE start_at >= NOW() AND start_at < NOW() + INTERVAL '24 hours' ORDER BY start_at LIMIT 10`),
-        db.execute(sql`SELECT id, title, total, due_date FROM client_invoices WHERE status='overdue' ORDER BY due_date LIMIT 10`),
-        db.execute(sql`SELECT COUNT(*) as cnt FROM cases WHERE status='open'`),
-        db.execute(sql`SELECT COUNT(*) as cnt FROM contracts WHERE status='active'`),
+        db.execute(sql`SELECT id, title, event_type, start_at, location FROM events WHERE start_at >= NOW() AND start_at < NOW() + INTERVAL '24 hours' AND office_id = ${officeId} ORDER BY start_at LIMIT 10`),
+        db.execute(sql`SELECT id, title, total, due_date FROM client_invoices WHERE status='overdue' AND office_id = ${officeId} ORDER BY due_date LIMIT 10`),
+        db.execute(sql`SELECT COUNT(*) as cnt FROM cases WHERE status='open' AND office_id = ${officeId}`),
+        db.execute(sql`SELECT COUNT(*) as cnt FROM contracts WHERE status='active' AND office_id = ${officeId}`),
       ]);
       const todayEventsCount = events.rows?.length ?? 0;
       const overdueCount = overdue.rows?.length ?? 0;
@@ -143,6 +143,7 @@ async function executeAction(
       const r = await db.execute(sql`
         UPDATE cases SET status='closed', updated_at=NOW()
         WHERE title ILIKE ${"%" + query + "%"} AND status != 'closed'
+          AND office_id = ${officeId}
         RETURNING id, title
       `);
       const updated = r.rows?.length ?? 0;
@@ -153,7 +154,9 @@ async function executeAction(
       const q = params.query || "";
       const rows = await db.execute(sql`
         SELECT id, title, case_type, status, client_name, created_at
-        FROM cases ${q ? sql`WHERE title ILIKE ${"%" + q + "%"} OR client_name ILIKE ${"%" + q + "%"}` : sql``}
+        FROM cases
+        WHERE office_id = ${officeId}
+          ${q ? sql`AND (title ILIKE ${"%" + q + "%"} OR client_name ILIKE ${"%" + q + "%"})` : sql``}
         ORDER BY created_at DESC LIMIT 10
       `);
       return { success: true, message: `وجدت ${rows.rows?.length ?? 0} قضية`, data: rows.rows };
@@ -374,21 +377,25 @@ router.post("/ai-agent/workflows", requireAuth, async (req: Request, res: Respon
 });
 
 // ─── PUT /ai-agent/workflows/:id ──────────────────────────────────────────────
-router.put("/ai-agent/workflows/:id", requireAuth, async (req: Request, res: Response) => {
+router.put("/ai-agent/workflows/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
+  const tenantId = (req as any).tenantId as string;
   const { id } = req.params as Record<string, string>;
   const { isActive, mode } = req.body;
   await db.execute(sql`
     UPDATE ai_workflows SET
       is_active = ${isActive ?? true},
       mode = ${mode || "manual"}
-    WHERE id = ${id}
+    WHERE id = ${id} AND office_id = ${tenantId}
   `);
   res.json({ success: true });
 });
 
 // ─── DELETE /ai-agent/workflows/:id ───────────────────────────────────────────
-router.delete("/ai-agent/workflows/:id", requireAuth, async (req: Request, res: Response) => {
-  await db.execute(sql`DELETE FROM ai_workflows WHERE id = ${String(req.params.id)}`);
+router.delete("/ai-agent/workflows/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
+  const tenantId = (req as any).tenantId as string;
+  await db.execute(sql`
+    DELETE FROM ai_workflows WHERE id = ${String(req.params.id)} AND office_id = ${tenantId}
+  `);
   res.json({ success: true });
 });
 
