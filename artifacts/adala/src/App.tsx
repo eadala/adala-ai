@@ -58,6 +58,7 @@ const Compliance           = lazy(() => import("@/pages/legal-core/compliance"))
 
 // Finance & Accounting
 const Invoices             = lazy(() => import("@/pages/financial/invoices"));
+const InvoicePublic        = lazy(() => import("@/pages/financial/invoice-public"));
 const Revenues             = lazy(() => import("@/pages/financial/revenues"));
 const Expenses             = lazy(() => import("@/pages/financial/expenses"));
 const FinancialReports     = lazy(() => import("@/pages/financial/financial-reports"));
@@ -654,6 +655,7 @@ function AppRoutes() {
 
             {/* ── Portal (public, before /:token catch-all) ── */}
             <Route path="/sign/:token">{({ token }: { token: string }) => <PublicPage><SignPage token={token} /></PublicPage>}</Route>
+            <Route path="/invoice/:token">{(p: any) => <Suspense fallback={<PageLoader />}><InvoicePublic token={p.token} /></Suspense>}</Route>
             <Route path="/portal/login"><PublicPage><PortalLogin /></PublicPage></Route>
             <Route path="/portal/my-cases"><PublicPage><PortalMyCases /></PublicPage></Route>
             <Route path="/portal/:token"><PublicPage><PortalView /></PublicPage></Route>

@@ -7,6 +7,7 @@ import { eq, desc, and, sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
 import { eventBus } from "../../core/eventBus";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
+import nodemailer from "nodemailer";
 
 const router = Router();
 
@@ -25,6 +26,15 @@ async function ensureInvoiceTables() {
   /* amount_paid: لتتبع الدفعات الجزئية */
   await db.execute(sql`
     ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS amount_paid NUMERIC(12,2) NOT NULL DEFAULT 0
+  `).catch(() => {});
+
+  /* view_token: رابط عام للعميل بدون تسجيل دخول */
+  await db.execute(sql`
+    ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS view_token UUID DEFAULT gen_random_uuid()
+  `).catch(() => {});
+  /* ملء view_token للفواتير القديمة التي لا تملكه */
+  await db.execute(sql`
+    UPDATE client_invoices SET view_token = gen_random_uuid() WHERE view_token IS NULL
   `).catch(() => {});
 
   /* جدول الدفعات — يدعم الدفعات الجزئية وعزل المكاتب */
@@ -224,7 +234,10 @@ router.post("/invoices", requireAuthWithTenant, validate(CreateInvoiceSchema), a
     ).catch(() => {});
 
     auditLog({ ...auditMeta(req), action: "create", resource: "invoice", resourceId: String(invoice.id), details: `${invoiceNumber} — ${total} SAR` }).catch(() => {});
-    res.status(201).json(invoice);
+
+    /* أضف view_token للاستجابة */
+    const vtRows = await sqlRows(sql`SELECT view_token::text AS view_token FROM client_invoices WHERE id = ${String(invoice.id)}::uuid LIMIT 1`);
+    res.status(201).json({ ...invoice, viewToken: vtRows[0]?.view_token ?? null });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -591,6 +604,150 @@ router.post("/invoices/:id/mark-paid", requireAuthWithTenant, async (req: Reques
 
     auditLog({ action: "mark_paid", resource: "invoice", resourceId: String(req.params.id), officeId: tenantId }).catch(() => {});
     res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+   GET /invoices/public/:token — عرض الفاتورة للعميل (بدون تسجيل دخول)
+════════════════════════════════════════════════════════════════════════════ */
+router.get("/invoices/public/:token", async (req: Request, res: Response) => {
+  try {
+    const token = String(req.params.token ?? "").trim();
+    if (!token || !/^[0-9a-f-]{36}$/i.test(token)) {
+      return res.status(400).json({ error: "رابط غير صحيح" });
+    }
+    const rows = await sqlRows(sql`
+      SELECT
+        ci.id, ci.invoice_number, ci.title, ci.items, ci.subtotal,
+        ci.vat_rate, ci.vat_amount, ci.total, ci.currency, ci.status,
+        ci.due_date, ci.notes, ci.stripe_payment_link_url,
+        ci.created_at, ci.paid_at, ci.tax_enabled, ci.client_name,
+        ci.view_token::text AS view_token,
+        op.name          AS office_name,
+        op.phone         AS office_phone,
+        op.email         AS office_email,
+        op.logo          AS office_logo,
+        op.address       AS office_address,
+        op.website       AS office_website,
+        op.primary_color AS office_color
+      FROM  client_invoices ci
+      LEFT JOIN office_page op ON op.id::text = ci.office_id
+      WHERE ci.view_token = ${token}::uuid
+      LIMIT 1
+    `);
+    if (!rows[0]) return res.status(404).json({ error: "الفاتورة غير موجودة" });
+
+    /* إضافة اسم العميل من جدول العملاء إذا كان id موجوداً */
+    const row = rows[0];
+    if (!row.client_name && row.client_id) {
+      const cRows = await sqlRows(sql`SELECT full_name FROM clients WHERE id = ${String(row.client_id)}::uuid LIMIT 1`);
+      if (cRows[0]) row.client_name = cRows[0].full_name;
+    }
+
+    res.json(row);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+   POST /invoices/:id/send-email — إرسال الفاتورة بالبريد الإلكتروني
+════════════════════════════════════════════════════════════════════════════ */
+router.post("/invoices/:id/send-email", requireAuthWithTenant, async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
+
+    const { email } = req.body;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return apiErr(res, 400, "INVALID_EMAIL", "البريد الإلكتروني غير صحيح");
+    }
+
+    /* جلب الفاتورة */
+    const invRows = await sqlRows(sql`
+      SELECT *, view_token::text AS view_token FROM client_invoices
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId} LIMIT 1
+    `);
+    if (!invRows[0]) return apiErr(res, 404, "NOT_FOUND", "الفاتورة غير موجودة");
+    const inv = invRows[0];
+
+    /* جلب معلومات المكتب */
+    const officeRows = await sqlRows(sql`SELECT * FROM office_page WHERE id::text = ${tenantId} LIMIT 1`);
+    const office = officeRows[0] ?? { name: "مكتب المحاماة" };
+
+    /* رابط الفاتورة */
+    const origin = req.get("origin") ?? `https://${req.get("host")}`;
+    const viewLink = `${origin}/invoice/${inv.view_token}`;
+
+    /* إعدادات SMTP (تجربة المكتب أولاً ثم default) */
+    const smtpRows = await sqlRows(sql`
+      SELECT * FROM email_notification_settings
+      WHERE office_id = ${tenantId} OR office_id = 'default'
+      ORDER BY (office_id = ${tenantId}) DESC LIMIT 1
+    `);
+    const smtp = smtpRows[0];
+    if (!smtp?.smtp_host || !smtp?.smtp_user || !smtp?.smtp_pass) {
+      return apiErr(res, 400, "NO_SMTP", "لم يتم إعداد بريد SMTP — يرجى إعداده من إعدادات الإشعارات");
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: smtp.smtp_host,
+      port: parseInt(String(smtp.smtp_port ?? 587)),
+      secure: parseInt(String(smtp.smtp_port ?? 587)) === 465,
+      auth: { user: smtp.smtp_user, pass: smtp.smtp_pass },
+    });
+
+    const totalFmt = Number(inv.total).toLocaleString("ar-SA", { minimumFractionDigits: 2 });
+    const currency = inv.currency ?? "SAR";
+    const officeName = office.name ?? "مكتب المحاماة";
+    const accentColor = office.primary_color ?? "#1A56DB";
+
+    await transporter.sendMail({
+      from: `"${officeName}" <${smtp.from_email ?? smtp.smtp_user}>`,
+      to: email,
+      subject: `فاتورة رقم ${inv.invoice_number} — ${inv.title}`,
+      html: `
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; background:#f8fafc; margin:0; padding:20px; direction:rtl; }
+  .card { max-width:560px; margin:0 auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.08); }
+  .header { background:${accentColor}; padding:28px 32px; color:#fff; }
+  .header h1 { margin:0; font-size:22px; }
+  .header p  { margin:4px 0 0; opacity:.85; font-size:13px; }
+  .body { padding:28px 32px; }
+  .row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f5f9; font-size:14px; color:#374151; }
+  .row:last-child { border:none; }
+  .total { font-size:18px; font-weight:700; color:${accentColor}; }
+  .btn { display:block; width:100%; text-align:center; background:${accentColor}; color:#fff; padding:14px; border-radius:10px; text-decoration:none; font-weight:600; font-size:15px; margin-top:20px; }
+  .footer { padding:16px 32px; background:#f8fafc; text-align:center; font-size:11px; color:#94a3b8; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>${officeName}</h1>
+    <p>فاتورة رقم ${inv.invoice_number}</p>
+  </div>
+  <div class="body">
+    <div class="row"><span>الموضوع</span><span><b>${inv.title}</b></span></div>
+    <div class="row"><span>تاريخ الإصدار</span><span>${new Date(inv.created_at).toLocaleDateString("ar-SA")}</span></div>
+    ${inv.due_date ? `<div class="row"><span>تاريخ الاستحقاق</span><span>${new Date(inv.due_date).toLocaleDateString("ar-SA")}</span></div>` : ""}
+    <div class="row"><span>الإجمالي المستحق</span><span class="total">${totalFmt} ${currency}</span></div>
+    ${inv.notes ? `<div style="margin-top:12px;padding:12px;background:#fef9ec;border-radius:8px;font-size:13px;color:#92400e;">${inv.notes}</div>` : ""}
+    <a href="${viewLink}" class="btn">عرض الفاتورة كاملة ←</a>
+    ${inv.stripe_payment_link_url ? `<a href="${inv.stripe_payment_link_url}" class="btn" style="background:#10b981;margin-top:8px;">💳 ادفع الآن</a>` : ""}
+  </div>
+  <div class="footer">مدعوم بـ عدالة AI &nbsp;·&nbsp; ${office.phone ?? ""} ${office.email ? `&nbsp;·&nbsp; ${office.email}` : ""}</div>
+</div>
+</body></html>`,
+    });
+
+    auditLog({ action: "send_email", resource: "invoice", resourceId: String(req.params.id), officeId: tenantId, details: `إلى: ${email}` }).catch(() => {});
+    res.json({ success: true, message: `تم إرسال الفاتورة إلى ${email}` });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
