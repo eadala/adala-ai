@@ -99,7 +99,7 @@ router.post("/ai-agents/run", requireAuth, async (req, res) => {
   res.json({ response: agent.fallback(input), agent: agentType });
 });
 
-router.get("/ai-agents/list", (_req, res) => {
+router.get("/ai-agents/list", requireAuth, (_req, res) => {
   res.json(Object.entries(AGENTS).map(([key, a]) => ({ key, name: a.name })));
 });
 

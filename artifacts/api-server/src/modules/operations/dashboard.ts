@@ -80,7 +80,8 @@ router.get("/dashboard/summary", requireAuthWithTenant, async (req, res) => {
       safeRows(sql`
         SELECT id, title, start_at, event_type
         FROM events
-        WHERE start_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
+        WHERE office_id = ${tenantId}
+          AND start_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
         ORDER BY start_at ASC LIMIT 5
       `),
     ]);

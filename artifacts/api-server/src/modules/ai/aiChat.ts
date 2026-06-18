@@ -439,8 +439,8 @@ async function processAiTask(taskType: string, content: string): Promise<string>
   return reply;
 }
 
-/* ── Available models endpoint ── */
-router.get("/ai-models/available", (_req, res) => {
+/* ── Available models endpoint (auth required) ── */
+router.get("/ai-models/available", requireAuth, (_req, res) => {
   res.json(getAvailableModels());
 });
 

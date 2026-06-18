@@ -1,0 +1,295 @@
+LEGAL AI PLATFORM – CONFLICT DETECTION & SYSTEM CONSISTENCY AUDIT
+
+Objective
+
+Perform a complete enterprise-grade audit of the entire Adalah AI platform to identify all logical conflicts, security conflicts, data inconsistencies, permission violations, UI inconsistencies, accounting discrepancies, performance bottlenecks, AI isolation issues, and multi-tenant architecture weaknesses.
+
+The audit must simulate a production environment and assume thousands of active law firms.
+
+⸻
+
+1. Multi-Tenant Isolation Audit
+
+Verify:
+
+* All business tables contain office_id.
+* All database queries enforce office-level filtering.
+* No API endpoint can access another office’s data.
+* No dashboard metrics aggregate data across offices unintentionally.
+* No export, report, search, AI query, or analytics endpoint leaks external office data.
+* No shared cache contamination between offices.
+* No session leakage between tenants.
+
+Required Output:
+
+* Isolation Score (%)
+* Critical Breaches
+* Recommended Fixes
+* Required Database Changes
+
+⸻
+
+2. Role & Permission Conflict Audit
+
+Analyze all roles:
+
+* Super Admin
+* Platform Admin
+* Office Owner
+* Branch Manager
+* Lawyer
+* Legal Researcher
+* Accountant
+* HR Manager
+* Secretary
+* Client Portal User
+
+Detect:
+
+* Permission overlaps.
+* Escalation paths.
+* Unauthorized visibility.
+* API bypass opportunities.
+* Hidden routes without protection.
+* Missing authorization middleware.
+* Broken RBAC implementation.
+
+Required Output:
+
+* Permission Matrix
+* Risk Level
+* Fix Recommendations
+
+⸻
+
+3. Case Management Integrity Audit
+
+Verify:
+
+* Every case belongs to a valid client.
+* Every hearing belongs to a valid case.
+* Every court record is linked correctly.
+* Court names and circuit numbers are validated.
+* Upcoming hearings cannot exist without a hearing date.
+* Closed cases cannot receive new hearings.
+* Deleted clients cannot leave orphan records.
+
+Detect all integrity conflicts.
+
+⸻
+
+4. Accounting & Financial Consistency Audit
+
+Verify:
+
+* Invoice totals.
+* Revenue synchronization.
+* Expense synchronization.
+* Tax calculations.
+* Outstanding balances.
+* Financial reports.
+* Payment reconciliation.
+* Wallet transactions.
+
+Detect:
+
+* Duplicate transactions.
+* Double counting.
+* Missing revenue entries.
+* Incorrect VAT calculations.
+* Broken invoice relationships.
+
+Generate:
+
+* Financial Integrity Report.
+* Accounting Risk Score.
+
+⸻
+
+5. AI Isolation & Security Audit
+
+Verify:
+
+* AI never accesses data from another office.
+* Prompt context isolation is enforced.
+* Embeddings are tenant-scoped.
+* Vector database filtering exists.
+* AI logs are stored securely.
+* AI responses cannot expose confidential information.
+
+Perform simulated prompt-injection testing.
+
+Detect:
+
+* Data leakage risks.
+* Context contamination.
+* Cross-tenant AI access.
+* Prompt security vulnerabilities.
+
+⸻
+
+6. Hearing & Calendar Conflict Audit
+
+Detect:
+
+* Lawyer double-bookings.
+* Overlapping hearings.
+* Conflicting reminders.
+* Duplicate court appearances.
+* Scheduling collisions.
+* Calendar synchronization failures.
+
+Generate conflict reports.
+
+⸻
+
+7. HR & Employee Management Audit
+
+Verify:
+
+* Employee-office assignment.
+* Branch assignment.
+* Payroll consistency.
+* Leave management.
+* Attendance tracking.
+
+Detect:
+
+* Employees without office ownership.
+* Payroll mismatches.
+* Invalid reporting structures.
+
+⸻
+
+8. Website & CRM Audit
+
+Verify:
+
+* Lead generation forms.
+* CRM synchronization.
+* Consultation requests.
+* Contact forms.
+* Marketing tracking.
+
+Detect:
+
+* Lost leads.
+* Duplicate clients.
+* CRM conflicts.
+* Form submission failures.
+
+⸻
+
+9. Legal Store & Subscription Audit
+
+Verify:
+
+* Product purchases.
+* Subscription billing.
+* Referral system.
+* Coupon engine.
+* Trial periods.
+* Branch pricing rules.
+
+Detect:
+
+* Revenue leakage.
+* Incorrect discounts.
+* Billing conflicts.
+* Subscription inconsistencies.
+
+⸻
+
+10. UI/UX Consistency Audit
+
+Scan all pages.
+
+Detect:
+
+* Font inconsistencies.
+* Weak typography.
+* Design token violations.
+* Inconsistent spacing.
+* Color conflicts.
+* Card design mismatches.
+* Mobile responsiveness issues.
+* Accessibility violations.
+
+Enforce:
+
+* Premium Legal SaaS Design System.
+* Unified Design Tokens.
+* Enterprise UI Standards.
+
+⸻
+
+11. Performance Audit
+
+Analyze:
+
+* Database queries.
+* React rendering.
+* API response times.
+* Memory usage.
+* Bundle size.
+* Lazy loading.
+* Caching strategy.
+
+Detect:
+
+* N+1 Queries.
+* Re-render storms.
+* Slow endpoints.
+* Memory leaks.
+* Excessive API requests.
+
+Generate optimization recommendations.
+
+⸻
+
+12. Security Audit
+
+Perform:
+
+* OWASP Top 10 Review.
+* XSS Testing.
+* CSRF Testing.
+* SQL Injection Testing.
+* Authorization Bypass Testing.
+* Session Security Review.
+* File Upload Security Review.
+
+Classify findings as:
+
+P0 = Critical
+P1 = High
+P2 = Medium
+P3 = Low
+
+⸻
+
+Final Deliverables
+
+Generate a comprehensive executive report containing:
+
+1. Overall Production Readiness Score.
+2. Multi-Tenant Isolation Score.
+3. Security Score.
+4. Performance Score.
+5. Accounting Integrity Score.
+6. AI Security Score.
+7. UI/UX Quality Score.
+
+For every issue provide:
+
+* Description
+* Severity
+* Root Cause
+* Affected Modules
+* Exploitation Scenario
+* Recommended Fix
+* Estimated Fix Effort
+
+Do not stop at visible issues.
+
+Actively search for hidden architectural conflicts, scalability risks, legal compliance risks, financial inconsistencies, AI isolation vulnerabilities, and future production failures before launch.
