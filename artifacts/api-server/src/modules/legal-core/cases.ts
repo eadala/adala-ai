@@ -324,18 +324,6 @@ router.post("/cases/:id/tasks", requireAuthWithTenant, async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════════
-   DOCUMENTS
-══════════════════════════════════════════════════════ */
-router.get("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
-  try {
-    const docs = await new CaseDocuments(getTenant(req)).getDocuments(String(req.params.id));
-    res.json(docs);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-/* ══════════════════════════════════════════════════════
    AI AUTOPILOT
 ══════════════════════════════════════════════════════ */
 router.get("/cases/:id/health", requireAuthWithTenant, async (req, res) => {
@@ -682,8 +670,9 @@ router.get("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
   try {
     const caseId   = String(req.params.id);
     const tenantId = getTenant(req);
+    /* Exclude file_url from list (heavy) — only sent on /download */
     const { rows } = await db.execute(sql`
-      SELECT id, case_id, file_name, file_type, file_url,
+      SELECT id, case_id, file_name, file_type, file_size,
              uploaded_by, uploaded_by_name, created_at
       FROM documents
       WHERE case_id = ${caseId} AND office_id = ${tenantId}
@@ -711,18 +700,23 @@ router.post("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
       return res.status(413).json({ error: "حجم الملف أكبر من المسموح (10 MB)" });
     }
 
+    /* Derive actual byte size from base64 length */
+    const comma     = typeof fileData === "string" ? fileData.indexOf(",") : -1;
+    const b64part   = comma !== -1 ? fileData.slice(comma + 1) : (fileData as string);
+    const fileSize  = Math.floor(b64part.length * 0.75);
+
     const { rows } = await db.execute(sql`
       INSERT INTO documents
-        (case_id, office_id, file_url, file_type, file_name, uploaded_by, uploaded_by_name)
+        (case_id, office_id, file_url, file_type, file_name, file_size, uploaded_by, uploaded_by_name)
       VALUES
-        (${caseId}, ${tenantId}, ${fileData}, ${fileType ?? ""}, ${fileName},
-         ${userId}, ${uploadedByName ?? ""})
-      RETURNING id, case_id, file_name, file_type, uploaded_by, uploaded_by_name, created_at
+        (${caseId}, ${tenantId}, ${fileData}, ${fileType ?? "application/octet-stream"},
+         ${fileName}, ${fileSize}, ${userId}, ${uploadedByName ?? ""})
+      RETURNING id, case_id, file_name, file_type, file_size, uploaded_by, uploaded_by_name, created_at
     `);
     auditLog({
       ...auditMeta(req),
       action: "upload", resource: "document", resourceId: String((rows[0] as any).id),
-      details: `مستند: ${fileName} — قضية: ${caseId}`,
+      details: `مستند: ${fileName} (${fileSize} bytes) — قضية: ${caseId}`,
     }).catch(() => {});
     res.status(201).json(rows[0]);
   } catch (e: any) {

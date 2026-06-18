@@ -25,8 +25,8 @@ export class CaseDocuments {
     file_size?: number;
   }): Promise<any> {
     const r = await db.execute(sql`
-      INSERT INTO documents (case_id, office_id, file_name, file_type, file_url, file_size)
-      VALUES (${caseId}, ${this.tenantId}, ${data.file_name}, ${data.file_type}, ${data.file_url}, ${data.file_size ?? null})
+      INSERT INTO documents (id, case_id, office_id, file_name, file_type, file_url, file_size)
+      VALUES (gen_random_uuid()::text, ${caseId}, ${this.tenantId}, ${data.file_name}, ${data.file_type}, ${data.file_url}, ${data.file_size ?? null})
       RETURNING id, file_name, file_type, file_url, created_at
     `);
     return ((r as any).rows ?? (r as any))?.[0] ?? {};

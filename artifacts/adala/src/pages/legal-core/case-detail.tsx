@@ -1253,7 +1253,7 @@ function DocumentRow({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-foreground leading-tight truncate">{rawName || "مستند"}</p>
-        {/* Uploader + date */}
+        {/* Uploader + date + size */}
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
           {doc.uploaded_by_name && (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -1264,6 +1264,12 @@ function DocumentRow({
           <span className="text-[11px] text-muted-foreground">
             {dateStr} {timeStr}
           </span>
+          {doc.file_size ? (
+            <>
+              <span className="text-muted-foreground/40 text-[11px]">·</span>
+              <span className="text-[11px] text-muted-foreground/70">{sizeLabel(Number(doc.file_size))}</span>
+            </>
+          ) : null}
         </div>
       </div>
 
