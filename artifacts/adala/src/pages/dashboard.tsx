@@ -17,8 +17,77 @@ import {
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useLang } from "@/hooks/use-lang";
+import { useOfficePlan } from "@/hooks/use-office-plan";
+import { Crown } from "lucide-react";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+
+/* ══════════════════════════════════════════════════════
+   PLAN SUBSCRIPTION BAR — لوحة الاشتراك والباقة
+══════════════════════════════════════════════════════ */
+function PlanSubscriptionBar() {
+  const { planName, planColor, planSlug, isTrial, trialDaysLeft, limits, isLoaded } = useOfficePlan();
+  if (!isLoaded) return null;
+  const isUpgradable = ["free", "starter", "basic"].includes(planSlug);
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card/80 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+      {/* Left: plan info */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center">
+            <Crown className="h-3.5 w-3.5 text-amber-500" />
+          </div>
+          <div>
+            <p className="text-[9px] text-muted-foreground/60 uppercase tracking-widest font-bold leading-none mb-0.5">باقتك الحالية</p>
+            <p className="text-sm font-bold leading-none" style={{ color: planColor }}>{planName}</p>
+          </div>
+        </div>
+
+        {isTrial && trialDaysLeft !== null && (
+          <span className="bg-amber-500/10 border border-amber-500/20 text-amber-600 text-xs px-2.5 py-1 rounded-full font-semibold">
+            تجريبية · {trialDaysLeft} يوم متبقي
+          </span>
+        )}
+
+        {limits && (
+          <div className="hidden md:flex items-center gap-4 text-[11px] text-muted-foreground/70">
+            <span className="flex items-center gap-1.5">
+              <Bot className="h-3 w-3 text-primary/50" />
+              ذكاء اصطناعي: {limits.maxAiCalls === -1 ? "غير محدود" : limits.maxAiCalls.toLocaleString("ar-SA")} طلب/شهر
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Scale className="h-3 w-3 text-primary/50" />
+              قضايا: {limits.maxCases === -1 ? "غير محدودة" : limits.maxCases}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Users className="h-3 w-3 text-primary/50" />
+              مستخدمون: {limits.maxUsers === -1 ? "غير محدود" : limits.maxUsers}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Right: actions */}
+      <div className="flex items-center gap-2 shrink-0">
+        <Link href="/billing">
+          <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 rounded-lg border-border/60">
+            <CreditCard className="h-3 w-3" />
+            إدارة الاشتراك
+          </Button>
+        </Link>
+        {isUpgradable && (
+          <Link href="/billing">
+            <Button size="sm" className="h-8 text-xs gap-1.5 rounded-lg">
+              <Crown className="h-3 w-3" />
+              ترقية الباقة
+            </Button>
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ══════════════════════════════════════════════════════
    AI Events Intelligence Panel — Autonomous Monitoring
@@ -741,6 +810,13 @@ export default function Dashboard() {
         <div className="p-5 sm:p-6">
           <SmartBriefing user={user} />
         </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          PLAN SUBSCRIPTION STATUS
+      ══════════════════════════════════════════════ */}
+      <div className="app-fade app-fade-2">
+        <PlanSubscriptionBar />
       </div>
 
       {/* ══════════════════════════════════════════════

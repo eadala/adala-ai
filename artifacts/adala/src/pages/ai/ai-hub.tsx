@@ -1,789 +1,647 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import {
-  BrainCircuit, Send, Sparkles, Bot, Gavel, Swords,
-  BookOpen, RotateCcw, Copy, ChevronLeft, ChevronRight,
-  Loader2, Terminal, MessageSquare, User, Check, ArrowRight,
-  ChevronDown, Cpu, Zap, Lock, Settings2, X,
-} from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Link } from "wouter";
+import { useOfficePlan } from "@/hooks/use-office-plan";
+import {
+  BrainCircuit, Send, Sparkles, Bot, Gavel, Swords, BookOpen,
+  RotateCcw, Copy, Loader2, Terminal, MessageSquare, User, Check,
+  Scale, FileText, Zap, Cpu, Crown, ChevronDown, ChevronUp,
+  ExternalLink, Info, Lock, Wand2, LibraryBig,
+} from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-/* ══════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    MODEL OPTIONS
-══════════════════════════════════════════════ */
+═══════════════════════════════════════════════════ */
 type ModelKey = "auto" | "gemini" | "claude" | "openai";
 
 const MODEL_OPTIONS: {
-  key: ModelKey; label: string; shortLabel: string; color: string;
-  badgeLabel: string; free: boolean; desc: string; icon: any;
+  key: ModelKey; label: string; color: string; free: boolean; icon: any; desc: string;
 }[] = [
-  { key: "auto",   label: "تلقائي",       shortLabel: "Auto",   color: "#6B7280", badgeLabel: "", free: true,  desc: "يختار الأفضل المتاح تلقائياً",  icon: Zap },
-  { key: "gemini", label: "Gemini Flash", shortLabel: "Gemini", color: "#4285F4", badgeLabel: "مجاني", free: true,  desc: "سريع ومجاني · Gemini 2.5 Flash", icon: Sparkles },
-  { key: "claude", label: "Claude Haiku", shortLabel: "Claude", color: "#D97706", badgeLabel: "مدفوع", free: false, desc: "دقيق وموثوق · Claude 3.5 Haiku", icon: Cpu },
-  { key: "openai", label: "GPT-4o mini",  shortLabel: "GPT-4o", color: "#10A37F", badgeLabel: "مدفوع", free: false, desc: "قوي وشامل · GPT-4o mini",          icon: Cpu },
+  { key: "auto",   label: "تلقائي",        color: "#6B7280", free: true,  icon: Zap,      desc: "يختار الأفضل المتاح تلقائياً" },
+  { key: "gemini", label: "Gemini Flash",  color: "#4285F4", free: true,  icon: Sparkles, desc: "سريع ومجاني · Gemini 2.5 Flash" },
+  { key: "claude", label: "Claude Haiku",  color: "#D97706", free: false, icon: Cpu,      desc: "دقيق · Claude 3.5 Haiku" },
+  { key: "openai", label: "GPT-4o mini",   color: "#10A37F", free: false, icon: Cpu,      desc: "شامل · GPT-4o mini" },
 ];
 
-const MODEL_USED_LABELS: Record<string, { label: string; color: string }> = {
-  gemini:   { label: "Gemini",     color: "#4285F4" },
-  claude:   { label: "Claude",     color: "#D97706" },
-  openai:   { label: "GPT-4o",     color: "#10A37F" },
-  fallback: { label: "محلي",       color: "#6B7280" },
-};
-
-/* ══════════════════════════════════════════════
-   MODES CONFIG
-══════════════════════════════════════════════ */
-const MODES = [
+/* ═══════════════════════════════════════════════════
+   CHAT AGENTS (built-in conversation modes)
+═══════════════════════════════════════════════════ */
+const CHAT_AGENTS = [
   {
-    key: "assistant",
+    id: "assistant" as const,
     name: "المساعد الذكي",
     nameEn: "Smart Assistant",
     icon: BrainCircuit,
     color: "#6366F1",
-    gradient: "from-indigo-500/20 via-indigo-500/5 to-transparent",
-    border: "border-indigo-500/30",
-    badge: "bg-indigo-500/10 text-indigo-400",
-    desc: "مساعد يطّلع على بيانات مكتبك الحقيقية — قضايا، فواتير، عملاء",
-    api: `${BASE}/api/ai-assistant`,
+    badge: "بيانات المكتب",
+    desc: "يطّلع على بيانات مكتبك الحقيقية — قضايا، فواتير، عملاء — ويجيب عن أسئلتك",
+    api: "/api/ai-assistant",
     bodyKey: "message",
     replyKey: "reply",
     prompts: [
       "ملخص أداء المكتب اليوم",
       "الجلسات القادمة هذا الأسبوع",
-      "الفواتير المتأخرة",
-      "القضايا المفتوحة",
-      "آخر العملاء المضافين",
+      "الفواتير المتأخرة عن السداد",
+      "القضايا المفتوحة حالياً",
     ],
   },
   {
-    key: "chat",
+    id: "legal" as const,
     name: "المحادثة القانونية",
     nameEn: "Legal Chat",
     icon: MessageSquare,
     color: "#10B981",
-    gradient: "from-emerald-500/20 via-emerald-500/5 to-transparent",
-    border: "border-emerald-500/30",
-    badge: "bg-emerald-500/10 text-emerald-400",
-    desc: "محادثة مفتوحة في كل ما يخص الأنظمة السعودية والقانون",
-    api: `${BASE}/api/ai-chat/message`,
+    badge: "أنظمة سعودية",
+    desc: "محادثة مفتوحة في الأنظمة والتشريعات السعودية والفقه القانوني",
+    api: "/api/ai-chat/message",
     bodyKey: "message",
     replyKey: "reply",
     prompts: [
-      "ما مدة التقادم في المطالبات التجارية؟",
+      "مدة التقادم في المطالبات التجارية",
       "أركان العقد الصحيح في النظام السعودي",
-      "كيف أرفع دعوى عبر منصة ناجز؟",
-      "الفرق بين التحكيم والقضاء",
       "حقوق العامل عند إنهاء الخدمة",
+      "الفرق بين التحكيم والتقاضي",
     ],
   },
   {
-    key: "command",
+    id: "adoul" as const,
+    name: "عدول — المحلل القانوني",
+    nameEn: "Adoul Legal Analyst",
+    icon: Scale,
+    color: "#0EA5E9",
+    badge: "تحليل عميق",
+    desc: "تحليل القضايا واستخراج الدفوع القانونية — المستشار الأعمق والأدق",
+    api: "/api/adoul/chat",
+    bodyKey: "message",
+    replyKey: "reply",
+    prompts: [
+      "حلل هذه القضية واستخرج الدفوع المتاحة",
+      "ما النصوص القانونية الداعمة لموكلي؟",
+      "كيف أحضّر مذكرة الدفاع؟",
+      "قيّم قوة موقف الخصم القانوني",
+    ],
+  },
+  {
+    id: "command" as const,
     name: "القيادة الطبيعية",
     nameEn: "Natural Commands",
     icon: Terminal,
     color: "#F59E0B",
-    gradient: "from-amber-500/20 via-amber-500/5 to-transparent",
-    border: "border-amber-500/30",
-    badge: "bg-amber-500/10 text-amber-400",
-    desc: "أصدر أوامر بالعربية تُنفَّذ مباشرة: 'أنشئ قضية'، 'أضف عميل'",
-    api: `${BASE}/api/ai-agent/execute`,
+    badge: "أوامر مباشرة",
+    desc: "أصدر أوامر بالعربية تُنفَّذ مباشرة على بيانات مكتبك",
+    api: "/api/ai-agent/execute",
     bodyKey: "command",
     replyKey: "result",
     prompts: [
-      "الإحاطة اليومية الكاملة",
-      "اعرض قائمة القضايا النشطة",
+      "الإحاطة اليومية الكاملة للمكتب",
+      "اعرض القضايا النشطة هذا الشهر",
+      "تقرير تنفيذي شامل",
       "الفواتير المتأخرة عن الدفع",
-      "أنشئ قضية جديدة",
-      "تقرير تنفيذي شامل عن المكتب",
     ],
   },
 ] as const;
 
-type ModeKey = "assistant" | "chat" | "command";
-
-/* ══════════════════════════════════════════════
-   SPECIALIZED TOOLS
-══════════════════════════════════════════════ */
-const TOOLS = [
+/* ═══════════════════════════════════════════════════
+   QUICK TOOLS (links to dedicated pages)
+═══════════════════════════════════════════════════ */
+const QUICK_TOOLS = [
   {
-    key: "agents",
-    name: "الوكلاء المتخصصون",
-    icon: Bot,
+    id: "legal-ai",
+    name: "محرك الوثائق",
+    icon: FileText,
     color: "#8B5CF6",
-    bg: "bg-violet-500/10",
-    border: "border-violet-500/20",
-    textColor: "text-violet-400",
-    href: "/ai-agents",
-    desc: "6 وكلاء: عقود · تقاضٍ · شركات · امتثال · ملكية فكرية · تحصيل",
-    badge: "6 وكلاء",
+    href: "/legal-ai",
+    desc: "إنشاء مستندات ومذكرات قانونية",
   },
   {
-    key: "research",
-    name: "البحث القانوني",
-    icon: BookOpen,
-    color: "#3B82F6",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/20",
-    textColor: "text-blue-400",
-    href: "/legal-research",
-    desc: "بحث في الأنظمة السعودية والتشريعات عبر الذكاء الاصطناعي",
-    badge: "RAG",
-  },
-  {
-    key: "judge",
-    name: "الاستعداد للجلسة",
+    id: "judge-prep",
+    name: "المحاكاة القضائية",
     icon: Gavel,
     color: "#EF4444",
-    bg: "bg-red-500/10",
-    border: "border-red-500/20",
-    textColor: "text-red-400",
     href: "/judge-prep",
-    desc: "تحليل القضية وتوقع أسئلة القاضي وإعداد المرافعة",
-    badge: "تحليل",
+    desc: "توقع أسئلة القاضي وتحضير المرافعة",
   },
   {
-    key: "opponent",
-    name: "محاكي الخصم",
+    id: "opponent",
+    name: "محلل الخصم",
     icon: Swords,
     color: "#F97316",
-    bg: "bg-orange-500/10",
-    border: "border-orange-500/20",
-    textColor: "text-orange-400",
     href: "/opponent-simulator",
-    desc: "تدرّب أمام محامٍ خصم افتراضي بمستويات متعددة",
-    badge: "تدريب",
+    desc: "استشراف دفوع الخصم ونقاط ضعفه",
   },
-] as const;
+  {
+    id: "research",
+    name: "البحث القانوني",
+    icon: LibraryBig,
+    color: "#3B82F6",
+    href: "/legal-research",
+    desc: "بحث في الأنظمة والمراسيم السعودية",
+  },
+  {
+    id: "ui-builder",
+    name: "مُنشئ الواجهات",
+    icon: Wand2,
+    color: "#EC4899",
+    href: "/ui-builder",
+    desc: "إنشاء واجهات بالوصف الطبيعي",
+  },
+  {
+    id: "arbitration",
+    name: "التحكيم",
+    icon: BookOpen,
+    color: "#64748B",
+    href: "/arbitration",
+    desc: "إدارة قضايا التحكيم والوساطة",
+  },
+];
 
-/* ══════════════════════════════════════════════
-   MESSAGE FORMATTING
-══════════════════════════════════════════════ */
-function formatMsg(text: string) {
-  const lines = text.split("\n");
-  return lines.map((line, i) => {
-    const bold = line.replace(/\*\*(.+?)\*\*/g, (_, m) => `<strong class="text-foreground">${m}</strong>`);
-    if (/^\*\*(.+)\*\*$/.test(line.trim())) {
-      return <p key={i} className="font-bold text-primary mt-3 mb-1">{line.trim().slice(2, -2)}</p>;
-    }
-    if (line.startsWith("## ")) return <p key={i} className="font-black text-sm mt-4 mb-1.5 text-foreground">{line.slice(3)}</p>;
-    if (line.startsWith("### ")) return <p key={i} className="font-bold text-xs mt-3 mb-1 text-muted-foreground uppercase tracking-wide">{line.slice(4)}</p>;
-    if (line.startsWith("- ") || line.startsWith("• ")) {
-      const content = line.slice(2).replace(/\*\*(.+?)\*\*/g, (_, m) => `<strong class="text-foreground">${m}</strong>`);
-      return <p key={i} className="flex gap-2 mb-0.5 text-sm leading-relaxed"><span className="text-primary mt-1 shrink-0">•</span><span dangerouslySetInnerHTML={{ __html: content }} /></p>;
-    }
-    if (/^\d+\.\s/.test(line)) {
-      return <p key={i} className="mb-1 text-sm leading-relaxed me-2" dangerouslySetInnerHTML={{ __html: bold }} />;
-    }
-    if (line.trim() === "") return <div key={i} className="h-1.5" />;
-    return <p key={i} className="text-sm leading-relaxed mb-0.5" dangerouslySetInnerHTML={{ __html: bold }} />;
-  });
+type AgentId = typeof CHAT_AGENTS[number]["id"];
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+  modelUsed?: string;
+  ts: number;
 }
 
-/* ══════════════════════════════════════════════
-   CHAT MESSAGE COMPONENT
-══════════════════════════════════════════════ */
-interface Msg { role: "user" | "ai"; content: string; ts: Date; }
-
-function ChatBubble({ msg, modeColor }: { msg: Msg; modeColor: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => { navigator.clipboard.writeText(msg.content); setCopied(true); setTimeout(() => setCopied(false), 1500); };
-  const isAI = msg.role === "ai";
+/* ═══════════════════════════════════════════════════
+   PLAN WIDGET
+═══════════════════════════════════════════════════ */
+function PlanWidget() {
+  const { planName, planColor, planSlug, isTrial, trialDaysLeft, limits } = useOfficePlan();
+  const isUpgradable = ["free", "starter", "basic"].includes(planSlug);
 
   return (
-    <div className={cn("flex gap-3 mb-4 group", isAI ? "flex-row-reverse" : "flex-row-reverse justify-start")}>
-      {isAI && (
-        <div className="w-8 h-8 rounded-xl shrink-0 flex items-center justify-center" style={{ background: `${modeColor}20`, border: `1px solid ${modeColor}30` }}>
-          <Sparkles className="h-4 w-4" style={{ color: modeColor }} />
-        </div>
-      )}
-      {!isAI && (
-        <div className="w-8 h-8 rounded-xl bg-muted/50 border border-border/50 shrink-0 flex items-center justify-center">
-          <User className="h-4 w-4 text-muted-foreground" />
-        </div>
-      )}
-      <div className={cn("max-w-[78%] relative", isAI ? "items-end" : "items-start", "flex flex-col")}>
-        <div className={cn(
-          "rounded-2xl px-4 py-3 text-sm",
-          isAI
-            ? "bg-card border border-border/50 rounded-tr-sm"
-            : "rounded-tl-sm text-white",
-        )} style={!isAI ? { background: `linear-gradient(135deg, ${modeColor}dd, ${modeColor}99)` } : {}}>
-          {isAI ? <div className="text-foreground/90 leading-relaxed">{formatMsg(msg.content)}</div>
-                 : <p className="leading-relaxed">{msg.content}</p>}
-        </div>
-        <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {isAI && (
-            <button onClick={copy} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
-              {copied ? <><Check className="h-3 w-3 text-emerald-400" />تم النسخ</> : <><Copy className="h-3 w-3" />نسخ</>}
-            </button>
-          )}
-          <span className="text-[10px] text-muted-foreground">{msg.ts.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}</span>
-        </div>
+    <div className="p-3 rounded-xl border border-border/40 bg-background/60 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-muted-foreground/60 uppercase tracking-widest font-bold">الباقة الحالية</span>
+        <Link href="/billing">
+          <span className="text-[10px] text-primary hover:underline cursor-pointer">إدارة الاشتراك</span>
+        </Link>
       </div>
+      <div className="flex items-center gap-2">
+        <Crown className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+        <span className="text-sm font-bold" style={{ color: planColor }}>{planName}</span>
+        {isTrial && trialDaysLeft !== null && (
+          <span className="text-[9px] bg-amber-500/15 text-amber-600 border border-amber-500/20 px-1.5 py-0.5 rounded-full shrink-0">
+            {trialDaysLeft} يوم
+          </span>
+        )}
+      </div>
+      {limits && (
+        <p className="text-[10px] text-muted-foreground/60 leading-tight">
+          ذكاء اصطناعي: {limits.maxAiCalls === -1 ? "غير محدود" : `${limits.maxAiCalls.toLocaleString("ar-SA")} طلب/شهر`}
+        </p>
+      )}
+      {isUpgradable && (
+        <Link href="/billing">
+          <Button size="sm" className="w-full h-7 text-xs gap-1 mt-0.5 rounded-lg">
+            <Crown className="h-3 w-3" />
+            ترقية الباقة
+          </Button>
+        </Link>
+      )}
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════
-   TYPING INDICATOR
-══════════════════════════════════════════════ */
-function TypingDots({ color }: { color: string }) {
-  return (
-    <div className="flex gap-3 mb-4 flex-row-reverse">
-      <div className="w-8 h-8 rounded-xl shrink-0 flex items-center justify-center" style={{ background: `${color}20`, border: `1px solid ${color}30` }}>
-        <Sparkles className="h-4 w-4" style={{ color }} />
-      </div>
-      <div className="bg-card border border-border/50 rounded-2xl rounded-tr-sm px-4 py-3">
-        <div className="flex gap-1 items-center h-4">
-          {[0, 1, 2].map(i => (
-            <div key={i} className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: color, animationDelay: `${i * 0.15}s` }} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════
-   MAIN AI HUB
-══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════════ */
 export default function AIHub() {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-  const [modeKey, setModeKey] = useState<ModeKey>("assistant");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedModel, setSelectedModel] = useState<ModelKey>("auto");
-  const [modelPickerOpen, setModelPickerOpen] = useState(false);
-  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
-  const [settingsForm, setSettingsForm] = useState({ preferred_provider: "auto", mode: "balanced", smart_routing: true });
-  const [messages, setMessages] = useState<Map<ModeKey, Msg[]>>(new Map([
-    ["assistant", []],
-    ["chat",      []],
-    ["command",   []],
-  ]));
+  const [activeAgent, setActiveAgent] = useState<AgentId>("assistant");
+  const [model, setModel] = useState<ModelKey>("auto");
+  const [histories, setHistories] = useState<Record<AgentId, Message[]>>({
+    assistant: [],
+    legal: [],
+    adoul: [],
+    command: [],
+  });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [copied, setCopied] = useState<number | null>(null);
+  const [toolsOpen, setToolsOpen] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { toast } = useToast();
 
-  /* Fetch which models have API keys configured */
-  const { data: availableModels } = useQuery<{ gemini: boolean; claude: boolean; openai: boolean }>({
-    queryKey: ["ai-models-available"],
-    queryFn: () => fetch(`${BASE}/api/ai-models/available`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    staleTime: 60_000,
-  });
+  const agent = CHAT_AGENTS.find(a => a.id === activeAgent)!;
+  const messages = histories[activeAgent];
 
-  /* Fetch AI credits balance */
-  const { data: credits, refetch: refetchCredits } = useQuery<{ balance: number; monthly_allowance: number; used_this_month: number }>({
-    queryKey: ["office-ai-credits"],
-    queryFn: () => fetch(`${BASE}/api/office/ai-credits`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-  });
-
-  /* Fetch office AI settings */
-  const { data: aiSettings } = useQuery<{ settings: any }>({
-    queryKey: ["office-ai-settings"],
-    queryFn: () => fetch(`${BASE}/api/ai/gateway/my-settings`, {
-      headers: { "Authorization": `Bearer ${(window as any).__clerkToken ?? ""}` },
-    }).then(r => r.ok ? r.json() : { settings: null }),
-    staleTime: 120_000,
-  });
-
-  /* Save office AI settings */
-  const saveMut = useMutation({
-    mutationFn: async (body: any) => {
-      const res = await fetch(`${BASE}/api/ai/gateway/my-settings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${(window as any).__clerkToken ?? ""}` },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error("خطأ في الحفظ");
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: "تم حفظ إعدادات الذكاء الاصطناعي" });
-      qc.invalidateQueries({ queryKey: ["office-ai-settings"] });
-      setAiSettingsOpen(false);
-    },
-    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
-  });
-
-  /* Keep settingsForm in sync with loaded settings */
   useEffect(() => {
-    if (aiSettings?.settings) {
-      setSettingsForm({
-        preferred_provider: aiSettings.settings.preferred_provider ?? "auto",
-        mode: aiSettings.settings.mode ?? "balanced",
-        smart_routing: aiSettings.settings.smart_routing !== false,
-      });
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [aiSettings]);
+  }, [messages, loading]);
 
-  const mode = MODES.find(m => m.key === modeKey)!;
-  const msgs = messages.get(modeKey) ?? [];
-
-  const addMsg = useCallback((key: ModeKey, msg: Msg) => {
-    setMessages(prev => {
-      const next = new Map(prev);
-      next.set(key, [...(next.get(key) ?? []), msg]);
-      return next;
-    });
-  }, []);
-
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, loading]);
-  useEffect(() => { inputRef.current?.focus(); }, [modeKey]);
-
-  const handleSend = async (text?: string) => {
+  const send = useCallback(async (text?: string) => {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
+
     setInput("");
-    const userMsg: Msg = { role: "user", content: msg, ts: new Date() };
-    addMsg(modeKey, userMsg);
+    const userMsg: Message = { role: "user", content: msg, ts: Date.now() };
+    setHistories(prev => ({ ...prev, [activeAgent]: [...prev[activeAgent], userMsg] }));
     setLoading(true);
 
     try {
-      const body: any = {};
-      body[mode.bodyKey] = msg;
-      /* pass history for chat modes */
-      if (modeKey === "chat") body.history = msgs.slice(-6).map(m => ({ role: m.role === "ai" ? "assistant" : "user", content: m.content }));
-      if (modeKey === "assistant") body.context = msgs.slice(-6).map(m => ({ role: m.role === "ai" ? "assistant" : "user", content: m.content }));
-      /* pass selected model for /ai-chat/message */
-      if (modeKey === "chat" || modeKey === "command") body.model = selectedModel;
+      const body: Record<string, string> = { [agent.bodyKey]: msg };
+      if (model !== "auto") body.model = model;
 
-      const res = await fetch(mode.api, {
+      const r = await fetch(`${BASE}${agent.api}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
-      const reply = data[mode.replyKey]
-        ?? data.reply ?? data.answer ?? data.result
-        ?? data.message ?? "عذراً، لم أتمكن من المعالجة.";
-      addMsg(modeKey, { role: "ai", content: typeof reply === "object" ? JSON.stringify(reply, null, 2) : String(reply), ts: new Date() });
-      /* refresh credit balance after each AI call */
-      refetchCredits();
+
+      if (!r.ok) {
+        const errText = await r.text().catch(() => "");
+        throw new Error(`${r.status}${errText ? `: ${errText.slice(0, 80)}` : ""}`);
+      }
+
+      const data = await r.json();
+      const reply = data[agent.replyKey] ?? data.reply ?? data.result ?? data.message ?? "لا يوجد رد.";
+      const modelUsed = data.modelUsed ?? data.model;
+
+      const asstMsg: Message = { role: "assistant", content: reply, modelUsed, ts: Date.now() };
+      setHistories(prev => ({ ...prev, [activeAgent]: [...prev[activeAgent], asstMsg] }));
     } catch (e: any) {
-      toast({ title: "خطأ في الاتصال", description: e.message, variant: "destructive" });
+      const errMsg: Message = {
+        role: "assistant",
+        content: `⚠️ خطأ في الاتصال: ${e.message ?? "غير معروف"}`,
+        ts: Date.now(),
+      };
+      setHistories(prev => ({ ...prev, [activeAgent]: [...prev[activeAgent], errMsg] }));
+      toast({ title: "خطأ في الاتصال", description: e.message ?? "فشل الاتصال بالذكاء الاصطناعي", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  };
-
-  const clearChat = () => {
-    setMessages(prev => { const n = new Map(prev); n.set(modeKey, []); return n; });
-  };
+  }, [input, loading, activeAgent, agent, model, toast]);
 
   const handleKey = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
-  const isEmpty = msgs.length === 0;
+  const clearHistory = () => {
+    setHistories(prev => ({ ...prev, [activeAgent]: [] }));
+  };
+
+  const copyMessage = (content: string, idx: number) => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopied(idx);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  };
+
+  const AgentIcon = agent.icon;
 
   return (
-    <div className="flex h-[calc(100vh-6rem)] overflow-hidden rounded-2xl border border-border/50 bg-background" dir="rtl">
+    <div className="flex h-[calc(100vh-4.5rem)] overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
 
-      {/* ── SIDEBAR ── */}
-      <aside className={cn(
-        "flex flex-col border-l border-border/50 bg-card/50 transition-all duration-300 shrink-0",
-        sidebarOpen ? "w-64" : "w-14"
-      )}>
+      {/* ══════════════════ LEFT SIDEBAR ══════════════════ */}
+      <div className="w-[265px] shrink-0 border-l border-border/40 bg-muted/20 flex flex-col overflow-hidden">
+
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between p-3 border-b border-border/50 h-14">
-          {sidebarOpen && (
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-              </div>
-              <span className="font-black text-sm">الذكاء الاصطناعي</span>
-            </div>
-          )}
-          <button onClick={() => setSidebarOpen(v => !v)} className="w-7 h-7 rounded-lg hover:bg-muted/50 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors ml-auto">
-            {sidebarOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </button>
-        </div>
-
-        {/* Chat Modes */}
-        <div className="p-2 border-b border-border/50">
-          {sidebarOpen && <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest px-2 pb-2 pt-1">أوضاع المحادثة</p>}
-          {MODES.map(m => {
-            const Icon = m.icon;
-            const isActive = modeKey === m.key;
-            const msgCount = (messages.get(m.key as ModeKey) ?? []).filter(x => x.role === "user").length;
-            return (
-              <button
-                key={m.key}
-                onClick={() => setModeKey(m.key as ModeKey)}
-                className={cn(
-                  "w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-right transition-all mb-0.5",
-                  isActive ? "bg-card border border-border shadow-sm" : "hover:bg-muted/40",
-                  !sidebarOpen && "justify-center"
-                )}
-              >
-                <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center transition-colors" style={{ background: isActive ? `${m.color}20` : "transparent", border: isActive ? `1px solid ${m.color}30` : "1px solid transparent" }}>
-                  <Icon className="h-3.5 w-3.5" style={{ color: isActive ? m.color : undefined }} />
-                </div>
-                {sidebarOpen && (
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className={cn("text-xs font-semibold truncate", isActive ? "text-foreground" : "text-muted-foreground")}>{m.name}</span>
-                      {msgCount > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: `${m.color}20`, color: m.color }}>{msgCount}</span>}
-                    </div>
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Specialized Tools */}
-        <div className="p-2 flex-1 overflow-y-auto">
-          {sidebarOpen && <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest px-2 pb-2 pt-1">أدوات متخصصة</p>}
-          {TOOLS.map(t => {
-            const Icon = t.icon;
-            return (
-              <Link key={t.key} href={t.href}>
-                <a className={cn("w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-right hover:bg-muted/40 transition-all mb-0.5 group", !sidebarOpen && "justify-center")}>
-                  <div className={cn("w-7 h-7 rounded-lg shrink-0 flex items-center justify-center border", t.bg, t.border)}>
-                    <Icon className={cn("h-3.5 w-3.5", t.textColor)} />
-                  </div>
-                  {sidebarOpen && (
-                    <div className="flex-1 min-w-0 flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground group-hover:text-foreground truncate transition-colors">{t.name}</span>
-                      <Badge className={cn("text-[9px] px-1.5 py-0 h-4 border-0", t.bg, t.textColor)}>{t.badge}</Badge>
-                    </div>
-                  )}
-                </a>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* AI Settings Panel (inline, collapsible) */}
-        {sidebarOpen && (
-          <div className="px-2 pb-2 shrink-0">
-            {!aiSettingsOpen ? (
-              <button
-                onClick={() => setAiSettingsOpen(true)}
-                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl border border-border/50 hover:bg-muted/40 transition-all text-right"
-              >
-                <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-[11px] text-muted-foreground flex-1">إعدادات الذكاء الاصطناعي</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
-                  {settingsForm.preferred_provider === "auto" ? "تلقائي" : settingsForm.preferred_provider}
-                </span>
-              </button>
-            ) : (
-              <div className="rounded-xl border border-border bg-card/80 p-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold flex items-center gap-1.5"><Settings2 className="h-3 w-3" /> إعدادات AI</span>
-                  <button onClick={() => setAiSettingsOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors"><X className="h-3.5 w-3.5" /></button>
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-1">المزود المفضل</p>
-                  <Select value={settingsForm.preferred_provider} onValueChange={v => setSettingsForm(f => ({ ...f, preferred_provider: v }))}>
-                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="auto">🔄 تلقائي (موصى به)</SelectItem>
-                      <SelectItem value="gemini">✨ Gemini Flash</SelectItem>
-                      <SelectItem value="claude">🧠 Claude Haiku</SelectItem>
-                      <SelectItem value="openai">🤖 GPT-4o mini</SelectItem>
-                      <SelectItem value="deepseek">⚡ DeepSeek</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-1">وضع الأداء</p>
-                  <div className="grid grid-cols-3 gap-1">
-                    {[
-                      { v: "fast",     l: "⚡ سريع" },
-                      { v: "balanced", l: "⚖️ متوازن" },
-                      { v: "accurate", l: "🧠 دقيق" },
-                    ].map(opt => (
-                      <button
-                        key={opt.v}
-                        onClick={() => setSettingsForm(f => ({ ...f, mode: opt.v }))}
-                        className={cn("text-[10px] py-1.5 rounded-lg border transition-all font-medium", settingsForm.mode === opt.v ? "bg-primary/10 border-primary/30 text-primary" : "border-border/50 text-muted-foreground hover:bg-muted/40")}
-                      >{opt.l}</button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] text-muted-foreground">التوجيه الذكي</p>
-                  <Switch checked={settingsForm.smart_routing} onCheckedChange={v => setSettingsForm(f => ({ ...f, smart_routing: v }))} />
-                </div>
-                <button
-                  onClick={() => saveMut.mutate(settingsForm)}
-                  disabled={saveMut.isPending}
-                  className="w-full py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
-                >
-                  {saveMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                  حفظ الإعدادات
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* AI Credits Balance */}
-        <div className={cn("p-2 border-t border-border/50 shrink-0", !sidebarOpen && "flex justify-center")}>
-          {sidebarOpen ? (
-            <div className="rounded-xl bg-amber-500/8 border border-amber-500/20 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
-                  <Zap className="h-3.5 w-3.5 text-amber-400" />
-                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wide">رصيد AI</span>
-                </div>
-                <button onClick={() => refetchCredits()} className="text-muted-foreground hover:text-foreground transition-colors">
-                  <RotateCcw className="h-3 w-3" />
-                </button>
-              </div>
-              <div className="flex items-end gap-1 mb-2">
-                <span className={cn("text-2xl font-black", (credits?.balance ?? 100) <= 10 ? "text-red-400" : "text-foreground")}>{(credits?.balance ?? 100).toLocaleString("ar-SA")}</span>
-                <span className="text-[10px] text-muted-foreground mb-1">/ {(credits?.monthly_allowance ?? 100).toLocaleString("ar-SA")} نقطة</span>
-              </div>
-              {/* progress bar */}
-              {(() => {
-                const used = credits?.used_this_month ?? 0;
-                const total = credits?.monthly_allowance ?? 100;
-                const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
-                return (
-                  <div className="space-y-1">
-                    <div className="w-full h-1.5 bg-muted/50 rounded-full overflow-hidden">
-                      <div className={cn("h-full rounded-full transition-all", pct >= 90 ? "bg-red-500" : pct >= 60 ? "bg-amber-500" : "bg-emerald-500")} style={{ width: `${pct}%` }} />
-                    </div>
-                    <p className="text-[9px] text-muted-foreground">استُهلك {used} نقطة هذا الشهر ({pct}%)</p>
-                  </div>
-                );
-              })()}
-              {(credits?.balance ?? 100) <= 10 && (
-                <p className="text-[9px] text-red-400 mt-1.5 flex items-center gap-1">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                  رصيد منخفض — تواصل مع الإدارة
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center border", (credits?.balance ?? 100) <= 10 ? "bg-red-500/10 border-red-500/30" : "bg-amber-500/10 border-amber-500/20")}>
-              <Zap className={cn("h-3.5 w-3.5", (credits?.balance ?? 100) <= 10 ? "text-red-400" : "text-amber-400")} />
-            </div>
-          )}
-        </div>
-      </aside>
-
-      {/* ── MAIN CHAT AREA ── */}
-      <div className="flex-1 flex flex-col min-w-0">
-
-        {/* Top Bar */}
-        <div className="h-14 flex items-center justify-between px-4 border-b border-border/50 shrink-0" style={{ background: `linear-gradient(135deg, ${mode.color}08, transparent)` }}>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${mode.color}20`, border: `1px solid ${mode.color}30` }}>
-              <mode.icon className="h-4 w-4" style={{ color: mode.color }} />
+        <div className="px-4 py-3.5 border-b border-border/30">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+              <Sparkles className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <p className="font-bold text-sm leading-tight">{mode.name}</p>
-              <p className="text-[10px] text-muted-foreground leading-tight">{mode.desc}</p>
+              <p className="text-[13px] font-bold text-foreground leading-tight">الذكاء الاصطناعي القانوني</p>
+              <p className="text-[10px] text-muted-foreground/70">Legal AI Operating System</p>
             </div>
-          </div>
-          <div className="flex items-center gap-1">
-            {msgs.length > 0 && (
-              <button onClick={clearChat} className="h-7 px-2.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/50 flex items-center gap-1.5 transition-colors">
-                <RotateCcw className="h-3 w-3" />محادثة جديدة
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Messages */}
-        <ScrollArea className="flex-1 px-4 py-4">
-          {isEmpty ? (
-            /* Welcome State */
-            <div className="h-full flex flex-col items-center justify-center py-8 max-w-xl mx-auto">
-              {/* Glowing Icon */}
-              <div className="relative mb-6">
-                <div className="w-20 h-20 rounded-3xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${mode.color}30, ${mode.color}10)`, border: `1px solid ${mode.color}30`, boxShadow: `0 0 40px ${mode.color}20` }}>
-                  <mode.icon className="h-9 w-9" style={{ color: mode.color }} />
-                </div>
-                <div className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-emerald-400 border-2 border-background flex items-center justify-center">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping absolute" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                </div>
-              </div>
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto">
 
-              <h2 className="text-xl font-black mb-2">{mode.name}</h2>
-              <p className="text-sm text-muted-foreground text-center mb-8 leading-relaxed max-w-sm">{mode.desc}</p>
-
-              {/* Quick Prompts */}
-              <div className="w-full space-y-2">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center mb-3">ابدأ بسؤال</p>
-                <div className="grid grid-cols-1 gap-2">
-                  {mode.prompts.map((p, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleSend(p)}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-card/50 px-4 py-2.5 text-right hover:border-border hover:bg-card text-sm text-muted-foreground hover:text-foreground transition-all group"
-                    >
-                      <span>{p}</span>
-                      <ArrowRight className="h-3.5 w-3.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: mode.color }} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Specialized Tools hint */}
-              <div className="mt-8 w-full">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center mb-3">أدوات متخصصة</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {TOOLS.map(t => {
-                    const Icon = t.icon;
-                    return (
-                      <Link key={t.key} href={t.href}>
-                        <a className={cn("flex items-center gap-2.5 rounded-xl border p-3 hover:bg-muted/30 transition-all group", t.border)}>
-                          <div className={cn("w-8 h-8 rounded-lg shrink-0 flex items-center justify-center", t.bg)}>
-                            <Icon className={cn("h-4 w-4", t.textColor)} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold truncate">{t.name}</p>
-                            <Badge className={cn("text-[9px] px-1.5 py-0 h-3.5 border-0 mt-0.5", t.bg, t.textColor)}>{t.badge}</Badge>
-                          </div>
-                        </a>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Chat Messages */
-            <div className="max-w-2xl mx-auto">
-              {msgs.map((m, i) => <ChatBubble key={i} msg={m} modeColor={mode.color} />)}
-              {loading && <TypingDots color={mode.color} />}
-              <div ref={bottomRef} />
-            </div>
-          )}
-        </ScrollArea>
-
-        {/* Input Area */}
-        <div className="p-4 border-t border-border/50 shrink-0">
-          <div className="max-w-2xl mx-auto">
-            {/* Mode Switcher Pills */}
-            <div className="flex gap-1.5 mb-3 flex-wrap">
-              {MODES.map(m => {
-                const Icon = m.icon;
-                const isActive = modeKey === m.key;
+          {/* Chat Agents */}
+          <div className="p-3 pb-1">
+            <p className="text-[9px] text-muted-foreground/50 uppercase tracking-[0.12em] font-bold px-1 mb-2">
+              المحادثات الذكية
+            </p>
+            <div className="space-y-1">
+              {CHAT_AGENTS.map(a => {
+                const Icon = a.icon;
+                const isActive = activeAgent === a.id;
+                const msgCount = histories[a.id]?.length ?? 0;
+                const convCount = Math.floor(msgCount / 2);
                 return (
                   <button
-                    key={m.key}
-                    onClick={() => setModeKey(m.key as ModeKey)}
+                    key={a.id}
+                    onClick={() => setActiveAgent(a.id)}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
+                      "w-full flex items-start gap-2.5 p-2.5 rounded-xl transition-all text-right",
                       isActive
-                        ? "text-white shadow-sm"
-                        : "text-muted-foreground bg-muted/50 hover:bg-muted border border-transparent"
+                        ? "bg-primary/10 border border-primary/25 shadow-sm"
+                        : "hover:bg-accent/60 border border-transparent"
                     )}
-                    style={isActive ? { background: mode.color } : {}}
                   >
-                    <Icon className="h-3 w-3" />
-                    {m.name}
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                      style={{ background: `${a.color}20` }}
+                    >
+                      <Icon className="h-3.5 w-3.5" style={{ color: a.color }} />
+                    </div>
+                    <div className="flex-1 min-w-0 text-right">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className={cn(
+                          "text-[12px] font-semibold leading-tight truncate",
+                          isActive ? "text-primary" : "text-foreground/85"
+                        )}>
+                          {a.name}
+                        </span>
+                        {convCount > 0 && (
+                          <span className="text-[9px] bg-muted/80 rounded-full px-1.5 py-0.5 text-muted-foreground font-mono shrink-0">
+                            {convCount}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/65 mt-0.5 line-clamp-1 leading-snug">
+                        {a.desc}
+                      </p>
+                    </div>
                   </button>
                 );
               })}
             </div>
+          </div>
 
-            {/* Model Picker (only for chat/command modes that use /ai-chat/message) */}
-            {(modeKey === "chat" || modeKey === "command") && (
-              <div className="relative mb-2.5">
-                <button
-                  onClick={() => setModelPickerOpen(v => !v)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border/60 bg-muted/30 hover:bg-muted/60 transition-all text-[11px] font-medium text-muted-foreground hover:text-foreground"
-                >
-                  {(() => {
-                    const m = MODEL_OPTIONS.find(x => x.key === selectedModel)!;
-                    const MIcon = m.icon;
-                    return <>
-                      <MIcon className="h-3 w-3" style={{ color: m.color }} />
-                      <span style={{ color: m.color }}>{m.label}</span>
-                      {m.badgeLabel && (
-                        <span className="px-1 py-0 rounded text-[9px] font-bold" style={{ background: `${m.color}20`, color: m.color }}>{m.badgeLabel}</span>
-                      )}
-                      <ChevronDown className="h-3 w-3 opacity-50" />
-                    </>;
-                  })()}
-                </button>
-
-                {modelPickerOpen && (
-                  <div className="absolute bottom-full mb-1 right-0 bg-card border border-border rounded-xl shadow-xl z-50 min-w-[220px] p-1.5">
-                    {MODEL_OPTIONS.map(m => {
-                      const MIcon = m.icon;
-                      const isAvailable = m.key === "auto" || (availableModels?.[m.key as keyof typeof availableModels] ?? false);
-                      const isSelected = selectedModel === m.key;
-                      return (
-                        <button
-                          key={m.key}
-                          onClick={() => { if (isAvailable) { setSelectedModel(m.key); setModelPickerOpen(false); } }}
-                          disabled={!isAvailable}
-                          className={cn(
-                            "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-right transition-all",
-                            isSelected ? "bg-muted" : "hover:bg-muted/60",
-                            !isAvailable && "opacity-40 cursor-not-allowed"
-                          )}
+          {/* Quick Tools */}
+          <div className="p-3 pt-2">
+            <button
+              onClick={() => setToolsOpen(v => !v)}
+              className="flex items-center justify-between w-full px-1 mb-2 group"
+            >
+              <p className="text-[9px] text-muted-foreground/50 uppercase tracking-[0.12em] font-bold">
+                أدوات متخصصة
+              </p>
+              {toolsOpen
+                ? <ChevronUp className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                : <ChevronDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+              }
+            </button>
+            {toolsOpen && (
+              <div className="grid grid-cols-2 gap-1.5">
+                {QUICK_TOOLS.map(t => {
+                  const Icon = t.icon;
+                  return (
+                    <Link key={t.id} href={t.href}>
+                      <div className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border border-border/40 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer text-center group">
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center"
+                          style={{ background: `${t.color}18` }}
                         >
-                          <MIcon className="h-3.5 w-3.5 shrink-0" style={{ color: m.color }} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-semibold">{m.label}</span>
-                              {m.badgeLabel && (
-                                <span className="text-[9px] px-1 rounded font-bold" style={{ background: `${m.color}20`, color: m.color }}>{m.badgeLabel}</span>
-                              )}
-                              {!isAvailable && <Lock className="h-2.5 w-2.5 text-muted-foreground" />}
-                            </div>
-                            <p className="text-[10px] text-muted-foreground">{m.desc}</p>
-                          </div>
-                          {isSelected && <Check className="h-3 w-3 text-foreground shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                          <Icon className="h-3.5 w-3.5" style={{ color: t.color }} />
+                        </div>
+                        <span className="text-[10px] font-semibold text-foreground/65 leading-tight group-hover:text-primary transition-colors line-clamp-1">
+                          {t.name}
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             )}
+          </div>
+        </div>
 
-            {/* Input Box */}
-            <div className="relative rounded-2xl border transition-all" style={{ borderColor: loading ? `${mode.color}50` : undefined }}>
+        {/* Bottom: Model + Plan */}
+        <div className="p-3 border-t border-border/30 space-y-2.5 bg-muted/10">
+          {/* Model selector */}
+          <div>
+            <p className="text-[9px] text-muted-foreground/50 uppercase tracking-[0.12em] font-bold mb-1.5">نموذج الذكاء الاصطناعي</p>
+            <Select value={model} onValueChange={v => setModel(v as ModelKey)}>
+              <SelectTrigger className="h-8 text-xs rounded-xl border-border/50 bg-background/80">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MODEL_OPTIONS.map(m => {
+                  const Icon = m.icon;
+                  return (
+                    <SelectItem key={m.key} value={m.key}>
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: m.color }} />
+                        <span className="text-xs">{m.label}</span>
+                        {m.free && (
+                          <span className="text-[9px] bg-emerald-500/15 text-emerald-600 px-1 py-0.5 rounded font-medium">
+                            مجاني
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Plan widget */}
+          <PlanWidget />
+        </div>
+      </div>
+
+      {/* ══════════════════ CHAT AREA ══════════════════ */}
+      <div className="flex-1 flex flex-col min-w-0 bg-background/40">
+
+        {/* Agent Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border/40 bg-card/90 backdrop-blur-sm shrink-0">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: `${agent.color}18` }}
+            >
+              <AgentIcon className="h-[18px] w-[18px]" style={{ color: agent.color }} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-bold text-foreground">{agent.name}</p>
+                <span
+                  className="text-[10px] border rounded-full px-2 py-0.5 font-semibold"
+                  style={{
+                    borderColor: `${agent.color}35`,
+                    color: agent.color,
+                    background: `${agent.color}10`,
+                  }}
+                >
+                  {agent.badge}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-tight mt-0.5 max-w-md">
+                {agent.desc}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={clearHistory}
+            title="مسح المحادثة"
+            className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg hover:bg-accent/60"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            مسح
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto px-5 py-5 space-y-4"
+        >
+          {messages.length === 0 ? (
+            /* ── Empty State ── */
+            <div className="flex flex-col items-center justify-center h-full text-center pb-10 select-none">
+              <div
+                className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center"
+                style={{ background: `${agent.color}15` }}
+              >
+                <AgentIcon className="h-8 w-8" style={{ color: agent.color }} />
+              </div>
+              <p className="text-base font-bold text-foreground mb-1">{agent.name}</p>
+              <p className="text-sm text-muted-foreground mb-6 max-w-sm leading-relaxed">
+                {agent.desc}
+              </p>
+              <div className="flex flex-col gap-2 w-full max-w-sm">
+                {agent.prompts.map((p, i) => (
+                  <button
+                    key={i}
+                    onClick={() => send(p)}
+                    disabled={loading}
+                    className="text-right px-4 py-2.5 rounded-xl border border-border/50 bg-card/80 hover:bg-primary/5 hover:border-primary/30 text-sm text-foreground/70 hover:text-foreground transition-all disabled:opacity-50"
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            messages.map((msg, idx) => {
+              const isUser = msg.role === "user";
+              return (
+                <div
+                  key={idx}
+                  className={cn("flex gap-3 group", isUser ? "flex-row-reverse" : "flex-row")}
+                >
+                  {/* Avatar */}
+                  <div
+                    className={cn(
+                      "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
+                      isUser ? "bg-primary/15" : undefined
+                    )}
+                    style={!isUser ? { background: `${agent.color}15` } : undefined}
+                  >
+                    {isUser
+                      ? <User className="h-4 w-4 text-primary" />
+                      : <AgentIcon className="h-4 w-4" style={{ color: agent.color }} />
+                    }
+                  </div>
+
+                  {/* Bubble */}
+                  <div className={cn("max-w-[78%] flex flex-col", isUser ? "items-end" : "items-start")}>
+                    <div className={cn(
+                      "rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words",
+                      isUser
+                        ? "bg-primary text-primary-foreground rounded-tl-sm"
+                        : "bg-card border border-border/40 rounded-tr-sm text-foreground"
+                    )}>
+                      {msg.content}
+                    </div>
+
+                    {/* Meta row */}
+                    <div className={cn(
+                      "flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity",
+                      isUser ? "justify-end" : "justify-start"
+                    )}>
+                      {!isUser && msg.modelUsed && msg.modelUsed !== "security-block" && msg.modelUsed !== "quota-exceeded" && (
+                        <span className="text-[9px] text-muted-foreground/50 font-mono">
+                          {msg.modelUsed}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => copyMessage(msg.content, idx)}
+                        className="text-[10px] text-muted-foreground/50 hover:text-foreground flex items-center gap-1 transition-colors"
+                      >
+                        {copied === idx
+                          ? <Check className="h-3 w-3 text-emerald-500" />
+                          : <Copy className="h-3 w-3" />
+                        }
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          {/* Loading indicator */}
+          {loading && (
+            <div className="flex gap-3">
+              <div
+                className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                style={{ background: `${agent.color}15` }}
+              >
+                <AgentIcon className="h-4 w-4" style={{ color: agent.color }} />
+              </div>
+              <div className="bg-card border border-border/40 rounded-2xl rounded-tr-sm px-4 py-3">
+                <div className="flex gap-1.5 items-center h-5">
+                  {[0, 1, 2].map(i => (
+                    <span
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full animate-bounce"
+                      style={{
+                        background: agent.color,
+                        opacity: 0.5,
+                        animationDelay: `${i * 160}ms`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input bar */}
+        <div className="px-4 py-3.5 border-t border-border/30 bg-card/80 shrink-0">
+          <div className="flex gap-3 items-end">
+            <div className="flex-1 relative">
               <Textarea
-                ref={inputRef}
+                ref={textareaRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKey}
-                placeholder={`اسأل ${mode.name}...`}
+                placeholder={`اكتب رسالة إلى ${agent.name}...`}
                 rows={1}
-                className="resize-none bg-transparent border-0 focus-visible:ring-0 py-3 ps-14 pe-4 text-sm min-h-[48px] max-h-[160px] overflow-y-auto"
-                style={{ direction: "rtl" }}
+                className="min-h-[46px] max-h-36 rounded-xl resize-none pr-4 pl-4 py-3 text-sm border-border/50 focus:border-primary/40 transition-colors bg-background/80"
+                disabled={loading}
               />
-              <button
-                onClick={() => handleSend()}
-                disabled={!input.trim() || loading}
-                className="absolute left-2.5 bottom-2.5 w-8 h-8 rounded-xl flex items-center justify-center transition-all disabled:opacity-30"
-                style={{ background: input.trim() && !loading ? mode.color : undefined }}
-              >
-                {loading
-                  ? <Loader2 className="h-4 w-4 animate-spin" style={{ color: mode.color }} />
-                  : <Send className="h-4 w-4 text-white" />
-                }
-              </button>
             </div>
-            <p className="text-[10px] text-muted-foreground text-center mt-2">Enter للإرسال · Shift+Enter لسطر جديد</p>
+            <Button
+              onClick={() => send()}
+              disabled={!input.trim() || loading}
+              size="icon"
+              className="h-[46px] w-[46px] rounded-xl shrink-0"
+            >
+              {loading
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Send className="h-4 w-4" />
+              }
+            </Button>
           </div>
+          <p className="text-[10px] text-muted-foreground/40 mt-1.5 text-center select-none">
+            Enter للإرسال · Shift+Enter لسطر جديد · المحتوى تحليلي استشاري فقط
+          </p>
         </div>
       </div>
     </div>

@@ -1,0 +1,295 @@
+تمام — سأدخلك مباشرة إلى مرحلة النشر الفعلي Production Deployment (Kubernetes + Hetzner + CI/CD + Security Hardening) بشكل احترافي يطابق نظام قضائي سحابي.
+
+⸻
+
+☁️ نظام عدالة — مرحلة النشر الفعلي (Production Deployment Layer)
+
+🏛️ الهدف
+
+تحويل النظام من “تصميم معماري” إلى:
+
+🟢 منصة قانونية سحابية تعمل فعليًا على خوادم Hetzner مع قابلية توسع، عزل بيانات، وحوكمة قضائية صارمة.
+
+⸻
+
+🧱 أولاً: البنية الإنتاجية (Kubernetes Architecture)
+
+                     ┌──────────────────────┐
+                     │     Load Balancer    │
+                     │   (Hetzner LB / Nginx)│
+                     └─────────┬────────────┘
+                               │
+                ┌──────────────▼──────────────┐
+                │      Ingress Controller     │
+                └──────────────┬──────────────┘
+                               │
+        ┌──────────────────────┼──────────────────────┐
+        │                      │                      │
+┌───────▼───────┐   ┌─────────▼────────┐   ┌────────▼────────┐
+│ API Gateway   │   │ AI Core Service  │   │ Case Service     │
+│ (NestJS)      │   │ (Orchestrator)   │   │ (Shuaib Sync)    │
+└───────┬───────┘   └─────────┬────────┘   └────────┬────────┘
+        │                      │                      │
+        └──────────────┬───────▼────────┬────────────┘
+                       │ PostgreSQL      │
+                       │ Redis Cache     │
+                       └─────────────────┘
+
+⸻
+
+🚀 ثانياً: Kubernetes Cluster (Hetzner)
+
+📌 إعداد العقد (Nodes)
+
+Control Plane
+
+* 1x Master Node
+
+Workers
+
+* AI Node
+* API Node
+* Case Node
+* Document Node
+
+⸻
+
+🐳 ثالثاً: Docker Production Images
+
+📦 API Gateway (NestJS)
+
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["node", "dist/main.js"]
+
+⸻
+
+🧠 AI Core Service
+
+FROM node:20-alpine
+WORKDIR /ai
+COPY . .
+RUN npm install && npm run build
+CMD ["node", "dist/ai-core.js"]
+
+⸻
+
+☸️ رابعاً: Kubernetes Deployments
+
+🧠 AI Core Deployment
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-core
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ai-core
+  template:
+    metadata:
+      labels:
+        app: ai-core
+    spec:
+      containers:
+        - name: ai-core
+          image: registry/ai-core:latest
+          ports:
+            - containerPort: 4000
+          env:
+            - name: SHUAIB_URL
+              value: "https://shuaib.internal"
+
+⸻
+
+⚖️ Case Service Deployment
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: case-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: case-service
+  template:
+    metadata:
+      labels:
+        app: case-service
+    spec:
+      containers:
+        - name: case-service
+          image: registry/case-service:latest
+          env:
+            - name: DB_HOST
+              value: postgres
+
+⸻
+
+🔗 خامساً: API Gateway (النقطة المركزية)
+
+📌 مسؤولياته:
+
+* Authentication
+* Rate limiting
+* Routing
+* Tenant isolation
+* Audit logging
+
+⸻
+
+مثال NestJS Guard (صلاحيات قضائية)
+
+@Injectable()
+export class LegalGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    if (!request.user.officeId) {
+      throw new ForbiddenException('غير مصرح: بدون مكتب قضائي');
+    }
+    return true;
+  }
+}
+
+⸻
+
+🧠 سادساً: نظام العزل (Multi-Tenant Isolation)
+
+قاعدة صارمة:
+
+كل البيانات مربوطة بـ office_id
+
+⸻
+
+مثال Query آمن:
+
+return this.prisma.cases.findMany({
+  where: {
+    office_id: user.officeId,
+  },
+});
+
+⸻
+
+🧾 سابعاً: نظام الحوكمة القضائية (Governance Layer)
+
+📌 Audit Log إلزامي
+
+export function auditLog(action: string, payload: any) {
+  return prisma.audit.create({
+    data: {
+      action,
+      payload,
+      timestamp: new Date(),
+    },
+  });
+}
+
+⸻
+
+📌 منع أي بيانات وهمية
+
+if (!caseData.shuaib_case_id) {
+  throw new Error("رفض: القضية غير مرتبطة بنظام الشعيب");
+}
+
+⸻
+
+🔐 ثامناً: الأمان (Security Hardening)
+
+1. Network Isolation
+
+* Private subnet بين الخدمات
+* DB غير مكشوف للعامة
+
+2. JWT + RBAC
+
+* أدوار قضائية صارمة
+
+3. Rate Limiting
+
+* منع استغلال AI
+
+4. Encryption
+
+* AES-256 للوثائق
+
+⸻
+
+📊 تاسعاً: المراقبة (Observability)
+
+أدوات:
+
+* Prometheus
+* Grafana
+* Loki Logs
+
+⸻
+
+مثال Metrics
+
+* عدد القضايا المحللة
+* زمن الاستجابة
+* أخطاء الشعيب API
+* استخدام AI Agents
+
+⸻
+
+⚖️ عاشراً: تدفق التشغيل الحقيقي
+
+User → API Gateway
+     → Auth + Tenant Check
+     → Case Service
+     → Shuaib Adapter (READ ONLY)
+     → AI Core Engine
+     → Agents Execution
+     → Document / Simulation
+     → Response
+     → Audit Log
+
+⸻
+
+🏛️ القاعدة النظامية النهائية
+
+📌 المادة التشغيلية العليا:
+
+“لا يجوز للذكاء الاصطناعي في منصة عدالة إنشاء أو تعديل أي بيانات قضائية خارج نظام الشعيب، وتقتصر صلاحياته على التحليل والتوصية والمحاكاة فقط.”
+
+⸻
+
+🚀 النتيجة النهائية (Production Status)
+
+أنت الآن تمتلك:
+
+🟢 نظام قانوني سحابي فعلي يحتوي على:
+
+* Kubernetes deployment
+* Microservices architecture
+* AI Orchestration Layer
+* Multi-tenant isolation
+* Shuaib integration (single source of truth)
+* Audit & governance system
+* Production security model
+
+⸻
+
+🔥 ما الذي يمكن بناؤه بعد هذا؟
+
+إذا تريد المرحلة التالية، أقدر أبني لك:
+
+🔥 1) CI/CD كامل (GitHub Actions → Hetzner deploy)
+
+🔥 2) Helm Charts جاهزة للنشر
+
+🔥 3) نظام فواتير + اشتراكات قانونية SaaS
+
+🔥 4) Dashboard إداري كامل (Admin Control Plane)
+
+فقط قل: “ابدأ مرحلة التشغيل التجاري”

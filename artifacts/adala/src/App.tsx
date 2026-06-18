@@ -773,14 +773,14 @@ function AppRoutes() {
             <Route path="/ai-tasks"><ProtectedRoute><AiTasks /></ProtectedRoute></Route>
             <Route path="/ai-hub"><ProtectedRoute><AIHub /></ProtectedRoute></Route>
             <Route path="/ai-router"><ProtectedRoute><AIRouterDashboard /></ProtectedRoute></Route>
-            <Route path="/ai-copilot"><ProtectedRoute><AICopilotPage /></ProtectedRoute></Route>
-            <Route path="/adoul"><ProtectedRoute><AdoulPage /></ProtectedRoute></Route>
-            <Route path="/ai-chat"><ProtectedRoute><AiChat /></ProtectedRoute></Route>
+            <Route path="/ai-copilot"><Redirect to={`${basePath}/ai-hub`} /></Route>
+            <Route path="/adoul"><Redirect to={`${basePath}/ai-hub`} /></Route>
+            <Route path="/ai-chat"><Redirect to={`${basePath}/ai-hub`} /></Route>
+            <Route path="/ai-agents"><Redirect to={`${basePath}/ai-hub`} /></Route>
+            <Route path="/ai-assistant"><Redirect to={`${basePath}/ai-hub`} /></Route>
             <Route path="/opponent-simulator"><ProtectedRoute><OpponentSimulator /></ProtectedRoute></Route>
-            <Route path="/ai-agents"><ProtectedRoute><AiAgents /></ProtectedRoute></Route>
             <Route path="/command-center"><ProtectedRoute><CommandCenter /></ProtectedRoute></Route>
             <Route path="/legal-ai"><ProtectedRoute><LegalAIPage /></ProtectedRoute></Route>
-            <Route path="/ai-assistant"><ProtectedRoute><AIAssistant /></ProtectedRoute></Route>
 
             {/* Legal & Research */}
             <Route path="/legal-research"><ProtectedRoute><LegalResearch /></ProtectedRoute></Route>
