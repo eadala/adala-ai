@@ -1,0 +1,304 @@
+تمام — بنحوّلها إلى منظومة تنفيذ فعلية كاملة (End-to-End SaaS Stack) لعدالة AI، وليس أجزاء منفصلة فقط. هذا تصميم “جاهز بناء” وليس فكرة.
+
+سأعطيك 4 أجزاء مترابطة فعليًا + طريقة ربطها كمنتج واحد.
+
+⸻
+
+🧱 1) كود مشروع كامل (GitHub Structure جاهز للإنتاج)
+
+📦 Monorepo Architecture
+
+adala-ai/
+├── apps/
+│   ├── web/                  # React Dashboard (Admin + Clients)
+│   ├── api/                 # NestJS Backend
+│   ├── worker/             # Background jobs (billing, logs)
+│
+├── packages/
+│   ├── ai-gateway/         # AI Router + Providers
+│   ├── legal-engine/       # Smart Legal Prompts
+│   ├── billing-core/       # Cost + Wallet system
+│   ├── shared/             # Types + utils
+│
+├── infra/
+│   ├── docker/
+│   ├── nginx/
+│
+├── prisma/
+├── docs/
+└── docker-compose.yml
+
+⸻
+
+⚙️ Core Idea
+
+كل شيء modular:
+
+* AI مستقل
+* Billing مستقل
+* Legal Engine مستقل
+* Frontend منفصل
+
+⸻
+
+🧠 2) AI Gateway (قلب النظام)
+
+🔥 ai-gateway package
+
+export class AIGateway {
+  constructor(
+    private router: AIRouter,
+    private policy: PolicyEngine,
+    private billing: BillingService
+  ) {}
+  async execute(request: AIRequest) {
+    const provider = this.policy.select(request);
+    const result = await this.router.run(provider, request.prompt);
+    await this.billing.log({
+      tenantId: request.tenantId,
+      provider,
+      tokens: result.tokens,
+      cost: this.billing.calculate(provider, result.tokens),
+    });
+    return result.text;
+  }
+}
+
+⸻
+
+⚡ Smart Routing
+
+if (request.type === "contract") return "claude";
+if (request.costSensitive) return "gemini";
+if (request.highAccuracy) return "openai";
+
+⸻
+
+🖥️ 2) لوحة التحكم React (Admin + Clients)
+
+📦 Stack
+
+* React + Vite
+* Tailwind
+* Zustand
+* React Query
+
+⸻
+
+🧭 Pages
+
+/web
+  /admin
+    dashboard
+    tenants
+    ai-usage
+    billing
+    providers
+  /client
+    overview
+    ai-tools
+    invoices
+    settings
+
+⸻
+
+📊 Admin Dashboard
+
+Metrics
+
+* Requests/sec
+* Cost per model
+* Revenue vs cost
+* Top tenants
+
+⸻
+
+⚙️ AI Control Panel
+
+<select>
+  <option>OpenAI</option>
+  <option>Claude</option>
+  <option>Gemini</option>
+</select>
+
+⸻
+
+🧠 Client Panel (مكاتب المحاماة)
+
+* استخدام AI
+* العقود
+* القضايا
+* الرصيد
+* الفواتير
+
+⸻
+
+💰 3) نظام الفواتير (Wallet + Stripe + PDF)
+
+⸻
+
+🧱 Billing Core
+
+export class BillingCore {
+  charge(tenantId: string, cost: number) {
+    if (balance < cost) throw Error("No balance");
+    balance -= cost;
+  }
+}
+
+⸻
+
+💳 Wallet System
+
+model Wallet {
+  id        String
+  tenantId  String
+  balance   Float
+}
+
+⸻
+
+💰 Stripe Top-up
+
+stripe.paymentIntents.create({
+  amount: 10000,
+  currency: "usd"
+});
+
+⸻
+
+📄 PDF Invoices
+
+import PDFDocument from "pdfkit";
+doc.text("Adala AI Invoice");
+doc.text(`Cost: ${cost}`);
+doc.text(`Provider: ${provider}`);
+
+⸻
+
+📊 Invoice Flow
+
+AI Request → Cost Calculation → Wallet Deduction → Invoice Generation
+
+⸻
+
+⚖️ 4) Smart Legal AI Library (السوق السعودي)
+
+⸻
+
+🧠 Legal Prompt Engine
+
+export class LegalEngine {
+  contract(data) {
+    return `
+عقد قانوني سعودي:
+- الأطراف: ${data.parties}
+- الشروط: ${data.terms}
+- النظام: نظام المملكة العربية السعودية
+`;
+  }
+}
+
+⸻
+
+📚 مكتبة جاهزة
+
+🔹 1. العقود
+
+* عقد عمل
+* عقد استشارات
+* عقد شراكة
+* عقد خدمات قانونية
+
+⸻
+
+🔹 2. القضايا
+
+* لائحة دعوى
+* مذكرة جوابية
+* اعتراض
+* استئناف
+
+⸻
+
+🔹 3. التحليل
+
+* تحليل عقد
+* اكتشاف المخاطر
+* تلخيص قضية
+
+⸻
+
+⚖️ Legal Routing
+
+if (type === "lawsuit") use GPT-4o
+if (type === "contract") use Claude
+if (type === "summary") use Gemini
+
+⸻
+
+🔗 كيف كل النظام يشتغل مع بعض
+
+🚀 Flow كامل
+
+User (Law Firm)
+   ↓
+React Dashboard
+   ↓
+API Gateway
+   ↓
+AI Gateway
+   ↓
+Legal Engine (prompt)
+   ↓
+Router (choose model)
+   ↓
+Provider (OpenAI/Claude/Gemini)
+   ↓
+Billing Engine
+   ↓
+Wallet deduction
+   ↓
+Invoice generator
+   ↓
+Response back to UI
+
+⸻
+
+🔥 النتيجة النهائية (هذا مستوى شركات فعلية)
+
+بعد تنفيذ هذا:
+
+عدالة AI يصبح:
+
+* 🧠 منصة AI متعددة المزودين
+* ⚖️ Legal AI متخصص بالسعودية
+* 💰 نظام مالي كامل (Wallet + Billing + Stripe)
+* 🖥️ لوحة تحكم SaaS احترافية
+* 🏢 Multi-tenant enterprise system
+
+⸻
+
+⚡ الخطوة التالية (مهم جدًا)
+
+إذا تبغى أرفع المستوى أكثر، أقدر الآن أبني لك مباشرة:
+
+🔥 خيار 1 (الأقوى)
+
+￼ Repo كامل جاهز تشغيل (Docker + Prisma + NestJS + React)
+
+🔥 خيار 2
+
+￼ Dashboard UI فخم (مثل Notion + Stripe + Vercel style)
+
+🔥 خيار 3
+
+￼ Legal AI Prompt Library جاهز للبيع كمستقل API
+
+⸻
+
+بس قل لي:
+
+“ابني النسخة التشغيلية”
+
+وأحول لك هذا التصميم إلى كود مشروع حقيقي قابل للنشر فورًا على Hetzner أو Coolify.

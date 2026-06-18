@@ -34,6 +34,7 @@ const DevCenterTab              = lazy(() => import("@/features/super-admin/tabs
 const HostingCenterTab          = lazy(() => import("@/features/super-admin/tabs/HostingCenterTab").then(m => ({ default: m.HostingCenterTab })));
 const PlatformBillingTab        = lazy(() => import("@/features/super-admin/tabs/PlatformBillingTab").then(m => ({ default: m.PlatformBillingTab })));
 const AiCreditsTab              = lazy(() => import("@/features/super-admin/tabs/AiCreditsTab").then(m => ({ default: m.AiCreditsTab })));
+const AiGatewayTab              = lazy(() => import("@/features/super-admin/tabs/AiGatewayTab").then(m => ({ default: m.AiGatewayTab })));
 const GlobalControlTab          = lazy(() => import("@/features/super-admin/tabs/GlobalControlTab").then(m => ({ default: m.GlobalControlTab })));
 const TrialsDashTab             = lazy(() => import("@/features/super-admin/tabs/TrialsDashTab").then(m => ({ default: m.TrialsDashTab })));
 const HomeCmsTab                = lazy(() => import("@/features/super-admin/tabs/HomeCmsTab").then(m => ({ default: m.HomeCmsTab })));
@@ -175,6 +176,11 @@ export default function SuperAdmin() {
         <TabsContent value="ai-credits"     className="mt-4">
           <Suspense fallback={<TabFallback />}>
             <AiCreditsTab qc={qc} toast={toast} />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="ai-gateway"     className="mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <AiGatewayTab qc={qc} toast={toast} />
           </Suspense>
         </TabsContent>
         <TabsContent value="global-control" className="mt-4">

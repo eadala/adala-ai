@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +10,10 @@ import {
   BrainCircuit, Send, Sparkles, Bot, Gavel, Swords,
   BookOpen, RotateCcw, Copy, ChevronLeft, ChevronRight,
   Loader2, Terminal, MessageSquare, User, Check, ArrowRight,
-  ChevronDown, Cpu, Zap, Lock,
+  ChevronDown, Cpu, Zap, Lock, Settings2, X,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Link } from "wouter";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -257,10 +259,13 @@ function TypingDots({ color }: { color: string }) {
 ══════════════════════════════════════════════ */
 export default function AIHub() {
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [modeKey, setModeKey] = useState<ModeKey>("assistant");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedModel, setSelectedModel] = useState<ModelKey>("auto");
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({ preferred_provider: "auto", mode: "balanced", smart_routing: true });
   const [messages, setMessages] = useState<Map<ModeKey, Msg[]>>(new Map([
     ["assistant", []],
     ["chat",      []],
@@ -285,6 +290,45 @@ export default function AIHub() {
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
+
+  /* Fetch office AI settings */
+  const { data: aiSettings } = useQuery<{ settings: any }>({
+    queryKey: ["office-ai-settings"],
+    queryFn: () => fetch(`${BASE}/api/ai/gateway/my-settings`, {
+      headers: { "Authorization": `Bearer ${(window as any).__clerkToken ?? ""}` },
+    }).then(r => r.ok ? r.json() : { settings: null }),
+    staleTime: 120_000,
+  });
+
+  /* Save office AI settings */
+  const saveMut = useMutation({
+    mutationFn: async (body: any) => {
+      const res = await fetch(`${BASE}/api/ai/gateway/my-settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${(window as any).__clerkToken ?? ""}` },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("خطأ في الحفظ");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "تم حفظ إعدادات الذكاء الاصطناعي" });
+      qc.invalidateQueries({ queryKey: ["office-ai-settings"] });
+      setAiSettingsOpen(false);
+    },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  /* Keep settingsForm in sync with loaded settings */
+  useEffect(() => {
+    if (aiSettings?.settings) {
+      setSettingsForm({
+        preferred_provider: aiSettings.settings.preferred_provider ?? "auto",
+        mode: aiSettings.settings.mode ?? "balanced",
+        smart_routing: aiSettings.settings.smart_routing !== false,
+      });
+    }
+  }, [aiSettings]);
 
   const mode = MODES.find(m => m.key === modeKey)!;
   const msgs = messages.get(modeKey) ?? [];
@@ -424,6 +468,72 @@ export default function AIHub() {
             );
           })}
         </div>
+
+        {/* AI Settings Panel (inline, collapsible) */}
+        {sidebarOpen && (
+          <div className="px-2 pb-2 shrink-0">
+            {!aiSettingsOpen ? (
+              <button
+                onClick={() => setAiSettingsOpen(true)}
+                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl border border-border/50 hover:bg-muted/40 transition-all text-right"
+              >
+                <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] text-muted-foreground flex-1">إعدادات الذكاء الاصطناعي</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+                  {settingsForm.preferred_provider === "auto" ? "تلقائي" : settingsForm.preferred_provider}
+                </span>
+              </button>
+            ) : (
+              <div className="rounded-xl border border-border bg-card/80 p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold flex items-center gap-1.5"><Settings2 className="h-3 w-3" /> إعدادات AI</span>
+                  <button onClick={() => setAiSettingsOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors"><X className="h-3.5 w-3.5" /></button>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">المزود المفضل</p>
+                  <Select value={settingsForm.preferred_provider} onValueChange={v => setSettingsForm(f => ({ ...f, preferred_provider: v }))}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">🔄 تلقائي (موصى به)</SelectItem>
+                      <SelectItem value="gemini">✨ Gemini Flash</SelectItem>
+                      <SelectItem value="claude">🧠 Claude Haiku</SelectItem>
+                      <SelectItem value="openai">🤖 GPT-4o mini</SelectItem>
+                      <SelectItem value="deepseek">⚡ DeepSeek</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">وضع الأداء</p>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { v: "fast",     l: "⚡ سريع" },
+                      { v: "balanced", l: "⚖️ متوازن" },
+                      { v: "accurate", l: "🧠 دقيق" },
+                    ].map(opt => (
+                      <button
+                        key={opt.v}
+                        onClick={() => setSettingsForm(f => ({ ...f, mode: opt.v }))}
+                        className={cn("text-[10px] py-1.5 rounded-lg border transition-all font-medium", settingsForm.mode === opt.v ? "bg-primary/10 border-primary/30 text-primary" : "border-border/50 text-muted-foreground hover:bg-muted/40")}
+                      >{opt.l}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] text-muted-foreground">التوجيه الذكي</p>
+                  <Switch checked={settingsForm.smart_routing} onCheckedChange={v => setSettingsForm(f => ({ ...f, smart_routing: v }))} />
+                </div>
+                <button
+                  onClick={() => saveMut.mutate(settingsForm)}
+                  disabled={saveMut.isPending}
+                  className="w-full py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {saveMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                  حفظ الإعدادات
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* AI Credits Balance */}
         <div className={cn("p-2 border-t border-border/50 shrink-0", !sidebarOpen && "flex justify-center")}>
