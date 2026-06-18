@@ -100,6 +100,7 @@ const AICommandCenter      = lazy(() => import("@/pages/platform/ai-command-cent
 const ControlTowerPage     = lazy(() => import("@/pages/platform/control-tower"));
 const SaasOSPage           = lazy(() => import("@/pages/platform/saas-os"));
 const ProductionOSPage     = lazy(() => import("@/pages/platform/production-os"));
+const CommercialLaunchPage = lazy(() => import("@/pages/platform/commercial-launch"));
 const MonitoringPage       = lazy(() => import("@/pages/monitoring/monitoring"));
 const PreventionPage       = lazy(() => import("@/pages/monitoring/prevention"));
 const AlertsPage           = lazy(() => import("@/pages/monitoring/alerts"));
@@ -832,6 +833,7 @@ function AppRoutes() {
             <Route path="/production-os"><AdminRoute><ProductionOSPage /></AdminRoute></Route>
             <Route path="/control-tower"><AdminRoute><ControlTowerPage /></AdminRoute></Route>
             <Route path="/saas-os"><AdminRoute><SaasOSPage /></AdminRoute></Route>
+            <Route path="/commercial-launch"><AdminRoute><CommercialLaunchPage /></AdminRoute></Route>
             <Route path="/monitoring"><AdminRoute><MonitoringPage /></AdminRoute></Route>
             <Route path="/prevention"><AdminRoute><PreventionPage /></AdminRoute></Route>
             <Route path="/alerts"><AdminRoute><AlertsPage /></AdminRoute></Route>
