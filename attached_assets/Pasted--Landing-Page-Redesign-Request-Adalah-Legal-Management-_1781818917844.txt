@@ -1,0 +1,205 @@
+# Landing Page Redesign Request - Adalah Legal Management Platform
+
+You are a Senior SaaS Product Designer and Frontend Engineer.
+
+Redesign the landing page of "Adalah" (Legal Office Management Platform) to match modern SaaS products such as Notion, Stripe, Linear, Clerk, and HubSpot.
+
+## Goals
+
+* Increase trust and credibility.
+* Increase conversion rate.
+* Improve visual hierarchy.
+* Reduce page length by 30%.
+* Make the product appear enterprise-grade.
+* Improve mobile responsiveness.
+* Focus on legal firms and law offices.
+
+## Hero Section
+
+Replace the current hero with:
+
+Headline:
+"Manage Cases, Clients, Documents and Legal Operations in One Intelligent Platform"
+
+Subheadline:
+"AI-powered legal practice management software built for modern law firms."
+
+Primary CTA:
+Start Free Trial
+
+Secondary CTA:
+Watch Demo
+
+Add:
+
+* Large dashboard screenshot (1200px+ width)
+* Floating statistics cards
+* Subtle background gradient
+* Professional animations
+
+## Trust Section
+
+Add immediately below hero:
+
+* Number of law firms using platform
+* Number of cases managed
+* Number of documents stored
+* Uptime percentage
+
+Display as professional stat cards.
+
+## Features Section
+
+Create 6 feature cards:
+
+1. Case Management
+2. Client Management
+3. Legal Documents
+4. AI Legal Assistant
+5. Financial Tracking
+6. Reports & Analytics
+
+Each card should include:
+
+* Icon
+* Title
+* Short description
+* Hover animation
+
+## Product Showcase
+
+Replace small screenshots with:
+
+Large interactive dashboard previews.
+
+Include:
+
+* Case dashboard
+* Client management
+* AI assistant
+* Reports center
+
+Desktop:
+2-column layout
+
+Mobile:
+Single-column layout
+
+## Why Adalah
+
+Create comparison table:
+
+Columns:
+
+* Traditional Office
+* Adalah Platform
+
+Compare:
+
+* Case tracking
+* Document management
+* Client communication
+* Reporting
+* Automation
+
+## Testimonials
+
+Add testimonials section.
+
+Show:
+
+* Client photo
+* Name
+* Law firm
+* Testimonial
+
+Use modern SaaS card design.
+
+## Pricing
+
+Create modern pricing cards.
+
+Plans:
+
+* Starter
+* Professional
+* Enterprise
+
+Highlight Professional plan.
+
+Include:
+
+* Monthly toggle
+* Yearly toggle
+* Feature comparison
+
+## FAQ
+
+Modern accordion design.
+
+Questions:
+
+* Is data secure?
+* Can I migrate existing data?
+* Is training included?
+* Is there an API?
+* Is there AI support?
+
+## Final CTA
+
+Dark premium section.
+
+Headline:
+Ready to Transform Your Law Firm?
+
+Buttons:
+
+* Start Free Trial
+* Schedule Demo
+
+## Design System
+
+Colors:
+Primary: #0F2D5C
+Secondary: #2563EB
+Accent: #10B981
+
+Typography:
+
+* Modern Arabic font
+* Strong hierarchy
+* Large headings
+
+Spacing:
+
+* 120px desktop sections
+* 80px tablet
+* 60px mobile
+
+Border Radius:
+16px
+
+Shadows:
+Soft premium shadows
+
+Animations:
+
+* Framer Motion
+* Smooth scroll reveal
+* Hover interactions
+* Counter animations
+
+## Performance
+
+Requirements:
+
+* Lighthouse score 95+
+* Responsive design
+* SEO optimized
+* Lazy loading images
+* Next.js App Router compatible
+* TypeScript
+* Tailwind CSS
+* Accessibility compliant
+
+Generate production-ready code.
