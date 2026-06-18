@@ -26,7 +26,9 @@ import {
   Brain, ThumbsUp, ThumbsDown, ShieldAlert, Lightbulb,
   BellRing, CheckCircle2, XCircle, RefreshCw,
   Gavel, MapPin, Hash, Building2, Edit3, Trash2, GanttChartSquare,
+  FolderOpen, Upload, Download, ImageIcon, FileIcon,
 } from "lucide-react";
+import { useUser } from "@clerk/react";
 import { Link }           from "wouter";
 import { useToast }       from "@/hooks/use-toast";
 import { useLang }        from "@/hooks/use-lang";
@@ -91,11 +93,11 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
 
 /* ══════════════════ ACTION BAR ══════════════════ */
 function ActionBar({
-  onTask, onMessage, onTimeline, onAI, onHearing, onClose,
+  onTask, onMessage, onTimeline, onAI, onHearing, onDocument, onClose,
   status, closing,
 }: {
   onTask: () => void; onMessage: () => void; onTimeline: () => void;
-  onAI: () => void; onHearing: () => void; onClose: () => void;
+  onAI: () => void; onHearing: () => void; onDocument: () => void; onClose: () => void;
   status: string; closing: boolean;
 }) {
   return (
@@ -105,6 +107,9 @@ function ActionBar({
       </Button>
       <Button size="sm" variant="outline" onClick={onHearing} className="gap-1.5">
         <Gavel className="h-3.5 w-3.5" />جلسة
+      </Button>
+      <Button size="sm" variant="outline" onClick={onDocument} className="gap-1.5">
+        <Paperclip className="h-3.5 w-3.5" />مستند
       </Button>
       <Button size="sm" variant="outline" onClick={onMessage} className="gap-1.5">
         <MessageSquare className="h-3.5 w-3.5" />رسالة
@@ -1195,6 +1200,331 @@ function HearingDialog({
   );
 }
 
+/* ══════════════════ DOCUMENTS SECTION ══════════════════ */
+
+/* Helper — pick icon + color by mime type */
+function DocIcon({ type }: { type: string }) {
+  const t = (type ?? "").toLowerCase();
+  if (t.includes("pdf"))                         return <FileText className="h-5 w-5 text-red-500" />;
+  if (t.includes("image") || t.includes("png") || t.includes("jpg") || t.includes("jpeg"))
+                                                 return <ImageIcon className="h-5 w-5 text-emerald-500" />;
+  if (t.includes("word") || t.includes("docx") || t.includes("doc"))
+                                                 return <FileText className="h-5 w-5 text-blue-500" />;
+  if (t.includes("sheet") || t.includes("xlsx") || t.includes("xls") || t.includes("csv"))
+                                                 return <FileText className="h-5 w-5 text-green-600" />;
+  return <FileIcon className="h-5 w-5 text-muted-foreground" />;
+}
+
+function sizeLabel(bytes?: number) {
+  if (!bytes) return "";
+  if (bytes < 1024)      return `${bytes} B`;
+  if (bytes < 1024*1024) return `${(bytes/1024).toFixed(0)} KB`;
+  return `${(bytes/(1024*1024)).toFixed(1)} MB`;
+}
+
+function DocumentRow({
+  doc, caseId, onDelete,
+}: { doc: any; caseId: string; onDelete: (id: string) => void }) {
+  const dt = new Date(doc.created_at);
+  const dateStr = dt.toLocaleDateString("ar-SA", { day: "numeric", month: "short", year: "numeric" });
+  const timeStr = dt.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+
+  /* ext badge */
+  const rawName: string = doc.file_name ?? "";
+  const ext = rawName.split(".").pop()?.toUpperCase() ?? "FILE";
+
+  const download = () => {
+    const a = document.createElement("a");
+    a.href = `${BASE}/api/cases/${caseId}/documents/${doc.id}/download`;
+    a.download = rawName;
+    a.click();
+  };
+
+  return (
+    <div className="flex items-start gap-3 p-3.5 rounded-xl border bg-background hover:bg-muted/30 transition-colors group">
+      {/* File icon + extension */}
+      <div className="shrink-0 flex flex-col items-center gap-1">
+        <div className="w-10 h-10 rounded-lg bg-muted/60 flex items-center justify-center border">
+          <DocIcon type={doc.file_type ?? ""} />
+        </div>
+        <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wider">{ext}</span>
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-foreground leading-tight truncate">{rawName || "مستند"}</p>
+        {/* Uploader + date */}
+        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+          {doc.uploaded_by_name && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+              <User className="h-3 w-3" />{doc.uploaded_by_name}
+            </span>
+          )}
+          <span className="text-muted-foreground/40 text-[11px]">·</span>
+          <span className="text-[11px] text-muted-foreground">
+            {dateStr} {timeStr}
+          </span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="تحميل" onClick={download}>
+          <Download className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost" size="sm"
+          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+          title="حذف"
+          onClick={() => { if (confirm("حذف هذا المستند؟")) onDelete(doc.id); }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function DocumentsSection({
+  caseId, addOpen, setAddOpen,
+}: { caseId: string; addOpen: boolean; setAddOpen: (v: boolean) => void }) {
+  const { data: docs = [], refetch } = useApi<any[]>(
+    ["case-documents", caseId],
+    `/api/cases/${caseId}/documents`,
+  );
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const deleteDoc = async (id: string) => {
+    try {
+      await fetch(`${BASE}/api/cases/${caseId}/documents/${id}`, { method: "DELETE" });
+      refetch();
+      qc.invalidateQueries({ queryKey: ["case", caseId] });
+      toast({ title: "تم حذف المستند" });
+    } catch { toast({ variant: "destructive", title: "خطأ في الحذف" }); }
+  };
+
+  return (
+    <Card className="border shadow-sm">
+      <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <FolderOpen className="h-4 w-4 text-violet-500" />مستندات القضية
+        </CardTitle>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{docs.length} مستند</span>
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setAddOpen(true)}>
+            <Upload className="h-3 w-3" />رفع مستند
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-2">
+        {docs.length === 0 && (
+          <div className="text-center py-10 text-muted-foreground text-sm">
+            <FolderOpen className="h-10 w-10 mx-auto mb-2 opacity-15" />
+            <p>لا توجد مستندات مرفوعة بعد</p>
+            <p className="text-xs mt-1 text-muted-foreground/60">ارفع المستندات القانونية المتعلقة بهذه القضية</p>
+          </div>
+        )}
+        {docs.map((doc: any) => (
+          <DocumentRow key={doc.id} doc={doc} caseId={caseId} onDelete={deleteDoc} />
+        ))}
+      </CardContent>
+
+      <DocumentUploadDialog
+        open={addOpen}
+        caseId={caseId}
+        onClose={() => setAddOpen(false)}
+        onSaved={() => {
+          refetch();
+          qc.invalidateQueries({ queryKey: ["case", caseId] });
+          setAddOpen(false);
+        }}
+      />
+    </Card>
+  );
+}
+
+/* ══════════════════ DOCUMENT UPLOAD DIALOG ══════════════════ */
+function DocumentUploadDialog({
+  open, caseId, onClose, onSaved,
+}: { open: boolean; caseId: string; onClose: () => void; onSaved: () => void }) {
+  const { user } = useUser();
+  const [file, setFile]           = useState<File | null>(null);
+  const [dragOver, setDragOver]   = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress]   = useState(0);
+  const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  /* Reset when dialog opens */
+  useEffect(() => {
+    if (open) { setFile(null); setProgress(0); }
+  }, [open]);
+
+  const pickFile = (f: File) => {
+    if (f.size > 10 * 1024 * 1024) {
+      toast({ variant: "destructive", title: "حجم الملف يتجاوز 10 MB" });
+      return;
+    }
+    setFile(f);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setDragOver(false);
+    if (e.dataTransfer.files[0]) pickFile(e.dataTransfer.files[0]);
+  };
+
+  const upload = async () => {
+    if (!file) return;
+    setUploading(true);
+    setProgress(20);
+    try {
+      const reader = new FileReader();
+      const fileData: string = await new Promise((res, rej) => {
+        reader.onload = () => res(reader.result as string);
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+      setProgress(60);
+
+      const uploaderName = [user?.firstName, user?.lastName].filter(Boolean).join(" ")
+        || user?.username
+        || user?.primaryEmailAddress?.emailAddress
+        || "";
+
+      const r = await fetch(`${BASE}/api/cases/${caseId}/documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type || "application/octet-stream",
+          fileData,
+          uploadedByName: uploaderName,
+        }),
+      });
+      setProgress(90);
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error ?? "خطأ في الرفع");
+      }
+      setProgress(100);
+      toast({ title: "✅ تم رفع المستند بنجاح" });
+      onSaved();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: e.message ?? "خطأ في الرفع" });
+    }
+    setUploading(false);
+  };
+
+  const fmt = (bytes: number) =>
+    bytes < 1024 ? `${bytes} B` :
+    bytes < 1024*1024 ? `${(bytes/1024).toFixed(0)} KB` :
+    `${(bytes/(1024*1024)).toFixed(1)} MB`;
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Upload className="h-4 w-4 text-violet-500" />رفع مستند للقضية
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          {/* Drop zone */}
+          <div
+            className={cn(
+              "relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors",
+              dragOver
+                ? "border-violet-400 bg-violet-50"
+                : file
+                ? "border-emerald-400 bg-emerald-50/50"
+                : "border-border hover:border-violet-300 hover:bg-muted/30",
+            )}
+            onClick={() => inputRef.current?.click()}
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+          >
+            <input
+              ref={inputRef}
+              type="file"
+              className="hidden"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.gif,.txt"
+              onChange={e => e.target.files?.[0] && pickFile(e.target.files[0])}
+            />
+
+            {file ? (
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center">
+                  <DocIcon type={file.type} />
+                </div>
+                <p className="text-sm font-semibold text-foreground">{file.name}</p>
+                <p className="text-xs text-muted-foreground">{fmt(file.size)}</p>
+                <button
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  onClick={e => { e.stopPropagation(); setFile(null); }}
+                >
+                  تغيير الملف
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <Upload className="h-8 w-8 opacity-30" />
+                <p className="text-sm font-medium">اسحب الملف هنا أو انقر للاختيار</p>
+                <p className="text-xs opacity-60">PDF، Word، Excel، صور — حجم أقصى 10 MB</p>
+              </div>
+            )}
+          </div>
+
+          {/* Upload progress */}
+          {uploading && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>جاري الرفع…</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-violet-500 transition-all duration-300 rounded-full"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Uploader info preview */}
+          {user && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+              <User className="h-3.5 w-3.5" />
+              <span>سيُسجَّل باسم:</span>
+              <span className="font-medium text-foreground">
+                {[user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || "موظف"}
+              </span>
+              <span className="opacity-50">·</span>
+              <span>{new Date().toLocaleDateString("ar-SA", { day: "numeric", month: "short" })}</span>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={uploading}>إلغاء</Button>
+          <Button
+            onClick={upload}
+            disabled={!file || uploading}
+            className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
+          >
+            {uploading
+              ? <><Loader2 className="h-4 w-4 animate-spin" />جاري الرفع…</>
+              : <><Upload className="h-4 w-4" />رفع المستند</>
+            }
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ══════════════════ DIALOGS ══════════════════ */
 function TaskDialog({ open, onClose, caseId, caseTitle }: { open: boolean; onClose: () => void; caseId: string; caseTitle: string }) {
   const [form, setForm] = useState({ title: "", priority: "medium", assignee_name: "", due_date: "" });
@@ -1271,10 +1601,11 @@ export default function CaseDetail({ id }: { id: string }) {
   const { dir }     = useLang();
 
   /* Dialog states */
-  const [taskOpen,     setTaskOpen]     = useState(false);
-  const [timelineOpen, setTimelineOpen] = useState(false);
-  const [msgFocus,     setMsgFocus]     = useState(false);
-  const [hearingOpen,  setHearingOpen]  = useState(false);
+  const [taskOpen,      setTaskOpen]     = useState(false);
+  const [timelineOpen,  setTimelineOpen] = useState(false);
+  const [msgFocus,      setMsgFocus]     = useState(false);
+  const [hearingOpen,   setHearingOpen]  = useState(false);
+  const [documentOpen,  setDocumentOpen] = useState(false);
   const msgRef = useRef<HTMLDivElement>(null);
 
   const changeStatus = (status: string) => {
@@ -1372,12 +1703,13 @@ export default function CaseDetail({ id }: { id: string }) {
 
       {/* ══ ACTION BAR ══ */}
       <ActionBar
-        onTask={()     => setTaskOpen(true)}
-        onMessage={()  => handleMsgAction()}
-        onTimeline={()  => setTimelineOpen(true)}
-        onAI={()       => {}}
-        onHearing={()  => setHearingOpen(true)}
-        onClose={()    => changeStatus("closed")}
+        onTask={()       => setTaskOpen(true)}
+        onMessage={()    => handleMsgAction()}
+        onTimeline={()   => setTimelineOpen(true)}
+        onAI={()         => {}}
+        onHearing={()    => setHearingOpen(true)}
+        onDocument={()   => setDocumentOpen(true)}
+        onClose={()      => changeStatus("closed")}
         status={c.status as string}
         closing={updateCase.isPending}
       />
@@ -1385,8 +1717,13 @@ export default function CaseDetail({ id }: { id: string }) {
       {/* ══ MAIN GRID ══ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-        {/* ── CENTER (Hearings + Timeline + Messages) ── */}
+        {/* ── CENTER (Documents + Hearings + Timeline + Messages) ── */}
         <div className="lg:col-span-2 space-y-5">
+          <DocumentsSection
+            caseId={id}
+            addOpen={documentOpen}
+            setAddOpen={setDocumentOpen}
+          />
           <HearingsSection
             caseId={id}
             addOpen={hearingOpen}
