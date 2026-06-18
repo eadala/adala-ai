@@ -390,8 +390,29 @@ export default function Landing() {
     return (cms?.[section]?.[key] as string | undefined) || fallback;
   }
 
-  /* i18n */
-  const pricingPlans = (t("landing.pricing.plans", { returnObjects: true }) as { name: string; price: string; period: string; cta: string; features: string[] }[]);
+  /* Live billing plans — fallback to i18n if API not ready */
+  const { data: livePlansRaw = [] } = useQuery<any[]>({
+    queryKey: ["billing-plans"],
+    queryFn: () => fetch(`${BASE}/api/billing/plans`).then(r => { if (!r.ok) throw new Error(); return r.json(); }).catch(() => []),
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+  });
+
+  const pricingPlans = (() => {
+    if (livePlansRaw.length > 0) {
+      const freePlan  = livePlansRaw.find(p => p.isFree && !p.isContactOnly) ?? livePlansRaw[0];
+      const popPlan   = livePlansRaw.find(p => p.recommended) ?? livePlansRaw[2];
+      const entPlan   = livePlansRaw.find(p => p.isContactOnly) ?? livePlansRaw[livePlansRaw.length - 1];
+      return [freePlan, popPlan, entPlan].map(p => ({
+        name:     p.nameAr ?? p.name ?? "",
+        price:    p.isContactOnly ? "تواصل معنا" : String(p.monthlyPrice ?? p.price ?? 0),
+        period:   p.isContactOnly ? "" : "ريال/شهر",
+        cta:      p.isContactOnly ? "احجز مكالمة مع فريقنا" : (p.isFree ? "ابدأ مجاناً الآن" : "ابدأ الآن — الأكثر اختياراً"),
+        features: Array.isArray(p.features) ? p.features : [],
+      }));
+    }
+    return t("landing.pricing.plans", { returnObjects: true }) as { name: string; price: string; period: string; cta: string; features: string[] }[];
+  })();
   const faqItems     = (t("landing.faq.items",     { returnObjects: true }) as { q: string; a: string }[]);
   const counterLocale = isAr ? "ar-SA" : "en-US";
 

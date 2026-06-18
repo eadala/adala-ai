@@ -348,28 +348,28 @@
           "period": "SAR · Always",
           "cta": "Start Free Now",
           "features": [
-            "5 active cases",
+            "Up to 5 active cases",
             "1 user",
-            "1 GB secure storage",
-            "5 AI requests/day",
-            "Smart legal reminders",
-            "Built-in legal calendar",
-            "Professional PDF export"
+            "1 GB storage",
+            "5,000 AI credits",
+            "Smart reminders",
+            "Legal calendar",
+            "PDF export"
           ]
         },
         {
           "name": "Master — Most Popular",
-          "price": "299",
+          "price": "899",
           "period": "SAR/month",
           "cta": "Start Now — Top Pick",
           "features": [
-            "100 active cases · 5 users",
-            "Invoices + payments + store",
-            "🤖 AI Smart Contracts",
-            "💬 WhatsApp Business integrated",
-            "📲 Telegram — instant notifications",
-            "🔐 Smart Client Portal",
-            "AI analytics + OCR + auto-backup"
+            "5 users · 50 GB storage",
+            "100,000 AI credits/month",
+            "🤖 Advanced AI (GPT-4/Claude)",
+            "📊 AI case analytics",
+            "🔍 OCR — text extraction",
+            "💾 Daily auto-backup",
+            "Advanced reports + KPIs"
           ]
         },
         {
