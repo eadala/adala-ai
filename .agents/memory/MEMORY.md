@@ -82,3 +82,4 @@
 - [Adala Production Hardening Sprint](adala-hardening-sprint.md) — backup/export all filtered by tenantId; wallets isolated; log rotation cron daily@03:00; RTL 293→0 violations; mobile min-w fixed; ErrorBoundary upgraded with errorId+monitoring; 7 tables got office_id; 13 new indexes
 - [Adala Launch Readiness Sprint](adala-launch-readiness.md) — P0: upload rate limit + DR-test + AI daily/monthly limits + Status Page; P1: audit old/new values + AI cost admin API
 - [Adala Load + Pentest](adala-load-pentest.md) — built-in load tester (Node http, no external pkg) + OWASP pentest in Engineering Center; engineeringOnly guard
+- [Adala Validation Cycles](adala-validation-cycles.md) — Financial+Legal cycle tests (7+8 steps, auto-cleanup); 22-check pentest; K6 script generator; "التحقق" tab in Engineering Center

@@ -127,6 +127,12 @@ export default function EngineeringCenter() {
   const [pentestResult,  setPentestResult]  = useState<any>(null);
   const [pentestLoading, setPentestLoading] = useState(false);
 
+  /* Validation cycle state */
+  const [finResult,    setFinResult]    = useState<any>(null);
+  const [finLoading,   setFinLoading]   = useState(false);
+  const [legalResult,  setLegalResult]  = useState<any>(null);
+  const [legalLoading, setLegalLoading] = useState(false);
+
   /* Load test state */
   const [ltResult,    setLtResult]    = useState<any>(null);
   const [ltLoading,   setLtLoading]   = useState(false);
@@ -259,6 +265,32 @@ export default function EngineeringCenter() {
     } finally { setScanLoading(false); }
   }, [qc, toast, refetchScans]);
 
+  /* Financial Cycle Test */
+  const runFinancialCycle = useCallback(async () => {
+    setFinLoading(true); setFinResult(null);
+    try {
+      const res = await ENG("/financial-cycle-test", { method: "POST" });
+      setFinResult(res);
+      refetchScans();
+      toast({ title: `✅ الدورة المالية: ${res.passed}/${res.totalSteps} خطوة نجحت (${res.score}%)` });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally { setFinLoading(false); }
+  }, [toast, refetchScans]);
+
+  /* Legal Cycle Test */
+  const runLegalCycle = useCallback(async () => {
+    setLegalLoading(true); setLegalResult(null);
+    try {
+      const res = await ENG("/legal-cycle-test", { method: "POST" });
+      setLegalResult(res);
+      refetchScans();
+      toast({ title: `✅ الدورة القانونية: ${res.passed}/${res.totalSteps} خطوة نجحت (${res.score}%)` });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally { setLegalLoading(false); }
+  }, [toast, refetchScans]);
+
   /* Penetration Test */
   const runPentest = useCallback(async () => {
     setPentestLoading(true); setPentestResult(null);
@@ -338,6 +370,7 @@ export default function EngineeringCenter() {
               { v: "security",     label: "الأمان",        icon: Shield },
               { v: "performance",  label: "الأداء",        icon: Activity },
               { v: "database",     label: "قاعدة البيانات", icon: Database },
+              { v: "validation",   label: "التحقق",         icon: CircleCheck },
               { v: "tasks",        label: "المهام",         icon: ClipboardList },
               { v: "logs",         label: "السجلات",        icon: ScrollText },
             ].map(t => (
@@ -1076,6 +1109,186 @@ export default function EngineeringCenter() {
                   ))
                 }
               </div>
+            </TabsContent>
+
+            {/* ══════════ VALIDATION ══════════ */}
+            <TabsContent value="validation" className="mt-0 space-y-4">
+
+              <div className="p-3 rounded-xl border border-blue-500/20 bg-blue-500/5 text-xs text-blue-300">
+                <p className="font-bold mb-1">اختبارات التحقق من الجاهزية للإطلاق</p>
+                <p className="text-muted-foreground">تُنفَّذ على المكتب التجريبي — جميع البيانات تُحذف تلقائياً بعد الاختبار</p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+
+                {/* ── Financial Cycle ── */}
+                <Card className="border-border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-emerald-400" />الدورة المالية الكاملة
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      عميل → فاتورة → دفعة → قيد محاسبي → تقرير P&L → تنظيف
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Button
+                      onClick={runFinancialCycle}
+                      disabled={finLoading}
+                      className="w-full gap-2 bg-emerald-700/80 hover:bg-emerald-700"
+                    >
+                      {finLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CircleCheck className="h-4 w-4" />}
+                      {finLoading ? "جاري اختبار الدورة المالية..." : "تشغيل الدورة المالية"}
+                    </Button>
+
+                    {finResult && (
+                      <div className="space-y-2">
+                        <div className={`flex items-center gap-3 p-3 rounded-lg border ${finResult.score === 100 ? "bg-emerald-500/10 border-emerald-500/30" : "bg-amber-500/10 border-amber-500/30"}`}>
+                          <span className={`text-3xl font-black ${finResult.score === 100 ? "text-emerald-400" : "text-amber-400"}`}>{finResult.score}%</span>
+                          <div>
+                            <p className="text-xs font-bold">{finResult.passed}/{finResult.totalSteps} خطوة نجحت</p>
+                            {finResult.failed > 0 && <p className="text-[10px] text-red-400">{finResult.failed} خطوة فشلت</p>}
+                          </div>
+                        </div>
+                        <div className="space-y-1 max-h-52 overflow-y-auto">
+                          {(finResult.steps ?? []).map((s: any, i: number) => (
+                            <div key={i} className={`p-2 rounded border text-xs flex items-center gap-2 ${s.status === "pass" ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
+                              <span className={s.status === "pass" ? "text-emerald-400" : "text-red-400"}>{s.status === "pass" ? "✓" : "✗"}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold truncate">{s.step}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">{s.detail}</p>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground shrink-0">{s.ms}ms</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {!finResult && scans.filter((s: any) => s.scan_type === "financial_cycle").length > 0 && (
+                      <Button size="sm" variant="outline" className="text-xs gap-1 w-full"
+                        onClick={() => {
+                          const last = scans.find((s: any) => s.scan_type === "financial_cycle");
+                          if (last) setFinResult(typeof last.summary === "string" ? JSON.parse(last.summary) : last.summary);
+                        }}>
+                        <Eye className="h-3 w-3" />عرض آخر اختبار
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* ── Legal Cycle ── */}
+                <Card className="border-border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Server className="h-4 w-4 text-blue-400" />الدورة القانونية الكاملة
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      قضية → جلسة → مهمة → open → active → closed → أرشيف → تدقيق
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Button
+                      onClick={runLegalCycle}
+                      disabled={legalLoading}
+                      className="w-full gap-2 bg-blue-700/80 hover:bg-blue-700"
+                    >
+                      {legalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CircleCheck className="h-4 w-4" />}
+                      {legalLoading ? "جاري اختبار الدورة القانونية..." : "تشغيل الدورة القانونية"}
+                    </Button>
+
+                    {legalResult && (
+                      <div className="space-y-2">
+                        <div className={`flex items-center gap-3 p-3 rounded-lg border ${legalResult.score === 100 ? "bg-emerald-500/10 border-emerald-500/30" : "bg-amber-500/10 border-amber-500/30"}`}>
+                          <span className={`text-3xl font-black ${legalResult.score === 100 ? "text-emerald-400" : "text-amber-400"}`}>{legalResult.score}%</span>
+                          <div>
+                            <p className="text-xs font-bold">{legalResult.passed}/{legalResult.totalSteps} خطوة نجحت</p>
+                            {legalResult.failed > 0 && <p className="text-[10px] text-red-400">{legalResult.failed} خطوة فشلت</p>}
+                          </div>
+                        </div>
+                        <div className="space-y-1 max-h-52 overflow-y-auto">
+                          {(legalResult.steps ?? []).map((s: any, i: number) => (
+                            <div key={i} className={`p-2 rounded border text-xs flex items-center gap-2 ${s.status === "pass" ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
+                              <span className={s.status === "pass" ? "text-emerald-400" : "text-red-400"}>{s.status === "pass" ? "✓" : "✗"}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold truncate">{s.step}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">{s.detail}</p>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground shrink-0">{s.ms}ms</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {!legalResult && scans.filter((s: any) => s.scan_type === "legal_cycle").length > 0 && (
+                      <Button size="sm" variant="outline" className="text-xs gap-1 w-full"
+                        onClick={() => {
+                          const last = scans.find((s: any) => s.scan_type === "legal_cycle");
+                          if (last) setLegalResult(typeof last.summary === "string" ? JSON.parse(last.summary) : last.summary);
+                        }}>
+                        <Eye className="h-3 w-3" />عرض آخر اختبار
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+
+              </div>
+
+              {/* ── K6 External Load Test Script ── */}
+              <Card className="border-border border-amber-500/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-amber-400" />K6 Script — اختبار 1000 مستخدم (خارجي)
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    script جاهز لاختبار 100 / 500 / 1000 مستخدم متزامن — يتضمن P95، معدل الأخطاء، 7 سيناريوهات
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-3 gap-3 text-xs mb-4">
+                    {[
+                      { label: "100 مستخدم", detail: "Ramp-up + Hold 2min", color: "text-emerald-400" },
+                      { label: "500 مستخدم", detail: "Stress test 2min", color: "text-amber-400" },
+                      { label: "1000 مستخدم", detail: "Peak load 2min", color: "text-red-400" },
+                    ].map((s) => (
+                      <div key={s.label} className="p-2 rounded border border-border bg-muted/10 text-center">
+                        <p className={`font-black text-sm ${s.color}`}>{s.label}</p>
+                        <p className="text-muted-foreground text-[10px]">{s.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bg-muted/20 rounded-lg border border-border p-3 font-mono text-[10px] text-muted-foreground mb-3 space-y-1">
+                    <p className="text-emerald-300"># التثبيت</p>
+                    <p>npm install -g k6</p>
+                    <p className="text-emerald-300 mt-2"># التشغيل (استبدل YOUR_TOKEN)</p>
+                    <p>ADALA_TOKEN=YOUR_CLERK_JWT k6 run k6-adala.js</p>
+                    <p className="text-emerald-300 mt-2"># الهدف: P95 &lt; 2s، Error Rate &lt; 1%، &gt; 200 req/s</p>
+                  </div>
+                  <Button
+                    className="w-full gap-2 bg-amber-700/80 hover:bg-amber-700"
+                    onClick={async () => {
+                      try {
+                        const token = _getToken ? await _getToken() : null;
+                        const headers: Record<string,string> = {};
+                        if (token) headers["Authorization"] = `Bearer ${token}`;
+                        const res = await fetch(`${BASE}/api/engineering/k6-script`, { headers });
+                        const text = await res.text();
+                        const blob = new Blob([text], { type: "text/plain" });
+                        const url  = URL.createObjectURL(blob);
+                        const a    = document.createElement("a");
+                        a.href = url; a.download = "k6-adala.js"; a.click();
+                        URL.revokeObjectURL(url);
+                      } catch (e: any) {
+                        alert("خطأ في تحميل الـ script: " + e.message);
+                      }
+                    }}
+                  >
+                    <Zap className="h-4 w-4" />تحميل K6 Script (k6-adala.js)
+                  </Button>
+                </CardContent>
+              </Card>
+
             </TabsContent>
 
             {/* ══════════ LOGS ══════════ */}
