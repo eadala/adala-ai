@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Brain, RefreshCw, AlertTriangle, AlertCircle, Info,
   TrendingUp, Users, Scale, CheckSquare, DollarSign,
   Zap, Send, ChevronRight, Activity, Target, Clock,
-  BarChart3, Shield,
+  BarChart3, Shield, Bell, MessageSquare, Mail, BellOff,
+  CheckCircle2, XCircle, Settings, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -95,14 +96,17 @@ function WorkloadBar({ pct, load }: { pct: number; load: string }) {
 }
 
 /* ── Main Page ── */
-type Tab = "overview" | "hr" | "finance" | "tasks" | "alerts" | "ask";
+type Tab = "overview" | "hr" | "finance" | "tasks" | "alerts" | "ask" | "notif";
 
 export default function AiCooPage() {
   const [tab, setTab] = useState<Tab>("overview");
   const [question, setQuestion] = useState("");
   const [chatHistory, setChatHistory] = useState<{ q: string; a: string }[]>([]);
+  const [notifForm, setNotifForm]   = useState<any>(null);
+  const [sendResult, setSendResult] = useState<any>(null);
   const chatRef = useRef<HTMLDivElement>(null);
   const { getToken } = useAuth();
+  const qc = useQueryClient();
 
   const { data, isLoading, refetch, isFetching, dataUpdatedAt } = useQuery<CooData>({
     queryKey: ["ai-coo-overview"],
@@ -145,13 +149,60 @@ export default function AiCooPage() {
   const updatedStr = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
 
   const TABS: { id: Tab; label: string; icon: any }[] = [
-    { id: "overview", label: "نظرة عامة",  icon: Activity   },
-    { id: "hr",       label: "الموظفون",   icon: Users      },
-    { id: "finance",  label: "المالية",    icon: DollarSign },
-    { id: "tasks",    label: "المهام",     icon: CheckSquare },
-    { id: "alerts",   label: "التنبيهات", icon: AlertTriangle },
-    { id: "ask",      label: "استشارة AI", icon: Brain      },
+    { id: "overview", label: "نظرة عامة",  icon: Activity      },
+    { id: "hr",       label: "الموظفون",   icon: Users         },
+    { id: "finance",  label: "المالية",    icon: DollarSign    },
+    { id: "tasks",    label: "المهام",     icon: CheckSquare   },
+    { id: "alerts",   label: "التنبيهات", icon: AlertTriangle  },
+    { id: "ask",      label: "استشارة AI", icon: Brain         },
+    { id: "notif",    label: "الإشعارات",  icon: Bell          },
   ];
+
+  /* ── Notification settings query ── */
+  const { data: notifData, isLoading: notifLoading } = useQuery<any>({
+    queryKey: ["ai-coo-notif-settings"],
+    queryFn: async () => {
+      const tk = await getToken();
+      const r  = await fetch("/api/ai-coo/notif-settings", { headers: { Authorization: `Bearer ${tk}` } });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    enabled: tab === "notif",
+    staleTime: 30_000,
+  });
+
+  /* sync form when data loads */
+  useEffect(() => {
+    if (notifData && !notifForm) setNotifForm({ ...notifData });
+  }, [notifData]);
+
+  const saveMut = useMutation({
+    mutationFn: async (body: any) => {
+      const tk = await getToken();
+      const r  = await fetch("/api/ai-coo/notif-settings", {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${tk}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-coo-notif-settings"] }),
+  });
+
+  const notifyMut = useMutation({
+    mutationFn: async () => {
+      const tk = await getToken();
+      const r  = await fetch("/api/ai-coo/notify", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${tk}`, "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: (d) => { setSendResult(d); qc.invalidateQueries({ queryKey: ["ai-coo-notif-settings"] }); },
+  });
 
   if (isLoading) return (
     <div className="flex flex-col items-center justify-center h-96 gap-4">
@@ -550,6 +601,214 @@ export default function AiCooPage() {
               <Send className="h-4 w-4" />
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* ── Notifications Tab ── */}
+      {tab === "notif" && (
+        <div className="space-y-5">
+          {notifLoading ? (
+            <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" /> جاري تحميل الإعدادات…
+            </div>
+          ) : (
+            <>
+              {/* Channel Cards */}
+              <div className="grid md:grid-cols-3 gap-4">
+                {/* Telegram */}
+                {(() => {
+                  const cfg = notifData?.telegram_configured;
+                  const en  = notifForm?.telegram_enabled ?? false;
+                  return (
+                    <div className={`rounded-2xl border p-5 space-y-3 transition-all ${en && cfg ? "border-blue-400/50 bg-blue-500/5" : "border-border bg-card"}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                            <MessageSquare className="h-4 w-4 text-blue-500" />
+                          </div>
+                          <span className="font-bold text-sm">Telegram</span>
+                        </div>
+                        <button
+                          onClick={() => setNotifForm((f: any) => ({ ...f, telegram_enabled: !f?.telegram_enabled }))}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${en ? "bg-blue-500" : "bg-muted"}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${en ? "translate-x-6" : "translate-x-1"}`} />
+                        </button>
+                      </div>
+                      {cfg
+                        ? <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400"><CheckCircle2 className="h-3.5 w-3.5" />Bot مضبوط ومتصل</div>
+                        : <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400"><XCircle className="h-3.5 w-3.5" />اذهب لـ إعدادات Telegram لإعداد الـ Bot</div>}
+                      <p className="text-xs text-muted-foreground leading-relaxed">يُرسل تنبيهات AI COO مباشرةً إلى مجموعة أو قناة Telegram</p>
+                    </div>
+                  );
+                })()}
+
+                {/* WhatsApp */}
+                {(() => {
+                  const cfg = notifData?.whatsapp_configured;
+                  const en  = notifForm?.whatsapp_enabled ?? false;
+                  return (
+                    <div className={`rounded-2xl border p-5 space-y-3 transition-all ${en && cfg ? "border-green-400/50 bg-green-500/5" : "border-border bg-card"}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-xl bg-green-500/10 flex items-center justify-center">
+                            <MessageSquare className="h-4 w-4 text-green-500" />
+                          </div>
+                          <span className="font-bold text-sm">WhatsApp</span>
+                        </div>
+                        <button
+                          onClick={() => setNotifForm((f: any) => ({ ...f, whatsapp_enabled: !f?.whatsapp_enabled }))}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${en ? "bg-green-500" : "bg-muted"}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${en ? "translate-x-6" : "translate-x-1"}`} />
+                        </button>
+                      </div>
+                      {cfg
+                        ? <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400"><CheckCircle2 className="h-3.5 w-3.5" />Meta Business API مضبوط</div>
+                        : <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400"><XCircle className="h-3.5 w-3.5" />اذهب لـ إعدادات WhatsApp لإعداد API</div>}
+                      {en && (
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">أرقام الهواتف (سطر لكل رقم)</label>
+                          <Textarea
+                            value={notifForm?.whatsapp_numbers ?? ""}
+                            onChange={e => setNotifForm((f: any) => ({ ...f, whatsapp_numbers: e.target.value }))}
+                            placeholder={"0501234567\n0509876543"}
+                            className="text-xs resize-none" rows={3}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Email */}
+                {(() => {
+                  const cfg = notifData?.email_configured;
+                  const en  = notifForm?.email_enabled ?? false;
+                  return (
+                    <div className={`rounded-2xl border p-5 space-y-3 transition-all ${en && cfg ? "border-primary/50 bg-primary/5" : "border-border bg-card"}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <Mail className="h-4 w-4 text-primary" />
+                          </div>
+                          <span className="font-bold text-sm">البريد الإلكتروني</span>
+                        </div>
+                        <button
+                          onClick={() => setNotifForm((f: any) => ({ ...f, email_enabled: !f?.email_enabled }))}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${en ? "bg-primary" : "bg-muted"}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${en ? "translate-x-6" : "translate-x-1"}`} />
+                        </button>
+                      </div>
+                      {cfg
+                        ? <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400"><CheckCircle2 className="h-3.5 w-3.5" />SMTP مضبوط</div>
+                        : <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400"><XCircle className="h-3.5 w-3.5" />اذهب لـ إعدادات البريد لإعداد SMTP</div>}
+                      {en && (
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">عناوين البريد (سطر لكل عنوان)</label>
+                          <Textarea
+                            value={notifForm?.email_recipients ?? ""}
+                            onChange={e => setNotifForm((f: any) => ({ ...f, email_recipients: e.target.value }))}
+                            placeholder={"manager@office.com\nceo@office.com"}
+                            className="text-xs resize-none" rows={3}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Global Settings */}
+              <div className="rounded-2xl border bg-card p-5 space-y-4">
+                <div className="flex items-center gap-2 font-bold text-sm">
+                  <Settings className="h-4 w-4 text-primary" /> إعدادات عامة
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">الحد الأدنى لمستوى التنبيه</label>
+                    <select
+                      value={notifForm?.min_level ?? "critical"}
+                      onChange={e => setNotifForm((f: any) => ({ ...f, min_level: e.target.value }))}
+                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="critical">🔴 حرج فقط</option>
+                      <option value="warning">🟡 تحذير وما فوق</option>
+                      <option value="info">🟢 جميع التنبيهات</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground">لن تُرسل إشعارات للتنبيهات الأقل من هذا المستوى</p>
+                  </div>
+                  <div className="flex items-start gap-3 pt-1">
+                    <button
+                      onClick={() => setNotifForm((f: any) => ({ ...f, auto_notify: !f?.auto_notify }))}
+                      className={`relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${notifForm?.auto_notify ? "bg-primary" : "bg-muted"}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${notifForm?.auto_notify ? "translate-x-6" : "translate-x-1"}`} />
+                    </button>
+                    <div>
+                      <div className="text-sm font-medium">إشعار تلقائي</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">يرسل تنبيهاً عند اكتشاف تحديث جديد في البيانات</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Send Result */}
+              {sendResult && (
+                <div className={`rounded-2xl border p-4 space-y-2 ${sendResult.sent ? "bg-green-500/5 border-green-500/30" : "bg-amber-500/5 border-amber-500/30"}`}>
+                  <div className="flex items-center gap-2 font-bold text-sm">
+                    {sendResult.sent ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <AlertTriangle className="h-4 w-4 text-amber-500" />}
+                    {sendResult.sent ? "تم الإرسال بنجاح" : "تنبيه"}
+                  </div>
+                  {sendResult.reason && <p className="text-sm text-muted-foreground">{sendResult.reason}</p>}
+                  {sendResult.alertsCount > 0 && <p className="text-sm">تم إرسال <b>{sendResult.alertsCount}</b> تنبيه | الصحة التشغيلية: <b>{sendResult.healthScore}/100</b></p>}
+                  {sendResult.results && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {sendResult.results.telegram && (
+                        <Badge variant={sendResult.results.telegram.ok ? "default" : "destructive"} className="gap-1">
+                          <MessageSquare className="h-3 w-3" />
+                          Telegram: {sendResult.results.telegram.ok ? "✓" : sendResult.results.telegram.error}
+                        </Badge>
+                      )}
+                      {sendResult.results.whatsapp && (
+                        <Badge variant={sendResult.results.whatsapp.ok ? "default" : "destructive"} className="gap-1 bg-green-600">
+                          <MessageSquare className="h-3 w-3" />
+                          WhatsApp: {sendResult.results.whatsapp.ok ? `✓ (${sendResult.results.whatsapp.sent})` : sendResult.results.whatsapp.error}
+                        </Badge>
+                      )}
+                      {sendResult.results.email && (
+                        <Badge variant={sendResult.results.email.ok ? "default" : "destructive"} className="gap-1">
+                          <Mail className="h-3 w-3" />
+                          Email: {sendResult.results.email.ok ? `✓ (${sendResult.results.email.sent})` : sendResult.results.email.error}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Last sent info */}
+              {notifData?.last_notified_at && (
+                <p className="text-xs text-muted-foreground text-center">
+                  آخر إرسال: {new Date(notifData.last_notified_at).toLocaleString("ar-SA")}
+                </p>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end">
+                <Button variant="outline" onClick={() => { if (notifForm) saveMut.mutate(notifForm); }} disabled={saveMut.isPending} className="gap-2">
+                  {saveMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Settings className="h-3.5 w-3.5" />}
+                  حفظ الإعدادات
+                </Button>
+                <Button onClick={() => { setSendResult(null); notifyMut.mutate(); }} disabled={notifyMut.isPending} className="gap-2">
+                  {notifyMut.isPending
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> يُرسل التنبيهات…</>
+                    : <><Bell className="h-3.5 w-3.5" /> إرسال تنبيهات الآن</>}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
