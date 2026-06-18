@@ -176,7 +176,7 @@ app.use(cors({
     callback(new Error(`CORS: origin not allowed — ${origin}`));
   },
 }));
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use(
