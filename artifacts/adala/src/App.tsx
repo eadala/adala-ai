@@ -110,6 +110,7 @@ const ZeroTrustShieldPage  = lazy(() => import("@/pages/platform/zero-trust-shie
 const LegalOSPage          = lazy(() => import("@/pages/legal-core/legal-os"));
 const SelfHealingPage      = lazy(() => import("@/pages/monitoring/self-healing"));
 const AuditLogsPage        = lazy(() => import("@/pages/platform/audit-logs"));
+const IntegrationsPage     = lazy(() => import("@/pages/platform/integrations"));
 const LoginTrackingPage    = lazy(() => import("@/pages/platform/login-tracking"));
 const MySessionsPage       = lazy(() => import("@/pages/platform/my-sessions"));
 const MyProfilePage        = lazy(() => import("@/pages/my-profile"));
@@ -782,6 +783,7 @@ function AppRoutes() {
             <Route path="/telegram-settings"><ProtectedRoute><TelegramSettingsPage /></ProtectedRoute></Route>
             <Route path="/notification-settings"><ProtectedRoute><NotificationSettingsPage /></ProtectedRoute></Route>
             <Route path="/support"><ProtectedRoute><SupportPage /></ProtectedRoute></Route>
+            <Route path="/integrations"><ProtectedRoute><Suspense fallback={<PageLoader />}><IntegrationsPage /></Suspense></ProtectedRoute></Route>
 
             {/* Portal & Marketplace */}
             <Route path="/client-portal"><ProtectedRoute><ClientPortal /></ProtectedRoute></Route>
