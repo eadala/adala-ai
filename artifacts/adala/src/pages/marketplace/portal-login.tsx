@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Scale, Mail, Lock, Eye, EyeOff, Loader2, ArrowLeft, KeyRound, UserPlus, LogIn, Building2 } from "lucide-react";
 import { toast } from "sonner";
 
-const BASE = import.meta.env.BASE_URL ?? "/";
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 type Tab = "login" | "register" | "otp";
 
