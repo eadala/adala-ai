@@ -73,8 +73,9 @@ router.get("/snapshot", requireAuthWithTenant, async (req: Request, res: Respons
 /* ── GET /api/copilot/intelligence/:caseId ── */
 router.get("/intelligence/:caseId", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const caseId = String(req.params.caseId);
-    const intel  = await analyzeCaseIntelligence(caseId);
+    const caseId  = String(req.params.caseId);
+    const { officeId } = getIds(req);
+    const intel   = await analyzeCaseIntelligence(caseId, officeId !== "default" ? officeId : undefined);
     res.json(intel);
   } catch (e: any) {
     res.status(500).json({ error: e.message });

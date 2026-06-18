@@ -53,7 +53,7 @@ export async function orchestrate(
       const caseId = intent.entities.caseId;
       if (caseId) {
         try {
-          const intel = await analyzeCaseIntelligence(caseId);
+          const intel = await analyzeCaseIntelligence(caseId, officeId);
           const pct   = intel.probabilityOfWin;
           const risk  = intel.riskLevel === "low" ? "منخفضة" : intel.riskLevel === "medium" ? "متوسطة" : intent.entities.riskLevel === "critical" ? "حرجة" : "عالية";
           const reply = `
