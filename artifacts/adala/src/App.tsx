@@ -101,6 +101,7 @@ const ControlTowerPage     = lazy(() => import("@/pages/platform/control-tower")
 const SaasOSPage           = lazy(() => import("@/pages/platform/saas-os"));
 const ProductionOSPage     = lazy(() => import("@/pages/platform/production-os"));
 const CommercialLaunchPage = lazy(() => import("@/pages/platform/commercial-launch"));
+const AiCooPage            = lazy(() => import("@/pages/ai/ai-coo"));
 const MonitoringPage       = lazy(() => import("@/pages/monitoring/monitoring"));
 const PreventionPage       = lazy(() => import("@/pages/monitoring/prevention"));
 const AlertsPage           = lazy(() => import("@/pages/monitoring/alerts"));
@@ -772,6 +773,7 @@ function AppRoutes() {
 
             {/* AI */}
             <Route path="/ai-tasks"><ProtectedRoute><AiTasks /></ProtectedRoute></Route>
+            <Route path="/ai-coo"><ProtectedRoute><AiCooPage /></ProtectedRoute></Route>
             <Route path="/ai-hub"><ProtectedRoute><AIHub /></ProtectedRoute></Route>
             <Route path="/ai-router"><ProtectedRoute><AIRouterDashboard /></ProtectedRoute></Route>
             <Route path="/ai-copilot"><Redirect to={`${basePath}/ai-hub`} /></Route>

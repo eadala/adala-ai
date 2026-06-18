@@ -7,7 +7,7 @@ import {
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
   FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity, Send,
-  ChevronDown, Briefcase, Wand2, X, BellRing, GitBranch, Plug, Rocket,
+  ChevronDown, Briefcase, Wand2, X, BellRing, GitBranch, Plug, Rocket, Brain,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -95,10 +95,10 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
     icon: Sparkles,
     color: "#2563EB",
     items: [
-      { href: "/ai-hub",    labelKey: "المساعد القانوني الذكي", icon: BrainCircuit, feature: "ai" },
+      { href: "/ai-coo",    labelKey: "المدير التنفيذي الذكي",   icon: Brain,        feature: "ai" },
+      { href: "/ai-hub",    labelKey: "مركز الذكاء الاصطناعي",  icon: BrainCircuit, feature: "ai" },
       { href: "/legal-ai",  labelKey: "محرك الوثائق القانونية", icon: Scale,        feature: "ai" },
       { href: "/judge-prep",labelKey: "المحاكاة القضائية",      icon: Gavel,        feature: "ai" },
-      { href: "/ui-builder",labelKey: "مُنشئ الواجهات",         icon: Wand2,        feature: "ai" },
     ],
   },
   /* ─── Engine 2: Financial Operations ─── */
