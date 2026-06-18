@@ -6,7 +6,7 @@ import {
   Gift, Percent, Bot, Radar, Globe, CreditCard, Banknote,
   FileBarChart2, Gavel, FileSignature, ShieldCheck as SecurityIcon,
   Layout, Globe2, AlertOctagon, RotateCcw, ScanLine, Palette,
-  TrendingUp, Rocket,
+  TrendingUp, Rocket, Network,
 } from "lucide-react";
 
 export const PLAN_SLUG_COLORS: Record<string, string> = {
@@ -92,6 +92,7 @@ export const TABS = [
   { id: "discounts",    label: "الخصومات",           icon: Tag },
   { id: "ai-keys",      label: "مفاتيح AI",          icon: KeyRound },
   { id: "ai-credits",   label: "رصيد AI",             icon: Zap },
+  { id: "ai-gateway",   label: "بوابة AI",            icon: Network },
   { id: "usage",        label: "الاستهلاك",          icon: Activity },
   { id: "departments",  label: "الأقسام",            icon: FolderTree },
   { id: "legal",        label: "الأنظمة",            icon: BookOpen },

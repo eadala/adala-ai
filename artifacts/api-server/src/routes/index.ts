@@ -49,8 +49,9 @@ import reconciliationRouter        from "../modules/financial/reconciliation";
 import financialGuardRouter        from "../modules/financial/financial-guard";
 
 // ── AI ───────────────────────────────────────────────────────────────────────
-import aiGatewayRouter     from "../modules/ai/aiGateway";
-import aiChatRouter        from "../modules/ai/aiChat";
+import aiGatewayRouter        from "../modules/ai/aiGateway";
+import aiProviderEngineRouter from "../modules/ai/aiProviderEngine";
+import aiChatRouter           from "../modules/ai/aiChat";
 import aiTasksRouter       from "../modules/ai/aiTasks";
 import aiAgentsRouter      from "../modules/ai/aiAgents";
 import aiAgentRouter       from "../modules/ai/ai-agent";
@@ -187,6 +188,7 @@ router.use(financialGuardRouter);
 
 // AI — Gateway first (unified entry point)
 router.use(aiGatewayRouter);
+router.use(aiProviderEngineRouter);
 router.use(aiChatRouter);
 router.use(aiTasksRouter);
 router.use(aiAgentsRouter);
