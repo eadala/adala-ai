@@ -123,6 +123,17 @@ export default function EngineeringCenter() {
   const [scanResult,   setScanResult]   = useState<any>(null);
   const [scanLoading,  setScanLoading]  = useState(false);
 
+  /* Pentest state */
+  const [pentestResult,  setPentestResult]  = useState<any>(null);
+  const [pentestLoading, setPentestLoading] = useState(false);
+
+  /* Load test state */
+  const [ltResult,    setLtResult]    = useState<any>(null);
+  const [ltLoading,   setLtLoading]   = useState(false);
+  const [ltConcurrency, setLtConcurrency] = useState("10");
+  const [ltDuration,    setLtDuration]    = useState("15");
+  const [ltTarget,      setLtTarget]      = useState("api");
+
   /* IP Whitelist state */
   const [newIp,        setNewIp]        = useState("");
   const [newIpLabel,   setNewIpLabel]   = useState("");
@@ -247,6 +258,37 @@ export default function EngineeringCenter() {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
     } finally { setScanLoading(false); }
   }, [qc, toast, refetchScans]);
+
+  /* Penetration Test */
+  const runPentest = useCallback(async () => {
+    setPentestLoading(true); setPentestResult(null);
+    try {
+      const res = await ENG("/pentest", { method: "POST" });
+      setPentestResult(res);
+      refetchScans();
+      qc.invalidateQueries({ queryKey: ["eng", "logs"] });
+      toast({ title: `✅ Pentest اكتمل — نقاط الأمان: ${res.score}/100` });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally { setPentestLoading(false); }
+  }, [qc, toast, refetchScans]);
+
+  /* Load Test */
+  const runLoadTest = useCallback(async () => {
+    setLtLoading(true); setLtResult(null);
+    try {
+      const res = await ENG("/load-test", {
+        method: "POST",
+        body: JSON.stringify({ concurrency: Number(ltConcurrency), duration: Number(ltDuration), target: ltTarget }),
+      });
+      setLtResult(res);
+      refetchScans();
+      qc.invalidateQueries({ queryKey: ["eng", "logs"] });
+      toast({ title: `✅ Load Test اكتمل — ${res.reqPerSec} req/s` });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally { setLtLoading(false); }
+  }, [qc, toast, refetchScans, ltConcurrency, ltDuration, ltTarget]);
 
   /* Helpers */
   const memPercent = perf.memory
@@ -496,7 +538,80 @@ export default function EngineeringCenter() {
 
             {/* ══════════ SECURITY ══════════ */}
             <TabsContent value="security" className="mt-0 space-y-4">
+
+              {/* ── Pentest Banner ── */}
+              {pentestResult && (
+                <div className={`rounded-xl border p-4 flex items-center gap-4 ${pentestResult.score >= 80 ? "bg-emerald-500/10 border-emerald-500/30" : pentestResult.score >= 60 ? "bg-amber-500/10 border-amber-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+                  <div className={`text-4xl font-black ${pentestResult.score >= 80 ? "text-emerald-400" : pentestResult.score >= 60 ? "text-amber-400" : "text-red-400"}`}>
+                    {pentestResult.score}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-sm">نقاط الأمان / 100</p>
+                    <div className="flex gap-2 flex-wrap mt-1">
+                      {pentestResult.severityCounts?.critical > 0 && <Badge className="text-[10px] bg-red-900/30 text-red-300 border-red-400/30">🔴 حرج: {pentestResult.severityCounts.critical}</Badge>}
+                      {pentestResult.severityCounts?.high    > 0 && <Badge className="text-[10px] bg-red-500/10 text-red-400 border-red-500/20">🟠 مرتفع: {pentestResult.severityCounts.high}</Badge>}
+                      {pentestResult.severityCounts?.medium  > 0 && <Badge className="text-[10px] bg-amber-500/10 text-amber-300 border-amber-500/20">🟡 متوسط: {pentestResult.severityCounts.medium}</Badge>}
+                      {pentestResult.severityCounts?.pass    > 0 && <Badge className="text-[10px] bg-emerald-500/10 text-emerald-300 border-emerald-500/20">✅ ناجح: {pentestResult.severityCounts.pass}</Badge>}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="ghost" className="text-xs shrink-0" onClick={() => setPentestResult(null)}>إغلاق</Button>
+                </div>
+              )}
+
               <div className="grid md:grid-cols-2 gap-4">
+                {/* ── Penetration Test ── */}
+                <Card className="border-border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <KeyRound className="h-4 w-4 text-red-400" />اختبار الاختراق — OWASP Top 10
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">10 فحوصات آلية: Access Control، SQL Injection، Rate Limiting، CORS، Security Headers والمزيد</p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Button
+                      onClick={runPentest}
+                      disabled={pentestLoading}
+                      className="w-full gap-2 bg-red-700/80 hover:bg-red-700"
+                    >
+                      {pentestLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                      {pentestLoading ? "جاري اختبار الاختراق..." : "تشغيل Pentest"}
+                    </Button>
+
+                    {pentestResult && (
+                      <div className="space-y-1.5 max-h-72 overflow-y-auto">
+                        {(pentestResult.results ?? []).map((r: any) => (
+                          <div key={r.id} className={`p-2.5 rounded-lg border text-xs flex items-start justify-between gap-2 ${r.severity === "pass" ? SEVERITY_STYLES.ok : (SEVERITY_STYLES[r.severity] ?? SEVERITY_STYLES.info)}`}>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold truncate">{r.check}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{r.category} — {r.detail}</p>
+                              {r.recommendation && r.severity !== "pass" && (
+                                <p className="text-[10px] mt-0.5 text-amber-300/80">💡 {r.recommendation}</p>
+                              )}
+                            </div>
+                            <Badge className={`text-[10px] px-1.5 shrink-0 ${r.severity === "pass" ? SEVERITY_STYLES.ok : (SEVERITY_STYLES[r.severity] ?? SEVERITY_STYLES.info)}`}>
+                              {r.severity === "pass" ? "✓" : r.severity}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Last pentest from scans */}
+                    {!pentestResult && scans.filter((s: any) => s.scan_type === "pentest").length > 0 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-2">آخر pentest: {new Date(scans.find((s: any) => s.scan_type === "pentest")?.created_at).toLocaleString("ar")}</p>
+                        <Button size="sm" variant="outline" className="text-xs gap-1 w-full"
+                          onClick={() => {
+                            const last = scans.find((s: any) => s.scan_type === "pentest");
+                            if (last) setPentestResult(typeof last.summary === "string" ? JSON.parse(last.summary) : last.summary);
+                          }}>
+                          <Eye className="h-3 w-3" />عرض آخر pentest
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
                 {/* Security Scan */}
                 <Card className="border-border">
                   <CardHeader className="pb-3">
@@ -620,8 +735,131 @@ export default function EngineeringCenter() {
 
             {/* ══════════ PERFORMANCE ══════════ */}
             <TabsContent value="performance" className="mt-0 space-y-4">
+
+              {/* ── Load Test Card ── */}
+              <Card className="border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-amber-400" />اختبار الحِمل — Load Testing
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">قِس أداء API تحت ضغط حقيقي: req/s، p50/p95/p99 latency، معدل الأخطاء</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground block mb-1">التزامن</label>
+                      <Select value={ltConcurrency} onValueChange={setLtConcurrency}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="5">5 طلبات</SelectItem>
+                          <SelectItem value="10">10 طلبات</SelectItem>
+                          <SelectItem value="25">25 طلبات</SelectItem>
+                          <SelectItem value="50">50 طلبات</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground block mb-1">المدة</label>
+                      <Select value={ltDuration} onValueChange={setLtDuration}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10">10 ثوانٍ</SelectItem>
+                          <SelectItem value="15">15 ثانية</SelectItem>
+                          <SelectItem value="30">30 ثانية</SelectItem>
+                          <SelectItem value="60">دقيقة كاملة</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground block mb-1">الهدف</label>
+                      <Select value={ltTarget} onValueChange={setLtTarget}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="status">Status فقط</SelectItem>
+                          <SelectItem value="api">API (3 مسارات)</SelectItem>
+                          <SelectItem value="full">Full (5 مسارات)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={runLoadTest}
+                    disabled={ltLoading}
+                    className="w-full gap-2 bg-amber-700/80 hover:bg-amber-700"
+                  >
+                    {ltLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                    {ltLoading ? `جاري الاختبار (${ltDuration}s)...` : "تشغيل Load Test"}
+                  </Button>
+
+                  {ltResult && (
+                    <div className="space-y-3">
+                      {/* Summary metrics */}
+                      <div className="grid grid-cols-4 gap-2">
+                        {[
+                          { label: "Req/s",       value: ltResult.reqPerSec,                      color: "text-amber-300" },
+                          { label: "p50",         value: `${ltResult.latency?.p50}ms`,             color: "text-blue-300" },
+                          { label: "p99",         value: `${ltResult.latency?.p99}ms`,             color: ltResult.latency?.p99 > 1000 ? "text-red-400" : "text-emerald-300" },
+                          { label: "Error%",      value: `${ltResult.errorRatePct}%`,              color: ltResult.errorRatePct > 5 ? "text-red-400" : "text-emerald-300" },
+                        ].map((m) => (
+                          <div key={m.label} className="p-2 bg-muted/20 rounded-lg border border-border text-center">
+                            <p className={`text-base font-black ${m.color}`}>{m.value}</p>
+                            <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Latency breakdown */}
+                      <div className="p-3 bg-muted/10 rounded-lg border border-border text-xs space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">إجمالي الطلبات</span>
+                          <span className="font-mono font-bold">{ltResult.totalRequests} ({ltResult.successful} نجح / {ltResult.failed} فشل)</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Latency avg / p50 / p95 / p99</span>
+                          <span className="font-mono font-bold">{ltResult.latency?.avg}ms / {ltResult.latency?.p50}ms / {ltResult.latency?.p95}ms / {ltResult.latency?.p99}ms</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Min / Max</span>
+                          <span className="font-mono font-bold">{ltResult.latency?.min}ms / {ltResult.latency?.max}ms</span>
+                        </div>
+                      </div>
+                      {/* Per-endpoint breakdown */}
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-muted-foreground font-bold">تفصيل لكل مسار:</p>
+                        {(ltResult.endpoints ?? []).map((ep: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between text-xs p-2 rounded border border-border bg-muted/10">
+                            <span className="font-mono text-muted-foreground truncate">{ep.label}</span>
+                            <div className="flex gap-3 shrink-0 text-[10px]">
+                              <span className="text-emerald-300">{ep.ok} ✓</span>
+                              {ep.fail > 0 && <span className="text-red-400">{ep.fail} ✗</span>}
+                              <span className="text-blue-300">p50: {ep.p50}ms</span>
+                              <span className="text-violet-300">p99: {ep.p99}ms</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Last load test from scans */}
+                  {!ltResult && scans.filter((s: any) => s.scan_type === "load_test").length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2">آخر اختبار: {new Date(scans.find((s: any) => s.scan_type === "load_test")?.created_at).toLocaleString("ar")}</p>
+                      <Button size="sm" variant="outline" className="text-xs gap-1 w-full"
+                        onClick={() => {
+                          const last = scans.find((s: any) => s.scan_type === "load_test");
+                          if (last) setLtResult(typeof last.summary === "string" ? JSON.parse(last.summary) : last.summary);
+                        }}>
+                        <Eye className="h-3 w-3" />عرض آخر اختبار
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* ── Server Resources ── */}
               {perfLoading
-                ? <div className="flex items-center justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-violet-400" /></div>
+                ? <div className="flex items-center justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-violet-400" /></div>
                 : (
                   <>
                     <div className="grid md:grid-cols-3 gap-3">
