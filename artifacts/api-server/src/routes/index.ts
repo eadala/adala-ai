@@ -131,11 +131,13 @@ import hrRouter               from "../modules/operations/hr";
 import hrPerformanceRouter    from "../modules/operations/hrPerformance";
 import hrInternalRouter       from "../modules/operations/hrInternal";
 import hrEnterpriseRouter     from "../modules/operations/hr-enterprise";
+import launchGateRouter       from "../modules/platform/launchGate";
 
 // ─────────────────────────────────────────────────────────────────────────────
 const router: IRouter = Router();
 
 // Monitoring
+router.use(launchGateRouter);
 router.use(healthRouter);
 router.use(monitoringRouter);
 router.use(preventionRouter);
