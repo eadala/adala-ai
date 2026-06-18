@@ -495,7 +495,7 @@ export default function Landing() {
   ];
 
   return (
-    <div dir="rtl" style={{ background: WHITE, color: DARK, fontFamily: "'IBM Plex Sans Arabic', sans-serif" }}>
+    <div dir="rtl" style={{ background: WHITE, color: DARK, fontFamily: "'Tajawal', sans-serif" }}>
 
       {/* ══════════════════════════════════════════════════════════
           STICKY NAVBAR

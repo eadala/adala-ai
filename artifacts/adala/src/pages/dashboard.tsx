@@ -170,8 +170,8 @@ function SmartBriefing({ user }: { user: any }) {
     <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
       {/* Left — Greeting + tier */}
       <div className="flex-1">
-        <h1 className="text-2xl font-black tracking-tight">{greeting}</h1>
-        <p className="text-xs text-muted-foreground mt-1">
+        <h1 className="text-3xl font-black tracking-tight leading-tight">{greeting}</h1>
+        <p className="text-sm text-muted-foreground mt-1.5">
           {new Date().toLocaleDateString(dateLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         </p>
         {data && (
@@ -515,23 +515,27 @@ function ExecutivePulseBar() {
       </div>
       {/* Metrics Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-5 lg:grid-cols-10 gap-px bg-border/20 p-0">
-          {Array(10).fill(0).map((_, i) => <Skeleton key={i} className="h-16 rounded-none" />)}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-border/20 p-3">
+          {Array(10).fill(0).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 divide-x divide-x-reverse divide-border/20">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 p-3">
           {metrics.map((m, i) => {
             const s = statusStyle[m.status];
             const Icon = m.icon;
             return (
               <Link key={i} href={m.href}>
-                <div className={`flex flex-col items-center justify-center gap-1 px-2 py-3 text-center cursor-pointer transition-all border-b border-border/10 ${s.bg}`}>
-                  <div className="flex items-center gap-1">
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.dot}`} />
-                    <Icon className={`h-3 w-3 ${s.text}`} />
+                <div className={`flex flex-col gap-2 p-3.5 rounded-xl border cursor-pointer transition-all hover:-translate-y-0.5 ${s.bg}`}>
+                  <div className="flex items-center justify-between">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.bg}`} style={{opacity: 0.9}}>
+                      <Icon className={`h-4 w-4 ${s.text}`} />
+                    </div>
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
                   </div>
-                  <span className={`text-sm font-black tabular-nums leading-none ${s.text}`}>{m.value}</span>
-                  <span className="text-[9px] text-muted-foreground/60 leading-tight truncate w-full">{m.label}</span>
+                  <div>
+                    <span className={`text-xl font-black tabular-nums leading-none block ${s.text}`}>{m.value}</span>
+                    <span className="text-xs text-muted-foreground/70 leading-tight mt-0.5 block">{m.label}</span>
+                  </div>
                 </div>
               </Link>
             );
@@ -762,7 +766,7 @@ export default function Dashboard() {
                     <div className={`stat-card bg-gradient-to-br ${accent.gradient} cursor-pointer`}>
                       {/* Icon top-left */}
                       <div className={`stat-icon ${accent.iconBg}`}>
-                        <Icon className={`h-5 w-5 ${accent.iconColor}`} />
+                        <Icon className={`h-6 w-6 ${accent.iconColor}`} />
                       </div>
                       {/* Value — large + bold */}
                       <div className="mt-8">
