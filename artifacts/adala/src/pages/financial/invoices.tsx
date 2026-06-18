@@ -43,7 +43,7 @@ import {
   MessageSquare, Printer, Filter, Search, ArrowUpDown,
 } from "lucide-react";
 
-const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "") + "/";
+const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
 /**
  * Robust clipboard copy — works on Chrome, Firefox, Safari, and Mobile iOS.
@@ -188,6 +188,7 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState("");
+  const [clientName, setClientName] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [taxEnabled, setTaxEnabled] = useState(true);
@@ -209,21 +210,25 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title, items, vatRate, taxEnabled,
-        dueDate: dueDate || undefined,
-        notes: notes || undefined,
-        clientId: clientId || undefined,
+        dueDate:    dueDate    || undefined,
+        notes:      notes      || undefined,
+        clientId:   (clientId && clientId !== "__manual__") ? clientId : undefined,
+        clientName: (clientId === "__manual__" || !clientId) && clientName.trim() ? clientName.trim() : undefined,
       }),
-    }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess: (d) => {
-      if (d.error) { toast.error(d.error); return; }
+    }).then(async r => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error?.message ?? data?.error ?? "خطأ في الخادم");
+      return data;
+    }),
+    onSuccess: () => {
       toast.success("تم إنشاء الفاتورة ✅");
       setOpen(false);
-      setTitle(""); setClientId(""); setDueDate(""); setNotes("");
+      setTitle(""); setClientId(""); setClientName(""); setDueDate(""); setNotes("");
       setTaxEnabled(true); setVatRate(15);
       setItems([{ description: "", quantity: 1, unitPrice: 0 }]);
       onCreated();
     },
-    onError: () => toast.error("فشل إنشاء الفاتورة"),
+    onError: (e: any) => toast.error(e.message || "فشل إنشاء الفاتورة"),
   });
 
   return (
@@ -248,14 +253,25 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
             </div>
             <div className="space-y-2">
               <Label>العميل</Label>
-              <Select value={clientId} onValueChange={setClientId}>
-                <SelectTrigger><SelectValue placeholder="اختر العميل (اختياري)" /></SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => (
-                    <SelectItem key={c.id} value={String(c.id)}>{c.fullName}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {clients.length > 0 ? (
+                <Select value={clientId} onValueChange={v => { setClientId(v); setClientName(""); }}>
+                  <SelectTrigger><SelectValue placeholder="اختر من القائمة..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__manual__">✏️ كتابة اسم يدوياً</SelectItem>
+                    {clients.map(c => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.fullName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
+              {(clientId === "__manual__" || clients.length === 0) && (
+                <Input
+                  placeholder="اكتب اسم العميل..."
+                  value={clientName}
+                  onChange={e => setClientName(e.target.value)}
+                  className="mt-1"
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label>تاريخ الاستحقاق</Label>
