@@ -12,6 +12,11 @@ const router = Router();
 
 /* ─── DB migrations ─────────────────────────────────────────────────────────── */
 async function ensureInvoiceTables() {
+  /* client_name: اسم العميل يدوياً (بديل عن client_id) */
+  await db.execute(sql`
+    ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS client_name TEXT
+  `).catch(() => {});
+
   /* tax_enabled: ضريبة القيمة المضافة اختيارية */
   await db.execute(sql`
     ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS tax_enabled BOOLEAN DEFAULT true
@@ -106,6 +111,7 @@ const InvoiceItemSchema = z.object({
 
 const CreateInvoiceSchema = z.object({
   clientId:   z.string().uuid().optional().nullable(),
+  clientName: z.string().max(200).optional().nullable(),
   caseId:     z.string().uuid().optional().nullable(),
   title:      z.string().min(2, "عنوان الفاتورة مطلوب"),
   items:      z.array(InvoiceItemSchema).min(1, "يجب إضافة بند واحد على الأقل"),
@@ -176,7 +182,7 @@ router.post("/invoices", requireAuthWithTenant, validate(CreateInvoiceSchema), a
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
 
-    const { clientId, caseId, title, items, taxEnabled, vatRate, dueDate, notes, currency } = req.body;
+    const { clientId, clientName, caseId, title, items, taxEnabled, vatRate, dueDate, notes, currency } = req.body;
 
     const taxOn  = taxEnabled !== false;
     const rate   = vatRate ?? 15;
@@ -185,8 +191,9 @@ router.post("/invoices", requireAuthWithTenant, validate(CreateInvoiceSchema), a
 
     const [invoice] = await db.insert(invoicesTable).values({
       invoiceNumber,
-      clientId:   clientId ?? null,
-      caseId:     caseId   ?? null,
+      clientId:   clientId   ?? null,
+      clientName: clientName ?? null,
+      caseId:     caseId     ?? null,
       title,
       items:      JSON.stringify(items),
       subtotal,
