@@ -16,14 +16,26 @@ export interface CaseIntelligence {
   cached: boolean;
 }
 
-export async function analyzeCaseIntelligence(caseId: string): Promise<CaseIntelligence> {
-  /* Check cache (6h) */
+export async function analyzeCaseIntelligence(
+  caseId: string,
+  officeId?: string,
+): Promise<CaseIntelligence> {
+  /* Check cache (6h) — filter by office_id when available */
   try {
-    const cached = await db.execute(sql`
-      SELECT * FROM case_intelligence_cache
-      WHERE case_id = ${caseId}
-        AND generated_at > NOW() - INTERVAL '6 hours'
-    `);
+    const cached = await db.execute(
+      officeId
+        ? sql`
+            SELECT * FROM case_intelligence_cache
+            WHERE case_id = ${caseId}
+              AND office_id = ${officeId}
+              AND generated_at > NOW() - INTERVAL '6 hours'
+          `
+        : sql`
+            SELECT * FROM case_intelligence_cache
+            WHERE case_id = ${caseId}
+              AND generated_at > NOW() - INTERVAL '6 hours'
+          `,
+    );
     const row = (cached.rows?.[0] ?? (cached as any)[0]) as any;
     if (row) {
       return {
@@ -42,22 +54,41 @@ export async function analyzeCaseIntelligence(caseId: string): Promise<CaseIntel
     }
   } catch {}
 
-  /* Fetch case data */
-  const caseRows = await db.execute(sql`
-    SELECT c.*, 
-      COUNT(d.id) as doc_count,
-      COUNT(ct.id) as timeline_count,
-      COUNT(t.id) as task_count
-    FROM cases c
-    LEFT JOIN documents d ON d.case_id = c.id
-    LEFT JOIN case_timeline ct ON ct.case_id = c.id
-    LEFT JOIN tasks t ON t.case_id::text = c.id
-    WHERE c.id = ${caseId}
-    GROUP BY c.id
-    LIMIT 1
-  `);
+  /* Fetch case data — always constrain by office_id when provided */
+  const caseRows = await db.execute(
+    officeId
+      ? sql`
+          SELECT c.*,
+            COUNT(d.id) as doc_count,
+            COUNT(ct.id) as timeline_count,
+            COUNT(t.id) as task_count
+          FROM cases c
+          LEFT JOIN documents d ON d.case_id = c.id AND d.office_id = ${officeId}
+          LEFT JOIN case_timeline ct ON ct.case_id = c.id AND ct.office_id = ${officeId}
+          LEFT JOIN tasks t ON t.case_id::text = c.id
+          WHERE c.id = ${caseId} AND c.office_id = ${officeId}
+          GROUP BY c.id
+          LIMIT 1
+        `
+      : sql`
+          SELECT c.*,
+            COUNT(d.id) as doc_count,
+            COUNT(ct.id) as timeline_count,
+            COUNT(t.id) as task_count
+          FROM cases c
+          LEFT JOIN documents d ON d.case_id = c.id
+          LEFT JOIN case_timeline ct ON ct.case_id = c.id
+          LEFT JOIN tasks t ON t.case_id::text = c.id
+          WHERE c.id = ${caseId}
+          GROUP BY c.id
+          LIMIT 1
+        `,
+  );
   const caseData = (caseRows.rows?.[0] ?? (caseRows as any)[0]) as any;
   if (!caseData) throw new Error("القضية غير موجودة");
+
+  /* Resolve the office_id for cache storage */
+  const resolvedOfficeId = officeId ?? (caseData.office_id as string) ?? "";
 
   const systemPrompt = `أنت محلل قانوني خبير. مهمتك: تحليل القضية وإرجاع JSON فقط — بدون أي نص خارج JSON.
 
@@ -101,23 +132,24 @@ export async function analyzeCaseIntelligence(caseId: string): Promise<CaseIntel
     };
   }
 
-  /* Cache result */
+  /* Cache result — always include office_id */
   try {
     await db.execute(sql`
       INSERT INTO case_intelligence_cache
-        (case_id, probability_win, risk_level, weak_points, strategy, analysis_text)
+        (case_id, office_id, probability_win, risk_level, weak_points, strategy, analysis_text)
       VALUES (
-        ${caseId}, ${parsed.probabilityOfWin}, ${parsed.riskLevel},
+        ${caseId}, ${resolvedOfficeId}, ${parsed.probabilityOfWin}, ${parsed.riskLevel},
         ${JSON.stringify(parsed.keyWeakPoints)}::text[],
         ${parsed.recommendedStrategy}, ${parsed.analysisText}
       )
       ON CONFLICT (case_id) DO UPDATE SET
+        office_id       = ${resolvedOfficeId},
         probability_win = ${parsed.probabilityOfWin},
-        risk_level = ${parsed.riskLevel},
-        weak_points = ${JSON.stringify(parsed.keyWeakPoints)}::text[],
-        strategy = ${parsed.recommendedStrategy},
-        analysis_text = ${parsed.analysisText},
-        generated_at = NOW()
+        risk_level      = ${parsed.riskLevel},
+        weak_points     = ${JSON.stringify(parsed.keyWeakPoints)}::text[],
+        strategy        = ${parsed.recommendedStrategy},
+        analysis_text   = ${parsed.analysisText},
+        generated_at    = NOW()
     `);
   } catch {}
 
