@@ -68,7 +68,8 @@ import uiBuilderRouter     from "../modules/ai/uiBuilder";
 import commandCenterRouter from "../modules/ai/commandCenter";
 
 // ── Platform ─────────────────────────────────────────────────────────────────
-import adminRouter           from "../modules/platform/admin";
+import adminRouter               from "../modules/platform/admin";
+import managedIntegrationsRouter from "../modules/platform/managedIntegrations";
 import usersRouter           from "../modules/platform/users";
 import rbacRouter            from "../modules/platform/rbac";
 import onboardingRouter      from "../modules/platform/onboarding";
@@ -207,6 +208,7 @@ router.use(commandCenterRouter);
 
 // Platform
 router.use(adminRouter);
+router.use(managedIntegrationsRouter);
 router.use(usersRouter);
 router.use(rbacRouter);
 router.use(onboardingRouter);
