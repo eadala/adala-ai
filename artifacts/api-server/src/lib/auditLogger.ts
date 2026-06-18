@@ -14,6 +14,8 @@ export interface AuditEntry {
   userAgent?:     string;
   requestId?:     string;
   correlationId?: string;
+  oldValue?:      Record<string, unknown> | null;
+  newValue?:      Record<string, unknown> | null;
 }
 
 /** Extract audit metadata from an Express request */
@@ -43,7 +45,8 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
     await db.execute(sql`
       INSERT INTO audit_logs
         (user_id, user_full_name, office_id, action, resource, resource_id,
-         details, ip_address, user_agent, request_id, correlation_id)
+         details, ip_address, user_agent, request_id, correlation_id,
+         old_value, new_value)
       VALUES (
         ${entry.userId        ?? null},
         ${entry.userFullName  ?? null},
@@ -55,7 +58,9 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
         ${entry.ipAddress     ?? null},
         ${entry.userAgent     ?? null},
         ${entry.requestId     ?? null}::uuid,
-        ${entry.correlationId ?? null}::uuid
+        ${entry.correlationId ?? null}::uuid,
+        ${entry.oldValue  ? JSON.stringify(entry.oldValue)  : null}::jsonb,
+        ${entry.newValue  ? JSON.stringify(entry.newValue)  : null}::jsonb
       )
     `);
   } catch {

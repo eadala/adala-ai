@@ -101,7 +101,11 @@ router.patch("/clients/:id", requireAuthWithTenant, validate(UpdateClientSchema)
       .where(and(eq(clientsTable.id, String(req.params.id)), eq((clientsTable as any).officeId, tenantId)))
       .returning();
     if (!updated) return apiErr(res, 404, "NOT_FOUND", "الموكل غير موجود");
-    auditLog({ ...auditMeta(req), action: "update", resource: "client", resourceId: String(req.params.id) }).catch(() => {});
+    auditLog({
+      ...auditMeta(req), action: "update", resource: "client", resourceId: String(req.params.id),
+      oldValue: null,
+      newValue: { fullName, email, phone, status, type },
+    }).catch(() => {});
     res.json(updated);
   } catch (e: any) {
     res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });

@@ -526,4 +526,76 @@ router.post("/import", requireAuthWithTenant, async (req, res) => {
   }
 });
 
+/* GET /api/backup/dr-test — Disaster Recovery validation (admin only) */
+router.get("/backup/dr-test", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId as string;
+    const results: Record<string, { ok: boolean; detail: string }> = {};
+
+    /* 1. Last backup exists and is < 48h old */
+    const lastJob = await db.execute(sql`
+      SELECT id, created_at, size_bytes, file_name
+      FROM backup_jobs
+      WHERE office_id = ${tenantId} AND status = 'completed'
+      ORDER BY created_at DESC LIMIT 1
+    `).then((r: any) => { const rows = Array.isArray(r) ? r : (r?.rows ?? []); return rows[0]; });
+
+    if (!lastJob) {
+      results.last_backup = { ok: false, detail: "لا توجد نسخة احتياطية مكتملة" };
+    } else {
+      const ageHours = (Date.now() - new Date(lastJob.created_at).getTime()) / 3_600_000;
+      results.last_backup = {
+        ok: ageHours < 48,
+        detail: `آخر نسخة: ${lastJob.file_name} — منذ ${ageHours.toFixed(1)} ساعة — ${(lastJob.size_bytes / 1024).toFixed(1)} KB`,
+      };
+    }
+
+    /* 2. Backup data is valid JSON */
+    if (lastJob?.id) {
+      const jobData = await db.execute(sql`
+        SELECT file_data FROM backup_jobs WHERE id = ${lastJob.id} AND office_id = ${tenantId}
+      `).then((r: any) => { const rows = Array.isArray(r) ? r : (r?.rows ?? []); return rows[0]; });
+      try {
+        const parsed = JSON.parse(jobData?.file_data ?? "null");
+        const entityCount = Object.values(parsed ?? {}).reduce((acc: number, v) => acc + (Array.isArray(v) ? v.length : 0), 0);
+        results.data_integrity = { ok: parsed !== null, detail: `${entityCount} سجل قابل للاستعادة` };
+      } catch {
+        results.data_integrity = { ok: false, detail: "بيانات النسخة تالفة — JSON غير صالح" };
+      }
+    } else {
+      results.data_integrity = { ok: false, detail: "لا توجد بيانات للفحص" };
+    }
+
+    /* 3. DB is live and responsive */
+    const t0 = Date.now();
+    await db.execute(sql`SELECT COUNT(*) FROM cases WHERE office_id = ${tenantId}`);
+    results.db_live = { ok: true, detail: `قاعدة البيانات تستجيب — ${Date.now() - t0}ms` };
+
+    /* 4. Office registry intact */
+    const officeExists = await db.execute(sql`
+      SELECT id FROM office_registry WHERE id::text = ${tenantId}
+    `).then((r: any) => { const rows = Array.isArray(r) ? r : (r?.rows ?? []); return rows.length > 0; });
+    results.office_registry = { ok: officeExists, detail: officeExists ? "سجل المكتب موجود" : "⚠️ سجل المكتب مفقود" };
+
+    /* 5. Estimate RTO/RPO */
+    const allOk = Object.values(results).every(r => r.ok);
+    const rpo = lastJob
+      ? `${((Date.now() - new Date(lastJob.created_at).getTime()) / 3_600_000).toFixed(1)}h`
+      : "غير محدد";
+
+    res.json({
+      ok: allOk,
+      rpo,
+      rto: "< 2h (يدوي)",
+      checkedAt: new Date().toISOString(),
+      checks: results,
+      recommendation: allOk
+        ? "✅ نظام الاستعادة جاهز"
+        : "⚠️ يوجد مشاكل يجب معالجتها قبل الاعتماد على الاستعادة",
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 export default router;

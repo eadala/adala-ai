@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import twoFactorRouter from "../modules/auth/twoFactor";
 import demoRouter      from "../modules/platform/demoMode";
+import systemStatusRouter from "../modules/platform/systemStatus";
 
 // ── Monitoring & Health ──────────────────────────────────────────────────────
 import healthRouter            from "../modules/monitoring/health";
@@ -51,7 +52,7 @@ import financialGuardRouter        from "../modules/financial/financial-guard";
 // ── AI ───────────────────────────────────────────────────────────────────────
 import aiGatewayRouter        from "../modules/ai/aiGateway";
 import aiProviderEngineRouter from "../modules/ai/aiProviderEngine";
-import aiChatRouter           from "../modules/ai/aiChat";
+import aiChatRouter, { aiCostRouter } from "../modules/ai/aiChat";
 import aiTasksRouter       from "../modules/ai/aiTasks";
 import aiAgentsRouter      from "../modules/ai/aiAgents";
 import aiAgentRouter       from "../modules/ai/ai-agent";
@@ -193,6 +194,7 @@ router.use(financialGuardRouter);
 router.use(aiGatewayRouter);
 router.use(aiProviderEngineRouter);
 router.use(aiChatRouter);
+router.use(aiCostRouter);
 router.use(aiTasksRouter);
 router.use(aiAgentsRouter);
 router.use(aiAgentRouter);
@@ -282,5 +284,6 @@ router.use(hrRouter);
 router.use(hrPerformanceRouter);
 router.use(hrInternalRouter);
 router.use(hrEnterpriseRouter);
+router.use(systemStatusRouter);
 
 export default router;

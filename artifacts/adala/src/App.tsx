@@ -155,6 +155,7 @@ const OfficeLogin          = lazy(() => import("@/pages/marketplace/office-login
 const TermsPage            = lazy(() => import("@/pages/terms"));
 const PrivacyPage          = lazy(() => import("@/pages/privacy"));
 const SecurityPage         = lazy(() => import("@/pages/security"));
+const SystemStatusPage     = lazy(() => import("@/pages/platform/system-status"));
 const ReferralPage         = lazy(() => import("@/pages/marketplace/referral"));
 const NotFound             = lazy(() => import("@/pages/not-found"));
 
@@ -875,6 +876,9 @@ function AppRoutes() {
             {/* Security */}
             <Route path="/2fa-setup"><ProtectedRoute><TwoFactorSetup /></ProtectedRoute></Route>
             <Route path="/2fa-verify"><PublicPage><TwoFactorVerify /></PublicPage></Route>
+
+            {/* Public Status Page */}
+            <Route path="/system-status"><SystemStatusPage /></Route>
 
             {/* 404 */}
             <Route><Layout><Suspense fallback={<PageLoader />}><NotFound /></Suspense></Layout></Route>
