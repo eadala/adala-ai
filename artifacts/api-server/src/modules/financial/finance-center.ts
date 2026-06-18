@@ -36,15 +36,15 @@ router.get("/finance/dashboard", requireAuthWithTenant, async (req, res) => {
 
     const [revRow, invRow, expRow, payRow, advRow,
            paidInvRow, overdueInvRow, pendingInvRow, pendingAdvRow] = await Promise.all([
-      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM revenues`),
+      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM revenues WHERE office_id=${tenantId}`),
       sqlOne(sql`SELECT COALESCE(SUM(total),0) AS total FROM client_invoices WHERE status='paid' AND office_id=${tenantId}`),
-      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM expenses`),
-      sqlOne(sql`SELECT COALESCE(SUM(net_salary),0) AS total FROM payroll WHERE status='paid'`),
-      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM cash_advances WHERE status NOT IN ('repaid','rejected')`),
+      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE office_id=${tenantId}`),
+      sqlOne(sql`SELECT COALESCE(SUM(net_salary),0) AS total FROM payroll WHERE status='paid' AND office_id=${tenantId}`),
+      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM cash_advances WHERE status NOT IN ('repaid','rejected') AND office_id=${tenantId}`),
       sqlOne(sql`SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS amt FROM client_invoices WHERE status='paid' AND office_id=${tenantId}`),
       sqlOne(sql`SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS amt FROM client_invoices WHERE (status='overdue' OR (status='sent' AND due_date < NOW())) AND office_id=${tenantId}`),
       sqlOne(sql`SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS amt FROM client_invoices WHERE status='sent' AND (due_date IS NULL OR due_date >= NOW()) AND office_id=${tenantId}`),
-      sqlOne(sql`SELECT COUNT(*) AS cnt FROM cash_advances WHERE status='pending'`),
+      sqlOne(sql`SELECT COUNT(*) AS cnt FROM cash_advances WHERE status='pending' AND office_id=${tenantId}`),
     ]);
 
     const totalRevenue  = num(revRow.total) + num(invRow.total);
@@ -54,17 +54,17 @@ router.get("/finance/dashboard", requireAuthWithTenant, async (req, res) => {
       const m = String(idx + 1).padStart(2, "0");
       const from = `${year}-${m}-01`;
       const [mr, ir, me] = await Promise.all([
-        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
+        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE office_id=${tenantId} AND date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
         sqlOne(sql`SELECT COALESCE(SUM(total),0) AS v FROM client_invoices WHERE status='paid' AND office_id=${tenantId} AND created_at >= ${from}::timestamp AND created_at < ${from}::timestamp + interval '1 month'`),
-        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM expenses WHERE date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
+        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM expenses WHERE office_id=${tenantId} AND date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
       ]);
       const rev = num(mr.v) + num(ir.v);
       const exp = num(me.v);
       return { month: name, revenue: rev, expenses: exp, profit: rev - exp };
     }));
 
-    const expCats = await sqlAll(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses GROUP BY category ORDER BY total DESC LIMIT 8`);
-    const revCats = await sqlAll(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM revenues GROUP BY category ORDER BY total DESC LIMIT 8`);
+    const expCats = await sqlAll(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses WHERE office_id=${tenantId} GROUP BY category ORDER BY total DESC LIMIT 8`);
+    const revCats = await sqlAll(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM revenues WHERE office_id=${tenantId} GROUP BY category ORDER BY total DESC LIMIT 8`);
 
     res.json({
       kpi: {

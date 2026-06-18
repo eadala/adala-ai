@@ -8,23 +8,23 @@ import {
 } from "@workspace/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 
-/* ── HR + Accounting raw-SQL helpers ───────────────────────── */
-async function fetchHR() {
+/* ── HR + Accounting raw-SQL helpers (tenant-scoped) ────────── */
+async function fetchHR(tenantId: string) {
   const [employees, payroll, performance, incentives] = await Promise.all([
-    db.execute(sql`SELECT * FROM employees LIMIT 10000`).then(r => r.rows).catch(() => []),
-    db.execute(sql`SELECT * FROM payroll LIMIT 10000`).then(r => r.rows).catch(() => []),
-    db.execute(sql`SELECT * FROM performance_evaluations LIMIT 10000`).then(r => r.rows).catch(() => []),
-    db.execute(sql`SELECT * FROM employee_incentives LIMIT 10000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM employees WHERE office_id=${tenantId} LIMIT 10000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM payroll WHERE office_id=${tenantId} LIMIT 10000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM performance_evaluations WHERE office_id=${tenantId} LIMIT 10000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM employee_incentives WHERE office_id=${tenantId} LIMIT 10000`).then(r => r.rows).catch(() => []),
   ]);
   return { employees, payroll, performance, incentives };
 }
 
-async function fetchAccounting() {
+async function fetchAccounting(tenantId: string) {
   const [revenues, expenses, bankAccounts, cashAdvances] = await Promise.all([
-    db.execute(sql`SELECT * FROM revenues LIMIT 10000`).then(r => r.rows).catch(() => []),
-    db.execute(sql`SELECT * FROM expenses LIMIT 10000`).then(r => r.rows).catch(() => []),
-    db.execute(sql`SELECT * FROM bank_accounts LIMIT 1000`).then(r => r.rows).catch(() => []),
-    db.execute(sql`SELECT * FROM cash_advances LIMIT 10000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM revenues WHERE office_id=${tenantId} LIMIT 10000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM expenses WHERE office_id=${tenantId} LIMIT 10000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM bank_accounts WHERE office_id=${tenantId} LIMIT 1000`).then(r => r.rows).catch(() => []),
+    db.execute(sql`SELECT * FROM cash_advances WHERE office_id=${tenantId} LIMIT 10000`).then(r => r.rows).catch(() => []),
   ]);
   return { revenues, expenses, bankAccounts, cashAdvances };
 }
@@ -121,6 +121,7 @@ router.get("/backup/jobs", requireAuthWithTenant, async (_req, res) => {
 /* POST /api/backup/create */
 router.post("/backup/create", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const { type = "manual", scheduleType } = req.body as { type?: string; scheduleType?: string };
 
     const [[cases, clients, invoices, contracts, docs, users], hr, accounting] = await Promise.all([
@@ -144,8 +145,8 @@ router.post("/backup/create", requireAuthWithTenant, async (req, res) => {
           status: usersTable.status,
         }).from(usersTable).limit(500),
       ]),
-      fetchHR(),
-      fetchAccounting(),
+      fetchHR(tenantId),
+      fetchAccounting(tenantId),
     ]);
 
     const payload = {
@@ -223,6 +224,7 @@ router.delete("/backup/jobs/:id", requireAuthWithTenant, async (req, res) => {
 /* GET /api/backup/local-download */
 router.get("/backup/local-download", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const [[cases, clients, invoices, contracts, docs, users], hr, accounting] = await Promise.all([
       Promise.all([
         db.select().from(casesTable).limit(10000),
@@ -244,8 +246,8 @@ router.get("/backup/local-download", requireAuthWithTenant, async (req, res) => 
           status: usersTable.status,
         }).from(usersTable).limit(500),
       ]),
-      fetchHR(),
-      fetchAccounting(),
+      fetchHR(tenantId),
+      fetchAccounting(tenantId),
     ]);
 
     const payload = {
@@ -276,6 +278,7 @@ router.get("/backup/local-download", requireAuthWithTenant, async (req, res) => 
 /* GET /api/export/all */
 router.get("/export/all", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const [[cases, clients, invoices, contracts], hr, accounting] = await Promise.all([
       Promise.all([
         db.select().from(casesTable).limit(10000),
@@ -283,8 +286,8 @@ router.get("/export/all", requireAuthWithTenant, async (req, res) => {
         db.select().from(clientInvoicesTable).limit(10000),
         db.select().from(contractsTable).limit(10000),
       ]),
-      fetchHR(),
-      fetchAccounting(),
+      fetchHR(tenantId),
+      fetchAccounting(tenantId),
     ]);
     const payload = {
       exportedAt: new Date().toISOString(),
@@ -303,8 +306,9 @@ router.get("/export/all", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/revenues?format=csv|json */
 router.get("/export/revenues", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const fmt = (String(req.query.format)) ?? "json";
-    const rows = await db.execute(sql`SELECT * FROM revenues LIMIT 10000`).then(r => r.rows);
+    const rows = await db.execute(sql`SELECT * FROM revenues WHERE office_id=${tenantId} LIMIT 10000`).then(r => r.rows);
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="revenues-${dateStr()}.csv"`);
@@ -320,8 +324,9 @@ router.get("/export/revenues", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/expenses?format=csv|json */
 router.get("/export/expenses", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const fmt = (String(req.query.format)) ?? "json";
-    const rows = await db.execute(sql`SELECT * FROM expenses LIMIT 10000`).then(r => r.rows);
+    const rows = await db.execute(sql`SELECT * FROM expenses WHERE office_id=${tenantId} LIMIT 10000`).then(r => r.rows);
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="expenses-${dateStr()}.csv"`);
@@ -337,8 +342,9 @@ router.get("/export/expenses", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/employees?format=csv|json */
 router.get("/export/employees", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const fmt = (String(req.query.format)) ?? "json";
-    const rows = await db.execute(sql`SELECT * FROM employees LIMIT 10000`).then(r => r.rows);
+    const rows = await db.execute(sql`SELECT * FROM employees WHERE office_id=${tenantId} LIMIT 10000`).then(r => r.rows);
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="employees-${dateStr()}.csv"`);
@@ -354,8 +360,9 @@ router.get("/export/employees", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/payroll?format=csv|json */
 router.get("/export/payroll", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const fmt = (String(req.query.format)) ?? "json";
-    const rows = await db.execute(sql`SELECT * FROM payroll LIMIT 10000`).then(r => r.rows);
+    const rows = await db.execute(sql`SELECT * FROM payroll WHERE office_id=${tenantId} LIMIT 10000`).then(r => r.rows);
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="payroll-${dateStr()}.csv"`);

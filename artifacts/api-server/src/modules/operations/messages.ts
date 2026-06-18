@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db, messagesTable, casesTable } from "@workspace/db";
 import { ListMessagesQueryParams, SendMessageBody } from "@workspace/api-zod";
@@ -41,9 +41,12 @@ async function canReplyToClient(u: NonNullable<Awaited<ReturnType<typeof getMsgU
 }
 
 // ── GET /messages/conversations  — grouped view ───────────────────────────────
-router.get("/messages/conversations", requireAuth, async (req, res) => {
+router.get("/messages/conversations", requireAuthWithTenant, async (req, res) => {
   try {
-    const msgs = await db.select().from(messagesTable).orderBy(messagesTable.createdAt);
+    const tenantId = (req as any).tenantId as string;
+    const u = await getMsgUser(req);
+    const effectiveOffice = u?.officeId ?? tenantId;
+    const msgs = await db.execute(sql`SELECT * FROM messages WHERE office_id=${effectiveOffice} ORDER BY created_at ASC`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
     const allCases = await db.select({ id: casesTable.id, title: casesTable.title }).from(casesTable);
     const caseMap = Object.fromEntries(allCases.map((c) => [c.id, c.title]));
 
@@ -87,10 +90,13 @@ router.get("/messages/conversations", requireAuth, async (req, res) => {
 });
 
 // ── GET /messages  — flat list ────────────────────────────────────────────────
-router.get("/messages", requireAuth, async (req, res) => {
+router.get("/messages", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
+    const u = await getMsgUser(req);
+    const effectiveOffice = u?.officeId ?? tenantId;
     const query = ListMessagesQueryParams.parse(req.query);
-    let msgs = await db.select().from(messagesTable).orderBy(messagesTable.createdAt);
+    let msgs = await db.execute(sql`SELECT * FROM messages WHERE office_id=${effectiveOffice} ORDER BY created_at ASC`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])) as any[];
     if (query.caseId) msgs = msgs.filter((m) => m.caseId === query.caseId);
     if (query.channel) msgs = msgs.filter((m) => m.channel === query.channel);
 

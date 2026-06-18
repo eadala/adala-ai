@@ -271,7 +271,7 @@ router.get("/hr-perf/smart-payroll/preview", requireAuthWithTenant, async (req, 
   try {
     const { period } = req.query as { period?: string };
     const cfg = await getSettings();
-    const employees = await sqlAll(sql`SELECT * FROM employees WHERE status = 'active' ORDER BY full_name`);
+    const employees = await sqlAll(sql`SELECT * FROM employees WHERE status = 'active' AND office_id = ${tenantId} ORDER BY full_name`);
 
     const results = [];
     for (const emp of employees) {
