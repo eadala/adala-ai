@@ -171,8 +171,8 @@ router.get("/dashboard/overview", requireAuthWithTenant, async (req, res) => {
         FROM client_invoices WHERE office_id = ${tenantId} AND status = 'paid' AND created_at >= NOW() - INTERVAL '6 months'
         GROUP BY 1 ORDER BY 1
       `),
-      safeRows(sql`SELECT id, title, start_at, event_type FROM events WHERE start_at BETWEEN NOW() AND NOW() + INTERVAL '7 days' ORDER BY start_at ASC LIMIT 5`),
-      safeRows(sql`SELECT id, title, start_at, event_type FROM events WHERE DATE(start_at) = CURRENT_DATE ORDER BY start_at ASC LIMIT 10`),
+      safeRows(sql`SELECT id, title, start_at, event_type FROM events WHERE office_id = ${tenantId} AND start_at BETWEEN NOW() AND NOW() + INTERVAL '7 days' ORDER BY start_at ASC LIMIT 5`),
+      safeRows(sql`SELECT id, title, start_at, event_type FROM events WHERE office_id = ${tenantId} AND DATE(start_at) = CURRENT_DATE ORDER BY start_at ASC LIMIT 10`),
     ]);
 
     const k = kpiRows[0] ?? {};
