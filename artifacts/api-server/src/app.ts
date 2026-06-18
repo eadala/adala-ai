@@ -14,6 +14,7 @@ import {
 import router from "./routes";
 import { requestGuard, preventionErrorHandler } from "./prevention/request.guard";
 import { IsolationMiddleware } from "./isolation/tenant.scope";
+import { runtimeShield } from "./core/runtimeShield";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./webhookHandlers";
 import { db } from "@workspace/db";
@@ -227,6 +228,7 @@ app.get("/metrics", async (_req, res) => {
 });
 
 app.use("/api", requestGuard);
+app.use("/api", runtimeShield);
 app.use("/api", IsolationMiddleware);
 app.use("/api", router);
 app.use(preventionErrorHandler);

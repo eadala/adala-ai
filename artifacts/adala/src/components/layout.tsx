@@ -7,7 +7,7 @@ import {
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
   FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity, Send,
-  ChevronDown, Briefcase, Wand2, X, BellRing, GitBranch, Plug,
+  ChevronDown, Briefcase, Wand2, X, BellRing, GitBranch, Plug, Rocket,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -211,6 +211,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/isolation",          labelKey: "عزل المستأجرين",               icon: Lock },
       { href: "/hardening",          labelKey: "قفل الإنتاج",                  icon: Shield },
       { href: "/zero-trust",         labelKey: "Zero Trust Shield",             icon: Shield },
+      { href: "/launch-gate",        labelKey: "بوابة الانطلاقة الذكية",       icon: Rocket },
       { href: "/legal-os",           labelKey: "نظام التشغيل القانوني",        icon: Cpu },
       { href: "/self-healing",       labelKey: "الإصلاح الذاتي",               icon: Activity },
     ],
