@@ -16,7 +16,7 @@ import {
   FileUp, Banknote, X, UserCircle2, LogIn, Sparkles,
 } from "lucide-react";
 
-const BASE = import.meta.env.BASE_URL ?? "/";
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 // ─── Client Account Banner ─────────────────────────────────────────────────────
 function ClientAccountBanner({ portalToken }: { portalToken: string }) {

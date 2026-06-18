@@ -91,7 +91,7 @@ const PRIORITY_CONFIG = {
   low: { label: "أولوية منخفضة", color: "#10B981" },
 };
 
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/";
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 function FrameworkCard({ fw, savedStatuses, onStatusChange }: {
   fw: typeof FRAMEWORKS[0];

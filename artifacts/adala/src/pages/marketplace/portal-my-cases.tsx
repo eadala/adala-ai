@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const BASE = import.meta.env.BASE_URL ?? "/";
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 const STATUS_AR: Record<string, { label: string; color: string; dot: string }> = {
   open:        { label: "مفتوحة",      color: "text-blue-400",   dot: "bg-blue-400" },

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "") + "/";
+const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
 type Briefing = {
   todayEvents: any[];

@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
-const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "") + "/";
+const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
 const AI_ROLES = [
   { key: "partner", label: "الشريك الإداري", icon: Briefcase, color: "from-amber-500/20 to-amber-600/10 border-amber-500/30 text-amber-400" },

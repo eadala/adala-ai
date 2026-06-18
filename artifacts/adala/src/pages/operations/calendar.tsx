@@ -17,7 +17,7 @@ import {
   Users, Briefcase, Star, RefreshCw, Download, Link2
 } from "lucide-react";
 
-const BASE = import.meta.env.BASE_URL ?? "/";
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 type CalEvent = {
   id: string; title: string; event_type: string;

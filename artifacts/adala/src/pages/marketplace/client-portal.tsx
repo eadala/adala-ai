@@ -17,7 +17,7 @@ import {
   UserPlus, KeyRound, Mail, Phone, EyeOff, ClipboardCopy, UserCheck,
 } from "lucide-react";
 
-const BASE = import.meta.env.BASE_URL ?? "/";
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 type PortalToken = {
   id: string; case_id: string; token: string; client_email: string;
