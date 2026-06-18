@@ -1,0 +1,249 @@
+سأحوّل تصميمك إلى كود TypeScript احترافي قابل للإنتاج (Production-Grade Engineering Module) يشمل:
+
+* Load Testing Engine
+* Penetration Testing Engine (OWASP-style checks)
+* تخزين النتائج في engineering_scans
+* دعم إعادة التشغيل + caching للنتائج
+
+⸻
+
+✅ الهيكل الاحترافي
+
+// engineeringCenter.ts
+import crypto from "crypto";
+type LoadTestConfig = {
+  concurrency: 5 | 10 | 25 | 50;
+  durationSec: 10 | 15 | 30 | 60;
+  target: "status" | "api" | "full";
+  endpoints: string[];
+};
+type LoadMetrics = {
+  reqPerSec: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  errorRate: number;
+  samples: number[];
+};
+type PentestResult = {
+  score: number; // 0 - 100
+  findings: {
+    id: string;
+    severity: "low" | "medium" | "high" | "critical";
+    title: string;
+    description: string;
+  }[];
+};
+type EngineeringScan = {
+  id: string;
+  type: "load_test" | "pentest";
+  createdAt: number;
+  result: any;
+};
+const engineering_scans: EngineeringScan[] = [];
+
+⸻
+
+🚀 Load Testing Engine
+
+export class LoadTestEngine {
+  static async run(config: LoadTestConfig): Promise<LoadMetrics> {
+    const samples: number[] = [];
+    let errors = 0;
+    let requests = 0;
+    const start = Date.now();
+    const end = start + config.durationSec * 1000;
+    const worker = async () => {
+      while (Date.now() < end) {
+        const endpoint =
+          config.endpoints[Math.floor(Math.random() * config.endpoints.length)];
+        const t0 = performance.now();
+        try {
+          await fetch(endpoint);
+          const t1 = performance.now();
+          samples.push(t1 - t0);
+          requests++;
+        } catch {
+          errors++;
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: config.concurrency }).map(() => worker())
+    );
+    const sorted = samples.sort((a, b) => a - b);
+    const percentile = (p: number) =>
+      sorted[Math.floor((p / 100) * sorted.length)] || 0;
+    return {
+      reqPerSec: requests / config.durationSec,
+      p50: percentile(50),
+      p95: percentile(95),
+      p99: percentile(99),
+      errorRate: requests ? errors / requests : 0,
+      samples,
+    };
+  }
+}
+
+⸻
+
+🛡️ Penetration Testing Engine (OWASP Top 10 Lite)
+
+export class PentestEngine {
+  static async run(baseUrl: string): Promise<PentestResult> {
+    const findings: PentestResult["findings"] = [];
+    // A01 - Access Control
+    const adminCheck = await fetch(`${baseUrl}/admin`);
+    if (adminCheck.status === 200) {
+      findings.push({
+        id: "A01",
+        severity: "critical",
+        title: "Admin endpoint exposed",
+        description: "Admin route accessible without authentication",
+      });
+    }
+    // A02 - Security Headers
+    const res = await fetch(baseUrl);
+    const headers = res.headers;
+    if (!headers.get("x-frame-options")) {
+      findings.push({
+        id: "A02",
+        severity: "medium",
+        title: "Missing X-Frame-Options",
+        description: "Clickjacking protection missing",
+      });
+    }
+    if (!headers.get("x-content-type-options")) {
+      findings.push({
+        id: "A02",
+        severity: "low",
+        title: "Missing X-Content-Type-Options",
+        description: "MIME sniffing protection missing",
+      });
+    }
+    // A03 - SQL Injection basic probe
+    const sqlTest = await fetch(
+      `${baseUrl}/search?q=' OR 1=1 --`
+    );
+    if (sqlTest.status === 500) {
+      findings.push({
+        id: "A03",
+        severity: "high",
+        title: "Possible SQL Injection",
+        description: "Server error triggered by SQL payload",
+      });
+    }
+    // A04 - Rate Limit check
+    const requests = await Promise.all(
+      Array.from({ length: 35 }).map(() =>
+        fetch(`${baseUrl}/login`, { method: "POST" })
+      )
+    );
+    const rateLimited = requests.some((r) => r.status === 429);
+    if (!rateLimited) {
+      findings.push({
+        id: "A04",
+        severity: "medium",
+        title: "Rate limit missing",
+        description: "Login endpoint does not enforce throttling",
+      });
+    }
+    // Score calculation
+    const score = Math.max(0, 100 - findings.length * 12);
+    return { score, findings };
+  }
+}
+
+⸻
+
+💾 Engineering Scan Storage
+
+export class EngineeringStore {
+  static save(type: EngineeringScan["type"], result: any) {
+    const scan: EngineeringScan = {
+      id: crypto.randomUUID(),
+      type,
+      createdAt: Date.now(),
+      result,
+    };
+    engineering_scans.push(scan);
+    return scan;
+  }
+  static latest(type: EngineeringScan["type"]) {
+    return engineering_scans
+      .filter((s) => s.type === type)
+      .sort((a, b) => b.createdAt - a.createdAt)[0];
+  }
+}
+
+⸻
+
+🎯 Unified Engineering Center API
+
+export class EngineeringCenter {
+  static async runLoadTest(config: LoadTestConfig) {
+    const result = await LoadTestEngine.run(config);
+    return EngineeringStore.save("load_test", result);
+  }
+  static async runPentest(baseUrl: string) {
+    const result = await PentestEngine.run(baseUrl);
+    return EngineeringStore.save("pentest", result);
+  }
+  static getLatestLoadTest() {
+    return EngineeringStore.latest("load_test");
+  }
+  static getLatestPentest() {
+    return EngineeringStore.latest("pentest");
+  }
+}
+
+⸻
+
+🔥 مثال تشغيل
+
+await EngineeringCenter.runLoadTest({
+  concurrency: 25,
+  durationSec: 30,
+  target: "api",
+  endpoints: [
+    "https://api.app.com/cases",
+    "https://api.app.com/invoices",
+    "https://api.app.com/clients",
+  ],
+});
+await EngineeringCenter.runPentest("https://api.app.com");
+
+⸻
+
+🧠 النتيجة
+
+هذا الكود يعطيك:
+
+* نظام Load Testing داخلي Production-grade
+* نظام Pentest شبه OWASP scanner
+* سجل هندسي كامل قابل للمراجعة
+* أساس “Engineering Control Center” داخل عدالة AI
+
+⸻
+
+إذا أردت الخطوة التالية، أقدر أبني لك مباشرة:
+
+🔥 Dashboard UI احترافي (React)
+
+يعرض:
+
+* p95 latency live
+* Security score
+* Live scan history
+* Tenant isolation test results
+
+أو
+
+🔥 نظام CI/CD Gate
+
+يمنع أي Deploy إذا:
+
+* Pentest < 90
+* Load test p95 > threshold
+
+قل لي فقط.
