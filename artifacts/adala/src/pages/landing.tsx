@@ -16,7 +16,7 @@ import {
   Brain, Layers, HardDrive, Palette, DollarSign, Gift,
   ThumbsUp, PenLine, Smartphone, UserCheck, Archive, ClipboardCheck, BellRing,
   Cpu, Network, SquareCheckBig, FileSearch, Wallet, HeartHandshake,
-  ChevronRight, Quote,
+  ChevronRight, Quote, XCircle,
 } from "lucide-react";
 
 const PlatformShowcase = lazy(() => import("@/components/platform-showcase"));
@@ -24,7 +24,7 @@ const PaymentShowcase  = lazy(() => import("@/components/payment-showcase"));
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-/* ── Design System Tokens ───────────────────────────────────────── */
+/* ── Design tokens ───────────────────────────────────── */
 const PRIMARY  = "#0B1F3B";
 const ACCENT   = "#2563EB";
 const ACCENT_D = "#1D4ED8";
@@ -42,23 +42,28 @@ const BORDER2  = "#D1D5DB";
 const SUCCESS  = "#16A34A";
 const WARN     = "#F59E0B";
 
-/* ── Fade-in animation hook ─────────────────────────────────────── */
+/* ── FadeIn ──────────────────────────────────────────── */
 function useFadeIn(delay = 0) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current; if (!el) return;
-    const t = setTimeout(() => { el.style.transitionDelay = `${delay}s`; el.classList.add("lp-visible"); }, 80);
-    return () => clearTimeout(t);
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) {
+        setTimeout(() => { el.classList.add("lp-visible"); }, delay * 1000);
+        obs.disconnect();
+      }
+    }, { threshold: 0.1 });
+    obs.observe(el);
+    return () => obs.disconnect();
   }, [delay]);
   return ref;
 }
-
 function FadeIn({ children, delay = 0, className = "", style }: { children: React.ReactNode; delay?: number; className?: string; style?: React.CSSProperties }) {
   const ref = useFadeIn(delay);
   return <div ref={ref} className={`lp-fade ${className}`} style={style}>{children}</div>;
 }
 
-/* ── Animated counter ───────────────────────────────────────────── */
+/* ── Animated counter ────────────────────────────────── */
 function Counter({ to, suffix = "", duration = 2, locale = "ar-SA" }: { to: number; suffix?: string; duration?: number; locale?: string }) {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
@@ -83,7 +88,7 @@ function Counter({ to, suffix = "", duration = 2, locale = "ar-SA" }: { to: numb
   return <span ref={ref}>{count.toLocaleString(locale)}{suffix}</span>;
 }
 
-/* ── Dashboard mock preview ─────────────────────────────────────── */
+/* ── Dashboard mock ──────────────────────────────────── */
 function DashboardMock() {
   const { t } = useTranslation();
   const TABS = [
@@ -98,9 +103,7 @@ function DashboardMock() {
   ];
   return (
     <div className="rounded-2xl overflow-hidden flex"
-      style={{ border: `1px solid ${BORDER}`, background: WHITE, boxShadow: "0 24px 80px rgba(11,31,59,0.16), 0 4px 16px rgba(0,0,0,0.08)" }}>
-
-      {/* Sidebar strip */}
+      style={{ border: `1px solid ${BORDER}`, background: WHITE, boxShadow: "0 32px 96px rgba(11,31,59,0.18), 0 4px 16px rgba(0,0,0,0.06)" }}>
       <div className="hidden sm:flex flex-col items-center gap-3 py-4 px-2.5 shrink-0"
         style={{ background: PRIMARY, width: 48, borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="w-7 h-7 rounded-lg flex items-center justify-center mb-2" style={{ background: ACCENT }}>
@@ -110,10 +113,7 @@ function DashboardMock() {
           <div key={i} className="w-6 h-6 rounded-lg opacity-60" style={{ background: d.color + "30", border: `1px solid ${d.color}40` }} />
         ))}
       </div>
-
-      {/* Main content */}
       <div className="flex-1 min-w-0">
-        {/* Browser chrome */}
         <div className="flex items-center gap-2 px-3 py-2.5" style={{ background: BG2, borderBottom: `1px solid ${BORDER}` }}>
           <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#FC8181" }} />
           <div className="w-2.5 h-2.5 rounded-full" style={{ background: WARN }} />
@@ -123,7 +123,6 @@ function DashboardMock() {
             app.adalah-ai.sa
           </div>
         </div>
-        {/* Tabs */}
         <div className="flex gap-0.5 px-3 pt-2 overflow-x-auto" style={{ borderBottom: `1px solid ${BORDER}`, scrollbarWidth: "none" }}>
           {TABS.map((tab, i) => (
             <button key={i} onClick={() => setActive(i)}
@@ -133,7 +132,6 @@ function DashboardMock() {
             </button>
           ))}
         </div>
-        {/* Tab content */}
         <div className="p-3" style={{ background: BG, minHeight: 220 }}>
           {active === 0 && (
             <div className="space-y-2.5">
@@ -151,7 +149,6 @@ function DashboardMock() {
                   </div>
                 ))}
               </div>
-              {/* AI Insights mini card */}
               <div className="rounded-xl p-3 flex items-start gap-2.5"
                 style={{ background: `${ACCENT}08`, border: `1px solid ${ACCENT}20` }}>
                 <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{ background: ACCENT_M }}>
@@ -199,25 +196,21 @@ function DashboardMock() {
   );
 }
 
-/* ── AI Chat Mock — animated live conversation ───────────────────── */
+/* ── AI Chat Mock ─────────────────────────────────────── */
 function AIChatMock() {
-  // phase drives which messages are visible
   const [phase, setPhase] = useState(0);
-  // 0=empty 1=user1 2=typing1 3=ai1 4=user2 5=typing2 6=ai2 7=action 8=pause→reset
   const DELAYS = [700, 800, 1600, 1000, 800, 1700, 800, 3200];
   useEffect(() => {
     const d = DELAYS[Math.min(phase, DELAYS.length - 1)];
     const t = setTimeout(() => setPhase(p => (p >= 8 ? 0 : p + 1)), d);
     return () => clearTimeout(t);
   }, [phase]);
-
   const Bubble = ({ children, fromUser, isAction }: { children: React.ReactNode; fromUser?: boolean; isAction?: boolean }) => {
     if (isAction) return (
       <div className="flex justify-center">
         <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold"
           style={{ background: "rgba(16,185,129,0.15)", color: "#34D399", border: "1px solid rgba(16,185,129,0.2)" }}>
-          <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-          {children}
+          <CheckCircle className="w-3.5 h-3.5 shrink-0" />{children}
         </div>
       </div>
     );
@@ -232,7 +225,6 @@ function AIChatMock() {
       </div>
     );
   };
-
   const TypingDots = () => (
     <div className="flex justify-end">
       <div className="px-4 py-3 rounded-2xl flex items-center gap-1.5" style={{ background: ACCENT, borderRadius: "16px 16px 4px 16px" }}>
@@ -243,11 +235,9 @@ function AIChatMock() {
       </div>
     </div>
   );
-
   return (
     <div className="rounded-2xl overflow-hidden flex flex-col"
       style={{ background: PRIMARY, border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 24px 80px rgba(11,31,59,0.35)" }}>
-      {/* Header */}
       <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: ACCENT, boxShadow: `0 4px 12px rgba(37,99,235,0.4)` }}>
@@ -259,36 +249,23 @@ function AIChatMock() {
           </div>
         </div>
         <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "#34D399" }}>
-          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          متصل
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />متصل
         </span>
       </div>
-
-      {/* Messages */}
       <div className="flex-1 px-4 py-4 space-y-3" style={{ minHeight: 260 }}>
-        {phase >= 1 && (
-          <Bubble fromUser>اكتب لي عقد إيجار تجاري لمحل في الرياض لمدة سنتين</Bubble>
-        )}
+        {phase >= 1 && <Bubble fromUser>اكتب لي عقد إيجار تجاري لمحل في الرياض لمدة سنتين</Bubble>}
         {phase === 2 && <TypingDots />}
         {phase >= 3 && (
           <Bubble>
             <p className="font-semibold mb-1">تم إنشاء عقد الإيجار التجاري ✅</p>
-            <p className="text-xs opacity-75">١٤ بنداً • متوافق مع نظام الإيجار السعودي ١٤٤٣هـ • يشمل حقوق وضمانات الطرفين</p>
+            <p className="text-xs opacity-75">١٤ بنداً • متوافق مع نظام الإيجار السعودي ١٤٤٣هـ</p>
           </Bubble>
         )}
-        {phase >= 4 && (
-          <Bubble fromUser>أضف شرط غرامة تأخير 5% شهرياً</Bubble>
-        )}
+        {phase >= 4 && <Bubble fromUser>أضف شرط غرامة تأخير 5% شهرياً</Bubble>}
         {phase === 5 && <TypingDots />}
-        {phase >= 6 && (
-          <Bubble>تم إضافة البند ١٥: غرامة التأخير ✓ — العقد محدَّث وجاهز</Bubble>
-        )}
-        {phase >= 7 && (
-          <Bubble isAction>العقد جاهز للتوقيع الإلكتروني • تم الحفظ في ملف العميل</Bubble>
-        )}
+        {phase >= 6 && <Bubble>تم إضافة البند ١٥: غرامة التأخير ✓ — العقد محدَّث وجاهز</Bubble>}
+        {phase >= 7 && <Bubble isAction>العقد جاهز للتوقيع الإلكتروني • تم الحفظ في ملف العميل</Bubble>}
       </div>
-
-      {/* Input */}
       <div className="px-4 pb-4">
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
           style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -302,30 +279,32 @@ function AIChatMock() {
   );
 }
 
-function ShowcasePlaceholder() {
-  return (
-    <div className="py-12 flex items-center justify-center" style={{ background: BG2 }}>
-      <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${ACCENT}40`, borderTopColor: "transparent" }} />
-    </div>
-  );
-}
-
-/* ── FAQ accordion ──────────────────────────────────────────────── */
+/* ── FAQ accordion ────────────────────────────────────── */
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border rounded-2xl overflow-hidden cursor-pointer transition-all duration-200"
       style={{ borderColor: open ? `${ACCENT}50` : BORDER, background: open ? ACCENT_L : WHITE,
-               boxShadow: open ? `0 2px 12px rgba(37,99,235,0.08)` : "0 1px 3px rgba(0,0,0,0.04)" }}
+               boxShadow: open ? `0 4px 20px rgba(37,99,235,0.10)` : "0 1px 3px rgba(0,0,0,0.04)" }}
       onClick={() => setOpen(p => !p)}>
-      <div className="flex items-center justify-between px-6 py-4">
+      <div className="flex items-center justify-between px-6 py-4 gap-4">
         <span className="font-semibold text-sm md:text-base" style={{ color: open ? ACCENT : DARK }}>{q}</span>
-        {open ? <ChevronUp className="w-5 h-5 shrink-0" style={{ color: ACCENT }} />
-               : <ChevronDown className="w-5 h-5 shrink-0" style={{ color: MUTED }} />}
+        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all"
+          style={{ background: open ? ACCENT : BG2 }}>
+          {open ? <ChevronUp className="w-4 h-4 text-white" /> : <ChevronDown className="w-4 h-4" style={{ color: MUTED }} />}
+        </div>
       </div>
-      <div style={{ maxHeight: open ? "400px" : "0", overflow: "hidden", transition: "max-height 0.28s ease" }}>
-        <p className="px-6 pb-5 text-sm leading-relaxed" style={{ color: BODY, lineHeight: "1.75" }}>{a}</p>
+      <div style={{ maxHeight: open ? "400px" : "0", overflow: "hidden", transition: "max-height 0.3s ease" }}>
+        <p className="px-6 pb-5 text-sm leading-relaxed" style={{ color: BODY, lineHeight: "1.8" }}>{a}</p>
       </div>
+    </div>
+  );
+}
+
+function ShowcasePlaceholder() {
+  return (
+    <div className="py-12 flex items-center justify-center" style={{ background: BG2 }}>
+      <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${ACCENT}40`, borderTopColor: "transparent" }} />
     </div>
   );
 }
@@ -338,22 +317,20 @@ export default function Landing() {
   const isAr = i18n.language?.startsWith("ar");
   const [scrolled, setScrolled]   = useState(false);
   const [menuOpen, setMenuOpen]   = useState(false);
+  const [pricingAnnual, setPricingAnnual] = useState(false);
 
-  /* Variant selector */
   const urlVariant = new URLSearchParams(window.location.search).get("preview");
   const { data: variantData } = useQuery<{ variant: string }>({
     queryKey: ["landing-variant-public"],
     queryFn: () => fetch(`${BASE}/api/landing-variant`).then(r => r.json()).catch(() => ({ variant: "original" })),
     staleTime: 1000 * 60, enabled: !urlVariant,
   });
-  /* CMS — must be before early returns to satisfy rules-of-hooks */
   const { data: cms } = useQuery({
     queryKey: ["home-cms"],
     queryFn: () => fetch(`${BASE}/api/home/content`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
     staleTime: 5 * 60 * 1000, retry: false,
   });
 
-  /* SEO */
   useEffect(() => {
     if (!cms?.seo) return;
     const { metaTitle, metaDescription, ogImage } = cms.seo as any;
@@ -390,30 +367,35 @@ export default function Landing() {
     return (cms?.[section]?.[key] as string | undefined) || fallback;
   }
 
-  /* Live billing plans — fallback to i18n if API not ready */
+  /* Live billing plans */
   const { data: livePlansRaw = [] } = useQuery<any[]>({
     queryKey: ["billing-plans"],
     queryFn: () => fetch(`${BASE}/api/billing/plans`).then(r => { if (!r.ok) throw new Error(); return r.json(); }).catch(() => []),
-    staleTime: 10 * 60 * 1000,
-    retry: false,
+    staleTime: 10 * 60 * 1000, retry: false,
   });
 
   const pricingPlans = (() => {
     if (livePlansRaw.length > 0) {
-      const freePlan  = livePlansRaw.find(p => p.isFree && !p.isContactOnly) ?? livePlansRaw[0];
-      const popPlan   = livePlansRaw.find(p => p.recommended) ?? livePlansRaw[2];
-      const entPlan   = livePlansRaw.find(p => p.isContactOnly) ?? livePlansRaw[livePlansRaw.length - 1];
+      const freePlan = livePlansRaw.find(p => p.isFree && !p.isContactOnly) ?? livePlansRaw[0];
+      const popPlan  = livePlansRaw.find(p => p.recommended) ?? livePlansRaw[2];
+      const entPlan  = livePlansRaw.find(p => p.isContactOnly) ?? livePlansRaw[livePlansRaw.length - 1];
       return [freePlan, popPlan, entPlan].map(p => ({
-        name:     p.nameAr ?? p.name ?? "",
-        price:    p.isContactOnly ? "تواصل معنا" : String(p.monthlyPrice ?? p.price ?? 0),
-        period:   p.isContactOnly ? "" : "ريال/شهر",
-        cta:      p.isContactOnly ? "احجز مكالمة مع فريقنا" : (p.isFree ? "ابدأ مجاناً الآن" : "ابدأ الآن — الأكثر اختياراً"),
-        features: Array.isArray(p.features) ? p.features : [],
+        name:        p.nameAr ?? p.name ?? "",
+        monthly:     p.monthlyPrice ?? 0,
+        yearly:      p.yearlyPrice  ?? Math.round((p.monthlyPrice ?? 0) * 0.8),
+        isContact:   p.isContactOnly ?? false,
+        isFree:      p.isFree ?? false,
+        features:    Array.isArray(p.features) ? p.features : [],
       }));
     }
-    return t("landing.pricing.plans", { returnObjects: true }) as { name: string; price: string; period: string; cta: string; features: string[] }[];
+    return [
+      { name: "استكشف",  monthly: 0,   yearly: 0,   isContact: false, isFree: true,  features: ["٥ قضايا", "مستخدم واحد", "١ جيجا تخزين", "٥٬٠٠٠ AI credit", "تذكيرات ذكية", "تقويم قانوني", "تصدير PDF"] },
+      { name: "أتقن",    monthly: 899, yearly: 719,  isContact: false, isFree: false, features: ["٥ مستخدمين", "٥٠ جيجا تخزين", "١٠٠٬٠٠٠ AI credit/شهر", "🤖 AI متقدم", "📊 تحليلات AI", "🔍 OCR", "💾 نسخ احتياطي يومي", "تقارير + KPIs"] },
+      { name: "الأسطورة", monthly: 0,  yearly: 0,   isContact: true,  isFree: false, features: ["كل شيء غير محدود", "AI مدرَّب على بياناتك", "بنية تحتية خاصة", "SLA 99.99%", "مدير نجاح مخصص", "هجرة مجانية"] },
+    ];
   })();
-  const faqItems     = (t("landing.faq.items",     { returnObjects: true }) as { q: string; a: string }[]);
+
+  const faqItems = (t("landing.faq.items", { returnObjects: true }) as { q: string; a: string }[]);
   const counterLocale = isAr ? "ar-SA" : "en-US";
 
   /* Footer */
@@ -433,109 +415,68 @@ export default function Landing() {
     ? (cmsFooter.supportLinks as any[]).filter((l: any) => l.label).map((l: any) => ({ label: l.label, href: l.href || "#" }))
     : _suI18n.map((label, i) => ({ label, href: _suHref[i] || "#" }));
 
-  /* ── NAV ─────────────────────────────────────────────────────── */
   const NAV = [
-    { label: "المميزات",  href: "#features"      },
-    { label: "الخدمات",   href: "#services"      },
-    { label: "الذكاء AI", href: "#ai"            },
-    { label: "الأسعار",   href: "#pricing"       },
-    { label: "الأسئلة",   href: "#faq"           },
+    { label: "المميزات",  href: "#features" },
+    { label: "الذكاء AI", href: "#ai"       },
+    { label: "الأسعار",   href: "#pricing"  },
+    { label: "الأسئلة",   href: "#faq"      },
   ];
 
-  /* ── 8 Core Services ─────────────────────────────────────────── */
-  const SERVICES = [
-    { icon: Scale,        color: ACCENT,    bg: ACCENT_M,  title: "⚖️ إدارة القضايا والملفات",    desc: "تنظيم القضايا والجلسات والمستندات القانونية في نظام مركزي واحد مع متابعة حية" },
-    { icon: Users,        color: "#4F46E5", bg: "#EDE9FE", title: "👥 إدارة العملاء والعلاقات",   desc: "ملفات شاملة لكل عميل، سجل تواصل كامل، بوابة إلكترونية للعملاء" },
-    { icon: FileText,     color: "#0891B2", bg: "#CFFAFE", title: "📄 العقود والمستندات الذكية", desc: "أرشفة تلقائية، بحث فوري، توقيع إلكتروني، وإدارة الوثائق بكفاءة عالية" },
-    { icon: Receipt,      color: WARN,      bg: "#FEF3C7", title: "💰 الفوترة والمحاسبة",        desc: "فواتير إلكترونية، تتبع المدفوعات، تقارير مالية، ومحاسبة مزدوجة القيود" },
-    { icon: UserCheck,    color: "#7C3AED", bg: "#EDE9FE", title: "👨‍💼 الموارد البشرية",            desc: "إدارة المحامين والموظفين، الرواتب، الحضور، التقييمات، والصلاحيات" },
-    { icon: Bot,          color: SUCCESS,   bg: "#D1FAE5", title: "🤖 مساعد AI القانوني",         desc: "صياغة العقود، تحليل القضايا، البحث القانوني، والاستشارة الذكية بالعربية" },
-    { icon: Globe,        color: "#0891B2", bg: "#CFFAFE", title: "🌐 الموقع والمتجر القانوني",  desc: "موقع احترافي للمكتب، صفحة خدمات، حجز الاستشارات، وبوابة دفع متكاملة" },
-    { icon: BarChart3,    color: "#DC2626", bg: "#FEE2E2", title: "📊 التقارير ولوحات التحكم",   desc: "مؤشرات أداء لحظية، تقارير مالية وقانونية، وتحليلات ذكية لاتخاذ القرار" },
+  /* ── Data ─────────────────────────────────────────────── */
+  const FEATURES = [
+    { icon: Scale,     color: ACCENT,    bg: ACCENT_M,  title: "إدارة القضايا",        desc: "تتبع كامل للقضايا والجلسات والمستندات في نظام مركزي واحد مع مؤشرات حية" },
+    { icon: Bot,       color: "#7C3AED", bg: "#EDE9FE", title: "مساعد AI القانوني",     desc: "يصيغ العقود، يحلل القضايا، ويوصي بالاستراتيجيات القانونية بالعربية" },
+    { icon: Users,     color: "#0891B2", bg: "#CFFAFE", title: "إدارة العملاء CRM",     desc: "ملف شامل لكل موكل مع بوابة إلكترونية وسجل تواصل كامل" },
+    { icon: Receipt,   color: WARN,      bg: "#FEF3C7", title: "الفوترة والمحاسبة",     desc: "فواتير إلكترونية، تتبع مدفوعات، وتقارير مالية بمحاسبة مزدوجة القيود" },
+    { icon: FileText,  color: "#0891B2", bg: "#CFFAFE", title: "العقود والمستندات",      desc: "أرشفة تلقائية، بحث فوري بـ OCR، وتوقيع إلكتروني معتمد" },
+    { icon: BarChart3, color: "#DC2626", bg: "#FEE2E2", title: "التقارير والتحليلات",    desc: "مؤشرات أداء لحظية وتحليلات AI لاتخاذ قرارات أذكى" },
   ];
 
-  /* ── Platform stats ──────────────────────────────────────────── */
   const STATS = [
-    { to: 500,   suffix: "+",    label: "مكتب محاماة",       color: ACCENT   },
-    { to: 50000, suffix: "+",    label: "قضية مُدارة",       color: "#4F46E5" },
-    { to: 99,    suffix: ".9%",  label: "وقت تشغيل مستمر",  color: SUCCESS   },
-    { to: 4,     suffix: " دول", label: "دول الخليج",        color: WARN      },
+    { to: 850,   suffix: "+",    label: "مكتب قانوني",       icon: Building2, color: ACCENT    },
+    { to: 50000, suffix: "+",    label: "قضية مُدارة",       icon: Scale,     color: "#7C3AED" },
+    { to: 99,    suffix: ".9%",  label: "وقت تشغيل مستمر",  icon: Shield,    color: SUCCESS   },
+    { to: 40,    suffix: "%",    label: "توفير في الوقت",    icon: Zap,       color: WARN      },
   ];
 
-  /* ── Testimonials ────────────────────────────────────────────── */
   const TESTIMONIALS = [
-    {
-      name: "م. خالد العمري",
-      role: "مكتب العمري للمحاماة — الرياض",
-      avatar: "خ",
-      color: ACCENT,
-      stars: 5,
-      text: "عدالة AI غيّرت طريقة عمل مكتبنا بالكامل. كنا نُضيع ساعات في إدارة الملفات يدوياً، الآن كل شيء في مكان واحد والنظام يُذكّرنا بالجلسات تلقائياً.",
-    },
-    {
-      name: "أ. نورة الشمري",
-      role: "مستشارة قانونية — مكتب الشمري — جدة",
-      avatar: "ن",
-      color: "#7C3AED",
-      stars: 5,
-      text: "أفضل استثمار قمت به لمكتبي. الفوترة والتحصيل أصبحا أوتوماتيكياً، والعملاء يحبون بوابة التتبع الإلكترونية. وفّرت 40% من وقتي الإداري.",
-    },
-    {
-      name: "م. سالم الزهراني",
-      role: "مدير شراكات — مجموعة الزهراني القانونية",
-      avatar: "س",
-      color: SUCCESS,
-      stars: 5,
-      text: "ندير 3 مكاتب في مدن مختلفة من لوحة تحكم واحدة. المساعد الذكي يوفر علينا ساعات في صياغة العقود. المنصة احترافية وتستحق كل ريال.",
-    },
+    { name: "م. خالد العمري",  role: "مكتب العمري للمحاماة — الرياض",             avatar: "خ", color: ACCENT,    stars: 5, text: "عدالة AI غيّرت طريقة عمل مكتبنا بالكامل. كنا نُضيع ساعات في إدارة الملفات يدوياً، الآن كل شيء في مكان واحد والنظام يُذكّرنا بالجلسات تلقائياً." },
+    { name: "أ. نورة الشمري", role: "مستشارة قانونية — مكتب الشمري — جدة",       avatar: "ن", color: "#7C3AED", stars: 5, text: "أفضل استثمار قمت به لمكتبي. الفوترة والتحصيل أصبحا أوتوماتيكياً، والعملاء يحبون بوابة التتبع الإلكترونية. وفّرت 40% من وقتي الإداري." },
+    { name: "م. سالم الزهراني", role: "مدير شراكات — مجموعة الزهراني القانونية", avatar: "س", color: SUCCESS,   stars: 5, text: "ندير 3 مكاتب في مدن مختلفة من لوحة تحكم واحدة. المساعد الذكي يوفر علينا ساعات في صياغة العقود. المنصة احترافية وتستحق كل ريال." },
   ];
 
-  /* ── AI Steps ─────────────────────────────────────────────────── */
+  const COMPARISON_ROWS = [
+    { feature: "تتبع القضايا والمواعيد",        traditional: "ورقي / جداول بيانات",  adalah: "لوحة تحكم ذكية مع تنبيهات فورية" },
+    { feature: "إدارة المستندات",               traditional: "مجلدات وملفات يدوية",   adalah: "OCR + بحث فوري + أرشفة تلقائية" },
+    { feature: "التواصل مع العملاء",            traditional: "هاتف وبريد إلكتروني",  adalah: "بوابة إلكترونية + WhatsApp + Telegram" },
+    { feature: "التقارير المالية",              traditional: "Excel يدوي",             adalah: "تقارير لحظية + محاسبة مزدوجة" },
+    { feature: "الذكاء الاصطناعي",             traditional: "❌ غير متوفر",           adalah: "صياغة عقود + تحليل قضايا + توصيات" },
+    { feature: "بوابة الموكّلين الإلكترونية",  traditional: "❌ غير متوفر",           adalah: "متابعة القضايا وتحميل الوثائق 24/7" },
+  ];
+
   const AI_STEPS = [
-    {
-      step: "١",
-      icon: <FileSearch className="w-7 h-7" style={{ color: ACCENT }} />,
-      title: "يقرأ ويفهم",
-      desc: "يحلل النظام القضايا والمستندات والعقود فوراً ويستخرج المعلومات الأساسية دون أي جهد منك",
-      color: ACCENT, bg: ACCENT_M,
-    },
-    {
-      step: "٢",
-      icon: <Brain className="w-7 h-7" style={{ color: "#7C3AED" }} />,
-      title: "يُفكّر ويقترح",
-      desc: "يقدم توصيات قانونية مدعومة بالأدلة، يصيغ المستندات، ويُنبّه لمخاطر القضايا بدقة عالية",
-      color: "#7C3AED", bg: "#EDE9FE",
-    },
-    {
-      step: "٣",
-      icon: <Zap className="w-7 h-7" style={{ color: SUCCESS }} />,
-      title: "يُنجز ويُتابع",
-      desc: "يرسل التذكيرات، يولّد الفواتير، يُحدّث ملفات القضايا، ويتابع المواعيد النهائية تلقائياً",
-      color: SUCCESS, bg: "#D1FAE5",
-    },
+    { step: "١", icon: <FileSearch className="w-6 h-6" style={{ color: ACCENT }} />,    title: "يقرأ ويفهم",    desc: "يحلل القضايا والمستندات فوراً ويستخرج المعلومات الأساسية",   color: ACCENT,    bg: ACCENT_M  },
+    { step: "٢", icon: <Brain className="w-6 h-6" style={{ color: "#7C3AED" }} />,       title: "يُفكّر ويقترح", desc: "يقدم توصيات قانونية مدعومة بالأدلة ويصيغ المستندات بدقة",  color: "#7C3AED", bg: "#EDE9FE" },
+    { step: "٣", icon: <Zap className="w-6 h-6" style={{ color: SUCCESS }} />,           title: "يُنجز ويُتابع", desc: "يرسل التذكيرات، يولّد الفواتير، ويتابع المواعيد تلقائياً", color: SUCCESS,   bg: "#D1FAE5" },
   ];
 
+  /* ══ RENDER ══════════════════════════════════════════════════════ */
   return (
     <div dir="rtl" style={{ background: WHITE, color: DARK, fontFamily: "'Tajawal', sans-serif" }}>
 
-      {/* ══════════════════════════════════════════════════════════
-          STICKY NAVBAR
-      ══════════════════════════════════════════════════════════ */}
+      {/* ══ NAVBAR ═══════════════════════════════════════════════ */}
       <nav className="fixed top-0 inset-x-0 z-50 transition-all duration-300"
         style={{
-          background: scrolled
-            ? "rgba(255,255,255,0.96)"
-            : "rgba(255,255,255,0.88)",   /* always visible on mobile */
-          backdropFilter: "blur(12px)",
-          borderBottom: `1px solid ${scrolled ? BORDER : "rgba(229,231,235,0.6)"}`,
-          boxShadow: scrolled ? "0 1px 12px rgba(11,31,59,0.06)" : "none",
+          background: scrolled ? "rgba(255,255,255,0.97)" : "rgba(255,255,255,0.92)",
+          backdropFilter: "blur(16px)",
+          borderBottom: `1px solid ${scrolled ? BORDER : "rgba(229,231,235,0.5)"}`,
+          boxShadow: scrolled ? "0 1px 16px rgba(11,31,59,0.07)" : "none",
         }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
-          {/* Logo */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
           <Link href="/">
-            <div className="flex items-center gap-2 cursor-pointer select-none">
+            <div className="flex items-center gap-2.5 cursor-pointer select-none">
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: ACCENT, boxShadow: `0 4px 12px rgba(37,99,235,0.35)` }}>
+                style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_D})`, boxShadow: `0 4px 12px rgba(37,99,235,0.30)` }}>
                 <Scale className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div>
@@ -545,18 +486,16 @@ export default function Landing() {
             </div>
           </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden md:flex items-center gap-0.5">
             {NAV.map(n => (
               <a key={n.href} href={n.href}
-                className="px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-slate-100"
+                className="px-3.5 py-2 rounded-lg text-sm font-medium transition-all hover:bg-slate-100 hover:text-blue-600"
                 style={{ color: BODY }}>
                 {n.label}
               </a>
             ))}
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
             <Link href={`${BASE}/sign-in`}>
@@ -566,7 +505,7 @@ export default function Landing() {
               </button>
             </Link>
             <Link href={`${BASE}/demo-login`}>
-              <button className="hidden md:flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border transition-colors hover:bg-slate-50"
+              <button className="hidden md:flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:bg-slate-50 hover:border-blue-300"
                 style={{ borderColor: BORDER2, color: DARK }}>
                 <Play className="w-3.5 h-3.5" style={{ color: ACCENT }} />
                 عرض تجريبي
@@ -574,7 +513,7 @@ export default function Landing() {
             </Link>
             <Link href={`${BASE}/sign-up`}>
               <button className="text-sm font-bold px-5 py-2.5 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
-                style={{ background: ACCENT, color: WHITE, boxShadow: `0 4px 14px rgba(37,99,235,0.30)` }}>
+                style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_D})`, color: WHITE, boxShadow: `0 4px 14px rgba(37,99,235,0.28)` }}>
                 ابدأ مجاناً
               </button>
             </Link>
@@ -584,28 +523,25 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Mobile menu */}
         {menuOpen && (
-          <div className="md:hidden px-6 pb-4 pt-2 space-y-1 border-t" style={{ background: WHITE, borderColor: BORDER }}>
+          <div className="md:hidden px-5 pb-4 pt-2 space-y-1 border-t" style={{ background: WHITE, borderColor: BORDER }}>
             {NAV.map(n => (
               <a key={n.href} href={n.href} onClick={() => setMenuOpen(false)}
-                className="block px-4 py-3 rounded-xl text-sm font-medium transition-colors hover:bg-slate-50"
+                className="block px-4 py-3 rounded-xl text-sm font-medium hover:bg-slate-50"
                 style={{ color: BODY }}>
                 {n.label}
               </a>
             ))}
-            <div className="flex flex-col gap-2 mt-3">
+            <div className="flex flex-col gap-2 mt-3 pt-3 border-t" style={{ borderColor: BORDER }}>
               <Link href={`${BASE}/sign-up`}>
-                <button className="w-full py-3 rounded-xl text-sm font-bold"
-                  style={{ background: ACCENT, color: WHITE, boxShadow: `0 4px 12px rgba(37,99,235,0.25)` }}
-                  onClick={() => setMenuOpen(false)}>
+                <button className="w-full py-3 rounded-xl text-sm font-bold" onClick={() => setMenuOpen(false)}
+                  style={{ background: ACCENT, color: WHITE }}>
                   ابدأ مجاناً لمدة 90 يوماً
                 </button>
               </Link>
               <Link href={`${BASE}/demo-login`}>
-                <button className="w-full py-3 rounded-xl text-sm font-semibold"
-                  style={{ background: ACCENT_L, color: ACCENT, border: `1px solid ${ACCENT_T}` }}
-                  onClick={() => setMenuOpen(false)}>
+                <button className="w-full py-3 rounded-xl text-sm font-semibold" onClick={() => setMenuOpen(false)}
+                  style={{ background: ACCENT_L, color: ACCENT, border: `1px solid ${ACCENT_T}` }}>
                   🎯 احجز عرضاً تجريبياً
                 </button>
               </Link>
@@ -614,64 +550,62 @@ export default function Landing() {
         )}
       </nav>
 
-      {/* ══════════════════════════════════════════════════════════
-          1. HERO SECTION — Spur-style: centered copy + full-width product
-      ══════════════════════════════════════════════════════════ */}
-      <section id="hero" className="relative flex flex-col items-center px-6 pt-28 pb-0 overflow-hidden"
-        style={{ background: BG }}>
+      {/* ══ 1. HERO ═══════════════════════════════════════════════ */}
+      <section id="hero" className="relative flex flex-col items-center px-6 pt-24 sm:pt-28 pb-0 overflow-hidden"
+        style={{ background: `linear-gradient(160deg, #F0F6FF 0%, ${BG} 45%, #EEF2FF 100%)` }}>
 
-        {/* Decorative blobs + grid */}
+        {/* Background decorations */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-0 right-1/4 w-[700px] h-[700px] rounded-full blur-[200px]"
-            style={{ background: ACCENT_M, opacity: 0.55 }} />
-          <div className="absolute top-10 left-1/4 w-[500px] h-[500px] rounded-full blur-[160px]"
-            style={{ background: "#E0E7FF", opacity: 0.45 }} />
-          <div className="absolute inset-0 opacity-[0.025]"
-            style={{ backgroundImage: `linear-gradient(${DARK} 1px, transparent 1px), linear-gradient(90deg, ${DARK} 1px, transparent 1px)`, backgroundSize: "60px 60px" }} />
+          <div className="absolute top-0 right-1/3 w-[600px] h-[600px] rounded-full blur-[180px] opacity-50"
+            style={{ background: ACCENT_M }} />
+          <div className="absolute top-20 left-1/4 w-[400px] h-[400px] rounded-full blur-[140px] opacity-35"
+            style={{ background: "#E0E7FF" }} />
+          <div className="absolute inset-0 opacity-[0.022]"
+            style={{ backgroundImage: `radial-gradient(circle, ${DARK} 1.2px, transparent 1.2px)`, backgroundSize: "28px 28px" }} />
         </div>
 
         <div className="relative w-full max-w-4xl mx-auto flex flex-col items-center text-center">
 
-          {/* Category badge */}
-          <div className="lp-hero-0 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-7"
-            style={{ background: ACCENT_M, border: `1px solid ${ACCENT_T}`, color: ACCENT }}>
+          {/* Badge */}
+          <div className="lp-hero-0 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-6"
+            style={{ background: ACCENT_M, border: `1px solid ${ACCENT_T}`, color: ACCENT_D }}>
             <Sparkles className="w-3.5 h-3.5" />
-            منصة SaaS قانونية متكاملة للمكاتب القانونية حول العالم
+            منصة #١ لإدارة المكاتب القانونية في السعودية والخليج
           </div>
 
           {/* H1 */}
-          <h1 className="lp-hero-1 font-black leading-[1.12] mb-6"
-            style={{ fontSize: "clamp(38px, 5.5vw, 64px)", color: DARK, letterSpacing: "-0.025em" }}>
-            أدِر مكتبك القانوني<br />
-            <span style={{ color: ACCENT }}>بذكاء اصطناعي حقيقي</span>
+          <h1 className="lp-hero-1 font-black leading-[1.1] mb-5 text-right sm:text-center"
+            style={{ fontSize: "clamp(36px, 5.5vw, 68px)", color: DARK, letterSpacing: "-0.03em" }}>
+            أدِر قضاياك وعملاءك<br />
+            <span style={{ color: ACCENT }}>بذكاء اصطناعي</span> لا مثيل له
           </h1>
 
-          {/* Description */}
-          <p className="lp-hero-2 text-lg mb-10 leading-[1.85] max-w-2xl" style={{ color: BODY }}>
-            قضايا، عملاء، عقود، فواتير، محاسبة، وموارد بشرية — كلها مع مساعد AI يعمل بالعربية على مدار الساعة.
+          {/* Sub */}
+          <p className="lp-hero-2 text-lg sm:text-xl mb-8 leading-[1.8] max-w-2xl" style={{ color: BODY, opacity: 0.85 }}>
+            منصة SaaS متكاملة تجمع القضايا، العقود، الموكّلين، الفواتير، والموارد البشرية — مع مساعد AI يعمل بالعربية على مدار الساعة.
           </p>
 
           {/* CTAs */}
-          <div className="lp-hero-3 flex flex-wrap justify-center gap-3 mb-8">
+          <div className="lp-hero-3 flex flex-col sm:flex-row items-center gap-3 mb-6">
             <Link href={`${BASE}/sign-up`}>
-              <button className="flex items-center gap-2.5 font-bold px-8 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
-                style={{ background: ACCENT, color: WHITE, boxShadow: `0 8px 28px rgba(37,99,235,0.38)`, minHeight: 54 }}>
+              <button className="flex items-center gap-2.5 font-bold px-8 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95 w-full sm:w-auto justify-center"
+                style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_D})`, color: WHITE, boxShadow: `0 8px 28px rgba(37,99,235,0.35)`, minHeight: 54 }}>
                 <ArrowLeft className="w-4 h-4" />
-                ابدأ مجاناً لمدة 90 يوماً
+                ابدأ مجاناً — 90 يوماً
               </button>
             </Link>
             <Link href={`${BASE}/demo-login`}>
-              <button className="flex items-center gap-2 font-semibold px-6 py-4 rounded-xl text-base border-2 transition-all hover:bg-white hover:border-slate-300"
+              <button className="flex items-center gap-2 font-semibold px-6 py-4 rounded-xl text-base border-2 transition-all hover:bg-white hover:shadow-md w-full sm:w-auto justify-center"
                 style={{ borderColor: BORDER2, color: DARK, background: WHITE, minHeight: 54 }}>
                 <Play className="w-4 h-4 flex-shrink-0" style={{ color: ACCENT }} />
-                احجز عرضاً تجريبياً
+                شاهد العرض التجريبي
               </button>
             </Link>
           </div>
 
-          {/* Trust signals */}
-          <div className="lp-hero-4 flex items-center justify-center gap-5 flex-wrap mb-14">
-            {["بدون بطاقة ائتمان", "إعداد خلال 5 دقائق", "دعم عربي كامل", "SSL آمن 100%"].map(label => (
+          {/* Trust chips */}
+          <div className="lp-hero-4 flex items-center justify-center gap-4 flex-wrap mb-10">
+            {["بدون بطاقة ائتمان", "إعداد في ٥ دقائق", "دعم عربي 24/7", "بيانات آمنة 100%"].map(label => (
               <span key={label} className="flex items-center gap-1.5 text-sm" style={{ color: MUTED }}>
                 <Check className="w-3.5 h-3.5 shrink-0" style={{ color: SUCCESS }} />
                 {label}
@@ -680,108 +614,82 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* ── Full-width product mockup (Spur-style) ──────────── */}
+        {/* ── Product mock ──────────────────────────────── */}
         <div className="lp-hero-mock relative w-full max-w-6xl mx-auto">
 
-          {/* Floating chip — top right */}
-          <div className="absolute -top-4 right-8 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold shadow-lg"
-            style={{ background: WHITE, border: `1px solid ${BORDER}`, color: SUCCESS }}>
-            <CheckCircle className="w-3.5 h-3.5 shrink-0" style={{ color: SUCCESS }} />
-            بيانات حقيقية مباشرة
+          {/* Floating stat cards */}
+          <div className="absolute -top-5 right-6 sm:right-12 z-10">
+            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold shadow-xl"
+              style={{ background: WHITE, border: `1px solid ${BORDER}`, boxShadow: "0 8px 24px rgba(0,0,0,0.10)" }}>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#D1FAE5" }}>
+                <CheckCircle className="w-3.5 h-3.5" style={{ color: SUCCESS }} />
+              </div>
+              <div>
+                <div className="text-[10px] font-medium" style={{ color: MUTED }}>قضية جديدة</div>
+                <div style={{ color: SUCCESS }}>تم الفوز — العمري vs الأمل</div>
+              </div>
+            </div>
           </div>
 
-          {/* Floating chip — top left */}
-          <div className="absolute -top-4 left-8 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold shadow-lg"
-            style={{ background: WHITE, border: `1px solid ${BORDER}`, color: "#7C3AED" }}>
-            <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: "#7C3AED" }} />
-            جلسة تمييز — بعد ساعتين
+          <div className="absolute -top-5 left-6 sm:left-12 z-10">
+            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold shadow-xl"
+              style={{ background: WHITE, border: `1px solid ${BORDER}`, boxShadow: "0 8px 24px rgba(0,0,0,0.10)" }}>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#EDE9FE" }}>
+                <Calendar className="w-3.5 h-3.5" style={{ color: "#7C3AED" }} />
+              </div>
+              <div>
+                <div className="text-[10px] font-medium" style={{ color: MUTED }}>جلسة اليوم</div>
+                <div style={{ color: "#7C3AED" }}>محكمة التجارية — ١٢:٠٠</div>
+              </div>
+            </div>
           </div>
 
-          {/* Floating chip — bottom left */}
-          <div className="absolute -bottom-4 left-8 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold shadow-xl"
-            style={{ background: DARK, color: WHITE }}>
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />
-            نشط الآن — ٤٧ مكتب
+          <div className="absolute -bottom-5 left-6 sm:left-12 z-10">
+            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold shadow-xl"
+              style={{ background: PRIMARY, color: WHITE, boxShadow: "0 8px 24px rgba(11,31,59,0.25)" }}>
+              <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shrink-0" />
+              <span>٨٥٠+ مكتب نشط الآن</span>
+            </div>
           </div>
 
-          {/* Floating chip — bottom right */}
-          <div className="absolute -bottom-4 right-8 z-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold"
-            style={{ background: `${ACCENT}F0`, color: WHITE, boxShadow: `0 8px 24px rgba(37,99,235,0.30)` }}>
-            <Zap className="w-3.5 h-3.5 shrink-0" />
-            AI أنجز ١٢ مهمة اليوم
+          <div className="absolute -bottom-5 right-6 sm:right-12 z-10">
+            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold shadow-xl"
+              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_D})`, color: WHITE, boxShadow: `0 8px 24px rgba(37,99,235,0.30)` }}>
+              <Zap className="w-3.5 h-3.5 shrink-0" />
+              <span>AI أنجز ١٢ مهمة اليوم</span>
+            </div>
           </div>
 
-          {/* Gradient fade at bottom so mockup blends into next section */}
-          <div className="absolute bottom-0 inset-x-0 h-24 z-10 pointer-events-none"
+          {/* Gradient fade into next section */}
+          <div className="absolute bottom-0 inset-x-0 h-20 z-10 pointer-events-none"
             style={{ background: `linear-gradient(to bottom, transparent, ${PRIMARY})` }} />
 
           <DashboardMock />
         </div>
-
       </section>
 
-      {/* ══════════════════════════════════════════════════════════
-          2. STATS / PROOF NUMBERS — Dark Premium cards
-      ══════════════════════════════════════════════════════════ */}
-      <section style={{ background: PRIMARY, padding: "72px 24px", position: "relative" }}>
-        {/* Subtle glow blobs */}
+      {/* ══ 2. STATS ══════════════════════════════════════════════ */}
+      <section style={{ background: PRIMARY, padding: "80px 24px", position: "relative" }}>
         <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
-          <div style={{ position: "absolute", top: "50%", right: "20%", width: 400, height: 400, borderRadius: "50%", background: `${ACCENT}18`, filter: "blur(120px)", transform: "translateY(-50%)" }} />
-          <div style={{ position: "absolute", top: "50%", left: "20%", width: 300, height: 300, borderRadius: "50%", background: "#7C3AED18", filter: "blur(100px)", transform: "translateY(-50%)" }} />
+          <div style={{ position: "absolute", top: "50%", right: "15%", width: 360, height: 360, borderRadius: "50%", background: `${ACCENT}15`, filter: "blur(100px)", transform: "translateY(-50%)" }} />
+          <div style={{ position: "absolute", top: "50%", left: "15%",  width: 280, height: 280, borderRadius: "50%", background: "#7C3AED15", filter: "blur(90px)",  transform: "translateY(-50%)" }} />
         </div>
         <div className="max-w-5xl mx-auto relative">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-            {STATS.map(s => (
-              <div key={s.label} className="text-center py-7 px-4 rounded-2xl transition-transform hover:-translate-y-0.5"
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <div className="text-4xl font-black mb-2" style={{ color: s.color }}>
-                  <Counter to={s.to} suffix={s.suffix} locale={counterLocale} />
-                </div>
-                <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.50)" }}>{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════
-          3. PLATFORM SHOWCASE
-      ══════════════════════════════════════════════════════════ */}
-      <Suspense fallback={<ShowcasePlaceholder />}>
-        <PlatformShowcase />
-      </Suspense>
-
-      {/* ══════════════════════════════════════════════════════════
-          4. 8 CORE SERVICES
-      ══════════════════════════════════════════════════════════ */}
-      <section id="services" className="py-24 px-6 overflow-hidden" style={{ background: BG2 }}>
-        <div className="max-w-7xl mx-auto">
-          <FadeIn className="text-center mb-16">
-            <span className="text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full mb-4 inline-block"
-              style={{ background: ACCENT_M, color: ACCENT, border: `1px solid ${ACCENT_T}`, letterSpacing: "0.1em" }}>
-              الخدمات الأساسية
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black mb-4" style={{ color: DARK, letterSpacing: "-0.02em" }}>
-              كل ما تحتاجه في مكان واحد
-            </h2>
-            <p className="text-lg max-w-2xl mx-auto" style={{ color: BODY }}>
-              منصة متكاملة تغطي كل جوانب إدارة المكتب القانوني — من القضايا إلى المحاسبة إلى الموارد البشرية
-            </p>
-          </FadeIn>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {SERVICES.map((feat, i) => {
-              const Icon = feat.icon;
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            {STATS.map((s, i) => {
+              const Icon = s.icon;
               return (
-                <FadeIn key={i} delay={i * 0.06}>
-                  <div className="group p-6 rounded-2xl h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-default"
-                    style={{ background: WHITE, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
-                      style={{ background: feat.bg }}>
-                      <Icon className="w-6 h-6" style={{ color: feat.color }} />
+                <FadeIn key={s.label} delay={i * 0.07}>
+                  <div className="text-center py-8 px-4 rounded-2xl transition-transform hover:-translate-y-1"
+                    style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3"
+                      style={{ background: `${s.color}20`, border: `1px solid ${s.color}30` }}>
+                      <Icon className="w-5 h-5" style={{ color: s.color }} />
                     </div>
-                    <h3 className="font-bold text-sm mb-2 leading-snug" style={{ color: DARK }}>{feat.title}</h3>
-                    <p className="text-sm leading-relaxed" style={{ color: BODY, lineHeight: "1.7" }}>{feat.desc}</p>
+                    <div className="text-3xl sm:text-4xl font-black mb-1" style={{ color: s.color }}>
+                      <Counter to={s.to} suffix={s.suffix} locale={counterLocale} />
+                    </div>
+                    <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.45)" }}>{s.label}</p>
                   </div>
                 </FadeIn>
               );
@@ -790,140 +698,325 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════
-          5. HOW AI WORKS
-      ══════════════════════════════════════════════════════════ */}
+      {/* ══ 3. PLATFORM SHOWCASE ══════════════════════════════════ */}
+      <Suspense fallback={<ShowcasePlaceholder />}>
+        <PlatformShowcase />
+      </Suspense>
+
+      {/* ══ 4. FEATURES BENTO GRID ════════════════════════════════ */}
+      <section id="features" className="py-24 px-6 overflow-hidden" style={{ background: BG }}>
+        <div className="max-w-7xl mx-auto">
+
+          <FadeIn className="text-center mb-16">
+            <span className="text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full mb-4 inline-block"
+              style={{ background: ACCENT_M, color: ACCENT, border: `1px solid ${ACCENT_T}` }}>
+              المميزات الرئيسية
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black mb-4" style={{ color: DARK, letterSpacing: "-0.02em" }}>
+              كل ما يحتاجه مكتبك في منصة واحدة
+            </h2>
+            <p className="text-lg max-w-2xl mx-auto" style={{ color: BODY }}>
+              أكثر من ٣٠ وحدة متكاملة مصممة خصيصاً للمكاتب القانونية العربية
+            </p>
+          </FadeIn>
+
+          {/* Bento grid: row 1 = 2 large + row 2 = 4 small */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+            {FEATURES.slice(0, 2).map((f, i) => {
+              const Icon = f.icon;
+              return (
+                <FadeIn key={i} delay={i * 0.08}>
+                  <div className="group p-8 rounded-2xl h-full flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-default relative overflow-hidden"
+                    style={{ background: WHITE, border: `1px solid ${BORDER}`, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+                    {/* Gradient accent top-right corner */}
+                    <div className="absolute top-0 left-0 w-32 h-32 rounded-br-[80px] opacity-[0.06]"
+                      style={{ background: f.color }} />
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                      style={{ background: f.bg, boxShadow: `0 4px 12px ${f.color}20` }}>
+                      <Icon className="w-7 h-7" style={{ color: f.color }} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-xl mb-2" style={{ color: DARK }}>{f.title}</h3>
+                      <p className="text-base leading-relaxed" style={{ color: BODY }}>{f.desc}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-sm font-semibold mt-auto pt-2"
+                      style={{ color: f.color }}>
+                      اكتشف المزيد
+                      <ChevronLeft className="w-4 h-4 group-hover:translate-x-[-4px] transition-transform" />
+                    </div>
+                  </div>
+                </FadeIn>
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {FEATURES.slice(2).map((f, i) => {
+              const Icon = f.icon;
+              return (
+                <FadeIn key={i} delay={i * 0.06 + 0.12}>
+                  <div className="group p-6 rounded-2xl h-full flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-default"
+                    style={{ background: WHITE, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
+                      style={{ background: f.bg }}>
+                      <Icon className="w-5.5 h-5.5" style={{ color: f.color }} />
+                    </div>
+                    <h3 className="font-bold text-sm mb-2" style={{ color: DARK }}>{f.title}</h3>
+                    <p className="text-sm leading-relaxed flex-1" style={{ color: BODY, lineHeight: "1.7" }}>{f.desc}</p>
+                  </div>
+                </FadeIn>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ══ 5. AI SECTION ════════════════════════════════════════ */}
       <section id="ai" className="py-24 px-6 overflow-hidden" style={{ background: WHITE }}>
         <div className="max-w-6xl mx-auto">
           <FadeIn className="text-center mb-16">
             <span className="text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full mb-4 inline-block"
-              style={{ background: "#D1FAE5", color: SUCCESS, border: "1px solid #A7F3D0", letterSpacing: "0.1em" }}>
+              style={{ background: "#D1FAE5", color: SUCCESS, border: "1px solid #A7F3D0" }}>
               الذكاء الاصطناعي
             </span>
             <h2 className="text-3xl sm:text-4xl font-black mb-4" style={{ color: DARK, letterSpacing: "-0.02em" }}>
-              كيف يعمل الذكاء الاصطناعي في عدالة AI؟
+              مساعد AI في كل خطوة من عملك
             </h2>
             <p className="text-lg max-w-2xl mx-auto" style={{ color: BODY }}>
-              مساعد قانوني ذكي مدمج في كل زاوية من المنصة — يفهم، يقترح، وينجز
+              يفهم، يقترح، ويُنجز — باللغة العربية — طوال اليوم
             </p>
           </FadeIn>
 
           <div className="grid lg:grid-cols-2 gap-14 items-center">
-            {/* Steps */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {AI_STEPS.map((step, i) => (
                 <FadeIn key={i} delay={i * 0.1}>
-                  <div className="flex gap-5 p-6 rounded-2xl transition-all hover:-translate-y-0.5 hover:shadow-md"
-                    style={{ background: BG, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
-                      style={{ background: step.bg }}>
+                  <div className="flex gap-4 p-6 rounded-2xl transition-all hover:-translate-y-0.5 hover:shadow-md"
+                    style={{ background: BG, border: `1px solid ${BORDER}` }}>
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                      style={{ background: step.bg, border: `1px solid ${step.color}20` }}>
                       {step.icon}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white"
-                          style={{ background: step.color }}>
+                          style={{ background: `linear-gradient(135deg, ${step.color}, ${step.color}cc)` }}>
                           {step.step}
                         </span>
                         <h3 className="font-bold text-base" style={{ color: DARK }}>{step.title}</h3>
                       </div>
-                      <p className="text-sm leading-relaxed" style={{ color: BODY, lineHeight: "1.75" }}>{step.desc}</p>
+                      <p className="text-sm leading-relaxed" style={{ color: BODY }}>{step.desc}</p>
                     </div>
                   </div>
                 </FadeIn>
               ))}
-
-              <FadeIn delay={0.4} className="flex gap-3 flex-wrap">
+              <FadeIn delay={0.35}>
                 <Link href={`${BASE}/sign-up`}>
-                  <button className="flex items-center gap-2 font-bold px-6 py-3 rounded-xl text-sm transition-all hover:opacity-90"
-                    style={{ background: ACCENT, color: WHITE, boxShadow: `0 4px 16px rgba(37,99,235,0.25)` }}>
+                  <button className="flex items-center gap-2 font-bold px-7 py-3.5 rounded-xl text-sm transition-all hover:opacity-90 hover:scale-[1.01]"
+                    style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_D})`, color: WHITE, boxShadow: `0 4px 16px rgba(37,99,235,0.25)` }}>
                     <ArrowLeft className="w-4 h-4" />
-                    جرّب الذكاء الاصطناعي الآن
+                    جرّب الذكاء الاصطناعي الآن مجاناً
                   </button>
                 </Link>
               </FadeIn>
             </div>
-
-            {/* AI Chat Mock — live animated */}
-            <FadeIn delay={0.15}>
-              <AIChatMock />
-            </FadeIn>
+            <FadeIn delay={0.15}><AIChatMock /></FadeIn>
           </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════
-          PAYMENT SHOWCASE
-      ══════════════════════════════════════════════════════════ */}
+      {/* ══ 6. PAYMENT SHOWCASE ══════════════════════════════════ */}
       <Suspense fallback={<ShowcasePlaceholder />}>
         <PaymentShowcase />
       </Suspense>
 
-      {/* ══════════════════════════════════════════════════════════
-          7. PRICING
-      ══════════════════════════════════════════════════════════ */}
-      <section id="pricing" className="py-24 px-6 overflow-hidden" style={{ background: BG2 }}>
+      {/* ══ 7. WHY ADALAH — Comparison ════════════════════════════ */}
+      <section className="py-24 px-6 overflow-hidden" style={{ background: BG }}>
         <div className="max-w-5xl mx-auto">
           <FadeIn className="text-center mb-14">
-            <span className="text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full mb-5 inline-block"
-              style={{ background: ACCENT_M, color: ACCENT, border: `1px solid ${ACCENT_T}`, letterSpacing: "0.1em" }}>
-              {t("landing.pricing.label")}
+            <span className="text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full mb-4 inline-block"
+              style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A" }}>
+              لماذا عدالة AI؟
             </span>
             <h2 className="text-3xl sm:text-4xl font-black mb-4" style={{ color: DARK, letterSpacing: "-0.02em" }}>
+              عدالة AI مقابل الطريقة التقليدية
+            </h2>
+            <p className="text-lg max-w-xl mx-auto" style={{ color: BODY }}>
+              المكاتب التي تعمل بعدالة AI تُنجز ضعف العمل في نصف الوقت
+            </p>
+          </FadeIn>
+
+          <FadeIn delay={0.1}>
+            <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}`, boxShadow: "0 4px 32px rgba(0,0,0,0.07)" }}>
+              {/* Table header */}
+              <div className="grid grid-cols-3 text-center" style={{ background: PRIMARY }}>
+                <div className="px-6 py-5 text-sm font-bold text-right" style={{ color: "rgba(255,255,255,0.5)" }}>المقارنة</div>
+                <div className="px-6 py-5 text-sm font-bold border-x border-white/10" style={{ color: "rgba(255,255,255,0.5)" }}>
+                  <div className="flex items-center justify-center gap-2">
+                    <XCircle className="w-4 h-4 text-red-400" />
+                    المكتب التقليدي
+                  </div>
+                </div>
+                <div className="px-6 py-5" style={{}}>
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black"
+                    style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_D})`, color: WHITE }}>
+                    <Scale className="w-3.5 h-3.5" />
+                    عدالة AI
+                  </div>
+                </div>
+              </div>
+
+              {/* Rows */}
+              {COMPARISON_ROWS.map((row, i) => (
+                <div key={i} className="grid grid-cols-3 border-t transition-colors hover:bg-blue-50/40"
+                  style={{ borderColor: BORDER, background: i % 2 === 0 ? WHITE : BG }}>
+                  <div className="px-5 py-4 text-sm font-semibold text-right" style={{ color: DARK }}>{row.feature}</div>
+                  <div className="px-5 py-4 text-sm text-center border-x" style={{ borderColor: BORDER, color: "#EF4444" }}>
+                    <span className="flex items-center justify-center gap-1.5">
+                      <XCircle className="w-3.5 h-3.5 shrink-0" />
+                      {row.traditional}
+                    </span>
+                  </div>
+                  <div className="px-5 py-4 text-sm text-center" style={{ color: SUCCESS }}>
+                    <span className="flex items-center justify-center gap-1.5">
+                      <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                      {row.adalah}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {/* CTA row */}
+              <div className="grid grid-cols-3 border-t" style={{ borderColor: BORDER, background: ACCENT_L }}>
+                <div className="px-5 py-5 text-sm font-bold" style={{ color: DARK }}>ابدأ رحلة التحول</div>
+                <div className="px-5 py-5 text-center border-x" style={{ borderColor: BORDER, color: MUTED, fontSize: "12px" }}>لا يتوفر</div>
+                <div className="px-5 py-5 text-center">
+                  <Link href={`${BASE}/sign-up`}>
+                    <button className="text-sm font-bold px-5 py-2 rounded-xl transition-all hover:opacity-90"
+                      style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_D})`, color: WHITE, boxShadow: `0 4px 12px rgba(37,99,235,0.25)` }}>
+                      ابدأ مجاناً →
+                    </button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ══ 8. PRICING ═══════════════════════════════════════════ */}
+      <section id="pricing" className="py-24 px-6 overflow-hidden" style={{ background: WHITE }}>
+        <div className="max-w-5xl mx-auto">
+          <FadeIn className="text-center mb-12">
+            <span className="text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full mb-5 inline-block"
+              style={{ background: ACCENT_M, color: ACCENT, border: `1px solid ${ACCENT_T}` }}>
+              {t("landing.pricing.label")}
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black mb-3" style={{ color: DARK, letterSpacing: "-0.02em" }}>
               {t("landing.pricing.title")}
             </h2>
-            <p className="text-lg max-w-xl mx-auto mb-4" style={{ color: BODY }}>
+            <p className="text-lg max-w-xl mx-auto mb-6" style={{ color: BODY }}>
               {t("landing.pricing.subtitle")}
             </p>
-            {/* 90-day trial badge */}
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold"
-              style={{ background: "#D1FAE5", color: SUCCESS, border: "1px solid #A7F3D0" }}>
-              🎁 جميع الباقات تأتي مع تجربة مجانية لمدة 90 يوماً
+
+            {/* Annual/Monthly toggle */}
+            <div className="inline-flex items-center gap-1 p-1 rounded-xl" style={{ background: BG2, border: `1px solid ${BORDER}` }}>
+              <button
+                onClick={() => setPricingAnnual(false)}
+                className="px-5 py-2 rounded-lg text-sm font-bold transition-all"
+                style={!pricingAnnual
+                  ? { background: WHITE, color: ACCENT, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }
+                  : { color: MUTED }}>
+                شهري
+              </button>
+              <button
+                onClick={() => setPricingAnnual(true)}
+                className="px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2"
+                style={pricingAnnual
+                  ? { background: WHITE, color: ACCENT, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }
+                  : { color: MUTED }}>
+                سنوي
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                  style={{ background: "#D1FAE5", color: SUCCESS }}>
+                  وفّر 20%
+                </span>
+              </button>
             </div>
           </FadeIn>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {pricingPlans.slice(0, 3).map((p, i) => {
               const isPopular = i === 1;
-              const isEnterprise = i === 2;
+              const isContact = p.isContact;
+              const displayPrice = pricingAnnual ? p.yearly : p.monthly;
               return (
                 <FadeIn key={i} delay={i * 0.1}>
-                  <div className="p-7 rounded-2xl h-full flex flex-col relative overflow-hidden transition-transform hover:-translate-y-1"
+                  <div className="p-7 rounded-2xl h-full flex flex-col relative overflow-hidden transition-all duration-300 hover:-translate-y-1"
                     style={{
-                      background: isPopular ? PRIMARY : WHITE,
-                      border: isPopular ? `2px solid ${PRIMARY}` : `1px solid ${BORDER}`,
-                      boxShadow: isPopular ? `0 8px 40px rgba(11,31,59,0.18)` : "0 2px 8px rgba(0,0,0,0.05)",
+                      background: isPopular ? `linear-gradient(160deg, ${PRIMARY} 0%, #0F2D5C 100%)` : WHITE,
+                      border: isPopular ? `2px solid ${ACCENT}50` : `1px solid ${BORDER}`,
+                      boxShadow: isPopular ? `0 12px 48px rgba(11,31,59,0.20), 0 0 0 1px ${ACCENT}20` : "0 2px 12px rgba(0,0,0,0.05)",
                     }}>
+
+                    {/* Popular glow */}
                     {isPopular && (
-                      <div className="absolute top-5 left-5 text-xs font-bold px-3 py-1 rounded-full"
-                        style={{ background: ACCENT, color: WHITE }}>
+                      <div className="absolute top-0 left-0 w-full h-24 opacity-20 pointer-events-none"
+                        style={{ background: `radial-gradient(ellipse at 50% 0%, ${ACCENT} 0%, transparent 70%)` }} />
+                    )}
+
+                    {isPopular && (
+                      <div className="absolute top-5 left-5 z-10 text-xs font-black px-3 py-1.5 rounded-full"
+                        style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_D})`, color: WHITE, boxShadow: `0 4px 12px rgba(37,99,235,0.35)` }}>
                         {t("landing.pricing.mostPopular")}
                       </div>
                     )}
-                    <p className={`font-bold text-xs tracking-widest uppercase mb-4 ${isPopular ? "mt-6" : ""}`}
-                      style={{ color: isPopular ? "rgba(255,255,255,0.5)" : MUTED }}>
-                      {p.name}
-                    </p>
-                    <div className="mb-6">
-                      <span className="text-4xl font-black" style={{ color: isPopular ? WHITE : DARK }}>{p.price}</span>
-                      {p.period && <span className="text-sm me-1" style={{ color: isPopular ? "rgba(255,255,255,0.5)" : MUTED }}>{p.period}</span>}
+
+                    <div className={isPopular ? "mt-7" : ""}>
+                      <p className="font-bold text-xs tracking-widest uppercase mb-4"
+                        style={{ color: isPopular ? "rgba(255,255,255,0.45)" : MUTED }}>
+                        {p.name}
+                      </p>
+                      <div className="mb-6 flex items-end gap-1">
+                        {isContact ? (
+                          <span className="text-2xl font-black" style={{ color: isPopular ? WHITE : DARK }}>تواصل معنا</span>
+                        ) : (
+                          <>
+                            <span className="text-4xl font-black leading-none" style={{ color: isPopular ? WHITE : DARK }}>
+                              {p.isFree ? "مجاناً" : displayPrice.toLocaleString("ar-SA")}
+                            </span>
+                            {!p.isFree && (
+                              <span className="text-sm mb-1 me-1" style={{ color: isPopular ? "rgba(255,255,255,0.45)" : MUTED }}>
+                                ريال/{pricingAnnual ? "شهر" : "شهر"}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      {pricingAnnual && !p.isFree && !p.isContact && p.yearly > 0 && (
+                        <div className="mb-4 text-xs font-semibold px-3 py-1 rounded-full inline-block"
+                          style={{ background: isPopular ? "rgba(255,255,255,0.10)" : "#D1FAE5", color: isPopular ? "#86EFAC" : SUCCESS }}>
+                          💰 تدفع سنوياً — وفّر {((p.monthly - p.yearly) * 12).toLocaleString("ar-SA")} ريال
+                        </div>
+                      )}
                     </div>
+
                     <ul className="space-y-2.5 flex-1 mb-7">
                       {p.features.map((f, fi) => (
                         <li key={fi} className="flex items-start gap-2.5 text-sm"
-                          style={{ color: isPopular ? "rgba(255,255,255,0.85)" : BODY }}>
+                          style={{ color: isPopular ? "rgba(255,255,255,0.80)" : BODY }}>
                           <Check className="w-4 h-4 shrink-0 mt-0.5" style={{ color: isPopular ? ACCENT_T : ACCENT }} />
                           <span>{f}</span>
                         </li>
                       ))}
                     </ul>
-                    <Link href={isEnterprise && !isPopular ? "#contact" : `${BASE}/sign-up`}>
-                      <button className="w-full py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90"
+
+                    <Link href={isContact ? "#" : `${BASE}/sign-up`}>
+                      <button className="w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:opacity-90"
                         style={isPopular
-                          ? { background: ACCENT, color: WHITE, boxShadow: `0 4px 16px rgba(37,99,235,0.35)` }
-                          : { background: BG2, color: BODY, border: `1px solid ${BORDER}` }
-                        }>
-                        {p.cta}
+                          ? { background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_D})`, color: WHITE, boxShadow: `0 4px 16px rgba(37,99,235,0.35)` }
+                          : { background: BG2, color: BODY, border: `1px solid ${BORDER}` }}>
+                        {isContact ? "احجز مكالمة مع فريقنا" : p.isFree ? "ابدأ مجاناً الآن" : "ابدأ الآن"}
                       </button>
                     </Link>
                   </div>
@@ -944,50 +1037,48 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════
-          8. TESTIMONIALS (NEW)
-      ══════════════════════════════════════════════════════════ */}
-      <section className="py-24 px-6 overflow-hidden" style={{ background: WHITE }}>
+      {/* ══ 9. TESTIMONIALS ══════════════════════════════════════ */}
+      <section className="py-24 px-6 overflow-hidden" style={{ background: BG2 }}>
         <div className="max-w-6xl mx-auto">
           <FadeIn className="text-center mb-14">
             <span className="text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full mb-4 inline-block"
-              style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A", letterSpacing: "0.1em" }}>
+              style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A" }}>
               آراء العملاء
             </span>
             <h2 className="text-3xl sm:text-4xl font-black mb-4" style={{ color: DARK, letterSpacing: "-0.02em" }}>
               ثقة المكاتب القانونية الرائدة
             </h2>
             <p className="text-lg max-w-xl mx-auto" style={{ color: BODY }}>
-              انضم إلى مئات المكاتب القانونية التي تُدير أعمالها بكفاءة أعلى مع عدالة AI
+              انضم إلى مئات المكاتب التي تُدير أعمالها بكفاءة أعلى مع عدالة AI
             </p>
           </FadeIn>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t, i) => (
+            {TESTIMONIALS.map((tm, i) => (
               <FadeIn key={i} delay={i * 0.1}>
-                <div className="p-7 rounded-2xl h-full flex flex-col relative"
-                  style={{ background: BG, border: `1px solid ${BORDER}`, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+                <div className="p-7 rounded-2xl h-full flex flex-col relative overflow-hidden transition-all hover:-translate-y-1 hover:shadow-lg"
+                  style={{ background: WHITE, border: `1px solid ${BORDER}`, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                  {/* Subtle color accent top */}
+                  <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-[60px] opacity-[0.06]"
+                    style={{ background: tm.color }} />
                   {/* Stars */}
-                  <div className="flex gap-1 mb-4">
-                    {Array.from({ length: t.stars }).map((_, si) => (
+                  <div className="flex gap-1 mb-4 relative">
+                    {Array.from({ length: tm.stars }).map((_, si) => (
                       <Star key={si} className="w-4 h-4 fill-yellow-400" style={{ color: WARN }} />
                     ))}
                   </div>
-                  {/* Quote icon */}
-                  <Quote className="w-8 h-8 mb-3 opacity-20" style={{ color: t.color }} />
-                  {/* Text */}
-                  <p className="text-sm leading-relaxed flex-1 mb-6" style={{ color: BODY, lineHeight: "1.85" }}>
-                    "{t.text}"
+                  <Quote className="w-7 h-7 mb-3 opacity-15 relative" style={{ color: tm.color }} />
+                  <p className="text-sm leading-relaxed flex-1 mb-6 relative" style={{ color: BODY, lineHeight: "1.9" }}>
+                    "{tm.text}"
                   </p>
-                  {/* Author */}
-                  <div className="flex items-center gap-3 pt-5" style={{ borderTop: `1px solid ${BORDER}` }}>
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black text-white"
-                      style={{ background: t.color }}>
-                      {t.avatar}
+                  <div className="flex items-center gap-3 pt-5 relative" style={{ borderTop: `1px solid ${BORDER}` }}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0"
+                      style={{ background: `linear-gradient(135deg, ${tm.color}, ${tm.color}cc)` }}>
+                      {tm.avatar}
                     </div>
                     <div>
-                      <p className="font-bold text-sm" style={{ color: DARK }}>{t.name}</p>
-                      <p className="text-xs" style={{ color: MUTED }}>{t.role}</p>
+                      <p className="font-bold text-sm" style={{ color: DARK }}>{tm.name}</p>
+                      <p className="text-xs" style={{ color: MUTED }}>{tm.role}</p>
                     </div>
                   </div>
                 </div>
@@ -995,14 +1086,14 @@ export default function Landing() {
             ))}
           </div>
 
-          {/* Trust logos row */}
+          {/* Country trust bar */}
           <FadeIn delay={0.3} className="mt-14 text-center">
-            <p className="text-sm font-medium mb-6" style={{ color: MUTED }}>موثوق من المكاتب القانونية في</p>
-            <div className="flex items-center justify-center gap-8 flex-wrap">
-              {["المملكة العربية السعودية 🇸🇦", "الإمارات العربية 🇦🇪", "الكويت 🇰🇼", "قطر 🇶🇦"].map((c, i) => (
-                <span key={i} className="text-sm font-semibold px-5 py-2.5 rounded-xl"
-                  style={{ background: BG2, color: BODY, border: `1px solid ${BORDER}` }}>
-                  {c}
+            <p className="text-sm font-medium mb-5" style={{ color: MUTED }}>موثوق من المكاتب القانونية في</p>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              {["المملكة العربية السعودية 🇸🇦", "الإمارات العربية 🇦🇪", "الكويت 🇰🇼", "قطر 🇶🇦"].map((country, i) => (
+                <span key={i} className="text-sm font-semibold px-5 py-2.5 rounded-xl transition-all hover:shadow-md hover:-translate-y-0.5"
+                  style={{ background: WHITE, color: BODY, border: `1px solid ${BORDER}` }}>
+                  {country}
                 </span>
               ))}
             </div>
@@ -1010,10 +1101,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════
-          9. FAQ
-      ══════════════════════════════════════════════════════════ */}
-      <section id="faq" className="py-24 px-6 overflow-hidden" style={{ background: BG2 }}>
+      {/* ══ 10. FAQ ════════════════════════════════════════════════ */}
+      <section id="faq" className="py-24 px-6 overflow-hidden" style={{ background: WHITE }}>
         <div className="max-w-3xl mx-auto">
           <FadeIn className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-black mb-4" style={{ color: DARK, letterSpacing: "-0.02em" }}>
@@ -1023,105 +1112,103 @@ export default function Landing() {
           </FadeIn>
           <div className="space-y-3">
             {faqItems.map((item, i) => (
-              <FadeIn key={i}><FAQItem q={item.q} a={item.a} /></FadeIn>
+              <FadeIn key={i} delay={i * 0.04}><FAQItem q={item.q} a={item.a} /></FadeIn>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════
-          10. FINAL CTA — 90-day trial
-      ══════════════════════════════════════════════════════════ */}
-      <section className="py-24 px-6 overflow-hidden" style={{ background: PRIMARY }}>
+      {/* ══ 11. FINAL CTA ══════════════════════════════════════════ */}
+      <section className="py-24 px-6 relative overflow-hidden" style={{ background: PRIMARY }}>
+        {/* Background decoration */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full blur-[180px]"
+            style={{ background: `${ACCENT}18` }} />
+          <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-[100px]"
+            style={{ background: "#7C3AED10" }} />
+          <div className="absolute inset-0 opacity-[0.03]"
+            style={{ backgroundImage: `radial-gradient(circle, white 1px, transparent 1px)`, backgroundSize: "32px 32px" }} />
+        </div>
+
         <FadeIn>
           <div className="max-w-4xl mx-auto text-center relative">
-            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-3xl">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full blur-[140px]"
-                style={{ background: ACCENT, opacity: 0.18 }} />
+            {/* Icon */}
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
+              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_D})`, boxShadow: `0 8px 28px rgba(37,99,235,0.40)` }}>
+              <Scale className="w-8 h-8 text-white" />
             </div>
-            <div className="relative">
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
-                style={{ background: ACCENT, boxShadow: `0 8px 24px rgba(37,99,235,0.40)` }}>
-                <Scale className="w-8 h-8 text-white" />
-              </div>
 
-              <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold mb-6"
-                style={{ background: "rgba(37,99,235,0.2)", color: ACCENT_T, border: "1px solid rgba(37,99,235,0.3)" }}>
-                🎁 عرض حصري — 90 يوماً مجاناً
-              </div>
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold mb-6"
+              style={{ background: "rgba(37,99,235,0.18)", color: ACCENT_T, border: "1px solid rgba(37,99,235,0.3)" }}>
+              🎁 عرض حصري — 90 يوماً مجاناً بدون قيود
+            </div>
 
-              <h2 className="text-3xl sm:text-5xl font-black mb-4 text-white" style={{ letterSpacing: "-0.02em", lineHeight: "1.15" }}>
-                ابدأ رحلتك مع<br />
-                <span style={{ color: ACCENT_T }}>عدالة AI اليوم</span>
-              </h2>
-              <p className="text-lg mb-10 max-w-xl mx-auto" style={{ color: "rgba(255,255,255,0.60)", lineHeight: "1.75" }}>
-                لا عقود طويلة. لا بطاقة ائتمان. فقط أنشئ حسابك وابدأ في 5 دقائق.
-              </p>
+            <h2 className="text-3xl sm:text-5xl font-black mb-5 text-white" style={{ letterSpacing: "-0.025em", lineHeight: "1.12" }}>
+              هل أنت مستعد لتحويل<br />
+              <span style={{ color: ACCENT_T }}>مكتبك القانوني؟</span>
+            </h2>
+            <p className="text-lg mb-10 max-w-xl mx-auto" style={{ color: "rgba(255,255,255,0.55)", lineHeight: "1.8" }}>
+              لا عقود طويلة · لا بطاقة ائتمان · إعداد كامل في 5 دقائق فقط
+            </p>
 
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex flex-wrap justify-center gap-4">
-                  <Link href={`${BASE}/sign-up`}>
-                    <button className="flex items-center gap-2 font-bold px-10 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02]"
-                      style={{ background: ACCENT, color: WHITE, boxShadow: `0 8px 28px rgba(37,99,235,0.40)`, minHeight: 56 }}>
-                      <ArrowLeft className="w-5 h-5" />
-                      ابدأ مجاناً لمدة 90 يوماً
-                    </button>
-                  </Link>
-                  <Link href={`${BASE}/demo-login`}>
-                    <button className="flex items-center gap-2 font-semibold px-8 py-4 rounded-xl text-base transition-all hover:bg-white/10"
-                      style={{ color: WHITE, border: "2px solid rgba(255,255,255,0.20)", minHeight: 56 }}>
-                      <Play className="w-4 h-4" />
-                      احجز عرضاً تجريبياً
-                    </button>
-                  </Link>
-                </div>
-                <p className="text-sm" style={{ color: "rgba(255,255,255,0.40)" }}>
-                  لديك حساب؟{" "}
-                  <Link href={`${BASE}/sign-in`}>
-                    <span className="font-semibold underline underline-offset-2 cursor-pointer transition-opacity hover:opacity-70"
-                      style={{ color: "rgba(255,255,255,0.70)" }}>
-                      تسجيل الدخول
-                    </span>
-                  </Link>
-                </p>
-              </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
+              <Link href={`${BASE}/sign-up`}>
+                <button className="flex items-center gap-2.5 font-bold px-10 py-4 rounded-xl text-base transition-all hover:opacity-90 hover:scale-[1.02]"
+                  style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_D})`, color: WHITE, boxShadow: `0 8px 28px rgba(37,99,235,0.40)`, minHeight: 56 }}>
+                  <ArrowLeft className="w-5 h-5" />
+                  ابدأ مجاناً لمدة 90 يوماً
+                </button>
+              </Link>
+              <Link href={`${BASE}/demo-login`}>
+                <button className="flex items-center gap-2 font-semibold px-8 py-4 rounded-xl text-base transition-all hover:bg-white/10"
+                  style={{ color: WHITE, border: "2px solid rgba(255,255,255,0.18)", minHeight: 56 }}>
+                  <Play className="w-4 h-4" />
+                  احجز عرضاً تجريبياً
+                </button>
+              </Link>
+            </div>
 
-              <div className="mt-10 flex items-center justify-center gap-6 flex-wrap">
-                {["بدون بطاقة ائتمان", "إعداد خلال 5 دقائق", "دعم 24/7", "SSL آمن 100%"].map(label => (
-                  <span key={label} className="flex items-center gap-2 text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-                    <Check className="w-4 h-4" style={{ color: ACCENT_T }} />
-                    {label}
-                  </span>
-                ))}
-              </div>
+            <p className="text-sm mb-6" style={{ color: "rgba(255,255,255,0.38)" }}>
+              لديك حساب؟{" "}
+              <Link href={`${BASE}/sign-in`}>
+                <span className="font-semibold underline cursor-pointer hover:opacity-70"
+                  style={{ color: "rgba(255,255,255,0.65)" }}>
+                  تسجيل الدخول
+                </span>
+              </Link>
+            </p>
+
+            <div className="flex items-center justify-center gap-6 flex-wrap">
+              {["بدون بطاقة ائتمان", "إعداد خلال 5 دقائق", "دعم 24/7 بالعربية", "SSL آمن 100%"].map(label => (
+                <span key={label} className="flex items-center gap-2 text-sm" style={{ color: "rgba(255,255,255,0.40)" }}>
+                  <Check className="w-4 h-4" style={{ color: ACCENT_T }} />
+                  {label}
+                </span>
+              ))}
             </div>
           </div>
         </FadeIn>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════
-          FOOTER
-      ══════════════════════════════════════════════════════════ */}
+      {/* ══ FOOTER ════════════════════════════════════════════════ */}
       <footer style={{ background: DARK, color: "rgba(255,255,255,0.45)" }}>
         <div className="max-w-6xl mx-auto px-6 pt-16 pb-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2.5 mb-5">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: ACCENT }}>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                  style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_D})` }}>
                   <Scale className="w-4 h-4 text-white" />
                 </div>
                 <span className="font-black text-lg text-white">عدالة <span style={{ color: ACCENT_T }}>AI</span></span>
               </div>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: "rgba(255,255,255,0.35)", maxWidth: "200px" }}>
+              <p className="text-sm leading-relaxed mb-5" style={{ color: "rgba(255,255,255,0.30)", maxWidth: "200px" }}>
                 {cmsFooter?.tagline || t("landing.footer.tagline")}
-              </p>
-              <p className="text-xs mb-5" style={{ color: "rgba(255,255,255,0.25)" }}>
-                منصة SaaS قانونية متكاملة للمكاتب القانونية
               </p>
               <div className="flex gap-3">
                 {[Twitter, Linkedin, Youtube].map((Icon, i) => (
                   <a key={i} href="#"
-                    className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:bg-white/15 hover:-translate-y-0.5"
                     style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.40)" }}>
                     <Icon className="w-4 h-4" />
                   </a>
@@ -1134,7 +1221,7 @@ export default function Landing() {
                 <h4 className="font-bold text-white text-sm mb-4">{t("landing.footer.platform")}</h4>
                 <ul className="space-y-2.5">
                   {platformLinks.map((l, i) => (
-                    <li key={i}><a href={l.href} className="text-sm transition-colors hover:text-white" style={{ color: "rgba(255,255,255,0.40)" }}>{l.label}</a></li>
+                    <li key={i}><a href={l.href} className="text-sm transition-colors hover:text-white" style={{ color: "rgba(255,255,255,0.38)" }}>{l.label}</a></li>
                   ))}
                 </ul>
               </div>
@@ -1144,13 +1231,12 @@ export default function Landing() {
                 <h4 className="font-bold text-white text-sm mb-4">{t("landing.footer.company")}</h4>
                 <ul className="space-y-2.5">
                   {companyLinks.map((l, i) => (
-                    <li key={i}><a href={l.href} className="text-sm transition-colors hover:text-white" style={{ color: "rgba(255,255,255,0.40)" }}>{l.label}</a></li>
+                    <li key={i}><a href={l.href} className="text-sm transition-colors hover:text-white" style={{ color: "rgba(255,255,255,0.38)" }}>{l.label}</a></li>
                   ))}
                   <li>
                     <Link href={`${BASE}/referral`}>
-                      <span className="flex items-center gap-1.5 text-sm cursor-pointer transition-colors hover:text-white" style={{ color: ACCENT_T }}>
-                        <Gift className="w-3.5 h-3.5" />
-                        برنامج الإحالة 🎁
+                      <span className="flex items-center gap-1.5 text-sm cursor-pointer hover:text-white transition-colors" style={{ color: ACCENT_T }}>
+                        <Gift className="w-3.5 h-3.5" />برنامج الإحالة 🎁
                       </span>
                     </Link>
                   </li>
@@ -1162,7 +1248,7 @@ export default function Landing() {
                 <h4 className="font-bold text-white text-sm mb-4">{t("landing.footer.support")}</h4>
                 <ul className="space-y-2.5">
                   {supportLinks.map((l, i) => (
-                    <li key={i}><a href={l.href} className="text-sm transition-colors hover:text-white" style={{ color: "rgba(255,255,255,0.40)" }}>{l.label}</a></li>
+                    <li key={i}><a href={l.href} className="text-sm transition-colors hover:text-white" style={{ color: "rgba(255,255,255,0.38)" }}>{l.label}</a></li>
                   ))}
                 </ul>
               </div>
@@ -1171,12 +1257,13 @@ export default function Landing() {
 
           <div className="flex flex-col md:flex-row items-center justify-between pt-8 gap-4"
             style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            <p className="text-sm" style={{ color: "rgba(255,255,255,0.25)" }}>
+            <p className="text-sm" style={{ color: "rgba(255,255,255,0.22)" }}>
               {cmsFooter?.copyright || t("landing.footer.copyright")}
             </p>
             {(!cmsFooter || cmsFooter.showStatus !== false) && (
-              <span className="text-xs px-2.5 py-1 rounded-full font-medium"
-                style={{ background: "rgba(16,185,129,0.15)", color: "#34D399", border: "1px solid rgba(16,185,129,0.2)" }}>
+              <span className="text-xs px-3 py-1.5 rounded-full font-medium flex items-center gap-2"
+                style={{ background: "rgba(16,185,129,0.12)", color: "#34D399", border: "1px solid rgba(16,185,129,0.18)" }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
                 {cmsFooter?.statusText || t("landing.footer.allSystemsNormal")}
               </span>
             )}
@@ -1186,5 +1273,14 @@ export default function Landing() {
 
       <AdoulWidget />
     </div>
+  );
+}
+
+/* helper used in Bento cards */
+function ChevronLeft({ className, ...props }: React.SVGProps<SVGSVGElement> & { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+    </svg>
   );
 }
