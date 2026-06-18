@@ -81,6 +81,7 @@
 - [Adala AI Command Center](adala-ai-command-center.md) — /ai-command-center (AdminRoute); 8 AI agents; devCommander scan+proposals+approve; ai_command_sessions+dev_commander_proposals tables; isSuperAdmin guard on all routes
 - [Adala ERP Financial Upgrade](adala-erp-financial.md) — per-office double-entry ERP ledger + reconciliation + AI guard; accounting.ts FIXED (was missing WHERE office_id)
 - [Adala Deployment Center](adala-deployment-center.md) — mركز النشر super-admin tab; agentCron (4 agents hourly+daily); Ollama local fallback; Dockerfile+docker-compose; DEPLOY.md; app.ts serves static in production
+- [Adala Zero Trust Audit](adala-zero-trust-audit.md) — 10-phase pentest; 0 IDOR remaining; 14 files fixed; 14 DB migrations; false-positive scanner patterns documented
 - [Adala cache isolation](adala-cache-isolation.md) — cache.ts MAX_ENTRIES=500+flushTenant(); gcTime=10min; ClerkInvalidator uses removeQueries not qc.clear()
 - [Adala Multi-Branch System](adala-branches.md) — office_branches table + branch_id on cases/clients/invoices/tasks; API at /api/branches; plan limits inline (no frontend import); db import is @workspace/db not ../../core/db
 - [Managed Integrations Hub](managed-integrations.md) — platform owner holds all API keys; 12 integrations; 3 DB tables; clients request via support tickets; super admin tab "integrations-hub"

@@ -98,8 +98,9 @@ ensureFinancialCoreTables();
 /* ════════════════════════════════════════════════
    PLATFORM DASHBOARD
 ════════════════════════════════════════════════ */
-router.get("/fincore/dashboard", requireAuthWithTenant, async (_req, res) => {
+router.get("/fincore/dashboard", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     /* Revenue from payment_transactions */
     const revenue = await one(sql`
       SELECT
@@ -113,6 +114,7 @@ router.get("/fincore/dashboard", requireAuthWithTenant, async (_req, res) => {
         COALESCE(SUM(CASE WHEN status='completed' AND (settlement_status IS NULL OR settlement_status='unsettled')
                           THEN net_amount ELSE 0 END),0)::numeric AS unsettled_net
       FROM payment_transactions
+      WHERE office_id = ${tenantId}
     `);
 
     /* Pending payouts */
@@ -120,7 +122,7 @@ router.get("/fincore/dashboard", requireAuthWithTenant, async (_req, res) => {
       SELECT
         COUNT(*)::int                        AS pending_payouts,
         COALESCE(SUM(net_amount),0)::numeric AS pending_payout_amount
-      FROM lawyer_payouts WHERE status = 'pending'
+      FROM lawyer_payouts WHERE status = 'pending' AND office_id = ${tenantId}
     `);
 
     /* Monthly trend (last 6 months) */
@@ -133,6 +135,7 @@ router.get("/fincore/dashboard", requireAuthWithTenant, async (_req, res) => {
         COUNT(*)::int                          AS count
       FROM payment_transactions
       WHERE created_at >= NOW() - INTERVAL '6 months' AND status='completed'
+        AND office_id = ${tenantId}
       GROUP BY month ORDER BY month
     `);
 
@@ -141,16 +144,16 @@ router.get("/fincore/dashboard", requireAuthWithTenant, async (_req, res) => {
       SELECT COALESCE(gateway,'manual') AS gateway,
              COUNT(*)::int AS count,
              COALESCE(SUM(amount),0)::numeric AS total
-      FROM payment_transactions WHERE status='completed'
+      FROM payment_transactions WHERE status='completed' AND office_id = ${tenantId}
       GROUP BY gateway
     `);
 
     /* Wallet balances */
-    const wallets = await rows(sql`SELECT * FROM wallets ORDER BY available_balance DESC LIMIT 10`);
+    const wallets = await rows(sql`SELECT * FROM wallets WHERE owner_id = ${tenantId} ORDER BY available_balance DESC LIMIT 10`);
 
     /* Ledger last 10 */
     const recentLedger = await rows(sql`
-      SELECT * FROM ledger_entries ORDER BY created_at DESC LIMIT 10
+      SELECT * FROM ledger_entries WHERE office_id = ${tenantId} ORDER BY created_at DESC LIMIT 10
     `);
 
     const conversionRate = revenue?.total_transactions > 0
@@ -187,13 +190,15 @@ router.get("/fincore/dashboard", requireAuthWithTenant, async (_req, res) => {
 ════════════════════════════════════════════════ */
 router.get("/fincore/ledger", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const { limit = 100, offset = 0 } = req.query;
     const entries = await rows(sql`
       SELECT * FROM ledger_entries
+      WHERE office_id = ${tenantId}
       ORDER BY created_at DESC
       LIMIT ${Number(limit)} OFFSET ${Number(offset)}
     `);
-    const total = await one(sql`SELECT COUNT(*)::int AS count FROM ledger_entries`);
+    const total = await one(sql`SELECT COUNT(*)::int AS count FROM ledger_entries WHERE office_id = ${tenantId}`);
     res.json({ entries, total: total?.count ?? 0 });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -201,12 +206,13 @@ router.get("/fincore/ledger", requireAuthWithTenant, async (req, res) => {
 /* POST /api/fincore/ledger — create double-entry */
 router.post("/fincore/ledger", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const { debitAccount, creditAccount, amount, currency = "SAR", description, entryType = "payment", transactionRef } = req.body;
     if (!debitAccount || !creditAccount || !amount) return res.status(400).json({ error: "الحقول مطلوبة" });
 
     const [entry] = await rows(sql`
-      INSERT INTO ledger_entries (transaction_ref, debit_account, credit_account, amount, currency, description, entry_type)
-      VALUES (${transactionRef ?? null}, ${debitAccount}, ${creditAccount}, ${amount}, ${currency}, ${description ?? null}, ${entryType})
+      INSERT INTO ledger_entries (office_id, transaction_ref, debit_account, credit_account, amount, currency, description, entry_type)
+      VALUES (${tenantId}, ${transactionRef ?? null}, ${debitAccount}, ${creditAccount}, ${amount}, ${currency}, ${description ?? null}, ${entryType})
       RETURNING *
     `);
 
@@ -238,9 +244,10 @@ router.post("/fincore/ledger", requireAuthWithTenant, async (req, res) => {
 /* ════════════════════════════════════════════════
    WALLETS
 ════════════════════════════════════════════════ */
-router.get("/fincore/wallets", requireAuthWithTenant, async (_req, res) => {
+router.get("/fincore/wallets", requireAuthWithTenant, async (req, res) => {
   try {
-    const wallets = await rows(sql`SELECT * FROM wallets ORDER BY available_balance DESC`);
+    const tenantId = (req as any).tenantId as string;
+    const wallets = await rows(sql`SELECT * FROM wallets WHERE owner_id = ${tenantId} ORDER BY available_balance DESC`);
     res.json(wallets);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -248,8 +255,11 @@ router.get("/fincore/wallets", requireAuthWithTenant, async (_req, res) => {
 /* GET /api/fincore/wallets/:ownerId */
 router.get("/fincore/wallets/:ownerId", requireAuthWithTenant, async (req, res) => {
   try {
-    const wallet = await one(sql`SELECT * FROM wallets WHERE owner_id = ${String(req.params.ownerId)} LIMIT 1`);
-    if (!wallet) return res.json({ owner_id: String(req.params.ownerId), available_balance: 0, pending_balance: 0 });
+    const tenantId = (req as any).tenantId as string;
+    const ownerId = String(req.params.ownerId);
+    if (ownerId !== tenantId) return res.status(403).json({ error: "غير مصرح" });
+    const wallet = await one(sql`SELECT * FROM wallets WHERE owner_id = ${ownerId} LIMIT 1`);
+    if (!wallet) return res.json({ owner_id: ownerId, available_balance: 0, pending_balance: 0 });
     res.json(wallet);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -288,10 +298,11 @@ router.post("/fincore/wallets/credit", requireAuthWithTenant, async (req, res) =
 ════════════════════════════════════════════════ */
 router.get("/fincore/payouts", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const { status } = req.query;
     const payouts = status
-      ? await rows(sql`SELECT * FROM lawyer_payouts WHERE status = ${status} ORDER BY created_at DESC LIMIT 100`)
-      : await rows(sql`SELECT * FROM lawyer_payouts ORDER BY created_at DESC LIMIT 100`);
+      ? await rows(sql`SELECT * FROM lawyer_payouts WHERE office_id = ${tenantId} AND status = ${status} ORDER BY created_at DESC LIMIT 100`)
+      : await rows(sql`SELECT * FROM lawyer_payouts WHERE office_id = ${tenantId} ORDER BY created_at DESC LIMIT 100`);
     res.json(payouts);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -299,8 +310,10 @@ router.get("/fincore/payouts", requireAuthWithTenant, async (req, res) => {
 /* POST /api/fincore/payouts — create payout */
 router.post("/fincore/payouts", requireAuthWithTenant, async (req, res) => {
   try {
-    const { officeId, ownerLabel, amount, platformFee = 0, notes } = req.body;
-    if (!officeId || !amount) return res.status(400).json({ error: "معرف المكتب والمبلغ مطلوبان" });
+    const tenantId = (req as any).tenantId as string;
+    const { ownerLabel, amount, platformFee = 0, notes } = req.body;
+    const officeId = tenantId;
+    if (!amount) return res.status(400).json({ error: "المبلغ مطلوب" });
 
     const fee = parseFloat((amount * (platformFee / 100 || 0)).toFixed(2));
     const net = parseFloat((amount - fee).toFixed(2));
@@ -317,6 +330,7 @@ router.post("/fincore/payouts", requireAuthWithTenant, async (req, res) => {
 /* PATCH /api/fincore/payouts/:id/process — move to processing/sent */
 router.patch("/fincore/payouts/:id/process", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const { status = "processing", bankReference, provider = "manual" } = req.body;
     await db.execute(sql`
       UPDATE lawyer_payouts
@@ -325,7 +339,7 @@ router.patch("/fincore/payouts/:id/process", requireAuthWithTenant, async (req, 
           provider = ${provider},
           processed_at = ${status === "sent" ? sql`NOW()` : sql`processed_at`},
           updated_at = NOW()
-      WHERE id = ${String(req.params.id)}::uuid
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
     `);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -334,7 +348,10 @@ router.patch("/fincore/payouts/:id/process", requireAuthWithTenant, async (req, 
 /* DELETE /api/fincore/payouts/:id */
 router.delete("/fincore/payouts/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    await db.execute(sql`DELETE FROM lawyer_payouts WHERE id = ${String(req.params.id)}::uuid`);
+    const tenantId = (req as any).tenantId as string;
+    await db.execute(sql`
+      DELETE FROM lawyer_payouts WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
+    `);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

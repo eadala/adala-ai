@@ -57,10 +57,11 @@ router.post("/ai-workflow/run", requireAuthWithTenant, async (req: Request, res:
     const caseData = caseRows.rows?.[0] as any;
     if (!caseData) { res.status(404).json({ error: "القضية غير موجودة" }); return; }
 
+    const tenantId = (req as any).tenantId as string;
     const wfId = randomUUID();
     await db.execute(sql`
-      INSERT INTO ai_workflows (id, case_id, user_id, status, steps, started_at, created_at)
-      VALUES (${wfId}, ${caseId}, ${userId ?? "default"}, 'running', '[]'::jsonb, NOW(), NOW())
+      INSERT INTO ai_workflows (id, case_id, user_id, office_id, status, steps, started_at, created_at)
+      VALUES (${wfId}, ${caseId}, ${userId ?? "default"}, ${tenantId}, 'running', '[]'::jsonb, NOW(), NOW())
     `);
 
     const caseInfo = `
@@ -120,7 +121,7 @@ router.post("/ai-workflow/run", requireAuthWithTenant, async (req: Request, res:
         steps = ${JSON.stringify(results)}::jsonb,
         result = ${finalReport},
         completed_at = NOW()
-      WHERE id = ${wfId}
+      WHERE id = ${wfId} AND office_id = ${tenantId}
     `);
 
     res.json({

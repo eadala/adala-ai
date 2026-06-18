@@ -288,9 +288,11 @@ router.post("/payments/transactions", requireAuthWithTenant, async (req, res) =>
 /* PATCH /api/payments/transactions/:id/status */
 router.patch("/payments/transactions/:id/status", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const { status } = req.body;
     await db.execute(sql`
-      UPDATE payment_transactions SET status=${status}, updated_at=NOW() WHERE id=${String(req.params.id)}::uuid
+      UPDATE payment_transactions SET status=${status}, updated_at=NOW()
+      WHERE id=${String(req.params.id)}::uuid AND office_id = ${tenantId}
     `);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -299,6 +301,7 @@ router.patch("/payments/transactions/:id/status", requireAuthWithTenant, async (
 /* PATCH /api/payments/transactions/:id/settle — mark transaction settled */
 router.patch("/payments/transactions/:id/settle", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const { settlementRef = "" } = req.body;
     await db.execute(sql`
       UPDATE payment_transactions
@@ -306,7 +309,7 @@ router.patch("/payments/transactions/:id/settle", requireAuthWithTenant, async (
           settled_at = NOW(),
           settlement_ref = ${settlementRef || null},
           updated_at = NOW()
-      WHERE id = ${String(req.params.id)}::uuid
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
     `);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -315,14 +318,15 @@ router.patch("/payments/transactions/:id/settle", requireAuthWithTenant, async (
 /* POST /api/payments/batch-settle — settle all completed unsettled */
 router.post("/payments/batch-settle", requireAuthWithTenant, async (req, res) => {
   try {
-    const { officeId = "default", settlementRef = "" } = req.body;
+    const tenantId = (req as any).tenantId as string;
+    const { settlementRef = "" } = req.body;
     const result = await rows(sql`
       UPDATE payment_transactions
       SET settlement_status = 'settled',
           settled_at = NOW(),
           settlement_ref = ${settlementRef || null},
           updated_at = NOW()
-      WHERE office_id = ${officeId}
+      WHERE office_id = ${tenantId}
         AND status = 'completed'
         AND (settlement_status IS NULL OR settlement_status = 'unsettled')
       RETURNING id
@@ -334,7 +338,11 @@ router.post("/payments/batch-settle", requireAuthWithTenant, async (req, res) =>
 /* DELETE /api/payments/transactions/:id */
 router.delete("/payments/transactions/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    await db.execute(sql`DELETE FROM payment_transactions WHERE id=${String(req.params.id)}::uuid`);
+    const tenantId = (req as any).tenantId as string;
+    await db.execute(sql`
+      DELETE FROM payment_transactions
+      WHERE id=${String(req.params.id)}::uuid AND office_id = ${tenantId}
+    `);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

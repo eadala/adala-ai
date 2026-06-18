@@ -48,7 +48,8 @@ export class CaseTasks {
 
   async updateTaskStatus(taskId: string, status: string): Promise<void> {
     await db.execute(sql`
-      UPDATE tasks SET status = ${status}, updated_at = NOW() WHERE id = ${taskId}::uuid
+      UPDATE tasks SET status = ${status}, updated_at = NOW()
+      WHERE id = ${taskId}::uuid AND office_id::text = ${this.tenantId}
     `);
   }
 }

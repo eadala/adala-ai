@@ -265,6 +265,7 @@ router.get("/clients/:id/accounting", requireAuthWithTenant, async (req, res) =>
     const expenses = await safeRows(sql`
       SELECT * FROM expenses
       WHERE client_id = ${id}
+        AND office_id = ${tenantId}
         AND date BETWEEN ${startDate}::date AND ${endDate}::date
     `).catch(() => []);
 

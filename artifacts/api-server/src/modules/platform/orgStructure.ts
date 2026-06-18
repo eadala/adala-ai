@@ -133,8 +133,9 @@ router.post("/org-units", requireAuthWithTenant, async (req, res) => {
 router.patch("/org-units/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
+    const tid = (req as any).tenantId as string;
     const { name, type, parentId, managerId, managerName, description, status } = req.body as any;
-    const existing = await sqlOne(sql`SELECT id FROM organization_units WHERE id = ${parseInt(String(req.params.id))}`);
+    const existing = await sqlOne(sql`SELECT id FROM organization_units WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid}`);
     if (!existing) return res.status(404).json({ error: "الوحدة غير موجودة" });
 
     const unit = await sqlOne(sql`
@@ -147,7 +148,7 @@ router.patch("/org-units/:id", requireAuthWithTenant, async (req, res) => {
         description  = COALESCE(${description ?? null}, description),
         status       = COALESCE(${status ?? null}, status),
         updated_at   = NOW()
-      WHERE id = ${parseInt(String(req.params.id))}
+      WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid}
       RETURNING *
     `);
     res.json(unit);
@@ -158,10 +159,11 @@ router.patch("/org-units/:id", requireAuthWithTenant, async (req, res) => {
 router.patch("/org-units/:id/move", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
+    const tid = (req as any).tenantId as string;
     const { parentId } = req.body as { parentId: number | null };
     const unit = await sqlOne(sql`
       UPDATE organization_units SET parent_id = ${parentId ?? null}, updated_at = NOW()
-      WHERE id = ${parseInt(String(req.params.id))} RETURNING *
+      WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid} RETURNING *
     `);
     if (!unit) return res.status(404).json({ error: "الوحدة غير موجودة" });
     res.json(unit);
@@ -172,10 +174,11 @@ router.patch("/org-units/:id/move", requireAuthWithTenant, async (req, res) => {
 router.patch("/org-units/:id/status", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
+    const tid = (req as any).tenantId as string;
     const { status } = req.body as { status: string };
     const unit = await sqlOne(sql`
       UPDATE organization_units SET status = ${status}, updated_at = NOW()
-      WHERE id = ${parseInt(String(req.params.id))} RETURNING *
+      WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid} RETURNING *
     `);
     if (!unit) return res.status(404).json({ error: "الوحدة غير موجودة" });
     res.json(unit);
@@ -186,10 +189,11 @@ router.patch("/org-units/:id/status", requireAuthWithTenant, async (req, res) =>
 router.delete("/org-units/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
-    const children = await sqlOne(sql`SELECT id FROM organization_units WHERE parent_id = ${parseInt(String(req.params.id))} LIMIT 1`);
+    const tid = (req as any).tenantId as string;
+    const children = await sqlOne(sql`SELECT id FROM organization_units WHERE parent_id = ${parseInt(String(req.params.id))} AND office_id = ${tid} LIMIT 1`);
     if (children) return res.status(400).json({ error: "لا يمكن حذف وحدة تحتوي على وحدات فرعية" });
 
-    await db.execute(sql`DELETE FROM organization_units WHERE id = ${parseInt(String(req.params.id))}`);
+    await db.execute(sql`DELETE FROM organization_units WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid}`);
     res.status(204).end();
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
