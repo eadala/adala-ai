@@ -17,7 +17,7 @@ export function LandingBento() {
   });
 
   return (
-    <div dir="rtl" style={{ minHeight:"100vh", background:G, fontFamily:"'IBM Plex Sans Arabic','Cairo',sans-serif", color:T }}>
+    <div dir="rtl" style={{ minHeight:"100vh", background:G, fontFamily:"'Tajawal','Cairo',sans-serif", color:T }}>
 
       {/* NAV */}
       <nav style={{ position:"sticky",top:0,zIndex:50,background:"rgba(248,250,252,0.92)",backdropFilter:"blur(16px)",borderBottom:`1px solid ${BD}`,padding:"0 56px",height:58,display:"flex",alignItems:"center",justifyContent:"space-between" }}>

@@ -68,7 +68,7 @@ export function LandingHubspot() {
   const [hov, setHov] = useState<number|null>(null);
 
   return (
-    <div dir="rtl" style={{ minHeight:"100vh",background:"#fff",fontFamily:"'IBM Plex Sans Arabic','Cairo',sans-serif",color:T }}>
+    <div dir="rtl" style={{ minHeight:"100vh",background:"#fff",fontFamily:"'Tajawal','Cairo',sans-serif",color:T }}>
       {/* NAV */}
       <nav style={{ position:"sticky",top:0,zIndex:50,background:"rgba(255,255,255,0.94)",backdropFilter:"blur(20px)",borderBottom:`1px solid ${BD}`,padding:"0 60px",height:62,display:"flex",alignItems:"center",justifyContent:"space-between" }}>
         <div style={{ display:"flex",alignItems:"center",gap:10 }}>
