@@ -1,7 +1,8 @@
 import { lazy, Suspense, useState } from "react";
 import { useAuth } from "@clerk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Crown, Lock, Fingerprint, Loader2 } from "lucide-react";
+import { Crown, Lock, Fingerprint, Loader2, Rocket } from "lucide-react";
+import { Link } from "wouter";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { setTokenGetter, API } from "@/features/super-admin/shared/api";
@@ -108,6 +109,11 @@ export default function SuperAdmin() {
           <p className="text-xs text-muted-foreground">Super Admin — أعلى صلاحية في النظام</p>
         </div>
         <div className="mr-auto flex items-center gap-2">
+          <Link href="/commercial-launch">
+            <span className="flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/20 text-xs font-bold px-2.5 py-1 rounded-lg cursor-pointer hover:bg-primary/15 transition-colors">
+              <Rocket className="h-3 w-3" /> الإطلاق التجاري
+            </span>
+          </Link>
           <span className="flex items-center gap-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 text-xs font-bold px-2 py-1 rounded-lg">
             <Crown className="h-3 w-3" /> Super Admin
           </span>
