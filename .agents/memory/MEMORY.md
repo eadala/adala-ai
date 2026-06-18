@@ -80,3 +80,4 @@
 - [Adala cache isolation](adala-cache-isolation.md) — cache.ts MAX_ENTRIES=500+flushTenant(); gcTime=10min; ClerkInvalidator uses removeQueries not qc.clear()
 - [Adala Prompt Injection Guard](adala-prompt-injection.md) — src/core/promptSanitizer.ts; 25 regex patterns; SYSTEM_PROMPT_GUARD prepended to all callAI() calls; injection attempts logged to audit_logs; returns 403-style reply without hitting AI
 - [Adala Production Hardening Sprint](adala-hardening-sprint.md) — backup/export all filtered by tenantId; wallets isolated; log rotation cron daily@03:00; RTL 293→0 violations; mobile min-w fixed; ErrorBoundary upgraded with errorId+monitoring; 7 tables got office_id; 13 new indexes
+- [Adala Launch Readiness Sprint](adala-launch-readiness.md) — P0: upload rate limit + DR-test + AI daily/monthly limits + Status Page; P1: audit old/new values + AI cost admin API

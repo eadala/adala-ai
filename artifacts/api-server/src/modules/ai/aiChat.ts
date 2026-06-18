@@ -283,6 +283,45 @@ export async function callAI(
   }
   const guardedSystemPrompt = `${SYSTEM_PROMPT_GUARD}\n\n${systemPrompt}`;
 
+  /* ── Daily / Monthly Limit Check ──────────────────────────────── */
+  if (officeId && officeId !== "default") {
+    try {
+      const cr = await db.execute(sql`
+        SELECT daily_used, daily_limit, monthly_used, monthly_limit,
+               daily_reset_at
+        FROM office_ai_credits WHERE office_id = ${officeId}
+      `) as any;
+      const crows = Array.isArray(cr) ? cr : (cr?.rows ?? []);
+      if (crows.length > 0) {
+        const c = crows[0];
+        /* reset daily counter if a new UTC day started */
+        const lastReset = c.daily_reset_at ? new Date(c.daily_reset_at) : null;
+        const nowDay = new Date().toISOString().slice(0, 10);
+        const resetDay = lastReset?.toISOString().slice(0, 10);
+        if (!lastReset || resetDay !== nowDay) {
+          await db.execute(sql`
+            UPDATE office_ai_credits
+            SET daily_used = 0, daily_reset_at = NOW()
+            WHERE office_id = ${officeId}
+          `).catch(() => {});
+          c.daily_used = 0;
+        }
+        if (c.daily_limit > 0 && c.daily_used >= c.daily_limit) {
+          return { reply: "⚠️ تم تجاوز الحد اليومي لاستخدام الذكاء الاصطناعي. يُعاد ضبطه غداً أو يمكنك رفع الحد من لوحة التحكم.", modelUsed: "quota-exceeded", tier: "cheap" };
+        }
+        if (c.monthly_limit > 0 && c.monthly_used >= c.monthly_limit) {
+          return { reply: "⚠️ تم تجاوز الحد الشهري لاستخدام الذكاء الاصطناعي. يُرجى التواصل مع مدير المنصة لرفع الحد.", modelUsed: "quota-exceeded", tier: "cheap" };
+        }
+        /* increment usage counters (non-blocking) */
+        db.execute(sql`
+          UPDATE office_ai_credits
+          SET daily_used = daily_used + 1, monthly_used = monthly_used + 1
+          WHERE office_id = ${officeId}
+        `).catch(() => {});
+      }
+    } catch { /* non-blocking — don't fail the AI call */ }
+  }
+
   /* ── Forced model (explicit choice) ────────────────────────────── */
   const forced = async (model: string, fn: () => Promise<string>): Promise<{ reply: string; modelUsed: string; tier: CostTier }> => {
     const reply = await fn();
@@ -548,3 +587,60 @@ router.post("/ai-search", requireAuth, async (req, res) => {
 });
 
 export default router;
+
+/* ─── AI Cost Control Admin Routes ───────────────────────────────────────── */
+import { Router as AICostRouter } from "express";
+export const aiCostRouter = AICostRouter();
+
+/* GET /api/ai/cost — current office usage */
+aiCostRouter.get("/ai/cost", async (req: any, res: any) => {
+  try {
+    const tenantId = req.tenantId as string;
+    const r = await db.execute(sql`
+      SELECT office_id, balance, monthly_allowance, daily_limit, daily_used,
+             monthly_limit, monthly_used, daily_reset_at, updated_at
+      FROM office_ai_credits WHERE office_id = ${tenantId}
+    `) as any;
+    const rows = Array.isArray(r) ? r : (r?.rows ?? []);
+    if (!rows.length) return res.json({ balance: 0, daily_limit: 50, daily_used: 0, monthly_limit: 500, monthly_used: 0 });
+    res.json(rows[0]);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* PATCH /api/ai/cost/limits — super admin: set daily/monthly limits for an office */
+aiCostRouter.patch("/ai/cost/limits", async (req: any, res: any) => {
+  try {
+    const meta = req.auth?.sessionClaims?.publicMetadata as any;
+    if (meta?.role !== "super_admin") return res.status(403).json({ error: "Super admin only" });
+    const { officeId, dailyLimit, monthlyLimit, monthlyAllowance } = req.body;
+    await db.execute(sql`
+      INSERT INTO office_ai_credits (office_id, office_name, balance, monthly_allowance, daily_limit, monthly_limit)
+      VALUES (${officeId}, ${officeId}, 100, ${monthlyAllowance ?? 500}, ${dailyLimit ?? 50}, ${monthlyLimit ?? 500})
+      ON CONFLICT (office_id) DO UPDATE SET
+        daily_limit = EXCLUDED.daily_limit,
+        monthly_limit = EXCLUDED.monthly_limit,
+        monthly_allowance = EXCLUDED.monthly_allowance,
+        updated_at = NOW()
+    `);
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* GET /api/ai/cost/all — super admin: all offices usage */
+aiCostRouter.get("/ai/cost/all", async (req: any, res: any) => {
+  try {
+    const meta = req.auth?.sessionClaims?.publicMetadata as any;
+    if (meta?.role !== "super_admin") return res.status(403).json({ error: "Super admin only" });
+    const r = await db.execute(sql`
+      SELECT c.office_id, c.balance, c.monthly_allowance, c.daily_limit, c.daily_used,
+             c.monthly_limit, c.monthly_used, c.daily_reset_at, c.updated_at,
+             o.name as office_name
+      FROM office_ai_credits c
+      LEFT JOIN office_registry o ON o.id::text = c.office_id
+      ORDER BY c.monthly_used DESC
+      LIMIT 200
+    `) as any;
+    const rows = Array.isArray(r) ? r : (r?.rows ?? []);
+    res.json({ offices: rows });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});

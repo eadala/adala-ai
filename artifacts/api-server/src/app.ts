@@ -155,6 +155,18 @@ app.use("/api/client-auth/verify-otp",   authLimiter);
 app.use("/api/client-auth/register",     registerLimiter);
 app.use("/api/client-auth/request-otp",  registerLimiter);
 
+// Upload endpoints — 20 req / 1min
+const uploadLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "تجاوزت حد رفع الملفات المسموح به — انتظر دقيقة" },
+});
+app.use("/api/storage/upload",  uploadLimiter);
+app.use("/api/documents/upload", uploadLimiter);
+app.use("/api/branding/upload",  uploadLimiter);
+
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")

@@ -181,6 +181,7 @@ router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const id   = String(req.params.id);
     const body = UpdateCaseBody.parse(req.body);
+    const before = await getService(req).getCase(id).catch(() => null);
     const { after } = await getService(req).updateCase(id, {
       title:       body.title,
       description: body.description,
@@ -189,7 +190,11 @@ router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
       clientName:  body.clientName,
       assignedTo:  body.assignedTo,
     });
-    auditLog({ ...auditMeta(req), action: "update", resource: "case", resourceId: id }).catch(() => {});
+    auditLog({
+      ...auditMeta(req), action: "update", resource: "case", resourceId: id,
+      oldValue: before ? { title: (before as any).title, status: (before as any).status, assignedTo: (before as any).assignedTo } : null,
+      newValue: { title: body.title, status: body.status, assignedTo: body.assignedTo },
+    }).catch(() => {});
     res.json(serializeCase(after));
   } catch (e: any) {
     res.status(e.statusCode ?? 400).json({ error: e.message });

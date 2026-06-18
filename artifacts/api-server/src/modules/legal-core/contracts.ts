@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { contractsTable } from "@workspace/db/schema";
 import { sql } from "drizzle-orm";
 import { callAI } from "../ai/aiChat";
+import { auditLog } from "../../lib/auditLogger";
 
 const router = Router();
 
@@ -969,6 +970,12 @@ router.patch("/contracts/:id", requireAuthWithTenant, async (req, res) => {
     }
     vals.push(id, tid);
     const updated = await sqlOne(`UPDATE contracts SET ${fields.join(", ")} WHERE id = $${vals.length - 1} AND office_id = $${vals.length} RETURNING *`, vals);
+    auditLog({
+      userId: (req as any).userId, officeId: tid, action: "update", resource: "contract", resourceId: id,
+      ipAddress: (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.socket?.remoteAddress,
+      oldValue: { title: current.title, status: current.status, valueAmount: current.value_amount },
+      newValue: { title: title ?? current.title, status: status ?? current.status, valueAmount: valueAmount ?? current.value_amount },
+    }).catch(() => {});
     res.json(updated);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
