@@ -670,4 +670,112 @@ router.delete("/cases/:id/hearings/:hid", requireAuthWithTenant, async (req, res
   }
 });
 
+/* ═══════════════════════════════════════════════════════
+   CASE DOCUMENTS — /cases/:id/documents
+   GET  → list all docs for a case (no file_url to keep response light)
+   POST → upload a new doc (base64 fileData in body)
+   DELETE /cases/:id/documents/:did → remove a doc
+═══════════════════════════════════════════════════════ */
+
+/* GET /cases/:id/documents */
+router.get("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
+  try {
+    const caseId   = String(req.params.id);
+    const tenantId = getTenant(req);
+    const { rows } = await db.execute(sql`
+      SELECT id, case_id, file_name, file_type, file_url,
+             uploaded_by, uploaded_by_name, created_at
+      FROM documents
+      WHERE case_id = ${caseId} AND office_id = ${tenantId}
+      ORDER BY created_at DESC
+    `);
+    res.json(rows);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* POST /cases/:id/documents */
+router.post("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
+  try {
+    const caseId   = String(req.params.id);
+    const tenantId = getTenant(req);
+    const userId   = (req as any).auth?.userId ?? "";
+    const { fileName, fileType, fileData, uploadedByName } = req.body ?? {};
+
+    if (!fileData || !fileName) {
+      return res.status(400).json({ error: "اسم الملف والبيانات مطلوبة" });
+    }
+    /* Enforce reasonable size: base64 of 10 MB ≈ 14 MB string */
+    if (typeof fileData === "string" && fileData.length > 15_000_000) {
+      return res.status(413).json({ error: "حجم الملف أكبر من المسموح (10 MB)" });
+    }
+
+    const { rows } = await db.execute(sql`
+      INSERT INTO documents
+        (case_id, office_id, file_url, file_type, file_name, uploaded_by, uploaded_by_name)
+      VALUES
+        (${caseId}, ${tenantId}, ${fileData}, ${fileType ?? ""}, ${fileName},
+         ${userId}, ${uploadedByName ?? ""})
+      RETURNING id, case_id, file_name, file_type, uploaded_by, uploaded_by_name, created_at
+    `);
+    auditLog({
+      ...auditMeta(req),
+      action: "upload", resource: "document", resourceId: String((rows[0] as any).id),
+      details: `مستند: ${fileName} — قضية: ${caseId}`,
+    }).catch(() => {});
+    res.status(201).json(rows[0]);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* GET /cases/:id/documents/:did/download — return the file data */
+router.get("/cases/:id/documents/:did/download", requireAuthWithTenant, async (req, res) => {
+  try {
+    const caseId   = String(req.params.id);
+    const did      = String(req.params.did);
+    const tenantId = getTenant(req);
+    const { rows } = await db.execute(sql`
+      SELECT file_url, file_name, file_type
+      FROM documents
+      WHERE id = ${did} AND case_id = ${caseId} AND office_id = ${tenantId}
+      LIMIT 1
+    `);
+    if (!rows.length) return res.status(404).json({ error: "غير موجود" });
+    const doc = rows[0] as any;
+    /* file_url is a base64 data URL — strip prefix and send as buffer */
+    const dataUrl: string = doc.file_url ?? "";
+    const comma = dataUrl.indexOf(",");
+    if (comma === -1) return res.status(500).json({ error: "تنسيق الملف غير صحيح" });
+    const mimeMatch = dataUrl.match(/^data:([^;]+);base64,/);
+    const mime = mimeMatch ? mimeMatch[1] : (doc.file_type ?? "application/octet-stream");
+    const buf = Buffer.from(dataUrl.slice(comma + 1), "base64");
+    const safeName = encodeURIComponent(doc.file_name ?? "document");
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${safeName}`);
+    res.setHeader("Content-Length", buf.length);
+    res.send(buf);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* DELETE /cases/:id/documents/:did */
+router.delete("/cases/:id/documents/:did", requireAuthWithTenant, async (req, res) => {
+  try {
+    const caseId   = String(req.params.id);
+    const did      = String(req.params.did);
+    const tenantId = getTenant(req);
+    await db.execute(sql`
+      DELETE FROM documents
+      WHERE id = ${did} AND case_id = ${caseId} AND office_id = ${tenantId}
+    `);
+    auditLog({ ...auditMeta(req), action: "delete", resource: "document", resourceId: did }).catch(() => {});
+    res.status(204).end();
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
