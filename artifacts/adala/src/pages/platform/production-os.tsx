@@ -12,7 +12,8 @@ import {
   TrendingUp, TrendingDown, Users, Building2,
   DollarSign, ShieldAlert, Wrench, Brain,
   Clock, ArrowUpRight, ArrowDownRight, Target,
-  CircleCheck, CircleDot, Loader2,
+  CircleCheck, CircleDot, Loader2, GitMerge,
+  Wifi, WifiOff, RotateCw, History,
 } from "lucide-react";
 
 const API = "/api";
@@ -70,6 +71,7 @@ export default function ProductionOS() {
   const qc = useQueryClient();
   const [tickResult, setTickResult] = useState<any>(null);
   const [pilotResult, setPilotResult] = useState<any>(null);
+  const [syncResult, setSyncResult] = useState<any>(null);
 
   /* ── Status polling ── */
   const { data: status, refetch: refetchStatus, isLoading: statusLoading } = useQuery({
@@ -91,6 +93,33 @@ export default function ProductionOS() {
     queryKey: ["prod-os-pulse"],
     queryFn: () => authFetch(apiUrl("/production-os/business-pulse"), {}, _getToken),
     staleTime: 60_000,
+  });
+
+  /* ── Demo Sync status ── */
+  const { data: demoSync, refetch: refetchDemoSync, isLoading: demoSyncLoading } = useQuery({
+    queryKey: ["demo-sync-status"],
+    queryFn: () => authFetch(apiUrl("/demo-sync/status"), {}, _getToken),
+    staleTime: 30_000,
+  });
+
+  const { data: demoHistory, refetch: refetchDemoHistory } = useQuery({
+    queryKey: ["demo-sync-history"],
+    queryFn: () => authFetch(apiUrl("/demo-sync/history"), {}, _getToken),
+    staleTime: 30_000,
+  });
+
+  const syncMut = useMutation({
+    mutationFn: () => authFetch(apiUrl("/demo-sync/run"), { method: "POST" }, _getToken),
+    onSuccess: (data) => {
+      setSyncResult(data);
+      qc.invalidateQueries({ queryKey: ["demo-sync-status"] });
+      qc.invalidateQueries({ queryKey: ["demo-sync-history"] });
+    },
+  });
+
+  const reseedMut = useMutation({
+    mutationFn: (officeId: string) => authFetch(apiUrl(`/demo-sync/reseed/${officeId}`), { method: "POST" }, _getToken),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["demo-sync-status"] }),
   });
 
   /* ── Tick mutation ── */
@@ -167,6 +196,7 @@ export default function ProductionOS() {
               { v: "healing",  label: "Auto-Healing",     icon: Wrench },
               { v: "incidents",label: "Incidents",         icon: AlertTriangle },
               { v: "business", label: "Business Autopilot", icon: Brain },
+              { v: "demosync", label: "Demo Sync",         icon: GitMerge },
             ].map(t => (
               <TabsTrigger key={t.v} value={t.v}
                 className="text-xs gap-1.5 data-[state=active]:bg-blue-600/20 data-[state=active]:text-blue-300 border border-transparent data-[state=active]:border-blue-500/30 rounded-lg px-3 py-2">
@@ -500,6 +530,214 @@ export default function ProductionOS() {
                     لم يتمكن الذكاء الاصطناعي من الاستجابة — تحقق من مفتاح Gemini API
                   </p>
                 )}
+              </CardContent>
+            </Card>
+
+          </TabsContent>
+
+          {/* ══════════ DEMO SYNC ══════════ */}
+          <TabsContent value="demosync" className="mt-4 space-y-4">
+
+            {/* Header row */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold flex items-center gap-2">
+                  <GitMerge className="h-4 w-4 text-cyan-400" />
+                  مزامنة بيئة الديمو مع الإنتاج
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  يضمن أن مكاتب الاختبار تعكس دائماً إعدادات الإنتاج الحالية • مزامنة تلقائية كل ساعة
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {demoSync && (
+                  <Badge className={`border text-xs ${demoSync.allInSync
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                    : demoSync.criticalDrift > 0
+                      ? "bg-red-500/20 text-red-300 border-red-500/30"
+                      : "bg-amber-500/20 text-amber-300 border-amber-500/30"}`}>
+                    {demoSync.allInSync ? "✓ متزامن" : `${demoSync.totalDrift} انحراف`}
+                  </Badge>
+                )}
+                <Button size="sm" variant="outline" className="gap-1 text-xs"
+                  onClick={() => { refetchDemoSync(); refetchDemoHistory(); }}>
+                  <RefreshCw className="h-3.5 w-3.5" />تحديث
+                </Button>
+              </div>
+            </div>
+
+            {/* Sync Now button */}
+            <Card className="border-border border-cyan-500/20">
+              <CardContent className="pt-4 space-y-3">
+                <Button
+                  onClick={() => syncMut.mutate()}
+                  disabled={syncMut.isPending}
+                  className="w-full gap-2 bg-cyan-700/80 hover:bg-cyan-700"
+                >
+                  {syncMut.isPending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <RotateCw className="h-4 w-4" />}
+                  {syncMut.isPending ? "جاري المزامنة..." : "مزامنة الآن — Sync All Demo Offices"}
+                </Button>
+
+                {syncResult && (
+                  <div className={`p-3 rounded-lg border text-xs space-y-2 ${
+                    syncResult.errors?.length ? "border-amber-500/30 bg-amber-500/5" : "border-emerald-500/30 bg-emerald-500/5"
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <div>
+                        <p className="font-bold">
+                          تمت المزامنة — {syncResult.syncedOffices} مكتب
+                          {syncResult.driftFixed > 0 && ` | أُصلح ${syncResult.driftFixed} انحراف`}
+                        </p>
+                        <p className="text-muted-foreground">
+                          {syncResult.actions?.length} إجراء · {syncResult.elapsedMs}ms
+                          {syncResult.driftAfter > 0 && ` · ${syncResult.driftAfter} انحراف متبقٍ`}
+                        </p>
+                      </div>
+                    </div>
+                    {syncResult.actions?.slice(0, 9).map((a: any, i: number) => (
+                      <div key={i} className="flex gap-2 p-1.5 rounded bg-black/20 font-mono">
+                        <span className="text-emerald-400 shrink-0">✓</span>
+                        <span className="text-cyan-300 w-32 shrink-0 truncate">{a.action}</span>
+                        <span className="text-muted-foreground truncate">{a.label} — {a.result}</span>
+                        <span className="text-muted-foreground shrink-0 mr-auto">{a.ms}ms</span>
+                      </div>
+                    ))}
+                    {syncResult.errors?.length > 0 && (
+                      <div className="mt-1 text-amber-400">
+                        {syncResult.errors.map((e: string, i: number) => <p key={i}>⚠ {e}</p>)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Office status cards */}
+            {demoSyncLoading && (
+              <div className="text-center py-8 text-muted-foreground text-sm">جاري فحص مكاتب الديمو...</div>
+            )}
+            <div className="grid md:grid-cols-3 gap-3">
+              {(demoSync?.demoOffices ?? []).map((office: any) => (
+                <Card key={office.id} className={`border ${office.inSync
+                  ? "border-emerald-500/20 bg-emerald-500/5"
+                  : office.driftScore >= 3
+                    ? "border-red-500/20 bg-red-500/5"
+                    : "border-amber-500/20 bg-amber-500/5"
+                }`}>
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {office.inSync
+                          ? <Wifi className="h-4 w-4 text-emerald-400" />
+                          : <WifiOff className="h-4 w-4 text-amber-400" />}
+                        <div>
+                          <p className="text-xs font-bold">{office.label}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono">{office.id.slice(0,18)}…</p>
+                        </div>
+                      </div>
+                      <Badge className={`text-[10px] border ${office.inSync
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                        : "bg-amber-500/20 text-amber-300 border-amber-500/30"}`}>
+                        {office.inSync ? "متزامن" : `${office.drift.length} انحراف`}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1 text-[10px]">
+                      <div className="text-center p-1 rounded bg-black/10">
+                        <p className="text-muted-foreground">الخطة</p>
+                        <p className="font-bold text-blue-300">{office.plan ?? "—"}</p>
+                      </div>
+                      <div className="text-center p-1 rounded bg-black/10">
+                        <p className="text-muted-foreground">القضايا</p>
+                        <p className={`font-bold ${office.caseCount === 0 ? "text-red-400" : "text-emerald-400"}`}>{office.caseCount}</p>
+                      </div>
+                      <div className="text-center p-1 rounded bg-black/10">
+                        <p className="text-muted-foreground">العملاء</p>
+                        <p className={`font-bold ${office.clientCount === 0 ? "text-red-400" : "text-emerald-400"}`}>{office.clientCount}</p>
+                      </div>
+                    </div>
+
+                    {/* Drift issues */}
+                    {office.drift.length > 0 && (
+                      <div className="space-y-1">
+                        {office.drift.map((d: any, i: number) => (
+                          <div key={i} className="text-[10px] flex gap-1.5 items-start p-1 rounded bg-black/20">
+                            <AlertTriangle className={`h-3 w-3 shrink-0 mt-0.5 ${
+                              d.severity === "critical" ? "text-red-400" :
+                              d.severity === "high"     ? "text-orange-400" : "text-amber-400"
+                            }`} />
+                            <div>
+                              <span className="font-mono text-cyan-300">{d.type}</span>
+                              <span className="text-muted-foreground"> — {d.detail}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Reseed button */}
+                    {(office.caseCount === 0 || office.clientCount === 0) && (
+                      <Button size="sm" variant="outline"
+                        className="w-full h-6 text-[10px] gap-1 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/10"
+                        onClick={() => reseedMut.mutate(office.id)}
+                        disabled={reseedMut.isPending}>
+                        {reseedMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCw className="h-3 w-3" />}
+                        إعادة زرع البيانات التجريبية
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Production config reference */}
+            {demoSync?.prodConfig && (
+              <div className="p-3 rounded-xl border border-border bg-muted/5 text-xs flex items-center gap-4">
+                <Database className="h-4 w-4 text-blue-400 shrink-0" />
+                <div>
+                  <p className="font-bold">مصدر الحقيقة — plan_cms</p>
+                  <p className="text-muted-foreground">
+                    {demoSync.prodConfig.planCount} خطة مسجّلة •
+                    آخر قراءة: {new Date(demoSync.prodConfig.capturedAt).toLocaleString("ar")}
+                  </p>
+                </div>
+                <div className="mr-auto text-right">
+                  <p className="text-[10px] text-muted-foreground">مزامنة تلقائية</p>
+                  <p className="font-mono text-cyan-300">كل ساعة (cron)</p>
+                </div>
+              </div>
+            )}
+
+            {/* Sync history */}
+            <Card className="border-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <History className="h-4 w-4 text-slate-400" />
+                  سجل المزامنات الأخيرة
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!demoHistory?.history?.length && (
+                  <p className="text-xs text-muted-foreground text-center py-4">لا سجل بعد — اضغط "مزامنة الآن" لبدء التتبع</p>
+                )}
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {(demoHistory?.history ?? []).map((h: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3 text-xs p-2 rounded border border-border">
+                      <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
+                      <span className="text-muted-foreground shrink-0">{h.office_label}</span>
+                      <span className="text-cyan-300 font-mono">خطة: {h.synced_plan}</span>
+                      <Badge className="text-[9px] px-1.5 py-0 bg-slate-500/20 text-slate-300 border-slate-500/30">
+                        {h.triggered_by}
+                      </Badge>
+                      <span className="text-muted-foreground mr-auto">
+                        {new Date(h.synced_at).toLocaleString("ar")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
 
