@@ -156,10 +156,57 @@ router.get("/invoices", requireAuthWithTenant, async (req: Request, res: Respons
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
-    const invoices = await db.select().from(invoicesTable)
-      .where(eq((invoicesTable as any).officeId, tenantId))
-      .orderBy(desc(invoicesTable.createdAt));
-    res.json(invoices);
+    const rows = await sqlRows(sql`
+      SELECT *, view_token::text AS view_token
+      FROM client_invoices
+      WHERE office_id = ${tenantId}
+      ORDER BY created_at DESC
+    `);
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+   GET /invoices/public/:token — عرض الفاتورة للعميل (بدون تسجيل دخول)
+   ⚠️ يجب أن يكون قبل /:id لمنع Express من مطابقة "public" كـ id
+════════════════════════════════════════════════════════════════════════════ */
+router.get("/invoices/public/:token", async (req: Request, res: Response) => {
+  try {
+    const token = String(req.params.token ?? "").trim();
+    if (!token || !/^[0-9a-f-]{36}$/i.test(token)) {
+      return res.status(400).json({ error: "رابط غير صحيح" });
+    }
+    const rows = await sqlRows(sql`
+      SELECT
+        ci.id, ci.invoice_number, ci.title, ci.items, ci.subtotal,
+        ci.vat_rate, ci.vat_amount, ci.total, ci.currency, ci.status,
+        ci.due_date, ci.notes, ci.stripe_payment_link_url,
+        ci.created_at, ci.paid_at, ci.tax_enabled, ci.client_name,
+        ci.view_token::text AS view_token,
+        op.name          AS office_name,
+        op.phone         AS office_phone,
+        op.email         AS office_email,
+        op.logo          AS office_logo,
+        op.address       AS office_address,
+        op.website       AS office_website,
+        op.primary_color AS office_color
+      FROM  client_invoices ci
+      LEFT JOIN office_page op ON op.id::text = ci.office_id
+      WHERE ci.view_token = ${token}::uuid
+      LIMIT 1
+    `);
+    if (!rows[0]) return res.status(404).json({ error: "الفاتورة غير موجودة" });
+
+    /* إضافة اسم العميل من جدول العملاء إذا كان id موجوداً */
+    const row = rows[0];
+    if (!row.client_name && row.client_id) {
+      const cRows = await sqlRows(sql`SELECT full_name FROM clients WHERE id = ${String(row.client_id)}::uuid LIMIT 1`);
+      if (cRows[0]) row.client_name = cRows[0].full_name;
+    }
+
+    res.json(row);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -220,6 +267,7 @@ router.post("/invoices", requireAuthWithTenant, validate(CreateInvoiceSchema), a
     } as any).returning();
 
     eventBus.emit({
+      officeId: tenantId,
       type: "INVOICE_CREATED",
       data: { invoiceNumber, clientId, caseId, title, total, currency: currency ?? "SAR" },
     }).catch(() => {});
@@ -403,12 +451,23 @@ router.post("/invoices/:id/payments", requireAuthWithTenant, validate(RecordPaym
     `);
 
     if (newStatus === "paid") {
+      const invMeta = await sqlRows(sql`SELECT invoice_number, client_name FROM client_invoices WHERE id = ${String(req.params.id)}::uuid LIMIT 1`);
+      const invoiceNumber = invMeta[0]?.invoice_number ?? "";
+      const clientName    = invMeta[0]?.client_name    ?? "";
+
+      eventBus.emit({
+        officeId: tenantId,
+        type: "INVOICE_PAID",
+        data: { invoiceNumber, total, clientName, method, referenceId: String(req.params.id) },
+      }).catch(() => {});
+
       import("../financial/financial-event-engine").then(({ recordFinancialEvent }) =>
         recordFinancialEvent({
           officeId: tenantId, type: "INVOICE_PAID",
           amount: total, currency: "SAR",
           referenceId: String(req.params.id),
-          description: `تحصيل فاتورة — ${method} — ${amount} ر.س`,
+          description: `تحصيل فاتورة ${invoiceNumber} — ${method} — ${amount} ر.س`,
+          paymentMethod: method === "bank_transfer" ? "bank" : method === "cash" ? "cash" : undefined,
         })
       ).catch(() => {});
     }
@@ -593,60 +652,26 @@ router.post("/invoices/:id/mark-paid", requireAuthWithTenant, async (req: Reques
       .returning();
     if (!updated) return apiErr(res, 404, "NOT_FOUND", "الفاتورة غير موجودة");
 
+    const invoiceNumber = (updated as any).invoiceNumber ?? (updated as any).invoice_number ?? "";
+    const clientName    = (updated as any).clientName   ?? (updated as any).client_name   ?? "";
+
+    eventBus.emit({
+      officeId: tenantId,
+      type: "INVOICE_PAID",
+      data: { invoiceNumber, total, clientName, method: "other", referenceId: String(req.params.id) },
+    }).catch(() => {});
+
     import("../financial/financial-event-engine").then(({ recordFinancialEvent }) =>
       recordFinancialEvent({
         officeId: tenantId, type: "INVOICE_PAID",
         amount: total, currency: (updated as any).currency ?? "SAR",
         referenceId: String(req.params.id),
-        description: `تحصيل فاتورة ${(updated as any).invoiceNumber ?? ""}`,
+        description: `تحصيل فاتورة ${invoiceNumber} — تسجيل يدوي كامل`,
       })
     ).catch(() => {});
 
     auditLog({ action: "mark_paid", resource: "invoice", resourceId: String(req.params.id), officeId: tenantId }).catch(() => {});
     res.json(updated);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/* ════════════════════════════════════════════════════════════════════════════
-   GET /invoices/public/:token — عرض الفاتورة للعميل (بدون تسجيل دخول)
-════════════════════════════════════════════════════════════════════════════ */
-router.get("/invoices/public/:token", async (req: Request, res: Response) => {
-  try {
-    const token = String(req.params.token ?? "").trim();
-    if (!token || !/^[0-9a-f-]{36}$/i.test(token)) {
-      return res.status(400).json({ error: "رابط غير صحيح" });
-    }
-    const rows = await sqlRows(sql`
-      SELECT
-        ci.id, ci.invoice_number, ci.title, ci.items, ci.subtotal,
-        ci.vat_rate, ci.vat_amount, ci.total, ci.currency, ci.status,
-        ci.due_date, ci.notes, ci.stripe_payment_link_url,
-        ci.created_at, ci.paid_at, ci.tax_enabled, ci.client_name,
-        ci.view_token::text AS view_token,
-        op.name          AS office_name,
-        op.phone         AS office_phone,
-        op.email         AS office_email,
-        op.logo          AS office_logo,
-        op.address       AS office_address,
-        op.website       AS office_website,
-        op.primary_color AS office_color
-      FROM  client_invoices ci
-      LEFT JOIN office_page op ON op.id::text = ci.office_id
-      WHERE ci.view_token = ${token}::uuid
-      LIMIT 1
-    `);
-    if (!rows[0]) return res.status(404).json({ error: "الفاتورة غير موجودة" });
-
-    /* إضافة اسم العميل من جدول العملاء إذا كان id موجوداً */
-    const row = rows[0];
-    if (!row.client_name && row.client_id) {
-      const cRows = await sqlRows(sql`SELECT full_name FROM clients WHERE id = ${String(row.client_id)}::uuid LIMIT 1`);
-      if (cRows[0]) row.client_name = cRows[0].full_name;
-    }
-
-    res.json(row);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

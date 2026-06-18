@@ -29,11 +29,27 @@ export function registerFinanceListeners() {
 
     await updateWalletStats({ amount, officeId });
 
-    /* If linked to invoice, mark as paid */
+    /* If linked to invoice, mark as paid and sync amount_paid */
     if (invoiceId) {
       await db.execute(sql`
-        UPDATE client_invoices SET status = 'paid', updated_at = NOW()
+        UPDATE client_invoices
+        SET status      = 'paid',
+            amount_paid = total,
+            paid_at     = NOW(),
+            updated_at  = NOW()
         WHERE id = ${invoiceId}::uuid AND status != 'paid'
+      `).catch(() => {});
+
+      /* إنشاء سجل دفعة إذا لم يكن موجوداً */
+      await db.execute(sql`
+        INSERT INTO invoice_payments (invoice_id, office_id, amount, method, notes)
+        SELECT id, office_id, total, 'stripe', 'Stripe Payment Success'
+        FROM client_invoices
+        WHERE id = ${invoiceId}::uuid
+          AND NOT EXISTS (
+            SELECT 1 FROM invoice_payments ip
+            WHERE ip.invoice_id = ${invoiceId}::uuid AND ip.method = 'stripe'
+          )
       `).catch(() => {});
     }
   });
