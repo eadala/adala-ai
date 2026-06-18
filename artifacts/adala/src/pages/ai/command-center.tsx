@@ -300,7 +300,7 @@ export default function CommandCenter() {
         <div className="w-52 shrink-0 hidden lg:flex flex-col gap-2">
           <p className="text-[11px] text-muted-foreground font-medium px-1">أوامر سريعة</p>
           <ScrollArea className="flex-1">
-            <div className="space-y-4 pl-1">
+            <div className="space-y-4 ps-1">
               {QUICK_CMDS.map(grp => (
                 <div key={grp.group}>
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mb-1.5">{grp.group}</p>
@@ -411,7 +411,7 @@ export default function CommandCenter() {
             <Textarea ref={textRef} value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendCommand(input); } }}
               placeholder="اكتب أمرك هنا... مثال: أنشئ قضية نزاع عقاري للعميل خالد العمري"
-              className="resize-none h-20 pl-28 bg-muted/20 border-border/40 focus:border-primary/40 text-sm" />
+              className="resize-none h-20 ps-28 bg-muted/20 border-border/40 focus:border-primary/40 text-sm" />
             <div className="absolute left-2 bottom-2 flex gap-1.5">
               <Button size="sm" variant="outline" className="h-8 text-xs gap-1 px-2.5"
                 onClick={() => sendCommand(input)} disabled={!input.trim() || execMut.isPending}>
@@ -442,7 +442,7 @@ export default function CommandCenter() {
                 <p className="text-[11px] text-muted-foreground font-medium">مهام تعمل تلقائياً</p>
                 {workflows.length === 0 && (
                   <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2" onClick={createDefaults}>
-                    <Plus className="h-3 w-3 ml-1" />افتراضية
+                    <Plus className="h-3 w-3 ms-1" />افتراضية
                   </Button>
                 )}
               </div>

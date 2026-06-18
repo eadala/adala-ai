@@ -164,7 +164,7 @@ function MarkdownContent({ text, color }: { text: string; color: string }) {
       out.push(<hr key={i} className="my-3" style={{ borderColor: BORDER }} />);
     else if (line.startsWith("> "))
       out.push(
-        <blockquote key={i} className="border-r-4 pr-3 my-2 text-sm italic rounded-r"
+        <blockquote key={i} className="border-r-4 pe-3 my-2 text-sm italic rounded-r"
           style={{ borderColor: color, background: MODE_COLORS[("consultation" as Mode)].light, color: MUTED, padding: "6px 12px" }}>
           {inline(line.slice(2), i)}
         </blockquote>
@@ -522,7 +522,7 @@ export default function AdoulPage() {
             <h2 className="font-bold text-base leading-none" style={{ color: DARK }}>عدول</h2>
             <p className="text-[11px] mt-0.5" style={{ color: BLUE }}>مساعد قانوني ذكي</p>
           </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold mr-1 bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold me-1 bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             متاح الآن
           </div>
@@ -587,7 +587,7 @@ export default function AdoulPage() {
                   <div className="px-4 py-3 rounded-2xl max-w-[85%]"
                     style={{ background: WHITE, border: `1.5px solid ${colors.main}40`, borderBottomRightRadius: "4px", boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }}>
                     <MarkdownContent text={streaming} color={colors.main} />
-                    <span className="inline-block w-0.5 h-4 rounded-full mr-0.5 animate-pulse align-middle"
+                    <span className="inline-block w-0.5 h-4 rounded-full me-0.5 animate-pulse align-middle"
                       style={{ background: colors.main }} />
                   </div>
                 </div>

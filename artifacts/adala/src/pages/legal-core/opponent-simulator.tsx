@@ -219,7 +219,7 @@ function EvaluationPanel({ evaluation, onReset }: { evaluation: Evaluation; onRe
       </Card>
 
       <Button onClick={onReset} className="w-full" variant="outline">
-        <RotateCcw className="h-4 w-4 ml-2" />
+        <RotateCcw className="h-4 w-4 ms-2" />
         محاكاة جديدة
       </Button>
     </div>
@@ -417,7 +417,7 @@ export default function OpponentSimulator() {
             </div>
 
             <Button onClick={startSimulation} className="w-full h-11 text-base font-bold" size="lg">
-              <Play className="h-5 w-5 ml-2" />
+              <Play className="h-5 w-5 ms-2" />
               ابدأ المحاكاة
             </Button>
           </CardContent>
@@ -449,7 +449,7 @@ export default function OpponentSimulator() {
       <div className="max-w-2xl mx-auto space-y-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={reset}>
-            <RotateCcw className="h-4 w-4 ml-1" />
+            <RotateCcw className="h-4 w-4 ms-1" />
             من البداية
           </Button>
           <div>

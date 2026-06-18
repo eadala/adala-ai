@@ -1,5 +1,3 @@
-- [Adala Cases RLS Audit](case-rls-audit.md) — DB superuser bypasses RLS even with FORCE; security = API layer only; reminders.case_id→TEXT; audit_logs.id needs DEFAULT; cache.intelligence needs officeId
-- [Adala Hearings Engine](adala-hearings.md) — case_hearings table + 6 routes in cases.ts; GET /cases/hearings/calendar MUST be before /:id; syncNextHearing auto-updates cases.next_hearing_date; CourtInfoCard+HearingsSection in case-detail; /hearings-calendar page
 - [Adala Case Module Architecture](case-module-architecture.md) — src/case/ modular system: entity/repository/service/events + 4 modules; tasks.case_id needs ::uuid cast; CASE_DELETED local only
 - [Adala 500-error fix patterns](adala-500-fix-patterns.md) — requireAuthWithTenant try/catch; UUID validation; NaN guard; 9 tables needed office_id ALTER TABLE
 - [Adala route dedup](adala-route-dedup.md) — GET /admin/plans + GET /finance/intelligence were duplicated; check index.ts registration order (first wins)
@@ -77,12 +75,8 @@
 - [Adala Core Cache](adala-cache-core.md) — src/core/cache.ts TTL Map; dashboard:summary:tenantId (60s); ai:sha256 (600s); Redis-ready API
 - [Adala Tenant Isolation Audit](adala-tenant-isolation-audit.md) — 17/17 tables isolated 100%; compliance+events secured; 72 frontend fetch calls fixed; 13 indexes; migration 001_tenant_isolation.sql; audit report in api-server/SECURITY_AUDIT_REPORT.md
 - [Adala Test Offices](adala-test-offices.md) — OA=aaaabbbb-0001-0001-0001-000000000001 (الشمال), OB=bbbbcccc-0002-0002-0002-000000000002 (الجنوب); office_members+office_page+office_registry created; test-user-north/test-user-south as clerk IDs
-
 - [Adala AI Command Center](adala-ai-command-center.md) — /ai-command-center (AdminRoute); 8 AI agents; devCommander scan+proposals+approve; ai_command_sessions+dev_commander_proposals tables; isSuperAdmin guard on all routes
 - [Adala ERP Financial Upgrade](adala-erp-financial.md) — per-office double-entry ERP ledger + reconciliation + AI guard; accounting.ts FIXED (was missing WHERE office_id)
-- [Adala Deployment Center](adala-deployment-center.md) — mركز النشر super-admin tab; agentCron (4 agents hourly+daily); Ollama local fallback; Dockerfile+docker-compose; DEPLOY.md; app.ts serves static in production
-- [Adala Zero Trust Audit](adala-zero-trust-audit.md) — 10-phase pentest; 0 IDOR remaining; 14 files fixed; 14 DB migrations; false-positive scanner patterns documented
-- [Adala Launch Gate & Runtime Shield](adala-launch-gate.md) — 8-gate GO/NO-GO engine (launchGate.ts); runtimeShield middleware in app.ts between requestGuard↔IsolationMiddleware; ct_security_events table; /launch-gate page (AdminRoute)
 - [Adala cache isolation](adala-cache-isolation.md) — cache.ts MAX_ENTRIES=500+flushTenant(); gcTime=10min; ClerkInvalidator uses removeQueries not qc.clear()
-- [Adala Multi-Branch System](adala-branches.md) — office_branches table + branch_id on cases/clients/invoices/tasks; API at /api/branches; plan limits inline (no frontend import); db import is @workspace/db not ../../core/db
-- [Managed Integrations Hub](managed-integrations.md) — platform owner holds all API keys; 12 integrations; 3 DB tables; clients request via support tickets; super admin tab "integrations-hub"
+- [Adala Prompt Injection Guard](adala-prompt-injection.md) — src/core/promptSanitizer.ts; 25 regex patterns; SYSTEM_PROMPT_GUARD prepended to all callAI() calls; injection attempts logged to audit_logs; returns 403-style reply without hitting AI
+- [Adala Production Hardening Sprint](adala-hardening-sprint.md) — backup/export all filtered by tenantId; wallets isolated; log rotation cron daily@03:00; RTL 293→0 violations; mobile min-w fixed; ErrorBoundary upgraded with errorId+monitoring; 7 tables got office_id; 13 new indexes

@@ -2,6 +2,7 @@ import { requireAuth } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { sanitizePrompt, logInjectionAttempt, SYSTEM_PROMPT_GUARD } from "../../core/promptSanitizer";
 
 const router = Router();
 
@@ -265,68 +266,81 @@ export async function callAI(
   preferredModel: ModelKey = "auto",
   officeId: string = "default",
   queryType: string = "custom",
+  userId: string = "unknown",
 ): Promise<{ reply: string; modelUsed: string; tier: CostTier }> {
 
   const t0 = Date.now();
 
+  /* ── Prompt Injection Protection ──────────────────────────────────── */
+  const { sanitized: safeMessage, wasInjectionAttempt, detectedPatterns } = sanitizePrompt(userMessage);
+  if (wasInjectionAttempt) {
+    logInjectionAttempt(officeId, userId, userMessage, detectedPatterns).catch(() => {});
+    return {
+      reply: "⚠️ تم اكتشاف محاولة تجاوز غير مصرح بها. تم تسجيل هذه المحاولة.",
+      modelUsed: "security-block",
+      tier: "cheap",
+    };
+  }
+  const guardedSystemPrompt = `${SYSTEM_PROMPT_GUARD}\n\n${systemPrompt}`;
+
   /* ── Forced model (explicit choice) ────────────────────────────── */
   const forced = async (model: string, fn: () => Promise<string>): Promise<{ reply: string; modelUsed: string; tier: CostTier }> => {
     const reply = await fn();
-    const tier = classifyPrompt(userMessage);
+    const tier = classifyPrompt(safeMessage);
     deductCredits(officeId, model);
-    logAIUsage({ officeId, queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: userMessage.length });
+    logAIUsage({ officeId, queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length });
     return { reply, modelUsed: model, tier };
   };
 
   if (preferredModel === "deepseek" && DEEPSEEK_API_KEY)
-    return forced("deepseek", () => callDeepSeekAI(systemPrompt, userMessage, history));
+    return forced("deepseek", () => callDeepSeekAI(guardedSystemPrompt, safeMessage, history));
   if (preferredModel === "gemini"   && GEMINI_API_KEY)
-    return forced("gemini",   () => callGeminiAI(systemPrompt, userMessage, history));
+    return forced("gemini",   () => callGeminiAI(guardedSystemPrompt, safeMessage, history));
   if (preferredModel === "claude"   && ANTHROPIC_API_KEY)
-    return forced("claude",   () => callClaudeAI(systemPrompt, userMessage, history));
+    return forced("claude",   () => callClaudeAI(guardedSystemPrompt, safeMessage, history));
   if (preferredModel === "openai"   && OPENAI_API_KEY)
-    return forced("openai",   () => callOpenAI(systemPrompt, userMessage, history));
+    return forced("openai",   () => callOpenAI(guardedSystemPrompt, safeMessage, history));
   if (preferredModel === "ollama"   && OLLAMA_BASE_URL)
-    return forced(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(systemPrompt, userMessage, history));
+    return forced(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(guardedSystemPrompt, safeMessage, history));
   /* forced model not available → fall through to smart auto */
 
   /* ── Smart auto routing by cost tier ───────────────────────────── */
-  const tier = classifyPrompt(userMessage);
+  const tier = classifyPrompt(safeMessage);
 
   const tryModel = async (model: string, fn: () => Promise<string>): Promise<{ reply: string; modelUsed: string; tier: CostTier } | null> => {
     try {
       const reply = await fn();
       deductCredits(officeId, model);
-      logAIUsage({ officeId, queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: userMessage.length });
+      logAIUsage({ officeId, queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length });
       return { reply, modelUsed: model, tier };
     } catch { return null; }
   };
 
   if (tier === "cheap") {
     /* cheap: DeepSeek → Gemini → Ollama */
-    if (DEEPSEEK_API_KEY)  { const r = await tryModel("deepseek", () => callDeepSeekAI(systemPrompt, userMessage, history)); if (r) return r; }
-    if (GEMINI_API_KEY)    { const r = await tryModel("gemini",   () => callGeminiAI(systemPrompt, userMessage, history));   if (r) return r; }
-    if (OLLAMA_BASE_URL)   { const r = await tryModel(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(systemPrompt, userMessage, history)); if (r) return r; }
+    if (DEEPSEEK_API_KEY)  { const r = await tryModel("deepseek", () => callDeepSeekAI(guardedSystemPrompt, safeMessage, history)); if (r) return r; }
+    if (GEMINI_API_KEY)    { const r = await tryModel("gemini",   () => callGeminiAI(guardedSystemPrompt, safeMessage, history));   if (r) return r; }
+    if (OLLAMA_BASE_URL)   { const r = await tryModel(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(guardedSystemPrompt, safeMessage, history)); if (r) return r; }
   }
 
   if (tier === "mid") {
     /* mid: Gemini → DeepSeek → Ollama */
-    if (GEMINI_API_KEY)    { const r = await tryModel("gemini",   () => callGeminiAI(systemPrompt, userMessage, history));   if (r) return r; }
-    if (DEEPSEEK_API_KEY)  { const r = await tryModel("deepseek", () => callDeepSeekAI(systemPrompt, userMessage, history)); if (r) return r; }
-    if (OLLAMA_BASE_URL)   { const r = await tryModel(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(systemPrompt, userMessage, history)); if (r) return r; }
+    if (GEMINI_API_KEY)    { const r = await tryModel("gemini",   () => callGeminiAI(guardedSystemPrompt, safeMessage, history));   if (r) return r; }
+    if (DEEPSEEK_API_KEY)  { const r = await tryModel("deepseek", () => callDeepSeekAI(guardedSystemPrompt, safeMessage, history)); if (r) return r; }
+    if (OLLAMA_BASE_URL)   { const r = await tryModel(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(guardedSystemPrompt, safeMessage, history)); if (r) return r; }
   }
 
   if (tier === "premium") {
     /* premium: Claude → OpenAI → Gemini → Ollama */
-    if (ANTHROPIC_API_KEY) { const r = await tryModel("claude",   () => callClaudeAI(systemPrompt, userMessage, history));   if (r) return r; }
-    if (OPENAI_API_KEY)    { const r = await tryModel("openai",   () => callOpenAI(systemPrompt, userMessage, history));     if (r) return r; }
-    if (GEMINI_API_KEY)    { const r = await tryModel("gemini",   () => callGeminiAI(systemPrompt, userMessage, history));   if (r) return r; }
-    if (OLLAMA_BASE_URL)   { const r = await tryModel(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(systemPrompt, userMessage, history)); if (r) return r; }
+    if (ANTHROPIC_API_KEY) { const r = await tryModel("claude",   () => callClaudeAI(guardedSystemPrompt, safeMessage, history));   if (r) return r; }
+    if (OPENAI_API_KEY)    { const r = await tryModel("openai",   () => callOpenAI(guardedSystemPrompt, safeMessage, history));     if (r) return r; }
+    if (GEMINI_API_KEY)    { const r = await tryModel("gemini",   () => callGeminiAI(guardedSystemPrompt, safeMessage, history));   if (r) return r; }
+    if (OLLAMA_BASE_URL)   { const r = await tryModel(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(guardedSystemPrompt, safeMessage, history)); if (r) return r; }
   }
 
   /* final static fallback */
-  logAIUsage({ officeId, queryType, modelUsed: "fallback", tier, costPoints: 0, cached: false, responseMs: Date.now() - t0, promptLength: userMessage.length });
-  return { reply: generateSmartResponse(userMessage), modelUsed: "fallback", tier };
+  logAIUsage({ officeId, queryType, modelUsed: "fallback", tier, costPoints: 0, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length });
+  return { reply: generateSmartResponse(safeMessage), modelUsed: "fallback", tier };
 }
 
 function generateSmartResponse(query: string): string {

@@ -270,7 +270,7 @@ export default function OfficeManagement() {
             disabled={!initName.trim() || !initSlug.trim() || createOfficeMutation.isPending}
             onClick={() => createOfficeMutation.mutate({ name: initName.trim(), slug: initSlug.trim() })}
           >
-            {createOfficeMutation.isPending && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+            {createOfficeMutation.isPending && <Loader2 className="h-4 w-4 animate-spin ms-2" />}
             إنشاء الصفحة
           </Button>
         </CardContent>
@@ -311,7 +311,7 @@ export default function OfficeManagement() {
           </Button>
           <Button size="sm" variant={office.isPublished ? "destructive" : "default"}
             onClick={() => updateOfficeMutation.mutate({ id: office.id, isPublished: !office.isPublished })}>
-            {office.isPublished ? <><EyeOff className="h-3.5 w-3.5 ml-1" /> إخفاء</> : <><Globe className="h-3.5 w-3.5 ml-1" /> نشر</>}
+            {office.isPublished ? <><EyeOff className="h-3.5 w-3.5 ms-1" /> إخفاء</> : <><Globe className="h-3.5 w-3.5 ms-1" /> نشر</>}
           </Button>
         </div>
       </div>
@@ -323,7 +323,7 @@ export default function OfficeManagement() {
           <TabsTrigger value="orders" className="gap-1.5 text-xs">
             <Package className="h-3.5 w-3.5" /> الطلبات
             {(orders as any[]).filter((o: any) => o.status === "pending").length > 0 && (
-              <span className="mr-1 bg-primary text-primary-foreground text-[9px] rounded-full px-1.5 py-0.5 font-bold">
+              <span className="me-1 bg-primary text-primary-foreground text-[9px] rounded-full px-1.5 py-0.5 font-bold">
                 {(orders as any[]).filter((o: any) => o.status === "pending").length}
               </span>
             )}
@@ -712,8 +712,8 @@ export default function OfficeManagement() {
                       {o.amount && <span className="text-xs text-primary font-semibold">{Number(o.amount).toLocaleString("ar-SA")} ر.س</span>}
                     </div>
                     <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                      {o.clientPhone && <span><Phone className="h-3 w-3 inline ml-1" />{o.clientPhone}</span>}
-                      {o.clientEmail && <span><Mail className="h-3 w-3 inline ml-1" />{o.clientEmail}</span>}
+                      {o.clientPhone && <span><Phone className="h-3 w-3 inline ms-1" />{o.clientPhone}</span>}
+                      {o.clientEmail && <span><Mail className="h-3 w-3 inline ms-1" />{o.clientEmail}</span>}
                     </div>
                     {o.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{o.notes}</p>}
                   </div>
@@ -1165,7 +1165,7 @@ export default function OfficeManagement() {
                       }}
                       dir="ltr"
                       placeholder="0501234567 أو +966501234567"
-                      className="pr-3"
+                      className="pe-3"
                     />
                   </div>
                   {(() => {

@@ -95,23 +95,17 @@ router.put("/backup/settings", requireAuthWithTenant, async (req, res) => {
 ══════════════════════════════════════════════════════════ */
 
 /* GET /api/backup/jobs */
-router.get("/backup/jobs", requireAuthWithTenant, async (_req, res) => {
+router.get("/backup/jobs", requireAuthWithTenant, async (req, res) => {
   try {
-    const jobs = await db
-      .select({
-        id:           backupJobsTable.id,
-        type:         backupJobsTable.type,
-        scheduleType: backupJobsTable.scheduleType,
-        status:       backupJobsTable.status,
-        sizeBytes:    backupJobsTable.sizeBytes,
-        fileName:     backupJobsTable.fileName,
-        errorMessage: backupJobsTable.errorMessage,
-        createdAt:    backupJobsTable.createdAt,
-        completedAt:  backupJobsTable.completedAt,
-      })
-      .from(backupJobsTable)
-      .orderBy(desc(backupJobsTable.createdAt))
-      .limit(100);
+    const tenantId = (req as any).tenantId as string;
+    const jobs = await db.execute(sql`
+      SELECT id, type, schedule_type, status, size_bytes, file_name,
+             error_message, created_at, completed_at
+      FROM backup_jobs
+      WHERE office_id = ${tenantId}
+      ORDER BY created_at DESC
+      LIMIT 100
+    `).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
     res.json(jobs);
   } catch {
     res.status(500).json({ error: "خطأ في جلب سجل النسخ" });
@@ -126,24 +120,12 @@ router.post("/backup/create", requireAuthWithTenant, async (req, res) => {
 
     const [[cases, clients, invoices, contracts, docs, users], hr, accounting] = await Promise.all([
       Promise.all([
-        db.select().from(casesTable).limit(10000),
-        db.select().from(clientsTable).limit(10000),
-        db.select().from(clientInvoicesTable).limit(10000),
-        db.select().from(contractsTable).limit(10000),
-        db.select({
-          id: documentsTable.id,
-          fileName: documentsTable.fileName,
-          fileType: documentsTable.fileType,
-          caseId: documentsTable.caseId,
-          createdAt: documentsTable.createdAt,
-        }).from(documentsTable).limit(10000),
-        db.select({
-          id: usersTable.id,
-          email: usersTable.email,
-          fullName: usersTable.fullName,
-          role: usersTable.role,
-          status: usersTable.status,
-        }).from(usersTable).limit(500),
+        db.execute(sql`SELECT * FROM cases WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT * FROM clients WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT * FROM client_invoices WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT * FROM contracts WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT id, file_name, file_type, case_id, created_at FROM documents WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT id, email, full_name, role, status FROM users WHERE office_id = ${tenantId} LIMIT 500`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
       ]),
       fetchHR(tenantId),
       fetchAccounting(tenantId),
@@ -171,10 +153,11 @@ router.post("/backup/create", requireAuthWithTenant, async (req, res) => {
     const sizeBytes = Buffer.byteLength(dataStr, "utf8");
     const fileName = `backup-${dateStr()}.json`;
 
-    const [job] = await db
-      .insert(backupJobsTable)
-      .values({ type, scheduleType, status: "completed", sizeBytes, fileName, fileData: dataStr, completedAt: new Date() })
-      .returning({ id: backupJobsTable.id });
+    const [job] = await db.execute(sql`
+      INSERT INTO backup_jobs (type, schedule_type, status, size_bytes, file_name, file_data, completed_at, office_id)
+      VALUES (${type}, ${scheduleType ?? null}, 'completed', ${sizeBytes}, ${fileName}, ${dataStr}, NOW(), ${tenantId})
+      RETURNING id
+    `).then((r: any) => { const rows = Array.isArray(r) ? r : (r?.rows ?? []); return [rows[0]]; });
 
     const settings = await db.select().from(backupSettingsTable).limit(1);
     if (settings.length) {
@@ -192,15 +175,17 @@ router.post("/backup/create", requireAuthWithTenant, async (req, res) => {
 /* GET /api/backup/jobs/:id/download */
 router.get("/backup/jobs/:id/download", requireAuthWithTenant, async (req, res) => {
   try {
-    const [job] = await db
-      .select()
-      .from(backupJobsTable)
-      .where(eq(backupJobsTable.id, String(req.params.id)))
-      .limit(1);
+    const tenantId = (req as any).tenantId as string;
+    const rows = await db.execute(sql`
+      SELECT * FROM backup_jobs
+      WHERE id = ${String(req.params.id)} AND office_id = ${tenantId}
+      LIMIT 1
+    `).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
+    const job = rows[0];
     if (!job) return res.status(404).json({ error: "النسخة الاحتياطية غير موجودة" });
     res.setHeader("Content-Type", "application/json; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="${job.fileName ?? "backup.json"}"`);
-    res.send(job.fileData ?? "{}");
+    res.setHeader("Content-Disposition", `attachment; filename="${job.file_name ?? "backup.json"}"`);
+    res.send(job.file_data ?? "{}");
   } catch {
     res.status(500).json({ error: "خطأ في تحميل النسخة الاحتياطية" });
   }
@@ -209,7 +194,10 @@ router.get("/backup/jobs/:id/download", requireAuthWithTenant, async (req, res) 
 /* DELETE /api/backup/jobs/:id */
 router.delete("/backup/jobs/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    await db.delete(backupJobsTable).where(eq(backupJobsTable.id, String(req.params.id)));
+    const tenantId = (req as any).tenantId as string;
+    await db.execute(sql`
+      DELETE FROM backup_jobs WHERE id = ${String(req.params.id)} AND office_id = ${tenantId}
+    `);
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "خطأ في حذف النسخة الاحتياطية" });
@@ -227,24 +215,12 @@ router.get("/backup/local-download", requireAuthWithTenant, async (req, res) => 
     const tenantId = (req as any).tenantId as string;
     const [[cases, clients, invoices, contracts, docs, users], hr, accounting] = await Promise.all([
       Promise.all([
-        db.select().from(casesTable).limit(10000),
-        db.select().from(clientsTable).limit(10000),
-        db.select().from(clientInvoicesTable).limit(10000),
-        db.select().from(contractsTable).limit(10000),
-        db.select({
-          id: documentsTable.id,
-          fileName: documentsTable.fileName,
-          fileType: documentsTable.fileType,
-          caseId: documentsTable.caseId,
-          createdAt: documentsTable.createdAt,
-        }).from(documentsTable).limit(10000),
-        db.select({
-          id: usersTable.id,
-          email: usersTable.email,
-          fullName: usersTable.fullName,
-          role: usersTable.role,
-          status: usersTable.status,
-        }).from(usersTable).limit(500),
+        db.execute(sql`SELECT * FROM cases WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT * FROM clients WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT * FROM client_invoices WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT * FROM contracts WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT id, file_name, file_type, case_id, created_at FROM documents WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT id, email, full_name, role, status FROM users WHERE office_id = ${tenantId} LIMIT 500`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
       ]),
       fetchHR(tenantId),
       fetchAccounting(tenantId),
@@ -281,10 +257,10 @@ router.get("/export/all", requireAuthWithTenant, async (req, res) => {
     const tenantId = (req as any).tenantId as string;
     const [[cases, clients, invoices, contracts], hr, accounting] = await Promise.all([
       Promise.all([
-        db.select().from(casesTable).limit(10000),
-        db.select().from(clientsTable).limit(10000),
-        db.select().from(clientInvoicesTable).limit(10000),
-        db.select().from(contractsTable).limit(10000),
+        db.execute(sql`SELECT * FROM cases WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT * FROM clients WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT * FROM client_invoices WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
+        db.execute(sql`SELECT * FROM contracts WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
       ]),
       fetchHR(tenantId),
       fetchAccounting(tenantId),
@@ -378,8 +354,9 @@ router.get("/export/payroll", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/clients?format=csv|json */
 router.get("/export/clients", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const fmt = (String(req.query.format)) ?? "json";
-    const rows = await db.select().from(clientsTable).limit(10000);
+    const rows = await db.execute(sql`SELECT * FROM clients WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="clients-${dateStr()}.csv"`);
@@ -397,8 +374,9 @@ router.get("/export/clients", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/cases?format=csv|json */
 router.get("/export/cases", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const fmt = (String(req.query.format)) ?? "json";
-    const rows = await db.select().from(casesTable).limit(10000);
+    const rows = await db.execute(sql`SELECT * FROM cases WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="cases-${dateStr()}.csv"`);
@@ -416,8 +394,9 @@ router.get("/export/cases", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/invoices?format=csv|json */
 router.get("/export/invoices", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const fmt = (String(req.query.format)) ?? "json";
-    const rows = await db.select().from(clientInvoicesTable).limit(10000);
+    const rows = await db.execute(sql`SELECT * FROM client_invoices WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="invoices-${dateStr()}.csv"`);
@@ -435,8 +414,9 @@ router.get("/export/invoices", requireAuthWithTenant, async (req, res) => {
 /* GET /api/export/contracts?format=csv|json */
 router.get("/export/contracts", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const fmt = (String(req.query.format)) ?? "json";
-    const rows = await db.select().from(contractsTable).limit(10000);
+    const rows = await db.execute(sql`SELECT * FROM contracts WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
     if (fmt === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="contracts-${dateStr()}.csv"`);

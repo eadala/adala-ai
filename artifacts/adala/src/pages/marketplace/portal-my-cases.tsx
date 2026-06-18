@@ -121,7 +121,7 @@ export default function PortalMyCases() {
           <div className="flex items-center gap-2">
             <Scale className="h-5 w-5 text-[#C9A84C]" />
             <span className="font-black text-[#C9A84C]">عدالة AI</span>
-            <span className="text-xs text-muted-foreground mr-1">| قضاياي</span>
+            <span className="text-xs text-muted-foreground me-1">| قضاياي</span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowProfile(p => !p)}

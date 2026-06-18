@@ -245,7 +245,7 @@ export default function AlertsPage() {
                   </div>
                   <div className="text-sm font-medium text-foreground mt-1">{al.message}</div>
                   <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                    <span><Clock className="h-3 w-3 inline ml-1" />{new Date(al.lastSeen).toLocaleString("ar-SA")}</span>
+                    <span><Clock className="h-3 w-3 inline ms-1" />{new Date(al.lastSeen).toLocaleString("ar-SA")}</span>
                     <span>القناة: {al.channel}</span>
                   </div>
                 </div>
@@ -330,7 +330,7 @@ export default function AlertsPage() {
               {stats.suppressed && (
                 <button onClick={() => unsuppressMut.mutate()} disabled={unsuppressMut.isPending}
                   className="px-3 py-1.5 rounded-lg text-xs bg-emerald-50 border border-emerald-300 text-emerald-700 hover:bg-emerald-100 transition">
-                  <Volume2 className="h-3 w-3 inline ml-1" />إلغاء الصمت الآن
+                  <Volume2 className="h-3 w-3 inline ms-1" />إلغاء الصمت الآن
                 </button>
               )}
             </div>

@@ -247,7 +247,7 @@ export default function ControlTower() {
             <Button size="sm" variant="outline"
               className="border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700"
               onClick={() => refreshMetrics()}>
-              <RefreshCw className="h-3.5 w-3.5 mr-1" />
+              <RefreshCw className="h-3.5 w-3.5 me-1" />
               تحديث
             </Button>
           </div>
@@ -415,8 +415,8 @@ export default function ControlTower() {
                       ? "bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs"
                       : "bg-red-600/80 hover:bg-red-600 text-white h-8 text-xs"}>
                     {aiLocked
-                      ? <><Play className="h-3 w-3 mr-1" />تفعيل</>
-                      : <><Square className="h-3 w-3 mr-1" />إيقاف</>}
+                      ? <><Play className="h-3 w-3 me-1" />تفعيل</>
+                      : <><Square className="h-3 w-3 me-1" />إيقاف</>}
                   </Button>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-slate-800/60">
@@ -542,8 +542,8 @@ export default function ControlTower() {
                   }}
                   disabled={freezeMut.isPending}>
                   {inspectData.frozen
-                    ? <><Unlock className="h-3 w-3 mr-1" />رفع التجميد</>
-                    : <><Snowflake className="h-3 w-3 mr-1" />تجميد المكتب</>}
+                    ? <><Unlock className="h-3 w-3 me-1" />رفع التجميد</>
+                    : <><Snowflake className="h-3 w-3 me-1" />تجميد المكتب</>}
                 </Button>
                 <Button size="sm" variant="ghost"
                   className="text-muted-foreground hover:text-slate-300 text-xs"

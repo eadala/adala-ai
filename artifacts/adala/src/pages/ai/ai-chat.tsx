@@ -27,10 +27,10 @@ function formatContent(text: string) {
       return <div key={i} className="font-bold text-primary mt-3 mb-1">{line.slice(2, -2)}</div>;
     }
     if (line.startsWith("- ") || line.startsWith("• ")) {
-      return <div key={i} className="flex gap-2 mr-2 my-0.5"><span className="text-primary mt-1">•</span><span>{line.slice(2)}</span></div>;
+      return <div key={i} className="flex gap-2 me-2 my-0.5"><span className="text-primary mt-1">•</span><span>{line.slice(2)}</span></div>;
     }
     if (/^\d+\./.test(line)) {
-      return <div key={i} className="mr-2 my-0.5 text-foreground/90">{line}</div>;
+      return <div key={i} className="me-2 my-0.5 text-foreground/90">{line}</div>;
     }
     if (line.trim() === "") return <div key={i} className="h-2" />;
     return <div key={i} className="text-foreground/90 leading-relaxed">{line}</div>;

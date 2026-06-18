@@ -259,7 +259,7 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
               <Label className="text-xs">عرضك (ر.س) *</Label>
               <div className="relative">
                 <Input type="number" value={myPrice} onChange={e => setMyPrice(e.target.value)}
-                  className="h-10 text-lg font-black text-primary pl-14" dir="ltr" />
+                  className="h-10 text-lg font-black text-primary ps-14" dir="ltr" />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">ر.س</span>
               </div>
               <p className="text-[10px] text-muted-foreground">
@@ -726,11 +726,11 @@ function DealsDashboard() {
                     <div className="flex gap-1.5 pt-1">
                       <Button size="sm" variant="outline" className="flex-1 h-7 text-xs"
                         onClick={() => setOpenDeal(openDeal === deal.id ? null : deal.id)}>
-                        <MessageCircle className="h-3 w-3 ml-1" />{openDeal === deal.id ? "إخفاء" : "فتح"}
+                        <MessageCircle className="h-3 w-3 ms-1" />{openDeal === deal.id ? "إخفاء" : "فتح"}
                       </Button>
                       <Button size="sm" className="flex-1 h-7 text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
                         onClick={() => acceptDeal.mutate(deal.id)}>
-                        <CheckCircle2 className="h-3 w-3 ml-1" />قبول
+                        <CheckCircle2 className="h-3 w-3 ms-1" />قبول
                       </Button>
                       <Button size="sm" variant="ghost" className="h-7 text-xs text-red-400 hover:text-red-300"
                         onClick={() => rejectDeal.mutate(deal.id)}>
@@ -804,7 +804,7 @@ function DealsDashboard() {
                     <div className="text-left shrink-0">
                       <p className="text-sm font-black text-primary">{fmtPrice(order.amount)} ر.س</p>
                       <Select value={order.status} onValueChange={v => updateOrder.mutate({ id: order.id, status: v })}>
-                        <SelectTrigger className="h-6 text-[10px] mt-1 w-24 border-none p-0 pr-1">
+                        <SelectTrigger className="h-6 text-[10px] mt-1 w-24 border-none p-0 pe-1">
                           <span className={cn("font-medium", cfg.color)}>{cfg.label}</span>
                         </SelectTrigger>
                         <SelectContent dir="rtl">
@@ -950,7 +950,7 @@ export default function Marketplace() {
           {/* Search */}
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input className="pr-10 h-10" placeholder="ابحث عن خدمة قانونية..."
+            <Input className="pe-10 h-10" placeholder="ابحث عن خدمة قانونية..."
               value={search} onChange={e => setSearch(e.target.value)} />
           </div>
 

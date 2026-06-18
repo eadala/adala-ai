@@ -277,7 +277,7 @@ export default function Attendance() {
             <CardTitle className="text-sm flex items-center gap-2">
               <Navigation className="h-4 w-4 text-primary" />
               تسجيل الحضور بالموقع الجغرافي
-              <Badge variant="outline" className="text-[9px] border-primary/30 text-primary mr-1">GPS</Badge>
+              <Badge variant="outline" className="text-[9px] border-primary/30 text-primary me-1">GPS</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -328,7 +328,7 @@ export default function Attendance() {
         <Input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="w-[160px]" />
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث بالاسم..." className="pr-9" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث بالاسم..." className="pe-9" />
         </div>
       </div>
 

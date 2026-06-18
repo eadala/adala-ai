@@ -201,7 +201,7 @@ export default function Messages() {
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute right-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)} className="h-7 text-xs pr-8" />
+              <Input placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)} className="h-7 text-xs pe-8" />
             </div>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => refetch()}>
               <RefreshCw className="h-3.5 w-3.5" />

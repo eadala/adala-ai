@@ -139,7 +139,7 @@ function IntegrationCard({ itg, onRequest }: { itg: any; onRequest: (itg: any) =
             <div className="flex-1 flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-500/8 border border-emerald-500/20 rounded-lg px-2.5 py-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               متصل ويعمل
-              {itg.activated_at && <span className="text-muted-foreground mr-1">· منذ {new Date(itg.activated_at).toLocaleDateString("ar-SA")}</span>}
+              {itg.activated_at && <span className="text-muted-foreground me-1">· منذ {new Date(itg.activated_at).toLocaleDateString("ar-SA")}</span>}
             </div>
             <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] gap-1" onClick={() => onRequest({ ...itg, request_type: "modify" })}>
               <MessageCircle className="h-3 w-3" /> دعم
@@ -257,7 +257,7 @@ export default function IntegrationsPage() {
             </div>
           )}
           <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-3.5 w-3.5 ml-1.5" /> تحديث
+            <RefreshCw className="h-3.5 w-3.5 ms-1.5" /> تحديث
           </Button>
         </div>
       </div>
@@ -281,7 +281,7 @@ export default function IntegrationsPage() {
           <Input
             value={search} onChange={e => setSearch(e.target.value)}
             placeholder="ابحث عن تكامل..."
-            className="pr-9 text-sm"
+            className="pe-9 text-sm"
           />
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">

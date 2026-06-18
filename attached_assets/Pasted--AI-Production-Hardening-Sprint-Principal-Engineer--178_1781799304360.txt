@@ -1,0 +1,249 @@
+عدالة AI — أمر تطوير احترافي (Production Hardening Sprint)
+
+أنت مهندس برمجيات Principal Engineer وخبير أمن تطبيقات SaaS متعددة المستأجرين (Multi-Tenant Legal SaaS).
+
+مهمتك تنفيذ مراجعة وإصلاح شاملة لمنصة عدالة AI مع الالتزام الكامل بعدم كسر أي وظيفة حالية وعدم تغيير تجربة المستخدم أو البيانات الموجودة.
+
+الأولوية الأولى — Security Critical
+
+1. Prompt Injection Protection
+
+راجع جميع نقاط استدعاء الذكاء الاصطناعي داخل النظام.
+
+يشمل:
+
+* AI Chat
+* AI Legal Assistant
+* AI Case Analysis
+* AI Contracts
+* AI Documents
+* AI Search
+* AI Summaries
+* AI Suggestions
+
+المطلوب:
+
+* إنشاء طبقة مركزية sanitizePrompt()
+* إزالة أي محتوى قد يحاول:
+    * Override System Prompt
+    * Jailbreak
+    * Prompt Injection
+    * Context Escaping
+    * Hidden Instructions
+
+إضافة System Prompt ثابت لا يمكن للمستخدم تعديله.
+
+يجب أن يمنع:
+
+* Ignore Previous Instructions
+* System:
+* Assistant:
+* Developer Mode
+* Reveal Prompt
+* Export Memory
+* Cross Office Access
+
+ويتم تسجيل أي محاولة اختراق داخل Audit Logs.
+
+⸻
+
+2. Backup Jobs Isolation
+
+راجع جدول:
+
+backup_jobs
+
+تحقق من:
+
+* وجود office_id
+* وجود Index
+* وجود Foreign Key
+* وجود RLS
+
+في حال عدم وجودها:
+
+إضافتها مع Migration آمنة.
+
+يجب أن يتمكن المكتب من رؤية نسخه الاحتياطية فقط.
+
+يمنع الوصول لأي سجل خارج office_id الحالي.
+
+⸻
+
+3. Wallets Isolation
+
+راجع:
+
+wallets
+
+تحقق من:
+
+* office_id
+* Index
+* RLS
+* Policies
+
+نفذ Data Backfill للسجلات القديمة.
+
+امنع أي استعلام يعيد محافظ لمكتب آخر.
+
+نفذ اختبارات اختراق للتأكد من العزل الكامل.
+
+⸻
+
+الأولوية الثانية — Stability
+
+4. Global Error Boundary
+
+إنشاء Error Boundary شامل يغطي:
+
+* Dashboard
+* Cases
+* Clients
+* Contracts
+* Invoices
+* HR
+* Accounting
+* AI Modules
+* Reports
+
+عند حدوث خطأ:
+
+* لا تظهر شاشة بيضاء
+* عرض صفحة خطأ احترافية
+* زر إعادة المحاولة
+* زر العودة للرئيسية
+* إرسال الخطأ إلى Monitoring
+
+⸻
+
+5. RTL Compliance Audit
+
+فحص كامل للواجهة.
+
+استبدال جميع:
+
+ml-*
+mr-*
+pl-*
+pr-*
+left-*
+right-*
+
+بـ:
+
+ms-*
+me-*
+ps-*
+pe-*
+start
+end
+
+لضمان دعم العربية والإنجليزية 100%.
+
+⸻
+
+6. Mobile Responsive Audit
+
+فحص شامل لجميع الصفحات.
+
+إزالة:
+
+min-w-[420px]
+min-w-[500px]
+fixed widths
+
+واستبدالها بـ:
+
+w-full
+max-w-full
+overflow-auto
+
+اختبار على:
+
+* iPhone SE
+* iPhone 13 Mini
+* iPhone 15 Pro
+* Galaxy S22
+* Galaxy A54
+* iPad
+
+⸻
+
+الأولوية الثالثة — Performance
+
+7. Log Rotation
+
+مراجعة الجداول:
+
+* system_metrics_log
+* audit_logs
+* ai_logs
+* notifications_log
+
+إنشاء Scheduled Job يومي.
+
+يحذف السجلات الأقدم من 30 يوماً.
+
+مع الاحتفاظ بالإحصائيات التراكمية.
+
+⸻
+
+مراجعة العزل النهائي
+
+قم بفحص جميع الجداول التالية:
+
+cases
+clients
+contracts
+documents
+invoices
+revenues
+expenses
+employees
+attendance
+payroll
+leaves
+notifications
+wallets
+backup_jobs
+ai_conversations
+ai_memory
+audit_logs
+reports
+
+ويجب التأكد من:
+
+✓ office_id موجود
+
+✓ Index على office_id
+
+✓ RLS Enabled
+
+✓ Policy فعالة
+
+✓ عدم وجود سجلات orphan
+
+✓ عدم وجود Data Leakage
+
+⸻
+
+المطلوب النهائي
+
+بعد الانتهاء أعطني تقريراً يحتوي:
+
+1. عدد المشاكل المكتشفة.
+2. عدد المشاكل التي تم إصلاحها.
+3. أي مخاطر متبقية.
+4. نسبة الجاهزية للإنتاج.
+5. قائمة الملفات المعدلة.
+6. قائمة الـ Migrations المنفذة.
+7. نتائج اختبارات العزل بين المكاتب.
+8. نتائج اختبارات الأمان.
+9. نتائج اختبارات الأداء.
+10. قرار نهائي:
+
+* Ready For Production
+* Not Ready For Production
+
+ممنوع إنهاء المهمة قبل التأكد من أن جميع اختبارات Multi-Tenant Isolation نجحت بنسبة 100%.

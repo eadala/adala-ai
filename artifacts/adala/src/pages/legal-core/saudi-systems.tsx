@@ -374,7 +374,7 @@ export default function SaudiSystems() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="ابحث في الأنظمة... (ناجز، مدد، زكاة، تأمين...)"
-          className="pr-10 h-11 text-sm bg-card border-border/60"
+          className="pe-10 h-11 text-sm bg-card border-border/60"
         />
       </div>
 

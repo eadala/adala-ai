@@ -193,7 +193,7 @@ export default function FinancialEnginePage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-muted-foreground border-b border-border/50">
-                      <th className="text-right pb-2 pr-1">المكتب</th>
+                      <th className="text-right pb-2 pe-1">المكتب</th>
                       <th className="text-right pb-2">الرصيد</th>
                       <th className="text-right pb-2">رسوم المنصة</th>
                       <th className="text-right pb-2">القيود</th>
@@ -203,7 +203,7 @@ export default function FinancialEnginePage() {
                   <tbody>
                     {(officesQ.data?.offices ?? []).map((o: any) => (
                       <tr key={o.office_id} className="border-b border-gray-50 hover:bg-muted/30">
-                        <td className="py-2 pr-1 font-medium text-foreground">{o.office_id}</td>
+                        <td className="py-2 pe-1 font-medium text-foreground">{o.office_id}</td>
                         <td className="py-2 text-emerald-700 font-semibold">{SAR(o.net_balance)}</td>
                         <td className="py-2 text-violet-700">{SAR(o.platform_earned)}</td>
                         <td className="py-2 text-muted-foreground">{o.entry_count}</td>
@@ -335,7 +335,7 @@ export default function FinancialEnginePage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-muted-foreground border-b border-border/50">
-                      <th className="text-right pb-2 pr-1">المكتب</th>
+                      <th className="text-right pb-2 pe-1">المكتب</th>
                       <th className="text-right pb-2">المعاملات</th>
                       <th className="text-right pb-2">الإجمالي</th>
                       <th className="text-right pb-2">الصافي</th>
@@ -345,7 +345,7 @@ export default function FinancialEnginePage() {
                   <tbody>
                     {reconQ.data.byOffice.map((o: any) => (
                       <tr key={o.office_id} className="border-b border-gray-50">
-                        <td className="py-2 pr-1 font-medium">{o.office_id}</td>
+                        <td className="py-2 pe-1 font-medium">{o.office_id}</td>
                         <td className="py-2 text-muted-foreground">{o.tx_count}</td>
                         <td className="py-2 text-foreground font-semibold">{SAR(o.gross_total)}</td>
                         <td className="py-2 text-emerald-700 font-semibold">{SAR(o.net_total)}</td>

@@ -293,7 +293,7 @@ function DatabaseSection({ toast }: any) {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold flex items-center gap-1.5"><Database className="h-4 w-4 text-violet-400" />الجداول</h3>
-          <Button size="sm" variant="outline" onClick={() => setShowForm(v => !v)}><Plus className="h-3.5 w-3.5 ml-1" />جديد</Button>
+          <Button size="sm" variant="outline" onClick={() => setShowForm(v => !v)}><Plus className="h-3.5 w-3.5 ms-1" />جديد</Button>
         </div>
 
         {showForm && (
@@ -347,7 +347,7 @@ function DatabaseSection({ toast }: any) {
                 <h3 className="text-sm font-semibold">{selectedTable.display_name} — الحقول</h3>
                 <p className="text-[10px] text-muted-foreground font-mono" dir="ltr">{selectedTable.table_name}</p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setShowFieldForm(v => !v)}><Plus className="h-3.5 w-3.5 ml-1" />حقل</Button>
+              <Button size="sm" variant="outline" onClick={() => setShowFieldForm(v => !v)}><Plus className="h-3.5 w-3.5 ms-1" />حقل</Button>
             </div>
 
             {showFieldForm && (
@@ -473,7 +473,7 @@ function FormsSection({ toast }: any) {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold flex items-center gap-1.5"><FileCode2 className="h-4 w-4 text-blue-400" />النماذج</h3>
-          <Button size="sm" variant="outline" onClick={() => setShowForm(v => !v)}><Plus className="h-3.5 w-3.5 ml-1" />جديد</Button>
+          <Button size="sm" variant="outline" onClick={() => setShowForm(v => !v)}><Plus className="h-3.5 w-3.5 ms-1" />جديد</Button>
         </div>
 
         {showForm && (
@@ -526,8 +526,8 @@ function FormsSection({ toast }: any) {
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">{selectedForm.name} — الحقول</h3>
               <div className="flex gap-1.5">
-                <Button size="sm" variant="outline" onClick={addFormField}><Plus className="h-3.5 w-3.5 ml-1" />حقل</Button>
-                <Button size="sm" onClick={saveFields}><CheckCircle className="h-3.5 w-3.5 ml-1" />حفظ</Button>
+                <Button size="sm" variant="outline" onClick={addFormField}><Plus className="h-3.5 w-3.5 ms-1" />حقل</Button>
+                <Button size="sm" onClick={saveFields}><CheckCircle className="h-3.5 w-3.5 ms-1" />حفظ</Button>
               </div>
             </div>
 
@@ -614,7 +614,7 @@ function WorkflowSection({ toast }: any) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-1.5"><GitBranch className="h-4 w-4 text-emerald-400" />سير العمل الآلي ({wfs.length})</h3>
-        <Button size="sm" onClick={() => setShowForm(v => !v)}><Plus className="h-3.5 w-3.5 ml-1" />جديد</Button>
+        <Button size="sm" onClick={() => setShowForm(v => !v)}><Plus className="h-3.5 w-3.5 ms-1" />جديد</Button>
       </div>
 
       {/* Info banner */}
@@ -792,9 +792,9 @@ function PluginsSection({ toast }: any) {
                     className={`w-full text-xs ${p.is_enabled ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
                     onClick={() => toggle(p.id)}>
                     {p.is_enabled ? (
-                      <><CircleCheck className="h-3.5 w-3.5 ml-1.5" />مفعّل</>
+                      <><CircleCheck className="h-3.5 w-3.5 ms-1.5" />مفعّل</>
                     ) : (
-                      <><Plus className="h-3.5 w-3.5 ml-1.5" />تفعيل</>
+                      <><Plus className="h-3.5 w-3.5 ms-1.5" />تفعيل</>
                     )}
                   </Button>
                 </CardContent>
@@ -853,7 +853,7 @@ function ApiSection({ toast }: any) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-1.5"><Key className="h-4 w-4 text-orange-400" />مفاتيح API ({keys.length})</h3>
-        <Button size="sm" onClick={() => setShowForm(v => !v)}><Plus className="h-3.5 w-3.5 ml-1" />مفتاح جديد</Button>
+        <Button size="sm" onClick={() => setShowForm(v => !v)}><Plus className="h-3.5 w-3.5 ms-1" />مفتاح جديد</Button>
       </div>
 
       {/* New key alert */}
@@ -1006,7 +1006,7 @@ function AiSection({ toast }: any) {
             placeholder="مثال: أضف قسم المصاريف اليومية مع تقرير شهري"
             className="text-sm min-h-[100px] resize-none" rows={4} />
           <Button className="w-full" onClick={send} disabled={sending || !prompt.trim()}>
-            {sending ? <Loader2 className="h-4 w-4 animate-spin ml-1.5" /> : <Send className="h-4 w-4 ml-1.5" />}
+            {sending ? <Loader2 className="h-4 w-4 animate-spin ms-1.5" /> : <Send className="h-4 w-4 ms-1.5" />}
             إرسال للذكاء الاصطناعي
           </Button>
         </div>

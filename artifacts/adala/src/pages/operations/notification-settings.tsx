@@ -305,7 +305,7 @@ export default function NotificationSettingsPage() {
                       </span>
                     </div>
                     {/* Group column headers */}
-                    <div className="hidden sm:flex items-center gap-8 pl-2">
+                    <div className="hidden sm:flex items-center gap-8 ps-2">
                       {CHANNELS.map(ch => (
                         <ChannelHead key={ch.key} icon={ch.icon} label={ch.label} color={ch.color} />
                       ))}
@@ -319,7 +319,7 @@ export default function NotificationSettingsPage() {
                       return (
                         <div key={ev.type}
                           className="flex items-center justify-between px-5 py-4 hover:bg-muted/30 transition-colors">
-                          <div className="flex-1 min-w-0 ml-4">
+                          <div className="flex-1 min-w-0 ms-4">
                             <p className="text-sm font-semibold text-foreground">{ev.label}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">{ev.desc}</p>
                           </div>
@@ -349,7 +349,7 @@ export default function NotificationSettingsPage() {
             style={{ background: "#0B1F3B", border: "1px solid rgba(255,255,255,0.08)" }}>
             <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />
             <span className="text-sm text-white font-medium">لديك تغييرات غير محفوظة</span>
-            <Button size="sm" className="text-xs gap-1.5 mr-2"
+            <Button size="sm" className="text-xs gap-1.5 me-2"
               style={{ background: "#2563EB" }}
               disabled={saveMut.isPending}
               onClick={() => saveMut.mutate()}>

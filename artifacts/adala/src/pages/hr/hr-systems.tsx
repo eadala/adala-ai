@@ -123,7 +123,7 @@ function PayslipModal({ payroll, onClose }: { payroll: any; onClose: () => void 
           </div>
 
           {/* Employee Info */}
-          <div className="section-title text-xs font-bold text-primary mb-2 border-r-2 border-primary pr-2">بيانات الموظف</div>
+          <div className="section-title text-xs font-bold text-primary mb-2 border-r-2 border-primary pe-2">بيانات الموظف</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
             {[
               { label: "الاسم الكامل",  value: payroll?.full_name ?? payroll?.employeeName },
@@ -141,7 +141,7 @@ function PayslipModal({ payroll, onClose }: { payroll: any; onClose: () => void 
           </div>
 
           {/* Salary breakdown */}
-          <div className="section-title text-xs font-bold text-primary mb-2 border-r-2 border-primary pr-2">تفاصيل الراتب</div>
+          <div className="section-title text-xs font-bold text-primary mb-2 border-r-2 border-primary pe-2">تفاصيل الراتب</div>
           <div className="rounded-xl border overflow-hidden overflow-x-auto mb-4">
             <table className="w-full text-xs min-w-[280px]">
               <thead className="bg-muted/40">
@@ -556,9 +556,9 @@ export default function HRSystems() {
                       </div>
                       <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{ann.content}</p>
                       <p className="text-[10px] text-muted-foreground mt-2">
-                        {ann.author_name && <span className="ml-3">بواسطة: {ann.author_name}</span>}
+                        {ann.author_name && <span className="ms-3">بواسطة: {ann.author_name}</span>}
                         {fmtDate(ann.created_at)}
-                        {ann.expires_at && <span className="mr-3"> • ينتهي: {fmtDate(ann.expires_at)}</span>}
+                        {ann.expires_at && <span className="me-3"> • ينتهي: {fmtDate(ann.expires_at)}</span>}
                       </p>
                     </div>
                   </div>
@@ -582,7 +582,7 @@ export default function HRSystems() {
           ) : (
             <Card className="border-border/50">
               <CardContent className="p-0 overflow-x-auto">
-                <table className="w-full text-sm min-w-[420px]">
+                <table className="w-full text-sm w-full">
                   <thead className="bg-muted/30 border-b border-border/50">
                     <tr>
                       <th className="text-right px-4 py-2.5 text-xs font-semibold">الموظف</th>
@@ -625,12 +625,12 @@ export default function HRSystems() {
                               <DropdownMenuContent align="end">
                                 {req.status === "pending" && (
                                   <DropdownMenuItem onClick={() => setRespondTarget(req)}>
-                                    <CheckCircle2 className="h-4 w-4 ml-2" />الرد على الطلب
+                                    <CheckCircle2 className="h-4 w-4 ms-2" />الرد على الطلب
                                   </DropdownMenuItem>
                                 )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => delReq.mutate(req.id)} className="text-destructive focus:text-destructive">
-                                  <Trash2 className="h-4 w-4 ml-2" />حذف
+                                  <Trash2 className="h-4 w-4 ms-2" />حذف
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -719,7 +719,7 @@ export default function HRSystems() {
           ) : (
             <Card className="border-border/50">
               <CardContent className="p-0 overflow-x-auto">
-                <table className="w-full text-sm min-w-[420px]">
+                <table className="w-full text-sm w-full">
                   <thead className="bg-muted/30 border-b border-border/50">
                     <tr>
                       <th className="text-right px-4 py-2.5 text-xs font-semibold">الموظف</th>
@@ -739,7 +739,7 @@ export default function HRSystems() {
                         <td className="px-4 py-2.5 text-xs text-muted-foreground">{p.month} {p.year}</td>
                         <td className="px-4 py-2.5">
                           <span className="font-bold text-primary">{parseFloat(String(p.netSalary || "0")).toLocaleString("ar-SA", { maximumFractionDigits: 0 })}</span>
-                          <span className="text-[10px] text-muted-foreground mr-1">ر.س</span>
+                          <span className="text-[10px] text-muted-foreground me-1">ر.س</span>
                         </td>
                         <td className="px-4 py-2.5">
                           {p.status === "paid"

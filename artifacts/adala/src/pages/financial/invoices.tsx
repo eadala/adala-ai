@@ -444,8 +444,8 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
           <Button className="w-full bg-primary hover:bg-primary/90 text-white"
             onClick={() => create.mutate()} disabled={!title || items.every(i => !i.description.trim()) || create.isPending}>
             {create.isPending
-              ? <Loader2 className="h-4 w-4 animate-spin ml-2" />
-              : <Receipt className="h-4 w-4 ml-2" />}
+              ? <Loader2 className="h-4 w-4 animate-spin ms-2" />
+              : <Receipt className="h-4 w-4 ms-2" />}
             إنشاء الفاتورة
           </Button>
         </div>)}
@@ -1484,7 +1484,7 @@ export default function Invoices() {
     {
       accessorKey: "title",
       header: ({ column }) => (
-        <Button variant="ghost" size="sm" className="gap-1 -mr-3 text-xs h-8"
+        <Button variant="ghost" size="sm" className="gap-1 -me-3 text-xs h-8"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           العنوان
           {column.getIsSorted() === "asc"
@@ -1501,7 +1501,7 @@ export default function Invoices() {
     {
       accessorKey: "total",
       header: ({ column }) => (
-        <Button variant="ghost" size="sm" className="gap-1 -mr-3 text-xs h-8"
+        <Button variant="ghost" size="sm" className="gap-1 -me-3 text-xs h-8"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           المبلغ
           {column.getIsSorted() === "asc"
@@ -1570,28 +1570,28 @@ export default function Invoices() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuItem onClick={e => { e.stopPropagation(); setSelectedInvoice(inv); setSheetOpen(true); }}>
-                <Eye className="h-4 w-4 ml-2" />عرض التفاصيل
+                <Eye className="h-4 w-4 ms-2" />عرض التفاصيل
               </DropdownMenuItem>
               {!inv.stripePaymentLinkUrl && inv.status !== "paid" && inv.status !== "cancelled" && (
                 <DropdownMenuItem onClick={e => { e.stopPropagation(); generateLink(inv); }}>
-                  <CreditCard className="h-4 w-4 ml-2" />إنشاء رابط دفع
+                  <CreditCard className="h-4 w-4 ms-2" />إنشاء رابط دفع
                 </DropdownMenuItem>
               )}
               {inv.stripePaymentLinkUrl && (
                 <DropdownMenuItem onClick={e => { e.stopPropagation(); copyToClipboard(inv.stripePaymentLinkUrl!); }}>
-                  <Copy className="h-4 w-4 ml-2" />نسخ رابط الدفع
+                  <Copy className="h-4 w-4 ms-2" />نسخ رابط الدفع
                 </DropdownMenuItem>
               )}
               {inv.status !== "paid" && (
                 <DropdownMenuItem onClick={e => { e.stopPropagation(); markPaidDirect.mutate(inv.id); }}>
-                  <CheckCircle2 className="h-4 w-4 ml-2 text-green-500" />تسجيل كمدفوعة
+                  <CheckCircle2 className="h-4 w-4 ms-2 text-green-500" />تسجيل كمدفوعة
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-red-400 focus:text-red-400"
                 onClick={e => { e.stopPropagation(); if (window.confirm("هل تريد حذف الفاتورة نهائياً؟ لا يمكن التراجع عن هذا الإجراء.")) deleteInv.mutate(inv.id); }}>
-                <Trash2 className="h-4 w-4 ml-2" />حذف
+                <Trash2 className="h-4 w-4 ms-2" />حذف
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1693,7 +1693,7 @@ export default function Invoices() {
             placeholder="بحث برقم الفاتورة أو العنوان..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pr-9"
+            className="pe-9"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>

@@ -60,8 +60,8 @@ function EmployeeCard({ emp, onEdit, onDelete }: any) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => onEdit(emp)}><Edit3 className="h-4 w-4 ml-2" /> تعديل</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDelete(emp.id)} className="text-red-400"><Trash2 className="h-4 w-4 ml-2" /> حذف</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onEdit(emp)}><Edit3 className="h-4 w-4 ms-2" /> تعديل</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDelete(emp.id)} className="text-red-400"><Trash2 className="h-4 w-4 ms-2" /> حذف</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -222,7 +222,7 @@ export default function Employees() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث بالاسم أو المسمى أو الرقم..." className="pr-9" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث بالاسم أو المسمى أو الرقم..." className="pe-9" />
         </div>
         <Select value={deptFilter} onValueChange={setDeptFilter}>
           <SelectTrigger className="w-[140px]"><SelectValue placeholder="القسم" /></SelectTrigger>

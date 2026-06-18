@@ -189,7 +189,7 @@ export default function Warnings() {
           <div className="flex gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={wSearch} onChange={e => setWSearch(e.target.value)} placeholder="بحث بالاسم أو السبب..." className="pr-9" />
+              <Input value={wSearch} onChange={e => setWSearch(e.target.value)} placeholder="بحث بالاسم أو السبب..." className="pe-9" />
             </div>
             <Select value={wFilter} onValueChange={setWFilter}>
               <SelectTrigger className="w-[150px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
@@ -249,22 +249,22 @@ export default function Warnings() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setShowWarnDetail(w)}>
-                              <Eye className="h-3.5 w-3.5 ml-2" /> التفاصيل والإجراء
+                              <Eye className="h-3.5 w-3.5 ms-2" /> التفاصيل والإجراء
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {w.status === "active" && (
                               <DropdownMenuItem onClick={() => updateWarning.mutate({ id: w.id, status: "resolved" })}>
-                                <CheckCircle2 className="h-3.5 w-3.5 ml-2 text-emerald-400" /> تسجيل كمحسوم
+                                <CheckCircle2 className="h-3.5 w-3.5 ms-2 text-emerald-400" /> تسجيل كمحسوم
                               </DropdownMenuItem>
                             )}
                             {w.status === "active" && (
                               <DropdownMenuItem onClick={() => updateWarning.mutate({ id: w.id, status: "appealed" })}>
-                                <Scale className="h-3.5 w-3.5 ml-2 text-blue-400" /> تسجيل طعن
+                                <Scale className="h-3.5 w-3.5 ms-2 text-blue-400" /> تسجيل طعن
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-400" onClick={() => { if (window.confirm("هل تريد حذف هذا الإنذار نهائياً؟")) deleteWarning.mutate(w.id); }}>
-                              <Trash2 className="h-3.5 w-3.5 ml-2" /> حذف
+                              <Trash2 className="h-3.5 w-3.5 ms-2" /> حذف
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -282,7 +282,7 @@ export default function Warnings() {
           <div className="flex gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={iSearch} onChange={e => setISearch(e.target.value)} placeholder="بحث بالاسم أو الموضوع..." className="pr-9" />
+              <Input value={iSearch} onChange={e => setISearch(e.target.value)} placeholder="بحث بالاسم أو الموضوع..." className="pe-9" />
             </div>
             <Select value={iFilter} onValueChange={setIFilter}>
               <SelectTrigger className="w-[150px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
@@ -344,17 +344,17 @@ export default function Warnings() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setShowInvDetail(inv)}>
-                              <Eye className="h-3.5 w-3.5 ml-2" /> التفاصيل والإغلاق
+                              <Eye className="h-3.5 w-3.5 ms-2" /> التفاصيل والإغلاق
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {inv.status === "open" && (
                               <DropdownMenuItem onClick={() => updateInvestigation.mutate({ id: inv.id, status: "in_progress" })}>
-                                <Clock className="h-3.5 w-3.5 ml-2 text-blue-400" /> بدء التحقيق
+                                <Clock className="h-3.5 w-3.5 ms-2 text-blue-400" /> بدء التحقيق
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-400" onClick={() => { if (window.confirm("هل تريد حذف هذا التحقيق نهائياً؟")) deleteInvestigation.mutate(inv.id); }}>
-                              <Trash2 className="h-3.5 w-3.5 ml-2" /> حذف
+                              <Trash2 className="h-3.5 w-3.5 ms-2" /> حذف
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -452,11 +452,11 @@ export default function Warnings() {
               <div className="flex gap-2 pt-1">
                 <Button size="sm" variant="outline" className="flex-1 text-emerald-400 border-emerald-500/30"
                   onClick={() => { updateWarning.mutate({ id: showWarnDetail.id, status: "resolved", appealNotes: (document.getElementById("appeal-notes") as HTMLTextAreaElement)?.value }); setShowWarnDetail(null); }}>
-                  <CheckCircle2 className="h-3.5 w-3.5 ml-1" /> محسوم
+                  <CheckCircle2 className="h-3.5 w-3.5 ms-1" /> محسوم
                 </Button>
                 <Button size="sm" variant="outline" className="flex-1 text-blue-400 border-blue-500/30"
                   onClick={() => { updateWarning.mutate({ id: showWarnDetail.id, status: "appealed", appealNotes: (document.getElementById("appeal-notes") as HTMLTextAreaElement)?.value }); setShowWarnDetail(null); }}>
-                  <Scale className="h-3.5 w-3.5 ml-1" /> مطعون به
+                  <Scale className="h-3.5 w-3.5 ms-1" /> مطعون به
                 </Button>
               </div>
             </div>

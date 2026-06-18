@@ -83,7 +83,7 @@ export default function LegalResearch() {
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleSearch()}
           placeholder="ابحث في الأنظمة القانونية... مثال: مدة التقادم في العقود التجارية"
-          className="pr-12 pl-32 h-12 text-base rounded-2xl border-primary/20 focus-visible:ring-primary/30"
+          className="pe-12 ps-32 h-12 text-base rounded-2xl border-primary/20 focus-visible:ring-primary/30"
         />
         <Button
           onClick={() => handleSearch()}

@@ -204,7 +204,7 @@ export default function PreventionPage() {
                     {c.state !== "CLOSED" && (
                       <button onClick={() => resetMut.mutate(c.name)} disabled={resetMut.isPending}
                         className="px-2 py-1 rounded-lg text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition">
-                        <CheckCircle2 className="h-3 w-3 inline ml-1" />إعادة ضبط
+                        <CheckCircle2 className="h-3 w-3 inline ms-1" />إعادة ضبط
                       </button>
                     )}
                   </div>

@@ -73,7 +73,7 @@ function CaseCard({ c, onClick, onDelete }: any) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuItem onClick={e => { e.stopPropagation(); onDelete(c.id); }} className="text-red-400">
-                  <Trash2 className="h-4 w-4 ml-2" /> حذف
+                  <Trash2 className="h-4 w-4 ms-2" /> حذف
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

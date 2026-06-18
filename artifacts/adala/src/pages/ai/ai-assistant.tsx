@@ -178,7 +178,7 @@ export default function AIAssistant() {
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 me-1.5 animate-pulse" />
               متصل
             </Badge>
             <Button variant="outline" size="sm" className="gap-2 h-8 text-xs" onClick={() => { setShowHistory(!showHistory); if (!showHistory) refetchHistory(); }}>
@@ -299,7 +299,7 @@ export default function AIAssistant() {
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "0ms" }} />
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "150ms" }} />
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "300ms" }} />
-                        <span className="text-xs text-muted-foreground mr-1">أبحث في بيانات المكتب...</span>
+                        <span className="text-xs text-muted-foreground me-1">أبحث في بيانات المكتب...</span>
                       </div>
                     </div>
                   </div>

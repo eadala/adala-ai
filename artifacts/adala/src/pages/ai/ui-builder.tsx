@@ -179,7 +179,7 @@ function FormBlock({ data }: { data: any }) {
             <div key={i} className={cn("space-y-1.5", field.type === "textarea" ? "sm:col-span-2" : "")}>
               <label className="text-sm font-medium text-foreground">
                 {field.label}
-                {field.required && <span className="text-red-500 mr-1">*</span>}
+                {field.required && <span className="text-red-500 me-1">*</span>}
               </label>
               {field.type === "textarea" ? (
                 <div className="h-20 rounded-md border border-border bg-muted/30" />

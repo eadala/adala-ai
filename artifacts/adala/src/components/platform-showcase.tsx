@@ -163,7 +163,7 @@ function ScreenDashboard() {
                 ["قضية عمالية #079", "قيد التنفيذ","#F59E0B"],
               ].map(([n, s, c]) => (
                 <div key={n as string} className="flex items-center justify-between">
-                  <span className="text-[9px] truncate ml-1" style={{ color: BODY }}>{(n as string).split(" ").slice(0,2).join(" ")}</span>
+                  <span className="text-[9px] truncate ms-1" style={{ color: BODY }}>{(n as string).split(" ").slice(0,2).join(" ")}</span>
                   <span className="text-[8px] px-1.5 py-0.5 rounded-full shrink-0"
                     style={{ background: `${c}18`, color: c as string }}>{s as string}</span>
                 </div>

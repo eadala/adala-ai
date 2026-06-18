@@ -123,8 +123,8 @@ export function CaseAutopilotCard({ caseId }: { caseId: string }) {
             disabled={runAutopilot.isPending}
           >
             {runAutopilot.isPending
-              ? <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> جارٍ التحليل...</>
-              : <><Zap className="h-3.5 w-3.5 mr-1.5" /> تشغيل الطيار الآلي</>}
+              ? <><RefreshCw className="h-3.5 w-3.5 me-1.5 animate-spin" /> جارٍ التحليل...</>
+              : <><Zap className="h-3.5 w-3.5 me-1.5" /> تشغيل الطيار الآلي</>}
           </Button>
         </CardContent>
       </Card>

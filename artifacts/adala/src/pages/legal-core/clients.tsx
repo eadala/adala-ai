@@ -68,8 +68,8 @@ function ClientCard({ client, onEdit, onDelete, tx, dir }: any) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => onEdit(client)}><Edit3 className="h-4 w-4 ml-2" /> {tx("تعديل", "Edit")}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDelete(client.id)} className="text-red-400"><Trash2 className="h-4 w-4 ml-2" /> {tx("حذف", "Delete")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onEdit(client)}><Edit3 className="h-4 w-4 ms-2" /> {tx("تعديل", "Edit")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDelete(client.id)} className="text-red-400"><Trash2 className="h-4 w-4 ms-2" /> {tx("حذف", "Delete")}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -232,7 +232,7 @@ export default function Clients() {
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder={tx("بحث بالاسم أو البريد أو الشركة...", "Search by name, email or company...")} className="pr-10" value={search} onChange={e => setSearch(e.target.value)} />
+          <Input placeholder={tx("بحث بالاسم أو البريد أو الشركة...", "Search by name, email or company...")} className="pe-10" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-36"><SelectValue placeholder={tx("النوع", "Type")} /></SelectTrigger>

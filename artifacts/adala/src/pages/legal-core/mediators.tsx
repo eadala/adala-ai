@@ -199,7 +199,7 @@ export default function MediatorsPage() {
               <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="ابحث عن مهمة..."
-                className="pr-9"
+                className="pe-9"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -268,7 +268,7 @@ export default function MediatorsPage() {
               <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-20" />
               <p>لم تنشر أي مهام بعد</p>
               <Button variant="outline" size="sm" className="mt-3" onClick={() => setShowNewTask(true)}>
-                <Plus className="h-3.5 w-3.5 ml-1" /> نشر أول مهمة
+                <Plus className="h-3.5 w-3.5 ms-1" /> نشر أول مهمة
               </Button>
             </div>
           ) : (myTasks as any[]).map((task: any) => (
@@ -290,7 +290,7 @@ export default function MediatorsPage() {
                     size="sm" variant="outline"
                     onClick={() => { setAppTaskId(task.id); setShowApplications(true); }}
                   >
-                    <Users className="h-3.5 w-3.5 ml-1" />
+                    <Users className="h-3.5 w-3.5 ms-1" />
                     الطلبات
                   </Button>
                   <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => { if (window.confirm("هل تريد حذف هذه المهمة؟")) deleteTask.mutate(task.id); }}>
@@ -413,7 +413,7 @@ export default function MediatorsPage() {
                 <ScrollText className="h-4 w-4 text-primary" />
                 <span className="font-semibold text-sm">اتفاقية الالتزام والسرية</span>
               </div>
-              <div className="text-xs text-muted-foreground leading-relaxed h-28 overflow-y-auto mb-3 pr-1">
+              <div className="text-xs text-muted-foreground leading-relaxed h-28 overflow-y-auto mb-3 pe-1">
                 بصفتك متعاوناً، تُقر بأنك ستلتزم بالحفاظ على سرية بيانات العملاء وعدم الإفصاح عن أي وثائق
                 يتم تداولها عبر منصة <strong>عدالة AI</strong>. يُعدّ خرق هذه الاتفاقية إخلالاً بالالتزامات القانونية
                 وقد يُعرّضك للمسؤولية القانونية الكاملة وفق نظام حماية البيانات الشخصية في المملكة العربية السعودية.

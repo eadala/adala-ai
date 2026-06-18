@@ -364,12 +364,12 @@ function PermissionMatrix({ permissions, onChange, readOnly = false }: {
                   checked={allOn}
                   onCheckedChange={() => toggleModule(modKeys, allOn)}
                   onClick={e => e.stopPropagation()}
-                  className="scale-90 ml-2"
+                  className="scale-90 ms-2"
                 />
               )}
-              {readOnly && allOn && <Check className="h-4 w-4 text-emerald-400 ml-2" />}
+              {readOnly && allOn && <Check className="h-4 w-4 text-emerald-400 ms-2" />}
               {readOnly && someOn && (
-                <div className="h-4 w-4 rounded-sm border-2 border-primary flex items-center justify-center ml-2">
+                <div className="h-4 w-4 rounded-sm border-2 border-primary flex items-center justify-center ms-2">
                   <div className="h-1.5 w-1.5 bg-primary rounded-sm" />
                 </div>
               )}
@@ -434,7 +434,7 @@ function VisibilityScopeGrid({ roles }: { roles: Role[] }) {
                   <p className="font-bold text-sm">{role.displayName}</p>
                   {role.isSystem && (
                     <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
-                      <Lock className="h-2 w-2 ml-0.5" />أساسي
+                      <Lock className="h-2 w-2 ms-0.5" />أساسي
                     </Badge>
                   )}
                 </div>
@@ -814,7 +814,7 @@ export default function Users() {
               placeholder="ابحث باسم المستخدم أو البريد..."
               value={userSearch}
               onChange={e => setUserSearch(e.target.value)}
-              className="pr-9"
+              className="pe-9"
             />
           </div>
           <Card className="border-border/50">
@@ -943,12 +943,12 @@ export default function Users() {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => changeStatus(user.id, user.status === "active" ? "inactive" : "active")}>
                                   {user.status === "active"
-                                    ? <><UserX className="h-4 w-4 ml-2 text-destructive" />تعطيل الحساب</>
-                                    : <><UserCheck className="h-4 w-4 ml-2 text-emerald-500" />تفعيل الحساب</>}
+                                    ? <><UserX className="h-4 w-4 ms-2 text-destructive" />تعطيل الحساب</>
+                                    : <><UserCheck className="h-4 w-4 ms-2 text-emerald-500" />تفعيل الحساب</>}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setActiveTab("roles")}>
-                                  <Eye className="h-4 w-4 ml-2" />عرض صلاحيات الدور
+                                  <Eye className="h-4 w-4 ms-2" />عرض صلاحيات الدور
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

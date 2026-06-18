@@ -133,7 +133,7 @@ export default function EnterpriseFinance() {
         </div>
         <div className="flex gap-2">
           <Badge variant={isBalanced ? "default" : "destructive"} className="text-sm px-3 py-1">
-            {isBalanced ? <CheckCircle2 className="h-4 w-4 ml-1" /> : <XCircle className="h-4 w-4 ml-1" />}
+            {isBalanced ? <CheckCircle2 className="h-4 w-4 ms-1" /> : <XCircle className="h-4 w-4 ms-1" />}
             {isBalanced ? "الميزان متوازن" : "يوجد فارق في الميزان"}
           </Badge>
         </div>
@@ -231,7 +231,7 @@ export default function EnterpriseFinance() {
                             </Badge>
                           </td>
                           <td className="py-2">
-                            <span className="font-mono text-xs text-muted-foreground ml-1">{e.account_code}</span>
+                            <span className="font-mono text-xs text-muted-foreground ms-1">{e.account_code}</span>
                             {e.account_name}
                           </td>
                           <td className="py-2 text-xs text-muted-foreground">{e.reference_type ?? "—"}</td>
@@ -256,7 +256,7 @@ export default function EnterpriseFinance() {
           {reconcile.isLoading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-              <span className="mr-3 text-muted-foreground">جاري تشغيل محرك التسوية…</span>
+              <span className="me-3 text-muted-foreground">جاري تشغيل محرك التسوية…</span>
             </div>
           ) : reconcile.data ? (
             <div className="space-y-4">

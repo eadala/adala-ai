@@ -146,7 +146,7 @@ function ServiceCard({ svc, lang, theme, slug, onOrder, onNegotiate }: {
                 <span className="text-2xl font-black" style={{ color: c }}>
                   {Number(svc.price).toLocaleString("ar-SA")}
                 </span>
-                <span className="text-xs text-slate-400 mr-1">{lang === "ar" ? " ر.س" : " SAR"}</span>
+                <span className="text-xs text-slate-400 me-1">{lang === "ar" ? " ر.س" : " SAR"}</span>
               </div>
             )}
             <a href={`/firms/${slug}/service/${svc.id}`}

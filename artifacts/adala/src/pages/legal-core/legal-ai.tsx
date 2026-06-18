@@ -388,7 +388,7 @@ export default function LegalAIPage() {
                       <div key={field.key} className="space-y-1.5">
                         <Label className="text-xs text-white/60">
                           {field.label}
-                          {field.required && <span className="text-red-400 mr-1">*</span>}
+                          {field.required && <span className="text-red-400 me-1">*</span>}
                         </Label>
                         {field.textarea ? (
                           <Textarea

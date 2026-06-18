@@ -170,7 +170,7 @@ export default function PrivacyPage() {
               </div>
               <div className="text-sm text-slate-600 leading-relaxed whitespace-pre-line space-y-1">
                 {sec.content.split('\n').map((line, j) => (
-                  <p key={j} className={line.startsWith('•') || line.startsWith('**') ? "mr-2" : ""}>
+                  <p key={j} className={line.startsWith('•') || line.startsWith('**') ? "me-2" : ""}>
                     {line.replace(/\*\*(.*?)\*\*/g, '$1')}
                   </p>
                 ))}

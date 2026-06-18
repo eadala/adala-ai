@@ -292,7 +292,7 @@ export default function OfficeServiceDetail() {
                 onClick={handleOrder} disabled={ordering}>
                 {ordering ? <Loader2 className="h-4 w-4 animate-spin" /> : (
                   <>
-                    {!svc.isCustomQuote && <CreditCard className="h-4 w-4 ml-1.5" />}
+                    {!svc.isCustomQuote && <CreditCard className="h-4 w-4 ms-1.5" />}
                     {svc.isCustomQuote
                       ? (lang === "ar" ? "أرسل طلب العرض" : "Send Quote Request")
                       : (lang === "ar" ? "ادفع الآن" : "Pay Now")}

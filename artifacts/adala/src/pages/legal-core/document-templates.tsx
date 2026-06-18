@@ -319,11 +319,11 @@ export default function DocumentTemplates() {
       <Tabs defaultValue="library" dir="rtl">
         <TabsList className="h-9">
           <TabsTrigger value="library" className="text-xs">
-            <BookOpen className="h-3.5 w-3.5 ml-1" />مكتبة القوالب
+            <BookOpen className="h-3.5 w-3.5 ms-1" />مكتبة القوالب
           </TabsTrigger>
           <TabsTrigger value="generated" className="text-xs">
-            <CheckCircle className="h-3.5 w-3.5 ml-1" />وثائقي المنشأة
-            {generatedDocs.length > 0 && <span className="mr-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{generatedDocs.length}</span>}
+            <CheckCircle className="h-3.5 w-3.5 ms-1" />وثائقي المنشأة
+            {generatedDocs.length > 0 && <span className="me-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">{generatedDocs.length}</span>}
           </TabsTrigger>
         </TabsList>
 
@@ -332,7 +332,7 @@ export default function DocumentTemplates() {
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative flex-1 min-w-48">
               <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في القوالب..." className="pr-9 text-sm" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في القوالب..." className="pe-9 text-sm" />
             </div>
             <div className="flex gap-1.5 flex-wrap">
               {[["all","الكل"], ["contracts","عقود"], ["litigation","تقاضي"], ["corporate","شركات"]].map(([v, l]) => (
@@ -503,7 +503,7 @@ export default function DocumentTemplates() {
                 <CheckCircle className="h-4 w-4 text-emerald-400" />
                 {previewDoc?.name}
               </span>
-              <Button size="sm" variant="outline" onClick={printDoc} className="gap-1.5 h-8 text-xs mr-8">
+              <Button size="sm" variant="outline" onClick={printDoc} className="gap-1.5 h-8 text-xs me-8">
                 <Printer className="h-3.5 w-3.5" />طباعة / PDF
               </Button>
             </DialogTitle>
@@ -574,7 +574,7 @@ export default function DocumentTemplates() {
               disabled={!newTemplate.name || !newTemplate.body || addTemplateMutation.isPending}
               className="w-full"
             >
-              {addTemplateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Plus className="h-4 w-4 ml-2" />}
+              {addTemplateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin ms-2" /> : <Plus className="h-4 w-4 ms-2" />}
               حفظ القالب
             </Button>
           </div>

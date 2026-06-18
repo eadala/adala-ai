@@ -335,7 +335,7 @@ function ClientRiskMatrix() {
       ) : (
         <div className="overflow-x-auto">
           {/* Column headers */}
-          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-1.5 border-b border-border/10 bg-muted/10 min-w-[420px]">
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-1.5 border-b border-border/10 bg-muted/10 overflow-x-auto">
             <span className="text-[10px] text-muted-foreground/50">العميل</span>
             <span className="text-[10px] text-muted-foreground/50 w-14 text-center">قضايا</span>
             <span className="text-[10px] text-muted-foreground/50 w-20 text-left rtl:text-right">مستحق</span>
@@ -347,7 +347,7 @@ function ClientRiskMatrix() {
               const rc = RISK_CFG[client.risk as keyof typeof RISK_CFG] ?? RISK_CFG.low;
               return (
                 <Link key={client.id} href="/clients">
-                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center px-4 py-2.5 hover:bg-accent/30 transition-all cursor-pointer min-w-[420px]">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center px-4 py-2.5 hover:bg-accent/30 transition-all cursor-pointer overflow-x-auto">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${rc.dot}`} />
                       <span className="text-xs font-medium truncate">{client.name}</span>
@@ -371,7 +371,7 @@ function ClientRiskMatrix() {
               );
             })}
           </div>
-          <div className="px-4 py-1.5 border-t border-border/10 bg-muted/10 min-w-[420px]">
+          <div className="px-4 py-1.5 border-t border-border/10 bg-muted/10 overflow-x-auto">
             <span className="text-[10px] text-muted-foreground/40">أيام = منذ آخر نشاط · المستحق بالريال</span>
           </div>
         </div>

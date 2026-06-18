@@ -439,31 +439,110 @@ function SignUpPage() {
 }
 
 // ── Root error boundary ────────────────────────────────────────────────────────
-// Catches any render-time throw in the app tree and shows a recoverable message
-// instead of a completely blank white screen.
-interface EBState { error: Error | null }
-class AppErrorBoundary extends Component<{ children: ReactNode }, EBState> {
-  state: EBState = { error: null };
-  static getDerivedStateFromError(error: Error): EBState { return { error }; }
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[Adala] AppErrorBoundary caught:", error, info);
+// Professional recovery UI — no white screens, no data loss
+interface EBState { error: Error | null; errorId: string }
+class AppErrorBoundary extends Component<{ children: ReactNode; label?: string }, EBState> {
+  state: EBState = { error: null, errorId: "" };
+
+  static getDerivedStateFromError(error: Error): EBState {
+    const errorId = `ERR-${Date.now().toString(36).toUpperCase()}`;
+    return { error, errorId };
   }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    const errorId = this.state.errorId;
+    const label = (this.props as any).label ?? "root";
+    console.error(`[Adala][${label}][${errorId}]`, error.message, info.componentStack?.slice(0, 400));
+    // Send to monitoring (non-blocking)
+    try {
+      fetch("/api/monitoring/client-error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          errorId,
+          label,
+          message: error.message,
+          stack: error.stack?.slice(0, 1000),
+          componentStack: info.componentStack?.slice(0, 500),
+          url: window.location.pathname,
+          ts: new Date().toISOString(),
+        }),
+      }).catch(() => {});
+    } catch { /* non-fatal */ }
+  }
+
   render() {
-    if (this.state.error) {
+    const { error, errorId } = this.state;
+    if (error) {
+      const isModule = !!(this.props as any).label;
+      if (isModule) {
+        return (
+          <div dir="rtl" style={{
+            padding: "1.5rem", borderRadius: "0.75rem",
+            background: "hsl(var(--card))", border: "1px solid hsl(var(--destructive)/0.3)",
+            display: "flex", flexDirection: "column", gap: "0.75rem",
+            fontFamily: "Cairo, sans-serif", color: "hsl(var(--foreground))",
+            margin: "1rem",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <span style={{ fontSize: "1.25rem" }}>⚠️</span>
+              <span style={{ fontWeight: 600, color: "hsl(var(--destructive))" }}>خطأ في تحميل هذا القسم</span>
+            </div>
+            <p style={{ fontSize: "0.8rem", color: "hsl(var(--muted-foreground))", margin: 0 }}>
+              تعذّر تحميل هذا الجزء من الصفحة. يمكنك المحاولة مجدداً أو العودة للرئيسية.
+            </p>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <button onClick={() => this.setState({ error: null, errorId: "" })}
+                style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))", border: "none", borderRadius: "0.375rem", padding: "0.375rem 1rem", cursor: "pointer", fontFamily: "inherit", fontSize: "0.85rem" }}>
+                إعادة المحاولة
+              </button>
+              <button onClick={() => window.location.href = "/dashboard"}
+                style={{ background: "transparent", color: "hsl(var(--muted-foreground))", border: "1px solid hsl(var(--border))", borderRadius: "0.375rem", padding: "0.375rem 1rem", cursor: "pointer", fontFamily: "inherit", fontSize: "0.85rem" }}>
+                الرئيسية
+              </button>
+            </div>
+            <span style={{ fontSize: "0.7rem", color: "hsl(var(--muted-foreground)/0.5)", direction: "ltr" }}>{errorId}</span>
+          </div>
+        );
+      }
       return (
-        <div dir="rtl" style={{ padding: "2rem", fontFamily: "Cairo, sans-serif", background: "#0F1B35", minHeight: "100vh", color: "#F8F9FA", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem" }}>
-          <div style={{ fontSize: "2rem" }}>⚠️</div>
-          <h1 style={{ color: "#2563EB", fontSize: "1.25rem" }}>حدث خطأ غير متوقع</h1>
-          <p style={{ color: "#A0ADB8", fontSize: "0.875rem" }}>يرجى تحديث الصفحة. إذا استمرت المشكلة، تواصل مع الدعم.</p>
-          <button
-            onClick={() => window.location.reload()}
-            style={{ background: "#2563EB", color: "#1A2744", border: "none", borderRadius: "0.5rem", padding: "0.5rem 1.5rem", cursor: "pointer", fontFamily: "inherit", fontWeight: "bold" }}
-          >
-            تحديث الصفحة
-          </button>
+        <div dir="rtl" style={{
+          padding: "2rem", fontFamily: "Cairo, sans-serif",
+          background: "hsl(var(--background))", minHeight: "100vh", color: "hsl(var(--foreground))",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1.25rem",
+        }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: "50%",
+            background: "hsl(var(--destructive)/0.1)", border: "1px solid hsl(var(--destructive)/0.3)",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem",
+          }}>⚠️</div>
+          <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <h1 style={{ color: "hsl(var(--primary))", fontSize: "1.25rem", fontWeight: 700, margin: 0 }}>حدث خطأ غير متوقع</h1>
+            <p style={{ color: "hsl(var(--muted-foreground))", fontSize: "0.875rem", margin: 0, maxWidth: 360 }}>
+              يرجى تحديث الصفحة. إذا استمرت المشكلة، تواصل مع الدعم مع رمز الخطأ أدناه.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
+            <button onClick={() => window.location.reload()}
+              style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))", border: "none", borderRadius: "0.5rem", padding: "0.625rem 1.5rem", cursor: "pointer", fontFamily: "inherit", fontWeight: 700, fontSize: "0.9rem" }}>
+              تحديث الصفحة
+            </button>
+            <button onClick={() => { window.location.href = "/dashboard"; }}
+              style={{ background: "transparent", color: "hsl(var(--foreground))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem", padding: "0.625rem 1.5rem", cursor: "pointer", fontFamily: "inherit", fontSize: "0.9rem" }}>
+              العودة للرئيسية
+            </button>
+          </div>
+          <div style={{
+            padding: "0.5rem 1rem", borderRadius: "0.375rem",
+            background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))",
+            fontFamily: "monospace", fontSize: "0.75rem", color: "hsl(var(--muted-foreground))",
+            direction: "ltr",
+          }}>
+            {errorId}
+          </div>
           {import.meta.env.DEV && (
-            <pre style={{ color: "#EF4444", fontSize: "0.75rem", maxWidth: "600px", overflow: "auto", background: "#1A2744", padding: "1rem", borderRadius: "0.5rem" }}>
-              {this.state.error.message}{"\n"}{this.state.error.stack}
+            <pre style={{ color: "hsl(var(--destructive))", fontSize: "0.75rem", maxWidth: "600px", overflow: "auto", background: "hsl(var(--muted))", padding: "1rem", borderRadius: "0.5rem", textAlign: "start" }}>
+              {error.message}{"\n"}{error.stack}
             </pre>
           )}
         </div>

@@ -56,7 +56,7 @@ function renderAIText(text: string) {
     if (line.startsWith("## "))  return <h2 key={i} className="text-base font-black mt-4 mb-1">{line.slice(3)}</h2>;
     if (line.startsWith("# "))   return <h1 key={i} className="text-lg font-black mt-4 mb-1">{line.slice(2)}</h1>;
     if (line.startsWith("- ") || line.startsWith("* "))
-      return <li key={i} className="mr-4 text-sm text-muted-foreground list-disc" dangerouslySetInnerHTML={{ __html: bold }} />;
+      return <li key={i} className="me-4 text-sm text-muted-foreground list-disc" dangerouslySetInnerHTML={{ __html: bold }} />;
     return <p key={i} className="text-sm text-muted-foreground leading-relaxed" dangerouslySetInnerHTML={{ __html: bold }} />;
   });
 }

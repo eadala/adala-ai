@@ -396,20 +396,20 @@ function TreeNode({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => onEdit(node)}>
-              <Edit3 className="h-4 w-4 ml-2" />تعديل
+              <Edit3 className="h-4 w-4 ms-2" />تعديل
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onMove(node)}>
-              <ArrowRightLeft className="h-4 w-4 ml-2" />نقل الوحدة
+              <ArrowRightLeft className="h-4 w-4 ms-2" />نقل الوحدة
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onToggleStatus(node)}>
               {isActive
-                ? <><PowerOff className="h-4 w-4 ml-2 text-orange-400" />إيقاف الوحدة</>
-                : <><Power className="h-4 w-4 ml-2 text-emerald-400" />تفعيل الوحدة</>}
+                ? <><PowerOff className="h-4 w-4 ms-2 text-orange-400" />إيقاف الوحدة</>
+                : <><Power className="h-4 w-4 ms-2 text-emerald-400" />تفعيل الوحدة</>}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onDelete(node.id)} className="text-destructive focus:text-destructive">
-              <Trash2 className="h-4 w-4 ml-2" />حذف
+              <Trash2 className="h-4 w-4 ms-2" />حذف
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -417,7 +417,7 @@ function TreeNode({
 
       {/* Children */}
       {expanded && hasChildren && (
-        <div className="mt-1.5 space-y-1.5 border-r-2 mr-7 pr-1" style={{ borderColor: `${tc.color}30`, marginRight: `${level * 24 + 28}px`, paddingRight: 0 }}>
+        <div className="mt-1.5 space-y-1.5 border-r-2 me-7 pe-1" style={{ borderColor: `${tc.color}30`, marginRight: `${level * 24 + 28}px`, paddingRight: 0 }}>
           {node.children.map(child => (
             <TreeNode
               key={child.id} node={child} level={0}
@@ -452,7 +452,7 @@ function VisibilityScopeTable() {
 
   return (
     <div className="rounded-xl border overflow-hidden overflow-x-auto">
-      <table className="w-full text-sm min-w-[400px]">
+      <table className="w-full text-sm w-full">
         <thead className="bg-muted/40 border-b">
           <tr>
             <th className="text-right px-4 py-2.5 font-semibold text-xs">الدور</th>
@@ -599,7 +599,7 @@ export default function OrgStructure() {
             <div className="flex gap-2">
               <div className="relative">
                 <Search className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input placeholder="ابحث..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 pr-8 text-xs w-48" />
+                <Input placeholder="ابحث..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 pe-8 text-xs w-48" />
               </div>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="h-8 text-xs w-36">
@@ -719,20 +719,20 @@ export default function OrgStructure() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => setDialog({ open: true, unit: u })}>
-                                  <Edit3 className="h-4 w-4 ml-2" />تعديل
+                                  <Edit3 className="h-4 w-4 ms-2" />تعديل
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => setMoveDialog({ open: true, unit: u })}>
-                                  <ArrowRightLeft className="h-4 w-4 ml-2" />نقل
+                                  <ArrowRightLeft className="h-4 w-4 ms-2" />نقل
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleToggle(u)}>
                                   {u.status === "active"
-                                    ? <><PowerOff className="h-4 w-4 ml-2 text-orange-400" />إيقاف</>
-                                    : <><Power className="h-4 w-4 ml-2 text-emerald-400" />تفعيل</>}
+                                    ? <><PowerOff className="h-4 w-4 ms-2 text-orange-400" />إيقاف</>
+                                    : <><Power className="h-4 w-4 ms-2 text-emerald-400" />تفعيل</>}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleDelete(u.id)} className="text-destructive focus:text-destructive">
-                                  <Trash2 className="h-4 w-4 ml-2" />حذف
+                                  <Trash2 className="h-4 w-4 ms-2" />حذف
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

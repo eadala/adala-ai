@@ -384,11 +384,11 @@ export default function Collections() {
                 <div className="relative flex-1">
                   <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input placeholder="بحث بالاسم أو رقم الفاتورة..." value={search}
-                    onChange={e => setSearch(e.target.value)} className="pr-9 bg-muted/30 border-none" />
+                    onChange={e => setSearch(e.target.value)} className="pe-9 bg-muted/30 border-none" />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-full sm:w-44 bg-muted/30 border-none">
-                    <Filter className="h-4 w-4 ml-1" /><SelectValue />
+                    <Filter className="h-4 w-4 ms-1" /><SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">جميع الفواتير</SelectItem>

@@ -43,7 +43,7 @@ function KpiCard({ title, value, sub, icon: Icon, colorClass, trend, link }: {
           </div>
           {trend !== undefined && (
             <Badge variant="outline" className={trend >= 0 ? "border-green-500/30 text-green-400 bg-green-500/5" : "border-red-500/30 text-red-400 bg-red-500/5"}>
-              {trend >= 0 ? <ArrowUpRight className="h-3 w-3 ml-0.5" /> : <ArrowDownRight className="h-3 w-3 ml-0.5" />}
+              {trend >= 0 ? <ArrowUpRight className="h-3 w-3 ms-0.5" /> : <ArrowDownRight className="h-3 w-3 ms-0.5" />}
               {Math.abs(trend).toFixed(1)}%
             </Badge>
           )}

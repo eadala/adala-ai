@@ -182,7 +182,7 @@ export default function PortalLogin() {
               <input
                 type="email" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder="example@email.com"
-                className="w-full bg-[#0d1b2a] border border-white/10 rounded-xl py-2.5 pr-9 pl-3 text-sm text-white focus:outline-none placeholder:text-slate-600"
+                className="w-full bg-[#0d1b2a] border border-white/10 rounded-xl py-2.5 pe-9 ps-3 text-sm text-white focus:outline-none placeholder:text-slate-600"
                 style={{ borderColor: email ? `${primaryColor}40` : undefined }}
               />
             </div>
@@ -210,7 +210,7 @@ export default function PortalLogin() {
                   type={showPw ? "text" : "password"} value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder={tab === "register" ? "6 أحرف على الأقل" : "••••••••"}
-                  className="w-full bg-[#0d1b2a] border border-white/10 rounded-xl py-2.5 pr-9 pl-9 text-sm text-white focus:outline-none placeholder:text-slate-600"
+                  className="w-full bg-[#0d1b2a] border border-white/10 rounded-xl py-2.5 pe-9 ps-9 text-sm text-white focus:outline-none placeholder:text-slate-600"
                   onKeyDown={e => e.key === "Enter" && (tab === "login" ? handleLogin() : handleRegister())}
                 />
                 <button type="button" onClick={() => setShowPw(p => !p)}

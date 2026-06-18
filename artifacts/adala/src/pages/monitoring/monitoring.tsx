@@ -343,7 +343,7 @@ export default function MonitoringPage() {
                   <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                     <span className="font-mono">{ev.event_type}</span>
                     {ev.duration_ms > 0 && <span>{ev.duration_ms}ms</span>}
-                    <span><Clock className="h-3 w-3 inline mr-0.5" />
+                    <span><Clock className="h-3 w-3 inline me-0.5" />
                       {new Date(ev.created_at).toLocaleString("ar-SA")}
                     </span>
                   </div>
@@ -487,7 +487,7 @@ export default function MonitoringPage() {
                       <div key={i} className="px-4 py-3 flex items-center justify-between">
                         <span className="text-sm text-foreground/70">{row.label}</span>
                         <span className={`text-sm font-bold ${row.value > 0 ? "text-orange-600" : "text-emerald-600"}`}>
-                          {row.value > 0 ? <><AlertTriangle className="h-3 w-3 inline ml-1" />{row.value}</> : "✓ لا شيء"}
+                          {row.value > 0 ? <><AlertTriangle className="h-3 w-3 inline ms-1" />{row.value}</> : "✓ لا شيء"}
                         </span>
                       </div>
                     ))}
@@ -530,7 +530,7 @@ export default function MonitoringPage() {
                     <SeverityChip s={al.severity} />
                     <span className="text-sm text-foreground">{al.message}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground shrink-0 mr-4">
+                  <span className="text-xs text-muted-foreground shrink-0 me-4">
                     {new Date(al.created_at).toLocaleString("ar-SA")}
                   </span>
                 </div>
@@ -608,7 +608,7 @@ function MetricRow({ icon, label, value, warn }: {
         {icon} {label}
       </div>
       <span className={`text-xs font-semibold ${warn ? "text-orange-600" : "text-foreground"}`}>
-        {warn && <AlertTriangle className="h-3 w-3 inline ml-1" />}{value}
+        {warn && <AlertTriangle className="h-3 w-3 inline ms-1" />}{value}
       </span>
     </div>
   );

@@ -197,7 +197,7 @@ export default function DemoLoginPage() {
                       : "bg-white/10 text-white/30 cursor-not-allowed"
                   )}
                 >
-                  <Eye className="h-4 w-4 inline ml-2" />
+                  <Eye className="h-4 w-4 inline ms-2" />
                   ادخل الآن واستكشف المنصة
                 </button>
               </>

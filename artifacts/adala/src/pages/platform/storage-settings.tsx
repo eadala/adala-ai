@@ -244,7 +244,7 @@ function FileManagerTab() {
         </select>
         {filter === "deleted" && (
           <Button size="sm" variant="destructive" onClick={() => emptyTrashMut.mutate()} disabled={emptyTrashMut.isPending}>
-            <Trash2 className="w-4 h-4 ml-1" /> إفراغ السلة
+            <Trash2 className="w-4 h-4 ms-1" /> إفراغ السلة
           </Button>
         )}
       </div>
@@ -288,21 +288,21 @@ function FileManagerTab() {
                   <DropdownMenuContent align="end" className="bg-popover border-border text-popover-foreground text-sm">
                     {!f.is_deleted && (
                       <DropdownMenuItem onClick={() => archiveMut.mutate(f.id)}>
-                        <Archive className="w-4 h-4 ml-2" /> {f.is_archived ? "إلغاء الأرشفة" : "أرشفة"}
+                        <Archive className="w-4 h-4 ms-2" /> {f.is_archived ? "إلغاء الأرشفة" : "أرشفة"}
                       </DropdownMenuItem>
                     )}
                     {!f.is_deleted && (
                       <DropdownMenuItem onClick={() => trashMut.mutate(f.id)} className="text-red-400">
-                        <Trash2 className="w-4 h-4 ml-2" /> نقل للمحذوفات
+                        <Trash2 className="w-4 h-4 ms-2" /> نقل للمحذوفات
                       </DropdownMenuItem>
                     )}
                     {f.is_deleted && (
                       <DropdownMenuItem onClick={() => restoreMut.mutate(f.id)}>
-                        <RefreshCw className="w-4 h-4 ml-2" /> استعادة
+                        <RefreshCw className="w-4 h-4 ms-2" /> استعادة
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem onClick={() => { if (confirm("حذف نهائي؟")) deleteMut.mutate(f.id); }} className="text-red-400">
-                      <Trash2 className="w-4 h-4 ml-2" /> حذف نهائي
+                      <Trash2 className="w-4 h-4 ms-2" /> حذف نهائي
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -419,7 +419,7 @@ function AiAnalysisTab() {
       )}
 
       <Button variant="outline" size="sm" onClick={() => refetch()} className="border-border text-muted-foreground hover:text-foreground bg-transparent">
-        <RefreshCw className="w-4 h-4 ml-2" /> إعادة التحليل
+        <RefreshCw className="w-4 h-4 ms-2" /> إعادة التحليل
       </Button>
     </div>
   );
