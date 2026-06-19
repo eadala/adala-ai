@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { CheckoutInvoiceModal } from "@/features/billing/CheckoutInvoiceModal";
+import { CheckoutSuccessOverlay } from "@/features/billing/CheckoutSuccessOverlay";
 import {
   CreditCard, Zap, Shield, Check, Star, Building2, Activity,
   Loader2, ExternalLink, AlertCircle, Download, FileText,
@@ -343,9 +345,34 @@ export default function Billing() {
   const [newKeyName, setNewKeyName] = useState("");
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
+  const [invoicePlan, setInvoicePlan] = useState<any | null>(null);
+  const [successSessionId, setSuccessSessionId] = useState<string | null>(null);
   const [changingPlan, setChangingPlan] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("annual");
   const [timeLeft, setTimeLeft] = useState({ d: 0, h: 0, m: 0, s: 0 });
+
+  /* ── Detect Stripe return URL ───────────────────────── */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout_success") === "1") {
+      const sid = params.get("session_id");
+      if (sid) setSuccessSessionId(sid);
+      /* Clean URL */
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (params.get("checkout_canceled") === "1") {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  const handleCheckoutDone = useCallback(() => {
+    setSuccessSessionId(null);
+    qc.invalidateQueries({ queryKey: ["office-plan"] });
+    qc.invalidateQueries({ queryKey: ["billing-overview"] });
+    qc.invalidateQueries({ queryKey: ["entitlements"] });
+    qc.invalidateQueries({ queryKey: ["plan-notifications"] });
+    refetchOverview();
+  }, [qc, refetchOverview]);
 
   useEffect(() => {
     function tick() {
@@ -999,11 +1026,11 @@ export default function Billing() {
                           </Button>
                         ) : action === "upgrade" ? (
                           <Button className={cn("w-full gap-2 font-bold text-xs", colors.btn)} disabled={isLoadingThis}
-                            onClick={() => setSelectedPlan(plan)}>
-                            {isLoadingThis ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
+                            onClick={() => setInvoicePlan(plan)}>
+                            {isLoadingThis ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
                             {showAnnual && pricing
-                              ? `ترقية — وفّر ${pricing.savings.toLocaleString("ar-SA")} ر.س`
-                              : "ترقية الآن"}
+                              ? `اشتراك — وفّر ${pricing.savings.toLocaleString("ar-SA")} ر.س`
+                              : "اشترك الآن"}
                           </Button>
                         ) : (
                           <Button variant="outline" className="w-full gap-2 font-bold border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
@@ -1187,6 +1214,15 @@ export default function Billing() {
             isLoading={changingPlan || changePlanMutation.isPending}
             stripeConfigured={!!stripeStatus?.configured}
             billingPeriod={billingPeriod}
+          />
+
+          {/* ── Checkout Invoice Modal (for upgrades requiring payment) ── */}
+          <CheckoutInvoiceModal
+            open={!!invoicePlan}
+            onClose={() => setInvoicePlan(null)}
+            plan={invoicePlan}
+            billingPeriod={billingPeriod}
+            onBillingPeriodChange={setBillingPeriod}
           />
         </div>
       )}
@@ -1736,6 +1772,14 @@ export default function Billing() {
             </>
           )}
         </div>
+      )}
+
+      {/* ── Payment Success Overlay ── */}
+      {successSessionId && (
+        <CheckoutSuccessOverlay
+          sessionId={successSessionId}
+          onDone={handleCheckoutDone}
+        />
       )}
     </div>
   );
