@@ -8,6 +8,7 @@ import {
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
   FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity, Send,
   ChevronDown, Briefcase, Wand2, X, BellRing, GitBranch, Plug, Rocket, Brain,
+  Layout as LayoutIcon,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -137,6 +138,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/whatsapp-settings",   labelKey: "nav.items.whatsapp",            icon: MessageSquare },
       { href: "/telegram-settings",         labelKey: "nav.items.telegram",            icon: Send },
       { href: "/notification-settings",    labelKey: "nav.items.notification_settings", icon: BellRing },
+      { href: "/website-builder",       labelKey: "منشئ المواقع",                 icon: LayoutIcon,  feature: "website" },
       { href: "/office-management",   labelKey: "nav.items.office_management",   icon: Globe,       feature: "website" },
       { href: "/marketplace",         labelKey: "nav.items.marketplace",         icon: ShoppingBag, feature: "serviceStore" },
       { href: "/support",             labelKey: "nav.items.support",             icon: LifeBuoy },

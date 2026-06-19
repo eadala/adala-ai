@@ -1,4 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { LuxLegal as LuxLegalTemplate } from "@/features/website-builder/templates/LuxLegal";
+import { Corporate as CorporateTemplate } from "@/features/website-builder/templates/Corporate";
+import { AILegal as AILegalTemplate } from "@/features/website-builder/templates/AILegal";
+import { Modern as ModernTemplate } from "@/features/website-builder/templates/Modern";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation, useSearch } from "wouter";
 import {
@@ -592,6 +596,33 @@ export default function OfficePage() {
   const hasStats = office.showStats && (
     office.experienceYears > 0 || office.casesCount > 0 || office.clientsCount > 0 || office.successRate > 0
   );
+
+  /* ── Template routing ─────────────────────────────────────────── */
+  const templateId = office.website_config?.templateId;
+  if (templateId && templateId !== "default") {
+    const templateProps = {
+      office, services, team, reviews,
+      lang, slug: slug!,
+      onOrder: (svc: any) => setOrderDialog(svc),
+      onNegotiate: (svc: any) => setDealDialog(svc),
+    };
+    return (
+      <>
+        {!office.isPublished && (
+          <div className="fixed top-0 inset-x-0 z-[100] bg-amber-400 text-black text-center py-2.5 text-sm font-bold">
+            ⚠️ {lang === "ar" ? "وضع المعاينة — غير مرئي للعملاء حتى النشر" : "Preview mode — not visible to clients until published"}
+          </div>
+        )}
+        {templateId === "lux-legal"  && <LuxLegalTemplate  {...templateProps} />}
+        {templateId === "corporate"  && <CorporateTemplate {...templateProps} />}
+        {templateId === "ai-legal"   && <AILegalTemplate   {...templateProps} />}
+        {templateId === "modern"     && <ModernTemplate    {...templateProps} />}
+        {orderDialog  && <OrderDialog svc={orderDialog}  slug={slug!} lang={lang} theme={theme} onClose={() => setOrderDialog(null)}  />}
+        {dealDialog   && <OrderDialog svc={dealDialog}   slug={slug!} lang={lang} theme={theme} onClose={() => setDealDialog(null)}   />}
+        {reviewDialog && <ReviewDialog                    slug={slug!} lang={lang} theme={theme} onClose={() => setReviewDialog(false)} />}
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F7F8FC]" dir={dir}

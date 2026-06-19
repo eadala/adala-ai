@@ -89,6 +89,7 @@ const Users                = lazy(() => import("@/pages/platform/users"));
 const Team                 = lazy(() => import("@/pages/platform/team"));
 const OfficeSettings       = lazy(() => import("@/pages/platform/office-settings"));
 const OfficeManagement     = lazy(() => import("@/pages/platform/office-management"));
+const WebsiteBuilder       = lazy(() => import("@/pages/platform/website-builder"));
 const SuperAdmin           = lazy(() => import("@/pages/platform/super-admin"));
 const FirmAdmin            = lazy(() => import("@/pages/platform/firm-admin"));
 const BackupCenter         = lazy(() => import("@/pages/platform/backup"));
@@ -855,6 +856,7 @@ function AppRoutes() {
             <Route path="/team"><ProtectedRoute><Team /></ProtectedRoute></Route>
             <Route path="/office-settings"><ProtectedRoute><OfficeSettings /></ProtectedRoute></Route>
             <Route path="/office-management"><ProtectedRoute><OfficeManagement /></ProtectedRoute></Route>
+            <Route path="/website-builder"><ProtectedRoute><WebsiteBuilder /></ProtectedRoute></Route>
             <Route path="/storage-settings"><ProtectedRoute><StorageSettings /></ProtectedRoute></Route>
             <Route path="/firm-admin"><ProtectedRoute><FirmAdmin /></ProtectedRoute></Route>
             <Route path="/backup"><ProtectedRoute><BackupCenter /></ProtectedRoute></Route>
