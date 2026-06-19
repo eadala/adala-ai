@@ -50,6 +50,8 @@ const DataVaultTab              = lazy(() => import("@/features/super-admin/tabs
 const InvestorTab               = lazy(() => import("@/features/super-admin/tabs/InvestorTab").then(m => ({ default: m.InvestorTab })));
 const DeploymentCenterTab       = lazy(() => import("@/features/super-admin/tabs/DeploymentCenterTab").then(m => ({ default: m.DeploymentCenterTab })));
 const IntegrationsHubTab        = lazy(() => import("@/features/super-admin/tabs/IntegrationsHubTab").then(m => ({ default: m.IntegrationsHubTab })));
+const PlatformOwnersTab         = lazy(() => import("@/features/super-admin/tabs/PlatformOwnersTab").then(m => ({ default: m.PlatformOwnersTab })));
+const DeveloperAccountsTab      = lazy(() => import("@/features/super-admin/tabs/DeveloperAccountsTab").then(m => ({ default: m.DeveloperAccountsTab })));
 
 function TabFallback() {
   return (
@@ -258,6 +260,16 @@ export default function SuperAdmin() {
         <TabsContent value="integrations-hub" className="mt-4">
           <Suspense fallback={<TabFallback />}>
             <IntegrationsHubTab qc={qc} toast={toast} />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="platform-owners" className="mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <PlatformOwnersTab toast={toast} />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="dev-accounts" className="mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <DeveloperAccountsTab toast={toast} />
           </Suspense>
         </TabsContent>
       </Tabs>

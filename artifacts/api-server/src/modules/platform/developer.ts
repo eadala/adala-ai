@@ -349,4 +349,184 @@ router.get("/developer/env-info", devOnly, (_req, res) => {
   res.json(safe);
 });
 
+/* ══════════════════════════════════════════════════
+   PLATFORM ADMINS (مالكو المنصة)
+   Full super_admin role — managed via Clerk metadata
+══════════════════════════════════════════════════ */
+
+/* GET /api/developer/platform-admins — list all super admins from Clerk */
+router.get("/developer/platform-admins", devOnly, async (_req, res) => {
+  try {
+    const clerk = getClerk();
+    const { data: allUsers } = await clerk.users.getUserList({ limit: 500 });
+    const superAdminEmails = (process.env.SUPER_ADMIN_EMAILS ?? process.env.PLATFORM_OWNER_EMAIL ?? "")
+      .split(",").map((e: string) => e.trim()).filter(Boolean);
+
+    const admins = allUsers
+      .filter((u: any) => {
+        const email = u.emailAddresses.find((e: any) => e.id === u.primaryEmailAddressId)?.emailAddress
+          ?? u.emailAddresses[0]?.emailAddress ?? "";
+        return u.publicMetadata?.role === "super_admin" || superAdminEmails.includes(email);
+      })
+      .map((u: any) => {
+        const email = u.emailAddresses.find((e: any) => e.id === u.primaryEmailAddressId)?.emailAddress
+          ?? u.emailAddresses[0]?.emailAddress ?? "";
+        const fromEnv = superAdminEmails.includes(email);
+        return {
+          id: u.id,
+          email,
+          name: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || email,
+          imageUrl: u.imageUrl,
+          fromEnv,
+          role: u.publicMetadata?.role ?? (fromEnv ? "super_admin" : "user"),
+          createdAt: u.createdAt,
+          lastSignInAt: u.lastSignInAt,
+        };
+      });
+    res.json(admins);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* POST /api/developer/platform-admins — promote user to super_admin by email */
+router.post("/developer/platform-admins", devOnly, async (req: any, res) => {
+  try {
+    const { email } = req.body as { email: string };
+    if (!email) return res.status(400).json({ error: "البريد الإلكتروني مطلوب" });
+
+    const clerk = getClerk();
+    const { data: users } = await clerk.users.getUserList({ emailAddress: [email.toLowerCase()] });
+    if (!users.length) return res.status(404).json({ error: "المستخدم غير موجود في النظام، يجب أن يسجّل أولاً" });
+
+    const user = users[0];
+    await clerk.users.updateUserMetadata(user.id, {
+      publicMetadata: { ...((user.publicMetadata as any) ?? {}), role: "super_admin" },
+    });
+    res.json({ ok: true, userId: user.id });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* DELETE /api/developer/platform-admins/:userId — revoke super_admin role */
+router.delete("/developer/platform-admins/:userId", devOnly, async (req: any, res) => {
+  try {
+    const { userId } = req.params as Record<string, string>;
+    const requesterAuth = getAuth(req);
+    if (requesterAuth?.userId === userId)
+      return res.status(400).json({ error: "لا يمكنك إزالة صلاحياتك الخاصة" });
+
+    const clerk = getClerk();
+    const user = await clerk.users.getUser(userId);
+    const meta = { ...((user.publicMetadata as any) ?? {}) };
+    delete meta.role;
+    await clerk.users.updateUserMetadata(userId, { publicMetadata: meta });
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════════════════
+   DEVELOPER ACCOUNTS (حسابات المطورين)
+   Separate developer users with granular permissions
+══════════════════════════════════════════════════ */
+
+async function ensureDevAccountsTable() {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS developer_accounts (
+      id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      email       TEXT        NOT NULL UNIQUE,
+      name        TEXT        NOT NULL DEFAULT '',
+      clerk_user_id TEXT,
+      permissions JSONB       NOT NULL DEFAULT '{}',
+      is_active   BOOLEAN     NOT NULL DEFAULT true,
+      notes       TEXT        DEFAULT '',
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+}
+
+/* GET /api/developer/dev-accounts */
+router.get("/developer/dev-accounts", devOnly, async (_req, res) => {
+  try {
+    await ensureDevAccountsTable();
+    const rows = await safeRows(sql`
+      SELECT id::text, email, name, clerk_user_id, permissions,
+             is_active, notes, created_at, updated_at
+      FROM developer_accounts ORDER BY created_at DESC
+    `);
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* POST /api/developer/dev-accounts */
+router.post("/developer/dev-accounts", devOnly, async (req: any, res) => {
+  try {
+    await ensureDevAccountsTable();
+    const { email, name, permissions = {}, notes = "" } = req.body as any;
+    if (!email) return res.status(400).json({ error: "البريد الإلكتروني مطلوب" });
+
+    /* Try to find Clerk user */
+    let clerkUserId: string | null = null;
+    try {
+      const clerk = getClerk();
+      const { data: users } = await clerk.users.getUserList({ emailAddress: [email.toLowerCase()] });
+      if (users.length) {
+        clerkUserId = users[0].id;
+        await clerk.users.updateUserMetadata(users[0].id, {
+          publicMetadata: { ...((users[0].publicMetadata as any) ?? {}), role: "developer" },
+        });
+      }
+    } catch {}
+
+    const rows = await safeRows(sql`
+      INSERT INTO developer_accounts (email, name, clerk_user_id, permissions, notes)
+      VALUES (${email.toLowerCase()}, ${name ?? ""}, ${clerkUserId},
+              ${JSON.stringify(permissions)}::jsonb, ${notes})
+      ON CONFLICT (email) DO UPDATE
+        SET name=${name ?? ""}, permissions=${JSON.stringify(permissions)}::jsonb,
+            notes=${notes}, updated_at=now()
+      RETURNING id::text, email, name, clerk_user_id, permissions, is_active, notes, created_at, updated_at
+    `);
+    res.json(rows[0]);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* PATCH /api/developer/dev-accounts/:id */
+router.patch("/developer/dev-accounts/:id", devOnly, async (req: any, res) => {
+  try {
+    const { id } = req.params as Record<string, string>;
+    const { permissions, is_active, name, notes } = req.body as any;
+    const rows = await safeRows(sql`
+      UPDATE developer_accounts
+      SET
+        permissions = COALESCE(${permissions != null ? JSON.stringify(permissions) : null}::jsonb, permissions),
+        is_active   = COALESCE(${is_active   != null ? is_active   : null}, is_active),
+        name        = COALESCE(${name        != null ? name        : null}, name),
+        notes       = COALESCE(${notes       != null ? notes       : null}, notes),
+        updated_at  = now()
+      WHERE id = ${id}::uuid
+      RETURNING id::text, email, name, clerk_user_id, permissions, is_active, notes, created_at, updated_at
+    `);
+    if (!rows.length) return res.status(404).json({ error: "غير موجود" });
+    res.json(rows[0]);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* DELETE /api/developer/dev-accounts/:id */
+router.delete("/developer/dev-accounts/:id", devOnly, async (req: any, res) => {
+  try {
+    const { id } = req.params as Record<string, string>;
+    const rows = await safeRows(sql`DELETE FROM developer_accounts WHERE id=${id}::uuid RETURNING email, clerk_user_id`);
+    /* Revoke Clerk developer role if set */
+    if (rows[0]?.clerk_user_id) {
+      try {
+        const clerk = getClerk();
+        const user = await clerk.users.getUser(rows[0].clerk_user_id);
+        const meta = { ...((user.publicMetadata as any) ?? {}) };
+        if (meta.role === "developer") { delete meta.role; }
+        await clerk.users.updateUserMetadata(rows[0].clerk_user_id, { publicMetadata: meta });
+      } catch {}
+    }
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 export default router;
