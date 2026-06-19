@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckoutInvoiceModal } from "@/features/billing/CheckoutInvoiceModal";
 import { CheckoutSuccessOverlay } from "@/features/billing/CheckoutSuccessOverlay";
+import { CustomInvoiceDialog } from "@/features/billing/CustomInvoiceDialog";
 import {
   CreditCard, Zap, Shield, Check, Star, Building2, Activity,
   Loader2, ExternalLink, AlertCircle, Download, FileText,
@@ -346,6 +347,7 @@ export default function Billing() {
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [invoicePlan, setInvoicePlan] = useState<any | null>(null);
+  const [showCustomInvoice, setShowCustomInvoice] = useState(false);
   const [successSessionId, setSuccessSessionId] = useState<string | null>(null);
   const [changingPlan, setChangingPlan] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("annual");
@@ -748,6 +750,21 @@ export default function Billing() {
       ════════════════════════════════════════════ */}
       {tab === "plans" && (
         <div className="space-y-6">
+          {/* Custom Invoice shortcut banner */}
+          <div className="flex items-center justify-between p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-base">👑</div>
+              <div>
+                <p className="text-sm font-bold text-amber-400">باقة مخصصة لعميل؟</p>
+                <p className="text-xs text-muted-foreground">أنشئ فاتورة بأي مبلغ وأرسل رابط الدفع للعميل مباشرة</p>
+              </div>
+            </div>
+            <Button size="sm" className="gap-2 bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs shrink-0"
+              onClick={() => setShowCustomInvoice(true)}>
+              <FileText className="h-3.5 w-3.5" /> إنشاء فاتورة مخصصة
+            </Button>
+          </div>
+
           {/* Stripe warning */}
           {stripeStatus && !stripeStatus.configured && (
             <div className="flex items-start gap-3 p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20">
@@ -1015,10 +1032,16 @@ export default function Billing() {
                             <Check className="h-4 w-4" /> باقتك الحالية
                           </Button>
                         ) : plan.isContactOnly ? (
-                          <Button className={cn("w-full gap-2 font-bold", colors.btn)}
-                            onClick={() => window.open("mailto:sales@adalaai.com?subject=طلب عرض سعر - باقة النخبة", "_blank")}>
-                            <Phone className="h-4 w-4" /> تواصل معنا
-                          </Button>
+                          <div className="flex flex-col gap-2">
+                            <Button className={cn("w-full gap-2 font-bold text-xs", colors.btn)}
+                              onClick={() => setShowCustomInvoice(true)}>
+                              <FileText className="h-4 w-4" /> إنشاء فاتورة مخصصة
+                            </Button>
+                            <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground gap-1.5"
+                              onClick={() => window.open("mailto:sales@adalaai.com?subject=طلب عرض سعر - باقة النخبة", "_blank")}>
+                              <Phone className="h-3.5 w-3.5" /> تواصل بالبريد
+                            </Button>
+                          </div>
                         ) : plan.isFree ? (
                           <Button variant="outline" className="w-full gap-2 font-bold border-slate-500/30 text-slate-300 hover:bg-muted/30 10"
                             onClick={() => setSelectedPlan(plan)}>
@@ -1223,6 +1246,12 @@ export default function Billing() {
             plan={invoicePlan}
             billingPeriod={billingPeriod}
             onBillingPeriodChange={setBillingPeriod}
+          />
+
+          {/* ── Custom Invoice Dialog (elite / custom pricing) ── */}
+          <CustomInvoiceDialog
+            open={showCustomInvoice}
+            onClose={() => setShowCustomInvoice(false)}
           />
         </div>
       )}

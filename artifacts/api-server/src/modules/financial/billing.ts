@@ -490,6 +490,142 @@ router.post("/billing/verify-payment", requireAuth, async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════════
+   CUSTOM INVOICE LINK — for elite / custom pricing
+   Creates a Stripe checkout session with any amount
+   for any client email.
+══════════════════════════════════════════════════════ */
+router.post("/billing/custom-invoice-link", requireAuth, async (req, res) => {
+  let stripe: StripeClient;
+  try { stripe = await getUncachableStripeClient(); } catch {
+    return res.status(503).json({ error: "Stripe غير مهيأ — أضف STRIPE_SECRET_KEY" });
+  }
+
+  const { userId } = getAuth(req as any);
+  if (!userId) return res.status(401).json({ error: "غير مصرح" });
+
+  const {
+    clientName, clientEmail, planName, description,
+    amount, billingType, notes,
+  } = req.body as {
+    clientName:  string;
+    clientEmail: string;
+    planName:    string;
+    description?: string;
+    amount:      number;
+    billingType: "one_time" | "monthly" | "annual";
+    notes?:      string;
+  };
+
+  if (!clientName || !clientEmail || !planName || !amount || amount <= 0) {
+    return res.status(400).json({ error: "الحقول المطلوبة: اسم العميل، البريد، اسم الباقة، المبلغ" });
+  }
+
+  try {
+    const tenantId = await resolveTenantId(userId) ?? "default";
+
+    /* Create or retrieve customer by email */
+    let customerId: string | undefined;
+    try {
+      const existing = await stripe.customers.list({ email: clientEmail, limit: 1 });
+      if (existing.data.length > 0) {
+        customerId = existing.data[0].id;
+      } else {
+        const customer = await stripe.customers.create({
+          name:     clientName,
+          email:    clientEmail,
+          metadata: { officeId: tenantId, source: "custom_invoice" },
+        });
+        customerId = customer.id;
+      }
+    } catch { /* non-critical */ }
+
+    const unitAmount = Math.round(amount * 100); // convert to halalas
+    const productDesc = [
+      description ?? planName,
+      notes ? `[ملاحظة: ${notes}]` : "",
+    ].filter(Boolean).join(" — ");
+
+    let sessionUrl: string;
+    let sessionId: string;
+
+    if (billingType === "one_time") {
+      /* One-time payment */
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        payment_method_types: ["card"],
+        ...(customerId ? { customer: customerId } : { customer_email: clientEmail }),
+        line_items: [{
+          price_data: {
+            currency: "sar",
+            unit_amount: unitAmount,
+            product_data: {
+              name: `عدالة AI — ${planName}`,
+              description: productDesc || undefined,
+            },
+          },
+          quantity: 1,
+        }],
+        metadata: {
+          plan: "custom",
+          planName,
+          officeId: tenantId,
+          clientName,
+          clientEmail,
+          billingType,
+          notes: notes ?? "",
+        },
+        success_url: `${req.headers.origin ?? "https://adala.app"}/billing?checkout_success=1&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url:  `${req.headers.origin ?? "https://adala.app"}/billing?checkout_canceled=1`,
+        locale: "ar" as any,
+      });
+      sessionUrl = session.url!;
+      sessionId  = session.id;
+    } else {
+      /* Recurring subscription */
+      const interval = billingType === "annual" ? ("year" as const) : ("month" as const);
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        payment_method_types: ["card"],
+        ...(customerId ? { customer: customerId } : { customer_email: clientEmail }),
+        line_items: [{
+          price_data: {
+            currency: "sar",
+            unit_amount: unitAmount,
+            recurring: { interval },
+            product_data: {
+              name: `عدالة AI — ${planName}`,
+              description: productDesc || undefined,
+            },
+          },
+          quantity: 1,
+        }],
+        metadata: {
+          plan: "custom",
+          planName,
+          officeId: tenantId,
+          clientName,
+          clientEmail,
+          billingType,
+          notes: notes ?? "",
+        },
+        subscription_data: {
+          metadata: { officeId: tenantId, plan: "custom", planName, billingType },
+        },
+        success_url: `${req.headers.origin ?? "https://adala.app"}/billing?checkout_success=1&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url:  `${req.headers.origin ?? "https://adala.app"}/billing?checkout_canceled=1`,
+        locale: "ar" as any,
+      });
+      sessionUrl = session.url!;
+      sessionId  = session.id;
+    }
+
+    return res.json({ url: sessionUrl, sessionId, customerId });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
    CHANGE PLAN (upgrade / downgrade)
 ══════════════════════════════════════════════════════ */
 router.post("/billing/change-plan", requireAuth, async (req, res) => {
