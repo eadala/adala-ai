@@ -439,6 +439,57 @@ router.get("/billing/revenue", requireAuth, async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════════
+   VERIFY PAYMENT — called after Stripe redirects back
+   Ensures plan activates immediately even if webhook
+   hasn't fired yet.
+══════════════════════════════════════════════════════ */
+router.post("/billing/verify-payment", requireAuth, async (req, res) => {
+  let stripe: StripeClient;
+  try { stripe = await getUncachableStripeClient(); } catch {
+    return res.status(503).json({ error: "Stripe غير مهيأ" });
+  }
+  try {
+    const { userId } = getAuth(req as any);
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const { sessionId } = req.body as { sessionId?: string };
+    if (!sessionId) return res.status(400).json({ error: "sessionId مطلوب" });
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["subscription", "customer"],
+    });
+
+    /* Only proceed on completed / paid sessions */
+    if (session.payment_status !== "paid" && session.status !== "complete") {
+      return res.status(402).json({ error: "الدفع لم يكتمل بعد", status: session.payment_status });
+    }
+
+    const planId   = session.metadata?.plan ?? "basic";
+    const officeId = session.metadata?.officeId ?? (await resolveTenantId(userId) ?? "default");
+    const billingPeriod = (session.metadata?.billingPeriod ?? "monthly") as "monthly" | "annual";
+    const amountPaid = session.amount_total ?? 0;
+
+    /* Check if already provisioned (idempotent — safe to call twice) */
+    const { clerkClient } = await import("@clerk/express");
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress ?? "unknown";
+
+    const { provisionTenant } = await import("../../services/tenantProvisioning");
+    await provisionTenant({ officeId, plan: planId, email, stripeSessionId: sessionId, amountPaid });
+
+    const plan = PLANS.find(p => p.id === planId);
+    return res.json({
+      ok: true,
+      planId,
+      planName: plan?.name ?? planId,
+      billingPeriod,
+      amountPaid: amountPaid / 100,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
    CHANGE PLAN (upgrade / downgrade)
 ══════════════════════════════════════════════════════ */
 router.post("/billing/change-plan", requireAuth, async (req, res) => {
