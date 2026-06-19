@@ -114,12 +114,13 @@ import pushRouter               from "../modules/integrations/push";
 import webhookRouter            from "../modules/integrations/webhook";
 
 // ── Marketplace ──────────────────────────────────────────────────────────────
-import marketplaceRouter  from "../modules/marketplace/marketplace";
-import officeRouter       from "../modules/marketplace/office";
-import clientPortalRouter from "../modules/marketplace/client-portal";
-import clientAuthRouter   from "../modules/marketplace/client-auth";
-import firmAdminRouter    from "../modules/marketplace/firm-admin";
-import homeCmsRouter      from "../modules/marketplace/homeCms";
+import marketplaceRouter      from "../modules/marketplace/marketplace";
+import officeRouter           from "../modules/marketplace/office";
+import clientPortalRouter     from "../modules/marketplace/client-portal";
+import clientAuthRouter       from "../modules/marketplace/client-auth";
+import firmAdminRouter        from "../modules/marketplace/firm-admin";
+import homeCmsRouter          from "../modules/marketplace/homeCms";
+import websiteBuilderRouter   from "../modules/marketplace/websiteBuilder";
 
 // ── Operations ───────────────────────────────────────────────────────────────
 import dashboardRouter        from "../modules/operations/dashboard";
@@ -270,6 +271,7 @@ router.use(clientPortalRouter);
 router.use(clientAuthRouter);
 router.use(firmAdminRouter);
 router.use(homeCmsRouter);
+router.use(websiteBuilderRouter);
 
 // Operations
 router.use(dashboardRouter);

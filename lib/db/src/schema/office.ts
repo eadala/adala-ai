@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, numeric, boolean, integer, date, varchar } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, numeric, boolean, integer, date, varchar, jsonb } from "drizzle-orm/pg-core";
 
 export const officePageTable = pgTable("office_page", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -28,6 +28,7 @@ export const officePageTable = pgTable("office_page", {
   mapsEmbedUrl: text("maps_embed_url"),
   googleMapsUrl: text("google_maps_url"),
   primaryColor: text("primary_color").default("#C9A84C"),
+  websiteConfig: jsonb("website_config").$type<Record<string, any>>().default({}),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
