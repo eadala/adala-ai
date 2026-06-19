@@ -279,7 +279,6 @@ router.post("/billing/checkout", requireAuth, async (req, res) => {
       },
       success_url: successUrl ?? `${req.headers.origin}/billing?success=1`,
       cancel_url:  cancelUrl  ?? `${req.headers.origin}/billing?canceled=1`,
-      locale: "ar" as any,
     });
     return res.json({ url: session.url, sessionId: session.id });
   } catch (err: any) {
@@ -576,7 +575,6 @@ router.post("/billing/custom-invoice-link", requireAuth, async (req, res) => {
         },
         success_url: `${req.headers.origin ?? "https://adala.app"}/billing?checkout_success=1&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url:  `${req.headers.origin ?? "https://adala.app"}/billing?checkout_canceled=1`,
-        locale: "ar" as any,
       });
       sessionUrl = session.url!;
       sessionId  = session.id;
@@ -613,7 +611,6 @@ router.post("/billing/custom-invoice-link", requireAuth, async (req, res) => {
         },
         success_url: `${req.headers.origin ?? "https://adala.app"}/billing?checkout_success=1&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url:  `${req.headers.origin ?? "https://adala.app"}/billing?checkout_canceled=1`,
-        locale: "ar" as any,
       });
       sessionUrl = session.url!;
       sessionId  = session.id;
