@@ -98,6 +98,7 @@ const AdalaBuildStudio     = lazy(() => import("@/pages/platform/studio"));
 const ThemeBuilderPage     = lazy(() => import("@/pages/platform/theme-builder"));
 const EngineeringCenter    = lazy(() => import("@/pages/platform/engineering-center"));
 const AICommandCenter      = lazy(() => import("@/pages/platform/ai-command-center"));
+const AIWorkflowBuilder    = lazy(() => import("@/pages/platform/ai-workflow-builder"));
 const ControlTowerPage     = lazy(() => import("@/pages/platform/control-tower"));
 const SaasOSPage           = lazy(() => import("@/pages/platform/saas-os"));
 const ProductionOSPage     = lazy(() => import("@/pages/platform/production-os"));
@@ -833,6 +834,7 @@ function AppRoutes() {
             <Route path="/audit-logs"><AdminRoute><AuditLogsPage /></AdminRoute></Route>
             <Route path="/engineering-center"><AdminRoute><EngineeringCenter /></AdminRoute></Route>
             <Route path="/ai-command-center"><AdminRoute><AICommandCenter /></AdminRoute></Route>
+            <Route path="/ai-workflow-builder"><ProtectedRoute><AIWorkflowBuilder /></ProtectedRoute></Route>
             <Route path="/production-os"><AdminRoute><ProductionOSPage /></AdminRoute></Route>
             <Route path="/control-tower"><AdminRoute><ControlTowerPage /></AdminRoute></Route>
             <Route path="/saas-os"><AdminRoute><SaasOSPage /></AdminRoute></Route>

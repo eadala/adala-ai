@@ -98,6 +98,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
     items: [
       { href: "/ai-coo",    labelKey: "المدير التنفيذي الذكي",   icon: Brain,        feature: "ai" },
       { href: "/ai-hub",    labelKey: "مركز الذكاء الاصطناعي",  icon: BrainCircuit, feature: "ai" },
+      { href: "/ai-workflow-builder", labelKey: "بناء سير العمل الذكي", icon: GitBranch, feature: "ai" },
       { href: "/legal-ai",  labelKey: "محرك الوثائق القانونية", icon: Scale,        feature: "ai" },
       { href: "/judge-prep",labelKey: "المحاكاة القضائية",      icon: Gavel,        feature: "ai" },
     ],
