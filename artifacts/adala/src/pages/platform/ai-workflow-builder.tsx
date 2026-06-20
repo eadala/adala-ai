@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,7 +9,7 @@ import {
   GitBranch, Play, Save, Trash2, Sparkles, Loader2, ChevronRight,
   Zap, Brain, FileText, Bell, AlertTriangle, RefreshCw, CheckCircle2,
   Clock, Circle, ArrowRight, Plus, X, BarChart3, Cpu, List,
-  History, Wand2, ChevronDown, ChevronUp
+  History, Wand2, ChevronDown, ChevronUp, ShieldOff, Lock
 } from "lucide-react";
 
 /* ── Node type config ─────────────────────────────────────────────── */
@@ -180,6 +181,29 @@ const TEMPLATES = [
 export default function AIWorkflowBuilder() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { getToken } = useAuth();
+
+  const authFetch = async (url: string, opts: RequestInit = {}) => {
+    const token = await getToken();
+    return fetch(url, {
+      ...opts,
+      headers: { ...(opts.headers ?? {}), "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+    });
+  };
+
+  /* ── Access check ── */
+  const { data: access, isLoading: accessLoading } = useQuery<any>({
+    queryKey: ["workflow-builder-access"],
+    queryFn: async () => {
+      const token = await getToken();
+      const r = await fetch("/api/ai-workflow/access-check", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!r.ok) return { allowed: false };
+      return r.json();
+    },
+    staleTime: 5 * 60_000,
+  });
 
   /* ── state ── */
   const [prompt, setPrompt] = useState("");
@@ -196,15 +220,19 @@ export default function AIWorkflowBuilder() {
   /* ── saved workflows ── */
   const { data: saved = [] } = useQuery<any[]>({
     queryKey: ["ai-workflows"],
-    queryFn: () => fetch("/api/ai-workflow", { headers: { "x-replit-user-id": "dev" } }).then(r => r.json()),
+    queryFn: async () => {
+      const r = await authFetch("/api/ai-workflow");
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: access?.allowed === true,
   });
 
   /* ── generate workflow ── */
   const generateMut = useMutation({
     mutationFn: async (p: string) => {
-      const r = await fetch("/api/ai-workflow/generate", {
+      const r = await authFetch("/api/ai-workflow/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: p }),
       });
       if (!r.ok) throw new Error(await r.text());
@@ -224,9 +252,8 @@ export default function AIWorkflowBuilder() {
   /* ── save ── */
   const saveMut = useMutation({
     mutationFn: async () => {
-      const r = await fetch("/api/ai-workflow", {
+      const r = await authFetch("/api/ai-workflow", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: graph?.name ?? "Workflow جديد",
           description: graph?.description ?? "",
@@ -248,7 +275,7 @@ export default function AIWorkflowBuilder() {
   /* ── delete ── */
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      await fetch(`/api/ai-workflow/${id}`, { method: "DELETE" });
+      await authFetch(`/api/ai-workflow/${id}`, { method: "DELETE" });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-workflows"] }),
   });
@@ -263,9 +290,7 @@ export default function AIWorkflowBuilder() {
     setShowLog(true);
     setActiveNodeId(null);
 
-    const es = new EventSource(`/api/ai-workflow/${savedId}/execute`, {});
-    /* POST via fetch for SSE-triggering */
-    const resp = await fetch(`/api/ai-workflow/${savedId}/execute`, { method: "POST" });
+    const resp = await authFetch(`/api/ai-workflow/${savedId}/execute`, { method: "POST" });
     const reader = resp.body!.getReader();
     const decoder = new TextDecoder();
 
@@ -322,6 +347,34 @@ export default function AIWorkflowBuilder() {
   }, []);
 
   const canGenerate = prompt.trim().length > 5 && !generateMut.isPending;
+
+  /* ── Access guard ── */
+  if (accessLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+  if (!access?.allowed) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-5 py-24" dir="rtl">
+        <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
+          <ShieldOff className="h-8 w-8 text-red-400" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-lg font-black text-gray-800">لا تملك صلاحية الوصول</h2>
+          <p className="text-sm text-gray-500 mt-1 max-w-sm">
+            هذه الأداة متاحة للسوبر أدمن والمطور فقط. تواصل مع مالك المنصة للحصول على الصلاحية.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-50 border border-amber-200">
+          <Lock size={13} className="text-amber-500" />
+          <span className="text-xs text-amber-700 font-medium">AI Workflow Builder — Super Admin Only</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-[#F0F4FF]" dir="rtl">
