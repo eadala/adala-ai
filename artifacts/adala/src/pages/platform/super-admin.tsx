@@ -52,6 +52,7 @@ const DeploymentCenterTab       = lazy(() => import("@/features/super-admin/tabs
 const IntegrationsHubTab        = lazy(() => import("@/features/super-admin/tabs/IntegrationsHubTab").then(m => ({ default: m.IntegrationsHubTab })));
 const PlatformOwnersTab         = lazy(() => import("@/features/super-admin/tabs/PlatformOwnersTab").then(m => ({ default: m.PlatformOwnersTab })));
 const DeveloperAccountsTab      = lazy(() => import("@/features/super-admin/tabs/DeveloperAccountsTab").then(m => ({ default: m.DeveloperAccountsTab })));
+const WorkflowGrantsTab         = lazy(() => import("@/features/super-admin/tabs/WorkflowGrantsTab").then(m => ({ default: m.WorkflowGrantsTab })));
 
 function TabFallback() {
   return (
@@ -270,6 +271,11 @@ export default function SuperAdmin() {
         <TabsContent value="dev-accounts" className="mt-4">
           <Suspense fallback={<TabFallback />}>
             <DeveloperAccountsTab toast={toast} />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="workflow-grants" className="mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <WorkflowGrantsTab toast={toast} />
           </Suspense>
         </TabsContent>
       </Tabs>

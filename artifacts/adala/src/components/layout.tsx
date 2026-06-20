@@ -33,6 +33,7 @@ interface NavItem {
   labelKey: string;
   icon: React.ComponentType<any>;
   feature?: string;
+  superAdminOnly?: boolean;
 }
 
 interface OperatingCenterDef {
@@ -98,7 +99,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
     items: [
       { href: "/ai-coo",    labelKey: "المدير التنفيذي الذكي",   icon: Brain,        feature: "ai" },
       { href: "/ai-hub",    labelKey: "مركز الذكاء الاصطناعي",  icon: BrainCircuit, feature: "ai" },
-      { href: "/ai-workflow-builder", labelKey: "بناء سير العمل الذكي", icon: GitBranch, feature: "ai" },
+      { href: "/ai-workflow-builder", labelKey: "بناء سير العمل الذكي", icon: GitBranch, superAdminOnly: true },
       { href: "/legal-ai",  labelKey: "محرك الوثائق القانونية", icon: Scale,        feature: "ai" },
       { href: "/judge-prep",labelKey: "المحاكاة القضائية",      icon: Gavel,        feature: "ai" },
     ],
@@ -298,14 +299,16 @@ function NavItemLink({ item, isActive, onClick, badge, accentColor }: {
 
 /* ── Collapsible Operating Center block ── */
 function OperatingCenter({
-  center, location, pendingRemindersCount, onItemClick,
+  center, location, pendingRemindersCount, onItemClick, isSuperAdmin,
 }: {
   center: OperatingCenterDef;
   location: string;
   pendingRemindersCount: number;
   onItemClick?: () => void;
+  isSuperAdmin: boolean;
 }) {
-  const isAnyActive = center.items.some(
+  const visibleItems = center.items.filter(item => !item.superAdminOnly || isSuperAdmin);
+  const isAnyActive = visibleItems.some(
     item => location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href))
   );
   const [open, setOpen] = useState(isAnyActive);
@@ -346,7 +349,7 @@ function OperatingCenter({
       {/* Items */}
       {open && (
         <div className="mt-0.5 mb-1 space-y-0.5 pe-2 me-4 border-r-2 border-dashed" style={{ borderColor: `${center.color}30` }}>
-          {center.items.map((item) => {
+          {visibleItems.map((item) => {
             const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
             return (
               <NavItemLink
@@ -467,6 +470,7 @@ export function Layout({ children }: { children: ReactNode }) {
           location={location}
           pendingRemindersCount={pendingRemindersCount}
           onItemClick={onItemClick}
+          isSuperAdmin={isSuperAdmin}
         />
       ))}
     </nav>
