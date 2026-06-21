@@ -12,8 +12,8 @@ const DEMO_PASS  = process.env.DEMO_PASSWORD ?? "Demo@2025!";
 async function ensureDemoData() {
   try {
     await db.execute(sql`
-      INSERT INTO office_registry (id, office_name, plan_name, status, joined_at)
-      VALUES (${DEMO_OFFICE_ID}::uuid, 'مكتب التجربة — عدالة AI', 'professional', 'active', NOW())
+      INSERT INTO office_registry (id, clerk_user_id, owner_email, office_name, plan_name, status, joined_at)
+      VALUES (${DEMO_OFFICE_ID}::uuid, 'demo_user_seed', ${DEMO_EMAIL}, 'مكتب التجربة — عدالة AI', 'professional', 'active', NOW())
       ON CONFLICT (id) DO NOTHING
     `);
 
@@ -36,16 +36,16 @@ async function ensureDemoData() {
     }
 
     const caseData = [
-      { id: "ddddca01-0000-0000-0000-000000000001", title: "نزاع عقاري — حي الملقا", type: "عقاري", status: "open",   clientId: clientIds[0], cn: "2025/E/1024" },
-      { id: "ddddca02-0000-0000-0000-000000000002", title: "مطالبة تأمينية — حادثة مرورية", type: "تأمين",  status: "open",   clientId: clientIds[1], cn: "2025/T/0387" },
-      { id: "ddddca03-0000-0000-0000-000000000003", title: "عقد شراكة تجارية — طلب تحكيم", type: "تجاري", status: "pending", clientId: clientIds[2], cn: "2025/C/0291" },
-      { id: "ddddca04-0000-0000-0000-000000000004", title: "دعوى عمالية — فصل تعسفي", type: "عمالي", status: "open",   clientId: clientIds[1], cn: "2025/L/0534" },
-      { id: "ddddca05-0000-0000-0000-000000000005", title: "قضية ملكية فكرية — علامة تجارية", type: "ملكية فكرية", status: "closed", clientId: clientIds[0], cn: "2024/IP/0198" },
+      { id: "ddddca01-0000-0000-0000-000000000001", title: "نزاع عقاري — حي الملقا",            type: "عقاري",        status: "open",    clientName: "شركة النخبة للاستثمار",      cn: "2025/E/1024"  },
+      { id: "ddddca02-0000-0000-0000-000000000002", title: "مطالبة تأمينية — حادثة مرورية",     type: "تأمين",        status: "open",    clientName: "خالد بن عبدالله الزهراني",  cn: "2025/T/0387"  },
+      { id: "ddddca03-0000-0000-0000-000000000003", title: "عقد شراكة تجارية — طلب تحكيم",     type: "تجاري",        status: "pending", clientName: "مجموعة الأفق التجارية",     cn: "2025/C/0291"  },
+      { id: "ddddca04-0000-0000-0000-000000000004", title: "دعوى عمالية — فصل تعسفي",          type: "عمالي",        status: "open",    clientName: "خالد بن عبدالله الزهراني",  cn: "2025/L/0534"  },
+      { id: "ddddca05-0000-0000-0000-000000000005", title: "قضية ملكية فكرية — علامة تجارية",  type: "ملكية فكرية", status: "closed",  clientName: "شركة النخبة للاستثمار",      cn: "2024/IP/0198" },
     ];
     for (const c of caseData) {
       await db.execute(sql`
-        INSERT INTO cases (id, title, case_number, type, status, client_id, office_id, created_at, updated_at)
-        VALUES (${c.id}::uuid, ${c.title}, ${c.cn}, ${c.type}, ${c.status}, ${c.clientId}::uuid, ${DEMO_OFFICE_ID}::uuid, NOW(), NOW())
+        INSERT INTO cases (id, title, case_number, case_type, status, client_name, office_id, created_at, updated_at)
+        VALUES (${c.id}::uuid, ${c.title}, ${c.cn}, ${c.type}, ${c.status}, ${c.clientName}, ${DEMO_OFFICE_ID}::uuid, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
       `);
     }

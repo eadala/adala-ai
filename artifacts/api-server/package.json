@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "lint": "eslint src --max-warnings=9999",
     "lint:fix": "eslint src --fix --max-warnings=9999",
-    "start": "node --max-old-space-size=350 --enable-source-maps ./dist/index.mjs",
+    "start": "node --max-old-space-size=512 --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -10,8 +10,8 @@ let lastStatus = "healthy";
 let cronTick = 0;
 
 export function startMonitoringCron() {
-  /* ── Every 60 seconds: health check + log to DB + smart alerts ── */
-  cron.schedule("*/60 * * * * *", async () => {
+  /* ── Every 5 minutes: health check + log to DB + smart alerts ── */
+  cron.schedule("*/5 * * * *", async () => {
     cronTick++;
     try {
       const health = await systemHealthCheck();
@@ -41,23 +41,25 @@ export function startMonitoringCron() {
         });
       } catch { /* non-blocking */ }
 
-      /* Log to system_metrics_log */
-      try {
-        await db.execute(sql`
-          INSERT INTO system_metrics_log
-            (health_score, error_rate, db_latency, memory_used, memory_total, active_fixes, anomalies, snapshot)
-          VALUES (
-            ${score},
-            ${metrics.errorRate},
-            ${metrics.dbLatency},
-            ${metrics.memory.used},
-            ${metrics.memory.total},
-            0,
-            '{}'::text[],
-            ${JSON.stringify({ checks, uptime: metrics.uptime, webhookFailures: metrics.webhookFailures })}::jsonb
-          )
-        `);
-      } catch { /* non-blocking */ }
+      /* Log to system_metrics_log — every other tick (10 min) */
+      if (cronTick % 2 === 0) {
+        try {
+          await db.execute(sql`
+            INSERT INTO system_metrics_log
+              (health_score, error_rate, db_latency, memory_used, memory_total, active_fixes, anomalies, snapshot)
+            VALUES (
+              ${score},
+              ${metrics.errorRate},
+              ${metrics.dbLatency},
+              ${metrics.memory.used},
+              ${metrics.memory.total},
+              0,
+              '{}'::text[],
+              ${JSON.stringify({ checks, uptime: metrics.uptime, webhookFailures: metrics.webhookFailures })}::jsonb
+            )
+          `);
+        } catch { /* non-blocking */ }
+      }
 
       /* Alert on status transitions */
       if (status === "critical" && lastStatus !== "critical") {
@@ -82,10 +84,9 @@ export function startMonitoringCron() {
         await sendSmartAlert("high", `⚠️ استهلاك ذاكرة عالٍ: ${metrics.memory.percent}%`);
       }
 
-      /* Trend analysis — every 5 ticks (5 min) */
-      if (cronTick % 5 === 0) {
+      /* Trend analysis + self-healing — every 3 ticks (15 min) */
+      if (cronTick % 3 === 0) {
         await checkTrendAlerts();
-        /* Self-healing cycle — runs alongside trend analysis */
         runSelfHealingCycle().catch(() => {});
       }
 
@@ -93,5 +94,5 @@ export function startMonitoringCron() {
     } catch { /* non-blocking — never crash the cron */ }
   });
 
-  console.log("[Monitoring Cron] ✅ Started — health check every 60s (smart alerts enabled)");
+  console.log("[Monitoring Cron] ✅ Started — health check every 5 min");
 }
