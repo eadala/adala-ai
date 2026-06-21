@@ -36,6 +36,13 @@ if (process.env.SENTRY_DSN) {
 
 const app: Express = express();
 
+// ── Replit deployment healthcheck — MUST be first, no middleware ──────────
+// The deployment system checks GET /api and expects 200 before the app is
+// considered healthy. This route bypasses ALL middleware (Clerk, rate-limit,
+// auth, etc.) so it always responds immediately.
+app.get("/api", (_req, res) => res.status(200).json({ ok: true, status: "healthy", ts: Date.now() }));
+app.get("/api/ping", (_req, res) => res.status(200).json({ ok: true }));
+
 // Trust Replit's reverse proxy so rate-limit reads the real client IP
 app.set("trust proxy", 1);
 
