@@ -146,8 +146,8 @@ export async function toolSearchData(entities: any): Promise<ToolResult> {
       LIMIT 5
     `),
     db.execute(sql`
-      SELECT id, name, phone FROM clients
-      WHERE office_id=${officeId} AND name ILIKE ${"%" + q + "%"}
+      SELECT id, full_name AS name, phone FROM clients
+      WHERE office_id=${officeId} AND full_name ILIKE ${"%" + q + "%"}
       LIMIT 5
     `),
   ]);

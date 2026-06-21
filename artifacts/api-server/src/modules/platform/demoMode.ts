@@ -12,8 +12,8 @@ const DEMO_PASS  = process.env.DEMO_PASSWORD ?? "Demo@2025!";
 async function ensureDemoData() {
   try {
     await db.execute(sql`
-      INSERT INTO office_registry (id, name, slug, plan, status, created_at)
-      VALUES (${DEMO_OFFICE_ID}::uuid, 'مكتب التجربة — عدالة AI', 'demo', 'professional', 'active', NOW())
+      INSERT INTO office_registry (id, office_name, plan_name, status, joined_at)
+      VALUES (${DEMO_OFFICE_ID}::uuid, 'مكتب التجربة — عدالة AI', 'professional', 'active', NOW())
       ON CONFLICT (id) DO NOTHING
     `);
 
@@ -29,7 +29,7 @@ async function ensureDemoData() {
     ];
     for (const c of clientData) {
       await db.execute(sql`
-        INSERT INTO clients (id, name, email, phone, type, office_id, created_at)
+        INSERT INTO clients (id, full_name, email, phone, type, office_id, created_at)
         VALUES (${c.id}::uuid, ${c.name}, ${c.email}, ${c.phone}, ${c.type}, ${DEMO_OFFICE_ID}::uuid, NOW())
         ON CONFLICT (id) DO NOTHING
       `);

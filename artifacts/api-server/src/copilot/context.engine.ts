@@ -29,7 +29,7 @@ export async function buildRichContext(officeId: string): Promise<RichContext> {
       `),
       /* Active Clients */
       db.execute(sql`
-        SELECT name, phone, email FROM clients
+        SELECT full_name AS name, phone, email FROM clients
         WHERE office_id = ${officeId}
         ORDER BY created_at DESC LIMIT 5
       `),

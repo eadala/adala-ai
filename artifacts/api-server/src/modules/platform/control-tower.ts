@@ -236,12 +236,12 @@ router.get("/control-tower/inspect/:tenantId", ctGuard, async (req, res) => {
     `).then(r => (r.rows ?? r) as any[]).catch(() => []),
 
     db.execute(sql`
-      SELECT id, name, email, phone, created_at FROM clients
+      SELECT id, full_name AS name, email, phone, created_at FROM clients
       WHERE office_id = ${tenantId} ORDER BY created_at DESC LIMIT 20
     `).then(r => (r.rows ?? r) as any[]).catch(() => []),
 
     db.execute(sql`
-      SELECT id, invoice_number, amount, status, created_at FROM client_invoices
+      SELECT id, invoice_number, total AS amount, status, created_at FROM client_invoices
       WHERE office_id = ${tenantId} ORDER BY created_at DESC LIMIT 20
     `).then(r => (r.rows ?? r) as any[]).catch(() => []),
 

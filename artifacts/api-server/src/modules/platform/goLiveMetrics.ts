@@ -169,7 +169,7 @@ router.get("/admin/go-live-metrics", async (req, res) => {
     const [officeRows, dailySignups, dailyRevenue, aiRows, aiTxRows, ledgerTotal, recentActivations] = await Promise.all([
       /* 1. All offices */
       db.execute(sql`
-        SELECT id, name, plan, status, joined_at::date AS joined
+        SELECT id, office_name AS name, plan_name AS plan, status, joined_at::date AS joined
         FROM office_registry ORDER BY joined_at DESC
       `),
 
