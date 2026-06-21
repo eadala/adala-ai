@@ -42,7 +42,7 @@ export async function toolCreateClient(entities: any): Promise<ToolResult> {
   const email = entities.email ?? null;
 
   await db.execute(sql`
-    INSERT INTO clients (name, phone, email, office_id)
+    INSERT INTO clients (full_name, phone, email, office_id)
     VALUES (${name}, ${phone}, ${email}, ${officeId})
   `);
   return {

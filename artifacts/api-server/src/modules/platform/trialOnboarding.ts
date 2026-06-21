@@ -106,7 +106,7 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
 
         if (firstCase.clientName && createdCaseId) {
           const client = await sqlOne(sql`
-            INSERT INTO clients (name, office_id, created_by)
+            INSERT INTO clients (full_name, office_id, created_by)
             VALUES (${firstCase.clientName}, ${officeId}, ${userId})
             ON CONFLICT DO NOTHING
             RETURNING id

@@ -31,7 +31,7 @@ router.post("/import/clients", requireAuthWithTenant, async (req, res) => {
         const type  = (r.type || r.النوع || r.Type || "individual").trim();
         const city  = (r.city || r.المدينة || r.City || "").trim() || null;
         await db.execute(sql`
-          INSERT INTO clients (name, email, phone, type, city, status, office_id)
+          INSERT INTO clients (full_name, email, phone, type, city, status, office_id)
           VALUES (${name}, ${email}, ${phone}, ${type}, ${city}, 'active', 'default')
           ON CONFLICT DO NOTHING
         `);

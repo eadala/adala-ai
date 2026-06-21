@@ -121,7 +121,12 @@ router.get("/admin/infrastructure/offices", async (req, res) => {
 
     const offices = rows(await db.execute(sql`
       SELECT
-        o.id, o.name, o.subscription_plan, o.status, o.slug, o.created_at,
+        o.id::text,
+        o.name,
+        o.plan                                          AS subscription_plan,
+        CASE WHEN o.is_published THEN 'active' ELSE 'inactive' END AS status,
+        o.slug,
+        o.created_at,
         COALESCE(oic.isolation_mode, 'shared')          AS isolation_mode,
         oic.dedicated_bucket,
         oic.encryption_key_id,
@@ -131,9 +136,9 @@ router.get("/admin/infrastructure/offices", async (req, res) => {
         COALESCE(osq.used_bytes, 0)::bigint             AS storage_used,
         COALESCE(osq.max_bytes, 524288000)::bigint      AS storage_quota,
         COALESCE(osq.files_count, 0)::int               AS files_count
-      FROM offices o
-      LEFT JOIN office_isolation_config oic ON oic.office_id = o.id
-      LEFT JOIN office_storage_quota    osq ON osq.office_id = o.id
+      FROM office_page o
+      LEFT JOIN office_isolation_config oic ON oic.office_id = o.id::text
+      LEFT JOIN office_storage_quota    osq ON osq.office_id = o.id::text
       ORDER BY o.created_at DESC
     `));
 
