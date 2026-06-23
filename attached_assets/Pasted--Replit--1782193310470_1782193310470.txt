@@ -1,0 +1,187 @@
+إذا كنت ما زلت تعمل على عدالة داخل Replit حالياً، فلا تحتاج إعادة بناء المنصة بالكامل. المطلوب هو تقليل الحمل وفصل المهام الثقيلة قدر الإمكان.
+
+1. افحص جميع Cron Jobs
+
+ابحث في المشروع عن:
+
+cron
+node-cron
+setInterval
+schedule
+agenda
+bull
+bullmq
+
+غالباً ستجد شيئاً مثل:
+
+cron.schedule('* * * * *', monitorSystem)
+
+أو:
+
+setInterval(checkDatabase, 60000)
+
+غيّرها إلى فترات أطول:
+
+// كل 10 دقائق
+cron.schedule('*/10 * * * *', monitorSystem)
+
+أو:
+
+setInterval(checkDatabase, 600000)
+
+⸻
+
+2. أوقف Jobs التجريبية في Production
+
+استخدم:
+
+if (process.env.NODE_ENV !== 'production') {
+   startDemoSync();
+}
+
+أو:
+
+const ENABLE_DEMO_SYNC =
+ process.env.ENABLE_DEMO_SYNC === 'true';
+if (ENABLE_DEMO_SYNC) {
+   startDemoSync();
+}
+
+⸻
+
+3. Cache لنتائج قاعدة البيانات
+
+بدلاً من:
+
+const stats = await db.query(...)
+
+في كل طلب.
+
+استخدم Cache:
+
+let cachedStats = null;
+let cacheTime = 0;
+async function getStats() {
+  if (Date.now() - cacheTime < 300000) {
+     return cachedStats;
+  }
+  cachedStats = await db.query(...);
+  cacheTime = Date.now();
+  return cachedStats;
+}
+
+5 دقائق كافية لكثير من لوحات التحكم.
+
+⸻
+
+4. لا تعمل Health Check على DB كل مرة
+
+خطأ شائع:
+
+app.get('/health', async () => {
+   await db.query('SELECT 1');
+});
+
+الصحيح:
+
+let dbHealth = true;
+setInterval(async () => {
+   try {
+      await db.query('SELECT 1');
+      dbHealth = true;
+   } catch {
+      dbHealth = false;
+   }
+}, 300000);
+
+ثم:
+
+app.get('/health', () => {
+   return { dbHealth };
+});
+
+⸻
+
+5. راقب حجم Connection Pool
+
+إذا كنت تستخدم PostgreSQL:
+
+new Pool({
+  max: 10
+});
+
+لا تجعلها:
+
+max: 100
+
+داخل Replit.
+
+عادة:
+
+5 - 10
+
+كافية.
+
+⸻
+
+6. انقل الذكاء الاصطناعي للخلفية
+
+في عدالة أخطر نقطة ليست قاعدة البيانات بل:
+
+* تحليل العقود.
+* OCR.
+* RAG.
+* توليد المذكرات.
+* استخراج الأحكام.
+
+لا تجعل الطلب ينتظر:
+
+User
+  ↓
+API
+  ↓
+AI
+  ↓
+Database
+  ↓
+Response
+
+بل:
+
+User
+  ↓
+API
+  ↓
+Queue
+  ↓
+Return Job ID
+Worker
+  ↓
+AI Processing
+  ↓
+Save Result
+
+⸻
+
+7. اطلب من Replit Agent فحص المشروع
+
+أرسل له:
+
+Audit the entire project for:
+1. Cron jobs
+2. setInterval loops
+3. Database polling
+4. Health checks
+5. Memory leaks
+6. PostgreSQL connection pool issues
+7. Repeated expensive queries
+Generate a report with:
+- file path
+- issue found
+- impact
+- exact code fix
+Do not modify anything before showing the report.
+
+هذا سيعطيك قائمة دقيقة بالأماكن التي تضغط على النظام.
+
+بالنسبة لعدالة، أكثر ما أخشى عليه حالياً ليس الـ Frontend ولا الـ AI، بل كثرة الـ Cron Jobs والاستعلامات المتكررة على PostgreSQL. هذه غالباً أول سبب للبطء والانهيارات في المشاريع القانونية الكبيرة.
