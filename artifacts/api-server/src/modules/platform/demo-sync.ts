@@ -344,9 +344,10 @@ router.post("/demo-sync/reseed/:officeId", guard, async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════════════════════
-   CRON — auto sync every hour
+   CRON — auto sync every hour (development only — skip in production)
 ══════════════════════════════════════════════════════════════════ */
 cron.schedule("0 * * * *", async () => {
+  if (process.env.NODE_ENV === "production") return; // no demo sync in prod
   try {
     logger.info("[DemoSync] Hourly auto-sync starting…");
     const prodConfig = await fetchProductionConfig();

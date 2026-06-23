@@ -353,15 +353,16 @@ async function runAiHealthCheckAgent() {
 ════════════════════════════════════════════════════════ */
 export function startAgentCron() {
   ensureTables().then(() => {
-    /* ── كل ساعة: مراجعة القضايا + الفواتير + فحص AI ── */
-    cron.schedule("0 * * * *", async () => {
-      logger.info("[AgentCron] 🤖 Starting hourly agent run…");
+    /* ── كل 4 ساعات في production / كل ساعة في dev ── */
+    const agentSchedule = process.env.NODE_ENV === "production" ? "0 */4 * * *" : "0 * * * *";
+    cron.schedule(agentSchedule, async () => {
+      logger.info("[AgentCron] 🤖 Starting agent run…");
       await Promise.allSettled([
         runCaseReviewAgent(),
         runInvoiceReminderAgent(),
         runAiHealthCheckAgent(),
       ]);
-      logger.info("[AgentCron] ✅ Hourly run complete");
+      logger.info("[AgentCron] ✅ Agent run complete");
     });
 
     /* ── يومياً الساعة 2 صباحاً: اللقطة اليومية ── */
