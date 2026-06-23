@@ -25,6 +25,7 @@ import {
   riskScoreGauge,
   riskStatusGauge,
   healCountCounter,
+  lastSnapshot,
 } from "./predictor.js";
 
 const app     = express();
@@ -174,26 +175,52 @@ async function handleCritical(alertName: string, alert: any) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   GET /status — state snapshot for Grafana + debugging
+   GET /status — unified intelligence snapshot
 ═══════════════════════════════════════════════════════════ */
-app.get("/status", async (_req, res) => {
-  const metrics = await getSystemMetrics().catch(() => null);
-  const risk    = metrics ? computeRisk(metrics) : null;
+app.get("/status", (_req, res) => {
+  const snap = lastSnapshot;
 
   res.json({
-    ok:             true,
-    riskScore:      risk?.score ?? state.lastRiskScore,
-    riskStatus:     risk?.status ?? state.lastRiskStatus,
-    riskReasons:    risk?.reasons ?? [],
-    healing:        state.healing,
-    frozen:         state.frozen,
-    healCount:      state.healCount,
-    healCooldown:   state.healingUntil > Date.now()
+    ok:      true,
+    ts:      snap?.ts ?? new Date().toISOString(),
+    uptime:  Math.floor(process.uptime()),
+
+    /* Risk layer */
+    risk: snap ? {
+      score:   snap.risk.score,
+      status:  snap.risk.status,
+      reasons: snap.risk.reasons,
+    } : { score: state.lastRiskScore, status: state.lastRiskStatus, reasons: [] },
+
+    /* Business layer */
+    business: snap ? {
+      workloadLevel: snap.business.workloadLevel,
+      workloadScore: snap.business.workloadScore,
+      costIndex:     snap.business.costIndex,
+      recommendations: snap.business.recommendations,
+    } : null,
+
+    /* Product layer */
+    product: snap ? {
+      intent:        snap.product.intent,
+      platformValue: snap.product.platformValue,
+      aiEngagement:  snap.product.aiEngagement,
+      insights:      snap.product.insights,
+    } : null,
+
+    /* System state */
+    healing:       state.healing,
+    frozen:        state.frozen,
+    healCount:     state.healCount,
+    healCooldown:  state.healingUntil > Date.now()
       ? Math.ceil((state.healingUntil - Date.now()) / 1000) + "s"
       : null,
-    uptime:         Math.floor(process.uptime()),
-    recentActions:  state.actionLog.slice(0, 10),
-    metrics,
+
+    /* Raw metrics */
+    metrics: snap?.metrics ?? null,
+
+    /* Last 10 decisions */
+    recentActions: state.actionLog.slice(0, 10),
   });
 });
 

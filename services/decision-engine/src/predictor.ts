@@ -12,6 +12,8 @@
 import { getSystemMetrics, type SystemMetrics } from "./prometheusClient.js";
 import { state, recordAction } from "./state.js";
 import { logger } from "./logger.js";
+import { analyzeBusinessLayer, type BusinessAnalysis } from "./businessLayer.js";
+import { analyzeProductLayer, type ProductAnalysis } from "./productLayer.js";
 import * as client from "prom-client";
 
 /* ── Prometheus metrics يُعرّفها Decision Engine ────────── */
@@ -83,16 +85,32 @@ export function costRecommendations(m: SystemMetrics): string[] {
 
 const API_BASE = process.env.API_URL ?? "http://api:8080";
 
+/* ── Shared last snapshot — used by /status endpoint ─────── */
+export interface FullSnapshot {
+  risk:     ReturnType<typeof computeRisk>;
+  business: BusinessAnalysis;
+  product:  ProductAnalysis;
+  metrics:  SystemMetrics;
+  ts:       string;
+}
+
+export let lastSnapshot: FullSnapshot | null = null;
+
 /* ── Predictive loop — يعمل كل 60 ثانية ─────────────────── */
 export function startPredictiveLoop(): void {
   const INTERVAL_MS = 60_000;
 
   async function tick() {
     try {
-      const metrics = await getSystemMetrics();
-      const risk    = computeRisk(metrics);
+      const metrics  = await getSystemMetrics();
+      const risk     = computeRisk(metrics);
+      const business = analyzeBusinessLayer(metrics);
+      const product  = analyzeProductLayer(metrics);
 
-      /* Update Prometheus metrics */
+      /* Cache snapshot for /status */
+      lastSnapshot = { risk, business, product, metrics, ts: new Date().toISOString() };
+
+      /* Update core Prometheus metrics */
       riskScoreGauge.set(risk.score);
       riskStatusGauge.set(risk.status === "CRITICAL" ? 2 : risk.status === "WARNING" ? 1 : 0);
 
@@ -100,20 +118,27 @@ export function startPredictiveLoop(): void {
       state.lastRiskScore  = risk.score;
       state.lastRiskStatus = risk.status;
 
-      const tips = costRecommendations(metrics);
-
       logger.info({
-        riskScore:  risk.score,
-        riskStatus: risk.status,
-        reasons:    risk.reasons,
+        risk: { score: risk.score, status: risk.status, reasons: risk.reasons },
+        business: {
+          workload: business.workloadLevel,
+          score:    business.workloadScore.toFixed(0),
+          cost:     business.costIndex,
+        },
+        product: {
+          intent:      product.intent,
+          aiEngagement: product.aiEngagement,
+          value:        product.platformValue,
+        },
         metrics: {
           cpu: `${metrics.cpuPercent.toFixed(1)}%`,
           mem: `${metrics.memPercent.toFixed(1)}%`,
           p95: `${metrics.p95LatencyMs.toFixed(0)}ms`,
           err: `${metrics.errorRateRps.toFixed(3)}/s`,
         },
-        tips: tips.length > 0 ? tips : undefined,
-      }, `[Predictor] ${risk.status} risk=${risk.score}`);
+        businessTips: business.recommendations.length ? business.recommendations : undefined,
+        productInsights: product.insights.length ? product.insights : undefined,
+      }, `[Engine] ${risk.status} | workload=${business.workloadLevel} | intent=${product.intent}`);
 
       /* Predictive alert: CRITICAL before actual failure */
       if (risk.status === "CRITICAL" && !state.healing) {
@@ -126,9 +151,9 @@ export function startPredictiveLoop(): void {
           reason:    risk.reasons.join(", "),
         });
 
-        /* Post to API's self-heal endpoint if DB is down */
+        /* DB down → heal */
         if (metrics.dbHealth === 0) {
-          logger.warn("[Predictor] DB down detected — triggering heal");
+          logger.warn("[Engine] DB down — triggering heal");
           await fetch(`${API_BASE}/internal/heal`, {
             method: "POST",
             headers: {
@@ -144,7 +169,7 @@ export function startPredictiveLoop(): void {
       }
 
     } catch (err: any) {
-      logger.warn({ err: err?.message }, "[Predictor] tick error");
+      logger.warn({ err: err?.message }, "[Engine] tick error");
     }
   }
 
@@ -154,5 +179,5 @@ export function startPredictiveLoop(): void {
     setInterval(tick, INTERVAL_MS);
   }, 30_000);
 
-  logger.info("[Predictor] ✅ Predictive loop started (60s interval)");
+  logger.info("[Engine] ✅ Unified intelligence loop started (60s interval)");
 }
