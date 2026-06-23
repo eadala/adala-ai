@@ -14,6 +14,7 @@ import type { Request, Response, NextFunction } from "express";
 import { getAuth, createClerkClient } from "@clerk/express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { auditTenantResolution, resolveTenantWithTrace } from "../core/tenant/tenantResolver";
 
 let _saClerk2: ReturnType<typeof createClerkClient> | null = null;
 async function isSuperAdminUser(userId: string): Promise<boolean> {
@@ -177,14 +178,57 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
   const officeId = tenantId;
   (req as any).tenantId = officeId;
 
-  // Delegate to the canonical implementation in requireAuth.ts
-  // (which sets AsyncLocalStorage + RLS session variable)
   const { runWithTenant } = await import("../core/tenantContext");
   const { db } = await import("@workspace/db");
   const { sql } = await import("drizzle-orm");
 
+  /* Layer 3 — RLS: force all queries to see only this tenant's rows */
   db.execute(sql`SELECT set_config('app.current_tenant', ${officeId}, false)`)
     .catch(() => {});
 
   runWithTenant({ userId, officeId }, () => next());
+}
+
+/**
+ * requireAuthWithTenantAudit — same as requireAuthWithTenant but also
+ * writes a non-blocking entry to tenant_audit_logs via TIRE.
+ * Use on sensitive endpoints that need full audit trail.
+ */
+export async function requireAuthWithTenantAudit(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const auth = getAuth(req);
+  const userId = auth?.userId;
+  if (!userId) return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+  (req as any).userId = userId;
+
+  const headerTenant = req.headers["x-tenant-id"] as string | undefined;
+  const ip = (req.headers["x-forwarded-for"] as string) ?? req.socket?.remoteAddress ?? "";
+  const ua = req.headers["user-agent"] ?? "";
+
+  try {
+    const trace = await resolveTenantWithTrace(userId, headerTenant);
+    /* Non-blocking audit */
+    auditTenantResolution(userId, trace, undefined, { ip, userAgent: ua });
+    (req as any).tenantId  = trace.tenantId;
+    (req as any).tenantTrace = trace.steps;
+
+    const { runWithTenant } = await import("../core/tenantContext");
+    const { db } = await import("@workspace/db");
+    const { sql } = await import("drizzle-orm");
+    db.execute(sql`SELECT set_config('app.current_tenant', ${trace.tenantId}, false)`).catch(() => {});
+    runWithTenant({ userId, officeId: trace.tenantId }, () => next());
+  } catch (err: any) {
+    auditTenantResolution(userId, null, err.message ?? "UNKNOWN", { ip, userAgent: ua });
+    const isSA = await isSuperAdminUser(userId);
+    if (isSA) {
+      (req as any).isSuperAdmin = true;
+      (req as any).tenantId = "platform";
+      const { runWithTenant } = await import("../core/tenantContext");
+      return runWithTenant({ userId, officeId: "platform" }, () => next());
+    }
+    return res.status(403).json({ error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب.", code: "TNT_403" });
+  }
 }

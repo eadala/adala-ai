@@ -122,6 +122,7 @@ export const TABS = [
   { id: "platform-owners",  label: "مالكو المنصة",              icon: Crown },
   { id: "dev-accounts",     label: "حسابات المطورين",           icon: UserCog },
   { id: "workflow-grants",  label: "صلاحيات Workflow",           icon: GitBranch },
+  { id: "tenant-identity",  label: "هوية المستأجر (TIRE)",       icon: Network },
 ];
 
 export const PERM_LABELS: Record<string, { label: string; color: string }> = {
