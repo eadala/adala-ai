@@ -1,4 +1,5 @@
 - [Adala Security Audit](adala-security-audit.md) — 94/100 score; 15/15 isolation tests pass; all office_id columns are TEXT not uuid; financial-engine ?? query.officeId is super_admin-only (acceptable); 180 requireAuth-only routes are low-risk user-level
+- [Adala RBAC Audit](adala-rbac-audit.md) — 9 roles defined (44 perms), NONE enforced on API routes; 7 critical: rbac/members/role unguarded (any member self-promotes); hasPermission()=true while loading; 3/130 pages use Can; report at RBAC_AUDIT_REPORT.md
 - [Adala Website Builder](adala-website-builder.md) — /website-builder (ProtectedRoute); 4 templates in features/website-builder/templates/; websiteBuilder.ts 7 routes; website_config JSONB in officePageTable schema; icon aliases mandatory (Layout→LayoutIcon); middlewares (not middleware) path
 - [Adala Case Module Architecture](case-module-architecture.md) — src/case/ modular system: entity/repository/service/events + 4 modules; tasks.case_id needs ::uuid cast; CASE_DELETED local only
 - [Adala 500-error fix patterns](adala-500-fix-patterns.md) — requireAuthWithTenant try/catch; UUID validation; NaN guard; 9 tables needed office_id ALTER TABLE
