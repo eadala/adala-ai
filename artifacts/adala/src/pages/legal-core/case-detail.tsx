@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { Link }           from "wouter";
+import SmartDocumentsTab  from "@/components/smart-documents-tab";
 import { useToast }       from "@/hooks/use-toast";
 import { useLang }        from "@/hooks/use-lang";
 import { cn }             from "@/lib/utils";

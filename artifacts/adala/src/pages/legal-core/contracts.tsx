@@ -7,7 +7,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import Highlight from "@tiptap/extension-highlight";
 import CharacterCount from "@tiptap/extension-character-count";
 import {
-  FileText, Plus, Search, Loader2, Sparkles, Eye, Trash2, AlertTriangle,
+  FileText, Plus, Search, Loader2, Sparkles, Eye, Trash2, AlertTriangle, FolderOpen,
   CheckCircle, Clock, PenLine, XCircle, Shield, Scale, Building2, Home,
   Users, Cpu, Landmark, ChevronRight, History, Send, Copy, Wand2,
   Bot, BookOpen, LayoutDashboard, ListFilter, Bold, Italic, UnderlineIcon,

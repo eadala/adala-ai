@@ -14,8 +14,9 @@ import {
   MessageSquare, Activity, CheckCircle2, Clock, FileText,
   UserPlus, SmartphoneIcon, CheckCircle, XCircle,
   TrendingDown, BarChart3, Printer, ArrowUpRight, ArrowDownRight,
-  Sparkles, Bot, Brain, RefreshCw, Copy,
+  Sparkles, Bot, Brain, RefreshCw, Copy, FolderOpen,
 } from "lucide-react";
+import SmartDocumentsTab from "@/components/smart-documents-tab";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
