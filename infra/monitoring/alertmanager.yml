@@ -35,6 +35,11 @@ route:
       repeat_interval: 5m
 
     - match:
+        alertname: LegalOperationsCritical
+      receiver: "legal-ops"
+      repeat_interval: 2h
+
+    - match:
         severity: warning
       receiver: "warning"
       repeat_interval: 6h
@@ -103,6 +108,20 @@ receivers:
         http_config:
           bearer_token: "${HEAL_SECRET:-adala-heal-token-change-me}"
         max_alerts: 1
+
+  # ── Legal operations alert (from case-intelligence) ───────
+  - name: "legal-ops"
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#legal-ops"
+        send_resolved: true
+        icon_emoji: ":scales:"
+        title: '⚖️ Legal Operations Alert'
+        text: |
+          {{ range .Alerts }}
+          *{{ .Annotations.summary }}*
+          {{ if .Annotations.description }}_{{ .Annotations.description }}_{{ end }}
+          {{ end }}
 
 inhibit_rules:
   - source_match:

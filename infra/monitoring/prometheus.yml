@@ -47,3 +47,9 @@ scrape_configs:
     static_configs:
       - targets: ["decision-engine:3002"]
     metrics_path: /metrics
+
+  - job_name: case_intelligence
+    scrape_interval: 120s
+    static_configs:
+      - targets: ["case-intelligence:3003"]
+    metrics_path: /metrics
