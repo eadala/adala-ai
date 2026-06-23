@@ -1726,11 +1726,7 @@ export default function CaseDetail({ id }: { id: string }) {
 
         {/* ── CENTER (Documents + Hearings + Timeline + Messages) ── */}
         <div className="lg:col-span-2 space-y-5">
-          <DocumentsSection
-            caseId={id}
-            addOpen={documentOpen}
-            setAddOpen={setDocumentOpen}
-          />
+          <SmartDocumentsTab entityType="case" entityId={id} />
           <HearingsSection
             caseId={id}
             addOpen={hearingOpen}

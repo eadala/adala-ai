@@ -248,6 +248,9 @@ export default function ClientDetail() {
             <Sparkles className="h-3.5 w-3.5 ms-1" style={{ color: "#2563EB" }} />
             <span style={{ color: "#2563EB" }}>AI</span>
           </TabsTrigger>
+          <TabsTrigger value="smart-docs" className="text-xs px-1.5">
+            <FolderOpen className="h-3.5 w-3.5 ms-1 text-violet-500" />المستندات
+          </TabsTrigger>
         </TabsList>
 
         {/* CASES TAB */}
@@ -502,6 +505,11 @@ export default function ClientDetail() {
         {/* ── AI INSIGHTS TAB ── */}
         <TabsContent value="ai" className="mt-4">
           <ClientAIInsights client={client} cases={cases} invoices={invoices} contracts={contracts} />
+        </TabsContent>
+
+        {/* ── SMART DOCUMENTS TAB ── */}
+        <TabsContent value="smart-docs" className="mt-4">
+          <SmartDocumentsTab entityType="client" entityId={id} />
         </TabsContent>
 
         {/* ACTIVITIES TIMELINE TAB */}

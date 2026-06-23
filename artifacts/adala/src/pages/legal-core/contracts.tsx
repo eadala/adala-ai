@@ -17,6 +17,7 @@ import {
   ShoppingBag, Check, SlidersHorizontal
 } from "lucide-react";
 import { DocumentPrintTemplate, PrintButton } from "@/components/document-print-template";
+import SmartDocumentsTab from "@/components/smart-documents-tab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -670,6 +671,10 @@ export default function Contracts() {
             <span>عقودي</span>
             {contracts.length > 0 && <Badge variant="secondary" className="h-4 px-1 text-[9px]">{contracts.length}</Badge>}
           </TabsTrigger>
+          <TabsTrigger value="smart-docs" className="gap-1 sm:gap-1.5 text-[11px] sm:text-xs px-2 sm:px-3">
+            <FolderOpen className="h-3.5 w-3.5 text-violet-500" />
+            <span>المستندات الذكية</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Dashboard Tab ── */}
@@ -939,6 +944,11 @@ export default function Contracts() {
               })}
             </div>
           )}
+        </TabsContent>
+
+        {/* ── Smart Documents Tab ── */}
+        <TabsContent value="smart-docs" className="mt-3 sm:mt-4">
+          <SmartDocumentsTab entityType="contract" entityId="" />
         </TabsContent>
       </Tabs>
 
