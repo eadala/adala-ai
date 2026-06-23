@@ -80,6 +80,19 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
       `);
     }
 
+    /* Ensure office_members entry exists so resolveTenantId can find this user */
+    await db.execute(sql`
+      INSERT INTO office_members (office_id, user_id, role, status)
+      VALUES (${officeId}, ${userId}, 'owner', 'active')
+      ON CONFLICT DO NOTHING
+    `).catch(() => {});
+
+    /* Also update users.office_id for fast lookup */
+    await db.execute(sql`
+      UPDATE users SET office_id = ${officeId}
+      WHERE id = ${userId} AND office_id IS NULL
+    `).catch(() => {});
+
     await db.execute(sql`
       UPDATE onboarding_state
       SET completed = true, step = 10,

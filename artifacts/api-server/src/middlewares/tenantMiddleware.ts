@@ -76,9 +76,51 @@ export async function resolveTenantId(userId: string, headerTenantId?: string): 
       return userOffice;
     }
 
-    /* Step 5 (office_page fallback) intentionally removed — returning null
-       forces 403 for users with no office assignment, preventing cross-tenant
-       data leakage where unassigned users would silently see the first office. */
+    /* 5. office_registry — owner lookup by Clerk userId (safe: matches by owner) */
+    const regRows = await db.execute(sql`
+      SELECT id FROM office_registry
+      WHERE clerk_user_id = ${userId} AND status = 'active'
+      LIMIT 1
+    `);
+    const regOffice = ((regRows as any)?.rows ?? [])[0]?.id as string | undefined;
+    if (regOffice) {
+      /* Auto-heal: create office_members entry so future lookups hit step 3 */
+      db.execute(sql`
+        INSERT INTO office_members (office_id, user_id, role, status)
+        VALUES (${regOffice}, ${userId}, 'owner', 'active')
+        ON CONFLICT DO NOTHING
+      `).catch(() => {});
+      /* Also set users.office_id so step 4 works next time */
+      db.execute(sql`
+        UPDATE users SET office_id = ${regOffice}
+        WHERE id = ${userId} AND office_id IS NULL
+      `).catch(() => {});
+      CACHE.set(userId, { officeId: regOffice, ts: Date.now() });
+      return regOffice;
+    }
+
+    /* 6. trial_offices — users who completed onboarding but never got office_members */
+    const trialRows = await db.execute(sql`
+      SELECT office_id FROM trial_offices
+      WHERE user_id = ${userId}
+      LIMIT 1
+    `);
+    const trialOffice = ((trialRows as any)?.rows ?? [])[0]?.office_id as string | undefined;
+    if (trialOffice) {
+      /* Auto-heal: persist to office_members so future requests hit step 3 */
+      db.execute(sql`
+        INSERT INTO office_members (office_id, user_id, role, status)
+        VALUES (${trialOffice}, ${userId}, 'owner', 'active')
+        ON CONFLICT DO NOTHING
+      `).catch(() => {});
+      db.execute(sql`
+        UPDATE users SET office_id = ${trialOffice}
+        WHERE id = ${userId} AND office_id IS NULL
+      `).catch(() => {});
+      CACHE.set(userId, { officeId: trialOffice, ts: Date.now() });
+      return trialOffice;
+    }
+
     return null;
   } catch {
     return null;

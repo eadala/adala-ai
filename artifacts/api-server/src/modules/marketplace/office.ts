@@ -6,7 +6,7 @@ import {
   officeOrdersTable, officeReviewsTable, officeArticlesTable,
   officeDomainsTable,
 } from "@workspace/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
 
 const router = Router();
@@ -163,8 +163,26 @@ router.get("/office/my", requireAuth, async (_req, res) => {
 });
 
 /* POST create office */
-router.post("/office/my", requireAuth, async (req, res) => {
+router.post("/office/my", requireAuth, async (req: any, res) => {
+  const { userId } = (req as any);
   const [row] = await db.insert(officePageTable).values(req.body).returning();
+  if (row?.id && userId) {
+    /* Link owner to this office */
+    db.execute(sql`
+      INSERT INTO office_members (office_id, user_id, role, status)
+      VALUES (${String(row.id)}, ${userId}, 'owner', 'active')
+      ON CONFLICT DO NOTHING
+    `).catch(() => {});
+    db.execute(sql`
+      INSERT INTO office_registry (id, clerk_user_id, office_name, status)
+      VALUES (${String(row.id)}, ${userId}, ${req.body.name ?? ''}, 'active')
+      ON CONFLICT (id) DO UPDATE SET clerk_user_id = EXCLUDED.clerk_user_id
+    `).catch(() => {});
+    db.execute(sql`
+      UPDATE users SET office_id = ${String(row.id)}
+      WHERE id = ${userId} AND office_id IS NULL
+    `).catch(() => {});
+  }
   res.json(row);
 });
 

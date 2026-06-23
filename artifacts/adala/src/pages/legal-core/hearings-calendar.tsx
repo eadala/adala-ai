@@ -170,7 +170,7 @@ export default function HearingsCalendar() {
 
   const { data: hearings = [], isLoading } = useQuery<any[]>({
     queryKey: ["hearings-calendar"],
-    queryFn:  () => fetch(`${BASE}/api/cases/hearings/calendar`).then(r => r.json()),
+    queryFn:  () => fetch(`${BASE}/api/cases/hearings/calendar`).then(r => r.ok ? r.json() : []),
     staleTime: 60_000,
   });
 
