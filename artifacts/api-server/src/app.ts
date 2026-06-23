@@ -238,6 +238,10 @@ app.use((_req, res, next) => {
   next();
 });
 
+/* ── Internal heal webhook (Alertmanager → Docker restart) ───────────── */
+import internalHealRouter from "./routes/internalHeal";
+app.use("/internal", internalHealRouter);
+
 /* ── Prometheus scrape endpoint — public, no auth ─────────────────────── */
 app.get("/metrics", async (_req, res) => {
   try {

@@ -6,11 +6,11 @@ global:
   smtp_auth_password: "${SMTP_PASSWORD}"
   smtp_require_tls: true
 
-# ── توجيه التنبيهات ───────────────────────────────────────
+# ── توجيه التنبيهات (مع noise control) ──────────────────────
 route:
   group_by: ["alertname", "severity"]
-  group_wait: 30s
-  group_interval: 5m
+  group_wait:      30s
+  group_interval:  5m
   repeat_interval: 4h
   receiver: "default"
   routes:
@@ -18,12 +18,21 @@ route:
         severity: critical
       receiver: "critical"
       repeat_interval: 1h
+      continue: true      # أكمل للـ auto-heal أيضاً
+
+    - match:
+        severity: critical
+        alertname: APIDown
+      receiver: "auto-heal-api"
+      repeat_interval: 5m
+
     - match:
         severity: warning
       receiver: "warning"
+      repeat_interval: 6h
 
 receivers:
-  # ── تنبيهات بريد إلكتروني (الافتراضي) ────────────────
+  # ── default (email) ────────────────────────────────────
   - name: "default"
     email_configs:
       - to: "${ALERT_EMAIL:-admin@adala.ai}"
@@ -32,13 +41,14 @@ receivers:
           Subject: "[عدالة AI] {{ .GroupLabels.alertname }}"
         body: |
           {{ range .Alerts }}
-          ⚠️  {{ .Annotations.summary }}
+          {{ if eq .Status "firing" }}⚠️  تنبيه جديد{{ else }}✅ تم الحل{{ end }}
+          التنبيه: {{ .Annotations.summary }}
           الخطورة: {{ .Labels.severity }}
-          الوقت: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          الوقت: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
           {{ if .Annotations.description }}{{ .Annotations.description }}{{ end }}
           {{ end }}
 
-  # ── تنبيهات حرجة (email + Slack) ─────────────────────
+  # ── critical (email + Slack) ────────────────────────────
   - name: "critical"
     email_configs:
       - to: "${ALERT_EMAIL:-admin@adala.ai}"
@@ -50,22 +60,33 @@ receivers:
         channel: "#alerts"
         send_resolved: true
         icon_emoji: ":rotating_light:"
-        title: "🚨 {{ .GroupLabels.alertname }}"
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        title: '{{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} {{ .GroupLabels.alertname }}'
         text: |
           {{ range .Alerts }}
           *{{ .Annotations.summary }}*
-          الخطورة: `{{ .Labels.severity }}`
+          {{ if .Annotations.description }}_{{ .Annotations.description }}_{{ end }}
           {{ end }}
 
-  # ── تنبيهات تحذيرية (Slack فقط) ──────────────────────
+  # ── warning (Slack فقط) ─────────────────────────────────
   - name: "warning"
     slack_configs:
       - api_url: "${SLACK_WEBHOOK_URL}"
         channel: "#monitoring"
         send_resolved: true
         icon_emoji: ":warning:"
-        title: "⚠️  {{ .GroupLabels.alertname }}"
+        color: '{{ if eq .Status "firing" }}warning{{ else }}good{{ end }}'
+        title: '⚠️  {{ .GroupLabels.alertname }}'
         text: "{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
+
+  # ── auto-heal: webhook يُعيد تشغيل API عند الانهيار ──────
+  - name: "auto-heal-api"
+    webhook_configs:
+      - url: "http://api:8080/internal/heal"
+        send_resolved: false
+        http_config:
+          bearer_token: "${HEAL_SECRET:-adala-heal-token}"
+        max_alerts: 1
 
 inhibit_rules:
   - source_match:
