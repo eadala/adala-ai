@@ -1,0 +1,132 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL (UUID-native, production) ──────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: adala-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: adala
+      POSTGRES_USER: adala
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adala -d adala"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ── Redis (cache + future queues) ────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: adala-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal
+
+  # ── API Server ────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    container_name: adala-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgresql://adala:${DB_PASSWORD}@db:5432/adala
+      REDIS_URL: redis://redis:6379
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DEFAULT_OBJECT_STORAGE_BUCKET_ID: ${DEFAULT_OBJECT_STORAGE_BUCKET_ID:-}
+      PRIVATE_OBJECT_DIR: ${PRIVATE_OBJECT_DIR:-/data/uploads}
+      PUBLIC_OBJECT_SEARCH_PATHS: ${PUBLIC_OBJECT_SEARCH_PATHS:-}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - internal
+
+  # ── Frontend (SPA built with Vite) ───────────────────────
+  web:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.web
+      args:
+        VITE_CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY}
+        VITE_CLERK_PROXY_URL: /api/__clerk
+        BASE_PATH: /
+    container_name: adala-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - internal
+
+  # ── Nginx Gateway (public entry point) ───────────────────
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: adala-gateway
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_conf:/etc/letsencrypt:ro
+    depends_on:
+      - api
+      - web
+    networks:
+      - internal
+      - external
+
+  # ── Certbot (SSL via Let's Encrypt) ──────────────────────
+  certbot:
+    image: certbot/certbot:latest
+    container_name: adala-certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
+  certbot_www:
+  certbot_conf:
+
+networks:
+  internal:
+    driver: bridge
+  external:
+    driver: bridge
