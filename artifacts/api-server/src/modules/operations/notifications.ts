@@ -368,7 +368,11 @@ router.post("/notifications/mark-read/:planId", requireAuthWithTenant, async (re
 /* GET /api/notifications/settings */
 router.get("/notifications/settings", requireAuth, async (req, res) => {
   try {
-    const officeId = (req as any).auth?.officeId ?? (req as any).tenantId ?? "default";
+    const userId = (req as any).auth?.userId;
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
+    const officeId = await resolveTenantId(userId);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const rows = await db.execute(sql`
       SELECT event_type, push_enabled, in_app_enabled, email_enabled
       FROM office_notification_settings
@@ -383,7 +387,11 @@ router.get("/notifications/settings", requireAuth, async (req, res) => {
 /* PATCH /api/notifications/settings */
 router.patch("/notifications/settings", requireAuth, async (req, res) => {
   try {
-    const officeId = (req as any).auth?.officeId ?? (req as any).tenantId ?? "default";
+    const userId = (req as any).auth?.userId;
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
+    const officeId = await resolveTenantId(userId);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const updates = req.body.settings as Array<{
       event_type: string;
       push_enabled: boolean;

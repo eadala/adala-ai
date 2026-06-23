@@ -80,7 +80,8 @@ router.get("/isolation/stats", requireAuthWithTenant, guard, (_req, res) => {
 /* ── POST /isolation/test ── اختبار العزل ── */
 router.post("/isolation/test", requireAuthWithTenant, guard, async (req, res) => {
   try {
-    const tenantId    = (req as any).tenantId ?? "default";
+    const tenantId    = (req as any).tenantId as string;
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const targetTable = (req.body?.table as string) || "cases";
     const allowedTables = ["cases","clients","revenues","expenses","tasks","documents"];
     if (!allowedTables.includes(targetTable)) {

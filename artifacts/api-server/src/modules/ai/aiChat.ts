@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -561,19 +561,21 @@ router.post("/ai-tasks/:id/process", requireAuth, async (req, res) => {
   } catch (e: any) { return res.status(500).json({ error: e.message }); }
 });
 
-router.post("/ai-search", requireAuth, async (req, res) => {
+router.post("/ai-search", requireAuthWithTenant, async (req, res) => {
   const { query } = req.body as { query: string };
   if (!query) return res.status(400).json({ error: "استعلام البحث مطلوب" });
+  const tenantId = (req as any).tenantId as string;
+  if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
 
   const systemPrompt = `أنت محرك بحث قانوني ذكي. عند تلقي استفسار، حدد المفاهيم القانونية المرتبطة به في القانون السعودي وقدم نتائج بحث منظمة.`;
   const { reply: analysis } = await callAI(systemPrompt, `ابحث عن: ${query}`);
 
   const like = `%${query}%`;
   const docsRaw = await db.execute(sql`
-    SELECT id, file_name as title, file_type FROM documents WHERE file_name ILIKE ${like} LIMIT 10
+    SELECT id, file_name as title, file_type FROM documents WHERE file_name ILIKE ${like} AND office_id = ${tenantId}::uuid LIMIT 10
   `) as any;
   const casesRaw = await db.execute(sql`
-    SELECT id, title, status FROM cases WHERE title ILIKE ${like} OR description ILIKE ${like} LIMIT 10
+    SELECT id, title, status FROM cases WHERE (title ILIKE ${like} OR description ILIKE ${like}) AND office_id = ${tenantId}::uuid LIMIT 10
   `) as any;
   const matchedDocs = Array.isArray(docsRaw) ? docsRaw : (docsRaw?.rows ?? []);
   const matchedCases = Array.isArray(casesRaw) ? casesRaw : (casesRaw?.rows ?? []);

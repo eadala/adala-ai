@@ -1,17 +1,19 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 const router = Router();
 
-async function processQuery(question: string): Promise<{ response: string; contextUsed: string }> {
+async function processQuery(question: string, tenantId: string): Promise<{ response: string; contextUsed: string }> {
   const q = question.toLowerCase().trim();
   try {
     if (/متأخر|متأخرة|قضايا.*مفتوحة|مفتوحة/.test(q)) {
       const r = await db.execute(sql`
         SELECT title, case_number, case_type, status, created_at FROM cases
-        WHERE status IN ('open','in_progress') ORDER BY created_at ASC LIMIT 10
+        WHERE status IN ('open','in_progress') AND office_id = ${tenantId}::uuid
+        ORDER BY created_at ASC LIMIT 10
       `);
       if (!r.rows.length) return { response: "لا توجد قضايا مفتوحة حالياً.", contextUsed: "cases" };
       const list = (r.rows as any[]).map((c, i) =>
@@ -23,7 +25,8 @@ async function processQuery(question: string): Promise<{ response: string; conte
     if (/جلسات.*قادمة|مواعيد.*قادمة|قادم|الجلسات/.test(q)) {
       const r = await db.execute(sql`
         SELECT title, event_type, start_at, location FROM events
-        WHERE start_at >= NOW() ORDER BY start_at ASC LIMIT 10
+        WHERE start_at >= NOW() AND office_id = ${tenantId}::uuid
+        ORDER BY start_at ASC LIMIT 10
       `);
       if (!r.rows.length) return { response: "لا توجد جلسات أو مواعيد قادمة مسجّلة.", contextUsed: "events" };
       const list = (r.rows as any[]).map((e, i) =>
@@ -40,7 +43,7 @@ async function processQuery(question: string): Promise<{ response: string; conte
           SELECT i.invoice_number, i.title, i.total, i.status, c.full_name
           FROM client_invoices i
           JOIN clients c ON c.id = i.client_id
-          WHERE c.full_name ILIKE ${name}
+          WHERE c.full_name ILIKE ${name} AND i.office_id = ${tenantId}::uuid
           ORDER BY i.created_at DESC LIMIT 10
         `);
         if (!r.rows.length) return { response: `لم أجد فواتير للعميل المذكور.`, contextUsed: "invoices" };
@@ -52,7 +55,8 @@ async function processQuery(question: string): Promise<{ response: string; conte
         return { response: `فواتير ${rows[0]?.full_name}:\n\n${list}\n\n**الإجمالي:** ${total.toLocaleString("ar-EG")} ر.س`, contextUsed: "invoices,clients" };
       }
       const r = await db.execute(sql`
-        SELECT status, COUNT(*) as cnt, SUM(total) as sum FROM client_invoices GROUP BY status
+        SELECT status, COUNT(*) as cnt, SUM(total) as sum FROM client_invoices
+        WHERE office_id = ${tenantId}::uuid GROUP BY status
       `);
       const lines = (r.rows as any[]).map(row => {
         const label = row.status === "paid" ? "مدفوعة" : row.status === "overdue" ? "متأخرة" : row.status === "sent" ? "مُرسَلة" : "مسودة";
@@ -65,7 +69,7 @@ async function processQuery(question: string): Promise<{ response: string; conte
       const r = await db.execute(sql`
         SELECT title, type, expires_at FROM contracts
         WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '90 days'
-        AND status = 'active'
+        AND status = 'active' AND office_id = ${tenantId}::uuid
         ORDER BY expires_at ASC LIMIT 10
       `);
       if (!r.rows.length) return { response: "لا توجد عقود ستنتهي خلال الـ 90 يوماً القادمة.", contextUsed: "contracts" };
@@ -77,7 +81,9 @@ async function processQuery(question: string): Promise<{ response: string; conte
 
     if (/مراسلات.*غير.*مقروءة|رسائل.*غير.*مقروءة/.test(q)) {
       const r = await db.execute(sql`
-        SELECT COUNT(*) as cnt FROM office_message_recipients WHERE is_read = FALSE
+        SELECT COUNT(*) as cnt FROM office_message_recipients omr
+        JOIN office_messages om ON om.id = omr.message_id
+        WHERE omr.is_read = FALSE AND om.office_id = ${tenantId}::uuid
       `);
       const cnt = Number((r.rows[0] as any)?.cnt ?? 0);
       if (cnt === 0) return { response: "لا توجد رسائل غير مقروءة في صندوق الوارد.", contextUsed: "messages" };
@@ -85,8 +91,8 @@ async function processQuery(question: string): Promise<{ response: string; conte
     }
 
     if (/عملاء|عميل/.test(q)) {
-      const r = await db.execute(sql`SELECT COUNT(*) as cnt, COUNT(*) FILTER (WHERE status='active') as active FROM clients`);
-      const docs = await db.execute(sql`SELECT COUNT(*) as cnt FROM documents`);
+      const r = await db.execute(sql`SELECT COUNT(*) as cnt, COUNT(*) FILTER (WHERE status='active') as active FROM clients WHERE office_id = ${tenantId}::uuid`);
+      const docs = await db.execute(sql`SELECT COUNT(*) as cnt FROM documents WHERE office_id = ${tenantId}::uuid`);
       const row = r.rows[0] as any;
       return {
         response: `إجمالي العملاء: **${row.cnt}** عميل، منهم **${row.active}** نشط.\nإجمالي المستندات: **${(docs.rows[0] as any)?.cnt ?? 0}** مستند.`,
@@ -96,10 +102,10 @@ async function processQuery(question: string): Promise<{ response: string; conte
 
     if (/ملخص|تقرير|نظرة عامة|احصاء/.test(q)) {
       const [cases, clients, invoices, events] = await Promise.all([
-        db.execute(sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='open') as open FROM cases`),
-        db.execute(sql`SELECT COUNT(*) as total FROM clients`),
-        db.execute(sql`SELECT COUNT(*) FILTER (WHERE status='overdue') as overdue, COALESCE(SUM(total) FILTER (WHERE status IN ('sent','overdue')),0) as outstanding FROM client_invoices`),
-        db.execute(sql`SELECT COUNT(*) as upcoming FROM events WHERE start_at >= NOW()`),
+        db.execute(sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='open') as open FROM cases WHERE office_id = ${tenantId}::uuid`),
+        db.execute(sql`SELECT COUNT(*) as total FROM clients WHERE office_id = ${tenantId}::uuid`),
+        db.execute(sql`SELECT COUNT(*) FILTER (WHERE status='overdue') as overdue, COALESCE(SUM(total) FILTER (WHERE status IN ('sent','overdue')),0) as outstanding FROM client_invoices WHERE office_id = ${tenantId}::uuid`),
+        db.execute(sql`SELECT COUNT(*) as upcoming FROM events WHERE start_at >= NOW() AND office_id = ${tenantId}::uuid`),
       ]);
       const c = cases.rows[0] as any;
       const cl = clients.rows[0] as any;
@@ -127,12 +133,14 @@ async function processQuery(question: string): Promise<{ response: string; conte
 }
 
 // POST /api/ai-assistant
-router.post("/", requireAuth, async (req: Request, res: Response) => {
+router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { question } = req.body;
     if (!question?.trim()) return res.status(400).json({ error: "السؤال مطلوب" });
     const userId = (req as any).auth?.userId ?? "anonymous";
-    const { response, contextUsed } = await processQuery(question);
+    const tenantId = (req as any).tenantId as string;
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const { response, contextUsed } = await processQuery(question, tenantId);
     await db.execute(sql`
       INSERT INTO ai_assistant_logs (user_id, question, response, context_used)
       VALUES (${userId}, ${question}, ${response}, ${contextUsed})
@@ -144,7 +152,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 });
 
 // GET /api/ai-assistant/history
-router.get("/history", requireAuth, async (req: Request, res: Response) => {
+router.get("/history", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).auth?.userId ?? "anonymous";
     const r = await db.execute(sql`
@@ -161,7 +169,7 @@ router.get("/history", requireAuth, async (req: Request, res: Response) => {
 });
 
 // GET /api/ai-assistant/suggestions
-router.get("/suggestions", requireAuth, async (_req: Request, res: Response) => {
+router.get("/suggestions", requireAuthWithTenant, async (_req: Request, res: Response) => {
   res.json([
     "ما هي القضايا المفتوحة؟",
     "ما هي الجلسات القادمة؟",

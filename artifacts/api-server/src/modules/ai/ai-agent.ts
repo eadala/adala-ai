@@ -93,7 +93,7 @@ async function executeAction(
   intent: AgentIntent,
   params: Record<string, any>,
   userId?: string,
-  officeId: string = "default"
+  officeId: string = ""
 ): Promise<{ success: boolean; message: string; data?: any }> {
   switch (intent) {
     case "get_briefing": {
@@ -203,7 +203,7 @@ async function executeAction(
     case "get_overdue_invoices": {
       const rows = await db.execute(sql`
         SELECT id, invoice_number, title, total, due_date, status FROM client_invoices
-        WHERE status='overdue' ORDER BY due_date ASC LIMIT 20
+        WHERE status='overdue' AND office_id = ${officeId} ORDER BY due_date ASC LIMIT 20
       `);
       const total = (rows.rows as any[])?.reduce((s: number, r: any) => s + (r.total || 0), 0) ?? 0;
       return {
@@ -216,7 +216,7 @@ async function executeAction(
     case "list_invoices": {
       const rows = await db.execute(sql`
         SELECT id, invoice_number, title, total, status, due_date FROM client_invoices
-        ORDER BY created_at DESC LIMIT 10
+        WHERE office_id = ${officeId} ORDER BY created_at DESC LIMIT 10
       `);
       return { success: true, message: `آخر ${rows.rows?.length ?? 0} فاتورة`, data: rows.rows };
     }
@@ -225,10 +225,10 @@ async function executeAction(
       const id = randomUUID();
       const startAt = params.date ? new Date(params.date) : new Date(Date.now() + 86400000);
       await db.execute(sql`
-        INSERT INTO events (id, user_id, title, event_type, start_at, all_day, status, created_at, updated_at)
+        INSERT INTO events (id, user_id, title, event_type, start_at, all_day, status, office_id, created_at, updated_at)
         VALUES (
           ${id}, ${userId || "system"}, ${params.eventTitle || "حدث جديد"},
-          ${params.eventType || "other"}, ${startAt.toISOString()}, false, 'upcoming', NOW(), NOW()
+          ${params.eventType || "other"}, ${startAt.toISOString()}, false, 'upcoming', ${officeId}, NOW(), NOW()
         )
       `);
       return { success: true, message: `✅ تمت جدولة "${params.eventTitle}" بتاريخ ${startAt.toLocaleDateString("ar-SA")}`, data: { id } };
@@ -237,7 +237,7 @@ async function executeAction(
     case "list_events": {
       const rows = await db.execute(sql`
         SELECT id, title, event_type, start_at, location FROM events
-        WHERE start_at >= NOW() ORDER BY start_at LIMIT 10
+        WHERE start_at >= NOW() AND office_id = ${officeId} ORDER BY start_at LIMIT 10
       `);
       return { success: true, message: `${rows.rows?.length ?? 0} حدث قادم`, data: rows.rows };
     }
@@ -254,10 +254,10 @@ async function executeAction(
 
     case "generate_report": {
       const [casesCount, clientsCount, revenue, eventsCount] = await Promise.all([
-        db.execute(sql`SELECT COUNT(*) as cnt, SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) as open FROM cases`),
-        db.execute(sql`SELECT COUNT(*) as cnt FROM clients WHERE status='active'`),
-        db.execute(sql`SELECT COALESCE(SUM(total),0) as total FROM client_invoices WHERE status='paid'`),
-        db.execute(sql`SELECT COUNT(*) as cnt FROM events WHERE start_at >= NOW()`),
+        db.execute(sql`SELECT COUNT(*) as cnt, SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) as open FROM cases WHERE office_id = ${officeId}`),
+        db.execute(sql`SELECT COUNT(*) as cnt FROM clients WHERE status='active' AND office_id = ${officeId}`),
+        db.execute(sql`SELECT COALESCE(SUM(total),0) as total FROM client_invoices WHERE status='paid' AND office_id = ${officeId}`),
+        db.execute(sql`SELECT COUNT(*) as cnt FROM events WHERE start_at >= NOW() AND office_id = ${officeId}`),
       ]);
       const stats = {
         totalCases: (casesCount.rows?.[0] as any)?.cnt,
@@ -291,7 +291,8 @@ router.post("/ai-agent/execute", requireAuthWithTenant, async (req: Request, res
   };
   if (!command?.trim()) { res.status(400).json({ error: "الأمر مطلوب" }); return; }
 
-  const tenantId = (req as any).tenantId ?? "default";
+  const tenantId = (req as any).tenantId as string;
+  if (!tenantId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
   const t0 = Date.now();
   const parsed = await parseIntent(command);
 

@@ -12,7 +12,7 @@ const router = Router();
 
 function getIds(req: any) {
   const userId   = req.auth?.userId ?? "anonymous";
-  const officeId = getTenantSafe()?.officeId ?? "default";
+  const officeId = (req as any).tenantId ?? getTenantSafe()?.officeId ?? null;
   return { userId, officeId };
 }
 
@@ -52,7 +52,8 @@ router.post("/chat", requireAuth, async (req: Request, res: Response) => {
 /* ── GET /api/copilot/snapshot ── */
 router.get("/snapshot", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const officeId = (req as any).tenantId ?? getTenantSafe()?.officeId ?? "default";
+    const officeId = (req as any).tenantId ?? getTenantSafe()?.officeId ?? null;
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const [cases, invoices, events, tasks] = await Promise.all([
       db.execute(sql`SELECT COUNT(*) FILTER (WHERE status IN ('open','in_progress')) as active FROM cases WHERE office_id=${officeId}`),
       db.execute(sql`SELECT COUNT(*) FILTER (WHERE status='overdue') as overdue FROM client_invoices WHERE office_id=${officeId}`),

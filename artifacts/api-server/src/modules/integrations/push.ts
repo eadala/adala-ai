@@ -20,7 +20,7 @@ router.post("/push/subscribe", async (req: Request, res: Response) => {
   try {
     const auth = (req as any).auth;
     const userId   = auth?.userId ?? "anonymous";
-    const officeId = req.body.officeId ?? "default";
+    const officeId = (req as any).tenantId ?? null;
     const { endpoint, keys } = req.body.subscription ?? req.body;
 
     if (!endpoint || !keys?.p256dh || !keys?.auth) {
@@ -68,11 +68,11 @@ router.post("/push/test", async (req: Request, res: Response) => {
   try {
     const auth = (req as any).auth;
     const userId   = auth?.userId ?? "anonymous";
-    const officeId = req.body.officeId ?? "default";
+    const officeId = (req as any).tenantId ?? null;
 
     const rows = await db.execute(sql`
       SELECT endpoint, p256dh, auth_key FROM push_subscriptions
-      WHERE user_id = ${userId} OR office_id = ${officeId}
+      WHERE user_id = ${userId} ${officeId ? sql`OR office_id = ${officeId}` : sql``}
       LIMIT 10
     `);
     const subs = rows.rows as any[];
