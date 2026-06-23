@@ -1,0 +1,235 @@
+تمام. هذه خطة احترافية كاملة لترحيل عدالة AI من Replit (TEXT + CHECK) إلى PostgreSQL UUID-native على Hetzner بدون أي توقف (Zero Downtime Migration).
+
+سأبنيها لك كخطة تنفيذ هندسية فعلية وليست نظرية.
+
+⸻
+
+🧠 1. الهدف النهائي (Target State)
+
+نقل النظام من:
+
+Replit:
+TEXT IDs + CHECK constraint + auto migrations
+
+إلى:
+
+Hetzner:
+UUID PRIMARY KEYS + controlled migrations + full DB ownership
+
+⸻
+
+🏗️ 2. المعمارية بعد الترحيل
+
+Cloudflare
+   ↓
+Nginx (Hetzner)
+   ↓
+API (Node.js)
+   ↓
+PostgreSQL (UUID-native)
+   ↓
+Redis (queues/cache)
+   ↓
+Workers (AI + Jobs)
+
+⸻
+
+⚠️ 3. مبدأ الترحيل الأساسي (Critical Rule)
+
+لن يتم:
+
+* تغيير schema مباشرة
+* أو إيقاف النظام
+
+بل:
+
+Dual-write → Backfill → Switch → Cleanup
+
+⸻
+
+🔁 4. المرحلة الأولى: تجهيز Hetzner (Parallel Run)
+
+4.1 إنشاء قاعدة بيانات جديدة
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+⸻
+
+4.2 إنشاء نسخة UUID من الجداول
+
+CREATE TABLE ai_workflows_new (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  data JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+4.3 إنشاء mapping table
+
+CREATE TABLE id_map (
+  old_id TEXT PRIMARY KEY,
+  new_id UUID UNIQUE
+);
+
+⸻
+
+🔄 5. المرحلة الثانية: Dual Write (أهم مرحلة)
+
+في API على Replit (أو المرحلة الانتقالية):
+
+async function createWorkflow(data) {
+  const oldId = crypto.randomUUID(); // TEXT system
+  // 1. write legacy DB
+  await db.query(
+    "INSERT INTO ai_workflows (id, data) VALUES ($1, $2)",
+    [oldId, data]
+  );
+  // 2. write new DB (Hetzner)
+  const newId = await fetch("https://hetzner-api/workflows", {
+    method: "POST",
+    body: JSON.stringify({ data })
+  }).then(r => r.json());
+  // 3. store mapping
+  await db.query(
+    "INSERT INTO id_map (old_id, new_id) VALUES ($1, $2)",
+    [oldId, newId.id]
+  );
+  return oldId;
+}
+
+⸻
+
+🔁 6. المرحلة الثالثة: Backfill البيانات القديمة
+
+سكريبت ترحيل كامل:
+
+async function backfill() {
+  const rows = await db.query("SELECT * FROM ai_workflows");
+  for (const row of rows.rows) {
+    const res = await fetch("https://hetzner-api/workflows", {
+      method: "POST",
+      body: JSON.stringify(row)
+    });
+    const newId = await res.json();
+    await db.query(
+      "INSERT INTO id_map (old_id, new_id) VALUES ($1, $2)",
+      [row.id, newId.id]
+    );
+  }
+}
+
+⸻
+
+🔁 7. المرحلة الرابعة: Switch Read Layer
+
+بدل القراءة من Replit DB:
+
+old system
+
+تصير:
+
+async function getWorkflow(id) {
+  const map = await db.query(
+    "SELECT new_id FROM id_map WHERE old_id = $1",
+    [id]
+  );
+  return fetch(`https://hetzner-api/workflows/${map.rows[0].new_id}`);
+}
+
+⸻
+
+🔥 8. المرحلة الخامسة: إيقاف TEXT system تدريجياً
+
+بعد التأكد أن:
+
+* كل البيانات migrated
+* كل العمليات تعمل
+
+نقوم بـ:
+
+DROP TABLE ai_workflows_old;
+
+ونبقي فقط:
+
+UUID-native database
+
+⸻
+
+⚙️ 9. تحديث API على Hetzner (المصدر النهائي)
+
+app.post("/workflows", async (req, res) => {
+  const result = await db.query(
+    "INSERT INTO ai_workflows (data) VALUES ($1) RETURNING id",
+    [req.body]
+  );
+  res.json({ id: result.rows[0].id });
+});
+
+⸻
+
+🧠 10. ماذا تحقق بهذه الخطة؟
+
+✔ بدون توقف
+
+* النظام يعمل طوال الترحيل
+
+✔ بدون فقد بيانات
+
+* كل شيء mapped
+
+✔ بدون كسر Replit
+
+* لا تغييرات destructive
+
+✔ تحسين نهائي
+
+* UUID native system
+* performance أعلى
+* integrity أعلى
+
+⸻
+
+📊 11. مقارنة قبل / بعد
+
+العنصر	قبل	بعد
+IDs	TEXT	UUID
+migrations	auto (Replit)	controlled
+DB ownership	محدود	كامل
+scalability	متوسط	عالي
+reliability	مقيد	enterprise-grade
+
+⸻
+
+🚀 12. الخلاصة الاستراتيجية
+
+أنت الآن في مرحلة انتقالية:
+
+Replit = runtime layer (temporary)
+Hetzner = production core (final)
+
+⸻
+
+🧠 القرار الهندسي النهائي
+
+✔ استمر الآن على Replit بدون تغيير
+✔ لا تكسر النظام
+✔ فعّل CHECK فقط
+✔ ابدأ بناء Hetzner parallel system
+✔ ثم نفّذ migration تدريجي
+
+⸻
+
+🔥 إذا تريد الخطوة التالية
+
+أقدر أبني لك مباشرة:
+
+⚙️ “GitHub → Hetzner Auto Migration System (zero manual SQL + versioned migrations + rollback + schema versioning)”
+
+وهذا هو المستوى الذي يجعل عدالة AI:
+
+* SaaS حقيقي
+* قابل للتوسع
+* جاهز للاستثمار أو الإطلاق الرسمي
+
+⸻
