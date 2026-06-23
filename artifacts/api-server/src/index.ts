@@ -1,3 +1,6 @@
+import { initTracer } from "./observability/tracer";
+await initTracer();
+
 import app from "./app";
 import { logger } from "./lib/logger";
 import { runMigrations } from "stripe-replit-sync";

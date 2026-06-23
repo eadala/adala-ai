@@ -56,6 +56,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_SERVICE_NAME: adala-api
       DEFAULT_OBJECT_STORAGE_BUCKET_ID: ${DEFAULT_OBJECT_STORAGE_BUCKET_ID:-}
       PRIVATE_OBJECT_DIR: ${PRIVATE_OBJECT_DIR:-/data/uploads}
       PUBLIC_OBJECT_SEARCH_PATHS: ${PUBLIC_OBJECT_SEARCH_PATHS:-}
@@ -92,7 +94,7 @@ services:
     networks:
       - internal
 
-  # ── Nginx Gateway (public entry point) ───────────────────
+  # ── Nginx Gateway ─────────────────────────────────────────
   gateway:
     image: nginx:1.27-alpine
     container_name: adala-gateway
@@ -121,12 +123,11 @@ services:
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
   # ═══════════════════════════════════════════════════════════
-  # OBSERVABILITY STACK
-  # وصول: SSH tunnel فقط (لا يُعرَّض للإنترنت)
-  # ssh -L 9090:localhost:9090 -L 3001:localhost:3001 root@SERVER_IP
+  # OBSERVABILITY STACK — وصول داخلي فقط (SSH tunnel)
+  # ssh -L 9090:localhost:9090 -L 3001:localhost:3001 root@IP
   # ═══════════════════════════════════════════════════════════
 
-  # ── Prometheus (scrape metrics) ───────────────────────────
+  # ── Prometheus (metrics) ──────────────────────────────────
   prometheus:
     image: prom/prometheus:v2.51.0
     container_name: adala-prometheus
@@ -138,11 +139,36 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=30d"
       - "--web.enable-lifecycle"
+      - "--web.enable-remote-write-receiver"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheusdata:/prometheus
     depends_on:
       - api
+    networks:
+      - internal
+
+  # ── Alertmanager (email + Slack alerts) ───────────────────
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: adala-alertmanager
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9093:9093"
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+      - "--web.external-url=http://localhost:9093"
+    environment:
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      ALERT_EMAIL: ${ALERT_EMAIL:-admin@adala.ai}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanagerdata:/alertmanager
     networks:
       - internal
 
@@ -159,15 +185,71 @@ services:
       GF_SERVER_ROOT_URL: http://localhost:3001
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_FEATURE_TOGGLES_ENABLE: "traceqlEditor"
     volumes:
       - grafanadata:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
+      - loki
+      - tempo
     networks:
       - internal
 
-  # ── Redis Exporter (metrics for Prometheus) ───────────────
+  # ── Loki (log aggregation) ────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: adala-loki
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - lokidata:/loki
+    networks:
+      - internal
+
+  # ── Promtail (Docker log shipper → Loki) ─────────────────
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: adala-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log:ro
+      - ./monitoring/promtail.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - internal
+
+  # ── Grafana Tempo (distributed tracing) ──────────────────
+  tempo:
+    image: grafana/tempo:2.4.0
+    container_name: adala-tempo
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo/tempo.yml"]
+    volumes:
+      - ./monitoring/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempodata:/tmp/tempo
+    networks:
+      - internal
+
+  # ── OTel Collector (receives traces from API → Tempo) ─────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.98.0
+    container_name: adala-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel/config.yml"]
+    volumes:
+      - ./monitoring/otel-collector.yml:/etc/otel/config.yml:ro
+    depends_on:
+      - tempo
+    networks:
+      - internal
+
+  # ── Redis Exporter ────────────────────────────────────────
   redis-exporter:
     image: oliver006/redis_exporter:v1.58.0
     container_name: adala-redis-exporter
@@ -192,7 +274,7 @@ services:
     networks:
       - internal
 
-  # ── Node Exporter (host OS metrics) ──────────────────────
+  # ── Node Exporter (host OS) ───────────────────────────────
   node-exporter:
     image: prom/node-exporter:v1.7.0
     container_name: adala-node-exporter
@@ -213,7 +295,10 @@ volumes:
   certbot_www:
   certbot_conf:
   prometheusdata:
+  alertmanagerdata:
   grafanadata:
+  lokidata:
+  tempodata:
 
 networks:
   internal:

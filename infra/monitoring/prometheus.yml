@@ -5,14 +5,17 @@ global:
     app: adala-ai
     env: production
 
-# ── Alerting (اختياري — أضف Alertmanager لاحقاً) ──────────
-# alerting:
-#   alertmanagers:
-#     - static_configs:
-#         - targets: ['alertmanager:9093']
+# ── Alertmanager ──────────────────────────────────────────
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+# ── قواعد التنبيه ──────────────────────────────────────────
+rule_files:
+  - /etc/prometheus/alerts.yml
 
 scrape_configs:
-  # ── عدالة API ─────────────────────────────────────────────
   - job_name: adala_api
     scrape_interval: 10s
     static_configs:
@@ -23,22 +26,18 @@ scrape_configs:
         target_label: instance
         replacement: adala-api
 
-  # ── PostgreSQL ────────────────────────────────────────────
   - job_name: postgres
     static_configs:
       - targets: ["postgres-exporter:9187"]
 
-  # ── Redis ─────────────────────────────────────────────────
   - job_name: redis
     static_configs:
       - targets: ["redis-exporter:9121"]
 
-  # ── Node (Host OS) ────────────────────────────────────────
   - job_name: node
     static_configs:
       - targets: ["node-exporter:9100"]
 
-  # ── Prometheus نفسه ───────────────────────────────────────
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]

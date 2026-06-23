@@ -1,0 +1,264 @@
+تمام — هذه طبقة Observability + Alerting + Logging + Tracing مكتملة (Enterprise-grade) مكملة مباشرة على بنيتك الحالية في Docker + Hetzner + Prometheus + Grafana بدون إعادة بناء.
+
+⸻
+
+🧠 1. إضافة Alerting Layer (Prometheus Alertmanager)
+
+📁 docker-compose.yml (إضافة)
+
+  alertmanager:
+    image: prom/alertmanager
+    container_name: adalah-alertmanager
+    restart: always
+    volumes:
+      - ./infra/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    ports:
+      - "9093:9093"
+
+⸻
+
+⚙️ Alertmanager Config
+
+global:
+  resolve_timeout: 5m
+route:
+  receiver: "default"
+receivers:
+  - name: "default"
+    email_configs:
+      - to: "admin@adalah.ai"
+        from: "alerts@adalah.ai"
+        smarthost: "smtp.gmail.com:587"
+        auth_username: "alerts@adalah.ai"
+        auth_password: "APP_PASSWORD"
+
+⸻
+
+🚨 Prometheus Alerts
+
+groups:
+  - name: adalah-alerts
+    rules:
+      - alert: HighAPIErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High API error rate"
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, http_request_duration_ms_bucket) > 1000
+        for: 3m
+        labels:
+          severity: warning
+      - alert: DBConnectionsHigh
+        expr: pg_stat_database_numbackends > 80
+        for: 2m
+
+⸻
+
+📡 2. Central Logging (Loki + Promtail)
+
+📁 docker-compose.yml
+
+  loki:
+    image: grafana/loki
+    container_name: adalah-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+  promtail:
+    image: grafana/promtail
+    container_name: adalah-promtail
+    volumes:
+      - /var/log:/var/log
+      - /var/lib/docker/containers:/var/lib/docker/containers
+      - ./infra/monitoring/promtail.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+
+⸻
+
+⚙️ Promtail Config
+
+server:
+  http_listen_port: 9080
+positions:
+  filename: /tmp/positions.yaml
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        target_label: container
+
+⸻
+
+📊 3. Grafana Data Sources (Auto-connect)
+
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    url: http://prometheus:9090
+  - name: Loki
+    type: loki
+    url: http://loki:3100
+
+⸻
+
+🧠 4. OpenTelemetry (Tracing Layer)
+
+📦 install
+
+npm install @opentelemetry/sdk-node \
+@opentelemetry/auto-instrumentations-node \
+@opentelemetry/exporter-trace-otlp-http
+
+⸻
+
+⚙️ tracer.ts
+
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+const sdk = new NodeSDK({
+  traceExporter: new OTLPTraceExporter({
+    url: "http://localhost:4318/v1/traces",
+  }),
+  instrumentations: [getNodeAutoInstrumentations()],
+});
+sdk.start();
+
+⸻
+
+📈 5. Distributed Request Flow (قبل/بعد)
+
+❌ قبل:
+
+User → API → DB → Response
+(No visibility)
+
+⸻
+
+✅ بعد:
+
+User Request
+   ↓
+API (trace ID)
+   ↓
+AI Service (span)
+   ↓
+PostgreSQL (query span)
+   ↓
+Redis (cache span)
+   ↓
+Worker execution
+   ↓
+Full trace visible in Grafana/Tempo
+
+⸻
+
+🚨 6. ربط Alerts مع Grafana Dashboard
+
+في Grafana:
+
+* Dashboard: “Adalah AI Overview”
+* Panel جديد:
+    * Alert Status
+    * Error Rate
+    * Latency Spike
+
+⸻
+
+📡 7. إضافة Structured Logging (مهم جداً)
+
+Node.js logger
+
+import pino from "pino";
+export const logger = pino({
+  level: "info",
+  base: {
+    service: "adalah-api"
+  },
+  transport: {
+    target: "pino-loki",
+    options: {
+      host: "http://loki:3100"
+    }
+  }
+});
+
+⸻
+
+🔐 8. ربط Alerting مع Slack (اختياري قوي جداً)
+
+receivers:
+  - name: slack
+    slack_configs:
+      - api_url: "https://hooks.slack.com/services/XXX"
+        channel: "#alerts"
+
+⸻
+
+🧠 9. الشكل النهائي للنظام
+
+                ┌──────────────┐
+                │  Grafana     │
+                └──────┬───────┘
+                       │
+     ┌─────────────── Observability Layer ───────────────┐
+     │                                                   │
+Prometheus     Loki Logs        Alertmanager      Traces (OTel)
+     │              │                 │                 │
+     └──────────────┴─────────────────┴─────────────────┘
+                       │
+                API + Workers
+                       │
+        PostgreSQL + Redis + AI Engine
+
+⸻
+
+🧠 10. ما الذي أصبح عندك الآن؟
+
+أنت الآن تمتلك:
+
+✔ Metrics (Prometheus)
+
+✔ Dashboards (Grafana)
+
+✔ Logs (Loki)
+
+✔ Alerts (Alertmanager)
+
+✔ Tracing (OpenTelemetry)
+
+✔ Backups
+
+✔ Security Layer
+
+⸻
+
+🚀 11. المستوى الحقيقي للنظام
+
+Enterprise-grade SaaS Observability Stack
+
+ليس مشروع — بل:
+
+نظام تشغيل إنتاجي قابل للمراقبة الكاملة لحظياً
+
+⸻
+
+🔥 إذا تريد الخطوة التالية
+
+أقدر أبني لك:
+
+⚙️ “Auto-healing system + Self-scaling workers + Queue intelligence layer لعدالة AI”
+
+وهذا هو المستوى الذي يجعل النظام:
+
+* يصلح نفسه عند الأعطال
+* يوزع الأحمال تلقائياً
+* يتوسع بدون تدخل يدوي

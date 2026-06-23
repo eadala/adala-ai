@@ -14,21 +14,35 @@ ssh root@YOUR_SERVER_IP 'bash -s' < scripts/hetzner-setup.sh
 
 `GitHub Repo → Settings → Secrets and Variables → Actions`
 
-| المفتاح | القيمة | مطلوب؟ |
-|---------|--------|---------|
-| `HETZNER_IP` | IP السيرفر | ✅ |
-| `HETZNER_SSH_KEY` | المفتاح الخاص (ed25519) | ✅ |
-| `DB_PASSWORD` | كلمة مرور قوية | ✅ |
-| `CLERK_SECRET_KEY` | من Clerk Dashboard | ✅ |
-| `CLERK_PUBLISHABLE_KEY` | من Clerk Dashboard | ✅ |
-| `STRIPE_SECRET_KEY` | من Stripe Dashboard | ✅ |
-| `GEMINI_API_KEY` | من Google AI Studio | ✅ |
-| `GRAFANA_PASSWORD` | كلمة مرور لـ Grafana | ✅ |
-| `ANTHROPIC_API_KEY` | من Anthropic | اختياري |
-| `OPENAI_API_KEY` | من OpenAI | اختياري |
-| `SENTRY_DSN` | من sentry.io | اختياري |
-| `ALLOWED_ORIGINS` | https://yourdomain.com | اختياري |
-| `DEFAULT_OBJECT_STORAGE_BUCKET_ID` | من Replit | اختياري |
+### أساسية (مطلوبة)
+| المفتاح | القيمة |
+|---------|--------|
+| `HETZNER_IP` | IP السيرفر |
+| `HETZNER_SSH_KEY` | المفتاح الخاص (ed25519) |
+| `DB_PASSWORD` | كلمة مرور قوية للـ PostgreSQL |
+| `CLERK_SECRET_KEY` | من Clerk Dashboard |
+| `CLERK_PUBLISHABLE_KEY` | من Clerk Dashboard |
+| `STRIPE_SECRET_KEY` | من Stripe Dashboard |
+| `GEMINI_API_KEY` | من Google AI Studio |
+| `GRAFANA_PASSWORD` | كلمة مرور Grafana |
+
+### Observability (اختيارية — موصى بها)
+| المفتاح | القيمة |
+|---------|--------|
+| `SENTRY_DSN` | من sentry.io → Project → Settings → DSN |
+| `ALERT_EMAIL` | البريد الإلكتروني لاستقبال التنبيهات |
+| `SMTP_HOST` | عنوان SMTP (مثال: smtp.gmail.com) |
+| `SMTP_USER` | اسم مستخدم SMTP |
+| `SMTP_PASSWORD` | كلمة مرور SMTP (App Password لـ Gmail) |
+| `SLACK_WEBHOOK_URL` | من Slack → Apps → Incoming Webhooks |
+
+### اختيارية أخرى
+| المفتاح | القيمة |
+|---------|--------|
+| `ANTHROPIC_API_KEY` | من Anthropic |
+| `OPENAI_API_KEY` | من OpenAI |
+| `ALLOWED_ORIGINS` | https://yourdomain.com |
+| `DEFAULT_OBJECT_STORAGE_BUCKET_ID` | من Replit |
 
 ---
 
@@ -37,8 +51,6 @@ ssh root@YOUR_SERVER_IP 'bash -s' < scripts/hetzner-setup.sh
 ```bash
 git push origin main
 ```
-
-GitHub Actions يُزامن الكود ويبني الـ containers تلقائياً.
 
 ---
 
@@ -51,11 +63,11 @@ bash /opt/adala/infra/ssl-init.sh yourdomain.com admin@yourdomain.com
 
 ---
 
-## الخطوة 5: ترحيل البيانات من Replit
+## الخطوة 5: ترحيل البيانات
 
 ```bash
 REPLIT_DB_URL="postgresql://..." \
-HETZNER_DB_URL="postgresql://adala:PASSWORD@YOUR_IP:5432/adala" \
+HETZNER_DB_URL="postgresql://adala:PASSWORD@IP:5432/adala" \
 bash scripts/migrate-replit-to-hetzner.sh
 ```
 
@@ -66,72 +78,106 @@ bash scripts/migrate-replit-to-hetzner.sh
 ```
 Internet
    ↓
-Nginx Gateway (80/443)  ← Security headers + rate limiting
-   ├── /api/events/stream → API (SSE, بدون buffering)
+Nginx Gateway (80/443)  ← Security headers + /metrics blocked
+   ├── /api/events/stream → API (SSE, no buffering)
    ├── /api/*            → API Server (8080)
-   ├── /metrics          → 403 (مغلق خارجياً)
    └── /*                → React SPA (3000)
 
-OBSERVABILITY (داخلي فقط — SSH tunnel)
-   Prometheus (9090)  ← يجمع من:
-      ├── API /metrics    (adala_http_*, adala_ai_*, etc.)
-      ├── postgres-exporter (9187)
-      ├── redis-exporter   (9121)
-      └── node-exporter    (9100)
-   Grafana (3001)     ← Dashboard مرئي
-      └── auto-provision: datasource + dashboard "عدالة AI Overview"
+═══════════════════════════════════════════
+OBSERVABILITY (SSH tunnel فقط)
+═══════════════════════════════════════════
 
-RELIABILITY
-   Backup cron: يومياً 2:00 ص → /opt/adala/backups/
-   Retention: 7 أيام
-   Sentry: تتبع الأخطاء (SENTRY_DSN اختياري)
+Prometheus (9090)  ──────────────────────────────────
+   ├── API /metrics       (adala_http_*, adala_ai_*)
+   ├── postgres-exporter  (pg connections, queries)
+   ├── redis-exporter     (memory, hit rate)
+   └── node-exporter      (CPU, RAM, disk)
+         ↓ alerts
+Alertmanager (9093) → Email + Slack
+
+Grafana (3001)
+   ├── Prometheus  (metrics)
+   ├── Loki        (logs)    ← Promtail يُرسل لوقات Docker
+   └── Tempo       (traces)  ← API → OTel Collector → Tempo
+
+Loki (3100) ← Promtail يجمع لوقات كل containers
+Tempo (3200) ← OTel Collector يستقبل traces من API
+OTel Collector ← API يُرسل traces (OTLP/HTTP)
 ```
 
 ---
 
 ## الوصول للـ Observability
 
-الـ monitoring ports مربوطة على `127.0.0.1` فقط (لا تُعرَّض للإنترنت).  
-الوصول عبر SSH tunnel:
-
 ```bash
-ssh -L 9090:localhost:9090 -L 3001:localhost:3001 root@YOUR_SERVER_IP
+# SSH tunnel
+ssh -L 9090:localhost:9090 \
+    -L 3001:localhost:3001 \
+    -L 9093:localhost:9093 \
+    root@YOUR_SERVER_IP
 
-# ثم من متصفحك:
-# http://localhost:3001  → Grafana (admin / كلمة المرور من GRAFANA_PASSWORD)
-# http://localhost:9090  → Prometheus
+# المتصفح:
+http://localhost:3001  → Grafana  (admin / GRAFANA_PASSWORD)
+http://localhost:9090  → Prometheus
+http://localhost:9093  → Alertmanager
 ```
 
 ---
 
-## Grafana — Dashboard "عدالة AI Overview"
+## Grafana — ما ستراه فور الدخول
 
-يتضمن مؤشرات جاهزة:
-
+### Dashboard "عدالة AI Overview" (auto-provisioned)
 | المؤشر | الوصف |
 |--------|-------|
-| **معدل الطلبات** | req/s لآخر دقيقة |
-| **زمن الاستجابة** | p50 / p95 / p99 |
-| **معدل الأخطاء** | 4xx + 5xx |
-| **صحة قاعدة البيانات** | ✅ Healthy / ⛔ Down |
-| **AI Requests** | حسب النوع والموديل |
-| **Node.js Memory** | RSS + Heap |
-| **PostgreSQL Connections** | اتصالات نشطة |
-| **Redis Memory** | استهلاك الذاكرة |
+| معدل الطلبات | req/s لآخر دقيقة |
+| p50 / p95 / p99 | زمن الاستجابة |
+| معدل الأخطاء | 4xx + 5xx |
+| صحة قاعدة البيانات | ✅/⛔ |
+| AI Requests | حسب النوع والموديل |
+| Node.js Memory | RSS + Heap |
+| PG Connections | اتصالات نشطة |
+| Redis Memory | استهلاك الذاكرة |
+
+### Explore → Loki
+- ابحث في لوقات API: `{service="api"}`
+- فلتر بالمستوى: `{service="api", level="error"}`
+- ربط تلقائي بـ Traces (TraceID)
+
+### Explore → Tempo
+- Trace view كامل لكل طلب
+- ربط تلقائي بـ Logs (TraceID → Loki)
+- Service graph تلقائي
+
+---
+
+## تنبيهات مُعدَّة مسبقاً
+
+| التنبيه | الشرط | الخطورة |
+|---------|-------|---------|
+| HighAPIErrorRate | أخطاء API > 5% لـ 2 دقيقة | 🔴 Critical |
+| HighP95Latency | p95 > 1000ms لـ 3 دقائق | 🟡 Warning |
+| APIDown | API لا يستجيب لـ 1 دقيقة | 🔴 Critical |
+| DatabaseDown | DB_health = 0 | 🔴 Critical |
+| HighDBConnectionCount | > 80 اتصال | 🟡 Warning |
+| RedisDown | Redis لا يستجيب | 🔴 Critical |
+| HighCPUUsage | CPU > 85% لـ 5 دقائق | 🟡 Warning |
+| HighMemoryUsage | RAM > 90% | 🔴 Critical |
+| DiskSpaceLow | قرص < 10% | 🔴 Critical |
+| HighAIRequestRate | AI > 10 req/s لـ 5 دقائق | 🟡 Warning |
 
 ---
 
 ## النسخ الاحتياطي
 
 ```bash
-# استعراض النسخ
+# استعراض
 ls /opt/adala/backups/
-
-# استعادة نسخة
-bash /opt/adala/infra/backup/restore.sh /opt/adala/backups/adala_20240101_020000.sql.gz
 
 # تشغيل فوري
 bash /opt/adala/infra/backup/backup.sh
+
+# استعادة
+bash /opt/adala/infra/backup/restore.sh /opt/adala/backups/adala_YYYYMMDD.sql.gz
 ```
 
 ---
@@ -147,29 +193,15 @@ docker compose ps
 # لوقات API
 docker compose logs -f api
 
-# لوقات Prometheus
-docker compose logs prometheus
+# لوقات Alertmanager
+docker compose logs alertmanager
+
+# إعادة تشغيل
+docker compose restart api
 
 # دخول DB
 docker compose exec db psql -U adala adala
 
-# إعادة تشغيل خدمة
-docker compose restart api
-
-# تحديث بدون إعادة build كاملة
-docker compose up -d --no-build api
+# تحديث config Prometheus بدون restart
+curl -X POST http://localhost:9090/-/reload
 ```
-
----
-
-## الفرق الجوهري: Hetzner vs Replit
-
-| الميزة | Replit | Hetzner |
-|--------|--------|---------|
-| `ai_workflows.id` | TEXT + CHECK | UUID native |
-| Prometheus metrics | ✅ في الـ API | ✅ + Grafana |
-| Grafana dashboards | ❌ | ✅ auto-provisioned |
-| Backup يومي | ❌ | ✅ cron + retention |
-| Security headers | Helmet (API) | Helmet + Nginx |
-| Sentry | اختياري | اختياري (SENTRY_DSN) |
-| DB access | محدود | كامل |
