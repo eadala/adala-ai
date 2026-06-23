@@ -13,6 +13,8 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { callAI } from "../modules/ai/aiChat";
+import { encryptBuffer, isEncryptionEnabled } from "../core/backupEncrypt";
+import { uploadBackup, tenantSnapshotKey, fullBackupKey } from "../core/backupStorage";
 
 /* ── DB helpers ─────────────────────────────────────── */
 async function sqlAll(q: any): Promise<Record<string, any>[]> {
@@ -398,9 +400,137 @@ export async function runAgentManually(type: string): Promise<{ ok: boolean; mes
     case "ai_health_check":
       await runAiHealthCheckAgent();
       return { ok: true, message: "تم تشغيل وكيل فحص AI" };
+    case "tenant_backup":
+      await runTenantBackupCron();
+      return { ok: true, message: "تم تشغيل وكيل النسخ الاحتياطي للمكاتب" };
+    case "full_backup":
+      await runFullBackupCron();
+      return { ok: true, message: "تم تشغيل وكيل النسخة الكاملة" };
     default:
       return { ok: false, message: `نوع الوكيل "${type}" غير معروف` };
   }
 }
 
 export { sqlAll };
+
+/* ══════════════════════════════════════════════════════════════
+   AUTOMATED BACKUP CRONS — AES-256 + Object Storage
+   ══════════════════════════════════════════════════════════════ */
+
+/**
+ * runTenantBackupCron — كل 6 ساعات
+ * يجلب كل المكاتب النشطة من DB وينشئ لقطة مشفّرة لكل منها
+ */
+async function runTenantBackupCron(): Promise<void> {
+  const t0 = Date.now();
+  let succeeded = 0;
+  let failed    = 0;
+
+  try {
+    if (!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID) {
+      logger.info("[BackupCron] ⚠️ Object Storage غير مكوَّن — تخطّي النسخ");
+      return;
+    }
+
+    const offices = await sqlAll(sql`
+      SELECT id FROM office_registry WHERE status = 'active' OR status IS NULL LIMIT 500
+    `);
+
+    logger.info(`[BackupCron] 🏢 بدء لقطات ${offices.length} مكتب...`);
+
+    for (const office of offices) {
+      const tenantId = String(office.id);
+      try {
+        const [cases, clients, invoices] = await Promise.all([
+          sqlAll(sql`SELECT id, title, status, created_at FROM cases WHERE office_id=${tenantId} LIMIT 50000`),
+          sqlAll(sql`SELECT id, full_name, created_at FROM clients WHERE office_id=${tenantId} LIMIT 50000`),
+          sqlAll(sql`SELECT id, amount, status FROM client_invoices WHERE office_id=${tenantId} LIMIT 50000`),
+        ]);
+
+        const snapshot   = { tenantId, cases, clients, invoices, createdAt: new Date().toISOString() };
+        const jsonBuffer = Buffer.from(JSON.stringify(snapshot), "utf8");
+        const payload    = isEncryptionEnabled() ? encryptBuffer(jsonBuffer) : jsonBuffer;
+        const key        = tenantSnapshotKey(tenantId);
+
+        await uploadBackup(key, payload);
+
+        await sqlExec(sql`
+          INSERT INTO backup_jobs (office_id, file_name, size_bytes, status, backup_type, file_data)
+          VALUES (
+            ${tenantId},
+            ${"auto-snapshot-" + Date.now() + (isEncryptionEnabled() ? ".enc" : ".json")},
+            ${payload.length},
+            'completed',
+            'snapshot',
+            ${JSON.stringify({ storageKey: key, encrypted: isEncryptionEnabled(), entityCount: cases.length + clients.length + invoices.length })}
+          )
+        `);
+
+        succeeded++;
+      } catch (e) {
+        failed++;
+        logger.warn({ err: e, tenantId }, `[BackupCron] ❌ فشل مكتب ${tenantId}`);
+      }
+    }
+
+    logger.info(`[BackupCron] ✅ لقطات: ${succeeded} نجح، ${failed} فشل — ${Date.now() - t0}ms`);
+  } catch (err) {
+    logger.error({ err }, "[BackupCron] ❌ Tenant backup cron failed");
+  }
+}
+
+/**
+ * runFullBackupCron — يومياً الساعة 02:30
+ * لقطة إحصائية كاملة مشفّرة لكل النظام
+ */
+async function runFullBackupCron(): Promise<void> {
+  const t0 = Date.now();
+  try {
+    if (!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID) {
+      logger.info("[BackupCron] ⚠️ Object Storage غير مكوَّن — تخطّي النسخة الكاملة");
+      return;
+    }
+
+    const [officeCount, caseCount, clientCount, invoiceCount] = await Promise.all([
+      sqlOne(sql`SELECT COUNT(*) AS c FROM office_registry`).then(r => Number(r.c ?? 0)),
+      sqlOne(sql`SELECT COUNT(*) AS c FROM cases`).then(r => Number(r.c ?? 0)),
+      sqlOne(sql`SELECT COUNT(*) AS c FROM clients`).then(r => Number(r.c ?? 0)),
+      sqlOne(sql`SELECT COUNT(*) AS c FROM client_invoices`).then(r => Number(r.c ?? 0)),
+    ]);
+
+    const fullSnapshot = {
+      type: "full_system",
+      createdAt: new Date().toISOString(),
+      stats: { officeCount, caseCount, clientCount, invoiceCount },
+      version: "2.0-aes256",
+    };
+
+    const jsonBuffer = Buffer.from(JSON.stringify(fullSnapshot), "utf8");
+    const payload    = isEncryptionEnabled() ? encryptBuffer(jsonBuffer) : jsonBuffer;
+    const key        = fullBackupKey();
+
+    await uploadBackup(key, payload);
+
+    logger.info(`[BackupCron] ✅ نسخة كاملة: ${officeCount} مكتب، ${caseCount} قضية — ${key} — ${Date.now() - t0}ms`);
+  } catch (err) {
+    logger.error({ err }, "[BackupCron] ❌ Full backup cron failed");
+  }
+}
+
+/* Register backup crons after main crons are already set up */
+setTimeout(() => {
+  /* لقطات المكاتب كل 6 ساعات */
+  cron.schedule("0 */6 * * *", () => {
+    logger.info("[BackupCron] 🔐 Starting tenant snapshots (6h cycle)…");
+    runTenantBackupCron();
+  });
+
+  /* نسخة كاملة يومياً الساعة 02:30 (30 دقيقة بعد daily_snapshot) */
+  cron.schedule("30 2 * * *", () => {
+    logger.info("[BackupCron] 💾 Starting full system backup (daily 02:30)…");
+    runFullBackupCron();
+  });
+
+  logger.info("[BackupCron] ✅ Backup crons registered — tenant every 6h + full daily at 02:30");
+}, 2_000);
+

@@ -95,6 +95,142 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleString("ar-SA", { dateStyle: "medium", timeStyle: "short" });
 }
 
+/* ══════════════════════════════════════════════════════════════
+   RestoreSection — AES-256 restore with instant snapshot button
+   ══════════════════════════════════════════════════════════════ */
+function RestoreSection({ jobs }: { jobs: BackupJob[] }) {
+  const [restoring, setRestoring]   = useState<string | null>(null);
+  const [snapshotting, setSnapshot] = useState(false);
+  const [encStatus, setEncStatus]   = useState<{ enabled: boolean; storage: string } | null>(null);
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    fetch(`${BASE}/api/backup/encryption-status`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setEncStatus(d))
+      .catch(() => null);
+  }, []);
+
+  async function handleRestore(jobId?: string) {
+    const label = jobId ? "هذه النسخة الاحتياطية" : "أحدث نسخة من Object Storage";
+    if (!confirm(`هل أنت متأكد من استعادة ${label}؟\nلن تُحذف البيانات الحالية — سيتم إضافة السجلات المفقودة فقط.`)) return;
+    setRestoring(jobId ?? "latest");
+    try {
+      const r = await fetch(`${BASE}/api/backup/restore/self`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(jobId ? { jobId } : {}),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "خطأ في الاستعادة");
+      toast.success(d.message ?? "تمت الاستعادة بنجاح");
+      qc.invalidateQueries({ queryKey: ["backup-jobs"] });
+    } catch (err: any) {
+      toast.error(err.message ?? "فشل في الاستعادة");
+    } finally {
+      setRestoring(null);
+    }
+  }
+
+  async function handleInstantSnapshot() {
+    setSnapshot(true);
+    try {
+      const r = await fetch(`${BASE}/api/backup/snapshot`, { method: "POST" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "خطأ في اللقطة");
+      toast.success(d.message ?? `تم حفظ لقطة مشفّرة — ${d.entityCount ?? 0} سجل`);
+      qc.invalidateQueries({ queryKey: ["backup-jobs"] });
+    } catch (err: any) {
+      toast.error(err.message ?? "فشل في إنشاء اللقطة");
+    } finally {
+      setSnapshot(false);
+    }
+  }
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CardTitle className="text-base text-white flex items-center gap-2">
+            <RefreshCw className="h-4 w-4 text-primary" /> الاستعادة من نسخة سابقة
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {encStatus && (
+              <Badge variant="outline" className={encStatus.enabled
+                ? "border-emerald-500/50 text-emerald-400 text-xs"
+                : "border-amber-500/50 text-amber-400 text-xs"}>
+                <Shield className="h-3 w-3 me-1" />
+                {encStatus.enabled ? "مشفَّر AES-256" : "غير مشفَّر"}
+              </Badge>
+            )}
+            <Button variant="outline" size="sm"
+              className="text-xs border-border hover:border-primary/50 hover:text-primary"
+              disabled={snapshotting}
+              onClick={handleInstantSnapshot}>
+              {snapshotting
+                ? <><Loader2 className="h-3 w-3 animate-spin ms-1" /> جارٍ الحفظ...</>
+                : <><ArrowDownToLine className="h-3 w-3 ms-1" /> لقطة فورية</>}
+            </Button>
+          </div>
+        </div>
+        <CardDescription>استعادة بيانات محددة بأمان — ON CONFLICT DO NOTHING (لن تُكتب البيانات الموجودة)</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {jobs.length === 0 ? (
+          <div className="text-center py-6 space-y-3">
+            <p className="text-sm text-muted-foreground">لا توجد نسخ احتياطية محلية</p>
+            <Button variant="outline" size="sm"
+              className="border-primary/40 text-primary hover:bg-primary/10"
+              disabled={restoring === "latest"}
+              onClick={() => handleRestore()}>
+              {restoring === "latest"
+                ? <><Loader2 className="h-3 w-3 animate-spin ms-1" /> جارٍ الاستعادة...</>
+                : <><UploadCloud className="h-3 w-3 ms-1" /> استعادة من Object Storage</>}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {jobs.slice(0, 8).map(job => (
+              <div key={job.id} className="flex items-center justify-between rounded-lg border border-border p-3 gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-white truncate">{job.fileName ?? "نسخة احتياطية"}</p>
+                    {job.fileName?.endsWith(".enc") && (
+                      <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400 shrink-0">
+                        <Lock className="h-2 w-2 me-0.5" /> AES
+                      </Badge>
+                    )}
+                    {job.type === "snapshot" && (
+                      <Badge variant="outline" className="text-[10px] border-blue-500/40 text-blue-400 shrink-0">لقطة</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{formatDate(job.createdAt)} · {formatBytes(job.sizeBytes)}</p>
+                </div>
+                <Button variant="outline" size="sm"
+                  className="text-xs border-border hover:border-primary/50 hover:text-primary shrink-0"
+                  disabled={restoring === job.id}
+                  onClick={() => handleRestore(job.id)}>
+                  {restoring === job.id
+                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                    : <><RefreshCw className="h-3 w-3 ms-1" /> استعادة</>}
+                </Button>
+              </div>
+            ))}
+            <Button variant="ghost" size="sm"
+              className="w-full text-xs text-muted-foreground hover:text-primary mt-1"
+              disabled={restoring === "latest"}
+              onClick={() => handleRestore()}>
+              {restoring === "latest"
+                ? <><Loader2 className="h-3 w-3 animate-spin ms-1" /> جارٍ الاستعادة...</>
+                : <><UploadCloud className="h-3 w-3 ms-1" /> استعادة من أحدث لقطة Object Storage</>}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ── Locked Feature Banner ──────────────────────────────── */
 function LockedBanner({ requiredPlan }: { requiredPlan: string }) {
   return (
@@ -969,37 +1105,9 @@ export default function BackupCenter() {
                   </CardContent>
                 </Card>
 
-                {/* Restore section */}
+                {/* Enhanced Restore section */}
                 {features.restore && (
-                  <Card className="bg-card border-border">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base text-white flex items-center gap-2">
-                        <RefreshCw className="h-4 w-4 text-primary" /> الاستعادة من نسخة سابقة
-                      </CardTitle>
-                      <CardDescription>استعادة بيانات محددة من سجل النسخ الاحتياطي</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {jobs.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-4">لا توجد نسخ احتياطية للاستعادة منها</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {jobs.slice(0, 5).map(job => (
-                            <div key={job.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                              <div>
-                                <p className="text-sm text-white">{job.fileName}</p>
-                                <p className="text-xs text-muted-foreground">{formatDate(job.createdAt)} · {formatBytes(job.sizeBytes)}</p>
-                              </div>
-                              <Button variant="outline" size="sm"
-                                className="text-xs border-border hover:border-primary/50 hover:text-primary"
-                                onClick={() => downloadBackup(job)}>
-                                <Download className="h-3 w-3 ms-1" /> تحميل
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <RestoreSection jobs={jobs} />
                 )}
               </>
             )}
