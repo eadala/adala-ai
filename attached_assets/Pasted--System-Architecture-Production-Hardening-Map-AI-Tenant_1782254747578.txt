@@ -1,0 +1,385 @@
+تمام — هذه System Architecture نهائي (Production Hardening Map) لمنصة عدالة AI بعد ما اكتمل: Tenant Isolation + RBAC + Core MVP.
+
+سأعطيك التصميم كطبقات تشغيل فعلية (ليس نظري).
+
+⸻
+
+🧱 عدالة AI — Production Architecture (Final Hardening Map)
+
+⸻
+
+1️⃣ High-Level Architecture
+
+                ┌──────────────────────┐
+                │     Cloudflare       │
+                │  (DNS + WAF + SSL)   │
+                └─────────┬────────────┘
+                          │
+                          ▼
+                ┌──────────────────────┐
+                │   Frontend (React)   │
+                │  Vite + CDN Cache    │
+                └─────────┬────────────┘
+                          │
+          ┌───────────────┴────────────────┐
+          ▼                                ▼
+┌──────────────────────┐       ┌──────────────────────┐
+│  Backend API (Node)  │       │   AI Gateway Layer   │
+│  Express + TS        │       │ Gemini / OpenAI      │
+└─────────┬────────────┘       └─────────┬────────────┘
+          │                                │
+          └───────────────┬────────────────┘
+                          ▼
+              ┌──────────────────────┐
+              │   Service Layer      │
+              │ (Core Business Logic)│
+              └─────────┬────────────┘
+                        ▼
+      ┌────────────────────────────────────────┐
+      │             Data Layer                │
+      │ PostgreSQL + Redis + Object Storage  │
+      └────────────────────────────────────────┘
+
+⸻
+
+2️⃣ Core System Layers
+
+🟦 1. Edge Layer (Cloudflare)
+
+Responsibilities:
+
+* DNS Routing
+* SSL termination
+* DDoS protection
+* WAF rules
+* Rate limiting (first layer)
+
+Rules:
+
+* Block suspicious countries (optional)
+* Rate limit /api/*
+* Protect admin routes
+
+⸻
+
+🟩 2. Frontend Layer (React + Vite)
+
+Deployment:
+
+* Static build
+* Served via CDN (Cloudflare / Nginx / Vercel)
+
+Hardening:
+
+* Role-based UI rendering
+* Route guards (RoleRoute)
+* No trust in frontend permissions
+* API-only security enforcement
+
+⸻
+
+🟨 3. Backend API Layer (Node.js + Express)
+
+Core Responsibilities:
+
+* Authentication (Clerk JWT)
+* Tenant Isolation (requireAuthWithTenant)
+* RBAC enforcement (requirePermission)
+* Business logic
+* API validation
+
+⸻
+
+Middleware Stack:
+
+Request →
+  Auth Middleware (Clerk)
+    ↓
+  Tenant Resolver
+    ↓
+  RBAC Permission Check
+    ↓
+  Rate Limiter
+    ↓
+  Route Handler
+
+⸻
+
+Hard Rules:
+
+* ❌ No officeId from client
+* ❌ No default tenant fallback
+* ❌ No frontend trust
+* ✔ All checks backend enforced
+
+⸻
+
+🟪 4. AI Gateway Layer
+
+Components:
+
+* AI Service Router
+* Prompt Manager
+* Tenant Context Injector
+* Permission Filter
+
+⸻
+
+Flow:
+
+User Request
+   ↓
+RBAC Check
+   ↓
+Tenant Scope Injection
+   ↓
+Prompt Builder
+   ↓
+Gemini / OpenAI
+   ↓
+Filtered Response
+
+⸻
+
+Hard Restrictions:
+
+* AI cannot access cross-tenant data
+* AI must respect role permissions
+* AI logs every request (audit)
+
+⸻
+
+🟫 5. Business Logic Layer
+
+Modules:
+
+* Cases
+* Clients
+* Finance
+* HR
+* Documents
+* Scheduling
+* Reports
+
+⸻
+
+Rule:
+
+All modules MUST:
+
+where(tenantId)
++ requirePermission()
+
+⸻
+
+🟧 6. Data Layer
+
+PostgreSQL (Core DB)
+
+Tables MUST include:
+
+* tenant_id (mandatory)
+* created_by
+* timestamps
+
+⸻
+
+Redis
+
+Used for:
+
+* Sessions cache
+* Rate limiting
+* AI job queue
+
+⸻
+
+Object Storage
+
+Structure:
+
+/tenants/{tenantId}/cases/
+/tenants/{tenantId}/documents/
+/tenants/{tenantId}/ai/
+/tenants/{tenantId}/exports/
+
+⸻
+
+3️⃣ Security Hardening Map
+
+🔐 Layered Security Model
+
+Cloudflare (WAF)
+   ↓
+Auth (Clerk)
+   ↓
+Tenant Isolation
+   ↓
+RBAC
+   ↓
+Route-level Permission
+   ↓
+DB-level Filtering
+
+⸻
+
+🚨 Critical Security Rules
+
+1. NEVER trust client input
+
+* no tenantId from frontend
+* no role from frontend
+* no officeId headers
+
+⸻
+
+2. Every query MUST include:
+
+WHERE tenant_id = req.tenantId
+
+⸻
+
+3. Every action MUST include:
+
+requirePermission("resource:action")
+
+⸻
+
+4. AI MUST be scoped:
+
+* tenant-aware
+* role-aware
+* document-restricted
+
+⸻
+
+4️⃣ Observability Layer (مهم جداً للإطلاق)
+
+📊 Logging (Pino)
+
+Logs:
+
+* API requests
+* RBAC failures
+* tenant violations
+* AI calls
+
+⸻
+
+📈 Monitoring
+
+* CPU/RAM usage
+* DB connections
+* API latency
+* AI cost tracking
+
+⸻
+
+🚨 Error Tracking
+
+* Sentry integration
+* structured errors
+* tenant tagging
+
+⸻
+
+5️⃣ Backup & Disaster Recovery
+
+🧱 PostgreSQL
+
+* Daily automated backup
+* Encrypted storage
+* retention 7–30 days
+
+⸻
+
+📦 Object Storage
+
+* tenant-aware backup
+* versioning enabled
+
+⸻
+
+🔄 Restore Strategy
+
+* full restore
+* partial restore (future enhancement)
+* verified restore tests
+
+⸻
+
+6️⃣ Deployment Architecture (Coolify / Docker)
+
+🐳 Services
+
+frontend
+backend
+postgres
+redis
+worker-ai
+worker-notifications
+
+⸻
+
+🚀 Deployment Flow
+
+GitHub Push
+   ↓
+Coolify Build
+   ↓
+Docker Image
+   ↓
+Rolling Deploy
+   ↓
+Health Check
+
+⸻
+
+7️⃣ Performance Strategy
+
+* Redis caching for frequent queries
+* Indexed DB on tenant_id
+* pagination everywhere
+* lazy loading frontend
+
+⸻
+
+8️⃣ Production Readiness Checklist
+
+🟢 Must be TRUE before launch:
+
+✔ Tenant Isolation passes tests
+✔ RBAC blocks all unauthorized actions
+✔ AI is scoped per tenant
+✔ Backups automated and tested
+✔ Logging enabled
+✔ Rate limiting active
+✔ No default tenant fallback
+✔ No frontend security dependency
+
+⸻
+
+🧭 Final System State
+
+بعد هذا التصميم، النظام يصبح:
+
+🟢 SaaS Legal Platform (Production Grade)
+
+* Multi-tenant secure
+* Role-based controlled
+* AI-powered
+* Cloud-ready
+* Scalable horizontally
+
+⸻
+
+🚀 إذا تريد الخطوة التالية
+
+أقدر أحول هذا إلى:
+
+🔥 ￼ Infrastructure as Code (Docker Compose + Coolify config جاهز)
+🔥 أو ￼ Production Deployment Checklist خطوة بخطوة
+🔥 أو ￼ Cost estimation شهري للسيرفرات + AI + DB
+
+فقط قل:
+“أبغى خطة التشغيل الفعلي على Hetzner خطوة بخطوة”

@@ -54,9 +54,13 @@ function dateStr() {
 ══════════════════════════════════════════════════════════ */
 
 /* GET /api/backup/settings */
-router.get("/backup/settings", requireAuthWithTenant, async (_req, res) => {
+// FIX CVE-BACKUP-01: scoped to office_id — each tenant has its own settings row
+router.get("/backup/settings", requireAuthWithTenant, async (req, res) => {
   try {
-    const rows = await db.select().from(backupSettingsTable).limit(1);
+    const tenantId = (req as any).tenantId as string;
+    const rows = await db.execute(sql`
+      SELECT * FROM backup_settings WHERE office_id = ${tenantId} LIMIT 1
+    `).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
     if (rows.length) return res.json(rows[0]);
     res.json({
       schedule: "daily",
@@ -72,17 +76,34 @@ router.get("/backup/settings", requireAuthWithTenant, async (_req, res) => {
 });
 
 /* PUT /api/backup/settings */
+// FIX CVE-BACKUP-01: upsert scoped to office_id
 router.put("/backup/settings", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const { schedule, retentionDays, storageProvider, cloudConfig, isEnabled } = req.body;
-    const rows = await db.select().from(backupSettingsTable).limit(1);
+    const rows = await db.execute(sql`
+      SELECT id FROM backup_settings WHERE office_id = ${tenantId} LIMIT 1
+    `).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
     if (rows.length) {
-      await db.update(backupSettingsTable)
-        .set({ schedule, retentionDays, storageProvider, cloudConfig, isEnabled, updatedAt: new Date() })
-        .where(eq(backupSettingsTable.id, rows[0].id));
+      await db.execute(sql`
+        UPDATE backup_settings
+        SET schedule         = ${schedule ?? null},
+            retention_days   = ${retentionDays ?? 30},
+            storage_provider = ${storageProvider ?? "local"},
+            cloud_config     = ${JSON.stringify(cloudConfig ?? {})}::jsonb,
+            is_enabled       = ${isEnabled ?? true},
+            updated_at       = NOW()
+        WHERE id = ${rows[0].id} AND office_id = ${tenantId}
+      `);
     } else {
-      await db.insert(backupSettingsTable)
-        .values({ schedule, retentionDays, storageProvider, cloudConfig, isEnabled });
+      await db.execute(sql`
+        INSERT INTO backup_settings
+          (office_id, schedule, retention_days, storage_provider, cloud_config, is_enabled)
+        VALUES
+          (${tenantId}, ${schedule ?? "daily"}, ${retentionDays ?? 30},
+           ${storageProvider ?? "local"}, ${JSON.stringify(cloudConfig ?? {})}::jsonb,
+           ${isEnabled ?? true})
+      `);
     }
     res.json({ ok: true });
   } catch {
@@ -484,8 +505,12 @@ router.post("/backup/test-cloud", requireAuthWithTenant, async (req, res) => {
   }
 });
 
+// FIX CVE-BACKUP-02: all inserts now include office_id from authenticated tenant context
 router.post("/import", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = (req as any).tenantId as string;
+    if (!tenantId) return res.status(403).json({ error: "مكتب غير محدد" });
+
     const data = req.body as { cases?: any[]; clients?: any[]; invoices?: any[]; contracts?: any[] };
     let imported = 0;
 
@@ -493,6 +518,7 @@ router.post("/import", requireAuthWithTenant, async (req, res) => {
       for (const c of data.clients) {
         try {
           await db.insert(clientsTable).values({
+            officeId: tenantId,           // ← FIX: was missing
             fullName: c.fullName ?? c.full_name ?? "مستورد",
             type: c.type ?? "individual",
             email: c.email,
@@ -500,7 +526,7 @@ router.post("/import", requireAuthWithTenant, async (req, res) => {
             company: c.company,
             notes: c.notes,
             status: c.status ?? "active",
-          });
+          } as any);
           imported++;
         } catch { /* skip duplicates */ }
       }
@@ -510,19 +536,20 @@ router.post("/import", requireAuthWithTenant, async (req, res) => {
       for (const c of data.cases) {
         try {
           await db.insert(casesTable).values({
+            officeId: tenantId,           // ← FIX: was missing
             title: c.title ?? "قضية مستوردة",
             caseType: c.caseType ?? c.case_type ?? "مدنية",
             status: c.status ?? "open",
             clientName: c.clientName ?? c.client_name,
-          });
+          } as any);
           imported++;
         } catch { /* skip */ }
       }
     }
 
-    res.json({ ok: true, imported });
+    res.json({ ok: true, imported, officeId: tenantId });
   } catch (err) {
-        res.status(500).json({ error: "خطأ في استيراد البيانات" });
+    res.status(500).json({ error: "خطأ في استيراد البيانات" });
   }
 });
 
