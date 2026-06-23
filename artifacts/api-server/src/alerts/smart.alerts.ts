@@ -39,6 +39,14 @@ const dedupeMap = new Map<string, DedupeEntry>();   // key → last sent
 const alertStore: SmartAlert[] = [];                 // live alert feed
 let suppressedUntil = 0;                             // maintenance mode
 
+/* Prune dedupeMap every 30 min to prevent unbounded growth */
+setInterval(() => {
+  const cutoff = Date.now() - 30 * 60 * 1000;
+  for (const [k, v] of dedupeMap) {
+    if (v.lastSent < cutoff) dedupeMap.delete(k);
+  }
+}, 30 * 60 * 1000).unref();
+
 const DEDUP_WINDOWS: Record<AlertSeverity, number> = {
   low:      10 * 60 * 1000,   // 10 دقائق
   medium:    5 * 60 * 1000,   //  5 دقائق

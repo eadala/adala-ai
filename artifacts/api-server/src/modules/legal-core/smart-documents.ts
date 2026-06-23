@@ -1,5 +1,5 @@
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
-import { Router } from "express";
+import express, { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
@@ -117,7 +117,7 @@ router.get("/smart-documents", requireAuthWithTenant, async (req, res) => {
 /* ════════════════════════════════════════════
    POST /smart-documents
    ════════════════════════════════════════════ */
-router.post("/smart-documents", requireAuthWithTenant, async (req, res) => {
+router.post("/smart-documents", express.json({ limit: "8mb" }), requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId as string;
     const {
