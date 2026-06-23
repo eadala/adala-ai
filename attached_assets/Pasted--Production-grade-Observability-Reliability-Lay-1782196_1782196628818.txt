@@ -1,0 +1,283 @@
+تمام — سأكمل لك فوق البنية الحالية مباشرة، لكن بشكل Production-grade Observability + Reliability Layer متوافق مع Docker + Hetzner + Nginx اللي عندك.
+
+هذا ليس “إضافة تجميلية”، هذا طبقة تشغيل شركات SaaS.
+
+⸻
+
+🧠 1. إضافة Observability Stack (docker-compose extension)
+
+أضف هذا داخل docker-compose.yml الحالي:
+
+  prometheus:
+    image: prom/prometheus
+    container_name: adalah-prometheus
+    restart: always
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+  grafana:
+    image: grafana/grafana
+    container_name: adalah-grafana
+    restart: always
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    depends_on:
+      - prometheus
+  redis-exporter:
+    image: oliver006/redis_exporter
+    container_name: redis-exporter
+    restart: always
+    environment:
+      REDIS_ADDR: redis:6379
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter
+    container_name: postgres-exporter
+    restart: always
+    environment:
+      DATA_SOURCE_NAME: postgres://postgres:${DB_PASSWORD}@db:5432/adalah?sslmode=disable
+
+⸻
+
+📊 2. Prometheus Config
+
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: "api"
+    static_configs:
+      - targets: ["api:4000"]
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+⸻
+
+📈 3. API Metrics (Node.js + Prometheus)
+
+تثبيت:
+
+npm install prom-client
+
+⸻
+
+داخل API:
+
+import client from "prom-client";
+const collectDefaultMetrics = client.collectDefaultMetrics;
+collectDefaultMetrics();
+export const httpRequestDuration = new client.Histogram({
+  name: "http_request_duration_ms",
+  help: "Duration of HTTP requests",
+  labelNames: ["method", "route", "status"],
+  buckets: [50, 100, 200, 500, 1000, 2000]
+});
+
+⸻
+
+Middleware:
+
+app.use((req, res, next) => {
+  const end = httpRequestDuration.startTimer();
+  res.on("finish", () => {
+    end({
+      method: req.method,
+      route: req.route?.path || req.path,
+      status: res.statusCode
+    });
+  });
+  next();
+});
+
+⸻
+
+Metrics endpoint:
+
+app.get("/metrics", async (req, res) => {
+  res.setHeader("Content-Type", client.register.contentType);
+  res.end(await client.register.metrics());
+});
+
+⸻
+
+🚨 4. Logging System (Production Level)
+
+تثبيت:
+
+npm install pino pino-pretty
+
+⸻
+
+logger:
+
+import pino from "pino";
+export const logger = pino({
+  level: process.env.LOG_LEVEL || "info",
+  transport: {
+    target: "pino-pretty",
+    options: {
+      colorize: true
+    }
+  }
+});
+
+⸻
+
+استخدام:
+
+logger.info({ workflowId }, "Workflow started");
+logger.error({ err }, "Workflow failed");
+
+⸻
+
+⚠️ 5. Error Tracking (Sentry)
+
+تثبيت:
+
+npm install @sentry/node
+
+⸻
+
+إعداد:
+
+import * as Sentry from "@sentry/node";
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  tracesSampleRate: 1.0
+});
+app.use(Sentry.Handlers.requestHandler());
+app.use(Sentry.Handlers.errorHandler());
+
+⸻
+
+💾 6. Backup System (PostgreSQL automated)
+
+أضف ملف:
+
+infra/backup/backup.sh
+
+⸻
+
+#!/bin/bash
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+docker exec adalah-db pg_dump -U postgres adalah > /backups/db_$TIMESTAMP.sql
+echo "Backup created: db_$TIMESTAMP.sql"
+
+⸻
+
+Cron backup (على السيرفر):
+
+crontab -e
+0 2 * * * /var/www/adalah-ai/infra/backup/backup.sh
+
+⸻
+
+🔁 7. Health Check متقدم
+
+app.get("/health", async (req, res) => {
+  try {
+    await db.query("SELECT 1");
+    res.json({
+      status: "ok",
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      timestamp: Date.now()
+    });
+  } catch (e) {
+    res.status(500).json({
+      status: "error"
+    });
+  }
+});
+
+⸻
+
+🚦 8. Rate Limiting (حماية إنتاجية)
+
+npm install express-rate-limit
+
+⸻
+
+import rateLimit from "express-rate-limit";
+export const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120
+});
+app.use(limiter);
+
+⸻
+
+🔐 9. Security Headers (Nginx layer)
+
+add_header X-Frame-Options "DENY";
+add_header X-Content-Type-Options "nosniff";
+add_header X-XSS-Protection "1; mode=block";
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";
+
+⸻
+
+📊 10. Grafana Dashboards (مبدئياً)
+
+بعد التشغيل:
+
+* http://SERVER:3001
+* user: admin
+* pass: admin123
+
+أضف:
+
+* API latency
+* DB connections
+* Redis usage
+* Error rate
+
+⸻
+
+🧠 11. الشكل النهائي بعد الإضافة
+
+Cloudflare
+   ↓
+Nginx
+   ↓
+API ────────→ Prometheus
+   ↓              ↓
+Workers        Grafana
+   ↓              ↓
+PostgreSQL   Observability Layer
+   ↓
+Redis
+   ↓
+Sentry (Errors)
+
+⸻
+
+🚀 12. ماذا أصبحت عدالة الآن؟
+
+أصبحت:
+
+✔ Production SaaS infrastructure
+✔ Monitored system (metrics + logs + errors)
+✔ Backup-enabled system
+✔ Secure API layer
+✔ Scalable architecture
+
+⸻
+
+🧠 الخلاصة الهندسية
+
+أنت الآن لم تعد تبني “منصة” فقط:
+
+You are operating a full SaaS-grade legal AI system
+
+⸻
+
+إذا تريد الخطوة التالية (المستوى الأعلى فعلاً)، أقدر أبني لك:
+
+🔥 “Auto-scaling + Load balancing + Multi-instance workers architecture (Kubernetes-ready design لعدالة AI)”
+
+وهذا هو المستوى الذي تبدأ فيه المنافسة الفعلية مع أنظمة قانونية عالمية.

@@ -69,6 +69,29 @@ vm.swappiness = 10
 EOF
 sysctl -p
 
+# ── 8. مجلدات الـ Observability والـ Backup ──────────
+mkdir -p /opt/adala/backups
+mkdir -p /opt/adala/infra/monitoring/grafana/provisioning
+chmod +x /opt/adala/infra/backup/backup.sh 2>/dev/null || true
+echo "✅ مجلدات Observability و Backup جاهزة"
+
+# ── 9. Cron للنسخ الاحتياطي (يومياً 2:00 صباحاً) ────
+CRON_JOB="0 2 * * * /opt/adala/infra/backup/backup.sh >> /var/log/adala-backup.log 2>&1"
+( crontab -l 2>/dev/null | grep -v "adala-backup" ; echo "$CRON_JOB" ) | crontab -
+echo "✅ Cron للنسخ الاحتياطي مُجدوَل (يومياً 2:00 ص)"
+
+# ── 10. Log rotation ─────────────────────────────────
+cat > /etc/logrotate.d/adala << 'EOF'
+/var/log/adala-backup.log {
+    daily
+    rotate 14
+    compress
+    missingok
+    notifempty
+}
+EOF
+echo "✅ Log rotation مُعدّ"
+
 echo ""
 echo "═══════════════════════════════════════════"
 echo "✅ السيرفر جاهز للـ deployment!"
@@ -81,4 +104,11 @@ echo "  CLERK_SECRET_KEY  = (من Clerk dashboard)"
 echo "  CLERK_PUBLISHABLE_KEY = (من Clerk dashboard)"
 echo "  STRIPE_SECRET_KEY = (من Stripe dashboard)"
 echo "  GEMINI_API_KEY    = (من Google AI Studio)"
+echo "  SENTRY_DSN        = (اختياري — من sentry.io)"
+echo "  GRAFANA_PASSWORD  = (كلمة مرور Grafana)"
+echo ""
+echo "🔭 للوصول لـ Observability (SSH tunnel):"
+echo "  ssh -L 9090:localhost:9090 -L 3001:localhost:3001 root@\$(curl -s ifconfig.me)"
+echo "  ثم افتح: http://localhost:3001  (Grafana)"
+echo "           http://localhost:9090  (Prometheus)"
 echo "═══════════════════════════════════════════"

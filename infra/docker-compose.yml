@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  # ── PostgreSQL (UUID-native, production) ──────────────────
+  # ── PostgreSQL (UUID-native) ──────────────────────────────
   db:
     image: postgres:16-alpine
     container_name: adala-db
@@ -21,7 +21,7 @@ services:
     networks:
       - internal
 
-  # ── Redis (cache + future queues) ────────────────────────
+  # ── Redis ─────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: adala-redis
@@ -55,9 +55,11 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
       DEFAULT_OBJECT_STORAGE_BUCKET_ID: ${DEFAULT_OBJECT_STORAGE_BUCKET_ID:-}
       PRIVATE_OBJECT_DIR: ${PRIVATE_OBJECT_DIR:-/data/uploads}
       PUBLIC_OBJECT_SEARCH_PATHS: ${PUBLIC_OBJECT_SEARCH_PATHS:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     volumes:
       - uploads:/data/uploads
     depends_on:
@@ -74,7 +76,7 @@ services:
     networks:
       - internal
 
-  # ── Frontend (SPA built with Vite) ───────────────────────
+  # ── Frontend (SPA) ────────────────────────────────────────
   web:
     build:
       context: ..
@@ -109,7 +111,7 @@ services:
       - internal
       - external
 
-  # ── Certbot (SSL via Let's Encrypt) ──────────────────────
+  # ── Certbot (SSL) ─────────────────────────────────────────
   certbot:
     image: certbot/certbot:latest
     container_name: adala-certbot
@@ -118,12 +120,100 @@ services:
       - certbot_conf:/etc/letsencrypt
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
+  # ═══════════════════════════════════════════════════════════
+  # OBSERVABILITY STACK
+  # وصول: SSH tunnel فقط (لا يُعرَّض للإنترنت)
+  # ssh -L 9090:localhost:9090 -L 3001:localhost:3001 root@SERVER_IP
+  # ═══════════════════════════════════════════════════════════
+
+  # ── Prometheus (scrape metrics) ───────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: adala-prometheus
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheusdata:/prometheus
+    depends_on:
+      - api
+    networks:
+      - internal
+
+  # ── Grafana (dashboards) ──────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: adala-grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-adala_monitor_2024}
+      GF_SERVER_ROOT_URL: http://localhost:3001
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - internal
+
+  # ── Redis Exporter (metrics for Prometheus) ───────────────
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.58.0
+    container_name: adala-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - internal
+
+  # ── PostgreSQL Exporter ───────────────────────────────────
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: adala-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://adala:${DB_PASSWORD}@db:5432/adala?sslmode=disable"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # ── Node Exporter (host OS metrics) ──────────────────────
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: adala-node-exporter
+    restart: unless-stopped
+    command:
+      - "--path.rootfs=/host"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - internal
+
 volumes:
   pgdata:
   redisdata:
   uploads:
   certbot_www:
   certbot_conf:
+  prometheusdata:
+  grafanadata:
 
 networks:
   internal:
