@@ -1,0 +1,164 @@
+Critical Security Fix: Multi-Tenant Data Isolation Audit
+
+Priority: CRITICAL (Block Production Release)
+
+A severe tenant isolation issue has been identified.
+
+Problem
+
+When User A creates cases and records, User B (logged in under a different account/office) can view the same data.
+
+This indicates a failure in Multi-Tenant data isolation and represents a critical security vulnerability.
+
+⸻
+
+Required Actions
+
+1. Perform Full Tenant Isolation Audit
+
+Review all backend routes, services, repositories, database queries, and frontend data fetching logic.
+
+Verify that tenant isolation is enforced at the backend level and not only in the UI.
+
+⸻
+
+2. Database Review
+
+Ensure all business tables contain a mandatory tenant identifier:
+
+* cases
+* clients
+* documents
+* tasks
+* calendar_events
+* invoices
+* payments
+* notes
+* ai_conversations
+* ai_history
+* storage_files
+* notifications
+* contracts
+* reports
+
+Required field:
+
+tenant_id UUID NOT NULL
+
+⸻
+
+3. Backend Security Enforcement
+
+Every query must be filtered by the authenticated tenant.
+
+Reject patterns such as:
+
+SELECT * FROM cases;
+
+Replace with:
+
+SELECT *
+FROM cases
+WHERE tenant_id = currentTenantId;
+
+Apply the same rule to:
+
+* SELECT
+* UPDATE
+* DELETE
+* COUNT
+* SEARCH
+* EXPORT
+* REPORTING APIs
+
+⸻
+
+4. Middleware Protection
+
+Implement centralized tenant resolution middleware.
+
+Requirements:
+
+* Extract tenant_id from authenticated Clerk session.
+* Validate tenant membership.
+* Inject tenant context into all requests.
+* Prevent cross-tenant access.
+
+Example:
+
+req.tenantId = authenticatedTenantId;
+
+⸻
+
+5. Repository Layer Protection
+
+All repositories/services must automatically apply:
+
+where(eq(table.tenantId, tenantId))
+
+Tenant filtering must never depend on frontend input.
+
+⸻
+
+6. AI Security Audit
+
+Verify that:
+
+* AI conversations are tenant scoped.
+* AI history is tenant scoped.
+* Document analysis only accesses documents belonging to the current tenant.
+* AI search cannot retrieve records from another tenant.
+
+⸻
+
+7. File Storage Audit
+
+Ensure uploaded files are isolated by tenant.
+
+Recommended structure:
+
+/tenants/{tenantId}/documents/
+/tenants/{tenantId}/contracts/
+/tenants/{tenantId}/uploads/
+
+⸻
+
+8. Automated Security Tests
+
+Create integration tests:
+
+Office A:
+
+* Create 5 cases
+
+Office B:
+
+* Create 3 cases
+
+Office C:
+
+* Create 2 cases
+
+Expected result:
+
+* A sees only 5
+* B sees only 3
+* C sees only 2
+
+Any cross-tenant visibility must fail the test suite.
+
+⸻
+
+9. Production Release Requirement
+
+Generate a report containing:
+
+* Tables audited
+* Routes audited
+* Vulnerabilities found
+* Fixes applied
+* Remaining risks
+
+Do not mark the platform production-ready until tenant isolation passes all tests.
+
+This issue is considered a release-blocking security defect.

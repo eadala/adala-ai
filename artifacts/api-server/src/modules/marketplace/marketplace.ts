@@ -320,7 +320,8 @@ router.patch("/marketplace/orders/:id", requireAuth, async (req: Request, res: R
       if (order) {
         try {
           const caseId = randomUUID();
-          const sellerOfficeId = await resolveTenantId(userId).catch(() => "default");
+          const sellerOfficeId = await resolveTenantId(userId).catch(() => null);
+          if (!sellerOfficeId) throw new Error("cannot resolve tenant");
           await db.execute(sql`
             INSERT INTO cases (id, title, case_type, client_name, status, notes, office_id, created_at, updated_at)
             VALUES (${caseId}, ${"خدمة: " + (order.service_title ?? "خدمة قانونية")}, 'other',
@@ -448,7 +449,8 @@ router.post("/marketplace/deals/:id/accept", requireAuth, async (req: Request, r
     let caseId: string | null = null;
     try {
       caseId = randomUUID();
-      const dealOfficeId = await resolveTenantId(userId).catch(() => "default");
+      const dealOfficeId = await resolveTenantId(userId).catch(() => null);
+      if (!dealOfficeId) throw new Error("cannot resolve tenant");
       await db.execute(sql`
         INSERT INTO cases (id, title, case_type, client_name, status, notes, office_id, created_at, updated_at)
         VALUES (${caseId}, ${"صفقة: " + (deal.service_title ?? "خدمة قانونية")}, 'other',

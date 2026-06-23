@@ -197,7 +197,8 @@ router.patch("/office/plan-notifications/read-all", requireAuth, async (req, res
     if (!auth?.userId) { res.status(401).json({ error: "غير مصرح" }); return; }
     // Scope to requesting office's notifications only — never update ALL tenants
     const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
-    const officeId = await resolveTenantId(auth.userId, req.headers["x-tenant-id"] as string | undefined) ?? "default";
+    const officeId = await resolveTenantId(auth.userId, req.headers["x-tenant-id"] as string | undefined);
+    if (!officeId) { res.status(403).json({ error: "لا يمكن تحديد المكتب", ok: false }); return; }
     await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE WHERE office_id = ${officeId}`);
     res.json({ ok: true });
   } catch (e: any) {

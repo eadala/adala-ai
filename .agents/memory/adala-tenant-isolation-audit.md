@@ -28,10 +28,29 @@ Any cache key for per-office data MUST include tenantId:
 - BAD: `ai_insights_${period}`
 - GOOD: `ai_insights_${tenantId}_${period}`
 
+## Critical Bugs Fixed (2026-06 — Isolation Sprint)
+
+| File | Bug | Fix |
+|------|-----|-----|
+| `tenantMiddleware.ts` | Step 5 fallback → first `office_page` row for users with no office → **any unassigned user sees office #1's data** | Removed fallback → returns `null` → 403 |
+| `billing.ts` line 100 | `SELECT plan FROM office_page ORDER BY created_at LIMIT 1` — first office's plan | `WHERE id = ${tenantId}::uuid` |
+| `billing.ts` line 238 | `WHERE id::text = ${tenantId} OR (${tenantId} = 'default')` — when tenantId="default" matches ALL rows | `WHERE id = ${tenantId}::uuid` only |
+| `billing.ts` line 638 | Same `ORDER BY created_at LIMIT 1` without WHERE | `WHERE id = ${officeId}::uuid` |
+| `billing.ts` line 816 | Nested subquery returning first user → first office for entitlements | `WHERE office_id = ${tenantId}::uuid` |
+| `billing.ts` all 7 `?? "default"` | Fallback to "default" string when resolve fails | null check → 403 |
+| `subscription.ts` | `?? "default"` on plan notifications UPDATE | null check → 403 |
+| `payments.ts` 3 routes | `officeId = "default"` from **req.body** (client-controlled!) | `(req as any).tenantId` |
+| `payments.ts` 4 routes | `headers["x-office-id"] ?? "default"` (client-controlled header!) | `(req as any).tenantId` |
+| `finance-dashboard.ts` 4 routes | `(req as any).tenantId ?? "default"` | removed `?? "default"` |
+| `marketplace.ts` 2 routes | `.catch(() => "default")` on resolveTenantId | `.catch(() => null)` + throw |
+
+## Isolation Test Results
+Script: `src/scripts/test-tenant-isolation.ts` — 10/10 checks pass.
+Run via: `executeSql` tool (see test-tenant-isolation.ts for full suite).
+
 ## Safe Patterns (no fix needed)
 - `requireAuth` on pure AI-generation endpoints (judgePrep, legalResearch, opponentSimulator) — these call AI with user-provided params, no DB cross-tenant reads
 - `requireAuth` on user-scoped endpoints (ai-assistant history filtered by user_id)
-- `billing.ts` manually calling `resolveTenantId(userId)` — acceptable
 - `aiEvents.ts`, `aiCredits.ts` — already use officeId from their own resolution
 - `mediators.ts` — has own `getOfficeId(userId)` resolver
 

@@ -43,7 +43,7 @@ function genInsights(data: {
    ══════════════════════════════════════════════════════════ */
 router.get("/finance-dashboard/overview", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const officeId  = (req as any).tenantId ?? "default";
+    const officeId  = (req as any).tenantId;
     const period    = (req.query.period as string) ?? "30";      // days
     const cutoff    = Number(period) > 0 ? Number(period) : 30;
 
@@ -186,7 +186,7 @@ router.get("/finance-dashboard/overview", requireAuthWithTenant, async (req: Req
    ══════════════════════════════════════════════════════════ */
 router.get("/finance-dashboard/cashflow", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const officeId = (req as any).tenantId ?? "default";
+    const officeId = (req as any).tenantId;
     const months   = Math.min(Number(req.query.months) || 6, 24);
 
     const [revRows, expRows] = await Promise.all([
@@ -257,7 +257,7 @@ router.get("/finance-dashboard/cashflow", requireAuthWithTenant, async (req: Req
    ══════════════════════════════════════════════════════════ */
 router.get("/finance-dashboard/invoices", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const officeId = (req as any).tenantId ?? "default";
+    const officeId = (req as any).tenantId;
 
     const [statsRows, overdueRows, monthlyRows] = await Promise.all([
       db.execute(sql`
@@ -304,7 +304,7 @@ router.get("/finance-dashboard/invoices", requireAuthWithTenant, async (req: Req
    ══════════════════════════════════════════════════════════ */
 router.get("/finance-dashboard/growth", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const officeId = (req as any).tenantId ?? "default";
+    const officeId = (req as any).tenantId;
 
     const rows = await db.execute(sql`
       SELECT

@@ -76,14 +76,10 @@ export async function resolveTenantId(userId: string, headerTenantId?: string): 
       return userOffice;
     }
 
-    /* 5. Fallback — first office_page row (single-tenant backward compat) */
-    const pageRows = await db.execute(sql`
-      SELECT id::text AS id FROM office_page ORDER BY created_at ASC LIMIT 1
-    `);
-    const pageId = ((pageRows as any)?.rows ?? [])[0]?.id as string | undefined;
-    if (!pageId) return null;
-    CACHE.set(userId, { officeId: pageId, ts: Date.now() });
-    return pageId;
+    /* Step 5 (office_page fallback) intentionally removed — returning null
+       forces 403 for users with no office assignment, preventing cross-tenant
+       data leakage where unassigned users would silently see the first office. */
+    return null;
   } catch {
     return null;
   }

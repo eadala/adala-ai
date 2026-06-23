@@ -96,13 +96,14 @@ router.get("/billing/overview", requireAuth, async (req, res) => {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
-    /* 1. Current office plan */
-    const officeRows = await db.execute(sql`SELECT plan FROM office_page ORDER BY created_at LIMIT 1`);
+    /* 0. Resolve tenant — MUST come first; all queries below use tenantId */
+    const tenantId = await resolveTenantId(userId);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+
+    /* 1. Current office plan — scoped to this tenant only */
+    const officeRows = await db.execute(sql`SELECT plan FROM office_page WHERE id = ${tenantId}::uuid LIMIT 1`);
     const planSlug = ((officeRows as any)?.rows ?? [])[0]?.plan ?? "free";
     const planMeta = PLANS.find(p => p.id === planSlug) ?? PLANS[0];
-
-    /* 0. Resolve tenant */
-    const tenantId = await resolveTenantId(userId) ?? "default";
 
     /* 2. Entitlements / usage */
     const entRows = await db.execute(sql`
@@ -228,15 +229,17 @@ router.post("/billing/checkout", requireAuth, async (req, res) => {
   try {
     /* Resolve tenant + user email for this checkout */
     const { userId } = getAuth(req as any);
-    const tenantId = userId ? (await resolveTenantId(userId) ?? "default") : "default";
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const tenantId = await resolveTenantId(userId);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
 
     /* Get or create Stripe customer for this tenant */
     let customerId: string | undefined;
     try {
       const officeRow = await db.execute(sql`
         SELECT stripe_customer_id, email, name FROM office_page
-        WHERE id::text = ${tenantId} OR (${tenantId} = 'default')
-        ORDER BY created_at LIMIT 1
+        WHERE id = ${tenantId}::uuid
+        LIMIT 1
       `);
       const office = ((officeRow as any)?.rows ?? [])[0];
       if (office?.stripe_customer_id) {
@@ -250,7 +253,7 @@ router.post("/billing/checkout", requireAuth, async (req, res) => {
         customerId = customer.id;
         await db.execute(sql`
           UPDATE office_page SET stripe_customer_id = ${customerId}
-          WHERE id::text = ${tenantId} OR (${tenantId} = 'default')
+          WHERE id = ${tenantId}::uuid
         `).catch(() => {});
       }
     } catch { /* non-critical — proceed without customer */ }
@@ -463,7 +466,8 @@ router.post("/billing/verify-payment", requireAuth, async (req, res) => {
     }
 
     const planId   = session.metadata?.plan ?? "basic";
-    const officeId = session.metadata?.officeId ?? (await resolveTenantId(userId) ?? "default");
+    const officeId = session.metadata?.officeId ?? (await resolveTenantId(userId));
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const billingPeriod = (session.metadata?.billingPeriod ?? "monthly") as "monthly" | "annual";
     const amountPaid = session.amount_total ?? 0;
 
@@ -520,7 +524,8 @@ router.post("/billing/custom-invoice-link", requireAuth, async (req, res) => {
   }
 
   try {
-    const tenantId = await resolveTenantId(userId) ?? "default";
+    const tenantId = await resolveTenantId(userId);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
 
     /* Create or retrieve customer by email */
     let customerId: string | undefined;
@@ -634,8 +639,9 @@ router.post("/billing/change-plan", requireAuth, async (req, res) => {
     const plan = PLANS.find(p => p.id === planId);
     if (!plan) return res.status(400).json({ error: "الباقة غير موجودة" });
 
-    const officeId = await resolveTenantId(userId) ?? "default";
-    const currentRows = await db.execute(sql`SELECT plan FROM office_page ORDER BY created_at LIMIT 1`);
+    const officeId = await resolveTenantId(userId);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const currentRows = await db.execute(sql`SELECT plan FROM office_page WHERE id = ${officeId}::uuid LIMIT 1`);
     const oldPlan = ((currentRows as any)?.rows ?? [])[0]?.plan ?? "free";
 
     const { clerkClient } = await import("@clerk/express");
@@ -681,7 +687,8 @@ router.post("/billing/activate-plan", requireAuth, async (req, res) => {
     if (!isSuperAdmin) return res.status(403).json({ error: "يتطلب صلاحية المشرف العام" });
 
     const { plan = "pro" } = req.body as { plan: string };
-    const officeId = await resolveTenantId(userId) ?? "default";
+    const officeId = await resolveTenantId(userId);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { provisionTenant } = await import("../../services/tenantProvisioning");
     const result = await provisionTenant({ officeId, plan, email: userEmail });
     res.json({ ok: true, data: result });
@@ -697,7 +704,8 @@ router.get("/billing/ledger", requireAuth, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const tenantId = await resolveTenantId(userId) ?? "default";
+    const tenantId = await resolveTenantId(userId);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const r = await db.execute(sql`
       SELECT id, type, amount, currency, ref, description, stripe_id,
              platform_fee, stripe_fee, net_amount, created_at
@@ -802,12 +810,13 @@ router.get("/billing/alerts", requireAuth, async (req, res) => {
     const overdueCount = Number(((overdueRows as any)?.rows ?? [])[0]?.n ?? 0);
     if (overdueCount > 0) alerts.push({ type: "overdue_invoice", message: `${overdueCount} فاتورة متأخرة`, severity: 3 });
 
-    /* Check usage > 80% */
-    const highUsageRows = await db.execute(sql`
+    /* Check usage > 80% — scoped to requesting user's office only */
+    const tenantIdForAlerts = await resolveTenantId(userId);
+    const highUsageRows = tenantIdForAlerts ? await db.execute(sql`
       SELECT key, "limit", used FROM office_entitlements
-      WHERE office_id=(SELECT COALESCE((SELECT office_id FROM office_members WHERE user_id=(SELECT id FROM users ORDER BY created_at LIMIT 1) LIMIT 1),'default'))
+      WHERE office_id = ${tenantIdForAlerts}::uuid
         AND "limit">0 AND (used::numeric/"limit") >= 0.8
-    `);
+    `) : { rows: [] };
     for (const row of (highUsageRows as any)?.rows ?? []) {
       const pct = Math.round((Number(row.used) / Number(row.limit)) * 100);
       const label = KEY_LABELS[row.key] ?? row.key;

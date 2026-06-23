@@ -76,7 +76,7 @@ ensurePaymentCols();
 /* GET  /api/payments/connect/status */
 router.get("/payments/connect/status", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).headers["x-office-id"] ?? "default";
+    const officeId = (req as any).tenantId;
     const account = await one(sql`SELECT * FROM office_stripe_accounts WHERE office_id = ${officeId} LIMIT 1`);
     if (!account) return res.json({ connected: false });
 
@@ -116,7 +116,9 @@ router.get("/payments/connect/status", requireAuthWithTenant, async (req, res) =
 /* POST /api/payments/connect/create */
 router.post("/payments/connect/create", requireAuthWithTenant, async (req, res) => {
   try {
-    const { officeId = "default", email, commissionPercent = 10 } = req.body;
+    const officeId = (req as any).tenantId as string;
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const { email, commissionPercent = 10 } = req.body;
     if (!email) return res.status(400).json({ error: "البريد الإلكتروني مطلوب" });
 
     const stripe = await getUncachableStripeClient();
@@ -182,10 +184,12 @@ router.post("/payments/connect/login-link", requireAuthWithTenant, async (req, r
 ══════════════════════════════════════════════════ */
 router.post("/payments/intent", requireAuthWithTenant, async (req, res) => {
   try {
+    const officeId = (req as any).tenantId as string;
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const {
       amountSAR, description = "دفع خدمة قانونية",
       clientName, invoiceId, caseId,
-      connectAccountId, officeId = "default", commissionPercent,
+      connectAccountId, commissionPercent,
     } = req.body;
 
     if (!amountSAR || amountSAR <= 0) return res.status(400).json({ error: "المبلغ مطلوب" });
@@ -252,8 +256,10 @@ router.get("/payments/transactions", requireAuthWithTenant, async (_req, res) =>
 /* POST /api/payments/transactions — manual record */
 router.post("/payments/transactions", requireAuthWithTenant, async (req, res) => {
   try {
+    const officeId = (req as any).tenantId as string;
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const {
-      officeId = "default", clientName, description, amount,
+      clientName, description, amount,
       status = "completed", paymentMethod = "bank_transfer",
       invoiceId, caseId, commissionPercent = 10,
     } = req.body;
@@ -352,7 +358,7 @@ router.delete("/payments/transactions/:id", requireAuthWithTenant, async (req, r
 ══════════════════════════════════════════════════ */
 router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).headers["x-office-id"] ?? "default";
+    const officeId = (req as any).tenantId;
 
     const totals = await one(sql`
       SELECT
@@ -469,7 +475,7 @@ router.get("/payments/stats", requireAuthWithTenant, async (_req, res) => {
 /* GET /api/payments/moyasar/settings */
 router.get("/payments/moyasar/settings", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).headers["x-office-id"] ?? "default";
+    const officeId = (req as any).tenantId;
     const s = await one(sql`SELECT * FROM moyasar_settings WHERE office_id=${officeId} LIMIT 1`);
     if (!s) return res.json({ enabled: false, testMode: true });
     res.json({
@@ -487,7 +493,7 @@ router.get("/payments/moyasar/settings", requireAuthWithTenant, async (req, res)
 /* PUT /api/payments/moyasar/settings */
 router.put("/payments/moyasar/settings", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).headers["x-office-id"] ?? "default";
+    const officeId = (req as any).tenantId;
     const { publishableKey, secretKey, webhookSecret, testMode = true, enabled = false } = req.body;
 
     const existing = await one(sql`SELECT id FROM moyasar_settings WHERE office_id=${officeId} LIMIT 1`);
@@ -521,7 +527,7 @@ router.put("/payments/moyasar/settings", requireAuthWithTenant, async (req, res)
 /* POST /api/payments/payment-link — generate a Moyasar payment page link */
 router.post("/payments/payment-link", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).headers["x-office-id"] ?? "default";
+    const officeId = (req as any).tenantId;
     const {
       amountSAR, description = "خدمة قانونية", clientName, clientEmail,
       clientPhone, invoiceId, caseId, commissionPercent = 10,
@@ -591,7 +597,7 @@ router.get("/payments/moyasar/success", requireAuthWithTenant, async (req, res) 
 /* GET /api/payments/checkout/settings */
 router.get("/payments/checkout/settings", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).headers["x-office-id"] ?? "default";
+    const officeId = (req as any).tenantId;
     const s = await one(sql`SELECT * FROM checkout_settings WHERE office_id=${officeId} LIMIT 1`);
     if (!s) return res.json({ enabled: false, testMode: true });
     res.json({
@@ -608,7 +614,7 @@ router.get("/payments/checkout/settings", requireAuthWithTenant, async (req, res
 /* PUT /api/payments/checkout/settings */
 router.put("/payments/checkout/settings", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).headers["x-office-id"] ?? "default";
+    const officeId = (req as any).tenantId;
     const { secretKey, publicKey, webhookSecret, testMode = true, enabled = false } = req.body;
     const existing = await one(sql`SELECT id FROM checkout_settings WHERE office_id=${officeId} LIMIT 1`);
     if (existing) {
@@ -635,7 +641,7 @@ router.put("/payments/checkout/settings", requireAuthWithTenant, async (req, res
 /* POST /api/payments/checkout/create-payment */
 router.post("/payments/checkout/create-payment", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).headers["x-office-id"] ?? "default";
+    const officeId = (req as any).tenantId;
     const { amountSAR, description = "خدمة قانونية", clientName, clientEmail, invoiceId, caseId, commissionPercent = 10 } = req.body;
     if (!amountSAR || amountSAR <= 0) return res.status(400).json({ error: "المبلغ مطلوب" });
 
