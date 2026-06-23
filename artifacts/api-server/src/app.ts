@@ -197,8 +197,9 @@ app.use(cors({
     callback(new Error(`CORS: origin not allowed — ${origin}`));
   },
 }));
-app.use(express.json({ limit: "20mb" }));
-app.use(express.urlencoded({ extended: true }));
+// Global JSON limit: 3MB (large file uploads use multipart or per-route override)
+app.use(express.json({ limit: "3mb" }));
+app.use(express.urlencoded({ extended: true, limit: "3mb" }));
 
 app.use(
   clerkMiddleware({

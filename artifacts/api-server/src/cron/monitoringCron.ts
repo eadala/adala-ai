@@ -71,17 +71,18 @@ export function startMonitoringCron() {
       }
 
       /* Alert on specific thresholds (with dedup built into sendSmartAlert) */
+      /* Static messages (no variable numbers) — ensures dedup keys stay stable */
       if (metrics.dbLatency > 800) {
-        await sendSmartAlert("high", `⚠️ تأخر عالٍ في قاعدة البيانات: ${metrics.dbLatency}ms`);
+        await sendSmartAlert("high", `⚠️ تأخر عالٍ في قاعدة البيانات`);
       }
       if (metrics.errorRate > 0.05) {
-        await sendSmartAlert("high", `⚠️ معدل أخطاء عالٍ: ${(metrics.errorRate * 100).toFixed(1)}%`);
+        await sendSmartAlert("high", `⚠️ معدل أخطاء عالٍ في الطلبات`);
       }
       if (metrics.webhookFailures >= 5) {
-        await sendSmartAlert("critical", `🔴 فشل متكرر في Webhook: ${metrics.webhookFailures} خطأ`, { channel: "both" });
+        await sendSmartAlert("critical", `🔴 فشل متكرر في Webhook`, { channel: "both" });
       }
       if (metrics.memory.percent > 90) {
-        await sendSmartAlert("high", `⚠️ استهلاك ذاكرة عالٍ: ${metrics.memory.percent}%`);
+        await sendSmartAlert("high", `⚠️ استهلاك ذاكرة عالٍ`);
       }
 
       /* Trend analysis + self-healing — every 3 ticks (15 min) */
