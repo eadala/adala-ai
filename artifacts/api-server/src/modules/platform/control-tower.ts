@@ -66,29 +66,31 @@ ensureCtTables().catch(() => {});
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 async function getTenantMatrix() {
-  const rows = await db.execute(sql`
-    SELECT
-      om.office_id,
-      COALESCE(op.name, 'مكتب #' || LEFT(om.office_id::text, 8)) AS office_name,
-      COUNT(DISTINCT om.user_id)    AS members,
-      COUNT(DISTINCT c.id)          AS cases,
-      COUNT(DISTINCT ci.id)         AS invoices,
-      MAX(al.created_at)            AS last_activity
-    FROM office_members om
-    LEFT JOIN office_page op ON op.office_id = om.office_id
-    LEFT JOIN cases c         ON c.office_id = om.office_id
-    LEFT JOIN client_invoices ci ON ci.office_id = om.office_id
-    LEFT JOIN audit_logs al   ON al.office_id = om.office_id
-    GROUP BY om.office_id, op.name
-    ORDER BY cases DESC
-  `);
-  return ((rows.rows ?? rows) as any[]).map((r: any) => ({
-    ...r,
-    members:  Number(r.members  ?? 0),
-    cases:    Number(r.cases    ?? 0),
-    invoices: Number(r.invoices ?? 0),
-    frozen:   frozenTenants.has(String(r.office_id)),
-  }));
+  try {
+    const rows = await db.execute(sql`
+      SELECT
+        om.office_id,
+        COALESCE(op.name, 'مكتب #' || LEFT(om.office_id::text, 8)) AS office_name,
+        COUNT(DISTINCT om.user_id)    AS members,
+        COUNT(DISTINCT c.id)          AS cases,
+        COUNT(DISTINCT ci.id)         AS invoices,
+        MAX(al.created_at)            AS last_activity
+      FROM office_members om
+      LEFT JOIN office_page op      ON op.office_id  = om.office_id
+      LEFT JOIN cases c             ON c.office_id   = om.office_id::uuid
+      LEFT JOIN client_invoices ci  ON ci.office_id  = om.office_id::uuid
+      LEFT JOIN audit_logs al       ON al.office_id::text = om.office_id::text
+      GROUP BY om.office_id, op.name
+      ORDER BY cases DESC
+    `);
+    return ((rows.rows ?? rows) as any[]).map((r: any) => ({
+      ...r,
+      members:  Number(r.members  ?? 0),
+      cases:    Number(r.cases    ?? 0),
+      invoices: Number(r.invoices ?? 0),
+      frozen:   frozenTenants.has(String(r.office_id)),
+    }));
+  } catch { return []; }
 }
 
 async function getSecurityFeed() {

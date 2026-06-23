@@ -347,13 +347,18 @@ router.get("/admin/usage", adminOnly, async (_req, res) => {
 ══════════════════════════════════════════════════════ */
 router.get("/admin/enhanced-stats", adminOnly, async (_req, res) => {
   try {
+    /* Resilient single-row query — never throws, returns {} on failure */
     const ex = async (q: any) => {
-      const r = await db.execute(q) as any;
-      return (Array.isArray(r) ? r[0] : r?.rows?.[0]) ?? {};
+      try {
+        const r = await db.execute(q) as any;
+        return (Array.isArray(r) ? r[0] : r?.rows?.[0]) ?? {};
+      } catch { return {}; }
     };
     const exAll = async (q: any) => {
-      const r = await db.execute(q) as any;
-      return Array.isArray(r) ? r : (r?.rows ?? []);
+      try {
+        const r = await db.execute(q) as any;
+        return Array.isArray(r) ? r : (r?.rows ?? []);
+      } catch { return []; }
     };
 
     const year = new Date().getFullYear();
@@ -386,13 +391,14 @@ router.get("/admin/enhanced-stats", adminOnly, async (_req, res) => {
       return { month: name, revenue: parseFloat(String(rv.v||0)) + parseFloat(String(inv.v||0)) };
     }));
 
-    // Recent activity
-    const recentActivity = await exAll(sql`
-      SELECT 'case' AS type, title AS label, status, created_at FROM cases
-      UNION ALL
-      SELECT 'contract' AS type, title AS label, status, created_at FROM contracts
-      ORDER BY created_at DESC LIMIT 10
-    `);
+    // Recent activity — each table wrapped individually
+    const [caseRows, contractRows] = await Promise.all([
+      exAll(sql`SELECT 'case' AS type, title AS label, status, created_at FROM cases ORDER BY created_at DESC LIMIT 5`),
+      exAll(sql`SELECT 'contract' AS type, title AS label, status, created_at FROM contracts ORDER BY created_at DESC LIMIT 5`),
+    ]);
+    const recentActivity = [...caseRows, ...contractRows]
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 10);
 
     res.json({
       cases: { total: Number(totalCases.cnt||0), open: Number(openCases.cnt||0), closed: Number(closedCases.cnt||0) },
@@ -404,7 +410,7 @@ router.get("/admin/enhanced-stats", adminOnly, async (_req, res) => {
       recentActivity,
     });
   } catch (e: any) {
-        res.status(500).json({ error: e.message });
+    res.status(500).json({ error: e.message });
   }
 });
 
