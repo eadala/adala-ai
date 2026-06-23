@@ -132,6 +132,7 @@ export default defineConfig({
         "default-src 'self'",
         // Clerk needs unsafe-inline for injected styles; unsafe-eval removed
         "script-src 'self' 'unsafe-inline' https://clerk.accounts.dev https://*.clerk.accounts.dev https://js.stripe.com https://cdn.jsdelivr.net",
+        "worker-src 'self' blob:",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com data:",
         "img-src 'self' data: blob: https:",

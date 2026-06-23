@@ -98,6 +98,7 @@ app.use(helmet({
       scriptSrc:      ["'self'", "'unsafe-inline'",
                        "https://clerk.accounts.dev", "https://*.clerk.accounts.dev",
                        "https://js.stripe.com", "https://cdn.jsdelivr.net"],
+      workerSrc:      ["'self'", "blob:"],
       styleSrc:       ["'self'", "'unsafe-inline'",
                        "https://fonts.googleapis.com"],
       imgSrc:         ["'self'", "data:", "blob:", "https:"],
