@@ -1,0 +1,191 @@
+Critical RBAC Enforcement Fix
+
+Priority: RELEASE BLOCKER
+
+The RBAC audit identified critical privilege escalation vulnerabilities.
+
+Tenant isolation is working correctly.
+
+RBAC enforcement is not.
+
+Do not add new features.
+
+Focus only on RBAC remediation.
+
+⸻
+
+Phase 1 — Immediate Critical Fixes
+
+Create centralized permission middleware
+
+Implement:
+
+requirePermission(permission: string)
+
+The middleware must:
+
+1. Resolve authenticated tenant user.
+2. Load user role.
+3. Load role permissions.
+4. Verify requested permission.
+5. Return 403 if denied.
+
+No route may rely on frontend permission checks.
+
+⸻
+
+Phase 2 — Protect Critical Routes
+
+Apply permission checks to:
+
+User Management
+
+PATCH /rbac/members/:id/role
+DELETE /rbac/members/:id
+PATCH /rbac/users/:id/role
+
+Required:
+
+* users:edit
+* users:delete
+
+⸻
+
+Role Management
+
+POST /rbac/roles
+
+Required:
+
+* roles:create
+
+Only Owner and Admin.
+
+⸻
+
+Payroll
+
+POST /hr/payroll/generate
+PATCH /hr/payroll/:id/pay
+GET /hr/payroll
+
+Required:
+
+* payroll:view
+* payroll:manage
+
+Accountant, Admin, Owner only.
+
+⸻
+
+Accounting
+
+DELETE /accounting/revenues/:id
+
+Required:
+
+* accounting:delete
+
+Owner only.
+
+⸻
+
+Cases
+
+DELETE /cases/:id
+
+Required:
+
+* cases:delete
+
+Owner or Admin only.
+
+⸻
+
+Clients
+
+DELETE /clients/:id
+
+Required:
+
+* clients:delete
+
+Owner or Admin only.
+
+⸻
+
+Invoices
+
+DELETE /invoices/:id
+
+Required:
+
+* invoices:delete
+
+Owner, Admin, Accountant.
+
+⸻
+
+Phase 3 — Frontend Security
+
+Fix:
+
+use-permissions.ts
+
+Replace:
+
+if (!data) return true;
+
+With:
+
+if (!data) return false;
+
+⸻
+
+Add role guards to:
+
+* HR pages
+* Finance pages
+* Analytics pages
+* Office Settings
+* User Management
+
+Hide unauthorized menu items.
+
+⸻
+
+Phase 4 — Automated RBAC Tests
+
+Create tests for:
+
+Owner
+Admin
+Lawyer
+Assistant
+Accountant
+Client
+
+Verify:
+
+* Read
+* Create
+* Update
+* Delete
+* Financial access
+* User management access
+
+All unauthorized actions must return 403.
+
+⸻
+
+Deliverables
+
+Generate report:
+
+1. Routes protected
+2. Permissions added
+3. Failing tests fixed
+4. Remaining risks
+5. Updated RBAC security score
+
+Do not mark the platform production-ready until all critical and high findings are resolved.

@@ -25,6 +25,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useUser, useClerk } from "@clerk/react";
 import { useLoginTracker } from "@/hooks/useLoginTracker";
 import { useIsSuperAdmin } from "@/hooks/use-role";
+import { usePermissions } from "@/hooks/use-permissions";
 import { FloatingCopilot } from "@/components/floating-copilot";
 import { CommandBar } from "@/components/command-bar";
 
@@ -34,6 +35,7 @@ interface NavItem {
   icon: React.ComponentType<any>;
   feature?: string;
   superAdminOnly?: boolean;
+  permission?: string; // RBAC: hide item if user lacks this permission
 }
 
 interface OperatingCenterDef {
@@ -115,11 +117,11 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/invoices",          labelKey: "nav.items.invoices",          icon: Receipt },
       { href: "/collections",       labelKey: "nav.items.collections",       icon: TrendingUp },
       { href: "/payment-center",    labelKey: "nav.items.payment_center",    icon: Landmark },
-      { href: "/revenues",          labelKey: "nav.items.revenues",          icon: TrendingUp },
-      { href: "/expenses",          labelKey: "nav.items.expenses",          icon: TrendingDown },
-      { href: "/cashflow",          labelKey: "nav.items.cashflow",          icon: ArrowRightLeft },
-      { href: "/bank-accounts",     labelKey: "nav.items.bank_accounts",     icon: Landmark },
-      { href: "/advances",          labelKey: "nav.items.advances",          icon: Wallet },
+      { href: "/revenues",      labelKey: "nav.items.revenues",      icon: TrendingUp,    permission: "financial:view" },
+      { href: "/expenses",      labelKey: "nav.items.expenses",      icon: TrendingDown,  permission: "financial:view" },
+      { href: "/cashflow",      labelKey: "nav.items.cashflow",      icon: ArrowRightLeft, permission: "financial:view" },
+      { href: "/bank-accounts", labelKey: "nav.items.bank_accounts", icon: Landmark,      permission: "financial:view" },
+      { href: "/advances",      labelKey: "nav.items.advances",      icon: Wallet,        permission: "financial:view" },
       { href: "/financial-reports",    labelKey: "nav.items.financial_reports",    icon: BarChart2 },
       { href: "/financial-statements", labelKey: "nav.items.financial_statements", icon: Scale },
       { href: "/financial-core",       labelKey: "nav.items.financial_core",       icon: BarChart3 },
@@ -159,7 +161,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/employees",  labelKey: "nav.items.employees",  icon: UserCog },
       { href: "/attendance", labelKey: "nav.items.attendance", icon: Clock },
       { href: "/leaves",     labelKey: "nav.items.leaves",     icon: CalendarDays },
-      { href: "/payroll",    labelKey: "nav.items.payroll",    icon: DollarSign },
+      { href: "/payroll",    labelKey: "nav.items.payroll",    icon: DollarSign, permission: "payroll:view" },
       { href: "/warnings",   labelKey: "nav.items.warnings",   icon: AlertTriangle },
     ],
   },
@@ -181,8 +183,8 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/branches",               labelKey: "nav.items.branches",               icon: GitBranch },
       { href: "/org-structure",          labelKey: "nav.items.org_structure",          icon: Network },
       { href: "/team",                   labelKey: "nav.items.team_permissions",       icon: Shield },
-      { href: "/users",                  labelKey: "nav.items.users",                  icon: Users },
-      { href: "/office-settings",        labelKey: "nav.items.office_settings",        icon: Building2 },
+      { href: "/users",           labelKey: "nav.items.users",           icon: Users,     permission: "users:view" },
+      { href: "/office-settings", labelKey: "nav.items.office_settings", icon: Building2, permission: "settings:view" },
       { href: "/theme-builder",          labelKey: "nav.items.theme_builder",          icon: Palette },
       { href: "/backup",                 labelKey: "nav.items.backup_center",          icon: Database },
       { href: "/storage-settings",       labelKey: "nav.items.storage_settings",       icon: HardDrive },
@@ -249,8 +251,12 @@ function NavItemLink({ item, isActive, onClick, badge, accentColor }: {
   item: NavItem; isActive: boolean; onClick?: () => void; badge?: number; accentColor?: string;
 }) {
   const { hasFeature, isLoaded } = useOfficePlan();
+  const { hasPermission, isLoaded: permLoaded } = usePermissions();
   const { t } = useTranslation();
   const isLocked = isLoaded && item.feature ? !hasFeature(item.feature) : false;
+
+  // RBAC: hide item entirely once permissions are known and user lacks the required one
+  if (permLoaded && item.permission && !hasPermission(item.permission)) return null;
   const label = t(item.labelKey);
 
   const baseClass = "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 w-full text-right min-h-[40px]";

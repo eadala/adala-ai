@@ -1,4 +1,4 @@
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { validate } from "../../middlewares/validate";
 import { Router } from "express";
 import { z } from "zod";
@@ -113,7 +113,7 @@ router.patch("/clients/:id", requireAuthWithTenant, validate(UpdateClientSchema)
 });
 
 // ── DELETE /clients/:id ───────────────────────────────────────────────────────
-router.delete("/clients/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/clients/:id", requireAuthWithTenant, requirePermission("clients:delete"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");

@@ -86,3 +86,56 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
 
   runWithTenant({ userId, officeId }, () => next());
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   requirePermission — fine-grained RBAC check (runs AFTER requireAuthWithTenant)
+   Usage: router.delete("/cases/:id", requireAuthWithTenant, requirePermission("cases:delete"), handler)
+   Super-admins always bypass. All other users must hold the named permission
+   in their office role (or the wildcard "*").
+══════════════════════════════════════════════════════════════════════ */
+export function requirePermission(permission: string) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    // Super-admins bypass all RBAC checks
+    if ((req as any).isSuperAdmin) return next();
+
+    const userId: string | undefined = (req as any).userId;
+    const officeId: string | undefined = (req as any).tenantId;
+
+    if (!userId || !officeId || officeId === "platform") {
+      return res.status(403).json({ error: "سياق المصادقة مفقود — يجب استدعاء requireAuthWithTenant أولاً" });
+    }
+
+    try {
+      // Step 1: resolve user's role in this office
+      const memberRows = await db.execute(sql`
+        SELECT role FROM office_members
+        WHERE user_id = ${userId} AND office_id = ${officeId} AND status = 'active'
+        LIMIT 1
+      `) as any;
+      const mArr = Array.isArray(memberRows) ? memberRows : (memberRows?.rows ?? []);
+      const roleName: string = mArr[0]?.role ?? "trainee_lawyer";
+
+      // Step 2: load that role's permission list from the roles table
+      const roleRows = await db.execute(sql`
+        SELECT permissions FROM roles WHERE name = ${roleName} LIMIT 1
+      `) as any;
+      const rArr = Array.isArray(roleRows) ? roleRows : (roleRows?.rows ?? []);
+      const permissions: string[] = rArr[0]?.permissions
+        ? (JSON.parse(rArr[0].permissions) as string[])
+        : [];
+
+      // Step 3: wildcard ("*") = full access; otherwise check exact match
+      if (permissions.includes("*") || permissions.includes(permission)) {
+        return next();
+      }
+
+      return res.status(403).json({
+        error: "ليس لديك صلاحية تنفيذ هذا الإجراء",
+        required: permission,
+        role: roleName,
+      });
+    } catch (_e) {
+      return res.status(500).json({ error: "خطأ داخلي أثناء التحقق من الصلاحيات" });
+    }
+  };
+}

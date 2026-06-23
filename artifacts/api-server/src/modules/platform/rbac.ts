@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db, rolesTable, invitationsTable, auditLogsTable, usersTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
@@ -24,6 +24,10 @@ export const ALL_PERMISSIONS = [
   "invoices:view", "invoices:create", "invoices:edit", "invoices:delete",
   "payments:view", "payments:create",
   "reports:view", "financial:view",
+  // Payroll (new — Phase 2 RBAC)
+  "payroll:view", "payroll:manage",
+  // Accounting destructive ops (new — Phase 2 RBAC)
+  "accounting:delete",
   // Users & Roles
   "users:view", "users:create", "users:edit", "users:delete",
   "roles:view", "roles:create", "roles:edit",
@@ -68,6 +72,9 @@ const DEFAULT_ROLES = [
       "users:view", "users:create", "users:edit",
       "roles:view",
       "reports:view", "financial:view",
+      "payroll:view", "payroll:manage",
+      "invoices:view", "invoices:create", "invoices:edit",
+      "payments:view",
       "settings:view",
       "ai:access",
       "messages:view", "messages:send",
@@ -111,9 +118,10 @@ const DEFAULT_ROLES = [
     description: "الإدارة المالية الكاملة — الفواتير والمدفوعات والتقارير المالية",
     permissions: JSON.stringify([
       "dashboard:view",
-      "invoices:view", "invoices:create", "invoices:edit",
+      "invoices:view", "invoices:create", "invoices:edit", "invoices:delete",
       "payments:view", "payments:create",
       "reports:view", "financial:view",
+      "payroll:view",
       "clients:view",
     ]),
     isSystem: true,
@@ -200,7 +208,7 @@ router.get("/rbac/roles", requireAuthWithTenant, async (_req, res) => {
   }
 });
 
-router.post("/rbac/roles", requireAuthWithTenant, async (req, res) => {
+router.post("/rbac/roles", requireAuthWithTenant, requirePermission("roles:create"), async (req, res) => {
   try {
     const { name, displayName, description, permissions } = req.body as {
       name: string; displayName: string; description?: string; permissions: string[];
@@ -220,7 +228,7 @@ router.post("/rbac/roles", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.patch("/rbac/roles/:id", requireAuthWithTenant, async (req, res) => {
+router.patch("/rbac/roles/:id", requireAuthWithTenant, requirePermission("roles:edit"), async (req, res) => {
   try {
     const { displayName, description, permissions } = req.body as {
       displayName?: string; description?: string; permissions?: string[];
@@ -246,7 +254,7 @@ router.patch("/rbac/roles/:id", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.delete("/rbac/roles/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/rbac/roles/:id", requireAuthWithTenant, requirePermission("roles:edit"), async (req, res) => {
   try {
     const existing = await db.select().from(rolesTable).where(eq(rolesTable.id, String(req.params.id))).limit(1);
     if (!existing.length) return res.status(404).json({ error: "الدور غير موجود" });
@@ -275,7 +283,7 @@ router.get("/rbac/invitations", requireAuthWithTenant, async (_req, res) => {
   }
 });
 
-router.post("/rbac/invitations", requireAuthWithTenant, async (req, res) => {
+router.post("/rbac/invitations", requireAuthWithTenant, requirePermission("users:create"), async (req, res) => {
   try {
     const { email, role, invitedBy } = req.body as { email: string; role: string; invitedBy?: string };
     if (!email || !role) return res.status(400).json({ error: "البريد الإلكتروني والدور مطلوبان" });
@@ -306,7 +314,7 @@ router.patch("/rbac/invitations/:id/resend", requireAuthWithTenant, async (req, 
   }
 });
 
-router.delete("/rbac/invitations/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/rbac/invitations/:id", requireAuthWithTenant, requirePermission("users:create"), async (req, res) => {
   try {
     await db.delete(invitationsTable).where(eq(invitationsTable.id, String(req.params.id)));
     res.status(204).end();
@@ -328,7 +336,7 @@ router.get("/rbac/audit-logs", requireAuthWithTenant, async (_req, res) => {
 
 // ─── USER ROLE / STATUS UPDATE ───────────────────────────────────────────────
 
-router.patch("/rbac/users/:id/role", requireAuthWithTenant, async (req, res) => {
+router.patch("/rbac/users/:id/role", requireAuthWithTenant, requirePermission("roles:edit"), async (req, res) => {
   try {
     const { role } = req.body as { role: string };
     if (!role) return res.status(400).json({ error: "الدور مطلوب" });
@@ -430,7 +438,7 @@ router.get("/rbac/members", requireAuthWithTenant, async (req, res) => {
 });
 
 // ─── UPDATE MEMBER ROLE ───────────────────────────────────────────────────────
-router.patch("/rbac/members/:memberId/role", requireAuthWithTenant, async (req, res) => {
+router.patch("/rbac/members/:memberId/role", requireAuthWithTenant, requirePermission("users:edit"), async (req, res) => {
   try {
     const auth = getAuth(req);
     const currentUserId = auth?.userId;
@@ -455,7 +463,7 @@ router.patch("/rbac/members/:memberId/role", requireAuthWithTenant, async (req, 
 });
 
 // ─── REMOVE MEMBER ────────────────────────────────────────────────────────────
-router.delete("/rbac/members/:memberId", requireAuthWithTenant, async (req, res) => {
+router.delete("/rbac/members/:memberId", requireAuthWithTenant, requirePermission("users:delete"), async (req, res) => {
   try {
     const auth = getAuth(req);
     const currentUserId = auth?.userId;

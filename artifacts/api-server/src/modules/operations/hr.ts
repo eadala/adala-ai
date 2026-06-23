@@ -5,7 +5,7 @@
  * ✅ FIXED: INSERT يتضمن office_id في كل العمليات
  * ✅ FIXED: UPDATE/DELETE مُقيَّدة بـ office_id
  */
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -316,7 +316,7 @@ router.patch("/hr/leaves/:id", requireAuthWithTenant, async (req, res) => {
    PAYROLL — مُعزولة بـ office_id
 ══════════════════════════════════════════════════════════ */
 
-router.get("/hr/payroll", requireAuthWithTenant, async (req, res) => {
+router.get("/hr/payroll", requireAuthWithTenant, requirePermission("payroll:view"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const data = await sq(sql`
@@ -329,7 +329,7 @@ router.get("/hr/payroll", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr/payroll/stats", requireAuthWithTenant, async (req, res) => {
+router.get("/hr/payroll/stats", requireAuthWithTenant, requirePermission("payroll:view"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const r = one(await db.execute(sql`
@@ -344,7 +344,7 @@ router.get("/hr/payroll/stats", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr/payroll/generate", requireAuthWithTenant, async (req, res) => {
+router.post("/hr/payroll/generate", requireAuthWithTenant, requirePermission("payroll:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const { month, year } = req.body;
@@ -367,7 +367,7 @@ router.post("/hr/payroll/generate", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/hr/payroll/:id/pay", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr/payroll/:id/pay", requireAuthWithTenant, requirePermission("payroll:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const row = one(await db.execute(sql`
@@ -380,7 +380,7 @@ router.patch("/hr/payroll/:id/pay", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/hr/payroll/pay-all", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr/payroll/pay-all", requireAuthWithTenant, requirePermission("payroll:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const { month, year } = req.body;

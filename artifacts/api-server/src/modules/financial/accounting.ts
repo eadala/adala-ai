@@ -6,7 +6,7 @@
  * ✅ FIXED: UPDATE/DELETE scoped to office_id
  * ✅ Uses raw SQL for explicit isolation (safer than ORM without schema check)
  */
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { autoPostJournalEntry, ensureJournalTables } from "./journalAccounting";
@@ -107,7 +107,7 @@ router.put("/accounting/revenues/:id", requireAuthWithTenant, async (req, res) =
   } catch { res.status(500).json({ error: "خطأ في تعديل الإيراد" }); }
 });
 
-router.delete("/accounting/revenues/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/accounting/revenues/:id", requireAuthWithTenant, requirePermission("accounting:delete"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     await db.execute(sql`
@@ -196,7 +196,7 @@ router.put("/accounting/expenses/:id", requireAuthWithTenant, async (req, res) =
   } catch { res.status(500).json({ error: "خطأ في تعديل المصروف" }); }
 });
 
-router.delete("/accounting/expenses/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/accounting/expenses/:id", requireAuthWithTenant, requirePermission("accounting:delete"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     await db.execute(sql`
@@ -254,7 +254,7 @@ router.put("/accounting/bank-accounts/:id", requireAuthWithTenant, async (req, r
   } catch { res.status(500).json({ error: "خطأ في تعديل الحساب" }); }
 });
 
-router.delete("/accounting/bank-accounts/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/accounting/bank-accounts/:id", requireAuthWithTenant, requirePermission("accounting:delete"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     await db.execute(sql`
@@ -330,7 +330,7 @@ router.patch("/accounting/advances/:id/repay", requireAuthWithTenant, async (req
   } catch { res.status(500).json({ error: "خطأ في تسجيل السداد" }); }
 });
 
-router.delete("/accounting/advances/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/accounting/advances/:id", requireAuthWithTenant, requirePermission("accounting:delete"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     await db.execute(sql`

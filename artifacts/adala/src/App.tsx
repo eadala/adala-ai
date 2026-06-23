@@ -10,6 +10,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { AdminLayout } from "@/components/admin-layout";
 import { useRole } from "@/hooks/use-role";
+import { usePermissions } from "@/hooks/use-permissions";
 import { OfficeThemeProvider } from "@/components/office-theme-provider";
 
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────────
@@ -697,6 +698,26 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ── Role-protected route — requires a specific RBAC permission ─────────────────
+// Redirects to /dashboard if the user lacks the required permission.
+// Waits for both Clerk + permissions to load before deciding (never grants early access).
+function RoleRoute({ permission, children }: { permission: string; children: React.ReactNode }) {
+  const { isLoaded, isSignedIn } = useAuth();
+  const { hasPermission, isLoaded: permLoaded } = usePermissions();
+
+  if (!isLoaded || !permLoaded) return <PageLoader />;
+  if (!isSignedIn)              return <Redirect to="/" />;
+  if (!hasPermission(permission)) return <Redirect to="/dashboard" />;
+
+  return (
+    <OnboardingGate>
+      <Layout>
+        <Suspense fallback={<PageLoader />}>{children}</Suspense>
+      </Layout>
+    </OnboardingGate>
+  );
+}
+
 // ── Public route with Suspense ─────────────────────────────────────────────────
 function PublicPage({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
@@ -815,7 +836,7 @@ function AppRoutes() {
             <Route path="/employees"><ProtectedRoute><Employees /></ProtectedRoute></Route>
             <Route path="/attendance"><ProtectedRoute><Attendance /></ProtectedRoute></Route>
             <Route path="/leaves"><ProtectedRoute><Leaves /></ProtectedRoute></Route>
-            <Route path="/payroll"><ProtectedRoute><Payroll /></ProtectedRoute></Route>
+            <Route path="/payroll"><RoleRoute permission="payroll:view"><Payroll /></RoleRoute></Route>
             <Route path="/hr-center"><ProtectedRoute><HRCenter /></ProtectedRoute></Route>
             <Route path="/hr-enterprise"><ProtectedRoute><HREnterprise /></ProtectedRoute></Route>
             <Route path="/hr-systems"><ProtectedRoute><HRSystems /></ProtectedRoute></Route>
@@ -854,7 +875,7 @@ function AppRoutes() {
             <Route path="/activity-stream"><WorkspaceRoute><ActivityStreamPage /></WorkspaceRoute></Route>
 
             {/* Admin & Settings (law firm admins) */}
-            <Route path="/users"><ProtectedRoute><Users /></ProtectedRoute></Route>
+            <Route path="/users"><RoleRoute permission="users:view"><Users /></RoleRoute></Route>
             <Route path="/team"><ProtectedRoute><Team /></ProtectedRoute></Route>
             <Route path="/office-settings"><ProtectedRoute><OfficeSettings /></ProtectedRoute></Route>
             <Route path="/office-management"><ProtectedRoute><OfficeManagement /></ProtectedRoute></Route>

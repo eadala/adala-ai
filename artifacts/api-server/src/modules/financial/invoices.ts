@@ -1,4 +1,4 @@
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { validate } from "../../middlewares/validate";
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
@@ -337,7 +337,7 @@ router.put("/invoices/:id", requireAuthWithTenant, validate(UpdateInvoiceSchema)
 /* ════════════════════════════════════════════════════════════════════════════
    DELETE /invoices/:id — الحذف محمي إذا وجدت دفعات
 ════════════════════════════════════════════════════════════════════════════ */
-router.delete("/invoices/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.delete("/invoices/:id", requireAuthWithTenant, requirePermission("invoices:delete"), async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");

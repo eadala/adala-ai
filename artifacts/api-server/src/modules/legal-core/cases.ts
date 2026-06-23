@@ -7,7 +7,7 @@
  */
 
 import { Router }                                  from "express";
-import { requireAuthWithTenant }                   from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { CaseService }                             from "../../case/case.service";
 import { CaseTimeline }                            from "../../case/modules/timeline";
 import { CaseCommunications }                      from "../../case/modules/communications";
@@ -202,7 +202,7 @@ router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
 });
 
 /* DELETE /cases/:id */
-router.delete("/cases/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/cases/:id", requireAuthWithTenant, requirePermission("cases:delete"), async (req, res) => {
   try {
     const delId = String(req.params.id);
     await getService(req).deleteCase(delId);

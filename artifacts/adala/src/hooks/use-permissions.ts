@@ -21,7 +21,8 @@ export function usePermissions() {
   const permissions: string[] = data?.permissions ?? [];
 
   const hasPermission = (key: string): boolean => {
-    if (!data) return true;
+    // SECURITY FIX: return false while loading — never grant access before permissions are fetched
+    if (!data) return false;
     if (permissions.includes("*")) return true;
     return permissions.includes(key);
   };
