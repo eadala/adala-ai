@@ -252,6 +252,32 @@ services:
     networks:
       - internal
 
+  # ── Decision Engine (Operational Intelligence) ────────────
+  decision-engine:
+    build:
+      context: ../services/decision-engine
+      dockerfile: Dockerfile
+    container_name: adala-decision-engine
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      API_URL: http://api:8080
+      PROM_URL: http://prometheus:9090
+      HEAL_SECRET: ${HEAL_SECRET:-adala-heal-token-change-me}
+      LOG_LEVEL: info
+    depends_on:
+      - api
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3002/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - internal
+
   # ── Redis Exporter ────────────────────────────────────────
   redis-exporter:
     image: oliver006/redis_exporter:v1.58.0

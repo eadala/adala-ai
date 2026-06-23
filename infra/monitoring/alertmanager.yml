@@ -18,8 +18,16 @@ route:
         severity: critical
       receiver: "critical"
       repeat_interval: 1h
-      continue: true      # أكمل للـ auto-heal أيضاً
+      continue: true
 
+    # Decision Engine يتعامل مع كل critical
+    - match:
+        severity: critical
+      receiver: "decision-engine"
+      repeat_interval: 5m
+      continue: false
+
+    # Fallback مباشر لو Decision Engine معطّل (APIDown فقط)
     - match:
         severity: critical
         alertname: APIDown
@@ -79,13 +87,21 @@ receivers:
         title: '⚠️  {{ .GroupLabels.alertname }}'
         text: "{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
 
-  # ── auto-heal: webhook يُعيد تشغيل API عند الانهيار ──────
+  # ── Decision Engine (context-aware routing) ──────────────
+  - name: "decision-engine"
+    webhook_configs:
+      - url: "http://decision-engine:3002/alert"
+        send_resolved: true
+        http_config: {}
+        max_alerts: 5
+
+  # ── auto-heal مباشر: fallback إذا Decision Engine معطّل ──
   - name: "auto-heal-api"
     webhook_configs:
       - url: "http://api:8080/internal/heal"
         send_resolved: false
         http_config:
-          bearer_token: "${HEAL_SECRET:-adala-heal-token}"
+          bearer_token: "${HEAL_SECRET:-adala-heal-token-change-me}"
         max_alerts: 1
 
 inhibit_rules:
