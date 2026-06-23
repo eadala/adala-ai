@@ -1,0 +1,201 @@
+تمام — هذا كود جاهز فعلي (Production-ready skeleton) لنظام النسخ الاحتياطي لمنصة عدالة AI يعمل على:
+
+* PostgreSQL (pg_dump)
+* Node.js Worker (Cron)
+* تشفير AES-256
+* رفع إلى S3 / Cloudflare R2
+* دعم Tenant Snapshot (مهم لمنصتك)
+
+⸻
+
+🧱 1. هيكل النظام
+
+/backup-system
+  ├── worker.ts
+  ├── backup.service.ts
+  ├── encrypt.ts
+  ├── storage.s3.ts
+  ├── tenant-snapshot.ts
+  └── config.ts
+
+⸻
+
+⚙️ 2. config.ts
+
+export const config = {
+  dbUrl: process.env.DATABASE_URL!,
+  encryptionKey: process.env.BACKUP_ENCRYPTION_KEY!,
+  s3: {
+    bucket: process.env.BACKUP_BUCKET!,
+    region: process.env.S3_REGION!,
+    accessKey: process.env.S3_ACCESS_KEY!,
+    secretKey: process.env.S3_SECRET_KEY!,
+  }
+};
+
+⸻
+
+🔐 3. encrypt.ts (AES-256)
+
+import crypto from "crypto";
+import { config } from "./config";
+export function encryptBuffer(buffer: Buffer): Buffer {
+  const iv = crypto.randomBytes(16);
+  const key = crypto.createHash("sha256").update(config.encryptionKey).digest();
+  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(buffer),
+    cipher.final()
+  ]);
+  return Buffer.concat([iv, encrypted]);
+}
+
+⸻
+
+🗄️ 4. backup.service.ts (Full DB Backup)
+
+import { exec } from "child_process";
+import fs from "fs";
+import { encryptBuffer } from "./encrypt";
+import { uploadFile } from "./storage.s3";
+export async function createFullBackup() {
+  const fileName = `backup-${Date.now()}.sql`;
+  const path = `/tmp/${fileName}`;
+  await new Promise((resolve, reject) => {
+    exec(
+      `pg_dump ${process.env.DATABASE_URL} > ${path}`,
+      (err) => (err ? reject(err) : resolve(true))
+    );
+  });
+  const fileBuffer = fs.readFileSync(path);
+  const encrypted = encryptBuffer(fileBuffer);
+  const finalName = `full/${fileName}.enc`;
+  await uploadFile(finalName, encrypted);
+  fs.unlinkSync(path);
+}
+
+⸻
+
+👨‍⚖️ 5. tenant-snapshot.ts (مهم جداً لمنصتك)
+
+import { db } from "../db";
+import { encryptBuffer } from "./encrypt";
+import { uploadFile } from "./storage.s3";
+export async function createTenantSnapshot(tenantId: string) {
+  const cases = await db.query.cases.findMany({
+    where: (c, { eq }) => eq(c.tenantId, tenantId)
+  });
+  const clients = await db.query.clients.findMany({
+    where: (c, { eq }) => eq(c.tenantId, tenantId)
+  });
+  const snapshot = {
+    tenantId,
+    cases,
+    clients,
+    createdAt: new Date()
+  };
+  const buffer = Buffer.from(JSON.stringify(snapshot));
+  const encrypted = encryptBuffer(buffer);
+  const fileName = `tenants/${tenantId}/snapshot-${Date.now()}.json.enc`;
+  await uploadFile(fileName, encrypted);
+}
+
+⸻
+
+☁️ 6. storage.s3.ts (R2 / S3)
+
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { config } from "./config";
+const s3 = new S3Client({
+  region: config.s3.region,
+  credentials: {
+    accessKeyId: config.s3.accessKey,
+    secretAccessKey: config.s3.secretKey
+  }
+});
+export async function uploadFile(key: string, body: Buffer) {
+  await s3.send(new PutObjectCommand({
+    Bucket: config.s3.bucket,
+    Key: key,
+    Body: body
+  }));
+}
+
+⸻
+
+⏰ 7. worker.ts (Cron Job System)
+
+import cron from "node-cron";
+import { createFullBackup } from "./backup.service";
+import { createTenantSnapshot } from "./tenant-snapshot";
+// 🔁 Full backup يومي
+cron.schedule("0 2 * * *", async () => {
+  console.log("Running full backup...");
+  await createFullBackup();
+});
+// 🧑‍⚖️ Tenant snapshots (كل 6 ساعات)
+cron.schedule("0 */6 * * *", async () => {
+  console.log("Running tenant snapshots...");
+  const tenants = ["tenantA", "tenantB"]; // لاحقاً من DB
+  for (const tenantId of tenants) {
+    await createTenantSnapshot(tenantId);
+  }
+});
+
+⸻
+
+🚨 8. أهم تحسين (لازم تضيفه لاحقاً)
+
+Restore API (اختياري لكن مهم جداً)
+
+POST /api/backup/restore/tenant/:id
+
+* يفك التشفير
+* يرجع البيانات
+* أو يعيد إدخالها للـ DB
+
+⸻
+
+🧠 كيف هذا يخدم عدالة AI؟
+
+الآن النظام عندك يحقق:
+
+🟢 أمان
+
+* تشفير backups
+* منع الوصول غير المصرح
+
+🟢 عزل
+
+* snapshots لكل مكتب
+* tenant-level recovery
+
+🟢 استمرارية عمل
+
+* full backup يومي
+* recovery جاهز
+
+⸻
+
+⚠️ ملاحظة مهمة جداً
+
+هذا النظام:
+
+✔ قوي
+❌ لكنه يحتاج تحسينين قبل Enterprise:
+
+1. جدولة tenantIds من قاعدة البيانات (بدل hardcoded)
+2. إضافة restore engine حقيقي (rollback DB)
+
+⸻
+
+🚀 إذا تريد الخطوة التالية
+
+أقدر أبني لك مباشرة:
+
+🔥 ￼ Restore System كامل (زر استرجاع مكتب داخل لوحة التحكم)
+🔥 أو ￼ Docker + Coolify integration جاهز للإنتاج
+🔥 أو ￼ Enterprise Hardening Final Checklist (إطلاق مدفوع)
+
+فقط قل:
+“أبغى نظام الاسترجاع الكامل”

@@ -1,0 +1,289 @@
+تمام — الآن سنبني لك Admin / Owner / Developer Control Center + Office Dashboard بشكل احترافي يعكس مستوى SaaS حقيقي (مثل Clio / Stripe Dashboard لكن مخصص لعدالة AI).
+
+الفكرة هنا ليست “صفحات”، بل 3 طبقات صلاحيات + لوحات منفصلة بالكامل بدون أي تداخل.
+
+⸻
+
+🧱 عدالة AI — Multi-Level Dashboard Architecture
+
+⸻
+
+🧭 1️⃣ الهيكل العام للوحة التحكم
+
+                    ┌────────────────────┐
+                    │  Cloudflare / WAF  │
+                    └─────────┬──────────┘
+                              ▼
+        ┌────────────────────────────────────────┐
+        │         Dashboard Router              │
+        └──────────────┬────────────────────────┘
+                       ▼
+     ┌──────────────────────────────────────────┐
+     │          Role-Based Dashboards          │
+     └───────┬──────────────┬──────────────────┘
+             ▼              ▼
+     Office Dashboard   Owner Dashboard   Developer Dashboard
+
+⸻
+
+🔐 2️⃣ قاعدة الفصل الأساسية (No Overlap Rule)
+
+❌ ممنوع:
+
+* مستخدم يرى Dashboard غير دوره
+* API مشترك بدون فلترة role
+* وصول مباشر لبيانات غير مصرح بها
+
+✅ القاعدة الذهبية:
+
+UI = Role-based
+API = RBAC enforced
+DB = Tenant isolated
+
+⸻
+
+🏢 3️⃣ Office Dashboard (لوحة المكتب)
+
+👨‍⚖️ المستخدمين:
+
+* Lawyer
+* Assistant
+* Accountant
+* Admin (داخل المكتب)
+
+⸻
+
+📊 المحتوى:
+
+📁 القضايا
+
+* عرض القضايا الخاصة بالمكتب فقط
+* فلترة حسب المحامي
+* حالات + جلسات + ملفات
+
+⸻
+
+👥 العملاء
+
+* العملاء داخل المكتب فقط
+* ملفاتهم + مستنداتهم
+
+⸻
+
+💰 المالية (مقيدة)
+
+* الفواتير
+* المدفوعات
+* بدون رؤية system-wide
+
+⸻
+
+🤖 AI Assistant
+
+* تحليل القضايا
+* تلخيص المستندات
+* بدون الوصول المالي الكامل (حسب الدور)
+
+⸻
+
+🔐 القيود:
+
+WHERE tenant_id = officeId
+AND role IN allowed_roles
+
+⸻
+
+🧑‍💼 4️⃣ Owner Dashboard (مالك المكتب)
+
+👤 الصلاحيات:
+
+* firm_owner فقط
+
+⸻
+
+📊 المحتوى:
+
+🧑 إدارة الفريق
+
+* إضافة / حذف أعضاء
+* تغيير الأدوار
+* إدارة الصلاحيات
+
+⸻
+
+💰 كل المالية
+
+* أرباح وخسائر
+* تقارير
+* تصدير بيانات
+
+⸻
+
+📁 كل القضايا
+
+* عرض شامل
+* تعديل / حذف
+
+⸻
+
+⚙️ إعدادات المكتب
+
+* الاشتراك
+* الباقات
+* الحدود
+
+⸻
+
+📊 تحليلات AI
+
+* أداء المكتب
+* إنتاجية المحامين
+* توقع القضايا
+
+⸻
+
+🔐 قاعدة:
+
+role === "firm_owner"
+OR permission === "*"
+
+⸻
+
+🧑‍💻 5️⃣ Developer Dashboard (لوحة المطور — أنت)
+
+👤 المستخدم:
+
+* Super Admin / Developer
+
+⸻
+
+⚙️ المحتوى:
+
+🧠 النظام بالكامل
+
+* جميع المكاتب
+* جميع المستخدمين
+* جميع البيانات (Read-only + Debug mode)
+
+⸻
+
+🧪 أدوات التطوير
+
+* إعادة تشغيل الخدمات
+* مراقبة logs
+* اختبار RBAC
+
+⸻
+
+🔐 الأمان
+
+* كشف محاولات الاختراق
+* tenant violations
+* permission failures
+
+⸻
+
+💾 النسخ الاحتياطي
+
+* تشغيل backup يدوي
+* restore أي مكتب
+* مقارنة نسخ
+
+⸻
+
+🤖 AI Control
+
+* API usage
+* تكلفة الذكاء الصناعي
+* rate limits
+
+⸻
+
+🔥 صلاحية مطلقة:
+
+bypass: true
+audit: enabled
+
+⸻
+
+🧱 6️⃣ نظام الحماية بين اللوحات
+
+Middleware جديد:
+
+function requireDashboardAccess(role: Role) {
+  if (role === "developer") return true;
+  if (role === "firm_owner") return ["owner_dashboard"];
+  if (role === "admin") return ["office_dashboard"];
+}
+
+⸻
+
+🧭 7️⃣ Routing System (Frontend)
+
+/office/*        → Office Dashboard
+/owner/*         → Owner Dashboard
+/dev/*           → Developer Dashboard
+
+⸻
+
+🔐 8️⃣ RBAC + Dashboard Binding
+
+الدور	اللوحة
+lawyer	office
+assistant	office
+accountant	office
+admin	office + partial owner
+firm_owner	owner
+super_admin	dev
+
+⸻
+
+🚨 9️⃣ أهم قاعدة في التصميم
+
+❌ ممنوع اعتماد الواجهة فقط
+
+✔ كل شيء يجب أن يُفحص في backend:
+
+* dashboard access
+* API access
+* data access
+
+⸻
+
+🧠 10️⃣ لماذا هذا التصميم قوي؟
+
+🟢 يمنع:
+
+* تسريب بيانات بين المكاتب
+* وصول الموظف للبيانات المالية العليا
+* استخدام AI بشكل غير مصرح
+* وصول المطور لتغيير بيانات التشغيل بدون سجل
+
+⸻
+
+🚀 النتيجة النهائية
+
+بعد هذا النظام تصبح عدالة AI:
+
+🟢 SaaS ثلاث طبقات:
+
+1. Office Layer (تشغيل يومي)
+
+2. Owner Layer (إدارة كاملة)
+
+3. Developer Layer (تحكم النظام)
+
+⸻
+
+🔥 الخطوة التالية (اختياري لكن مهم جداً)
+
+إذا تريد، أقدر أبني لك مباشرة:
+
+🟢 UI Wireframe كامل لكل لوحة
+
+🟢 أو Role-Based React Routes جاهزة
+
+🟢 أو Admin Panel Backend APIs كاملة
+
+فقط قل:
+“أبغى الواجهات الجاهزة React”

@@ -113,7 +113,8 @@ const FinanceDashboard     = lazy(() => import("@/pages/financial/finance-dashbo
 const IsolationPage        = lazy(() => import("@/pages/monitoring/isolation"));
 const HardeningPage        = lazy(() => import("@/pages/monitoring/hardening"));
 const ZeroTrustShieldPage  = lazy(() => import("@/pages/platform/zero-trust-shield"));
-const LaunchGatePage       = lazy(() => import("@/pages/platform/launch-gate"));
+const LaunchGatePage            = lazy(() => import("@/pages/platform/launch-gate"));
+const ProductionLaunchCenter    = lazy(() => import("@/pages/platform/production-launch"));
 const LegalOSPage          = lazy(() => import("@/pages/legal-core/legal-os"));
 const SelfHealingPage      = lazy(() => import("@/pages/monitoring/self-healing"));
 const AuditLogsPage        = lazy(() => import("@/pages/platform/audit-logs"));
@@ -870,6 +871,7 @@ function AppRoutes() {
             <Route path="/hardening"><AdminRoute><HardeningPage /></AdminRoute></Route>
             <Route path="/zero-trust"><AdminRoute><ZeroTrustShieldPage /></AdminRoute></Route>
             <Route path="/launch-gate"><AdminRoute><LaunchGatePage /></AdminRoute></Route>
+            <Route path="/production-launch"><AdminRoute><ProductionLaunchCenter /></AdminRoute></Route>
             <Route path="/legal-os"><ProtectedRoute><LegalOSPage /></ProtectedRoute></Route>
             <Route path="/self-healing"><AdminRoute><SelfHealingPage /></AdminRoute></Route>
             <Route path="/activity-stream"><WorkspaceRoute><ActivityStreamPage /></WorkspaceRoute></Route>
