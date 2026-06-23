@@ -373,8 +373,7 @@ export default function Billing() {
     qc.invalidateQueries({ queryKey: ["billing-overview"] });
     qc.invalidateQueries({ queryKey: ["entitlements"] });
     qc.invalidateQueries({ queryKey: ["plan-notifications"] });
-    refetchOverview();
-  }, [qc, refetchOverview]);
+  }, [qc]);
 
   useEffect(() => {
     function tick() {
