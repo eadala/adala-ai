@@ -1,0 +1,388 @@
+ADALAH BANKRUPTCY PACKAGE
+
+SaaS Integration Specification
+
+Objective
+
+Integrate “Adalah Bankruptcy” into the existing Adalah subscription architecture as a premium module.
+
+The implementation must reuse the existing:
+
+* Subscription System
+* Billing Engine
+* Office Management
+* Feature Flags
+* Permissions System
+* Website Builder
+* Store Builder
+* AI Engine
+
+No duplicate subscription logic may be created.
+
+No parallel billing system may be created.
+
+No separate tenant structure may be created.
+
+⸻
+
+Product Type
+
+Module Category:
+
+Specialized Legal Solutions
+
+Module Key:
+
+bankruptcy
+
+Display Name:
+
+عدالة إفلاس
+
+Slug:
+
+bankruptcy
+
+Visibility:
+
+Premium Add-On Module
+
+Default State:
+
+Disabled
+
+Activation:
+
+Payment Required
+
+⸻
+
+Package Architecture
+
+The Bankruptcy Module must be implemented as a Feature Package inside the existing Adalah plans.
+
+Do NOT create separate package infrastructure.
+
+Use existing:
+
+plans
+
+subscriptions
+
+office_features
+
+feature_permissions
+
+tables.
+
+⸻
+
+Commercial Packages
+
+STARTER
+
+Price:
+
+1999 SAR / Month
+
+Features:
+
+bankruptcy.dashboard
+
+bankruptcy.cases
+
+bankruptcy.creditors
+
+bankruptcy.claims
+
+bankruptcy.assets
+
+bankruptcy.meetings
+
+bankruptcy.documents
+
+bankruptcy.portal
+
+Limits:
+
+5 Active Cases
+
+3 Users
+
+20 GB Storage
+
+⸻
+
+PROFESSIONAL
+
+Price:
+
+4999 SAR / Month
+
+Recommended Plan
+
+Includes:
+
+All Starter Features
+
+bankruptcy.distributions
+
+bankruptcy.valuations
+
+bankruptcy.ai_assistant
+
+bankruptcy.public_portal
+
+bankruptcy.claim_submission
+
+bankruptcy.analytics
+
+Limits:
+
+25 Active Cases
+
+15 Users
+
+100 GB Storage
+
+⸻
+
+ENTERPRISE
+
+Price:
+
+9999 SAR / Month
+
+Includes:
+
+All Professional Features
+
+bankruptcy.api
+
+bankruptcy.white_label
+
+bankruptcy.custom_workflows
+
+bankruptcy.advanced_reporting
+
+bankruptcy.executive_dashboard
+
+bankruptcy.priority_support
+
+Limits:
+
+Unlimited Cases
+
+Unlimited Users
+
+Unlimited Storage
+
+⸻
+
+Website Integration
+
+When Bankruptcy Module is Active:
+
+Automatically enable:
+
+Website Menu Item
+
+“بوابة الإفلاس”
+
+Inside Website Navigation:
+
+Home
+
+About
+
+Services
+
+Store
+
+Client Portal
+
+Bankruptcy Portal
+
+Contact
+
+⸻
+
+Public Bankruptcy Portal
+
+Route:
+
+/bankruptcy
+
+Visibility:
+
+Only if office has active Bankruptcy subscription.
+
+Capabilities:
+
+Submit Claim
+
+Track Claim
+
+Creditor Portal
+
+Meetings
+
+Distributions
+
+Notifications
+
+Documents
+
+⸻
+
+Store Integration
+
+When Bankruptcy Module is Active:
+
+Automatically create category:
+
+خدمات الإفلاس
+
+Suggested Services:
+
+استشارة إفلاس
+
+إعادة تنظيم مالي
+
+تمثيل دائن
+
+تمثيل مدين
+
+دراسة تعثر
+
+إعداد ملف إفلاس
+
+These services must use the existing store infrastructure.
+
+No separate commerce system.
+
+⸻
+
+Subscription Activation Logic
+
+After Successful Payment:
+
+Enable Feature:
+
+bankruptcy.enabled = true
+
+Grant Permissions:
+
+bankruptcy.*
+
+Enable Routes:
+
+/bankruptcy
+
+/api/bankruptcy/*
+
+Enable Website Portal
+
+Enable Store Category
+
+Enable AI Actions
+
+⸻
+
+Subscription Expiration Logic
+
+Upon Expiration:
+
+Disable:
+
+Bankruptcy Portal
+
+Bankruptcy Sidebar
+
+Bankruptcy APIs
+
+Bankruptcy AI
+
+Bankruptcy Store Category
+
+Preserve Data
+
+No Data Deletion
+
+Status:
+
+Read Only
+
+⸻
+
+Homepage Marketing Section
+
+Specialized Solutions
+
+Cards:
+
+عدالة محاماة
+
+عدالة عقود
+
+عدالة تحصيل
+
+عدالة امتثال
+
+عدالة تحكيم
+
+عدالة إفلاس
+
+Card Content:
+
+منصة متخصصة لإدارة الإفلاس وإعادة التنظيم المالي والتصفية والتسوية الوقائية مع بوابة دائنين ومساعد ذكاء اصطناعي وإدارة متكاملة للمطالبات والأصول والتوزيعات.
+
+Badge:
+
+Premium
+
+CTA:
+
+اكتشف المزيد
+
+Pricing Display:
+
+ابتداءً من 1,999 ريال شهرياً
+
+⸻
+
+Technical Constraints
+
+Must reuse existing:
+
+Authentication
+
+Authorization
+
+Subscriptions
+
+Billing
+
+Feature Flags
+
+Website Builder
+
+Store Builder
+
+Notifications
+
+AI Infrastructure
+
+Multi-Tenant Security
+
+No duplicated architecture.
+
+No duplicated billing logic.
+
+No duplicated permissions system.
+
+No breaking changes.
+
+Maintain full backward compatibility.
+
+Enterprise SaaS compliant.

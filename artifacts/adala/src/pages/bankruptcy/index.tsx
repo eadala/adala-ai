@@ -6,6 +6,7 @@ import {
   Plus, Loader2, AlertTriangle,
   Archive, Banknote, Brain, ChevronLeft,
   ChevronRight, Trash2, Eye, Pencil,
+  Activity, Bell, TrendingUp, Sparkles, Shield, CheckCheck,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -80,16 +81,20 @@ function StatusBadge({ status }: { status: string }) {
 /* ══════════════════════════════════════════════════════════
    SIDEBAR NAVIGATION
 ══════════════════════════════════════════════════════════ */
-const SECTIONS = [
-  { id: "dashboard",     label: "لوحة التحكم",   icon: LayoutDashboard },
-  { id: "cases",         label: "ملفات الإفلاس",  icon: Landmark },
-  { id: "creditors",     label: "الدائنون",        icon: Users },
-  { id: "claims",        label: "المطالبات",       icon: FileText },
-  { id: "assets",        label: "الأصول",          icon: Building2 },
-  { id: "meetings",      label: "الاجتماعات",      icon: CalendarDays },
-  { id: "distributions", label: "التوزيعات",       icon: TrendingDown },
-  { id: "reports",       label: "التقارير",         icon: BarChart3 },
-  { id: "ai",            label: "الذكاء الاصطناعي", icon: Bot },
+const SECTIONS: { id: string; label: string; icon: any; divider?: boolean }[] = [
+  { id: "dashboard",     label: "لوحة التحكم",     icon: LayoutDashboard },
+  { id: "cases",         label: "ملفات الإفلاس",    icon: Landmark },
+  { id: "creditors",     label: "الدائنون",          icon: Users },
+  { id: "claims",        label: "المطالبات",         icon: FileText },
+  { id: "assets",        label: "الأصول",            icon: Building2 },
+  { id: "meetings",      label: "الاجتماعات",        icon: CalendarDays },
+  { id: "distributions", label: "التوزيعات",         icon: TrendingDown },
+  { id: "reports",       label: "التقارير",           icon: BarChart3 },
+  { id: "ai",            label: "الذكاء الاصطناعي",  icon: Bot },
+  { id: "executive",     label: "لوحة تنفيذية",      icon: TrendingUp, divider: true },
+  { id: "assistant",     label: "المساعد الذكي",      icon: Sparkles },
+  { id: "timeline",      label: "السجل الزمني",      icon: Activity },
+  { id: "notifications", label: "الإشعارات",         icon: Bell },
 ];
 
 /* ══════════════════════════════════════════════════════════
@@ -100,10 +105,18 @@ export default function BankruptcyPage() {
   const [selectedCase, setSelectedCase] = useState<BkCase | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  const { data: notifData } = useQuery({
+    queryKey: ["bk-notifs-count"],
+    queryFn: () => api("/bankruptcy/notifications?limit=1"),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const unreadCount: number = (notifData as any)?.unreadCount ?? 0;
+
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden rounded-xl border border-border/50 bg-card" dir="rtl">
       {/* Sidebar */}
-      <aside className={`${sidebarOpen ? "w-52" : "w-14"} flex-shrink-0 border-l border-border/50 bg-muted/30 flex flex-col transition-all duration-200`}>
+      <aside className={`${sidebarOpen ? "w-56" : "w-14"} flex-shrink-0 border-l border-border/50 bg-muted/30 flex flex-col transition-all duration-200`}>
         <div className="flex items-center gap-2 px-3 py-4 border-b border-border/50">
           <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
             <Landmark className="h-4 w-4 text-amber-600" />
@@ -114,16 +127,32 @@ export default function BankruptcyPage() {
           </button>
         </div>
         <nav className="flex-1 py-2 overflow-y-auto">
-          {SECTIONS.map(s => {
+          {SECTIONS.map((s) => {
             const Icon = s.icon;
             const active = section === s.id;
+            const isNotif = s.id === "notifications";
             return (
-              <button key={s.id} onClick={() => setSection(s.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-all
-                  ${active ? "bg-amber-500/10 text-amber-700 border-l-2 border-amber-500" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"}`}>
-                <Icon className="h-4 w-4 shrink-0" />
-                {sidebarOpen && <span className="truncate">{s.label}</span>}
-              </button>
+              <div key={s.id}>
+                {s.divider && <div className="mx-3 my-1.5 border-t border-border/40" />}
+                <button onClick={() => setSection(s.id)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-all
+                    ${active ? "bg-amber-500/10 text-amber-700 border-l-2 border-amber-500" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"}`}>
+                  <div className="relative shrink-0">
+                    <Icon className="h-4 w-4" />
+                    {isNotif && unreadCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center leading-none">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </div>
+                  {sidebarOpen && <span className="truncate flex-1 text-right">{s.label}</span>}
+                  {sidebarOpen && isNotif && unreadCount > 0 && (
+                    <span className="bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+              </div>
             );
           })}
         </nav>
@@ -148,6 +177,10 @@ export default function BankruptcyPage() {
         {section === "distributions" && <DistributionsSection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
         {section === "reports"       && <ReportsSection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
         {section === "ai"            && <AISection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
+        {section === "executive"     && <ExecutiveDashboard />}
+        {section === "assistant"     && <AIAssistantSection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
+        {section === "timeline"      && <TimelineSection selectedCase={selectedCase} />}
+        {section === "notifications" && <NotificationsSection />}
       </main>
     </div>
   );
@@ -1002,6 +1035,443 @@ function AISection({ selectedCase, onNeedCase }: { selectedCase: BkCase | null; 
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   SVG MINI CHARTS
+══════════════════════════════════════════════════════════ */
+const CHART_COLORS = ["#f59e0b","#3b82f6","#10b981","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16"];
+
+function MiniPieChart({ data }: { data: { label: string; value: number }[] }) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (total === 0) return <div className="text-center text-muted-foreground text-xs py-4">لا توجد بيانات</div>;
+  let cAngle = -90;
+  function toXY(r: number, a: number) {
+    return { x: 50 + r * Math.cos(a * Math.PI / 180), y: 50 + r * Math.sin(a * Math.PI / 180) };
+  }
+  function arc(a1: number, a2: number) {
+    const s = toXY(45, a1); const e = toXY(45, a2);
+    return `M50,50 L${s.x},${s.y} A45,45 0 ${a2 - a1 > 180 ? 1 : 0} 1 ${e.x},${e.y} Z`;
+  }
+  return (
+    <div className="flex flex-col sm:flex-row items-center gap-4">
+      <svg width="100" height="100" viewBox="0 0 100 100" className="shrink-0">
+        {data.map((d, i) => {
+          const sweep = (d.value / total) * 360;
+          const path = arc(cAngle, cAngle + sweep);
+          cAngle += sweep;
+          return <path key={i} d={path} fill={CHART_COLORS[i % CHART_COLORS.length]} opacity="0.9" />;
+        })}
+        <circle cx="50" cy="50" r="22" fill="white" className="dark:fill-card" />
+        <text x="50" y="55" textAnchor="middle" fontSize="11" fill="#6b7280">{total}</text>
+      </svg>
+      <div className="space-y-1 text-xs w-full">
+        {data.map((d, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+            <span className="text-muted-foreground flex-1">{d.label}</span>
+            <span className="font-bold">{d.value}</span>
+            <span className="text-muted-foreground w-8 text-left">{Math.round((d.value / total) * 100)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProgressBar({ value, max, color = "bg-amber-500" }: { value: number; max: number; color?: string }) {
+  const pct = max > 0 ? Math.min(Math.round((value / max) * 100), 100) : 0;
+  return (
+    <div className="space-y-1">
+      <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${pct}%` }} />
+      </div>
+      <p className="text-xs text-muted-foreground">{pct}%</p>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   EXECUTIVE DASHBOARD (Phase 4)
+══════════════════════════════════════════════════════════ */
+function ExecutiveDashboard() {
+  const { data: d, isLoading } = useQuery({
+    queryKey: ["bk-executive"],
+    queryFn: () => api("/bankruptcy/executive-dashboard"),
+    staleTime: 60_000,
+  });
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-48">
+      <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+    </div>
+  );
+
+  const claimLabels: Record<string, string> = { pending:"معلق", submitted:"مُقدَّم", under_review:"مراجعة", approved:"مقبول", partially_approved:"مقبول جزئياً", rejected:"مرفوض", disputed:"متنازع", finalized:"منتهي" };
+  const assetLabels: Record<string, string>  = { real_estate:"عقار", vehicle:"مركبة", equipment:"معدات", inventory:"مخزون", cash:"نقد", receivables:"ذمم", intellectual:"ملكية فكرية", other:"أخرى" };
+
+  const claimPie = ((d as any)?.claimsByStatus ?? []).map((r: any) => ({ label: claimLabels[r.status] ?? r.status, value: Number(r.cnt) }));
+  const assetPie = ((d as any)?.assetsByType ?? []).map((r: any) => ({ label: assetLabels[r.asset_type] ?? r.asset_type, value: Number(r.cnt) }));
+
+  const kpis = [
+    { label:"إجمالي الملفات",     value:(d as any)?.totalCases ?? 0,         color:"text-amber-600",   bg:"bg-amber-50 dark:bg-amber-950/30" },
+    { label:"ملفات نشطة",         value:(d as any)?.activeCases ?? 0,         color:"text-blue-600",    bg:"bg-blue-50 dark:bg-blue-950/30" },
+    { label:"ملفات مغلقة",         value:(d as any)?.closedCases ?? 0,         color:"text-emerald-600", bg:"bg-emerald-50 dark:bg-emerald-950/30" },
+    { label:"إجمالي المطالبات",   value:(d as any)?.totalClaims ?? 0,         color:"text-violet-600",  bg:"bg-violet-50 dark:bg-violet-950/30" },
+    { label:"قيمة المطالبات ر.س", value:Number((d as any)?.totalClaimsAmount ?? 0).toLocaleString("ar-SA"), color:"text-rose-600", bg:"bg-rose-50 dark:bg-rose-950/30" },
+    { label:"قيمة الأصول ر.س",    value:Number((d as any)?.totalAssetsValue ?? 0).toLocaleString("ar-SA"),  color:"text-cyan-600",  bg:"bg-cyan-50 dark:bg-cyan-950/30" },
+    { label:"تم توزيعه ر.س",      value:Number((d as any)?.totalDistributed ?? 0).toLocaleString("ar-SA"), color:"text-teal-600",  bg:"bg-teal-50 dark:bg-teal-950/30" },
+    { label:"أحداث السجل الزمني", value:(d as any)?.timelineEvents ?? 0,       color:"text-indigo-600", bg:"bg-indigo-50 dark:bg-indigo-950/30" },
+  ];
+
+  const monthly: any[] = (d as any)?.monthlyActivity ?? [];
+  const maxMo = Math.max(...monthly.map((m: any) => Number(m.cnt)), 1);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-bold flex items-center gap-2"><TrendingUp className="h-5 w-5 text-amber-600" /> اللوحة التنفيذية</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">مؤشرات الأداء الرئيسية لجميع ملفات الإفلاس</p>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {kpis.map(k => (
+          <Card key={k.label} className={`border-border/50 ${k.bg}`}>
+            <CardContent className="p-3">
+              <p className="text-xs text-muted-foreground mb-1">{k.label}</p>
+              <p className={`text-lg font-bold ${k.color}`}>{k.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { label:"نسبة الاسترداد",          val:(d as any)?.recoveryRate ?? 0,         color:"text-emerald-600", bar:"bg-emerald-500", sub:"من إجمالي المطالبات" },
+          { label:"نسبة التوزيع",            val:(d as any)?.distributionRate ?? 0,      color:"text-blue-600",    bar:"bg-blue-500",    sub:"من المطالبات المقبولة" },
+          { label:"معدل إغلاق الملفات",      val:(d as any)?.caseCompletionRate ?? 0,   color:"text-amber-600",   bar:"bg-amber-500",   sub:"من إجمالي الملفات" },
+        ].map(m => (
+          <Card key={m.label} className="border-border/50">
+            <CardHeader className="pb-2"><CardTitle className="text-sm">{m.label}</CardTitle></CardHeader>
+            <CardContent>
+              <p className={`text-3xl font-bold mb-2 ${m.color}`}>{m.val}%</p>
+              <ProgressBar value={m.val} max={100} color={m.bar} />
+              <p className="text-xs text-muted-foreground mt-2">{m.sub}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card className="border-border/50">
+          <CardHeader className="pb-2"><CardTitle className="text-sm">المطالبات حسب الحالة</CardTitle></CardHeader>
+          <CardContent><MiniPieChart data={claimPie} /></CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardHeader className="pb-2"><CardTitle className="text-sm">الأصول حسب الفئة</CardTitle></CardHeader>
+          <CardContent><MiniPieChart data={assetPie} /></CardContent>
+        </Card>
+      </div>
+
+      {monthly.length > 0 && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-2"><CardTitle className="text-sm">النشاط الشهري (آخر 6 أشهر)</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex items-end gap-1.5 h-20">
+              {monthly.map((m: any, i: number) => {
+                const h = Math.max(8, Math.round((Number(m.cnt) / maxMo) * 72));
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                    <div className="w-full bg-amber-400 dark:bg-amber-600 rounded-t" style={{ height: `${h}px` }} title={`${m.cnt} ملفات`} />
+                    <span className="text-[9px] text-muted-foreground truncate w-full text-center">{String(m.month ?? "").slice(5)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   AI ASSISTANT QUICK ACTIONS (Phase 5)
+══════════════════════════════════════════════════════════ */
+const QUICK_ACTIONS = [
+  { id:"analyze_claims",     label:"تحليل المطالبات",        Icon:FileText,      color:"bg-violet-50 border-violet-200 hover:bg-violet-100 dark:bg-violet-950/20 dark:border-violet-800/40" },
+  { id:"financial_analysis", label:"تحليل القوائم المالية",  Icon:Banknote,      color:"bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-800/40" },
+  { id:"trustee_report",     label:"تقرير أمين الإفلاس",     Icon:BarChart3,     color:"bg-blue-50 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/20 dark:border-blue-800/40" },
+  { id:"meeting_minutes",    label:"محضر الاجتماع",           Icon:CalendarDays,  color:"bg-cyan-50 border-cyan-200 hover:bg-cyan-100 dark:bg-cyan-950/20 dark:border-cyan-800/40" },
+  { id:"case_summary",       label:"ملخص الملف",              Icon:Archive,       color:"bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-950/20 dark:border-amber-800/40" },
+  { id:"legal_risks",        label:"المخاطر القانونية",       Icon:Shield,        color:"bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/40" },
+  { id:"financial_risks",    label:"المخاطر المالية",         Icon:AlertTriangle, color:"bg-orange-50 border-orange-200 hover:bg-orange-100 dark:bg-orange-950/20 dark:border-orange-800/40" },
+  { id:"recommendations",    label:"التوصيات الاستراتيجية",   Icon:Sparkles,      color:"bg-pink-50 border-pink-200 hover:bg-pink-100 dark:bg-pink-950/20 dark:border-pink-800/40" },
+];
+
+function AIAssistantSection({ selectedCase, onNeedCase }: { selectedCase: BkCase | null; onNeedCase: () => void }) {
+  const [result, setResult] = useState("");
+  const [runningAction, setRunningAction] = useState("");
+  const qc = useQueryClient();
+
+  const { data: aiHistory = [] } = useQuery<any[]>({
+    queryKey: ["bk-ai-hist", selectedCase?.id],
+    queryFn: () => api(`/bankruptcy/cases/${selectedCase!.id}/ai-analysis`),
+    enabled: !!selectedCase, staleTime: 60_000,
+  });
+
+  async function runAction(actionId: string) {
+    if (!selectedCase) return;
+    setRunningAction(actionId); setResult("");
+    try {
+      const data = await api(`/bankruptcy/cases/${selectedCase.id}/ai-assistant`, {
+        method: "POST", body: JSON.stringify({ action: actionId }),
+      });
+      setResult((data as any).result ?? "");
+      qc.invalidateQueries({ queryKey: ["bk-ai-hist", selectedCase.id] });
+      toast.success("اكتمل التحليل");
+    } catch (e: any) { toast.error(e.message); }
+    finally { setRunningAction(""); }
+  }
+
+  if (!selectedCase) return <NeedCaseBanner onGo={onNeedCase} />;
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-lg font-bold flex items-center gap-2"><Sparkles className="h-5 w-5 text-violet-600" /> المساعد الذكي — إجراءات سريعة</h2>
+        <p className="text-sm text-muted-foreground">ملف: {selectedCase.debtor_name} ({selectedCase.case_number})</p>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {QUICK_ACTIONS.map(({ id, label, Icon, color }) => {
+          const isRunning = runningAction === id;
+          return (
+            <button key={id} onClick={() => runAction(id)} disabled={!!runningAction}
+              className={`flex flex-col items-center gap-2.5 p-4 rounded-xl border text-sm font-medium transition-all disabled:opacity-50 cursor-pointer ${color}`}>
+              {isRunning ? <Loader2 className="h-6 w-6 animate-spin" /> : <Icon className="h-6 w-6" />}
+              <span className="text-xs text-center leading-tight">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {result && (
+        <Card className="border-violet-200 dark:border-violet-800/40">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-1.5"><Brain className="h-4 w-4 text-violet-600" /> نتيجة التحليل</CardTitle>
+            <button onClick={() => setResult("")} className="text-xs text-muted-foreground hover:text-foreground">مسح</button>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-muted/30 rounded-lg p-4 text-sm whitespace-pre-wrap leading-relaxed border border-border/50 max-h-96 overflow-y-auto">
+              {result}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {aiHistory.length > 0 && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-2"><CardTitle className="text-sm">سجل التحليلات السابقة</CardTitle></CardHeader>
+          <CardContent className="space-y-2 max-h-64 overflow-y-auto">
+            {aiHistory.slice(0, 8).map((h: any) => (
+              <div key={h.id} className="p-3 rounded-lg bg-muted/30 border border-border/30 text-xs cursor-pointer hover:bg-muted/50"
+                onClick={() => setResult(h.result)}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-[10px]">{h.analysis_type}</Badge>
+                  <span className="text-muted-foreground mr-auto">{new Date(h.generated_at).toLocaleDateString("ar-SA")}</span>
+                </div>
+                <p className="text-muted-foreground line-clamp-2">{String(h.result ?? "").slice(0, 120)}…</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   TIMELINE SECTION (Phase 1)
+══════════════════════════════════════════════════════════ */
+const TL_ICONS: Record<string, { Icon: any; color: string }> = {
+  case_created:          { Icon:Landmark,     color:"text-amber-600 bg-amber-50 dark:bg-amber-950/30" },
+  creditor_added:        { Icon:Users,         color:"text-blue-600 bg-blue-50 dark:bg-blue-950/30" },
+  claim_submitted:       { Icon:FileText,      color:"text-violet-600 bg-violet-50 dark:bg-violet-950/30" },
+  claim_approved:        { Icon:CheckCheck,    color:"text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" },
+  claim_rejected:        { Icon:AlertTriangle, color:"text-red-600 bg-red-50 dark:bg-red-950/30" },
+  asset_created:         { Icon:Building2,     color:"text-cyan-600 bg-cyan-50 dark:bg-cyan-950/30" },
+  meeting_scheduled:     { Icon:CalendarDays,  color:"text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30" },
+  distribution_approved: { Icon:TrendingDown,  color:"text-teal-600 bg-teal-50 dark:bg-teal-950/30" },
+  distribution_executed: { Icon:Banknote,      color:"text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" },
+  report_generated:      { Icon:BarChart3,     color:"text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30" },
+  ai_assistant_executed: { Icon:Sparkles,      color:"text-pink-600 bg-pink-50 dark:bg-pink-950/30" },
+};
+
+function TimelineSection({ selectedCase }: { selectedCase: BkCase | null }) {
+  const url = selectedCase
+    ? `/bankruptcy/cases/${selectedCase.id}/timeline`
+    : "/bankruptcy/timeline";
+
+  const { data: events = [], isLoading } = useQuery<any[]>({
+    queryKey: ["bk-timeline", selectedCase?.id ?? "all"],
+    queryFn: () => api(url),
+    staleTime: 30_000,
+  });
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-bold flex items-center gap-2"><Activity className="h-5 w-5 text-indigo-600" /> السجل الزمني</h2>
+        <p className="text-sm text-muted-foreground">
+          {selectedCase ? `ملف: ${selectedCase.debtor_name}` : "جميع ملفات المكتب"} — {events.length} حدث
+        </p>
+      </div>
+
+      {isLoading && <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin text-indigo-500" /></div>}
+
+      {!isLoading && events.length === 0 && (
+        <Card className="border-border/50">
+          <CardContent className="py-10 text-center text-muted-foreground text-sm">
+            <Activity className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+            لا توجد أحداث مسجلة — ستظهر هنا جميع الإجراءات تلقائياً
+          </CardContent>
+        </Card>
+      )}
+
+      {events.length > 0 && (
+        <div className="relative">
+          <div className="absolute right-5 top-0 bottom-0 w-0.5 bg-border/40" />
+          <div className="space-y-3">
+            {events.map((e: any) => {
+              const meta = TL_ICONS[e.action_type] ?? { Icon: Activity, color: "text-muted-foreground bg-muted" };
+              const Icon = meta.Icon;
+              return (
+                <div key={e.id} className="flex items-start gap-3 pr-2">
+                  <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 z-10 ${meta.color}`}>
+                    <Icon className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="flex-1 bg-card border border-border/50 rounded-lg p-3 min-w-0">
+                    <p className="text-sm font-medium">{e.description}</p>
+                    {!selectedCase && e.debtor_name && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{e.debtor_name} — {e.case_number}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(e.created_at).toLocaleString("ar-SA")}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   NOTIFICATIONS SECTION (Phase 3)
+══════════════════════════════════════════════════════════ */
+const NOTIF_META: Record<string, { Icon: any; color: string }> = {
+  claim:        { Icon:FileText,     color:"text-violet-600 bg-violet-50 dark:bg-violet-950/30" },
+  meeting:      { Icon:CalendarDays, color:"text-blue-600 bg-blue-50 dark:bg-blue-950/30" },
+  distribution: { Icon:Banknote,     color:"text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" },
+  info:         { Icon:Bell,         color:"text-amber-600 bg-amber-50 dark:bg-amber-950/30" },
+};
+
+function NotificationsSection() {
+  const qc = useQueryClient();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["bk-notifications"],
+    queryFn: () => api("/bankruptcy/notifications"),
+    staleTime: 15_000,
+    refetchInterval: 60_000,
+  });
+
+  const notifications: any[] = (data as any)?.notifications ?? [];
+  const unreadCount: number  = (data as any)?.unreadCount ?? 0;
+
+  const markAllRead = useMutation({
+    mutationFn: () => api("/bankruptcy/notifications/read-all", { method: "PUT" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bk-notifications"] });
+      qc.invalidateQueries({ queryKey: ["bk-notifs-count"] });
+      toast.success("تم تعيين جميع الإشعارات كمقروءة");
+    },
+  });
+
+  const markRead = useMutation({
+    mutationFn: (id: string) => api(`/bankruptcy/notifications/${id}/read`, { method: "PUT" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bk-notifications"] });
+      qc.invalidateQueries({ queryKey: ["bk-notifs-count"] });
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <Bell className="h-5 w-5 text-amber-600" />
+            مركز الإشعارات
+            {unreadCount > 0 && (
+              <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{unreadCount}</span>
+            )}
+          </h2>
+          <p className="text-sm text-muted-foreground">{notifications.length} إشعار</p>
+        </div>
+        {unreadCount > 0 && (
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs"
+            onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending}>
+            <CheckCheck className="h-3.5 w-3.5" /> تعيين الكل كمقروء
+          </Button>
+        )}
+      </div>
+
+      {isLoading && <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin" /></div>}
+
+      {!isLoading && notifications.length === 0 && (
+        <Card className="border-border/50">
+          <CardContent className="py-12 text-center">
+            <Bell className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground text-sm">لا توجد إشعارات</p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="space-y-2">
+        {notifications.map((n: any) => {
+          const meta = NOTIF_META[n.type] ?? NOTIF_META.info;
+          const Icon = meta.Icon;
+          const isUnread = n.status === "unread";
+          return (
+            <div key={n.id}
+              className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer
+                ${isUnread
+                  ? "bg-amber-50/60 border-amber-200 dark:bg-amber-950/10 dark:border-amber-800/40 hover:bg-amber-50"
+                  : "bg-card border-border/50 hover:bg-accent/30 opacity-70"}`}
+              onClick={() => isUnread && markRead.mutate(n.id)}>
+              <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${meta.color}`}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold">{n.title}</p>
+                  {isUnread && <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />}
+                </div>
+                {n.message && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>}
+                {n.debtor_name && <p className="text-xs text-muted-foreground mt-0.5">{n.debtor_name} — {n.case_number}</p>}
+                <p className="text-[10px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString("ar-SA")}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

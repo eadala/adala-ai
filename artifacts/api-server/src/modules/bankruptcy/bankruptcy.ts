@@ -247,6 +247,65 @@ export async function ensureBankruptcyTables() {
   await db.execute(sql`ALTER TABLE bk_meetings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`);
   await db.execute(sql`ALTER TABLE bk_distributions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`);
   await db.execute(sql`ALTER TABLE bk_ai_analysis ADD COLUMN IF NOT EXISTS token_count INT DEFAULT 0`);
+
+  /* ══ Phase 1: Timeline Engine ══ */
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS bk_timeline (
+      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id    TEXT NOT NULL,
+      case_id      TEXT,
+      entity_type  VARCHAR(50),
+      entity_id    TEXT,
+      action_type  VARCHAR(100) NOT NULL,
+      description  TEXT,
+      performed_by TEXT,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_bk_timeline_case   ON bk_timeline(case_id, created_at DESC)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_bk_timeline_office ON bk_timeline(office_id, created_at DESC)`);
+
+  /* ══ Phase 2: Audit Log System ══ */
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS bk_audit_logs (
+      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id    TEXT NOT NULL,
+      user_id      TEXT,
+      action       VARCHAR(50) NOT NULL,
+      entity_type  VARCHAR(50),
+      entity_id    TEXT,
+      old_data     JSONB,
+      new_data     JSONB,
+      ip_address   VARCHAR(255),
+      user_agent   TEXT,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_bk_audit_office ON bk_audit_logs(office_id, created_at DESC)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_bk_audit_entity ON bk_audit_logs(entity_type, entity_id)`);
+
+  /* ══ Phase 3: Notification Center ══ */
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS bk_notifications (
+      id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id      TEXT NOT NULL,
+      user_id        TEXT,
+      title          VARCHAR(255) NOT NULL,
+      message        TEXT,
+      type           VARCHAR(50) NOT NULL DEFAULT 'info',
+      status         VARCHAR(20) NOT NULL DEFAULT 'unread',
+      related_case   TEXT,
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      read_at        TIMESTAMPTZ
+    )
+  `);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_bk_notif_office ON bk_notifications(office_id, status, created_at DESC)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_bk_notif_user   ON bk_notifications(user_id, status)`);
+
+  /* ══ Phase 6: Soft-delete flag ══ */
+  await db.execute(sql`ALTER TABLE bankruptcy_cases ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+  await db.execute(sql`ALTER TABLE bk_creditors    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+  await db.execute(sql`ALTER TABLE bk_claims       ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -257,6 +316,53 @@ async function verifyCase(caseId: string, officeId: string): Promise<boolean> {
     SELECT id FROM bankruptcy_cases WHERE id=${caseId}::uuid AND office_id=${officeId}
   `));
   return !!row;
+}
+
+/* ══════════════════════════════════════════════════════════
+   ENTERPRISE HELPERS — fire-and-forget, never throws
+══════════════════════════════════════════════════════════ */
+
+async function logTimeline(
+  officeId: string, caseId: string,
+  entityType: string, entityId: string,
+  actionType: string, description: string,
+  performedBy?: string
+) {
+  try {
+    await db.execute(sql`
+      INSERT INTO bk_timeline (office_id, case_id, entity_type, entity_id, action_type, description, performed_by)
+      VALUES (${officeId}, ${caseId}, ${entityType}, ${entityId}, ${actionType}, ${description}, ${performedBy ?? null})
+    `);
+  } catch (_) {}
+}
+
+async function logAudit(
+  officeId: string, userId: string | null,
+  action: string, entityType: string, entityId: string,
+  newData?: any, oldData?: any,
+  ip?: string, ua?: string
+) {
+  try {
+    await db.execute(sql`
+      INSERT INTO bk_audit_logs (office_id, user_id, action, entity_type, entity_id, old_data, new_data, ip_address, user_agent)
+      VALUES (${officeId}, ${userId}, ${action}, ${entityType}, ${entityId},
+              ${oldData ? JSON.stringify(oldData) : null}::jsonb,
+              ${newData ? JSON.stringify(newData) : null}::jsonb,
+              ${ip ?? null}, ${ua ?? null})
+    `);
+  } catch (_) {}
+}
+
+async function sendNotification(
+  officeId: string, caseId: string,
+  title: string, message: string, type: string
+) {
+  try {
+    await db.execute(sql`
+      INSERT INTO bk_notifications (office_id, related_case, title, message, type)
+      VALUES (${officeId}, ${caseId}, ${title}, ${message}, ${type})
+    `);
+  } catch (_) {}
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -343,6 +449,8 @@ router.post("/bankruptcy/cases", requireAuth, async (req: any, res) => {
       RETURNING *
     `));
     res.status(201).json(row);
+    void logTimeline(officeId, row.id, 'case', row.id, 'case_created', `تم إنشاء ملف الإفلاس: ${row.debtor_name} (${row.case_number})`, req.auth?.userId);
+    void logAudit(officeId, req.auth?.userId ?? null, 'CREATE', 'bankruptcy_case', row.id, row);
   } catch (err: any) {
     if (err.message?.includes("unique")) return res.status(409).json({ error: "رقم الملف موجود مسبقاً في هذا المكتب" });
     res.status(500).json({ error: err.message });
@@ -450,6 +558,7 @@ router.post("/bankruptcy/cases/:id/creditors", requireAuth, async (req: any, res
       RETURNING *
     `));
     res.status(201).json(row);
+    void logTimeline(officeId, caseId, 'creditor', row.id, 'creditor_added', `تم إضافة الدائن: ${req.body.name}`, req.auth?.userId);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -519,6 +628,9 @@ router.post("/bankruptcy/cases/:id/claims", requireAuth, async (req: any, res) =
       RETURNING *
     `));
     res.status(201).json(row);
+    void logTimeline(officeId, caseId, 'claim', row.id, 'claim_submitted', `مطالبة جديدة بمبلغ ${amt.toLocaleString("ar-SA")} ر.س`, req.auth?.userId);
+    void logAudit(officeId, req.auth?.userId ?? null, 'CREATE', 'claim', row.id, row);
+    void sendNotification(officeId, caseId, 'تم تقديم مطالبة جديدة', `مطالبة بمبلغ ${amt.toLocaleString("ar-SA")} ر.س`, 'claim');
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -543,6 +655,13 @@ router.put("/bankruptcy/claims/:id", requireAuth, async (req: any, res) => {
     `));
     if (!row) return res.status(404).json({ error: "المطالبة غير موجودة" });
     res.json(row);
+    const claimStatus = req.body.status ?? "";
+    if (claimStatus) {
+      void logTimeline(officeId, row.case_id, 'claim', id, `claim_${claimStatus}`, `تم تغيير حالة المطالبة إلى: ${claimStatus}`, req.auth?.userId);
+      void logAudit(officeId, req.auth?.userId ?? null, claimStatus === 'approved' ? 'APPROVE' : claimStatus === 'rejected' ? 'REJECT' : 'UPDATE', 'claim', id, row, undefined, req.ip, req.headers['user-agent']);
+      if (claimStatus === 'approved') void sendNotification(officeId, row.case_id, 'تمت الموافقة على المطالبة', 'تم قبول المطالبة وسيتم تضمينها في التوزيع', 'claim');
+      if (claimStatus === 'rejected') void sendNotification(officeId, row.case_id, 'رُفضت المطالبة', 'تم رفض المطالبة من قِبل أمين الإفلاس', 'claim');
+    }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -595,6 +714,7 @@ router.post("/bankruptcy/cases/:id/assets", requireAuth, async (req: any, res) =
       RETURNING *
     `));
     res.status(201).json(row);
+    void logTimeline(officeId, caseId, 'asset', row.id, 'asset_created', `تم إضافة أصل: ${req.body.asset_name}`, req.auth?.userId);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -691,6 +811,8 @@ router.post("/bankruptcy/cases/:id/meetings", requireAuth, async (req: any, res)
       RETURNING *
     `));
     res.status(201).json(row);
+    void logTimeline(officeId, caseId, 'meeting', row.id, 'meeting_scheduled', `اجتماع مجدول: ${req.body.title}`, req.auth?.userId);
+    void sendNotification(officeId, caseId, 'تم جدولة اجتماع جديد', `${req.body.title} — ${req.body.meeting_date ?? "تاريخ غير محدد"}`, 'meeting');
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -781,6 +903,12 @@ router.put("/bankruptcy/distributions/:id", requireAuth, async (req: any, res) =
     `));
     if (!row) return res.status(404).json({ error: "جولة التوزيع غير موجودة" });
     res.json(row);
+    const distStatus = req.body.status ?? "";
+    if (distStatus) {
+      void logTimeline(officeId, row.case_id, 'distribution', id, `distribution_${distStatus}`, `تم تغيير حالة التوزيع إلى: ${distStatus}`, req.auth?.userId);
+      if (distStatus === 'approved') void sendNotification(officeId, row.case_id, 'تمت الموافقة على التوزيع', 'تمت الموافقة على جولة التوزيع وسيبدأ التنفيذ', 'distribution');
+      if (distStatus === 'executed') void sendNotification(officeId, row.case_id, 'اكتمل التوزيع', 'تم تنفيذ جولة التوزيع بنجاح', 'distribution');
+    }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -823,6 +951,7 @@ router.post("/bankruptcy/cases/:id/reports", requireAuth, async (req: any, res) 
       RETURNING *
     `));
     res.status(201).json(row);
+    void logTimeline(officeId, caseId, 'report', row.id, 'report_generated', `تقرير: ${req.body.report_title}`, req.auth?.userId);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -958,6 +1087,238 @@ router.get("/bankruptcy/cases/:id/summary", requireAuth, async (req: any, res) =
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/* ══════════════════════════════════════════════════════════
+   PHASE 1: TIMELINE ENGINE
+══════════════════════════════════════════════════════════ */
+router.get("/bankruptcy/cases/:id/timeline", requireAuth, async (req: any, res) => {
+  const officeId = req.tenantId as string;
+  const caseId   = String(req.params.id);
+  if (!isUUID(caseId)) return badId(res);
+  try {
+    const limit  = Math.min(Number(req.query.limit ?? 50), 200);
+    const offset = Number(req.query.offset ?? 0);
+    const rows   = sqlAll(await db.execute(sql`
+      SELECT * FROM bk_timeline
+      WHERE case_id=${caseId} AND office_id=${officeId}
+      ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
+    `));
+    res.json(rows);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get("/bankruptcy/timeline", requireAuth, async (req: any, res) => {
+  const officeId = req.tenantId as string;
+  try {
+    const limit  = Math.min(Number(req.query.limit ?? 50), 200);
+    const offset = Number(req.query.offset ?? 0);
+    const rows   = sqlAll(await db.execute(sql`
+      SELECT t.*, bc.debtor_name, bc.case_number
+      FROM bk_timeline t
+      LEFT JOIN bankruptcy_cases bc ON bc.id::text = t.case_id
+      WHERE t.office_id=${officeId}
+      ORDER BY t.created_at DESC LIMIT ${limit} OFFSET ${offset}
+    `));
+    res.json(rows);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+/* ══════════════════════════════════════════════════════════
+   PHASE 2: AUDIT LOGS (immutable, read-only)
+══════════════════════════════════════════════════════════ */
+router.get("/bankruptcy/audit-logs", requireAuth, async (req: any, res) => {
+  const officeId  = req.tenantId as string;
+  const action     = req.query.action     as string | undefined;
+  const entityType = req.query.entity_type as string | undefined;
+  const limit      = Math.min(Number(req.query.limit ?? 50), 200);
+  const offset     = Number(req.query.offset ?? 0);
+  try {
+    const rows = sqlAll(await db.execute(sql`
+      SELECT * FROM bk_audit_logs
+      WHERE office_id=${officeId}
+        ${action     ? sql`AND action=${action}`           : sql``}
+        ${entityType ? sql`AND entity_type=${entityType}` : sql``}
+      ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
+    `));
+    res.json(rows);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+/* ══════════════════════════════════════════════════════════
+   PHASE 3: NOTIFICATION CENTER
+══════════════════════════════════════════════════════════ */
+router.get("/bankruptcy/notifications", requireAuth, async (req: any, res) => {
+  const officeId = req.tenantId as string;
+  const limit    = Math.min(Number(req.query.limit ?? 50), 100);
+  try {
+    const rows       = sqlAll(await db.execute(sql`
+      SELECT n.*, bc.debtor_name, bc.case_number
+      FROM bk_notifications n
+      LEFT JOIN bankruptcy_cases bc ON bc.id::text = n.related_case
+      WHERE n.office_id=${officeId}
+      ORDER BY n.created_at DESC LIMIT ${limit}
+    `));
+    const unreadCount = rows.filter((r: any) => r.status === "unread").length;
+    res.json({ notifications: rows, unreadCount });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+/* NOTE: specific path BEFORE parameterized path */
+router.put("/bankruptcy/notifications/read-all", requireAuth, async (req: any, res) => {
+  const officeId = req.tenantId as string;
+  try {
+    await db.execute(sql`
+      UPDATE bk_notifications SET status='read', read_at=NOW()
+      WHERE office_id=${officeId} AND status='unread'
+    `);
+    res.json({ ok: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.put("/bankruptcy/notifications/:id/read", requireAuth, async (req: any, res) => {
+  const officeId = req.tenantId as string;
+  const id       = String(req.params.id);
+  if (!isUUID(id)) return badId(res);
+  try {
+    await db.execute(sql`
+      UPDATE bk_notifications SET status='read', read_at=NOW()
+      WHERE id=${id}::uuid AND office_id=${officeId}
+    `);
+    res.json({ ok: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+/* ══════════════════════════════════════════════════════════
+   PHASE 4: EXECUTIVE DASHBOARD
+══════════════════════════════════════════════════════════ */
+router.get("/bankruptcy/executive-dashboard", requireAuth, async (req: any, res) => {
+  const officeId = req.tenantId as string;
+  try {
+    const [caseStats, claimStats, assetStats, distStats, monthlyActivity, timelineCount] =
+      await Promise.all([
+        db.execute(sql`SELECT status, COUNT(*) as cnt FROM bankruptcy_cases WHERE office_id=${officeId} AND deleted_at IS NULL GROUP BY status`),
+        db.execute(sql`SELECT status, COUNT(*) as cnt, COALESCE(SUM(amount),0) as total FROM bk_claims WHERE office_id=${officeId} GROUP BY status`),
+        db.execute(sql`SELECT asset_type, COUNT(*) as cnt, COALESCE(SUM(estimated_value),0) as total FROM bk_assets WHERE office_id=${officeId} GROUP BY asset_type ORDER BY total DESC`),
+        db.execute(sql`SELECT COALESCE(SUM(total_amount),0) as total_distributed, COUNT(*) as cnt FROM bk_distributions WHERE office_id=${officeId} AND status='executed'`),
+        db.execute(sql`SELECT TO_CHAR(DATE_TRUNC('month',created_at),'YYYY-MM') as month, COUNT(*) as cnt FROM bankruptcy_cases WHERE office_id=${officeId} AND created_at >= NOW()-INTERVAL '6 months' GROUP BY month ORDER BY month`),
+        db.execute(sql`SELECT COUNT(*) as cnt FROM bk_timeline WHERE office_id=${officeId}`),
+      ]);
+
+    const caseRows   = sqlAll(caseStats);
+    const claimRows  = sqlAll(claimStats);
+    const distRow    = sqlOne(distStats);
+    const totalCases = caseRows.reduce((s: number, r: any) => s + Number(r.cnt), 0);
+    const totalClaims$ = claimRows.reduce((s: number, r: any) => s + Number(r.total), 0);
+    const totalDist    = Number(distRow?.total_distributed ?? 0);
+    const totalAssets$ = sqlAll(assetStats).reduce((s: number, r: any) => s + Number(r.total), 0);
+    const approved$    = Number(claimRows.find((r: any) => r.status === "approved")?.total ?? 0);
+
+    res.json({
+      casesByStatus:    caseRows,
+      totalCases,
+      activeCases:      Number(caseRows.find((r: any) => r.status === "active")?.cnt ?? 0),
+      closedCases:      Number(caseRows.find((r: any) => r.status === "closed")?.cnt ?? 0),
+      claimsByStatus:   claimRows,
+      totalClaims:      claimRows.reduce((s: number, r: any) => s + Number(r.cnt), 0),
+      totalClaimsAmount: totalClaims$,
+      approvedAmount:   approved$,
+      totalDistributed: totalDist,
+      totalAssetsValue: totalAssets$,
+      assetsByType:     sqlAll(assetStats),
+      monthlyActivity:  sqlAll(monthlyActivity),
+      timelineEvents:   Number(sqlOne(timelineCount)?.cnt ?? 0),
+      recoveryRate:     totalClaims$ > 0 ? Math.round((totalDist / totalClaims$) * 100) : 0,
+      distributionRate: approved$ > 0 ? Math.round((totalDist / approved$) * 100) : 0,
+      caseCompletionRate: totalCases > 0
+        ? Math.round((Number(caseRows.find((r: any) => r.status === "closed")?.cnt ?? 0) / totalCases) * 100)
+        : 0,
+    });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+/* ══════════════════════════════════════════════════════════
+   PHASE 5: AI ASSISTANT QUICK ACTIONS
+══════════════════════════════════════════════════════════ */
+const AI_QUICK_ACTIONS: Record<string, { type: string; prompt: string }> = {
+  analyze_claims:     { type: "claims",        prompt: "قيّم جميع المطالبات: صحتها القانونية، أولوياتها، واحتمالية القبول والرفض لكل مطالبة" },
+  financial_analysis: { type: "financial",      prompt: "أجرِ تحليلاً مالياً شاملاً: نسبة الاسترداد المتوقعة، الفجوة المالية، والتوصيات العاجلة" },
+  trustee_report:     { type: "trustee_report", prompt: "أنتج تقرير أمين إفلاس متكاملاً وفق نظام الإفلاس السعودي 1439هـ يتضمن جميع الإجراءات والتوصيات" },
+  meeting_minutes:    { type: "general",        prompt: "اكتب محضر اجتماع دائنين رسمي يتضمن جدول الأعمال والقرارات والتوصيات والمقررات" },
+  case_summary:       { type: "summary",        prompt: "أنتج ملخصاً تنفيذياً شاملاً للملف مع جميع الإحصاءات المالية لرفعه للمحكمة" },
+  legal_risks:        { type: "risk",           prompt: "استخرج وحلّل جميع المخاطر القانونية المحتملة وقدّم خطة تخفيف منها" },
+  financial_risks:    { type: "financial",      prompt: "استخرج وحلّل جميع المخاطر المالية وقدّم خطة عمل لمعالجتها" },
+  recommendations:    { type: "general",        prompt: "بناءً على جميع معطيات الملف، قدّم توصيات استراتيجية شاملة لأمين الإفلاس والمحكمة" },
+};
+
+router.post("/bankruptcy/cases/:id/ai-assistant", requireAuth, async (req: any, res) => {
+  const officeId = req.tenantId as string;
+  const caseId   = String(req.params.id);
+  if (!isUUID(caseId)) return badId(res);
+  try {
+    const { action } = req.body;
+    const qa = AI_QUICK_ACTIONS[action];
+    if (!qa) return res.status(400).json({ error: `الإجراء غير معروف. المتاح: ${Object.keys(AI_QUICK_ACTIONS).join(", ")}` });
+
+    const caseRow = sqlOne(await db.execute(sql`
+      SELECT bc.*,
+        (SELECT COUNT(*) FROM bk_creditors WHERE case_id=bc.id) AS creditor_count,
+        (SELECT COALESCE(SUM(amount),0) FROM bk_claims WHERE case_id=bc.id) AS total_claims,
+        (SELECT COALESCE(SUM(estimated_value),0) FROM bk_assets WHERE case_id=bc.id) AS total_assets,
+        (SELECT COALESCE(SUM(total_amount),0) FROM bk_distributions WHERE case_id=bc.id AND status='executed') AS total_distributed,
+        (SELECT COUNT(*) FROM bk_claims WHERE case_id=bc.id AND status='approved') AS approved_claims,
+        (SELECT COUNT(*) FROM bk_claims WHERE case_id=bc.id AND status='rejected') AS rejected_claims
+      FROM bankruptcy_cases bc WHERE bc.id=${caseId}::uuid AND bc.office_id=${officeId}
+    `));
+    if (!caseRow) return res.status(404).json({ error: "الملف غير موجود" });
+
+    const systemPrompt = `أنت مساعد ذكي متخصص في نظام الإفلاس السعودي (نظام الإفلاس 1439هـ وتعديلاته).
+بيانات الملف الحالي:
+رقم الملف: ${caseRow.case_number} | المدين: ${caseRow.debtor_name} (${caseRow.debtor_type})
+نوع الإجراء: ${caseRow.procedure_type} | الحالة: ${caseRow.status}
+المحكمة: ${caseRow.court_name ?? "غير محدد"} | أمين الإفلاس: ${caseRow.trustee_name ?? "غير محدد"}
+عدد الدائنين: ${caseRow.creditor_count} | إجمالي المطالبات: ${Number(caseRow.total_claims).toLocaleString("ar-SA")} ر.س
+إجمالي الأصول: ${Number(caseRow.total_assets).toLocaleString("ar-SA")} ر.س | إجمالي الموزَّع: ${Number(caseRow.total_distributed).toLocaleString("ar-SA")} ر.س
+مطالبات مقبولة: ${caseRow.approved_claims} | مطالبات مرفوضة: ${caseRow.rejected_claims}
+قدّم إجابة مفصلة ومنظمة ومهنية باللغة العربية مع ترقيم واضح للنقاط.`;
+
+    const result = await callAI(systemPrompt, qa.prompt, officeId);
+    await db.execute(sql`
+      INSERT INTO bk_ai_analysis (case_id, office_id, analysis_type, input_source, result, token_count)
+      VALUES (${caseId}::uuid, ${officeId}, ${qa.type}, ${action}, ${result}, ${Math.ceil(result.length / 4)})
+    `);
+    void logTimeline(officeId, caseId, 'ai', caseId, 'ai_assistant_executed', `تحليل ذكي: ${action}`, req.auth?.userId);
+    res.json({ result, action, analysisType: qa.type, caseId });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+/* ══════════════════════════════════════════════════════════
+   PHASE 6: HEALTH CHECK
+══════════════════════════════════════════════════════════ */
+router.get("/bankruptcy/health", requireAuth, async (req: any, res) => {
+  const officeId = req.tenantId as string;
+  try {
+    const [caseCount, timelineCount, notifCount, auditCount] = await Promise.all([
+      db.execute(sql`SELECT COUNT(*) as cnt FROM bankruptcy_cases WHERE office_id=${officeId}`),
+      db.execute(sql`SELECT COUNT(*) as cnt FROM bk_timeline WHERE office_id=${officeId}`),
+      db.execute(sql`SELECT COUNT(*) as cnt FROM bk_notifications WHERE office_id=${officeId} AND status='unread'`),
+      db.execute(sql`SELECT COUNT(*) as cnt FROM bk_audit_logs WHERE office_id=${officeId}`),
+    ]);
+    res.json({
+      status:         "healthy",
+      officeId,
+      isolation:      "tenant_verified",
+      tables:         ["bankruptcy_cases","bk_creditors","bk_claims","bk_assets","bk_meetings","bk_distributions","bk_reports","bk_ai_analysis","bk_timeline","bk_audit_logs","bk_notifications"],
+      counts: {
+        cases:         Number(sqlOne(caseCount)?.cnt ?? 0),
+        timelineEvents: Number(sqlOne(timelineCount)?.cnt ?? 0),
+        unreadNotifs:  Number(sqlOne(notifCount)?.cnt ?? 0),
+        auditRecords:  Number(sqlOne(auditCount)?.cnt ?? 0),
+      },
+      timestamp:      new Date().toISOString(),
+      version:        "2.0-enterprise",
+    });
+  } catch (err: any) { res.status(500).json({ status: "unhealthy", error: err.message }); }
 });
 
 export default router;
