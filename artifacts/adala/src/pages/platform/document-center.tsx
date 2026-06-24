@@ -972,7 +972,7 @@ function AIDocumentIntelligence() {
                       <div className="flex flex-wrap gap-1">
                         {(displayed.parties ?? []).map((p: string, i: number) => <Badge key={i} variant="secondary" className="text-xs">{p}</Badge>)}
                       </div>
-                    </Card></CardContent>
+                    </CardContent></Card>
                   )}
 
                   {(displayed.dates?.length ?? 0) > 0 && (
@@ -981,7 +981,7 @@ function AIDocumentIntelligence() {
                       <div className="flex flex-wrap gap-1">
                         {(displayed.dates ?? []).map((d: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{d}</Badge>)}
                       </div>
-                    </Card></CardContent>
+                    </CardContent></Card>
                   )}
 
                   {(displayed.amounts?.length ?? 0) > 0 && (
@@ -990,7 +990,7 @@ function AIDocumentIntelligence() {
                       <div className="flex flex-wrap gap-1">
                         {(displayed.amounts ?? []).map((a: string, i: number) => <Badge key={i} className="bg-green-100 text-green-700 text-xs">{a}</Badge>)}
                       </div>
-                    </Card></CardContent>
+                    </CardContent></Card>
                   )}
 
                   {(displayed.obligations?.length ?? 0) > 0 && (
@@ -1003,7 +1003,7 @@ function AIDocumentIntelligence() {
                           </li>
                         ))}
                       </ul>
-                    </Card></CardContent>
+                    </CardContent></Card>
                   )}
 
                   {(displayed.keywords?.length ?? 0) > 0 && (
@@ -1012,7 +1012,7 @@ function AIDocumentIntelligence() {
                       <div className="flex flex-wrap gap-1">
                         {(displayed.keywords ?? []).map((k: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{k}</Badge>)}
                       </div>
-                    </Card></CardContent>
+                    </CardContent></Card>
                   )}
                 </div>
               )}
