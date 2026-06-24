@@ -178,7 +178,7 @@ function EvalDialog({ open, onClose, employees }: { open: boolean; onClose: () =
           {(form.role === "lawyer" || form.role === "accountant") && (
             <div>
               <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1"><Scale className="h-3.5 w-3.5" />مؤشرات القضايا</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {[
                   { k: "casesClosed",   label: "قضايا مغلقة",    bonus: true,  pts: "+5 لكل" },
                   { k: "casesDelayed",  label: "قضايا متأخرة",   bonus: false, pts: "-8 لكل" },
@@ -200,7 +200,7 @@ function EvalDialog({ open, onClose, employees }: { open: boolean; onClose: () =
           {form.role === "secretary" && (
             <div>
               <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1"><ClipboardList className="h-3.5 w-3.5" />مؤشرات السكرتير</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {[
                   { k: "tasksCompleted",  label: "مهام مكتملة",   bonus: true,  pts: "+3 لكل" },
                   { k: "clientsHandled",  label: "عملاء خُدموا",  bonus: true,  pts: "+2 لكل" },
@@ -222,7 +222,7 @@ function EvalDialog({ open, onClose, employees }: { open: boolean; onClose: () =
           {form.role === "admin" && (
             <div>
               <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1"><Briefcase className="h-3.5 w-3.5" />مؤشرات الإداري</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {[
                   { k: "opsHandled",         label: "عمليات مُنجزة",   bonus: true,  pts: "+4 لكل" },
                   { k: "incidentsResolved",   label: "مشكلات محلولة",  bonus: true,  pts: "+5 لكل" },
@@ -243,7 +243,7 @@ function EvalDialog({ open, onClose, employees }: { open: boolean; onClose: () =
           {/* ATTENDANCE */}
           <div>
             <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1"><UserCheck className="h-3.5 w-3.5" />الدوام والالتزام</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {[
                 { k: "onTimeDays",  label: "أيام الحضور",   bonus: true,  pts: "+3 لكل" },
                 { k: "lateDays",    label: "أيام التأخير",  bonus: false, pts: "-5 لكل" },
@@ -607,7 +607,7 @@ export default function HRCenter() {
                       </div>
                     </div>
                     <Progress value={ev.performance_score} className="h-1.5 mb-2" />
-                    <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
                       <div>
                         <div className="text-xs font-bold text-emerald-400">{ev.cases_closed}</div>
                         <div className="text-[9px] text-muted-foreground">قضايا مغلقة</div>

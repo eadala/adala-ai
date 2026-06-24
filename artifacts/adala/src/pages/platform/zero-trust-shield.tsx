@@ -360,7 +360,7 @@ export default function ZeroTrustShield() {
           )}
           {redTeam && (
             <>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   { label: "النتيجة", value: `${redTeam.score}%`, cls: redTeam.score >= 80 ? "text-emerald-400" : "text-red-400" },
                   { label: "نجح",     value: redTeam.passed,      cls: "text-emerald-400" },

@@ -283,7 +283,7 @@ function CreateDialog({
 
                 <div>
                   <Label className="text-xs font-bold mb-1.5 block">مستوى الأولوية</Label>
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                     {(["low", "medium", "high", "urgent"] as const).map(p => (
                       <button key={p}
                         onClick={() => setForm(f => ({ ...f, priority: p }))}
@@ -560,7 +560,7 @@ export default function SupportPage() {
         </div>
 
         {/* Quick stats */}
-        <div className="grid grid-cols-4 gap-3 mt-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
           {[
             { key: "all",      label: "جميع التذاكر",   color: "text-foreground",            bg: "bg-background" },
             { key: "open",     label: "نشطة",            color: "text-blue-600 dark:text-blue-400",    bg: "bg-blue-50 dark:bg-blue-950/30" },

@@ -226,7 +226,7 @@ export default function HearingsCalendar() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: "جلسات اليوم",     val: today.length,    color: "text-red-600",   bg: "bg-red-50",   icon: AlertCircle },
           { label: "هذا الأسبوع",     val: thisWeek.length, color: "text-amber-600", bg: "bg-amber-50", icon: CalendarDays },

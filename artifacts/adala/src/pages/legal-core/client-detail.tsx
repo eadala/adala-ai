@@ -793,7 +793,7 @@ function ClientAccountingTab({ clientId }: { clientId: string }) {
                 <CardTitle className="text-sm">توزيع الفواتير</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-4 gap-3 text-center">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                   {[
                     { key: "paid",    label: "مدفوعة",  color: "text-emerald-400", bg: "bg-emerald-500/10" },
                     { key: "sent",    label: "مُرسَلة",  color: "text-blue-400",    bg: "bg-blue-500/10" },

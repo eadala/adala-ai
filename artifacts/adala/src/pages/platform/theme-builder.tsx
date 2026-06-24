@@ -773,7 +773,7 @@ export default function ThemeBuilderPage() {
         {/* ━━━━━━━━━━━━━━━━━━━ LEFT PANEL ━━━━━━━━━━━━━━━━━━━ */}
         <div className="w-[260px] flex-shrink-0 border-l border-border/50 bg-muted/20 overflow-y-auto">
           <Tabs defaultValue="colors" dir="rtl">
-            <TabsList className="w-full rounded-none border-b border-border/50 bg-transparent h-9 p-0 grid grid-cols-4">
+            <TabsList className="w-full rounded-none border-b border-border/50 bg-transparent h-9 p-0 grid grid-cols-2 sm:grid-cols-4">
               <TabsTrigger value="colors" className="rounded-none text-[10px] gap-1 data-[state=active]:border-b-2 data-[state=active]:border-accent">
                 <Palette className="w-3 h-3" />ألوان
               </TabsTrigger>

@@ -479,7 +479,7 @@ function SettingsTab() {
           <CardTitle className="text-sm text-muted-foreground">مزود التخزين</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {["replit", "cloudflare-r2", "local"].map(p => {
               const currentVal = val("default_provider", "replit");
               return (

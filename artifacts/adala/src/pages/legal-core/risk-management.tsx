@@ -287,7 +287,7 @@ export default function RiskManagement() {
               <p className="text-xs text-muted-foreground">تصنيف المخاطر حسب الاحتمالية والتأثير</p>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                 {/* Header row */}
                 <div className="font-bold text-muted-foreground text-right py-2">الاحتمالية / التأثير</div>
                 {["منخفض", "متوسط", "مرتفع", "حرج"].map(h => (

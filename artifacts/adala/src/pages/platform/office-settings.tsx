@@ -469,7 +469,8 @@ export default function OfficeSettingsPage() {
       </div>
 
       <Tabs defaultValue="identity" dir="rtl">
-        <TabsList className="grid grid-cols-6 w-full">
+        <div className="overflow-x-auto">
+        <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full min-w-[420px]">
           <TabsTrigger value="identity"><Building2 className="h-4 w-4 ms-1.5" />هوية المكتب</TabsTrigger>
           <TabsTrigger value="assets"><Image className="h-4 w-4 ms-1.5" />الشعار والختم</TabsTrigger>
           <TabsTrigger value="branding"><Palette className="h-4 w-4 ms-1.5" />الهوية البصرية</TabsTrigger>
@@ -477,6 +478,7 @@ export default function OfficeSettingsPage() {
           <TabsTrigger value="subscription"><Crown className="h-4 w-4 ms-1.5" />الاشتراك</TabsTrigger>
           <TabsTrigger value="whatsapp"><MessageCircle className="h-4 w-4 ms-1.5" />واتساب API</TabsTrigger>
         </TabsList>
+        </div>
 
         {/* TAB 1: Identity */}
         <TabsContent value="identity" className="space-y-4 mt-4">

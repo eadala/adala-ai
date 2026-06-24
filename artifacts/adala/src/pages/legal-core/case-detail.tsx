@@ -750,7 +750,7 @@ function HubMini({ caseId }: { caseId: string }) {
       </CardHeader>
       <CardContent className="pt-0 space-y-3">
         {/* Quick stats row */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {[
             { label: "فواتير",  val: invoices.length,  color: "text-blue-600" },
             { label: "مستندات", val: docs.length,       color: "text-violet-600" },

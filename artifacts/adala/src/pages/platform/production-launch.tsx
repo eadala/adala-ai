@@ -563,7 +563,7 @@ export default function ProductionLaunchCenter() {
 
         {/* ── Tabs ── */}
         <Tabs defaultValue="arch" className="space-y-4" dir="rtl">
-          <TabsList className="grid grid-cols-4 bg-white/5 rounded-xl p-1">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-4 bg-white/5 rounded-xl p-1">
             {[
               { id: "arch",    icon: Layers,        label: "المعمارية" },
               { id: "layers",  icon: ClipboardCheck, label: "الجاهزية" },

@@ -901,3 +901,79 @@ body:not([style*="overflow: hidden"]) {
     z-index: 200;
   }
 }
+
+/* ═══════════════════════════════════════════════════════
+   GLOBAL MOBILE RESPONSIVE IMPROVEMENTS
+   تحسينات شاملة للجوال والتابلت
+═══════════════════════════════════════════════════════ */
+
+/* Ensure all tables with fixed min-widths scroll horizontally */
+.overflow-x-auto table,
+.overflow-auto table {
+  min-width: max-content;
+}
+
+/* App main content — prevent horizontal overflow */
+main {
+  overflow-x: hidden;
+}
+
+/* TabsList — allow horizontal scroll on very small screens */
+[role="tablist"] {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+[role="tablist"]::-webkit-scrollbar { display: none; }
+
+/* Cards inside grids — never overflow their column */
+.card-in-grid {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Inputs & selects — 100% width on mobile */
+@media (max-width: 640px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="search"],
+  input[type="password"],
+  select,
+  textarea {
+    max-width: 100%;
+  }
+
+  /* Page headings — scale down on mobile */
+  h1 { font-size: clamp(1.4rem, 5vw, 2.5rem); }
+  h2 { font-size: clamp(1.1rem, 4vw, 1.8rem); }
+
+  /* Dialog / modal — full width on mobile */
+  [role="dialog"] {
+    max-width: calc(100vw - 1rem) !important;
+    margin: 0.5rem !important;
+  }
+
+  /* Stat/KPI numbers — don't overflow */
+  .stat-value, .kpi-value {
+    font-size: clamp(1rem, 6vw, 2.5rem);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* iPad / tablet — sidebar visible at md, content adapts */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* Slightly tighter padding on tablet */
+  .app-bg {
+    padding: 1rem;
+  }
+}
+
+/* Prevent any direct child of body from causing horizontal scroll */
+#root {
+  overflow-x: hidden;
+  max-width: 100vw;
+}

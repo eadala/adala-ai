@@ -282,7 +282,7 @@ export default function AlertsPage() {
           {stats.lastHour && (
             <div className="bg-card border border-border rounded-2xl p-5">
               <div className="text-sm font-semibold text-foreground/70 mb-4">آخر ساعة</div>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   { label: "حرجة", value: stats.lastHour.critical, color: "red" },
                   { label: "عالية", value: stats.lastHour.high, color: "orange" },

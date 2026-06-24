@@ -602,7 +602,7 @@ export default function FinancialStatements() {
       </div>
 
       <Tabs defaultValue="income" dir="rtl">
-        <TabsList className="grid w-full grid-cols-4 h-auto print:hidden">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto print:hidden">
           <TabsTrigger value="income" className="text-xs py-2.5 gap-1.5">
             <TrendingUp className="h-3.5 w-3.5" /> قائمة الدخل
           </TabsTrigger>

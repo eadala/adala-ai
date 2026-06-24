@@ -529,7 +529,7 @@ tr:nth-child(even) td{background:#fafafa}
                       <p className="text-sm font-bold mb-3 flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-[#F59E0B]" /> تفاصيل استخدام الذكاء الاصطناعي
                       </p>
-                      <div className="grid grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {[
                           { label: "الطلبات", val: (dim.ai.calls ?? 0).toLocaleString(), color: "#F59E0B" },
                           { label: "الوحدات", val: (dim.ai.units ?? 0).toLocaleString(), color: "#2563EB" },

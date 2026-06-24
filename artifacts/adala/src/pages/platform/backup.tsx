@@ -608,7 +608,7 @@ export default function BackupCenter() {
                   }
                 </Button>
 
-                <div className="grid grid-cols-3 gap-3 text-center text-xs text-muted-foreground">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center text-xs text-muted-foreground">
                   <div className="rounded-lg border border-border p-2">
                     <p className="font-medium text-white">لا قيود</p>
                     <p>عدد مرات التحميل</p>

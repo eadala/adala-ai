@@ -302,7 +302,7 @@ export default function FinancialCore() {
           </div>
 
           {/* Transaction Stats */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Card className="bg-emerald-500/10 border-emerald-500/20">
               <CardContent className="pt-4 pb-3 text-center">
                 <CheckCircle className="h-6 w-6 text-emerald-400 mx-auto mb-1" />

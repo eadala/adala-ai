@@ -469,7 +469,7 @@ export default function OfficeManagement() {
                   <ArrowUpRight className="h-3 w-3" />
                 </a>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {[
                   { label: "خدمات نشطة", value: services.filter((s: any) => s.isActive !== false).length, color: "#10B981" },
                   { label: "إجمالي الخدمات", value: services.length, color: "#6366F1" },
@@ -1049,7 +1049,7 @@ export default function OfficeManagement() {
                 <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
                   <Shield className="h-4 w-4 text-blue-400" /> حالة الاتصال
                 </h3>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="rounded-lg bg-muted/40 p-3 text-center">
                     <Globe className="h-5 w-5 mx-auto mb-1 text-primary" />
                     <p className="text-[11px] text-muted-foreground">الدومين الفرعي</p>
@@ -1138,7 +1138,7 @@ export default function OfficeManagement() {
               </div>
 
               {/* Info */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div><Label className="text-xs font-semibold mb-1 block">رقم الترخيص</Label>
                   <Input value={pageForm.licenseNumber ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, licenseNumber: e.target.value }))} /></div>
                 <div><Label className="text-xs font-semibold mb-1 block">سنوات الخبرة</Label>
@@ -1231,7 +1231,7 @@ export default function OfficeManagement() {
               {/* Stats */}
               <div className="border-t border-border/50 pt-4 space-y-3">
                 <h3 className="text-sm font-bold">الإحصائيات</h3>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div><Label className="text-xs font-semibold mb-1 block">عدد القضايا</Label>
                     <Input type="number" value={pageForm.casesCount ?? 0} onChange={e => setPageForm((f: any) => ({ ...f, casesCount: parseInt(e.target.value) || 0 }))} /></div>
                   <div><Label className="text-xs font-semibold mb-1 block">عدد العملاء</Label>

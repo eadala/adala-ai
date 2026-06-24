@@ -155,7 +155,7 @@ function BranchCard({
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-border/50">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-border/50">
           <div className="text-center">
             <Scale className="h-4 w-4 mx-auto text-blue-500 mb-0.5" />
             <p className="text-sm font-bold">{branch.cases_count ?? 0}</p>

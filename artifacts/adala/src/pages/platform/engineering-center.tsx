@@ -828,7 +828,7 @@ export default function EngineeringCenter() {
                   {ltResult && (
                     <div className="space-y-3">
                       {/* Summary metrics */}
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {[
                           { label: "Req/s",       value: ltResult.reqPerSec,                      color: "text-amber-300" },
                           { label: "p50",         value: `${ltResult.latency?.p50}ms`,             color: "text-blue-300" },

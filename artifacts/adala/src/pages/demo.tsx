@@ -1338,7 +1338,7 @@ function OfficeProfileSection() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "قضية مُنجزة", value: "345+", color: "text-blue-600" },
           { label: "سنوات خبرة",  value: "12",   color: "text-amber-600" },

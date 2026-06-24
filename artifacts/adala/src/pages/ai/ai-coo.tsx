@@ -368,7 +368,7 @@ export default function AiCooPage() {
       {tab === "hr" && (
         <div className="space-y-4">
           {/* Summary row */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { label: "إجمالي الموظفين", val: d.domains.hr.total, color: "text-foreground" },
               { label: "ضغط عالٍ", val: d.domains.hr.highLoad, color: "text-red-500" },

@@ -310,6 +310,7 @@ export default function TeamPage() {
               {rolesLoading ? (
                 <Skeleton className="h-64 m-4" />
               ) : (
+                <div className="overflow-x-auto">
                 <table className="w-full text-xs border-collapse min-w-[700px]">
                   <thead>
                     <tr className="bg-muted/50">
@@ -360,6 +361,7 @@ export default function TeamPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </CardContent>
           </Card>

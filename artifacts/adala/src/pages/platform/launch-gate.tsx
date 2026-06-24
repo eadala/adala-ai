@@ -380,7 +380,7 @@ export default function LaunchGatePage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-8 gap-1 mb-4">
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-1 mb-4">
                 {report.gates.map(g => (
                   <div key={g.gate} className="text-center">
                     <div className={`text-xs font-bold mb-1 ${

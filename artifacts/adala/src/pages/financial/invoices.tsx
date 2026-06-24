@@ -1283,7 +1283,7 @@ ${isPaid ? `<div class="watermark">PAID ✓</div>` : isOverdue ? `<div class="wa
           <Separator />
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {invoice.status !== "paid" && (
               <Button size="sm" variant="outline"
                 className="gap-1.5 text-xs text-green-400 border-green-500/30"

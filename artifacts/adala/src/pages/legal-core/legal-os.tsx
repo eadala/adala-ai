@@ -316,7 +316,7 @@ export default function LegalOSPage() {
             <div className="p-6 space-y-6">
 
               {/* Row 1: Health Dial + 5 KPIs */}
-              <div className="grid grid-cols-6 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 <div className="col-span-1 bg-gray-900 border border-gray-800 rounded-2xl p-5
                   flex flex-col items-center justify-center">
                   <ScoreDial score={health} />
@@ -354,7 +354,7 @@ export default function LegalOSPage() {
                     طبقات نظام التشغيل — {layers.length} طبقة
                   </span>
                 </div>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {layers.map((layer: any) => (
                     <LayerCard key={layer.id} layer={layer} />
                   ))}
