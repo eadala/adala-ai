@@ -146,6 +146,7 @@ import productionLaunchRouter from "../modules/platform/productionLaunch";
 import bankruptcyRouter       from "../modules/bankruptcy/bankruptcy";
 import bankruptcyV2Router     from "../modules/bankruptcy/bankruptcyV2";
 import bankruptcyV3Router     from "../modules/bankruptcy/bankruptcyV3";
+import bankruptcyDemoRouter   from "../modules/bankruptcy/bankruptcyDemo";
 
 // ─────────────────────────────────────────────────────────────────────────────
 const router: IRouter = Router();
@@ -311,5 +312,6 @@ router.use(systemStatusRouter);
 router.use(bankruptcyRouter);
 router.use(bankruptcyV2Router);
 router.use(bankruptcyV3Router);
+router.use(bankruptcyDemoRouter);
 
 export default router;

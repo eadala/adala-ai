@@ -72,6 +72,7 @@ const SUB_TABS = [
   { id: "ai",        label: "تحليلات AI",         icon: Cpu,          group: "EOC" },
   { id: "storage",   label: "التخزين والنسخ",   icon: Database,     group: "EOC" },
   { id: "emergency", label: "التحكم الطارئ",     icon: ShieldAlert,  group: "EOC" },
+  { id: "demo",      label: "البيئة التجريبية",  icon: Package,      group: "Demo" },
 ] as const;
 type TabId = typeof SUB_TABS[number]["id"];
 
@@ -153,6 +154,11 @@ export function BankruptcyAdminTab({ toast }: { toast: any }) {
     queryFn: () => API("/bankruptcy/eoc/emergency"),
     staleTime: 10_000, enabled: subTab === "emergency",
   });
+  const { data: demoStatus, isLoading: demoStatusLoading, refetch: refetchDemoStatus } = useQuery<any>({
+    queryKey: ["sa-bk-demo-status"],
+    queryFn: () => API("/bankruptcy/demo/status"),
+    staleTime: 10_000, enabled: subTab === "demo",
+  });
 
   /* ── mutations ── */
   const logAudit = useMutation({
@@ -171,6 +177,24 @@ export function BankruptcyAdminTab({ toast }: { toast: any }) {
     mutationFn: (id: string) => API(`/bankruptcy/eoc/emergency/${id}`, { method: "DELETE" }),
     onSuccess: () => { toast({ title: "تم رفع القيد" }); qc.invalidateQueries({ queryKey: ["sa-bk-eoc-emergency"] }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+  const seedDemo = useMutation({
+    mutationFn: () => API("/bankruptcy/demo/seed", { method: "POST" }),
+    onSuccess: (data: any) => {
+      toast({ title: "✅ تم إنشاء البيئة التجريبية", description: `شمال: ${data?.north?.cases} ملف | جنوب: ${data?.south?.cases} ملف` });
+      refetchDemoStatus();
+      qc.invalidateQueries({ queryKey: ["sa-bk-stats"] });
+    },
+    onError: (e: any) => toast({ title: "خطأ في الزرع", description: e.message, variant: "destructive" }),
+  });
+  const deleteDemo = useMutation({
+    mutationFn: () => API("/bankruptcy/demo", { method: "DELETE" }),
+    onSuccess: () => {
+      toast({ title: "🗑️ تم حذف البيئة التجريبية", description: "جميع السجلات is_demo=true حُذفت" });
+      refetchDemoStatus();
+      qc.invalidateQueries({ queryKey: ["sa-bk-stats"] });
+    },
+    onError: (e: any) => toast({ title: "خطأ في الحذف", description: e.message, variant: "destructive" }),
   });
 
   const s: any = stats ?? {};
@@ -202,9 +226,9 @@ export function BankruptcyAdminTab({ toast }: { toast: any }) {
         </Button>
       </div>
 
-      {/* Sub-tab nav — two groups */}
+      {/* Sub-tab nav — three groups */}
       <div className="space-y-1">
-        {(["أساسي", "EOC"] as const).map(grp => (
+        {(["أساسي", "EOC", "Demo"] as const).map(grp => (
           <div key={grp} className="flex gap-1 items-center flex-wrap">
             <span className="text-[10px] text-muted-foreground/60 w-10 text-left shrink-0">{grp}</span>
             {SUB_TABS.filter(t => t.group === grp).map(t => (
@@ -825,6 +849,203 @@ export function BankruptcyAdminTab({ toast }: { toast: any }) {
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* ═══════════════ 11. DEMO ENVIRONMENT ═══════════════ */}
+      {subTab === "demo" && (
+        <div className="space-y-5">
+          {/* Status card */}
+          {demoStatusLoading ? <Spinner /> : (
+            <Card className={`border-2 ${demoStatus?.exists ? "border-emerald-400/60 bg-emerald-50/50 dark:bg-emerald-950/10" : "border-dashed border-border/50"}`}>
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Package className={`h-5 w-5 ${demoStatus?.exists ? "text-emerald-500" : "text-muted-foreground"}`} />
+                      <h3 className="font-bold text-base">
+                        {demoStatus?.exists ? "البيئة التجريبية نشطة" : "لا توجد بيانات تجريبية"}
+                      </h3>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${demoStatus?.exists ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
+                        {demoStatus?.exists ? "مُفعَّل" : "غير مُفعَّل"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      جميع البيانات التجريبية محاطة بـ <code className="bg-muted px-1 rounded text-[10px]">is_demo = true</code> ويمكن حذفها دون أي تأثير على البيانات الحقيقية.
+                    </p>
+                    {demoStatus?.exists && (
+                      <div className="flex gap-4 text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <Landmark className="h-3.5 w-3.5 text-amber-500" />
+                          <strong>{demoStatus?.north_cases}</strong> ملف — مكتب الشمال
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <Landmark className="h-3.5 w-3.5 text-blue-500" />
+                          <strong>{demoStatus?.south_cases}</strong> ملف — مكتب الجنوب
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <Button size="sm" className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                      disabled={seedDemo.isPending}
+                      onClick={() => seedDemo.mutate()}>
+                      {seedDemo.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Package className="h-3.5 w-3.5" />}
+                      {demoStatus?.exists ? "إعادة زرع البيانات" : "زرع البيئة التجريبية"}
+                    </Button>
+                    {demoStatus?.exists && (
+                      <Button size="sm" variant="destructive" className="gap-1.5 text-xs"
+                        disabled={deleteDemo.isPending}
+                        onClick={() => deleteDemo.mutate()}>
+                        {deleteDemo.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                        حذف البيئة التجريبية
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Data plan grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* North */}
+            <Card className="border-border/50">
+              <CardHeader className="pb-3 pt-4 px-4">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-amber-500" />مكتب الشمال للمحاماة
+                  <span className="text-[10px] font-normal text-muted-foreground mr-auto">demo-north-bk-2026</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "ملفات إفلاس", value: 8, icon: Landmark, color: "text-amber-500" },
+                    { label: "طلبات افتتاح", value: 3, icon: FilePlus2, color: "text-violet-500" },
+                    { label: "دائنون", value: 45, icon: Users, color: "text-blue-500" },
+                    { label: "مطالبات", value: 120, icon: FileText, color: "text-indigo-500" },
+                    { label: "أصول", value: 35, icon: Archive, color: "text-teal-500" },
+                    { label: "اجتماعات", value: 18, icon: Clock, color: "text-cyan-500" },
+                    { label: "توزيعات", value: 6, icon: DollarSign, color: "text-emerald-500" },
+                    { label: "تقارير", value: 25, icon: BarChart2, color: "text-orange-500" },
+                    { label: "مهام", value: 40, icon: CheckCircle2, color: "text-pink-500" },
+                    { label: "تنبيهات", value: 15, icon: AlertTriangle, color: "text-red-500" },
+                  ].map(item => (
+                    <div key={item.label} className="flex flex-col items-center gap-1 p-2 rounded-lg bg-muted/30 text-center">
+                      <item.icon className={`h-3.5 w-3.5 ${item.color}`} />
+                      <span className="text-base font-black">{item.value}</span>
+                      <span className="text-[10px] text-muted-foreground leading-tight">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* South */}
+            <Card className="border-border/50">
+              <CardHeader className="pb-3 pt-4 px-4">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-blue-500" />مكتب الجنوب للمحاماة
+                  <span className="text-[10px] font-normal text-muted-foreground mr-auto">demo-south-bk-2026</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "ملفات إفلاس", value: 6, icon: Landmark, color: "text-amber-500" },
+                    { label: "طلبات افتتاح", value: 2, icon: FilePlus2, color: "text-violet-500" },
+                    { label: "دائنون", value: 30, icon: Users, color: "text-blue-500" },
+                    { label: "مطالبات", value: 75, icon: FileText, color: "text-indigo-500" },
+                    { label: "أصول", value: 20, icon: Archive, color: "text-teal-500" },
+                    { label: "اجتماعات", value: 12, icon: Clock, color: "text-cyan-500" },
+                    { label: "توزيعات", value: 4, icon: DollarSign, color: "text-emerald-500" },
+                    { label: "تقارير", value: 18, icon: BarChart2, color: "text-orange-500" },
+                    { label: "مهام", value: 25, icon: CheckCircle2, color: "text-pink-500" },
+                    { label: "تنبيهات", value: 10, icon: AlertTriangle, color: "text-red-500" },
+                  ].map(item => (
+                    <div key={item.label} className="flex flex-col items-center gap-1 p-2 rounded-lg bg-muted/30 text-center">
+                      <item.icon className={`h-3.5 w-3.5 ${item.color}`} />
+                      <span className="text-base font-black">{item.value}</span>
+                      <span className="text-[10px] text-muted-foreground leading-tight">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Companies seeded */}
+          <Card className="border-border/50">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <FilePlus2 className="h-4 w-4 text-violet-500" />طلبات الافتتاح التجريبية — الشركات المُولَّدة
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {[
+                  { name: "شركة الأفق للاستثمار",    industry: "استثمار",  elig: 78, status: "ready_for_filing",     office: "شمال" },
+                  { name: "شركة الوطن للمقاولات",    industry: "مقاولات",  elig: 65, status: "ai_analysis",          office: "شمال" },
+                  { name: "شركة التطوير العمراني",   industry: "عقارات",   elig: 88, status: "under_legal_review",   office: "شمال" },
+                  { name: "شركة الجزيرة التجارية",  industry: "تجارة",   elig: 72, status: "submitted_to_court",   office: "جنوب" },
+                  { name: "شركة الأصالة للصناعة",  industry: "صناعة",   elig: 55, status: "documents_pending",    office: "جنوب" },
+                ].map(co => (
+                  <div key={co.name} className="flex items-center gap-3 p-2.5 rounded-lg border border-border/40 bg-muted/20">
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${co.elig >= 80 ? "bg-emerald-100 text-emerald-700" : co.elig >= 65 ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                      {co.elig}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold truncate">{co.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{co.industry} · {co.office}</p>
+                      <p className="text-[10px] text-muted-foreground">{REQ_STATUS_AR[co.status] ?? co.status}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Case statuses chart */}
+          <Card className="border-border/50">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-amber-500" />توزيع حالات الملفات — البيئة التجريبية
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="h-36">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={[
+                    { label: "نشط",          value: 4 },
+                    { label: "مراجعة مطالبات", value: 2 },
+                    { label: "إدارة أصول",    value: 2 },
+                    { label: "توزيع",          value: 2 },
+                    { label: "مغلق",           value: 2 },
+                    { label: "موقوف",          value: 1 },
+                    { label: "مؤرشف",         value: 1 },
+                  ]} barSize={28}>
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                    <Tooltip formatter={(v) => [v, "ملفات"]} />
+                    <Bar dataKey="value" radius={[4,4,0,0]}>
+                      {[
+                        "#10b981","#3b82f6","#f59e0b","#8b5cf6","#6b7280","#ef4444","#94a3b8"
+                      ].map((c, i) => <Cell key={i} fill={c} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Warning box */}
+          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold mb-1">ملاحظة مهمة</p>
+              <p>جميع السجلات التجريبية تحمل <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded text-[10px]">is_demo = true</code>. زر "حذف البيئة التجريبية" يمسح هذه السجلات فقط ولا يؤثر مطلقاً على بيانات المكاتب الحقيقية. Office IDs المستخدمة (<code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded text-[10px]">demo-north-bk-2026</code> و <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded text-[10px]">demo-south-bk-2026</code>) مخصصة للعرض التوضيحي فقط.</p>
+            </div>
+          </div>
         </div>
       )}
     </div>
