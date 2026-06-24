@@ -1,0 +1,561 @@
+إذا كنت ستعطيها مباشرة إلى Replit Agent أو فريق التطوير، فمن الأفضل أن تكون على شكل مواصفات تقنية كاملة وليست مجرد فكرة.
+
+Adalah Bankruptcy Module
+
+مواصفات التصميم وقاعدة البيانات والواجهات
+
+الهدف
+
+إنشاء قسم مستقل داخل منصة عدالة باسم:
+
+“عدالة إفلاس”
+
+يعمل كوحدة مستقلة متخصصة في إدارة إجراءات الإفلاس وإعادة التنظيم المالي والتصفية والتسوية الوقائية.
+
+⸻
+
+أولاً: تصميم الواجهات (UI/UX)
+
+الصفحة الرئيسية للوحدة
+
+Dashboard
+
+بطاقات إحصائية:
+
+* عدد ملفات الإفلاس
+* عدد الدائنين
+* إجمالي المطالبات
+* إجمالي الأصول
+* الاجتماعات القادمة
+* التقارير المعلقة
+
+مخططات:
+
+* توزيع المطالبات
+* حالة الملفات
+* قيمة الأصول
+* التوزيعات المنفذة
+
+⸻
+
+القائمة الجانبية
+
+Dashboard
+
+ملفات الإفلاس
+
+الدائنون
+
+المطالبات
+
+الأصول
+
+الاجتماعات
+
+التوزيعات
+
+التقارير
+
+المستندات
+
+الذكاء الاصطناعي
+
+الإعدادات
+
+⸻
+
+شاشة ملفات الإفلاس
+
+جدول يحتوي:
+
+رقم الملف
+
+اسم المدين
+
+نوع الإجراء
+
+أمين الإفلاس
+
+الحالة
+
+تاريخ الإنشاء
+
+إجراءات:
+
+عرض
+
+تعديل
+
+أرشفة
+
+⸻
+
+صفحة تفاصيل الملف
+
+تبويبات:
+
+Overview
+
+Creditors
+
+Claims
+
+Assets
+
+Meetings
+
+Documents
+
+Reports
+
+AI Analysis
+
+Timeline
+
+⸻
+
+شاشة الدائنين
+
+جدول:
+
+اسم الدائن
+
+نوع الدائن
+
+قيمة المطالبات
+
+الحالة
+
+عدد المستندات
+
+إجراءات
+
+⸻
+
+شاشة المطالبات
+
+جدول متقدم:
+
+رقم المطالبة
+
+الدائن
+
+القيمة
+
+العملة
+
+التصنيف
+
+الحالة
+
+تاريخ التقديم
+
+⸻
+
+شاشة الأصول
+
+بطاقات أو جدول:
+
+اسم الأصل
+
+النوع
+
+القيمة التقديرية
+
+الحالة
+
+الموقع
+
+التقييم
+
+⸻
+
+شاشة الاجتماعات
+
+التاريخ
+
+الموضوع
+
+الحضور
+
+الحالة
+
+المحضر
+
+⸻
+
+شاشة التوزيعات
+
+إجمالي المتاح
+
+عدد المستفيدين
+
+نسبة التوزيع
+
+حالة الصرف
+
+⸻
+
+شاشة الذكاء الاصطناعي
+
+محادثة متخصصة بالإفلاس
+
+رفع ملفات
+
+تحليل مطالبات
+
+تحليل قوائم مالية
+
+تلخيص التقارير
+
+استخراج المخاطر
+
+⸻
+
+ثانياً: قاعدة البيانات
+
+bankruptcy_cases
+
+id
+
+organization_id
+
+case_number
+
+debtor_name
+
+debtor_type
+
+procedure_type
+
+court_name
+
+trustee_id
+
+status
+
+start_date
+
+end_date
+
+created_at
+
+updated_at
+
+⸻
+
+creditors
+
+id
+
+case_id
+
+name
+
+type
+
+email
+
+phone
+
+national_id
+
+address
+
+created_at
+
+⸻
+
+claims
+
+id
+
+case_id
+
+creditor_id
+
+claim_number
+
+amount
+
+currency
+
+priority_level
+
+status
+
+submitted_at
+
+reviewed_at
+
+notes
+
+⸻
+
+claim_documents
+
+id
+
+claim_id
+
+file_name
+
+file_url
+
+uploaded_by
+
+created_at
+
+⸻
+
+assets
+
+id
+
+case_id
+
+asset_name
+
+asset_type
+
+description
+
+estimated_value
+
+market_value
+
+status
+
+location
+
+created_at
+
+⸻
+
+asset_valuations
+
+id
+
+asset_id
+
+valuator_name
+
+valuation_amount
+
+valuation_date
+
+report_file
+
+⸻
+
+meetings
+
+id
+
+case_id
+
+title
+
+meeting_date
+
+location
+
+meeting_type
+
+status
+
+minutes_file
+
+⸻
+
+meeting_attendees
+
+id
+
+meeting_id
+
+user_id
+
+attendance_status
+
+⸻
+
+distributions
+
+id
+
+case_id
+
+distribution_round
+
+total_amount
+
+distribution_date
+
+status
+
+⸻
+
+distribution_items
+
+id
+
+distribution_id
+
+creditor_id
+
+claim_id
+
+allocated_amount
+
+payment_status
+
+⸻
+
+reports
+
+id
+
+case_id
+
+report_type
+
+report_title
+
+report_file
+
+generated_by
+
+created_at
+
+⸻
+
+ai_analysis
+
+id
+
+case_id
+
+analysis_type
+
+input_source
+
+result
+
+generated_at
+
+⸻
+
+ثالثاً: الصلاحيات
+
+ADMIN
+
+صلاحيات كاملة
+
+⸻
+
+TRUSTEE
+
+إدارة ملفات الإفلاس
+
+إدارة المطالبات
+
+إدارة الأصول
+
+إصدار التقارير
+
+⸻
+
+STAFF
+
+الوصول حسب التكليف
+
+⸻
+
+CREDITOR
+
+عرض ملفه
+
+رفع المطالبات
+
+رفع المستندات
+
+متابعة الحالة
+
+⸻
+
+VALUATOR
+
+إضافة تقييمات الأصول
+
+رفع التقارير
+
+⸻
+
+رابعاً: البنية البرمجية
+
+src/modules/bankruptcy
+
+components/
+
+pages/
+
+services/
+
+hooks/
+
+types/
+
+api/
+
+⸻
+
+pages/
+
+Dashboard.tsx
+
+Cases.tsx
+
+CaseDetails.tsx
+
+Creditors.tsx
+
+Claims.tsx
+
+Assets.tsx
+
+Meetings.tsx
+
+Distributions.tsx
+
+Reports.tsx
+
+AI.tsx
+
+Settings.tsx
+
+⸻
+
+خامساً: التكامل مع عدالة
+
+استخدام:
+
+نظام المستخدمين الحالي
+
+نظام الصلاحيات الحالي
+
+نظام الاشتراكات الحالي
+
+نظام المستندات الحالي
+
+محرك الذكاء الاصطناعي الحالي
+
+نظام الإشعارات الحالي
+
+بدون إنشاء منصة منفصلة
+
+مع إمكانية فصل الوحدة مستقبلاً إلى:
+
+bankruptcy.adalah.ai
+
+هذه المواصفات كافية ليبدأ Replit Agent ببناء الهيكل الكامل (الجداول، الـ API، الصفحات، والصلاحيات) بدلاً من الاكتفاء بإنشاء واجهات شكلية فقط.

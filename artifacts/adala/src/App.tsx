@@ -139,6 +139,9 @@ const Analytics            = lazy(() => import("@/pages/operations/analytics"));
 const Tasks                = lazy(() => import("@/pages/operations/tasks"));
 const CalendarPage         = lazy(() => import("@/pages/operations/calendar"));
 
+// Bankruptcy Module
+const BankruptcyPage       = lazy(() => import("@/pages/bankruptcy"));
+
 // Client Portal
 const ClientPortal         = lazy(() => import("@/pages/marketplace/client-portal"));
 const PortalView           = lazy(() => import("@/pages/marketplace/portal-view"));
@@ -893,6 +896,7 @@ function AppRoutes() {
             {/* Communication */}
             <Route path="/messages"><ProtectedRoute><Messages /></ProtectedRoute></Route>
             <Route path="/reminders"><ProtectedRoute><RemindersPage /></ProtectedRoute></Route>
+            <Route path="/bankruptcy"><ProtectedRoute><BankruptcyPage /></ProtectedRoute></Route>
             <Route path="/email-notifications"><ProtectedRoute><EmailNotificationsPage /></ProtectedRoute></Route>
             <Route path="/whatsapp-settings"><ProtectedRoute><WhatsAppSettingsPage /></ProtectedRoute></Route>
             <Route path="/telegram-settings"><ProtectedRoute><TelegramSettingsPage /></ProtectedRoute></Route>

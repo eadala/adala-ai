@@ -65,6 +65,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/calendar",          labelKey: "nav.items.calendar",          icon: CalendarDays, feature: "calendar" },
       { href: "/tasks",     labelKey: "nav.items.tasks",     icon: ClipboardList },
       { href: "/reminders", labelKey: "nav.items.reminders", icon: Bell },
+      { href: "/bankruptcy", labelKey: "عدالة إفلاس", icon: Landmark },
     ],
   },
   /* ─── Domain 2: CRM Layer ─── */

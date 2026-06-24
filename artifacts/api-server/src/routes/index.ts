@@ -143,6 +143,7 @@ import hrInternalRouter       from "../modules/operations/hrInternal";
 import hrEnterpriseRouter     from "../modules/operations/hr-enterprise";
 import launchGateRouter       from "../modules/platform/launchGate";
 import productionLaunchRouter from "../modules/platform/productionLaunch";
+import bankruptcyRouter       from "../modules/bankruptcy/bankruptcy";
 
 // ─────────────────────────────────────────────────────────────────────────────
 const router: IRouter = Router();
@@ -305,5 +306,6 @@ router.use(hrPerformanceRouter);
 router.use(hrInternalRouter);
 router.use(hrEnterpriseRouter);
 router.use(systemStatusRouter);
+router.use(bankruptcyRouter);
 
 export default router;
