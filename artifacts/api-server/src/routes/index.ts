@@ -145,6 +145,7 @@ import launchGateRouter       from "../modules/platform/launchGate";
 import productionLaunchRouter from "../modules/platform/productionLaunch";
 import bankruptcyRouter       from "../modules/bankruptcy/bankruptcy";
 import bankruptcyV2Router     from "../modules/bankruptcy/bankruptcyV2";
+import bankruptcyV3Router     from "../modules/bankruptcy/bankruptcyV3";
 
 // ─────────────────────────────────────────────────────────────────────────────
 const router: IRouter = Router();
@@ -309,5 +310,6 @@ router.use(hrEnterpriseRouter);
 router.use(systemStatusRouter);
 router.use(bankruptcyRouter);
 router.use(bankruptcyV2Router);
+router.use(bankruptcyV3Router);
 
 export default router;

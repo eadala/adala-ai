@@ -10,6 +10,8 @@ import {
   GitBranch, ListTodo, BookOpen, AlertCircle, Package,
   CheckSquare, Circle, Clock, X, Check, RefreshCw,
   ChevronDown, Copy, Star, Zap, TriangleAlert,
+  FilePlus2, ClipboardList, BarChart2, ArrowRightCircle,
+  FileCheck2, ChevronUp, Upload, Briefcase,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -85,8 +87,9 @@ function StatusBadge({ status }: { status: string }) {
    SIDEBAR NAVIGATION
 ══════════════════════════════════════════════════════════ */
 const SECTIONS: { id: string; label: string; icon: any; divider?: boolean }[] = [
-  { id: "dashboard",     label: "لوحة التحكم",       icon: LayoutDashboard },
-  { id: "cases",         label: "ملفات الإفلاس",      icon: Landmark },
+  { id: "dashboard",        label: "لوحة التحكم",             icon: LayoutDashboard },
+  { id: "opening_requests", label: "طلبات افتتاح الإجراءات",  icon: FilePlus2 },
+  { id: "cases",            label: "ملفات الإفلاس",            icon: Landmark },
   { id: "creditors",     label: "الدائنون",            icon: Users },
   { id: "claims",        label: "المطالبات",           icon: FileText },
   { id: "assets",        label: "الأصول",              icon: Building2 },
@@ -176,8 +179,9 @@ export default function BankruptcyPage() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-        {section === "dashboard"     && <DashboardSection onSelectCase={(c) => { setSelectedCase(c); setSection("cases"); }} />}
-        {section === "cases"         && <CasesSection selectedCase={selectedCase} onSelectCase={setSelectedCase} />}
+        {section === "dashboard"        && <DashboardSection onSelectCase={(c) => { setSelectedCase(c); setSection("cases"); }} />}
+        {section === "opening_requests" && <OpeningRequestsSection onConvert={(caseId) => { setSection("cases"); }} />}
+        {section === "cases"            && <CasesSection selectedCase={selectedCase} onSelectCase={setSelectedCase} />}
         {section === "creditors"     && <CreditorsSection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
         {section === "claims"        && <ClaimsSection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
         {section === "assets"        && <AssetsSection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
@@ -195,6 +199,758 @@ export default function BankruptcyPage() {
         {section === "timeline"      && <TimelineSection selectedCase={selectedCase} />}
         {section === "notifications" && <NotificationsSection />}
       </main>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   OPENING REQUESTS — V3
+══════════════════════════════════════════════════════════ */
+const STATUS_AR: Record<string, string> = {
+  draft:                   "مسودة",
+  under_assessment:        "تحت التقييم",
+  documents_pending:       "في انتظار المستندات",
+  ai_analysis:             "تحليل الذكاء الاصطناعي",
+  ready_for_filing:        "جاهز للتقديم",
+  under_legal_review:      "مراجعة قانونية",
+  approved_for_submission: "معتمد للتقديم",
+  submitted_to_court:      "مقدَّم للمحكمة",
+  converted_to_case:       "تحوّل لملف إفلاس",
+  closed:                  "مغلق",
+  cancelled:               "ملغي",
+};
+const STATUS_COLOR: Record<string, string> = {
+  draft:                   "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
+  under_assessment:        "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
+  documents_pending:       "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+  ai_analysis:             "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300",
+  ready_for_filing:        "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+  under_legal_review:      "bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300",
+  approved_for_submission: "bg-teal-100 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300",
+  submitted_to_court:      "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300",
+  converted_to_case:       "bg-emerald-600 text-white",
+  closed:                  "bg-zinc-200 text-zinc-500",
+  cancelled:               "bg-red-100 text-red-600",
+};
+const PROCEDURE_AR: Record<string, string> = {
+  preventive_settlement:    "التسوية الوقائية",
+  financial_reorganization: "إعادة التنظيم المالي",
+  liquidation:              "التصفية",
+  administrative_liquidation:"التصفية الإدارية",
+  not_eligible:             "غير مؤهل",
+};
+const PROCEDURE_COLOR: Record<string, string> = {
+  preventive_settlement:    "text-emerald-600",
+  financial_reorganization: "text-blue-600",
+  liquidation:              "text-red-600",
+  administrative_liquidation:"text-orange-600",
+  not_eligible:             "text-zinc-400",
+};
+const DOC_TYPES = [
+  "القوائم المالية المدققة","كشف حساب بنكي","عقود القروض","عقود الموردين",
+  "سجلات الموظفين","وثائق ضريبية","عقود الإيجار","أحكام قضائية",
+  "صكوك التنفيذ","فواتير","مستندات داعمة","أخرى",
+];
+
+function OpeningRequestsSection({ onConvert }: { onConvert: (caseId: string) => void }) {
+  const qc = useQueryClient();
+  const [view, setView] = useState<"list" | "create" | "detail">("list");
+  const [selected, setSelected] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<"info" | "ai" | "docs" | "package">("info");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [pkgLoading, setPkgLoading] = useState(false);
+  const [convertLoading, setConvertLoading] = useState(false);
+  const [showDocForm, setShowDocForm] = useState(false);
+  const [docForm, setDocForm] = useState({ document_type: "", file_name: "", notes: "" });
+
+  const [form, setForm] = useState({
+    company_name: "", commercial_registration: "", entity_type: "company",
+    industry: "", employee_count: "", annual_revenue: "",
+    total_assets: "", total_liabilities: "", available_cash: "", due_debts: "", notes: "",
+  });
+
+  /* ── Queries ── */
+  const { data: requests = [], isLoading, refetch: refetchList } = useQuery<any[]>({
+    queryKey: ["bk-opening-requests", statusFilter],
+    queryFn: () => api(`/bankruptcy/opening-requests${statusFilter ? `?status=${statusFilter}` : ""}`),
+    staleTime: 20_000,
+  });
+
+  const { data: detail, refetch: refetchDetail } = useQuery({
+    queryKey: ["bk-opening-req-detail", selected?.id],
+    queryFn: () => api(`/bankruptcy/opening-requests/${selected!.id}`),
+    enabled: !!selected?.id && view === "detail",
+    staleTime: 10_000,
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ["bk-opening-stats"],
+    queryFn: () => api("/bankruptcy/opening-requests-stats"),
+    staleTime: 60_000,
+  });
+
+  /* ── Mutations ── */
+  const createReq = useMutation({
+    mutationFn: () => api("/bankruptcy/opening-requests", { method: "POST", body: JSON.stringify({
+      ...form,
+      employee_count: form.employee_count ? Number(form.employee_count) : undefined,
+      annual_revenue: form.annual_revenue ? Number(form.annual_revenue) : undefined,
+      total_assets: form.total_assets ? Number(form.total_assets) : undefined,
+      total_liabilities: form.total_liabilities ? Number(form.total_liabilities) : undefined,
+      available_cash: form.available_cash ? Number(form.available_cash) : undefined,
+      due_debts: form.due_debts ? Number(form.due_debts) : undefined,
+    })}),
+    onSuccess: (r: any) => {
+      qc.invalidateQueries({ queryKey: ["bk-opening-requests"] });
+      qc.invalidateQueries({ queryKey: ["bk-opening-stats"] });
+      toast.success("تم إنشاء الطلب");
+      setSelected(r);
+      setView("detail");
+      setActiveTab("info");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const patchStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api(`/bankruptcy/opening-requests/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bk-opening-req-detail", selected?.id] });
+      qc.invalidateQueries({ queryKey: ["bk-opening-requests"] });
+    },
+  });
+
+  const deleteReq = useMutation({
+    mutationFn: (id: string) => api(`/bankruptcy/opening-requests/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bk-opening-requests"] });
+      qc.invalidateQueries({ queryKey: ["bk-opening-stats"] });
+      toast.success("تم حذف الطلب");
+      setView("list");
+      setSelected(null);
+    },
+  });
+
+  const addDoc = useMutation({
+    mutationFn: () => api(`/bankruptcy/opening-requests/${selected!.id}/documents`, {
+      method: "POST", body: JSON.stringify(docForm),
+    }),
+    onSuccess: () => {
+      refetchDetail();
+      setShowDocForm(false);
+      setDocForm({ document_type: "", file_name: "", notes: "" });
+      toast.success("تم إضافة المستند");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const delDoc = useMutation({
+    mutationFn: (docId: string) =>
+      api(`/bankruptcy/opening-requests/${selected!.id}/documents/${docId}`, { method: "DELETE" }),
+    onSuccess: () => { refetchDetail(); toast.success("تم حذف المستند"); },
+  });
+
+  async function runAI() {
+    if (!selected) return;
+    setAiLoading(true);
+    try {
+      const r: any = await api(`/bankruptcy/opening-requests/${selected.id}/ai-analysis`, { method: "POST" });
+      qc.invalidateQueries({ queryKey: ["bk-opening-req-detail", selected.id] });
+      qc.invalidateQueries({ queryKey: ["bk-opening-requests"] });
+      qc.invalidateQueries({ queryKey: ["bk-opening-stats"] });
+      setActiveTab("ai");
+      toast.success("اكتمل تحليل الذكاء الاصطناعي");
+    } catch (e: any) { toast.error(e.message); }
+    finally { setAiLoading(false); }
+  }
+
+  async function generatePackage() {
+    if (!selected) return;
+    setPkgLoading(true);
+    try {
+      await api(`/bankruptcy/opening-requests/${selected.id}/court-package`, { method: "POST" });
+      qc.invalidateQueries({ queryKey: ["bk-opening-req-detail", selected.id] });
+      setActiveTab("package");
+      toast.success("تم توليد حزمة التقديم القضائي");
+    } catch (e: any) { toast.error(e.message); }
+    finally { setPkgLoading(false); }
+  }
+
+  async function convertToCase() {
+    if (!selected) return;
+    setConvertLoading(true);
+    try {
+      const r: any = await api(`/bankruptcy/opening-requests/${selected.id}/convert`, { method: "POST" });
+      qc.invalidateQueries({ queryKey: ["bk-opening-req-detail", selected.id] });
+      qc.invalidateQueries({ queryKey: ["bk-opening-requests"] });
+      toast.success(`تم تحويل الطلب إلى ملف إفلاس — ${r.caseNumber}`);
+      onConvert(r.caseId);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setConvertLoading(false); }
+  }
+
+  const d: any = detail ?? selected ?? {};
+  const ai: any = d.ai_analysis ?? {};
+  const docs: any[] = d.documents ?? [];
+  const readiness: any = d.readiness_details ?? {};
+
+  /* ══════════════════════════════════════════════════════
+     VIEW: CREATE FORM
+  ══════════════════════════════════════════════════════ */
+  if (view === "create") {
+    return (
+      <div className="space-y-4 max-w-2xl">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setView("list")} className="text-muted-foreground hover:text-foreground transition-colors">
+            <ChevronDown className="h-5 w-5 rotate-90" />
+          </button>
+          <div>
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <FilePlus2 className="h-5 w-5 text-blue-600" />طلب افتتاح إجراءات إفلاس جديد
+            </h2>
+            <p className="text-xs text-muted-foreground">أدخل بيانات الشركة والبيانات المالية</p>
+          </div>
+        </div>
+
+        <Card className="border-border/50">
+          <CardContent className="p-5 space-y-4">
+            <p className="text-sm font-semibold text-blue-600 flex items-center gap-2">
+              <Briefcase className="h-4 w-4" />بيانات الشركة
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label className="text-xs text-muted-foreground mb-1 block">اسم الشركة *</label>
+                <Input value={form.company_name} onChange={e => setForm(p => ({ ...p, company_name: e.target.value }))} placeholder="الاسم القانوني الكامل" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">السجل التجاري</label>
+                <Input value={form.commercial_registration} onChange={e => setForm(p => ({ ...p, commercial_registration: e.target.value }))} placeholder="رقم السجل التجاري" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">نوع الكيان</label>
+                <select value={form.entity_type} onChange={e => setForm(p => ({ ...p, entity_type: e.target.value }))}
+                  className="w-full text-sm border border-border/50 rounded-lg px-2 py-1.5 bg-background">
+                  <option value="company">شركة ذات مسؤولية محدودة</option>
+                  <option value="joint_stock">شركة مساهمة</option>
+                  <option value="individual">مؤسسة فردية</option>
+                  <option value="partnership">شركة تضامن</option>
+                  <option value="other">أخرى</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">القطاع</label>
+                <Input value={form.industry} onChange={e => setForm(p => ({ ...p, industry: e.target.value }))} placeholder="مثال: مقاولات، تجزئة، تصنيع" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">عدد الموظفين</label>
+                <Input type="number" value={form.employee_count} onChange={e => setForm(p => ({ ...p, employee_count: e.target.value }))} placeholder="0" />
+              </div>
+            </div>
+
+            <hr className="border-border/30" />
+            <p className="text-sm font-semibold text-violet-600 flex items-center gap-2">
+              <BarChart2 className="h-4 w-4" />البيانات المالية (ريال سعودي)
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { key: "total_assets",      label: "إجمالي الأصول" },
+                { key: "total_liabilities", label: "إجمالي الخصوم" },
+                { key: "available_cash",    label: "السيولة المتاحة" },
+                { key: "annual_revenue",    label: "الإيرادات السنوية" },
+                { key: "due_debts",         label: "الديون المستحقة فوراً" },
+              ].map(f => (
+                <div key={f.key}>
+                  <label className="text-xs text-muted-foreground mb-1 block">{f.label}</label>
+                  <Input type="number" value={(form as any)[f.key]}
+                    onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder="0.00" />
+                </div>
+              ))}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">ملاحظات</label>
+                <Input value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="اختياري" />
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="outline" onClick={() => setView("list")}>إلغاء</Button>
+              <Button onClick={() => createReq.mutate()} disabled={!form.company_name.trim() || createReq.isPending} className="gap-2">
+                {createReq.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <FilePlus2 className="h-4 w-4" />}
+                إنشاء الطلب
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  /* ══════════════════════════════════════════════════════
+     VIEW: DETAIL
+  ══════════════════════════════════════════════════════ */
+  if (view === "detail" && selected) {
+    const readPct   = readiness.score ?? 0;
+    const missingItems: string[] = readiness.missing ?? [];
+
+    return (
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-start gap-3 flex-wrap">
+          <button onClick={() => { setView("list"); setSelected(null); }} className="text-muted-foreground hover:text-foreground mt-1">
+            <ChevronDown className="h-5 w-5 rotate-90" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-bold">{d.company_name ?? selected.company_name}</h2>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[d.status ?? selected.status] ?? ""}`}>
+                {STATUS_AR[d.status ?? selected.status] ?? d.status}
+              </span>
+              {d.procedure_recommendation && (
+                <span className={`text-xs font-semibold ${PROCEDURE_COLOR[d.procedure_recommendation] ?? ""}`}>
+                  ← {PROCEDURE_AR[d.procedure_recommendation] ?? d.procedure_recommendation}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">{d.request_number ?? selected.request_number}</p>
+          </div>
+
+          {/* Readiness Badge */}
+          <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-bold
+              ${readPct >= 80 ? "border-emerald-300 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20" :
+                readPct >= 50 ? "border-amber-300 text-amber-600 bg-amber-50 dark:bg-amber-950/20" :
+                "border-red-300 text-red-600 bg-red-50 dark:bg-red-950/20"}`}>
+              <FileCheck2 className="h-4 w-4" />
+              {readPct}% جاهز للتقديم
+            </div>
+          </div>
+        </div>
+
+        {/* Readiness bar */}
+        <div className="w-full bg-border/30 rounded-full h-2">
+          <div className={`h-2 rounded-full transition-all duration-700
+            ${readPct >= 80 ? "bg-emerald-500" : readPct >= 50 ? "bg-amber-500" : "bg-red-500"}`}
+            style={{ width: `${readPct}%` }} />
+        </div>
+        {missingItems.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            {missingItems.map((m, i) => (
+              <span key={i} className="text-[10px] bg-red-50 dark:bg-red-950/20 text-red-600 border border-red-200 dark:border-red-800/40 px-2 py-0.5 rounded-full">
+                ✗ {m}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Action Bar */}
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs"
+            onClick={runAI} disabled={aiLoading || d.status === "ai_analysis"}>
+            {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            تشغيل تحليل AI
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs"
+            onClick={generatePackage} disabled={pkgLoading}>
+            {pkgLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Package className="h-3.5 w-3.5" />}
+            توليد حزمة التقديم
+          </Button>
+          {(d.status === "approved_for_submission" || d.status === "ready_for_filing") && d.status !== "converted_to_case" && (
+            <Button size="sm" className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700"
+              onClick={convertToCase} disabled={convertLoading}>
+              {convertLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRightCircle className="h-3.5 w-3.5" />}
+              تحويل لملف إفلاس
+            </Button>
+          )}
+          <select value={d.status ?? selected.status}
+            onChange={e => patchStatus.mutate({ id: selected.id, status: e.target.value })}
+            className="text-xs border border-border/50 rounded-lg px-2 py-1 bg-background">
+            {Object.entries(STATUS_AR).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 bg-muted/40 rounded-xl p-1 flex-wrap">
+          {([
+            { id: "info",    label: "البيانات الأساسية", icon: ClipboardList },
+            { id: "ai",      label: "تحليل AI",           icon: Sparkles },
+            { id: "docs",    label: `المستندات (${docs.length})`, icon: FileText },
+            { id: "package", label: "حزمة التقديم",       icon: Package },
+          ] as any[]).map(t => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)}
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all
+                ${activeTab === t.id ? "bg-background shadow text-foreground font-semibold" : "text-muted-foreground hover:text-foreground"}`}>
+              <t.icon className="h-3.5 w-3.5" />{t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* TAB: INFO */}
+        {activeTab === "info" && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {[
+              { label: "السجل التجاري",      value: d.commercial_registration },
+              { label: "نوع الكيان",         value: d.entity_type },
+              { label: "القطاع",             value: d.industry },
+              { label: "عدد الموظفين",        value: d.employee_count },
+              { label: "إجمالي الأصول",      value: d.total_assets ? Number(d.total_assets).toLocaleString("ar-SA") + " ر.س" : null },
+              { label: "إجمالي الخصوم",      value: d.total_liabilities ? Number(d.total_liabilities).toLocaleString("ar-SA") + " ر.س" : null },
+              { label: "السيولة المتاحة",    value: d.available_cash ? Number(d.available_cash).toLocaleString("ar-SA") + " ر.س" : null },
+              { label: "الإيرادات السنوية",   value: d.annual_revenue ? Number(d.annual_revenue).toLocaleString("ar-SA") + " ر.س" : null },
+              { label: "الديون المستحقة",    value: d.due_debts ? Number(d.due_debts).toLocaleString("ar-SA") + " ر.س" : null },
+            ].filter(f => f.value).map(f => (
+              <Card key={f.label} className="border-border/50">
+                <CardContent className="p-3">
+                  <p className="text-[10px] text-muted-foreground">{f.label}</p>
+                  <p className="text-sm font-semibold mt-0.5">{f.value}</p>
+                </CardContent>
+              </Card>
+            ))}
+            {d.notes && (
+              <div className="col-span-full">
+                <p className="text-xs text-muted-foreground">ملاحظات</p>
+                <p className="text-sm mt-0.5">{d.notes}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: AI ANALYSIS */}
+        {activeTab === "ai" && (
+          <div className="space-y-4">
+            {!ai.eligibility_score ? (
+              <Card className="border-border/50">
+                <CardContent className="py-12 text-center space-y-3">
+                  <Sparkles className="h-12 w-12 mx-auto text-violet-200" />
+                  <p className="text-muted-foreground">لم يتم تشغيل تحليل الذكاء الاصطناعي بعد</p>
+                  <Button onClick={runAI} disabled={aiLoading} className="gap-2 bg-violet-600 hover:bg-violet-700">
+                    {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    تشغيل تحليل AI الآن
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Score cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  {[
+                    { label: "الأهلية",        value: ai.eligibility_score,        color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/20" },
+                    { label: "الضائقة المالية", value: ai.financial_distress_score, color: "text-red-600",     bg: "bg-red-50 dark:bg-red-950/20" },
+                    { label: "مخاطر السيولة",  value: ai.liquidity_risk_score,     color: "text-orange-600",  bg: "bg-orange-50 dark:bg-orange-950/20" },
+                    { label: "إمكانية الاسترداد",value:ai.recovery_potential_score,color: "text-blue-600",    bg: "bg-blue-50 dark:bg-blue-950/20" },
+                    { label: "مستوى الثقة",    value: ai.confidence_level,         color: "text-violet-600",  bg: "bg-violet-50 dark:bg-violet-950/20" },
+                  ].map(s => (
+                    <Card key={s.label} className={`border-border/50 ${s.bg}`}>
+                      <CardContent className="p-3 text-center">
+                        <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                        <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
+                        <div className="w-full bg-white/50 dark:bg-black/20 rounded-full h-1 mt-1">
+                          <div className={`h-1 rounded-full ${s.color.replace("text-", "bg-")}`} style={{ width: `${s.value}%` }} />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Recommendation */}
+                <Card className={`border-2 ${d.procedure_recommendation === "not_eligible" ? "border-red-300 bg-red-50/40 dark:bg-red-950/10" : "border-emerald-300 bg-emerald-50/40 dark:bg-emerald-950/10"}`}>
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground mb-1">الإجراء الموصى به</p>
+                    <p className={`text-xl font-black ${PROCEDURE_COLOR[d.procedure_recommendation ?? ""] ?? "text-foreground"}`}>
+                      {PROCEDURE_AR[d.procedure_recommendation ?? ""] ?? d.procedure_recommendation}
+                    </p>
+                    {ai.procedure_reasoning && <p className="text-sm mt-2 text-muted-foreground leading-relaxed">{ai.procedure_reasoning}</p>}
+                  </CardContent>
+                </Card>
+
+                {/* Assessment blocks */}
+                {[
+                  { title: "الملخص التنفيذي",       content: ai.executive_summary },
+                  { title: "تقييم الصحة المالية",    content: ai.financial_health_assessment },
+                  { title: "تقييم المخاطر",          content: ai.risk_assessment },
+                  { title: "الملاحظات القانونية",    content: ai.legal_observations },
+                ].filter(b => b.content).map(b => (
+                  <Card key={b.title} className="border-border/50">
+                    <CardContent className="p-4">
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">{b.title}</p>
+                      <p className="text-sm leading-relaxed">{b.content}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {/* Lists */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { title: "الإجراءات الموصى بها", items: ai.recommended_actions,  color: "border-blue-200 bg-blue-50/40 dark:bg-blue-950/10" },
+                    { title: "الإجراءات ذات الأولوية", items: ai.priority_actions,   color: "border-red-200 bg-red-50/40 dark:bg-red-950/10" },
+                    { title: "المستندات المطلوبة",    items: ai.required_documents,  color: "border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/10" },
+                  ].map(b => b.items?.length > 0 && (
+                    <Card key={b.title} className={`border ${b.color}`}>
+                      <CardContent className="p-3">
+                        <p className="text-xs font-semibold mb-2">{b.title}</p>
+                        <ul className="space-y-1">
+                          {b.items.map((it: string, i: number) => (
+                            <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                              <Check className="h-3 w-3 text-current mt-0.5 shrink-0" />{it}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {ai.missing_information?.length > 0 && (
+                  <Card className="border-amber-200 bg-amber-50/40 dark:bg-amber-950/10">
+                    <CardContent className="p-3">
+                      <p className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1.5">
+                        <AlertCircle className="h-3.5 w-3.5" />معلومات ناقصة
+                      </p>
+                      <ul className="space-y-1">
+                        {ai.missing_information.map((it: string, i: number) => (
+                          <li key={i} className="text-xs text-amber-700 flex items-start gap-1.5">
+                            <X className="h-3 w-3 mt-0.5 shrink-0" />{it}
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* TAB: DOCUMENTS */}
+        {activeTab === "docs" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold">{docs.length} مستند مرفق</p>
+              <Button size="sm" className="gap-1.5 text-xs" onClick={() => setShowDocForm(v => !v)}>
+                <Upload className="h-3.5 w-3.5" />إضافة مستند
+              </Button>
+            </div>
+
+            {showDocForm && (
+              <Card className="border-border/50">
+                <CardContent className="p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="col-span-2">
+                      <label className="text-xs text-muted-foreground mb-1 block">نوع المستند *</label>
+                      <select value={docForm.document_type} onChange={e => setDocForm(p => ({ ...p, document_type: e.target.value }))}
+                        className="w-full text-sm border border-border/50 rounded-lg px-2 py-1.5 bg-background">
+                        <option value="">-- اختر النوع --</option>
+                        {DOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">اسم الملف *</label>
+                      <Input value={docForm.file_name} onChange={e => setDocForm(p => ({ ...p, file_name: e.target.value }))} placeholder="مثال: القوائم_المالية_2024.pdf" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">ملاحظات</label>
+                      <Input value={docForm.notes} onChange={e => setDocForm(p => ({ ...p, notes: e.target.value }))} placeholder="اختياري" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button size="sm" variant="outline" onClick={() => setShowDocForm(false)}>إلغاء</Button>
+                    <Button size="sm" onClick={() => addDoc.mutate()}
+                      disabled={!docForm.document_type || !docForm.file_name.trim() || addDoc.isPending}>
+                      {addDoc.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "إضافة"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {docs.length === 0 && !showDocForm && (
+              <Card className="border-border/50">
+                <CardContent className="py-8 text-center text-muted-foreground text-sm">
+                  <FileText className="h-10 w-10 mx-auto mb-2 opacity-20" />لا توجد مستندات مرفقة
+                </CardContent>
+              </Card>
+            )}
+            <div className="space-y-2">
+              {docs.map((doc: any) => (
+                <div key={doc.id} className="flex items-center gap-3 p-3 rounded-xl border border-border/50 hover:bg-accent/30">
+                  <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{doc.file_name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5">{doc.document_type}</span>
+                      {doc.notes && <span className="text-[10px] text-muted-foreground">{doc.notes}</span>}
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground shrink-0">{new Date(doc.uploaded_at).toLocaleDateString("ar-SA")}</p>
+                  <button onClick={() => delDoc.mutate(doc.id)} className="text-muted-foreground hover:text-red-500 transition-colors">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB: COURT PACKAGE */}
+        {activeTab === "package" && (
+          <div className="space-y-3">
+            {!d.court_package_content ? (
+              <Card className="border-indigo-200 dark:border-indigo-800/40 bg-indigo-50/40 dark:bg-indigo-950/10">
+                <CardContent className="py-12 text-center space-y-3">
+                  <Package className="h-14 w-14 mx-auto text-indigo-200" />
+                  <p className="font-semibold text-indigo-700 dark:text-indigo-300">لم تُولَّد حزمة التقديم بعد</p>
+                  <p className="text-xs text-muted-foreground">تأكد من اكتمال تحليل AI أولاً للحصول على أفضل نتيجة</p>
+                  <Button onClick={generatePackage} disabled={pkgLoading} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
+                    {pkgLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+                    توليد حزمة التقديم القضائي
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <p className="text-sm font-semibold flex items-center gap-2">
+                      <Package className="h-4 w-4 text-indigo-600" />حزمة التقديم القضائي
+                    </p>
+                    {d.court_package_generated_at && (
+                      <p className="text-xs text-muted-foreground">تاريخ التوليد: {new Date(d.court_package_generated_at).toLocaleString("ar-SA")}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="text-xs gap-1.5"
+                      onClick={() => { navigator.clipboard?.writeText(d.court_package_content); toast.success("تم النسخ"); }}>
+                      <Copy className="h-3.5 w-3.5" />نسخ
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={generatePackage} disabled={pkgLoading}>
+                      <RefreshCw className="h-3.5 w-3.5" />تحديث
+                    </Button>
+                  </div>
+                </div>
+                <Card className="border-border/50">
+                  <CardContent className="p-4">
+                    <div className="bg-muted/30 rounded-xl p-4 text-sm whitespace-pre-wrap leading-relaxed max-h-[65vh] overflow-y-auto font-mono" dir="rtl">
+                      {d.court_package_content}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* ══════════════════════════════════════════════════════
+     VIEW: LIST
+  ══════════════════════════════════════════════════════ */
+  return (
+    <div className="space-y-4">
+      {/* Header + Stats */}
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <FilePlus2 className="h-5 w-5 text-blue-600" />طلبات افتتاح إجراءات الإفلاس
+          </h2>
+          <p className="text-sm text-muted-foreground">{requests.length} طلب</p>
+        </div>
+        <Button className="gap-1.5" onClick={() => setView("create")}>
+          <Plus className="h-4 w-4" />طلب جديد
+        </Button>
+      </div>
+
+      {/* KPI Row */}
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "إجمالي الطلبات",       value: (stats as any).total ?? 0,          color: "text-blue-600",    bg: "bg-blue-50 dark:bg-blue-950/20" },
+            { label: "جاهز للتقديم",          value: (stats as any).ready ?? 0,          color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/20" },
+            { label: "مقدَّم للمحكمة",         value: (stats as any).submitted ?? 0,      color: "text-indigo-600",  bg: "bg-indigo-50 dark:bg-indigo-950/20" },
+            { label: "تحوّل لملف إفلاس",      value: (stats as any).converted ?? 0,      color: "text-violet-600",  bg: "bg-violet-50 dark:bg-violet-950/20" },
+          ].map(k => (
+            <Card key={k.label} className={`border-border/50 ${k.bg}`}>
+              <CardContent className="p-3 text-center">
+                <p className="text-xs text-muted-foreground">{k.label}</p>
+                <p className={`text-2xl font-black ${k.color}`}>{k.value}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Status Filters */}
+      <div className="flex gap-2 flex-wrap">
+        {(["", "draft","under_assessment","documents_pending","ai_analysis","ready_for_filing","under_legal_review","approved_for_submission","submitted_to_court","converted_to_case","closed","cancelled"] as string[]).map(s => (
+          <button key={s} onClick={() => setStatusFilter(s)}
+            className={`text-xs px-3 py-1 rounded-full border transition-all ${statusFilter === s ? "bg-blue-600 text-white border-blue-600" : "border-border/50 hover:bg-accent"}`}>
+            {s === "" ? "الكل" : STATUS_AR[s] ?? s}
+          </button>
+        ))}
+      </div>
+
+      {/* List */}
+      {isLoading && <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>}
+      {!isLoading && requests.length === 0 && (
+        <Card className="border-border/50">
+          <CardContent className="py-12 text-center space-y-3">
+            <FilePlus2 className="h-14 w-14 mx-auto text-blue-100" />
+            <p className="text-muted-foreground">لا توجد طلبات بعد</p>
+            <Button onClick={() => setView("create")} className="gap-2">
+              <Plus className="h-4 w-4" />إنشاء أول طلب
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      <div className="space-y-2">
+        {requests.map((r: any) => {
+          const readPct = r.readiness_score ?? 0;
+          return (
+            <Card key={r.id} className="border-border/50 hover:border-blue-300 dark:hover:border-blue-700 transition-all cursor-pointer"
+              onClick={() => { setSelected(r); setView("detail"); setActiveTab("info"); }}>
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 text-white text-xs font-bold
+                    ${readPct >= 80 ? "bg-emerald-500" : readPct >= 50 ? "bg-amber-500" : "bg-blue-500"}`}>
+                    {readPct}%
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold">{r.company_name}</p>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_COLOR[r.status] ?? ""}`}>
+                        {STATUS_AR[r.status] ?? r.status}
+                      </span>
+                      {r.procedure_recommendation && (
+                        <span className={`text-[10px] font-semibold ${PROCEDURE_COLOR[r.procedure_recommendation] ?? ""}`}>
+                          {PROCEDURE_AR[r.procedure_recommendation]}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 flex-wrap text-xs text-muted-foreground">
+                      <span>{r.request_number}</span>
+                      {r.commercial_registration && <span>س.ت: {r.commercial_registration}</span>}
+                      {r.total_assets && <span>أصول: {Number(r.total_assets).toLocaleString("ar-SA")} ر.س</span>}
+                      {r.eligibility_score != null && <span className="text-emerald-600 font-medium">أهلية: {r.eligibility_score}/100</span>}
+                      <span className="mr-auto">{new Date(r.created_at).toLocaleDateString("ar-SA")}</span>
+                    </div>
+                    {readPct > 0 && (
+                      <div className="mt-2 w-full bg-border/30 rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full transition-all ${readPct >= 80 ? "bg-emerald-500" : readPct >= 50 ? "bg-amber-500" : "bg-blue-500"}`}
+                          style={{ width: `${readPct}%` }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button onClick={e => { e.stopPropagation(); deleteReq.mutate(r.id); }}
+                      className="text-muted-foreground hover:text-red-500 transition-colors p-1">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
