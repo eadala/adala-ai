@@ -576,6 +576,8 @@ export default function OfficePage() {
     return `https://wa.me/${num}?text=${text}`;
   };
 
+  const hasBankruptcyPortal = (office.website_config as any)?.enableBankruptcyPortal !== false;
+
   const navItems = [
     { id: "about",    label: lang === "ar" ? "من نحن"  : "About",    ref: aboutRef },
     { id: "services", label: lang === "ar" ? "الخدمات" : "Services", ref: servicesRef },
@@ -688,6 +690,16 @@ export default function OfficePage() {
                 </button>
               </a>
             )}
+            {/* Bankruptcy portal link */}
+            {hasBankruptcyPortal && (
+              <a href={`/firms/${slug}/bankruptcy`}>
+                <button className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-bold border transition-colors hover:opacity-80"
+                  style={{ background: "#FFF7ED", color: "#C2410C", borderColor: "#FED7AA" }}>
+                  <Scale className="h-3.5 w-3.5" />
+                  {lang === "ar" ? "بوابة الإفلاس" : "Bankruptcy"}
+                </button>
+              </a>
+            )}
             {/* Store link */}
             <a href={`/firms/${slug}/store`}>
               <button className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-bold border transition-colors hover:opacity-80"
@@ -789,6 +801,18 @@ export default function OfficePage() {
                 </button>
               </a>
             </div>
+            {/* Mobile: Bankruptcy + Store */}
+            {hasBankruptcyPortal && (
+              <div className="pt-1">
+                <a href={`/firms/${slug}/bankruptcy`} className="block">
+                  <button className="w-full flex items-center justify-center gap-1.5 text-xs py-2.5 rounded-xl font-bold border"
+                    style={{ background: "#FFF7ED", color: "#C2410C", borderColor: "#FED7AA" }}>
+                    <Scale className="h-3.5 w-3.5" />
+                    {lang === "ar" ? "بوابة الإفلاس العامة" : "Bankruptcy Portal"}
+                  </button>
+                </a>
+              </div>
+            )}
             {/* Mobile: Store + Login */}
             <div className="flex gap-2 pt-1">
               <a href={`/firms/${slug}/store`} className="flex-1">

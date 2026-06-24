@@ -160,6 +160,7 @@ const LiveDemoPage         = lazy(() => import("@/pages/live-demo"));
 const OfficePage           = lazy(() => import("@/pages/marketplace/office-public"));
 const OfficeServiceDetail  = lazy(() => import("@/pages/marketplace/office-service-detail"));
 const OfficeStore          = lazy(() => import("@/pages/marketplace/office-store"));
+const OfficeBankruptcy     = lazy(() => import("@/pages/marketplace/office-bankruptcy"));
 const OfficeBook           = lazy(() => import("@/pages/marketplace/office-book"));
 const OfficeLogin          = lazy(() => import("@/pages/marketplace/office-login"));
 const TermsPage            = lazy(() => import("@/pages/terms"));
@@ -775,6 +776,7 @@ function AppRoutes() {
             {/* ── Public firm pages ── */}
             <Route path="/firms/:slug/login"><PublicPage><OfficeLogin /></PublicPage></Route>
             <Route path="/firms/:slug/store"><PublicPage><OfficeStore /></PublicPage></Route>
+            <Route path="/firms/:slug/bankruptcy"><PublicPage><OfficeBankruptcy /></PublicPage></Route>
             <Route path="/firms/:slug/book"><PublicPage><OfficeBook /></PublicPage></Route>
             <Route path="/firms/:slug/service/:serviceId"><PublicPage><OfficeServiceDetail /></PublicPage></Route>
             <Route path="/firms/:slug"><PublicPage><OfficePage /></PublicPage></Route>
