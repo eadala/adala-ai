@@ -284,6 +284,22 @@ router.post("/billing/checkout", requireAuth, async (req, res) => {
       ? `عدالة AI — باقة ${plan.name} (سنوي — وفّر ${Math.round((1 - plan.yearlyPrice * 12 / (plan.price * 12)) * 100)}%)`
       : `عدالة AI — باقة ${plan.name}`;
 
+    /* ── Duplicate checkout guard ── */
+    try {
+      const activeSub = await db.execute(sql`
+        SELECT id FROM office_subscriptions
+        WHERE office_id = ${tenantId} AND status IN ('active','trialing')
+        LIMIT 1
+      `);
+      const subRows = (activeSub as any)?.rows ?? activeSub;
+      if (Array.isArray(subRows) && subRows.length > 0) {
+        return res.status(409).json({
+          error: "يوجد اشتراك نشط بالفعل — يرجى إلغاؤه أولاً أو التواصل مع الدعم للترقية",
+          code: "SUBSCRIPTION_ALREADY_ACTIVE",
+        });
+      }
+    } catch { /* non-critical — proceed */ }
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],

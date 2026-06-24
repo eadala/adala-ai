@@ -700,6 +700,24 @@ router.post("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
     if (!fileData || !fileName) {
       return res.status(400).json({ error: "اسم الملف والبيانات مطلوبة" });
     }
+
+    /* ── MIME type allowlist ── */
+    const ALLOWED_MIME = new Set([
+      "application/pdf", "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+      "text/plain", "text/csv",
+      "application/zip", "application/x-zip-compressed",
+    ]);
+    const resolvedMime = fileType ?? "application/octet-stream";
+    if (!ALLOWED_MIME.has(resolvedMime)) {
+      return res.status(415).json({ error: `نوع الملف غير مدعوم: ${resolvedMime}` });
+    }
+
     /* Enforce reasonable size: base64 of 10 MB ≈ 14 MB string */
     if (typeof fileData === "string" && fileData.length > 15_000_000) {
       return res.status(413).json({ error: "حجم الملف أكبر من المسموح (10 MB)" });

@@ -128,6 +128,23 @@ router.post("/smart-documents", express.json({ limit: "8mb" }), requireAuthWithT
 
     if (!fileName) return res.status(400).json({ error: "اسم الملف مطلوب" });
 
+    /* ── MIME type allowlist ── */
+    const ALLOWED_MIME = new Set([
+      "application/pdf","application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "image/jpeg","image/png","image/gif","image/webp","image/svg+xml",
+      "text/plain","text/csv",
+      "application/zip","application/x-zip-compressed",
+    ]);
+    const resolvedMime = fileType ?? "application/octet-stream";
+    if (fileData && !ALLOWED_MIME.has(resolvedMime)) {
+      return res.status(415).json({ error: `نوع الملف غير مدعوم: ${resolvedMime}` });
+    }
+
     /* Run AI analysis synchronously if requested */
     let analysis: Record<string, any> | null = null;
     if (autoAnalyze && fileData && GEMINI_KEY) {

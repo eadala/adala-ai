@@ -91,6 +91,26 @@ registerAllListeners();
 initVapid().catch(e => console.error("[WebPush] init error:", e));
 loadHardeningState().catch(() => {});
 
+/* ── Global process-level error guards ─────────────────────────────────────
+   Without these, any uncaught exception silently crashes the server.
+   With them, we log + optionally restart via the process manager.
+─────────────────────────────────────────────────────────────────────────── */
+process.on("uncaughtException", (err: Error) => {
+  logger.error({ err, type: "uncaughtException" }, "[FATAL] Uncaught exception — server may be unstable");
+  // Give logger time to flush before exiting
+  setTimeout(() => process.exit(1), 500);
+});
+
+process.on("unhandledRejection", (reason: unknown) => {
+  logger.error({ reason, type: "unhandledRejection" }, "[FATAL] Unhandled promise rejection");
+});
+
+process.on("SIGTERM", () => {
+  logger.info("[SIGTERM] Graceful shutdown initiated");
+  // Allow in-flight requests ~10s to complete
+  setTimeout(() => process.exit(0), 10_000);
+});
+
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");

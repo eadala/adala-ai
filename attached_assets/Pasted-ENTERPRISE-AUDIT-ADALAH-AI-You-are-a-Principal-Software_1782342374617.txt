@@ -1,0 +1,392 @@
+ENTERPRISE AUDIT — ADALAH AI
+
+You are a Principal Software Architect, Cybersecurity Auditor, Database Engineer, AI Systems Auditor, SaaS Infrastructure Consultant, and Legal-Tech Platform Reviewer.
+
+Your task is to perform a COMPLETE ENTERPRISE-GRADE AUDIT of the entire Adalah AI platform.
+
+Do NOT focus only on TypeScript errors.
+
+Perform a deep architectural, security, database, performance, financial, legal, AI, and multi-tenant review.
+
+The objective is to determine whether this platform is production-ready for law firms and enterprise customers.
+
+⸻
+
+PHASE 1 — ARCHITECTURE AUDIT
+
+Review:
+
+* Project structure
+* Module separation
+* Domain boundaries
+* Service architecture
+* Scalability readiness
+* Circular dependencies
+* Duplicate logic
+* Technical debt
+
+Output:
+
+* Architecture Score (0-100)
+* Risks
+* Refactoring recommendations
+
+⸻
+
+PHASE 2 — MULTI-TENANT AUDIT
+
+Verify complete tenant isolation.
+
+Inspect:
+
+* All API routes
+* Database queries
+* ORM models
+* Services
+* Repositories
+* Background jobs
+* Search endpoints
+* Exports
+* Reports
+
+Check whether any tenant can:
+
+* Access another tenant’s data
+* Guess IDs
+* Bypass filters
+* Access files belonging to another office
+
+Flag every violation as:
+
+CRITICAL MULTI-TENANT BREACH
+
+⸻
+
+PHASE 3 — SECURITY AUDIT
+
+Inspect:
+
+Authentication
+
+Authorization
+
+RBAC
+
+Session Management
+
+JWT Validation
+
+Password Handling
+
+Secrets Management
+
+Rate Limiting
+
+CSRF
+
+XSS
+
+SSRF
+
+RCE
+
+SQL Injection
+
+NoSQL Injection
+
+Command Injection
+
+Open Redirects
+
+File Upload Security
+
+Prompt Injection
+
+API Abuse
+
+Webhook Validation
+
+Audit Logging
+
+Generate:
+
+Security Score
+
+OWASP Risk Report
+
+Top Vulnerabilities
+
+Recommended Fixes
+
+⸻
+
+PHASE 4 — DATABASE AUDIT
+
+Analyze:
+
+Tables
+
+Indexes
+
+Relations
+
+Foreign Keys
+
+Query Performance
+
+Transactions
+
+Migrations
+
+Soft Deletes
+
+Data Integrity
+
+Detect:
+
+Missing indexes
+
+Duplicate data
+
+Unused tables
+
+N+1 queries
+
+Slow queries
+
+Data consistency risks
+
+Output:
+
+Database Health Score
+
+Optimization Plan
+
+⸻
+
+PHASE 5 — PERFORMANCE AUDIT
+
+Measure:
+
+Frontend rendering
+
+Bundle size
+
+API latency
+
+Database latency
+
+Caching
+
+Memory usage
+
+CPU usage
+
+Background jobs
+
+Streaming performance
+
+Generate:
+
+Performance Score
+
+Bottlenecks
+
+Optimization opportunities
+
+Expected gains
+
+⸻
+
+PHASE 6 — AI INFRASTRUCTURE AUDIT
+
+Inspect:
+
+callAI usage
+
+Prompt management
+
+Fallback providers
+
+Retry logic
+
+Timeout handling
+
+Token usage
+
+Cost tracking
+
+Agent orchestration
+
+Prompt injection protection
+
+AI logging
+
+AI monitoring
+
+Hallucination mitigation
+
+Generate:
+
+AI Readiness Score
+
+Cost Risks
+
+Security Risks
+
+Reliability Risks
+
+⸻
+
+PHASE 7 — PAYMENT AUDIT
+
+Review:
+
+Invoices
+
+Subscriptions
+
+Refunds
+
+Payment gateways
+
+Webhook security
+
+Duplicate charges
+
+Failed payment handling
+
+Financial reconciliation
+
+Detect:
+
+Revenue leakage
+
+Subscription loopholes
+
+Invoice inconsistencies
+
+Critical accounting risks
+
+⸻
+
+PHASE 8 — LEGAL COMPLIANCE AUDIT
+
+Review platform readiness for Saudi legal operations.
+
+Verify:
+
+Consent handling
+
+Terms acceptance
+
+Privacy controls
+
+Audit trails
+
+Document retention
+
+Evidence integrity
+
+Expert workflows
+
+Bankruptcy workflows
+
+Client confidentiality
+
+Generate:
+
+Compliance Readiness Score
+
+Risk Matrix
+
+Required Actions
+
+⸻
+
+PHASE 9 — FILE STORAGE AUDIT
+
+Inspect:
+
+Uploads
+
+Downloads
+
+Access permissions
+
+Encryption
+
+Tenant segregation
+
+Signed URLs
+
+Document retention
+
+Orphaned files
+
+Duplicate storage
+
+Generate:
+
+Storage Health Report
+
+⸻
+
+PHASE 10 — PRODUCTION READINESS
+
+Assess:
+
+Monitoring
+
+Backups
+
+Disaster recovery
+
+Logging
+
+Alerting
+
+CI/CD
+
+Rollback capability
+
+Deployment process
+
+Environment management
+
+Generate:
+
+Production Readiness Score
+
+Launch Blockers
+
+Recommended Actions
+
+⸻
+
+FINAL REPORT FORMAT
+
+Return:
+
+1. Overall Enterprise Score (0-100)
+2. Architecture Score
+3. Security Score
+4. Multi-Tenant Score
+5. Database Score
+6. Performance Score
+7. AI Infrastructure Score
+8. Financial Systems Score
+9. Compliance Score
+10. Production Readiness Score
+11. Critical Issues
+12. High Priority Issues
+13. Medium Priority Issues
+14. Low Priority Issues
+15. Immediate Fix Plan (24 Hours)
+16. Fix Plan (7 Days)
+17. Fix Plan (30 Days)
+18. Estimated Enterprise Readiness Percentage
+
+Never stop at TypeScript fixes.
+
+Think like an enterprise auditor preparing a platform for thousands of law firms and millions of legal records.
