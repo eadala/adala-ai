@@ -1,0 +1,256 @@
+Technical Audit & Production Hardening Request
+
+Adalah Bankruptcy Module
+
+Perform a full technical audit, architecture review, security review, and production-readiness assessment for the Bankruptcy Module.
+
+The module has already been implemented and contains:
+
+* Database schema
+* Backend APIs
+* Frontend interfaces
+* AI integration
+* Multi-tenant architecture
+
+Your task is to analyze the entire module and identify any architectural, security, performance, scalability, or data integrity issues.
+
+⸻
+
+1. Database Audit
+
+Review all Bankruptcy tables and relationships.
+
+Verify:
+
+* Foreign Keys
+* Cascade Rules
+* Referential Integrity
+* Unique Constraints
+* Composite Indexes
+* Query Performance
+
+Identify:
+
+* Missing indexes
+* Duplicate fields
+* Unused columns
+* Missing relationships
+* Data consistency risks
+
+Required output:
+
+Database Audit Report
+
+⸻
+
+2. Multi-Tenant Security Audit
+
+Validate complete tenant isolation.
+
+Verify that every query is filtered by:
+
+office_id
+
+Check:
+
+* API endpoints
+* Database queries
+* Services
+* Repositories
+* Frontend requests
+
+Detect any possibility of:
+
+* Cross-office access
+* Data leakage
+* Privilege escalation
+
+Required output:
+
+Tenant Isolation Report
+
+⸻
+
+3. API Audit
+
+Review all Bankruptcy API endpoints.
+
+Verify:
+
+* Authentication
+* Authorization
+* Input validation
+* Error handling
+* Logging
+* Rate limiting
+
+Identify:
+
+* Unused endpoints
+* Missing validation
+* Security vulnerabilities
+* Performance bottlenecks
+
+Required output:
+
+API Audit Report
+
+⸻
+
+4. Frontend Audit
+
+Review all Bankruptcy screens.
+
+Verify:
+
+* Route protection
+* Permission checks
+* Responsive design
+* RTL compatibility
+* Error handling
+* Loading states
+
+Identify:
+
+* Dead pages
+* Unreachable screens
+* Broken navigation
+* Duplicate components
+
+Required output:
+
+Frontend Audit Report
+
+⸻
+
+5. Workflow Validation
+
+Validate complete business workflows.
+
+Bankruptcy Case Lifecycle:
+
+Draft
+Active
+Claims Review
+Asset Management
+Distribution
+Closed
+
+Claim Lifecycle:
+
+Draft
+Submitted
+Under Review
+Approved
+Partially Approved
+Rejected
+Disputed
+Finalized
+
+Asset Lifecycle:
+
+Identified
+Valuation
+Listed
+Sold
+Collected
+Closed
+
+Verify that all workflows are implemented correctly.
+
+Required output:
+
+Workflow Validation Report
+
+⸻
+
+6. AI Module Audit
+
+Review Bankruptcy AI features.
+
+Verify:
+
+* Prompt architecture
+* Context handling
+* File processing
+* Analysis history
+* Permission controls
+
+Ensure AI can:
+
+* Analyze claims
+* Analyze financial statements
+* Generate trustee reports
+* Summarize case files
+* Detect legal and financial risks
+
+Required output:
+
+AI Audit Report
+
+⸻
+
+7. Production Readiness Review
+
+Verify readiness for deployment on:
+
+* Hetzner Cloud
+* PostgreSQL
+* Docker
+* Cloudflare
+
+Review:
+
+* Environment variables
+* Database migrations
+* Backup strategy
+* Monitoring
+* Logging
+* Error tracking
+
+Required output:
+
+Production Readiness Report
+
+⸻
+
+8. Optimization & Auto-Fix
+
+Automatically fix all issues that can be corrected safely.
+
+Requirements:
+
+* Do not remove existing functionality.
+* Do not break existing APIs.
+* Maintain backward compatibility.
+* Add missing indexes.
+* Add missing validation.
+* Improve performance where possible.
+
+Generate:
+
+* List of changes made.
+* Files modified.
+* Database migrations created.
+* Security improvements applied.
+* Performance improvements applied.
+
+⸻
+
+Final Deliverable
+
+Generate a complete report containing:
+
+1. Architecture Review
+2. Database Audit
+3. Security Audit
+4. Multi-Tenant Audit
+5. API Audit
+6. Frontend Audit
+7. AI Audit
+8. Performance Audit
+9. Production Readiness Score
+10. Issues Fixed
+11. Remaining Recommendations
+
+Execute all safe fixes automatically and provide a detailed implementation summary.

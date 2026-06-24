@@ -89,3 +89,4 @@
 - [Adala Validation Cycles](adala-validation-cycles.md) — Financial+Legal cycle tests (7+8 steps, auto-cleanup); 22-check pentest; K6 script generator; "التحقق" tab in Engineering Center
 - [Adala Workflow Builder Grants](adala-workflow-builder-grants.md) — 3-layer access control: backend middleware + nav superAdminOnly + page access-check; workflow_builder_grants table; WorkflowGrantsTab in super-admin
 - [Adala ai_workflows schema](adala-ai-workflows-schema.md) — ai_workflows+ai_workflow_runs id/office_id/workflow_id must be TEXT (not uuid) to match production; had FK ai_workflow_runs_workflow_id_fkey to drop+recreate when changing types
+- [Adala Bankruptcy Module](adala-bankruptcy.md) — verifyCase() mandatory in nested POSTs; isUUID() before ::uuid cast; 11 tables bk_* prefix; status lifecycles enforced at DB+API level

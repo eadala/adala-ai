@@ -2,17 +2,16 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Landmark, LayoutDashboard, Users, FileText, Building2,
-  CalendarDays, TrendingDown, BarChart3, Bot, Settings,
-  Plus, RefreshCw, Loader2, AlertTriangle, CheckCircle2,
-  Clock, Archive, Scale, Banknote, Brain, ChevronLeft,
-  ChevronRight, Trash2, Eye,
+  CalendarDays, TrendingDown, BarChart3, Bot,
+  Plus, Loader2, AlertTriangle,
+  Archive, Banknote, Brain, ChevronLeft,
+  ChevronRight, Trash2, Eye, Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -39,19 +38,39 @@ interface Distribution { id: string; distribution_round: number; total_amount: n
 
 /* ── Status helpers ─────────────────────────────────────── */
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  active:    { label: "نشط",     color: "bg-blue-100 text-blue-700" },
-  suspended: { label: "موقوف",   color: "bg-amber-100 text-amber-700" },
-  closed:    { label: "مغلق",    color: "bg-zinc-100 text-zinc-600" },
-  archived:  { label: "مؤرشف",  color: "bg-slate-100 text-slate-500" },
-  pending:   { label: "معلق",    color: "bg-amber-100 text-amber-700" },
-  approved:  { label: "مقبول",   color: "bg-emerald-100 text-emerald-700" },
-  rejected:  { label: "مرفوض",  color: "bg-red-100 text-red-700" },
-  paid:      { label: "مدفوع",   color: "bg-emerald-100 text-emerald-700" },
-  scheduled: { label: "مجدول",   color: "bg-blue-100 text-blue-700" },
-  completed: { label: "مكتمل",  color: "bg-emerald-100 text-emerald-700" },
-  cancelled: { label: "ملغي",   color: "bg-red-100 text-red-700" },
-  draft:     { label: "مسودة",  color: "bg-zinc-100 text-zinc-600" },
-  executed:  { label: "منفذ",    color: "bg-emerald-100 text-emerald-700" },
+  // Case statuses
+  active:             { label: "نشط",              color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
+  suspended:          { label: "موقوف",             color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
+  claims_review:      { label: "مراجعة المطالبات", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300" },
+  asset_management:   { label: "إدارة الأصول",    color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300" },
+  distribution:       { label: "مرحلة التوزيع",   color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  closed:             { label: "مغلق",              color: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400" },
+  archived:           { label: "مؤرشف",             color: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" },
+  // Claim statuses
+  pending:            { label: "معلق",              color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
+  submitted:          { label: "مُقدَّم",           color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
+  under_review:       { label: "قيد المراجعة",     color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300" },
+  approved:           { label: "مقبول",             color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  partially_approved: { label: "مقبول جزئياً",    color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300" },
+  rejected:           { label: "مرفوض",             color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
+  disputed:           { label: "متنازع عليه",      color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300" },
+  finalized:          { label: "منتهي",             color: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400" },
+  // Asset statuses
+  identified:         { label: "محدد",              color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
+  valuation:          { label: "قيد التقييم",      color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
+  listed:             { label: "مُدرج للبيع",       color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300" },
+  sold:               { label: "مُباع",             color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  collected:          { label: "محصَّل",            color: "bg-emerald-200 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200" },
+  // Distribution statuses
+  draft:              { label: "مسودة",             color: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400" },
+  executing:          { label: "قيد التنفيذ",      color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
+  executed:           { label: "منفذ",              color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  // Meeting statuses
+  scheduled:          { label: "مجدول",             color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
+  completed:          { label: "مكتمل",             color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  cancelled:          { label: "ملغي",              color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
+  // Payment
+  paid:               { label: "مدفوع",             color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
 };
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_MAP[status] ?? { label: status, color: "bg-zinc-100 text-zinc-600" };
@@ -482,7 +501,7 @@ function ClaimsSection({ selectedCase, onNeedCase }: { selectedCase: BkCase | nu
 
   const create = useMutation({
     mutationFn: (data: any) => api(`/bankruptcy/cases/${selectedCase!.id}/claims`, { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-claims"] }); setShowForm(false); toast.success("تم إضافة المطالبة"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-claims", selectedCase?.id] }); qc.invalidateQueries({ queryKey: ["bk-dashboard"] }); setShowForm(false); setForm({ creditor_id: "", claim_number: "", amount: "", currency: "SAR", priority_level: "unsecured", submitted_at: "", notes: "" }); toast.success("تم إضافة المطالبة"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -584,7 +603,7 @@ function AssetsSection({ selectedCase, onNeedCase }: { selectedCase: BkCase | nu
 
   const create = useMutation({
     mutationFn: (data: any) => api(`/bankruptcy/cases/${selectedCase!.id}/assets`, { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-assets"] }); setShowForm(false); toast.success("تم إضافة الأصل"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-assets", selectedCase?.id] }); qc.invalidateQueries({ queryKey: ["bk-dashboard"] }); setShowForm(false); setForm({ asset_name: "", asset_type: "real_estate", description: "", estimated_value: "", market_value: "", location: "" }); toast.success("تم إضافة الأصل"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -669,7 +688,7 @@ function MeetingsSection({ selectedCase, onNeedCase }: { selectedCase: BkCase | 
 
   const create = useMutation({
     mutationFn: (data: any) => api(`/bankruptcy/cases/${selectedCase!.id}/meetings`, { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-meetings"] }); setShowForm(false); toast.success("تم جدولة الاجتماع"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-meetings", selectedCase?.id] }); qc.invalidateQueries({ queryKey: ["bk-dashboard"] }); setShowForm(false); setForm({ title: "", meeting_date: "", location: "", meeting_type: "creditors" }); toast.success("تم جدولة الاجتماع"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -754,7 +773,7 @@ function DistributionsSection({ selectedCase, onNeedCase }: { selectedCase: BkCa
 
   const create = useMutation({
     mutationFn: (data: any) => api(`/bankruptcy/cases/${selectedCase!.id}/distributions`, { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-distributions"] }); setShowForm(false); toast.success("تم إنشاء جولة التوزيع"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-distributions", selectedCase?.id] }); qc.invalidateQueries({ queryKey: ["bk-dashboard"] }); setShowForm(false); setForm({ total_amount: "", distribution_round: "1", distribution_date: "", notes: "" }); toast.success("تم إنشاء جولة التوزيع"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -832,7 +851,7 @@ function ReportsSection({ selectedCase, onNeedCase }: { selectedCase: BkCase | n
 
   const create = useMutation({
     mutationFn: (data: any) => api(`/bankruptcy/cases/${selectedCase!.id}/reports`, { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-reports"] }); setShowForm(false); toast.success("تم إنشاء التقرير"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-reports", selectedCase?.id] }); setShowForm(false); setForm({ report_type: "progress", report_title: "", content: "" }); toast.success("تم إنشاء التقرير"); },
     onError: (e: any) => toast.error(e.message),
   });
 
