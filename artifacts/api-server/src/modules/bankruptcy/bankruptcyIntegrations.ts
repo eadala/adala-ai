@@ -78,7 +78,7 @@ export async function saveReportToStorage(opts: {
         (office_id, case_id, original_name, file_name, mime_type, file_size,
          file_url, storage_key, category)
       VALUES
-        (${officeId}, ${caseId}::uuid,
+        (${officeId}, ${caseId},
          ${title + (reportType ? " [" + reportType + "]" : "")},
          ${fileName}, 'text/plain', ${fileSize},
          ${"/api/bankruptcy/cases/" + caseId + "/reports"},
