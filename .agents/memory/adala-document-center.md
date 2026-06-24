@@ -30,4 +30,25 @@ description: Enterprise Object Storage migration — DocumentStorageService + /d
 - MIME allowlist: 22 types enforced at upload (HTTP 415 on violation)
 - Migration worker: POST /document-center/migrate?batchSize=1-50, reads docs WHERE storage_key IS NULL AND file_url LIKE 'data:%'
 
+## V2 Enterprise Features (added on top of V1)
+
+**New DB Tables (auto-created at boot, idempotent):**
+- `document_versions` — version history per file; is_current flag; auto-incremented version_number
+- `document_permissions` — OWNER/TEAM/MANAGEMENT/HR/FINANCE/CUSTOM; UNIQUE(document_id, user_id/role_id)
+- `retention_policies` — per-office OR `__default__`; UNIQUE(office_id, category); 13 defaults seeded ON CONFLICT DO NOTHING
+- `document_ai_metadata` — Gemini analysis output; UNIQUE(document_id)
+
+**New API Routes (all under /document-center/*):**
+- Version: POST/GET /files/:id/versions, POST /files/:id/versions/:verId/restore, GET /files/:id/versions/:verId/download
+- Permissions: GET/POST /files/:id/permissions, DELETE /files/:id/permissions/:permId
+- Retention: GET/PUT /document-center/retention-policies, POST /retention-policies/scan
+- AI: POST /files/:id/analyze (Gemini), GET /files/:id/ai-metadata, GET /search?q=
+
+**Frontend: 10-tab page (was 6 tabs)**
+- Added: الإصدارات / الصلاحيات / الاحتفاظ / الذكاء المستندي
+
+**Retention policy merge pattern:** LEFT JOIN default (__default__) with office-specific; office wins via COALESCE.
+**AI analysis:** Gemini 2.0 Flash inline_data for images/PDF; text-only prompt for others; saved to document_ai_metadata.
+**Search:** ILIKE on file_name + JOIN dam.summary/keywords/parties.
+
 **Why:** Moving from base64-in-DB (causes DB bloat × 1.33x) to Object Storage with metadata-only in DB.
