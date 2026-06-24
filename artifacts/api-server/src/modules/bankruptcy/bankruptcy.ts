@@ -2,7 +2,15 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
-import { callAI } from "../ai/aiChat";
+import {
+  callBkAI,
+  saveReportToStorage,
+  tgBkCaseStatus,
+  tgBkMeeting,
+  tgBkDistribution,
+  tgBkAlert,
+  tgBkAiAnalysis,
+} from "./bankruptcyIntegrations";
 
 const router = Router();
 
@@ -813,6 +821,11 @@ router.post("/bankruptcy/cases/:id/meetings", requireAuth, async (req: any, res)
     res.status(201).json(row);
     void logTimeline(officeId, caseId, 'meeting', row.id, 'meeting_scheduled', `اجتماع مجدول: ${req.body.title}`, req.auth?.userId);
     void sendNotification(officeId, caseId, 'تم جدولة اجتماع جديد', `${req.body.title} — ${req.body.meeting_date ?? "تاريخ غير محدد"}`, 'meeting');
+    /* ① Telegram: meeting scheduled */
+    void (async () => {
+      const bCase = sqlOne(await db.execute(sql`SELECT debtor_name FROM bankruptcy_cases WHERE id=${caseId}::uuid`).catch(() => null));
+      void tgBkMeeting(officeId, bCase?.debtor_name ?? caseId, title.trim(), meeting_date ?? null, meeting_type ?? "creditors");
+    })();
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -908,6 +921,11 @@ router.put("/bankruptcy/distributions/:id", requireAuth, async (req: any, res) =
       void logTimeline(officeId, row.case_id, 'distribution', id, `distribution_${distStatus}`, `تم تغيير حالة التوزيع إلى: ${distStatus}`, req.auth?.userId);
       if (distStatus === 'approved') void sendNotification(officeId, row.case_id, 'تمت الموافقة على التوزيع', 'تمت الموافقة على جولة التوزيع وسيبدأ التنفيذ', 'distribution');
       if (distStatus === 'executed') void sendNotification(officeId, row.case_id, 'اكتمل التوزيع', 'تم تنفيذ جولة التوزيع بنجاح', 'distribution');
+      /* ② Telegram: distribution approved/executed */
+      void (async () => {
+        const bCase = sqlOne(await db.execute(sql`SELECT debtor_name FROM bankruptcy_cases WHERE id=${row.case_id}::uuid`).catch(() => null));
+        void tgBkDistribution(officeId, bCase?.debtor_name ?? row.case_id, row.distribution_round, row.total_amount, distStatus);
+      })();
     }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -952,6 +970,7 @@ router.post("/bankruptcy/cases/:id/reports", requireAuth, async (req: any, res) 
     `));
     res.status(201).json(row);
     void logTimeline(officeId, caseId, 'report', row.id, 'report_generated', `تقرير: ${req.body.report_title}`, req.auth?.userId);
+    void saveReportToStorage({ officeId, caseId, title: report_title.trim(), content: content?.trim() ?? null, reportId: row.id, reportType: report_type ?? "progress" });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1013,7 +1032,7 @@ ${context ? `\nسياق إضافي: ${context}` : ""}
 يجب أن تكون إجاباتك منظمة ومفصلة وعملية.`;
 
     const userPrompt = prompt?.trim() || (typePrompts[analysis_type] ?? typePrompts.general);
-    const result = await callAI(systemPrompt, userPrompt, officeId);
+    const result = await callBkAI(systemPrompt, userPrompt, officeId, "bankruptcy_analysis", req.auth?.userId ?? "system");
 
     await db.execute(sql`
       INSERT INTO bk_ai_analysis
@@ -1026,6 +1045,7 @@ ${context ? `\nسياق إضافي: ${context}` : ""}
          ${Math.ceil(result.length / 4)})
     `);
 
+    void tgBkAiAnalysis(officeId, caseRow.debtor_name ?? caseId, analysis_type ?? "general");
     res.json({ result, caseId, analysisType: analysis_type ?? "general" });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1282,12 +1302,13 @@ router.post("/bankruptcy/cases/:id/ai-assistant", requireAuth, async (req: any, 
 مطالبات مقبولة: ${caseRow.approved_claims} | مطالبات مرفوضة: ${caseRow.rejected_claims}
 قدّم إجابة مفصلة ومنظمة ومهنية باللغة العربية مع ترقيم واضح للنقاط.`;
 
-    const result = await callAI(systemPrompt, qa.prompt, officeId);
+    const result = await callBkAI(systemPrompt, qa.prompt, officeId, "bankruptcy_qa", req.auth?.userId ?? "system");
     await db.execute(sql`
       INSERT INTO bk_ai_analysis (case_id, office_id, analysis_type, input_source, result, token_count)
       VALUES (${caseId}::uuid, ${officeId}, ${qa.type}, ${action}, ${result}, ${Math.ceil(result.length / 4)})
     `);
     void logTimeline(officeId, caseId, 'ai', caseId, 'ai_assistant_executed', `تحليل ذكي: ${action}`, req.auth?.userId);
+    void tgBkAiAnalysis(officeId, caseRow.debtor_name ?? caseId, qa.type ?? "general");
     res.json({ result, action, analysisType: qa.type, caseId });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });

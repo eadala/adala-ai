@@ -91,3 +91,4 @@
 - [Adala Workflow Builder Grants](adala-workflow-builder-grants.md) — 3-layer access control: backend middleware + nav superAdminOnly + page access-check; workflow_builder_grants table; WorkflowGrantsTab in super-admin
 - [Adala ai_workflows schema](adala-ai-workflows-schema.md) — ai_workflows+ai_workflow_runs id/office_id/workflow_id must be TEXT (not uuid) to match production; had FK ai_workflow_runs_workflow_id_fkey to drop+recreate when changing types
 - [Adala Bankruptcy Module](adala-bankruptcy.md) — verifyCase() mandatory in nested POSTs; isUUID() before ::uuid cast; 11 tables bk_* prefix; status lifecycles enforced at DB+API level
+- [Adala Bankruptcy Integrations](adala-bankruptcy-integrations.md) — callBkAI() wrapper fixes officeId param order; 5 Telegram events; saveReportToStorage() after every bk_reports INSERT

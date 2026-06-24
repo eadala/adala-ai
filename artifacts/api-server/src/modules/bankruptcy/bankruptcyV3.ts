@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
-import { callAI } from "../ai/aiChat";
+import { callBkAI, saveReportToStorage } from "./bankruptcyIntegrations";
 // V3: Pre-Bankruptcy Opening Requests Module
 
 const router = Router();
@@ -284,9 +284,9 @@ router.post("/bankruptcy/opening-requests/:id/ai-analysis", requireAuth, async (
 
     let analysis: any = {};
     try {
-      const aiText = await callAI(prompt, `تحليل أهلية الإفلاس - ${row.company_name}`);
-      const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) analysis = JSON.parse(jsonMatch[0]);
+      const rawReply = await callBkAI(prompt, `تحليل أهلية الإفلاس - ${row.company_name}`, officeId, "bankruptcy_eligibility");
+      const jsonMatch = rawReply.match(/\{[\s\S]*\}/);
+      if (jsonMatch) analysis = JSON.parse(jsonMatch[0]); // rawReply is now a plain string
     } catch {
       analysis = {
         eligibility_score: debtRatio > 1 ? 75 : 40,
@@ -448,7 +448,8 @@ ${ai.legal_observations ?? ""}
 
     let content = "";
     try {
-      content = await callAI(prompt, "توليد حزمة التقديم القضائي");
+      const reply = await callBkAI(prompt, "توليد حزمة التقديم القضائي", officeId, "bankruptcy_court_package");
+      content = reply || generateFallbackPackage(row, ai);
     } catch {
       content = generateFallbackPackage(row, ai);
     }
@@ -460,6 +461,16 @@ ${ai.legal_observations ?? ""}
         updated_at               = NOW()
       WHERE id=${id}::uuid
     `);
+
+    /* ③ Storage: save court package as a file */
+    void saveReportToStorage({
+      officeId,
+      caseId: id,
+      title: `حزمة المحكمة — ${row.company_name}`,
+      content,
+      reportId: id + "-court",
+      reportType: "court_package",
+    });
 
     res.json({ ok: true, content, generatedAt: new Date().toISOString() });
   } catch (e: any) { res.status(500).json({ error: e.message }); }

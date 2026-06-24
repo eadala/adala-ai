@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
-import { callAI } from "../ai/aiChat";
+import { callBkAI, tgBkAlert, saveReportToStorage } from "./bankruptcyIntegrations";
 
 const router = Router();
 
@@ -409,13 +409,14 @@ router.post("/bankruptcy/cases/:id/court-package", requireAuth, async (req: any,
 
 استخدم أسلوباً قانونياً رسمياً مع الإشارة إلى المواد القانونية ذات الصلة من نظام الإفلاس السعودي.`;
 
-    const content = await callAI(systemPrompt, userPrompt, officeId);
+    const content = await callBkAI(systemPrompt, userPrompt, officeId, "bankruptcy_court_package", req.auth?.userId ?? "system");
 
     const report = sqlOne(await db.execute(sql`
       INSERT INTO bk_reports (case_id, office_id, report_type, report_title, content, generated_by, category)
       VALUES (${caseId}::uuid, ${officeId}, 'court', ${'حزمة المستندات القضائية — ' + c.case_number}, ${content}, ${req.auth?.userId ?? 'system'}, 'court_package')
       RETURNING *
     `));
+    void saveReportToStorage({ officeId, caseId, title: 'حزمة المستندات القضائية — ' + c.case_number, content, reportId: report.id, reportType: 'court_package' });
 
     res.json({
       reportId: report.id,
@@ -727,7 +728,7 @@ router.post("/bankruptcy/templates/ai-generate", requireAuth, async (req: any, r
 ${caseContext}
 ${context ? `\nسياق إضافي: ${context}` : ""}`;
 
-    const content = await callAI(systemPrompt, userPrompt, officeId);
+    const content = await callBkAI(systemPrompt, userPrompt, officeId, "bankruptcy_analysis", req.auth?.userId ?? "system");
     const title   = `${typeLabels[template_type] ?? template_type} — مُنشأ بالذكاء الاصطناعي`;
 
     const row = sqlOne(await db.execute(sql`
@@ -839,6 +840,13 @@ router.post("/bankruptcy/cases/:id/alerts/scan", requireAuth, async (req: any, r
           RETURNING *
         `));
         created.push(r);
+        /* ④ Telegram: critical/high alert */
+        if (r?.severity === "critical" || r?.severity === "high") {
+          void (async () => {
+            const bCase = sqlOne(await db.execute(sql`SELECT debtor_name FROM bankruptcy_cases WHERE id=${caseId}::uuid`).catch(() => null));
+            void tgBkAlert(officeId, bCase?.debtor_name ?? caseId, r.title, r.severity);
+          })();
+        }
       }
     }
 
