@@ -16,6 +16,7 @@ import { initVapid } from "./lib/webPush";
 import { loadHardeningState } from "./hardening/production.lock";
 import { ensureERPTables } from "./modules/financial/erp-ledger";
 import { ensureBankruptcyTables } from "./modules/bankruptcy/bankruptcy";
+import { ensureBankruptcyV2Tables } from "./modules/bankruptcy/bankruptcyV2";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -77,6 +78,7 @@ ensureStripeBufferTables().catch(e => logger.error({ e }, "ensureStripeBufferTab
 ensureReconciliationTable().catch(e => logger.error({ e }, "ensureReconciliationTable failed"));
 ensureERPTables().catch(e => logger.error({ e }, "ensureERPTables failed"));
 ensureBankruptcyTables().catch(e => logger.error({ e }, "ensureBankruptcyTables failed"));
+ensureBankruptcyV2Tables().catch(e => logger.error({ e }, "ensureBankruptcyV2Tables failed"));
 initStripe();
 startEmailCron();
 startMonitoringCron();

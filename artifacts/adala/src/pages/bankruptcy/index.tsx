@@ -7,6 +7,9 @@ import {
   Archive, Banknote, Brain, ChevronLeft,
   ChevronRight, Trash2, Eye, Pencil,
   Activity, Bell, TrendingUp, Sparkles, Shield, CheckCheck,
+  GitBranch, ListTodo, BookOpen, AlertCircle, Package,
+  CheckSquare, Circle, Clock, X, Check, RefreshCw,
+  ChevronDown, Copy, Star, Zap, TriangleAlert,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -82,19 +85,24 @@ function StatusBadge({ status }: { status: string }) {
    SIDEBAR NAVIGATION
 ══════════════════════════════════════════════════════════ */
 const SECTIONS: { id: string; label: string; icon: any; divider?: boolean }[] = [
-  { id: "dashboard",     label: "لوحة التحكم",     icon: LayoutDashboard },
-  { id: "cases",         label: "ملفات الإفلاس",    icon: Landmark },
-  { id: "creditors",     label: "الدائنون",          icon: Users },
-  { id: "claims",        label: "المطالبات",         icon: FileText },
-  { id: "assets",        label: "الأصول",            icon: Building2 },
-  { id: "meetings",      label: "الاجتماعات",        icon: CalendarDays },
-  { id: "distributions", label: "التوزيعات",         icon: TrendingDown },
-  { id: "reports",       label: "التقارير",           icon: BarChart3 },
-  { id: "ai",            label: "الذكاء الاصطناعي",  icon: Bot },
-  { id: "executive",     label: "لوحة تنفيذية",      icon: TrendingUp, divider: true },
-  { id: "assistant",     label: "المساعد الذكي",      icon: Sparkles },
-  { id: "timeline",      label: "السجل الزمني",      icon: Activity },
-  { id: "notifications", label: "الإشعارات",         icon: Bell },
+  { id: "dashboard",     label: "لوحة التحكم",       icon: LayoutDashboard },
+  { id: "cases",         label: "ملفات الإفلاس",      icon: Landmark },
+  { id: "creditors",     label: "الدائنون",            icon: Users },
+  { id: "claims",        label: "المطالبات",           icon: FileText },
+  { id: "assets",        label: "الأصول",              icon: Building2 },
+  { id: "meetings",      label: "الاجتماعات",          icon: CalendarDays },
+  { id: "distributions", label: "التوزيعات",           icon: TrendingDown },
+  { id: "reports",       label: "التقارير",             icon: BarChart3 },
+  { id: "ai",            label: "الذكاء الاصطناعي",    icon: Bot },
+  { id: "workflow",      label: "سير العمل",            icon: GitBranch,    divider: true },
+  { id: "tasks",         label: "إدارة المهام",         icon: ListTodo },
+  { id: "templates",     label: "القوالب القانونية",    icon: BookOpen },
+  { id: "alerts",        label: "التنبيهات",            icon: AlertCircle },
+  { id: "court_package", label: "حزمة المحكمة",        icon: Package },
+  { id: "executive",     label: "لوحة تنفيذية",        icon: TrendingUp,   divider: true },
+  { id: "assistant",     label: "المساعد الذكي",        icon: Sparkles },
+  { id: "timeline",      label: "السجل الزمني",        icon: Activity },
+  { id: "notifications", label: "الإشعارات",           icon: Bell },
 ];
 
 /* ══════════════════════════════════════════════════════════
@@ -177,6 +185,11 @@ export default function BankruptcyPage() {
         {section === "distributions" && <DistributionsSection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
         {section === "reports"       && <ReportsSection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
         {section === "ai"            && <AISection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
+        {section === "workflow"      && <WorkflowSection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
+        {section === "tasks"         && <TasksSection selectedCase={selectedCase} />}
+        {section === "templates"     && <TemplatesSection selectedCase={selectedCase} />}
+        {section === "alerts"        && <AlertsSection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
+        {section === "court_package" && <CourtPackageSection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
         {section === "executive"     && <ExecutiveDashboard />}
         {section === "assistant"     && <AIAssistantSection selectedCase={selectedCase} onNeedCase={() => setSection("cases")} />}
         {section === "timeline"      && <TimelineSection selectedCase={selectedCase} />}
@@ -1365,6 +1378,768 @@ function TimelineSection({ selectedCase }: { selectedCase: BkCase | null }) {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   WORKFLOW SECTION (V2 Phase 1)
+══════════════════════════════════════════════════════════ */
+function WorkflowSection({ selectedCase, onNeedCase }: { selectedCase: BkCase | null; onNeedCase: () => void }) {
+  const qc = useQueryClient();
+  const [initLoading, setInitLoading] = useState(false);
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["bk-workflow", selectedCase?.id],
+    queryFn: () => api(`/bankruptcy/cases/${selectedCase!.id}/workflow`),
+    enabled: !!selectedCase,
+    staleTime: 30_000,
+  });
+
+  const { data: widgetData = [] } = useQuery<any[]>({
+    queryKey: ["bk-workflow-widget"],
+    queryFn: () => api("/bankruptcy/workflow-widget"),
+    staleTime: 30_000,
+    enabled: !selectedCase,
+  });
+
+  const updateStep = useMutation({
+    mutationFn: ({ stepId, status }: { stepId: string; status: string }) =>
+      api(`/bankruptcy/workflow-steps/${stepId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-workflow", selectedCase?.id] }); toast.success("تم تحديث الخطوة"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  async function initWorkflow() {
+    if (!selectedCase) return;
+    setInitLoading(true);
+    try {
+      await api(`/bankruptcy/cases/${selectedCase.id}/workflow`, { method: "POST" });
+      toast.success("تم تهيئة سير العمل بنجاح");
+      refetch();
+    } catch (e: any) { toast.error(e.message); }
+    finally { setInitLoading(false); }
+  }
+
+  const STEP_COLORS: Record<string, string> = {
+    pending:     "border-border/50 bg-card",
+    in_progress: "border-blue-300 bg-blue-50/60 dark:border-blue-700 dark:bg-blue-950/20",
+    completed:   "border-emerald-300 bg-emerald-50/60 dark:border-emerald-700 dark:bg-emerald-950/20",
+    blocked:     "border-red-300 bg-red-50/60 dark:border-red-700 dark:bg-red-950/20",
+    skipped:     "border-zinc-200 bg-zinc-50/60 opacity-60",
+  };
+  const STEP_ICON: Record<string, any> = {
+    pending:     Circle,
+    in_progress: Clock,
+    completed:   CheckSquare,
+    blocked:     X,
+    skipped:     ChevronDown,
+  };
+
+  if (!selectedCase) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2"><GitBranch className="h-5 w-5 text-blue-600" /> سير العمل — نظرة عامة</h2>
+          <p className="text-sm text-muted-foreground">جميع ملفات الإفلاس النشطة</p>
+        </div>
+        {widgetData.length === 0 && (
+          <Card className="border-border/50">
+            <CardContent className="py-10 text-center text-muted-foreground text-sm">
+              <GitBranch className="h-10 w-10 mx-auto mb-3 opacity-20" />
+              لا توجد ملفات نشطة. حدد ملفاً لتهيئة سير العمل.
+            </CardContent>
+          </Card>
+        )}
+        <div className="space-y-3">
+          {widgetData.map((w: any) => (
+            <Card key={w.id} className="border-border/50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="font-semibold text-sm">{w.debtor_name}</p>
+                    <p className="text-xs text-muted-foreground">{w.case_number}</p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">{w.completionPct}% مكتمل</Badge>
+                </div>
+                <div className="w-full bg-border/30 rounded-full h-2 mb-2">
+                  <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${w.completionPct}%` }} />
+                </div>
+                <div className="flex gap-3 text-xs text-muted-foreground">
+                  {w.current_label && <span>📍 {w.current_label}</span>}
+                  {Number(w.blocked) > 0 && <span className="text-red-500">⛔ {w.blocked} محظور</span>}
+                  {Number(w.overdue) > 0 && <span className="text-orange-500">⚠️ {w.overdue} متأخر</span>}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) return <div className="flex items-center justify-center h-48"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>;
+
+  const workflow  = (data as any)?.workflow;
+  const steps: any[] = (data as any)?.steps ?? [];
+  const pct: number  = (data as any)?.completionPct ?? 0;
+
+  if (!workflow) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-bold flex items-center gap-2"><GitBranch className="h-5 w-5 text-blue-600" /> سير العمل — {selectedCase.debtor_name}</h2>
+        <Card className="border-border/50">
+          <CardContent className="py-12 text-center space-y-4">
+            <GitBranch className="h-14 w-14 mx-auto text-blue-200" />
+            <p className="text-muted-foreground">لم يُهيَّأ سير العمل لهذا الملف بعد</p>
+            <Button onClick={initWorkflow} disabled={initLoading} className="gap-2">
+              {initLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              تهيئة سير العمل (١٢ خطوة)
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2"><GitBranch className="h-5 w-5 text-blue-600" /> سير العمل</h2>
+          <p className="text-sm text-muted-foreground">{selectedCase.debtor_name} — {pct}% مكتمل</p>
+        </div>
+        <Badge className={pct === 100 ? "bg-emerald-500" : "bg-blue-500"}>{pct}%</Badge>
+      </div>
+
+      <div className="w-full bg-border/30 rounded-full h-3">
+        <div className="bg-gradient-to-r from-blue-500 to-emerald-500 h-3 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+      </div>
+
+      <div className="space-y-2">
+        {steps.map((step: any, idx: number) => {
+          const StatusIcon = STEP_ICON[step.status] ?? Circle;
+          return (
+            <div key={step.id} className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${STEP_COLORS[step.status] ?? STEP_COLORS.pending}`}>
+              <div className="flex flex-col items-center gap-1 shrink-0">
+                <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold
+                  ${step.status === 'completed' ? 'bg-emerald-500 text-white' :
+                    step.status === 'in_progress' ? 'bg-blue-500 text-white' :
+                    step.status === 'blocked' ? 'bg-red-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+                  {step.status === 'completed' ? <Check className="h-4 w-4" /> : idx + 1}
+                </div>
+                {idx < steps.length - 1 && <div className="w-0.5 h-3 bg-border/40" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold">{step.step_label}</p>
+                  <StatusIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  {step.due_date && <span className="text-xs text-muted-foreground">📅 {new Date(step.due_date).toLocaleDateString("ar-SA")}</span>}
+                </div>
+                {step.notes && <p className="text-xs text-muted-foreground mt-0.5">{step.notes}</p>}
+                {step.required_docs?.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-0.5">📎 {step.required_docs.join("، ")}</p>
+                )}
+              </div>
+              {step.status !== 'completed' && step.status !== 'skipped' && (
+                <div className="flex gap-1.5 shrink-0">
+                  {step.status === 'pending' && (
+                    <Button size="sm" variant="outline" className="h-7 text-xs px-2"
+                      onClick={() => updateStep.mutate({ stepId: step.id, status: 'in_progress' })}>
+                      ابدأ
+                    </Button>
+                  )}
+                  {step.status === 'in_progress' && (
+                    <Button size="sm" className="h-7 text-xs px-2 bg-emerald-500 hover:bg-emerald-600"
+                      onClick={() => updateStep.mutate({ stepId: step.id, status: 'completed' })}>
+                      <Check className="h-3.5 w-3.5 ml-1" /> أكمل
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   TASKS SECTION (V2 Phase 4)
+══════════════════════════════════════════════════════════ */
+function TasksSection({ selectedCase }: { selectedCase: BkCase | null }) {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: "" });
+  const [filterStatus, setFilterStatus] = useState<string>("");
+
+  const { data: tasks = [], isLoading } = useQuery<any[]>({
+    queryKey: ["bk-tasks", selectedCase?.id, filterStatus],
+    queryFn: () => {
+      const qs = new URLSearchParams();
+      if (selectedCase) qs.set("case_id", selectedCase.id);
+      if (filterStatus) qs.set("status", filterStatus);
+      return api(`/bankruptcy/tasks?${qs}`);
+    },
+    staleTime: 20_000,
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ["bk-tasks-stats"],
+    queryFn: () => api("/bankruptcy/tasks/stats"),
+    staleTime: 60_000,
+  });
+
+  const createTask = useMutation({
+    mutationFn: () => api("/bankruptcy/tasks", { method: "POST", body: JSON.stringify({
+      ...form, case_id: selectedCase?.id ?? undefined,
+    })}),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-tasks"] }); qc.invalidateQueries({ queryKey: ["bk-tasks-stats"] }); setShowForm(false); setForm({ title: "", description: "", priority: "medium", due_date: "" }); toast.success("تم إنشاء المهمة"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const patchTask = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api(`/bankruptcy/tasks/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-tasks"] }); qc.invalidateQueries({ queryKey: ["bk-tasks-stats"] }); },
+  });
+
+  const deleteTask = useMutation({
+    mutationFn: (id: string) => api(`/bankruptcy/tasks/${id}`, { method: "DELETE" }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-tasks"] }); toast.success("تم حذف المهمة"); },
+  });
+
+  const autoGenerate = useMutation({
+    mutationFn: () => api(`/bankruptcy/cases/${selectedCase!.id}/auto-tasks`, { method: "POST" }),
+    onSuccess: (d: any) => { qc.invalidateQueries({ queryKey: ["bk-tasks"] }); toast.success(`تم إنشاء ${(d as any).created} مهمة تلقائية`); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const PRIORITY_COLOR: Record<string, string> = {
+    critical: "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-300",
+    high:     "bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300",
+    medium:   "bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300",
+    low:      "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+  };
+  const PRIORITY_LABEL: Record<string, string> = { critical:"حرج", high:"مرتفع", medium:"متوسط", low:"منخفض" };
+  const STATUS_COLOR: Record<string, string> = {
+    pending:     "text-amber-600",
+    in_progress: "text-blue-600",
+    completed:   "text-emerald-600",
+    cancelled:   "text-zinc-400",
+    overdue:     "text-red-600",
+  };
+  const STATUS_LABEL: Record<string, string> = { pending:"معلق", in_progress:"جارٍ", completed:"مكتمل", cancelled:"ملغي", overdue:"متأخر" };
+
+  const overdueCount = (stats as any)?.overdueCount ?? 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <ListTodo className="h-5 w-5 text-violet-600" />
+            إدارة المهام
+            {overdueCount > 0 && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">{overdueCount} متأخرة</span>}
+          </h2>
+          <p className="text-sm text-muted-foreground">{selectedCase ? selectedCase.debtor_name : "جميع الملفات"}</p>
+        </div>
+        <div className="flex gap-2">
+          {selectedCase && (
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs"
+              onClick={() => autoGenerate.mutate()} disabled={autoGenerate.isPending}>
+              {autoGenerate.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              توليد تلقائي
+            </Button>
+          )}
+          <Button size="sm" className="gap-1.5 text-xs" onClick={() => setShowForm(v => !v)}>
+            <Plus className="h-3.5 w-3.5" /> مهمة جديدة
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {["","pending","in_progress","completed","overdue"].map(s => (
+          <button key={s} onClick={() => setFilterStatus(s)}
+            className={`text-xs px-3 py-1 rounded-full border transition-all ${filterStatus === s ? "bg-violet-600 text-white border-violet-600" : "border-border/50 hover:bg-accent"}`}>
+            {s === "" ? "الكل" : STATUS_LABEL[s] ?? s}
+          </button>
+        ))}
+      </div>
+
+      {showForm && (
+        <Card className="border-violet-200 dark:border-violet-800/40">
+          <CardHeader className="pb-2"><CardTitle className="text-sm">مهمة جديدة</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <Input placeholder="عنوان المهمة *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+            <Input placeholder="الوصف (اختياري)" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-2">
+              <select value={form.priority} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}
+                className="w-full text-sm border border-border/50 rounded-lg px-2 py-1.5 bg-background">
+                <option value="low">منخفض</option>
+                <option value="medium">متوسط</option>
+                <option value="high">مرتفع</option>
+                <option value="critical">حرج</option>
+              </select>
+              <Input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))} />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button size="sm" variant="outline" onClick={() => setShowForm(false)}>إلغاء</Button>
+              <Button size="sm" onClick={() => createTask.mutate()} disabled={!form.title.trim() || createTask.isPending}>
+                {createTask.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "حفظ"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isLoading && <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin text-violet-500" /></div>}
+
+      {!isLoading && tasks.length === 0 && (
+        <Card className="border-border/50">
+          <CardContent className="py-10 text-center text-muted-foreground text-sm">
+            <ListTodo className="h-10 w-10 mx-auto mb-3 opacity-20" />
+            لا توجد مهام
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="space-y-2">
+        {tasks.map((t: any) => (
+          <div key={t.id} className={`flex items-start gap-3 p-3 rounded-xl border transition-all
+            ${t.status === 'completed' ? 'opacity-60 bg-card border-border/30' : 'bg-card border-border/50 hover:border-violet-200'}`}>
+            <button onClick={() => patchTask.mutate({ id: t.id, status: t.status === 'completed' ? 'pending' : 'completed' })}
+              className={`h-5 w-5 mt-0.5 rounded border-2 flex items-center justify-center shrink-0 transition-all
+                ${t.status === 'completed' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-border/50 hover:border-emerald-400'}`}>
+              {t.status === 'completed' && <Check className="h-3 w-3" />}
+            </button>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className={`text-sm font-medium ${t.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>{t.title}</p>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PRIORITY_COLOR[t.priority] ?? PRIORITY_COLOR.medium}`}>{PRIORITY_LABEL[t.priority] ?? t.priority}</span>
+                {t.status !== 'completed' && <span className={`text-xs font-medium ${STATUS_COLOR[t.status] ?? ''}`}>{STATUS_LABEL[t.status] ?? t.status}</span>}
+              </div>
+              {t.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{t.description}</p>}
+              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                {!selectedCase && t.debtor_name && <span className="text-xs text-muted-foreground">{t.debtor_name}</span>}
+                {t.due_date && <span className={`text-xs flex items-center gap-1 ${new Date(t.due_date) < new Date() && t.status !== 'completed' ? 'text-red-500' : 'text-muted-foreground'}`}><Clock className="h-3 w-3" />{new Date(t.due_date).toLocaleDateString("ar-SA")}</span>}
+                {t.task_type === 'auto' && <span className="text-[10px] text-blue-500">⚡ تلقائي</span>}
+                {t.task_type === 'ai_suggested' && <span className="text-[10px] text-violet-500">🤖 AI</span>}
+              </div>
+            </div>
+            <button onClick={() => deleteTask.mutate(t.id)} className="text-muted-foreground hover:text-red-500 transition-colors shrink-0">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   TEMPLATES SECTION (V2 Phase 5)
+══════════════════════════════════════════════════════════ */
+const TEMPLATE_TYPES = [
+  { value: "opening_petition",    label: "عريضة الإفلاس" },
+  { value: "trustee_report",      label: "تقرير أمين الإفلاس" },
+  { value: "meeting_minutes",     label: "محضر الاجتماع" },
+  { value: "distribution_report", label: "تقرير التوزيع" },
+  { value: "claim_review",        label: "تقرير مراجعة المطالبات" },
+  { value: "asset_evaluation",    label: "تقرير تقييم الأصول" },
+  { value: "court_correspondence","label": "مراسلة المحكمة" },
+  { value: "executive_summary",   label: "الملخص التنفيذي" },
+  { value: "creditors_register",  label: "سجل الدائنين" },
+];
+
+function TemplatesSection({ selectedCase }: { selectedCase: BkCase | null }) {
+  const qc = useQueryClient();
+  const [viewTemplate, setViewTemplate] = useState<any>(null);
+  const [genType, setGenType] = useState("opening_petition");
+  const [genLoading, setGenLoading] = useState(false);
+  const [filterType, setFilterType] = useState("");
+
+  const { data: templates = [], isLoading } = useQuery<any[]>({
+    queryKey: ["bk-templates", filterType],
+    queryFn: () => api(`/bankruptcy/templates${filterType ? `?type=${filterType}` : ""}`),
+    staleTime: 60_000,
+  });
+
+  const approveTemplate = useMutation({
+    mutationFn: (id: string) => api(`/bankruptcy/templates/${id}`, { method: "PATCH", body: JSON.stringify({ approved: true }) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-templates"] }); toast.success("تم اعتماد القالب"); },
+  });
+
+  const deleteTemplate = useMutation({
+    mutationFn: (id: string) => api(`/bankruptcy/templates/${id}`, { method: "DELETE" }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-templates"] }); toast.success("تم حذف القالب"); setViewTemplate(null); },
+  });
+
+  async function generateAI() {
+    setGenLoading(true);
+    try {
+      const result = await api("/bankruptcy/templates/ai-generate", {
+        method: "POST",
+        body: JSON.stringify({ template_type: genType, case_id: selectedCase?.id }),
+      });
+      qc.invalidateQueries({ queryKey: ["bk-templates"] });
+      setViewTemplate((result as any).template);
+      toast.success("تم إنشاء القالب — يحتاج إلى اعتماد");
+    } catch (e: any) { toast.error(e.message); }
+    finally { setGenLoading(false); }
+  }
+
+  if (viewTemplate) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setViewTemplate(null)} className="text-muted-foreground hover:text-foreground">
+            <ChevronDown className="h-4 w-4 rotate-90" />
+          </button>
+          <div className="flex-1">
+            <h2 className="text-base font-bold">{viewTemplate.title}</h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              {viewTemplate.ai_generated && <Badge variant="outline" className="text-[10px] gap-1"><Sparkles className="h-2.5 w-2.5" /> AI</Badge>}
+              {viewTemplate.approved
+                ? <Badge className="text-[10px] bg-emerald-500">معتمد</Badge>
+                : <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">في انتظار الاعتماد</Badge>}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {!viewTemplate.approved && (
+              <Button size="sm" className="gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-xs"
+                onClick={() => approveTemplate.mutate(viewTemplate.id)}>
+                <Check className="h-3.5 w-3.5" /> اعتماد
+              </Button>
+            )}
+            <Button size="sm" variant="outline" className="text-xs gap-1.5"
+              onClick={() => { navigator.clipboard?.writeText(viewTemplate.content); toast.success("تم النسخ"); }}>
+              <Copy className="h-3.5 w-3.5" /> نسخ
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs text-red-500"
+              onClick={() => deleteTemplate.mutate(viewTemplate.id)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+        <Card className="border-border/50">
+          <CardContent className="p-4">
+            <div className="bg-muted/30 rounded-lg p-4 text-sm whitespace-pre-wrap leading-relaxed max-h-[60vh] overflow-y-auto font-mono text-right" dir="rtl">
+              {viewTemplate.content}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-bold flex items-center gap-2"><BookOpen className="h-5 w-5 text-teal-600" /> القوالب القانونية</h2>
+        <p className="text-sm text-muted-foreground">{templates.length} قالب متاح</p>
+      </div>
+
+      <Card className="border-teal-200 dark:border-teal-800/40 bg-teal-50/40 dark:bg-teal-950/10">
+        <CardContent className="p-4">
+          <p className="text-sm font-semibold mb-3 flex items-center gap-2"><Sparkles className="h-4 w-4 text-teal-600" /> إنشاء قالب بالذكاء الاصطناعي</p>
+          <div className="flex gap-2 flex-wrap">
+            <select value={genType} onChange={e => setGenType(e.target.value)}
+              className="flex-1 text-sm border border-border/50 rounded-lg px-2 py-1.5 bg-background min-w-[180px]">
+              {TEMPLATE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+            <Button size="sm" onClick={generateAI} disabled={genLoading} className="gap-1.5 bg-teal-600 hover:bg-teal-700 text-xs">
+              {genLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              إنشاء
+            </Button>
+          </div>
+          {selectedCase && <p className="text-xs text-muted-foreground mt-2">سيستخدم بيانات ملف: {selectedCase.debtor_name}</p>}
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-2 flex-wrap">
+        <button onClick={() => setFilterType("")}
+          className={`text-xs px-3 py-1 rounded-full border transition-all ${filterType === "" ? "bg-teal-600 text-white border-teal-600" : "border-border/50 hover:bg-accent"}`}>
+          الكل
+        </button>
+        {TEMPLATE_TYPES.map(t => (
+          <button key={t.value} onClick={() => setFilterType(t.value)}
+            className={`text-xs px-3 py-1 rounded-full border transition-all ${filterType === t.value ? "bg-teal-600 text-white border-teal-600" : "border-border/50 hover:bg-accent"}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {isLoading && <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin text-teal-500" /></div>}
+
+      {!isLoading && templates.length === 0 && (
+        <Card className="border-border/50">
+          <CardContent className="py-10 text-center text-muted-foreground text-sm">
+            <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-20" />
+            لا توجد قوالب — أنشئ أول قالب بالذكاء الاصطناعي
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {templates.map((t: any) => (
+          <Card key={t.id} className="border-border/50 hover:border-teal-300 transition-all cursor-pointer" onClick={() => setViewTemplate(t)}>
+            <CardContent className="p-3">
+              <div className="flex items-start gap-2">
+                <BookOpen className="h-4 w-4 text-teal-600 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">{t.title}</p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="text-[10px] text-muted-foreground">{TEMPLATE_TYPES.find(tt => tt.value === t.template_type)?.label ?? t.template_type}</span>
+                    {t.ai_generated && <Badge variant="outline" className="text-[10px]">AI</Badge>}
+                    {t.approved ? <Badge className="text-[10px] bg-emerald-500">معتمد</Badge> : <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">انتظار</Badge>}
+                    <span className="text-[10px] text-muted-foreground mr-auto">{t.usage_count} استخدام</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   ALERTS SECTION (V2 Phase 6)
+══════════════════════════════════════════════════════════ */
+function AlertsSection({ selectedCase, onNeedCase }: { selectedCase: BkCase | null; onNeedCase: () => void }) {
+  const qc = useQueryClient();
+  const [scanning, setScanning] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["bk-alerts"],
+    queryFn: () => api("/bankruptcy/alerts"),
+    staleTime: 20_000,
+    refetchInterval: 60_000,
+  });
+
+  const alerts: any[] = (data as any)?.alerts ?? [];
+  const counts: any[] = (data as any)?.counts ?? [];
+
+  const ackAlert = useMutation({
+    mutationFn: (id: string) => api(`/bankruptcy/alerts/${id}`, { method: "PATCH", body: JSON.stringify({ status: "acknowledged" }) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-alerts"] }); },
+  });
+
+  const resolveAlert = useMutation({
+    mutationFn: (id: string) => api(`/bankruptcy/alerts/${id}`, { method: "PATCH", body: JSON.stringify({ status: "resolved" }) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bk-alerts"] }); toast.success("تم حل التنبيه"); },
+  });
+
+  async function scanCase() {
+    if (!selectedCase) return onNeedCase();
+    setScanning(true);
+    try {
+      const r = await api(`/bankruptcy/cases/${selectedCase.id}/alerts/scan`, { method: "POST" });
+      qc.invalidateQueries({ queryKey: ["bk-alerts"] });
+      toast.success(`فحص مكتمل — ${(r as any).newAlerts} تنبيه جديد`);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setScanning(false); }
+  }
+
+  const SEVERITY: Record<string, { color: string; bg: string; label: string; Icon: any }> = {
+    critical: { color: "text-red-600",    bg: "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800/40",       label: "حرج",     Icon: AlertCircle },
+    high:     { color: "text-orange-600", bg: "bg-orange-50 border-orange-200 dark:bg-orange-950/20 dark:border-orange-800/40", label: "مرتفع", Icon: TriangleAlert },
+    warning:  { color: "text-amber-600",  bg: "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/40",   label: "تحذير",  Icon: AlertTriangle },
+    info:     { color: "text-blue-600",   bg: "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800/40",       label: "معلومة", Icon: Bell },
+  };
+
+  const criticalCount = Number(counts.find((c: any) => c.severity === "critical")?.cnt ?? 0);
+  const highCount     = Number(counts.find((c: any) => c.severity === "high")?.cnt ?? 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-500" />
+            مركز التنبيهات
+            {criticalCount > 0 && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">{criticalCount} حرج</span>}
+            {highCount > 0 && <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full">{highCount} مرتفع</span>}
+          </h2>
+          <p className="text-sm text-muted-foreground">{alerts.length} تنبيه نشط</p>
+        </div>
+        <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={scanCase} disabled={scanning}>
+          {scanning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          فحص الملف
+        </Button>
+      </div>
+
+      {isLoading && <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin text-red-500" /></div>}
+
+      {!isLoading && alerts.length === 0 && (
+        <Card className="border-border/50">
+          <CardContent className="py-12 text-center space-y-2">
+            <CheckSquare className="h-12 w-12 text-emerald-400 mx-auto" />
+            <p className="font-semibold text-emerald-600">لا توجد تنبيهات نشطة</p>
+            <p className="text-xs text-muted-foreground">جميع الملفات في حالة جيدة</p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="space-y-2">
+        {alerts.map((a: any) => {
+          const sev = SEVERITY[a.severity] ?? SEVERITY.info;
+          const SevIcon = sev.Icon;
+          return (
+            <div key={a.id} className={`p-3 rounded-xl border transition-all ${sev.bg}`}>
+              <div className="flex items-start gap-3">
+                <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${sev.color} bg-white/60 dark:bg-black/20`}>
+                  <SevIcon className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold">{a.title}</p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${sev.color}`}>{sev.label}</span>
+                  </div>
+                  {a.message && <p className="text-xs text-muted-foreground mt-0.5">{a.message}</p>}
+                  {a.debtor_name && <p className="text-xs text-muted-foreground mt-0.5">{a.debtor_name} — {a.case_number}</p>}
+                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(a.created_at).toLocaleString("ar-SA")}</p>
+                </div>
+                <div className="flex gap-1.5 shrink-0">
+                  <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => ackAlert.mutate(a.id)}>
+                    استلام
+                  </Button>
+                  <Button size="sm" className="h-7 text-xs px-2 bg-emerald-500 hover:bg-emerald-600" onClick={() => resolveAlert.mutate(a.id)}>
+                    حل
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   COURT PACKAGE SECTION (V2 Phase 2)
+══════════════════════════════════════════════════════════ */
+function CourtPackageSection({ selectedCase, onNeedCase }: { selectedCase: BkCase | null; onNeedCase: () => void }) {
+  const qc = useQueryClient();
+  const [result, setResult] = useState<any>(null);
+  const [generating, setGenerating] = useState(false);
+
+  const { data: prevReports = [] } = useQuery<any[]>({
+    queryKey: ["bk-court-reports", selectedCase?.id],
+    queryFn: () => api(`/bankruptcy/cases/${selectedCase!.id}/reports`),
+    enabled: !!selectedCase,
+    staleTime: 60_000,
+    select: (rows: any[]) => rows.filter((r: any) => r.category === "court_package"),
+  });
+
+  async function generate() {
+    if (!selectedCase) return onNeedCase();
+    setGenerating(true);
+    setResult(null);
+    try {
+      const r = await api(`/bankruptcy/cases/${selectedCase.id}/court-package`, { method: "POST" });
+      setResult(r);
+      qc.invalidateQueries({ queryKey: ["bk-court-reports", selectedCase.id] });
+      toast.success("تم توليد حزمة المحكمة");
+    } catch (e: any) { toast.error(e.message); }
+    finally { setGenerating(false); }
+  }
+
+  if (!selectedCase) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-bold flex items-center gap-2"><Package className="h-5 w-5 text-indigo-600" /> حزمة المحكمة</h2>
+        <Card className="border-border/50">
+          <CardContent className="py-10 text-center">
+            <Package className="h-12 w-12 mx-auto mb-3 text-indigo-200" />
+            <p className="text-muted-foreground text-sm mb-3">حدد ملف إفلاس أولاً</p>
+            <Button size="sm" onClick={onNeedCase}>تحديد ملف</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-bold flex items-center gap-2"><Package className="h-5 w-5 text-indigo-600" /> حزمة المحكمة</h2>
+        <p className="text-sm text-muted-foreground">توليد وثائق قضائية شاملة لملف: {selectedCase.debtor_name}</p>
+      </div>
+
+      <Card className="border-indigo-200 dark:border-indigo-800/40 bg-indigo-50/40 dark:bg-indigo-950/10">
+        <CardContent className="p-5 text-center space-y-3">
+          <Package className="h-12 w-12 text-indigo-400 mx-auto" />
+          <div>
+            <p className="font-bold text-indigo-900 dark:text-indigo-200">توليد حزمة مستندات قضائية</p>
+            <p className="text-xs text-muted-foreground mt-1">تشمل: عريضة الإفلاس، الملخص المالي، سجل الأصول، سجل الدائنين، الجدول الزمني، الملخص التنفيذي، وفهرس المستندات</p>
+          </div>
+          <Button onClick={generate} disabled={generating} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
+            {generating ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> جارٍ التوليد…</>
+            ) : (
+              <><Package className="h-4 w-4" /> توليد حزمة المحكمة</>
+            )}
+          </Button>
+          {generating && <p className="text-xs text-muted-foreground animate-pulse">قد يستغرق هذا دقيقة…</p>}
+        </CardContent>
+      </Card>
+
+      {result && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "الدائنون",       value: (result as any).stats?.creditors },
+              { label: "المطالبات",     value: (result as any).stats?.claims },
+              { label: "الأصول",        value: (result as any).stats?.assets },
+              { label: "نسبة الاسترداد", value: `${(result as any).stats?.recoveryRate ?? 0}%` },
+            ].map(k => (
+              <Card key={k.label} className="border-border/50">
+                <CardContent className="p-3 text-center">
+                  <p className="text-xs text-muted-foreground">{k.label}</p>
+                  <p className="text-lg font-bold text-indigo-600">{k.value}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card className="border-indigo-200">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2"><Package className="h-4 w-4 text-indigo-600" /> المستندات المولَّدة</CardTitle>
+              <Button size="sm" variant="outline" className="text-xs gap-1.5"
+                onClick={() => { navigator.clipboard?.writeText((result as any).content ?? ""); toast.success("تم نسخ المستند"); }}>
+                <Copy className="h-3.5 w-3.5" /> نسخ
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-muted/30 rounded-lg p-4 text-sm whitespace-pre-wrap leading-relaxed max-h-[60vh] overflow-y-auto" dir="rtl">
+                {(result as any).content}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {prevReports.length > 0 && !result && (
+        <div>
+          <p className="text-sm font-semibold mb-2 text-muted-foreground">حزم سابقة ({prevReports.length})</p>
+          <div className="space-y-2">
+            {prevReports.slice(0, 5).map((r: any) => (
+              <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl border border-border/50 hover:bg-accent/30 cursor-pointer"
+                onClick={() => setResult({ content: r.content, stats: {}, caseNumber: selectedCase.case_number, debtorName: selectedCase.debtor_name })}>
+                <Package className="h-4 w-4 text-indigo-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{r.report_title}</p>
+                  <p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString("ar-SA")}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
