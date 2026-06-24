@@ -3,10 +3,15 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
 import * as os from "os";
+import { exec } from "child_process";
+import { promisify } from "util";
 import { runAgentManually } from "../../cron/agentCron";
+
 import {
   fetchGitHubRepo, fetchLatestCommits, fetchOpenPRs, fetchBranches, parseRepo,
 } from "../../integrations/githubClient";
+
+const execAsync = promisify(exec);
 
 const router = Router();
 
@@ -398,6 +403,93 @@ router.get("/admin/deployment/ollama", adminOnly, async (_req, res) => {
       fallbackEnabled,
       error: err.message,
     });
+  }
+});
+
+/* ══════════════════════════════════════════════════════════
+   GET /api/admin/deployment/github/status
+   حالة git + عدد الملفات المعلّقة
+══════════════════════════════════════════════════════════ */
+router.get("/admin/deployment/github/status", adminOnly, async (_req, res) => {
+  try {
+    const root = process.cwd().replace(/\/artifacts\/api-server.*/, "");
+    const { stdout: statusOut } = await execAsync("git status --porcelain", { cwd: root });
+    const { stdout: logOut } = await execAsync("git log --oneline -5", { cwd: root });
+    const { stdout: remoteOut } = await execAsync("git remote -v", { cwd: root });
+
+    const pending = statusOut.trim().split("\n").filter(Boolean).length;
+    const commits = logOut.trim().split("\n").filter(Boolean);
+    const remotes = remoteOut.trim().split("\n").filter(Boolean);
+
+    res.json({ ok: true, pending, commits, remotes });
+  } catch (err: any) {
+    res.json({ ok: false, error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════════
+   POST /api/admin/deployment/github/push
+   رفع كل الكود إلى GitHub (git push كامل)
+══════════════════════════════════════════════════════════ */
+router.post("/admin/deployment/github/push", adminOnly, async (req, res) => {
+  const token = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+  if (!token) {
+    return res.status(400).json({ ok: false, error: "GITHUB_PERSONAL_ACCESS_TOKEN غير موجود في البيئة" });
+  }
+
+  const repo = (req.body?.repo as string) || "eadala/adala-ai";
+  const branch = (req.body?.branch as string) || "main";
+  const root = process.cwd().replace(/\/artifacts\/api-server.*/, "");
+  const httpsUrl = `https://${token}@github.com/${repo}.git`;
+  const logs: string[] = [];
+
+  try {
+    // 1. Configure git identity if missing
+    try {
+      await execAsync("git config user.email || git config user.email 'deploy@adala.ai'", { cwd: root });
+      await execAsync("git config user.name || git config user.name 'Adala Deploy'", { cwd: root });
+    } catch { /* ignore */ }
+
+    // 2. Set remote to HTTPS with token
+    logs.push("⚙️  تهيئة remote origin بـ HTTPS + Token…");
+    await execAsync(`git remote set-url origin "${httpsUrl}"`, { cwd: root });
+    logs.push("✅ Remote URL جاهز");
+
+    // 3. Stage all changes
+    logs.push("📦 إضافة كل الملفات…");
+    await execAsync("git add -A", { cwd: root });
+    logs.push("✅ تم تحضير الملفات");
+
+    // 4. Commit if there are staged changes
+    const { stdout: statusOut } = await execAsync("git status --porcelain", { cwd: root });
+    if (statusOut.trim()) {
+      const msg = `chore: sync to GitHub ${new Date().toISOString()}`;
+      await execAsync(`git commit -m "${msg}"`, { cwd: root });
+      logs.push(`✅ Commit: ${msg}`);
+    } else {
+      logs.push("ℹ️  لا توجد تغييرات جديدة — المستودع محدّث بالفعل");
+    }
+
+    // 5. Push
+    logs.push(`🚀 رفع الكود إلى ${repo} / ${branch}…`);
+    const { stdout: pushOut, stderr: pushErr } = await execAsync(
+      `git push origin ${branch} --force-with-lease`,
+      { cwd: root }
+    );
+    logs.push("✅ تم الرفع بنجاح!");
+    if (pushOut) logs.push(pushOut.trim());
+    if (pushErr) logs.push(pushErr.trim());
+
+    // 6. Restore remote URL (remove token for safety in logs)
+    const safeUrl = `https://github.com/${repo}.git`;
+    await execAsync(`git remote set-url origin "${safeUrl}"`, { cwd: root }).catch(() => {});
+
+    return res.json({ ok: true, logs, repo, branch });
+  } catch (err: any) {
+    logs.push(`❌ خطأ: ${err.message}`);
+    // Restore safe URL
+    try { await execAsync(`git remote set-url origin "https://github.com/${repo}.git"`, { cwd: root }); } catch { /* ignore */ }
+    return res.status(500).json({ ok: false, logs, error: err.message });
   }
 });
 
