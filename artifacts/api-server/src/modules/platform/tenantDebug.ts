@@ -18,6 +18,7 @@ import { sql } from "drizzle-orm";
 import { createClerkClient, getAuth } from "@clerk/express";
 import { resolveTenantWithTrace } from "../../core/tenant/tenantResolver";
 import { invalidateTenantCache } from "../../middlewares/tenantMiddleware";
+import { recoverIdentity, getBindingHistory } from "../../core/tenant/tenantVersioning";
 
 const router = Router();
 
@@ -192,6 +193,26 @@ router.post("/developer/tenant/invalidate/:userId", requireSA, async (req, res) 
   const userId = String(req.params.userId);
   invalidateTenantCache(userId);
   res.json({ success: true, userId, message: "Cache invalidated" });
+});
+
+/* POST /developer/tenant/recover/:userId — disaster identity recovery */
+router.post("/developer/tenant/recover/:userId", requireSA, async (req, res) => {
+  const userId = String(req.params.userId);
+  invalidateTenantCache(userId);
+  try {
+    const result = await recoverIdentity(userId);
+    if (!result) return res.json({ success: false, error: "NO_RECOVERY_POINT — لا توجد نقطة استعادة سابقة" });
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+/* GET /developer/tenant/binding-history/:userId — versioning history */
+router.get("/developer/tenant/binding-history/:userId", requireSA, async (req, res) => {
+  const userId = String(req.params.userId);
+  const history = await getBindingHistory(userId);
+  res.json(history);
 });
 
 /* GET /tenant/members-report — full office_members listing */

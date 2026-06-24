@@ -67,7 +67,9 @@ export async function resolveTenantWithTrace(
   /* 0. Explicit header (API keys / dev access) */
   if (headerTenantId) {
     steps.push("HEADER_TENANT_ID");
-    return { tenantId: headerTenantId, role: "api_key", source: "header", steps, resolvedAt: now };
+    const t: TenantResolutionTrace = { tenantId: headerTenantId, role: "api_key", source: "header", steps, resolvedAt: now };
+    import("./tenantVersioning").then(m => m.bindTenant(userId, headerTenantId, "header")).catch(() => {});
+    return t;
   }
 
   /* 1. office_members — primary source */
@@ -79,13 +81,9 @@ export async function resolveTenantWithTrace(
   `);
   if (member?.office_id) {
     steps.push("FOUND_office_members");
-    return {
-      tenantId: member.office_id,
-      role: member.role ?? "member",
-      source: "office_members",
-      steps,
-      resolvedAt: now,
-    };
+    const t: TenantResolutionTrace = { tenantId: member.office_id, role: member.role ?? "member", source: "office_members", steps, resolvedAt: now };
+    import("./tenantVersioning").then(m => m.bindTenant(userId, member.office_id, "office_members")).catch(() => {});
+    return t;
   }
   steps.push("MISS_office_members");
 
@@ -99,13 +97,9 @@ export async function resolveTenantWithTrace(
   if (registry?.id) {
     steps.push("FOUND_office_registry → AUTO_LINK");
     await autoLink(userId, registry.id);
-    return {
-      tenantId: registry.id,
-      role: "owner",
-      source: "office_registry",
-      steps,
-      resolvedAt: now,
-    };
+    const t: TenantResolutionTrace = { tenantId: registry.id, role: "owner", source: "office_registry", steps, resolvedAt: now };
+    import("./tenantVersioning").then(m => m.bindTenant(userId, registry.id, "office_registry")).catch(() => {});
+    return t;
   }
   steps.push("MISS_office_registry");
 
@@ -119,13 +113,9 @@ export async function resolveTenantWithTrace(
   if (trial?.office_id) {
     steps.push("FOUND_trial_offices → AUTO_LINK");
     await autoLink(userId, trial.office_id);
-    return {
-      tenantId: trial.office_id,
-      role: "owner",
-      source: "trial_offices",
-      steps,
-      resolvedAt: now,
-    };
+    const t: TenantResolutionTrace = { tenantId: trial.office_id, role: "owner", source: "trial_offices", steps, resolvedAt: now };
+    import("./tenantVersioning").then(m => m.bindTenant(userId, trial.office_id, "trial_offices")).catch(() => {});
+    return t;
   }
   steps.push("MISS_trial_offices");
 

@@ -311,12 +311,22 @@ export function TenantDebugTab({ toast }: { toast: any }) {
                     ))}
                   </div>
                 </div>
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2 pt-2 flex-wrap">
                   <Button size="sm" variant="outline" onClick={() => handleHeal(debugResult.userId ?? debugUserId)}>
                     إصلاح ربط المكتب
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => handleInvalidate(debugResult.userId ?? debugUserId)}>
                     مسح الكاش
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-amber-600 border-amber-300"
+                    onClick={async () => {
+                      try {
+                        const r = await DEV_API(`/tenant/recover/${debugResult.userId ?? debugUserId}`, { method: "POST" });
+                        setDebugResult((prev: any) => ({ ...prev, recovered: r }));
+                        toast({ title: r.success ? "تمت الاستعادة" : "فشلت الاستعادة", description: r.success ? `المكتب: ${r.tenantId} (الإصدار ${r.version})` : r.error });
+                      } catch { toast({ title: "خطأ", variant: "destructive" }); }
+                    }}>
+                    استعادة الهوية
                   </Button>
                 </div>
               </div>

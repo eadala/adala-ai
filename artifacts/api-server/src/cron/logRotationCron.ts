@@ -70,6 +70,13 @@ async function runLogRotation(): Promise<void> {
     ON CONFLICT (date, event_type) DO UPDATE SET count = EXCLUDED.count
   `).catch(() => {});
 
+  // 9. tenant_audit_logs — compress + archive rows older than 7 days
+  try {
+    const { compressAuditLogs } = await import("../core/tenant/tenantVersioning");
+    const compressed = await compressAuditLogs(7);
+    results.tenant_audit_logs_compressed = compressed;
+  } catch { results.tenant_audit_logs_compressed = 0; }
+
   const total = Object.values(results).reduce((a, b) => a + b, 0);
   logger.info({ ...results, total }, `Log rotation complete — purged ${total} rows`);
 }

@@ -54,6 +54,7 @@ const PlatformOwnersTab         = lazy(() => import("@/features/super-admin/tabs
 const DeveloperAccountsTab      = lazy(() => import("@/features/super-admin/tabs/DeveloperAccountsTab").then(m => ({ default: m.DeveloperAccountsTab })));
 const WorkflowGrantsTab         = lazy(() => import("@/features/super-admin/tabs/WorkflowGrantsTab").then(m => ({ default: m.WorkflowGrantsTab })));
 const TenantDebugTab            = lazy(() => import("@/features/super-admin/tabs/TenantDebugTab").then(m => ({ default: m.TenantDebugTab })));
+const ControlTowerTab           = lazy(() => import("@/features/super-admin/tabs/ControlTowerTab").then(m => ({ default: m.ControlTowerTab })));
 
 function TabFallback() {
   return (
@@ -282,6 +283,11 @@ export default function SuperAdmin() {
         <TabsContent value="tenant-identity" className="mt-4">
           <Suspense fallback={<TabFallback />}>
             <TenantDebugTab toast={toast} />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="control-tower" className="mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <ControlTowerTab toast={toast} getToken={getToken} />
           </Suspense>
         </TabsContent>
       </Tabs>

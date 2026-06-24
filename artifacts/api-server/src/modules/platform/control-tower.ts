@@ -316,4 +316,163 @@ router.post("/control-tower/push-event", ctGuard, async (req, res) => {
   res.json({ success: true });
 });
 
+/* ──────────────────────────────────────────────────────────────────────
+ * 🧠 NEW: Health Score + Anomaly Detection + AOL Auto-Actions
+ * ────────────────────────────────────────────────────────────────────── */
+
+/* GET /control-tower/health-score — composite score 0-100 */
+router.get("/control-tower/health-score", ctGuard, async (_req, res) => {
+  try {
+    const dbAll = async (q: any): Promise<any[]> => {
+      const r = await db.execute(q) as any;
+      return Array.isArray(r) ? r : (r?.rows ?? []);
+    };
+    const dbOne = async (q: any): Promise<any> => (await dbAll(q))[0] ?? null;
+
+    const [tenantFails, securityHigh, aiErrors, openCases, recentLogins] = await Promise.all([
+      dbOne(sql`
+        SELECT COUNT(*)::int AS n FROM tenant_audit_logs
+        WHERE resolved = false AND created_at > NOW() - INTERVAL '1 hour'
+      `).catch(() => null),
+      dbOne(sql`
+        SELECT COUNT(*)::int AS n FROM ct_security_events
+        WHERE severity IN ('HIGH','CRITICAL') AND created_at > NOW() - INTERVAL '1 hour'
+      `).catch(() => null),
+      dbOne(sql`
+        SELECT COUNT(*)::int AS n FROM audit_logs
+        WHERE action ILIKE '%error%' AND created_at > NOW() - INTERVAL '1 hour'
+      `).catch(() => null),
+      dbOne(sql`SELECT COUNT(*)::int AS n FROM cases WHERE status NOT IN ('closed','archived')`).catch(() => null),
+      dbOne(sql`SELECT COUNT(*)::int AS n FROM login_logs WHERE created_at > NOW() - INTERVAL '24 hours'`).catch(() => null),
+    ]);
+
+    const tf  = tenantFails?.n  ?? 0;
+    const sh  = securityHigh?.n ?? 0;
+    const ae  = aiErrors?.n     ?? 0;
+    const { getSystemState } = await import("../../hardening/production.lock");
+    const state = getSystemState();
+
+    let score = 100;
+    score -= Math.min(tf * 5,  30);   /* tenant failures  */
+    score -= Math.min(sh * 10, 30);   /* security events  */
+    score -= Math.min(ae * 2,  20);   /* AI errors        */
+    if (state.aiLock) score -= 5;
+    score = Math.max(0, Math.round(score));
+
+    const level =
+      score >= 90 ? "healthy"  :
+      score >= 70 ? "stable"   :
+      score >= 50 ? "warning"  : "critical";
+
+    /* Anomaly alerts */
+    const alerts: { type: string; level: string; message: string }[] = [];
+    if (tf  > 5)  alerts.push({ type: "TENANT_ANOMALY",   level: "critical", message: `${tf} فشل في تحديد هوية المستأجر خلال آخر ساعة` });
+    if (sh  > 3)  alerts.push({ type: "SECURITY_SPIKE",   level: "critical", message: `${sh} حادثة أمنية عالية الخطورة خلال آخر ساعة` });
+    if (ae  > 10) alerts.push({ type: "AI_ERROR_SPIKE",   level: "warning",  message: `${ae} خطأ في طبقة AI خلال آخر ساعة` });
+
+    res.json({
+      score, level, alerts,
+      breakdown: { tenantFailures: tf, securityEvents: sh, aiErrors: ae },
+      activeCases: openCases?.n ?? 0,
+      loginsToday:  recentLogins?.n ?? 0,
+      aiLocked: state.aiLock,
+      systemMode: state.mode,
+      ts: Date.now(),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* GET /control-tower/anomalies — live anomaly feed */
+router.get("/control-tower/anomalies", ctGuard, async (_req, res) => {
+  try {
+    const dbAll = async (q: any): Promise<any[]> => {
+      const r = await db.execute(q) as any;
+      return Array.isArray(r) ? r : (r?.rows ?? []);
+    };
+    const [tenantFails, rbacDenials, securityEvents] = await Promise.all([
+      dbAll(sql`
+        SELECT user_id, tenant_id, steps, created_at FROM tenant_audit_logs
+        WHERE resolved = false AND created_at > NOW() - INTERVAL '6 hours'
+        ORDER BY created_at DESC LIMIT 20
+      `).catch(() => []),
+      dbAll(sql`
+        SELECT al.user_id, al.action, al.resource, al.created_at
+        FROM audit_logs al
+        WHERE al.action ILIKE '%denied%' OR al.action ILIKE '%forbidden%'
+        ORDER BY al.created_at DESC LIMIT 20
+      `).catch(() => []),
+      dbAll(sql`
+        SELECT * FROM ct_security_events
+        WHERE created_at > NOW() - INTERVAL '6 hours'
+        ORDER BY created_at DESC LIMIT 20
+      `).catch(() => []),
+    ]);
+    res.json({ tenantFails, rbacDenials, securityEvents });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* POST /control-tower/aol/clear-caches — flush all tenant caches */
+router.post("/control-tower/aol/clear-caches", ctGuard, async (_req, res) => {
+  try {
+    const { invalidateTenantCache } = await import("../../middlewares/tenantMiddleware");
+    /* Clear all users from tenant cache by getting distinct user_ids */
+    const { db: _db } = await import("@workspace/db");
+    const r = await _db.execute(sql`SELECT DISTINCT user_id FROM office_members WHERE status='active'`) as any;
+    const users: string[] = (Array.isArray(r) ? r : (r?.rows ?? [])).map((u: any) => u.user_id);
+    users.forEach(uid => invalidateTenantCache(uid));
+    res.json({ success: true, clearedUsers: users.length });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* POST /control-tower/aol/auto-heal — heal all unresolved tenants */
+router.post("/control-tower/aol/auto-heal", ctGuard, async (_req, res) => {
+  try {
+    const { resolveTenantWithTrace } = await import("../../core/tenant/tenantResolver");
+    const { db: _db } = await import("@workspace/db");
+    const r = await _db.execute(sql`
+      SELECT DISTINCT user_id FROM tenant_audit_logs
+      WHERE resolved = false
+        AND NOT EXISTS (SELECT 1 FROM office_members om WHERE om.user_id = tenant_audit_logs.user_id AND om.status = 'active')
+      LIMIT 50
+    `) as any;
+    const users: string[] = (Array.isArray(r) ? r : (r?.rows ?? [])).map((u: any) => u.user_id);
+    let healed = 0;
+    await Promise.allSettled(users.map(async uid => {
+      try { await resolveTenantWithTrace(uid); healed++; } catch { }
+    }));
+    res.json({ success: true, attempted: users.length, healed });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* POST /control-tower/aol/switch-ai-model — toggle AI to lighter model */
+router.post("/control-tower/aol/switch-ai-model", ctGuard, async (req, res) => {
+  const { model } = req.body ?? {};
+  /* Store preference in system state — callAI() reads this */
+  process.env.PREFERRED_AI_MODEL = model ?? "gemini-2.0-flash";
+  await db.execute(sql`
+    INSERT INTO ct_security_events (event_type, severity, message)
+    VALUES ('AOL_AI_MODEL_SWITCH', 'LOW', ${'النموذج تم تبديله إلى: ' + (model ?? "gemini-2.0-flash")})
+  `).catch(() => {});
+  res.json({ success: true, activeModel: process.env.PREFERRED_AI_MODEL });
+});
+
+/* POST /control-tower/aol/strict-mode — toggle strict tenant mode */
+router.post("/control-tower/aol/strict-mode", ctGuard, async (req, res) => {
+  const { enable } = req.body ?? {};
+  process.env.STRICT_TENANT_MODE = enable ? "1" : "0";
+  await db.execute(sql`
+    INSERT INTO ct_security_events (event_type, severity, message)
+    VALUES ('AOL_STRICT_MODE', 'MEDIUM', ${enable ? 'تم تفعيل Strict Tenant Mode' : 'تم إلغاء Strict Tenant Mode'})
+  `).catch(() => {});
+  res.json({ success: true, strictMode: enable });
+});
+
 export default router;
