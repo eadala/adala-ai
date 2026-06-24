@@ -11,6 +11,9 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { callAI as _callAI } from "../ai/aiChat";
+import { eventBus } from "../../core/eventBus";
+import type { EventType } from "../../core/eventBus";
+import { auditLog } from "../../lib/auditLogger";
 
 /* ── db helpers ── */
 function sqlOne(r: any): any { const rows = Array.isArray(r) ? r : (r?.rows ?? []); return rows[0] ?? null; }
@@ -216,4 +219,125 @@ export async function tgBkAiAnalysis(officeId: string, caseName: string, analysi
     `<i>عدالة AI — نظام الإفلاس</i>`,
   ].join("\n");
   void sendTg(officeId, text, "bk_ai_analysis");
+}
+
+/* ══════════════════════════════════════════════════════════
+   PHASE 2-A — EventBus / EDA Integration
+   Emits typed BK events into the platform event stream
+   (persisted to system_events + SSE broadcast to dashboards)
+══════════════════════════════════════════════════════════ */
+export async function bkEmit(
+  officeId: string,
+  type: EventType,
+  data: Record<string, any>,
+  actorId?: string,
+): Promise<void> {
+  try {
+    await eventBus.emit({ type, officeId, actorId, data });
+  } catch { /* non-fatal */ }
+}
+
+/* ══════════════════════════════════════════════════════════
+   PHASE 2-B — Global Platform Audit Trail
+   Writes to audit_logs (the platform-wide table) in addition
+   to the module-local bk_audit_logs, giving super-admin
+   cross-module visibility and enabling compliance exports.
+══════════════════════════════════════════════════════════ */
+export async function auditLogBk(opts: {
+  officeId:   string;
+  userId?:    string;
+  action:     string;        // "bk.case.create" | "bk.distribution.execute" | …
+  resourceId: string;
+  details?:   string;
+  oldValue?:  Record<string, unknown> | null;
+  newValue?:  Record<string, unknown> | null;
+  ip?:        string;
+  ua?:        string;
+}): Promise<void> {
+  void auditLog({
+    officeId:     opts.officeId,
+    userId:       opts.userId,
+    action:       opts.action,
+    resource:     "bankruptcy",
+    resourceId:   opts.resourceId,
+    details:      opts.details,
+    oldValue:     opts.oldValue,
+    newValue:     opts.newValue,
+    ipAddress:    opts.ip,
+    userAgent:    opts.ua,
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   PHASE 3 — Finance Auto-posting
+   When a bankruptcy distribution is executed, the trustee
+   (law office) earns a management fee.  We auto-post this
+   fee as a revenue entry in the accounting module so it
+   appears in P&L, cash-flow, and financial reports without
+   manual data entry.
+
+   Default trustee fee = 2 % of total distributed amount
+   (per Saudi Bankruptcy Law Article 56 guidelines).
+   Stored in revenues with category "أتعاب قضائية" so it
+   maps to Chart-of-Accounts code 4100 automatically.
+══════════════════════════════════════════════════════════ */
+export async function autoPostBkRevenue(opts: {
+  officeId:       string;
+  caseId:         string;
+  caseNumber:     string;
+  debtorName:     string;
+  distributionId: string;
+  round:          number;
+  totalAmount:    number;
+  /** trustee fee percentage — defaults to 2 % */
+  feePct?:        number;
+  executedAt?:    string;
+}): Promise<void> {
+  try {
+    const {
+      officeId, caseId, caseNumber, debtorName,
+      distributionId, round, totalAmount,
+      feePct = 2, executedAt,
+    } = opts;
+
+    const fee = Math.round(totalAmount * feePct / 100 * 100) / 100;
+    if (fee <= 0) return;
+
+    const date = executedAt
+      ? new Date(executedAt).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+
+    const title = `رسوم أمين الإفلاس — ${debtorName} (${caseNumber}) جولة ${round}`;
+
+    /* Idempotency: skip if already posted for this distribution */
+    const dup = sqlOne(await db.execute(sql`
+      SELECT id FROM revenues
+      WHERE office_id = ${officeId}
+        AND notes LIKE ${"%" + distributionId + "%"}
+      LIMIT 1
+    `).catch(() => null));
+    if (dup) return;
+
+    await db.execute(sql`
+      INSERT INTO revenues
+        (office_id, title, category, amount, payment_method, date, case_id, notes)
+      VALUES
+        (${officeId},
+         ${title},
+         ${"أتعاب قضائية"},
+         ${fee},
+         ${"bank"},
+         ${date},
+         ${caseId}::uuid,
+         ${"auto-posted from bankruptcy distribution " + distributionId + " (" + feePct + "% of " + totalAmount + ")"})
+    `).catch(() => {});
+
+    /* Also log this as an audit event */
+    void auditLogBk({
+      officeId,
+      action:     "bk.distribution.revenue_posted",
+      resourceId: distributionId,
+      details:    `رسوم أمين إفلاس تلقائية: ${fee.toLocaleString("ar-SA")} ر.س (${feePct}% من ${totalAmount.toLocaleString("ar-SA")} ر.س) — ملف ${caseNumber}`,
+    });
+  } catch { /* non-fatal */ }
 }

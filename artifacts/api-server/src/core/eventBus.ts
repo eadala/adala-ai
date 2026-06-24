@@ -25,7 +25,13 @@ export type EventType =
   | "SUBSCRIPTION_RENEWED"
   | "SUBSCRIPTION_EXPIRED"
   | "USER_LOGIN"
-  | "DOCUMENT_GENERATED";
+  | "DOCUMENT_GENERATED"
+  /* ── Bankruptcy Module ── */
+  | "BK_CASE_CREATED"
+  | "BK_CASE_CLOSED"
+  | "BK_DISTRIBUTION_EXECUTED"
+  | "BK_CLAIM_APPROVED"
+  | "BK_ALERT_TRIGGERED";
 
 export interface EventPayload {
   type: EventType;

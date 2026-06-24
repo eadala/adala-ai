@@ -10,6 +10,11 @@ import {
   tgBkDistribution,
   tgBkAlert,
   tgBkAiAnalysis,
+  /* Phase 2 */
+  bkEmit,
+  auditLogBk,
+  /* Phase 3 */
+  autoPostBkRevenue,
 } from "./bankruptcyIntegrations";
 
 const router = Router();
@@ -459,6 +464,9 @@ router.post("/bankruptcy/cases", requireAuth, async (req: any, res) => {
     res.status(201).json(row);
     void logTimeline(officeId, row.id, 'case', row.id, 'case_created', `تم إنشاء ملف الإفلاس: ${row.debtor_name} (${row.case_number})`, req.auth?.userId);
     void logAudit(officeId, req.auth?.userId ?? null, 'CREATE', 'bankruptcy_case', row.id, row);
+    /* Phase 2 — EDA + global audit */
+    void bkEmit(officeId, "BK_CASE_CREATED", { caseId: row.id, caseNumber: row.case_number, debtorName: row.debtor_name, procedureType: row.procedure_type }, req.auth?.userId);
+    void auditLogBk({ officeId, userId: req.auth?.userId, action: "bk.case.create", resourceId: row.id, details: `ملف إفلاس جديد: ${row.debtor_name} (${row.case_number})`, newValue: { case_number: row.case_number, debtor_name: row.debtor_name, procedure_type: row.procedure_type }, ip: req.ip, ua: req.headers["user-agent"] as string });
   } catch (err: any) {
     if (err.message?.includes("unique")) return res.status(409).json({ error: "رقم الملف موجود مسبقاً في هذا المكتب" });
     res.status(500).json({ error: err.message });
@@ -518,6 +526,9 @@ router.delete("/bankruptcy/cases/:id", requireAuth, async (req: any, res) => {
       WHERE id=${id}::uuid AND office_id=${officeId}
     `);
     res.json({ ok: true });
+    /* Phase 2 — EDA + global audit */
+    void bkEmit(officeId, "BK_CASE_CLOSED", { caseId: id, reason: "archived" }, req.auth?.userId);
+    void auditLogBk({ officeId, userId: req.auth?.userId, action: "bk.case.archive", resourceId: id, details: "تمت أرشفة ملف الإفلاس", ip: req.ip, ua: req.headers["user-agent"] as string });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -669,6 +680,11 @@ router.put("/bankruptcy/claims/:id", requireAuth, async (req: any, res) => {
       void logAudit(officeId, req.auth?.userId ?? null, claimStatus === 'approved' ? 'APPROVE' : claimStatus === 'rejected' ? 'REJECT' : 'UPDATE', 'claim', id, row, undefined, req.ip, req.headers['user-agent']);
       if (claimStatus === 'approved') void sendNotification(officeId, row.case_id, 'تمت الموافقة على المطالبة', 'تم قبول المطالبة وسيتم تضمينها في التوزيع', 'claim');
       if (claimStatus === 'rejected') void sendNotification(officeId, row.case_id, 'رُفضت المطالبة', 'تم رفض المطالبة من قِبل أمين الإفلاس', 'claim');
+      /* Phase 2 — EDA: claim approved event */
+      if (claimStatus === "approved") {
+        void bkEmit(officeId, "BK_CLAIM_APPROVED", { claimId: id, caseId: row.case_id, claimantName: row.claimant_name, amount: row.claim_amount }, req.auth?.userId);
+        void auditLogBk({ officeId, userId: req.auth?.userId, action: "bk.claim.approve", resourceId: id, details: `اعتماد مطالبة: ${row.claimant_name ?? id} — ${Number(row.claim_amount ?? 0).toLocaleString("ar-SA")} ر.س`, ip: req.ip, ua: req.headers["user-agent"] as string });
+      }
     }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -921,10 +937,20 @@ router.put("/bankruptcy/distributions/:id", requireAuth, async (req: any, res) =
       void logTimeline(officeId, row.case_id, 'distribution', id, `distribution_${distStatus}`, `تم تغيير حالة التوزيع إلى: ${distStatus}`, req.auth?.userId);
       if (distStatus === 'approved') void sendNotification(officeId, row.case_id, 'تمت الموافقة على التوزيع', 'تمت الموافقة على جولة التوزيع وسيبدأ التنفيذ', 'distribution');
       if (distStatus === 'executed') void sendNotification(officeId, row.case_id, 'اكتمل التوزيع', 'تم تنفيذ جولة التوزيع بنجاح', 'distribution');
-      /* ② Telegram: distribution approved/executed */
+      /* ② Telegram + Phase 2 EDA + Phase 3 Finance */
       void (async () => {
-        const bCase = sqlOne(await db.execute(sql`SELECT debtor_name FROM bankruptcy_cases WHERE id=${row.case_id}::uuid`).catch(() => null));
-        void tgBkDistribution(officeId, bCase?.debtor_name ?? row.case_id, row.distribution_round, row.total_amount, distStatus);
+        const bCase = sqlOne(await db.execute(sql`SELECT debtor_name, case_number FROM bankruptcy_cases WHERE id=${row.case_id}::uuid`).catch(() => null));
+        const debtorName = bCase?.debtor_name ?? row.case_id;
+        const caseNumber = bCase?.case_number ?? "—";
+        /* Telegram */
+        void tgBkDistribution(officeId, debtorName, row.distribution_round, row.total_amount, distStatus);
+        /* Phase 2: EventBus + global audit */
+        if (distStatus === "executed") {
+          void bkEmit(officeId, "BK_DISTRIBUTION_EXECUTED", { distributionId: id, caseId: row.case_id, caseNumber, debtorName, round: row.distribution_round, totalAmount: row.total_amount }, req.auth?.userId);
+          void auditLogBk({ officeId, userId: req.auth?.userId, action: "bk.distribution.execute", resourceId: id, details: `تنفيذ توزيع جولة ${row.distribution_round} — ${Number(row.total_amount).toLocaleString("ar-SA")} ر.س — ملف ${caseNumber}`, newValue: { status: "executed", total_amount: row.total_amount, round: row.distribution_round }, ip: req.ip, ua: req.headers["user-agent"] as string });
+          /* Phase 3: auto-post trustee fee to revenues */
+          void autoPostBkRevenue({ officeId, caseId: row.case_id, caseNumber, debtorName, distributionId: id, round: row.distribution_round, totalAmount: Number(row.total_amount) });
+        }
       })();
     }
   } catch (err: any) {

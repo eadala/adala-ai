@@ -1,6 +1,6 @@
 ---
 name: Adala Bankruptcy Integrations
-description: Phase 1 cross-module wiring — AI credits, Telegram, Storage for the Bankruptcy module
+description: Phase 1-3 cross-module wiring — AI credits, Telegram, Storage, EventBus, Audit, Finance for the Bankruptcy module
 ---
 
 ## callAI was called with wrong parameter order
@@ -36,3 +36,27 @@ V3 line 287 was calling `callAI(...)` and then `.match()` on the returned `{ rep
 | `tgBkAiAnalysis` | AI analysis complete | all |
 
 All are `void` fire-and-forget to never block HTTP responses.
+
+## Phase 2: EventBus / EDA Integration
+
+5 new EventTypes added to `src/core/eventBus.ts`:
+- `BK_CASE_CREATED`, `BK_CASE_CLOSED`, `BK_DISTRIBUTION_EXECUTED`, `BK_CLAIM_APPROVED`, `BK_ALERT_TRIGGERED`
+
+`bkEmit(officeId, type, data, actorId?)` — fire-and-forget wrapper around `eventBus.emit()`.
+
+Wired at: case created, case archived, distribution executed, claim approved.
+
+## Phase 2-B: Global Platform Audit Trail
+
+`auditLogBk(opts)` — wraps `auditLog()` from `src/lib/auditLogger.ts`.
+Writes to `audit_logs` (platform-wide) in addition to `bk_audit_logs` (module-local).
+Actions named: `bk.case.create`, `bk.case.archive`, `bk.distribution.execute`, `bk.claim.approve`, `bk.distribution.revenue_posted`.
+
+## Phase 3: Finance Auto-posting
+
+`autoPostBkRevenue(opts)` — auto-inserts into `revenues` table when distribution is "executed".
+- Default fee = 2% of `total_amount` (Saudi Bankruptcy Law Article 56 guideline)
+- Category = "أتعاب قضائية" → maps to Chart-of-Accounts code 4100 automatically
+- Idempotent: checks for duplicate via distributionId in notes field before inserting
+- Appears in P&L, cash-flow, and financial reports without manual entry
+- All in `src/modules/bankruptcy/bankruptcyIntegrations.ts`
