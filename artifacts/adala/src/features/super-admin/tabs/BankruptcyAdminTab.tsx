@@ -913,8 +913,8 @@ export function BankruptcyAdminTab({ toast }: { toast: any }) {
             <Card className="border-border/50">
               <CardHeader className="pb-3 pt-4 px-4">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-amber-500" />مكتب الشمال للمحاماة
-                  <span className="text-[10px] font-normal text-muted-foreground mr-auto">demo-north-bk-2026</span>
+                  <Building2 className="h-4 w-4 text-amber-500" />مكتب الشمال
+                  <span className="text-[10px] font-normal text-muted-foreground mr-auto">aaaabbbb-0001-…-000000000001</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4">
@@ -945,8 +945,8 @@ export function BankruptcyAdminTab({ toast }: { toast: any }) {
             <Card className="border-border/50">
               <CardHeader className="pb-3 pt-4 px-4">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-blue-500" />مكتب الجنوب للمحاماة
-                  <span className="text-[10px] font-normal text-muted-foreground mr-auto">demo-south-bk-2026</span>
+                  <Building2 className="h-4 w-4 text-blue-500" />مكتب الجنوب
+                  <span className="text-[10px] font-normal text-muted-foreground mr-auto">bbbbcccc-0002-…-000000000002</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4">
@@ -1043,7 +1043,7 @@ export function BankruptcyAdminTab({ toast }: { toast: any }) {
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold mb-1">ملاحظة مهمة</p>
-              <p>جميع السجلات التجريبية تحمل <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded text-[10px]">is_demo = true</code>. زر "حذف البيئة التجريبية" يمسح هذه السجلات فقط ولا يؤثر مطلقاً على بيانات المكاتب الحقيقية. Office IDs المستخدمة (<code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded text-[10px]">demo-north-bk-2026</code> و <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded text-[10px]">demo-south-bk-2026</code>) مخصصة للعرض التوضيحي فقط.</p>
+              <p>البيانات مُخزَّنة في <strong>مكتب الشمال</strong> و<strong>مكتب الجنوب</strong> الفعليين مع تعليم <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded text-[10px]">is_demo = true</code>. تظهر مباشرةً عند تسجيل الدخول بأي من المكتبين. زر "حذف البيئة التجريبية" يمسح السجلات المُعلَّمة فقط دون المساس بأي بيانات حقيقية.</p>
             </div>
           </div>
         </div>

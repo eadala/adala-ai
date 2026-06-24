@@ -15,8 +15,8 @@ function rndAmt(min: number, max: number) { return Math.round(Math.random() * (m
 function daysAgo(n: number) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 function daysFuture(n: number) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
 
-const NORTH_ID = "demo-north-bk-2026";
-const SOUTH_ID = "demo-south-bk-2026";
+const NORTH_ID = "aaaabbbb-0001-0001-0001-000000000001";
+const SOUTH_ID = "bbbbcccc-0002-0002-0002-000000000002";
 
 const COURTS     = ["محكمة التجارة بالرياض", "محكمة التجارة بجدة", "محكمة التجارة بالدمام"];
 const TRUSTEES   = ["أ. محمد العتيبي", "أ. عبدالله الشمري", "أ. سالم الحربي", "أ. خالد المطيري"];
