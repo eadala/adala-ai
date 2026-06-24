@@ -8,7 +8,7 @@ import {
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
   FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity, Send,
   ChevronDown, Briefcase, Wand2, X, BellRing, GitBranch, Plug, Rocket, Brain,
-  Layout as LayoutIcon,
+  Layout as LayoutIcon, FolderOpen,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -188,6 +188,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/office-settings", labelKey: "nav.items.office_settings", icon: Building2, permission: "settings:view" },
       { href: "/theme-builder",          labelKey: "nav.items.theme_builder",          icon: Palette },
       { href: "/backup",                 labelKey: "nav.items.backup_center",          icon: Database },
+      { href: "/document-center",        labelKey: "مركز المستندات",                   icon: FolderOpen },
       { href: "/storage-settings",       labelKey: "nav.items.storage_settings",       icon: HardDrive },
     ],
   },

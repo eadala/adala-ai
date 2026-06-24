@@ -13,6 +13,9 @@ import zeroTrustRouter         from "../security/zero-trust-router";
 import hardeningRouter         from "../modules/monitoring/hardening";
 import selfHealingRouter       from "../modules/monitoring/self-healing";
 
+// ── Document Center ───────────────────────────────────────────────────────────
+import documentCenterRouter    from "../modules/documents/documentCenter";
+
 // ── Legal Core ───────────────────────────────────────────────────────────────
 import casesRouter             from "../modules/legal-core/cases";
 import clientsRouter           from "../modules/legal-core/clients";
@@ -304,6 +307,7 @@ router.use((req, _res, next) => {
 });
 router.use(eventsRouter);
 router.use(storageRouter);
+router.use(documentCenterRouter);
 router.use(hrRouter);
 router.use(hrPerformanceRouter);
 router.use(hrInternalRouter);
