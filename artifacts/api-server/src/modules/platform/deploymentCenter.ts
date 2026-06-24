@@ -4,6 +4,9 @@ import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
 import * as os from "os";
 import { runAgentManually } from "../../cron/agentCron";
+import {
+  fetchGitHubRepo, fetchLatestCommits, fetchOpenPRs, fetchBranches, parseRepo,
+} from "../../integrations/githubClient";
 
 const router = Router();
 
@@ -170,6 +173,42 @@ router.get("/admin/deployment/overview", adminOnly, async (_req, res) => {
         resource: e.resource,
         at:       e.created_at,
       })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════════
+   GET /api/admin/deployment/github
+   بيانات GitHub الحقيقية عبر Replit Connectors
+══════════════════════════════════════════════════════════ */
+router.get("/admin/deployment/github", adminOnly, async (_req, res) => {
+  try {
+    const fullName = process.env.GITHUB_REPOSITORY ?? "adalah-ai/platform";
+    const { owner, repo } = parseRepo(fullName);
+
+    const [repoInfo, commits, prs, branches] = await Promise.all([
+      fetchGitHubRepo(owner, repo),
+      fetchLatestCommits(owner, repo, 10),
+      fetchOpenPRs(owner, repo),
+      fetchBranches(owner, repo),
+    ]);
+
+    res.json({
+      connected: !!repoInfo,
+      repo:      repoInfo,
+      commits,
+      prs,
+      branches,
+      /* fallback from env if API not connected yet */
+      fallback: {
+        repository: fullName,
+        branch:     process.env.GITHUB_REF_NAME ?? "main",
+        commit:     (process.env.GITHUB_SHA ?? "").slice(0, 7) || "local",
+        workflow:   process.env.GITHUB_WORKFLOW ?? "CI/CD",
+        runNumber:  process.env.GITHUB_RUN_NUMBER ?? "—",
+      },
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

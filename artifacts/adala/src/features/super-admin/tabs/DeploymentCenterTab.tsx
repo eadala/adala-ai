@@ -152,6 +152,13 @@ export function DeploymentCenterTab() {
     refetchInterval: 60_000,
   });
 
+  const { data: ghData, isLoading: ghLoading } = useQuery<any>({
+    queryKey: ["deployment-github"],
+    queryFn: () => API("/deployment/github"),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+
   const { data: backups = [], isLoading: backupsLoading } = useQuery<any[]>({
     queryKey: ["deployment-backups"],
     queryFn: () => API("/deployment/backups"),
@@ -347,21 +354,90 @@ export function DeploymentCenterTab() {
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Github className="h-4 w-4" />
               مركز GitHub
+              {ghData?.connected
+                ? <Badge className="mr-auto text-[10px] py-0 h-4 bg-emerald-100 text-emerald-700 border-emerald-200">متصل ✓</Badge>
+                : <Badge className="mr-auto text-[10px] py-0 h-4" variant="outline">Env Vars</Badge>}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <GithubRow icon={<Database className="h-3.5 w-3.5 text-zinc-500" />}   label="المستودع"   value={ghub.repository} mono />
-              <GithubRow icon={<GitBranch className="h-3.5 w-3.5 text-blue-500" />}  label="الفرع"       value={ghub.branch} mono />
-              <GithubRow icon={<GitCommit className="h-3.5 w-3.5 text-violet-500" />} label="آخر Commit" value={ghub.commit} mono />
-              <GithubRow icon={<Rocket className="h-3.5 w-3.5 text-emerald-500" />}  label="Workflow"    value={ghub.workflow} />
-              <GithubRow icon={<Activity className="h-3.5 w-3.5 text-amber-500" />}  label="Run #"       value={ghub.runNumber} mono />
-              <Separator />
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Shield className="h-3.5 w-3.5 text-emerald-500" />
-                <span>المفاتيح الحساسة محمية — تُدار عبر Coolify / GitHub Secrets فقط.</span>
+            {ghLoading ? (
+              <div className="flex items-center gap-2 py-4 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> جاري الاتصال بـ GitHub…
               </div>
-            </div>
+            ) : ghData?.connected ? (
+              <div className="space-y-4">
+                {/* Repo info */}
+                <div className="space-y-2">
+                  <GithubRow icon={<Database className="h-3.5 w-3.5 text-zinc-500" />}   label="المستودع"   value={ghData.repo?.full_name ?? ghub.repository} mono />
+                  <GithubRow icon={<GitBranch className="h-3.5 w-3.5 text-blue-500" />}  label="الفرع الافتراضي" value={ghData.repo?.default_branch ?? ghub.branch} mono />
+                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground pt-1">
+                    <span>⭐ {ghData.repo?.stargazers_count ?? 0}</span>
+                    <span>🍴 {ghData.repo?.forks_count ?? 0}</span>
+                    <span>🐛 {ghData.repo?.open_issues_count ?? 0} issues مفتوحة</span>
+                    {ghData.repo?.language && <span>💻 {ghData.repo.language}</span>}
+                  </div>
+                </div>
+                <Separator />
+                {/* Latest commits */}
+                {(ghData.commits ?? []).length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <GitCommit className="h-3 w-3" /> آخر الـ Commits
+                    </p>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {(ghData.commits as any[]).slice(0, 5).map((c: any) => (
+                        <div key={c.sha} className="flex items-start gap-2 text-xs">
+                          <span className="font-mono text-violet-600 shrink-0 mt-0.5">{c.sha}</span>
+                          <span className="flex-1 truncate text-foreground/80">{c.message}</span>
+                          <span className="text-muted-foreground shrink-0">{c.author}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Open PRs */}
+                {(ghData.prs ?? []).length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      🔀 Pull Requests مفتوحة ({ghData.prs.length})
+                    </p>
+                    <div className="space-y-1.5">
+                      {(ghData.prs as any[]).map((pr: any) => (
+                        <div key={pr.number} className="flex items-center gap-2 text-xs">
+                          <span className="text-blue-600">#{pr.number}</span>
+                          <span className="flex-1 truncate">{pr.title}</span>
+                          <span className="text-muted-foreground">{pr.user}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Branches */}
+                {(ghData.branches ?? []).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(ghData.branches as any[]).slice(0, 6).map((b: any) => (
+                      <Badge key={b.name} variant="outline" className="text-[10px] font-mono py-0">
+                        {b.protected ? "🔒 " : ""}{b.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Fallback to env vars */
+              <div className="space-y-3">
+                <GithubRow icon={<Database className="h-3.5 w-3.5 text-zinc-500" />}   label="المستودع"   value={ghub.repository} mono />
+                <GithubRow icon={<GitBranch className="h-3.5 w-3.5 text-blue-500" />}  label="الفرع"       value={ghub.branch} mono />
+                <GithubRow icon={<GitCommit className="h-3.5 w-3.5 text-violet-500" />} label="آخر Commit" value={ghub.commit} mono />
+                <GithubRow icon={<Rocket className="h-3.5 w-3.5 text-emerald-500" />}  label="Workflow"    value={ghub.workflow} />
+                <GithubRow icon={<Activity className="h-3.5 w-3.5 text-amber-500" />}  label="Run #"       value={ghub.runNumber} mono />
+                <Separator />
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Shield className="h-3.5 w-3.5 text-amber-500" />
+                  <span>قراءة من متغيرات البيئة — ربط GitHub API متاح الآن.</span>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
