@@ -1,0 +1,419 @@
+ADALAH BANKRUPTCY ENTERPRISE ADMIN LAYER
+
+Objective
+
+Implement Enterprise Administration, Global Monitoring, Security, Storage, and Backup Management for Adalah Bankruptcy.
+
+Must integrate with existing SaaS architecture.
+
+No breaking changes.
+
+⸻
+
+GLOBAL SUPER ADMIN
+
+Role:
+
+SuperAdmin
+
+Scope:
+
+Platform Wide
+
+Access:
+
+All Offices
+
+All Bankruptcy Cases
+
+All Opening Requests
+
+All Creditors
+
+All Claims
+
+All Assets
+
+All Liabilities
+
+All Meetings
+
+All Distributions
+
+All Reports
+
+All Documents
+
+All AI Analysis
+
+All Audit Logs
+
+⸻
+
+SUPER ADMIN DASHBOARD
+
+Route:
+
+/admin/bankruptcy
+
+Display:
+
+Total Offices
+
+Subscribed Offices
+
+Trial Offices
+
+Expired Offices
+
+Total Bankruptcy Cases
+
+Total Opening Requests
+
+Total Claims
+
+Total Assets
+
+Total Liabilities
+
+Total Documents
+
+Total Storage Usage
+
+Total AI Usage
+
+Monthly Revenue
+
+Package Distribution
+
+⸻
+
+OFFICE INSPECTION MODE
+
+Feature:
+
+Office View
+
+Super Admin may open any office.
+
+Actions:
+
+View Office
+
+View Users
+
+View Cases
+
+View Documents
+
+View Reports
+
+View AI History
+
+View Storage
+
+View Subscription
+
+⸻
+
+SECURE ADMIN ACCESS
+
+When Super Admin enters office data:
+
+Create Audit Record
+
+Table:
+
+system_audit_logs
+
+Fields:
+
+id
+
+admin_user_id
+
+office_id
+
+action_type
+
+resource_type
+
+resource_id
+
+reason
+
+ip_address
+
+created_at
+
+⸻
+
+IMPERSONATION MODE
+
+Feature:
+
+Support Session
+
+Purpose:
+
+Troubleshooting
+
+Super Admin can temporarily access office environment.
+
+Requirements:
+
+Session Banner
+
+“Support Session Active”
+
+Full Audit Logging
+
+Automatic Timeout
+
+Start Time
+
+End Time
+
+User Tracking
+
+⸻
+
+BANKRUPTCY ROLE SYSTEM
+
+Roles:
+
+SuperAdmin
+
+OfficeOwner
+
+BankruptcyTrustee
+
+Lawyer
+
+FinancialAnalyst
+
+CaseManager
+
+Staff
+
+ReadOnly
+
+⸻
+
+BANKRUPTCY PERMISSIONS
+
+bankruptcy.view
+
+bankruptcy.create
+
+bankruptcy.edit
+
+bankruptcy.delete
+
+bankruptcy.claims.review
+
+bankruptcy.claims.approve
+
+bankruptcy.assets.manage
+
+bankruptcy.liabilities.manage
+
+bankruptcy.meetings.manage
+
+bankruptcy.distributions.manage
+
+bankruptcy.reports.generate
+
+bankruptcy.ai.use
+
+bankruptcy.admin
+
+⸻
+
+STORAGE MANAGEMENT
+
+Create Storage Dashboard
+
+Display:
+
+Used Storage
+
+Available Storage
+
+Documents Count
+
+Largest Files
+
+Storage By Office
+
+Storage Growth
+
+Monthly Usage
+
+⸻
+
+DOCUMENT STORAGE
+
+All documents stored using:
+
+Object Storage
+
+Structure:
+
+office_id/
+
+bankruptcy/
+
+case_id/
+
+documents/
+
+reports/
+
+court_packages/
+
+ai_reports/
+
+⸻
+
+BACKUP SYSTEM
+
+Implement:
+
+Automated Daily Backup
+
+Automated Weekly Backup
+
+Automated Monthly Backup
+
+⸻
+
+BACKUP COVERAGE
+
+Database
+
+Documents
+
+Court Packages
+
+AI Reports
+
+Templates
+
+Workflow Data
+
+Tasks
+
+Alerts
+
+Audit Logs
+
+⸻
+
+BACKUP RETENTION
+
+Daily:
+
+30 Days
+
+Weekly:
+
+12 Weeks
+
+Monthly:
+
+12 Months
+
+⸻
+
+DISASTER RECOVERY
+
+Create Recovery Procedures
+
+Restore Database
+
+Restore Office Data
+
+Restore Documents
+
+Restore Single Case
+
+Restore Entire Office
+
+⸻
+
+BACKUP MONITORING
+
+Dashboard:
+
+Last Successful Backup
+
+Backup Status
+
+Backup Size
+
+Restore Test Status
+
+Failed Backups
+
+Backup Health Score
+
+⸻
+
+SECURITY
+
+Encrypt:
+
+Documents At Rest
+
+Documents In Transit
+
+Backups
+
+Sensitive Data
+
+⸻
+
+AUDIT LOGGING
+
+Track:
+
+Login
+
+Logout
+
+Document Access
+
+Report Generation
+
+AI Usage
+
+Permission Changes
+
+Support Sessions
+
+Case Modifications
+
+Claim Approvals
+
+Distribution Approvals
+
+⸻
+
+ENTERPRISE REQUIREMENTS
+
+Multi-Tenant Isolation
+
+Full Audit Trail
+
+Backup Verification
+
+Restore Verification
+
+Storage Monitoring
+
+Compliance Ready
+
+Production Ready
+
+No Breaking Changes.

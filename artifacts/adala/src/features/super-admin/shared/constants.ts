@@ -6,7 +6,7 @@ import {
   Gift, Percent, Bot, Radar, Globe, CreditCard, Banknote,
   FileBarChart2, Gavel, FileSignature, ShieldCheck as SecurityIcon,
   Layout, Globe2, AlertOctagon, RotateCcw, ScanLine, Palette,
-  TrendingUp, Rocket, Network, Plug, UserCog, GitBranch,
+  TrendingUp, Rocket, Network, Plug, UserCog, GitBranch, Landmark,
 } from "lucide-react";
 
 export const PLAN_SLUG_COLORS: Record<string, string> = {
@@ -125,6 +125,7 @@ export const TABS = [
   { id: "tenant-identity",  label: "هوية المستأجر (TIRE)",       icon: Network },
   { id: "control-tower",    label: "غرفة التحكم المباشر",        icon: Radar },
   { id: "go-live-cert",     label: "شهادة الإطلاق النهائي",      icon: Rocket },
+  { id: "bankruptcy-admin", label: "إدارة الإفلاس",               icon: Landmark },
 ];
 
 export const PERM_LABELS: Record<string, { label: string; color: string }> = {

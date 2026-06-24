@@ -1245,4 +1245,149 @@ router.get("/landing-variant", async (_req, res) => {
   } catch { res.json({ variant: "original" }); }
 });
 
+/* ══════════════════════════════════════════════════════════
+   BANKRUPTCY SUPER ADMIN ROUTES  (isSuperAdmin — adminOnly)
+══════════════════════════════════════════════════════════ */
+
+async function ensureSystemAuditLogs() {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS system_audit_logs (
+      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      admin_user_id TEXT NOT NULL,
+      office_id     TEXT,
+      action_type   TEXT NOT NULL,
+      resource_type TEXT,
+      resource_id   TEXT,
+      reason        TEXT,
+      ip_address    TEXT,
+      metadata      JSONB,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sys_audit_admin  ON system_audit_logs(admin_user_id, created_at DESC)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sys_audit_office ON system_audit_logs(office_id, created_at DESC)`);
+}
+ensureSystemAuditLogs().catch(() => {});
+
+function saAll(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
+function saOne(r: any): any   { return saAll(r)[0] ?? null; }
+
+/* GET /admin/bankruptcy/stats — global KPIs */
+router.get("/admin/bankruptcy/stats", adminOnly, async (req: any, res) => {
+  try {
+    const [cases, reqs, creditors, claims, assets, tasks, alerts, templates, workflows] = await Promise.all([
+      db.execute(sql`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status='open') AS open, COUNT(*) FILTER (WHERE status='closed') AS closed, COUNT(DISTINCT office_id) AS offices FROM bankruptcy_cases`).then(saOne),
+      db.execute(sql`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status='ready_for_filing') AS ready, COUNT(*) FILTER (WHERE status='converted_to_case') AS converted, AVG(readiness_score)::INT AS avg_readiness, AVG(eligibility_score)::INT AS avg_eligibility FROM bk_opening_requests`).then(saOne),
+      db.execute(sql`SELECT COUNT(*) AS total FROM bk_creditors`).then(saOne),
+      db.execute(sql`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status='approved') AS approved, SUM(claim_amount)::NUMERIC AS total_amount FROM bk_claims`).then(saOne),
+      db.execute(sql`SELECT COUNT(*) AS total, SUM(estimated_value)::NUMERIC AS total_value FROM bk_assets`).then(saOne),
+      db.execute(sql`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status='overdue') AS overdue FROM bk_tasks`).then(saOne),
+      db.execute(sql`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE severity='critical') AS critical FROM bk_alerts WHERE status='active'`).then(saOne),
+      db.execute(sql`SELECT COUNT(*) AS total FROM bk_templates`).then(saOne),
+      db.execute(sql`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status='completed') AS completed FROM bk_workflows`).then(saOne),
+    ]);
+    res.json({ cases, opening_requests: reqs, creditors, claims, assets, tasks, alerts, templates, workflows });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* GET /admin/bankruptcy/offices — per-office breakdown */
+router.get("/admin/bankruptcy/offices", adminOnly, async (_req, res) => {
+  try {
+    const rows = saAll(await db.execute(sql`
+      SELECT
+        bc.office_id,
+        op.name        AS office_name,
+        COUNT(DISTINCT bc.id)   AS cases_count,
+        COUNT(DISTINCT bor.id)  AS opening_requests_count,
+        COUNT(DISTINCT bt.id)   FILTER (WHERE bt.status='overdue') AS overdue_tasks,
+        COUNT(DISTINCT ba.id)   FILTER (WHERE ba.status='active') AS active_alerts,
+        MAX(bc.created_at)      AS last_case_at
+      FROM bankruptcy_cases bc
+      LEFT JOIN office_page op     ON op.office_id = bc.office_id
+      LEFT JOIN bk_opening_requests bor ON bor.office_id = bc.office_id
+      LEFT JOIN bk_tasks bt        ON bt.office_id = bc.office_id
+      LEFT JOIN bk_alerts ba       ON ba.office_id = bc.office_id
+      GROUP BY bc.office_id, op.name
+      ORDER BY cases_count DESC
+      LIMIT 100
+    `));
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* GET /admin/bankruptcy/cases — all cases across all offices */
+router.get("/admin/bankruptcy/cases", adminOnly, async (req: any, res) => {
+  const { office_id, status, q, limit = "50", offset = "0" } = req.query as Record<string, string>;
+  try {
+    const rows = saAll(await db.execute(sql`
+      SELECT bc.*, op.name AS office_name,
+        (SELECT COUNT(*) FROM bk_creditors cr WHERE cr.case_id=bc.id) AS creditors_count,
+        (SELECT COUNT(*) FROM bk_claims cl WHERE cl.case_id=bc.id) AS claims_count,
+        (SELECT COUNT(*) FROM bk_assets a WHERE a.case_id=bc.id) AS assets_count
+      FROM bankruptcy_cases bc
+      LEFT JOIN office_page op ON op.office_id = bc.office_id
+      WHERE 1=1
+        ${office_id ? sql`AND bc.office_id = ${office_id}` : sql``}
+        ${status ? sql`AND bc.status = ${status}` : sql``}
+        ${q ? sql`AND (bc.debtor_name ILIKE ${"%" + q + "%"} OR bc.case_number ILIKE ${"%" + q + "%"})` : sql``}
+      ORDER BY bc.created_at DESC
+      LIMIT ${Number(limit)} OFFSET ${Number(offset)}
+    `));
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* GET /admin/bankruptcy/opening-requests — all opening requests across all offices */
+router.get("/admin/bankruptcy/opening-requests", adminOnly, async (req: any, res) => {
+  const { office_id, status, q } = req.query as Record<string, string>;
+  try {
+    const rows = saAll(await db.execute(sql`
+      SELECT bor.*, op.name AS office_name
+      FROM bk_opening_requests bor
+      LEFT JOIN office_page op ON op.office_id = bor.office_id
+      WHERE 1=1
+        ${office_id ? sql`AND bor.office_id = ${office_id}` : sql``}
+        ${status ? sql`AND bor.status = ${status}` : sql``}
+        ${q ? sql`AND (bor.company_name ILIKE ${"%" + q + "%"} OR bor.request_number ILIKE ${"%" + q + "%"})` : sql``}
+      ORDER BY bor.created_at DESC
+      LIMIT 100
+    `));
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* GET /admin/bankruptcy/audit-logs */
+router.get("/admin/bankruptcy/audit-logs", adminOnly, async (req: any, res) => {
+  const { office_id, action_type, limit = "50" } = req.query as Record<string, string>;
+  try {
+    const rows = saAll(await db.execute(sql`
+      SELECT sal.*, op.name AS office_name
+      FROM system_audit_logs sal
+      LEFT JOIN office_page op ON op.office_id = sal.office_id
+      WHERE (sal.resource_type LIKE 'bankruptcy%' OR sal.action_type LIKE 'bankruptcy%' OR sal.metadata::text LIKE '%bankruptcy%')
+        ${office_id ? sql`AND sal.office_id = ${office_id}` : sql``}
+        ${action_type ? sql`AND sal.action_type = ${action_type}` : sql``}
+      ORDER BY sal.created_at DESC
+      LIMIT ${Number(limit)}
+    `));
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* POST /admin/bankruptcy/audit-logs — record SA access */
+router.post("/admin/bankruptcy/audit-logs", adminOnly, async (req: any, res) => {
+  const adminId = req.auth?.userId as string;
+  const { office_id, action_type, resource_type, resource_id, reason, metadata } = req.body ?? {};
+  if (!action_type) return res.status(400).json({ error: "action_type مطلوب" });
+  try {
+    const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown").split(",")[0].trim();
+    await db.execute(sql`
+      INSERT INTO system_audit_logs (admin_user_id, office_id, action_type, resource_type, resource_id, reason, ip_address, metadata)
+      VALUES (${adminId}, ${office_id ?? null}, ${action_type}, ${resource_type ?? null}, ${resource_id ?? null},
+              ${reason ?? null}, ${ip}, ${metadata ? JSON.stringify(metadata) : null}::jsonb)
+    `);
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 export default router;
