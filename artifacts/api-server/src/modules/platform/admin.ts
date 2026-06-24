@@ -1390,4 +1390,276 @@ router.post("/admin/bankruptcy/audit-logs", adminOnly, async (req: any, res) => 
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+/* ══════════════════════════════════════════════════════════
+   BANKRUPTCY EOC — Enterprise Operations Center
+══════════════════════════════════════════════════════════ */
+
+async function ensureEocTables() {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS bk_emergency_locks (
+      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id   TEXT NOT NULL,
+      lock_type   TEXT NOT NULL,
+      target_id   TEXT,
+      reason      TEXT,
+      locked_by   TEXT NOT NULL,
+      is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+      expires_at  TIMESTAMPTZ,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      released_at TIMESTAMPTZ
+    )
+  `);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_bk_emg_office ON bk_emergency_locks(office_id, is_active)`);
+}
+ensureEocTables().catch(() => {});
+
+async function eocAudit(adminId: string, ip: string, officeId: string | null, action: string, meta?: object) {
+  await db.execute(sql`
+    INSERT INTO system_audit_logs (admin_user_id, office_id, action_type, resource_type, metadata, ip_address)
+    VALUES (${adminId}, ${officeId ?? null}, ${action}, 'bankruptcy_eoc',
+            ${meta ? JSON.stringify(meta) : null}::jsonb, ${ip})
+  `).catch(() => {});
+}
+
+/* ── EOC: Health Center ── */
+router.get("/admin/bankruptcy/eoc/health", adminOnly, async (_req, res) => {
+  try {
+    const rows = saAll(await db.execute(sql`
+      SELECT
+        bc.office_id,
+        op.name                                                                              AS office_name,
+        COUNT(DISTINCT bc.id)::int                                                           AS total_cases,
+        COUNT(DISTINCT bc.id) FILTER (WHERE bc.status = 'open')::int                        AS open_cases,
+        COUNT(DISTINCT bc.id) FILTER (WHERE bc.status = 'closed')::int                      AS closed_cases,
+        COUNT(DISTINCT bt.id) FILTER (WHERE bt.status = 'overdue')::int                     AS overdue_tasks,
+        COUNT(DISTINCT bt.id) FILTER (WHERE bt.status NOT IN ('completed','cancelled'))::int AS active_tasks,
+        COUNT(DISTINCT ba.id) FILTER (WHERE ba.status = 'active' AND ba.severity = 'critical')::int AS critical_alerts,
+        COUNT(DISTINCT ba.id) FILTER (WHERE ba.status = 'active')::int                      AS active_alerts,
+        COUNT(DISTINCT bcl.id) FILTER (WHERE bcl.status = 'pending')::int                   AS pending_claims,
+        COUNT(DISTINCT bcl.id)::int                                                          AS total_claims,
+        MAX(bc.updated_at)                                                                   AS last_activity,
+        GREATEST(0,
+          100
+          - LEAST(30, COUNT(DISTINCT bt.id) FILTER (WHERE bt.status = 'overdue') * 5)
+          - LEAST(40, COUNT(DISTINCT ba.id) FILTER (WHERE ba.status = 'active' AND ba.severity = 'critical') * 10)
+          - CASE WHEN MAX(bc.updated_at) < NOW() - INTERVAL '30 days' THEN 15 ELSE 0 END
+          - CASE WHEN COUNT(DISTINCT bc.id) FILTER (WHERE bc.status = 'open') > 10 THEN 10 ELSE 0 END
+        )::int                                                                               AS health_score
+      FROM bankruptcy_cases bc
+      LEFT JOIN office_page op  ON op.id::text = bc.office_id
+      LEFT JOIN bk_tasks bt     ON bt.case_id  = bc.id::uuid
+      LEFT JOIN bk_alerts ba    ON ba.case_id  = bc.id::uuid
+      LEFT JOIN bk_claims bcl   ON bcl.case_id = bc.id::uuid
+      GROUP BY bc.office_id, op.name
+      ORDER BY health_score ASC
+    `));
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ── EOC: Revenue Center ── */
+router.get("/admin/bankruptcy/eoc/revenue", adminOnly, async (_req, res) => {
+  try {
+    const [summary, byPlan, monthly, offices] = await Promise.all([
+      db.execute(sql`
+        SELECT
+          COUNT(DISTINCT op.id)::int                                                         AS total_offices,
+          COUNT(DISTINCT op.id) FILTER (WHERE op.plan NOT IN ('free','trial') AND op.plan IS NOT NULL)::int AS paid_offices,
+          COUNT(DISTINCT op.id) FILTER (WHERE op.plan = 'trial')::int                        AS trial_offices,
+          COUNT(DISTINCT op.id) FILTER (WHERE op.plan IS NULL OR op.plan = 'free')::int      AS free_offices,
+          COALESCE(SUM(l.total_credit),0)::numeric                                           AS total_revenue,
+          COALESCE(AVG(l.total_credit) FILTER (WHERE l.total_credit > 0),0)::numeric         AS avg_revenue_per_office
+        FROM office_page op
+        LEFT JOIN (
+          SELECT office_id, SUM(amount) AS total_credit
+          FROM office_ledger WHERE type = 'credit'
+          GROUP BY office_id
+        ) l ON l.office_id = op.id::text
+      `).then(saOne),
+      db.execute(sql`
+        SELECT COALESCE(op.plan,'free') AS plan_slug,
+               COUNT(*)::int AS office_count,
+               COALESCE(SUM(l.total_credit),0)::numeric AS revenue
+        FROM office_page op
+        LEFT JOIN (
+          SELECT office_id, SUM(amount) AS total_credit
+          FROM office_ledger WHERE type = 'credit'
+          GROUP BY office_id
+        ) l ON l.office_id = op.id::text
+        GROUP BY op.plan
+        ORDER BY office_count DESC
+      `).then(saAll),
+      db.execute(sql`
+        SELECT TO_CHAR(created_at,'YYYY-MM') AS month,
+               COALESCE(SUM(amount),0)::numeric AS revenue,
+               COUNT(DISTINCT office_id)::int AS offices
+        FROM office_ledger WHERE type = 'credit' AND created_at >= NOW() - INTERVAL '12 months'
+        GROUP BY TO_CHAR(created_at,'YYYY-MM')
+        ORDER BY month ASC
+      `).then(saAll),
+      db.execute(sql`
+        SELECT op.id::text AS office_id, op.name, COALESCE(op.plan,'free') AS plan,
+               COALESCE(l.total_credit,0)::numeric AS revenue,
+               op.created_at
+        FROM office_page op
+        LEFT JOIN (
+          SELECT office_id, SUM(amount) AS total_credit FROM office_ledger WHERE type='credit' GROUP BY office_id
+        ) l ON l.office_id = op.id::text
+        ORDER BY revenue DESC LIMIT 20
+      `).then(saAll),
+    ]);
+    res.json({ summary, by_plan: byPlan, monthly, top_offices: offices });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ── EOC: AI Analytics ── */
+router.get("/admin/bankruptcy/eoc/ai-analytics", adminOnly, async (_req, res) => {
+  try {
+    const [summary, perOffice, daily] = await Promise.all([
+      db.execute(sql`
+        SELECT
+          COUNT(*)::int                                                         AS total_transactions,
+          COALESCE(SUM(ABS(amount)) FILTER (WHERE amount < 0),0)::int          AS total_credits_used,
+          COUNT(DISTINCT office_id)::int                                        AS offices_using_ai,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS transactions_30d,
+          COALESCE(SUM(ABS(amount)) FILTER (WHERE amount < 0 AND created_at >= NOW() - INTERVAL '30 days'),0)::int AS credits_used_30d
+        FROM ai_credit_transactions
+      `).then(saOne),
+      db.execute(sql`
+        SELECT t.office_id, op.name AS office_name,
+               oc.balance                                                              AS current_balance,
+               oc.monthly_allowance,
+               COUNT(t.id)::int                                                        AS total_transactions,
+               COALESCE(SUM(ABS(t.amount)) FILTER (WHERE t.amount < 0),0)::int        AS credits_used,
+               COUNT(t.id) FILTER (WHERE t.created_at >= NOW() - INTERVAL '30 days')::int AS transactions_30d
+        FROM ai_credit_transactions t
+        LEFT JOIN office_page op ON op.id::text = t.office_id
+        LEFT JOIN office_ai_credits oc ON oc.office_id = t.office_id
+        GROUP BY t.office_id, op.name, oc.balance, oc.monthly_allowance
+        ORDER BY credits_used DESC
+        LIMIT 30
+      `).then(saAll),
+      db.execute(sql`
+        SELECT TO_CHAR(created_at,'YYYY-MM-DD') AS day,
+               COUNT(*)::int                    AS transactions,
+               COALESCE(SUM(ABS(amount)) FILTER (WHERE amount < 0),0)::int AS credits_used
+        FROM ai_credit_transactions
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY TO_CHAR(created_at,'YYYY-MM-DD')
+        ORDER BY day ASC
+      `).then(saAll),
+    ]);
+    res.json({ summary, per_office: perOffice, daily });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ── EOC: Storage & Backups ── */
+router.get("/admin/bankruptcy/eoc/storage", adminOnly, async (_req, res) => {
+  try {
+    const [storageSummary, perOffice, backupSummary, recentBackups] = await Promise.all([
+      db.execute(sql`
+        SELECT
+          COUNT(*)::int                                   AS total_files,
+          COALESCE(SUM(file_size),0)::bigint              AS total_bytes,
+          COUNT(*) FILTER (WHERE is_archived)::int        AS archived_count,
+          COUNT(*) FILTER (WHERE is_deleted)::int         AS deleted_count,
+          COUNT(DISTINCT office_id)::int                  AS offices_with_files,
+          COALESCE(MAX(file_size),0)::bigint              AS largest_file_bytes
+        FROM storage_files
+      `).then(saOne),
+      db.execute(sql`
+        SELECT sf.office_id, op.name AS office_name,
+               COUNT(sf.id)::int AS files_count,
+               COALESCE(SUM(sf.file_size),0)::bigint AS used_bytes,
+               COALESCE(q.max_bytes, 1073741824)::bigint AS max_bytes
+        FROM storage_files sf
+        LEFT JOIN office_page op ON op.id::text = sf.office_id
+        LEFT JOIN office_storage_quota q ON q.office_id = sf.office_id
+        WHERE NOT sf.is_deleted
+        GROUP BY sf.office_id, op.name, q.max_bytes
+        ORDER BY used_bytes DESC
+        LIMIT 20
+      `).then(saAll),
+      db.execute(sql`
+        SELECT
+          COUNT(*)::int                                        AS total_jobs,
+          COUNT(*) FILTER (WHERE status = 'completed')::int   AS completed_jobs,
+          COUNT(*) FILTER (WHERE status = 'failed')::int      AS failed_jobs,
+          COUNT(*) FILTER (WHERE status = 'running')::int     AS running_jobs,
+          COALESCE(SUM(size_bytes) FILTER (WHERE status='completed'),0)::bigint AS total_backup_bytes,
+          MAX(completed_at) FILTER (WHERE status = 'completed') AS last_successful_backup,
+          COUNT(DISTINCT office_id)::int                       AS offices_backed_up
+        FROM backup_jobs
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+      `).then(saOne),
+      db.execute(sql`
+        SELECT bj.office_id, op.name AS office_name, bj.type, bj.status,
+               bj.size_bytes, bj.completed_at, bj.created_at
+        FROM backup_jobs bj
+        LEFT JOIN office_page op ON op.id::text = bj.office_id
+        ORDER BY bj.created_at DESC
+        LIMIT 30
+      `).then(saAll),
+    ]);
+    res.json({ storage: storageSummary, per_office: perOffice, backup: backupSummary, recent_backups: recentBackups });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ── EOC: Emergency — list active locks ── */
+router.get("/admin/bankruptcy/eoc/emergency", adminOnly, async (_req, res) => {
+  try {
+    const locks = saAll(await db.execute(sql`
+      SELECT el.*, op.name AS office_name
+      FROM bk_emergency_locks el
+      LEFT JOIN office_page op ON op.id::text = el.office_id
+      WHERE el.is_active = TRUE
+        AND (el.expires_at IS NULL OR el.expires_at > NOW())
+      ORDER BY el.created_at DESC
+    `));
+    const history = saAll(await db.execute(sql`
+      SELECT el.*, op.name AS office_name
+      FROM bk_emergency_locks el
+      LEFT JOIN office_page op ON op.id::text = el.office_id
+      WHERE el.is_active = FALSE OR (el.expires_at IS NOT NULL AND el.expires_at <= NOW())
+      ORDER BY el.created_at DESC LIMIT 20
+    `));
+    res.json({ active: locks, history });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ── EOC: Emergency — apply lock/freeze ── */
+router.post("/admin/bankruptcy/eoc/emergency", adminOnly, async (req: any, res) => {
+  const adminId = req.auth?.userId as string;
+  const { office_id, lock_type, target_id, reason, expires_hours } = req.body ?? {};
+  if (!office_id || !lock_type || !reason) return res.status(400).json({ error: "office_id, lock_type, reason مطلوبون" });
+  try {
+    const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown").split(",")[0].trim();
+    const expiresAt = expires_hours ? sql`NOW() + (${Number(expires_hours)} || ' hours')::interval` : sql`NULL`;
+    const row = saOne(await db.execute(sql`
+      INSERT INTO bk_emergency_locks (office_id, lock_type, target_id, reason, locked_by, expires_at)
+      VALUES (${office_id}, ${lock_type}, ${target_id ?? null}, ${reason}, ${adminId}, ${expiresAt})
+      RETURNING *
+    `));
+    await eocAudit(adminId, ip, office_id, `bankruptcy.emergency.${lock_type}`, { lock_type, target_id, reason });
+    res.json(row);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ── EOC: Emergency — release lock ── */
+router.delete("/admin/bankruptcy/eoc/emergency/:id", adminOnly, async (req: any, res) => {
+  const adminId = req.auth?.userId as string;
+  const { id } = req.params as Record<string, string>;
+  try {
+    const ip = String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown").split(",")[0].trim();
+    const row = saOne(await db.execute(sql`
+      UPDATE bk_emergency_locks
+      SET is_active = FALSE, released_at = NOW()
+      WHERE id = ${id}::uuid
+      RETURNING *
+    `));
+    if (row) await eocAudit(adminId, ip, row.office_id, "bankruptcy.emergency.release", { lock_id: id });
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 export default router;
