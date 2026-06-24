@@ -92,6 +92,79 @@ export const DEFAULT_PLANS = [
     featureFlags: { cases: true, invoices: true, reminders: true, calendar: true, exportPdf: true, reportsBasic: true, aiBasic: true, ai: true, aiAnalytics: true, aiCfo: true, customAiTraining: true, documentTemplates: true, contractsAi: true, ocr: true, backup: true, website: true, serviceStore: true, payments: true, mobileApp: true, whatsapp: true, workflow: true, reportsAdvanced: true, clientPortal: true, customDomain: true, apiAccess: true, whiteLabel: true, sla: true, dedicatedManager: true, priorityInfrastructure: true },
     limits: { users: "unlimited", storage: "غير محدود", aiRequests: "unlimited", branches: "unlimited" },
   },
+  /* ── عدالة إفلاس — Specialized Bankruptcy Module Plans ── */
+  {
+    id: "bk-starter", nameAr: "عدالة إفلاس — بداية", nameEn: "Adalah Bankruptcy Basic",
+    monthlyPrice: 1999, yearlyPrice: 1599, color: "#EA580C",
+    description: "للمحامين والمكاتب الصغيرة المتخصصة في الإفلاس وإعادة الهيكلة",
+    badge: null, recommended: false, isContactOnly: false, sortOrder: 10,
+    features: [
+      "٥ ملفات إفلاس نشطة", "٣ مستخدمين", "٢٠ جيجا تخزين",
+      "لوحة تحكم الإفلاس الكاملة", "إدارة الدائنين والمطالبات",
+      "إدارة الأصول والعقارات", "اجتماعات الدائنين وتوثيق المحاضر",
+      "بوابة الدائنين العامة", "تقديم المطالبات إلكترونياً",
+    ],
+    featureFlags: {
+      bankruptcy: true, bankruptcyDashboard: true, bankruptcyCases: true,
+      bankruptcyCreditors: true, bankruptcyClaims: true, bankruptcyAssets: true,
+      bankruptcyMeetings: true, bankruptcyDocuments: true, bankruptcyPortal: true,
+      bankruptcyClaimSubmission: true, bankruptcyDistributions: false,
+      bankruptcyValuations: false, bankruptcyAiAssistant: false,
+      bankruptcyAnalytics: false, bankruptcyApi: false,
+      bankruptcyWhiteLabel: false, bankruptcyCustomWorkflows: false,
+    },
+    limits: { users: 3, storage: "٢٠ GB", activeCases: 5 },
+  },
+  {
+    id: "bk-pro", nameAr: "عدالة إفلاس — احتراف", nameEn: "Adalah Bankruptcy Professional",
+    monthlyPrice: 4999, yearlyPrice: 3999, color: "#7C3AED",
+    description: "لأمناء الإفلاس ومكاتب المحاماة المتوسطة",
+    badge: "⭐ الأكثر طلباً", recommended: true, isContactOnly: false, sortOrder: 11,
+    features: [
+      "٢٥ ملف إفلاس نشط", "١٥ مستخدماً", "١٠٠ جيجا تخزين",
+      "كل مزايا بداية +",
+      "💸 التوزيعات وتقييم الأصول",
+      "🤖 مساعد AI للإفلاس",
+      "📊 تحليلات متقدمة",
+      "متابعة المطالبات في الوقت الفعلي",
+      "تقارير تفصيلية للأمانة",
+    ],
+    featureFlags: {
+      bankruptcy: true, bankruptcyDashboard: true, bankruptcyCases: true,
+      bankruptcyCreditors: true, bankruptcyClaims: true, bankruptcyAssets: true,
+      bankruptcyMeetings: true, bankruptcyDocuments: true, bankruptcyPortal: true,
+      bankruptcyClaimSubmission: true, bankruptcyDistributions: true,
+      bankruptcyValuations: true, bankruptcyAiAssistant: true,
+      bankruptcyAnalytics: true, bankruptcyApi: false,
+      bankruptcyWhiteLabel: false, bankruptcyCustomWorkflows: false,
+    },
+    limits: { users: 15, storage: "١٠٠ GB", activeCases: 25 },
+  },
+  {
+    id: "bk-enterprise", nameAr: "عدالة إفلاس — مؤسسات", nameEn: "Adalah Bankruptcy Enterprise",
+    monthlyPrice: 9999, yearlyPrice: 7999, color: "#0F172A",
+    description: "للشركات الاستشارية ومكاتب الأمناء الكبيرة",
+    badge: "🏆 للمؤسسات الكبرى", recommended: false, isContactOnly: false, sortOrder: 12,
+    features: [
+      "ملفات إفلاس غير محدودة", "مستخدمون غير محدود", "تخزين غير محدود",
+      "كل مزايا احتراف +",
+      "🔌 API كامل + تكاملات خارجية",
+      "🏷️ وايت لابل — هويتك الكاملة",
+      "⚙️ سير عمل مخصص",
+      "📋 تقارير تنفيذية",
+      "🛡️ دعم أولوية ٢٤/٧",
+    ],
+    featureFlags: {
+      bankruptcy: true, bankruptcyDashboard: true, bankruptcyCases: true,
+      bankruptcyCreditors: true, bankruptcyClaims: true, bankruptcyAssets: true,
+      bankruptcyMeetings: true, bankruptcyDocuments: true, bankruptcyPortal: true,
+      bankruptcyClaimSubmission: true, bankruptcyDistributions: true,
+      bankruptcyValuations: true, bankruptcyAiAssistant: true,
+      bankruptcyAnalytics: true, bankruptcyApi: true,
+      bankruptcyWhiteLabel: true, bankruptcyCustomWorkflows: true,
+    },
+    limits: { users: "unlimited", storage: "غير محدود", activeCases: "unlimited" },
+  },
 ];
 
 /* ── Ensure table + new columns ─────────────────────────── */
@@ -144,6 +217,22 @@ async function ensureTable() {
           feature_flags = CASE WHEN feature_flags = '{}'::jsonb THEN ${JSON.stringify(p.featureFlags)}::jsonb ELSE feature_flags END,
           limits        = CASE WHEN limits        = '{}'::jsonb THEN ${JSON.stringify(p.limits)}::jsonb        ELSE limits        END
         WHERE id = ${p.id}
+      `);
+    }
+    /* Always insert new plans (e.g. bk-*) that may not exist yet */
+    const BK_IDS = ["bk-starter", "bk-pro", "bk-enterprise"];
+    for (const p of DEFAULT_PLANS.filter(x => BK_IDS.includes(x.id))) {
+      await db.execute(sql`
+        INSERT INTO plan_cms (id, name_ar, name_en, monthly_price, yearly_price, color, description, badge, features, recommended, is_contact_only, sort_order, feature_flags, limits)
+        VALUES (
+          ${p.id}, ${p.nameAr}, ${p.nameEn}, ${p.monthlyPrice}, ${p.yearlyPrice},
+          ${p.color}, ${p.description}, ${p.badge ?? null},
+          ${JSON.stringify(p.features)}::jsonb,
+          ${p.recommended}, ${p.isContactOnly}, ${p.sortOrder},
+          ${JSON.stringify(p.featureFlags)}::jsonb,
+          ${JSON.stringify(p.limits)}::jsonb
+        )
+        ON CONFLICT (id) DO NOTHING
       `);
     }
   }

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence, useInView } from "framer-motion";
@@ -8,7 +8,8 @@ import {
   Users, HardDrive, Brain, Globe, ShoppingBag, Calendar,
   GitBranch, Code2, BarChart3, Headphones, Wifi,
   BadgeCheck, Phone, Plus, TrendingUp, FileText, Smartphone,
-  Database, ScanText, CloudUpload, Layers, Bot, Lock, Award, CreditCard
+  Database, ScanText, CloudUpload, Layers, Bot, Lock, Award, CreditCard,
+  Scale, Flame, Building,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -197,7 +198,65 @@ const PLANS = [
 const PLAN_ICONS: Record<string, any> = {
   free: Zap, basic: Rocket, pro: Star, growth: TrendingUp,
   advanced: Shield, enterprise: Building2, elite: Crown,
+  "bk-starter": Scale, "bk-pro": Flame, "bk-enterprise": Building,
 };
+
+/* ── Bankruptcy plans fallback (mirrors DEFAULT_PLANS in planCms.ts) ── */
+const BK_PLANS = [
+  {
+    id: "bk-starter", nameAr: "بداية", nameEn: "Adalah Bankruptcy Basic",
+    icon: Scale, color: "#EA580C",
+    monthly: 1999, yearly: 1599,
+    desc: "للمحامين والمكاتب الصغيرة المتخصصة في الإفلاس وإعادة الهيكلة",
+    cta: "اشترك الآن", recommended: false, enterprise: false,
+    badge: null,
+    features: [
+      "٥ ملفات إفلاس نشطة", "٣ مستخدمين", "٢٠ جيجا تخزين",
+      "لوحة تحكم الإفلاس الكاملة",
+      "إدارة الدائنين والمطالبات",
+      "إدارة الأصول والعقارات",
+      "اجتماعات الدائنين وتوثيق المحاضر",
+      "بوابة الدائنين العامة",
+      "تقديم المطالبات إلكترونياً",
+    ],
+  },
+  {
+    id: "bk-pro", nameAr: "احتراف", nameEn: "Adalah Bankruptcy Professional",
+    icon: Flame, color: "#7C3AED",
+    monthly: 4999, yearly: 3999,
+    desc: "لأمناء الإفلاس ومكاتب المحاماة المتوسطة",
+    cta: "اشترك الآن", recommended: true, enterprise: false,
+    badge: "⭐ الأكثر طلباً",
+    features: [
+      "٢٥ ملف إفلاس نشط", "١٥ مستخدماً", "١٠٠ جيجا تخزين",
+      "كل مزايا بداية +",
+      "💸 التوزيعات وتقييم الأصول",
+      "🤖 مساعد AI للإفلاس",
+      "📊 تحليلات متقدمة",
+      "متابعة المطالبات في الوقت الفعلي",
+      "تقارير تفصيلية للأمانة",
+    ],
+  },
+  {
+    id: "bk-enterprise", nameAr: "مؤسسات", nameEn: "Adalah Bankruptcy Enterprise",
+    icon: Building, color: "#0F172A",
+    monthly: 9999, yearly: 7999,
+    desc: "للشركات الاستشارية ومكاتب الأمناء الكبيرة",
+    cta: "اشترك الآن", recommended: false, enterprise: false,
+    badge: "🏆 للمؤسسات الكبرى",
+    features: [
+      "ملفات إفلاس غير محدودة",
+      "مستخدمون غير محدود",
+      "تخزين غير محدود",
+      "كل مزايا احتراف +",
+      "🔌 API كامل + تكاملات خارجية",
+      "🏷️ وايت لابل — هويتك الكاملة",
+      "⚙️ سير عمل مخصص",
+      "📋 تقارير تنفيذية",
+      "🛡️ دعم أولوية ٢٤/٧",
+    ],
+  },
+];
 
 /* normalize API response → component shape */
 function normalizePlan(p: any) {
@@ -312,6 +371,22 @@ export default function PricingPage() {
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
+  /* Read ?product= from URL to default to bankruptcy tab */
+  const [product, setProduct] = useState<"main" | "bankruptcy">(() => {
+    try {
+      const p = new URLSearchParams(window.location.search).get("product");
+      return p === "bankruptcy" ? "bankruptcy" : "main";
+    } catch { return "main"; }
+  });
+
+  /* Sync product state when URL changes */
+  useEffect(() => {
+    try {
+      const p = new URLSearchParams(window.location.search).get("product");
+      setProduct(p === "bankruptcy" ? "bankruptcy" : "main");
+    } catch {}
+  }, []);
+
   /* fetch live plans from DB (falls back to hardcoded PLANS) */
   const { data: apiPlans } = useQuery({
     queryKey: ["billing-plans"],
@@ -319,7 +394,14 @@ export default function PricingPage() {
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
-  const PLANS_LIVE = (apiPlans && apiPlans.length > 0 ? apiPlans : PLANS).map(normalizePlan);
+
+  const ALL_PLANS_LIVE = (apiPlans && apiPlans.length > 0 ? apiPlans : PLANS).map(normalizePlan);
+  const BK_PLANS_LIVE = (() => {
+    const fromApi = ALL_PLANS_LIVE.filter((p: any) => String(p.id).startsWith("bk-"));
+    return fromApi.length > 0 ? fromApi : BK_PLANS.map(p => ({ ...p, nameAr: `عدالة إفلاس — ${p.nameAr}` }));
+  })();
+  const MAIN_PLANS_LIVE = ALL_PLANS_LIVE.filter((p: any) => !String(p.id).startsWith("bk-"));
+  const PLANS_LIVE = product === "bankruptcy" ? BK_PLANS_LIVE : MAIN_PLANS_LIVE;
 
   return (
     <div
@@ -348,35 +430,94 @@ export default function PricingPage() {
         </div>
       </nav>
 
+      {/* ── PRODUCT TAB TOGGLE ── */}
+      <div className="flex justify-center pt-10 pb-2 px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="inline-flex p-1 rounded-2xl gap-1"
+          style={{ background: "#F1F5F9", border: "1px solid #E2E8F0" }}
+        >
+          <button
+            onClick={() => setProduct("main")}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200",
+              product === "main" ? "bg-white text-slate-800 shadow-md" : "text-slate-400 hover:text-slate-600"
+            )}
+          >
+            <BadgeCheck className="h-4 w-4" style={{ color: product === "main" ? GOLD : undefined }} />
+            عدالة AI
+            <span className="text-[9px] font-black px-2 py-0.5 rounded-md" style={{ background: `${GOLD}20`, color: GOLD }}>٧ باقات</span>
+          </button>
+          <button
+            onClick={() => setProduct("bankruptcy")}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200",
+              product === "bankruptcy" ? "bg-white text-slate-800 shadow-md" : "text-slate-400 hover:text-slate-600"
+            )}
+          >
+            <Scale className="h-4 w-4" style={{ color: product === "bankruptcy" ? "#EA580C" : undefined }} />
+            عدالة إفلاس
+            <span className="text-[9px] font-black px-2 py-0.5 rounded-md" style={{ background: "#FFF7ED", color: "#EA580C", border: "1px solid #FED7AA" }}>متخصص</span>
+          </button>
+        </motion.div>
+      </div>
+
       {/* ── HERO ── */}
-      <section className="text-center pt-20 pb-12 px-6">
+      <section className="text-center pt-10 pb-12 px-6">
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <div className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-6"
-            style={{ background: `${GOLD}15`, color: GOLD, border: `1px solid ${GOLD}40` }}>
-            <Sparkles className="h-3.5 w-3.5" />
-            ٧ باقات · شفافية كاملة · بدون رسوم خفية
-          </div>
-          <h1 className="text-5xl md:text-6xl font-black mb-5 leading-tight text-slate-900">
-            خطط تناسب
-            <span className="block" style={{ color: GOLD }}>جميع المكاتب القانونية</span>
-          </h1>
-          <p className="text-slate-500 text-lg max-w-xl mx-auto leading-relaxed">
-            من المحامي المستقل إلى المجموعة القانونية الكبرى — ابدأ مجاناً وقم بالترقية عندما ينمو مكتبك.
-          </p>
+          {product === "main" ? (
+            <>
+              <div className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-6"
+                style={{ background: `${GOLD}15`, color: GOLD, border: `1px solid ${GOLD}40` }}>
+                <Sparkles className="h-3.5 w-3.5" />
+                ٧ باقات · شفافية كاملة · بدون رسوم خفية
+              </div>
+              <h1 className="text-5xl md:text-6xl font-black mb-5 leading-tight text-slate-900">
+                خطط تناسب
+                <span className="block" style={{ color: GOLD }}>جميع المكاتب القانونية</span>
+              </h1>
+              <p className="text-slate-500 text-lg max-w-xl mx-auto leading-relaxed">
+                من المحامي المستقل إلى المجموعة القانونية الكبرى — ابدأ مجاناً وقم بالترقية عندما ينمو مكتبك.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-6"
+                style={{ background: "#FFF7ED", color: "#EA580C", border: "1px solid #FED7AA" }}>
+                <Scale className="h-3.5 w-3.5" />
+                حلول متخصصة — الإفلاس وإعادة الهيكلة
+              </div>
+              <h1 className="text-5xl md:text-6xl font-black mb-5 leading-tight text-slate-900">
+                عدالة إفلاس
+                <span className="block" style={{ color: "#EA580C" }}>٣ باقات متخصصة</span>
+              </h1>
+              <p className="text-slate-500 text-lg max-w-xl mx-auto leading-relaxed">
+                منصة متخصصة لأمناء الإفلاس والمحامين والمستشارين الماليين في مسارات التعثر والإعادة الهيكلة.
+              </p>
+            </>
+          )}
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
           className="flex flex-wrap justify-center gap-8 mt-10 text-center"
         >
-          {[
-            { n: 850, suf: "+", label: "مكتب يثق بنا" },
-            { n: 7,   suf: " باقات", label: "لجميع الأحجام" },
-            { n: 30,  suf: " يوم", label: "تجربة مجانية" },
-            { n: 99,  suf: "٪", label: "رضا العملاء" },
-          ].map((s, i) => (
+          {(product === "main"
+            ? [
+                { n: 850, suf: "+", label: "مكتب يثق بنا", color: GOLD },
+                { n: 7,   suf: " باقات", label: "لجميع الأحجام", color: GOLD },
+                { n: 30,  suf: " يوم", label: "تجربة مجانية", color: GOLD },
+                { n: 99,  suf: "٪", label: "رضا العملاء", color: GOLD },
+              ]
+            : [
+                { n: 3,   suf: " باقات", label: "متخصصة في الإفلاس", color: "#EA580C" },
+                { n: 25,  suf: "+", label: "ميزة متخصصة", color: "#EA580C" },
+                { n: 100, suf: "٪", label: "مطابق لنظام الإفلاس السعودي", color: "#EA580C" },
+                { n: 24,  suf: "/٧", label: "دعم متخصص", color: "#EA580C" },
+              ]
+          ).map((s, i) => (
             <div key={i}>
-              <div className="text-3xl font-black" style={{ color: GOLD }}>
+              <div className="text-3xl font-black" style={{ color: s.color }}>
                 <Counter to={s.n} suffix={s.suf} />
               </div>
               <div className="text-xs text-slate-400 mt-0.5">{s.label}</div>
@@ -418,7 +559,12 @@ export default function PricingPage() {
 
       {/* ── PRICING CARDS ── */}
       <section className="max-w-7xl mx-auto px-6 pb-20">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className={cn(
+          "gap-4",
+          product === "bankruptcy"
+            ? "grid sm:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto"
+            : "grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        )}>
           {PLANS_LIVE.map((plan: any, i: number) => {
             const price = cycle === "monthly" ? plan.monthly : plan.yearly;
             const Icon = plan.icon;

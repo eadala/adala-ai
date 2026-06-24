@@ -55,9 +55,31 @@ const PLANS = [
     isFree: false, isContactOnly: true, popular: false,
     features: ["كل شيء غير محدود", "AI مدرَّب مخصص", "بنية تحتية خاصة", "SLA ٩٩.٩٩٪", "مدير نجاح مخصص", "دعم ٢٤/٧ فوري"],
   },
+  /* ── عدالة إفلاس — Bankruptcy Module Plans ── */
+  {
+    id: "bk-starter", name: "عدالة إفلاس — بداية", nameEn: "Adalah Bankruptcy Basic", price: 1999,
+    monthlyPrice: 1999, yearlyPrice: 1599, color: "#EA580C",
+    isFree: false, isContactOnly: false, popular: false,
+    features: ["٥ ملفات إفلاس نشطة", "٣ مستخدمين", "٢٠ جيجا تخزين", "لوحة تحكم الإفلاس", "إدارة الدائنين والمطالبات", "بوابة الدائنين العامة"],
+  },
+  {
+    id: "bk-pro", name: "عدالة إفلاس — احتراف", nameEn: "Adalah Bankruptcy Professional", price: 4999,
+    monthlyPrice: 4999, yearlyPrice: 3999, color: "#7C3AED",
+    isFree: false, isContactOnly: false, popular: true,
+    features: ["٢٥ ملف إفلاس نشط", "١٥ مستخدماً", "١٠٠ جيجا تخزين", "🤖 مساعد AI للإفلاس", "التوزيعات والتقييمات", "تحليلات متقدمة"],
+  },
+  {
+    id: "bk-enterprise", name: "عدالة إفلاس — مؤسسات", nameEn: "Adalah Bankruptcy Enterprise", price: 9999,
+    monthlyPrice: 9999, yearlyPrice: 7999, color: "#0F172A",
+    isFree: false, isContactOnly: false, popular: false,
+    features: ["ملفات غير محدودة", "مستخدمون غير محدود", "🔌 API كامل", "🏷️ وايت لابل", "⚙️ سير عمل مخصص", "🛡️ دعم أولوية ٢٤/٧"],
+  },
 ];
 
-const PLAN_ORDER = ["free", "basic", "pro", "growth", "advanced", "enterprise", "elite"];
+const PLAN_ORDER = [
+  "free", "basic", "pro", "growth", "advanced", "enterprise", "elite",
+  "bk-starter", "bk-pro", "bk-enterprise",
+];
 
 const KEY_LABELS: Record<string, string> = {
   AI_CALLS: "طلبات الذكاء الاصطناعي", CASES: "القضايا",

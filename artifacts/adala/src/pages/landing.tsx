@@ -904,7 +904,126 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ══ 8. PRICING ═══════════════════════════════════════════ */}
+      {/* ══ 8. SPECIALIZED SOLUTIONS — عدالة إفلاس ═══════════════ */}
+      <section className="py-24 px-6 overflow-hidden" style={{ background: WHITE }}>
+        <div className="max-w-6xl mx-auto">
+          <FadeIn className="text-center mb-14">
+            <span className="text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full mb-4 inline-block"
+              style={{ background: "#FFF7ED", color: "#C2410C", border: "1px solid #FED7AA" }}>
+              حلول متخصصة
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black mb-4" style={{ color: DARK, letterSpacing: "-0.02em" }}>
+              عدالة إفلاس
+            </h2>
+            <p className="text-lg max-w-2xl mx-auto" style={{ color: BODY }}>
+              منصة متخصصة لإدارة الإفلاس وإعادة التنظيم المالي والتصفية والتسوية الوقائية —
+              مع بوابة دائنين ومساعد ذكاء اصطناعي وإدارة متكاملة
+            </p>
+          </FadeIn>
+
+          {/* Feature tiles */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
+            {[
+              { icon: <Scale className="w-6 h-6" style={{ color: "#EA580C" }} />, bg: "#FFF7ED",
+                title: "إدارة ملفات الإفلاس", desc: "تتبع كامل لمسار الإفلاس من الإيداع حتى إقفال الملف — مراحل آلية وتنبيهات ذكية" },
+              { icon: <Users className="w-6 h-6" style={{ color: "#7C3AED" }} />, bg: "#F5F3FF",
+                title: "بوابة الدائنين العامة", desc: "بوابة علنية متكاملة تُتيح تقديم المطالبات ومتابعتها إلكترونياً مع تتبع لحظي للحالة" },
+              { icon: <Brain className="w-6 h-6" style={{ color: "#0369A1" }} />, bg: "#F0F9FF",
+                title: "مساعد AI للإفلاس", desc: "ذكاء اصطناعي متخصص في قانون الإفلاس يُحلّل الملفات ويُقترح الإجراءات ويُعدّ التقارير" },
+              { icon: <DollarSign className="w-6 h-6" style={{ color: "#16A34A" }} />, bg: "#F0FDF4",
+                title: "إدارة التوزيعات", desc: "حساب حصص الدائنين وتوزيع عائدات الأصول وفق أولويات الضمانات القانونية تلقائياً" },
+              { icon: <FileText className="w-6 h-6" style={{ color: "#D97706" }} />, bg: "#FFFBEB",
+                title: "إدارة الأصول والتقييم", desc: "جرد وتقييم وبيع الأصول — لوحة تحكم كاملة مع ربط بمكاتب التقييم المعتمدة" },
+              { icon: <Shield className="w-6 h-6" style={{ color: "#DC2626" }} />, bg: "#FFF1F2",
+                title: "لوحة الأمين التنفيذية", desc: "تقارير اللجان والمحكمة، ملفات الامتثال، وسجلات الإجراءات كاملاً في مكان واحد" },
+            ].map((f, i) => (
+              <FadeIn key={i} delay={i * 0.07}>
+                <div className="p-6 rounded-2xl flex gap-4 h-full transition-all hover:-translate-y-1 hover:shadow-lg"
+                  style={{ background: f.bg, border: "1px solid rgba(0,0,0,0.06)" }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+                    {f.icon}
+                  </div>
+                  <div>
+                    <h3 className="font-black text-sm mb-1.5" style={{ color: DARK }}>{f.title}</h3>
+                    <p className="text-xs leading-relaxed" style={{ color: BODY }}>{f.desc}</p>
+                  </div>
+                </div>
+              </FadeIn>
+            ))}
+          </div>
+
+          {/* Bankruptcy Pricing Preview */}
+          <FadeIn delay={0.2}>
+            <div className="rounded-3xl overflow-hidden" style={{ background: "linear-gradient(160deg, #1C0533 0%, #0F172A 100%)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div className="px-8 py-10 text-center text-white">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-4"
+                  style={{ background: "rgba(234,88,12,0.25)", color: "#FCA672", border: "1px solid rgba(234,88,12,0.3)" }}>
+                  <Scale className="w-3.5 h-3.5" />
+                  عدالة إفلاس — باقات متخصصة
+                </div>
+                <h3 className="text-2xl font-black mb-2">ابدأ بالباقة التي تناسبك</h3>
+                <p className="text-sm text-white/60 mb-8">ثلاث باقات مصممة لكل حجم من حجوم مكاتب الإفلاس والإعادة الهيكلة</p>
+
+                <div className="grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+                  {[
+                    { name: "بداية",    price: "١٬٩٩٩", tag: null,         color: "#EA580C", badge: "للمكاتب الصغيرة",      features: ["٥ ملفات نشطة", "٣ مستخدمين", "بوابة الدائنين", "إدارة المطالبات"] },
+                    { name: "احتراف",   price: "٤٬٩٩٩", tag: "الأكثر طلباً", color: "#7C3AED", badge: "لأمناء الإفلاس",      features: ["٢٥ ملف نشط", "مساعد AI", "التوزيعات", "تحليلات متقدمة"] },
+                    { name: "مؤسسات",   price: "٩٬٩٩٩", tag: null,         color: "#94A3B8", badge: "للمجموعات الكبرى",    features: ["ملفات غير محدودة", "API كامل", "وايت لابل", "دعم ٢٤/٧"] },
+                  ].map((p, i) => (
+                    <div key={i} className="relative p-5 rounded-2xl text-center flex flex-col"
+                      style={{
+                        background: i === 1 ? `linear-gradient(160deg, ${p.color}30, ${p.color}15)` : "rgba(255,255,255,0.05)",
+                        border: `1px solid ${i === 1 ? p.color + "50" : "rgba(255,255,255,0.08)"}`,
+                      }}>
+                      {p.tag && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px] font-black px-3 py-1 rounded-full whitespace-nowrap"
+                          style={{ background: p.color, color: "#fff" }}>
+                          {p.tag}
+                        </div>
+                      )}
+                      <div className="text-xs font-bold text-white/50 mb-1">{p.badge}</div>
+                      <div className="font-black text-2xl text-white mb-0.5">{p.name}</div>
+                      <div className="text-sm text-white/60 mb-4">
+                        <span className="text-xl font-black text-white">{p.price}</span> ريال/شهر
+                      </div>
+                      <ul className="space-y-1.5 mb-5 flex-1">
+                        {p.features.map((f, fi) => (
+                          <li key={fi} className="flex items-center gap-1.5 text-xs text-left rtl:text-right">
+                            <CheckCircle className="w-3 h-3 shrink-0" style={{ color: p.color }} />
+                            <span className="text-white/70">{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <Link href="/pricing?product=bankruptcy">
+                        <button className="w-full py-2 rounded-xl text-xs font-bold transition-all hover:opacity-90"
+                          style={i === 1
+                            ? { background: p.color, color: "#fff" }
+                            : { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.8)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                          اشترك الآن
+                        </button>
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-8">
+                  <Link href="/pricing?product=bankruptcy">
+                    <button className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+                      style={{ background: "#EA580C", color: "#fff", boxShadow: "0 4px 16px rgba(234,88,12,0.3)" }}>
+                      <Scale className="w-4 h-4" />
+                      عرض باقات عدالة إفلاس كاملاً
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ══ 9. PRICING ═══════════════════════════════════════════ */}
       <section id="pricing" className="py-24 px-6 overflow-hidden" style={{ background: WHITE }}>
         <div className="max-w-5xl mx-auto">
           <FadeIn className="text-center mb-12">
