@@ -774,6 +774,148 @@ function GithubRow({ icon, label, value, mono }: { icon: React.ReactNode; label:
   );
 }
 
+/* ═══════════════════════════════════════════════
+   GitHub Sync Card — رفع المشروع كاملاً لـ GitHub
+═══════════════════════════════════════════════ */
+function GitHubSyncCard({ ghData, ghLoading, ghub }: { ghData: any; ghLoading: boolean; ghub: any }) {
+  const [pushing, setPushing] = useState(false);
+  const [pushLogs, setPushLogs] = useState<string[]>([]);
+  const [pushSuccess, setPushSuccess] = useState<boolean | null>(null);
+  const [repo, setRepo] = useState("eadala/adala-ai");
+  const [branch, setBranch] = useState("main");
+  const logsRef = useRef<HTMLDivElement>(null);
+
+  const { data: gitStatus } = useQuery<any>({
+    queryKey: ["git-status"],
+    queryFn: () => API("/deployment/github/status"),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
+  async function handlePush() {
+    setPushing(true);
+    setPushLogs(["🔄 جاري الاتصال بالخادم…"]);
+    setPushSuccess(null);
+    try {
+      const res = await fetch("/api/admin/deployment/github/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ repo, branch }),
+      });
+      const json = await res.json();
+      setPushLogs(json.logs ?? []);
+      setPushSuccess(json.ok);
+      setTimeout(() => logsRef.current?.scrollTo({ top: 9999, behavior: "smooth" }), 100);
+    } catch (err: any) {
+      setPushLogs([`❌ خطأ في الاتصال: ${err.message}`]);
+      setPushSuccess(false);
+    } finally {
+      setPushing(false);
+    }
+  }
+
+  return (
+    <Card className="border-zinc-200 dark:border-zinc-700/60">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <Github className="h-4 w-4" />
+          نسخ المشروع إلى GitHub
+          {gitStatus?.ok && (
+            <Badge className="mr-auto text-[10px] py-0 h-4" variant="outline">
+              {gitStatus.pending > 0 ? `${gitStatus.pending} ملف معلّق` : "✅ محدّث"}
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+
+        {/* آخر الـ commits المحلية */}
+        {(gitStatus?.commits ?? []).length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <GitCommit className="h-3 w-3" /> آخر الـ Commits المحلية
+            </p>
+            <div className="space-y-1 max-h-24 overflow-y-auto">
+              {(gitStatus.commits as string[]).map((c: string, i: number) => (
+                <div key={i} className="text-xs font-mono text-foreground/70 truncate">{c}</div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <Separator />
+
+        {/* إعدادات الرفع */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] text-muted-foreground block mb-1">المستودع</label>
+            <input
+              className="w-full text-xs border rounded px-2 py-1 font-mono bg-background"
+              value={repo}
+              onChange={e => setRepo(e.target.value)}
+              placeholder="owner/repo"
+              disabled={pushing}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground block mb-1">الفرع</label>
+            <input
+              className="w-full text-xs border rounded px-2 py-1 font-mono bg-background"
+              value={branch}
+              onChange={e => setBranch(e.target.value)}
+              placeholder="main"
+              disabled={pushing}
+            />
+          </div>
+        </div>
+
+        {/* زر الرفع */}
+        <Button
+          size="sm"
+          className="w-full gap-2"
+          onClick={handlePush}
+          disabled={pushing}
+          variant={pushSuccess === false ? "destructive" : pushSuccess === true ? "outline" : "default"}
+        >
+          {pushing
+            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> جاري الرفع…</>
+            : pushSuccess === true
+            ? <><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> تم الرفع بنجاح — رفع مجدداً</>
+            : pushSuccess === false
+            ? <><XCircle className="h-3.5 w-3.5" /> فشل الرفع — إعادة المحاولة</>
+            : <><UploadCloud className="h-3.5 w-3.5" /> رفع المشروع كاملاً إلى GitHub</>}
+        </Button>
+
+        {/* سجل العمليات */}
+        {pushLogs.length > 0 && (
+          <div
+            ref={logsRef}
+            className="bg-zinc-950 rounded-md p-3 max-h-44 overflow-y-auto text-xs font-mono space-y-0.5 text-zinc-300 text-right"
+            dir="rtl"
+          >
+            {pushLogs.map((line, i) => (
+              <div key={i} className={
+                line.startsWith("✅") ? "text-emerald-400" :
+                line.startsWith("❌") ? "text-red-400" :
+                line.startsWith("🚀") ? "text-blue-400" :
+                line.startsWith("⚙️") ? "text-amber-400" :
+                line.startsWith("ℹ️") ? "text-zinc-400" :
+                "text-zinc-300"
+              }>{line}</div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Shield className="h-3.5 w-3.5 text-emerald-500" />
+          <span>التوكن يُستخدم فقط أثناء الرفع ولا يُحفظ في السجلات.</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SaasKpi({ icon, label, value, color, wide }: {
   icon: React.ReactNode; label: string; value: string; color: string; wide?: boolean;
 }) {
