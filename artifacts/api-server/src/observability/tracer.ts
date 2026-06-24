@@ -18,7 +18,7 @@ export async function initTracer(): Promise<void> {
   try {
     /* Dynamic imports → لا يُجبر esbuild على تضمين هذه الحزم */
     const { NodeSDK }                   = await import("@opentelemetry/sdk-node");
-    const { Resource }                  = await import("@opentelemetry/resources");
+    const { Resource }                  = await import("@opentelemetry/resources") as any;
     const { SEMRESATTRS_SERVICE_NAME }  = await import("@opentelemetry/semantic-conventions");
     const { OTLPTraceExporter }         = await import("@opentelemetry/exporter-trace-otlp-http");
     const { BatchSpanProcessor }        = await import("@opentelemetry/sdk-trace-base");

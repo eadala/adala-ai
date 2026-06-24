@@ -318,7 +318,6 @@ export default function AIWorkflowBuilder() {
       setIsRunning(false);
     };
     read();
-    es.close();
   }, [savedId, toast]);
 
   /* ── drag node on canvas ── */

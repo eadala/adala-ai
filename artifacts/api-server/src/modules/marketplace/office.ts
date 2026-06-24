@@ -364,7 +364,7 @@ router.get("/office/public/:slug/bankruptcy", async (req, res) => {
     const office = await resolveOfficeBySlug(String(req.params.slug));
     if (!office) return res.status(404).json({ error: "المكتب غير موجود" });
 
-    const cfg = (office.website_config ?? {}) as Record<string, any>;
+    const cfg = ((office as any).website_config ?? {}) as Record<string, any>;
     const enabled          = cfg.enableBankruptcyPortal !== false;   // default on
     const showStats        = cfg.showBankruptcyStats    !== false;
     const allowOnlineClaims= cfg.allowOnlineClaims      !== false;
@@ -411,7 +411,7 @@ router.post("/office/public/:slug/bankruptcy/claim", async (req, res) => {
     const office = await resolveOfficeBySlug(String(req.params.slug));
     if (!office) return res.status(404).json({ error: "المكتب غير موجود" });
 
-    const cfg = (office.website_config ?? {}) as Record<string, any>;
+    const cfg = ((office as any).website_config ?? {}) as Record<string, any>;
     if (cfg.enableBankruptcyPortal === false) return res.status(403).json({ error: "البوابة غير مفعّلة" });
     if (cfg.allowOnlineClaims === false) return res.status(403).json({ error: "تقديم المطالبات غير متاح حالياً" });
 

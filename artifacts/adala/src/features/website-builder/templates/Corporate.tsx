@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, MapPin, Phone, Mail, MessageCircle, BadgeCheck, Calendar, Users, Briefcase, Shield, Scale, FileText, Gavel, Globe, Twitter, Linkedin, Instagram, ChevronDown, Building, CheckCircle2, ArrowLeft, Quote } from "lucide-react";
+import { Star, MapPin, Phone, Mail, MessageCircle, BadgeCheck, Calendar, Users, Briefcase, Shield, Scale, FileText, Gavel, Globe, Twitter, Linkedin, Instagram, ChevronDown, Building, CheckCircle2, ArrowLeft, Quote, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TemplateProps } from "./LuxLegal";
 

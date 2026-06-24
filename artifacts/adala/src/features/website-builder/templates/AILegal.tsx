@@ -37,7 +37,7 @@ export function AILegal({ office, services, team, reviews, lang, slug, onOrder, 
         style={{ background: "rgba(7,11,24,0.85)", backdropFilter: "blur(20px)", borderBottom: `1px solid ${BORDER}` }}>
         <div className="flex items-center gap-3">
           {office.logo
-            ? <img src={imgSrc(office.logo)} alt="" className="h-9 w-9 rounded-xl object-cover ring-1" style={{ ringColor: BORDER }} />
+            ? <img src={imgSrc(office.logo)} alt="" className="h-9 w-9 rounded-xl object-cover ring-1" style={{ outlineColor: BORDER }} />
             : <div className="h-9 w-9 rounded-xl flex items-center justify-center font-black" style={{ background: BLUE_DIM, color: primaryColor, border: `1px solid ${BORDER}` }}>{(officeName || "م")[0]}</div>
           }
           <span className="font-black text-sm">{officeName}</span>
@@ -240,7 +240,7 @@ export function AILegal({ office, services, team, reviews, lang, slug, onOrder, 
             {team.map((m: any) => (
               <div key={m.id} className="rounded-2xl p-5 text-center" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
                 {m.avatar
-                  ? <img src={imgSrc(m.avatar)} alt="" className="h-16 w-16 rounded-2xl object-cover mx-auto mb-3 ring-1" style={{ ringColor: BORDER }} />
+                  ? <img src={imgSrc(m.avatar)} alt="" className="h-16 w-16 rounded-2xl object-cover mx-auto mb-3 ring-1" style={{ outlineColor: BORDER }} />
                   : <div className="h-16 w-16 rounded-2xl mx-auto mb-3 flex items-center justify-center text-xl font-black" style={{ background: BLUE_DIM, color: primaryColor }}>{(m.name || "م")[0]}</div>
                 }
                 <h3 className="text-sm font-bold text-white">{m.name}</h3>

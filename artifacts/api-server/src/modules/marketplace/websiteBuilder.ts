@@ -83,7 +83,7 @@ router.post("/website-builder/ai-generate", requireAuthWithTenant, async (req: a
 
 أجب بـ JSON فقط، لا شرح إضافي.`;
 
-    const raw = await callAI(prompt, "gemini");
+    const { reply: raw } = await callAI("أنت مساعد ذكي لبناء مواقع مكاتب المحاماة. أجب بـ JSON فقط.", prompt, [], "gemini");
     let content: any = {};
     try {
       const match = raw.match(/\{[\s\S]*\}/);
@@ -219,7 +219,7 @@ router.post("/website-builder/ai-legal-page", requireAuthWithTenant, async (req:
 
 أجب بـ JSON فقط.`;
 
-    const raw = await callAI(prompt, "gemini");
+    const { reply: raw } = await callAI("أنت مساعد ذكي لبناء المحتوى القانوني. أجب بـ JSON فقط.", prompt, [], "gemini");
     let content: any = {};
     try {
       const match = raw.match(/\{[\s\S]*\}/);

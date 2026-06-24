@@ -173,16 +173,16 @@ async function runInvoiceReminderAgent() {
         AND due_date < NOW()
     `);
 
-    const totalOverdue = overdueInvoices.reduce((sum: number, inv: any) =>
+    const totalOverdue = (overdueInvoices as any[]).reduce((sum: number, inv: any) =>
       sum + parseFloat(String(inv.total_amount ?? "0")), 0
     );
 
-    const groupedByOffice = overdueInvoices.reduce((acc: Record<string, number>, inv: any) => {
+    const groupedByOffice = (overdueInvoices as any[]).reduce((acc: Record<string, number>, inv: any) => {
       acc[inv.office_id] = (acc[inv.office_id] ?? 0) + 1;
       return acc;
     }, {});
 
-    await logDone(jobId, `${overdueInvoices.length} فاتورة متأخرة — إجمالي: ${totalOverdue.toLocaleString("ar-SA")} ريال`, {
+    await logDone(jobId, `${overdueInvoices.length} فاتورة متأخرة — إجمالي: ${totalOverdue.toLocaleString()} ريال`, {
       overdueCount: overdueInvoices.length,
       totalOverdueAmount: totalOverdue,
       byOffice: groupedByOffice,

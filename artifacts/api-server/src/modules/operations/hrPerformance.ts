@@ -268,6 +268,7 @@ router.delete("/hr-perf/incentives/:id", requireAuthWithTenant, async (req, res)
 ══════════════════════════════════════════════ */
 router.get("/hr-perf/smart-payroll/preview", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tenantId = (req as any).tenantId as string;
   try {
     const { period } = req.query as { period?: string };
     const cfg = await getSettings();

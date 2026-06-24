@@ -128,7 +128,7 @@ router.post("/ai-workflow/generate", requireAuthWithTenant, requireWorkflowAcces
   try {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: "prompt مطلوب" });
-    const raw = await callAI(SYSTEM_PROMPT, `المهمة: ${prompt}\n\nأنشئ workflow احترافي لهذه المهمة القانونية.`, "gemini");
+    const { reply: raw } = await callAI(SYSTEM_PROMPT, `المهمة: ${prompt}\n\nأنشئ workflow احترافي لهذه المهمة القانونية.`, [], "gemini");
     let graph;
     try {
       graph = JSON.parse(raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
@@ -218,7 +218,7 @@ router.post("/ai-workflow/:id/execute", requireAuthWithTenant, requireWorkflowAc
       let result = "";
       try {
         if (node.type === "ai_think" || node.type === "legal_doc") {
-          const raw = await callAI("أنت مساعد قانوني ذكي في منصة عدالة. أجب بإيجاز.", `نفّذ: ${node.title} — ${node.description}`, "gemini");
+          const { reply: raw } = await callAI("أنت مساعد قانوني ذكي في منصة عدالة. أجب بإيجاز.", `نفّذ: ${node.title} — ${node.description}`, [], "gemini");
           result = raw.slice(0, 280) + (raw.length > 280 ? "…" : "");
         } else {
           const outcomes: Record<string, string> = {

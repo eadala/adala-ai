@@ -271,13 +271,13 @@ router.get("/ai-coo/overview", requireAuthWithTenant, async (req, res) => {
 
 أجب باللغة العربية فقط، بأسلوب مدير تنفيذي موجز واحترافي.`;
 
-      const raw = await callAI({ prompt, maxTokens: 350, temperature: 0.35 });
-      const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
-      const recIdx = lines.findIndex(l => l.startsWith("•") || l.match(/^\d\./));
+      const { reply: raw } = await callAI("أنت نظام AI-COO لمكتب محاماة — مستشار تنفيذي ذكي. قدّم ملخصاً موجزاً.", prompt, [], "gemini");
+      const lines = raw.split("\n").map((l: string) => l.trim()).filter(Boolean);
+      const recIdx = lines.findIndex((l: string) => l.startsWith("•") || l.match(/^\d\./));
       if (recIdx > 0) {
         aiSummary = lines.slice(0, recIdx).join(" ");
-        recommendations = lines.filter(l => l.startsWith("•") || l.match(/^\d\./))
-          .map(l => l.replace(/^[•\d\.]\s*/, "").trim()).filter(Boolean);
+        recommendations = lines.filter((l: string) => l.startsWith("•") || l.match(/^\d\./))
+          .map((l: string) => l.replace(/^[•\d\.]\s*/, "").trim()).filter(Boolean);
       } else {
         aiSummary = lines.join(" ");
       }
@@ -319,8 +319,8 @@ ${context ? `السياق التشغيلي الحالي:\n${context}\n` : ""}
 سؤال المدير: ${question}
 
 أجب بشكل مختصر واحترافي (3-5 جمل) باللغة العربية.`;
-    const reply = await callAI({ prompt, maxTokens: 280, temperature: 0.45 });
-    res.json({ reply: reply.trim() });
+    const { reply } = await callAI("أنت مستشار تنفيذي ذكي لمكتب محاماة. أجب بشكل مختصر باللغة العربية.", prompt);
+    res.json({ reply });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

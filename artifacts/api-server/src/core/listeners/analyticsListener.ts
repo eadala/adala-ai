@@ -23,7 +23,14 @@ const EVENT_LABELS: Record<EventType, string> = {
   SUBSCRIPTION_RENEWED:"اشتراك متجدد",
   SUBSCRIPTION_EXPIRED:"اشتراك منتهٍ",
   USER_LOGIN:          "تسجيل دخول",
-  DOCUMENT_GENERATED:  "وثيقة منشأة",
+  DOCUMENT_GENERATED:        "وثيقة منشأة",
+  SESSION_REMINDER:          "تذكير بجلسة",
+  TASK_DUE:                  "مهمة مستحقة",
+  BK_CASE_CREATED:           "إفلاس — ملف جديد",
+  BK_CASE_CLOSED:            "إفلاس — ملف مُغلق",
+  BK_DISTRIBUTION_EXECUTED:  "إفلاس — توزيع منفّذ",
+  BK_CLAIM_APPROVED:         "إفلاس — مطالبة معتمدة",
+  BK_ALERT_TRIGGERED:        "إفلاس — تنبيه حرج",
 };
 
 async function ensureEventCountsTable() {

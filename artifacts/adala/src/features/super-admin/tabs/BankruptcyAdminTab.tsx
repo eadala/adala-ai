@@ -461,12 +461,12 @@ export function BankruptcyAdminTab({ toast }: { toast: any }) {
                       <CardContent className="p-3">
                         <div className="flex items-center gap-3 flex-wrap">
                           <div className={`h-12 w-12 rounded-full ${hc.bg} flex flex-col items-center justify-center shrink-0`}>
-                            <span className={`text-lg font-black ${hc.color}`}>{o.health_score}</span>
+                            <span className={`text-lg font-black ${hc.text}`}>{o.health_score}</span>
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="text-sm font-semibold">{o.office_name ?? o.office_id}</p>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${hc.color} bg-white/50`}>{hc.label}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${hc.text} bg-white/50`}>{hc.label}</span>
                             </div>
                             <div className="flex gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                               <span><Landmark className="h-3 w-3 inline ml-1" />{fmt(o.total_cases)} ملف ({fmt(o.open_cases)} مفتوح)</span>

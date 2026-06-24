@@ -59,7 +59,7 @@ router.get("/messages/conversations", requireAuthWithTenant, async (req, res) =>
 
     const conversations = Object.entries(groups).map(([key, messages]) => {
       const lastMsg = messages[messages.length - 1];
-      const unread = messages.filter(m => m.direction === "inbound" && m.status !== "read").length;
+      const unread = messages.filter((m: any) => m.direction === "inbound" && m.status !== "read").length;
       const name = key === "__direct__" ? "مراسلات مباشرة" : (caseMap[key] ?? `قضية ${key.slice(0, 8)}`);
       return {
         id: key,
@@ -72,7 +72,7 @@ router.get("/messages/conversations", requireAuthWithTenant, async (req, res) =>
         starred: false,
         online: false,
         caseRef: key !== "__direct__" ? key.slice(0, 8).toUpperCase() : undefined,
-        messages: messages.map(m => ({
+        messages: messages.map((m: any) => ({
           id: m.id,
           from: m.direction === "inbound" ? "client" : "me",
           content: m.content,

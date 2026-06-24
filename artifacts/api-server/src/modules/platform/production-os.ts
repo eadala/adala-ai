@@ -467,7 +467,7 @@ router.post("/production-os/business-pilot", guard, async (_req, res) => {
 
 الرد باللغة العربية، موجز وعملي.`;
 
-    const aiAnalysis = await callAI(prompt, undefined, "gemini").catch(() => null);
+    const aiAnalysis = await callAI(prompt, "", [], "gemini").catch(() => null);
 
     res.json({ pulse, aiAnalysis, generatedAt: new Date().toISOString() });
   } catch (e: any) {

@@ -361,7 +361,7 @@ limit_req_zone \$binary_remote_addr zone=api:10m rate=60r/m;
 router.post("/production-launch/confirm", requireAuth, async (req, res) => {
   if (!isSuperAdmin(req)) return res.status(403).json({ error: "غير مصرح" });
   try {
-    const userId = req.auth?.userId ?? "unknown";
+    const userId = (req as any).auth?.userId ?? "unknown";
     const { phase = "production", notes, gateScore, decision } = req.body as {
       phase?: string; notes?: string; gateScore?: number; decision?: string;
     };

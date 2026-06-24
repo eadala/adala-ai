@@ -262,7 +262,7 @@ async function runForecast(snap: Awaited<ReturnType<typeof buildSnapshot>>) {
 أجب بشكل موجز وعملي — مديرو المنصة سيتخذون قرارات بناء على توقعاتك.`;
 
   try {
-    return await callAI("auto", "أنت محلل SaaS خبير.", prompt, []);
+    return (await callAI("أنت محلل SaaS خبير.", prompt, [], "auto")).reply;
   } catch {
     return `[Forecast] تعذّر الاتصال بالنموذج. المقاييس: MRR=${snap.finance.mrr} ر.س، نمو=${snap.platform.newOffices30d}/شهر، churn=${snap.platform.churnRisk}%.`;
   }
@@ -303,7 +303,7 @@ ${topActions}
 كن حاسمًا ومباشرًا — أنت تقود شركة وليس تقدم تقريرًا أكاديميًا.`;
 
   try {
-    return await callAI("auto", "أنت CEO خبير في SaaS القانوني.", prompt, []);
+    return (await callAI("أنت CEO خبير في SaaS القانوني.", prompt, [], "auto")).reply;
   } catch {
     return `[CEO] تعذّر الاتصال بالنموذج. أولوية قصوى: معالجة ${snap.platform.atRiskOffices} مكتب في خطر + ${snap.finance.overdueInvoices} فاتورة متأخرة.`;
   }

@@ -26,6 +26,8 @@ export type EventType =
   | "SUBSCRIPTION_EXPIRED"
   | "USER_LOGIN"
   | "DOCUMENT_GENERATED"
+  | "SESSION_REMINDER"
+  | "TASK_DUE"
   /* ── Bankruptcy Module ── */
   | "BK_CASE_CREATED"
   | "BK_CASE_CLOSED"

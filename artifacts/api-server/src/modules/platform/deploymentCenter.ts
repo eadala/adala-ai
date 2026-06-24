@@ -168,8 +168,8 @@ router.get("/admin/deployment/overview", adminOnly, async (_req, res) => {
       },
 
       /* Backup */
-      lastBackup: lastBackup.created_at
-        ? { status: lastBackup.status, at: lastBackup.created_at, file: lastBackup.file_name }
+      lastBackup: (lastBackup as any).created_at
+        ? { status: (lastBackup as any).status, at: (lastBackup as any).created_at, file: (lastBackup as any).file_name }
         : null,
 
       /* Recent errors (no sensitive data) */
@@ -279,15 +279,15 @@ router.post("/admin/deployment/backup", adminOnly, async (_req, res) => {
 
     /* Simulate processing */
     const sizeBytes = Math.floor(Math.random() * 50_000_000) + 5_000_000;
-    if (jobId.id) {
+    if ((jobId as any).id) {
       await db.execute(sql`
         UPDATE backup_jobs
         SET status = 'completed', size_bytes = ${sizeBytes}, completed_at = NOW()
-        WHERE id = ${jobId.id}
+        WHERE id = ${(jobId as any).id}
       `).catch(() => {});
     }
 
-    res.json({ success: true, id: jobId.id, sizeBytes });
+    res.json({ success: true, id: (jobId as any).id, sizeBytes });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

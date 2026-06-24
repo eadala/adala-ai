@@ -39,7 +39,7 @@ export function LuxLegal({ office, services, team, reviews, lang, slug, onOrder,
         style={{ background: "rgba(8,8,16,0.9)", backdropFilter: "blur(20px)", borderBottom: `1px solid ${GOLD_BORDER}` }}>
         <div className="flex items-center gap-3">
           {office.logo
-            ? <img src={imgSrc(office.logo)} alt="" className="h-10 w-10 rounded-full object-cover ring-1" style={{ ringColor: GOLD_BORDER }} />
+            ? <img src={imgSrc(office.logo)} alt="" className="h-10 w-10 rounded-full object-cover ring-1" style={{ outlineColor: GOLD_BORDER }} />
             : <div className="h-10 w-10 rounded-full flex items-center justify-center font-black text-base" style={{ background: GOLD_DIM, color: GOLD, border: `1px solid ${GOLD_BORDER}` }}>{(officeName || "م")[0]}</div>
           }
           <span className="font-black text-base tracking-wide" style={{ color: "#E2D9C8" }}>{officeName}</span>
@@ -209,7 +209,7 @@ export function LuxLegal({ office, services, team, reviews, lang, slug, onOrder,
               <div key={m.id} className="text-center group" style={{ padding: "1px", background: `linear-gradient(135deg, ${GOLD_BORDER}, transparent)`, borderRadius: "1rem" }}>
                 <div className="rounded-[calc(1rem-1px)] p-6" style={{ background: "#0D0D1A" }}>
                   {m.avatar
-                    ? <img src={imgSrc(m.avatar)} alt="" className="h-20 w-20 rounded-full object-cover mx-auto mb-4 ring-2" style={{ ringColor: GOLD_BORDER }} />
+                    ? <img src={imgSrc(m.avatar)} alt="" className="h-20 w-20 rounded-full object-cover mx-auto mb-4 ring-2" style={{ outlineColor: GOLD_BORDER }} />
                     : <div className="h-20 w-20 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-black" style={{ background: GOLD_DIM, color: GOLD }}>{(m.name || "م")[0]}</div>
                   }
                   <h3 className="font-bold text-sm mb-1" style={{ color: "#F0E6D3" }}>{m.name}</h3>

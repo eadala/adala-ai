@@ -58,8 +58,8 @@ export function CheckoutInvoiceModal({ open, onClose, plan, billingPeriod, onBil
   const monthlySave  = isAnnual ? monthlyBase * 12 - annualPer * 12 : 0;
   const savePct      = monthlyBase > 0 ? Math.round((1 - annualPer / monthlyBase) * 100) : 0;
 
-  const pc    = PLAN_COLORS[plan.id] ?? PLAN_COLORS.pro;
-  const Icon  = PLAN_ICONS[plan.id] ?? Star;
+  const pc    = PLAN_COLORS[plan!.id] ?? PLAN_COLORS.pro;
+  const Icon  = PLAN_ICONS[plan!.id] ?? Star;
 
   /* ── Handlers ── */
   async function handlePay() {
@@ -69,7 +69,7 @@ export function CheckoutInvoiceModal({ open, onClose, plan, billingPeriod, onBil
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          planId: plan.id,
+          planId: plan!.id,
           billingPeriod,
           successUrl: `${window.location.origin}${BASE}/billing?checkout_success=1&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl:  `${window.location.origin}${BASE}/billing?checkout_canceled=1`,
@@ -94,7 +94,7 @@ export function CheckoutInvoiceModal({ open, onClose, plan, billingPeriod, onBil
       const r = await fetch(`${BASE}/api/billing/payment-link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id }),
+        body: JSON.stringify({ planId: plan!.id }),
       });
       const data = await r.json();
       if (data.url) {

@@ -23,7 +23,7 @@ async function getSettings(officeId: string): Promise<SettingRow[]> {
       FROM office_notification_settings
       WHERE office_id = ${officeId}
     `);
-    const rows = (res.rows ?? []) as SettingRow[];
+    const rows = (res.rows ?? []) as unknown as SettingRow[];
     cache.set(officeId, { rows, ts: Date.now() });
     return rows;
   } catch {

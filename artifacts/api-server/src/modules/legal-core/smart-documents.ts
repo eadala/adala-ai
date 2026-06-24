@@ -56,7 +56,7 @@ async function analyzeDocument(
     );
     if (!resp.ok) return null;
     const data = await resp.json();
-    const text  = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const text  = (data as any)?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) return null;
     return JSON.parse(match[0]);

@@ -988,7 +988,7 @@ export default function Landing() {
                         <span className="text-xl font-black text-white">{p.price}</span> ريال/شهر
                       </div>
                       <ul className="space-y-1.5 mb-5 flex-1">
-                        {p.features.map((f, fi) => (
+                        {p.features.map((f: string, fi: number) => (
                           <li key={fi} className="flex items-center gap-1.5 text-xs text-left rtl:text-right">
                             <CheckCircle className="w-3 h-3 shrink-0" style={{ color: p.color }} />
                             <span className="text-white/70">{f}</span>
@@ -1121,7 +1121,7 @@ export default function Landing() {
                     </div>
 
                     <ul className="space-y-2.5 flex-1 mb-7">
-                      {p.features.map((f, fi) => (
+                      {p.features.map((f: string, fi: number) => (
                         <li key={fi} className="flex items-start gap-2.5 text-sm"
                           style={{ color: isPopular ? "rgba(255,255,255,0.80)" : BODY }}>
                           <Check className="w-4 h-4 shrink-0 mt-0.5" style={{ color: isPopular ? ACCENT_T : ACCENT }} />
