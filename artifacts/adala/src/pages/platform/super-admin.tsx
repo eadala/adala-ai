@@ -55,6 +55,7 @@ const DeveloperAccountsTab      = lazy(() => import("@/features/super-admin/tabs
 const WorkflowGrantsTab         = lazy(() => import("@/features/super-admin/tabs/WorkflowGrantsTab").then(m => ({ default: m.WorkflowGrantsTab })));
 const TenantDebugTab            = lazy(() => import("@/features/super-admin/tabs/TenantDebugTab").then(m => ({ default: m.TenantDebugTab })));
 const ControlTowerTab           = lazy(() => import("@/features/super-admin/tabs/ControlTowerTab").then(m => ({ default: m.ControlTowerTab })));
+const GoLiveCertTab             = lazy(() => import("@/features/super-admin/tabs/GoLiveCertTab").then(m => ({ default: m.GoLiveCertTab })));
 
 function TabFallback() {
   return (
@@ -288,6 +289,11 @@ export default function SuperAdmin() {
         <TabsContent value="control-tower" className="mt-4">
           <Suspense fallback={<TabFallback />}>
             <ControlTowerTab toast={toast} getToken={getToken} />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="go-live-cert" className="mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <GoLiveCertTab toast={toast} getToken={getToken} />
           </Suspense>
         </TabsContent>
       </Tabs>

@@ -18,6 +18,7 @@ import { sql }                 from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
 import { collectMetrics }      from "../../observability/metrics";
 import { getSystemState, setAiLock } from "../../hardening/production.lock";
+import { governanceGuard } from "../../core/governance/governanceKernel";
 
 const router = Router();
 
@@ -417,6 +418,8 @@ router.get("/control-tower/anomalies", ctGuard, async (_req, res) => {
 
 /* POST /control-tower/aol/clear-caches — flush all tenant caches */
 router.post("/control-tower/aol/clear-caches", ctGuard, async (_req, res) => {
+  const g = governanceGuard({ type: "CACHE_FLUSH", source: "TOWER" });
+  if (!g.allowed) return res.status(409).json({ error: "GOVERNANCE_BLOCK", reason: g.reason });
   try {
     const { invalidateTenantCache } = await import("../../middlewares/tenantMiddleware");
     /* Clear all users from tenant cache by getting distinct user_ids */
@@ -432,6 +435,8 @@ router.post("/control-tower/aol/clear-caches", ctGuard, async (_req, res) => {
 
 /* POST /control-tower/aol/auto-heal — heal all unresolved tenants */
 router.post("/control-tower/aol/auto-heal", ctGuard, async (_req, res) => {
+  const g = governanceGuard({ type: "TENANT_REPAIR", source: "TOWER" });
+  if (!g.allowed) return res.status(409).json({ error: "GOVERNANCE_BLOCK", reason: g.reason });
   try {
     const { resolveTenantWithTrace } = await import("../../core/tenant/tenantResolver");
     const { db: _db } = await import("@workspace/db");
@@ -454,6 +459,8 @@ router.post("/control-tower/aol/auto-heal", ctGuard, async (_req, res) => {
 
 /* POST /control-tower/aol/switch-ai-model — toggle AI to lighter model */
 router.post("/control-tower/aol/switch-ai-model", ctGuard, async (req, res) => {
+  const g = governanceGuard({ type: "AI_SWITCH", source: "TOWER" });
+  if (!g.allowed) return res.status(409).json({ error: "GOVERNANCE_BLOCK", reason: g.reason });
   const { model } = req.body ?? {};
   /* Store preference in system state — callAI() reads this */
   process.env.PREFERRED_AI_MODEL = model ?? "gemini-2.0-flash";
@@ -466,6 +473,8 @@ router.post("/control-tower/aol/switch-ai-model", ctGuard, async (req, res) => {
 
 /* POST /control-tower/aol/strict-mode — toggle strict tenant mode */
 router.post("/control-tower/aol/strict-mode", ctGuard, async (req, res) => {
+  const g = governanceGuard({ type: "STRICT_MODE_TOGGLE", source: "TOWER" });
+  if (!g.allowed) return res.status(409).json({ error: "GOVERNANCE_BLOCK", reason: g.reason });
   const { enable } = req.body ?? {};
   process.env.STRICT_TENANT_MODE = enable ? "1" : "0";
   await db.execute(sql`

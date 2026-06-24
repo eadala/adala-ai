@@ -100,6 +100,7 @@ import agentRuntimeRouter    from "../modules/platform/agentRuntime";
 import importDataRouter      from "../modules/platform/importData";
 import investorMetricsRouter  from "../modules/platform/investorMetrics";
 import goLiveMetricsRouter    from "../modules/platform/goLiveMetrics";
+import certificationRouter    from "../modules/platform/certification";
 import aiCooRouter            from "../modules/platform/aiCoo";
 import deploymentCenterRouter from "../modules/platform/deploymentCenter";
 import officeApiKeysRouter   from "../modules/platform/officeApiKeys";
@@ -257,6 +258,7 @@ router.use(productionOsRouter);
 router.use(demoSyncRouter);
 router.use(investorMetricsRouter);
 router.use(goLiveMetricsRouter);
+router.use(certificationRouter);
 router.use(aiCooRouter);
 router.use(deploymentCenterRouter);
 
