@@ -95,6 +95,98 @@ export async function ensureDocumentCenterSchema() {
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS idx_sml_office_status ON storage_migration_log(office_id, status)
   `).catch(() => {});
+
+  /* ── V2 Tables ─────────────────────────────────────────────────────── */
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS document_versions (
+      id             TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      document_id    TEXT NOT NULL,
+      office_id      TEXT NOT NULL,
+      version_number INT  NOT NULL DEFAULT 1,
+      storage_key    TEXT,
+      storage_provider TEXT DEFAULT 'replit_object_storage',
+      checksum       TEXT,
+      file_size      BIGINT DEFAULT 0,
+      mime_type      TEXT,
+      uploaded_by    TEXT,
+      uploaded_by_name TEXT,
+      change_summary TEXT,
+      is_current     BOOLEAN DEFAULT FALSE,
+      created_at     TIMESTAMPTZ DEFAULT NOW()
+    )
+  `).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dv_doc_id   ON document_versions(document_id)`).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dv_doc_ver  ON document_versions(document_id, version_number)`).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dv_office   ON document_versions(office_id)`).catch(() => {});
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS document_permissions (
+      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      document_id     TEXT NOT NULL,
+      office_id       TEXT NOT NULL,
+      permission_type TEXT NOT NULL DEFAULT 'TEAM',
+      role_id         TEXT,
+      user_id         TEXT,
+      created_at      TIMESTAMPTZ DEFAULT NOW()
+    )
+  `).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dp_doc_id  ON document_permissions(document_id)`).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dp_office  ON document_permissions(office_id)`).catch(() => {});
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS retention_policies (
+      id                TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      office_id         TEXT NOT NULL,
+      category          TEXT NOT NULL,
+      retention_years   INT  NOT NULL DEFAULT 7,
+      archive_after_days INT DEFAULT 365,
+      auto_delete       BOOLEAN DEFAULT FALSE,
+      created_at        TIMESTAMPTZ DEFAULT NOW(),
+      updated_at        TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(office_id, category)
+    )
+  `).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_rp_office ON retention_policies(office_id)`).catch(() => {});
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS document_ai_metadata (
+      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      document_id     TEXT NOT NULL,
+      office_id       TEXT NOT NULL,
+      extracted_text  TEXT,
+      summary         TEXT,
+      document_type   TEXT,
+      parties         TEXT[],
+      dates           TEXT[],
+      obligations     TEXT[],
+      amounts         TEXT[],
+      keywords        TEXT[],
+      confidence_score FLOAT DEFAULT 0,
+      processed_at    TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(document_id)
+    )
+  `).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dam_doc_id ON document_ai_metadata(document_id)`).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dam_office ON document_ai_metadata(office_id)`).catch(() => {});
+
+  /* Seed default retention policies (office-agnostic template = office_id '__default__') */
+  const defaults = [
+    { cat: "وكالة",           yrs: 10 }, { cat: "عقد",           yrs: 10 },
+    { cat: "حكم",             yrs: 10 }, { cat: "مذكرة",         yrs:  7 },
+    { cat: "لائحة_دعوى",      yrs: 10 }, { cat: "محضر_جلسة",     yrs:  7 },
+    { cat: "تقرير_خبير",      yrs: 10 }, { cat: "مستند_إفلاس",   yrs: 10 },
+    { cat: "فاتورة",           yrs:  7 }, { cat: "مستند_مالي",    yrs:  7 },
+    { cat: "هوية",             yrs:  5 }, { cat: "سجل_تجاري",    yrs: 10 },
+    { cat: "أخرى",             yrs:  5 },
+  ];
+  for (const d of defaults) {
+    await db.execute(sql`
+      INSERT INTO retention_policies (office_id, category, retention_years, archive_after_days)
+      VALUES ('__default__', ${d.cat}, ${d.yrs}, ${d.yrs * 365})
+      ON CONFLICT (office_id, category) DO NOTHING
+    `).catch(() => {});
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -601,6 +693,462 @@ router.get("/document-center/audit-report", requireAuthWithTenant, async (req, r
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+});
+
+/* ════════════════════════════════════════════════════════════
+   V2 — DOCUMENT VERSION CONTROL
+════════════════════════════════════════════════════════════ */
+
+/* رفع نسخة جديدة */
+router.post("/document-center/files/:id/versions", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+    const userId   = (req as any).auth?.userId ?? "";
+    const { id }   = req.params as { id: string };
+    const { fileData, fileName, fileType, changeSummary, uploadedByName } = req.body ?? {};
+
+    const { rows: existing } = await db.execute(sql`
+      SELECT id, file_name, mime_type, version FROM document_center_files
+      WHERE  id = ${id} AND office_id = ${officeId} LIMIT 1
+    `);
+    if (!existing.length) return res.status(404).json({ error: "الملف غير موجود" });
+    const doc = existing[0] as any;
+
+    if (!fileData) return res.status(400).json({ error: "fileData مطلوب" });
+    const mime   = fileType ?? doc.mime_type ?? "application/octet-stream";
+    if (!ALLOWED_MIME.has(mime)) return res.status(415).json({ error: `نوع الملف غير مدعوم: ${mime}` });
+    if (typeof fileData === "string" && fileData.length > 20_000_000)
+      return res.status(413).json({ error: "حجم الملف يتجاوز 15 MB" });
+
+    const result = await documentStorage.uploadBase64(
+      fileData, officeId, fileName ?? doc.file_name, mime, "versions",
+    );
+
+    /* احسب رقم الإصدار التالي */
+    const { rows: maxVer } = await db.execute(sql`
+      SELECT COALESCE(MAX(version_number), 0) AS max_v FROM document_versions WHERE document_id = ${id}
+    `);
+    const nextVer = Number((maxVer[0] as any)?.max_v ?? 0) + 1;
+
+    /* اجعل كل الإصدارات السابقة غير حالية */
+    await db.execute(sql`UPDATE document_versions SET is_current = FALSE WHERE document_id = ${id}`);
+
+    /* أضف الإصدار الجديد */
+    const { rows: ver } = await db.execute(sql`
+      INSERT INTO document_versions
+        (document_id, office_id, version_number, storage_key, storage_provider,
+         checksum, file_size, mime_type, uploaded_by, uploaded_by_name, change_summary, is_current)
+      VALUES
+        (${id}, ${officeId}, ${nextVer}, ${result.storageKey}, ${result.provider},
+         ${result.checksum}, ${result.size}, ${mime},
+         ${userId}, ${uploadedByName ?? ""}, ${changeSummary ?? ""}, TRUE)
+      RETURNING id, version_number, file_size, created_at, is_current
+    `);
+
+    /* حدّث رقم الإصدار في الجدول الرئيسي */
+    await db.execute(sql`
+      UPDATE document_center_files
+      SET version = ${nextVer}, storage_key = ${result.storageKey},
+          file_size = ${result.size}, updated_at = NOW()
+      WHERE id = ${id}
+    `);
+
+    auditLog({
+      ...auditMeta(req), action: "version_create", resource: "document_center", resourceId: id,
+      details: `إصدار ${nextVer} — ${result.storageKey}`,
+    }).catch(() => {});
+
+    res.status(201).json(ver[0]);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* قائمة الإصدارات */
+router.get("/document-center/files/:id/versions", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+    const { id }   = req.params as { id: string };
+    const { rows } = await db.execute(sql`
+      SELECT id, version_number, storage_key, storage_provider, checksum,
+             file_size, mime_type, uploaded_by, uploaded_by_name, change_summary, is_current, created_at
+      FROM   document_versions
+      WHERE  document_id = ${id} AND office_id = ${officeId}
+      ORDER  BY version_number DESC
+    `);
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* استعادة إصدار سابق */
+router.post("/document-center/files/:id/versions/:verId/restore", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+    const { id, verId } = req.params as { id: string; verId: string };
+
+    const { rows } = await db.execute(sql`
+      SELECT * FROM document_versions WHERE id = ${verId} AND document_id = ${id} AND office_id = ${officeId} LIMIT 1
+    `);
+    if (!rows.length) return res.status(404).json({ error: "الإصدار غير موجود" });
+    const ver = rows[0] as any;
+
+    await db.execute(sql`UPDATE document_versions SET is_current = FALSE WHERE document_id = ${id}`);
+    await db.execute(sql`UPDATE document_versions SET is_current = TRUE WHERE id = ${verId}`);
+    await db.execute(sql`
+      UPDATE document_center_files
+      SET storage_key = ${ver.storage_key}, version = ${ver.version_number}, updated_at = NOW()
+      WHERE id = ${id}
+    `);
+
+    auditLog({
+      ...auditMeta(req), action: "version_restore", resource: "document_center", resourceId: id,
+      details: `استعادة الإصدار ${ver.version_number}`,
+    }).catch(() => {});
+
+    res.json({ ok: true, restoredVersion: ver.version_number });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* تنزيل إصدار محدد */
+router.get("/document-center/files/:id/versions/:verId/download", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+    const { id, verId } = req.params as { id: string; verId: string };
+    const { rows } = await db.execute(sql`
+      SELECT storage_key, file_size, mime_type, version_number
+      FROM   document_versions WHERE id = ${verId} AND document_id = ${id} AND office_id = ${officeId} LIMIT 1
+    `);
+    if (!rows.length) return res.status(404).json({ error: "الإصدار غير موجود" });
+    const ver = rows[0] as any;
+    if (!ver.storage_key) return res.status(422).json({ error: "هذا الإصدار ليس في Object Storage" });
+    const url = await documentStorage.getSignedUrl(ver.storage_key);
+    res.json({ url, version: ver.version_number });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ════════════════════════════════════════════════════════════
+   V2 — DOCUMENT PERMISSIONS
+════════════════════════════════════════════════════════════ */
+
+const PERMISSION_TYPES = ["OWNER","TEAM","MANAGEMENT","HR","FINANCE","CUSTOM"] as const;
+
+router.get("/document-center/files/:id/permissions", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+    const { id }   = req.params as { id: string };
+    const { rows } = await db.execute(sql`
+      SELECT id, permission_type, role_id, user_id, created_at
+      FROM   document_permissions WHERE document_id = ${id} AND office_id = ${officeId}
+      ORDER  BY created_at DESC
+    `);
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.post("/document-center/files/:id/permissions", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+    const { id }   = req.params as { id: string };
+    const { permissionType, roleId, userId: targetUser } = req.body ?? {};
+
+    if (!PERMISSION_TYPES.includes(permissionType)) {
+      return res.status(400).json({ error: `نوع الصلاحية غير صالح. القيم المسموحة: ${PERMISSION_TYPES.join(", ")}` });
+    }
+
+    /* استبدل الصلاحية الحالية بصلاحية جديدة للنفس المستخدم/الدور */
+    await db.execute(sql`
+      DELETE FROM document_permissions
+      WHERE document_id = ${id} AND office_id = ${officeId}
+        AND (user_id = ${targetUser ?? null} OR role_id = ${roleId ?? null})
+    `);
+    const { rows } = await db.execute(sql`
+      INSERT INTO document_permissions (document_id, office_id, permission_type, role_id, user_id)
+      VALUES (${id}, ${officeId}, ${permissionType}, ${roleId ?? null}, ${targetUser ?? null})
+      RETURNING id, permission_type, created_at
+    `);
+
+    auditLog({
+      ...auditMeta(req), action: "permission_change", resource: "document_center", resourceId: id,
+      details: `${permissionType} → user:${targetUser ?? "-"} role:${roleId ?? "-"}`,
+    }).catch(() => {});
+
+    res.status(201).json(rows[0]);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete("/document-center/files/:id/permissions/:permId", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+    const { id, permId } = req.params as { id: string; permId: string };
+    await db.execute(sql`
+      DELETE FROM document_permissions WHERE id = ${permId} AND document_id = ${id} AND office_id = ${officeId}
+    `);
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ════════════════════════════════════════════════════════════
+   V2 — RETENTION POLICIES
+════════════════════════════════════════════════════════════ */
+
+router.get("/document-center/retention-policies", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+
+    /* دمج السياسات الافتراضية مع سياسات المكتب (المكتب يتغلب على الافتراضي) */
+    const { rows } = await db.execute(sql`
+      SELECT COALESCE(o.id, d.id) AS id,
+             COALESCE(o.office_id, d.office_id) AS office_id,
+             COALESCE(o.category, d.category) AS category,
+             COALESCE(o.retention_years, d.retention_years) AS retention_years,
+             COALESCE(o.archive_after_days, d.archive_after_days) AS archive_after_days,
+             COALESCE(o.auto_delete, d.auto_delete) AS auto_delete,
+             COALESCE(o.updated_at, d.created_at) AS updated_at,
+             (o.id IS NOT NULL) AS is_customized
+      FROM   retention_policies d
+      LEFT JOIN retention_policies o ON o.category = d.category AND o.office_id = ${officeId}
+      WHERE  d.office_id = '__default__'
+      ORDER  BY d.category
+    `);
+
+    /* عدد المستندات المتأثرة لكل فئة */
+    const { rows: docCounts } = await db.execute(sql`
+      SELECT legal_category, COUNT(*) AS count,
+             COUNT(*) FILTER (WHERE created_at < NOW() - INTERVAL '1 year' * (
+               SELECT retention_years FROM retention_policies
+               WHERE (office_id = ${officeId} OR office_id = '__default__')
+                 AND category = legal_category
+               ORDER BY (office_id = ${officeId}) DESC LIMIT 1
+             )) AS near_expiry
+      FROM   document_center_files
+      WHERE  office_id = ${officeId} AND is_archived = FALSE
+      GROUP  BY legal_category
+    `);
+
+    const countsMap = Object.fromEntries((docCounts as any[]).map(r => [r.legal_category, r]));
+    const result = (rows as any[]).map(r => ({
+      ...r,
+      docCount:  Number(countsMap[r.category]?.count ?? 0),
+      nearExpiry: Number(countsMap[r.category]?.near_expiry ?? 0),
+    }));
+
+    res.json(result);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.put("/document-center/retention-policies", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+    const { category, retentionYears, archiveAfterDays, autoDelete } = req.body ?? {};
+
+    if (!category) return res.status(400).json({ error: "category مطلوبة" });
+    if (!Number.isInteger(retentionYears) || retentionYears < 1)
+      return res.status(400).json({ error: "retentionYears يجب أن يكون عدداً صحيحاً موجباً" });
+
+    await db.execute(sql`
+      INSERT INTO retention_policies (office_id, category, retention_years, archive_after_days, auto_delete)
+      VALUES (${officeId}, ${category}, ${retentionYears}, ${archiveAfterDays ?? retentionYears * 365}, ${!!autoDelete})
+      ON CONFLICT (office_id, category)
+      DO UPDATE SET retention_years    = EXCLUDED.retention_years,
+                    archive_after_days = EXCLUDED.archive_after_days,
+                    auto_delete        = EXCLUDED.auto_delete,
+                    updated_at         = NOW()
+    `);
+
+    auditLog({
+      ...auditMeta(req), action: "retention_update", resource: "document_center", resourceId: officeId,
+      details: `${category}: ${retentionYears} سنة`,
+    }).catch(() => {});
+
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* تشغيل يدوي لمسح سياسات الاحتفاظ */
+router.post("/document-center/retention-policies/scan", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+
+    const { rows: toArchive } = await db.execute(sql`
+      SELECT dcf.id, dcf.file_name, dcf.legal_category, dcf.created_at,
+             rp.retention_years, rp.archive_after_days
+      FROM   document_center_files dcf
+      JOIN   retention_policies rp
+             ON rp.category = dcf.legal_category
+            AND (rp.office_id = ${officeId} OR rp.office_id = '__default__')
+      WHERE  dcf.office_id = ${officeId}
+        AND  dcf.is_archived = FALSE
+        AND  dcf.created_at < NOW() - (rp.archive_after_days || ' days')::INTERVAL
+      ORDER  BY (rp.office_id = ${officeId}) DESC
+    `);
+
+    let archived = 0;
+    for (const doc of toArchive) {
+      const d = doc as any;
+      await db.execute(sql`
+        UPDATE document_center_files SET is_archived = TRUE, updated_at = NOW() WHERE id = ${d.id}
+      `);
+      archived++;
+    }
+
+    res.json({ scanned: toArchive.length, archived, message: `أُرشف ${archived} مستند تجاوز مدة الاحتفاظ` });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ════════════════════════════════════════════════════════════
+   V2 — OCR & AI DOCUMENT INTELLIGENCE
+════════════════════════════════════════════════════════════ */
+
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
+
+async function callGeminiDocIntel(base64: string, mime: string, fileName: string): Promise<any> {
+  if (!GEMINI_KEY) return null;
+
+  const isVisual = mime.startsWith("image/") || mime === "application/pdf";
+  const prompt = `أنت محلل قانوني متخصص. قم بتحليل هذا المستند وأعد JSON فقط بدون أي نص إضافي:
+{
+  "summary": "ملخص المستند بـ 3 جمل",
+  "document_type": "نوع المستند (عقد/وكالة/حكم/فاتورة/...)",
+  "parties": ["قائمة الأطراف المذكورة"],
+  "dates": ["التواريخ المذكورة بصيغة YYYY-MM-DD"],
+  "amounts": ["المبالغ المالية المذكورة"],
+  "obligations": ["الالتزامات والتعهدات المذكورة"],
+  "keywords": ["الكلمات المفتاحية"],
+  "confidence_score": 0.95
+}
+اسم الملف: ${fileName}`;
+
+  const parts = isVisual
+    ? [{ inline_data: { mime_type: mime, data: base64 } }, { text: prompt }]
+    : [{ text: prompt }];
+
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+    {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ contents: [{ parts }] }),
+      signal:  AbortSignal.timeout(45_000),
+    },
+  );
+  if (!resp.ok) throw new Error(`Gemini ${resp.status}`);
+  const data = (await resp.json()) as any;
+  const text  = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+  const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  return JSON.parse(clean);
+}
+
+/* تحليل ذكاء مستندي */
+router.post("/document-center/files/:id/analyze", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+    const { id }   = req.params as { id: string };
+    const { fileData } = req.body ?? {};
+
+    const { rows } = await db.execute(sql`
+      SELECT id, file_name, mime_type, storage_key FROM document_center_files
+      WHERE id = ${id} AND office_id = ${officeId} LIMIT 1
+    `);
+    if (!rows.length) return res.status(404).json({ error: "الملف غير موجود" });
+    const doc = rows[0] as any;
+
+    if (!fileData && !GEMINI_KEY) {
+      return res.status(422).json({ error: "يجب توفير GEMINI_API_KEY أو إرسال fileData مع الطلب" });
+    }
+
+    let analysis: any = null;
+    if (fileData) {
+      const clean  = fileData.includes(",") ? fileData.split(",")[1] : fileData;
+      analysis     = await callGeminiDocIntel(clean, doc.mime_type ?? "application/pdf", doc.file_name);
+    }
+
+    if (!analysis) {
+      analysis = {
+        summary: "لا يمكن تحليل هذا الملف حالياً — أرسل fileData (base64) مع الطلب",
+        document_type: doc.file_name, parties: [], dates: [], amounts: [], obligations: [], keywords: [],
+        confidence_score: 0,
+      };
+    }
+
+    /* حفظ النتائج */
+    await db.execute(sql`
+      INSERT INTO document_ai_metadata
+        (document_id, office_id, summary, document_type, parties, dates, obligations, amounts, keywords, confidence_score)
+      VALUES
+        (${id}, ${officeId},
+         ${analysis.summary ?? null},
+         ${analysis.document_type ?? null},
+         ${JSON.stringify(analysis.parties ?? [])}::text[],
+         ${JSON.stringify(analysis.dates ?? [])}::text[],
+         ${JSON.stringify(analysis.obligations ?? [])}::text[],
+         ${JSON.stringify(analysis.amounts ?? [])}::text[],
+         ${JSON.stringify(analysis.keywords ?? [])}::text[],
+         ${analysis.confidence_score ?? 0})
+      ON CONFLICT (document_id)
+      DO UPDATE SET
+        summary          = EXCLUDED.summary,
+        document_type    = EXCLUDED.document_type,
+        parties          = EXCLUDED.parties,
+        dates            = EXCLUDED.dates,
+        obligations      = EXCLUDED.obligations,
+        amounts          = EXCLUDED.amounts,
+        keywords         = EXCLUDED.keywords,
+        confidence_score = EXCLUDED.confidence_score,
+        processed_at     = NOW()
+    `);
+
+    auditLog({
+      ...auditMeta(req), action: "ai_analysis", resource: "document_center", resourceId: id,
+      details: `Gemini — ${doc.file_name}`,
+    }).catch(() => {});
+
+    res.json({ ...analysis, documentId: id, processedAt: new Date().toISOString() });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* جلب بيانات الذكاء المستندي المحفوظة */
+router.get("/document-center/files/:id/ai-metadata", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+    const { id }   = req.params as { id: string };
+    const { rows } = await db.execute(sql`
+      SELECT summary, document_type, parties, dates, obligations, amounts, keywords, confidence_score, processed_at
+      FROM   document_ai_metadata
+      WHERE  document_id = ${id} AND office_id = ${officeId}
+      LIMIT  1
+    `);
+    if (!rows.length) return res.status(404).json({ error: "لا توجد بيانات ذكاء مستندي — قم بتشغيل التحليل أولاً" });
+    res.json(rows[0]);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* بحث ذكي في المستندات */
+router.get("/document-center/search", requireAuthWithTenant, async (req, res) => {
+  try {
+    const officeId = (req as any).tenantId as string;
+    const { q, category } = req.query as { q?: string; category?: string };
+    if (!q) return res.status(400).json({ error: "q مطلوب" });
+
+    const { rows } = await db.execute(sql`
+      SELECT dcf.id, dcf.file_name, dcf.mime_type, dcf.legal_category,
+             dcf.file_size, dcf.created_at, dcf.storage_provider,
+             dam.summary, dam.document_type, dam.confidence_score,
+             dam.parties, dam.keywords
+      FROM   document_center_files dcf
+      LEFT JOIN document_ai_metadata dam ON dam.document_id = dcf.id
+      WHERE  dcf.office_id = ${officeId}
+        AND  dcf.is_archived = FALSE
+        AND  (${category ?? null}::text IS NULL OR dcf.legal_category = ${category ?? null})
+        AND  (
+               dcf.file_name ILIKE ${"%" + q + "%"}
+            OR dam.summary   ILIKE ${"%" + q + "%"}
+            OR dam.document_type ILIKE ${"%" + q + "%"}
+            OR ${q} = ANY(dam.keywords)
+            OR ${q} = ANY(dam.parties)
+        )
+      ORDER  BY dcf.created_at DESC
+      LIMIT  50
+    `);
+    res.json({ results: rows, query: q, total: rows.length });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 export default router;
