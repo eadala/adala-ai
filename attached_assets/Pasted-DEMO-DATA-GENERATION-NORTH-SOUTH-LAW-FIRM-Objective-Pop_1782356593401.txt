@@ -1,0 +1,301 @@
+DEMO DATA GENERATION — NORTH & SOUTH LAW FIRM
+
+Objective
+
+Populate the demo office:
+
+“مكتب الشمال والجنوب”
+
+with realistic, interconnected, enterprise-grade legal demo data to fully demonstrate all JLWM capabilities.
+
+The goal is to make every JLWM screen appear operational with meaningful insights, predictions, simulations, recommendations, alerts, digital twins, memory graph relationships, and executive intelligence.
+
+⸻
+
+Important Rules
+
+1. Demo data only.
+2. No real persons.
+3. No real client information.
+4. Use realistic Saudi legal business scenarios.
+5. All generated data must belong to the office:
+    “مكتب الشمال والجنوب”
+6. Create rich relationships between entities.
+7. Populate every JLWM module with meaningful records.
+
+⸻
+
+Generate Legal Cases
+
+Create:
+
+* 75 active cases
+* 25 closed cases
+* 15 execution cases
+* 10 bankruptcy cases
+* 20 contract disputes
+* 10 labor disputes
+* 10 commercial disputes
+* 10 real estate disputes
+
+Mix:
+
+* winning cases
+* losing cases
+* settlement cases
+* appealed cases
+
+Generate realistic timelines.
+
+⸻
+
+Generate Clients
+
+Create:
+
+* 40 corporate clients
+* 60 individual clients
+
+Include:
+
+* high value clients
+* medium value clients
+* risky clients
+* loyal clients
+
+Generate realistic payment histories.
+
+⸻
+
+Generate Documents
+
+Create:
+
+* 800 legal documents
+* contracts
+* pleadings
+* expert reports
+* court decisions
+* execution requests
+
+Populate AI metadata.
+
+⸻
+
+Generate Financial Data
+
+Create:
+
+* invoices
+* payments
+* revenues
+* expenses
+* lawyer payouts
+
+Target metrics:
+
+Monthly Revenue:
+SAR 1.8M
+
+Monthly Expenses:
+SAR 1.1M
+
+Collection Rate:
+82%
+
+Outstanding Invoices:
+18%
+
+⸻
+
+Generate Digital Twins
+
+Create complete records for:
+
+* jlwm_case_twins
+* jlwm_client_twins
+* jlwm_firm_twin
+
+Generate realistic:
+
+* health scores
+* risk scores
+* loyalty scores
+* performance scores
+* financial exposure
+
+⸻
+
+Generate Predictions
+
+Create:
+
+300+ predictions
+
+Types:
+
+* outcome
+* duration
+* settlement
+* appeal
+* execution
+* churn
+* revenue
+
+Use varying confidence scores.
+
+⸻
+
+Generate Litigation Intelligence
+
+For all active cases generate:
+
+* strengths
+* weaknesses
+* missing evidence
+* procedural risks
+* recommended actions
+
+Make each case unique.
+
+⸻
+
+Generate Simulations
+
+Create:
+
+50 simulation sessions
+
+Scenarios:
+
+* appeal
+* settlement
+* expert witness
+* aggressive litigation
+* conservative litigation
+
+Include multiple outcomes and probabilities.
+
+⸻
+
+Generate Future Explorer Data
+
+Create:
+
+Optimistic Path
+
+Realistic Path
+
+Pessimistic Path
+
+for:
+
+* cases
+* clients
+* office
+
+Include milestones and narratives.
+
+⸻
+
+Generate Memory Graph
+
+Create:
+
+1000+ nodes
+
+3000+ edges
+
+Relationships:
+
+* client to case
+* lawyer to case
+* contract to client
+* invoice to client
+* bankruptcy to debtor
+* execution to judgment
+
+Ensure graph visualization appears rich and connected.
+
+⸻
+
+Generate Radar Alerts
+
+Create:
+
+* 10 critical alerts
+* 20 warning alerts
+* 15 informational alerts
+
+Examples:
+
+* approaching hearing
+* overdue invoice
+* execution risk
+* bankruptcy deadline
+* missing evidence
+
+⸻
+
+Generate Recommendations
+
+Create:
+
+100 recommendations
+
+Priorities:
+
+* critical
+* high
+* medium
+* low
+
+Include estimated impact.
+
+⸻
+
+Generate Reliability Layer Data
+
+Populate:
+
+* prediction accuracy
+* trust score
+* recommendation effectiveness
+* data quality score
+
+Target demo metrics:
+
+Trust Score: 88%
+
+Prediction Accuracy: 84%
+
+Recommendation Success: 79%
+
+Data Quality Score: 92%
+
+⸻
+
+Generate Executive Intelligence
+
+Create executive dashboard data showing:
+
+* 125 active legal matters
+* 84% predicted success rate
+* 12 critical risks
+* 7 settlement opportunities
+* 18 high-value clients
+* SAR 2.4M projected monthly revenue
+
+Generate realistic narratives and AI summaries.
+
+⸻
+
+Final Requirement
+
+Create a dedicated seed script:
+
+seedNorthSouthDemoData()
+
+that can be safely re-run without creating duplicate records.
+
+All generated records must be clearly marked as DEMO DATA.

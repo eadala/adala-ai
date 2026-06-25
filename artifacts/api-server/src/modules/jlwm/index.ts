@@ -5,6 +5,7 @@
  */
 
 import { Router } from "express";
+import { getAuth } from "@clerk/express";
 import memoryGraphRouter      from "./memoryGraph";
 import worldStateRouter       from "./worldState";
 import digitalTwinsRouter     from "./digitalTwins";
@@ -20,6 +21,8 @@ import predictionAccuracyRouter from "./predictionAccuracy";
 import executiveIntelRouter     from "./executiveIntelligence";
 import legalCOORouter           from "./legalCOO";
 import reliabilityRouter        from "./reliabilityEngine";
+// Demo Seed
+import { seedNorthSouthDemoData, isJLWMDemoSeeded, clearJLWMDemoData } from "./jlwmDemoSeed";
 
 export { ensureJLWMSchema, seedJLWMDemoData } from "./jlwm.schema";
 export { ensureFuturePathsTable }   from "./futureExplorer";
@@ -50,5 +53,51 @@ jlwmRouter.use(predictionAccuracyRouter);
 jlwmRouter.use(executiveIntelRouter);
 jlwmRouter.use(legalCOORouter);
 jlwmRouter.use(reliabilityRouter);
+
+/* ── Demo Seed Routes (super_admin only) ─────────────────────── */
+function isSA(req: any): boolean {
+  try {
+    const auth = getAuth(req);
+    const meta = (auth as any)?.sessionClaims?.publicMetadata as any;
+    if (meta?.role === "super_admin") return true;
+    const emails = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map((s: string) => s.trim());
+    const email  = (auth as any)?.sessionClaims?.email as string ?? "";
+    return emails.includes(email);
+  } catch { return false; }
+}
+
+/** GET /jlwm/seed/status — check if demo data is already seeded */
+jlwmRouter.get("/seed/status", async (req, res) => {
+  if (!isSA(req)) return res.status(403).json({ error: "super_admin only" });
+  try {
+    const status = await isJLWMDemoSeeded();
+    res.json({ status, message: status.north && status.south ? "already_seeded" : "needs_seed" });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** POST /jlwm/seed — run the full JLWM demo seed (idempotent) */
+jlwmRouter.post("/seed", async (req, res) => {
+  if (!isSA(req)) return res.status(403).json({ error: "super_admin only" });
+  try {
+    const force  = req.body?.force === true;
+    const result = await seedNorthSouthDemoData(force);
+    res.json({ ok: true, result });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** DELETE /jlwm/seed — clear demo data for both offices */
+jlwmRouter.delete("/seed", async (req, res) => {
+  if (!isSA(req)) return res.status(403).json({ error: "super_admin only" });
+  try {
+    await clearJLWMDemoData();
+    res.json({ ok: true, message: "Demo data cleared" });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 export default jlwmRouter;

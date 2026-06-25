@@ -20,6 +20,7 @@ import { ensureBankruptcyV2Tables } from "./modules/bankruptcy/bankruptcyV2";
 import { ensureBankruptcyV3Tables } from "./modules/bankruptcy/bankruptcyV3";
 import { ensureDocumentCenterSchema } from "./modules/documents/documentCenter";
 import { ensureJLWMSchema, ensureFuturePathsTable, ensureSimulationsTable, ensureLitigationIntelTable, ensureAccuracyTable, ensureExecutiveTable, ensureCOOTable, ensureReliabilitySchema } from "./modules/jlwm/index";
+import { seedNorthSouthDemoData } from "./modules/jlwm/jlwmDemoSeed";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -90,6 +91,21 @@ ensureAccuracyTable().catch(e => logger.error({ e }, "ensureAccuracyTable failed
 ensureExecutiveTable().catch(e => logger.error({ e }, "ensureExecutiveTable failed"));
 ensureCOOTable().catch(e => logger.error({ e }, "ensureCOOTable failed"));
 ensureReliabilitySchema().catch(e => logger.error({ e }, "ensureReliabilitySchema failed"));
+
+/* Auto-seed JLWM demo data for North & South offices (idempotent — skips if already seeded) */
+setTimeout(() => {
+  const forceReseed = process.env["JLWM_DEMO_FORCE_SEED"] === "true";
+  seedNorthSouthDemoData(forceReseed)
+    .then(r => {
+      if (r.skipped) {
+        logger.info("[JLWM Seed] Already seeded — skipped.");
+      } else {
+        logger.info({ north: r.north, south: r.south }, "[JLWM Seed] Demo data seeded ✅");
+      }
+    })
+    .catch(e => logger.error({ err: e.message }, "[JLWM Seed] Auto-seed failed (non-fatal)"));
+}, 8000); // 8s delay so all tables are ready first
+
 ensureBankruptcyV2Tables().catch(e => logger.error({ e }, "ensureBankruptcyV2Tables failed"));
 ensureBankruptcyV3Tables().catch(e => logger.error({ e }, "ensureBankruptcyV3Tables failed"));
 initStripe();
