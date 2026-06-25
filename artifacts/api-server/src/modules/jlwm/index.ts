@@ -22,9 +22,11 @@ import executiveIntelRouter     from "./executiveIntelligence";
 import legalCOORouter           from "./legalCOO";
 import reliabilityRouter        from "./reliabilityEngine";
 // Phase 4 — Enterprise Integration, Security & Reliability
-import enterpriseReportRouter   from "./enterpriseReport";
+import enterpriseReportRouter, { rebuildJLWMFromLiveData } from "./enterpriseReport";
 // Demo Seed
 import { seedNorthSouthDemoData, isJLWMDemoSeeded, clearJLWMDemoData } from "./jlwmDemoSeed";
+// EventBus
+import { eventBus } from "../../core/eventBus";
 
 export { ensureJLWMSchema, seedJLWMDemoData } from "./jlwm.schema";
 export { ensureFuturePathsTable }   from "./futureExplorer";
@@ -57,6 +59,31 @@ jlwmRouter.use(legalCOORouter);
 jlwmRouter.use(reliabilityRouter);
 // Phase 4 — Enterprise
 jlwmRouter.use(enterpriseReportRouter);
+
+/* ── Auto-Sync: EventBus Listeners ──────────────────────────── */
+/*
+ * When a case or client changes in the platform, rebuild JLWM
+ * world state + digital twins for that office automatically.
+ * Debounced per office: one rebuild per office per 30s max.
+ */
+const pendingRebuild = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleRebuild(officeId: string | undefined, trigger: string) {
+  if (!officeId) return;
+  const existing = pendingRebuild.get(officeId);
+  if (existing) clearTimeout(existing);
+  pendingRebuild.set(officeId, setTimeout(async () => {
+    pendingRebuild.delete(officeId);
+    try {
+      await rebuildJLWMFromLiveData(officeId, trigger);
+    } catch { /* non-critical background job */ }
+  }, 5_000)); // 5s debounce — waits for burst of changes to settle
+}
+
+eventBus.on("CASE_CREATED",  (e) => scheduleRebuild(e.officeId, "case_created"));
+eventBus.on("CASE_UPDATED",  (e) => scheduleRebuild(e.officeId, "case_updated"));
+eventBus.on("CASE_CLOSED",   (e) => scheduleRebuild(e.officeId, "case_closed"));
+eventBus.on("CLIENT_ADDED",  (e) => scheduleRebuild(e.officeId, "client_added"));
 
 /* ── Demo Seed Routes (super_admin only) ─────────────────────── */
 function isSA(req: any): boolean {

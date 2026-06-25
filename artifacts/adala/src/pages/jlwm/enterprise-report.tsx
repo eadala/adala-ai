@@ -127,9 +127,13 @@ export default function JLWMEnterpriseReport() {
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ["jlwm"] });
-      toast({ title: "تمت مزامنة بيانات JLWM من جميع وحدات عدالة" });
+      const s = data?.synced ?? {};
+      toast({
+        title: "✅ تمت المزامنة الشاملة",
+        description: `حالة العالم: ${s.worldState ? "محدّثة" : "—"} · التوأم القضوي: ${s.caseTwins ?? 0} · توأم العملاء: ${s.clientTwins ?? 0} · ذاكرة JLWM: ${s.memoryNodes ?? 0} عقدة`,
+      });
     },
     onError: (e: any) => toast({ title: "فشل التزامن", description: e.message, variant: "destructive" }),
   });

@@ -657,69 +657,301 @@ router.get("/jlwm/enterprise/backup-status", requireAuthWithTenant, async (req, 
   }
 });
 
+/**
+ * rebuildJLWMFromLiveData — rebuilds all JLWM live-sync tables from real office data.
+ * Called by sync-all and by EventBus listeners on case/client changes.
+ */
+export async function rebuildJLWMFromLiveData(officeId: string, triggeredBy = "manual"): Promise<{
+  worldState: boolean; caseTwins: number; clientTwins: number; memoryNodes: number;
+}> {
+  /* ── 1. Gather live metrics ──────────────────────────────────── */
+  const [caseStats, clientStats, taskStats, finStats, invoiceStats, hearingStats] =
+    await Promise.all([
+      qOne(sql`
+        SELECT
+          COUNT(*)::int                                                                              AS total_cases,
+          COUNT(*) FILTER (WHERE status IN ('active','جارية','قيد_النظر','مفتوحة'))::int            AS active_cases,
+          COUNT(*) FILTER (WHERE status IN ('critical','عاجلة'))::int                               AS critical_cases,
+          COUNT(*) FILTER (WHERE status IN ('won','فاز','كسبنا','ربحنا'))::int                      AS won_cases,
+          COUNT(*) FILTER (WHERE status IN ('lost','خسر','خسرنا'))::int                             AS lost_cases,
+          COUNT(*) FILTER (WHERE status IN ('closed','منتهية','won','فاز','lost','خسر'))::int       AS closed_cases
+        FROM cases WHERE office_id=${officeId}`),
+      qOne(sql`SELECT COUNT(*)::int AS total_clients FROM clients WHERE office_id=${officeId}`),
+      qOne(sql`
+        SELECT
+          COUNT(*)::int AS total_tasks,
+          COUNT(*) FILTER (WHERE due_date < NOW() AND status NOT IN ('done','completed','مكتملة'))::int AS overdue_tasks
+        FROM tasks WHERE office_id=${officeId}`),
+      qOne(sql`
+        SELECT
+          COALESCE(SUM(amount) FILTER (WHERE date >= DATE_TRUNC('month', NOW())),0)::float               AS rev_this_month,
+          COALESCE(SUM(amount) FILTER (WHERE date >= DATE_TRUNC('month', NOW()-INTERVAL '1 month')
+                                        AND date < DATE_TRUNC('month', NOW())),0)::float                 AS rev_last_month,
+          COALESCE((SELECT SUM(amount) FROM expenses WHERE office_id=${officeId}),0)::float              AS total_exp,
+          COALESCE(SUM(amount),0)::float                                                                 AS total_rev
+        FROM revenues WHERE office_id=${officeId}`),
+      qOne(sql`
+        SELECT COUNT(*)::int AS pending_invoices,
+               COALESCE(SUM(total_amount),0)::float AS pending_amount
+        FROM client_invoices WHERE office_id=${officeId} AND status IN ('pending','overdue','متأخرة')`),
+      qOne(sql`
+        SELECT COUNT(*)::int AS upcoming_hearings
+        FROM events WHERE office_id=${officeId}
+          AND type IN ('hearing','جلسة')
+          AND date BETWEEN NOW() AND NOW() + INTERVAL '7 days'`),
+    ]);
+
+  const active    = Number(caseStats.active_cases    ?? 0);
+  const critical  = Number(caseStats.critical_cases  ?? 0);
+  const won       = Number(caseStats.won_cases        ?? 0);
+  const closed    = Number(caseStats.closed_cases     ?? 0);
+  const overdue   = Number(taskStats.overdue_tasks    ?? 0);
+  const revThis   = Number(finStats.rev_this_month    ?? 0);
+  const revLast   = Number(finStats.rev_last_month    ?? 1);
+  const winRate   = closed > 0 ? Math.round((won / closed) * 100) / 100 : 0;
+  const revMomentum = revLast > 0
+    ? Math.round(((revThis - revLast) / revLast) * 100) / 100
+    : 0;
+
+  /* ── 2. Build state_vector (same schema as worldState.ts) ─── */
+  const stateVector = {
+    active_cases:      active,
+    critical_cases:    critical,
+    overdue_tasks:     overdue,
+    upcoming_hearings: Number(hearingStats.upcoming_hearings ?? 0),
+    pending_invoices:  Number(invoiceStats.pending_invoices  ?? 0),
+    pending_amount:    Number(invoiceStats.pending_amount    ?? 0),
+    revenue_momentum:  revMomentum,
+    win_rate:          winRate,
+    total_clients:     Number(clientStats.total_clients ?? 0),
+    total_cases:       Number(caseStats.total_cases    ?? 0),
+    net_revenue:       Number(finStats.total_rev ?? 0) - Number(finStats.total_exp ?? 0),
+  };
+
+  /* Risk level */
+  let riskScore = 0;
+  if (critical > 0)   riskScore += Math.min(critical * 15, 40);
+  if (overdue > 3)    riskScore += Math.min(overdue * 5, 30);
+  if (invoiceStats.pending_invoices > 5) riskScore += 10;
+  if (revMomentum < -0.1) riskScore += 20;
+  const riskLevel = riskScore >= 60 ? "red" : riskScore >= 35 ? "orange" : riskScore >= 15 ? "yellow" : "green";
+
+  const threats: any[] = [];
+  if (critical > 0) threats.push({ type: "critical_cases", detail: `${critical} قضية حرجة` });
+  if (overdue > 2)  threats.push({ type: "overdue_tasks",  detail: `${overdue} مهمة متأخرة` });
+  if (revMomentum < -0.1) threats.push({ type: "revenue_decline", detail: `الإيرادات انخفضت ${Math.abs(revMomentum * 100).toFixed(0)}%` });
+
+  const opportunities: any[] = [];
+  if (revMomentum > 0.1) opportunities.push({ type: "revenue_growth", detail: `نمو إيرادات ${(revMomentum * 100).toFixed(0)}%` });
+  if (winRate > 0.7)     opportunities.push({ type: "high_win_rate",  detail: `معدل فوز ${(winRate * 100).toFixed(0)}%` });
+
+  const stateSummary = `المكتب في حالة ${riskLevel === "green" ? "ممتازة" : riskLevel === "yellow" ? "مستقرة" : riskLevel === "orange" ? "تحتاج انتباهاً" : "حرجة"} — ${active} قضية نشطة، ${stateVector.total_clients} عميل، معدل فوز ${Math.round(winRate * 100)}%`;
+
+  /* ── 3. Insert world state (always new row, reads from worldState.ts) ─── */
+  let worldStateOk = false;
+  await db.execute(sql`
+    INSERT INTO jlwm_world_states
+      (office_id, risk_level, state_vector, active_threats, opportunities, state_summary, triggered_by)
+    VALUES
+      (${officeId}, ${riskLevel},
+       ${JSON.stringify(stateVector)}::jsonb,
+       ${JSON.stringify({ items: threats })}::jsonb,
+       ${JSON.stringify({ items: opportunities })}::jsonb,
+       ${stateSummary}, ${triggeredBy})
+  `).then(() => { worldStateOk = true; }).catch(async () => {
+    /* Fallback: update latest row */
+    await db.execute(sql`
+      UPDATE jlwm_world_states
+      SET state_vector  = ${JSON.stringify(stateVector)}::jsonb,
+          risk_level    = ${riskLevel},
+          state_summary = ${stateSummary},
+          active_threats = ${JSON.stringify({ items: threats })}::jsonb,
+          opportunities  = ${JSON.stringify({ items: opportunities })}::jsonb
+      WHERE id = (
+        SELECT id FROM jlwm_world_states WHERE office_id=${officeId} ORDER BY computed_at DESC LIMIT 1
+      )
+    `).then(() => { worldStateOk = true; }).catch(() => {});
+  });
+
+  /* ── 4. Rebuild case twins from real cases ───────────────────── */
+  const liveCases = await qAll(sql`
+    SELECT id, title, status, case_type, court_name, created_at
+    FROM cases WHERE office_id=${officeId}
+    ORDER BY created_at DESC LIMIT 200
+  `).catch(() => []);
+
+  let caseTwinCount = 0;
+  for (const c of liveCases) {
+    const taskRow = await qOne(sql`
+      SELECT COUNT(*)::int AS total,
+             COUNT(*) FILTER (WHERE status IN ('done','completed','مكتملة'))::int AS done,
+             COUNT(*) FILTER (WHERE due_date < NOW() AND status NOT IN ('done','مكتملة'))::int AS overdue
+      FROM tasks WHERE case_id=${c.id} AND office_id=${officeId}
+    `).catch(() => ({}));
+    const docRow = await qOne(sql`
+      SELECT COUNT(*)::int AS cnt FROM documents WHERE case_id=${c.id} AND office_id=${officeId}
+    `).catch(() => ({}));
+    const invRow = await qOne(sql`
+      SELECT COALESCE(SUM(total_amount),0)::float AS exposure
+      FROM client_invoices WHERE case_id=${c.id} AND status IN ('pending','overdue')
+    `).catch(() => ({}));
+    const tot = Number(taskRow.total ?? 0);
+    const don = Number(taskRow.done  ?? 0);
+    const ovd = Number(taskRow.overdue ?? 0);
+    const docs= Number(docRow.cnt ?? 0);
+    const exposure = Number(invRow.exposure ?? 0);
+    let health = 50;
+    if (tot > 0) health += (don / tot) * 20;
+    health -= ovd * 10;
+    if (docs >= 3) health += 10;
+    health = Math.max(0, Math.min(100, health));
+    const riskLvl = health >= 70 ? "low" : health >= 40 ? "medium" : "high";
+    const completionRate = tot > 0 ? Math.round((don / tot) * 100) : 0;
+
+    await db.execute(sql`
+      INSERT INTO jlwm_case_twins
+        (office_id, case_id, health_score, complexity_score, risk_level,
+         financial_exposure, state_data, last_synced_at)
+      VALUES (
+        ${officeId}, ${c.id}::uuid, ${Math.round(health)},
+        ${Math.min(100, 30 + docs * 5 + ovd * 10)},
+        ${riskLvl}, ${exposure},
+        ${JSON.stringify({
+          title: c.title, status: c.status, case_type: c.case_type,
+          court_name: c.court_name, task_completion_rate: completionRate,
+          overdue_tasks: ovd, doc_count: docs,
+        })}::jsonb,
+        NOW()
+      )
+      ON CONFLICT (office_id, case_id) DO UPDATE
+        SET health_score       = EXCLUDED.health_score,
+            complexity_score   = EXCLUDED.complexity_score,
+            risk_level         = EXCLUDED.risk_level,
+            financial_exposure = EXCLUDED.financial_exposure,
+            state_data         = EXCLUDED.state_data,
+            last_synced_at     = NOW()
+    `).then(() => caseTwinCount++).catch(() => {});
+  }
+
+  /* ── 5. Rebuild client twins from real clients ───────────────── */
+  const liveClients = await qAll(sql`
+    SELECT id, full_name, client_type, created_at
+    FROM clients WHERE office_id=${officeId}
+    ORDER BY created_at DESC LIMIT 200
+  `).catch(() => []);
+
+  let clientTwinCount = 0;
+  for (const cl of liveClients) {
+    const caseRow = await qOne(sql`
+      SELECT COUNT(*)::int AS total_cases,
+             COUNT(*) FILTER (WHERE status IN ('won','فاز','كسبنا','ربحنا'))::int AS won_cases,
+             COUNT(*) FILTER (WHERE status IN ('lost','خسر','خسرنا'))::int         AS lost_cases,
+             COUNT(*) FILTER (WHERE status NOT IN ('closed','منتهية','won','فاز','lost','خسر'))::int AS active_cases
+      FROM cases WHERE client_id=${cl.id} AND office_id=${officeId}
+    `).catch(() => ({}));
+    const invRow = await qOne(sql`
+      SELECT COALESCE(SUM(total_amount),0)::float AS total_invoiced,
+             COALESCE(SUM(total_amount) FILTER (WHERE status='paid'),0)::float AS total_paid
+      FROM client_invoices WHERE client_id=${cl.id} AND office_id=${officeId}
+    `).catch(() => ({}));
+    const totCases   = Number(caseRow.total_cases  ?? 0);
+    const wonCases   = Number(caseRow.won_cases    ?? 0);
+    const lostCases  = Number(caseRow.lost_cases   ?? 0);
+    const activeCases= Number(caseRow.active_cases ?? 0);
+    const totalInv   = Number(invRow.total_invoiced ?? 0);
+    const totalPaid  = Number(invRow.total_paid    ?? 0);
+    /* Payment reliability 0-1 */
+    const payRel = totalInv > 0 ? Math.min(1, totalPaid / totalInv) : 1;
+    /* Loyalty score: cases + payment history */
+    let loyalty = 50;
+    if (totCases >= 3)  loyalty += 15;
+    if (wonCases >= 1)  loyalty += 10;
+    if (payRel >= 0.9)  loyalty += 15;
+    else if (payRel < 0.5) loyalty -= 15;
+    loyalty = Math.max(0, Math.min(100, loyalty));
+    /* Churn risk */
+    const churnRisk = activeCases === 0 && totCases > 0 ? "high" : activeCases > 0 ? "low" : "medium";
+    /* LTV */
+    const ltv = totalPaid + (activeCases * 3000);
+
+    await db.execute(sql`
+      INSERT INTO jlwm_client_twins
+        (office_id, client_id, loyalty_score, risk_score, ltv_score,
+         total_cases, won_cases, lost_cases, active_cases,
+         total_invoiced, total_paid, payment_reliability, churn_risk,
+         behavioral_patterns, last_synced_at)
+      VALUES (
+        ${officeId}, ${cl.id}::uuid,
+        ${Math.round(loyalty)},
+        ${Math.round(100 - loyalty)},
+        ${Math.round(ltv)},
+        ${totCases}, ${wonCases}, ${lostCases}, ${activeCases},
+        ${totalInv}, ${totalPaid}, ${payRel}, ${churnRisk},
+        ${JSON.stringify({ full_name: cl.full_name, client_type: cl.client_type })}::jsonb,
+        NOW()
+      )
+      ON CONFLICT (office_id, client_id) DO UPDATE
+        SET loyalty_score       = EXCLUDED.loyalty_score,
+            risk_score          = EXCLUDED.risk_score,
+            ltv_score           = EXCLUDED.ltv_score,
+            total_cases         = EXCLUDED.total_cases,
+            won_cases           = EXCLUDED.won_cases,
+            lost_cases          = EXCLUDED.lost_cases,
+            active_cases        = EXCLUDED.active_cases,
+            total_invoiced      = EXCLUDED.total_invoiced,
+            total_paid          = EXCLUDED.total_paid,
+            payment_reliability = EXCLUDED.payment_reliability,
+            churn_risk          = EXCLUDED.churn_risk,
+            behavioral_patterns = EXCLUDED.behavioral_patterns,
+            last_synced_at      = NOW()
+    `).then(() => clientTwinCount++).catch(() => {});
+  }
+
+  /* ── 6. Upsert memory nodes for cases & clients ──────────────── */
+  let memoryNodeCount = 0;
+  for (const c of liveCases.slice(0, 50)) {
+    await db.execute(sql`
+      INSERT INTO jlwm_memory_nodes
+        (office_id, node_type, node_ref, label, properties, importance_score)
+      VALUES (
+        ${officeId}, 'case', ${"live-case-" + c.id},
+        ${c.title ?? "قضية"},
+        ${JSON.stringify({ status: c.status, case_type: c.case_type, court: c.court_name })}::jsonb,
+        ${c.status === "critical" || c.status === "عاجلة" ? 0.9 : 0.6}
+      )
+      ON CONFLICT (office_id, node_ref) DO UPDATE
+        SET label       = EXCLUDED.label,
+            properties  = EXCLUDED.properties,
+            updated_at  = NOW()
+    `).then(() => memoryNodeCount++).catch(() => {});
+  }
+  for (const cl of liveClients.slice(0, 50)) {
+    await db.execute(sql`
+      INSERT INTO jlwm_memory_nodes
+        (office_id, node_type, node_ref, label, properties, importance_score)
+      VALUES (
+        ${officeId}, 'client', ${"live-client-" + cl.id},
+        ${cl.full_name ?? "عميل"},
+        ${JSON.stringify({ client_type: cl.client_type })}::jsonb,
+        0.7
+      )
+      ON CONFLICT (office_id, node_ref) DO UPDATE
+        SET label       = EXCLUDED.label,
+            properties  = EXCLUDED.properties,
+            updated_at  = NOW()
+    `).then(() => memoryNodeCount++).catch(() => {});
+  }
+
+  return { worldState: worldStateOk, caseTwins: caseTwinCount, clientTwins: clientTwinCount, memoryNodes: memoryNodeCount };
+}
+
 /** POST /jlwm/enterprise/sync-all — sync JLWM from live platform data */
 router.post("/jlwm/enterprise/sync-all", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = (req as any).tenantId as string;
 
-    /* Sync JLWM world state from live cases/clients/finance data */
-    const [caseStats, clientStats, finStats] = await Promise.all([
-      qOne(sql`
-        SELECT
-          COUNT(*)::int AS total,
-          COUNT(*) FILTER (WHERE status NOT IN ('closed','منتهية','won','فاز','lost','خسر'))::int AS active,
-          COUNT(*) FILTER (WHERE status IN ('won','فاز'))::int AS won,
-          COUNT(*) FILTER (WHERE status IN ('closed','منتهية','won','فاز','lost','خسر'))::int AS closed
-        FROM cases WHERE office_id=${officeId}
-      `),
-      qOne(sql`SELECT COUNT(*)::int AS total FROM clients WHERE office_id=${officeId}`),
-      qOne(sql`
-        SELECT
-          COALESCE(SUM(amount),0)::float AS total_rev,
-          COALESCE((SELECT SUM(amount) FROM expenses WHERE office_id=${officeId}),0)::float AS total_exp
-        FROM revenues WHERE office_id=${officeId}
-      `),
-    ]);
+    const result = await rebuildJLWMFromLiveData(officeId, "manual_sync");
 
-    const totalClosed = Number(caseStats.closed ?? 0);
-    const totalWon    = Number(caseStats.won ?? 0);
-    const winRate     = totalClosed > 0 ? (totalWon / totalClosed) * 100 : 0;
-    const netRevenue  = Number(finStats.total_rev ?? 0) - Number(finStats.total_exp ?? 0);
-
-    /* Upsert world state with live data */
-    await db.execute(sql`
-      INSERT INTO jlwm_world_states
-        (office_id, risk_level, state_summary, key_metrics, active_alerts_count,
-         opportunities_count, threats_count, data_sources_count)
-      VALUES (
-        ${officeId},
-        ${winRate >= 70 ? "green" : winRate >= 50 ? "yellow" : winRate >= 30 ? "orange" : "red"},
-        ${`المكتب يمتلك ${caseStats.active} قضية نشطة من أصل ${caseStats.total} و${clientStats.total} عميل`},
-        ${JSON.stringify({
-          active_cases:   caseStats.active,
-          total_cases:    caseStats.total,
-          total_clients:  clientStats.total,
-          win_rate:       Math.round(winRate),
-          net_revenue:    netRevenue,
-        })}::jsonb,
-        0, 3, ${winRate < 50 ? 2 : 0}, ${MODULES.length}
-      )
-      ON CONFLICT (office_id, computed_at::date) DO UPDATE
-        SET key_metrics = EXCLUDED.key_metrics,
-            state_summary = EXCLUDED.state_summary,
-            risk_level = EXCLUDED.risk_level
-    `).catch(async () => {
-      /* fallback: just update latest */
-      await db.execute(sql`
-        UPDATE jlwm_world_states SET
-          key_metrics = ${JSON.stringify({ active_cases: caseStats.active, win_rate: Math.round(winRate) })}::jsonb,
-          updated_at  = NOW()
-        WHERE office_id = ${officeId}
-        ORDER BY computed_at DESC LIMIT 1
-      `).catch(() => {});
-    });
-
-    /* Log sync event */
     auditLog({
       userId:      (req as any).auth?.userId ?? "system",
       userFullName:"JLWM Sync",
@@ -727,10 +959,10 @@ router.post("/jlwm/enterprise/sync-all", requireAuthWithTenant, async (req, res)
       action:      "jlwm.enterprise.sync.all",
       resource:    "jlwm_world_state",
       resourceId:  officeId,
-      details:     JSON.stringify({ activeCases: caseStats.active, winRate: Math.round(winRate) }),
+      details:     JSON.stringify(result),
     }).catch(() => {});
 
-    res.json({ ok: true, synced: { worldState: true, activeCases: caseStats.active, winRate: Math.round(winRate) } });
+    res.json({ ok: true, synced: result });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
