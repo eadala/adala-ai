@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Scale, FileText, Bot, Users, CreditCard, Menu, Search,
   Sparkles, LogOut, Swords, Zap, UserCircle, BookOpen, Handshake, LibraryBig,
-  AlertTriangle, BarChart3, Shield, UserCog, Clock, CalendarDays, DollarSign,
+  AlertTriangle, BarChart3, Shield, ShieldCheck, UserCog, Clock, CalendarDays, DollarSign,
   Building2, Gavel, MessageCircle, Globe, Receipt, Mail, ShoppingBag, Crown,
   BrainCircuit, Lock, Database, TrendingUp, TrendingDown, ArrowRightLeft,
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
@@ -210,6 +210,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/jlwm/prediction-accuracy",     labelKey: "مركز دقة التنبؤ",          icon: Target },
       { href: "/jlwm/executive-intelligence",  labelKey: "الذكاء التنفيذي",           icon: Crown },
       { href: "/jlwm/legal-coo",               labelKey: "المدير التشغيلي الذكي",     icon: BrainCog },
+      { href: "/jlwm/reliability",              labelKey: "الموثوقية والتحقق",         icon: ShieldCheck },
     ],
   },
   /* ─── Platform: Super Admin ─── */

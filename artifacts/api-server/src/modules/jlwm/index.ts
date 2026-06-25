@@ -19,6 +19,7 @@ import litigationIntelRouter  from "./litigationIntelligence";
 import predictionAccuracyRouter from "./predictionAccuracy";
 import executiveIntelRouter     from "./executiveIntelligence";
 import legalCOORouter           from "./legalCOO";
+import reliabilityRouter        from "./reliabilityEngine";
 
 export { ensureJLWMSchema, seedJLWMDemoData } from "./jlwm.schema";
 export { ensureFuturePathsTable }   from "./futureExplorer";
@@ -27,6 +28,7 @@ export { ensureLitigationIntelTable } from "./litigationIntelligence";
 export { ensureAccuracyTable }      from "./predictionAccuracy";
 export { ensureExecutiveTable }     from "./executiveIntelligence";
 export { ensureCOOTable }           from "./legalCOO";
+export { ensureReliabilitySchema }  from "./reliabilityEngine";
 
 const jlwmRouter = Router();
 
@@ -47,5 +49,6 @@ jlwmRouter.use(litigationIntelRouter);
 jlwmRouter.use(predictionAccuracyRouter);
 jlwmRouter.use(executiveIntelRouter);
 jlwmRouter.use(legalCOORouter);
+jlwmRouter.use(reliabilityRouter);
 
 export default jlwmRouter;

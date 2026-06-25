@@ -184,6 +184,7 @@ const JLWMLitigationIntel     = lazy(() => import("@/pages/jlwm/litigation-intel
 const JLWMPredictionAccuracy  = lazy(() => import("@/pages/jlwm/prediction-accuracy"));
 const JLWMExecutiveIntel      = lazy(() => import("@/pages/jlwm/executive-intelligence"));
 const JLWMLegalCOO            = lazy(() => import("@/pages/jlwm/legal-coo"));
+const JLWMReliability         = lazy(() => import("@/pages/jlwm/reliability"));
 
 // Security
 const TwoFactorSetup       = lazy(() => import("@/pages/2fa-setup"));
@@ -843,6 +844,7 @@ function AppRoutes() {
             <Route path="/jlwm/prediction-accuracy"><ProtectedRoute><JLWMPredictionAccuracy /></ProtectedRoute></Route>
             <Route path="/jlwm/executive-intelligence"><ProtectedRoute><JLWMExecutiveIntel /></ProtectedRoute></Route>
             <Route path="/jlwm/legal-coo"><ProtectedRoute><JLWMLegalCOO /></ProtectedRoute></Route>
+            <Route path="/jlwm/reliability"><ProtectedRoute><JLWMReliability /></ProtectedRoute></Route>
 
             {/* Legal & Research */}
             <Route path="/legal-research"><ProtectedRoute><LegalResearch /></ProtectedRoute></Route>
