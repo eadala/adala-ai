@@ -53,7 +53,7 @@ export async function callJLWMAI(opts: {
     ? `\n\n[CONTEXT DATA]\n${JSON.stringify(opts.context, null, 2)}\n\n[USER QUERY]\n${opts.message}`
     : opts.message;
 
-  const { reply, modelUsed } = await callAI(system, contextMsg, [], "mid", opts.officeId);
+  const { reply, modelUsed } = await callAI(system, contextMsg, [], "auto", opts.officeId);
   const durationMs = Date.now() - start;
 
   /* Non-blocking audit */
@@ -64,8 +64,8 @@ export async function callJLWMAI(opts: {
     resource:   "jlwm",
     resourceId: opts.officeId,
     details:    `model:${modelUsed} dur:${durationMs}ms`,
-    ipAddress:  null,
-    userAgent:  null,
+    ipAddress:  undefined,
+    userAgent:  undefined,
   }).catch(() => {});
 
   return { reply, modelUsed, durationMs };

@@ -199,10 +199,14 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
     icon: BrainCircuit,
     color: "#6366F1",
     items: [
-      { href: "/jlwm",              labelKey: "لوحة JLWM",              icon: Brain },
-      { href: "/jlwm/world-state",  labelKey: "حالة العالم القانوني",   icon: Globe },
-      { href: "/jlwm/memory-graph", labelKey: "مخطط الذاكرة القانونية", icon: Network },
-      { href: "/jlwm/command",      labelKey: "مركز القيادة الذكي",     icon: Cpu },
+      { href: "/jlwm",                         labelKey: "لوحة JLWM",                 icon: Brain },
+      { href: "/jlwm/world-state",             labelKey: "حالة العالم القانوني",      icon: Globe },
+      { href: "/jlwm/memory-graph",            labelKey: "مخطط الذاكرة القانونية",   icon: Network },
+      { href: "/jlwm/command",                 labelKey: "مركز القيادة الذكي",       icon: Cpu },
+      { href: "/jlwm/predictions",             labelKey: "محرك التنبؤ الذكي",        icon: Sparkles },
+      { href: "/jlwm/future-explorer",         labelKey: "مستكشف المستقبل",          icon: TrendingUp },
+      { href: "/jlwm/simulation",              labelKey: "محاكاة السيناريوهات",      icon: Zap },
+      { href: "/jlwm/litigation-intelligence", labelKey: "ذكاء المرافعة",            icon: Shield },
     ],
   },
   /* ─── Platform: Super Admin ─── */

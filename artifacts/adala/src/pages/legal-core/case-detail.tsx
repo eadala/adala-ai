@@ -28,6 +28,7 @@ import {
   Gavel, MapPin, Hash, Building2, Edit3, Trash2, GanttChartSquare,
   FolderOpen, Upload, Download, ImageIcon, FileIcon,
 } from "lucide-react";
+import JLWMCaseIntelCard from "@/components/jlwm/case-intel-card";
 import { useUser } from "@clerk/react";
 import { Link }           from "wouter";
 import { useToast }       from "@/hooks/use-toast";
@@ -1759,6 +1760,7 @@ export default function CaseDetail({ id }: { id: string }) {
           />
           <AIHealthCard caseId={id} onAnalyze={() => {}} />
           <AutonomousAIPanel caseId={id} />
+          <JLWMCaseIntelCard caseId={id} />
           <TasksMini caseId={id} onAdd={() => setTaskOpen(true)} />
           <HubMini caseId={id} />
         </div>
