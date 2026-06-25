@@ -19,7 +19,7 @@ import { ensureBankruptcyTables } from "./modules/bankruptcy/bankruptcy";
 import { ensureBankruptcyV2Tables } from "./modules/bankruptcy/bankruptcyV2";
 import { ensureBankruptcyV3Tables } from "./modules/bankruptcy/bankruptcyV3";
 import { ensureDocumentCenterSchema } from "./modules/documents/documentCenter";
-import { ensureJLWMSchema, ensureFuturePathsTable, ensureSimulationsTable, ensureLitigationIntelTable } from "./modules/jlwm/index";
+import { ensureJLWMSchema, ensureFuturePathsTable, ensureSimulationsTable, ensureLitigationIntelTable, ensureAccuracyTable, ensureExecutiveTable, ensureCOOTable } from "./modules/jlwm/index";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -86,6 +86,9 @@ ensureJLWMSchema().catch(e => logger.error({ e }, "ensureJLWMSchema failed"));
 ensureFuturePathsTable().catch(e => logger.error({ e }, "ensureFuturePathsTable failed"));
 ensureSimulationsTable().catch(e => logger.error({ e }, "ensureSimulationsTable failed"));
 ensureLitigationIntelTable().catch(e => logger.error({ e }, "ensureLitigationIntelTable failed"));
+ensureAccuracyTable().catch(e => logger.error({ e }, "ensureAccuracyTable failed"));
+ensureExecutiveTable().catch(e => logger.error({ e }, "ensureExecutiveTable failed"));
+ensureCOOTable().catch(e => logger.error({ e }, "ensureCOOTable failed"));
 ensureBankruptcyV2Tables().catch(e => logger.error({ e }, "ensureBankruptcyV2Tables failed"));
 ensureBankruptcyV3Tables().catch(e => logger.error({ e }, "ensureBankruptcyV3Tables failed"));
 initStripe();

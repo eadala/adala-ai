@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import {
   Brain, Globe, Network, Zap, TrendingUp, TrendingDown, AlertTriangle,
   CheckCircle2, Clock, RefreshCw, ChevronRight, Activity, Shield,
-  BarChart3, Cpu, Lightbulb, Bell,
+  BarChart3, Cpu, Lightbulb, Bell, Crown, Target, BrainCircuit,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -306,6 +306,36 @@ export default function JLWMDashboard() {
                 <Network className="h-4 w-4 me-1" /> عرض المخطط
               </Button>
             </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Phase 3 Quick Access ─────────────────────────── */}
+      <Card className="border-violet-200 bg-gradient-to-br from-violet-50 to-indigo-50">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2 text-violet-700">
+            <BrainCircuit className="h-4 w-4" />
+            Phase 3 — الذكاء التنفيذي والمؤسسي
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {[
+              { href: "/jlwm/prediction-accuracy", icon: Target, label: "مركز دقة التنبؤ", desc: "تتبع النتائج الفعلية مقابل التنبؤات", color: "text-blue-600" },
+              { href: "/jlwm/executive-intelligence", icon: Crown, label: "الذكاء التنفيذي", desc: "تقارير تنفيذية + توقعات إيرادات", color: "text-amber-600" },
+              { href: "/jlwm/legal-coo", icon: BrainCircuit, label: "المدير التشغيلي الذكي", desc: "مراقبة + خطط عمل + موافقة", color: "text-violet-600" },
+            ].map(item => (
+              <Link key={item.href} href={item.href}>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-white/70 border border-white/50 hover:bg-white/90 transition-colors cursor-pointer">
+                  <item.icon className={`h-5 w-5 shrink-0 ${item.color}`} />
+                  <div className="min-w-0">
+                    <div className={`text-sm font-medium ${item.color}`}>{item.label}</div>
+                    <div className="text-xs text-muted-foreground">{item.desc}</div>
+                  </div>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 ms-auto" />
+                </div>
+              </Link>
+            ))}
           </div>
         </CardContent>
       </Card>

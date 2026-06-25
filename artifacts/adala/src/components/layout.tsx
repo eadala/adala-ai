@@ -8,7 +8,7 @@ import {
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
   FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity, Send,
   ChevronDown, Briefcase, Wand2, X, BellRing, GitBranch, Plug, Rocket, Brain,
-  Layout as LayoutIcon, FolderOpen,
+  Layout as LayoutIcon, FolderOpen, Target, BrainCog,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -207,6 +207,9 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/jlwm/future-explorer",         labelKey: "مستكشف المستقبل",          icon: TrendingUp },
       { href: "/jlwm/simulation",              labelKey: "محاكاة السيناريوهات",      icon: Zap },
       { href: "/jlwm/litigation-intelligence", labelKey: "ذكاء المرافعة",            icon: Shield },
+      { href: "/jlwm/prediction-accuracy",     labelKey: "مركز دقة التنبؤ",          icon: Target },
+      { href: "/jlwm/executive-intelligence",  labelKey: "الذكاء التنفيذي",           icon: Crown },
+      { href: "/jlwm/legal-coo",               labelKey: "المدير التشغيلي الذكي",     icon: BrainCog },
     ],
   },
   /* ─── Platform: Super Admin ─── */

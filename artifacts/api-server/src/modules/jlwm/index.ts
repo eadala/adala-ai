@@ -15,11 +15,18 @@ import predictionEngineRouter from "./predictionEngine";
 import futureExplorerRouter   from "./futureExplorer";
 import simulationEngineRouter from "./simulationEngine";
 import litigationIntelRouter  from "./litigationIntelligence";
+// Phase 3
+import predictionAccuracyRouter from "./predictionAccuracy";
+import executiveIntelRouter     from "./executiveIntelligence";
+import legalCOORouter           from "./legalCOO";
 
 export { ensureJLWMSchema, seedJLWMDemoData } from "./jlwm.schema";
 export { ensureFuturePathsTable }   from "./futureExplorer";
 export { ensureSimulationsTable }   from "./simulationEngine";
 export { ensureLitigationIntelTable } from "./litigationIntelligence";
+export { ensureAccuracyTable }      from "./predictionAccuracy";
+export { ensureExecutiveTable }     from "./executiveIntelligence";
+export { ensureCOOTable }           from "./legalCOO";
 
 const jlwmRouter = Router();
 
@@ -35,5 +42,10 @@ jlwmRouter.use(predictionEngineRouter);
 jlwmRouter.use(futureExplorerRouter);
 jlwmRouter.use(simulationEngineRouter);
 jlwmRouter.use(litigationIntelRouter);
+
+// Phase 3
+jlwmRouter.use(predictionAccuracyRouter);
+jlwmRouter.use(executiveIntelRouter);
+jlwmRouter.use(legalCOORouter);
 
 export default jlwmRouter;

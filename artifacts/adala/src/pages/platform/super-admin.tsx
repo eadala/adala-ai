@@ -57,6 +57,7 @@ const TenantDebugTab            = lazy(() => import("@/features/super-admin/tabs
 const ControlTowerTab           = lazy(() => import("@/features/super-admin/tabs/ControlTowerTab").then(m => ({ default: m.ControlTowerTab })));
 const GoLiveCertTab             = lazy(() => import("@/features/super-admin/tabs/GoLiveCertTab").then(m => ({ default: m.GoLiveCertTab })));
 const BankruptcyAdminTab        = lazy(() => import("@/features/super-admin/tabs/BankruptcyAdminTab").then(m => ({ default: m.BankruptcyAdminTab })));
+const JLWMIntelligenceTab       = lazy(() => import("@/features/super-admin/tabs/JLWMIntelligenceTab").then(m => ({ default: m.JLWMIntelligenceTab })));
 
 function TabFallback() {
   return (
@@ -300,6 +301,11 @@ export default function SuperAdmin() {
         <TabsContent value="bankruptcy-admin" className="mt-4">
           <Suspense fallback={<TabFallback />}>
             <BankruptcyAdminTab toast={toast} />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="jlwm-intelligence" className="mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <JLWMIntelligenceTab />
           </Suspense>
         </TabsContent>
       </Tabs>
