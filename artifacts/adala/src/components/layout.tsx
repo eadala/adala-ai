@@ -192,6 +192,19 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/storage-settings",       labelKey: "nav.items.storage_settings",       icon: HardDrive },
     ],
   },
+  /* ─── JLWM: Justice Legal World Model ─── */
+  {
+    id: "jlwm",
+    label: "Justice Legal World Model",
+    icon: BrainCircuit,
+    color: "#6366F1",
+    items: [
+      { href: "/jlwm",              labelKey: "لوحة JLWM",              icon: Brain },
+      { href: "/jlwm/world-state",  labelKey: "حالة العالم القانوني",   icon: Globe },
+      { href: "/jlwm/memory-graph", labelKey: "مخطط الذاكرة القانونية", icon: Network },
+      { href: "/jlwm/command",      labelKey: "مركز القيادة الذكي",     icon: Cpu },
+    ],
+  },
   /* ─── Platform: Super Admin ─── */
   {
     id: "superadmin",

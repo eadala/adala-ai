@@ -171,6 +171,12 @@ const SystemStatusPage     = lazy(() => import("@/pages/platform/system-status")
 const ReferralPage         = lazy(() => import("@/pages/marketplace/referral"));
 const NotFound             = lazy(() => import("@/pages/not-found"));
 
+// JLWM — Justice Legal World Model
+const JLWMDashboard        = lazy(() => import("@/pages/jlwm/index"));
+const JLWMWorldState       = lazy(() => import("@/pages/jlwm/world-state"));
+const JLWMMemoryGraph      = lazy(() => import("@/pages/jlwm/memory-graph"));
+const JLWMCommandCenter    = lazy(() => import("@/pages/jlwm/command-center"));
+
 // Security
 const TwoFactorSetup       = lazy(() => import("@/pages/2fa-setup"));
 const TwoFactorVerify      = lazy(() => import("@/pages/2fa-verify"));
@@ -814,6 +820,12 @@ function AppRoutes() {
             <Route path="/opponent-simulator"><ProtectedRoute><OpponentSimulator /></ProtectedRoute></Route>
             <Route path="/command-center"><ProtectedRoute><CommandCenter /></ProtectedRoute></Route>
             <Route path="/legal-ai"><ProtectedRoute><LegalAIPage /></ProtectedRoute></Route>
+
+            {/* JLWM — Justice Legal World Model */}
+            <Route path="/jlwm"><ProtectedRoute><JLWMDashboard /></ProtectedRoute></Route>
+            <Route path="/jlwm/world-state"><ProtectedRoute><JLWMWorldState /></ProtectedRoute></Route>
+            <Route path="/jlwm/memory-graph"><ProtectedRoute><JLWMMemoryGraph /></ProtectedRoute></Route>
+            <Route path="/jlwm/command"><ProtectedRoute><JLWMCommandCenter /></ProtectedRoute></Route>
 
             {/* Legal & Research */}
             <Route path="/legal-research"><ProtectedRoute><LegalResearch /></ProtectedRoute></Route>

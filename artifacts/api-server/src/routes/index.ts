@@ -73,6 +73,9 @@ import aiEventsRouter      from "../modules/ai/aiEvents";
 import uiBuilderRouter     from "../modules/ai/uiBuilder";
 import commandCenterRouter from "../modules/ai/commandCenter";
 
+// ── JLWM — Justice Legal World Model ─────────────────────────────────────────
+import jlwmRouter from "../modules/jlwm/index";
+
 // ── Platform ─────────────────────────────────────────────────────────────────
 import adminRouter               from "../modules/platform/admin";
 import managedIntegrationsRouter from "../modules/platform/managedIntegrations";
@@ -317,5 +320,8 @@ router.use(bankruptcyRouter);
 router.use(bankruptcyV2Router);
 router.use(bankruptcyV3Router);
 router.use(bankruptcyDemoRouter);
+
+// ── JLWM — Justice Legal World Model ─────────────────────────
+router.use(jlwmRouter);
 
 export default router;

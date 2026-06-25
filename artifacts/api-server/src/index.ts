@@ -19,6 +19,7 @@ import { ensureBankruptcyTables } from "./modules/bankruptcy/bankruptcy";
 import { ensureBankruptcyV2Tables } from "./modules/bankruptcy/bankruptcyV2";
 import { ensureBankruptcyV3Tables } from "./modules/bankruptcy/bankruptcyV3";
 import { ensureDocumentCenterSchema } from "./modules/documents/documentCenter";
+import { ensureJLWMSchema }           from "./modules/jlwm/index";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -81,6 +82,7 @@ ensureReconciliationTable().catch(e => logger.error({ e }, "ensureReconciliation
 ensureERPTables().catch(e => logger.error({ e }, "ensureERPTables failed"));
 ensureBankruptcyTables().catch(e => logger.error({ e }, "ensureBankruptcyTables failed"));
 ensureDocumentCenterSchema().catch(e => logger.error({ e }, "ensureDocumentCenterSchema failed"));
+ensureJLWMSchema().catch(e => logger.error({ e }, "ensureJLWMSchema failed"));
 ensureBankruptcyV2Tables().catch(e => logger.error({ e }, "ensureBankruptcyV2Tables failed"));
 ensureBankruptcyV3Tables().catch(e => logger.error({ e }, "ensureBankruptcyV3Tables failed"));
 initStripe();
