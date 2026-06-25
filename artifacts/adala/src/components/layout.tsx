@@ -211,6 +211,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/jlwm/executive-intelligence",  labelKey: "الذكاء التنفيذي",           icon: Crown },
       { href: "/jlwm/legal-coo",               labelKey: "المدير التشغيلي الذكي",     icon: BrainCog },
       { href: "/jlwm/reliability",              labelKey: "الموثوقية والتحقق",         icon: ShieldCheck },
+      { href: "/jlwm/enterprise",               labelKey: "التقرير المؤسسي الشامل",     icon: Award },
     ],
   },
   /* ─── Platform: Super Admin ─── */

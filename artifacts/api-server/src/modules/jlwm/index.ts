@@ -21,6 +21,8 @@ import predictionAccuracyRouter from "./predictionAccuracy";
 import executiveIntelRouter     from "./executiveIntelligence";
 import legalCOORouter           from "./legalCOO";
 import reliabilityRouter        from "./reliabilityEngine";
+// Phase 4 — Enterprise Integration, Security & Reliability
+import enterpriseReportRouter   from "./enterpriseReport";
 // Demo Seed
 import { seedNorthSouthDemoData, isJLWMDemoSeeded, clearJLWMDemoData } from "./jlwmDemoSeed";
 
@@ -53,6 +55,8 @@ jlwmRouter.use(predictionAccuracyRouter);
 jlwmRouter.use(executiveIntelRouter);
 jlwmRouter.use(legalCOORouter);
 jlwmRouter.use(reliabilityRouter);
+// Phase 4 — Enterprise
+jlwmRouter.use(enterpriseReportRouter);
 
 /* ── Demo Seed Routes (super_admin only) ─────────────────────── */
 function isSA(req: any): boolean {
