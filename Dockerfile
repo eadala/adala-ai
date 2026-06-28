@@ -22,7 +22,7 @@ COPY artifacts/api-server/ ./artifacts/api-server/
 COPY artifacts/adala/      ./artifacts/adala/
 
 # Install ALL workspace dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # Build frontend (Vite → static HTML/JS/CSS)
 RUN pnpm --filter @workspace/adala build
