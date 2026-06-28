@@ -12,7 +12,7 @@ RUN npm install -g pnpm@9
 WORKDIR /app
 
 # Copy workspace manifests first (for layer caching)
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 
 # Copy lib packages (shared across workspace)
 COPY lib/ ./lib/
