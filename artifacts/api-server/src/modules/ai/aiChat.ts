@@ -544,7 +544,8 @@ router.post("/ai-tasks/:id/process", requireAuth, async (req, res) => {
 
     let docContent = "";
     if (t.document_id) {
-      const docRows = await db.execute(sql`SELECT * FROM documents WHERE id = ${t.document_id} LIMIT 1`) as any;
+      /* SECURITY: scope document read to the tenant that owns the ai_task */
+      const docRows = await db.execute(sql`SELECT * FROM documents WHERE id = ${t.document_id} AND (office_id IS NULL OR office_id = ${tenantId ?? ''}) LIMIT 1`) as any;
       const docArr = Array.isArray(docRows) ? docRows : (docRows?.rows ?? []);
       if (docArr.length) docContent = docArr[0].ocr_text ?? docArr[0].file_name ?? "";
     }

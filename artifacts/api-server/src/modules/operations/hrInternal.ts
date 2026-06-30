@@ -252,15 +252,17 @@ router.get("/hr-internal/payslip/:payrollId", requireAuthWithTenant, async (req,
 /* ══════════════════════════════════════════════
    DASHBOARD STATS
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/dashboard", requireAuthWithTenant, async (_req, res) => {
+router.get("/hr-internal/dashboard", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tenantId = (req as any).tenantId as string;
   try {
     const year = new Date().getFullYear();
     const [ann, pendingReqs, pendingLeaves, totalEmp] = await Promise.all([
       sqlOne(sql`SELECT COUNT(*)::int as count FROM hr_announcements WHERE expires_at IS NULL OR expires_at >= CURRENT_DATE`),
       sqlOne(sql`SELECT COUNT(*)::int as count FROM employee_requests WHERE status = 'pending'`),
       sqlOne(sql`SELECT COUNT(*)::int as count FROM leaves WHERE status = 'pending'`),
-      sqlOne(sql`SELECT COUNT(*)::int as count FROM employees WHERE status = 'active'`),
+      /* SECURITY: scope to authenticated tenant */
+      sqlOne(sql`SELECT COUNT(*)::int as count FROM employees WHERE status = 'active' AND office_id = ${tenantId}`),
     ]);
     res.json({
       announcements: ann?.count ?? 0,

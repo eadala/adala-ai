@@ -329,14 +329,16 @@ router.get("/hr-perf/smart-payroll/preview", requireAuthWithTenant, async (req, 
 /* ══════════════════════════════════════════════
    ROUTES — DASHBOARD
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/dashboard", requireAuthWithTenant, async (_req, res) => {
+router.get("/hr-perf/dashboard", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tenantId = (req as any).tenantId as string;
   try {
     const [
       empCount, evalCount, avgScore, topPerformers, needAttention,
       bonusTotal, deductTotal, recentEvals,
     ] = await Promise.all([
-      sqlOne(sql`SELECT COUNT(*)::int as count FROM employees WHERE status = 'active'`),
+      /* SECURITY: scope to authenticated tenant */
+      sqlOne(sql`SELECT COUNT(*)::int as count FROM employees WHERE status = 'active' AND office_id = ${tenantId}`),
       sqlOne(sql`SELECT COUNT(*)::int as count FROM performance_evaluations`),
       sqlOne(sql`SELECT AVG(performance_score)::numeric(5,2) as avg FROM performance_evaluations`),
       sqlAll(sql`

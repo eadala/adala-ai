@@ -224,9 +224,12 @@ router.get("/notifications", requireAuth, async (_req, res) => {
 
   /* 9. Open cases (awareness) */
   try {
-    const rows = await db.execute(sql`
-      SELECT COUNT(*) as cnt FROM cases WHERE status = 'open'
-    `);
+    /* SECURITY: scope to authenticated tenant */
+    const tenantId = (req as any).tenantId as string | undefined;
+    const rows = await db.execute(tenantId
+      ? sql`SELECT COUNT(*) as cnt FROM cases WHERE status = 'open' AND office_id = ${tenantId}`
+      : sql`SELECT COUNT(*) as cnt FROM cases WHERE 1=0`
+    );
     const cnt = parseInt((rows.rows?.[0] as any)?.cnt ?? "0");
     if (cnt > 5) {
       notifications.push({

@@ -52,12 +52,12 @@ router.post("/ai-workflow/run", requireAuthWithTenant, async (req: Request, res:
     const { caseId, userId } = req.body;
     if (!caseId) { res.status(400).json({ error: "caseId مطلوب" }); return; }
 
-    // Get case
-    const caseRows = await db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} LIMIT 1`);
+    const tenantId = (req as any).tenantId as string;
+
+    /* SECURITY: scope case fetch to authenticated tenant */
+    const caseRows = await db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} AND office_id = ${tenantId} LIMIT 1`);
     const caseData = caseRows.rows?.[0] as any;
     if (!caseData) { res.status(404).json({ error: "القضية غير موجودة" }); return; }
-
-    const tenantId = (req as any).tenantId as string;
     const wfId = randomUUID();
     await db.execute(sql`
       INSERT INTO ai_workflows (id, case_id, user_id, office_id, status, steps, started_at, created_at)

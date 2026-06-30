@@ -276,78 +276,82 @@ router.get("/dashboard/case-breakdown", requireAuthWithTenant, async (req, res) 
 /* ─── GET /dashboard/executive — مركز القيادة التنفيذي ───────────────────── */
 router.get("/dashboard/executive", requireAuthWithTenant, async (req, res) => {
   try {
+    /* SECURITY: all queries scoped to authenticated tenant only */
+    const tenantId = (req as any).tenantId as string;
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfWeek  = new Date(now); startOfWeek.setDate(now.getDate() - 7);
-    const in3Days      = new Date(now); in3Days.setDate(now.getDate() + 3);
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const startOfWeek  = new Date(now.getTime() - 7 * 86400_000).toISOString();
+    const in3Days      = new Date(now.getTime() + 3 * 86400_000).toISOString();
 
-    const [cases, invoices, clients, employees] = await Promise.all([
-      db.select().from(casesTable),
-      db.select().from(invoicesTable).then(r => r as any[]),
-      db.select().from(clientsTable),
-      db.execute(sql`SELECT * FROM employees`).then(r => r.rows ?? []).catch(() => []),
+    const [invMetrics, caseMetrics, clientMetrics, empMetrics, aiMetrics] = await Promise.all([
+      db.execute(sql`
+        SELECT
+          COALESCE(SUM(total) FILTER (WHERE status='paid'  AND created_at >= ${startOfToday}::timestamptz), 0) AS today_revenue,
+          COALESCE(SUM(total) FILTER (WHERE status='paid'  AND created_at >= ${startOfMonth}::timestamptz), 0) AS month_revenue,
+          COALESCE(SUM(total) FILTER (WHERE status NOT IN ('paid','cancelled')), 0)                            AS outstanding,
+          COUNT(*)           FILTER (WHERE status='overdue')                                                   AS overdue_count,
+          COUNT(*)           FILTER (WHERE status='paid')                                                      AS paid_count,
+          COUNT(*)           FILTER (WHERE status != 'cancelled')                                              AS total_count
+        FROM client_invoices WHERE office_id = ${tenantId}
+      `),
+      db.execute(sql`
+        SELECT
+          COUNT(*) FILTER (WHERE status IN ('open','in_progress'))                                           AS active_cases,
+          COUNT(*) FILTER (WHERE status IN ('open','in_progress')
+            AND next_hearing_date >= ${now.toISOString()}::timestamptz
+            AND next_hearing_date <= ${in3Days}::timestamptz)                                                AS critical_cases
+        FROM cases WHERE office_id = ${tenantId}
+      `),
+      db.execute(sql`
+        SELECT COUNT(*)::int AS new_this_week
+        FROM clients WHERE office_id = ${tenantId} AND created_at >= ${startOfWeek}::timestamptz
+      `),
+      db.execute(sql`
+        SELECT COUNT(*)::int AS active_employees
+        FROM employees WHERE office_id = ${tenantId} AND status = 'active'
+      `),
+      db.execute(sql`
+        SELECT COUNT(*)::int AS cnt FROM ai_tasks
+        WHERE office_id = ${tenantId} AND created_at >= ${startOfMonth}::timestamptz
+      `).catch(() => ({ rows: [{ cnt: 0 }] })),
     ]);
 
-    // Revenue metrics
-    const todayRevenue  = (invoices as any[]).filter((i: any) => i.status === "paid" && new Date(i.createdAt) >= startOfToday)
-      .reduce((s: number, i: any) => s + ((i.total ?? i.amount ?? 0) / 100), 0);
-    const monthRevenue  = (invoices as any[]).filter((i: any) => i.status === "paid" && new Date(i.createdAt) >= startOfMonth)
-      .reduce((s: number, i: any) => s + ((i.total ?? i.amount ?? 0) / 100), 0);
-    const outstanding   = (invoices as any[]).filter((i: any) => !["paid","cancelled"].includes(i.status))
-      .reduce((s: number, i: any) => s + ((i.total ?? i.amount ?? 0) / 100), 0);
-    const overdueCount  = (invoices as any[]).filter((i: any) => i.status === "overdue").length;
-    const paidCount     = (invoices as any[]).filter((i: any) => i.status === "paid").length;
-    const totalInvCount = (invoices as any[]).filter((i: any) => i.status !== "cancelled").length;
+    const toNum = (v: any) => Number(v ?? 0);
+    const inv  = (invMetrics as any).rows?.[0] ?? {};
+    const cas  = (caseMetrics as any).rows?.[0] ?? {};
+    const cli  = (clientMetrics as any).rows?.[0] ?? {};
+    const emp  = (empMetrics as any).rows?.[0] ?? {};
+    const ai   = (aiMetrics as any).rows?.[0] ?? {};
+
+    const overdueCount   = toNum(inv.overdue_count);
+    const paidCount      = toNum(inv.paid_count);
+    const totalInvCount  = toNum(inv.total_count);
+    const criticalCases  = toNum(cas.critical_cases);
+    const outstanding    = toNum(inv.outstanding);
     const collectionRate = totalInvCount > 0 ? Math.round((paidCount / totalInvCount) * 100) : 0;
 
-    // Cases
-    const activeCases   = cases.filter(c => ["open","in_progress"].includes(c.status)).length;
-    const criticalCases = cases.filter(c => {
-      if (!["open","in_progress"].includes(c.status)) return false;
-      if (!(c as any).nextHearingDate) return false;
-      const d = new Date((c as any).nextHearingDate as any);
-      return d >= now && d <= in3Days;
-    }).length;
-
-    // Clients
-    const newClientsThisWeek = clients.filter(c => new Date(c.createdAt) >= startOfWeek).length;
-
-    // AI usage
-    let aiUsageThisMonth = 0;
-    try {
-      const aiR = await db.execute(sql`
-        SELECT COUNT(*) as cnt FROM ai_tasks WHERE created_at >= ${startOfMonth.toISOString()}
-      `);
-      aiUsageThisMonth = Number((aiR.rows?.[0] as any)?.cnt ?? 0);
-    } catch {}
-
-    // Active employees
-    const activeEmployees = (employees as any[]).filter((e: any) => e.status === "active").length;
-
-    // System health score (simple heuristic)
     let healthScore = 100;
-    if (overdueCount > 5)  healthScore -= 20;
-    if (criticalCases > 3) healthScore -= 15;
+    if (overdueCount > 5)    healthScore -= 20;
+    if (criticalCases > 3)   healthScore -= 15;
     if (outstanding > 50000) healthScore -= 10;
-    const healthStatus = healthScore >= 80 ? "excellent" : healthScore >= 60 ? "good" : "attention";
 
     res.json({
-      todayRevenue,
-      monthRevenue,
+      todayRevenue:     toNum(inv.today_revenue),
+      monthRevenue:     toNum(inv.month_revenue),
       outstanding,
       overdueCount,
       collectionRate,
-      activeCases,
+      activeCases:      toNum(cas.active_cases),
       criticalCases,
-      newClientsThisWeek,
-      aiUsageThisMonth,
-      activeEmployees,
+      newClientsThisWeek: toNum(cli.new_this_week),
+      aiUsageThisMonth:   toNum(ai.cnt),
+      activeEmployees:    toNum(emp.active_employees),
       healthScore,
-      healthStatus,
+      healthStatus: healthScore >= 80 ? "excellent" : healthScore >= 60 ? "good" : "attention",
     });
-  } catch (e: any) {
-        res.json({ todayRevenue: 0, monthRevenue: 0, outstanding: 0, overdueCount: 0, collectionRate: 0, activeCases: 0, criticalCases: 0, newClientsThisWeek: 0, aiUsageThisMonth: 0, activeEmployees: 0, healthScore: 100, healthStatus: "excellent" });
+  } catch {
+    res.json({ todayRevenue: 0, monthRevenue: 0, outstanding: 0, overdueCount: 0, collectionRate: 0, activeCases: 0, criticalCases: 0, newClientsThisWeek: 0, aiUsageThisMonth: 0, activeEmployees: 0, healthScore: 100, healthStatus: "excellent" });
   }
 });
 
