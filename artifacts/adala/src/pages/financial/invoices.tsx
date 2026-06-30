@@ -1396,7 +1396,12 @@ export default function Invoices() {
 
   const { data: allInvoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["invoices"],
-    queryFn: () => fetch(`${BASE}/api/invoices`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/invoices?limit=200`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const d = await r.json();
+      return Array.isArray(d) ? d : (d?.data ?? []);
+    },
   });
 
   const { data: clients = [] } = useQuery<Client[]>({

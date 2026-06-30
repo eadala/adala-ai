@@ -156,13 +156,31 @@ router.get("/invoices", requireAuthWithTenant, async (req: Request, res: Respons
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
-    const rows = await sqlRows(sql`
-      SELECT *, view_token::text AS view_token
-      FROM client_invoices
-      WHERE office_id = ${tenantId}
-      ORDER BY created_at DESC
-    `);
-    res.json(rows);
+
+    const page   = Math.max(1, parseInt(String(req.query.page  ?? "1")));
+    const limit  = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "100"))));
+    const offset = (page - 1) * limit;
+    const status = req.query.status ? String(req.query.status) : null;
+
+    const [rows, totalRows] = await Promise.all([
+      sqlRows(sql`
+        SELECT *, view_token::text AS view_token
+        FROM client_invoices
+        WHERE office_id = ${tenantId}
+          ${status ? sql`AND status = ${status}` : sql``}
+        ORDER BY created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `),
+      sqlRows(sql`
+        SELECT COUNT(*)::int AS total
+        FROM client_invoices
+        WHERE office_id = ${tenantId}
+          ${status ? sql`AND status = ${status}` : sql``}
+      `),
+    ]);
+
+    const total = (totalRows[0] as any)?.total ?? 0;
+    res.json({ data: rows, total, page, limit, pages: Math.ceil(total / limit) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

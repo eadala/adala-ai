@@ -972,5 +972,151 @@ router.get("/backup/encryption-status", requireAuthWithTenant, async (_req, res)
   });
 });
 
+/* ══════════════════════════════════════════════════════════
+   POST /api/backup/migrate-encrypt-jobs
+   إعادة تشفير جميع سجلات backup_jobs المخزنة كنص واضح.
+   تُشغَّل مرة واحدة بعد ضبط BACKUP_ENCRYPTION_KEY.
+   الاستجابة: { migrated, skipped, failed }
+══════════════════════════════════════════════════════════ */
+router.post("/backup/migrate-encrypt-jobs", requireAuthWithTenant, async (req, res) => {
+  if (!isEncryptionEnabled()) {
+    return res.status(400).json({
+      error: "BACKUP_ENCRYPTION_KEY غير مُعيَّن — لا يمكن تشغيل المهاجرة",
+    });
+  }
+
+  const tenantId = (req as any).tenantId as string;
+  let migrated = 0;
+  let skipped  = 0;
+  let failed   = 0;
+
+  try {
+    const jobs = await db.execute(sql`
+      SELECT id, file_data FROM backup_jobs
+      WHERE office_id = ${tenantId} AND status = 'completed'
+      ORDER BY created_at DESC
+      LIMIT 500
+    `).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
+
+    for (const job of jobs) {
+      try {
+        const raw = typeof job.file_data === "string" ? job.file_data : JSON.stringify(job.file_data);
+        if (!raw) { skipped++; continue; }
+
+        let parsed: any;
+        try { parsed = JSON.parse(raw); } catch { skipped++; continue; }
+
+        /* Already encrypted — skip */
+        if (parsed?.encrypted === true) { skipped++; continue; }
+
+        /* Re-encrypt */
+        const plainBuffer = Buffer.from(raw, "utf8");
+        const newEnvelope = JSON.stringify({
+          encrypted: true,
+          v: 1,
+          data: encryptBuffer(plainBuffer).toString("base64"),
+          migratedAt: new Date().toISOString(),
+        });
+
+        await db.execute(sql`
+          UPDATE backup_jobs SET file_data = ${newEnvelope}
+          WHERE id = ${job.id} AND office_id = ${tenantId}
+        `);
+        migrated++;
+      } catch {
+        failed++;
+      }
+    }
+
+    res.json({
+      ok: true,
+      migrated,
+      skipped,
+      failed,
+      message: `تم تشفير ${migrated} نسخة — تخطي ${skipped} (مُشفَّرة مسبقاً) — فشل ${failed}`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════════
+   POST /api/backup/files-content
+   نسخة احتياطية لمحتوى الملفات الفعلية من Object Storage.
+   منفصلة عن النسخة الرئيسية لتجنب البطء وضخامة الحجم.
+
+   الاستجابة: JSON يحتوي { meta, files: [{ id, storage_key, content_base64 }] }
+   ملاحظة الحجم: كل 1 ميغابايت = ~1.4 ميغابايت base64.
+   مكتب به 500 ميغابايت ملفات → ~700 ميغابايت نسخة احتياطية.
+══════════════════════════════════════════════════════════ */
+router.post("/backup/files-content", requireAuthWithTenant, async (req, res) => {
+  if (!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID) {
+    return res.status(400).json({ error: "Object Storage غير مُهيَّأ" });
+  }
+  if (!isEncryptionEnabled()) {
+    return res.status(400).json({ error: "BACKUP_ENCRYPTION_KEY مطلوب لحماية محتوى الملفات" });
+  }
+
+  const tenantId = (req as any).tenantId as string;
+  const { maxFileSizeMB = 50, limit: rowLimit = 200 } = req.body as {
+    maxFileSizeMB?: number;
+    limit?: number;
+  };
+  const maxBytes = maxFileSizeMB * 1024 * 1024;
+
+  try {
+    const { objectStorageClient } = await import("../../lib/objectStorage");
+    const bucket = objectStorageClient.bucket(process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID!);
+
+    const files = await fetchStorageFiles(tenantId);
+    const eligible = (files as any[]).filter(
+      (f: any) => f.storage_key && f.file_size <= maxBytes
+    ).slice(0, Math.min(Number(rowLimit), 500));
+
+    const results: Array<{ id: string; storage_key: string; file_name: string; content_base64: string; size: number }> = [];
+    const errors:  Array<{ id: string; storage_key: string; error: string }> = [];
+
+    for (const f of eligible) {
+      try {
+        const [contents] = await bucket.file(f.storage_key as string).download();
+        const encrypted  = encryptBuffer(contents as Buffer);
+        results.push({
+          id:             f.id as string,
+          storage_key:    f.storage_key as string,
+          file_name:      f.original_name as string ?? f.file_name as string,
+          content_base64: encrypted.toString("base64"),
+          size:           (contents as Buffer).byteLength,
+        });
+      } catch (e: any) {
+        errors.push({ id: f.id as string, storage_key: f.storage_key as string, error: e.message });
+      }
+    }
+
+    const totalBytes = results.reduce((s, r) => s + r.size, 0);
+
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="files-content-${dateStr()}.json"`);
+    res.json({
+      meta: {
+        platform:   "عدالة AI",
+        createdAt:  new Date().toISOString(),
+        tenantId,
+        totalFiles: results.length,
+        totalBytes,
+        encrypted:  true,
+        algorithm:  "AES-256-CBC + HMAC-SHA256",
+        skipped: {
+          oversized: (files as any[]).filter((f: any) => f.file_size > maxBytes).length,
+          errors:    errors.length,
+        },
+      },
+      files:  results,
+      errors,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
 
