@@ -198,11 +198,18 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
   .map((o) => o.trim())
   .filter(Boolean);
 
+// Production domains — always allowed regardless of env var
+const PRODUCTION_DOMAINS = [
+  "https://adalahai.com",
+  "https://www.adalahai.com",
+];
+
 app.use(cors({
   credentials: true,
   origin(origin, callback) {
     if (!origin) return callback(null, true);
     if (
+      PRODUCTION_DOMAINS.includes(origin) ||
       ALLOWED_ORIGINS.includes(origin) ||
       /^https:\/\/.*\.replit\.app$/.test(origin) ||
       /^https:\/\/.*\.replit\.dev$/.test(origin) ||

@@ -697,9 +697,11 @@ async function handleOfficeServicePayment(opts: {
   /* ── Step 11: Welcome email (non-critical — failure must not roll back) ── */
   if (clientEmail) {
     try {
-      const baseUrl = process.env.REPLIT_DOMAINS
-        ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
-        : "https://adala.sa";
+      const baseUrl = process.env.PRODUCTION_URL
+        ?? process.env.APP_URL
+        ?? (process.env.REPLIT_DOMAINS
+          ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+          : "https://adalahai.com");
       const portalUrl = `${baseUrl}/portal/${portalToken}`;
       const officeName = (orderRow.office_name as string | undefined) ?? "مكتب المحاماة";
       await sendAcquisitionEmail({ clientEmail, clientName, officeName, svcLabel, portalUrl });

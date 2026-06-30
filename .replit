@@ -62,5 +62,8 @@ VITE_STRIPE_PUBLISHABLE_KEY = "pk_test_51TegP2DW8Ua4zHxtORN4sRObyWB9DOHKRHo45G6O
 PLATFORM_OWNER_EMAIL = "eadala1000@gmail.com"
 VITE_PLATFORM_OWNER_EMAIL = "eadala1000@gmail.com"
 
+[userenv.production]
+PRODUCTION_URL = "https://adalahai.com"
+
 [objectStorage]
 defaultBucketID = "replit-objstore-ecf049a6-c8ad-4172-ab4b-2d1572042abe"

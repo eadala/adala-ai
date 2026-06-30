@@ -68,7 +68,9 @@ async function initStripe() {
   try {
     await runMigrations({ databaseUrl, schema: "stripe" } as any);
     const stripeSync = await getStripeSync();
-    const webhookBase = `https://${(process.env.REPLIT_DOMAINS ?? "").split(",")[0]}`;
+    const webhookBase = process.env.PRODUCTION_URL
+      ?? process.env.APP_URL
+      ?? `https://${(process.env.REPLIT_DOMAINS ?? "").split(",")[0]}`;
     await stripeSync.findOrCreateManagedWebhook(`${webhookBase}/api/stripe/webhook`);
     stripeSync.syncBackfill().catch(e => logger.error({ e }, "Stripe backfill error"));
     logger.info("Stripe initialized");
