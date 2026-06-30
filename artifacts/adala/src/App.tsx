@@ -903,6 +903,9 @@ function AppRoutes() {
             <Route path="/collections"><ProtectedRoute><Collections /></ProtectedRoute></Route>
             <Route path="/financial-intelligence"><ProtectedRoute><FinancialIntelligence /></ProtectedRoute></Route>
 
+            {/* HR — redirect aliases */}
+            <Route path="/hr"><ProtectedRoute><HRCenter /></ProtectedRoute></Route>
+
             {/* HR */}
             <Route path="/employees"><ProtectedRoute><Employees /></ProtectedRoute></Route>
             <Route path="/attendance"><ProtectedRoute><Attendance /></ProtectedRoute></Route>
@@ -948,6 +951,11 @@ function AppRoutes() {
             <Route path="/legal-os"><ProtectedRoute><LegalOSPage /></ProtectedRoute></Route>
             <Route path="/self-healing"><AdminRoute><SelfHealingPage /></AdminRoute></Route>
             <Route path="/activity-stream"><WorkspaceRoute><ActivityStreamPage /></WorkspaceRoute></Route>
+
+            {/* Settings — redirect aliases */}
+            <Route path="/settings"><ProtectedRoute><OfficeSettings /></ProtectedRoute></Route>
+            <Route path="/profile"><ProtectedRoute><MySessionsPage /></ProtectedRoute></Route>
+            <Route path="/help"><ProtectedRoute><FirmAdmin /></ProtectedRoute></Route>
 
             {/* Admin & Settings (law firm admins) */}
             <Route path="/users"><RoleRoute permission="users:view"><Users /></RoleRoute></Route>

@@ -71,7 +71,7 @@ const MOBILE_SECTIONS: MobileNavSection[] = [
   { id: "calendar",    label: "التقويم",          icon: CalendarDays,    href: "/hearings-calendar",  color: "#F59E0B" },
   { id: "tasks",       label: "المهام",           icon: ClipboardList,   href: "/tasks",              color: "#EF4444" },
   { id: "analytics",   label: "التحليلات",        icon: BarChart3,       href: "/analytics",          color: "#64748B" },
-  { id: "hr",          label: "الموارد البشرية",  icon: Award,           href: "/hr",                 color: "#F59E0B" },
+  { id: "hr",          label: "الموارد البشرية",  icon: Award,           href: "/hr-center",          color: "#F59E0B" },
   { id: "bankruptcy",  label: "الإفلاس",          icon: Briefcase,       href: "/bankruptcy",         color: "#EF4444" },
   { id: "jlwm",        label: "JLWM",             icon: Brain,           href: "/jlwm",               color: "#8B5CF6" },
   { id: "superadmin",  label: "إدارة المنصة",     icon: Shield,          href: "/super-admin",        color: "#EF4444", superAdminOnly: true },
@@ -415,10 +415,10 @@ export function MobileMoreSheet({
             <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-wider mb-2">الإعدادات</p>
             <div className="space-y-1">
               {[
-                { label: "الملف الشخصي",     icon: UserCircle, href: "/profile" },
-                { label: "إعدادات المكتب",   icon: Settings,   href: "/settings" },
+                { label: "الملف الشخصي",     icon: UserCircle, href: "/my-sessions" },
+                { label: "إعدادات المكتب",   icon: Settings,   href: "/office-settings" },
                 { label: "الاشتراك والباقة", icon: Crown,      href: "/billing" },
-                { label: "المساعدة والدعم",  icon: HelpCircle, href: "/help" },
+                { label: "المساعدة والدعم",  icon: HelpCircle, href: "/firm-admin" },
               ].map(item => {
                 const IIcon = item.icon;
                 return (
