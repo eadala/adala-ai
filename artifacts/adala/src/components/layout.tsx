@@ -13,6 +13,8 @@ import {
   CircleDot, Circle, Minus, Settings, HelpCircle,
   CheckCircle2, UserCheck, MapPin, RefreshCw, Building,
   Layers, ListTodo, FileSearch, PenTool, FlaskConical, Workflow,
+  Plus, SlidersHorizontal, Filter, LayoutGrid, Briefcase as BriefcaseIcon,
+  GripVertical, ArrowUpRight, Clock3, Dot,
 } from "lucide-react";
 import { ReactNode, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -400,6 +402,50 @@ const NAV_SECTIONS: NavSection[] = [
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 /* ══════════════════════════════════════════════════════════════════════════
+   WORKSPACE DEFINITIONS
+══════════════════════════════════════════════════════════════════════════ */
+interface Workspace {
+  id: string;
+  label: string;
+  icon: React.ComponentType<any>;
+  color: string;
+  sections: string[]; // section IDs to highlight
+}
+const WORKSPACES: Workspace[] = [
+  { id: "litigation",  label: "التقاضي",     icon: Scale,          color: "#6366F1", sections: ["dashboard","cases","crm","docs","ai"] },
+  { id: "contracts",   label: "العقود",       icon: FileSignature,  color: "#8B5CF6", sections: ["docs","crm","finance"] },
+  { id: "finance",     label: "المالية",      icon: DollarSign,     color: "#10B981", sections: ["finance","analytics"] },
+  { id: "hr",          label: "الموارد البشرية", icon: Users,        color: "#F59E0B", sections: ["hr","analytics"] },
+  { id: "ai",          label: "الذكاء",       icon: Sparkles,       color: "#7C3AED", sections: ["ai","jlwm"] },
+  { id: "admin",       label: "الإدارة",      icon: Shield,         color: "#EF4444", sections: ["dashboard","analytics","superadmin"] },
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   QUICK ACTIONS DEFINITIONS
+══════════════════════════════════════════════════════════════════════════ */
+interface QuickAction {
+  id: string;
+  label: string;
+  icon: React.ComponentType<any>;
+  href: string;
+  color: string;
+  feature?: string;
+  permission?: string;
+  shortcut?: string;
+}
+const ALL_QUICK_ACTIONS: QuickAction[] = [
+  { id: "new-case",      label: "قضية",         icon: Scale,         href: "/cases/new",                color: "#6366F1" },
+  { id: "new-client",    label: "عميل",         icon: UserCircle,    href: "/clients/new",              color: "#0EA5E9" },
+  { id: "new-contract",  label: "عقد",          icon: FileSignature, href: "/contracts/new",            color: "#8B5CF6" },
+  { id: "new-document",  label: "مستند",        icon: FileText,      href: "/documents/new",            color: "#6B7280" },
+  { id: "new-session",   label: "جلسة",         icon: Gavel,         href: "/hearings-calendar?new=1",  color: "#F59E0B" },
+  { id: "new-task",      label: "مهمة",         icon: ClipboardList, href: "/tasks?new=1",              color: "#10B981" },
+  { id: "new-message",   label: "مراسلة",       icon: MessageCircle, href: "/messages?new=1",           color: "#3B82F6" },
+  { id: "new-invoice",   label: "فاتورة",       icon: Receipt,       href: "/invoices/new",             color: "#EC4899", permission: "financial:view" },
+  { id: "ai-assistant",  label: "المساعد",      icon: Bot,           href: "/ai-hub",                   color: "#7C3AED", feature: "ai" },
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
    SIDEBAR STATE HOOK
 ══════════════════════════════════════════════════════════════════════════ */
 function useSidebarState() {
@@ -604,11 +650,12 @@ function BankruptcyLockedCard() {
 ══════════════════════════════════════════════════════════════════════════ */
 function NavSectionBlock({
   section, location, badges, onItemClick, isSuperAdmin: sa, sidebarCollapsed,
-  favorites, onToggleFavorite, searchQuery,
+  favorites, onToggleFavorite, searchQuery, workspaceDim,
 }: {
   section: NavSection; location: string; badges: Record<string, number>;
   onItemClick?: () => void; isSuperAdmin: boolean; sidebarCollapsed: boolean;
   favorites: string[]; onToggleFavorite: (href: string) => void; searchQuery: string;
+  workspaceDim?: boolean;
 }) {
   const { hasFeature, isLoaded: planLoaded } = useOfficePlan();
 
@@ -709,7 +756,10 @@ function NavSectionBlock({
     });
 
   return (
-    <div className="mb-0.5">
+    <div
+      className="mb-0.5 transition-opacity duration-300"
+      style={{ opacity: workspaceDim ? 0.28 : 1 }}
+    >
       <button
         onClick={() => setOpen(p => !p)}
         className={`w-full flex items-center gap-2 px-2.5 py-[7px] rounded-xl text-[11.5px] font-semibold transition-all duration-150 min-h-[34px] ${
@@ -861,55 +911,372 @@ function RecentsSection({
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   CONTEXT-AWARE CASE NAV (shown when inside a case)
+   1. WORKSPACE SWITCHER
 ══════════════════════════════════════════════════════════════════════════ */
-function CaseContextNav({ location, onItemClick }: { location: string; onItemClick?: () => void }) {
-  const match = location.match(/^\/cases\/([^/]+)/);
-  if (!match) return null;
-  const caseId = match[1];
-  if (caseId === "new" || caseId === "import") return null;
+function WorkspaceSwitcher({
+  activeWorkspace, onSelect,
+}: {
+  activeWorkspace: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  return (
+    <div className="px-3 py-2 border-b border-sidebar-border/40">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <LayoutGrid className="h-3 w-3 text-sidebar-foreground/35" />
+        <span className="text-[10px] font-semibold text-sidebar-foreground/35 uppercase tracking-wider">مساحة العمل</span>
+        {activeWorkspace && (
+          <button
+            onClick={() => onSelect(null)}
+            className="mr-auto text-[9px] text-sidebar-foreground/30 hover:text-sidebar-foreground/60 transition-colors"
+            aria-label="إلغاء تصفية مساحة العمل"
+          >
+            ✕ إلغاء
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {WORKSPACES.map(ws => {
+          const WsIcon = ws.icon;
+          const isActive = activeWorkspace === ws.id;
+          return (
+            <button
+              key={ws.id}
+              onClick={() => onSelect(isActive ? null : ws.id)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all duration-150 border ${
+                isActive
+                  ? "text-white border-transparent shadow-sm"
+                  : "text-sidebar-foreground/50 border-sidebar-border/40 hover:border-sidebar-border hover:text-sidebar-foreground/80 bg-transparent"
+              }`}
+              style={isActive ? { backgroundColor: ws.color, borderColor: ws.color } : {}}
+              aria-pressed={isActive}
+              title={ws.label}
+            >
+              <WsIcon className="h-2.5 w-2.5 flex-shrink-0" />
+              <span>{ws.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-  const base = `/cases/${caseId}`;
-  const caseLinks = [
-    { href: base,                label: "نظرة عامة",      icon: LayoutDashboard },
-    { href: `${base}/hearings`, label: "الجلسات",         icon: Gavel },
-    { href: `${base}/documents`,label: "المستندات",        icon: BookOpen },
-    { href: `${base}/messages`, label: "المراسلات",        icon: MessageCircle },
-    { href: `${base}/finance`,  label: "المالية",          icon: DollarSign },
-    { href: `${base}/ai`,       label: "الذكاء الاصطناعي", icon: Sparkles },
-    { href: `${base}/logs`,     label: "سجل الأحداث",      icon: Activity },
-  ];
+/* ══════════════════════════════════════════════════════════════════════════
+   2. QUICK ACTIONS PANEL
+══════════════════════════════════════════════════════════════════════════ */
+function QuickActionsPanel({ onItemClick }: { onItemClick?: () => void }) {
+  const { hasFeature, isLoaded: planLoaded } = useOfficePlan();
+  const { hasPermission, isLoaded: permLoaded } = usePermissions();
+  const [open, setOpen] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [hidden, setHidden] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("qa_hidden") || "[]"); } catch { return []; }
+  });
+
+  const toggleHide = (id: string) => {
+    setHidden(prev => {
+      const next = prev.includes(id) ? prev.filter(h => h !== id) : [...prev, id];
+      try { localStorage.setItem("qa_hidden", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const visibleActions = ALL_QUICK_ACTIONS.filter(a => {
+    if (hidden.includes(a.id) && !editMode) return false;
+    if (permLoaded && a.permission && !hasPermission(a.permission)) return false;
+    if (planLoaded && a.feature && !hasFeature(a.feature)) return false;
+    return true;
+  });
 
   return (
-    <div className="mx-2 mb-2 rounded-xl border border-indigo-500/20 bg-indigo-500/5 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-indigo-500/15">
-        <Scale className="h-3.5 w-3.5 text-indigo-400 flex-shrink-0" />
-        <span className="text-[11px] font-bold text-indigo-500 truncate flex-1">القضية النشطة</span>
-        <span className="text-[9px] bg-indigo-500/15 text-indigo-500 font-mono px-1.5 py-0.5 rounded border border-indigo-500/20 leading-none">
-          #{caseId.slice(-6)}
+    <div className="px-2 py-1.5 border-b border-sidebar-border/30">
+      <div className="flex items-center gap-1 mb-1.5">
+        <Zap className="h-3 w-3 text-amber-400 flex-shrink-0" />
+        <span className="text-[10px] font-bold text-sidebar-foreground/50 flex-1">إجراءات سريعة</span>
+        <button
+          onClick={() => setEditMode(e => !e)}
+          className={`text-[9px] px-1.5 py-0.5 rounded border transition-colors ${
+            editMode
+              ? "bg-blue-500/15 text-blue-500 border-blue-500/30"
+              : "text-sidebar-foreground/25 border-transparent hover:text-sidebar-foreground/50"
+          }`}
+          title="تخصيص الإجراءات"
+        >
+          <SlidersHorizontal className="h-2.5 w-2.5" />
+        </button>
+        <button onClick={() => setOpen(p => !p)} className="text-sidebar-foreground/25 hover:text-sidebar-foreground/50">
+          <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      </div>
+      {open && (
+        <div className="grid grid-cols-3 gap-1">
+          {visibleActions.map(action => {
+            const AIcon = action.icon;
+            const isHidden = hidden.includes(action.id);
+            return (
+              <div key={action.id} className="relative">
+                <Link
+                  href={action.href}
+                  onClick={editMode ? undefined : onItemClick}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-xl text-[10px] font-semibold text-center transition-all duration-150 border group ${
+                    isHidden && editMode
+                      ? "opacity-40 border-dashed border-sidebar-border/40 bg-transparent text-sidebar-foreground/30"
+                      : "border-sidebar-border/30 bg-sidebar-accent/25 hover:bg-sidebar-accent/60 text-sidebar-foreground/65 hover:text-sidebar-foreground"
+                  }`}
+                  aria-label={`إنشاء ${action.label}`}
+                >
+                  <div
+                    className="h-6 w-6 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: `${action.color}20` }}
+                  >
+                    <AIcon className="h-3.5 w-3.5" style={{ color: action.color }} />
+                  </div>
+                  <span className="leading-tight truncate w-full">{action.label}</span>
+                </Link>
+                {editMode && (
+                  <button
+                    onClick={() => toggleHide(action.id)}
+                    className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-background border border-border flex items-center justify-center text-[8px] shadow-sm hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors"
+                    title={isHidden ? "إظهار" : "إخفاء"}
+                  >
+                    {isHidden ? "+" : "×"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. ENTITY CONTEXT NAV (cases, clients, contracts, docs, invoices, employees)
+══════════════════════════════════════════════════════════════════════════ */
+type EntityType = "case" | "client" | "contract" | "document" | "invoice" | "employee";
+
+interface EntityCtx {
+  type: EntityType;
+  id: string;
+  label: string;
+  color: string;
+  headerIcon: React.ComponentType<any>;
+  links: { href: string; label: string; icon: React.ComponentType<any> }[];
+}
+
+function detectEntity(location: string): EntityCtx | null {
+  const patterns: Array<{ regex: RegExp; type: EntityType; skip: string[] }> = [
+    { regex: /^\/cases\/([^/]+)/, type: "case", skip: ["new","import"] },
+    { regex: /^\/clients\/([^/]+)/, type: "client", skip: ["new"] },
+    { regex: /^\/contracts\/([^/]+)/, type: "contract", skip: ["new"] },
+    { regex: /^\/documents\/([^/]+)/, type: "document", skip: ["new"] },
+    { regex: /^\/invoices\/([^/]+)/, type: "invoice", skip: ["new"] },
+    { regex: /^\/employees\/([^/]+)/, type: "employee", skip: ["new"] },
+  ];
+
+  for (const p of patterns) {
+    const m = location.match(p.regex);
+    if (!m) continue;
+    const id = m[1];
+    if (p.skip.includes(id)) continue;
+
+    const base = `/${p.type === "case" ? "cases" : p.type + "s"}/${id}`;
+    const configs: Record<EntityType, Omit<EntityCtx, "id">> = {
+      case: {
+        type: "case", label: "القضية النشطة", color: "#6366F1", headerIcon: Scale,
+        links: [
+          { href: base,                 label: "نظرة عامة",       icon: LayoutDashboard },
+          { href: `${base}/hearings`,   label: "الجلسات",          icon: Gavel },
+          { href: `${base}/documents`,  label: "المستندات",         icon: BookOpen },
+          { href: `${base}/messages`,   label: "المراسلات",         icon: MessageCircle },
+          { href: `${base}/finance`,    label: "المالية",           icon: DollarSign },
+          { href: `${base}/ai`,         label: "الذكاء الاصطناعي", icon: Sparkles },
+          { href: `${base}/logs`,       label: "سجل الأحداث",      icon: Activity },
+        ],
+      },
+      client: {
+        type: "client", label: "العميل النشط", color: "#0EA5E9", headerIcon: UserCircle,
+        links: [
+          { href: base,               label: "نظرة عامة",  icon: LayoutDashboard },
+          { href: `${base}/cases`,    label: "القضايا",    icon: Scale },
+          { href: `${base}/contracts`,label: "العقود",     icon: FileSignature },
+          { href: `${base}/invoices`, label: "الفواتير",   icon: Receipt },
+          { href: `${base}/documents`,label: "المستندات",  icon: BookOpen },
+          { href: `${base}/messages`, label: "المراسلات",  icon: MessageCircle },
+          { href: `${base}/logs`,     label: "سجل النشاط", icon: Activity },
+        ],
+      },
+      contract: {
+        type: "contract", label: "العقد النشط", color: "#8B5CF6", headerIcon: FileSignature,
+        links: [
+          { href: base,               label: "نظرة عامة",  icon: LayoutDashboard },
+          { href: `${base}/parties`,  label: "الأطراف",    icon: Users },
+          { href: `${base}/clauses`,  label: "البنود",     icon: FileText },
+          { href: `${base}/documents`,label: "المستندات",  icon: BookOpen },
+          { href: `${base}/payments`, label: "المدفوعات",  icon: DollarSign },
+          { href: `${base}/logs`,     label: "سجل التعديلات", icon: Activity },
+        ],
+      },
+      document: {
+        type: "document", label: "المستند النشط", color: "#6B7280", headerIcon: FileText,
+        links: [
+          { href: base,               label: "عرض المستند",  icon: BookOpen },
+          { href: `${base}/versions`, label: "الإصدارات",   icon: GitBranch },
+          { href: `${base}/sign`,     label: "التوقيع",      icon: PenTool },
+          { href: `${base}/share`,    label: "المشاركة",     icon: ArrowUpRight },
+          { href: `${base}/logs`,     label: "سجل النشاط",   icon: Activity },
+        ],
+      },
+      invoice: {
+        type: "invoice", label: "الفاتورة النشطة", color: "#EC4899", headerIcon: Receipt,
+        links: [
+          { href: base,               label: "تفاصيل الفاتورة", icon: Receipt },
+          { href: `${base}/payments`, label: "المدفوعات",       icon: DollarSign },
+          { href: `${base}/send`,     label: "إرسال",            icon: Send },
+          { href: `${base}/logs`,     label: "سجل الأحداث",      icon: Activity },
+        ],
+      },
+      employee: {
+        type: "employee", label: "الموظف النشط", color: "#F59E0B", headerIcon: UserCog,
+        links: [
+          { href: base,               label: "نظرة عامة",   icon: LayoutDashboard },
+          { href: `${base}/attendance`,label: "الحضور",     icon: Clock },
+          { href: `${base}/leaves`,   label: "الإجازات",   icon: CalendarDays },
+          { href: `${base}/payroll`,  label: "الرواتب",    icon: DollarSign },
+          { href: `${base}/evals`,    label: "التقييمات",  icon: Award },
+          { href: `${base}/logs`,     label: "سجل النشاط", icon: Activity },
+        ],
+      },
+    };
+
+    return { id, ...configs[p.type] };
+  }
+  return null;
+}
+
+function EntityContextNav({ location, onItemClick }: { location: string; onItemClick?: () => void }) {
+  const ctx = detectEntity(location);
+  if (!ctx) return null;
+  const HeaderIcon = ctx.headerIcon;
+
+  return (
+    <div
+      className="mx-2 mb-2 rounded-xl overflow-hidden border"
+      style={{ borderColor: `${ctx.color}30`, backgroundColor: `${ctx.color}06` }}
+      role="navigation"
+      aria-label={ctx.label}
+    >
+      <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: `${ctx.color}20` }}>
+        <HeaderIcon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: ctx.color }} />
+        <span className="text-[11px] font-bold truncate flex-1" style={{ color: ctx.color }}>{ctx.label}</span>
+        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border leading-none"
+          style={{ backgroundColor: `${ctx.color}15`, color: ctx.color, borderColor: `${ctx.color}25` }}>
+          #{ctx.id.slice(-6)}
         </span>
       </div>
       <div className="p-1 space-y-0.5">
-        {caseLinks.map(link => {
+        {ctx.links.map(link => {
           const isActive = location === link.href || location.startsWith(link.href + "/");
           return (
             <Link
               key={link.href}
               href={link.href}
               onClick={onItemClick}
-              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${
-                isActive
-                  ? "bg-indigo-500/15 text-indigo-600 font-semibold"
-                  : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-              }`}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
+              style={isActive
+                ? { backgroundColor: `${ctx.color}18`, color: ctx.color, fontWeight: 600 }
+                : {}}
+              aria-current={isActive ? "page" : undefined}
             >
-              <link.icon className="h-3.5 w-3.5 flex-shrink-0" style={isActive ? { color: "#6366F1" } : {}} />
-              <span className="truncate">{link.label}</span>
-              {isActive && <CheckCircle2 className="h-3 w-3 text-indigo-400 flex-shrink-0 mr-auto" />}
+              <link.icon
+                className={`h-3.5 w-3.5 flex-shrink-0 ${isActive ? "" : "text-sidebar-foreground/45"}`}
+                style={isActive ? { color: ctx.color } : {}}
+              />
+              <span className={`truncate ${isActive ? "" : "text-sidebar-foreground/55"}`}>{link.label}</span>
+              {isActive && <CheckCircle2 className="h-3 w-3 flex-shrink-0 mr-auto opacity-70" style={{ color: ctx.color }} />}
             </Link>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. ACTIVITY FEED MINI
+══════════════════════════════════════════════════════════════════════════ */
+function ActivityFeedMini() {
+  const [open, setOpen] = useState(false);
+  const { data: events } = useQuery({
+    queryKey: ["sidebar-activity"],
+    queryFn: () =>
+      fetch(`${basePath}/api/events?limit=6`).then(r => r.ok ? r.json() : []).catch(() => []),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const items: any[] = Array.isArray(events) ? events.slice(0, 6)
+    : Array.isArray(events?.events) ? events.events.slice(0, 6) : [];
+
+  const iconMap: Record<string, { icon: React.ComponentType<any>; color: string }> = {
+    case_created:     { icon: Scale,         color: "#6366F1" },
+    client_added:     { icon: UserCircle,    color: "#0EA5E9" },
+    contract_updated: { icon: FileSignature, color: "#8B5CF6" },
+    document_uploaded:{ icon: FileText,      color: "#6B7280" },
+    invoice_paid:     { icon: Receipt,       color: "#10B981" },
+    session_added:    { icon: Gavel,         color: "#F59E0B" },
+  };
+
+  return (
+    <div className="mx-2 mb-1 rounded-xl border border-sidebar-border/30 overflow-hidden">
+      <button
+        onClick={() => setOpen(p => !p)}
+        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-sidebar-accent/30 transition-colors"
+        aria-expanded={open}
+      >
+        <Activity className="h-3 w-3 text-emerald-400 flex-shrink-0" />
+        <span className="text-[10px] font-bold text-sidebar-foreground/45 flex-1 text-right">آخر النشاطات</span>
+        {items.length > 0 && (
+          <span className="text-[9px] bg-emerald-500/15 text-emerald-500 font-bold px-1.5 py-0.5 rounded-full border border-emerald-500/20 leading-none">
+            {items.length}
+          </span>
+        )}
+        <ChevronDown className={`h-3 w-3 text-sidebar-foreground/25 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="border-t border-sidebar-border/25 divide-y divide-sidebar-border/15">
+          {items.length === 0 ? (
+            <p className="text-center text-[10px] text-sidebar-foreground/30 py-3">لا توجد نشاطات حديثة</p>
+          ) : items.map((ev: any, i: number) => {
+            const cfg = iconMap[ev.type] || { icon: Activity, color: "#6B7280" };
+            const EvIcon = cfg.icon;
+            return (
+              <div key={ev.id || i} className="flex items-start gap-2 px-3 py-2">
+                <div className="h-5 w-5 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5"
+                  style={{ backgroundColor: `${cfg.color}15` }}>
+                  <EvIcon className="h-3 w-3" style={{ color: cfg.color }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-medium text-sidebar-foreground/70 truncate leading-tight">
+                    {ev.description || ev.message || ev.type}
+                  </p>
+                  <p className="text-[9px] text-sidebar-foreground/30 leading-tight mt-0.5">
+                    {ev.timeAgo || ev.created_at || ""}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+          <div className="px-3 py-1.5">
+            <Link href="/activity-stream"
+              className="flex items-center gap-1 text-[10px] text-primary/60 hover:text-primary transition-colors">
+              <ArrowUpRight className="h-3 w-3" />
+              عرض جميع النشاطات
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1136,24 +1503,45 @@ function SidebarContent({
   favorites: string[]; onToggleFavorite: (href: string) => void; recents: string[];
 }) {
   const [search, setSearch] = useState("");
+  const [activeWorkspace, setActiveWorkspace] = useState<string | null>(() => {
+    try { return localStorage.getItem("active_workspace"); } catch { return null; }
+  });
 
-  const allItems = useMemo(
-    () => getAllItems(NAV_SECTIONS, sa),
-    [sa]
+  const handleWorkspaceSelect = useCallback((id: string | null) => {
+    setActiveWorkspace(id);
+    try {
+      if (id) localStorage.setItem("active_workspace", id);
+      else localStorage.removeItem("active_workspace");
+    } catch {}
+  }, []);
+
+  const activeWsDef = useMemo(
+    () => WORKSPACES.find(w => w.id === activeWorkspace) ?? null,
+    [activeWorkspace]
   );
 
+  const allItems = useMemo(() => getAllItems(NAV_SECTIONS, sa), [sa]);
   const visibleSections = NAV_SECTIONS.filter(s => !s.superAdminOnly || sa);
 
   return (
     <>
-      {/* Search */}
+      {/* ① Workspace Switcher */}
+      {!collapsed && !search && (
+        <WorkspaceSwitcher activeWorkspace={activeWorkspace} onSelect={handleWorkspaceSelect} />
+      )}
+
+      {/* ② Search */}
       {!collapsed && <SidebarSearch value={search} onChange={setSearch} />}
 
-      <div className={`flex-1 overflow-y-auto scrollbar-thin overflow-x-hidden ${collapsed ? "px-1 py-2 space-y-1" : "px-2 py-1 space-y-0.5"}`}>
-        {/* Context-aware case nav */}
-        {!collapsed && !search && <CaseContextNav location={location} onItemClick={onItemClick} />}
+      {/* ③ Quick Actions */}
+      {!collapsed && !search && <QuickActionsPanel onItemClick={onItemClick} />}
 
-        {/* Favorites section (top) */}
+      <div className={`flex-1 overflow-y-auto scrollbar-thin overflow-x-hidden ${collapsed ? "px-1 py-2 space-y-1" : "px-2 py-1 space-y-0.5"}`}>
+
+        {/* ④ Entity Context Nav (case / client / contract / doc / invoice / employee) */}
+        {!collapsed && !search && <EntityContextNav location={location} onItemClick={onItemClick} />}
+
+        {/* ⑤ Favorites section (top) */}
         {!collapsed && !search && (
           <FavoritesSection
             favorites={favorites}
@@ -1165,7 +1553,7 @@ function SidebarContent({
           />
         )}
 
-        {/* Recents section */}
+        {/* ⑥ Recents section */}
         {!collapsed && !search && (
           <RecentsSection
             recents={recents}
@@ -1180,26 +1568,44 @@ function SidebarContent({
         {!collapsed && !search && (favorites.length > 0 || recents.length > 0) && (
           <div className="flex items-center gap-2 px-2 py-1">
             <div className="flex-1 h-px bg-sidebar-border/40" />
-            <span className="text-[9px] text-sidebar-foreground/25 font-semibold uppercase tracking-wider">جميع الأقسام</span>
+            {activeWsDef ? (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border leading-none"
+                style={{ color: activeWsDef.color, backgroundColor: `${activeWsDef.color}12`, borderColor: `${activeWsDef.color}30` }}>
+                {activeWsDef.label}
+              </span>
+            ) : (
+              <span className="text-[9px] text-sidebar-foreground/25 font-semibold uppercase tracking-wider">جميع الأقسام</span>
+            )}
             <div className="flex-1 h-px bg-sidebar-border/40" />
           </div>
         )}
 
-        {/* All sections */}
-        {visibleSections.map(section => (
-          <NavSectionBlock
-            key={section.id}
-            section={section}
-            location={location}
-            badges={badges}
-            onItemClick={onItemClick}
-            isSuperAdmin={sa}
-            sidebarCollapsed={collapsed}
-            favorites={favorites}
-            onToggleFavorite={onToggleFavorite}
-            searchQuery={search}
-          />
-        ))}
+        {/* ⑦ All sections (with workspace dimming) */}
+        {visibleSections.map(section => {
+          const isDimmed = !!activeWsDef && !activeWsDef.sections.includes(section.id);
+          return (
+            <NavSectionBlock
+              key={section.id}
+              section={section}
+              location={location}
+              badges={badges}
+              onItemClick={onItemClick}
+              isSuperAdmin={sa}
+              sidebarCollapsed={collapsed}
+              favorites={favorites}
+              onToggleFavorite={onToggleFavorite}
+              searchQuery={search}
+              workspaceDim={isDimmed}
+            />
+          );
+        })}
+
+        {/* ⑧ Activity Feed Mini */}
+        {!collapsed && !search && (
+          <div className="pt-2">
+            <ActivityFeedMini />
+          </div>
+        )}
       </div>
     </>
   );
