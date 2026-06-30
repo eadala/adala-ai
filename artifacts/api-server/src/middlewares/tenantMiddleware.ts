@@ -141,8 +141,45 @@ export async function resolveTenantId(userId: string, headerTenantId?: string): 
       return trialOffice;
     }
 
+    /* 7. onboarding_state — user completed onboarding but office was never provisioned
+       This is a final safety net: auto-provision a trial office on the fly.
+       Once created, future requests hit step 3 (office_members). */
+    const onboardRows = await db.execute(sql`
+      SELECT 1 FROM onboarding_state
+      WHERE user_id = ${userId} AND completed = true
+      LIMIT 1
+    `);
+    const hasOnboarded = ((onboardRows as any)?.rows ?? []).length > 0;
+    if (hasOnboarded) {
+      const safeId = userId.replace(/[^a-zA-Z0-9]/g, "").slice(-8);
+      const newOfficeId = `trial_${safeId}`;
+      console.warn(`[TENANT-HEAL-7] Provisioning office ${newOfficeId} for onboarded user ${userId}`);
+      db.execute(sql`
+        INSERT INTO trial_offices (user_id, office_id, office_name)
+        VALUES (${userId}, ${newOfficeId}, 'مكتب المحاماة')
+        ON CONFLICT (user_id) DO NOTHING
+      `).catch(() => {});
+      db.execute(sql`
+        INSERT INTO office_members (office_id, user_id, role, status)
+        VALUES (${newOfficeId}, ${userId}, 'owner', 'active')
+        ON CONFLICT (office_id, user_id) DO NOTHING
+      `).catch(() => {});
+      db.execute(sql`
+        UPDATE onboarding_state SET office_id = ${newOfficeId}
+        WHERE user_id = ${userId}
+          AND (office_id IS NULL OR office_id = 'default')
+      `).catch(() => {});
+      CACHE.set(userId, { officeId: newOfficeId, ts: Date.now() });
+      return newOfficeId;
+    }
+
+    console.warn(
+      `[TENANT-403] userId=${userId} headerTenant=${headerTenant ?? "none"} ` +
+      `→ all 7 resolution steps failed — no office found`
+    );
     return null;
-  } catch {
+  } catch (err: any) {
+    console.error(`[TENANT-ERR] userId=${userId} resolveTenantId threw: ${err?.message ?? err}`);
     return null;
   }
 }
@@ -192,7 +229,16 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
       const { runWithTenant } = await import("../core/tenantContext");
       return runWithTenant({ userId, officeId: "platform" }, () => next());
     }
-    return res.status(403).json({ error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب." });
+    console.warn(
+      `[TENANT-403] path=${req.path} method=${req.method} ` +
+      `userId=${userId} → tenant resolution returned null (all 7 steps exhausted)`
+    );
+    return res.status(403).json({
+      error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب.",
+      code: "TNT_403",
+      userId,
+      hint: "أكمل عملية الإعداد الأولي، أو تواصل مع الدعم الفني إذا أتممت الإعداد مسبقاً.",
+    });
   }
   const officeId = tenantId;
   (req as any).tenantId = officeId;

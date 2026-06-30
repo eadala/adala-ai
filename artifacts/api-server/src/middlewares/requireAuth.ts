@@ -165,7 +165,17 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
       (req as any).tenantId = "platform";
       return runWithTenant({ userId, officeId: "platform" }, () => next());
     }
-    return res.status(403).json({ error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب." });
+    console.warn(
+      `[TENANT-403] path=${req.path} method=${req.method} ` +
+      `userId=${userId} headerTenant=${headerTenant ?? "none"} ` +
+      `→ tenant resolution returned null (all 7 steps exhausted)`
+    );
+    return res.status(403).json({
+      error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب.",
+      code: "TNT_403",
+      userId,
+      hint: "أكمل عملية الإعداد الأولي، أو تواصل مع الدعم الفني إذا أتممت الإعداد مسبقاً.",
+    });
   }
   const officeId = tenantId;
   (req as any).tenantId = officeId;
