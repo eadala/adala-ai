@@ -18,7 +18,8 @@ router.get("/branding", requireAuthWithTenant, async (req, res) => {
 });
 
 router.post("/branding", requireAuthWithTenant, async (req, res) => {
-  const tenantId = req.body.tenantId || DEFAULT_TENANT;
+  /* SECURITY: always use the verified tenant from middleware, never from body */
+  const tenantId = (req as any).tenantId as string ?? DEFAULT_TENANT;
   const existing = await db.select().from(officeBrandingTable).where(eq(officeBrandingTable.tenantId, tenantId));
   if (existing.length > 0) {
     const [updated] = await db

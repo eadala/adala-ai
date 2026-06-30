@@ -255,11 +255,13 @@ router.get("/ai/case-brief/:id", requireAuthWithTenant, async (req, res) => {
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
+    const tenantId = (req as any).tenantId as string;
     const [caseRow, docsCount, invoicesCount, eventsCount] = await Promise.all([
-      db.execute(sql`SELECT title, case_type, status, client_name, description FROM cases WHERE id = ${id} LIMIT 1`),
-      db.execute(sql`SELECT COUNT(*) as c FROM documents WHERE case_id = ${id}`),
-      db.execute(sql`SELECT COUNT(*) as c FROM client_invoices WHERE case_id = ${id}`),
-      db.execute(sql`SELECT COUNT(*) as c FROM events WHERE case_id = ${id}`),
+      /* SECURITY: always scope case fetch to the authenticated tenant */
+      db.execute(sql`SELECT title, case_type, status, client_name, description FROM cases WHERE id = ${id} AND office_id = ${tenantId} LIMIT 1`),
+      db.execute(sql`SELECT COUNT(*) as c FROM documents WHERE case_id = ${id} AND office_id = ${tenantId}`),
+      db.execute(sql`SELECT COUNT(*) as c FROM client_invoices WHERE case_id = ${id} AND office_id = ${tenantId}`),
+      db.execute(sql`SELECT COUNT(*) as c FROM events WHERE case_id = ${id} AND office_id = ${tenantId}`),
     ]);
 
     let contractsCount = 0;

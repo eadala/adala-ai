@@ -34,8 +34,27 @@ const CACHE = new Map<string, { officeId: string; ts: number }>();
 const TTL_MS = 5 * 60 * 1000;
 
 export async function resolveTenantId(userId: string, headerTenantId?: string): Promise<string | null> {
-  /* 1. Explicit header (API keys, dev access) */
-  if (headerTenantId) return headerTenantId;
+  /* 1. Explicit header (API keys, dev access)
+     SECURITY: validate the user is actually a member of the requested office.
+     A super-admin may also pass any office ID — checked via isSuperAdminUser.
+     Unvalidated header values are silently ignored (fall through to DB lookup). */
+  if (headerTenantId) {
+    try {
+      const memberCheck = await db.execute(sql`
+        SELECT 1 FROM office_members
+        WHERE user_id = ${userId} AND office_id = ${headerTenantId} AND status = 'active'
+        LIMIT 1
+      `);
+      const isMember = ((memberCheck as any)?.rows ?? []).length > 0;
+      if (isMember) return headerTenantId;
+
+      /* Allow super-admins to target any office via header */
+      const isSA = await isSuperAdminUser(userId);
+      if (isSA) return headerTenantId;
+
+      /* Header not validated — fall through to normal DB lookup */
+    } catch { /* fall through */ }
+  }
 
   /* 1b. Developer impersonation — SA viewing as another office */
   try {

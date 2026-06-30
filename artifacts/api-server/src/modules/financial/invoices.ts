@@ -451,7 +451,8 @@ router.post("/invoices/:id/payments", requireAuthWithTenant, validate(RecordPaym
     `);
 
     if (newStatus === "paid") {
-      const invMeta = await sqlRows(sql`SELECT invoice_number, client_name FROM client_invoices WHERE id = ${String(req.params.id)}::uuid LIMIT 1`);
+      /* SECURITY: scope read to authenticated tenant — ownership already verified by the UPDATE above */
+      const invMeta = await sqlRows(sql`SELECT invoice_number, client_name FROM client_invoices WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId} LIMIT 1`);
       const invoiceNumber = invMeta[0]?.invoice_number ?? "";
       const clientName    = invMeta[0]?.client_name    ?? "";
 
