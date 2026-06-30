@@ -33,9 +33,8 @@ const router = Router();
     sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1`,
     /* Clients soft delete */
     sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`,
-    /* Performance indexes */
-    sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`,
-    sql`CREATE INDEX IF NOT EXISTS idx_cases_title_trgm ON cases USING GIN (title gin_trgm_ops)`,
+    /* Performance indexes — plain B-tree on title (no pg_trgm dependency) */
+    sql`CREATE INDEX IF NOT EXISTS idx_cases_title ON cases (title)`,
     sql`CREATE INDEX IF NOT EXISTS idx_cases_client_name ON cases (LOWER(client_name))`,
     sql`CREATE INDEX IF NOT EXISTS idx_cases_office_active ON cases (office_id) WHERE deleted_at IS NULL`,
     /* Partial unique index — allows multiple NULLs in same office */
