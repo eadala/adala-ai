@@ -126,7 +126,7 @@ export const TABS = [
   { id: "control-tower",    label: "غرفة التحكم المباشر",        icon: Radar },
   { id: "go-live-cert",     label: "شهادة الإطلاق النهائي",      icon: Rocket },
   { id: "bankruptcy-admin", label: "إدارة الإفلاس",               icon: Landmark },
-  { id: "jlwm-intelligence", label: "ذكاء JLWM Phase 3",          icon: TrendingUp },
+  { id: "jlwm-intelligence", label: "ذكاء مركز القيادة القانونية", icon: TrendingUp },
 ];
 
 export const PERM_LABELS: Record<string, { label: string; color: string }> = {

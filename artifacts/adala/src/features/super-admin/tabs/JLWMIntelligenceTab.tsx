@@ -57,7 +57,7 @@ export function JLWMIntelligenceTab() {
         <div>
           <h2 className="text-lg font-bold flex items-center gap-2">
             <Crown className="h-5 w-5 text-amber-500" />
-            ذكاء JLWM — Phase 3 المؤسسي
+            ذكاء مركز القيادة القانونية — المؤسسي
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
             مركز دقة التنبؤ + الذكاء التنفيذي + المدير التشغيلي الذكي

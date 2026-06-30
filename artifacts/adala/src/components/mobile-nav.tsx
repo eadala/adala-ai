@@ -73,7 +73,7 @@ const MOBILE_SECTIONS: MobileNavSection[] = [
   { id: "analytics",   label: "التحليلات",        icon: BarChart3,       href: "/analytics",          color: "#64748B" },
   { id: "hr",          label: "الموارد البشرية",  icon: Award,           href: "/hr-center",          color: "#F59E0B" },
   { id: "bankruptcy",  label: "الإفلاس",          icon: Briefcase,       href: "/bankruptcy",         color: "#EF4444" },
-  { id: "jlwm",        label: "JLWM",             icon: Brain,           href: "/jlwm",               color: "#8B5CF6" },
+  { id: "jlwm",        label: "مركز القيادة القانونية", icon: Brain,      href: "/jlwm",               color: "#8B5CF6" },
   { id: "superadmin",  label: "إدارة المنصة",     icon: Shield,          href: "/super-admin",        color: "#EF4444", superAdminOnly: true },
 ];
 

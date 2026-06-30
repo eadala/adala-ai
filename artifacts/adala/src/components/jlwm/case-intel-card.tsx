@@ -57,9 +57,9 @@ export default function JLWMCaseIntelCard({ caseId }: { caseId: string }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["jlwm","predictions","case", caseId] });
       qc.invalidateQueries({ queryKey: ["jlwm","litigation", caseId] });
-      toast({ title: "اكتمل تحليل JLWM" });
+      toast({ title: "اكتمل تحليل مركز القيادة القانونية" });
     },
-    onError: () => toast({ title: "فشل تحليل JLWM", variant: "destructive" }),
+    onError: () => toast({ title: "فشل تحليل مركز القيادة القانونية", variant: "destructive" }),
   });
 
   const hasPred   = predData?.exists;
@@ -74,7 +74,7 @@ export default function JLWMCaseIntelCard({ caseId }: { caseId: string }) {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2 text-primary">
-          <Brain className="h-4 w-4" /> ذكاء JLWM
+          <Brain className="h-4 w-4" /> ذكاء مركز القيادة القانونية
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">

@@ -127,11 +127,11 @@ export default function CommandCenterPage() {
             <Cpu className="h-6 w-6 text-indigo-500" /> مركز القيادة الذكي
           </h1>
           <p className="text-muted-foreground text-sm">
-            استعلم عن عالمك القانوني بلغة طبيعية ، أو شغّل إجراءات JLWM مباشرة
+            استعلم عن عالمك القانوني بلغة طبيعية ، أو شغّل إجراءات مركز القيادة مباشرة
           </p>
         </div>
         <Badge variant="outline" className="text-xs gap-1.5">
-          <StatusDot status="active" /> JLWM نشط
+          <StatusDot status="active" /> مركز القيادة نشط
         </Badge>
       </div>
 
@@ -177,7 +177,7 @@ export default function CommandCenterPage() {
                 <div className="mt-3 p-4 rounded-xl border bg-primary/5 border-primary/20">
                   <div className="flex items-center gap-2 mb-2">
                     <Cpu className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium text-primary">JLWM</span>
+                    <span className="text-sm font-medium text-primary">مركز القيادة</span>
                   </div>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{response}</p>
                 </div>
@@ -263,7 +263,7 @@ export default function CommandCenterPage() {
           </div>
           {config && (
             <Card className="mt-4">
-              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Settings className="h-4 w-4" /> إعدادات JLWM</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Settings className="h-4 w-4" /> إعدادات مركز القيادة</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-muted-foreground">الحالة</span><p className="font-medium">{config.enabled ? "مفعّل" : "معطّل"}</p></div>
                 <div><span className="text-muted-foreground">نموذج AI</span><p className="font-medium">{config.ai_model}</p></div>

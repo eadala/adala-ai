@@ -101,7 +101,7 @@ export default function JLWMDashboard() {
       <div className="flex items-center justify-center h-80">
         <div className="text-center space-y-3">
           <Brain className="h-12 w-12 mx-auto text-primary animate-pulse" />
-          <p className="text-muted-foreground">جارٍ تحميل Justice Legal World Model…</p>
+          <p className="text-muted-foreground">جارٍ تحميل مركز القيادة القانونية…</p>
         </div>
       </div>
     );
@@ -115,7 +115,7 @@ export default function JLWMDashboard() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Brain className="h-7 w-7 text-primary" />
-            Justice Legal World Model
+            مركز القيادة القانونية
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             نظام الذكاء القانوني المؤسسي — رؤية شاملة ودقيقة لعالم مكتبك القانوني

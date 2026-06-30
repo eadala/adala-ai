@@ -132,7 +132,7 @@ export default function JLWMEnterpriseReport() {
       const s = data?.synced ?? {};
       toast({
         title: "✅ تمت المزامنة الشاملة",
-        description: `حالة العالم: ${s.worldState ? "محدّثة" : "—"} · التوأم القضوي: ${s.caseTwins ?? 0} · توأم العملاء: ${s.clientTwins ?? 0} · ذاكرة JLWM: ${s.memoryNodes ?? 0} عقدة`,
+        description: `حالة العالم: ${s.worldState ? "محدّثة" : "—"} · التوأم القضوي: ${s.caseTwins ?? 0} · توأم العملاء: ${s.clientTwins ?? 0} · الذاكرة: ${s.memoryNodes ?? 0} عقدة`,
       });
     },
     onError: (e: any) => toast({ title: "فشل التزامن", description: e.message, variant: "destructive" }),
@@ -177,7 +177,7 @@ export default function JLWMEnterpriseReport() {
             التقرير المؤسسي الشامل
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            JLWM Enterprise Platform Integration, Security & Reliability — Phase 4
+            مركز القيادة القانونية — التكامل المؤسسي والأمان والموثوقية
           </p>
           {report && (
             <p className="text-xs text-muted-foreground mt-1">
@@ -214,7 +214,7 @@ export default function JLWMEnterpriseReport() {
                   <span className="text-4xl font-black" style={{ color: gradeColor }}>{score.grade}</span>
                   <div>
                     <div className="text-xl font-bold">{score.label}</div>
-                    <div className="text-sm text-muted-foreground">JLWM Enterprise Readiness Score</div>
+                    <div className="text-sm text-muted-foreground">نتيجة جاهزية مركز القيادة القانونية</div>
                   </div>
                 </div>
                 <Progress value={score.score} className="h-3" />
@@ -400,7 +400,7 @@ export default function JLWMEnterpriseReport() {
                     <div className="text-2xl font-bold">{Math.round(report.sections.audit.coverageScore)}%</div>
                     <div className="text-sm text-muted-foreground mt-1">تغطية سجلات التدقيق</div>
                     <div className="text-xs mt-2 text-muted-foreground">
-                      {report.sections.audit.jlwmAuditEntries} سجل JLWM · {report.sections.audit.auditLogsTotal} إجمالي
+                      {report.sections.audit.jlwmAuditEntries} سجل مركز القيادة · {report.sections.audit.auditLogsTotal} إجمالي
                     </div>
                   </CardContent>
                 </Card>
@@ -443,7 +443,7 @@ export default function JLWMEnterpriseReport() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground mb-3">
-                    {report.sections.search.jlwmTablesIndexed} جدول JLWM مفهرس ومتاح للبحث
+                    {report.sections.search.jlwmTablesIndexed} جدول مفهرس ومتاح للبحث
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {(report.sections.search.searchableOutputs ?? []).map((o: string) => (
@@ -511,8 +511,8 @@ export default function JLWMEnterpriseReport() {
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                     {[
-                      { label: "جداول JLWM",           value: report.sections.backup.jlwmTablesCount },
-                      { label: "إجمالي سجلات JLWM",    value: report.sections.backup.jlwmRowTotal.toLocaleString() },
+                      { label: "جداول مركز القيادة",    value: report.sections.backup.jlwmTablesCount },
+                      { label: "إجمالي السجلات",        value: report.sections.backup.jlwmRowTotal.toLocaleString() },
                       { label: "سجلات يتيمة",           value: report.sections.backup.orphanedRecords },
                       { label: "حجم تقديري (MB)",       value: report.sections.backup.estimatedBackupMB },
                     ].map(s => (
@@ -540,10 +540,10 @@ export default function JLWMEnterpriseReport() {
             <>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {[
-                  { label: "JLWM Integrity Checker",   score: report.sections.reliability.integrityScore,   color: "#6366F1", icon: Database },
-                  { label: "JLWM Security Validator",  score: report.sections.reliability.securityScore,    color: "#10B981", icon: Shield },
-                  { label: "JLWM Backup Validator",    score: report.sections.reliability.backupScore,      color: "#F59E0B", icon: HardDrive },
-                  { label: "JLWM Health Monitor",      score: report.sections.reliability.healthScore,      color: "#3B82F6", icon: Activity },
+                  { label: "فاحص السلامة",              score: report.sections.reliability.integrityScore,   color: "#6366F1", icon: Database },
+                  { label: "مدقق الأمان",               score: report.sections.reliability.securityScore,    color: "#10B981", icon: Shield },
+                  { label: "مدقق النسخ الاحتياطية",    score: report.sections.reliability.backupScore,      color: "#F59E0B", icon: HardDrive },
+                  { label: "مراقب الصحة",               score: report.sections.reliability.healthScore,      color: "#3B82F6", icon: Activity },
                   { label: "Trust Score Engine",        score: report.sections.reliability.trustScore,       color: "#8B5CF6", icon: Award },
                   { label: "Data Quality Engine",       score: report.sections.reliability.dataQualityScore, color: "#06B6D4", icon: BarChart3 },
                 ].map(s => (
@@ -579,7 +579,7 @@ export default function JLWMEnterpriseReport() {
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
-                  { label: "استدعاءات JLWM AI",  value: report.sections.aiHealth.jlwmCalls,    color: "text-violet-600" },
+                  { label: "استدعاءات الذكاء",    value: report.sections.aiHealth.jlwmCalls,    color: "text-violet-600" },
                   { label: "معدل النجاح",         value: `${report.sections.aiHealth.successRate}%`, color: "text-emerald-600" },
                   { label: "رصيد مستهلك",         value: report.sections.aiHealth.creditsUsed,  color: "text-amber-600" },
                   { label: "نماذج مُستخدمة",      value: (report.sections.aiHealth.modelsUsed ?? []).length, color: "text-blue-600" },
@@ -599,7 +599,7 @@ export default function JLWMEnterpriseReport() {
                 </CardHeader>
                 <CardContent>
                   {(report.sections.aiHealth.modelsUsed ?? []).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">لم يُستخدم JLWM AI بعد — شغّل تحليلاً من مركز القيادة</p>
+                    <p className="text-sm text-muted-foreground">لم يُستخدم ذكاء مركز القيادة بعد — شغّل تحليلاً من مركز القيادة</p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {report.sections.aiHealth.modelsUsed.map(m => (
@@ -635,7 +635,7 @@ export default function JLWMEnterpriseReport() {
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
-                  { label: "إجمالي سجلات JLWM",  value: report.sections.performance.totalJLWMRows.toLocaleString(), icon: Database, color: "text-blue-600" },
+                  { label: "إجمالي السجلات",      value: report.sections.performance.totalJLWMRows.toLocaleString(), icon: Database, color: "text-blue-600" },
                   { label: "عدد الـ Indexes",      value: report.sections.performance.indexCount,                     icon: TrendingUp, color: "text-emerald-600" },
                   { label: "التصفح (Pagination)",  value: "مُفعّل ✓",                                                icon: Activity, color: "text-purple-600" },
                   { label: "التخزين المؤقت",       value: "مُفعّل ✓",                                                icon: Zap, color: "text-amber-600" },

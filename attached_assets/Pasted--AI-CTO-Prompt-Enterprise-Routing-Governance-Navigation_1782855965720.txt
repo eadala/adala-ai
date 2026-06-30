@@ -1,0 +1,145 @@
+# AI CTO Prompt — Enterprise Routing Governance & Navigation Integrity
+
+بعد الانتهاء من إصلاح جميع الروابط المكسورة، انتقل إلى مرحلة حوكمة نظام التنقل (Routing Governance).
+
+## الهدف
+
+تحويل نظام Routes في منصة عدالة إلى نظام مركزي ومحكوم يمنع ظهور روابط مكسورة أو متعارضة مستقبلاً.
+
+المطلوب ليس إضافة Routes جديدة، وإنما توحيد إدارتها والتحقق منها بشكل آلي.
+
+---
+
+# 1. Central Route Registry
+
+إنشاء سجل مركزي (Route Registry) يحتوي على جميع Routes المعتمدة في المنصة.
+
+لكل Route يتم تعريف:
+
+- Route Path
+- Route Name (Arabic)
+- Internal Name
+- Module
+- Icon
+- Required Permission
+- Required Feature Flag
+- Subscription Requirement
+- Navigation Group
+- Breadcrumb Label
+
+ويكون هذا السجل هو المرجع الوحيد للتنقل.
+
+---
+
+# 2. إزالة المسارات المكررة
+
+فحص جميع Routes والتأكد من:
+
+- عدم وجود مسارين يؤديان لنفس الوظيفة دون سبب.
+- إزالة أي Route قديم تم استبداله.
+- توثيق أي Alias مطلوب للحفاظ على التوافق.
+
+---
+
+# 3. Redirect Policy
+
+إنشاء سياسة موحدة للتحويلات.
+
+أي Route قديم يتم تحويله تلقائياً إلى Route الجديد باستخدام Redirect دائم، مع توثيق سبب التحويل.
+
+---
+
+# 4. Navigation Validation
+
+تنفيذ فحص تلقائي يشمل:
+
+- Sidebar
+- Bottom Navigation
+- Breadcrumbs
+- Quick Actions
+- Search Results
+- Context Navigation
+- Deep Links
+- External Links
+
+والتأكد أن جميعها تشير إلى Routes صحيحة.
+
+---
+
+# 5. Permission Validation
+
+التحقق من أن كل Route مرتبط بصلاحياته الصحيحة.
+
+يشمل:
+
+- RBAC
+- المكتب
+- الفرع
+- الباقة
+- Feature Flags
+
+ولا يمكن الوصول إلى Route غير مصرح به.
+
+---
+
+# 6. Automated Route Testing
+
+إضافة اختبار تلقائي يقوم بما يلي:
+
+- زيارة جميع Routes المعرفة.
+- التحقق من عدم وجود:
+  - 404
+  - 500
+  - Redirect Loops
+  - Missing Components
+  - Unauthorized Access غير المتوقع
+
+ويعمل ضمن CI/CD.
+
+---
+
+# 7. Deep Link Support
+
+التحقق من أن جميع الروابط المباشرة تعمل حتى عند فتحها لأول مرة، مثل:
+
+- /cases/:id
+- /clients/:id
+- /contracts/:id
+- /documents/:id
+- /bankruptcy/:section
+- وجميع الوحدات الأخرى.
+
+---
+
+# 8. Route Analytics
+
+إضافة قياس اختياري لعدد مرات استخدام كل Route وزمن تحميله، بهدف تحسين تجربة المستخدم مستقبلاً.
+
+---
+
+# 9. Documentation
+
+إنشاء ROUTING_ARCHITECTURE.md يتضمن:
+
+- خريطة جميع Routes.
+- سياسة التسمية.
+- سياسة Redirect.
+- كيفية إضافة Route جديد.
+- كيفية ربط Route بالصلاحيات والتنقل.
+
+---
+
+# معايير القبول
+
+- Route Registry: 100%
+- Broken Links: 0
+- Duplicate Routes: 0
+- Redirect Loops: 0
+- Navigation Integrity: PASS
+- RBAC Validation: PASS
+- Deep Link Support: PASS
+- CI Route Tests: PASS
+- TypeScript Errors: 0
+- Regression: 0
+
+الهدف النهائي هو أن يصبح نظام التنقل في منصة عدالة نظاماً مركزياً، قابلاً للتوسع، ويمنع ظهور أي روابط مكسورة أو تعارضات مع تطور المنصة مستقبلاً.

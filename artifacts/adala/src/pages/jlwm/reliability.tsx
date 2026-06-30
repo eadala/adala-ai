@@ -181,7 +181,7 @@ export default function Reliability() {
         {/* Trust Score Card */}
         <Card className={`md:col-span-1 border-2 ${scoreBg(score)}`}>
           <CardHeader className="pb-2 text-center">
-            <CardTitle className="text-sm">JLWM Trust Score</CardTitle>
+            <CardTitle className="text-sm">درجة ثقة مركز القيادة القانونية</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-3 pb-4">
             <TrustRing score={score} label={label} />

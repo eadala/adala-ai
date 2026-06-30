@@ -294,7 +294,7 @@ const NAV_SECTIONS: NavSection[] = [
   /* ── 11. Justice Legal World Model (مجموعات) ────────────────────── */
   {
     id: "jlwm",
-    label: "Justice Legal World Model",
+    label: "مركز القيادة القانونية",
     icon: BrainCircuit,
     color: "#6366F1",
     groups: [
@@ -302,7 +302,7 @@ const NAV_SECTIONS: NavSection[] = [
         groupLabel: "Dashboard",
         groupIcon: LayoutDashboard,
         items: [
-          { href: "/jlwm", label: "لوحة JLWM", icon: Brain },
+          { href: "/jlwm", label: "مركز القيادة القانونية", icon: Brain },
         ],
       },
       {
