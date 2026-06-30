@@ -37,9 +37,10 @@ if (process.env.SENTRY_DSN) {
 const app: Express = express();
 
 // ── Replit deployment healthcheck — MUST be first, no middleware ──────────
-// The deployment system checks GET /api and expects 200 before the app is
-// considered healthy. This route bypasses ALL middleware (Clerk, rate-limit,
-// auth, etc.) so it always responds immediately.
+// artifact.toml [services.production.health.startup] path = "/api/healthz"
+// Also keep /api and /api/ping for backwards compat.
+// All three bypass ALL middleware so they always respond immediately.
+app.get("/api/healthz", (_req, res) => res.status(200).json({ ok: true, status: "healthy", ts: Date.now() }));
 app.get("/api", (_req, res) => res.status(200).json({ ok: true, status: "healthy", ts: Date.now() }));
 app.get("/api/ping", (_req, res) => res.status(200).json({ ok: true }));
 

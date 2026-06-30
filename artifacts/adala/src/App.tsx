@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, Component } from "react";
+import { lazy, Suspense, useState, useEffect, useRef, Component } from "react";
 import type { ReactNode, ErrorInfo } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import Landing from "@/pages/landing"; // eager — public homepage must never be lazy-blocked
@@ -296,6 +296,21 @@ function PageLoader() {
       </div>
     </div>
   );
+}
+
+// ── Clerk init timeout ─────────────────────────────────────────────────────────
+// If Clerk is still not loaded after TIMEOUT_MS, treat it as a failure and
+// redirect the user to the landing page instead of showing an infinite spinner.
+// This handles cold-start scenarios where the proxy endpoint is temporarily slow.
+const CLERK_TIMEOUT_MS = 12_000;
+function useClerkTimeout(isLoaded: boolean): boolean {
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    if (isLoaded) return;
+    const t = setTimeout(() => setTimedOut(true), CLERK_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [isLoaded]);
+  return timedOut;
 }
 
 // ── Auth Brand Panel — shared between sign-in & sign-up ─────────────────────
@@ -677,7 +692,9 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
   const { role } = useRole();
+  const timedOut = useClerkTimeout(isLoaded);
 
+  if (!isLoaded && timedOut) return <Redirect to="/" />;
   if (!isLoaded)    return <PageLoader />;
   if (!isSignedIn)  return <Redirect to="/" />;
   if (role !== "platform_admin") return <Redirect to="/dashboard" />;
@@ -694,7 +711,9 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function WorkspaceRoute({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
   const { role } = useRole();
+  const timedOut = useClerkTimeout(isLoaded);
 
+  if (!isLoaded && timedOut) return <Redirect to="/" />;
   if (!isLoaded)   return <PageLoader />;
   if (!isSignedIn) return <Redirect to="/" />;
   if (role === "platform_admin") return <Redirect to="/super-admin" />;
@@ -712,7 +731,9 @@ function WorkspaceRoute({ children }: { children: React.ReactNode }) {
 // Generic — any authenticated user (both roles can access)
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
+  const timedOut = useClerkTimeout(isLoaded);
 
+  if (!isLoaded && timedOut) return <Redirect to="/" />;
   if (!isLoaded)   return <PageLoader />;
   if (!isSignedIn) return <Redirect to="/" />;
 
@@ -731,7 +752,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function RoleRoute({ permission, children }: { permission: string; children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
   const { hasPermission, isLoaded: permLoaded } = usePermissions();
+  const timedOut = useClerkTimeout(isLoaded);
 
+  if (!isLoaded && timedOut) return <Redirect to="/" />;
   if (!isLoaded || !permLoaded) return <PageLoader />;
   if (!isSignedIn)              return <Redirect to="/" />;
   if (!hasPermission(permission)) return <Redirect to="/dashboard" />;
