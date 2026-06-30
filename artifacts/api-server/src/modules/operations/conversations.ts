@@ -40,7 +40,7 @@ router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
   const userId   = (req as any).auth?.userId;
   const userName = (req as any).auth?.fullName ?? (req as any).auth?.firstName ?? "مستخدم";
   const tenantId = (req as any).tenantId;
-  const { title, type = "direct", memberIds = [] } = req.body;
+  const { title, type = "direct", memberIds = [], caseId = null } = req.body;
 
   if (!Array.isArray(memberIds)) {
     return res.status(400).json({ error: "memberIds must be an array" });
@@ -62,8 +62,8 @@ router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
   }
 
   const convRow = sqlRows(await db.execute(sql`
-    INSERT INTO message_conversations (office_id, title, type, created_by)
-    VALUES (${tenantId}, ${title ?? null}, ${type}, ${userId})
+    INSERT INTO message_conversations (office_id, title, type, created_by, case_id)
+    VALUES (${tenantId}, ${title ?? null}, ${type}, ${userId}, ${caseId ?? null})
     RETURNING *
   `))[0];
 

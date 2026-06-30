@@ -27,6 +27,7 @@ import {
   BellRing, CheckCircle2, XCircle, RefreshCw,
   Gavel, MapPin, Hash, Building2, Edit3, Trash2, GanttChartSquare,
   FolderOpen, Upload, Download, ImageIcon, FileIcon,
+  MessageSquareDot, Users, ExternalLink,
 } from "lucide-react";
 import JLWMCaseIntelCard from "@/components/jlwm/case-intel-card";
 import { useUser } from "@clerk/react";
@@ -1790,6 +1791,7 @@ export default function CaseDetail({ id }: { id: string }) {
           <JLWMCaseIntelCard caseId={id} />
           <TasksMini caseId={id} onAdd={() => setTaskOpen(true)} />
           <HubMini caseId={id} />
+          <LinkedComms caseId={id} />
         </div>
       </div>
 
@@ -1803,6 +1805,7 @@ export default function CaseDetail({ id }: { id: string }) {
 
       {/* ══ UNPAID INVOICE WARNING DIALOG ══ */}
       <Dialog open={!!closeWarning} onOpenChange={v => !v && setCloseWarning(null)}>
+
         <DialogContent className="max-w-sm" dir={dir}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-amber-600">
@@ -1823,5 +1826,141 @@ export default function CaseDetail({ id }: { id: string }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════
+   LINKED COMMS — المراسلات المرتبطة بالقضية
+══════════════════════════════════════════════════════ */
+function LinkedComms({ caseId }: { caseId: string }) {
+  const [open, setOpen] = useState(false);
+
+  const { data, isLoading } = useQuery<{ direct_messages: any[]; conversations: any[] }>({
+    queryKey: ["case-linked-comms", caseId],
+    queryFn:  () => fetch(`${BASE}/api/cases/${caseId}/linked-comms`).then(r => r.json()),
+    enabled:  !!caseId,
+    staleTime: 30_000,
+  });
+
+  const msgs  = data?.direct_messages ?? [];
+  const convs = data?.conversations    ?? [];
+  const total = msgs.length + convs.length;
+
+  function timeAgo(d: string) {
+    const diff = Date.now() - new Date(d).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1)  return "الآن";
+    if (m < 60) return `منذ ${m} د`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `منذ ${h} س`;
+    return new Date(d).toLocaleDateString("ar-EG", { day: "numeric", month: "short" });
+  }
+
+  return (
+    <Card className="border shadow-sm">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <MessageSquareDot className="h-4 w-4 text-violet-500" />
+          المراسلات المرتبطة
+        </CardTitle>
+        <div className="flex items-center gap-1.5">
+          {total > 0 && (
+            <span className="text-[10px] bg-violet-500/10 text-violet-500 px-1.5 py-0.5 rounded-full font-medium">
+              {total}
+            </span>
+          )}
+          <button
+            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setOpen(v => !v)}
+          >
+            {open ? "إخفاء" : "عرض"}
+          </button>
+        </div>
+      </CardHeader>
+
+      {open && (
+        <CardContent className="pt-0 space-y-3">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : total === 0 ? (
+            <div className="text-center py-4 text-muted-foreground">
+              <MessageSquareDot className="h-6 w-6 mx-auto mb-1.5 opacity-20" />
+              <p className="text-xs">لا توجد مراسلات مرتبطة</p>
+              <p className="text-[11px] mt-1 text-muted-foreground/70">
+                عند إنشاء محادثة، اختر هذه القضية لتظهر هنا
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {convs.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-muted-foreground font-medium mb-1.5 flex items-center gap-1">
+                    <Users className="h-3 w-3" />محادثات ({convs.length})
+                  </p>
+                  <div className="space-y-1.5">
+                    {convs.map((c: any) => (
+                      <div key={c.id} className="flex items-start gap-2 p-2 rounded-lg bg-violet-500/5 border border-violet-500/10">
+                        <div className={cn(
+                          "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
+                          c.type === "group" ? "bg-violet-500/20 text-violet-500" : "bg-primary/15 text-primary"
+                        )}>
+                          {c.type === "group" ? <Users className="h-3 w-3" /> : <MessageSquareDot className="h-3 w-3" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <p className="text-xs font-medium truncate">
+                              {c.title ?? (c.type === "group" ? "مجموعة" : "محادثة مباشرة")}
+                            </p>
+                            <span className="text-[10px] text-muted-foreground flex-shrink-0">{timeAgo(c.updated_at)}</span>
+                          </div>
+                          {c.last_message && (
+                            <p className="text-[11px] text-muted-foreground truncate mt-0.5">{c.last_message}</p>
+                          )}
+                          <span className="text-[10px] text-muted-foreground">{c.member_count} أعضاء</span>
+                        </div>
+                        <Link href="/messages">
+                          <button className="text-muted-foreground hover:text-violet-500 transition-colors mt-0.5" title="فتح المحادثات">
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {msgs.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-muted-foreground font-medium mb-1.5 flex items-center gap-1">
+                    <MessageSquare className="h-3 w-3" />رسائل مباشرة ({msgs.length})
+                  </p>
+                  <div className="space-y-1.5">
+                    {msgs.slice(0, 5).map((m: any) => (
+                      <div key={m.id} className="flex items-start gap-2 p-2 rounded-lg bg-muted/30 border">
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] text-primary font-bold flex-shrink-0 mt-0.5">
+                          {(m.sender_name ?? "؟").charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <p className="text-[11px] font-medium">{m.sender_name ?? "—"}</p>
+                            <span className="text-[10px] text-muted-foreground flex-shrink-0">{timeAgo(m.created_at)}</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate">{m.subject ?? m.body?.slice(0, 50)}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {msgs.length > 5 && (
+                      <p className="text-[11px] text-muted-foreground text-center py-1">+{msgs.length - 5} رسائل أخرى</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
   );
 }

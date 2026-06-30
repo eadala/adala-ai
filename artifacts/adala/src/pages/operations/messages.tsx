@@ -706,7 +706,28 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
   const [members, setMembers]   = useState<Recipient[]>([]);
   const [search, setSearch]     = useState("");
   const [showDrop, setShowDrop] = useState(false);
+  const [caseId, setCaseId]     = useState<string>("");
+  const [caseSearch, setCaseSearch] = useState("");
+  const [showCaseDrop, setShowCaseDrop] = useState(false);
   const { toast } = useToast();
+
+  const { data: cases = [] } = useQuery<any[]>({
+    queryKey: ["cases-for-conv"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/cases?limit=50`);
+      if (!r.ok) return [];
+      const d = await r.json();
+      return d.cases ?? d;
+    },
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  const filteredCases = cases.filter((c: any) =>
+    (c.title ?? "").toLowerCase().includes(caseSearch.toLowerCase()) ||
+    (c.case_number ?? "").includes(caseSearch)
+  );
+  const selectedCase = cases.find((c: any) => c.id === caseId);
 
   const { data: users = [] } = useQuery<any[]>({
     queryKey: ["users-for-compose"],
@@ -724,14 +745,19 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
       const r = await fetch(`${BASE}/api/conversations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() || undefined, type, memberIds: members.map(m => m.userId) }),
+        body: JSON.stringify({
+          title:     title.trim() || undefined,
+          type,
+          memberIds: members.map(m => m.userId),
+          caseId:    caseId || null,
+        }),
       });
       if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? "فشل"); }
       return r.json();
     },
     onSuccess: (data) => {
       toast({ title: "تم إنشاء المحادثة" });
-      setTitle(""); setMembers([]); setSearch("");
+      setTitle(""); setMembers([]); setSearch(""); setCaseId(""); setCaseSearch("");
       onCreated(data.conversation);
     },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
@@ -742,7 +768,10 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
     !members.find(m => m.userId === u.id)
   );
 
-  const reset = () => { setTitle(""); setMembers([]); setSearch(""); setType("direct"); };
+  const reset = () => {
+    setTitle(""); setMembers([]); setSearch(""); setType("direct");
+    setCaseId(""); setCaseSearch(""); setShowCaseDrop(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) { reset(); onClose(); } }}>
@@ -828,6 +857,48 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
             )}
           </div>
         </div>
+
+          {/* Optional: Link to case */}
+          <div>
+            <Label className="text-xs mb-1.5 block">ربط بقضية <span className="text-muted-foreground">(اختياري)</span></Label>
+            <div className="relative">
+              <div
+                className="flex items-center gap-2 p-2 border rounded-lg cursor-text min-h-[38px]"
+                onClick={() => setShowCaseDrop(true)}
+              >
+                {selectedCase ? (
+                  <span className="flex items-center gap-1.5 bg-violet-500/10 text-violet-500 rounded-full px-2.5 py-0.5 text-xs flex-1">
+                    {selectedCase.title}
+                    <button onClick={(e) => { e.stopPropagation(); setCaseId(""); setCaseSearch(""); }}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ) : (
+                  <input
+                    placeholder="ابحث عن قضية..."
+                    value={caseSearch}
+                    onChange={e => { setCaseSearch(e.target.value); setShowCaseDrop(true); }}
+                    onFocus={() => setShowCaseDrop(true)}
+                    className="flex-1 bg-transparent outline-none text-xs"
+                  />
+                )}
+              </div>
+              {showCaseDrop && !selectedCase && filteredCases.length > 0 && (
+                <div className="absolute top-full mt-1 left-0 right-0 border rounded-lg overflow-hidden max-h-36 overflow-y-auto bg-popover z-20 shadow-lg">
+                  {filteredCases.slice(0, 6).map((c: any) => (
+                    <button
+                      key={c.id}
+                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 text-sm text-right"
+                      onClick={() => { setCaseId(c.id); setCaseSearch(""); setShowCaseDrop(false); }}
+                    >
+                      <span className="text-xs font-medium truncate flex-1">{c.title}</span>
+                      {c.case_number && <span className="text-[10px] text-muted-foreground flex-shrink-0">#{c.case_number}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
         <DialogFooter className="gap-2">
           <Button variant="outline" size="sm" onClick={() => { reset(); onClose(); }}>إلغاء</Button>

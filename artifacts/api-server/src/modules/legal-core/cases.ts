@@ -351,6 +351,45 @@ router.get("/cases/:id/hub", requireAuthWithTenant, async (req, res) => {
   }
 });
 
+/* ── GET /cases/:id/linked-comms ───────────────────────────────────────────
+   Returns office_messages + message_conversations where case_id matches.
+   Used by the "المراسلات المرتبطة" card in case-detail sidebar.
+   The existing /cases/:id/messages (CaseCommunications/case_messages) is
+   untouched — this is purely additive.
+─────────────────────────────────────────────────────────────────────────── */
+router.get("/cases/:id/linked-comms", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = getTenant(req);
+    const caseId   = String(req.params.id);
+
+    const [msgs, convs] = await Promise.all([
+      db.execute(sql`
+        SELECT id, subject, body, sender_name, created_at, folder
+        FROM office_messages
+        WHERE case_id = ${caseId} AND office_id = ${tenantId}
+        ORDER BY created_at DESC
+        LIMIT 20
+      `),
+      db.execute(sql`
+        SELECT c.id, c.title, c.type, c.created_at, c.updated_at,
+          (SELECT m.body FROM office_messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message,
+          (SELECT COUNT(*)::int FROM conversation_members cm WHERE cm.conversation_id = c.id) AS member_count
+        FROM message_conversations c
+        WHERE c.case_id = ${caseId} AND c.office_id = ${tenantId}
+        ORDER BY c.updated_at DESC
+        LIMIT 10
+      `),
+    ]);
+
+    res.json({
+      direct_messages:  (msgs  as any).rows ?? [],
+      conversations:    (convs as any).rows ?? [],
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /* ══════════════════════════════════════════════════════
    TIMELINE
 ══════════════════════════════════════════════════════ */
