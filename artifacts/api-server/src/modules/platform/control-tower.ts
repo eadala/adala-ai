@@ -15,36 +15,12 @@
 import { Router }              from "express";
 import { db }                  from "@workspace/db";
 import { sql }                 from "drizzle-orm";
-import { getAuth, createClerkClient } from "@clerk/express";
 import { collectMetrics }      from "../../observability/metrics";
 import { getSystemState, setAiLock } from "../../hardening/production.lock";
 import { governanceGuard } from "../../core/governance/governanceKernel";
+import { requireSuperAdmin as ctGuard } from "../../middlewares/requireAuth";
 
 const router = Router();
-
-/* ── Super-Admin Guard (local — same pattern as all platform modules) ────── */
-let _clerk: ReturnType<typeof createClerkClient> | null = null;
-function getClerk() {
-  if (!_clerk) _clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
-  return _clerk;
-}
-async function isSuperAdmin(req: any): Promise<boolean> {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) return false;
-  try {
-    const user = await getClerk().users.getUser(userId);
-    const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)
-      ?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? "";
-    const ownerEmail = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
-    return (!!ownerEmail && email === ownerEmail) || user.publicMetadata?.role === "super_admin";
-  } catch { return false; }
-}
-async function ctGuard(req: any, res: any, next: any) {
-  if (!(await isSuperAdmin(req)))
-    return res.status(403).json({ error: "FORBIDDEN — Control Tower Access Denied" });
-  next();
-}
 
 /* ── In-memory Frozen Tenants (persisted to system_events for audit) ──── */
 const frozenTenants = new Set<string>();

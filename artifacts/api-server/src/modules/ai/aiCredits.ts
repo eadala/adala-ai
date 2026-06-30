@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -18,22 +18,7 @@ async function one(q: any): Promise<any | null> {
   return r[0] ?? null;
 }
 
-async function isSuperAdmin(req: any): Promise<boolean> {
-  try {
-    const { userId } = getAuth(req);
-    if (!userId) return false;
-    const admins = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map(s => s.trim()).filter(Boolean);
-    const user = await one(sql`SELECT email, public_metadata FROM users WHERE clerk_id = ${userId} LIMIT 1`);
-    if (user?.public_metadata?.role === "super_admin") return true;
-    if (user?.email && admins.includes(user.email)) return true;
-    return false;
-  } catch { return false; }
-}
-
-async function adminOnly(req: any, res: any, next: any) {
-  if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
-  next();
-}
+const adminOnly = requireSuperAdmin;
 
 /* ── table setup ─────────────────────────── */
 async function ensureTables() {

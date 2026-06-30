@@ -22,30 +22,12 @@ import os        from "os";
 import { Router } from "express";
 import { db }    from "@workspace/db";
 import { sql }   from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import { collectMetrics } from "../../observability/metrics";
 import { callAI }         from "../ai/aiChat";
 import { cache }          from "../../core/cache";
+import { requireSuperAdmin as guard } from "../../middlewares/requireAuth";
 
 const router = Router();
-
-/* ══════════════════════════════════════════════
-   GUARD — isSuperAdmin (local, same pattern)
-═══════════════════════════════════════════════ */
-function isSuperAdmin(req: any): boolean {
-  try {
-    const auth = getAuth(req);
-    const meta = (auth as any)?.sessionClaims?.publicMetadata as any;
-    if (meta?.role === "super_admin") return true;
-    const allowed = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map((s: string) => s.trim());
-    const email = (auth as any)?.sessionClaims?.email as string ?? "";
-    return allowed.includes(email);
-  } catch { return false; }
-}
-function guard(req: any, res: any, next: any) {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "super_admin only" });
-  next();
-}
 function toRows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 
 /* ══════════════════════════════════════════════

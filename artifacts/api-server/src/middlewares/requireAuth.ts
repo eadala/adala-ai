@@ -15,16 +15,42 @@ function getSAClerk() {
   return _saClerk;
 }
 
-async function checkIsSuperAdmin(userId: string): Promise<boolean> {
+/**
+ * checkIsSuperAdmin — THE canonical super-admin check.
+ * Always async. Always queries Clerk directly (never stale JWT).
+ * Checks BOTH the comma-separated env whitelist AND Clerk publicMetadata role.
+ *
+ * Import this everywhere instead of writing local isSuperAdmin copies.
+ */
+export async function checkIsSuperAdmin(userId: string): Promise<boolean> {
   const raw = process.env.SUPER_ADMIN_EMAILS ?? process.env.PLATFORM_OWNER_EMAIL ?? "";
   const saEmails = raw.split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
-  if (!saEmails.length) return false;
   try {
     const clerk = getSAClerk();
     const user = await clerk.users.getUser(userId);
     const email = (user.emailAddresses[0]?.emailAddress ?? "").toLowerCase();
+    /* Allow if in env whitelist OR Clerk metadata marks as super_admin */
     return saEmails.includes(email) || user.publicMetadata?.role === "super_admin";
   } catch { return false; }
+}
+
+/**
+ * requireSuperAdmin — Express middleware (drop-in replacement for all local
+ * isSuperAdmin guards). Must be placed AFTER clerkMiddleware in the chain.
+ * Sets req.isSuperAdmin = true and req.userId on success.
+ */
+export async function requireSuperAdmin(req: Request, res: Response, next: NextFunction) {
+  let auth: ReturnType<typeof getAuth> | null = null;
+  try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
+  const userId = auth?.userId;
+  if (!userId) return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+
+  const ok = await checkIsSuperAdmin(userId);
+  if (!ok) return res.status(403).json({ error: "للمشرف العام فقط — Super Admin Access Required" });
+
+  (req as any).isSuperAdmin = true;
+  (req as any).userId = userId;
+  next();
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {

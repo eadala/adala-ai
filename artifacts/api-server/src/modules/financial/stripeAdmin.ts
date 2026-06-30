@@ -15,7 +15,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import {
   getStripeBufferStats,
   retryDLQEntry,
@@ -32,22 +32,7 @@ function safeRows(r: any): any[] {
   return r?.rows ?? (Array.isArray(r) ? r : []);
 }
 
-function isSuperAdmin(req: any): boolean {
-  const meta = req.auth?.sessionClaims?.publicMetadata as any;
-  if (meta?.role === "super_admin") return true;
-  const allowedEmails = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map(e => e.trim()).filter(Boolean);
-  const email = req.auth?.sessionClaims?.email as string ?? "";
-  return allowedEmails.includes(email);
-}
-
-function adminOnly(req: any, res: any, next: any) {
-  requireAuth(req, res, () => {
-    if (!isSuperAdmin(req)) {
-      return res.status(403).json({ error: "Super admin access required" });
-    }
-    next();
-  });
-}
+const adminOnly = requireSuperAdmin;
 
 /* ── GET /stripe-admin/stats ─────────────────────────────────────── */
 router.get("/stripe-admin/stats", adminOnly, async (_req, res) => {
@@ -100,7 +85,7 @@ router.get("/stripe-admin/dlq", adminOnly, async (req, res) => {
 /* ── POST /stripe-admin/dlq/:id/retry ───────────────────────────── */
 router.post("/stripe-admin/dlq/:id/retry", adminOnly, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
 
     const result = await retryDLQEntry(id, async (event: any) => {
       await WebhookHandlers.dispatchEvent(event);

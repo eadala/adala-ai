@@ -401,6 +401,21 @@ router.post("/developer/platform-admins", devOnly, async (req: any, res) => {
     await clerk.users.updateUserMetadata(user.id, {
       publicMetadata: { ...((user.publicMetadata as any) ?? {}), role: "super_admin" },
     });
+
+    /* Audit log — privilege escalation is critical and must always be recorded */
+    const requesterId = getAuth(req)?.userId ?? "unknown";
+    try {
+      await db.execute(sql`
+        INSERT INTO audit_logs (user_id, user_full_name, office_id, action, resource, resource_id, details, ip_address)
+        VALUES (
+          ${requesterId}, 'Super Admin', 'platform',
+          'GRANT_SUPER_ADMIN', 'user', ${user.id},
+          ${JSON.stringify({ targetEmail: email, targetUserId: user.id, grantedBy: requesterId })},
+          ${(req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.socket?.remoteAddress ?? null}
+        )
+      `);
+    } catch { /* audit failure is non-fatal but should not silently mask the grant */ }
+
     res.json({ ok: true, userId: user.id });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -418,6 +433,21 @@ router.delete("/developer/platform-admins/:userId", devOnly, async (req: any, re
     const meta = { ...((user.publicMetadata as any) ?? {}) };
     delete meta.role;
     await clerk.users.updateUserMetadata(userId, { publicMetadata: meta });
+
+    /* Audit log — revocation must also be recorded */
+    const requesterId = requesterAuth?.userId ?? "unknown";
+    try {
+      await db.execute(sql`
+        INSERT INTO audit_logs (user_id, user_full_name, office_id, action, resource, resource_id, details, ip_address)
+        VALUES (
+          ${requesterId}, 'Super Admin', 'platform',
+          'REVOKE_SUPER_ADMIN', 'user', ${userId},
+          ${JSON.stringify({ targetUserId: userId, revokedBy: requesterId })},
+          ${(req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.socket?.remoteAddress ?? null}
+        )
+      `);
+    } catch { /* non-fatal */ }
+
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

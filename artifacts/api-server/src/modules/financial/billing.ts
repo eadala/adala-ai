@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -8,17 +8,6 @@ import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { getDbPlans } from "../platform/planCms";
 
 const router = Router();
-
-/* ── Super-admin gate — checks Clerk JWT session claims (no extra DB call) ── */
-function requireSuperAdmin(req: any, res: any, next: any) {
-  const meta = req.auth?.sessionClaims?.publicMetadata as any;
-  if (meta?.role === "super_admin") return next();
-  const saEmails = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "")
-    .split(",").map((e: string) => e.trim().toLowerCase()).filter(Boolean);
-  const sessionEmail: string = (req.auth?.sessionClaims?.email as string ?? "").toLowerCase();
-  if (saEmails.length && saEmails.includes(sessionEmail)) return next();
-  return res.status(403).json({ error: "يتطلب صلاحية المشرف العام" });
-}
 
 type StripeClient = Awaited<ReturnType<typeof getUncachableStripeClient>>;
 

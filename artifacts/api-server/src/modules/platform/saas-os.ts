@@ -19,29 +19,12 @@
  */
 
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { callAI } from "../ai/aiChat";
+import { requireSuperAdmin as ctGuard } from "../../middlewares/requireAuth";
 
 const router = Router();
-
-/* ── isSuperAdmin guard ────────────────────────────────────────────── */
-function isSuperAdmin(req: any): boolean {
-  try {
-    const auth = getAuth(req);
-    const meta = (auth as any)?.sessionClaims?.publicMetadata as any;
-    if (meta?.role === "super_admin") return true;
-    const allowed = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map(s => s.trim());
-    const email = (auth as any)?.sessionClaims?.email as string ?? "";
-    return allowed.includes(email);
-  } catch { return false; }
-}
-
-function ctGuard(req: any, res: any, next: any) {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "super_admin only" });
-  next();
-}
 
 /* ── sqlOne helper ─────────────────────────────────────────────────── */
 function toRows(r: any): any[] {

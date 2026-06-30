@@ -3,7 +3,7 @@
  * يُعرَّض تحت /api/financial-engine/*
  */
 import { Router, type Request, type Response } from "express";
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import {
   processTransaction,
   calculateRevenueSplit,
@@ -16,11 +16,7 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-function guard(req: any, res: any, next: any) {
-  const meta = req.auth?.sessionClaims?.publicMetadata as any;
-  if (meta?.role !== "super_admin") return res.status(403).json({ error: "super_admin only" });
-  next();
-}
+const guard = requireSuperAdmin;
 
 /* ── GET /financial-engine/summary ── لوحة التحكم الرئيسية ── */
 router.get("/financial-engine/summary", requireAuthWithTenant, guard, async (_req, res) => {

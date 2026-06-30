@@ -1,3 +1,4 @@
+- [Adala SuperAdmin isSuperAdmin Unification](adala-superadmin-audit.md) — 9 local copies replaced with exported requireSuperAdmin; SYNC+VITE_ bugs fixed; audit log for GRANT/REVOKE_SUPER_ADMIN added
 - [Adala HR Security Audit](adala-hr-security-audit.md) — 19 isolation fixes; 5 ALTER TABLE migrations; office_location/perf_evals/incentives lacked office_id; payslip was fully open; manual attendance needed hr:manage permission
 - [Adala Tenant Resolution](adala-tenant-resolution.md) — 403s from requireAuthWithTenant; trial_offices users never got office_members; 6-step chain with auto-heal; users.email NOT NULL blocks INSERT
 - [Adala Security Audit](adala-security-audit.md) — 94/100 score; 15/15 isolation tests pass; all office_id columns are TEXT not uuid; financial-engine ?? query.officeId is super_admin-only (acceptable); 180 requireAuth-only routes are low-risk user-level
