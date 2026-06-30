@@ -7,6 +7,7 @@ import { getAuth } from "@clerk/express";
 import { createClerkClient } from "@clerk/express";
 import nodemailer from "nodemailer";
 import { objectStorageClient, parseObjectPath } from "../../lib/objectStorage";
+import { validateUpload } from "../../lib/uploadGuard";
 
 const router = Router();
 
@@ -443,15 +444,17 @@ router.post("/portal/:token/upload", async (req: Request, res: Response) => {
       res.status(410).json({ error: "انتهت صلاحية الرابط" }); return;
     }
 
-    const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/gif",
-      "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-    if (fileType && !ALLOWED_TYPES.some(t => fileType.startsWith(t.split("/")[0]))) {
-      res.status(400).json({ error: "نوع الملف غير مسموح. يُسمح بـ PDF والصور ومستندات Word فقط" }); return;
-    }
-
-    const MAX_BYTES = 5 * 1024 * 1024; // 5MB
-    if (fileSize && Number(fileSize) > MAX_BYTES) {
-      res.status(413).json({ error: "حجم الملف يتجاوز 5 ميغابايت" }); return;
+    /* ── uploadGuard: unified security validation ── */
+    if (fileData) {
+      const guardResult = validateUpload({
+        fileData,
+        fileName: fileName ?? "uploaded_file",
+        fileType,
+        context: "portal",
+      });
+      if (!guardResult.ok) {
+        res.status(guardResult.status ?? 400).json({ error: guardResult.error }); return;
+      }
     }
 
     const id = randomUUID();
@@ -461,7 +464,11 @@ router.post("/portal/:token/upload", async (req: Request, res: Response) => {
     const privateDir = process.env.PRIVATE_OBJECT_DIR;
     if (privateDir && fileData) {
       try {
-        const buffer = Buffer.from(fileData, "base64");
+        const buffer = Buffer.from(
+          fileData.includes(",") ? fileData.split(",")[1] : fileData,
+          "base64"
+        );
+        const MAX_BYTES = 5 * 1024 * 1024;
         if (buffer.length > MAX_BYTES) {
           res.status(413).json({ error: "حجم الملف يتجاوز 5 ميغابايت" }); return;
         }

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuthWithTenant, requireSuperAdmin} from "../../middlewares/requireAuth";
+import { logger } from "../../lib/logger";
 import { systemHealthCheck } from "../../observability/healthcheck";
 import { collectMetrics } from "../../observability/metrics";
 import { detectAnomalies } from "../../observability/anomaly.detector";

@@ -174,7 +174,7 @@ export async function resolveTenantId(userId: string, headerTenantId?: string): 
     }
 
     console.warn(
-      `[TENANT-403] userId=${userId} headerTenant=${headerTenant ?? "none"} ` +
+      `[TENANT-403] userId=${userId} headerTenant=${headerTenantId ?? "none"} ` +
       `→ all 7 resolution steps failed — no office found`
     );
     return null;

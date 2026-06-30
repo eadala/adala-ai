@@ -1,0 +1,117 @@
+# P0 - GitHub Recovery & Production Synchronization
+
+لدينا Incident في الإنتاج.
+
+الوضع الحالي:
+
+- Replit يحتوي على أحدث نسخة مستقرة وتعمل بالكامل.
+- GitHub يحتوي على تعديلات من مطور آخر مبنية على نسخة أقدم.
+- Production ينشر من GitHub.
+- نتيجة ذلك: Replit يعمل، بينما AdalahAI.com لا يعمل بشكل صحيح.
+
+اعتبر GitHub حالياً غير موثوق حتى انتهاء التحقيق.
+
+====================================================
+
+المرحلة الأولى — Repository Audit
+
+افحص:
+
+- Current Branch
+- Remote Branch
+- Last Common Commit
+- Ahead / Behind
+- Commit Graph
+- Diverged Branches
+
+استخرج تقريراً كاملاً يوضح:
+
+- Commits الموجودة في Replit فقط.
+- Commits الموجودة في GitHub فقط.
+- الملفات المختلفة.
+- الملفات المتعارضة.
+- سبب اختلاف المستودعين.
+
+====================================================
+
+المرحلة الثانية — Safe Merge
+
+أنشئ خطة Merge آمنة.
+
+يمنع:
+
+- git push --force
+- git reset --hard
+- حذف أي Commit
+
+يجب الحفاظ على جميع الأعمال الموجودة في Replit وفي GitHub.
+
+حل جميع Merge Conflicts.
+
+====================================================
+
+المرحلة الثالثة — Validation
+
+بعد الدمج:
+
+- TypeScript = 0
+- ESLint = 0
+- Tests = PASS
+- Build = PASS
+- Production Build = PASS
+
+====================================================
+
+المرحلة الرابعة — GitHub Synchronization
+
+بعد نجاح جميع الاختبارات:
+
+- اجعل GitHub مطابقاً 100٪ للنسخة النهائية.
+- تحقق أن آخر Commit هو الذي سيتم نشره.
+
+====================================================
+
+المرحلة الخامسة — Production Deployment
+
+أعد نشر المشروع من GitHub.
+
+تحقق من:
+
+- Build Logs
+- Runtime Logs
+- Environment Variables
+- CORS
+- Cookies
+- API Connectivity
+
+====================================================
+
+المرحلة السادسة — Verification
+
+تأكد أن:
+
+✓ AdalahAI.com يعمل بالكامل.
+
+✓ نفس سلوك نسخة Replit.
+
+✓ Dashboard يعمل.
+
+✓ Login يعمل.
+
+✓ جميع APIs تعمل.
+
+✓ لا توجد Console Errors.
+
+✓ لا توجد Network Errors.
+
+====================================================
+
+التقرير النهائي يجب أن يتضمن:
+
+1. السبب الجذري الحقيقي.
+2. عدد الـ Commits التي تم دمجها.
+3. الملفات التي حدث بها تعارض.
+4. كيفية حل كل تعارض.
+5. سبب تعطل Production.
+6. تأكيد أن GitHub أصبح هو Source of Truth الوحيد.
+7. تأكيد أن نسخة Production تطابق GitHub وتطابق Replit.

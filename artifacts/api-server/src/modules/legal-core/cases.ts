@@ -8,6 +8,7 @@
 
 import { Router }                                  from "express";
 import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
+import { validateUpload }                           from "../../lib/uploadGuard";
 import { CaseService }                             from "../../case/case.service";
 import { CaseTimeline }                            from "../../case/modules/timeline";
 import { CaseCommunications }                      from "../../case/modules/communications";
@@ -897,36 +898,19 @@ router.post("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
     const userId   = (req as any).auth?.userId ?? "";
     const { fileName, fileType, fileData, uploadedByName } = req.body ?? {};
 
-    if (!fileData || !fileName) {
-      return res.status(400).json({ error: "اسم الملف والبيانات مطلوبة" });
+    /* ── uploadGuard: unified security validation ── */
+    const guardResult = validateUpload({
+      fileData: fileData ?? "",
+      fileName: fileName ?? "",
+      fileType,
+      context: "cases",
+    });
+    if (!guardResult.ok) {
+      return res.status(guardResult.status ?? 400).json({ error: guardResult.error });
     }
 
-    /* ── MIME type allowlist ── */
-    const ALLOWED_MIME = new Set([
-      "application/pdf", "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/vnd.ms-excel",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "application/vnd.ms-powerpoint",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
-      "text/plain", "text/csv",
-      "application/zip", "application/x-zip-compressed",
-    ]);
-    const resolvedMime = fileType ?? "application/octet-stream";
-    if (!ALLOWED_MIME.has(resolvedMime)) {
-      return res.status(415).json({ error: `نوع الملف غير مدعوم: ${resolvedMime}` });
-    }
-
-    /* Enforce reasonable size: base64 of 10 MB ≈ 14 MB string */
-    if (typeof fileData === "string" && fileData.length > 15_000_000) {
-      return res.status(413).json({ error: "حجم الملف أكبر من المسموح (10 MB)" });
-    }
-
-    /* Derive actual byte size from base64 length */
-    const comma     = typeof fileData === "string" ? fileData.indexOf(",") : -1;
-    const b64part   = comma !== -1 ? fileData.slice(comma + 1) : (fileData as string);
-    const fileSize  = Math.floor(b64part.length * 0.75);
+    /* Actual byte size from decoded buffer */
+    const fileSize = guardResult.byteSize ?? 0;
 
     const { rows } = await db.execute(sql`
       INSERT INTO documents

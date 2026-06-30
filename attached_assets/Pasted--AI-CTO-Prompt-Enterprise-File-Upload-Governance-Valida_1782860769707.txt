@@ -1,0 +1,344 @@
+# AI CTO Prompt — Enterprise File Upload Governance & Validation
+
+## المهمة
+
+بعد إصلاح مشكلة Upload Dialog في مركز المستندات، انتقل إلى مرحلة حوكمة نظام رفع الملفات بالكامل (Enterprise File Upload Governance).
+
+الهدف ليس إصلاح نافذة واحدة، وإنما ضمان أن جميع عمليات رفع الملفات في منصة عدالة تعمل بشكل صحيح ومتسق على جميع الوحدات وجميع الأجهزة.
+
+---
+
+# المرحلة الأولى: File Upload Inventory
+
+قم بإجراء جرد كامل لجميع نقاط رفع الملفات داخل المنصة.
+
+يشمل - على الأقل -:
+
+- القضايا
+- العملاء
+- العقود
+- المستندات
+- المراسلات
+- الفواتير
+- التنفيذ
+- التحكيم
+- الإفلاس
+- الموارد البشرية
+- ملفات الموظفين
+- الموقع الذكي
+- شعار المكتب
+- صور المستخدمين
+- المرفقات داخل النماذج
+- أي وحدة أخرى تدعم رفع الملفات
+
+أنشئ تقريراً يوضح:
+
+- اسم الوحدة
+- الصفحة
+- Component المستخدم
+- Upload Service المستخدم
+- Storage Provider
+- Route
+- API Endpoint
+- أنواع الملفات المسموح بها
+- الحد الأقصى للحجم
+
+---
+
+# المرحلة الثانية: Architecture Audit
+
+لكل نقطة رفع تحقق من:
+
+✓ AdaptiveDialog
+
+✓ BottomSheet (Mobile)
+
+✓ Dialog Context
+
+✓ Error Boundary
+
+✓ Upload Service
+
+✓ Storage Service
+
+✓ Validation
+
+✓ Progress Indicator
+
+✓ Success State
+
+✓ Failure State
+
+✓ Retry
+
+✓ Cancel Upload
+
+✓ Preview
+
+✓ Delete
+
+✓ Download
+
+✓ Permissions
+
+---
+
+# المرحلة الثالثة: Platform Validation
+
+اختبر جميع عمليات الرفع على:
+
+Desktop
+
+Tablet
+
+Mobile
+
+Safari
+
+Chrome
+
+Edge
+
+Firefox
+
+مع التأكد من عدم وجود أي اختلاف في السلوك.
+
+---
+
+# المرحلة الرابعة: File Types
+
+اختبر رفع:
+
+PDF
+
+DOC
+
+DOCX
+
+XLSX
+
+PPTX
+
+TXT
+
+CSV
+
+PNG
+
+JPG
+
+JPEG
+
+WEBP
+
+ZIP
+
+RAR (إذا كان مدعوماً)
+
+لكل نوع تحقق من:
+
+- Validation
+- Preview
+- Storage
+- Metadata
+- Download
+
+---
+
+# المرحلة الخامسة: File Size Testing
+
+اختبر أحجاماً مختلفة:
+
+100KB
+
+1MB
+
+5MB
+
+10MB
+
+25MB
+
+50MB
+
+100MB
+
+Maximum Allowed
+
+ثم تحقق من:
+
+Upload Time
+
+Timeout
+
+Progress
+
+Cancellation
+
+Resume (إن وجد)
+
+---
+
+# المرحلة السادسة: Security Audit
+
+تحقق من:
+
+RBAC
+
+Subscription Restrictions
+
+Feature Flags
+
+Virus Scan Integration (إن وجد)
+
+MIME Validation
+
+Extension Validation
+
+Filename Sanitization
+
+Path Traversal Protection
+
+Executable File Blocking
+
+Duplicate Detection
+
+---
+
+# المرحلة السابعة: Storage Validation
+
+تحقق من:
+
+رفع الملف
+
+حفظ Metadata
+
+إنشاء سجل Database
+
+ربط الملف بالكيان الصحيح
+
+إمكانية التحميل
+
+إمكانية الحذف
+
+عدم وجود ملفات يتيمة (Orphan Files)
+
+---
+
+# المرحلة الثامنة: Error Handling
+
+أي خطأ أثناء الرفع يجب ألا يؤدي إلى:
+
+- سقوط الصفحة
+- ظهور Root AppErrorBoundary
+- Crash للتطبيق
+
+بدلاً من ذلك:
+
+يعرض رسالة واضحة داخل نافذة الرفع مع:
+
+سبب الخطأ
+
+زر إعادة المحاولة
+
+زر الإلغاء
+
+ويستمر التطبيق بالعمل بشكل طبيعي.
+
+---
+
+# المرحلة التاسعة: Automated Regression Tests
+
+إنشاء اختبارات تلقائية لجميع عمليات رفع الملفات.
+
+يجب أن تغطي:
+
+فتح نافذة الرفع
+
+اختيار الملف
+
+رفع الملف
+
+الإلغاء
+
+الفشل
+
+إعادة المحاولة
+
+رفع أكثر من ملف
+
+السحب والإفلات (إن وجد)
+
+الحذف
+
+التحميل
+
+وتعمل ضمن CI/CD.
+
+---
+
+# المرحلة العاشرة: File Upload Registry
+
+إنشاء سجل مركزي لجميع عمليات رفع الملفات يتضمن:
+
+Module
+
+Upload Component
+
+API Endpoint
+
+Storage Provider
+
+Allowed Extensions
+
+Maximum Size
+
+Permissions
+
+Feature Flag
+
+Subscription Requirement
+
+Preview Support
+
+Multiple Upload Support
+
+Virus Scan
+
+Retention Policy
+
+ويكون المرجع الرسمي الوحيد لأي عملية رفع ملفات جديدة.
+
+---
+
+# معايير القبول
+
+✓ جميع نقاط رفع الملفات تعمل بنجاح.
+
+✓ Desktop = PASS
+
+✓ Tablet = PASS
+
+✓ Mobile = PASS
+
+✓ Safari = PASS
+
+✓ Chrome = PASS
+
+✓ جميع أنواع الملفات المدعومة تعمل.
+
+✓ جميع الأحجام المدعومة تعمل.
+
+✓ لا يوجد أي Unhandled Exception.
+
+✓ لا يظهر Root AppErrorBoundary أثناء الرفع.
+
+✓ لا توجد أخطاء JavaScript.
+
+✓ لا توجد أخطاء TypeScript.
+
+✓ جميع اختبارات Regression ناجحة.
+
+✓ تم إصدار تقرير شامل يوضح عدد نقاط رفع الملفات التي تم فحصها، والنتائج، وأي ملاحظات أو تحسينات مقترحة.
+
+الهدف النهائي هو اعتماد نظام رفع ملفات موحد، آمن، وقابل للتوسع على مستوى منصة عدالة بالكامل، بحيث تستخدم جميع الوحدات نفس المعايير والمكونات الأساسية دون تكرار أو اختلاف في السلوك.

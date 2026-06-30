@@ -12,6 +12,7 @@ import { auditLog, auditMeta } from "../../lib/auditLogger";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
+import { uploadGuardMiddleware } from "../../lib/uploadGuard";
 
 const router = Router();
 
@@ -205,7 +206,7 @@ const LEGAL_CATEGORIES = [
 /* ═══════════════════════════════════════════════════════
    UPLOAD — رفع ملف جديد إلى Object Storage
 ═══════════════════════════════════════════════════════ */
-router.post("/document-center/upload", requireAuthWithTenant, async (req, res) => {
+router.post("/document-center/upload", requireAuthWithTenant, uploadGuardMiddleware("document-center"), async (req, res) => {
   try {
     const officeId = (req as any).tenantId as string;
     const userId   = (req as any).auth?.userId ?? "";
@@ -216,15 +217,13 @@ router.post("/document-center/upload", requireAuthWithTenant, async (req, res) =
       folder,
     } = req.body ?? {};
 
+    /* uploadGuardMiddleware already validated & sanitized — these are safety-net only */
     if (!fileData || !fileName)
       return res.status(400).json({ error: "fileData و fileName مطلوبان" });
 
     const mime = fileType ?? "application/octet-stream";
     if (!ALLOWED_MIME.has(mime))
       return res.status(415).json({ error: `نوع الملف غير مدعوم: ${mime}` });
-
-    if (typeof fileData === "string" && fileData.length > 20_000_000)
-      return res.status(413).json({ error: "حجم الملف يتجاوز 15 MB" });
 
     const dest    = folder ?? (caseId ? `cases/${caseId}` : clientId ? `clients/${clientId}` : "general");
     const result  = await documentStorage.uploadBase64(fileData, officeId, fileName, mime, dest);
