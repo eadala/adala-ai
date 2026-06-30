@@ -8,7 +8,7 @@ import {
   Landmark, Wallet, BarChart2, Cpu, HardDrive, Bell, Mail as MailIcon, MessageSquare,
   FileSignature, Palette, ClipboardList, LifeBuoy, Network, Award, Activity, Send,
   ChevronDown, Briefcase, Wand2, X, BellRing, GitBranch, Plug, Rocket, Brain,
-  Layout as LayoutIcon, FolderOpen, Target, BrainCog,
+  Layout as LayoutIcon, FolderOpen, Target, BrainCog, Settings2,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -123,6 +123,7 @@ const OPERATING_CENTERS: OperatingCenterDef[] = [
       { href: "/cashflow",      labelKey: "nav.items.cashflow",      icon: ArrowRightLeft, permission: "financial:view" },
       { href: "/bank-accounts", labelKey: "nav.items.bank_accounts", icon: Landmark,      permission: "financial:view" },
       { href: "/advances",      labelKey: "nav.items.advances",      icon: Wallet,        permission: "financial:view" },
+      { href: "/tax-settings",          labelKey: "إعدادات الضريبة",               icon: Settings2, permission: "financial:view" },
       { href: "/financial-reports",    labelKey: "nav.items.financial_reports",    icon: BarChart2 },
       { href: "/financial-statements", labelKey: "nav.items.financial_statements", icon: Scale },
       { href: "/financial-core",       labelKey: "nav.items.financial_core",       icon: BarChart3 },

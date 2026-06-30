@@ -38,7 +38,7 @@ import { toast } from "sonner";
 import {
   Receipt, Plus, Trash2, Link2, CheckCircle2, Clock, Send,
   XCircle, Loader2, CreditCard, Copy, ExternalLink, FileText,
-  AlertCircle, Banknote, TrendingUp, MoreHorizontal, Eye,
+  AlertCircle, Banknote, TrendingUp, MoreHorizontal, Eye, History, FileX, QrCode,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   MessageSquare, Printer, Filter, Search, ArrowUpDown,
 } from "lucide-react";
@@ -90,6 +90,7 @@ type Invoice = {
   dueDate?: string; notes?: string; stripePaymentLinkUrl?: string;
   createdAt: string; paidAt?: string;
   taxEnabled?: boolean; amountPaid?: number; viewToken?: string;
+  zatca_uuid?: string; invoice_number?: string; qr_code_data?: string;
 };
 type Client = { id: string; fullName: string; type?: string };
 
@@ -1592,6 +1593,33 @@ export default function Invoices() {
                   <CheckCircle2 className="h-4 w-4 ms-2 text-green-500" />تسجيل كمدفوعة
                 </DropdownMenuItem>
               )}
+              <DropdownMenuSeparator />
+              {inv.status !== "draft" && (
+                <DropdownMenuItem onClick={e => { e.stopPropagation(); window.open(`${BASE}/api/invoices/${inv.id}/revisions`, "_blank"); }}>
+                  <History className="h-4 w-4 ms-2" />سجل التعديلات
+                </DropdownMenuItem>
+              )}
+              {inv.status !== "draft" && inv.status !== "cancelled" && (
+                <DropdownMenuItem onClick={async e => {
+                  e.stopPropagation();
+                  const reason = window.prompt("سبب إشعار الدائن:");
+                  if (!reason) return;
+                  const r = await fetch(`${BASE}/api/invoices/${inv.id}/credit-note`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ reason, fullCredit: true }),
+                  });
+                  if (r.ok) { alert("تم إصدار إشعار الدائن بنجاح"); }
+                  else { const e2 = await r.json(); alert("خطأ: " + (e2.error ?? "فشل")); }
+                }}>
+                  <FileX className="h-4 w-4 ms-2 text-amber-400" />إشعار دائن
+                </DropdownMenuItem>
+              )}
+              {inv.zatca_uuid ? (
+                <DropdownMenuItem onClick={e => { e.stopPropagation(); window.open(`${BASE}/api/invoices/${inv.id}/zatca`, "_blank"); }}>
+                  <QrCode className="h-4 w-4 ms-2" />بيانات ZATCA
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-red-400 focus:text-red-400"

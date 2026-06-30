@@ -63,6 +63,7 @@ const InvoicePublic        = lazy(() => import("@/pages/financial/invoice-public
 const Revenues             = lazy(() => import("@/pages/financial/revenues"));
 const Expenses             = lazy(() => import("@/pages/financial/expenses"));
 const FinancialReports     = lazy(() => import("@/pages/financial/financial-reports"));
+const TaxSettings          = lazy(() => import("@/pages/financial/tax-settings"));
 const FinancialStatements  = lazy(() => import("@/pages/financial/financial-statements"));
 const UIBuilder            = lazy(() => import("@/pages/ai/ui-builder"));
 const Cashflow             = lazy(() => import("@/pages/financial/cashflow"));
@@ -867,6 +868,7 @@ function AppRoutes() {
             <Route path="/revenues"><ProtectedRoute><Revenues /></ProtectedRoute></Route>
             <Route path="/expenses"><ProtectedRoute><Expenses /></ProtectedRoute></Route>
             <Route path="/financial-reports"><ProtectedRoute><FinancialReports /></ProtectedRoute></Route>
+            <Route path="/tax-settings"><ProtectedRoute><TaxSettings /></ProtectedRoute></Route>
             <Route path="/financial-statements"><ProtectedRoute><FinancialStatements /></ProtectedRoute></Route>
             <Route path="/ui-builder"><ProtectedRoute><UIBuilder /></ProtectedRoute></Route>
             <Route path="/cashflow"><ProtectedRoute><Cashflow /></ProtectedRoute></Route>
