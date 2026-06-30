@@ -12,7 +12,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "governance:gate": "bash ../../scripts/governance/quality-gate.sh",
     "governance:audit": "node ../../scripts/governance/ui-audit.mjs",
-    "governance:audit:json": "node ../../scripts/governance/ui-audit.mjs --json"
+    "governance:audit:json": "node ../../scripts/governance/ui-audit.mjs --json",
+    "validate:routes": "node scripts/validate-routes.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

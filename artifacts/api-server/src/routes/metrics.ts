@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-/* ── Ensure table exists ─────────────────────────────────────────────────── */
+/* ── Ensure tables exist ─────────────────────────────────────────────────── */
 async function ensureTable() {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS web_vitals (
@@ -15,6 +15,20 @@ async function ensureTable() {
       url         TEXT,
       created_at  TIMESTAMPTZ DEFAULT NOW()
     )
+  `);
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS route_analytics (
+      id            SERIAL PRIMARY KEY,
+      path          TEXT NOT NULL,
+      name_internal TEXT,
+      module        TEXT,
+      load_ms       INTEGER,
+      visited_at    TIMESTAMPTZ NOT NULL,
+      created_at    TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS idx_route_analytics_path ON route_analytics(path);
   `);
 }
 ensureTable().catch(() => {});
@@ -67,6 +81,65 @@ router.get("/vitals/summary", async (_req, res) => {
     `);
     const data = Array.isArray(rows) ? rows : (rows as { rows: unknown[] }).rows ?? [];
     res.json({ vitals: data, period: "7d" });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+/* ── POST /api/metrics/route-analytics ───────────────────────────────────
+ * Receives batch route visit events from the frontend.
+ * Fire-and-forget — always returns 204.
+ */
+router.post("/route-analytics", async (req, res) => {
+  try {
+    const visits: Array<{
+      path?: string;
+      nameInternal?: string;
+      module?: string;
+      loadMs?: number;
+      ts?: number;
+    }> = Array.isArray(req.body?.visits) ? req.body.visits : [];
+
+    for (const v of visits.slice(0, 200)) {
+      if (!v.path || typeof v.path !== "string") continue;
+      await db.execute(sql`
+        INSERT INTO route_analytics (path, name_internal, module, load_ms, visited_at)
+        VALUES (
+          ${v.path},
+          ${v.nameInternal ?? null},
+          ${v.module ?? null},
+          ${v.loadMs != null ? Number(v.loadMs) : null},
+          ${v.ts ? new Date(v.ts).toISOString() : new Date().toISOString()}
+        )
+      `);
+    }
+    res.status(204).end();
+  } catch {
+    res.status(204).end();
+  }
+});
+
+/* ── GET /api/metrics/route-analytics/summary ────────────────────────────
+ * Returns top routes by visit count for the last 30 days.
+ */
+router.get("/route-analytics/summary", async (_req, res) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT
+        path,
+        name_internal,
+        module,
+        COUNT(*)                              AS visits,
+        ROUND(AVG(load_ms)::numeric, 0)       AS avg_load_ms,
+        MAX(visited_at)                       AS last_seen
+      FROM route_analytics
+      WHERE visited_at >= NOW() - INTERVAL '30 days'
+      GROUP BY path, name_internal, module
+      ORDER BY visits DESC
+      LIMIT 50
+    `);
+    const data = Array.isArray(rows) ? rows : (rows as { rows: unknown[] }).rows ?? [];
+    res.json({ routes: data, period: "30d" });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }

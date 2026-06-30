@@ -11,6 +11,7 @@ import { Layout } from "@/components/layout";
 import { AdminLayout } from "@/components/admin-layout";
 import { useRole } from "@/hooks/use-role";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useRouteAnalytics } from "@/hooks/use-route-analytics";
 import { OfficeThemeProvider } from "@/components/office-theme-provider";
 
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────────
@@ -777,6 +778,7 @@ function PublicPage({ children }: { children: React.ReactNode }) {
 // ── All routes (inside ClerkProvider — auth-aware) ─────────────────────────────
 function AppRoutes() {
   const [, setLocation] = useLocation();
+  useRouteAnalytics();
 
   return (
     <ClerkProvider
