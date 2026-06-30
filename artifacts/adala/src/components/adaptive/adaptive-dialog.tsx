@@ -1,8 +1,17 @@
 /**
- * AdaptiveDialog v2 — Context-based, drop-in Dialog replacement
+ * AdaptiveDialog v2.1 — Context-based, drop-in Dialog replacement
  *
- * Desktop/Tablet: renders standard shadcn Dialog
+ * Desktop/Tablet: renders standard shadcn Dialog + DialogContent
  * Mobile (<768px): renders BottomSheet (slides from bottom)
+ *
+ * FIX (v2.1): <Dialog> wrapper is ALWAYS rendered (mobile + desktop)
+ * so that Radix primitives inside children (DialogTitle, DialogDescription, etc.)
+ * always have their required DialogContext — without it Radix throws
+ * "DialogTitle must be used within Dialog" crashing the React tree.
+ *
+ * On mobile, <Dialog> acts as a pure context provider only — its visual
+ * layer (DialogContent/Portal/Overlay) is NOT rendered because
+ * AdaptiveDialogContent replaces it with <BottomSheet>.
  *
  * Usage — IDENTICAL to shadcn Dialog, no extra props needed:
  *
@@ -42,19 +51,17 @@ export function AdaptiveDialog({
   onOpenChange: (open: boolean) => void;
   children: ReactNode;
 }) {
-  const { isMobile } = useBreakpoint();
   const onClose = useCallback(() => onOpenChange(false), [onOpenChange]);
-
   const ctx: AdaptiveCtx = { open, onClose };
 
-  if (isMobile) {
-    return (
-      <AdaptiveDialogContext.Provider value={ctx}>
-        {children}
-      </AdaptiveDialogContext.Provider>
-    );
-  }
-
+  /**
+   * ALWAYS wrap with <Dialog> regardless of mobile/desktop.
+   *
+   * Why: Radix primitives (DialogTitle, DialogDescription, DialogClose)
+   * call useDialogContext() internally — they throw if no Dialog.Root
+   * ancestor exists. On mobile, AdaptiveDialogContent renders BottomSheet
+   * instead of DialogContent, so Dialog provides context only (no UI).
+   */
   return (
     <AdaptiveDialogContext.Provider value={ctx}>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -86,6 +93,12 @@ export function AdaptiveDialogContent({
   const ctx = useContext(AdaptiveDialogContext);
 
   if (isMobile) {
+    /**
+     * On mobile we render BottomSheet instead of DialogContent.
+     * Dialog.Root (from AdaptiveDialog) is still in the tree above us,
+     * providing context for any DialogTitle/DialogDescription in children.
+     * We do NOT render <DialogContent> so there is no Radix portal/overlay.
+     */
     return (
       <BottomSheet
         open={ctx?.open ?? false}

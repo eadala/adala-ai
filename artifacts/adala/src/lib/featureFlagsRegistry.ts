@@ -17,6 +17,7 @@ export interface FeatureFlagDefinition {
   apiPaths?: string[];              // API paths المرتبطة
   limits?: Record<PlanLevel, number | "unlimited" | null>; // حدود الاستخدام
   isDefault?: boolean;              // مفعّلة للجميع؟
+  subscription?: string;            // تصنيف الاشتراك المطلوب
 }
 
 export const FEATURE_FLAGS_REGISTRY: FeatureFlagDefinition[] = [

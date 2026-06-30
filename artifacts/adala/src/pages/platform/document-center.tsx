@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, Component, ErrorInfo, ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,6 +73,30 @@ function providerBadge(provider: string) {
   if (provider === "replit_object_storage")
     return <Badge className="bg-green-100 text-green-700 text-xs gap-1"><CloudUpload className="h-3 w-3" />Object Storage</Badge>;
   return <Badge variant="outline" className="text-xs gap-1"><CloudOff className="h-3 w-3" />قاعدة البيانات</Badge>;
+}
+
+/* ══════════════════ UPLOAD DIALOG ERROR BOUNDARY ══════════════════ */
+class UploadErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(e: Error) { return { error: e.message }; }
+  componentDidCatch(e: Error, info: ErrorInfo) {
+    console.error("[UploadDialog]", e.message, info.componentStack?.slice(0, 300));
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>تعذّر فتح نافذة الرفع — يُرجى تحديث الصفحة</span>
+          <button
+            onClick={() => this.setState({ error: null })}
+            className="mr-auto text-xs underline hover:no-underline"
+          >إعادة المحاولة</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 /* ══════════════════ UPLOAD DIALOG ══════════════════ */
@@ -1147,7 +1171,9 @@ export default function DocumentCenter() {
           <Button variant="outline" size="sm" onClick={() => qc.invalidateQueries()} className="gap-1">
             <RefreshCw className="h-3.5 w-3.5" />تحديث
           </Button>
-          <UploadDialog onSuccess={() => { qc.invalidateQueries({ queryKey: ["doc-center-files"] }); qc.invalidateQueries({ queryKey: ["doc-center-stats"] }); }} />
+          <UploadErrorBoundary>
+            <UploadDialog onSuccess={() => { qc.invalidateQueries({ queryKey: ["doc-center-files"] }); qc.invalidateQueries({ queryKey: ["doc-center-stats"] }); }} />
+          </UploadErrorBoundary>
         </div>
       </div>
 

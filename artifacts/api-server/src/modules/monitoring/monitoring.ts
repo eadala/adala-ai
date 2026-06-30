@@ -249,10 +249,15 @@ router.get("/monitoring/metrics-history", requireSuperAdmin, async (req, res) =>
 /* POST /api/monitoring/client-error — receives frontend ErrorBoundary reports */
 router.post("/monitoring/client-error", async (req, res) => {
   try {
-    const { errorId, label, message, stack, url, ts } = req.body ?? {};
+    const { errorId, label, message, stack, componentStack, url, ts } = req.body ?? {};
+    /* Log to server console so it's visible in deployment logs */
+    logger.error(
+      { errorId, label, url, ts, componentStack: String(componentStack ?? "").slice(0, 300) },
+      `[ClientError][${errorId}] ${String(message).slice(0, 300)}`
+    );
     await db.execute(sql`
       INSERT INTO system_events (event_type, payload, created_at)
-      VALUES ('client_error', ${JSON.stringify({ errorId, label, message: String(message).slice(0, 500), stack: String(stack ?? "").slice(0, 1000), url, ts })}, NOW())
+      VALUES ('client_error', ${JSON.stringify({ errorId, label, message: String(message).slice(0, 500), stack: String(stack ?? "").slice(0, 1000), componentStack: String(componentStack ?? "").slice(0, 500), url, ts })}, NOW())
     `).catch(() => {});
     res.json({ ok: true });
   } catch {
