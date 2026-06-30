@@ -65,9 +65,9 @@ const SYSTEM_PROMPTS: Record<string, string> = {
   custom: `أنت مساعد قانوني ذكي متخصص في القانون السعودي.`,
 };
 
-/* ── Cache key builder ──────────────────────────────────────────── */
-function buildCacheKey(type: string, input: string, context?: string): string {
-  const raw = `${type}|${input}|${context ?? ""}`;
+/* ── Cache key builder — officeId is MANDATORY to prevent cross-tenant leakage ── */
+function buildCacheKey(officeId: string, type: string, input: string, context?: string): string {
+  const raw = `${officeId}|${type}|${input}|${context ?? ""}`;
   return `ai:${crypto.createHash("sha256").update(raw).digest("hex").slice(0, 16)}`;
 }
 
@@ -98,7 +98,7 @@ router.post("/ai/query", requireAuth, async (req, res) => {
   }
 
   const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-  const cacheKey = buildCacheKey(type, input.trim(), context);
+  const cacheKey = buildCacheKey(officeId, type, input.trim(), context);
 
   /* ── Cache hit ──────────────────────────────────────────────── */
   if (!noCache) {

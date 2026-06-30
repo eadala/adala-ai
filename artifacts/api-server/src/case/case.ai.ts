@@ -66,11 +66,54 @@ export async function ensureAIInsightsTable() {
   `).catch(() => {});
 }
 
+/* ── Mask PII before sending to external AI ─────── */
+function maskSensitiveData(ctx: Record<string, any>): {
+  masked: Record<string, any>;
+  tokenMap: Record<string, string>;
+} {
+  const tokenMap: Record<string, string> = {};
+  const masked  = { ...ctx };
+
+  /* Client name → anonymous token */
+  if (ctx.clientName) {
+    const token = "العميل-م";
+    tokenMap[token] = ctx.clientName;
+    masked.clientName = token;
+  }
+  /* Assigned lawyer name → anonymous token */
+  if (ctx.assignedLawyer) {
+    const token = "المحامي-م";
+    tokenMap[token] = ctx.assignedLawyer;
+    masked.assignedLawyer = token;
+  }
+  /* Redact ID numbers (10-digit), phone numbers (05xx / +966) from description */
+  if (ctx.description) {
+    masked.description = ctx.description
+      .replace(/\b\d{10}\b/g, "***")
+      .replace(/\+966\d{7,9}/g, "***")
+      .replace(/\b05\d{8}\b/g, "***");
+  }
+
+  return { masked, tokenMap };
+}
+
+/* Restore tokens in AI response text (best-effort) */
+function unmaskResponse(text: string, tokenMap: Record<string, string>): string {
+  let result = text;
+  for (const [token, real] of Object.entries(tokenMap)) {
+    result = result.replaceAll(token, real);
+  }
+  return result;
+}
+
 /* ── Build context from DB ───────────────────────── */
 async function buildCaseContext(caseId: string, officeId: string) {
   const caseRow = sqlOne(
     await db.execute(sql`
-      SELECT * FROM cases WHERE id = ${caseId} AND office_id = ${officeId}
+      SELECT * FROM cases
+      WHERE id         = ${caseId}
+        AND office_id  = ${officeId}
+        AND deleted_at IS NULL
     `).catch(() => ({ rows: [] }))
   );
   if (!caseRow) return null;
@@ -78,7 +121,7 @@ async function buildCaseContext(caseId: string, officeId: string) {
   const tasks = sqlAll(
     await db.execute(sql`
       SELECT title, status, priority, due_date
-      FROM tasks WHERE case_id = ${caseId} LIMIT 20
+      FROM tasks WHERE case_id = ${caseId} AND office_id = ${officeId} LIMIT 20
     `).catch(() => ({ rows: [] }))
   );
 
@@ -219,10 +262,15 @@ export async function runAIAnalysis(caseId: string, officeId: string): Promise<A
   const ctx = await buildCaseContext(caseId, officeId);
   if (!ctx) return null;
 
+  /* ── Mask PII before sending context to external AI ── */
+  const { masked: maskedCtx, tokenMap } = maskSensitiveData(ctx);
+
   let parsed: any = null;
   try {
-    const { reply } = await callAI(SYSTEM_PROMPT, buildPrompt(ctx), [], "gemini", officeId);
-    const clean = reply
+    const { reply } = await callAI(SYSTEM_PROMPT, buildPrompt(maskedCtx), [], "gemini", officeId);
+    /* Un-mask any tokens that appeared in the AI response */
+    const unmasked = unmaskResponse(reply, tokenMap);
+    const clean = unmasked
       .replace(/```json\n?/g, "")
       .replace(/```\n?/g, "")
       .trim();

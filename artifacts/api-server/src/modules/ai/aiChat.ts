@@ -33,24 +33,35 @@ export function classifyPrompt(input: string): CostTier {
   return "mid";
 }
 
-/* ── Usage logging ──────────────────────────────────────────────── */
+/* ── Usage logging ─────────────────────────────────────────────────────────
+   prompt_text + response_text are saved for legal traceability:
+   if a dispute arises about "what did the AI say?", we have the full record.
+   Text is capped at 8000 / 16000 chars to prevent DB bloat.
+─────────────────────────────────────────────────────────────────────────── */
 export async function logAIUsage(opts: {
-  officeId: string;
-  queryType: string;
-  modelUsed: string;
-  tier: CostTier;
-  costPoints: number;
-  cached: boolean;
-  responseMs?: number;
+  officeId:     string;
+  queryType:    string;
+  modelUsed:    string;
+  tier:         CostTier;
+  costPoints:   number;
+  cached:       boolean;
+  responseMs?:  number;
   promptLength?: number;
+  promptText?:  string;
+  responseText?: string;
+  caseId?:      string;
 }): Promise<void> {
   try {
     await db.execute(sql`
       INSERT INTO ai_usage_logs
-        (office_id, query_type, model_used, tier, cost_points, cached, response_ms, prompt_length)
+        (office_id, query_type, model_used, tier, cost_points, cached,
+         response_ms, prompt_length, prompt_text, response_text, case_id)
       VALUES
         (${opts.officeId}, ${opts.queryType}, ${opts.modelUsed}, ${opts.tier},
-         ${opts.costPoints}, ${opts.cached}, ${opts.responseMs ?? null}, ${opts.promptLength ?? null})
+         ${opts.costPoints}, ${opts.cached}, ${opts.responseMs ?? null}, ${opts.promptLength ?? null},
+         ${opts.promptText  ? opts.promptText.slice(0, 8000)  : null},
+         ${opts.responseText ? opts.responseText.slice(0, 16000) : null},
+         ${opts.caseId ?? null})
     `);
   } catch { /* non-blocking */ }
 }
@@ -68,11 +79,19 @@ async function ensureUsageTable(): Promise<void> {
         cached        BOOLEAN NOT NULL DEFAULT FALSE,
         response_ms   INTEGER,
         prompt_length INTEGER,
+        prompt_text   TEXT,
+        response_text TEXT,
+        case_id       TEXT,
         created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ai_usage_office ON ai_usage_logs(office_id)`);
+    /* Migrations for existing tables */
+    await db.execute(sql`ALTER TABLE ai_usage_logs ADD COLUMN IF NOT EXISTS prompt_text   TEXT`).catch(() => {});
+    await db.execute(sql`ALTER TABLE ai_usage_logs ADD COLUMN IF NOT EXISTS response_text TEXT`).catch(() => {});
+    await db.execute(sql`ALTER TABLE ai_usage_logs ADD COLUMN IF NOT EXISTS case_id       TEXT`).catch(() => {});
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ai_usage_office  ON ai_usage_logs(office_id)`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ai_usage_created ON ai_usage_logs(created_at)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ai_usage_case    ON ai_usage_logs(case_id) WHERE case_id IS NOT NULL`).catch(() => {});
   } catch { /* already exists */ }
 }
 ensureUsageTable();
@@ -327,7 +346,7 @@ export async function callAI(
     const reply = await fn();
     const tier = classifyPrompt(safeMessage);
     deductCredits(officeId, model);
-    logAIUsage({ officeId, queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length });
+    logAIUsage({ officeId, queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length, promptText: safeMessage, responseText: reply });
     return { reply, modelUsed: model, tier };
   };
 
@@ -350,7 +369,7 @@ export async function callAI(
     try {
       const reply = await fn();
       deductCredits(officeId, model);
-      logAIUsage({ officeId, queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length });
+      logAIUsage({ officeId, queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length, promptText: safeMessage, responseText: reply });
       return { reply, modelUsed: model, tier };
     } catch { return null; }
   };
@@ -378,7 +397,7 @@ export async function callAI(
   }
 
   /* final static fallback */
-  logAIUsage({ officeId, queryType, modelUsed: "fallback", tier, costPoints: 0, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length });
+  logAIUsage({ officeId, queryType, modelUsed: "fallback", tier, costPoints: 0, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length, promptText: safeMessage });
   return { reply: generateSmartResponse(safeMessage), modelUsed: "fallback", tier };
 }
 
