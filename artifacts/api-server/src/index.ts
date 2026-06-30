@@ -122,13 +122,48 @@ loadHardeningState().catch(() => {});
    Without these, any uncaught exception silently crashes the server.
    With them, we log + optionally restart via the process manager.
 ─────────────────────────────────────────────────────────────────────────── */
+/* PostgreSQL error codes that are RECOVERABLE — Neon DB hibernates idle
+   connections and sends these. The pool will reconnect on the next query.
+   Do NOT exit the process for these — it causes the crash loop. */
+const RECOVERABLE_PG_CODES = new Set([
+  "57P01", // terminating connection due to administrator command (Neon hibernation)
+  "57014", // query_canceled
+  "08006", // connection_failure
+  "08001", // sqlclient_unable_to_establish_sqlconnection
+  "08P01", // protocol_violation (transient)
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+]);
+
+function isRecoverableDbError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as Record<string, unknown>;
+  const code = String(e["code"] ?? "");
+  const msg = String(e["message"] ?? "").toLowerCase();
+  return (
+    RECOVERABLE_PG_CODES.has(code) ||
+    msg.includes("terminating connection") ||
+    msg.includes("connection terminated") ||
+    msg.includes("connection reset") ||
+    msg.includes("client has already been connected")
+  );
+}
+
 process.on("uncaughtException", (err: Error) => {
+  if (isRecoverableDbError(err)) {
+    logger.warn({ code: (err as any)?.code, msg: err.message }, "[DB] Connection terminated by server — pool will reconnect");
+    return;
+  }
   logger.error({ err, type: "uncaughtException" }, "[FATAL] Uncaught exception — server may be unstable");
-  // Give logger time to flush before exiting
   setTimeout(() => process.exit(1), 500);
 });
 
 process.on("unhandledRejection", (reason: unknown) => {
+  if (isRecoverableDbError(reason)) {
+    logger.warn({ code: (reason as any)?.code }, "[DB] Unhandled DB rejection — recoverable, pool will reconnect");
+    return;
+  }
   logger.error({ reason, type: "unhandledRejection" }, "[FATAL] Unhandled promise rejection");
 });
 

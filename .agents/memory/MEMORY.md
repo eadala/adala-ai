@@ -97,5 +97,6 @@
 - [Adala Bankruptcy Integrations](adala-bankruptcy-integrations.md) — callBkAI() wrapper fixes officeId param order; 5 Telegram events; saveReportToStorage() after every bk_reports INSERT
 - [JLWM Live Sync](adala-jlwm-sync.md) — state_vector not key_metrics; case/client twin correct columns; EventBus auto-rebuild on CASE/CLIENT events
 - [Adala Financial Completions](adala-financial-completions.md) — financial-completions.ts: tax settings/credit notes/ZATCA/AR aging/period comparison/unified summary/AI assistant; auditLog.details must be string not object
+- [Adala Neon DB crash loop](adala-neon-crash-loop.md) — 57P01 from Neon hibernation hits uncaughtException → process.exit(1) → crash loop → healthcheck 500 → publish fails; fix: isRecoverableDbError() guard in index.ts
 - [Adala Integrations Audit](adala-integrations-audit.md) — WhatsApp/Telegram/Email tenant isolation fixed (was 'default'); WhatsApp webhook X-Hub-Signature-256 added; Moyasar timingSafeEqual + mandatory header; WHATSAPP_APP_SECRET env var required pre-launch
 - [Adala Enterprise SOC & Governance](adala-enterprise-soc.md) — 10-phase: SOC+sessions+threats / audit-center / MFA+high-risk / compliance-center / DR-center / executive-dashboard
