@@ -2,7 +2,7 @@
  * Smart Alerts Routes
  */
 import { Router, type Request, type Response } from "express";
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requireSuperAdmin} from "../../middlewares/requireAuth";
 import {
   sendSmartAlert,
   getLiveAlerts,
@@ -18,27 +18,19 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-function guard(req: any, res: any, next: any) {
-  const meta = req.auth?.sessionClaims?.publicMetadata as any;
-  if (meta?.role !== "super_admin") {
-    return res.status(403).json({ error: "super_admin only" });
-  }
-  next();
-}
-
 /* ─── GET /api/smart-alerts/feed ─── التنبيهات الحية ─── */
-router.get("/smart-alerts/feed", requireAuthWithTenant, guard, (req, res) => {
+router.get("/smart-alerts/feed", requireSuperAdmin, (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
   res.json({ alerts: getLiveAlerts(limit) });
 });
 
 /* ─── GET /api/smart-alerts/stats ─── الإحصائيات ─── */
-router.get("/smart-alerts/stats", requireAuthWithTenant, guard, (_req, res) => {
+router.get("/smart-alerts/stats", requireSuperAdmin, (_req, res) => {
   res.json(getAlertStats());
 });
 
 /* ─── GET /api/smart-alerts/history ─── من قاعدة البيانات ─── */
-router.get("/smart-alerts/history", requireAuthWithTenant, guard, async (req, res) => {
+router.get("/smart-alerts/history", requireSuperAdmin, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const severity = req.query.severity as string | undefined;
@@ -58,7 +50,7 @@ router.get("/smart-alerts/history", requireAuthWithTenant, guard, async (req, re
 });
 
 /* ─── POST /api/smart-alerts/acknowledge/:id ─── اعتراف ─── */
-router.post("/smart-alerts/acknowledge/:id", requireAuthWithTenant, guard, async (req, res) => {
+router.post("/smart-alerts/acknowledge/:id", requireSuperAdmin, async (req, res) => {
   const id = String(req.params.id);
   const ok = acknowledgeAlert(id);
 
@@ -72,7 +64,7 @@ router.post("/smart-alerts/acknowledge/:id", requireAuthWithTenant, guard, async
 });
 
 /* ─── POST /api/smart-alerts/acknowledge-all ─── اعتراف بالكل ─── */
-router.post("/smart-alerts/acknowledge-all", requireAuthWithTenant, guard, async (_req, res) => {
+router.post("/smart-alerts/acknowledge-all", requireSuperAdmin, async (_req, res) => {
   acknowledgeAll();
   await db.execute(sql`
     UPDATE healing_events SET resolved = true WHERE event_type = 'ALERT' AND resolved = false
@@ -81,26 +73,26 @@ router.post("/smart-alerts/acknowledge-all", requireAuthWithTenant, guard, async
 });
 
 /* ─── POST /api/smart-alerts/suppress ─── وضع صامت ─── */
-router.post("/smart-alerts/suppress", requireAuthWithTenant, guard, (req, res) => {
+router.post("/smart-alerts/suppress", requireSuperAdmin, (req, res) => {
   const minutes = Math.min(Number(req.body?.minutes) || 30, 480);
   setSuppressedMode(minutes * 60 * 1000);
   res.json({ ok: true, suppressedUntil: new Date(Date.now() + minutes * 60_000).toISOString() });
 });
 
 /* ─── POST /api/smart-alerts/unsuppress ─── إلغاء الصمت ─── */
-router.post("/smart-alerts/unsuppress", requireAuthWithTenant, guard, (_req, res) => {
+router.post("/smart-alerts/unsuppress", requireSuperAdmin, (_req, res) => {
   clearSuppression();
   res.json({ ok: true });
 });
 
 /* ─── POST /api/smart-alerts/check-trends ─── فحص اتجاهات ─── */
-router.post("/smart-alerts/check-trends", requireAuthWithTenant, guard, async (_req, res) => {
+router.post("/smart-alerts/check-trends", requireSuperAdmin, async (_req, res) => {
   await checkTrendAlerts();
   res.json({ ok: true, checkedAt: new Date().toISOString() });
 });
 
 /* ─── POST /api/smart-alerts/test ─── اختبار التسليم ─── */
-router.post("/smart-alerts/test", requireAuthWithTenant, guard, async (req, res) => {
+router.post("/smart-alerts/test", requireSuperAdmin, async (req, res) => {
   const severity = (req.body?.severity ?? "medium") as any;
   const message = req.body?.message ?? "🧪 تنبيه اختباري من نظام عدالة AI";
   const result = await sendSmartAlert(severity, message, { forceSkipDedup: true });
@@ -108,7 +100,7 @@ router.post("/smart-alerts/test", requireAuthWithTenant, guard, async (req, res)
 });
 
 /* ─── GET /api/smart-alerts/channels ─── حالة القنوات ─── */
-router.get("/smart-alerts/channels", requireAuthWithTenant, guard, async (_req, res) => {
+router.get("/smart-alerts/channels", requireSuperAdmin, async (_req, res) => {
   try {
     const telegram = await db.execute(sql`
       SELECT office_id, enabled, chat_id IS NOT NULL as has_chat, notify_system_alerts

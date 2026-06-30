@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
@@ -6,33 +7,13 @@ import * as os from "os";
 import * as crypto from "crypto";
 
 const router = Router();
+const devOnly = requireSuperAdmin;
 
 /* ── Auth ─────────────────────────────────────────── */
 let _clerk: ReturnType<typeof createClerkClient> | null = null;
 function getClerk() {
   if (!_clerk) _clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
   return _clerk;
-}
-
-async function isSuperAdmin(req: any): Promise<boolean> {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) return false;
-  try {
-    const user = await getClerk().users.getUser(userId);
-    const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress
-      ?? user.emailAddresses[0]?.emailAddress ?? "";
-    // Check both SUPER_ADMIN_EMAILS (comma-separated) and legacy PLATFORM_OWNER_EMAIL
-    const superAdminEmails = (process.env.SUPER_ADMIN_EMAILS ?? process.env.PLATFORM_OWNER_EMAIL ?? "")
-      .split(",").map((e: string) => e.trim()).filter(Boolean);
-    const byEmail = superAdminEmails.length > 0 && superAdminEmails.includes(email);
-    return byEmail || user.publicMetadata?.role === "super_admin";
-  } catch { return false; }
-}
-
-async function devOnly(req: any, res: any, next: any) {
-  if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
-  next();
 }
 
 /* helper to run safe SQL and return rows */

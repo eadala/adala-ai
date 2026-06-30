@@ -2,7 +2,7 @@
  * Isolation Routes — 7 endpoints (super_admin only)
  */
 import { Router, type Request, type Response } from "express";
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requireSuperAdmin} from "../../middlewares/requireAuth";
 import { getLeakEvents, getIsolationStats, detectLeak } from "../../isolation/tenant.scope";
 import { runIsolationAudit } from "../../isolation/isolation.audit";
 import { db } from "@workspace/db";
@@ -10,14 +10,8 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-function guard(req: any, res: any, next: any) {
-  const meta = req.auth?.sessionClaims?.publicMetadata as any;
-  if (meta?.role !== "super_admin") return res.status(403).json({ error: "super_admin only" });
-  next();
-}
-
 /* ── GET /isolation/rls-status ── حالة RLS لكل جدول ── */
-router.get("/isolation/rls-status", requireAuthWithTenant, guard, async (_req, res) => {
+router.get("/isolation/rls-status", requireSuperAdmin, async (_req, res) => {
   try {
     const rows = await db.execute(sql`
       SELECT
@@ -59,7 +53,7 @@ router.get("/isolation/rls-status", requireAuthWithTenant, guard, async (_req, r
 });
 
 /* ── GET /isolation/audit ── فحص الكود ── */
-router.get("/isolation/audit", requireAuthWithTenant, guard, async (_req, res) => {
+router.get("/isolation/audit", requireSuperAdmin, async (_req, res) => {
   try {
     const result = await runIsolationAudit();
     res.json(result);
@@ -67,18 +61,18 @@ router.get("/isolation/audit", requireAuthWithTenant, guard, async (_req, res) =
 });
 
 /* ── GET /isolation/leak-log ── سجل التسربات ── */
-router.get("/isolation/leak-log", requireAuthWithTenant, guard, (_req, res) => {
+router.get("/isolation/leak-log", requireSuperAdmin, (_req, res) => {
   const limit = Math.min(Number(_req.query.limit) || 50, 200);
   res.json({ events: getLeakEvents(limit), stats: getIsolationStats() });
 });
 
 /* ── GET /isolation/stats ── إحصائيات ── */
-router.get("/isolation/stats", requireAuthWithTenant, guard, (_req, res) => {
+router.get("/isolation/stats", requireSuperAdmin, (_req, res) => {
   res.json(getIsolationStats());
 });
 
 /* ── POST /isolation/test ── اختبار العزل ── */
-router.post("/isolation/test", requireAuthWithTenant, guard, async (req, res) => {
+router.post("/isolation/test", requireSuperAdmin, async (req, res) => {
   try {
     const tenantId    = (req as any).tenantId as string;
     if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
@@ -111,7 +105,7 @@ router.post("/isolation/test", requireAuthWithTenant, guard, async (req, res) =>
 });
 
 /* ── POST /isolation/enable-rls ── تفعيل RLS يدوياً ── */
-router.post("/isolation/enable-rls", requireAuthWithTenant, guard, async (req, res) => {
+router.post("/isolation/enable-rls", requireSuperAdmin, async (req, res) => {
   try {
     const table = req.body?.table as string;
     if (!table || !/^[a-z_]+$/.test(table)) {
@@ -144,7 +138,7 @@ router.post("/isolation/enable-rls", requireAuthWithTenant, guard, async (req, r
 });
 
 /* ── GET /isolation/summary ── ملخص كامل ── */
-router.get("/isolation/summary", requireAuthWithTenant, guard, async (_req, res) => {
+router.get("/isolation/summary", requireSuperAdmin, async (_req, res) => {
   try {
     const [rlsRow, leakStats, auditResult] = await Promise.all([
       db.execute(sql`

@@ -2,7 +2,7 @@
  * Production Hardening Routes — 8 endpoints (super_admin only)
  */
 import { Router } from "express";
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requireSuperAdmin} from "../../middlewares/requireAuth";
 import {
   getSystemState, setSystemMode, setAiLock, isAiLocked,
   IMMUTABLE_MODULES, changeGate, loadHardeningState,
@@ -14,14 +14,8 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-function guard(req: any, res: any, next: any) {
-  const meta = (req as any).auth?.sessionClaims?.publicMetadata as any;
-  if (meta?.role !== "super_admin") return res.status(403).json({ error: "super_admin only" });
-  next();
-}
-
 /* ── GET /hardening/status ── حالة النظام الكاملة ── */
-router.get("/hardening/status", requireAuthWithTenant, guard, async (_req, res) => {
+router.get("/hardening/status", requireSuperAdmin, async (_req, res) => {
   try {
     await loadHardeningState();
     const state = getSystemState();
@@ -36,7 +30,7 @@ router.get("/hardening/status", requireAuthWithTenant, guard, async (_req, res) 
 });
 
 /* ── POST /hardening/safe-mode ── تفعيل/إلغاء الوضع الآمن ── */
-router.post("/hardening/safe-mode", requireAuthWithTenant, guard, async (req, res) => {
+router.post("/hardening/safe-mode", requireSuperAdmin, async (req, res) => {
   try {
     const { activate, reason } = req.body as { activate: boolean; reason?: string };
     const userId = (req as any).userId ?? "super_admin";
@@ -47,19 +41,19 @@ router.post("/hardening/safe-mode", requireAuthWithTenant, guard, async (req, re
 });
 
 /* ── POST /hardening/ai-lock ── قفل / فتح تنفيذ الذكاء الاصطناعي ── */
-router.post("/hardening/ai-lock", requireAuthWithTenant, guard, (req, res) => {
+router.post("/hardening/ai-lock", requireSuperAdmin, (req, res) => {
   const { locked } = req.body as { locked: boolean };
   setAiLock(locked);
   res.json({ ok: true, aiLocked: isAiLocked() });
 });
 
 /* ── GET /hardening/modules ── قائمة الوحدات المحمية ── */
-router.get("/hardening/modules", requireAuthWithTenant, guard, (_req, res) => {
+router.get("/hardening/modules", requireSuperAdmin, (_req, res) => {
   res.json({ modules: IMMUTABLE_MODULES });
 });
 
 /* ── POST /hardening/change-gate ── تسجيل تغيير ── */
-router.post("/hardening/change-gate", requireAuthWithTenant, guard, async (req, res) => {
+router.post("/hardening/change-gate", requireSuperAdmin, async (req, res) => {
   try {
     const { type, affects, description } = req.body;
     const userId  = (req as any).userId ?? "super_admin";
@@ -69,7 +63,7 @@ router.post("/hardening/change-gate", requireAuthWithTenant, guard, async (req, 
 });
 
 /* ── GET /hardening/change-log ── سجل التغييرات ── */
-router.get("/hardening/change-log", requireAuthWithTenant, guard, async (req, res) => {
+router.get("/hardening/change-log", requireSuperAdmin, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const rows  = await db.execute(sql`
@@ -82,7 +76,7 @@ router.get("/hardening/change-log", requireAuthWithTenant, guard, async (req, re
 });
 
 /* ── GET /hardening/financial ── تقرير سلامة المالية ── */
-router.get("/hardening/financial", requireAuthWithTenant, guard, async (_req, res) => {
+router.get("/hardening/financial", requireSuperAdmin, async (_req, res) => {
   try {
     const report = await runFinancialGuard();
     res.json(report);
@@ -90,7 +84,7 @@ router.get("/hardening/financial", requireAuthWithTenant, guard, async (_req, re
 });
 
 /* ── POST /hardening/validate ── خط التحقق الكامل ── */
-router.post("/hardening/validate", requireAuthWithTenant, guard, async (_req, res) => {
+router.post("/hardening/validate", requireSuperAdmin, async (_req, res) => {
   try {
     const result = await runValidationPipeline();
     res.json(result);

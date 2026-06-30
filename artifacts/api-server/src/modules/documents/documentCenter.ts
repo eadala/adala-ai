@@ -4,17 +4,9 @@
  */
 
 import { Router } from "express";
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, requireSuperAdmin} from "../../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 
-function isSuperAdminGuard(req: any, res: any, next: any) {
-  const { userId } = getAuth(req);
-  if (!userId) return res.status(401).json({ error: "غير مصرح" });
-  const superAdminEmails = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map(e => e.trim()).filter(Boolean);
-  const meta = (req.auth as any)?.sessionClaims?.publicMetadata as any;
-  if (meta?.role === "super_admin" || superAdminEmails.includes(meta?.email ?? "")) return next();
-  return res.status(403).json({ error: "للمشرفين العامين فقط" });
-}
 import { documentStorage } from "../../services/documentStorage";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
 import { db } from "@workspace/db";
@@ -536,7 +528,7 @@ router.get("/document-center/stats", requireAuthWithTenant, async (req, res) => 
 /* ═══════════════════════════════════════════════════════
    ADMIN STATS — للمشرف العام فقط
 ═══════════════════════════════════════════════════════ */
-router.get("/document-center/admin/stats", requireAuth, isSuperAdminGuard, async (_req, res) => {
+router.get("/document-center/admin/stats", requireAuth, requireSuperAdmin, async (_req, res) => {
   try {
     const [objectStats, { rows: officeStats }] = await Promise.all([
       documentStorage.getTotalStorageStats(),

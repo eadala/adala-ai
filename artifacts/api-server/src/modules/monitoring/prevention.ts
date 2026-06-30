@@ -4,7 +4,7 @@
  */
 
 import { Router } from "express";
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requireSuperAdmin} from "../../middlewares/requireAuth";
 import { circuitBreaker, CIRCUITS } from "../../prevention/circuit.breaker";
 import { evaluateRules, buildRuleContext, PREVENTION_RULES } from "../../prevention/rules.engine";
 import { runPreventionCheck } from "../../prevention/request.guard";
@@ -15,16 +15,8 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-function guard(req: any, res: any, next: any) {
-  const meta = req.auth?.sessionClaims?.publicMetadata as any;
-  if (meta?.role !== "super_admin") {
-    return res.status(403).json({ error: "super_admin only" });
-  }
-  next();
-}
-
 /* ─── GET /api/prevention/status ─── تقرير شامل ─── */
-router.get("/prevention/status", requireAuthWithTenant, guard, async (_req, res) => {
+router.get("/prevention/status", requireSuperAdmin, async (_req, res) => {
   try {
     const [metrics, preventionResult] = await Promise.all([
       collectMetrics(),
@@ -59,7 +51,7 @@ router.get("/prevention/status", requireAuthWithTenant, guard, async (_req, res)
 });
 
 /* ─── GET /api/prevention/rules ─── قائمة القواعد ─── */
-router.get("/prevention/rules", requireAuthWithTenant, guard, (_req, res) => {
+router.get("/prevention/rules", requireSuperAdmin, (_req, res) => {
   res.json({
     rules: PREVENTION_RULES.map(r => ({
       id:          r.id,
@@ -73,7 +65,7 @@ router.get("/prevention/rules", requireAuthWithTenant, guard, (_req, res) => {
 });
 
 /* ─── GET /api/prevention/circuits ─── حالة الدوائر ─── */
-router.get("/prevention/circuits", requireAuthWithTenant, guard, (_req, res) => {
+router.get("/prevention/circuits", requireSuperAdmin, (_req, res) => {
   res.json({
     circuits: circuitBreaker.getStats(),
     definitions: Object.entries(CIRCUITS).map(([name, key]) => ({ name, key })),
@@ -81,14 +73,14 @@ router.get("/prevention/circuits", requireAuthWithTenant, guard, (_req, res) => 
 });
 
 /* ─── POST /api/prevention/circuits/:name/reset ─── إعادة ضبط دائرة ─── */
-router.post("/prevention/circuits/:name/reset", requireAuthWithTenant, guard, (req, res) => {
+router.post("/prevention/circuits/:name/reset", requireSuperAdmin, (req, res) => {
   const name = String(req.params.name).toLowerCase();
   circuitBreaker.reset(name);
   res.json({ ok: true, circuit: name, state: "CLOSED" });
 });
 
 /* ─── POST /api/prevention/circuits/:name/open ─── فتح دائرة يدوياً ─── */
-router.post("/prevention/circuits/:name/open", requireAuthWithTenant, guard, (req, res) => {
+router.post("/prevention/circuits/:name/open", requireSuperAdmin, (req, res) => {
   const name = String(req.params.name).toLowerCase();
   /* نُضخ فشل كافٍ لفتح الدائرة */
   for (let i = 0; i < 20; i++) circuitBreaker.record(name, false);
@@ -96,13 +88,13 @@ router.post("/prevention/circuits/:name/open", requireAuthWithTenant, guard, (re
 });
 
 /* ─── POST /api/prevention/run-check ─── تشغيل فحص يدوي ─── */
-router.post("/prevention/run-check", requireAuthWithTenant, guard, async (_req, res) => {
+router.post("/prevention/run-check", requireSuperAdmin, async (_req, res) => {
   const result = await runPreventionCheck();
   res.json({ ...result, ranAt: new Date().toISOString() });
 });
 
 /* ─── GET /api/prevention/events ─── سجل أحداث المنع ─── */
-router.get("/prevention/events", requireAuthWithTenant, guard, async (req, res) => {
+router.get("/prevention/events", requireSuperAdmin, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const rows = await db.execute(sql`

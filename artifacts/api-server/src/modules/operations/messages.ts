@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, requireSuperAdmin, checkIsSuperAdmin} from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db, messagesTable, casesTable } from "@workspace/db";
 import { ListMessagesQueryParams, SendMessageBody } from "@workspace/api-zod";
@@ -19,8 +19,7 @@ async function getMsgUser(req: any) {
   try {
     const user = await getClerkMsg().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
-    const owner = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
-    const isSA = (!!owner && email === owner) || user.publicMetadata?.role === "super_admin";
+    const isSA = await checkIsSuperAdmin(auth.userId);
     const officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
     const rows = await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`);
     const rowArr = Array.isArray(rows) ? rows : ((rows as any)?.rows ?? []);

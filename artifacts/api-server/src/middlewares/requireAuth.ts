@@ -5,6 +5,47 @@ import { runWithTenant } from "../core/tenantContext";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
+/* ── SA Route Rate Limiting ────────────────────────────────────────────
+   Tracks failed SA-access attempts per IP. After MAX_SA_FAILS failures
+   within WINDOW_MS the IP is blocked for BLOCK_MS and all attempts are
+   logged to audit_logs.
+───────────────────────────────────────────────────────────────────────── */
+const WINDOW_MS    = 60_000;   // 60-second sliding window
+const MAX_SA_FAILS = 5;        // failures before block
+const BLOCK_MS     = 300_000;  // 5-minute block
+interface _SaBucket { count: number; firstAt: number; blocked: boolean; blockedAt?: number }
+const _saBuckets = new Map<string, _SaBucket>();
+
+function _getSaBucket(ip: string): _SaBucket {
+  const now = Date.now();
+  let b = _saBuckets.get(ip);
+  if (!b)                                     { b = { count: 0, firstAt: now, blocked: false }; _saBuckets.set(ip, b); return b; }
+  if (b.blocked && now - (b.blockedAt ?? 0) > BLOCK_MS) { b.count = 0; b.firstAt = now; b.blocked = false; delete b.blockedAt; }
+  else if (!b.blocked && now - b.firstAt > WINDOW_MS)   { b.count = 0; b.firstAt = now; }
+  return b;
+}
+function _recordSaFail(ip: string, userId: string | null, path: string): boolean {
+  const b = _getSaBucket(ip);
+  if (b.blocked) return true;
+  b.count++;
+  if (b.count > MAX_SA_FAILS) { b.blocked = true; b.blockedAt = Date.now(); }
+  /* Non-blocking audit log */
+  db.execute(sql`
+    INSERT INTO audit_logs (user_id, user_full_name, action, resource, resource_id, details)
+    VALUES (${userId ?? "anonymous"}, ${"Unknown"}, 'SA_ACCESS_DENIED', 'super_admin_route', ${path},
+            ${JSON.stringify({ ip, path, blocked: b.blocked, attempts: b.count, ts: new Date().toISOString() })}::jsonb)
+  `).catch(() => {/* audit failure must never break the 403 flow */});
+  if (b.blocked) console.warn(`[SA-RATELIMIT] IP ${ip} BLOCKED after ${MAX_SA_FAILS}+ failed SA attempts`);
+  return b.blocked;
+}
+/** Expose stats for Engineering/Developer Center dashboards */
+export function getSaRateLimitStats() {
+  const blocked: string[] = [];
+  const top: { ip: string; count: number }[] = [];
+  for (const [ip, b] of _saBuckets) { if (b.blocked) blocked.push(ip); if (b.count >= 3) top.push({ ip, count: b.count }); }
+  return { totalBuckets: _saBuckets.size, blockedIps: blocked, topOffenders: top.sort((a, b) => b.count - a.count).slice(0, 10) };
+}
+
 /* ── Super-admin bypass helper ─────────────────────────────────────────
    Super admins have no office in DB — they get tenantId = "platform".
    We check both the env whitelist AND Clerk publicMetadata for resilience.
@@ -40,14 +81,45 @@ export async function checkIsSuperAdmin(userId: string): Promise<boolean> {
  * Sets req.isSuperAdmin = true and req.userId on success.
  */
 export async function requireSuperAdmin(req: Request, res: Response, next: NextFunction) {
+  const ip = (
+    (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ??
+    req.socket?.remoteAddress ??
+    "unknown"
+  );
+
+  /* ── 1. Check if IP is currently blocked ── */
+  const bucket = _getSaBucket(ip);
+  if (bucket.blocked) {
+    const retryAfter = Math.ceil((BLOCK_MS - (Date.now() - (bucket.blockedAt ?? Date.now()))) / 1000);
+    res.setHeader("Retry-After", String(retryAfter));
+    return res.status(429).json({
+      error: "عدد كبير من محاولات الوصول المرفوضة. حاول مجدداً لاحقاً.",
+      retryAfterSeconds: retryAfter,
+    });
+  }
+
+  /* ── 2. Verify authentication ── */
   let auth: ReturnType<typeof getAuth> | null = null;
   try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
   const userId = auth?.userId;
-  if (!userId) return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+  if (!userId) {
+    _recordSaFail(ip, null, req.path);
+    return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+  }
 
+  /* ── 3. Verify super-admin via Clerk (always fresh, never cached) ── */
   const ok = await checkIsSuperAdmin(userId);
-  if (!ok) return res.status(403).json({ error: "للمشرف العام فقط — Super Admin Access Required" });
+  if (!ok) {
+    const nowBlocked = _recordSaFail(ip, userId, req.path);
+    if (nowBlocked) {
+      res.setHeader("Retry-After", String(BLOCK_MS / 1000));
+      return res.status(429).json({ error: "تم حظر الوصول مؤقتاً بسبب محاولات متكررة." });
+    }
+    return res.status(403).json({ error: "للمشرف العام فقط — Super Admin Access Required" });
+  }
 
+  /* ── 4. Success — reset failure counter ── */
+  _saBuckets.delete(ip);
   (req as any).isSuperAdmin = true;
   (req as any).userId = userId;
   next();

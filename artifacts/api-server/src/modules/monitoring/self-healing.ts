@@ -2,7 +2,7 @@
  * Self-Healing Routes — 6 endpoints
  */
 import { Router } from "express";
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requireSuperAdmin} from "../../middlewares/requireAuth";
 import { detectAnomalies } from "../../healing/anomaly.detector";
 import { runSelfHealingCycle, getHealingStats, getLastSafeState } from "../../healing/self.healer";
 import { isQueryThrottleActive } from "../../healing/recovery.actions";
@@ -12,14 +12,8 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-function guard(req: any, res: any, next: any) {
-  const meta = (req as any).auth?.sessionClaims?.publicMetadata as any;
-  if (meta?.role !== "super_admin") return res.status(403).json({ error: "super_admin only" });
-  next();
-}
-
 /* ── GET /healing/status ── حالة الإصلاح الذاتي ── */
-router.get("/healing/status", requireAuthWithTenant, guard, async (_req, res) => {
+router.get("/healing/status", requireSuperAdmin, async (_req, res) => {
   try {
     const [detection, stats] = await Promise.all([
       detectAnomalies(),
@@ -39,7 +33,7 @@ router.get("/healing/status", requireAuthWithTenant, guard, async (_req, res) =>
 });
 
 /* ── POST /healing/run ── تشغيل دورة إصلاح يدوي ── */
-router.post("/healing/run", requireAuthWithTenant, guard, async (_req, res) => {
+router.post("/healing/run", requireSuperAdmin, async (_req, res) => {
   try {
     const result = await runSelfHealingCycle();
     res.json(result);
@@ -47,7 +41,7 @@ router.post("/healing/run", requireAuthWithTenant, guard, async (_req, res) => {
 });
 
 /* ── GET /healing/events ── سجل أحداث الإصلاح ── */
-router.get("/healing/events", requireAuthWithTenant, guard, async (req, res) => {
+router.get("/healing/events", requireSuperAdmin, async (req, res) => {
   try {
     const limit  = Math.min(Number(req.query.limit) || 50, 200);
     const sev    = req.query.severity as string | undefined;
@@ -64,7 +58,7 @@ router.get("/healing/events", requireAuthWithTenant, guard, async (req, res) => 
 });
 
 /* ── GET /healing/safe-state ── آخر حالة مستقرة ── */
-router.get("/healing/safe-state", requireAuthWithTenant, guard, async (_req, res) => {
+router.get("/healing/safe-state", requireSuperAdmin, async (_req, res) => {
   try {
     const inMemory = getLastSafeState();
     const rows     = await db.execute(sql`
@@ -76,7 +70,7 @@ router.get("/healing/safe-state", requireAuthWithTenant, guard, async (_req, res
 });
 
 /* ── GET /healing/anomalies ── فحص الأعطال فقط ── */
-router.get("/healing/anomalies", requireAuthWithTenant, guard, async (_req, res) => {
+router.get("/healing/anomalies", requireSuperAdmin, async (_req, res) => {
   try {
     const result = await detectAnomalies();
     res.json(result);
@@ -84,7 +78,7 @@ router.get("/healing/anomalies", requireAuthWithTenant, guard, async (_req, res)
 });
 
 /* ── GET /healing/rules ── قواعد الإصلاح ── */
-router.get("/healing/rules", requireAuthWithTenant, guard, (_req, res) => {
+router.get("/healing/rules", requireSuperAdmin, (_req, res) => {
   res.json({
     rules: [
       { trigger: "tenant_leak_detected",  action: "ENFORCE_ISOLATION_ALERT + ACTIVATE_SAFE_MODE", autoHeal: true,  severity: "critical" },

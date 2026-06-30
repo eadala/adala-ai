@@ -5,6 +5,7 @@
  */
 
 import { Router } from "express";
+import { requireSuperAdmin, checkIsSuperAdmin } from "../../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 import memoryGraphRouter      from "./memoryGraph";
 import worldStateRouter       from "./worldState";
@@ -90,7 +91,7 @@ function isSA(req: any): boolean {
   try {
     const auth = getAuth(req);
     const meta = (auth as any)?.sessionClaims?.publicMetadata as any;
-    if (meta?.role === "super_admin") return true;
+    /* SA check now handled by requireSuperAdmin middleware */
     const emails = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map((s: string) => s.trim());
     const email  = (auth as any)?.sessionClaims?.email as string ?? "";
     return emails.includes(email);

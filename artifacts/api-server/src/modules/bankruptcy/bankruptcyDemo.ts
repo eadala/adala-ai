@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireSuperAdmin} from "../../middlewares/requireAuth";
 
 const router = Router();
+const adminOnly = requireSuperAdmin;
 export default router;
 
 /* ── helpers ── */
@@ -39,21 +40,6 @@ async function ensureDemoColumns() {
 /* ═══════════════════════════════════════════════════
    SEED — POST /admin/bankruptcy/demo/seed
 ═══════════════════════════════════════════════════ */
-async function isSuperAdmin(req: any): Promise<boolean> {
-  const userId = req.auth?.userId as string | undefined;
-  if (!userId) return false;
-  const r = await db.execute(sql`SELECT role FROM users WHERE id = ${userId} LIMIT 1`).catch(() => null);
-  const row = sqlOne(r);
-  if (row?.role === "super_admin") return true;
-  const ownerEmails = (process.env.PLATFORM_OWNER_EMAIL ?? "").split(",").map((e: string) => e.trim().toLowerCase()).filter(Boolean);
-  const uRow = sqlOne(await db.execute(sql`SELECT email FROM users WHERE id = ${userId} LIMIT 1`).catch(() => null));
-  return ownerEmails.includes((uRow?.email ?? "").toLowerCase());
-}
-async function adminOnly(req: any, res: any, next: any) {
-  if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
-  next();
-}
-
 router.get("/admin/bankruptcy/demo/status", adminOnly, async (_req, res) => {
   try {
     await ensureDemoColumns();

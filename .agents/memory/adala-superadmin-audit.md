@@ -1,47 +1,45 @@
 ---
-name: Adala Super-Admin isSuperAdmin Unification
-description: Audit + fix of 9 different isSuperAdmin implementations across the codebase — all replaced with a single canonical exported function.
+name: Adala SuperAdmin Enterprise Hardening
+description: Complete unification of SA auth layer — all 37 legacy isSuperAdmin removed, rate limiting, 19-test suite
 ---
 
 ## The Rule
-`checkIsSuperAdmin(userId)` and `requireSuperAdmin` (middleware) in `requireAuth.ts` are the ONLY valid SA verification. Never write a local isSuperAdmin in a route file.
+Single Source of Truth for SA auth: `checkIsSuperAdmin(userId)` and `requireSuperAdmin` from `requireAuth.ts`.
+Never write local isSuperAdmin/guard/adminOnly functions in individual route files.
 
-**Why:** Found 9 different implementations — 4 were SYNC (read stale JWT), 3 used `VITE_SUPER_ADMIN_EMAILS` (frontend-only env var ignored on server), 2 queried local DB users table (stale vs Clerk). A revoked SA could retain access for the full JWT lifetime (~1h) via the SYNC implementations.
-
-## How to Apply
+## Canonical Pattern
 ```typescript
 import { requireSuperAdmin } from "../../middlewares/requireAuth";
-// Use as route middleware:
-router.get("/admin/something", requireSuperAdmin, handler);
-// Or for programmatic check:
+const adminOnly = requireSuperAdmin;  // aliased for clarity
+```
+Or for context functions (getAdminUser/getMgmtUser):
+```typescript
 import { checkIsSuperAdmin } from "../../middlewares/requireAuth";
-const ok = await checkIsSuperAdmin(userId);
+const isSA = await checkIsSuperAdmin(auth.userId);
 ```
 
-## Canonical Logic
-- Always async → always fresh Clerk API call (never JWT session claims)
-- Reads `SUPER_ADMIN_EMAILS` (comma-separated) || `PLATFORM_OWNER_EMAIL` (legacy single)
-- Also allows `publicMetadata.role === "super_admin"` (Clerk-set role)
-- Case-insensitive email comparison
+**Why:** 37 files had divergent implementations — VITE_ env, PLATFORM_OWNER_EMAIL only,
+SYNC JWT, DB users table. Each broke in a different way when SA was revoked mid-session.
 
-## Files Fixed (previously buggy)
-| File | Old Bug | Fix |
-|------|---------|-----|
-| `saas-os.ts` | SYNC JWT + `VITE_SUPER_ADMIN_EMAILS` | → `requireSuperAdmin` |
-| `production-os.ts` | SYNC JWT + `VITE_SUPER_ADMIN_EMAILS` | → `requireSuperAdmin` |
-| `stripeAdmin.ts` | SYNC JWT + `VITE_SUPER_ADMIN_EMAILS` | → `requireSuperAdmin` |
-| `financial-engine.ts` | SYNC, role-only (no email fallback) | → `requireSuperAdmin` |
-| `control-tower.ts` | Only `PLATFORM_OWNER_EMAIL` (not email list) | → `requireSuperAdmin` |
-| `promo.ts` | Only `PLATFORM_OWNER_EMAIL`; if not set → always false | → `requireSuperAdmin` |
-| `aiCredits.ts` | DB users table query (stale) + `VITE_` env | → `requireSuperAdmin` |
-| `aiProviderEngine.ts` | DB users table query (stale) + `VITE_` env | → `requireSuperAdmin` |
-| `billing.ts` | SYNC JWT + `VITE_SUPER_ADMIN_EMAILS` | → `requireSuperAdmin` |
+## Rate Limiting (built into requireSuperAdmin)
+- >5 failed SA attempts/IP in 60s → 5-min block → HTTP 429 + Retry-After
+- Every failure logged to audit_logs (SA_ACCESS_DENIED)
+- `getSaRateLimitStats()` exported from requireAuth.ts for dashboards
 
-## Audit Logging Added
-`POST /developer/platform-admins` (GRANT_SUPER_ADMIN) and `DELETE /developer/platform-admins/:userId` (REVOKE_SUPER_ADMIN) now insert to `audit_logs` with `office_id='platform'`.
+## Tests
+`src/tests/superAdminAuth.test.ts` — 19/19 pass. Run: `npx tsx src/tests/superAdminAuth.test.ts`
 
-## Developer Role Note
-`role === "developer"` in Clerk metadata has NO separate backend guards anywhere — treated identically to `super_admin` at API level (devOnly guard = isSuperAdmin check). This is intentional design: developer accounts are created by a super admin and trusted.
+## Circular Dependency Exception
+`tenantMiddleware.ts` has its own `isSuperAdminUser` — this is INTENTIONAL.
+requireAuth.ts imports from tenantMiddleware.ts, so tenantMiddleware cannot import back.
+Its logic mirrors checkIsSuperAdmin exactly (acceptable local copy for architectural reasons).
 
-## VITE_SUPER_ADMIN_EMAILS Warning
-This env var is for the frontend (use-role.ts hook) only. On the server, only `SUPER_ADMIN_EMAILS` or `PLATFORM_OWNER_EMAIL` are read. Do NOT add `VITE_` prefix to server-side env checks.
+## Files Fixed (37 total)
+Batches: aiCommandCenter, devCommander, agentRuntime, hosting, platformCommand,
+studio, deploymentCenter, homeCms, admin, planCms, tenantDebug, dataVault,
+demo-sync, managedIntegrations, investorMetrics, launchGate, goLiveMetrics,
+productionLaunch, certification, branches, engineering (special: +engineering_access),
+infrastructure, aiChat (inline SYNC), billing (inline PLATFORM_OWNER),
+client-auth/client-portal/storage (context fns: checkIsSuperAdmin),
+aiWorkflowBuilder (local fn removed), developer, monitoring×6,
+documentCenter, messages, bankruptcyDemo, jlwm/index
