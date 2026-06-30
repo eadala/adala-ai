@@ -272,16 +272,22 @@ app.use("/api", runtimeShield);
 app.use("/api", IsolationMiddleware);
 app.use("/api", router);
 app.use(preventionErrorHandler);
-app.use(globalErrorHandler);
 
 /* ── Production: serve Vite frontend static files ─────────────────────── */
 if (process.env.NODE_ENV === "production") {
   const publicDir = process.env.PUBLIC_DIR ?? "./public";
-  app.use(express.static(publicDir, { maxAge: "1d", etag: true }));
-  app.get(/^(?!\/api).*/, (_req, res) => {
+
+  app.use(express.static(publicDir, {
+    maxAge: "1d",
+    etag: true,
+  }));
+
+  app.get(/^\/(?!api|assets|favicon\.svg|logo\.svg|robots\.txt|sw\.js|opengraph\.jpg).*/, (_req, res) => {
     res.sendFile("index.html", { root: publicDir });
   });
 }
+
+app.use(globalErrorHandler);
 
 /* ── Swagger API docs (/api/docs) ─────────────────────────────────────── */
 registerSwaggerDocs(app);
