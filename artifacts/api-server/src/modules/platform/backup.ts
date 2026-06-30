@@ -7,7 +7,7 @@ import {
   contractsTable, documentsTable, usersTable,
 } from "@workspace/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
-import { encryptBuffer, decryptBuffer, isEncryptionEnabled } from "../../core/backupEncrypt";
+import { encryptBuffer, decryptBuffer, safeDecryptBuffer, isEncryptionEnabled } from "../../core/backupEncrypt";
 import {
   uploadBackup, downloadBackup, listBackups,
   tenantSnapshotKey, latestTenantSnapshotPrefix, fullBackupKey,
@@ -718,7 +718,7 @@ router.post("/backup/restore/tenant/:tenantId", requireAuthWithTenant, async (re
     /* Priority 1: restore from Object Storage snapshot */
     if (storageKey) {
       const encryptedBuffer = await downloadBackup(storageKey);
-      const decrypted       = isEncryptionEnabled() ? decryptBuffer(encryptedBuffer) : encryptedBuffer;
+      const decrypted       = safeDecryptBuffer(encryptedBuffer);
       snapshotData          = JSON.parse(decrypted.toString("utf8"));
     }
     /* Priority 2: restore from backup_jobs table */
@@ -746,7 +746,7 @@ router.post("/backup/restore/tenant/:tenantId", requireAuthWithTenant, async (re
       if (!files.length) return res.status(404).json({ error: "لا توجد نسخة احتياطية للاستعادة" });
       files.sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1));
       const encryptedBuffer = await downloadBackup(files[0].key);
-      const decrypted       = isEncryptionEnabled() ? decryptBuffer(encryptedBuffer) : encryptedBuffer;
+      const decrypted       = safeDecryptBuffer(encryptedBuffer);
       snapshotData          = JSON.parse(decrypted.toString("utf8"));
     }
 
@@ -842,7 +842,7 @@ router.post("/backup/restore/self", requireAuthWithTenant, async (req, res) => {
       if (!files.length) return res.status(404).json({ error: "لا توجد نسخة احتياطية محفوظة في Object Storage" });
       files.sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1));
       const encryptedBuffer = await downloadBackup(files[0].key);
-      const decrypted       = isEncryptionEnabled() ? decryptBuffer(encryptedBuffer) : encryptedBuffer;
+      const decrypted       = safeDecryptBuffer(encryptedBuffer);
       snapshotData          = JSON.parse(decrypted.toString("utf8"));
     }
 
