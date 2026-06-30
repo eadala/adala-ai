@@ -9,6 +9,17 @@ import { getDbPlans } from "../platform/planCms";
 
 const router = Router();
 
+/* ── Super-admin gate — checks Clerk JWT session claims (no extra DB call) ── */
+function requireSuperAdmin(req: any, res: any, next: any) {
+  const meta = req.auth?.sessionClaims?.publicMetadata as any;
+  if (meta?.role === "super_admin") return next();
+  const saEmails = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "")
+    .split(",").map((e: string) => e.trim().toLowerCase()).filter(Boolean);
+  const sessionEmail: string = (req.auth?.sessionClaims?.email as string ?? "").toLowerCase();
+  if (saEmails.length && saEmails.includes(sessionEmail)) return next();
+  return res.status(403).json({ error: "يتطلب صلاحية المشرف العام" });
+}
+
 type StripeClient = Awaited<ReturnType<typeof getUncachableStripeClient>>;
 
 /* ── 7 Subscription Plans (matches DB plans) ──────── */
@@ -408,7 +419,7 @@ router.get("/billing/stripe-invoices", requireAuth, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    REVENUE ANALYTICS (Admin)
 ══════════════════════════════════════════════════════ */
-router.get("/billing/revenue", requireAuth, async (req, res) => {
+router.get("/billing/revenue", requireAuth, requireSuperAdmin, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -903,7 +914,7 @@ router.get("/billing/calc-fee", (req, res) => {
    REVENUE REPORT — تقرير الإيرادات التفصيلي
    GET /api/billing/revenue-report
 ══════════════════════════════════════════════════════ */
-router.get("/billing/revenue-report", requireAuth, async (req, res) => {
+router.get("/billing/revenue-report", requireAuth, requireSuperAdmin, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
