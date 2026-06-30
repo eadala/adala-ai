@@ -886,7 +886,7 @@ export default function WebsiteBuilderPage() {
                     <span className="text-sm text-gray-600 group-hover:text-gray-900">إدارة النطاق والـ Domain</span>
                     <ExternalLink className="h-3.5 w-3.5 text-gray-300 mr-auto" />
                   </a>
-                  <a href="/branding" className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group">
+                  <a href="/office-management" className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group">
                     <Palette className="h-4 w-4 text-purple-400" />
                     <span className="text-sm text-gray-600 group-hover:text-gray-900">رفع الشعار والـ Favicon</span>
                     <ExternalLink className="h-3.5 w-3.5 text-gray-300 mr-auto" />

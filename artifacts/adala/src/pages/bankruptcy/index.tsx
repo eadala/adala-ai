@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Landmark, LayoutDashboard, Users, FileText, Building2,
@@ -112,8 +113,16 @@ const SECTIONS: { id: string; label: string; icon: any; divider?: boolean }[] = 
    MAIN PAGE
 ══════════════════════════════════════════════════════════ */
 export default function BankruptcyPage() {
-  const [section, setSection] = useState("dashboard");
+  const params = useParams<{ section?: string }>();
+  const urlSection = params?.section;
+  const validSections = ["dashboard","cases","creditors","assets","reports","claims","meetings","distributions","ai","workflow","tasks","templates","alerts","court_package","executive","assistant","opening_requests"];
+  const initialSection = urlSection && validSections.includes(urlSection) ? urlSection : "dashboard";
+  const [section, setSection] = useState(initialSection);
   const [selectedCase, setSelectedCase] = useState<BkCase | null>(null);
+
+  useEffect(() => {
+    if (urlSection && validSections.includes(urlSection)) setSection(urlSection);
+  }, [urlSection]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const { data: notifData } = useQuery({

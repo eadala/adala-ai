@@ -207,7 +207,7 @@ export default function JLWMDashboard() {
               <CardTitle className="text-base flex items-center gap-2">
                 <Lightbulb className="h-4 w-4 text-yellow-500" /> التوصيات الذكية
               </CardTitle>
-              <Link href="/jlwm/recommendations">
+              <Link href="/jlwm/predictions">
                 <Button variant="ghost" size="sm" className="text-xs h-7">
                   عرض الكل <ChevronRight className="h-3 w-3 ms-1" />
                 </Button>
@@ -238,7 +238,7 @@ export default function JLWMDashboard() {
               <CardTitle className="text-base flex items-center gap-2">
                 <Bell className="h-4 w-4 text-red-500" /> تنبيهات الرادار
               </CardTitle>
-              <Link href="/jlwm/radar">
+              <Link href="/jlwm/command">
                 <Button variant="ghost" size="sm" className="text-xs h-7">
                   الكل <ChevronRight className="h-3 w-3 ms-1" />
                 </Button>
@@ -270,7 +270,7 @@ export default function JLWMDashboard() {
           { href: "/jlwm/world-state",    icon: Globe,    label: "حالة العالم القانوني", color: "text-blue-600",    bg: "bg-blue-50 hover:bg-blue-100" },
           { href: "/jlwm/memory-graph",   icon: Network,  label: "مخطط الذاكرة",         color: "text-purple-600",  bg: "bg-purple-50 hover:bg-purple-100" },
           { href: "/jlwm/command",        icon: Cpu,      label: "مركز القيادة AI",      color: "text-indigo-600",  bg: "bg-indigo-50 hover:bg-indigo-100" },
-          { href: "/jlwm/twins",          icon: Activity, label: "النسخ الرقمية",        color: "text-emerald-600", bg: "bg-emerald-50 hover:bg-emerald-100" },
+          { href: "/jlwm/simulation",      icon: Activity, label: "النسخ الرقمية",        color: "text-emerald-600", bg: "bg-emerald-50 hover:bg-emerald-100" },
         ].map(item => (
           <Link key={item.href} href={item.href}>
             <Card className={`cursor-pointer transition-colors ${item.bg} border-transparent hover:shadow-sm`}>

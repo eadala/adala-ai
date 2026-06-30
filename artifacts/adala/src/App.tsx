@@ -977,6 +977,7 @@ function AppRoutes() {
             <Route path="/messages"><ProtectedRoute><Messages /></ProtectedRoute></Route>
             <Route path="/reminders"><ProtectedRoute><RemindersPage /></ProtectedRoute></Route>
             <Route path="/bankruptcy"><ProtectedRoute><BankruptcyPage /></ProtectedRoute></Route>
+            <Route path="/bankruptcy/:section"><ProtectedRoute><BankruptcyPage /></ProtectedRoute></Route>
             <Route path="/email-notifications"><ProtectedRoute><EmailNotificationsPage /></ProtectedRoute></Route>
             <Route path="/whatsapp-settings"><ProtectedRoute><WhatsAppSettingsPage /></ProtectedRoute></Route>
             <Route path="/telegram-settings"><ProtectedRoute><TelegramSettingsPage /></ProtectedRoute></Route>
