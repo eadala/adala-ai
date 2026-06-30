@@ -11,8 +11,13 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { autoPostJournalEntry, ensureJournalTables } from "./journalAccounting";
 import { sql } from "drizzle-orm";
+import { auditLog, auditMeta } from "../../lib/auditLogger";
 
 const router = Router();
+
+/* ── One-time migration: add deleted_at for soft-delete on revenues & expenses ── */
+db.execute(sql`ALTER TABLE revenues ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`).catch(() => {});
+db.execute(sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`).catch(() => {});
 
 /* ── helpers ────────────────────────────────────────────── */
 function num(v: any) { return parseFloat(String(v ?? "0")) || 0; }
@@ -37,7 +42,7 @@ router.get("/accounting/revenues", requireAuthWithTenant, async (req, res) => {
   try {
     const data = await sqlExec(sql`
       SELECT * FROM revenues
-      WHERE office_id = ${tenantId}
+      WHERE office_id = ${tenantId} AND deleted_at IS NULL
       ORDER BY date DESC, created_at DESC
       LIMIT 500
     `);
@@ -110,9 +115,14 @@ router.put("/accounting/revenues/:id", requireAuthWithTenant, async (req, res) =
 router.delete("/accounting/revenues/:id", requireAuthWithTenant, requirePermission("accounting:delete"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
-    await db.execute(sql`
-      DELETE FROM revenues WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
-    `);
+    const updated = (await sqlExec(sql`
+      UPDATE revenues
+      SET deleted_at = NOW()
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId} AND deleted_at IS NULL
+      RETURNING id, title, amount
+    `))[0];
+    if (!updated) return res.status(404).json({ error: "السجل غير موجود أو محذوف مسبقاً" });
+    auditLog({ ...auditMeta(req), action: "soft_delete", resource: "revenue", resourceId: String(req.params.id), details: `${updated.title} — ${updated.amount}` }).catch(() => {});
     res.json({ ok: true });
   } catch { res.status(500).json({ error: "خطأ في حذف الإيراد" }); }
 });
@@ -126,7 +136,7 @@ router.get("/accounting/expenses", requireAuthWithTenant, async (req, res) => {
   try {
     const data = await sqlExec(sql`
       SELECT * FROM expenses
-      WHERE office_id = ${tenantId}
+      WHERE office_id = ${tenantId} AND deleted_at IS NULL
       ORDER BY date DESC, created_at DESC
       LIMIT 500
     `);
@@ -199,9 +209,14 @@ router.put("/accounting/expenses/:id", requireAuthWithTenant, async (req, res) =
 router.delete("/accounting/expenses/:id", requireAuthWithTenant, requirePermission("accounting:delete"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
-    await db.execute(sql`
-      DELETE FROM expenses WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
-    `);
+    const updated = (await sqlExec(sql`
+      UPDATE expenses
+      SET deleted_at = NOW()
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId} AND deleted_at IS NULL
+      RETURNING id, title, amount
+    `))[0];
+    if (!updated) return res.status(404).json({ error: "السجل غير موجود أو محذوف مسبقاً" });
+    auditLog({ ...auditMeta(req), action: "soft_delete", resource: "expense", resourceId: String(req.params.id), details: `${updated.title} — ${updated.amount}` }).catch(() => {});
     res.json({ ok: true });
   } catch { res.status(500).json({ error: "خطأ في حذف المصروف" }); }
 });
@@ -350,9 +365,9 @@ router.get("/accounting/reports/summary", requireAuthWithTenant, async (req, res
     const year = new Date().getFullYear();
 
     const [revRow, invRow, expRow, payRow, advRow] = await Promise.all([
-      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM revenues WHERE office_id = ${tenantId}`),
+      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM revenues WHERE office_id = ${tenantId} AND deleted_at IS NULL`),
       sqlOne(sql`SELECT COALESCE(SUM(total),0) AS total FROM client_invoices WHERE office_id = ${tenantId} AND status='paid'`),
-      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE office_id = ${tenantId}`),
+      sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE office_id = ${tenantId} AND deleted_at IS NULL`),
       sqlOne(sql`SELECT COALESCE(SUM(net_salary),0) AS total FROM payroll WHERE office_id = ${tenantId} AND status='paid'`),
       sqlOne(sql`SELECT COALESCE(SUM(amount - COALESCE(amount_repaid,0)),0) AS total FROM cash_advances WHERE office_id = ${tenantId} AND status NOT IN ('repaid','rejected')`),
     ]);
@@ -372,9 +387,9 @@ router.get("/accounting/reports/summary", requireAuthWithTenant, async (req, res
       const m    = String(idx + 1).padStart(2, "0");
       const from = `${year}-${m}-01`;
       const [mr, ir, me, mp] = await Promise.all([
-        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE office_id = ${tenantId} AND date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
+        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE office_id = ${tenantId} AND deleted_at IS NULL AND date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
         sqlOne(sql`SELECT COALESCE(SUM(total),0) AS v FROM client_invoices WHERE office_id = ${tenantId} AND status='paid' AND created_at >= ${from}::timestamp AND created_at < ${from}::timestamp + interval '1 month'`),
-        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM expenses WHERE office_id = ${tenantId} AND date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
+        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM expenses WHERE office_id = ${tenantId} AND deleted_at IS NULL AND date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
         sqlOne(sql`SELECT COALESCE(SUM(net_salary),0) AS v FROM payroll WHERE office_id = ${tenantId} AND status='paid' AND year=${year} AND month LIKE ${"%" + m + "%"}`),
       ]);
       const rev = num(mr.v) + num(ir.v);
@@ -383,8 +398,8 @@ router.get("/accounting/reports/summary", requireAuthWithTenant, async (req, res
     }));
 
     const [expCatRows, revCatRows] = await Promise.all([
-      sqlExec(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses WHERE office_id = ${tenantId} GROUP BY category ORDER BY total DESC LIMIT 8`),
-      sqlExec(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM revenues WHERE office_id = ${tenantId} GROUP BY category ORDER BY total DESC LIMIT 8`),
+      sqlExec(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM expenses WHERE office_id = ${tenantId} AND deleted_at IS NULL GROUP BY category ORDER BY total DESC LIMIT 8`),
+      sqlExec(sql`SELECT category, COALESCE(SUM(amount),0) AS total FROM revenues WHERE office_id = ${tenantId} AND deleted_at IS NULL GROUP BY category ORDER BY total DESC LIMIT 8`),
     ]);
 
     res.json({
@@ -412,9 +427,9 @@ router.get("/accounting/cashflow", requireAuthWithTenant, async (req, res) => {
       const d    = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
       const [rr, ir, er] = await Promise.all([
-        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE office_id = ${tenantId} AND date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
+        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM revenues WHERE office_id = ${tenantId} AND deleted_at IS NULL AND date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
         sqlOne(sql`SELECT COALESCE(SUM(total),0) AS v FROM client_invoices WHERE office_id = ${tenantId} AND status='paid' AND created_at >= ${from}::timestamp AND created_at < ${from}::timestamp + interval '1 month'`),
-        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM expenses WHERE office_id = ${tenantId} AND date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
+        sqlOne(sql`SELECT COALESCE(SUM(amount),0) AS v FROM expenses WHERE office_id = ${tenantId} AND deleted_at IS NULL AND date >= ${from}::date AND date < ${from}::date + interval '1 month'`),
       ]);
       const inflow  = num(rr.v) + num(ir.v);
       const outflow = num(er.v);
