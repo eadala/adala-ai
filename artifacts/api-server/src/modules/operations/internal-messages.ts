@@ -2,6 +2,7 @@ import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAut
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { eventBus } from "../../core/eventBus";
 
 const router = Router();
 
@@ -267,6 +268,28 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         INSERT INTO office_message_attachments (message_id, file_name, file_url, file_size)
         VALUES (${msg.id}::uuid, ${a.fileName}, ${a.fileUrl}, ${a.fileSize ?? 0})
       `);
+    }
+
+    /* ── Targeted SSE notification — only to the intended recipients ──
+       sendToUsers() does NOT broadcast to the whole office, only to the
+       specific users whose SSE connections are registered with their userId. */
+    const recipientIds = (recipients as any[])
+      .map((r: any) => r.userId)
+      .filter((id: any) => typeof id === "string" && id.length > 0);
+
+    if (recipientIds.length > 0) {
+      eventBus.sendToUsers(recipientIds, {
+        id:        crypto.randomUUID(),
+        type:      "NEW_MESSAGE",
+        label:     "رسالة جديدة",
+        data: {
+          messageId:  msg.id,
+          subject:    subject,
+          senderName: senderName,
+          preview:    String(body ?? "").slice(0, 100),
+        },
+        timestamp: new Date().toISOString(),
+      });
     }
 
     res.json(msg);

@@ -59,17 +59,18 @@ const CATEGORY_ICONS: Record<string, any> = {
 };
 
 const EVENT_ICONS: Record<string, { icon: any; color: string }> = {
-  CASE_CREATED:     { icon: Scale,        color: "#6366F1" },
-  CASE_UPDATED:     { icon: Scale,        color: "#94A3B8" },
-  CASE_CLOSED:      { icon: Scale,        color: "#64748B" },
-  CLIENT_ADDED:     { icon: Users,        color: "#10B981" },
-  INVOICE_CREATED:  { icon: Receipt,      color: "#F59E0B" },
-  INVOICE_PAID:     { icon: Receipt,      color: "#10B981" },
-  PAYMENT_SUCCESS:  { icon: CreditCard,   color: "#2563EB" },
-  PAYMENT_FAILED:   { icon: CreditCard,   color: "#EF4444" },
-  DOCUMENT_GENERATED:{ icon: FileText,    color: "#8B5CF6" },
-  AI_QUERY:         { icon: BrainCircuit, color: "#A855F7" },
-  SUBSCRIPTION_RENEWED:{ icon: Zap,       color: "#2563EB" },
+  CASE_CREATED:        { icon: Scale,         color: "#6366F1" },
+  CASE_UPDATED:        { icon: Scale,         color: "#94A3B8" },
+  CASE_CLOSED:         { icon: Scale,         color: "#64748B" },
+  CLIENT_ADDED:        { icon: Users,         color: "#10B981" },
+  INVOICE_CREATED:     { icon: Receipt,       color: "#F59E0B" },
+  INVOICE_PAID:        { icon: Receipt,       color: "#10B981" },
+  PAYMENT_SUCCESS:     { icon: CreditCard,    color: "#2563EB" },
+  PAYMENT_FAILED:      { icon: CreditCard,    color: "#EF4444" },
+  DOCUMENT_GENERATED:  { icon: FileText,      color: "#8B5CF6" },
+  AI_QUERY:            { icon: BrainCircuit,  color: "#A855F7" },
+  SUBSCRIPTION_RENEWED:{ icon: Zap,           color: "#2563EB" },
+  NEW_MESSAGE:         { icon: MessageSquare, color: "#06B6D4" },
 };
 
 const GOLD = "#2563EB";
@@ -90,10 +91,16 @@ export function NotificationsPanel() {
   const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [newLiveCount, setNewLiveCount] = useState(0);
-  const panelRef  = useRef<HTMLDivElement>(null);
-  const esRef     = useRef<EventSource | null>(null);
-  const [, setLocation] = useLocation();
+  const [newMsgCount, setNewMsgCount] = useState(0);
+  const panelRef   = useRef<HTMLDivElement>(null);
+  const esRef      = useRef<EventSource | null>(null);
+  const locationRef = useRef<string>("/");          // ref avoids stale closure in SSE handler
+  const [location, setLocation] = useLocation();
   const push = usePushNotifications();
+  const qc = useQueryClient();
+
+  // Keep locationRef in sync
+  useEffect(() => { locationRef.current = location; }, [location]);
 
   // ── SSE connection ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -107,6 +114,22 @@ export function NotificationsPanel() {
         try {
           const ev: LiveEvent = JSON.parse(e.data);
           if (ev.type === "__CONNECTED__") return;
+
+          /* ── Private message notification ─────────────────────────
+             Targeted only to this user — update msg badge + invalidate
+             the messages query if they're currently on that page.      */
+          if (ev.type === "NEW_MESSAGE") {
+            setNewMsgCount(n => n + 1);
+            qc.invalidateQueries({ queryKey: ["msg-counts"] });
+            if (locationRef.current.startsWith("/messages")) {
+              qc.invalidateQueries({ queryKey: ["messages"] });
+            }
+            /* Also show it in the live feed with a distinct label */
+            setLiveEvents(prev => [ev, ...prev].slice(0, 50));
+            if (!open) setNewLiveCount(n => n + 1);
+            return;
+          }
+
           setLiveEvents(prev => [ev, ...prev].slice(0, 50));
           if (!open) setNewLiveCount(n => n + 1);
         } catch {}
@@ -116,9 +139,9 @@ export function NotificationsPanel() {
     return () => esRef.current?.close();
   }, []);
 
-  // Reset new-count when panel opens on live tab
+  // Reset new-counts when panel opens on live tab
   useEffect(() => {
-    if (open && tab === "live") setNewLiveCount(0);
+    if (open && tab === "live") { setNewLiveCount(0); setNewMsgCount(0); }
   }, [open, tab]);
 
   const { data, isLoading, refetch } = useQuery<NotificationsResponse>({
@@ -130,7 +153,7 @@ export function NotificationsPanel() {
 
   const allNotifications = (data?.notifications ?? []).filter(n => !dismissed.has(n.id));
 
-  const totalBadge = allNotifications.length + newLiveCount;
+  const totalBadge = allNotifications.length + newLiveCount + newMsgCount;
 
   // Close on outside click
   useEffect(() => {

@@ -26,7 +26,9 @@ router.get("/events/stream", requireAuth, (req: Request, res: Response) => {
     try { res.write(": keepalive\n\n"); } catch { clearInterval(keepalive); }
   }, 25_000);
 
-  eventBus.addSSEClient(res);
+  /* Register with userId for targeted delivery (e.g. private message notifications) */
+  const userId = (req as any).auth?.userId as string | undefined;
+  eventBus.addSSEClient(res, userId);
 
   res.on("close", () => {
     clearInterval(keepalive);

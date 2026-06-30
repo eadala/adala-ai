@@ -6,7 +6,7 @@ import { sql } from "drizzle-orm";
 const router = Router();
 
 /* ── GET /notifications ───────────────────────────────────────────────────── */
-router.get("/notifications", requireAuth, async (_req, res) => {
+router.get("/notifications", requireAuth, async (req, res) => {
   const now = new Date();
   const in7Days  = new Date(now); in7Days.setDate(now.getDate() + 7);
   const in30Days = new Date(now); in30Days.setDate(now.getDate() + 30);

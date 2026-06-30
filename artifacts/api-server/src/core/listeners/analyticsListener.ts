@@ -31,6 +31,7 @@ const EVENT_LABELS: Record<EventType, string> = {
   BK_DISTRIBUTION_EXECUTED:  "إفلاس — توزيع منفّذ",
   BK_CLAIM_APPROVED:         "إفلاس — مطالبة معتمدة",
   BK_ALERT_TRIGGERED:        "إفلاس — تنبيه حرج",
+  NEW_MESSAGE:               "رسالة داخلية جديدة",
 };
 
 async function ensureEventCountsTable() {

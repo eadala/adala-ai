@@ -28,6 +28,8 @@ export type EventType =
   | "DOCUMENT_GENERATED"
   | "SESSION_REMINDER"
   | "TASK_DUE"
+  /* ── Internal Messaging ── */
+  | "NEW_MESSAGE"
   /* ── Bankruptcy Module ── */
   | "BK_CASE_CREATED"
   | "BK_CASE_CLOSED"
@@ -79,6 +81,8 @@ class EventBus {
   private listeners: Map<string, EventHandler[]> = new Map();
   private wildcardListeners: EventHandler[] = [];
   private sseClients: Set<Response> = new Set();
+  /* userId → set of their active SSE connections (for targeted delivery) */
+  private userClients: Map<string, Set<Response>> = new Map();
 
   /* Register listener for specific event */
   on(event: EventType | "*", handler: EventHandler): void {
@@ -132,10 +136,38 @@ class EventBus {
     return stored;
   }
 
-  /* SSE client management */
-  addSSEClient(res: Response): void {
+  /* ── SSE client management ──────────────────────────── */
+
+  /** Register a client connection. Pass userId to enable targeted delivery. */
+  addSSEClient(res: Response, userId?: string): void {
     this.sseClients.add(res);
-    res.on("close", () => this.sseClients.delete(res));
+    if (userId) {
+      if (!this.userClients.has(userId)) this.userClients.set(userId, new Set());
+      this.userClients.get(userId)!.add(res);
+    }
+    res.on("close", () => {
+      this.sseClients.delete(res);
+      if (userId) {
+        this.userClients.get(userId)?.delete(res);
+        if (this.userClients.get(userId)?.size === 0) this.userClients.delete(userId);
+      }
+    });
+  }
+
+  /**
+   * Send an SSE event ONLY to the specified user IDs.
+   * Does NOT persist to DB and does NOT broadcast to other clients.
+   * Use for private events like new messages.
+   */
+  sendToUsers(userIds: string[], event: Record<string, any>): void {
+    const data = `data: ${JSON.stringify(event)}\n\n`;
+    for (const uid of userIds) {
+      const conns = this.userClients.get(uid);
+      if (!conns) continue;
+      for (const client of conns) {
+        try { client.write(data); } catch { conns.delete(client); }
+      }
+    }
   }
 
   private broadcastSSE(event: StoredEvent): void {
