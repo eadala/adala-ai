@@ -164,7 +164,7 @@ export default function JLWMEnterpriseReport() {
     );
   }
 
-  const gradeColor = score?.score >= 90 ? "#10B981" : score?.score >= 80 ? "#6366F1" : score?.score >= 70 ? "#F59E0B" : "#EF4444";
+  const gradeColor = (score?.score ?? 0) >= 90 ? "#10B981" : (score?.score ?? 0) >= 80 ? "#6366F1" : (score?.score ?? 0) >= 70 ? "#F59E0B" : "#EF4444";
 
   return (
     <div className="space-y-6 p-4 md:p-6" dir="rtl">
@@ -563,10 +563,10 @@ export default function JLWMEnterpriseReport() {
                 ))}
               </div>
 
-              {report.sections.reliability.lastComputed && (
+              {(report.sections.reliability as any).lastComputed && (
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  آخر حساب: {new Date(report.sections.reliability.lastComputed).toLocaleString("ar-SA")}
+                  آخر حساب: {new Date((report.sections.reliability as any).lastComputed).toLocaleString("ar-SA")}
                 </div>
               )}
             </>

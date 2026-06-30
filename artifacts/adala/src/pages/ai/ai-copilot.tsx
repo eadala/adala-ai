@@ -53,8 +53,11 @@ const QUICK_COMMANDS = [
   { label: "أضف تذكير",       icon: Clock,      prompt: "أضف تذكير لمراجعة عقد الشراكة بعد أسبوع" },
 ];
 
+function esc(s: string): string {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
 function renderMarkdown(text: string): string {
-  return text
+  return esc(text)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\n/g, "<br/>");
 }

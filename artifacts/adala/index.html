@@ -22,12 +22,17 @@
       (function(){
         /* ── Catch ALL JS errors before React loads ── */
         window.__adalaErrors = [];
+        function escHtml(s) {
+          return String(s)
+            .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+            .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+        }
         window.addEventListener("error", function(e) {
           window.__adalaErrors.push(e.message || String(e));
           var el = document.getElementById("adala-init-error");
           if (el) {
             el.style.display = "block";
-            el.innerHTML = "<b style='color:#ff6b6b'>[JS Error]</b><br>" +
+            el.textContent = "[JS Error]\n" +
               (e.error ? (e.error.message + "\n" + e.error.stack) : e.message);
           }
         });
@@ -36,7 +41,7 @@
           var el = document.getElementById("adala-init-error");
           if (el) {
             el.style.display = "block";
-            el.innerHTML = "<b style='color:#ff6b6b'>[Promise Error]</b><br>" +
+            el.textContent = "[Promise Error]\n" +
               (e.reason && e.reason.stack ? e.reason.stack : String(e.reason));
           }
         });

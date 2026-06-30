@@ -49,9 +49,12 @@ function fmtUptime(secs: number) {
   return d > 0 ? `${d}ي ${h}س` : h > 0 ? `${h}س ${m}د` : `${m}د`;
 }
 
+function escAI(s: string): string {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
 function renderAIText(text: string) {
   return text.split("\n").map((line, i) => {
-    const bold = line.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    const bold = escAI(line).replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
     if (line.startsWith("### ")) return <h3 key={i} className="text-sm font-bold mt-3 mb-1 text-violet-300">{line.slice(4)}</h3>;
     if (line.startsWith("## "))  return <h2 key={i} className="text-base font-black mt-4 mb-1">{line.slice(3)}</h2>;
     if (line.startsWith("# "))   return <h1 key={i} className="text-lg font-black mt-4 mb-1">{line.slice(2)}</h1>;

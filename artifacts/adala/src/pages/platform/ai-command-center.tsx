@@ -65,8 +65,11 @@ const SEV_STYLE: Record<string, { label: string; cls: string }> = {
   low:      { label: "منخفضة 🟢", cls: "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" },
 };
 
+function escFmt(s: string): string {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
 function fmt(text: string): string {
-  return text
+  return escFmt(text)
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/`([^`]+)`/g, '<code class="bg-muted/80 px-1 rounded text-xs font-mono">$1</code>')
     .replace(/\n/g, "<br/>");

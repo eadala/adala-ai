@@ -52,6 +52,9 @@ const CAPABILITY_CARDS = [
 ];
 
 function formatResponse(text: string) {
+  function escLine(s: string): string {
+    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
   const lines = text.split("\n");
   return lines.map((line, i) => {
     if (line.startsWith("**") && line.endsWith("**")) {
@@ -67,7 +70,7 @@ function formatResponse(text: string) {
       );
     }
     if (line.startsWith("• ") || line.startsWith("- ")) {
-      const content = line.slice(2).replace(/\*\*(.+?)\*\*/g, (_, m) => `<b>${m}</b>`);
+      const content = escLine(line.slice(2)).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
       return (
         <p key={i} className="flex gap-2 mb-0.5">
           <span className="text-primary flex-shrink-0">•</span>
@@ -75,7 +78,7 @@ function formatResponse(text: string) {
         </p>
       );
     }
-    const boldParsed = line.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    const boldParsed = escLine(line).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
     return <p key={i} className="mb-1" dangerouslySetInnerHTML={{ __html: boldParsed }} />;
   });
 }
