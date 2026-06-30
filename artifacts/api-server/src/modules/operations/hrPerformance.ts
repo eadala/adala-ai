@@ -169,13 +169,14 @@ router.patch("/hr-perf/settings", requireAuthWithTenant, async (req, res) => {
 /* ══════════════════════════════════════════════
    ROUTES — PERFORMANCE EVALUATIONS
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/evaluations", requireAuthWithTenant, async (_req, res) => {
+router.get("/hr-perf/evaluations", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const rows = await sqlAll(sql`
       SELECT pe.*, e.full_name as employee_name, e.job_title, e.department, e.salary
       FROM performance_evaluations pe
-      LEFT JOIN employees e ON pe.employee_id = e.id::text
+      INNER JOIN employees e ON pe.employee_id = e.id::text AND e.office_id = ${tid}
       ORDER BY pe.created_at DESC
     `);
     res.json(rows);
@@ -184,11 +185,15 @@ router.get("/hr-perf/evaluations", requireAuthWithTenant, async (_req, res) => {
 
 router.get("/hr-perf/evaluations/:employeeId", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
+    /* verify employee belongs to office before returning evaluations */
+    const emp = await sqlOne(sql`SELECT id FROM employees WHERE id::text = ${String(req.params.employeeId)} AND office_id = ${tid} LIMIT 1`);
+    if (!emp) return res.status(404).json({ error: "الموظف غير موجود" });
     const rows = await sqlAll(sql`
       SELECT pe.*, e.full_name as employee_name, e.salary
       FROM performance_evaluations pe
-      LEFT JOIN employees e ON pe.employee_id = e.id::text
+      INNER JOIN employees e ON pe.employee_id = e.id::text AND e.office_id = ${tid}
       WHERE pe.employee_id = ${String(req.params.employeeId)}
       ORDER BY pe.created_at DESC
     `);
@@ -199,15 +204,19 @@ router.get("/hr-perf/evaluations/:employeeId", requireAuthWithTenant, async (req
 router.post("/hr-perf/evaluate", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
+    const tid = (req as any).tenantId as string;
     const ev = req.body as any;
+    /* verify employee belongs to office */
+    const emp = await sqlOne(sql`SELECT id FROM employees WHERE id::text = ${String(ev.employeeId)} AND office_id = ${tid} LIMIT 1`);
+    if (!emp) return res.status(404).json({ error: "الموظف غير موجود" });
     const score = calcScore(ev);
     const row = await sqlOne(sql`
       INSERT INTO performance_evaluations
-        (employee_id, period, cases_closed, cases_delayed, tasks_completed, errors,
+        (office_id, employee_id, period, cases_closed, cases_delayed, tasks_completed, errors,
          on_time_days, late_days, absent_days, clients_handled, data_errors,
          ops_handled, incidents_resolved, system_errors, role, performance_score, notes, evaluator_id)
       VALUES
-        (${ev.employeeId}, ${ev.period ?? ""},
+        (${tid}, ${ev.employeeId}, ${ev.period ?? ""},
          ${ev.casesClosed ?? 0}, ${ev.casesDelayed ?? 0}, ${ev.tasksCompleted ?? 0}, ${ev.errors ?? 0},
          ${ev.onTimeDays ?? 0}, ${ev.lateDays ?? 0}, ${ev.absentDays ?? 0},
          ${ev.clientsHandled ?? 0}, ${ev.dataErrors ?? 0},
@@ -221,21 +230,27 @@ router.post("/hr-perf/evaluate", requireAuthWithTenant, async (req, res) => {
 
 router.delete("/hr-perf/evaluations/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tenantId = (req as any).tenantId as string;
-  await db.execute(sql`DELETE FROM performance_evaluations WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tenantId}`);
+  const tid = (req as any).tenantId as string;
+  /* performance_evaluations has no office_id — verify ownership via employee join */
+  await db.execute(sql`
+    DELETE FROM performance_evaluations
+    WHERE id = ${parseInt(String(req.params.id))}
+      AND employee_id IN (SELECT id::text FROM employees WHERE office_id = ${tid})
+  `);
   res.status(204).end();
 });
 
 /* ══════════════════════════════════════════════
    ROUTES — INCENTIVES
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/incentives", requireAuthWithTenant, async (_req, res) => {
+router.get("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const rows = await sqlAll(sql`
       SELECT ei.*, e.full_name as employee_name, e.job_title
       FROM employee_incentives ei
-      LEFT JOIN employees e ON ei.employee_id = e.id::text
+      INNER JOIN employees e ON ei.employee_id = e.id::text AND e.office_id = ${tid}
       ORDER BY ei.created_at DESC
     `);
     res.json(rows);
@@ -244,12 +259,16 @@ router.get("/hr-perf/incentives", requireAuthWithTenant, async (_req, res) => {
 
 router.post("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const { employeeId, type, amount, reason, period } = req.body as any;
     if (!employeeId || !amount) return res.status(400).json({ error: "معرف الموظف والمبلغ مطلوبان" });
+    /* verify employee belongs to office */
+    const emp = await sqlOne(sql`SELECT id FROM employees WHERE id::text = ${String(employeeId)} AND office_id = ${tid} LIMIT 1`);
+    if (!emp) return res.status(404).json({ error: "الموظف غير موجود" });
     const row = await sqlOne(sql`
-      INSERT INTO employee_incentives (employee_id, type, amount, reason, period)
-      VALUES (${employeeId}, ${type ?? 'bonus'}, ${parseFloat(amount)}, ${reason ?? ''}, ${period ?? null})
+      INSERT INTO employee_incentives (office_id, employee_id, type, amount, reason, period)
+      VALUES (${tid}, ${employeeId}, ${type ?? 'bonus'}, ${parseFloat(amount)}, ${reason ?? ''}, ${period ?? null})
       RETURNING *
     `);
     res.status(201).json(row);
@@ -258,8 +277,13 @@ router.post("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
 
 router.delete("/hr-perf/incentives/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tenantId = (req as any).tenantId as string;
-  await db.execute(sql`DELETE FROM employee_incentives WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tenantId}`);
+  const tid = (req as any).tenantId as string;
+  /* employee_incentives has no office_id — verify via employee join */
+  await db.execute(sql`
+    DELETE FROM employee_incentives
+    WHERE id = ${parseInt(String(req.params.id))}
+      AND employee_id IN (SELECT id::text FROM employees WHERE office_id = ${tid})
+  `);
   res.status(204).end();
 });
 
@@ -337,16 +361,21 @@ router.get("/hr-perf/dashboard", requireAuthWithTenant, async (req, res) => {
       empCount, evalCount, avgScore, topPerformers, needAttention,
       bonusTotal, deductTotal, recentEvals,
     ] = await Promise.all([
-      /* SECURITY: scope to authenticated tenant */
       sqlOne(sql`SELECT COUNT(*)::int as count FROM employees WHERE status = 'active' AND office_id = ${tenantId}`),
-      sqlOne(sql`SELECT COUNT(*)::int as count FROM performance_evaluations`),
-      sqlOne(sql`SELECT AVG(performance_score)::numeric(5,2) as avg FROM performance_evaluations`),
+      sqlOne(sql`
+        SELECT COUNT(*)::int as count FROM performance_evaluations pe
+        INNER JOIN employees e ON pe.employee_id = e.id::text AND e.office_id = ${tenantId}
+      `),
+      sqlOne(sql`
+        SELECT AVG(pe.performance_score)::numeric(5,2) as avg FROM performance_evaluations pe
+        INNER JOIN employees e ON pe.employee_id = e.id::text AND e.office_id = ${tenantId}
+      `),
       sqlAll(sql`
         SELECT DISTINCT ON (pe.employee_id)
           pe.employee_id, pe.performance_score, pe.period,
           e.full_name, e.job_title, e.department
         FROM performance_evaluations pe
-        LEFT JOIN employees e ON pe.employee_id = e.id::text
+        INNER JOIN employees e ON pe.employee_id = e.id::text AND e.office_id = ${tenantId}
         ORDER BY pe.employee_id, pe.created_at DESC
         LIMIT 20
       `).then(r => r.sort((a: any, b: any) => b.performance_score - a.performance_score).slice(0, 5)),
@@ -355,15 +384,23 @@ router.get("/hr-perf/dashboard", requireAuthWithTenant, async (req, res) => {
           pe.employee_id, pe.performance_score, pe.period,
           e.full_name, e.job_title
         FROM performance_evaluations pe
-        LEFT JOIN employees e ON pe.employee_id = e.id::text
+        INNER JOIN employees e ON pe.employee_id = e.id::text AND e.office_id = ${tenantId}
         ORDER BY pe.employee_id, pe.created_at DESC
       `).then(r => r.filter((x: any) => x.performance_score < 70).slice(0, 5)),
-      sqlOne(sql`SELECT COALESCE(SUM(amount),0)::numeric as total FROM employee_incentives WHERE type = 'bonus'`),
-      sqlOne(sql`SELECT COALESCE(SUM(amount),0)::numeric as total FROM employee_incentives WHERE type = 'deduction'`),
+      sqlOne(sql`
+        SELECT COALESCE(SUM(ei.amount),0)::numeric as total FROM employee_incentives ei
+        INNER JOIN employees e ON ei.employee_id = e.id::text AND e.office_id = ${tenantId}
+        WHERE ei.type = 'bonus'
+      `),
+      sqlOne(sql`
+        SELECT COALESCE(SUM(ei.amount),0)::numeric as total FROM employee_incentives ei
+        INNER JOIN employees e ON ei.employee_id = e.id::text AND e.office_id = ${tenantId}
+        WHERE ei.type = 'deduction'
+      `),
       sqlAll(sql`
         SELECT pe.*, e.full_name as employee_name
         FROM performance_evaluations pe
-        LEFT JOIN employees e ON pe.employee_id = e.id::text
+        INNER JOIN employees e ON pe.employee_id = e.id::text AND e.office_id = ${tenantId}
         ORDER BY pe.created_at DESC LIMIT 5
       `),
     ]);

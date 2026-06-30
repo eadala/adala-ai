@@ -170,7 +170,7 @@ router.post("/hr/attendance/check-in", requireAuthWithTenant, async (req, res) =
     let locationVerified = false;
     let distanceMeters: number | null = null;
     if (latitude != null && longitude != null) {
-      const office = one(await db.execute(sql`SELECT * FROM office_location WHERE is_active = true LIMIT 1`));
+      const office = one(await db.execute(sql`SELECT * FROM office_location WHERE office_id = ${tid} AND is_active = true LIMIT 1`));
       if (office?.latitude && office?.longitude) {
         distanceMeters = haversineDistance(num(latitude), num(longitude), num(office.latitude), num(office.longitude));
         locationVerified = distanceMeters <= (num(office.allowed_radius_meters) || 300);
@@ -207,7 +207,7 @@ router.post("/hr/attendance/check-out", requireAuthWithTenant, async (req, res) 
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr/attendance", requireAuthWithTenant, async (req, res) => {
+router.post("/hr/attendance", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const { employeeId, workDate, status, checkIn, checkOut, notes } = req.body;
@@ -225,18 +225,25 @@ router.post("/hr/attendance", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr/office-location", requireAuthWithTenant, async (_req, res) => {
-  const data = one(await db.execute(sql`SELECT * FROM office_location WHERE is_active = true LIMIT 1`));
+router.get("/hr/office-location", requireAuthWithTenant, async (req, res) => {
+  const tid = (req as any).tenantId as string;
+  const data = one(await db.execute(sql`SELECT * FROM office_location WHERE office_id = ${tid} AND is_active = true LIMIT 1`));
   res.json(data ?? null);
 });
 
-router.post("/hr/office-location", requireAuthWithTenant, async (req, res) => {
+router.post("/hr/office-location", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
+  const tid = (req as any).tenantId as string;
   try {
     const { latitude, longitude, allowedRadiusMeters, name } = req.body;
     const row = one(await db.execute(sql`
-      INSERT INTO office_location (name, latitude, longitude, allowed_radius_meters, is_active)
-      VALUES (${name ?? "المكتب"}, ${latitude}, ${longitude}, ${allowedRadiusMeters ?? 300}, true)
-      ON CONFLICT DO NOTHING
+      INSERT INTO office_location (office_id, name, latitude, longitude, allowed_radius_meters, is_active)
+      VALUES (${tid}, ${name ?? "المكتب"}, ${latitude}, ${longitude}, ${allowedRadiusMeters ?? 300}, true)
+      ON CONFLICT (office_id) DO UPDATE
+        SET name = EXCLUDED.name,
+            latitude = EXCLUDED.latitude,
+            longitude = EXCLUDED.longitude,
+            allowed_radius_meters = EXCLUDED.allowed_radius_meters,
+            is_active = true
       RETURNING *
     `));
     res.json(row);
@@ -284,6 +291,27 @@ router.post("/hr/leaves", requireAuthWithTenant, async (req, res) => {
     const emp = one(await db.execute(sql`SELECT id FROM employees WHERE id = ${employeeId}::uuid AND office_id = ${tid}`));
     if (!emp) return res.status(404).json({ error: "الموظف غير موجود" });
     const days = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1;
+    if (days <= 0) return res.status(400).json({ error: "تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية" });
+
+    /* رصيد الإجازات — السنوي 21 يوم افتراضياً */
+    if (!type || type === "annual") {
+      const balance = one(await db.execute(sql`
+        SELECT COALESCE(SUM(days),0)::int AS used
+        FROM leaves
+        WHERE employee_id = ${employeeId}::uuid
+          AND type = 'annual'
+          AND status = 'approved'
+          AND EXTRACT(YEAR FROM start_date) = EXTRACT(YEAR FROM CURRENT_DATE)
+      `));
+      const allowance = 21;
+      const used = Number(balance?.used ?? 0);
+      if (used + days > allowance) {
+        return res.status(400).json({
+          error: `رصيد الإجازات غير كافٍ — المتبقي: ${allowance - used} يوم، المطلوب: ${days} يوم`
+        });
+      }
+    }
+
     const row = one(await db.execute(sql`
       INSERT INTO leaves (employee_id, type, start_date, end_date, days, reason, status)
       VALUES (${employeeId}::uuid, ${type ?? "annual"}, ${startDate}::date, ${endDate}::date,
@@ -370,9 +398,19 @@ router.post("/hr/payroll/generate", requireAuthWithTenant, requirePermission("pa
 router.patch("/hr/payroll/:id/pay", requireAuthWithTenant, requirePermission("payroll:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
+    /* verify record exists and belongs to office */
+    const existing = one(await db.execute(sql`
+      SELECT p.id, p.status FROM payroll p
+      INNER JOIN employees e ON e.id = p.employee_id AND e.office_id = ${tid}
+      WHERE p.id = ${String(req.params.id)}::uuid
+    `));
+    if (!existing) return res.status(404).json({ error: "سجل الراتب غير موجود" });
+    if (existing.status === "paid") return res.status(400).json({ error: "تم صرف هذا الراتب مسبقاً" });
+
     const row = one(await db.execute(sql`
       UPDATE payroll SET status = 'paid', paid_at = NOW(), updated_at = NOW()
       WHERE id = ${String(req.params.id)}::uuid
+        AND status = 'draft'
         AND employee_id IN (SELECT id FROM employees WHERE office_id = ${tid})
       RETURNING *
     `));

@@ -61,34 +61,40 @@ async function sqlOne(q: any): Promise<any> {
 /* ══════════════════════════════════════════════
    ANNOUNCEMENTS
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/announcements", requireAuthWithTenant, async (_req, res) => {
+router.get("/hr-internal/announcements", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const rows = await sqlAll(sql`
       SELECT * FROM hr_announcements
-      WHERE expires_at IS NULL OR expires_at >= CURRENT_DATE
+      WHERE office_id = ${tid}
+        AND (expires_at IS NULL OR expires_at >= CURRENT_DATE)
       ORDER BY created_at DESC
     `);
     res.json(rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr-internal/announcements/all", requireAuthWithTenant, async (_req, res) => {
+router.get("/hr-internal/announcements/all", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
-    const rows = await sqlAll(sql`SELECT * FROM hr_announcements ORDER BY created_at DESC`);
+    const rows = await sqlAll(sql`
+      SELECT * FROM hr_announcements WHERE office_id = ${tid} ORDER BY created_at DESC
+    `);
     res.json(rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.post("/hr-internal/announcements", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const { title, content, priority, targetDept, authorName, authorId, expiresAt } = req.body as any;
     if (!title || !content) return res.status(400).json({ error: "العنوان والمحتوى مطلوبان" });
     const row = await sqlOne(sql`
-      INSERT INTO hr_announcements (title, content, priority, target_dept, author_name, author_id, expires_at)
-      VALUES (${title}, ${content}, ${priority ?? 'normal'}, ${targetDept ?? null}, ${authorName ?? null}, ${authorId ?? null}, ${expiresAt ?? null})
+      INSERT INTO hr_announcements (office_id, title, content, priority, target_dept, author_name, author_id, expires_at)
+      VALUES (${tid}, ${title}, ${content}, ${priority ?? 'normal'}, ${targetDept ?? null}, ${authorName ?? null}, ${authorId ?? null}, ${expiresAt ?? null})
       RETURNING *
     `);
     res.status(201).json(row);
@@ -105,13 +111,15 @@ router.delete("/hr-internal/announcements/:id", requireAuthWithTenant, async (re
 /* ══════════════════════════════════════════════
    EMPLOYEE REQUESTS
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/requests", requireAuthWithTenant, async (_req, res) => {
+router.get("/hr-internal/requests", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const rows = await sqlAll(sql`
       SELECT er.*, e.full_name as employee_name, e.job_title, e.department
       FROM employee_requests er
-      LEFT JOIN employees e ON er.employee_id = e.id::text
+      INNER JOIN employees e ON er.employee_id = e.id::text AND e.office_id = ${tid}
+      WHERE er.office_id = ${tid}
       ORDER BY er.created_at DESC
     `);
     res.json(rows);
@@ -120,12 +128,15 @@ router.get("/hr-internal/requests", requireAuthWithTenant, async (_req, res) => 
 
 router.post("/hr-internal/requests", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const { employeeId, type, subject, body } = req.body as any;
     if (!employeeId || !subject) return res.status(400).json({ error: "الموظف والموضوع مطلوبان" });
+    const emp = await sqlOne(sql`SELECT id FROM employees WHERE id::text = ${employeeId} AND office_id = ${tid} LIMIT 1`);
+    if (!emp) return res.status(404).json({ error: "الموظف غير موجود" });
     const row = await sqlOne(sql`
-      INSERT INTO employee_requests (employee_id, type, subject, body)
-      VALUES (${employeeId}, ${type ?? 'document'}, ${subject}, ${body ?? null})
+      INSERT INTO employee_requests (office_id, employee_id, type, subject, body)
+      VALUES (${tid}, ${employeeId}, ${type ?? 'document'}, ${subject}, ${body ?? null})
       RETURNING *
     `);
     res.status(201).json(row);
@@ -234,14 +245,15 @@ router.patch("/hr-internal/leave-balances/:employeeId", requireAuthWithTenant, a
 });
 
 /* ══════════════════════════════════════════════
-   PAYSLIP DATA
+   PAYSLIP DATA — مُقيَّد بـ office_id + payroll:view
 ══════════════════════════════════════════════ */
 router.get("/hr-internal/payslip/:payrollId", requireAuthWithTenant, async (req, res) => {
+  const tid = (req as any).tenantId as string;
   try {
     const row = await sqlOne(sql`
       SELECT p.*, e.full_name, e.job_title, e.department, e.national_id, e.bank_iban, e.bank_name, e.hire_date
       FROM payroll p
-      LEFT JOIN employees e ON p.employee_id = e.id::text
+      INNER JOIN employees e ON p.employee_id = e.id::text AND e.office_id = ${tid}
       WHERE p.id = ${parseInt(String(req.params.payrollId))}
     `);
     if (!row) return res.status(404).json({ error: "لم يُوجد كشف راتب" });
@@ -258,10 +270,13 @@ router.get("/hr-internal/dashboard", requireAuthWithTenant, async (req, res) => 
   try {
     const year = new Date().getFullYear();
     const [ann, pendingReqs, pendingLeaves, totalEmp] = await Promise.all([
-      sqlOne(sql`SELECT COUNT(*)::int as count FROM hr_announcements WHERE expires_at IS NULL OR expires_at >= CURRENT_DATE`),
-      sqlOne(sql`SELECT COUNT(*)::int as count FROM employee_requests WHERE status = 'pending'`),
-      sqlOne(sql`SELECT COUNT(*)::int as count FROM leaves WHERE status = 'pending'`),
-      /* SECURITY: scope to authenticated tenant */
+      sqlOne(sql`SELECT COUNT(*)::int as count FROM hr_announcements WHERE office_id = ${tenantId} AND (expires_at IS NULL OR expires_at >= CURRENT_DATE)`),
+      sqlOne(sql`SELECT COUNT(*)::int as count FROM employee_requests WHERE office_id = ${tenantId} AND status = 'pending'`),
+      sqlOne(sql`
+        SELECT COUNT(*)::int as count FROM leaves l
+        INNER JOIN employees e ON l.employee_id = e.id AND e.office_id = ${tenantId}
+        WHERE l.status = 'pending'
+      `),
       sqlOne(sql`SELECT COUNT(*)::int as count FROM employees WHERE status = 'active' AND office_id = ${tenantId}`),
     ]);
     res.json({
