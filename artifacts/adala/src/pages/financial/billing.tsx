@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckoutInvoiceModal } from "@/features/billing/CheckoutInvoiceModal";
 import { CheckoutSuccessOverlay } from "@/features/billing/CheckoutSuccessOverlay";
-import { CustomInvoiceDialog } from "@/features/billing/CustomInvoiceDialog";
+import { CustomInvoice as CustomInvoiceDialog } from "@/features/billing/CustomInvoiceDialog";
 import {
   CreditCard, Zap, Shield, Check, Star, Building2, Activity,
   Loader2, ExternalLink, AlertCircle, Download, FileText,

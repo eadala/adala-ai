@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { DEV_API } from "../shared/api";
 
 const FULL_PERMISSIONS = [
@@ -229,8 +230,8 @@ export function PlatformOwnersTab({ toast }: { toast: any }) {
       </Card>
 
       {/* Add dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-md" dir="rtl">
+      <AdaptiveDialog open={addOpen} onOpenChange={setAddOpen}>
+        <AdaptiveDialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Crown className="w-5 h-5 text-yellow-500" />
@@ -265,12 +266,12 @@ export function PlatformOwnersTab({ toast }: { toast: any }) {
               <span className="me-1.5">ترقية إلى مالك</span>
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* Confirm remove dialog */}
-      <Dialog open={!!confirmId} onOpenChange={() => setConfirmId(null)}>
-        <DialogContent className="max-w-sm" dir="rtl">
+      <AdaptiveDialog open={!!confirmId} onOpenChange={() => setConfirmId(null)}>
+        <AdaptiveDialogContent className="max-w-sm" dir="rtl">
           <DialogHeader>
             <DialogTitle className="text-red-600 flex items-center gap-2">
               <Trash2 className="w-5 h-5" />
@@ -290,8 +291,8 @@ export function PlatformOwnersTab({ toast }: { toast: any }) {
               {removeMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "نعم، إزالة"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

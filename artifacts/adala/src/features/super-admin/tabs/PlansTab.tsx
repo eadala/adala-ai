@@ -33,7 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -154,7 +155,7 @@ function PlanCard({ plan: p, onEdit, onDelete, onToggleVisibility }: any) {
 ═══════════════════════════════════════════════════ */
 export function PlansTab({ qc, toast }: any) {
   const { data: plans = [], isLoading } = useAdmin<any[]>("/plans");
-  const [dialog, setDialog] = useState<any>(null);
+  const [dialog, set] = useState<any>(null);
   const [form, setForm] = useState<any>({ ...EMPTY_PLAN_FORM });
   const [dlgTab, setDlgTab] = useState("info");
 
@@ -162,7 +163,7 @@ export function PlansTab({ qc, toast }: any) {
     mutationFn: (d: any) => dialog?.id
       ? API(`/plans/${dialog.id}`, { method: "PATCH", body: JSON.stringify(d) })
       : API("/plans", { method: "POST", body: JSON.stringify(d) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "/plans"] }); setDialog(null); toast({ title: "تم الحفظ ✓" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "/plans"] }); set(null); toast({ title: "تم الحفظ ✓" }); },
   });
 
   const deletePlan = useMutation({
@@ -178,13 +179,13 @@ export function PlansTab({ qc, toast }: any) {
   const openNew = () => {
     setForm({ ...EMPTY_PLAN_FORM, displayOrder: plans.length });
     setDlgTab("info");
-    setDialog({});
+    set({});
   };
   const openEdit = (p: any) => {
     setForm({ ...EMPTY_PLAN_FORM, ...p, features: (p.features ?? []).join("\n"), featureFlags: p.featureFlags ?? {},
       monthlyPrice: p.monthlyPrice ?? p.price ?? 0, yearlyPrice: p.yearlyPrice ?? 0 });
     setDlgTab("info");
-    setDialog(p);
+    set(p);
   };
   const setFlag = (key: string, v: boolean) =>
     setForm((f: any) => ({ ...f, featureFlags: { ...f.featureFlags, [key]: v } }));
@@ -251,9 +252,9 @@ export function PlansTab({ qc, toast }: any) {
         </div>
       )}
 
-      {/* Create / Edit Dialog */}
-      <Dialog open={!!dialog} onOpenChange={() => setDialog(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* Create / Edit */}
+      <AdaptiveDialog open={!!dialog} onOpenChange={() => set(null)}>
+        <AdaptiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <Package className="h-4 w-4 text-primary" />
@@ -384,14 +385,14 @@ export function PlansTab({ qc, toast }: any) {
           </Tabs>
 
           <DialogFooter className="pt-3">
-            <Button variant="outline" size="sm" onClick={() => setDialog(null)}>إلغاء</Button>
+            <Button variant="outline" size="sm" onClick={() => set(null)}>إلغاء</Button>
             <Button size="sm" disabled={!form.name || save.isPending} onClick={submit} className="gap-2 bg-primary hover:bg-primary/90">
               {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               حفظ الباقة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

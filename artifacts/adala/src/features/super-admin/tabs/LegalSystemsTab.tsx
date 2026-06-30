@@ -33,7 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -52,14 +53,14 @@ import {
 
 export function LegalSystemsTab({ qc, toast }: any) {
   const { data: items = [], isLoading } = useAdmin<any[]>("/legal-systems");
-  const [dialog, setDialog] = useState<any>(null);
+  const [dialog, set] = useState<any>(null);
   const [form, setForm] = useState({ title: "", titleEn: "", category: "نظام", content: "", source: "", effectiveDate: "", version: "", isActive: true });
 
   const save = useMutation({
     mutationFn: (d: any) => dialog?.id
       ? API(`/legal-systems/${dialog.id}`, { method: "PATCH", body: JSON.stringify(d) })
       : API("/legal-systems", { method: "POST", body: JSON.stringify(d) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "/legal-systems"] }); setDialog(null); toast({ title: "تم الحفظ ✓" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "/legal-systems"] }); set(null); toast({ title: "تم الحفظ ✓" }); },
   });
 
   const del = useMutation({
@@ -71,7 +72,7 @@ export function LegalSystemsTab({ qc, toast }: any) {
 
   return (
     <div className="space-y-3">
-      <Button size="sm" className="gap-1.5" onClick={() => { setForm({ title: "", titleEn: "", category: "نظام", content: "", source: "", effectiveDate: "", version: "", isActive: true }); setDialog({}); }}>
+      <Button size="sm" className="gap-1.5" onClick={() => { setForm({ title: "", titleEn: "", category: "نظام", content: "", source: "", effectiveDate: "", version: "", isActive: true }); set({}); }}>
         <Plus className="h-4 w-4" /> إضافة نظام/حكم
       </Button>
       {isLoading ? <Loader2 className="animate-spin mx-auto h-6 w-6" /> : (
@@ -97,7 +98,7 @@ export function LegalSystemsTab({ qc, toast }: any) {
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setForm({ ...item }); setDialog(item); }}><Edit2 className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setForm({ ...item }); set(item); }}><Edit2 className="h-3.5 w-3.5" /></Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => del.mutate(item.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
                 </div>
@@ -108,8 +109,8 @@ export function LegalSystemsTab({ qc, toast }: any) {
         </div>
       )}
 
-      <Dialog open={!!dialog} onOpenChange={() => setDialog(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <AdaptiveDialog open={!!dialog} onOpenChange={() => set(null)}>
+        <AdaptiveDialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{dialog?.id ? "تعديل" : "إضافة نظام / حكم"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -132,13 +133,13 @@ export function LegalSystemsTab({ qc, toast }: any) {
             <div className="flex items-center gap-2"><Switch checked={form.isActive} onCheckedChange={v => setForm(f => ({ ...f, isActive: v }))} /><Label className="text-xs">نشط وظاهر للمستخدمين</Label></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => set(null)}>إلغاء</Button>
             <Button disabled={!form.title || save.isPending} onClick={() => save.mutate(form)} className="gap-2">
               {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}<Save className="h-4 w-4" /> حفظ
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

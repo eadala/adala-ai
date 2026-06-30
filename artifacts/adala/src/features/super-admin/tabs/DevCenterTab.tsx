@@ -33,7 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -401,9 +402,9 @@ export function DevCenterTab({ toast }: any) {
             )}
           </div>
 
-          {/* Create Token Dialog */}
-          <Dialog open={showCreate} onOpenChange={setShowCreate}>
-            <DialogContent className="max-w-md">
+          {/* Create Token */}
+          <AdaptiveDialog open={showCreate} onOpenChange={setShowCreate}>
+            <AdaptiveDialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Fingerprint className="h-5 w-5 text-primary" /> إنشاء توكن مطور
@@ -477,8 +478,8 @@ export function DevCenterTab({ toast }: any) {
                   </DialogFooter>
                 </div>
               )}
-            </DialogContent>
-          </Dialog>
+            </AdaptiveDialogContent>
+          </AdaptiveDialog>
         </TabsContent>
 
         {/* ── ENVIRONMENT ── */}

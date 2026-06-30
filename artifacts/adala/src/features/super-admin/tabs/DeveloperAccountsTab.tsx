@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { DEV_API } from "../shared/api";
@@ -280,8 +281,8 @@ export function DeveloperAccountsTab({ toast }: { toast: any }) {
       </Card>
 
       {/* Add / Edit dialog */}
-      <Dialog open={!!dialogMode} onOpenChange={() => setDialogMode(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+      <AdaptiveDialog open={!!dialogMode} onOpenChange={() => setDialogMode(null)}>
+        <AdaptiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Code2 className="w-5 h-5 text-blue-600" />
@@ -389,12 +390,12 @@ export function DeveloperAccountsTab({ toast }: { toast: any }) {
               <span className="me-1.5">{dialogMode === "add" ? "إنشاء الحساب" : "حفظ التغييرات"}</span>
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* Confirm delete */}
-      <Dialog open={!!confirmDel} onOpenChange={() => setConfirmDel(null)}>
-        <DialogContent className="max-w-sm" dir="rtl">
+      <AdaptiveDialog open={!!confirmDel} onOpenChange={() => setConfirmDel(null)}>
+        <AdaptiveDialogContent className="max-w-sm" dir="rtl">
           <DialogHeader>
             <DialogTitle className="text-red-600 flex items-center gap-2">
               <Trash2 className="w-5 h-5" />
@@ -412,8 +413,8 @@ export function DeveloperAccountsTab({ toast }: { toast: any }) {
               {deleteMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "حذف نهائي"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

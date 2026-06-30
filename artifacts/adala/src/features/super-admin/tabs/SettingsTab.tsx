@@ -33,7 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -115,8 +116,8 @@ export function SettingsTab({ qc, toast }: any) {
         </div>
       )}
 
-      <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent className="max-w-sm">
+      <AdaptiveDialog open={showNew} onOpenChange={setShowNew}>
+        <AdaptiveDialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>إعداد جديد</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label className="text-xs font-semibold mb-1 block">المفتاح (key) *</Label><Input value={newForm.key} onChange={e => setNewForm(f => ({ ...f, key: e.target.value }))} dir="ltr" placeholder="site_name" className="font-mono text-xs" /></div>
@@ -136,8 +137,8 @@ export function SettingsTab({ qc, toast }: any) {
               {addNew.isPending && <Loader2 className="h-4 w-4 animate-spin" />} إضافة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

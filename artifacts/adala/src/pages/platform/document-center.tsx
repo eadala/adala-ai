@@ -9,9 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+import { DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
@@ -116,11 +116,10 @@ function UploadDialog({ onSuccess }: { onSuccess: () => void }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2"><Upload className="h-4 w-4" />رفع ملف</Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-md">
+    <>
+      <Button className="gap-2" onClick={() => setOpen(true)}><Upload className="h-4 w-4" />رفع ملف</Button>
+      <AdaptiveDialog open={open} onOpenChange={setOpen}>
+      <AdaptiveDialogContent className="max-w-md">
         <DialogHeader><DialogTitle>رفع مستند جديد</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div
@@ -158,8 +157,9 @@ function UploadDialog({ onSuccess }: { onSuccess: () => void }) {
             {uploading ? <><Loader2 className="h-4 w-4 animate-spin ml-2" />جاري الرفع...</> : <><CloudUpload className="h-4 w-4 ml-2" />رفع إلى Object Storage</>}
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+      </AdaptiveDialog>
+    </>
   );
 }
 

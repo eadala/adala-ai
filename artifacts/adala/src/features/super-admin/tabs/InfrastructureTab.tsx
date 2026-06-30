@@ -18,9 +18,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Loader2, Database, HardDrive, Shield, Server,
@@ -220,9 +220,9 @@ function OfficesMatrix({ toast }: { toast: any }) {
         })}
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editOffice} onOpenChange={() => setEditOffice(null)}>
-        <DialogContent className="sm:max-w-[440px]" dir="rtl">
+      {/* Edit */}
+      <AdaptiveDialog open={!!editOffice} onOpenChange={() => setEditOffice(null)}>
+        <AdaptiveDialogContent className="sm:max-w-[440px]" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
@@ -271,8 +271,8 @@ function OfficesMatrix({ toast }: { toast: any }) {
             </Button>
             <Button variant="outline" onClick={() => setEditOffice(null)}>إلغاء</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </>
   );
 }

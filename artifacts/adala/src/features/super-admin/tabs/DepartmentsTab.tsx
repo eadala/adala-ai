@@ -33,7 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -53,14 +54,14 @@ import {
 export function DepartmentsTab({ qc, toast }: any) {
   const { data: depts = [], isLoading } = useAdmin<any[]>("/departments");
   const { data: titles = [] } = useAdmin<any[]>("/job-titles");
-  const [deptDialog, setDeptDialog] = useState(false);
-  const [titleDialog, setTitleDialog] = useState(false);
+  const [dept, setDept] = useState(false);
+  const [title, setTitle] = useState(false);
   const [deptForm, setDeptForm] = useState({ name: "", nameEn: "", description: "", color: "#2563EB" });
   const [titleForm, setTitleForm] = useState({ name: "", nameEn: "", departmentId: "", level: "staff" });
 
   const addDept = useMutation({
     mutationFn: (d: any) => API("/departments", { method: "POST", body: JSON.stringify(d) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "/departments"] }); setDeptDialog(false); toast({ title: "تمت الإضافة ✓" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "/departments"] }); setDept(false); toast({ title: "تمت الإضافة ✓" }); },
   });
   const delDept = useMutation({
     mutationFn: (id: string) => API(`/departments/${id}`, { method: "DELETE" }),
@@ -68,7 +69,7 @@ export function DepartmentsTab({ qc, toast }: any) {
   });
   const addTitle = useMutation({
     mutationFn: (d: any) => API("/job-titles", { method: "POST", body: JSON.stringify(d) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "/job-titles"] }); setTitleDialog(false); toast({ title: "تمت الإضافة ✓" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin", "/job-titles"] }); setTitle(false); toast({ title: "تمت الإضافة ✓" }); },
   });
   const delTitle = useMutation({
     mutationFn: (id: string) => API(`/job-titles/${id}`, { method: "DELETE" }),
@@ -81,7 +82,7 @@ export function DepartmentsTab({ qc, toast }: any) {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-sm">الأقسام</h3>
-          <Button size="sm" className="gap-1" onClick={() => { setDeptForm({ name: "", nameEn: "", description: "", color: "#2563EB" }); setDeptDialog(true); }}><Plus className="h-3.5 w-3.5" /> قسم جديد</Button>
+          <Button size="sm" className="gap-1" onClick={() => { setDeptForm({ name: "", nameEn: "", description: "", color: "#2563EB" }); setDept(true); }}><Plus className="h-3.5 w-3.5" /> قسم جديد</Button>
         </div>
         {isLoading ? <Loader2 className="animate-spin mx-auto h-5 w-5" /> : depts.map(d => (
           <div key={d.id} className="flex items-center gap-2 p-3 rounded-xl border border-border/50 hover:bg-muted/20">
@@ -99,7 +100,7 @@ export function DepartmentsTab({ qc, toast }: any) {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-sm">المسميات الوظيفية</h3>
-          <Button size="sm" className="gap-1" onClick={() => { setTitleForm({ name: "", nameEn: "", departmentId: "", level: "staff" }); setTitleDialog(true); }}><Plus className="h-3.5 w-3.5" /> مسمى جديد</Button>
+          <Button size="sm" className="gap-1" onClick={() => { setTitleForm({ name: "", nameEn: "", departmentId: "", level: "staff" }); setTitle(true); }}><Plus className="h-3.5 w-3.5" /> مسمى جديد</Button>
         </div>
         {(titles as any[]).map((t: any) => (
           <div key={t.id} className="flex items-center gap-2 p-3 rounded-xl border border-border/50 hover:bg-muted/20">
@@ -114,9 +115,9 @@ export function DepartmentsTab({ qc, toast }: any) {
         ))}
       </div>
 
-      {/* Dept Dialog */}
-      <Dialog open={deptDialog} onOpenChange={setDeptDialog}>
-        <DialogContent className="max-w-sm">
+      {/* Dept */}
+      <AdaptiveDialog open={dept} onOpenChange={setDept}>
+        <AdaptiveDialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>قسم جديد</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -127,17 +128,17 @@ export function DepartmentsTab({ qc, toast }: any) {
             <div><Label className="text-xs font-semibold mb-1 block">اللون</Label><input type="color" value={deptForm.color} onChange={e => setDeptForm(f => ({ ...f, color: e.target.value }))} className="h-9 w-full rounded-md border border-input cursor-pointer" /></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeptDialog(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setDept(false)}>إلغاء</Button>
             <Button disabled={!deptForm.name || addDept.isPending} onClick={() => addDept.mutate(deptForm)} className="gap-2">
               {addDept.isPending && <Loader2 className="h-4 w-4 animate-spin" />} إضافة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
-      {/* Title Dialog */}
-      <Dialog open={titleDialog} onOpenChange={setTitleDialog}>
-        <DialogContent className="max-w-sm">
+      {/* Title */}
+      <AdaptiveDialog open={title} onOpenChange={setTitle}>
+        <AdaptiveDialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>مسمى وظيفي جديد</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -164,13 +165,13 @@ export function DepartmentsTab({ qc, toast }: any) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTitleDialog(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setTitle(false)}>إلغاء</Button>
             <Button disabled={!titleForm.name || addTitle.isPending} onClick={() => addTitle.mutate(titleForm)} className="gap-2">
               {addTitle.isPending && <Loader2 className="h-4 w-4 animate-spin" />} إضافة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

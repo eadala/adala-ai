@@ -402,6 +402,8 @@ function LegalLinkTab() {
 
 /* ── Tab 3: الذمم المدينة (AR Aging) ── */
 function ARAgingTab() {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery<any>({
     queryKey: ["ar-aging"],
     queryFn: () => fetch(`${BASE}/api/accounting/reports/ar-aging`).then(r => r.json()),
@@ -420,8 +422,6 @@ function ARAgingTab() {
     { key: "days90",    label: "61–90 يوم متأخرة",    color: "#EF4444", stats: summary.days61_90 },
     { key: "over90",    label: "+90 يوم متأخرة",      color: "#7F1D1D", stats: summary.over90 },
   ] as const;
-
-  const [expanded, setExpanded] = useState<string | null>(null);
 
   const totalAR = num(summary.grandTotal);
 

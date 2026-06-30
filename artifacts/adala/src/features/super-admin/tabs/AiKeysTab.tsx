@@ -33,7 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -119,8 +120,8 @@ export function AiKeysTab({ qc, toast }: any) {
         </div>
       )}
 
-      <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-sm">
+      <AdaptiveDialog open={showForm} onOpenChange={setShowForm}>
+        <AdaptiveDialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>إضافة مفتاح AI</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label className="text-xs font-semibold mb-1 block">المزود</Label>
@@ -147,8 +148,8 @@ export function AiKeysTab({ qc, toast }: any) {
               {add.isPending && <Loader2 className="h-4 w-4 animate-spin" />} حفظ
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

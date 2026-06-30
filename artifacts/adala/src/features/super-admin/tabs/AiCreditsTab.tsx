@@ -33,7 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -52,17 +53,17 @@ import {
 
 export function AiCreditsTab({ qc, toast }: any) {
   const { data: offices = [], isLoading, refetch } = useAdmin<any[]>("/admin/ai-credits");
-  const [topupDialog, setTopupDialog] = useState<any>(null);
-  const [settingsDialog, setSettingsDialog] = useState<any>(null);
-  const [txDialog, setTxDialog] = useState<any>(null);
+  const [topup, setTopup] = useState<any>(null);
+  const [settings, setSettings] = useState<any>(null);
+  const [tx, setTx] = useState<any>(null);
   const [topupForm, setTopupForm] = useState({ amount: "", description: "شحن يدوي" });
   const [settingsForm, setSettingsForm] = useState({ monthlyAllowance: 100, autoRenew: true, renewDay: 1 });
   const [addOfficeOpen, setAddOfficeOpen] = useState(false);
   const [newOffice, setNewOffice] = useState({ officeId: "", officeName: "", monthlyAllowance: 100 });
   const { data: txRows = [] } = useQuery<any[]>({
-    queryKey: ["admin", `/admin/ai-credits/${txDialog?.office_id}/transactions`],
-    queryFn: () => API(`/admin/ai-credits/${txDialog?.office_id}/transactions`).then(r => r.json()).catch(() => []),
-    enabled: !!txDialog,
+    queryKey: ["admin", `/admin/ai-credits/${tx?.office_id}/transactions`],
+    queryFn: () => API(`/admin/ai-credits/${tx?.office_id}/transactions`).then(r => r.json()).catch(() => []),
+    enabled: !!tx,
   });
 
   const topupMut = useMutation({
@@ -71,7 +72,7 @@ export function AiCreditsTab({ qc, toast }: any) {
       if (d.error) { toast({ title: "خطأ", description: d.error, variant: "destructive" }); return; }
       toast({ title: `تم الشحن ✓ — الرصيد: ${d.balance} نقطة` });
       qc.invalidateQueries({ queryKey: ["admin", "/admin/ai-credits"] });
-      setTopupDialog(null);
+      setTopup(null);
     }),
   });
 
@@ -80,7 +81,7 @@ export function AiCreditsTab({ qc, toast }: any) {
     onSuccess: () => {
       toast({ title: "تم حفظ الإعدادات ✓" });
       qc.invalidateQueries({ queryKey: ["admin", "/admin/ai-credits"] });
-      setSettingsDialog(null);
+      setSettings(null);
     },
   });
 
@@ -103,11 +104,11 @@ export function AiCreditsTab({ qc, toast }: any) {
   });
 
   function openTopup(o: any) {
-    setTopupDialog(o);
+    setTopup(o);
     setTopupForm({ amount: "", description: "شحن يدوي" });
   }
   function openSettings(o: any) {
-    setSettingsDialog(o);
+    setSettings(o);
     setSettingsForm({ monthlyAllowance: o.monthly_allowance ?? 100, autoRenew: o.auto_renew ?? true, renewDay: o.renew_day ?? 1 });
   }
 
@@ -233,7 +234,7 @@ export function AiCreditsTab({ qc, toast }: any) {
                         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => openSettings(o)}>
                           <Settings className="h-3 w-3" /> إعدادات
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground" onClick={() => setTxDialog(o)}>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground" onClick={() => setTx(o)}>
                           <Activity className="h-3 w-3" /> سجل
                         </Button>
                         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-blue-400 hover:text-blue-300" onClick={() => renewMut.mutate(o.office_id)} disabled={renewMut.isPending}>
@@ -249,9 +250,9 @@ export function AiCreditsTab({ qc, toast }: any) {
         </Card>
       )}
 
-      {/* Topup Dialog */}
-      <Dialog open={!!topupDialog} onOpenChange={v => !v && setTopupDialog(null)}>
-        <DialogContent className="bg-card border-border max-w-sm" dir="rtl">
+      {/* Topup */}
+      <AdaptiveDialog open={!!topup} onOpenChange={v => !v && setTopup(null)}>
+        <AdaptiveDialogContent className="bg-card border-border max-w-sm" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-amber-400" /> شحن رصيد AI
@@ -260,10 +261,10 @@ export function AiCreditsTab({ qc, toast }: any) {
           <div className="space-y-3 py-2">
             <div className="bg-muted/30 rounded-xl p-3 text-sm">
               <span className="text-muted-foreground">المكتب: </span>
-              <span className="font-semibold">{topupDialog?.office_name}</span>
+              <span className="font-semibold">{topup?.office_name}</span>
               <span className="mx-2 text-muted-foreground">|</span>
               <span className="text-muted-foreground">الرصيد الحالي: </span>
-              <span className="font-bold text-amber-400">{topupDialog?.balance} نقطة</span>
+              <span className="font-bold text-amber-400">{topup?.balance} نقطة</span>
             </div>
             <div>
               <Label>عدد النقاط المُضافة</Label>
@@ -283,27 +284,27 @@ export function AiCreditsTab({ qc, toast }: any) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTopupDialog(null)}>إلغاء</Button>
-            <Button onClick={() => topupMut.mutate({ officeId: topupDialog?.office_id, amount: parseInt(topupForm.amount), description: topupForm.description })}
+            <Button variant="outline" onClick={() => setTopup(null)}>إلغاء</Button>
+            <Button onClick={() => topupMut.mutate({ officeId: topup?.office_id, amount: parseInt(topupForm.amount), description: topupForm.description })}
               disabled={!topupForm.amount || isNaN(parseInt(topupForm.amount)) || topupMut.isPending}
               className="bg-amber-500 hover:bg-amber-600 text-black font-bold gap-1.5">
               {topupMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               شحن {topupForm.amount ? `(+${topupForm.amount} نقطة)` : ""}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
-      {/* Settings Dialog */}
-      <Dialog open={!!settingsDialog} onOpenChange={v => !v && setSettingsDialog(null)}>
-        <DialogContent className="bg-card border-border max-w-sm" dir="rtl">
+      {/* Settings */}
+      <AdaptiveDialog open={!!settings} onOpenChange={v => !v && setSettings(null)}>
+        <AdaptiveDialogContent className="bg-card border-border max-w-sm" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" /> إعدادات رصيد AI
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm font-semibold text-muted-foreground">{settingsDialog?.office_name}</p>
+            <p className="text-sm font-semibold text-muted-foreground">{settings?.office_name}</p>
             <div>
               <Label>المنحة الشهرية (نقاط)</Label>
               <Input type="number" min="0" value={settingsForm.monthlyAllowance}
@@ -328,23 +329,23 @@ export function AiCreditsTab({ qc, toast }: any) {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSettingsDialog(null)}>إلغاء</Button>
-            <Button onClick={() => settingsMut.mutate({ officeId: settingsDialog?.office_id, ...settingsForm })}
+            <Button variant="outline" onClick={() => setSettings(null)}>إلغاء</Button>
+            <Button onClick={() => settingsMut.mutate({ officeId: settings?.office_id, ...settingsForm })}
               disabled={settingsMut.isPending}
               className="bg-primary hover:bg-[#1D4ED8] text-black font-bold">
               {settingsMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               حفظ
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
-      {/* Transactions Dialog */}
-      <Dialog open={!!txDialog} onOpenChange={v => !v && setTxDialog(null)}>
-        <DialogContent className="bg-card border-border max-w-xl" dir="rtl">
+      {/* Transactions */}
+      <AdaptiveDialog open={!!tx} onOpenChange={v => !v && setTx(null)}>
+        <AdaptiveDialogContent className="bg-card border-border max-w-xl" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" /> سجل المعاملات — {txDialog?.office_name}
+              <Activity className="h-5 w-5" /> سجل المعاملات — {tx?.office_name}
             </DialogTitle>
           </DialogHeader>
           <div className="max-h-[400px] overflow-y-auto">
@@ -385,14 +386,14 @@ export function AiCreditsTab({ qc, toast }: any) {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTxDialog(null)}>إغلاق</Button>
+            <Button variant="outline" onClick={() => setTx(null)}>إغلاق</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
-      {/* Add Office Dialog */}
-      <Dialog open={addOfficeOpen} onOpenChange={setAddOfficeOpen}>
-        <DialogContent className="bg-card border-border max-w-sm" dir="rtl">
+      {/* Add Office */}
+      <AdaptiveDialog open={addOfficeOpen} onOpenChange={setAddOfficeOpen}>
+        <AdaptiveDialogContent className="bg-card border-border max-w-sm" dir="rtl">
           <DialogHeader>
             <DialogTitle>إضافة مكتب جديد</DialogTitle>
           </DialogHeader>
@@ -418,8 +419,8 @@ export function AiCreditsTab({ qc, toast }: any) {
               إضافة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

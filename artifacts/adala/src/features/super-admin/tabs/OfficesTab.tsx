@@ -33,7 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -56,8 +57,8 @@ export function OfficesTab({ qc, toast }: any) {
   const { data: offices = [], isLoading } = useAdmin<any[]>("/offices");
   const { data: plans = [] } = useAdmin<any[]>("/plans");
   const [search, setSearch] = useState("");
-  const [planDialog, setPlanDialog] = useState<any>(null);
-  const [slugDialog, setSlugDialog] = useState<any>(null);
+  const [plan, setPlan] = useState<any>(null);
+  const [slug, setSlug] = useState<any>(null);
   const [slugInput, setSlugInput] = useState("");
   const [enteringId, setEnteringId] = useState<string | null>(null);
 
@@ -82,8 +83,8 @@ export function OfficesTab({ qc, toast }: any) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "/offices"] });
       toast({ title: "تم التحديث ✓" });
-      setPlanDialog(null);
-      setSlugDialog(null);
+      setPlan(null);
+      setSlug(null);
     },
   });
 
@@ -124,7 +125,7 @@ export function OfficesTab({ qc, toast }: any) {
                     </TableCell>
                     <TableCell>
                       <button
-                        onClick={() => setPlanDialog({ id: o.id, plan: planSlug })}
+                        onClick={() => setPlan({ id: o.id, plan: planSlug })}
                         className="group flex items-center gap-1.5 hover:opacity-80 transition-opacity">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: planColor }} />
                         <span className="text-xs font-medium">{planLabel}</span>
@@ -158,7 +159,7 @@ export function OfficesTab({ qc, toast }: any) {
                         </Button>
                         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-violet-400 hover:text-violet-300"
                           title="تعديل رابط المكتب"
-                          onClick={() => { setSlugDialog({ id: o.id, name: o.name, slug: o.slug }); setSlugInput(o.slug ?? ""); }}>
+                          onClick={() => { setSlug({ id: o.id, name: o.name, slug: o.slug }); setSlugInput(o.slug ?? ""); }}>
                           <Link2 className="h-3 w-3" /> رابط
                         </Button>
                       </div>
@@ -172,14 +173,14 @@ export function OfficesTab({ qc, toast }: any) {
       )}
 
       {/* Slug management dialog — platform admin only */}
-      <Dialog open={!!slugDialog} onOpenChange={v => { if (!v) setSlugDialog(null); }}>
-        <DialogContent className="max-w-md">
+      <AdaptiveDialog open={!!slug} onOpenChange={v => { if (!v) setSlug(null); }}>
+        <AdaptiveDialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-sm font-black flex items-center gap-2">
               <Link2 className="h-4 w-4 text-violet-400" /> تعديل رابط المكتب
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              {slugDialog?.name} — الرابط الحالي: <span className="font-mono text-primary" dir="ltr">/firms/{slugDialog?.slug}</span>
+              {slug?.name} — الرابط الحالي: <span className="font-mono text-primary" dir="ltr">/firms/{slug?.slug}</span>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -200,8 +201,8 @@ export function OfficesTab({ qc, toast }: any) {
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-muted-foreground">اقتراح تلقائي من اسم المكتب</Label>
               <div className="flex flex-wrap gap-1.5">
-                {slugDialog?.name && (() => {
-                  const auto = arabicToSlug(slugDialog.name);
+                {slug?.name && (() => {
+                  const auto = arabicToSlug(slug.name);
                   const suggestions = [
                     auto,
                     auto.split('-').slice(0, 2).join('-'),
@@ -219,21 +220,21 @@ export function OfficesTab({ qc, toast }: any) {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-1">
-              <Button variant="ghost" size="sm" onClick={() => setSlugDialog(null)}>إلغاء</Button>
+              <Button variant="ghost" size="sm" onClick={() => setSlug(null)}>إلغاء</Button>
               <Button size="sm" className="gap-1.5 bg-violet-600 hover:bg-violet-700"
-                disabled={!slugInput.trim() || slugInput === slugDialog?.slug || updateOffice.isPending}
-                onClick={() => slugDialog && updateOffice.mutate({ id: slugDialog.id, slug: slugInput.trim() })}>
+                disabled={!slugInput.trim() || slugInput === slug?.slug || updateOffice.isPending}
+                onClick={() => slug && updateOffice.mutate({ id: slug.id, slug: slugInput.trim() })}>
                 {updateOffice.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 حفظ الرابط
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* Plan assignment dialog */}
-      <Dialog open={!!planDialog} onOpenChange={() => setPlanDialog(null)}>
-        <DialogContent className="max-w-sm">
+      <AdaptiveDialog open={!!plan} onOpenChange={() => setPlan(null)}>
+        <AdaptiveDialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-sm font-black flex items-center gap-2">
               <Package className="h-4 w-4 text-primary" /> تغيير باقة المكتب
@@ -252,13 +253,13 @@ export function OfficesTab({ qc, toast }: any) {
               .map(item => (
               <button key={item.slug}
                 onClick={() => {
-                  if (planDialog) {
-                    setPlanDialog((d: any) => ({ ...d, plan: item.slug }));
+                  if (plan) {
+                    setPlan((d: any) => ({ ...d, plan: item.slug }));
                   }
                 }}
                 className={cn(
                   "w-full flex items-center justify-between p-2.5 rounded-lg border text-right transition-all",
-                  planDialog?.plan === item.slug
+                  plan?.plan === item.slug
                     ? "border-primary bg-primary/10"
                     : "border-border/30 bg-muted/20 hover:bg-muted/40"
                 )}>
@@ -268,21 +269,21 @@ export function OfficesTab({ qc, toast }: any) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-muted-foreground">{item.price}</span>
-                  {planDialog?.plan === item.slug && <Check className="h-3.5 w-3.5 text-primary" />}
+                  {plan?.plan === item.slug && <Check className="h-3.5 w-3.5 text-primary" />}
                 </div>
               </button>
             ))}
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setPlanDialog(null)}>إلغاء</Button>
+            <Button variant="outline" size="sm" onClick={() => setPlan(null)}>إلغاء</Button>
             <Button size="sm" disabled={updateOffice.isPending} className="gap-1.5 bg-primary hover:bg-primary/90"
-              onClick={() => planDialog && updateOffice.mutate({ id: planDialog.id, plan: planDialog.plan })}>
+              onClick={() => plan && updateOffice.mutate({ id: plan.id, plan: plan.plan })}>
               {updateOffice.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               حفظ التغيير
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

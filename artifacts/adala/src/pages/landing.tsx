@@ -331,6 +331,13 @@ export default function Landing() {
     staleTime: 5 * 60 * 1000, retry: false,
   });
 
+  /* Live billing plans — must be before early variant returns */
+  const { data: livePlansRaw = [] } = useQuery<any[]>({
+    queryKey: ["billing-plans"],
+    queryFn: () => fetch(`${BASE}/api/billing/plans`).then(r => { if (!r.ok) throw new Error(); return r.json(); }).catch(() => []),
+    staleTime: 10 * 60 * 1000, retry: false,
+  });
+
   useEffect(() => {
     if (!cms?.seo) return;
     const { metaTitle, metaDescription, ogImage } = cms.seo as any;
@@ -366,13 +373,6 @@ export default function Landing() {
   function c(section: string, key: string, fallback: string): string {
     return (cms?.[section]?.[key] as string | undefined) || fallback;
   }
-
-  /* Live billing plans */
-  const { data: livePlansRaw = [] } = useQuery<any[]>({
-    queryKey: ["billing-plans"],
-    queryFn: () => fetch(`${BASE}/api/billing/plans`).then(r => { if (!r.ok) throw new Error(); return r.json(); }).catch(() => []),
-    staleTime: 10 * 60 * 1000, retry: false,
-  });
 
   const pricingPlans = (() => {
     if (livePlansRaw.length > 0) {

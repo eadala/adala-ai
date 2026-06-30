@@ -33,7 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -254,9 +255,9 @@ export function TrialsDashTab({ toast }: { toast: any }) {
         </CardContent>
       </Card>
 
-      {/* Extend Dialog */}
-      <Dialog open={!!extendTarget} onOpenChange={o => !o && setExtendTarget(null)}>
-        <DialogContent className="max-w-sm">
+      {/* Extend */}
+      <AdaptiveDialog open={!!extendTarget} onOpenChange={o => !o && setExtendTarget(null)}>
+        <AdaptiveDialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <PlusCircle className="h-4 w-4 text-blue-400" />
@@ -291,8 +292,8 @@ export function TrialsDashTab({ toast }: { toast: any }) {
               تمديد
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

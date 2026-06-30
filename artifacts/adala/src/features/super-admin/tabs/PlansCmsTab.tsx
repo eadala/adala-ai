@@ -17,7 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -759,9 +760,9 @@ export function PlansCmsTab({ toast }: { toast: any }) {
         )}
       </div>
 
-      {/* ══ Dialog: New Plan ══ */}
-      <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent className="max-w-md">
+      {/* ══: New Plan ══ */}
+      <AdaptiveDialog open={showNew} onOpenChange={setShowNew}>
+        <AdaptiveDialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <PlusCircle className="w-4 h-4 text-primary" />
@@ -805,12 +806,12 @@ export function PlansCmsTab({ toast }: { toast: any }) {
               إنشاء الباقة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
-      {/* ══ Dialog: Delete Plan ══ */}
-      <Dialog open={showDel} onOpenChange={setShowDel}>
-        <DialogContent className="max-w-sm">
+      {/* ══: Delete Plan ══ */}
+      <AdaptiveDialog open={showDel} onOpenChange={setShowDel}>
+        <AdaptiveDialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="w-4 h-4" />
@@ -825,8 +826,8 @@ export function PlansCmsTab({ toast }: { toast: any }) {
               حذف نهائياً
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </TooltipProvider>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,7 @@ interface InvoiceResult {
   planName: string;
 }
 
-export function CustomInvoiceDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function CustomInvoice({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { toast } = useToast();
   const [loading,  setLoading]  = useState(false);
   const [result,   setResult]   = useState<InvoiceResult | null>(null);
@@ -99,8 +99,8 @@ export function CustomInvoiceDialog({ open, onClose }: { open: boolean; onClose:
   }
 
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v) { reset(); onClose(); } }}>
-      <DialogContent className="max-w-lg p-0 overflow-hidden border-border/60"
+    <AdaptiveDialog open={open} onOpenChange={v => { if (!v) { reset(); onClose(); } }}>
+      <AdaptiveDialogContent className="max-w-lg p-0 overflow-hidden border-border/60"
         style={{ background: "linear-gradient(160deg,#0F1729 0%,#111827 100%)" }}>
 
         {/* Header */}
@@ -299,7 +299,7 @@ export function CustomInvoiceDialog({ open, onClose }: { open: boolean; onClose:
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }

@@ -33,7 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -383,8 +384,8 @@ export function PromoCodesTab({ qc, toast }: any) {
       </Card>
 
       {/* ── CREATE CODE DIALOG ── */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-w-md" dir="rtl">
+      <AdaptiveDialog open={showCreate} onOpenChange={setShowCreate}>
+        <AdaptiveDialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Tag className="h-4 w-4" /> إنشاء كود اشتراك مجاني</DialogTitle>
           </DialogHeader>
@@ -440,12 +441,12 @@ export function PromoCodesTab({ qc, toast }: any) {
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ── CREATE GIFT DIRECTLY DIALOG ── */}
-      <Dialog open={showCreateGift} onOpenChange={setShowCreateGift}>
-        <DialogContent className="max-w-md" dir="rtl">
+      <AdaptiveDialog open={showCreateGift} onOpenChange={setShowCreateGift}>
+        <AdaptiveDialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Gift className="h-4 w-4" /> منح اشتراك مجاني مباشر</DialogTitle>
             <DialogDescription>يُفعَّل الاشتراك فوراً دون حاجة لكود</DialogDescription>
@@ -478,12 +479,12 @@ export function PromoCodesTab({ qc, toast }: any) {
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ── RENEW DIALOG ── */}
-      <Dialog open={!!renewTarget} onOpenChange={open => !open && setRenewTarget(null)}>
-        <DialogContent className="max-w-sm" dir="rtl">
+      <AdaptiveDialog open={!!renewTarget} onOpenChange={open => !open && setRenewTarget(null)}>
+        <AdaptiveDialogContent className="max-w-sm" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><RefreshCw className="h-4 w-4" /> تمديد الاشتراك المجاني</DialogTitle>
           </DialogHeader>
@@ -514,8 +515,8 @@ export function PromoCodesTab({ qc, toast }: any) {
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

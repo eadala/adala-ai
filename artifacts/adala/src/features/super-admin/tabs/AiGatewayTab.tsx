@@ -24,7 +24,8 @@ import { Switch }                 from "@/components/ui/switch";
 import { Input }                  from "@/components/ui/input";
 import { Label }                  from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast }               from "@/hooks/use-toast";
 import { cn }                     from "@/lib/utils";
@@ -80,7 +81,7 @@ async function aiApi(path: string, opts?: RequestInit) {
 ══════════════════════════════════════════════════════════════════ */
 function ProvidersTab({ qc }: any) {
   const { toast } = useToast();
-  const [editDialog, setEditDialog] = useState<any>(null);
+  const [edit, setEdit] = useState<any>(null);
   const [form, setForm] = useState<any>({});
 
   const { data, isLoading, refetch } = useQuery({
@@ -92,7 +93,7 @@ function ProvidersTab({ qc }: any) {
   const updateMut = useMutation({
     mutationFn: ({ provider, body }: any) =>
       aiApi(`/ai/gateway/providers/${provider}`, { method: "PUT", body: JSON.stringify(body) }),
-    onSuccess: () => { toast({ title: "تم الحفظ" }); refetch(); setEditDialog(null); },
+    onSuccess: () => { toast({ title: "تم الحفظ" }); refetch(); setEdit(null); },
     onError:   (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
@@ -134,7 +135,7 @@ function ProvidersTab({ qc }: any) {
                       checked={!!p.enabled}
                       onCheckedChange={v => updateMut.mutate({ provider: p.provider, body: { enabled: v } })}
                     />
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditDialog(p); setForm({ priority: p.priority, cost_per_token: p.cost_per_token, monthly_limit: p.monthly_limit ?? "", notes: p.notes ?? "" }); }}>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEdit(p); setForm({ priority: p.priority, cost_per_token: p.cost_per_token, monthly_limit: p.monthly_limit ?? "", notes: p.notes ?? "" }); }}>
                       <Edit2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -180,11 +181,11 @@ function ProvidersTab({ qc }: any) {
         })}
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editDialog} onOpenChange={v => !v && setEditDialog(null)}>
-        <DialogContent>
+      {/* Edit */}
+      <AdaptiveDialog open={!!edit} onOpenChange={v => !v && setEdit(null)}>
+        <AdaptiveDialogContent>
           <DialogHeader>
-            <DialogTitle>تعديل مزود: {editDialog?.label_ar}</DialogTitle>
+            <DialogTitle>تعديل مزود: {edit?.label_ar}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
@@ -207,13 +208,13 @@ function ProvidersTab({ qc }: any) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialog(null)}>إلغاء</Button>
-            <Button onClick={() => updateMut.mutate({ provider: editDialog.provider, body: form })} disabled={updateMut.isPending}>
+            <Button variant="outline" onClick={() => setEdit(null)}>إلغاء</Button>
+            <Button onClick={() => updateMut.mutate({ provider: edit.provider, body: form })} disabled={updateMut.isPending}>
               {updateMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "حفظ"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }
@@ -464,9 +465,9 @@ function ServiceDistributionTab() {
         )
       }
 
-      {/* Edit Office Dialog */}
-      <Dialog open={!!editOffice} onOpenChange={v => !v && setEditOffice(null)}>
-        <DialogContent>
+      {/* Edit Office */}
+      <AdaptiveDialog open={!!editOffice} onOpenChange={v => !v && setEditOffice(null)}>
+        <AdaptiveDialogContent>
           <DialogHeader>
             <DialogTitle>إعدادات مكتب: <span className="font-mono text-sm">{editOffice?.office_id}</span></DialogTitle>
           </DialogHeader>
@@ -509,8 +510,8 @@ function ServiceDistributionTab() {
               {updateMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "حفظ"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

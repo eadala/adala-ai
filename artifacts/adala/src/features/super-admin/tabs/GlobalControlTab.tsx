@@ -33,7 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -588,9 +589,9 @@ td{padding:6px 8px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{backgro
         </div>
       )}
 
-      {/* ── Plan Change Dialog ── */}
-      <Dialog open={!!changingPlan} onOpenChange={o => !o && setChangingPlan(null)}>
-        <DialogContent className="max-w-sm" dir="rtl">
+      {/* ── Plan Change ── */}
+      <AdaptiveDialog open={!!changingPlan} onOpenChange={o => !o && setChangingPlan(null)}>
+        <AdaptiveDialogContent className="max-w-sm" dir="rtl">
           <DialogHeader>
             <DialogTitle className="text-sm">تغيير باقة: {changingPlan?.name}</DialogTitle>
           </DialogHeader>
@@ -611,8 +612,8 @@ td{padding:6px 8px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{backgro
               تطبيق
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

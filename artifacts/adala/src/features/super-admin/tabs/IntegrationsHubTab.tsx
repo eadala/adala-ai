@@ -23,7 +23,8 @@ import { Switch }   from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label }    from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -58,7 +59,7 @@ async function rawApi(path: string, opts?: RequestInit) {
 function CatalogTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [editDialog, setEditDialog] = useState<any>(null);
+  const [edit, setEdit] = useState<any>(null);
   const [form, setForm]             = useState<any>({});
   const [showConfig, setShowConfig] = useState(false);
 
@@ -70,7 +71,7 @@ function CatalogTab() {
 
   const updateMut = useMutation({
     mutationFn: ({ key, body }: any) => rawApi(`/admin/integrations/${key}`, { method: "PUT", body: JSON.stringify(body) }),
-    onSuccess: () => { toast({ title: "تم الحفظ" }); refetch(); setEditDialog(null); },
+    onSuccess: () => { toast({ title: "تم الحفظ" }); refetch(); setEdit(null); },
     onError:   (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
@@ -139,7 +140,7 @@ function CatalogTab() {
                   </span>
                 </div>
                 <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px] gap-1" onClick={() => {
-                  setEditDialog(itg);
+                  setEdit(itg);
                   setForm({ plan_required: itg.plan_required, notes: itg.notes ?? "", config: JSON.stringify(itg.config ?? {}, null, 2) });
                   setShowConfig(false);
                 }}>
@@ -151,12 +152,12 @@ function CatalogTab() {
         ))}
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editDialog} onOpenChange={v => !v && setEditDialog(null)}>
-        <DialogContent className="max-w-lg">
+      {/* Edit */}
+      <AdaptiveDialog open={!!edit} onOpenChange={v => !v && setEdit(null)}>
+        <AdaptiveDialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <span>{editDialog?.icon}</span> تعديل: {editDialog?.name_ar}
+              <span>{edit?.icon}</span> تعديل: {edit?.name_ar}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -200,20 +201,20 @@ function CatalogTab() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialog(null)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setEdit(null)}>إلغاء</Button>
             <Button
               disabled={updateMut.isPending}
               onClick={() => {
                 let config: any = {};
                 try { config = JSON.parse(form.config ?? "{}"); } catch { toast({ title: "JSON غير صحيح", variant: "destructive" }); return; }
-                updateMut.mutate({ key: editDialog.key, body: { ...form, config } });
+                updateMut.mutate({ key: edit.key, body: { ...form, config } });
               }}
             >
               {updateMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} حفظ
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }
@@ -225,7 +226,7 @@ function RequestsTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("pending");
-  const [respondDialog, setRespondDialog] = useState<any>(null);
+  const [respond, setRespond] = useState<any>(null);
   const [responseForm, setResponseForm]   = useState({ admin_notes: "", activate_office: false, new_status: "resolved" });
 
   const { data, isLoading, refetch } = useQuery({
@@ -236,7 +237,7 @@ function RequestsTab() {
 
   const respondMut = useMutation({
     mutationFn: ({ id, body }: any) => rawApi(`/admin/integration-requests/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-    onSuccess: () => { toast({ title: "تم الرد" }); refetch(); setRespondDialog(null); },
+    onSuccess: () => { toast({ title: "تم الرد" }); refetch(); setRespond(null); },
     onError:   (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
@@ -317,7 +318,7 @@ function RequestsTab() {
                   </div>
                   {r.status !== "resolved" && (
                     <Button size="sm" className="shrink-0 h-8 text-xs gap-1.5" onClick={() => {
-                      setRespondDialog(r);
+                      setRespond(r);
                       setResponseForm({ admin_notes: "", activate_office: r.request_type === "activate", new_status: "resolved" });
                     }}>
                       <Send className="h-3.5 w-3.5" /> رد
@@ -330,12 +331,12 @@ function RequestsTab() {
         </div>
       )}
 
-      {/* Respond Dialog */}
-      <Dialog open={!!respondDialog} onOpenChange={v => !v && setRespondDialog(null)}>
-        {respondDialog && (
-          <DialogContent>
+      {/* Respond */}
+      <AdaptiveDialog open={!!respond} onOpenChange={v => !v && setRespond(null)}>
+        {respond && (
+          <AdaptiveDialogContent>
             <DialogHeader>
-              <DialogTitle>الرد على طلب: {respondDialog.name_ar} — {respondDialog.office_name}</DialogTitle>
+              <DialogTitle>الرد على طلب: {respond.name_ar} — {respond.office_name}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div>
@@ -348,7 +349,7 @@ function RequestsTab() {
                   </SelectContent>
                 </Select>
               </div>
-              {respondDialog.request_type === "activate" && (
+              {respond.request_type === "activate" && (
                 <div className="flex items-center justify-between p-3 bg-emerald-500/8 border border-emerald-500/20 rounded-xl">
                   <div>
                     <Label className="text-xs font-bold">تفعيل تلقائي للمكتب</Label>
@@ -369,17 +370,17 @@ function RequestsTab() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setRespondDialog(null)}>إلغاء</Button>
+              <Button variant="outline" onClick={() => setRespond(null)}>إلغاء</Button>
               <Button
                 disabled={respondMut.isPending}
-                onClick={() => respondMut.mutate({ id: respondDialog.id, body: { status: responseForm.new_status, admin_notes: responseForm.admin_notes || null, activate_office: responseForm.activate_office } })}
+                onClick={() => respondMut.mutate({ id: respond.id, body: { status: responseForm.new_status, admin_notes: responseForm.admin_notes || null, activate_office: responseForm.activate_office } })}
               >
                 {respondMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} إرسال الرد
               </Button>
             </DialogFooter>
-          </DialogContent>
+          </AdaptiveDialogContent>
         )}
-      </Dialog>
+      </AdaptiveDialog>
     </div>
   );
 }
@@ -389,7 +390,7 @@ function RequestsTab() {
 ══════════════════════════════════════════════════════════ */
 function OfficesTab({ toast }: any) {
   const qc = useQueryClient();
-  const [activateDialog, setActivateDialog] = useState<any>(null);
+  const [activate, setActivate] = useState<any>(null);
   const [activateForm, setActivateForm]     = useState({ is_active: true, notes: "" });
 
   const { data, isLoading, refetch } = useQuery({
@@ -401,7 +402,7 @@ function OfficesTab({ toast }: any) {
   const updateMut = useMutation({
     mutationFn: ({ key, officeId, body }: any) =>
       rawApi(`/admin/integrations/${key}/offices/${officeId}`, { method: "POST", body: JSON.stringify(body) }),
-    onSuccess: () => { toast({ title: "تم التحديث" }); refetch(); setActivateDialog(null); },
+    onSuccess: () => { toast({ title: "تم التحديث" }); refetch(); setActivate(null); },
     onError:   (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
@@ -436,7 +437,7 @@ function OfficesTab({ toast }: any) {
                   className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium cursor-pointer transition-all",
                     item.is_active ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-muted/30 border-border/50 text-muted-foreground"
                   )}
-                  onClick={() => { setActivateDialog({ ...item, officeId }); setActivateForm({ is_active: !item.is_active, notes: "" }); }}
+                  onClick={() => { setActivate({ ...item, officeId }); setActivateForm({ is_active: !item.is_active, notes: "" }); }}
                 >
                   <span>{item.icon ?? "🔌"}</span>
                   {item.name_ar}
@@ -450,35 +451,35 @@ function OfficesTab({ toast }: any) {
         </Card>
       ))}
 
-      <Dialog open={!!activateDialog} onOpenChange={v => !v && setActivateDialog(null)}>
-        {activateDialog && (
-          <DialogContent>
+      <AdaptiveDialog open={!!activate} onOpenChange={v => !v && setActivate(null)}>
+        {activate && (
+          <AdaptiveDialogContent>
             <DialogHeader>
               <DialogTitle>
-                {activateForm.is_active ? "تفعيل" : "إلغاء تفعيل"}: {activateDialog.name_ar}
+                {activateForm.is_active ? "تفعيل" : "إلغاء تفعيل"}: {activate.name_ar}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              <p className="text-xs text-muted-foreground">المكتب: <span className="font-mono">{activateDialog.officeId}</span></p>
+              <p className="text-xs text-muted-foreground">المكتب: <span className="font-mono">{activate.officeId}</span></p>
               <div>
                 <Label className="text-xs">ملاحظة (اختياري)</Label>
                 <Input className="mt-1 text-xs" value={activateForm.notes} onChange={e => setActivateForm(f => ({ ...f, notes: e.target.value }))} placeholder="سبب التفعيل أو الملاحظة..." />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setActivateDialog(null)}>إلغاء</Button>
+              <Button variant="outline" onClick={() => setActivate(null)}>إلغاء</Button>
               <Button
                 disabled={updateMut.isPending}
                 className={activateForm.is_active ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}
-                onClick={() => updateMut.mutate({ key: activateDialog.integration_key, officeId: activateDialog.officeId, body: activateForm })}
+                onClick={() => updateMut.mutate({ key: activate.integration_key, officeId: activate.officeId, body: activateForm })}
               >
                 {updateMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : activateForm.is_active ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
                 {activateForm.is_active ? "تفعيل" : "إلغاء تفعيل"}
               </Button>
             </DialogFooter>
-          </DialogContent>
+          </AdaptiveDialogContent>
         )}
-      </Dialog>
+      </AdaptiveDialog>
     </div>
   );
 }
