@@ -33,6 +33,12 @@ import { useIsSuperAdmin } from "@/hooks/use-role";
 import { usePermissions } from "@/hooks/use-permissions";
 import { FloatingCopilot } from "@/components/floating-copilot";
 import { CommandBar } from "@/components/command-bar";
+import {
+  MobileBottomNav,
+  MobileMoreSheet,
+  MobileFAB,
+  MobileEntityContextBar,
+} from "@/components/mobile-nav";
 
 /* ══════════════════════════════════════════════════════════════════════════
    TYPES
@@ -1754,43 +1760,16 @@ export function Layout({ children }: { children: ReactNode }) {
         <SidebarFooterCard {...sharedFooterProps} collapsed={collapsed} />
       </aside>
 
-      {/* ── Mobile Sidebar ───────────────────────────────────────── */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-[200] md:hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
-          <aside className="absolute right-0 top-0 bottom-0 w-[300px] max-w-[90vw] bg-sidebar border-l border-sidebar-border flex flex-col shadow-2xl"
-            style={{ animation: "slideInFromRight 0.25s cubic-bezier(0.16,1,0.3,1)" }}>
-            <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border shrink-0 gap-2">
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                {branding?.logoUrl ? (
-                  <img src={branding.logoUrl} alt="" className="h-8 w-8 object-contain rounded-xl flex-shrink-0" />
-                ) : (
-                  <div className="h-8 w-8 rounded-xl flex items-center justify-center text-white font-black text-sm shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${primary}, ${primary}cc)` }}>
-                    {officeName[0]}
-                  </div>
-                )}
-                <div className="flex flex-col min-w-0">
-                  <span className="text-sm font-bold text-sidebar-foreground truncate leading-tight">{officeName}</span>
-                  <span className="text-[11px] text-sidebar-foreground/45 truncate leading-tight">منصة إدارة قانونية</span>
-                </div>
-              </div>
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent rounded-lg shrink-0"
-                onClick={() => setIsMobileMenuOpen(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto flex flex-col">
-              <SidebarContent
-                location={location} badges={badges} isSuperAdmin={isSuperAdmin}
-                onItemClick={() => setIsMobileMenuOpen(false)}
-                collapsed={false} favorites={favorites} onToggleFavorite={toggleFavorite} recents={recents}
-              />
-            </div>
-            <SidebarFooterCard {...sharedFooterProps} collapsed={false} />
-          </aside>
-        </div>
-      )}
+      {/* ── Mobile More Sheet (replaces old slide-in drawer) ──────── */}
+      <MobileMoreSheet
+        open={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        badges={badges}
+        isSuperAdmin={isSuperAdmin}
+        favorites={favorites}
+        onToggleFavorite={toggleFavorite}
+        {...sharedFooterProps}
+      />
 
       {/* ── Main Content ─────────────────────────────────────────── */}
       <main className="flex flex-1 flex-col overflow-hidden min-w-0">
@@ -1838,8 +1817,21 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <div className="flex-1 overflow-auto">{children}</div>
+        {/* ── Mobile Entity Context Bar ─── */}
+        <MobileEntityContextBar />
+
+        <div className="flex-1 overflow-auto pb-16 md:pb-0">{children}</div>
       </main>
+
+      {/* ── Mobile Bottom Nav ──────────────────────────────────────── */}
+      <MobileBottomNav
+        badges={badges}
+        isSuperAdmin={isSuperAdmin}
+        onMoreOpen={() => setIsMobileMenuOpen(true)}
+      />
+
+      {/* ── Mobile FAB ─────────────────────────────────────────────── */}
+      <MobileFAB />
 
       <FloatingCopilot />
       <CommandBar />
