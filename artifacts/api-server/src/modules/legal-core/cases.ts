@@ -58,19 +58,25 @@ function serializeCase(c: any) {
 /* GET /cases */
 router.get("/cases", requireAuthWithTenant, async (req, res) => {
   try {
-    const q     = ListCasesQueryParams.parse(req.query);
-    const cases = await getService(req).listCases({
+    const q      = ListCasesQueryParams.parse(req.query);
+    const page   = req.query.page   ? Math.max(1, parseInt(String(req.query.page)))    : null;
+    const limit  = req.query.limit  ? Math.min(200, parseInt(String(req.query.limit))) : null;
+    const search = req.query.search ? String(req.query.search) : undefined;
+
+    const filters = {
       status:   q.status   as any,
       caseType: q.caseType as any,
-    });
+      search,
+      ...(page && limit ? { limit, offset: (page - 1) * limit } : {}),
+    };
 
-    const page  = req.query.page  ? Math.max(1, parseInt(String(req.query.page)))      : null;
-    const limit = req.query.limit ? Math.min(200, parseInt(String(req.query.limit))) : null;
-    const total = cases.length;
+    const svc   = getService(req);
+    const cases = await svc.listCases(filters);
 
     if (page && limit) {
-      const sliced = cases.slice((page - 1) * limit, page * limit);
-      res.json({ data: sliced.map(serializeCase), total, page, limit, pages: Math.ceil(total / limit) });
+      /* COUNT uses same filters but no LIMIT/OFFSET */
+      const total = await svc.countCases({ status: filters.status, caseType: filters.caseType, search });
+      res.json({ data: cases.map(serializeCase), total, page, limit, pages: Math.ceil(total / limit) });
       return;
     }
     res.json(cases.map(serializeCase));

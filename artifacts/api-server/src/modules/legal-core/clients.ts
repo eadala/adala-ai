@@ -40,10 +40,37 @@ router.get("/clients", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
-    const clients = await db.select().from(clientsTable)
-      .where(eq((clientsTable as any).officeId, tenantId))
-      .orderBy(desc(clientsTable.createdAt));
-    res.json(clients);
+
+    const page   = req.query.page   ? Math.max(1, parseInt(String(req.query.page)))    : null;
+    const lim    = req.query.limit  ? Math.min(200, parseInt(String(req.query.limit))) : null;
+    const search = req.query.search ? String(req.query.search).toLowerCase()           : null;
+
+    const pageSize   = lim ?? 100;
+    const pageOffset = page && lim ? (page - 1) * lim : 0;
+    const searchCond = search
+      ? sql`AND (LOWER(full_name) LIKE ${"%" + search + "%"} OR LOWER(email) LIKE ${"%" + search + "%"} OR phone LIKE ${"%" + search + "%"})`
+      : sql``;
+
+    const [clients, countRow] = await Promise.all([
+      db.select().from(clientsTable)
+        .where(and(
+          eq((clientsTable as any).officeId, tenantId),
+          search ? sql`(LOWER(full_name) LIKE ${"%" + search + "%"} OR LOWER(email) LIKE ${"%" + search + "%"} OR phone LIKE ${"%" + search + "%"})` : sql`true`,
+        ))
+        .orderBy(desc(clientsTable.createdAt))
+        .limit(pageSize)
+        .offset(pageOffset),
+      db.execute(sql`SELECT COUNT(*) AS total FROM clients WHERE office_id = ${tenantId} ${searchCond}`)
+        .then((r: any) => { const rows = Array.isArray(r) ? r : (r?.rows ?? []); return rows[0]; }),
+    ]);
+
+    const total = Number(countRow?.total ?? 0);
+
+    if (page && lim) {
+      res.json({ data: clients, total, page, limit: lim, pages: Math.ceil(total / lim) });
+    } else {
+      res.json(clients);
+    }
   } catch (e: any) {
     res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
   }

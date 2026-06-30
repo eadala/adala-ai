@@ -47,6 +47,8 @@ export interface CaseFilters {
   status?:   CaseStatus;
   caseType?: CaseType;
   search?:   string;
+  limit?:    number;
+  offset?:   number;
 }
 
 /* ── Labels for Arabic UI ── */

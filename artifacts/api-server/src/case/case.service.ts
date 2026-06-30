@@ -31,6 +31,11 @@ export class CaseService {
     return this.repo.findAll(filters);
   }
 
+  /* ── Count (for pagination totals) ── */
+  async countCases(filters?: Pick<CaseFilters, "status" | "caseType" | "search">): Promise<number> {
+    return this.repo.countAll(filters);
+  }
+
   /* ── Stats ── */
   async getStats() {
     return this.repo.getStats();

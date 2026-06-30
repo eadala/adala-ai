@@ -30,8 +30,18 @@ function mapRow(c: any): CaseEntity {
 export class CaseRepository {
   constructor(private readonly tenantId: string) {}
 
-  /* ── findAll ── */
+  /* ── findAll — all filters + LIMIT/OFFSET pushed to SQL ── */
   async findAll(filters?: CaseFilters): Promise<CaseEntity[]> {
+    const statusCond   = filters?.status
+      ? sql`AND status    = ${filters.status}`   : sql``;
+    const caseTypeCond = filters?.caseType
+      ? sql`AND case_type = ${filters.caseType}` : sql``;
+    const searchCond   = filters?.search
+      ? sql`AND (LOWER(title) LIKE ${"%" + filters.search.toLowerCase() + "%"} OR LOWER(client_name) LIKE ${"%" + filters.search.toLowerCase() + "%"})`
+      : sql``;
+    const limitSql  = sql`LIMIT  ${filters?.limit  ?? 200}`;
+    const offsetSql = filters?.offset ? sql`OFFSET ${filters.offset}` : sql``;
+
     const rows = await db.execute(sql`
       SELECT id, title, description, case_type, status,
              client_name, assigned_to, created_at, updated_at,
@@ -39,16 +49,30 @@ export class CaseRepository {
              store_order_id, created_by, office_id
       FROM cases
       WHERE office_id = ${this.tenantId}
+      ${statusCond} ${caseTypeCond} ${searchCond}
       ORDER BY created_at DESC
+      ${limitSql} ${offsetSql}
     `);
-    let list: any[] = (rows as any).rows ?? (rows as any) ?? [];
-    if (filters?.status)   list = list.filter(c => c.status    === filters.status);
-    if (filters?.caseType) list = list.filter(c => c.case_type === filters.caseType);
-    if (filters?.search) {
-      const q = filters.search.toLowerCase();
-      list = list.filter(c => c.title?.toLowerCase().includes(q) || c.client_name?.toLowerCase().includes(q));
-    }
+    const list: any[] = (rows as any).rows ?? (rows as any) ?? [];
     return list.map(mapRow);
+  }
+
+  /* ── countAll — COUNT(*) with same filters (for pagination total) ── */
+  async countAll(filters?: Pick<CaseFilters, "status" | "caseType" | "search">): Promise<number> {
+    const statusCond   = filters?.status
+      ? sql`AND status    = ${filters.status}`   : sql``;
+    const caseTypeCond = filters?.caseType
+      ? sql`AND case_type = ${filters.caseType}` : sql``;
+    const searchCond   = filters?.search
+      ? sql`AND (LOWER(title) LIKE ${"%" + filters.search.toLowerCase() + "%"} OR LOWER(client_name) LIKE ${"%" + filters.search.toLowerCase() + "%"})`
+      : sql``;
+    const rows = await db.execute(sql`
+      SELECT COUNT(*) AS total FROM cases
+      WHERE office_id = ${this.tenantId}
+      ${statusCond} ${caseTypeCond} ${searchCond}
+    `);
+    const list: any[] = (rows as any).rows ?? (rows as any) ?? [];
+    return Number(list[0]?.total ?? 0);
   }
 
   /* ── findById ── strictly scoped to tenant ── */
