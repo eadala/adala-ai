@@ -713,22 +713,17 @@ router.post("/billing/change-plan", requireAuth, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    ACTIVATE PLAN (super-admin only)
 ══════════════════════════════════════════════════════ */
-router.post("/billing/activate-plan", requireAuth, async (req, res) => {
+router.post("/billing/activate-plan", requireSuperAdmin, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const { clerkClient } = await import("@clerk/express");
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const ownerEmail = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
-    const userEmail  = clerkUser.emailAddresses?.[0]?.emailAddress ?? "";
-    const isSuperAdmin = (ownerEmail && userEmail === ownerEmail) || clerkUser.publicMetadata?.role === "super_admin";
-    if (!isSuperAdmin) return res.status(403).json({ error: "يتطلب صلاحية المشرف العام" });
 
     const { plan = "pro" } = req.body as { plan: string };
     const officeId = await resolveTenantId(userId);
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { provisionTenant } = await import("../../services/tenantProvisioning");
-    const result = await provisionTenant({ officeId, plan, email: userEmail });
+    const email = (req as any).auth?.sessionClaims?.email ?? "";
+    const result = await provisionTenant({ officeId, plan, email });
     res.json({ ok: true, data: result });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

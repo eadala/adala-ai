@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, checkIsSuperAdmin} from "../../middlewares/requireAuth";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import {
@@ -149,8 +149,7 @@ async function getMgmtUser(req: any) {
   try {
     const user = await getClerkMgmt().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
-    const owner = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
-    const isSA = (!!owner && email === owner) || user.publicMetadata?.role === "super_admin";
+    const isSA = await checkIsSuperAdmin(auth.userId);
     let officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
 
     // Developer impersonation: SA viewing as a specific office

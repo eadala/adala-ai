@@ -14,28 +14,18 @@
  *   GET  /storage-matrix    — per-office storage breakdown
  */
 import { Router } from "express";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { createClerkClient, getAuth } from "@clerk/express";
 import crypto from "crypto";
 
 const router = Router();
+const adminOnly = requireSuperAdmin;
 
 /* ── helpers ────────────────────────────────────────────────── */
 function rows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 function one(r: any): any    { return rows(r)[0] ?? null; }
-
-async function isSuperAdmin(req: any): Promise<boolean> {
-  const { userId } = getAuth(req);
-  if (!userId) return false;
-  try {
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const user  = await clerk.users.getUser(userId);
-    const email = user.emailAddresses[0]?.emailAddress ?? "";
-    const owner = process.env.PLATFORM_OWNER_EMAIL ?? process.env.VITE_SUPER_ADMIN_EMAILS?.split(",")[0];
-    return (!!owner && email === owner) || user.publicMetadata?.role === "super_admin";
-  } catch { return false; }
-}
 
 /* ── ensure tables ──────────────────────────────────────────── */
 async function ensureTables() {
@@ -62,8 +52,7 @@ async function ensureTables() {
 /* ══════════════════════════════════════════════════════════════
    GET /admin/infrastructure/overview
 ══════════════════════════════════════════════════════════════ */
-router.get("/admin/infrastructure/overview", async (req, res) => {
-  if (!await isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.get("/admin/infrastructure/overview", adminOnly, async (req, res) => {
   try {
     await ensureTables();
 
@@ -114,8 +103,7 @@ router.get("/admin/infrastructure/overview", async (req, res) => {
 /* ══════════════════════════════════════════════════════════════
    GET /admin/infrastructure/offices
 ══════════════════════════════════════════════════════════════ */
-router.get("/admin/infrastructure/offices", async (req, res) => {
-  if (!await isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.get("/admin/infrastructure/offices", adminOnly, async (req, res) => {
   try {
     await ensureTables();
 
@@ -149,8 +137,7 @@ router.get("/admin/infrastructure/offices", async (req, res) => {
 /* ══════════════════════════════════════════════════════════════
    POST /admin/infrastructure/offices/:id/isolation
 ══════════════════════════════════════════════════════════════ */
-router.post("/admin/infrastructure/offices/:id/isolation", async (req, res) => {
-  if (!await isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.post("/admin/infrastructure/offices/:id/isolation", adminOnly, async (req, res) => {
   try {
     await ensureTables();
     const officeId = String(req.params.id);
@@ -182,8 +169,7 @@ router.post("/admin/infrastructure/offices/:id/isolation", async (req, res) => {
 /* ══════════════════════════════════════════════════════════════
    POST /admin/infrastructure/offices/:id/generate-key
 ══════════════════════════════════════════════════════════════ */
-router.post("/admin/infrastructure/offices/:id/generate-key", async (req, res) => {
-  if (!await isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.post("/admin/infrastructure/offices/:id/generate-key", adminOnly, async (req, res) => {
   try {
     await ensureTables();
     const officeId = String(req.params.id);
@@ -208,8 +194,7 @@ router.post("/admin/infrastructure/offices/:id/generate-key", async (req, res) =
 /* ══════════════════════════════════════════════════════════════
    GET /admin/infrastructure/db-stats
 ══════════════════════════════════════════════════════════════ */
-router.get("/admin/infrastructure/db-stats", async (req, res) => {
-  if (!await isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.get("/admin/infrastructure/db-stats", adminOnly, async (req, res) => {
   try {
     const tables = rows(await db.execute(sql`
       SELECT
@@ -240,8 +225,7 @@ router.get("/admin/infrastructure/db-stats", async (req, res) => {
 /* ══════════════════════════════════════════════════════════════
    GET /admin/infrastructure/storage-matrix
 ══════════════════════════════════════════════════════════════ */
-router.get("/admin/infrastructure/storage-matrix", async (req, res) => {
-  if (!await isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.get("/admin/infrastructure/storage-matrix", adminOnly, async (req, res) => {
   try {
     const matrix = rows(await db.execute(sql`
       SELECT

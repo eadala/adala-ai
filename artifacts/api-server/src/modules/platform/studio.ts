@@ -1,30 +1,18 @@
 import { Router } from "express";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
 import crypto from "crypto";
 
 const router = Router();
+const adminOnly = requireSuperAdmin;
 
 /* ── Auth ─────────────────────────────────────────── */
 let _clerk: ReturnType<typeof createClerkClient> | null = null;
 function getClerk() {
   if (!_clerk) _clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
   return _clerk;
-}
-async function isSuperAdmin(req: any): Promise<boolean> {
-  const auth = getAuth(req);
-  if (!auth?.userId) return false;
-  try {
-    const user = await getClerk().users.getUser(auth.userId);
-    const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
-    const owner = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
-    return (!!owner && email === owner) || user.publicMetadata?.role === "super_admin";
-  } catch { return false; }
-}
-async function adminOnly(req: any, res: any, next: any) {
-  if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
-  next();
 }
 async function safeRows(q: any): Promise<any[]> {
   try {

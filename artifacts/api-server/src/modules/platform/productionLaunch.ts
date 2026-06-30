@@ -4,18 +4,11 @@
  * Aggregates all audits → architecture health → Docker config → launch log
  */
 import { Router } from "express";
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireSuperAdmin} from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 const router = Router();
-
-function isSuperAdmin(req: any): boolean {
-  const meta = req.auth?.sessionClaims?.publicMetadata as any;
-  if (meta?.role === "super_admin") return true;
-  const emails = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map((e: string) => e.trim());
-  return emails.includes(req.auth?.sessionClaims?.email ?? "");
-}
 
 async function q(query: string): Promise<any[]> {
   try {
@@ -48,8 +41,7 @@ ensureTables().catch(() => {});
    GET /api/production-launch/readiness
    Full multi-source readiness aggregate (tenant + RBAC + backup + AI + infra)
 ══════════════════════════════════════════════════════════════════ */
-router.get("/production-launch/readiness", requireAuth, async (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "غير مصرح" });
+router.get("/production-launch/readiness", requireSuperAdmin, async (req, res) => {
   try {
     const layers: any[] = [];
 
@@ -195,8 +187,7 @@ router.get("/production-launch/readiness", requireAuth, async (req, res) => {
    GET /api/production-launch/docker-config
    Generates Docker Compose + Coolify-ready config
 ══════════════════════════════════════════════════════════════════ */
-router.get("/production-launch/docker-config", requireAuth, (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "غير مصرح" });
+router.get("/production-launch/docker-config", requireSuperAdmin, (req, res) => {
 
   const compose = `# عدالة AI — Docker Compose (Production)
 # Generated: ${new Date().toISOString()}
@@ -358,8 +349,7 @@ limit_req_zone \$binary_remote_addr zone=api:10m rate=60r/m;
    POST /api/production-launch/confirm
    Records official launch event
 ══════════════════════════════════════════════════════════════════ */
-router.post("/production-launch/confirm", requireAuth, async (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "غير مصرح" });
+router.post("/production-launch/confirm", requireSuperAdmin, async (req, res) => {
   try {
     const userId = (req as any).auth?.userId ?? "unknown";
     const { phase = "production", notes, gateScore, decision } = req.body as {
@@ -388,8 +378,7 @@ router.post("/production-launch/confirm", requireAuth, async (req, res) => {
    GET /api/production-launch/history
    Past launch events
 ══════════════════════════════════════════════════════════════════ */
-router.get("/production-launch/history", requireAuth, async (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "غير مصرح" });
+router.get("/production-launch/history", requireSuperAdmin, async (req, res) => {
   try {
     const events = await q(`SELECT * FROM launch_events ORDER BY launched_at DESC LIMIT 20`);
     res.json(events);

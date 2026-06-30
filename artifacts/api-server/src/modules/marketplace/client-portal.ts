@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, checkIsSuperAdmin} from "../../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -89,8 +89,7 @@ async function getOfficeUser(req: any) {
   try {
     const user = await getClerkPortal().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
-    const owner = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
-    const isSA = (!!owner && email === owner) || user.publicMetadata?.role === "super_admin";
+    const isSA = await checkIsSuperAdmin(auth.userId);
     const officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
     const mRows = sqlAll(await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`));
     const officeRole: string = mRows[0]?.role ?? (user.publicMetadata?.role as string) ?? "lawyer";

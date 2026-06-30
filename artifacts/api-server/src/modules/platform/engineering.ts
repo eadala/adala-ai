@@ -6,6 +6,7 @@
  * IP Whitelist: if any IPs exist in engineering_ip_whitelist, only those IPs can access
  */
 import { Router } from "express";
+import { checkIsSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
@@ -23,27 +24,18 @@ function getClerk() {
   return _clerk;
 }
 
-async function isSuperAdminOrDev(req: any): Promise<boolean> {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) return false;
+async function engineeringOnly(req: any, res: any, next: any): Promise<void> {
+  const { userId } = getAuth(req);
+  if (!userId) { res.status(401).json({ error: "غير مصادق" }); return; }
+  // Super admin gets full access
+  if (await checkIsSuperAdmin(userId)) { next(); return; }
+  // engineering_access metadata also grants access
   try {
-    const user = await getClerk().users.getUser(userId);
-    const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
-    const ownerEmail = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
-    const meta = user.publicMetadata as any;
-    return (
-      (!!ownerEmail && email === ownerEmail) ||
-      meta?.role === "super_admin" ||
-      meta?.engineering_access === true
-    );
-  } catch { return false; }
-}
-
-async function engineeringOnly(req: any, res: any, next: any) {
-  if (!(await isSuperAdminOrDev(req)))
-    return res.status(403).json({ error: "غير مصرح — مركز الهندسة للمالك والمطور فقط" });
-  next();
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+    const user = await clerk.users.getUser(userId);
+    if ((user.publicMetadata as any)?.engineering_access === true) { next(); return; }
+  } catch {}
+  res.status(403).json({ error: "غير مصرح — مركز الهندسة للمالك والمطور فقط" });
 }
 
 async function safeRows(q: any): Promise<any[]> {

@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -630,10 +630,8 @@ aiCostRouter.get("/ai/cost", async (req: any, res: any) => {
 });
 
 /* PATCH /api/ai/cost/limits — super admin: set daily/monthly limits for an office */
-aiCostRouter.patch("/ai/cost/limits", async (req: any, res: any) => {
+aiCostRouter.patch("/ai/cost/limits", requireSuperAdmin, async (req: any, res: any) => {
   try {
-    const meta = req.auth?.sessionClaims?.publicMetadata as any;
-    if (meta?.role !== "super_admin") return res.status(403).json({ error: "Super admin only" });
     const { officeId, dailyLimit, monthlyLimit, monthlyAllowance } = req.body;
     await db.execute(sql`
       INSERT INTO office_ai_credits (office_id, office_name, balance, monthly_allowance, daily_limit, monthly_limit)
@@ -649,10 +647,8 @@ aiCostRouter.patch("/ai/cost/limits", async (req: any, res: any) => {
 });
 
 /* GET /api/ai/cost/all — super admin: all offices usage */
-aiCostRouter.get("/ai/cost/all", async (req: any, res: any) => {
+aiCostRouter.get("/ai/cost/all", requireSuperAdmin, async (req: any, res: any) => {
   try {
-    const meta = req.auth?.sessionClaims?.publicMetadata as any;
-    if (meta?.role !== "super_admin") return res.status(403).json({ error: "Super admin only" });
     const r = await db.execute(sql`
       SELECT c.office_id, c.balance, c.monthly_allowance, c.daily_limit, c.daily_used,
              c.monthly_limit, c.monthly_used, c.daily_reset_at, c.updated_at,

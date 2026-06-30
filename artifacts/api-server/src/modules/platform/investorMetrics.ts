@@ -6,6 +6,7 @@
  */
 
 import { Router } from "express";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -21,17 +22,6 @@ const PLAN_PRICE: Record<string, number> = {
 };
 
 /* ── isSuperAdmin guard ─────────────────────────────────────────── */
-function isSuperAdmin(req: any): boolean {
-  try {
-    const auth = getAuth(req);
-    const meta = (auth as any)?.sessionClaims?.publicMetadata as any;
-    if (meta?.role === "super_admin") return true;
-    const allowed = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map(s => s.trim());
-    const email   = (auth as any)?.sessionClaims?.email as string ?? "";
-    return allowed.includes(email);
-  } catch { return false; }
-}
-
 /* ── Helper ─────────────────────────────────────────────────────── */
 function toRows(r: any): any[] {
   return Array.isArray(r) ? r : (r?.rows ?? []);
@@ -41,8 +31,7 @@ function n(v: any): number { return Number(v ?? 0); }
 /* ────────────────────────────────────────────────────────────────
    GET /admin/investor-metrics
    ──────────────────────────────────────────────────────────────── */
-router.get("/admin/investor-metrics", async (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "super_admin only" });
+router.get("/admin/investor-metrics", requireSuperAdmin, async (req, res) => {
   try {
     const [officeRows, newPerMonth, aiRows, invoiceRows, aiTxRows] = await Promise.all([
       /* 1. All offices: plan + status + joined date */

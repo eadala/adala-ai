@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 /* ── inline branch limit lookup (mirrors plan-features.ts) ── */
 const BRANCH_LIMITS: Record<string, number | "unlimited"> = {
   free: 0, starter: 0, basic: 0,
@@ -20,16 +20,6 @@ async function sqlAll(q: any): Promise<any[]> {
 }
 async function sqlOne(q: any): Promise<any> {
   return (await sqlAll(q))[0] ?? null;
-}
-
-async function isSuperAdmin(req: any): Promise<boolean> {
-  try {
-    const meta = req.auth?.sessionClaims?.publicMetadata as any;
-    if (meta?.role === "super_admin") return true;
-    const emails = process.env.VITE_SUPER_ADMIN_EMAILS?.split(",").map(e => e.trim()) ?? [];
-    const userEmail = req.auth?.sessionClaims?.email as string ?? "";
-    return emails.includes(userEmail);
-  } catch { return false; }
 }
 
 async function ensureTables() {
@@ -341,9 +331,8 @@ router.get("/branches/dashboard", requireAuthWithTenant, async (req, res) => {
 });
 
 /* ─── GET /api/admin/branches — Super Admin ─────────────── */
-router.get("/admin/branches", requireAuth, async (req, res) => {
+router.get("/admin/branches", requireSuperAdmin, async (req, res) => {
   try {
-    if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
 
     const branches = await sqlAll(sql`
       SELECT

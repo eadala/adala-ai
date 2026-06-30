@@ -3,20 +3,13 @@
  */
 
 import { Router } from "express";
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireSuperAdmin} from "../../middlewares/requireAuth";
 import { runLaunchGate } from "../../core/launchGate";
 import { getShieldStatus, banIp, unbanIp, getBannedIps } from "../../core/runtimeShield";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 const router = Router();
-
-function isSuperAdmin(req: any): boolean {
-  const meta = req.auth?.sessionClaims?.publicMetadata as any;
-  if (meta?.role === "super_admin") return true;
-  const emails = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map((e: string) => e.trim());
-  return emails.includes(req.auth?.sessionClaims?.email ?? "");
-}
 
 /* ── Ensure ct_security_events table ── */
 async function ensureTables(): Promise<void> {
@@ -45,8 +38,7 @@ ensureTables().catch(() => {});
    POST /api/launch-gate/run
    Run all 8 gates and return the GO/NO-GO report
 ──────────────────────────────────────────────────────────────────────────── */
-router.post("/launch-gate/run", requireAuth, async (req, res) => {
-  if (!isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.post("/launch-gate/run", requireSuperAdmin, async (req, res) => {
   try {
     const report = await runLaunchGate();
     res.json(report);
@@ -59,8 +51,7 @@ router.post("/launch-gate/run", requireAuth, async (req, res) => {
    GET /api/launch-gate/status
    Last cached report or quick health
 ──────────────────────────────────────────────────────────────────────────── */
-router.get("/launch-gate/status", requireAuth, async (req, res) => {
-  if (!isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.get("/launch-gate/status", requireSuperAdmin, async (req, res) => {
   const shield = getShieldStatus();
   res.json({ shield, timestamp: new Date().toISOString() });
 });
@@ -69,8 +60,7 @@ router.get("/launch-gate/status", requireAuth, async (req, res) => {
    GET /api/launch-gate/shield
    Live runtime shield status
 ──────────────────────────────────────────────────────────────────────────── */
-router.get("/launch-gate/shield", requireAuth, (req, res) => {
-  if (!isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.get("/launch-gate/shield", requireSuperAdmin, (req, res) => {
   res.json(getShieldStatus());
 });
 
@@ -78,8 +68,7 @@ router.get("/launch-gate/shield", requireAuth, (req, res) => {
    GET /api/launch-gate/threats
    Recent threat events from DB
 ──────────────────────────────────────────────────────────────────────────── */
-router.get("/launch-gate/threats", requireAuth, async (req, res) => {
-  if (!isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.get("/launch-gate/threats", requireSuperAdmin, async (req, res) => {
   try {
     const rows = await db.execute(sql`
       SELECT id, event_type, severity, description, request_path,
@@ -99,8 +88,7 @@ router.get("/launch-gate/threats", requireAuth, async (req, res) => {
    POST /api/launch-gate/resolve/:id
    Resolve a threat event
 ──────────────────────────────────────────────────────────────────────────── */
-router.post("/launch-gate/resolve/:id", requireAuth, async (req, res) => {
-  if (!isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.post("/launch-gate/resolve/:id", requireSuperAdmin, async (req, res) => {
   const { id } = req.params as Record<string, string>;
   try {
     await db.execute(sql`
@@ -116,8 +104,7 @@ router.post("/launch-gate/resolve/:id", requireAuth, async (req, res) => {
    POST /api/launch-gate/ban-ip
    Ban a suspicious IP
 ──────────────────────────────────────────────────────────────────────────── */
-router.post("/launch-gate/ban-ip", requireAuth, async (req, res) => {
-  if (!isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.post("/launch-gate/ban-ip", requireSuperAdmin, async (req, res) => {
   const { ip } = req.body as { ip: string };
   if (!ip) { res.status(400).json({ error: "IP مطلوب" }); return; }
   banIp(ip);
@@ -127,8 +114,7 @@ router.post("/launch-gate/ban-ip", requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────────────
    POST /api/launch-gate/unban-ip
 ──────────────────────────────────────────────────────────────────────────── */
-router.post("/launch-gate/unban-ip", requireAuth, async (req, res) => {
-  if (!isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.post("/launch-gate/unban-ip", requireSuperAdmin, async (req, res) => {
   const { ip } = req.body as { ip: string };
   if (!ip) { res.status(400).json({ error: "IP مطلوب" }); return; }
   unbanIp(ip);
@@ -138,8 +124,7 @@ router.post("/launch-gate/unban-ip", requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────────────
    GET /api/launch-gate/banned-ips
 ──────────────────────────────────────────────────────────────────────────── */
-router.get("/launch-gate/banned-ips", requireAuth, (req, res) => {
-  if (!isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.get("/launch-gate/banned-ips", requireSuperAdmin, (req, res) => {
   res.json({ ips: getBannedIps() });
 });
 
@@ -147,8 +132,7 @@ router.get("/launch-gate/banned-ips", requireAuth, (req, res) => {
    GET /api/launch-gate/stats
    Aggregate security stats for dashboard
 ──────────────────────────────────────────────────────────────────────────── */
-router.get("/launch-gate/stats", requireAuth, async (req, res) => {
-  if (!isSuperAdmin(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.get("/launch-gate/stats", requireSuperAdmin, async (req, res) => {
   try {
     const totalRow = await db.execute(sql`SELECT COUNT(*) as cnt FROM ct_security_events`);
     const unresolvedRow = await db.execute(sql`SELECT COUNT(*) as cnt FROM ct_security_events WHERE resolved=false`);

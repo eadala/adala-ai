@@ -14,6 +14,7 @@
  */
 
 import { Router } from "express";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
@@ -47,16 +48,6 @@ async function ensureCertTable() {
 ensureCertTable().catch(() => {});
 
 /* ── Auth guard ───────────────────────────────────────────────── */
-function isSuperAdmin(req: any): boolean {
-  try {
-    const { sessionClaims } = getAuth(req);
-    const meta = (sessionClaims as any)?.publicMetadata ?? {};
-    const emails: string[] = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map(e => e.trim()).filter(Boolean);
-    const email = (sessionClaims as any)?.email ?? "";
-    return meta.role === "super_admin" || emails.includes(email);
-  } catch { return false; }
-}
-
 /* ── Helpers ──────────────────────────────────────────────────── */
 function toRows(r: any): any[] {
   return Array.isArray(r) ? r : (r?.rows ?? []);
@@ -256,8 +247,7 @@ function certificationGate(score: number): { status: "GO" | "CONDITIONAL_GO" | "
    ══════════════════════════════════════════════════════════════════ */
 
 /* GET /certification/score — live scoring */
-router.get("/certification/score", async (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "super_admin only" });
+router.get("/certification/score", requireSuperAdmin, async (req, res) => {
   try {
     const cert = await computeScore();
     res.json(cert);
@@ -267,8 +257,7 @@ router.get("/certification/score", async (req, res) => {
 });
 
 /* POST /certification/generate — issue official certificate */
-router.post("/certification/generate", async (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "super_admin only" });
+router.post("/certification/generate", requireSuperAdmin, async (req, res) => {
   try {
     const { sessionClaims } = getAuth(req);
     const by = (sessionClaims as any)?.email ?? "super_admin";
@@ -316,8 +305,7 @@ router.post("/certification/generate", async (req, res) => {
 });
 
 /* GET /certification/latest */
-router.get("/certification/latest", async (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "super_admin only" });
+router.get("/certification/latest", requireSuperAdmin, async (req, res) => {
   try {
     const rows = toRows(await db.execute(sql`
       SELECT * FROM go_live_certificates
@@ -330,8 +318,7 @@ router.get("/certification/latest", async (req, res) => {
 });
 
 /* GET /certification/log */
-router.get("/certification/log", async (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "super_admin only" });
+router.get("/certification/log", requireSuperAdmin, async (req, res) => {
   try {
     const rows = toRows(await db.execute(sql`
       SELECT * FROM go_live_certificates ORDER BY created_at DESC LIMIT 20
@@ -343,8 +330,7 @@ router.get("/certification/log", async (req, res) => {
 });
 
 /* GET /certification/gov-state — current governance kernel state */
-router.get("/certification/gov-state", async (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "super_admin only" });
+router.get("/certification/gov-state", requireSuperAdmin, async (req, res) => {
   const sysState = getSystemState();
   res.json({
     govState:        getGovState(),
@@ -358,8 +344,7 @@ router.get("/certification/gov-state", async (req, res) => {
 });
 
 /* POST /certification/gov-state — set governance state */
-router.post("/certification/gov-state", async (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "super_admin only" });
+router.post("/certification/gov-state", requireSuperAdmin, async (req, res) => {
   const { state } = req.body as { state: GovState };
   const valid: GovState[] = ["NORMAL", "STRICT", "RECOVERY", "MAINTENANCE", "LOCKED"];
   if (!valid.includes(state))
@@ -370,8 +355,7 @@ router.post("/certification/gov-state", async (req, res) => {
 });
 
 /* GET /certification/gov-log — governance action log */
-router.get("/certification/gov-log", async (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "super_admin only" });
+router.get("/certification/gov-log", requireSuperAdmin, async (req, res) => {
   try {
     const rows = toRows(await db.execute(sql`
       SELECT * FROM governance_action_log

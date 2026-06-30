@@ -13,6 +13,7 @@
  */
 
 import { Router } from "express";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { createClerkClient, getAuth } from "@clerk/express";
@@ -21,29 +22,9 @@ import { invalidateTenantCache } from "../../middlewares/tenantMiddleware";
 import { recoverIdentity, getBindingHistory } from "../../core/tenant/tenantVersioning";
 
 const router = Router();
+const requireSA = requireSuperAdmin;
 
 /* ── Super-admin guard ─────────────────────────────────────────────── */
-
-async function isSuperAdmin(userId: string): Promise<boolean> {
-  const raw = process.env.SUPER_ADMIN_EMAILS ?? process.env.PLATFORM_OWNER_EMAIL ?? "";
-  const saEmails = raw.split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
-  if (!saEmails.length) return false;
-  try {
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
-    const user = await clerk.users.getUser(userId);
-    const email = (user.emailAddresses[0]?.emailAddress ?? "").toLowerCase();
-    return saEmails.includes(email) || user.publicMetadata?.role === "super_admin";
-  } catch { return false; }
-}
-
-async function requireSA(req: any, res: any, next: any) {
-  const auth = getAuth(req);
-  if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
-  const sa = await isSuperAdmin(auth.userId);
-  if (!sa) return res.status(403).json({ error: "للمسؤول العام فقط" });
-  (req as any).adminUserId = auth.userId;
-  next();
-}
 
 async function dbAll(q: any): Promise<any[]> {
   try {

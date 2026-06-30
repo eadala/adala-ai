@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireSuperAdmin} from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
@@ -12,6 +12,7 @@ import { getAuth, createClerkClient } from "@clerk/express";
 import { getUncachableStripeClient } from "../../stripeClient";
 
 const router = Router();
+const adminOnly = requireSuperAdmin;
 
 /* ── Clerk Backend Client (lazy) ──────────────────── */
 let _clerk: ReturnType<typeof createClerkClient> | null = null;
@@ -21,32 +22,6 @@ function getClerk() {
 }
 
 /* ── Platform Owner / Super-Admin Guard ───────────── */
-async function isSuperAdmin(req: any): Promise<boolean> {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) return false;
-
-  try {
-    const clerk = getClerk();
-    const user = await clerk.users.getUser(userId);
-    const primaryEmail = user.emailAddresses.find(
-      (e: any) => e.id === user.primaryEmailAddressId
-    )?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? "";
-
-    const ownerEmail = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
-    const isOwner = !!ownerEmail && primaryEmail === ownerEmail;
-    const isRoleAdmin = user.publicMetadata?.role === "super_admin";
-    return isOwner || isRoleAdmin;
-  } catch {
-    return false;
-  }
-}
-
-async function adminOnly(req: any, res: any, next: any) {
-  if (!(await isSuperAdmin(req))) return res.status(403).json({ error: "غير مصرح" });
-  next();
-}
-
 /* ══════════════════════════════════════════════════════
    OVERVIEW STATS
 ══════════════════════════════════════════════════════ */

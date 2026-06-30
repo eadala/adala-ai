@@ -1,30 +1,15 @@
 import { Router } from "express";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { createClerkClient } from "@clerk/express";
 
 const router = Router();
+const adminOnly = requireSuperAdmin;
 
 function getClerk() {
   return createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-}
-
-async function isSuperAdminCheck(req: any): Promise<boolean> {
-  const auth = getAuth(req);
-  if (!auth?.userId) return false;
-  try {
-    const clerk = getClerk();
-    const user = await clerk.users.getUser(auth.userId);
-    const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
-    const ownerEmail = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
-    return (!!ownerEmail && email === ownerEmail) || user.publicMetadata?.role === "super_admin";
-  } catch { return false; }
-}
-
-async function adminOnly(req: any, res: any, next: any) {
-  if (!(await isSuperAdminCheck(req))) return res.status(403).json({ error: "غير مصرح" });
-  next();
 }
 
 /* ── Default plans (Enterprise Pricing v2) ───────────────── */

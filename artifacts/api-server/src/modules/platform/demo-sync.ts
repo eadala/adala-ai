@@ -14,6 +14,7 @@
  */
 
 import { Router }    from "express";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db }        from "@workspace/db";
 import { sql }       from "drizzle-orm";
 import { getAuth }   from "@clerk/express";
@@ -21,6 +22,7 @@ import cron          from "node-cron";
 import { logger }    from "../../lib/logger";
 
 const router = Router();
+const guard = requireSuperAdmin;
 
 /* ── Demo office registry ───────────────────────────────────────── */
 // office_registry columns: id(text), office_name, plan_name, status, clerk_user_id, owner_email, joined_at
@@ -31,20 +33,6 @@ const DEMO_OFFICES = [
 ];
 
 /* ── Guard ──────────────────────────────────────────────────────── */
-function isSuperAdmin(req: any): boolean {
-  try {
-    const auth  = getAuth(req);
-    const meta  = (auth as any)?.sessionClaims?.publicMetadata as any;
-    if (meta?.role === "super_admin") return true;
-    const ok    = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map((s: string) => s.trim());
-    const email = (auth as any)?.sessionClaims?.email as string ?? "";
-    return ok.includes(email);
-  } catch { return false; }
-}
-function guard(req: any, res: any, next: any) {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "super_admin only" });
-  next();
-}
 function toRows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 
 /* ══════════════════════════════════════════════════════════════════

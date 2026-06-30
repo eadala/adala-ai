@@ -5,12 +5,14 @@
  * Guards: isSuperAdmin only (platform owner)
  */
 import { Router } from "express";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import * as os from "os";
 import { getAuth, createClerkClient } from "@clerk/express";
 
 const router = Router();
+const pccOnly = requireSuperAdmin;
 export default router;
 
 /* ── helpers ── */
@@ -25,24 +27,6 @@ let _clerk: any = null;
 function getClerk() {
   if (!_clerk) _clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
   return _clerk;
-}
-
-async function isSuperAdmin(req: any): Promise<boolean> {
-  const auth = getAuth(req);
-  if (!auth?.userId) return false;
-  try {
-    const user = await getClerk().users.getUser(auth.userId);
-    const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
-    const meta = user.publicMetadata as any;
-    const owner = (process.env.PLATFORM_OWNER_EMAIL ?? "").trim();
-    return (!!owner && email === owner) || meta?.role === "super_admin";
-  } catch { return false; }
-}
-
-async function pccOnly(req: any, res: any, next: any) {
-  if (!(await isSuperAdmin(req)))
-    return res.status(403).json({ error: "غير مصرح — مركز القيادة لمالك المنصة فقط" });
-  next();
 }
 
 /* ── Ensure tables ── */

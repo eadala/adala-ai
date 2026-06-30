@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { callAI } from "./aiChat";
 
 const router = Router();
@@ -55,11 +55,6 @@ router.get("/ai-workflow/access-check", requireAuthWithTenant, async (req: any, 
 /* ══════════════════════════════════════════════════════════════════
    SUPER ADMIN: Grant management routes (/api/admin/workflow-grants)
 ═══════════════════════════════════════════════════════════════════ */
-function requireSuperAdmin(req: any, res: any, next: any) {
-  if (!req.isSuperAdmin) return res.status(403).json({ error: "للمشرف العام فقط" });
-  next();
-}
-
 router.get("/admin/workflow-grants", requireAuthWithTenant, requireSuperAdmin, async (req: any, res) => {
   try {
     const rows = await sqlAll(sql`

@@ -11,29 +11,18 @@
  *  5. Isolation Score — 0-100 readiness score
  */
 import { Router } from "express";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { createClerkClient, getAuth } from "@clerk/express";
 
 const router = Router();
+const adminOnly = requireSuperAdmin;
 
 function rows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 function one(r: any): any    { return rows(r)[0] ?? null; }
 
 /* ── Super-Admin Guard ──────────────────────────────────────────── */
-async function isSA(req: any): Promise<boolean> {
-  const { userId } = getAuth(req);
-  if (!userId) return false;
-  try {
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const user  = await clerk.users.getUser(userId);
-    const email = user.emailAddresses[0]?.emailAddress ?? "";
-    const raw   = process.env.SUPER_ADMIN_EMAILS ?? process.env.PLATFORM_OWNER_EMAIL ?? "";
-    const sa    = raw.split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
-    return sa.includes(email.toLowerCase()) || user.publicMetadata?.role === "super_admin";
-  } catch { return false; }
-}
-
 /* ── Ensure security tables ─────────────────────────────────────── */
 async function ensureSecurityTables() {
   await db.execute(sql`
@@ -93,8 +82,7 @@ const CRITICAL_TABLES = [
 /* ══════════════════════════════════════════════════════════════════
    GET /admin/data-vault/rls-status
 ══════════════════════════════════════════════════════════════════ */
-router.get("/admin/data-vault/rls-status", async (req, res) => {
-  if (!await isSA(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.get("/admin/data-vault/rls-status", adminOnly, async (req, res) => {
   try {
     await ensureSecurityTables();
 
@@ -140,8 +128,7 @@ router.get("/admin/data-vault/rls-status", async (req, res) => {
    POST /admin/data-vault/enable-rls
    Body: { tables?: string[] }  — omit to enable ALL critical tables
 ══════════════════════════════════════════════════════════════════ */
-router.post("/admin/data-vault/enable-rls", async (req, res) => {
-  if (!await isSA(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.post("/admin/data-vault/enable-rls", adminOnly, async (req, res) => {
   try {
     await ensureSecurityTables();
 
@@ -220,8 +207,7 @@ router.post("/admin/data-vault/enable-rls", async (req, res) => {
    POST /admin/data-vault/red-team
    Automated cross-tenant isolation tests
 ══════════════════════════════════════════════════════════════════ */
-router.post("/admin/data-vault/red-team", async (req, res) => {
-  if (!await isSA(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.post("/admin/data-vault/red-team", adminOnly, async (req, res) => {
   try {
     await ensureSecurityTables();
 
@@ -410,8 +396,7 @@ router.post("/admin/data-vault/red-team", async (req, res) => {
 /* ══════════════════════════════════════════════════════════════════
    GET /admin/data-vault/security-events
 ══════════════════════════════════════════════════════════════════ */
-router.get("/admin/data-vault/security-events", async (req, res) => {
-  if (!await isSA(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.get("/admin/data-vault/security-events", adminOnly, async (req, res) => {
   try {
     await ensureSecurityTables();
     const limit = Math.min(parseInt(String(req.query.limit ?? "100")), 500);
@@ -433,8 +418,7 @@ router.get("/admin/data-vault/security-events", async (req, res) => {
 /* ══════════════════════════════════════════════════════════════════
    GET /admin/data-vault/isolation-score
 ══════════════════════════════════════════════════════════════════ */
-router.get("/admin/data-vault/isolation-score", async (req, res) => {
-  if (!await isSA(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.get("/admin/data-vault/isolation-score", adminOnly, async (req, res) => {
   try {
     await ensureSecurityTables();
 
@@ -490,8 +474,7 @@ router.get("/admin/data-vault/isolation-score", async (req, res) => {
    POST /admin/data-vault/log-event
    (Called internally by security monitors)
 ══════════════════════════════════════════════════════════════════ */
-router.post("/admin/data-vault/log-event", async (req, res) => {
-  if (!await isSA(req)) { res.status(403).json({ error: "غير مصرح" }); return; }
+router.post("/admin/data-vault/log-event", adminOnly, async (req, res) => {
   try {
     await ensureSecurityTables();
     const { event_type, severity = "medium", description, office_id, meta } = req.body;

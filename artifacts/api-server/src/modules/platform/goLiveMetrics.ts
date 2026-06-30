@@ -9,6 +9,7 @@
  */
 
 import { Router } from "express";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -23,17 +24,6 @@ const PLAN_PRICE: Record<string, number> = {
 };
 
 /* ── isSuperAdmin guard ─────────────────────────────────────────── */
-function isSuperAdmin(req: any): boolean {
-  try {
-    const auth = getAuth(req);
-    const meta = (auth as any)?.sessionClaims?.publicMetadata as any;
-    if (meta?.role === "super_admin") return true;
-    const allowed = (process.env.VITE_SUPER_ADMIN_EMAILS ?? "").split(",").map((s: string) => s.trim());
-    const email   = (auth as any)?.sessionClaims?.email as string ?? "";
-    return allowed.includes(email);
-  } catch { return false; }
-}
-
 function toRows(r: any): any[] {
   return Array.isArray(r) ? r : (r?.rows ?? []);
 }
@@ -162,8 +152,7 @@ async function runChecklist(): Promise<{ id: string; label: string; status: "ok"
 /* ────────────────────────────────────────────────────────────────
    GET /admin/go-live-metrics
    ──────────────────────────────────────────────────────────────── */
-router.get("/admin/go-live-metrics", async (req, res) => {
-  if (!isSuperAdmin(req)) return res.status(403).json({ error: "super_admin only" });
+router.get("/admin/go-live-metrics", requireSuperAdmin, async (req, res) => {
 
   try {
     const [officeRows, dailySignups, dailyRevenue, aiRows, aiTxRows, ledgerTotal, recentActivations] = await Promise.all([
