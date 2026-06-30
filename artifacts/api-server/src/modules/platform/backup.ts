@@ -34,6 +34,18 @@ async function fetchAccounting(tenantId: string) {
   return { revenues, expenses, bankAccounts, cashAdvances };
 }
 
+async function fetchStorageFiles(tenantId: string) {
+  return db.execute(sql`
+    SELECT id, office_id, case_id, client_id, uploaded_by,
+           file_name, original_name, mime_type, file_size, file_hash,
+           storage_provider, storage_key, category, tags,
+           is_archived, is_deleted, folder_id, created_at, updated_at
+    FROM storage_files
+    WHERE office_id = ${tenantId} AND is_deleted = false
+    LIMIT 50000
+  `).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])).catch(() => []);
+}
+
 const router = Router();
 
 /* ── CSV helper ─────────────────────────────────────────── */
@@ -144,7 +156,7 @@ router.post("/backup/create", requireAuthWithTenant, async (req, res) => {
     const tenantId = (req as any).tenantId as string;
     const { type = "manual", scheduleType } = req.body as { type?: string; scheduleType?: string };
 
-    const [[cases, clients, invoices, contracts, docs, users], hr, accounting] = await Promise.all([
+    const [[cases, clients, invoices, contracts, docs, users], hr, accounting, storageFiles] = await Promise.all([
       Promise.all([
         db.execute(sql`SELECT * FROM cases WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
         db.execute(sql`SELECT * FROM clients WHERE office_id = ${tenantId} LIMIT 10000`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])),
@@ -155,15 +167,17 @@ router.post("/backup/create", requireAuthWithTenant, async (req, res) => {
       ]),
       fetchHR(tenantId),
       fetchAccounting(tenantId),
+      fetchStorageFiles(tenantId),
     ]);
 
     const payload = {
       meta: {
         platform: "عدالة AI",
-        version: "2.1",
+        version: "2.2",
         createdAt: new Date().toISOString(),
         type,
-        sections: ["cases","clients","invoices","contracts","documents","users","hr","accounting"],
+        sections: ["cases","clients","invoices","contracts","documents","users","hr","accounting","storage_files"],
+        storageFilesCount: (storageFiles as any[]).length,
       },
       cases,
       clients,
@@ -173,6 +187,7 @@ router.post("/backup/create", requireAuthWithTenant, async (req, res) => {
       users,
       hr,
       accounting,
+      storageFiles,
     };
 
     const dataStr   = JSON.stringify(payload, null, 2);
@@ -664,17 +679,38 @@ router.post("/backup/snapshot", requireAuthWithTenant, async (req, res) => {
     const storageEnabled = !!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
 
     /* Collect tenant data */
-    const [cases, clients, invoices, contracts, documents] = await Promise.all([
+    const [cases, clients, invoices, contracts, documents, storageFiles] = await Promise.all([
       db.execute(sql`SELECT * FROM cases WHERE office_id=${tenantId} LIMIT 50000`).then((r: any) => r.rows ?? r).catch(() => []),
       db.execute(sql`SELECT * FROM clients WHERE office_id=${tenantId} LIMIT 50000`).then((r: any) => r.rows ?? r).catch(() => []),
       db.execute(sql`SELECT * FROM client_invoices WHERE office_id=${tenantId} LIMIT 50000`).then((r: any) => r.rows ?? r).catch(() => []),
       db.execute(sql`SELECT * FROM contracts WHERE office_id=${tenantId} LIMIT 50000`).then((r: any) => r.rows ?? r).catch(() => []),
       db.execute(sql`SELECT * FROM documents WHERE office_id=${tenantId} LIMIT 50000`).then((r: any) => r.rows ?? r).catch(() => []),
+      fetchStorageFiles(tenantId),
     ]);
-    const snapshot    = { tenantId, cases, clients, invoices, contracts, documents, createdAt: new Date().toISOString() };
+
+    /* ── Copy actual file bytes to backup prefix (best-effort, batches of 5) ── */
+    const snapshotTs = Date.now();
+    const backedUpFiles: { id: string; backupKey: string; ok: boolean }[] = [];
+    if (storageEnabled) {
+      const filesToCopy = (storageFiles as any[]).filter((f: any) => f.storage_key);
+      for (let i = 0; i < filesToCopy.length; i += 5) {
+        await Promise.all(filesToCopy.slice(i, i + 5).map(async (f: any) => {
+          try {
+            const data      = await downloadBackup(f.storage_key);
+            const backupKey = `backups/tenants/${tenantId}/files/${snapshotTs}/${f.id}_${f.file_name}`;
+            await uploadBackup(backupKey, data, f.mime_type ?? "application/octet-stream");
+            backedUpFiles.push({ id: f.id, backupKey, ok: true });
+          } catch {
+            backedUpFiles.push({ id: f.id, backupKey: f.storage_key, ok: false });
+          }
+        }));
+      }
+    }
+
+    const snapshot    = { tenantId, cases, clients, invoices, contracts, documents, storageFiles, backedUpFiles, createdAt: new Date().toISOString() };
     const jsonBuffer  = Buffer.from(JSON.stringify(snapshot), "utf8");
     const encrypted   = isEncryptionEnabled() ? encryptBuffer(jsonBuffer) : jsonBuffer;
-    const entityCount = cases.length + clients.length + invoices.length + contracts.length + documents.length;
+    const entityCount = cases.length + clients.length + invoices.length + contracts.length + documents.length + (storageFiles as any[]).length;
 
     let storageKey: string | null = null;
     let sizeBytes = encrypted.length;
@@ -703,7 +739,10 @@ router.post("/backup/snapshot", requireAuthWithTenant, async (req, res) => {
       storageKey,
       entityCount,
       sizeBytes,
-      message: `تم إنشاء لقطة مشفّرة لـ ${entityCount} سجل`,
+      storageFilesCount: (storageFiles as any[]).length,
+      backedUpFilesCount: backedUpFiles.filter(f => f.ok).length,
+      backedUpFilesFailed: backedUpFiles.filter(f => !f.ok).length,
+      message: `تم إنشاء لقطة لـ ${entityCount} سجل + ${backedUpFiles.filter(f => f.ok).length} ملف`,
     });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err.message });
