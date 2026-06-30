@@ -38,22 +38,67 @@ const PRIORITY: Record<string, { label: string; bg: string; text: string; ring: 
 };
 
 const STATUS: Record<string, { label: string; color: string; icon: any; dot: string }> = {
-  open:        { label: "مفتوح",        color: "bg-blue-500/15 text-blue-600 dark:text-blue-400",    icon: AlertCircle,   dot: "bg-blue-500" },
-  in_progress: { label: "قيد المعالجة",color: "bg-amber-500/15 text-amber-600 dark:text-amber-400", icon: Clock,         dot: "bg-amber-500" },
-  resolved:    { label: "محلول",        color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", icon: CheckCircle2, dot: "bg-emerald-500" },
-  closed:      { label: "مغلق",         color: "bg-muted/50 text-muted-foreground dark:bg-slate-800",      icon: XCircle,       dot: "bg-slate-400" },
+  open:             { label: "مفتوح",             color: "bg-blue-500/15 text-blue-600 dark:text-blue-400",      icon: AlertCircle,   dot: "bg-blue-500" },
+  in_progress:      { label: "قيد المعالجة",      color: "bg-amber-500/15 text-amber-600 dark:text-amber-400",   icon: Clock,         dot: "bg-amber-500" },
+  waiting_customer: { label: "بانتظار العميل",    color: "bg-violet-500/15 text-violet-600 dark:text-violet-400",icon: Clock,         dot: "bg-violet-500" },
+  waiting_internal: { label: "بانتظار الفريق",   color: "bg-orange-500/15 text-orange-600 dark:text-orange-400",icon: Clock,         dot: "bg-orange-500" },
+  resolved:         { label: "محلول",             color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", icon: CheckCircle2, dot: "bg-emerald-500" },
+  closed:           { label: "مغلق",              color: "bg-muted/50 text-muted-foreground dark:bg-slate-800",  icon: XCircle,       dot: "bg-slate-400" },
+  archived:         { label: "مؤرشف",             color: "bg-muted/30 text-muted-foreground/70",                 icon: XCircle,       dot: "bg-slate-300" },
 };
 
 const CATEGORIES = [
-  { value: "technical",    label: "دعم تقني",          icon: Zap,         color: "text-blue-500",    desc: "مشاكل تقنية وأخطاء في النظام" },
-  { value: "billing",      label: "فواتير ومدفوعات",   icon: CreditCard,  color: "text-green-500",   desc: "أسئلة عن الاشتراكات والدفع" },
-  { value: "account",      label: "إدارة الحساب",      icon: User2,       color: "text-violet-500",  desc: "صلاحيات وإعدادات الحساب" },
-  { value: "feature",      label: "طلب ميزة جديدة",   icon: Star,        color: "text-amber-500",   desc: "اقتراح تحسين أو ميزة" },
-  { value: "bug",          label: "الإبلاغ عن خلل",   icon: Bug,         color: "text-red-500",     desc: "خطأ أو سلوك غير متوقع" },
-  { value: "security",     label: "مخاوف أمنية",       icon: Shield,      color: "text-rose-600",    desc: "ثغرات أو مشاكل أمنية" },
-  { value: "performance",  label: "مشكلة أداء",        icon: Zap,         color: "text-orange-500",  desc: "بطء أو استهلاك موارد" },
-  { value: "other",        label: "أخرى",              icon: MessageSquare, color: "text-muted-foreground", desc: "استفسار عام" },
+  { value: "technical",    label: "دعم تقني",          icon: Zap,           color: "text-blue-500",         desc: "مشاكل تقنية وأخطاء في النظام" },
+  { value: "billing",      label: "فواتير ومدفوعات",   icon: CreditCard,    color: "text-green-500",        desc: "أسئلة عن الاشتراكات والدفع" },
+  { value: "legal",        label: "قانوني",             icon: Shield,        color: "text-indigo-500",       desc: "مسائل قانونية ومستندات" },
+  { value: "cases",        label: "إدارة القضايا",      icon: ArrowUpRight,  color: "text-cyan-500",         desc: "مشاكل في صفحات القضايا" },
+  { value: "invoices",     label: "الفواتير",           icon: CreditCard,    color: "text-emerald-600",      desc: "فواتير ومشاكل الدفع" },
+  { value: "documents",    label: "المستندات",          icon: ArrowUpRight,  color: "text-teal-500",         desc: "رفع وعرض المستندات" },
+  { value: "account",      label: "إدارة الحساب",      icon: User2,         color: "text-violet-500",       desc: "صلاحيات وإعدادات الحساب" },
+  { value: "hr",           label: "الموارد البشرية",   icon: User2,         color: "text-pink-500",         desc: "طلبات الموظفين والرواتب" },
+  { value: "ai",           label: "الذكاء الاصطناعي",  icon: Bot,           color: "text-primary",          desc: "ميزات الـ AI وتوليد الردود" },
+  { value: "feature",      label: "طلب ميزة جديدة",    icon: Star,          color: "text-amber-500",        desc: "اقتراح تحسين أو ميزة" },
+  { value: "bug",          label: "الإبلاغ عن خلل",    icon: Bug,           color: "text-red-500",          desc: "خطأ أو سلوك غير متوقع" },
+  { value: "security",     label: "مخاوف أمنية",        icon: Shield,        color: "text-rose-600",         desc: "ثغرات أو مشاكل أمنية" },
+  { value: "performance",  label: "مشكلة أداء",         icon: Zap,           color: "text-orange-500",       desc: "بطء أو استهلاك موارد" },
+  { value: "complaint",    label: "شكوى",               icon: AlertCircle,   color: "text-red-600",          desc: "شكوى في الخدمة" },
+  { value: "training",     label: "طلب تدريب",          icon: Star,          color: "text-yellow-500",       desc: "تدريب على استخدام المنصة" },
+  { value: "other",        label: "أخرى",               icon: MessageSquare, color: "text-muted-foreground", desc: "استفسار عام" },
 ];
+
+/* SLA countdown helper */
+function SLACountdown({ deadline, small }: { deadline?: string; small?: boolean }) {
+  if (!deadline) return null;
+  const diff = new Date(deadline).getTime() - Date.now();
+  if (diff < 0) return (
+    <span className={cn("text-red-500 font-bold flex items-center gap-0.5", small ? "text-[10px]" : "text-xs")}>
+      <AlertCircle className="h-3 w-3" /> تجاوز SLA
+    </span>
+  );
+  const h = Math.floor(diff / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  const urgent = diff < 3_600_000;
+  return (
+    <span className={cn("flex items-center gap-0.5", small ? "text-[10px]" : "text-xs",
+      urgent ? "text-amber-500 font-bold" : "text-muted-foreground")}>
+      <Clock className="h-3 w-3" />
+      {h > 0 ? `${h}س` : ""}{m}د متبقية
+    </span>
+  );
+}
+
+/* Star rating */
+function StarRating({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <div className="flex gap-1">
+      {[1,2,3,4,5].map(n => (
+        <button key={n} onClick={() => onChange(n)} className="text-xl transition-transform hover:scale-110">
+          <span className={n <= value ? "text-amber-400" : "text-muted-foreground/30"}>★</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 async function api(path: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}/api${path}`, {
@@ -119,7 +164,7 @@ function TicketRow({ ticket, selected, onClick }: { ticket: any; selected: boole
               {sm.label}
             </Badge>
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
             <span className="font-mono text-primary/70 font-medium">{ticketNumber(ticket.id)}</span>
             <span>·</span>
             <span className={cn("px-1.5 py-0.5 rounded-md text-[10px] font-medium", pm.bg, pm.text)}>
@@ -127,6 +172,9 @@ function TicketRow({ ticket, selected, onClick }: { ticket: any; selected: boole
             </span>
             <span>·</span>
             <span>{new Date(ticket.createdAt ?? ticket.created_at).toLocaleDateString("ar-SA", { month: "short", day: "numeric" })}</span>
+            {ticket.sla_resolution_deadline && !["closed","resolved"].includes(ticket.status) && (
+              <><span>·</span><SLACountdown deadline={ticket.sla_resolution_deadline} small /></>
+            )}
           </div>
         </div>
         <ChevronLeft className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-primary/50 transition-colors" />
@@ -380,12 +428,26 @@ function TicketDetail({
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
+  const [rating, setRating] = useState(0);
+
   const closeTicket = useMutation({
-    mutationFn: () => api(`/support/tickets/${ticketId}/close`, { method: "PATCH" }),
+    mutationFn: (satisfactionScore?: number) => api(`/support/tickets/${ticketId}/close`, {
+      method: "PATCH",
+      body: JSON.stringify({ satisfactionScore }),
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["support-tickets"] });
       qc.invalidateQueries({ queryKey: ["support-ticket", ticketId] });
       toast({ title: "تم إغلاق التذكرة" });
+    },
+  });
+
+  const reopenTicket = useMutation({
+    mutationFn: () => api(`/support/tickets/${ticketId}/reopen`, { method: "PATCH" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["support-tickets"] });
+      qc.invalidateQueries({ queryKey: ["support-ticket", ticketId] });
+      toast({ title: "تمت إعادة فتح التذكرة", description: "سيرد عليك فريق الدعم قريباً" });
     },
   });
 
@@ -440,7 +502,7 @@ function TicketDetail({
           </Button>
           {ticket.status !== "closed" && (
             <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30"
-              onClick={() => closeTicket.mutate()} disabled={closeTicket.isPending}>
+              onClick={() => closeTicket.mutate(undefined)} disabled={closeTicket.isPending}>
               <XCircle className="h-3 w-3" /> إغلاق
             </Button>
           )}
@@ -489,11 +551,40 @@ function TicketDetail({
           </p>
         </div>
       ) : (
-        <div className="p-4 border-t border-border/40">
-          <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-muted/30 border border-dashed border-border/60">
-            <XCircle className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">هذه التذكرة مغلقة</span>
-          </div>
+        <div className="p-4 border-t border-border/40 space-y-3">
+          {/* Reopen button */}
+          <Button
+            variant="outline" size="sm"
+            className="w-full gap-2 font-bold border-2 border-primary/30 text-primary hover:bg-primary/10"
+            onClick={() => reopenTicket.mutate()}
+            disabled={reopenTicket.isPending}>
+            {reopenTicket.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            إعادة فتح التذكرة
+          </Button>
+          {/* Rating prompt for resolved/closed */}
+          {!data?.ticket?.satisfaction_score && (
+            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+              <p className="text-xs font-bold text-amber-700 dark:text-amber-300 mb-2">كيف كانت تجربتك مع الدعم؟</p>
+              <div className="flex items-center gap-3">
+                <StarRating value={rating} onChange={setRating} />
+                {rating > 0 && (
+                  <Button size="sm" className="text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white"
+                    onClick={() => api(`/support/tickets/${ticketId}/rate`, { method: "PATCH", body: JSON.stringify({ score: rating }) })
+                      .then(() => { qc.invalidateQueries({ queryKey: ["support-ticket", ticketId] }); toast({ title: "شكراً على تقييمك!" }); })
+                    }>
+                    إرسال التقييم
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+          {data?.ticket?.satisfaction_score && (
+            <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+              <span>تقييمك:</span>
+              <span className="text-amber-400">{"★".repeat(data.ticket.satisfaction_score)}</span>
+              <span className="text-muted-foreground/40">{"★".repeat(5 - data.ticket.satisfaction_score)}</span>
+            </div>
+          )}
         </div>
       )}
     </div>
