@@ -119,6 +119,9 @@ const ProductionLaunchCenter    = lazy(() => import("@/pages/platform/production
 const LegalOSPage          = lazy(() => import("@/pages/legal-core/legal-os"));
 const SelfHealingPage      = lazy(() => import("@/pages/monitoring/self-healing"));
 const AuditLogsPage        = lazy(() => import("@/pages/platform/audit-logs"));
+const SOCPage              = lazy(() => import("@/pages/platform/soc"));
+const AuditCenterPage      = lazy(() => import("@/pages/platform/audit-center"));
+const ExecutiveDashboard   = lazy(() => import("@/pages/platform/executive-dashboard"));
 const IntegrationsPage     = lazy(() => import("@/pages/platform/integrations"));
 const LoginTrackingPage    = lazy(() => import("@/pages/platform/login-tracking"));
 const MySessionsPage       = lazy(() => import("@/pages/platform/my-sessions"));
@@ -895,6 +898,9 @@ function AppRoutes() {
             <Route path="/studio"><AdminRoute><AdalaBuildStudio /></AdminRoute></Route>
             <Route path="/financial-core"><AdminRoute><FinancialCore /></AdminRoute></Route>
             <Route path="/audit-logs"><AdminRoute><AuditLogsPage /></AdminRoute></Route>
+            <Route path="/soc"><AdminRoute><SOCPage /></AdminRoute></Route>
+            <Route path="/audit-center"><AdminRoute><AuditCenterPage /></AdminRoute></Route>
+            <Route path="/executive-dashboard"><AdminRoute><ExecutiveDashboard /></AdminRoute></Route>
             <Route path="/engineering-center"><AdminRoute><EngineeringCenter /></AdminRoute></Route>
             <Route path="/ai-command-center"><AdminRoute><AICommandCenter /></AdminRoute></Route>
             <Route path="/ai-workflow-builder"><ProtectedRoute><AIWorkflowBuilder /></ProtectedRoute></Route>

@@ -11,6 +11,12 @@ import smartAlertsRouter       from "../modules/monitoring/smart-alerts";
 import isolationRouter         from "../modules/monitoring/isolation";
 import zeroTrustRouter         from "../security/zero-trust-router";
 import hardeningRouter         from "../modules/monitoring/hardening";
+import socRouter               from "../modules/security/soc";
+import auditCenterRouter       from "../modules/security/auditCenter";
+import mfaCenterRouter         from "../modules/security/mfaCenter";
+import complianceCenterRouter  from "../modules/security/complianceCenter";
+import drCenterRouter          from "../modules/security/drCenter";
+import executiveDashboardRouter from "../modules/security/executiveDashboard";
 import selfHealingRouter       from "../modules/monitoring/self-healing";
 
 // ── Document Center ───────────────────────────────────────────────────────────
@@ -264,6 +270,12 @@ router.use(agentRuntimeRouter);
 router.use(importDataRouter);
 router.use(officeApiKeysRouter);
 router.use(controlTowerRouter);
+router.use(socRouter);
+router.use(auditCenterRouter);
+router.use(mfaCenterRouter);
+router.use(complianceCenterRouter);
+router.use(drCenterRouter);
+router.use(executiveDashboardRouter);
 router.use(saasOsRouter);
 router.use(productionOsRouter);
 router.use(demoSyncRouter);
