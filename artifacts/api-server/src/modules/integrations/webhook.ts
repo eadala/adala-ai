@@ -3,6 +3,7 @@ import { db, messagesTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 
 const router = Router();
 
@@ -82,7 +83,7 @@ router.post("/webhook/whatsapp", async (req: Request, res: Response) => {
 });
 
 // ─── GET: WhatsApp connection status ───
-router.get("/webhook/whatsapp/settings", (req: Request, res: Response) => {
+router.get("/webhook/whatsapp/settings", requireAuthWithTenant, (req: Request, res: Response) => {
   const hasPhone  = !!process.env.WHATSAPP_PHONE_NUMBER_ID;
   const hasToken  = !!process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneHint = hasPhone
@@ -100,7 +101,7 @@ router.get("/webhook/whatsapp/settings", (req: Request, res: Response) => {
 });
 
 // ─── POST: Test connection against Meta Graph API ───
-router.post("/webhook/whatsapp/test", async (req: Request, res: Response) => {
+router.post("/webhook/whatsapp/test", requireAuthWithTenant, async (req: Request, res: Response) => {
   const { phoneNumberId, accessToken } = req.body as { phoneNumberId?: string; accessToken?: string };
   if (!phoneNumberId || !accessToken) {
     res.status(400).json({ error: "Phone Number ID و Access Token مطلوبان" });
@@ -123,7 +124,7 @@ router.post("/webhook/whatsapp/test", async (req: Request, res: Response) => {
 });
 
 // ─── POST: Send outbound WhatsApp message ───
-router.post("/webhook/whatsapp/send", async (req: Request, res: Response) => {
+router.post("/webhook/whatsapp/send", requireAuthWithTenant, async (req: Request, res: Response) => {
   const { to, message } = req.body as { to?: string; message?: string };
   const phoneNumberId   = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const accessToken     = process.env.WHATSAPP_ACCESS_TOKEN;

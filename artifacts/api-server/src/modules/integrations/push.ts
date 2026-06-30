@@ -5,6 +5,7 @@ import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getVapidPublicKey, sendPushToOffice, sendPush } from "../../lib/webPush";
+import { requireAuth } from "../../middlewares/requireAuth";
 
 const router = Router();
 
@@ -16,7 +17,7 @@ router.get("/push/vapid-public-key", (_req: Request, res: Response) => {
 });
 
 /* ── POST /api/push/subscribe ── */
-router.post("/push/subscribe", async (req: Request, res: Response) => {
+router.post("/push/subscribe", requireAuth, async (req: Request, res: Response) => {
   try {
     const auth = (req as any).auth;
     const userId   = auth?.userId ?? "anonymous";
@@ -52,7 +53,7 @@ router.post("/push/subscribe", async (req: Request, res: Response) => {
 });
 
 /* ── DELETE /api/push/unsubscribe ── */
-router.delete("/push/unsubscribe", async (req: Request, res: Response) => {
+router.delete("/push/unsubscribe", requireAuth, async (req: Request, res: Response) => {
   try {
     const { endpoint } = req.body;
     if (!endpoint) return res.status(400).json({ error: "endpoint مطلوب" });
@@ -64,7 +65,7 @@ router.delete("/push/unsubscribe", async (req: Request, res: Response) => {
 });
 
 /* ── POST /api/push/test — send test push to current user ── */
-router.post("/push/test", async (req: Request, res: Response) => {
+router.post("/push/test", requireAuth, async (req: Request, res: Response) => {
   try {
     const auth = (req as any).auth;
     const userId   = auth?.userId ?? "anonymous";
@@ -93,7 +94,7 @@ router.post("/push/test", async (req: Request, res: Response) => {
 });
 
 /* ── GET /api/push/status ── */
-router.get("/push/status", async (req: Request, res: Response) => {
+router.get("/push/status", requireAuth, async (req: Request, res: Response) => {
   try {
     const auth   = (req as any).auth;
     const userId = auth?.userId ?? "anonymous";
