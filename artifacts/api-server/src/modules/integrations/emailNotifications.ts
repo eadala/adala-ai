@@ -49,17 +49,18 @@ async function sqlAll(q: any) {
   } catch { return []; }
 }
 
-router.get("/email-notifications/settings", requireAuthWithTenant, async (_req, res) => {
+router.get("/email-notifications/settings", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
-    const row = await sqlOne(sql`SELECT * FROM email_notification_settings WHERE office_id = 'default'`);
+    const row = await sqlOne(sql`SELECT * FROM email_notification_settings WHERE office_id = ${tid}`);
     if (!row) {
-      const fresh = await sqlOne(sql`
-        INSERT INTO email_notification_settings (office_id) VALUES ('default')
+      await sqlOne(sql`
+        INSERT INTO email_notification_settings (office_id) VALUES (${tid})
         ON CONFLICT (office_id) DO NOTHING
         RETURNING *
       `);
-      const existing = await sqlOne(sql`SELECT * FROM email_notification_settings WHERE office_id = 'default'`);
+      const existing = await sqlOne(sql`SELECT * FROM email_notification_settings WHERE office_id = ${tid}`);
       return res.json(existing ?? {});
     }
     const safe = { ...row, smtp_pass: row.smtp_pass ? "••••••••" : "" };
@@ -69,12 +70,13 @@ router.get("/email-notifications/settings", requireAuthWithTenant, async (_req, 
 
 router.put("/email-notifications/settings", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const { enabled, smtpHost, smtpPort, smtpUser, smtpPass, fromName, fromEmail, triggers } = req.body;
     const row = await sqlOne(sql`
       INSERT INTO email_notification_settings
         (office_id, enabled, smtp_host, smtp_port, smtp_user, smtp_pass, from_name, from_email, triggers, updated_at)
-      VALUES ('default', ${enabled ?? false}, ${smtpHost ?? null}, ${smtpPort ?? 587},
+      VALUES (${tid}, ${enabled ?? false}, ${smtpHost ?? null}, ${smtpPort ?? 587},
               ${smtpUser ?? null},
               ${smtpPass && smtpPass !== "••••••••" ? smtpPass : null},
               ${fromName ?? "عدالة AI"}, ${fromEmail ?? null},
@@ -97,8 +99,9 @@ router.put("/email-notifications/settings", requireAuthWithTenant, async (req, r
 
 router.post("/email-notifications/test", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
-    const settings = await sqlOne(sql`SELECT * FROM email_notification_settings WHERE office_id = 'default'`);
+    const settings = await sqlOne(sql`SELECT * FROM email_notification_settings WHERE office_id = ${tid}`);
     if (!settings?.smtp_host || !settings?.smtp_user || !settings?.smtp_pass) {
       return res.status(400).json({ error: "يرجى إعداد إعدادات SMTP أولاً" });
     }
@@ -146,11 +149,12 @@ router.post("/email-notifications/run-now", requireAuthWithTenant, async (_req, 
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/email-notifications/logs", requireAuthWithTenant, async (_req, res) => {
+router.get("/email-notifications/logs", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const rows = await sqlAll(sql`
-      SELECT * FROM email_notification_logs WHERE office_id = 'default'
+      SELECT * FROM email_notification_logs WHERE office_id = ${tid}
       ORDER BY sent_at DESC LIMIT 100
     `);
     res.json(rows);

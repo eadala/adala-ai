@@ -95,3 +95,4 @@
 - [Adala Bankruptcy Module](adala-bankruptcy.md) — verifyCase() mandatory in nested POSTs; isUUID() before ::uuid cast; 11 tables bk_* prefix; status lifecycles enforced at DB+API level
 - [Adala Bankruptcy Integrations](adala-bankruptcy-integrations.md) — callBkAI() wrapper fixes officeId param order; 5 Telegram events; saveReportToStorage() after every bk_reports INSERT
 - [JLWM Live Sync](adala-jlwm-sync.md) — state_vector not key_metrics; case/client twin correct columns; EventBus auto-rebuild on CASE/CLIENT events
+- [Adala Integrations Audit](adala-integrations-audit.md) — WhatsApp/Telegram/Email tenant isolation fixed (was 'default'); WhatsApp webhook X-Hub-Signature-256 added; Moyasar timingSafeEqual + mandatory header; WHATSAPP_APP_SECRET env var required pre-launch

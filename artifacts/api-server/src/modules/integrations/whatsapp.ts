@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -48,13 +48,14 @@ async function sqlAll(q: any) {
   } catch { return []; }
 }
 
-router.get("/whatsapp/settings", requireAuth, async (req, res) => {
+router.get("/whatsapp/settings", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
-    let row = await sqlOne(sql`SELECT * FROM whatsapp_settings WHERE office_id = 'default'`);
+    let row = await sqlOne(sql`SELECT * FROM whatsapp_settings WHERE office_id = ${tid}`);
     if (!row) {
-      await db.execute(sql`INSERT INTO whatsapp_settings (office_id) VALUES ('default') ON CONFLICT DO NOTHING`);
-      row = await sqlOne(sql`SELECT * FROM whatsapp_settings WHERE office_id = 'default'`);
+      await db.execute(sql`INSERT INTO whatsapp_settings (office_id) VALUES (${tid}) ON CONFLICT DO NOTHING`);
+      row = await sqlOne(sql`SELECT * FROM whatsapp_settings WHERE office_id = ${tid}`);
     }
     const safe = {
       ...row,
@@ -65,15 +66,16 @@ router.get("/whatsapp/settings", requireAuth, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.put("/whatsapp/settings", requireAuth, async (req, res) => {
+router.put("/whatsapp/settings", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const { enabled, provider, accountSid, authToken, fromNumber, metaToken, metaPhoneId } = req.body;
     const row = await sqlOne(sql`
       INSERT INTO whatsapp_settings
         (office_id, enabled, provider, account_sid, auth_token, from_number, meta_token, meta_phone_id, updated_at)
       VALUES (
-        'default', ${enabled ?? false}, ${provider ?? 'twilio'},
+        ${tid}, ${enabled ?? false}, ${provider ?? 'twilio'},
         ${accountSid ?? null},
         ${authToken && authToken !== "••••••••" ? authToken : null},
         ${fromNumber ?? null},
@@ -142,17 +144,18 @@ async function sendWhatsAppMessage(settings: any, to: string, message: string): 
   return { ok: false, error: "لم يتم تكوين الإعدادات أو المزود غير مدعوم" };
 }
 
-router.post("/whatsapp/send", requireAuth, async (req, res) => {
+router.post("/whatsapp/send", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const { to, message, template } = req.body;
     if (!to || !message) { res.status(400).json({ error: "to و message مطلوبان" }); return; }
 
-    const settings = await sqlOne(sql`SELECT * FROM whatsapp_settings WHERE office_id = 'default'`);
+    const settings = await sqlOne(sql`SELECT * FROM whatsapp_settings WHERE office_id = ${tid}`);
     if (!settings?.enabled) {
       await db.execute(sql`
         INSERT INTO whatsapp_logs (office_id, to_number, message, template, status, error)
-        VALUES ('default', ${to}, ${message}, ${template ?? null}, 'failed', 'الخدمة غير مفعّلة')
+        VALUES (${tid}, ${to}, ${message}, ${template ?? null}, 'failed', 'الخدمة غير مفعّلة')
       `);
       res.json({ ok: false, error: "خدمة واتساب غير مفعّلة. يرجى تفعيلها من الإعدادات." }); return;
     }
@@ -160,40 +163,42 @@ router.post("/whatsapp/send", requireAuth, async (req, res) => {
     const result = await sendWhatsAppMessage(settings, to, message);
     await db.execute(sql`
       INSERT INTO whatsapp_logs (office_id, to_number, message, template, status, error)
-      VALUES ('default', ${to}, ${message}, ${template ?? null}, ${result.ok ? 'sent' : 'failed'}, ${result.error ?? null})
+      VALUES (${tid}, ${to}, ${message}, ${template ?? null}, ${result.ok ? 'sent' : 'failed'}, ${result.error ?? null})
     `);
     res.json(result);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/whatsapp/test", requireAuth, async (req, res) => {
+router.post("/whatsapp/test", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const { to } = req.body;
     if (!to) { res.status(400).json({ error: "رقم الهاتف مطلوب" }); return; }
-    const settings = await sqlOne(sql`SELECT * FROM whatsapp_settings WHERE office_id = 'default'`);
+    const settings = await sqlOne(sql`SELECT * FROM whatsapp_settings WHERE office_id = ${tid}`);
     if (!settings?.enabled) { res.json({ ok: false, error: "الخدمة غير مفعّلة" }); return; }
     const result = await sendWhatsAppMessage(settings, to, "مرحباً 👋\nهذه رسالة اختبار من منصة عدالة AI\nتم تكوين واتساب بنجاح ✅");
     await db.execute(sql`
       INSERT INTO whatsapp_logs (office_id, to_number, message, template, status, error)
-      VALUES ('default', ${to}, 'رسالة اختبار', 'test', ${result.ok ? 'sent' : 'failed'}, ${result.error ?? null})
+      VALUES (${tid}, ${to}, 'رسالة اختبار', 'test', ${result.ok ? 'sent' : 'failed'}, ${result.error ?? null})
     `);
     res.json(result);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/whatsapp/logs", requireAuth, async (req, res) => {
+router.get("/whatsapp/logs", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const rows = await sqlAll(sql`
-      SELECT * FROM whatsapp_logs WHERE office_id = 'default'
+      SELECT * FROM whatsapp_logs WHERE office_id = ${tid}
       ORDER BY sent_at DESC LIMIT 100
     `);
     res.json(rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/whatsapp/templates", requireAuth, async (req, res) => {
+router.get("/whatsapp/templates", requireAuthWithTenant, async (req, res) => {
   res.json([
     { key: "invoice", label: "إشعار فاتورة", body: "السلام عليكم {name}،\nيرجى سداد الفاتورة رقم {invoice_number} بمبلغ {amount} ر.س\nتاريخ الاستحقاق: {due_date}\nرابط الدفع: {link}" },
     { key: "case_update", label: "تحديث القضية", body: "السلام عليكم {name}،\nتحديث على قضيتكم رقم {case_number}:\nالحالة الجديدة: {status}\nللمزيد من المعلومات تواصلوا معنا." },

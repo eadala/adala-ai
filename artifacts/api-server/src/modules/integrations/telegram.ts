@@ -83,7 +83,9 @@ export async function sendTelegramMessage(
 export async function notifyTelegramCaseStatus(updatedCase: any) {
   try {
     await ensureTables();
-    const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = 'default' LIMIT 1`);
+    /* Resolve the correct office — fall back to 'default' if not provided */
+    const officeId = updatedCase.office_id ?? updatedCase.officeId ?? "default";
+    const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = ${officeId} LIMIT 1`);
     if (!settings?.enabled || !settings?.notify_cases || !settings?.bot_token || !settings?.chat_id) return;
 
     const STATUS_LABELS: Record<string, string> = {
@@ -114,11 +116,12 @@ export async function notifyTelegramCaseStatus(updatedCase: any) {
 // ── GET /telegram/settings ────────────────────────────────────────────────────
 router.get("/telegram/settings", requireAuthWithTenant, async (req: Request, res: Response) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
-    let row = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = 'default'`);
+    let row = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = ${tid}`);
     if (!row) {
-      await db.execute(sql`INSERT INTO telegram_settings (office_id) VALUES ('default') ON CONFLICT DO NOTHING`);
-      row = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = 'default'`);
+      await db.execute(sql`INSERT INTO telegram_settings (office_id) VALUES (${tid}) ON CONFLICT DO NOTHING`);
+      row = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = ${tid}`);
     }
     const safe = { ...row, bot_token: row?.bot_token ? "••••••••" : "" };
     res.json(safe ?? {});
@@ -128,6 +131,7 @@ router.get("/telegram/settings", requireAuthWithTenant, async (req: Request, res
 // ── PATCH /telegram/settings ─────────────────────────────────────────────────
 router.patch("/telegram/settings", requireAuthWithTenant, async (req: Request, res: Response) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const {
       enabled, botToken, chatId,
@@ -140,7 +144,7 @@ router.patch("/telegram/settings", requireAuthWithTenant, async (req: Request, r
         (office_id, enabled, bot_token, chat_id,
          notify_cases, notify_invoices, notify_reminders, use_as_storage, updated_at)
       VALUES (
-        'default', ${enabled ?? false},
+        ${tid}, ${enabled ?? false},
         ${botToken && botToken !== "••••••••" ? botToken : null},
         ${chatId ?? null},
         ${notifyCases ?? true}, ${notifyInvoices ?? true},
@@ -164,8 +168,9 @@ router.patch("/telegram/settings", requireAuthWithTenant, async (req: Request, r
 // ── POST /telegram/test ───────────────────────────────────────────────────────
 router.post("/telegram/test", requireAuthWithTenant, async (req: Request, res: Response) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
-    const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = 'default'`);
+    const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = ${tid}`);
     if (!settings?.bot_token || !settings?.chat_id) {
       res.json({ ok: false, error: "أدخل Bot Token و Chat ID أولاً" }); return;
     }
@@ -190,17 +195,18 @@ router.post("/telegram/test", requireAuthWithTenant, async (req: Request, res: R
 // ── POST /telegram/send (manual send) ────────────────────────────────────────
 router.post("/telegram/send", requireAuthWithTenant, async (req: Request, res: Response) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const { message } = req.body;
     if (!message) { res.status(400).json({ error: "message مطلوب" }); return; }
-    const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = 'default'`);
+    const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = ${tid}`);
     if (!settings?.enabled || !settings?.bot_token || !settings?.chat_id) {
       res.json({ ok: false, error: "تليجرام غير مفعّل أو لم يتم الإعداد" }); return;
     }
     const r = await sendTelegramMessage(settings.bot_token, settings.chat_id, message);
     await db.execute(sql`
       INSERT INTO telegram_logs (office_id, chat_id, message, type, status, error)
-      VALUES ('default', ${settings.chat_id}, ${message}, 'manual', ${r.ok ? 'sent' : 'failed'}, ${r.error ?? null})
+      VALUES (${tid}, ${settings.chat_id}, ${message}, 'manual', ${r.ok ? 'sent' : 'failed'}, ${r.error ?? null})
     `);
     res.json(r);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -210,16 +216,16 @@ router.post("/telegram/send", requireAuthWithTenant, async (req: Request, res: R
 // Forward a file URL to the Telegram channel as backup storage
 router.post("/telegram/forward-file", requireAuthWithTenant, async (req: Request, res: Response) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const { fileUrl, fileName, caption } = req.body;
     if (!fileUrl) { res.status(400).json({ error: "fileUrl مطلوب" }); return; }
 
-    const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = 'default'`);
+    const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = ${tid}`);
     if (!settings?.enabled || !settings?.use_as_storage || !settings?.bot_token || !settings?.chat_id) {
       res.json({ ok: false, error: "التخزين عبر تليجرام غير مفعّل" }); return;
     }
 
-    // Send as document to Telegram
     const r = await callTelegramAPI(settings.bot_token, "sendDocument", {
       chat_id: settings.chat_id,
       document: fileUrl,
@@ -231,7 +237,7 @@ router.post("/telegram/forward-file", requireAuthWithTenant, async (req: Request
 
     await db.execute(sql`
       INSERT INTO telegram_logs (office_id, chat_id, message, type, file_id, status, error)
-      VALUES ('default', ${settings.chat_id}, ${fileName ?? fileUrl}, 'file', ${fileId}, ${r.ok ? 'sent' : 'failed'}, ${r.description ?? null})
+      VALUES (${tid}, ${settings.chat_id}, ${fileName ?? fileUrl}, 'file', ${fileId}, ${r.ok ? 'sent' : 'failed'}, ${r.description ?? null})
     `);
 
     res.json({ ok: r.ok, fileId, error: r.description });
@@ -241,8 +247,9 @@ router.post("/telegram/forward-file", requireAuthWithTenant, async (req: Request
 // ── GET /telegram/bot-info ────────────────────────────────────────────────────
 router.get("/telegram/bot-info", requireAuthWithTenant, async (req: Request, res: Response) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
-    const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = 'default'`);
+    const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = ${tid}`);
     if (!settings?.bot_token) { res.json({ ok: false, error: "لم يتم إدخال Bot Token" }); return; }
     const r = await callTelegramAPI(settings.bot_token, "getMe", {});
     res.json(r);
@@ -252,9 +259,10 @@ router.get("/telegram/bot-info", requireAuthWithTenant, async (req: Request, res
 // ── GET /telegram/logs ────────────────────────────────────────────────────────
 router.get("/telegram/logs", requireAuthWithTenant, async (req: Request, res: Response) => {
   await ensureTables();
+  const tid = (req as any).tenantId as string;
   try {
     const rows = await sqlAll(sql`
-      SELECT * FROM telegram_logs WHERE office_id = 'default'
+      SELECT * FROM telegram_logs WHERE office_id = ${tid}
       ORDER BY sent_at DESC LIMIT 100
     `);
     res.json(rows);

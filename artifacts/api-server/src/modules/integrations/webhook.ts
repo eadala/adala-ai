@@ -27,8 +27,34 @@ router.get("/webhook/whatsapp", (req: Request, res: Response) => {
   res.status(403).json({ error: "Forbidden — token mismatch" });
 });
 
-// ─── POST: Receive Incoming Messages from Meta ───
+// ─── POST: Receive Incoming Messages from Meta (with signature verification) ───
 router.post("/webhook/whatsapp", async (req: Request, res: Response) => {
+  /* ── Meta X-Hub-Signature-256 verification ───────────────────────────────
+     Meta signs every webhook POST with HMAC-SHA256 of the raw body using the
+     App Secret. We must verify before processing to prevent spoofed events.
+     Set WHATSAPP_APP_SECRET in env vars to the Meta App Secret.
+  ─────────────────────────────────────────────────────────────────────────── */
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  if (appSecret) {
+    const sigHeader = req.headers["x-hub-signature-256"] as string | undefined;
+    if (!sigHeader) {
+      res.status(403).json({ error: "Missing X-Hub-Signature-256 header" });
+      return;
+    }
+    const rawBody: Buffer = (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body));
+    const expected = "sha256=" + crypto
+      .createHmac("sha256", appSecret)
+      .update(rawBody)
+      .digest("hex");
+    if (!crypto.timingSafeEqual(Buffer.from(sigHeader), Buffer.from(expected))) {
+      res.status(403).json({ error: "Invalid webhook signature" });
+      return;
+    }
+  } else {
+    /* Warn in logs — operator must set WHATSAPP_APP_SECRET before go-live */
+    console.warn("[WhatsApp Webhook] ⚠️  WHATSAPP_APP_SECRET not set — signature verification SKIPPED. Set this env var before production.");
+  }
+
   try {
     const body = req.body as Record<string, any>;
     if (body.object !== "whatsapp_business_account") {
@@ -180,20 +206,35 @@ router.post("/webhook/moyasar", async (req: Request, res: Response) => {
   try {
     const body = req.body as Record<string, any>;
 
-    /* Optional: verify Moyasar signature if webhook_secret is set */
+    /* ── Moyasar signature verification (MANDATORY when secret configured) ──
+       Fix: use timingSafeEqual + reject if sig missing (not just wrong).
+       If no webhook_secret is set, log warning but allow (graceful degradation).
+    ─────────────────────────────────────────────────────────────────────── */
     const officeId = body.metadata?.office_id ?? "default";
     const settings = await dbRows(sql`
       SELECT webhook_secret FROM moyasar_settings WHERE office_id = ${officeId} LIMIT 1
     `);
     const secret = settings[0]?.webhook_secret;
     if (secret) {
-      const sig = req.headers["x-moyasar-signature"] as string ?? "";
-      const raw = JSON.stringify(body);
-      const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
-      if (sig && sig !== expected) {
-        res.status(403).json({ error: "توقيع غير صحيح" });
+      const sigHeader = req.headers["x-moyasar-signature"] as string | undefined;
+      if (!sigHeader) {
+        res.status(403).json({ error: "Missing x-moyasar-signature header" });
         return;
       }
+      const raw = JSON.stringify(body);
+      const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
+      try {
+        if (!crypto.timingSafeEqual(Buffer.from(sigHeader), Buffer.from(expected))) {
+          res.status(403).json({ error: "توقيع Moyasar غير صحيح" });
+          return;
+        }
+      } catch {
+        /* Buffer length mismatch means different length → signature mismatch */
+        res.status(403).json({ error: "توقيع Moyasar غير صحيح" });
+        return;
+      }
+    } else {
+      console.warn("[Moyasar Webhook] ⚠️  webhook_secret not configured for office=" + officeId + " — signature verification SKIPPED.");
     }
 
     const { id: moyasarId, status, amount, currency, description, metadata } = body;
