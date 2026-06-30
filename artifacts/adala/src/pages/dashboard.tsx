@@ -19,6 +19,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useLang } from "@/hooks/use-lang";
 import { useOfficePlan } from "@/hooks/use-office-plan";
 import { Crown } from "lucide-react";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -365,6 +366,7 @@ function OfficePerfScore() {
    Client Risk Matrix — AI-Driven Client Health
 ══════════════════════════════════════════════════════ */
 function ClientRiskMatrix() {
+  const { isMobile } = useBreakpoint();
   const { data, isLoading } = useQuery<IntelData>({
     queryKey: ["dashboard-intelligence"],
     staleTime: 5 * 60_000,
@@ -401,9 +403,45 @@ function ClientRiskMatrix() {
 
       {isLoading ? (
         <div className="p-3 space-y-2">{Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-9 rounded-lg" />)}</div>
+      ) : isMobile ? (
+        /* ── Mobile: card list ── */
+        <div className="divide-y divide-border/20">
+          {risks.slice(0, 6).map(client => {
+            const rc = RISK_CFG[client.risk as keyof typeof RISK_CFG] ?? RISK_CFG.low;
+            return (
+              <Link key={client.id} href="/clients">
+                <div className="flex items-center justify-between px-4 py-3 active:bg-accent/40 transition-colors">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${rc.dot}`} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{client.name}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {client.activeCases} قضية
+                        {client.daysSince !== null && ` · ${client.daysSince} يوم`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {client.unpaidAmount > 0 && (
+                      <span className={`text-xs font-mono font-bold ${client.overdueCount > 0 ? "text-red-400" : "text-amber-400"}`}>
+                        {client.unpaidAmount.toLocaleString("ar-SA")}
+                      </span>
+                    )}
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${rc.bg} ${rc.text} ${rc.border}`}>
+                      {rc.label}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+          <div className="px-4 py-2 bg-muted/10">
+            <span className="text-[10px] text-muted-foreground/40">المستحق بالريال السعودي</span>
+          </div>
+        </div>
       ) : (
+        /* ── Desktop: data grid ── */
         <div className="overflow-x-auto">
-          {/* Column headers */}
           <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-1.5 border-b border-border/10 bg-muted/10 overflow-x-auto">
             <span className="text-[10px] text-muted-foreground/50">العميل</span>
             <span className="text-[10px] text-muted-foreground/50 w-14 text-center">قضايا</span>

@@ -19,8 +19,9 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -470,9 +471,15 @@ export default function Cases() {
         </div>
       )}
 
-      {/* ── New Case Dialog ── */}
-      <Dialog open={newOpen} onOpenChange={v => { setNewOpen(v); if (!v) { setForm({ title: "", caseType: "civil", clientName: "", description: "" }); setClientInput("select"); } }}>
-        <DialogContent className="max-w-md">
+      {/* ── New Case Dialog (AdaptiveDialog → BottomSheet on mobile) ── */}
+      <AdaptiveDialog open={newOpen} onOpenChange={v => { setNewOpen(v); if (!v) { setForm({ title: "", caseType: "civil", clientName: "", description: "" }); setClientInput("select"); } }}>
+        <AdaptiveDialogContent
+          className="max-w-md"
+          title="قضية جديدة"
+          open={newOpen}
+          onClose={() => { setNewOpen(false); setForm({ title: "", caseType: "civil", clientName: "", description: "" }); setClientInput("select"); }}
+          size="lg"
+        >
           <DialogHeader>
             <DialogTitle>قضية جديدة</DialogTitle>
           </DialogHeader>
@@ -548,8 +555,8 @@ export default function Cases() {
               {createCase.isPending ? "جارٍ الإنشاء..." : "إنشاء القضية"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} type="cases" queryKey={[...getListCasesQueryKey()] as string[]} />
     </div>

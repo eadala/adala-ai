@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -264,9 +265,16 @@ export default function Clients() {
         </div>
       )}
 
-      {/* Form Dialog */}
-      <Dialog open={showForm} onOpenChange={v => { if (!v) closeForm(); }}>
-        <DialogContent className="max-w-md" dir={dir}>
+      {/* Form Dialog (AdaptiveDialog → BottomSheet on mobile) */}
+      <AdaptiveDialog open={showForm} onOpenChange={v => { if (!v) closeForm(); }}>
+        <AdaptiveDialogContent
+          className="max-w-md"
+          dir={dir}
+          title={editing ? tx("تعديل العميل", "Edit Client") : tx("إضافة عميل جديد", "Add New Client")}
+          open={showForm}
+          onClose={closeForm}
+          size="lg"
+        >
           <DialogHeader><DialogTitle>{editing ? tx("تعديل العميل", "Edit Client") : tx("إضافة عميل جديد", "Add New Client")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>{tx("الاسم الكامل *", "Full Name *")}</Label><Input value={form.fullName} onChange={e => setForm(p => ({ ...p, fullName: e.target.value }))} placeholder={tx("اسم العميل أو الشركة", "Client or company name")} /></div>
@@ -307,8 +315,8 @@ export default function Clients() {
               {editing ? tx("حفظ التعديلات", "Save Changes") : tx("إضافة العميل", "Add Client")}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }
