@@ -11,6 +11,9 @@ import { auditLog, auditMeta } from "../../lib/auditLogger";
 
 const router = Router();
 
+/* ── One-time migration: add client_account_id column if missing ─────────── */
+db.execute(sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_account_id TEXT`).catch(() => {});
+
 // ── Zod schemas ───────────────────────────────────────────────────────────────
 const CreateClientSchema = z.object({
   fullName:   z.string().min(2, "الاسم يجب أن يكون حرفين على الأقل"),
@@ -65,6 +68,17 @@ router.post("/clients", requireAuthWithTenant, validate(CreateClientSchema), asy
       tags:       tags   ?? [],
       officeId:   tenantId,
     } as any).returning();
+
+    /* Auto-link client_account_id if this email exists in client_accounts */
+    if (email) {
+      try {
+        const caR = await db.execute(sql`SELECT id FROM client_accounts WHERE LOWER(email) = ${email.toLowerCase()} LIMIT 1`);
+        const caRow = ((caR as any).rows ?? [])[0];
+        if (caRow) {
+          await db.execute(sql`UPDATE clients SET client_account_id = ${caRow.id as string} WHERE id = ${String((client as any).id)}::uuid`).catch(() => {});
+        }
+      } catch { /* non-critical */ }
+    }
 
     eventBus.emit({
       type: "CLIENT_ADDED",
@@ -325,6 +339,76 @@ router.get("/clients/:id/accounting", requireAuthWithTenant, async (req, res) =>
       byStatus,
       invoicesCount: invoices.length,
     });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
+  }
+});
+
+// ── GET /clients/:id/portal-activity ─────────────────────────────────────────
+router.get("/clients/:id/portal-activity", requireAuthWithTenant, async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
+    const id = String(req.params.id);
+
+    /* fetch client email + client_account_id */
+    const cRows = await db.execute(sql`
+      SELECT email, client_account_id FROM clients WHERE id = ${id}::uuid AND office_id = ${tenantId} LIMIT 1
+    `);
+    const cl = ((cRows as any).rows ?? [])[0];
+    if (!cl) return apiErr(res, 404, "NOT_FOUND", "الموكل غير موجود");
+
+    const email     = (cl.email            as string | null) ?? "";
+    const accountId = (cl.client_account_id as string | null) ?? "";
+
+    /* portal account — by stored id first, fall back to email lookup */
+    let portalAccount: any = null;
+    if (accountId) {
+      const r = await db.execute(sql`SELECT id, email, name, email_verified, created_at FROM client_accounts WHERE id = ${accountId} LIMIT 1`);
+      portalAccount = ((r as any).rows ?? [])[0] ?? null;
+    }
+    if (!portalAccount && email) {
+      const r = await db.execute(sql`SELECT id, email, name, email_verified, created_at FROM client_accounts WHERE LOWER(email) = ${email.toLowerCase()} LIMIT 1`);
+      portalAccount = ((r as any).rows ?? [])[0] ?? null;
+    }
+    /* if found via email but no stored id, back-fill immediately */
+    if (portalAccount && !accountId) {
+      db.execute(sql`UPDATE clients SET client_account_id = ${portalAccount.id as string} WHERE id = ${id}::uuid`).catch(() => {});
+    }
+
+    /* portal case links */
+    const caseLinks = portalAccount
+      ? await db.execute(sql`
+          SELECT ccl.case_id, ccl.portal_token, ccl.office_id, ccl.linked_at,
+                 c.title, c.status, c.case_type
+          FROM   client_case_links ccl
+          LEFT JOIN cases c ON c.id::text = ccl.case_id
+          WHERE  ccl.client_id = ${portalAccount.id as string} AND ccl.office_id = ${tenantId}
+          ORDER BY ccl.linked_at DESC LIMIT 20
+        `).then(r => (r as any).rows ?? []).catch(() => [])
+      : [];
+
+    /* store orders (office_orders) by client email */
+    const storeOrders = email
+      ? await db.execute(sql`
+          SELECT id, service_name, total_amount, status, created_at, portal_token, auto_case_id
+          FROM   office_orders
+          WHERE  LOWER(client_email) = ${email.toLowerCase()}
+          ORDER BY created_at DESC LIMIT 10
+        `).then(r => (r as any).rows ?? []).catch(() => [])
+      : [];
+
+    /* marketplace orders by buyer email + this office */
+    const marketplaceOrders = email
+      ? await db.execute(sql`
+          SELECT id, service_title, amount, status, created_at
+          FROM   marketplace_orders
+          WHERE  LOWER(buyer_email) = ${email.toLowerCase()} AND seller_id = ${tenantId}
+          ORDER BY created_at DESC LIMIT 10
+        `).then(r => (r as any).rows ?? []).catch(() => [])
+      : [];
+
+    res.json({ portalAccount, caseLinks, storeOrders, marketplaceOrders });
   } catch (e: any) {
     res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
   }

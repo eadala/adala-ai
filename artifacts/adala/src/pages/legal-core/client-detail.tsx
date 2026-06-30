@@ -15,6 +15,7 @@ import {
   UserPlus, SmartphoneIcon, CheckCircle, XCircle,
   TrendingDown, BarChart3, Printer, ArrowUpRight, ArrowDownRight,
   Sparkles, Bot, Brain, RefreshCw, Copy,
+  Globe, ShoppingBag, Link2, ShieldCheck, ShieldOff,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -57,6 +58,24 @@ const ACTIVITY_ICONS: Record<string, { icon: any; color: string; bg: string }> =
   event_scheduled:  { icon: CalendarDays,  color: "text-pink-400",    bg: "bg-pink-500/15" },
 };
 
+function usePortalActivity(id: string) {
+  return useQuery<{
+    portalAccount: { id: string; email: string; name: string | null; email_verified: boolean; created_at: string } | null;
+    caseLinks: any[];
+    storeOrders: any[];
+    marketplaceOrders: any[];
+  }>({
+    queryKey: ["client-portal-activity", id],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/clients/${id}/portal-activity`);
+      if (!r.ok) return { portalAccount: null, caseLinks: [], storeOrders: [], marketplaceOrders: [] };
+      return r.json();
+    },
+    enabled: !!id,
+    staleTime: 60_000,
+  });
+}
+
 function useClientOverview(id: string) {
   return useQuery<{
     client: any;
@@ -88,6 +107,7 @@ export default function ClientDetail() {
   const params = useParams<{ id: string }>();
   const id = params.id ?? "";
   const { data, isLoading, error } = useClientOverview(id);
+  const { data: portalData } = usePortalActivity(id);
 
   /* waLogs must be declared before any early returns to satisfy rules-of-hooks */
   const clientPhone = (data as any)?.client?.phone as string | undefined;
@@ -238,6 +258,10 @@ export default function ClientDetail() {
           </TabsTrigger>
           <TabsTrigger value="activities" className="text-xs px-1.5">
             <Activity className="h-3.5 w-3.5 ms-1 hidden sm:block" />النشاطات
+          </TabsTrigger>
+          <TabsTrigger value="portal" className="text-xs px-1.5">
+            <Globe className="h-3.5 w-3.5 ms-1 hidden sm:block" />البوابة
+            {portalData?.portalAccount && <span className="me-1 text-[10px] bg-emerald-500/20 text-emerald-400 rounded px-1">✓</span>}
           </TabsTrigger>
           <TabsTrigger value="whatsapp" className="text-xs px-1.5">
             <SmartphoneIcon className="h-3.5 w-3.5 ms-1 hidden sm:block" />واتساب
@@ -496,6 +520,11 @@ export default function ClientDetail() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── PORTAL ACTIVITY TAB ── */}
+        <TabsContent value="portal" className="mt-4">
+          <ClientPortalActivity data={portalData ?? null} clientEmail={client.email} />
         </TabsContent>
 
         {/* ── AI INSIGHTS TAB ── */}
@@ -971,6 +1000,164 @@ function ClientAIInsights({ client, cases, invoices, contracts }: {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ─── Client Portal Activity Component ──────────────────────────────────────── */
+function ClientPortalActivity({
+  data,
+  clientEmail,
+}: {
+  data: { portalAccount: any; caseLinks: any[]; storeOrders: any[]; marketplaceOrders: any[] } | null;
+  clientEmail?: string | null;
+}) {
+  const pa    = data?.portalAccount ?? null;
+  const links = data?.caseLinks ?? [];
+  const store = data?.storeOrders ?? [];
+  const mkt   = data?.marketplaceOrders ?? [];
+  const totalOrders = store.length + mkt.length;
+
+  const ORDER_STATUS: Record<string, { label: string; color: string }> = {
+    paid:      { label: "مدفوع",   color: "bg-emerald-500/15 text-emerald-400" },
+    pending:   { label: "معلّق",   color: "bg-amber-500/15  text-amber-400"   },
+    cancelled: { label: "ملغى",    color: "bg-red-500/15    text-red-400"     },
+    open:      { label: "جديد",    color: "bg-blue-500/15   text-blue-400"    },
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* ── Portal Account Status ── */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Globe className="h-4 w-4 text-primary" />
+            حساب البوابة
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {pa ? (
+            <div className="flex items-start gap-4">
+              <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${pa.email_verified ? "bg-emerald-500/15" : "bg-amber-500/15"}`}>
+                {pa.email_verified
+                  ? <ShieldCheck className="h-5 w-5 text-emerald-400" />
+                  : <ShieldOff    className="h-5 w-5 text-amber-400"  />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium">{pa.name ?? pa.email}</span>
+                  <Badge className={`text-[10px] px-1.5 ${pa.email_verified ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"}`}>
+                    {pa.email_verified ? "موثّق" : "غير موثّق"}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">{pa.email}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  عضو منذ {new Date(pa.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}
+                </p>
+              </div>
+              <div className="text-left">
+                <p className="text-xs text-muted-foreground">رابط البوابة</p>
+                <p className="text-sm font-bold text-emerald-400">{links.length} قضية</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2 py-6 text-muted-foreground">
+              <Globe className="h-8 w-8 opacity-20" />
+              <p className="text-sm">لا يوجد حساب بوابة لهذا الموكل</p>
+              {clientEmail && <p className="text-xs opacity-60">البريد: {clientEmail} — لم يُنشئ حساباً بعد</p>}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Portal Case Links ── */}
+      {links.length > 0 && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Link2 className="h-4 w-4 text-blue-400" />
+              القضايا المرتبطة بالبوابة
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {links.map((lk: any, i: number) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/20">
+                  <div className="flex items-center gap-3">
+                    <Scale className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">{lk.title ?? lk.case_id}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {lk.case_type && <span>{lk.case_type} · </span>}
+                        ربُط في {new Date(lk.linked_at).toLocaleDateString("ar-EG", { day: "numeric", month: "short", year: "numeric" })}
+                      </p>
+                    </div>
+                  </div>
+                  {lk.portal_token && (
+                    <a
+                      href={`${BASE}/portal/${lk.portal_token}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300"
+                    >
+                      <ExternalLink className="h-3 w-3" />رابط
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Store Purchases ── */}
+      {totalOrders > 0 && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4 text-violet-400" />
+              مشتريات المتجر
+              <span className="text-[10px] font-normal bg-violet-500/15 text-violet-400 rounded px-1.5">{totalOrders} طلب</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {[...store, ...mkt]
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                .map((ord: any, i: number) => {
+                  const st = ORDER_STATUS[ord.status] ?? ORDER_STATUS.open;
+                  const amount = Number(ord.total_amount ?? ord.amount ?? 0);
+                  return (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/20">
+                      <div className="flex items-center gap-3">
+                        <ShoppingBag className="h-4 w-4 text-violet-400 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium">{ord.service_name ?? ord.service_title ?? "خدمة قانونية"}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {new Date(ord.created_at).toLocaleDateString("ar-EG", { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {amount > 0 && <span className="text-sm font-bold">{amount.toLocaleString("ar-SA")} ر.س</span>}
+                        <Badge className={`text-[10px] px-1.5 ${st.color}`}>{st.label}</Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!pa && totalOrders === 0 && links.length === 0 && (
+        <Card className="border-border/50 border-dashed">
+          <CardContent className="flex flex-col items-center gap-3 py-10 text-muted-foreground">
+            <Globe className="h-10 w-10 opacity-10" />
+            <p className="text-sm text-center">لم يتفاعل هذا الموكل مع البوابة الإلكترونية أو المتجر بعد</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

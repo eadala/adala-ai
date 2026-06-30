@@ -565,6 +565,29 @@ async function handleOfficeServicePayment(opts: {
     `);
   }
 
+  /* ── Step 5b: Sync to clients CRM table (non-critical) ── */
+  if (clientEmail) {
+    try {
+      await db.execute(sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_account_id TEXT`).catch(() => {});
+      const existingCrm = await db.execute(sql`
+        SELECT id FROM clients WHERE LOWER(email) = ${clientEmail.toLowerCase()} AND office_id = ${officeId} LIMIT 1
+      `).then(r => ((r as any).rows ?? [])[0]).catch(() => null);
+      if (existingCrm) {
+        await db.execute(sql`
+          UPDATE clients SET client_account_id = ${clientId}, updated_at = NOW()
+          WHERE id = ${String(existingCrm.id)}::uuid
+        `).catch(() => {});
+      } else {
+        await db.execute(sql`
+          INSERT INTO clients (id, full_name, email, phone, office_id, client_account_id, source, status, created_at, updated_at)
+          VALUES (${randomUUID()}, ${clientName || "عميل متجر"}, ${clientEmail}, ${clientPhone || null},
+                  ${officeId}, ${clientId}, 'store', 'active', NOW(), NOW())
+          ON CONFLICT DO NOTHING
+        `).catch(() => {});
+      }
+    } catch { /* non-critical */ }
+  }
+
   /* ── Step 6: Auto-create a case with store source (CRITICAL) ── */
   const svcLabel  = serviceName || (orderRow.service_name as string | undefined) || "خدمة قانونية";
   const caseTitle = `${svcLabel} — ${clientName || clientPhone || "عميل جديد"}`;
