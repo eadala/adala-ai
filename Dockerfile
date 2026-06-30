@@ -44,6 +44,9 @@ COPY --from=builder --chown=adala:adala /app/artifacts/api-server/dist/ ./dist/
 # Copy built frontend static files
 COPY --from=builder --chown=adala:adala /app/artifacts/adala/dist/ ./public/
 COPY --from=builder --chown=adala:adala /app/node_modules/ ./node_modules/
+COPY --from=builder --chown=adala:adala /app/artifacts/api-server/node_modules/ ./artifacts/api-server/node_modules/
+
+USER adala
 USER adala
 
 # Tell the Express server to serve ./public in production
