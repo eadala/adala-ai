@@ -8,7 +8,8 @@ import { DocumentPrintTemplate, PrintButton } from "@/components/document-print-
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -263,8 +264,8 @@ export default function Payroll() {
       )}
 
       {/* Generate Dialog */}
-      <Dialog open={showGenerate} onOpenChange={setShowGenerate}>
-        <DialogContent className="max-w-sm">
+      <AdaptiveDialog open={showGenerate} onOpenChange={setShowGenerate}>
+        <AdaptiveDialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>توليد كشف الرواتب</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground">سيتم توليد قسائم رواتب لجميع الموظفين النشطين مع حساب البدلات والتأمينات تلقائياً.</p>
@@ -288,8 +289,8 @@ export default function Payroll() {
               توليد
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

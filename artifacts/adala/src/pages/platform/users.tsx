@@ -9,7 +9,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -506,8 +507,8 @@ function InviteDialog({ open, onClose, roles }: { open: boolean; onClose: () => 
   const SelectedIcon = selectedMeta?.icon ?? Shield;
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="sm:max-w-md" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Send className="h-5 w-5 text-primary" />
@@ -580,8 +581,8 @@ function InviteDialog({ open, onClose, roles }: { open: boolean; onClose: () => 
             {mutation.isPending ? "جارٍ الإرسال..." : "إرسال الدعوة"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -621,8 +622,8 @@ function RoleDialog({ open, onClose, role }: { open: boolean; onClose: () => voi
   });
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-5 w-5 text-primary" />
@@ -630,7 +631,7 @@ function RoleDialog({ open, onClose, role }: { open: boolean; onClose: () => voi
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-5 py-2">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 mobile-single-col">
             <div className="space-y-2">
               <Label className="text-xs font-semibold">اسم الدور *</Label>
               <Input placeholder="مثال: محامي أول" value={displayName} onChange={e => setDisplayName(e.target.value)} />
@@ -670,8 +671,8 @@ function RoleDialog({ open, onClose, role }: { open: boolean; onClose: () => voi
             {mutation.isPending ? "جارٍ الحفظ..." : isEdit ? "حفظ التعديلات" : "إنشاء الدور"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 

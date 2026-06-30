@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -80,8 +81,8 @@ function ClaimDialog({
   const ok = form.creditorName.trim() && form.phone.trim() && Number(form.amount) > 0;
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg" dir={lang === "ar" ? "rtl" : "ltr"}>
+    <AdaptiveDialog open onOpenChange={onClose}>
+      <AdaptiveDialogContent className="max-w-lg" dir={lang === "ar" ? "rtl" : "ltr"}>
         <DialogHeader>
           <DialogTitle className="font-black text-lg flex items-center gap-2">
             <ClipboardList className="h-5 w-5" style={{ color: c }} />
@@ -110,7 +111,7 @@ function ClaimDialog({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div>
                 <Label className="text-xs mb-1 block">{t("الاسم الكامل *", "Full Name *", lang)}</Label>
                 <Input value={form.creditorName} onChange={e => setForm(f => ({ ...f, creditorName: e.target.value }))}
@@ -122,7 +123,7 @@ function ClaimDialog({
                   placeholder="1XXXXXXXXX" dir="ltr" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div>
                 <Label className="text-xs mb-1 block">{t("رقم الجوال *", "Phone *", lang)}</Label>
                 <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
@@ -156,8 +157,8 @@ function ClaimDialog({
             </Button>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -184,8 +185,8 @@ function TrackDialog({
   });
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg" dir={lang === "ar" ? "rtl" : "ltr"}>
+    <AdaptiveDialog open onOpenChange={onClose}>
+      <AdaptiveDialogContent className="max-w-lg" dir={lang === "ar" ? "rtl" : "ltr"}>
         <DialogHeader>
           <DialogTitle className="font-black text-lg flex items-center gap-2">
             <Search className="h-5 w-5" style={{ color: c }} />
@@ -260,8 +261,8 @@ function TrackDialog({
             </div>
           ))}
         </div>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 

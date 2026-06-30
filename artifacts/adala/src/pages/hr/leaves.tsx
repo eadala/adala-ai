@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -182,8 +183,8 @@ export default function Leaves() {
       )}
 
       {/* Create Dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-w-md">
+      <AdaptiveDialog open={showCreate} onOpenChange={setShowCreate}>
+        <AdaptiveDialogContent className="max-w-md">
           <DialogHeader><DialogTitle>طلب إجازة جديد</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>الموظف *</Label>
@@ -198,7 +199,7 @@ export default function Leaves() {
                 <SelectContent>{Object.entries(LEAVE_TYPES).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label>تاريخ البداية *</Label><Input type="date" value={form.startDate} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))} /></div>
               <div><Label>تاريخ النهاية *</Label><Input type="date" value={form.endDate} onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))} /></div>
             </div>
@@ -213,8 +214,8 @@ export default function Leaves() {
               {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />} تقديم الطلب
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

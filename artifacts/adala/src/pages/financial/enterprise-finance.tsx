@@ -406,7 +406,7 @@ export default function EnterpriseFinance() {
                 <Loader2 className="h-6 w-6 animate-spin mx-auto" />
               ) : (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4 mobile-single-col">
                     <Card className="border-green-200">
                       <CardContent className="p-4 text-center">
                         <p className="text-xs text-muted-foreground mb-1">إجمالي الدائن (Credit)</p>

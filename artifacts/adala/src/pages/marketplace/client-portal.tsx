@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -14,8 +15,7 @@ import {
   Globe, Link2, Copy, CheckCircle2, Plus, Trash2, Clock,
   Eye, Shield, ExternalLink, RefreshCw, Loader2, Settings,
   GitCommitHorizontal, ShieldCheck, Users, Lock,
-  UserPlus, KeyRound, Mail, Phone, EyeOff, ClipboardCopy, UserCheck,
-} from "lucide-react";
+  UserPlus, KeyRound, Mail, Phone, EyeOff, ClipboardCopy, UserCheck} from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -55,24 +55,20 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
       fetch(`${BASE}/api/portal/create-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caseId, clientEmail, clientName, expiryDays, showInvoices, showTimeline, allowedToUpload }),
-      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+        body: JSON.stringify({ caseId, clientEmail, clientName, expiryDays, showInvoices, showTimeline, allowedToUpload })}).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (data) => {
       if (data?.error) { toast.error(data.error); return; }
       setResult(data);
       onCreated();
     },
-    onError: () => toast.error("فشل إنشاء الرابط"),
-  });
+    onError: () => toast.error("فشل إنشاء الرابط")});
 
   const reset = () => { setResult(null); setCaseId(""); setClientEmail(""); setClientName(""); };
 
   return (
-    <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" />رابط بوابة جديد</Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-md" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={o => { setOpen(o); if (!o) reset(); }}>
+      <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" />رابط بوابة جديد</Button>
+      <AdaptiveDialogContent className="max-w-md" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-primary" />إنشاء بوابة عميل
@@ -113,7 +109,7 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
                 {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div className="space-y-1.5">
                 <Label>اسم العميل</Label>
                 <Input placeholder="أحمد المطيري" value={clientName} onChange={e => setClientName(e.target.value)} />
@@ -150,8 +146,8 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
             </Button>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -169,25 +165,21 @@ function AddTimelineDialog({ caseId, onAdded }: { caseId: string; onAdded: () =>
       fetch(`${BASE}/api/portal/timeline/${caseId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, entryType, happenedAt, isShared }),
-      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+        body: JSON.stringify({ title, description, entryType, happenedAt, isShared })}).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d?.error) { toast.error(d.error); return; }
       toast.success(isShared ? "تم إضافة التحديث وإشعار العميل ✅" : "تم إضافة الحدث ✅");
       setOpen(false); setTitle(""); setDescription("");
       onAdded();
     },
-    onError: () => toast.error("فشل إضافة الحدث"),
-  });
+    onError: () => toast.error("فشل إضافة الحدث")});
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10">
+    <AdaptiveDialog open={open} onOpenChange={setOpen}>
+      <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10">
           <GitCommitHorizontal className="h-3 w-3" />إضافة تحديث
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-md" dir="rtl">
+      <AdaptiveDialogContent className="max-w-md" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitCommitHorizontal className="h-4 w-4 text-primary" />إضافة حدث للخط الزمني
@@ -233,8 +225,8 @@ function AddTimelineDialog({ caseId, onAdded }: { caseId: string; onAdded: () =>
             إضافة التحديث
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -250,8 +242,7 @@ function TokenSettingsPanel({ token, onSaved }: { token: PortalToken; onSaved: (
     const r = await fetch(`${BASE}/api/portal/tokens/${token.id}/settings`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ showInvoices, showTimeline, allowedToUpload }),
-    });
+      body: JSON.stringify({ showInvoices, showTimeline, allowedToUpload })});
     const d = await r.json();
     if (d?.error) toast.error(d.error);
     else { toast.success("تم حفظ الإعدادات"); onSaved(); }
@@ -321,8 +312,7 @@ function CreateClientAccountDialog({ cases, onCreated }: { cases: Case[]; onCrea
     const r = await fetch(`${BASE}/api/client-auth/admin-create`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name: name || null, phone: phone || null, caseId: caseId || null, portalToken }),
-    });
+      body: JSON.stringify({ email, password, name: name || null, phone: phone || null, caseId: caseId || null, portalToken })});
     const d = await r.json();
     setLoading(false);
 
@@ -341,13 +331,11 @@ function CreateClientAccountDialog({ cases, onCreated }: { cases: Case[]; onCrea
   };
 
   return (
-    <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
+    <AdaptiveDialog open={open} onOpenChange={o => { setOpen(o); if (!o) reset(); }}>
+      <Button variant="outline" size="sm" className="gap-1.5">
           <UserPlus className="h-3.5 w-3.5" />إنشاء حساب عميل
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-md" dir="rtl">
+      <AdaptiveDialogContent className="max-w-md" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {step === "form"
@@ -472,8 +460,8 @@ function CreateClientAccountDialog({ cases, onCreated }: { cases: Case[]; onCrea
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -482,8 +470,7 @@ const ACTION_LABELS: Record<string, { label: string; desc: string }> = {
   reply:    { label: "الرد على العملاء",        desc: "إرسال رسائل ومشاركة وثائق عبر بوابة العميل" },
   portal:   { label: "إدارة بوابة العملاء",     desc: "إنشاء وإلغاء وتعديل روابط البوابة" },
   timeline: { label: "إرسال تحديثات للعملاء",  desc: "إضافة أحداث مشتركة في الخط الزمني" },
-  intake:   { label: "استقبال قضايا جديدة",    desc: "إنشاء قضايا من طلبات العملاء الواردة" },
-};
+  intake:   { label: "استقبال قضايا جديدة",    desc: "إنشاء قضايا من طلبات العملاء الواردة" }};
 
 type CommSettings = {
   reply_roles: string[];
@@ -504,8 +491,7 @@ function CommSettingsDialog() {
   const { data: settings, isLoading, refetch } = useQuery<CommSettings>({
     queryKey: ["comm-settings"],
     queryFn: () => fetch(`${BASE}/api/comm-settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    enabled: open,
-  });
+    enabled: open});
 
   const merged = { ...settings, ...draft } as CommSettings;
   const allRoles = settings?.allRoles ?? [];
@@ -526,13 +512,11 @@ function CommSettingsDialog() {
       portal_roles:   merged.portal_roles,
       timeline_roles: merged.timeline_roles,
       intake_roles:   merged.intake_roles,
-      require_reply_approval: merged.require_reply_approval,
-    };
+      require_reply_approval: merged.require_reply_approval};
     const r = await fetch(`${BASE}/api/comm-settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+      body: JSON.stringify(body)});
     const d = await r.json();
     if (d?.error) { toast.error(d.error); }
     else { toast.success("تم حفظ إعدادات صلاحيات التواصل ✅"); setDraft({}); setOpen(false); refetch(); }
@@ -540,13 +524,11 @@ function CommSettingsDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) setDraft({}); }}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
+    <AdaptiveDialog open={open} onOpenChange={o => { setOpen(o); if (!o) setDraft({}); }}>
+      <Button variant="outline" size="sm" className="gap-1.5">
           <ShieldCheck className="h-3.5 w-3.5" />صلاحيات التواصل
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <AdaptiveDialogContent className="max-w-lg" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" />إعدادات صلاحيات التواصل مع العملاء
@@ -623,8 +605,8 @@ function CommSettingsDialog() {
             حفظ الإعدادات
           </Button>
         )}
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -636,8 +618,7 @@ export default function ClientPortal() {
 
   const { data: cases = [] } = useQuery<Case[]>({
     queryKey: ["cases-list"],
-    queryFn: () => fetch(`${BASE}/api/cases`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }).then(d => Array.isArray(d) ? d : d.cases ?? []),
-  });
+    queryFn: () => fetch(`${BASE}/api/cases`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }).then(d => Array.isArray(d) ? d : d.cases ?? [])});
 
   const { data: allTokens = [], isLoading, refetch } = useQuery<PortalToken[]>({
     queryKey: ["portal-all-tokens"],
@@ -647,13 +628,11 @@ export default function ClientPortal() {
       );
       return results.flat().filter(Boolean);
     },
-    enabled: cases.length > 0,
-  });
+    enabled: cases.length > 0});
 
   const deleteToken = useMutation({
     mutationFn: (id: string) => fetch(`${BASE}/api/portal/tokens/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess: () => { toast.success("تم حذف الرابط"); qc.invalidateQueries({ queryKey: ["portal-all-tokens"] }); },
-  });
+    onSuccess: () => { toast.success("تم حذف الرابط"); qc.invalidateQueries({ queryKey: ["portal-all-tokens"] }); }});
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["portal-all-tokens"] });
   const getCaseName = (caseId: string) => cases.find(c => c.id === caseId)?.title ?? caseId;
@@ -661,8 +640,7 @@ export default function ClientPortal() {
   const stats = {
     total:    allTokens.length,
     active:   allTokens.filter(t => !t.expires_at || new Date(t.expires_at) > new Date()).length,
-    accessed: allTokens.filter(t => t.access_count > 0).length,
-  };
+    accessed: allTokens.filter(t => t.access_count > 0).length};
 
   return (
     <div className="space-y-6 max-w-5xl">

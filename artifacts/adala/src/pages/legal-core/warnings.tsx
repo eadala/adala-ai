@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -369,8 +370,8 @@ export default function Warnings() {
       </Tabs>
 
       {/* ════════ Warning Form Dialog ════════ */}
-      <Dialog open={showWarnForm} onOpenChange={setShowWarnForm}>
-        <DialogContent className="max-w-md">
+      <AdaptiveDialog open={showWarnForm} onOpenChange={setShowWarnForm}>
+        <AdaptiveDialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-orange-400" /> إصدار إنذار جديد
@@ -419,12 +420,12 @@ export default function Warnings() {
               إصدار الإنذار
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ════════ Warning Detail Dialog ════════ */}
-      <Dialog open={!!showWarnDetail} onOpenChange={() => setShowWarnDetail(null)}>
-        <DialogContent className="max-w-md">
+      <AdaptiveDialog open={!!showWarnDetail} onOpenChange={() => setShowWarnDetail(null)}>
+        <AdaptiveDialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-orange-400" /> تفاصيل الإنذار
@@ -461,12 +462,12 @@ export default function Warnings() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ════════ Investigation Form Dialog ════════ */}
-      <Dialog open={showInvForm} onOpenChange={setShowInvForm}>
-        <DialogContent className="max-w-md">
+      <AdaptiveDialog open={showInvForm} onOpenChange={setShowInvForm}>
+        <AdaptiveDialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Gavel className="h-4 w-4 text-amber-400" /> فتح تحقيق جديد
@@ -514,8 +515,8 @@ export default function Warnings() {
               فتح التحقيق
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ════════ Investigation Detail/Close Dialog ════════ */}
       {showInvDetail && (
@@ -541,8 +542,8 @@ function InvDetailDialog({ inv, onClose, onSave, isPending }: {
   const [notes, setNotes] = useState(inv.notes ?? "");
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+    <AdaptiveDialog open onOpenChange={onClose}>
+      <AdaptiveDialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Gavel className="h-4 w-4 text-amber-400" /> إغلاق التحقيق وتسجيل النتيجة
@@ -589,7 +590,7 @@ function InvDetailDialog({ inv, onClose, onSave, isPending }: {
             <Gavel className="h-4 w-4" /> إغلاق التحقيق وحفظ القرار
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }

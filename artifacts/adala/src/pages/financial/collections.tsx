@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DollarSign, AlertTriangle, Clock, Search, Send, CreditCard,
@@ -616,8 +617,8 @@ export default function Collections() {
       )}
 
       {/* ─── Full Payment Dialog ─── */}
-      <Dialog open={!!payDialog} onOpenChange={v => !v && setPayDialog(null)}>
-        <DialogContent className="sm:max-w-md" dir="rtl">
+      <AdaptiveDialog open={!!payDialog} onOpenChange={v => !v && setPayDialog(null)}>
+        <AdaptiveDialogContent className="sm:max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-primary" />تسجيل دفعة كاملة
@@ -654,12 +655,12 @@ export default function Collections() {
               {recordPayMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}تأكيد الدفعة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ─── Partial Payment Dialog ─── */}
-      <Dialog open={!!partialDialog} onOpenChange={v => !v && setPartialDialog(null)}>
-        <DialogContent className="sm:max-w-md" dir="rtl">
+      <AdaptiveDialog open={!!partialDialog} onOpenChange={v => !v && setPartialDialog(null)}>
+        <AdaptiveDialogContent className="sm:max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Minus className="h-5 w-5 text-amber-400" />دفعة جزئية
@@ -702,12 +703,12 @@ export default function Collections() {
               {partialPayMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}تسجيل الدفعة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ─── Stage Dialog ─── */}
-      <Dialog open={!!stageDialog} onOpenChange={v => !v && setStageDialog(null)}>
-        <DialogContent className="sm:max-w-sm" dir="rtl">
+      <AdaptiveDialog open={!!stageDialog} onOpenChange={v => !v && setStageDialog(null)}>
+        <AdaptiveDialogContent className="sm:max-w-sm" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Layers className="h-5 w-5 text-violet-400" />تحديث مرحلة التحصيل
@@ -741,12 +742,12 @@ export default function Collections() {
               {stageMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}تحديث المرحلة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ─── Activity Dialog ─── */}
-      <Dialog open={!!activityInv} onOpenChange={v => !v && setActivityInv(null)}>
-        <DialogContent className="sm:max-w-lg" dir="rtl">
+      <AdaptiveDialog open={!!activityInv} onOpenChange={v => !v && setActivityInv(null)}>
+        <AdaptiveDialogContent className="sm:max-w-lg" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="h-5 w-5 text-primary" />
@@ -757,8 +758,8 @@ export default function Collections() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setActivityInv(null)}>إغلاق</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
     </div>
   );

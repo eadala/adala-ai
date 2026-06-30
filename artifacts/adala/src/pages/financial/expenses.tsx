@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -127,12 +128,12 @@ export default function Expenses() {
           </CardContent>
         </Card>
 
-        <Dialog open={open} onOpenChange={v=>!v&&close_()}>
-          <DialogContent className="bg-card border-border text-foreground max-w-md" dir="rtl">
+        <AdaptiveDialog open={open} onOpenChange={v=>!v&&close_()}>
+          <AdaptiveDialogContent className="bg-card border-border text-foreground max-w-md" dir="rtl">
             <DialogHeader><DialogTitle>{editing?"تعديل المصروف":"إضافة مصروف جديد"}</DialogTitle></DialogHeader>
             <div className="space-y-3 py-2">
               <div><Label className="text-xs text-muted-foreground">عنوان المصروف *</Label><Input value={form.title??""} onChange={e=>set("title",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div><Label className="text-xs text-muted-foreground">الفئة</Label>
                   <Select value={form.category??""} onValueChange={v=>set("category",v)}>
                     <SelectTrigger className="bg-background/50 border-border mt-1 text-sm h-9"><SelectValue/></SelectTrigger>
@@ -140,7 +141,7 @@ export default function Expenses() {
                   </Select></div>
                 <div><Label className="text-xs text-muted-foreground">المبلغ (ر.س) *</Label><Input type="number" min="0" value={form.amount??""} onChange={e=>set("amount",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div><Label className="text-xs text-muted-foreground">طريقة الدفع</Label>
                   <Select value={form.paymentMethod??""} onValueChange={v=>set("paymentMethod",v)}>
                     <SelectTrigger className="bg-background/50 border-border mt-1 text-sm h-9"><SelectValue/></SelectTrigger>
@@ -157,19 +158,19 @@ export default function Expenses() {
                 {saveMut.isPending&&<Loader2 className="h-4 w-4 ms-1 animate-spin"/>}حفظ
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </AdaptiveDialogContent>
+        </AdaptiveDialog>
 
-        <Dialog open={!!delId} onOpenChange={v=>!v&&setDelId(null)}>
-          <DialogContent className="bg-card border-border text-foreground max-w-sm" dir="rtl">
+        <AdaptiveDialog open={!!delId} onOpenChange={v=>!v&&setDelId(null)}>
+          <AdaptiveDialogContent className="bg-card border-border text-foreground max-w-sm" dir="rtl">
             <DialogHeader><DialogTitle>تأكيد الحذف</DialogTitle></DialogHeader>
             <p className="text-sm text-muted-foreground">هل أنت متأكد من حذف هذا المصروف؟</p>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={()=>setDelId(null)}>إلغاء</Button>
               <Button variant="destructive" onClick={()=>delMut.mutate(delId!)} disabled={delMut.isPending}>{delMut.isPending&&<Loader2 className="h-4 w-4 ms-1 animate-spin"/>}حذف</Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </AdaptiveDialogContent>
+        </AdaptiveDialog>
     </div>
   );
 }

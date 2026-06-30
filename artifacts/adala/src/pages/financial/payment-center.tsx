@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -1201,8 +1202,8 @@ export default function PaymentCenter() {
       </Tabs>
 
       {/* ════ Settle Single Dialog ════ */}
-      <Dialog open={!!showSettleDialog} onOpenChange={() => setShowSettleDialog(null)}>
-        <DialogContent className="max-w-sm" dir="rtl">
+      <AdaptiveDialog open={!!showSettleDialog} onOpenChange={() => setShowSettleDialog(null)}>
+        <AdaptiveDialogContent className="max-w-sm" dir="rtl">
           <DialogHeader><DialogTitle className="flex items-center gap-2"><BadgeCheck className="h-5 w-5 text-emerald-500" /> تأكيد تحويل الدفعة</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">هذا يؤكد أن المبلغ الصافي تم تحويله فعلياً لحسابك البنكي.</p>
@@ -1219,15 +1220,15 @@ export default function PaymentCenter() {
               تأكيد التحويل
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ════ Add Transaction Dialog ════ */}
-      <Dialog open={showNewTx} onOpenChange={setShowNewTx}>
-        <DialogContent className="max-w-md" dir="rtl">
+      <AdaptiveDialog open={showNewTx} onOpenChange={setShowNewTx}>
+        <AdaptiveDialogContent className="max-w-md" dir="rtl">
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Receipt className="h-5 w-5 text-primary" /> معاملة مالية يدوية</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div>
                 <Label className="text-xs font-semibold mb-1 block">المبلغ (ر.س) *</Label>
                 <Input type="number" value={txForm.amount} onChange={e => setTxForm(f => ({ ...f, amount: e.target.value }))} placeholder="1000" dir="ltr" />
@@ -1241,7 +1242,7 @@ export default function PaymentCenter() {
               <Label className="text-xs font-semibold mb-1 block">الوصف *</Label>
               <Input value={txForm.description} onChange={e => setTxForm(f => ({ ...f, description: e.target.value }))} placeholder="أتعاب قضية رقم 2024-001" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div>
                 <Label className="text-xs font-semibold mb-1 block">طريقة الدفع</Label>
                 <Select value={txForm.paymentMethod} onValueChange={v => setTxForm(f => ({ ...f, paymentMethod: v }))}>
@@ -1282,16 +1283,16 @@ export default function PaymentCenter() {
               <Check className="h-4 w-4" /> حفظ
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ════ Payment Link Dialog (from header button) ════ */}
-      <Dialog open={showPayLink} onOpenChange={v => { setShowPayLink(v); if (!v) { setGeneratedLink(null); setPayLinkForm({ amountSAR: "", description: "أتعاب قانونية", clientName: "", clientEmail: "", clientPhone: "", invoiceId: "", caseId: "" }); } }}>
-        <DialogContent className="max-w-md" dir="rtl">
+      <AdaptiveDialog open={showPayLink} onOpenChange={v => { setShowPayLink(v); if (!v) { setGeneratedLink(null); setPayLinkForm({ amountSAR: "", description: "أتعاب قانونية", clientName: "", clientEmail: "", clientPhone: "", invoiceId: "", caseId: "" }); } }}>
+        <AdaptiveDialogContent className="max-w-md" dir="rtl">
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-primary" /> إنشاء رابط دفع</DialogTitle></DialogHeader>
           {!generatedLink ? (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div>
                   <Label className="text-xs font-semibold mb-1 block">المبلغ (ر.س) *</Label>
                   <Input type="number" dir="ltr" placeholder="1000" value={payLinkForm.amountSAR} onChange={e => setPayLinkForm(f => ({ ...f, amountSAR: e.target.value }))} />
@@ -1305,7 +1306,7 @@ export default function PaymentCenter() {
                 <Label className="text-xs font-semibold mb-1 block">الوصف *</Label>
                 <Input placeholder="أتعاب قضية..." value={payLinkForm.description} onChange={e => setPayLinkForm(f => ({ ...f, description: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div>
                   <Label className="text-xs font-semibold mb-1 block">بريد العميل</Label>
                   <Input type="email" dir="ltr" placeholder="client@email.com" value={payLinkForm.clientEmail} onChange={e => setPayLinkForm(f => ({ ...f, clientEmail: e.target.value }))} />
@@ -1350,12 +1351,12 @@ export default function PaymentCenter() {
               </DialogFooter>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ════ Stripe Connect Dialog ════ */}
-      <Dialog open={showConnect} onOpenChange={setShowConnect}>
-        <DialogContent className="max-w-sm" dir="rtl">
+      <AdaptiveDialog open={showConnect} onOpenChange={setShowConnect}>
+        <AdaptiveDialogContent className="max-w-sm" dir="rtl">
           <DialogHeader><DialogTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" /> ربط Stripe Connect</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
@@ -1379,8 +1380,8 @@ export default function PaymentCenter() {
               ربط الآن <ExternalLink className="h-4 w-4" />
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

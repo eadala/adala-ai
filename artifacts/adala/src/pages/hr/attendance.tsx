@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -399,8 +400,8 @@ export default function Attendance() {
       </Card>
 
       {/* Manual Dialog */}
-      <Dialog open={showManual} onOpenChange={setShowManual}>
-        <DialogContent className="max-w-sm">
+      <AdaptiveDialog open={showManual} onOpenChange={setShowManual}>
+        <AdaptiveDialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>تسجيل حضور يدوي</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>الموظف *</Label>
@@ -436,12 +437,12 @@ export default function Attendance() {
               {manualMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />} تسجيل
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* Office Location Setup Dialog */}
-      <Dialog open={showOfficeSetup} onOpenChange={setShowOfficeSetup}>
-        <DialogContent className="max-w-sm">
+      <AdaptiveDialog open={showOfficeSetup} onOpenChange={setShowOfficeSetup}>
+        <AdaptiveDialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-primary" /> إعداد موقع المكتب
@@ -499,8 +500,8 @@ export default function Attendance() {
               حفظ موقع المكتب
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

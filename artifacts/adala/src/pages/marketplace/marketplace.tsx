@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -110,8 +111,8 @@ function BuyNowDialog({ service, onClose }: { service: Service; onClose: () => v
   });
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md" dir="rtl">
+    <AdaptiveDialog open onOpenChange={onClose}>
+      <AdaptiveDialogContent className="max-w-md" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <ShoppingBag className="h-4 w-4 text-primary" />اطلب الخدمة مباشرة
@@ -138,7 +139,7 @@ function BuyNowDialog({ service, onClose }: { service: Service; onClose: () => v
             <Label className="text-xs">الاسم الكامل *</Label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="أحمد محمد" className="h-9 text-sm" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mobile-single-col">
             <div className="space-y-1">
               <Label className="text-xs">الجوال</Label>
               <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="05xxxxxxxx" className="h-9 text-sm" dir="ltr" />
@@ -163,8 +164,8 @@ function BuyNowDialog({ service, onClose }: { service: Service; onClose: () => v
             تأكيد الطلب
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -215,8 +216,8 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
   };
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg" dir="rtl">
+    <AdaptiveDialog open onOpenChange={onClose}>
+      <AdaptiveDialogContent className="max-w-lg" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Handshake className="h-4 w-4 text-primary" />غرفة التفاوض
@@ -239,7 +240,7 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div className="space-y-1">
                 <Label className="text-xs">الاسم الكامل *</Label>
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="أحمد محمد" className="h-9 text-sm" />
@@ -355,8 +356,8 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
             </DialogFooter>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -403,8 +404,8 @@ function AddServiceDialog({ onCreated }: { onCreated: () => void }) {
       <Button className="gap-2" onClick={() => setOpen(true)}>
         <Plus className="h-4 w-4" />نشر خدمة
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md" dir="rtl">
+      <AdaptiveDialog open={open} onOpenChange={setOpen}>
+        <AdaptiveDialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />نشر خدمة قانونية جديدة
@@ -415,7 +416,7 @@ function AddServiceDialog({ onCreated }: { onCreated: () => void }) {
               <Label className="text-xs">عنوان الخدمة *</Label>
               <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="استشارة في قانون العمل" className="h-9 text-sm" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div className="space-y-1">
                 <Label className="text-xs">الفئة *</Label>
                 <Select value={cat} onValueChange={setCat}>
@@ -436,7 +437,7 @@ function AddServiceDialog({ onCreated }: { onCreated: () => void }) {
               <Label className="text-xs">وصف الخدمة</Label>
               <Textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="وصف تفصيلي..." rows={2} className="text-sm resize-none" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div className="space-y-1">
                 <Label className="text-xs">المدة (دقيقة)</Label>
                 <Input type="number" value={dur} onChange={e => setDur(e.target.value)} placeholder="60" className="h-9 text-sm" />
@@ -470,8 +471,8 @@ function AddServiceDialog({ onCreated }: { onCreated: () => void }) {
               نشر الخدمة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </>
   );
 }

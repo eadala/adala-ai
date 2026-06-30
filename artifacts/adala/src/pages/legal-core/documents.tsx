@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -97,8 +98,8 @@ function ShareDialog({ doc, open, onClose, tx, dir }: { doc: any; open: boolean;
   });
   const docId = doc?.id ?? "";
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="sm:max-w-md" dir={dir}>
+    <AdaptiveDialog open={open} onOpenChange={v => !v && onClose()}>
+      <AdaptiveDialogContent className="sm:max-w-md" dir={dir}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Share2 className="h-5 w-5 text-primary" />{tx("مشاركة مع بوابة العميل","Share with Client Portal")}</DialogTitle>
           <DialogDescription>{tx("اختر بوابات العملاء","Choose client portals to share")} <strong className="text-foreground">{doc?.fileName ?? doc?.original_name}</strong></DialogDescription>
@@ -116,8 +117,8 @@ function ShareDialog({ doc, open, onClose, tx, dir }: { doc: any; open: boolean;
              );
            })}
         </div>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -143,8 +144,8 @@ function MoveDialog({ file, folders, open, onClose }: { file: any; folders: any[
   const tree = buildTree(folders);
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="sm:max-w-sm" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={v => !v && onClose()}>
+      <AdaptiveDialogContent className="sm:max-w-sm" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-right">
             <FolderInput className="h-4 w-4 text-primary" />
@@ -178,8 +179,8 @@ function MoveDialog({ file, folders, open, onClose }: { file: any; folders: any[
             {moveMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "نقل هنا"}
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -275,8 +276,8 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
   const availableMembers = members.filter((m: any) => !grantedIds.has(m.user_id));
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="sm:max-w-md" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={v => !v && onClose()}>
+      <AdaptiveDialogContent className="sm:max-w-md" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-right">
             <ShieldCheck className="h-5 w-5 text-primary" />
@@ -378,8 +379,8 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
             )}
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -989,8 +990,8 @@ export default function Documents() {
       </Tabs>
 
       {/* ── Smart Upload Dialog ── */}
-      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
+      <AdaptiveDialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <AdaptiveDialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-right">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
@@ -1012,8 +1013,8 @@ export default function Documents() {
               }}
             />
           </div>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ── Share Dialog ── */}
       <ShareDialog doc={shareDoc} open={!!shareDoc} onClose={() => setShareDoc(null)} tx={tx} dir={dir} />

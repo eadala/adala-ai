@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Landmark, Plus, Pencil, Trash2, Loader2, Star } from "lucide-react";
@@ -100,8 +101,8 @@ export default function BankAccounts() {
           ))}
         </div>
 
-        <Dialog open={open} onOpenChange={v => !v && close_()}>
-          <DialogContent className="bg-card border-border text-foreground max-w-md" dir="rtl">
+        <AdaptiveDialog open={open} onOpenChange={v => !v && close_()}>
+          <AdaptiveDialogContent className="bg-card border-border text-foreground max-w-md" dir="rtl">
             <DialogHeader><DialogTitle>{editing ? "تعديل الحساب" : "إضافة حساب بنكي"}</DialogTitle></DialogHeader>
             <div className="space-y-3 py-2">
               <div><Label className="text-xs text-muted-foreground">اسم البنك *</Label>
@@ -109,12 +110,12 @@ export default function BankAccounts() {
                   className="w-full bg-background/50 border border-border rounded-md px-3 py-2 text-sm text-foreground mt-1">
                   {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
                 </select></div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div><Label className="text-xs text-muted-foreground">اسم الحساب *</Label><Input value={form.accountName ?? ""} onChange={e => set("accountName", e.target.value)} className="bg-background/50 border-border mt-1 text-sm" /></div>
                 <div><Label className="text-xs text-muted-foreground">رقم الحساب *</Label><Input value={form.accountNumber ?? ""} onChange={e => set("accountNumber", e.target.value)} className="bg-background/50 border-border mt-1 text-sm" dir="ltr" /></div>
               </div>
               <div><Label className="text-xs text-muted-foreground">IBAN (اختياري)</Label><Input value={form.iban ?? ""} onChange={e => set("iban", e.target.value)} className="bg-background/50 border-border mt-1 text-sm" dir="ltr" placeholder="SA..." /></div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div><Label className="text-xs text-muted-foreground">الرصيد الحالي (ر.س)</Label><Input type="number" min="0" step="0.01" value={form.currentBalance ?? ""} onChange={e => set("currentBalance", e.target.value)} className="bg-background/50 border-border mt-1 text-sm" /></div>
                 <div className="flex items-center justify-between rounded-lg border border-border p-3 mt-1">
                   <Label className="text-xs text-muted-foreground">الحساب الافتراضي</Label>
@@ -129,19 +130,19 @@ export default function BankAccounts() {
                 {saveMut.isPending && <Loader2 className="h-4 w-4 ms-1 animate-spin" />}حفظ
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </AdaptiveDialogContent>
+        </AdaptiveDialog>
 
-        <Dialog open={!!delId} onOpenChange={v => !v && setDelId(null)}>
-          <DialogContent className="bg-card border-border text-foreground max-w-sm" dir="rtl">
+        <AdaptiveDialog open={!!delId} onOpenChange={v => !v && setDelId(null)}>
+          <AdaptiveDialogContent className="bg-card border-border text-foreground max-w-sm" dir="rtl">
             <DialogHeader><DialogTitle>تأكيد الحذف</DialogTitle></DialogHeader>
             <p className="text-sm text-muted-foreground">هل أنت متأكد من حذف هذا الحساب؟</p>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={() => setDelId(null)}>إلغاء</Button>
               <Button variant="destructive" onClick={() => delMut.mutate(delId!)} disabled={delMut.isPending}>{delMut.isPending && <Loader2 className="h-4 w-4 ms-1 animate-spin" />}حذف</Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </AdaptiveDialogContent>
+        </AdaptiveDialog>
     </div>
   );
 }

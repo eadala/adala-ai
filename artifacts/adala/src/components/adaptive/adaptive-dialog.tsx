@@ -1,18 +1,20 @@
 /**
- * AdaptiveDialog — Drop-in replacement for shadcn Dialog
- * • Desktop: renders standard Dialog
- * • Mobile/Tablet: renders BottomSheet
+ * AdaptiveDialog v2 — Context-based, drop-in Dialog replacement
  *
- * Usage (identical API to shadcn Dialog):
+ * Desktop/Tablet: renders standard shadcn Dialog
+ * Mobile (<768px): renders BottomSheet (slides from bottom)
+ *
+ * Usage — IDENTICAL to shadcn Dialog, no extra props needed:
+ *
  *   <AdaptiveDialog open={open} onOpenChange={setOpen}>
- *     <AdaptiveDialogContent title="عنوان" className="max-w-md">
- *       <DialogHeader>...</DialogHeader>
- *       ...form fields...
+ *     <AdaptiveDialogContent className="max-w-md" title="عنوان اختياري">
+ *       <DialogHeader><DialogTitle>...</DialogTitle></DialogHeader>
+ *       ...form...
  *       <DialogFooter>...</DialogFooter>
  *     </AdaptiveDialogContent>
  *   </AdaptiveDialog>
  */
-import { ReactNode } from "react";
+import { createContext, useCallback, useContext, ReactNode, CSSProperties } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,23 +25,42 @@ import {
 import { BottomSheet } from "./bottom-sheet";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 
+/* ── Internal context ───────────────────────────────────────────── */
+interface AdaptiveCtx {
+  open: boolean;
+  onClose: () => void;
+}
+const AdaptiveDialogContext = createContext<AdaptiveCtx | null>(null);
+
 /* ── AdaptiveDialog root ────────────────────────────────────────── */
 export function AdaptiveDialog({
-  open, onOpenChange, children,
+  open,
+  onOpenChange,
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: ReactNode;
 }) {
   const { isMobile } = useBreakpoint();
+  const onClose = useCallback(() => onOpenChange(false), [onOpenChange]);
+
+  const ctx: AdaptiveCtx = { open, onClose };
+
   if (isMobile) {
-    // On mobile we use BottomSheet — children must include AdaptiveDialogContent
-    return <>{children}</>;
+    return (
+      <AdaptiveDialogContext.Provider value={ctx}>
+        {children}
+      </AdaptiveDialogContext.Provider>
+    );
   }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      {children}
-    </Dialog>
+    <AdaptiveDialogContext.Provider value={ctx}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        {children}
+      </Dialog>
+    </AdaptiveDialogContext.Provider>
   );
 }
 
@@ -47,27 +68,28 @@ export function AdaptiveDialog({
 export function AdaptiveDialogContent({
   children,
   className,
+  style,
+  /** Optional title shown in BottomSheet header on mobile */
   title,
-  open,
-  onClose,
+  /** BottomSheet height preset */
   size = "lg",
   dir,
 }: {
   children: ReactNode;
   className?: string;
+  style?: CSSProperties;
   title?: string;
-  open?: boolean;
-  onClose?: () => void;
   size?: "sm" | "md" | "lg" | "full";
   dir?: string;
 }) {
   const { isMobile } = useBreakpoint();
+  const ctx = useContext(AdaptiveDialogContext);
 
   if (isMobile) {
     return (
       <BottomSheet
-        open={open ?? false}
-        onClose={onClose ?? (() => {})}
+        open={ctx?.open ?? false}
+        onClose={ctx?.onClose ?? (() => {})}
         title={title}
         size={size}
         showHandle
@@ -78,7 +100,7 @@ export function AdaptiveDialogContent({
   }
 
   return (
-    <DialogContent className={className} dir={dir}>
+    <DialogContent className={className} style={style} dir={dir}>
       {children}
     </DialogContent>
   );

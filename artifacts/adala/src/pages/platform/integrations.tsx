@@ -16,6 +16,7 @@ import { Badge }    from "@/components/ui/badge";
 import { Input }    from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { useToast } from "@/hooks/use-toast";
 import { cn }       from "@/lib/utils";
 import { useAuth }  from "@clerk/react";
@@ -351,9 +352,9 @@ export default function IntegrationsPage() {
       )}
 
       {/* Request Dialog */}
-      <Dialog open={!!reqDialog} onOpenChange={v => { if (!v) { setReqDialog(null); setReqMsg(""); } }}>
+      <AdaptiveDialog open={!!reqDialog} onOpenChange={v => { if (!v) { setReqDialog(null); setReqMsg(""); } }}>
         {reqDialog && (
-          <DialogContent className="max-w-md">
+          <AdaptiveDialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <span className="text-xl">{reqDialog.icon}</span>
@@ -399,9 +400,9 @@ export default function IntegrationsPage() {
                 إرسال الطلب
               </Button>
             </DialogFooter>
-          </DialogContent>
+          </AdaptiveDialogContent>
         )}
-      </Dialog>
+      </AdaptiveDialog>
     </div>
   );
 }

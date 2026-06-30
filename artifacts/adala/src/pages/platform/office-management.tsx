@@ -22,7 +22,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
@@ -1077,14 +1078,14 @@ export default function OfficeManagement() {
       </Tabs>
 
       {/* ── Edit Office Dialog ── */}
-      <Dialog open={!!pageForm} onOpenChange={() => setPageForm(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <AdaptiveDialog open={!!pageForm} onOpenChange={() => setPageForm(null)}>
+        <AdaptiveDialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>تعديل بيانات الصفحة</DialogTitle></DialogHeader>
           {pageForm && (
             <div className="space-y-4">
 
               {/* Photos */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div>
                   <Label className="text-xs font-semibold mb-2 block">شعار المكتب</Label>
                   <div className="flex items-center gap-2">
@@ -1118,19 +1119,19 @@ export default function OfficeManagement() {
               </div>
 
               {/* Arabic fields */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div><Label className="text-xs font-semibold mb-1 block">اسم المكتب (عربي)</Label>
                   <Input value={pageForm.name} onChange={e => setPageForm((f: any) => ({ ...f, name: e.target.value }))} /></div>
                 <div><Label className="text-xs font-semibold mb-1 block">اسم المكتب (English)</Label>
                   <Input value={pageForm.nameEn ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, nameEn: e.target.value }))} dir="ltr" placeholder="Al-Harbi Law Firm" /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div><Label className="text-xs font-semibold mb-1 block">الشعار النصي (عربي)</Label>
                   <Input value={pageForm.tagline ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, tagline: e.target.value }))} placeholder="متخصصون في القانون التجاري" /></div>
                 <div><Label className="text-xs font-semibold mb-1 block">Tagline (English)</Label>
                   <Input value={pageForm.taglineEn ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, taglineEn: e.target.value }))} dir="ltr" placeholder="Specialists in Commercial Law" /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div><Label className="text-xs font-semibold mb-1 block">من نحن (عربي)</Label>
                   <Textarea value={pageForm.about ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, about: e.target.value }))} rows={3} className="resize-none" /></div>
                 <div><Label className="text-xs font-semibold mb-1 block">About Us (English)</Label>
@@ -1148,7 +1149,7 @@ export default function OfficeManagement() {
               </div>
 
               {/* Contact */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div><Label className="text-xs font-semibold mb-1 block">الهاتف</Label>
                   <Input value={pageForm.phone ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, phone: e.target.value }))} dir="ltr" /></div>
                 <div>
@@ -1221,7 +1222,7 @@ export default function OfficeManagement() {
               </div>
 
               {/* Social */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div><Label className="text-xs font-semibold mb-1 block">تويتر X</Label>
                   <Input value={pageForm.twitter ?? ""} onChange={e => setPageForm((f: any) => ({ ...f, twitter: e.target.value }))} dir="ltr" /></div>
                 <div><Label className="text-xs font-semibold mb-1 block">لينكدإن</Label>
@@ -1253,19 +1254,19 @@ export default function OfficeManagement() {
               <Save className="h-4 w-4" /> حفظ التغييرات
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ── Add Service Dialog ── */}
-      <Dialog open={showSvcForm} onOpenChange={setShowSvcForm}>
-        <DialogContent className="max-w-md">
+      <AdaptiveDialog open={showSvcForm} onOpenChange={setShowSvcForm}>
+        <AdaptiveDialogContent className="max-w-md">
           <DialogHeader><DialogTitle>إضافة خدمة قانونية</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label className="text-xs font-semibold mb-1 block">اسم الخدمة *</Label>
               <Input value={svcForm.name} onChange={e => setSvcForm(f => ({ ...f, name: e.target.value }))} placeholder="استشارة قانونية" /></div>
             <div><Label className="text-xs font-semibold mb-1 block">الوصف</Label>
               <Textarea value={svcForm.description} onChange={e => setSvcForm(f => ({ ...f, description: e.target.value }))} rows={2} className="resize-none" /></div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label className="text-xs font-semibold mb-1 block">التصنيف</Label>
                 <Select value={svcForm.category} onValueChange={v => setSvcForm(f => ({ ...f, category: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1294,19 +1295,19 @@ export default function OfficeManagement() {
               <Plus className="h-4 w-4" /> إضافة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ── Edit Service Dialog ── */}
-      <Dialog open={!!editSvcDialog} onOpenChange={v => { if (!v) setEditSvcDialog(null); }}>
-        <DialogContent className="max-w-md">
+      <AdaptiveDialog open={!!editSvcDialog} onOpenChange={v => { if (!v) setEditSvcDialog(null); }}>
+        <AdaptiveDialogContent className="max-w-md">
           <DialogHeader><DialogTitle>تعديل الخدمة</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label className="text-xs font-semibold mb-1 block">اسم الخدمة *</Label>
               <Input value={editSvcForm.name} onChange={e => setEditSvcForm(f => ({ ...f, name: e.target.value }))} /></div>
             <div><Label className="text-xs font-semibold mb-1 block">الوصف</Label>
               <Textarea value={editSvcForm.description} onChange={e => setEditSvcForm(f => ({ ...f, description: e.target.value }))} rows={2} className="resize-none" /></div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label className="text-xs font-semibold mb-1 block">التصنيف</Label>
                 <Select value={editSvcForm.category} onValueChange={v => setEditSvcForm(f => ({ ...f, category: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1335,12 +1336,12 @@ export default function OfficeManagement() {
               <Save className="h-4 w-4" /> حفظ
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ── Add / Edit Article Dialog ── */}
-      <Dialog open={showArticleForm || !!editArticle} onOpenChange={v => { if (!v) { setShowArticleForm(false); setEditArticle(null); } }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <AdaptiveDialog open={showArticleForm || !!editArticle} onOpenChange={v => { if (!v) { setShowArticleForm(false); setEditArticle(null); } }}>
+        <AdaptiveDialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editArticle ? "تعديل المقال" : "إضافة مقال جديد"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label className="text-xs font-semibold mb-1 block">عنوان المقال *</Label>
@@ -1349,7 +1350,7 @@ export default function OfficeManagement() {
                 onChange={e => setArticleForm(f => ({ ...f, title: e.target.value, slug: editArticle ? f.slug : slugify(e.target.value) }))}
                 placeholder="أهمية توثيق العقود التجارية"
               /></div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label className="text-xs font-semibold mb-1 block">الرابط المختصر (slug)</Label>
                 <Input value={articleForm.slug} onChange={e => setArticleForm(f => ({ ...f, slug: slugify(e.target.value) }))} dir="ltr" placeholder="legal-contracts-importance" className="font-mono text-xs" /></div>
               <div><Label className="text-xs font-semibold mb-1 block">التصنيف</Label>
@@ -1385,12 +1386,12 @@ export default function OfficeManagement() {
               {editArticle ? <><Save className="h-4 w-4" /> حفظ التغييرات</> : <><Plus className="h-4 w-4" /> نشر المقال</>}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ── Add Team Dialog ── */}
-      <Dialog open={showTeamForm} onOpenChange={v => { setShowTeamForm(v); if (!v) setTeamForm({ name: "", title: "", specialties: "", bio: "", linkedin: "", photoUrl: "" }); }}>
-        <DialogContent className="max-w-md">
+      <AdaptiveDialog open={showTeamForm} onOpenChange={v => { setShowTeamForm(v); if (!v) setTeamForm({ name: "", title: "", specialties: "", bio: "", linkedin: "", photoUrl: "" }); }}>
+        <AdaptiveDialogContent className="max-w-md">
           <DialogHeader><DialogTitle>إضافة عضو للفريق</DialogTitle></DialogHeader>
           <div className="space-y-3">
             {/* Photo upload */}
@@ -1413,13 +1414,13 @@ export default function OfficeManagement() {
                 <p className="text-[10px] text-muted-foreground mt-1">صورة المحامي / العضو</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label className="text-xs font-semibold mb-1 block">الاسم (عربي) *</Label>
                 <Input value={teamForm.name} onChange={e => setTeamForm(f => ({ ...f, name: e.target.value }))} placeholder="أ. محمد عبدالله" /></div>
               <div><Label className="text-xs font-semibold mb-1 block">Name (English)</Label>
                 <Input value={(teamForm as any).nameEn ?? ""} onChange={e => setTeamForm(f => ({ ...f, nameEn: e.target.value } as any))} dir="ltr" placeholder="Mohammed Abdullah" /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label className="text-xs font-semibold mb-1 block">المسمى الوظيفي (عربي) *</Label>
                 <Input value={teamForm.title} onChange={e => setTeamForm(f => ({ ...f, title: e.target.value }))} placeholder="محامٍ أول" /></div>
               <div><Label className="text-xs font-semibold mb-1 block">Title (English)</Label>
@@ -1437,8 +1438,8 @@ export default function OfficeManagement() {
               <Plus className="h-4 w-4" /> إضافة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

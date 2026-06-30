@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -407,8 +408,8 @@ export default function Tasks() {
         </Card>
       )}
 
-      <Dialog open={showForm || !!editTask} onOpenChange={open => { if (!open) { setShowForm(false); setEditTask(null); } }}>
-        <DialogContent className="max-w-lg">
+      <AdaptiveDialog open={showForm || !!editTask} onOpenChange={open => { if (!open) { setShowForm(false); setEditTask(null); } }}>
+        <AdaptiveDialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editTask ? "تعديل المهمة" : "مهمة جديدة"}</DialogTitle>
           </DialogHeader>
@@ -422,7 +423,7 @@ export default function Tasks() {
               <Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
                 className="resize-none min-h-[70px] text-sm" placeholder="تفاصيل المهمة..." />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div>
                 <Label>الأولوية</Label>
                 <Select value={form.priority} onValueChange={v => setForm(p => ({ ...p, priority: v }))}>
@@ -446,7 +447,7 @@ export default function Tasks() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div>
                 <Label>المسؤول</Label>
                 <Select
@@ -480,8 +481,8 @@ export default function Tasks() {
               {editTask ? "حفظ التغييرات" : "إنشاء المهمة"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

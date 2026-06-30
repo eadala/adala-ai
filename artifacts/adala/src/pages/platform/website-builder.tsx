@@ -603,7 +603,7 @@ export default function WebsiteBuilderPage() {
                     ))}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 mobile-single-col">
                   <div>
                     <Label className="text-xs font-bold text-gray-600 mb-1.5 block">المدينة</Label>
                     <Input value={aiForm.city} onChange={e => setAiForm(f => ({ ...f, city: e.target.value }))}

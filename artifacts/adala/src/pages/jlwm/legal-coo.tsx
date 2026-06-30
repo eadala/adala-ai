@@ -3,14 +3,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BrainCircuit, Clock, AlertTriangle, DollarSign, Users,
   CheckCircle2, XCircle, Play, RefreshCw, ChevronDown,
-  ChevronRight, Shield, Zap, FileWarning,
-} from "lucide-react";
+  ChevronRight, Shield, Zap, FileWarning} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,28 +21,24 @@ const ACTION_TYPE_ICONS: Record<string, any> = {
   litigation_risk:   FileWarning,
   financial_anomaly: DollarSign,
   assignment:        Users,
-  follow_up:         CheckCircle2,
-};
+  follow_up:         CheckCircle2};
 const ACTION_TYPE_LABELS: Record<string, string> = {
   deadline_alert:    "تنبيه موعد",
   litigation_risk:   "خطر مرافعة",
   financial_anomaly: "شذوذ مالي",
   assignment:        "تكليف",
-  follow_up:         "متابعة",
-};
+  follow_up:         "متابعة"};
 const PRIORITY_CONFIG: Record<string, { label: string; cls: string }> = {
   critical: { label: "حرج",    cls: "bg-red-100 text-red-700 border-red-300" },
   high:     { label: "عالي",   cls: "bg-orange-100 text-orange-700 border-orange-300" },
   medium:   { label: "متوسط",  cls: "bg-yellow-100 text-yellow-700 border-yellow-300" },
-  low:      { label: "منخفض",  cls: "bg-blue-100 text-blue-700 border-blue-300" },
-};
+  low:      { label: "منخفض",  cls: "bg-blue-100 text-blue-700 border-blue-300" }};
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
   pending_approval: { label: "بانتظار الموافقة", cls: "bg-amber-100 text-amber-700 border-amber-300" },
   approved:         { label: "موافق عليه",       cls: "bg-green-100 text-green-700 border-green-300" },
   rejected:         { label: "مرفوض",             cls: "bg-red-100 text-red-700 border-red-300" },
   executed:         { label: "منفّذ",              cls: "bg-indigo-100 text-indigo-700 border-indigo-300" },
-  dismissed:        { label: "مُغلق",              cls: "bg-gray-100 text-gray-600 border-gray-300" },
-};
+  dismissed:        { label: "مُغلق",              cls: "bg-gray-100 text-gray-600 border-gray-300" }};
 
 function MonitoringCard({ label, value, icon: Icon, color, alert }: any) {
   return (
@@ -77,8 +73,7 @@ export default function LegalCOOPage() {
       return r.json();
     },
     staleTime: 60_000,
-    refetchInterval: 120_000,
-  });
+    refetchInterval: 120_000});
 
   const { data: actions, isLoading: actionsLoading } = useQuery({
     queryKey: ["jlwm", "coo", "actions", statusFilter],
@@ -87,15 +82,13 @@ export default function LegalCOOPage() {
       if (!r.ok) throw new Error(await r.text());
       return r.json() as Promise<{ actions: any[] }>;
     },
-    staleTime: 30_000,
-  });
+    staleTime: 30_000});
 
   const scanMut = useMutation({
     mutationFn: async () => {
       const r = await fetch(`${BASE}/api/jlwm/coo/scan`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
+        headers: { "Content-Type": "application/json" }});
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
@@ -103,8 +96,7 @@ export default function LegalCOOPage() {
       toast({ title: `✅ تم المسح — تم إنشاء ${d.generated ?? 0} إجراء جديد` });
       qc.invalidateQueries({ queryKey: ["jlwm", "coo"] });
     },
-    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
-  });
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" })});
 
   async function doAction(action: "approve" | "reject" | "execute", id: string) {
     const endpoint = `${BASE}/api/jlwm/coo/actions/${id}/${action}`;
@@ -124,8 +116,7 @@ export default function LegalCOOPage() {
       setConfirmDialog(null);
       setRejectReason("");
     },
-    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
-  });
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" })});
 
   const mon = dashboard?.monitoring ?? {};
   const stats = dashboard?.action_stats ?? {};
@@ -392,8 +383,8 @@ export default function LegalCOOPage() {
       </Tabs>
 
       {/* Confirm Dialog */}
-      <Dialog open={!!confirmDialog} onOpenChange={() => { setConfirmDialog(null); setRejectReason(""); }}>
-        <DialogContent dir="rtl" className="max-w-md">
+      <AdaptiveDialog open={!!confirmDialog} onOpenChange={() => { setConfirmDialog(null); setRejectReason(""); }}>
+        <AdaptiveDialogContent dir="rtl" className="max-w-md">
           <DialogHeader>
             <DialogTitle>
               {confirmDialog?.action === "approve" ? "موافقة على الإجراء"
@@ -431,8 +422,8 @@ export default function LegalCOOPage() {
                 confirmDialog?.action === "reject" ? "رفض" : "تأكيد التنفيذ"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

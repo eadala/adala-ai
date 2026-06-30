@@ -1034,7 +1034,7 @@ export default function EngineeringCenter() {
                       rows={2}
                       className="text-sm resize-none"
                     />
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3 mobile-single-col">
                       <Select value={taskForm.priority} onValueChange={v => setTaskForm(f => ({ ...f, priority: v }))}>
                         <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>

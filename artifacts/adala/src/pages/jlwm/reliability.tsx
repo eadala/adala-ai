@@ -652,7 +652,7 @@ export default function Reliability() {
 
               {/* Learning stats */}
               {dash?.learning && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 mobile-single-col">
                   <div className="border rounded-lg p-3 text-center">
                     <div className="text-2xl font-bold text-violet-600">{dash.learning.events ?? 0}</div>
                     <div className="text-xs text-muted-foreground">أحداث تعلم (30 يوم)</div>

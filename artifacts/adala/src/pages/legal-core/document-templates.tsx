@@ -9,9 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
@@ -404,7 +403,7 @@ export default function DocumentTemplates() {
                   <Input value={docName} onChange={e => setDocName(e.target.value)} className="text-sm" placeholder="اسم الوثيقة المُنشأة" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 mobile-single-col">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium">ربط بقضية (اختياري)</Label>
                     <Select value={linkedCaseId || "none"} onValueChange={v => setLinkedCaseId(v === "none" ? "" : v)}>
@@ -495,8 +494,8 @@ export default function DocumentTemplates() {
       </Sheet>
 
       {/* ── PREVIEW DIALOG ── */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" dir="rtl">
+      <AdaptiveDialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <AdaptiveDialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
@@ -513,19 +512,19 @@ export default function DocumentTemplates() {
               <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewDoc.generated_html) }} />
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ── ADD CUSTOM TEMPLATE DIALOG ── */}
-      <Dialog open={addTemplateOpen} onOpenChange={setAddTemplateOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+      <AdaptiveDialog open={addTemplateOpen} onOpenChange={setAddTemplateOpen}>
+        <AdaptiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="h-4 w-4 text-primary" />إضافة قالب مخصص
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div className="space-y-1.5">
                 <Label className="text-xs">اسم القالب *</Label>
                 <Input value={newTemplate.name} onChange={e => setNewTemplate(p => ({...p, name: e.target.value}))} placeholder="مثال: عقد استشارة" />
@@ -578,8 +577,8 @@ export default function DocumentTemplates() {
               حفظ القالب
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

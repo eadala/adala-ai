@@ -630,7 +630,7 @@ export default function OfficeSettingsPage() {
               {/* Colors */}
               <div>
                 <h3 className="font-semibold mb-3 flex items-center gap-2"><Palette className="h-4 w-4" />ألوان الهوية</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 mobile-single-col">
                   <div className="space-y-2">
                     <Label>اللون الأساسي</Label>
                     <div className="flex items-center gap-2">

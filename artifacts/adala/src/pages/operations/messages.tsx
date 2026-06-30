@@ -8,9 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -914,8 +913,8 @@ function AiToolsButton({ conversationId }: { conversationId: string }) {
         <Sparkles className="h-4 w-4" />
       </Button>
 
-      <Dialog open={open} onOpenChange={v => !v && setOpen(false)}>
-        <DialogContent className="max-w-lg" dir="rtl">
+      <AdaptiveDialog open={open} onOpenChange={v => !v && setOpen(false)}>
+        <AdaptiveDialogContent className="max-w-lg" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
@@ -972,8 +971,8 @@ function AiToolsButton({ conversationId }: { conversationId: string }) {
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setOpen(false)}>إغلاق</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </>
   );
 }
@@ -1019,8 +1018,8 @@ function AddMemberButton({ convId, isAdmin, onAdded }: { convId: string; isAdmin
       <Button variant="ghost" size="icon" className="h-8 w-8" title="إضافة عضو" onClick={() => setOpen(true)}>
         <Users className="h-4 w-4" />
       </Button>
-      <Dialog open={open} onOpenChange={v => !v && setOpen(false)}>
-        <DialogContent className="max-w-sm" dir="rtl">
+      <AdaptiveDialog open={open} onOpenChange={v => !v && setOpen(false)}>
+        <AdaptiveDialogContent className="max-w-sm" dir="rtl">
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" />إضافة عضو للمجموعة</DialogTitle></DialogHeader>
           <Input placeholder="ابحث عن موظف..." value={search} onChange={e => setSearch(e.target.value)} className="text-sm" />
           <div className="max-h-52 overflow-y-auto space-y-1 rounded-lg border p-1">
@@ -1036,8 +1035,8 @@ function AddMemberButton({ convId, isAdmin, onAdded }: { convId: string; isAdmin
             ))}
             {filtered.length === 0 && <p className="text-xs text-muted-foreground text-center py-3">لا نتائج</p>}
           </div>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </>
   );
 }
@@ -1117,8 +1116,8 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
   };
 
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v) { reset(); onClose(); } }}>
-      <DialogContent className="max-w-md" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={v => { if (!v) { reset(); onClose(); } }}>
+      <AdaptiveDialogContent className="max-w-md" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageSquareDot className="h-5 w-5 text-primary" />محادثة جديدة
@@ -1254,8 +1253,8 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
             إنشاء المحادثة
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -1303,8 +1302,8 @@ function ComposeDialog({ open, onClose, onSent }: { open: boolean; onClose: () =
   });
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="w-full max-w-lg sm:max-w-2xl mx-2 sm:mx-auto" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={v => !v && onClose()}>
+      <AdaptiveDialogContent className="w-full max-w-lg sm:max-w-2xl mx-2 sm:mx-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-primary" />رسالة داخلية جديدة</DialogTitle>
         </DialogHeader>
@@ -1361,7 +1360,7 @@ function ComposeDialog({ open, onClose, onSent }: { open: boolean; onClose: () =
             {sendMut.isPending ? <RefreshCw className="h-3.5 w-3.5 animate-spin ml-1" /> : <Send className="h-3.5 w-3.5 ml-1" />}إرسال
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }

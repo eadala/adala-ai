@@ -16,7 +16,8 @@ import { Input }                                           from "@/components/ui
 import { Label }                                           from "@/components/ui/label";
 import { Textarea }                                        from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import {
   ArrowRight, Plus, MessageSquare, Bot, User, Clock,
   FileText, CalendarDays, CheckCheck, CheckSquare, Circle,
@@ -200,8 +201,8 @@ function TimelineFeed({ caseId, open, setOpen }: { caseId: string; open: boolean
       </CardContent>
 
       {/* Add timeline dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
+      <AdaptiveDialog open={open} onOpenChange={setOpen}>
+        <AdaptiveDialogContent className="max-w-md">
           <DialogHeader><DialogTitle>إضافة قيد للسجل</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -232,8 +233,8 @@ function TimelineFeed({ caseId, open, setOpen }: { caseId: string; open: boolean
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "إضافة"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </Card>
   );
 }
@@ -1166,8 +1167,8 @@ function HearingDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md">
+    <AdaptiveDialog open={open} onOpenChange={v => !v && onClose()}>
+      <AdaptiveDialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Gavel className="h-5 w-5 text-primary" />
@@ -1180,7 +1181,7 @@ function HearingDialog({
             <Input type="datetime-local" value={form.hearingDate}
               onChange={e => setForm(p => ({ ...p, hearingDate: e.target.value }))} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mobile-single-col">
             <div className="space-y-1.5">
               <Label>قاعة / دائرة</Label>
               <Input value={form.courtRoom}
@@ -1220,8 +1221,8 @@ function HearingDialog({
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : isEdit ? "تحديث" : "إضافة"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -1453,8 +1454,8 @@ function DocumentUploadDialog({
     `${(bytes/(1024*1024)).toFixed(1)} MB`;
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md">
+    <AdaptiveDialog open={open} onOpenChange={v => !v && onClose()}>
+      <AdaptiveDialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-4 w-4 text-violet-500" />رفع مستند للقضية
@@ -1551,8 +1552,8 @@ function DocumentUploadDialog({
             }
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -1580,15 +1581,15 @@ function TaskDialog({ open, onClose, caseId, caseTitle }: { open: boolean; onClo
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="max-w-md">
         <DialogHeader><DialogTitle>مهمة جديدة</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
             <Label>عنوان المهمة *</Label>
             <Input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="ماذا يجب القيام به؟" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mobile-single-col">
             <div className="space-y-1.5">
               <Label>الأولوية</Label>
               <Select value={form.priority} onValueChange={v => setForm(p => ({ ...p, priority: v }))}>
@@ -1616,8 +1617,8 @@ function TaskDialog({ open, onClose, caseId, caseTitle }: { open: boolean; onClo
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "إضافة"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -1827,9 +1828,9 @@ export default function CaseDetail({ id }: { id: string }) {
       />
 
       {/* ══ UNPAID INVOICE WARNING DIALOG ══ */}
-      <Dialog open={!!closeWarning} onOpenChange={v => !v && setCloseWarning(null)}>
+      <AdaptiveDialog open={!!closeWarning} onOpenChange={v => !v && setCloseWarning(null)}>
 
-        <DialogContent className="max-w-sm" dir={dir}>
+        <AdaptiveDialogContent className="max-w-sm" dir={dir}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-amber-600">
               ⚠️ تحذير — فواتير غير مدفوعة
@@ -1846,8 +1847,8 @@ export default function CaseDetail({ id }: { id: string }) {
               إغلاق القضية رغم ذلك
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

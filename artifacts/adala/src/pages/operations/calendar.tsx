@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
@@ -32,8 +33,7 @@ const EVENT_TYPES: Record<string, { label: string; color: string; bg: string; ic
   client_meeting:{ label: "اجتماع عميل",  color: "text-blue-400",   bg: "bg-blue-500/80",   icon: Users },
   team_meeting:  { label: "اجتماع فريق",  color: "text-green-400",  bg: "bg-green-500/80",  icon: Briefcase },
   task:          { label: "مهمة",          color: "text-purple-400", bg: "bg-purple-500/80", icon: Star },
-  other:         { label: "أخرى",          color: "text-muted-foreground",   bg: "bg-muted/30 80",   icon: CalendarDays },
-};
+  other:         { label: "أخرى",          color: "text-muted-foreground",   bg: "bg-muted/30 80",   icon: CalendarDays }};
 
 const REMINDER_OPTIONS = [
   { label: "30 دقيقة",  value: 30 },
@@ -94,9 +94,7 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
           clientId: linkedClientId === "none" ? undefined : linkedClientId,
           location: location || undefined,
           description: description || undefined,
-          reminders: selectedReminders.map(m => ({ minutesBefore: m, email: email || undefined })),
-        }),
-      });
+          reminders: selectedReminders.map(m => ({ minutesBefore: m, email: email || undefined }))})});
       if (!r.ok) { const e = await r.json(); throw new Error(e.error || "فشل الإنشاء"); }
       return r.json();
     },
@@ -107,18 +105,15 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
       setLinkedCaseId("none"); setLinkedClientId("none");
       onCreated();
     },
-    onError: (e: any) => toast.error(e.message),
-  });
+    onError: (e: any) => toast.error(e.message)});
 
   const toggleReminder = (v: number) =>
     setSelectedReminders(prev => prev.includes(v) ? prev.filter(x=>x!==v) : [...prev, v]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" />إضافة حدث</Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={setOpen}>
+      <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" />إضافة حدث</Button>
+      <AdaptiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarCheck2 className="h-5 w-5 text-primary" />إضافة حدث جديد
@@ -130,7 +125,7 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
             <Input placeholder="مثال: جلسة استماع — قضية رقم 1234" value={title} onChange={e=>setTitle(e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mobile-single-col">
             <div className="space-y-1.5">
               <Label>نوع الحدث</Label>
               <Select value={eventType} onValueChange={setEventType}>
@@ -152,7 +147,7 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
           </div>
 
           {!allDay && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div className="space-y-1.5">
                 <Label>وقت البداية</Label>
                 <Input type="time" value={time} onChange={e=>setTime(e.target.value)} />
@@ -165,7 +160,7 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
           )}
 
           {/* Linking */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mobile-single-col">
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1"><Link2 className="h-3.5 w-3.5 text-muted-foreground" />ربط بقضية</Label>
               <Select value={linkedCaseId} onValueChange={setLinkedCaseId}>
@@ -229,8 +224,8 @@ function NewEventDialog({ selectedDate, onCreated }: { selectedDate: Date; onCre
             حفظ الحدث
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -312,13 +307,11 @@ export default function Calendar() {
 
   const { data: events = [], isLoading, refetch } = useQuery<CalEvent[]>({
     queryKey: ["calendar-events", year, month],
-    queryFn: () => fetch(`${BASE}/api/calendar/events?year=${year}&month=${month}`).then(r => r.ok ? r.json() : []),
-  });
+    queryFn: () => fetch(`${BASE}/api/calendar/events?year=${year}&month=${month}`).then(r => r.ok ? r.json() : [])});
 
   const { data: upcomingEvents = [] } = useQuery<CalEvent[]>({
     queryKey: ["calendar-upcoming"],
-    queryFn: () => fetch(`${BASE}/api/calendar/events/upcoming?days=14`).then(r => r.ok ? r.json() : []),
-  });
+    queryFn: () => fetch(`${BASE}/api/calendar/events/upcoming?days=14`).then(r => r.ok ? r.json() : [])});
 
   const deleteEvent = useMutation({
     mutationFn: (id: string) => fetch(`${BASE}/api/calendar/events/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -326,8 +319,7 @@ export default function Calendar() {
       toast.success("تم حذف الحدث");
       qc.invalidateQueries({ queryKey: ["calendar-events"] });
       qc.invalidateQueries({ queryKey: ["calendar-upcoming"] });
-    },
-  });
+    }});
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["calendar-events"] });
@@ -370,8 +362,7 @@ export default function Calendar() {
   const upcomingStats = {
     court:    upcomingEvents.filter(e => e.event_type === "court_session").length,
     deadline: upcomingEvents.filter(e => e.event_type === "deadline").length,
-    meeting:  upcomingEvents.filter(e => ["client_meeting","team_meeting"].includes(e.event_type)).length,
-  };
+    meeting:  upcomingEvents.filter(e => ["client_meeting","team_meeting"].includes(e.event_type)).length};
 
   return (
     <div className="space-y-6 max-w-7xl">

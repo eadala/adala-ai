@@ -18,7 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -282,8 +283,8 @@ function OrderDialog({
   });
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md" dir={lang === "ar" ? "rtl" : "ltr"}>
+    <AdaptiveDialog open onOpenChange={onClose}>
+      <AdaptiveDialogContent className="max-w-md" dir={lang === "ar" ? "rtl" : "ltr"}>
         <DialogHeader>
           <DialogTitle className="font-black text-lg">
             {svc.isCustomQuote ? (lang === "ar" ? "طلب عرض سعر" : "Request Quote") : (lang === "ar" ? "طلب الخدمة" : "Order Service")}
@@ -317,7 +318,7 @@ function OrderDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div>
                 <Label className="text-xs mb-1 block">{lang === "ar" ? "الاسم *" : "Name *"}</Label>
                 <Input value={form.clientName} onChange={e => setForm(f => ({ ...f, clientName: e.target.value }))}
@@ -347,8 +348,8 @@ function OrderDialog({
             </Button>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -368,8 +369,8 @@ function ReviewDialog({ slug, lang, theme, onClose }: {
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md" dir={lang === "ar" ? "rtl" : "ltr"}>
+    <AdaptiveDialog open onOpenChange={onClose}>
+      <AdaptiveDialogContent className="max-w-md" dir={lang === "ar" ? "rtl" : "ltr"}>
         <DialogHeader>
           <DialogTitle>{lang === "ar" ? "أضف تقييمك" : "Add Your Review"}</DialogTitle>
         </DialogHeader>
@@ -411,8 +412,8 @@ function ReviewDialog({ slug, lang, theme, onClose }: {
             </Button>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 

@@ -20,16 +20,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import { DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import {
   Users, Shield, GitBranch, ClipboardList, Activity,
   CheckCircle2, XCircle, Clock, AlertTriangle, Plus,
-  UserCheck, UserX, Key, Loader2, Crown, Briefcase,
-} from "lucide-react";
+  UserCheck, UserX, Key, Loader2, Crown, Briefcase} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const API = "/api";
@@ -72,8 +69,7 @@ const hierarchyColors: Record<number, string> = {
   2: "bg-blue-100 border-blue-400 text-blue-800",
   3: "bg-green-100 border-green-400 text-green-800",
   4: "bg-purple-100 border-purple-400 text-purple-800",
-  5: "bg-muted/50 border-gray-400 text-foreground/70",
-};
+  5: "bg-muted/50 border-gray-400 text-foreground/70"};
 
 /* ══════════════════════════════════════════════════════════════════════════
    PAGE
@@ -98,39 +94,32 @@ export default function HREnterprise() {
   const addMember = useMutation({
     mutationFn: (body: any) => fetch(`${API}/hr-enterprise/members`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-members"] }); qc.invalidateQueries({ queryKey: ["hr-ent-overview"] }); setNewMemberOpen(false); toast({ title: "تم إضافة العضو" }); },
-    onError: () => toast({ title: "خطأ", variant: "destructive" }),
-  });
+    onError: () => toast({ title: "خطأ", variant: "destructive" })});
 
   const changeRole = useMutation({
     mutationFn: ({ userId, roleName }: { userId: string; roleName: string }) =>
       fetch(`${API}/hr-enterprise/members/${userId}/role`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roleName }) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-members"] }); toast({ title: "تم تغيير الدور" }); },
-  });
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-members"] }); toast({ title: "تم تغيير الدور" }); }});
 
   const suspendMember = useMutation({
     mutationFn: (userId: string) => fetch(`${API}/hr-enterprise/members/${userId}/suspend`, { method: "PATCH" }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-members"] }); toast({ title: "تم تعليق العضو" }); },
-  });
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-members"] }); toast({ title: "تم تعليق العضو" }); }});
 
   const activateMember = useMutation({
     mutationFn: (userId: string) => fetch(`${API}/hr-enterprise/members/${userId}/activate`, { method: "PATCH" }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-members"] }); toast({ title: "تم تفعيل العضو" }); },
-  });
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-members"] }); toast({ title: "تم تفعيل العضو" }); }});
 
   const submitWorkflow = useMutation({
     mutationFn: (body: any) => fetch(`${API}/hr-enterprise/workflows`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-workflows"] }); qc.invalidateQueries({ queryKey: ["hr-ent-overview"] }); setNewWfOpen(false); toast({ title: "تم إرسال الطلب" }); },
-  });
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-workflows"] }); qc.invalidateQueries({ queryKey: ["hr-ent-overview"] }); setNewWfOpen(false); toast({ title: "تم إرسال الطلب" }); }});
 
   const approveWf = useMutation({
     mutationFn: (id: string) => fetch(`${API}/hr-enterprise/workflows/${id}/approve`, { method: "PATCH" }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-workflows"] }); toast({ title: "تم الموافقة" }); },
-  });
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-workflows"] }); toast({ title: "تم الموافقة" }); }});
 
   const rejectWf = useMutation({
     mutationFn: (id: string) => fetch(`${API}/hr-enterprise/workflows/${id}/reject`, { method: "PATCH" }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-workflows"] }); toast({ title: "تم الرفض" }); },
-  });
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hr-ent-workflows"] }); toast({ title: "تم الرفض" }); }});
 
   const ov = overview.data ?? {};
 
@@ -221,11 +210,9 @@ export default function HREnterprise() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> أعضاء المكتب</CardTitle>
-              <Dialog open={newMemberOpen} onOpenChange={setNewMemberOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm"><Plus className="h-4 w-4 ms-1" /> إضافة عضو</Button>
-                </DialogTrigger>
-                <DialogContent dir="rtl">
+              <AdaptiveDialog open={newMemberOpen} onOpenChange={setNewMemberOpen}>
+                <Button size="sm"><Plus className="h-4 w-4 ms-1" /> إضافة عضو</Button>
+                <AdaptiveDialogContent dir="rtl">
                   <DialogHeader><DialogTitle>إضافة عضو للمكتب</DialogTitle></DialogHeader>
                   <div className="space-y-3 mt-2">
                     <div><Label>معرف المستخدم (User ID)</Label>
@@ -244,8 +231,8 @@ export default function HREnterprise() {
                       إضافة
                     </Button>
                   </div>
-                </DialogContent>
-              </Dialog>
+                </AdaptiveDialogContent>
+              </AdaptiveDialog>
             </CardHeader>
             <CardContent>
               {members.isLoading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : !rows(members.data).length ? (
@@ -350,11 +337,9 @@ export default function HREnterprise() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Dialog open={newWfOpen} onOpenChange={setNewWfOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm"><Plus className="h-4 w-4 ms-1" /> طلب جديد</Button>
-                  </DialogTrigger>
-                  <DialogContent dir="rtl">
+                <AdaptiveDialog open={newWfOpen} onOpenChange={setNewWfOpen}>
+                  <Button size="sm"><Plus className="h-4 w-4 ms-1" /> طلب جديد</Button>
+                  <AdaptiveDialogContent dir="rtl">
                     <DialogHeader><DialogTitle>إرسال طلب جديد</DialogTitle></DialogHeader>
                     <div className="space-y-3 mt-2">
                       <div><Label>نوع الطلب</Label>
@@ -387,8 +372,8 @@ export default function HREnterprise() {
                         إرسال الطلب
                       </Button>
                     </div>
-                  </DialogContent>
-                </Dialog>
+                  </AdaptiveDialogContent>
+                </AdaptiveDialog>
               </div>
             </CardHeader>
             <CardContent>

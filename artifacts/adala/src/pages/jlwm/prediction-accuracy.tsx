@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -292,8 +293,8 @@ export default function PredictionAccuracyPage() {
       </Tabs>
 
       {/* Record Dialog */}
-      <Dialog open={recordOpen} onOpenChange={setRecordOpen}>
-        <DialogContent dir="rtl" className="max-w-md">
+      <AdaptiveDialog open={recordOpen} onOpenChange={setRecordOpen}>
+        <AdaptiveDialogContent dir="rtl" className="max-w-md">
           <DialogHeader>
             <DialogTitle>تسجيل نتيجة فعلية</DialogTitle>
           </DialogHeader>
@@ -347,8 +348,8 @@ export default function PredictionAccuracyPage() {
               {recordMut.isPending ? "جارٍ الحفظ..." : "تسجيل"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

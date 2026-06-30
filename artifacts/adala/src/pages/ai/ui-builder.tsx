@@ -283,7 +283,7 @@ function PreviewSkeleton() {
         {[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-muted rounded-xl" />)}
       </div>
       <div className="h-48 bg-muted rounded-xl" />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 mobile-single-col">
         <div className="h-32 bg-muted rounded-xl" />
         <div className="h-32 bg-muted rounded-xl" />
       </div>

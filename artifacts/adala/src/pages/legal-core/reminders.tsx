@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Bell, Plus, Trash2, Edit3, CheckCircle2, Clock, AlertTriangle,
@@ -224,8 +225,8 @@ export default function RemindersPage() {
       )}
 
       {/* Dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="bg-card border-border max-w-md" dir={dir}>
+      <AdaptiveDialog open={open} onOpenChange={setOpen}>
+        <AdaptiveDialogContent className="bg-card border-border max-w-md" dir={dir}>
           <DialogHeader><DialogTitle>{editing ? tx("تعديل التذكير", "Edit Reminder") : tx("تذكير جديد", "New Reminder")}</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
             <div>
@@ -270,8 +271,8 @@ export default function RemindersPage() {
               {editing ? tx("حفظ التعديلات", "Save Changes") : tx("إضافة", "Add")}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

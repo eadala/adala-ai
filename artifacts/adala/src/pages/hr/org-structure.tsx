@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
@@ -169,8 +170,8 @@ function UnitDialog({
   const availableParents = units.filter(u => u.id !== unit?.id);
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="sm:max-w-lg" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Network className="h-5 w-5 text-primary" />
@@ -178,7 +179,7 @@ function UnitDialog({
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mobile-single-col">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">الاسم *</Label>
               <Input placeholder="مثال: إدارة ريادة الأعمال" value={form.name} onChange={e => upd("name", e.target.value)} />
@@ -211,7 +212,7 @@ function UnitDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mobile-single-col">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">الوحدة الأعلى (اختياري)</Label>
               <Select value={form.parentId} onValueChange={v => upd("parentId", v)}>
@@ -257,8 +258,8 @@ function UnitDialog({
             {mutation.isPending ? "جارٍ الحفظ..." : isEdit ? "حفظ التعديلات" : "إنشاء الوحدة"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -291,8 +292,8 @@ function MoveDialog({ open, onClose, unit, units }: { open: boolean; onClose: ()
   const available = units.filter(u => u.id !== unit?.id);
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-sm" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="sm:max-w-sm" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowRightLeft className="h-5 w-5 text-primary" />
@@ -321,8 +322,8 @@ function MoveDialog({ open, onClose, unit, units }: { open: boolean; onClose: ()
             {mutation.isPending ? "جارٍ النقل..." : "نقل الوحدة"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 

@@ -21,7 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -254,8 +255,8 @@ function ContractEditorDialog({ contract, onClose, onSaved }: { contract: Contra
   const sc = STATUS_CFG[contract.status] ?? STATUS_CFG.draft;
 
   return (
-    <Dialog open={!!contract} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-none sm:max-w-7xl h-[100dvh] sm:h-[92vh] flex flex-col p-0 gap-0 rounded-none sm:rounded-lg" dir="rtl">
+    <AdaptiveDialog open={!!contract} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="w-full max-w-none sm:max-w-7xl h-[100dvh] sm:h-[92vh] flex flex-col p-0 gap-0 rounded-none sm:rounded-lg" dir="rtl">
         {/* ── Header ── */}
         <div className="flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-3 border-b border-border/50 bg-muted/20 flex-shrink-0 flex-wrap">
           <span className={cn("flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium flex-shrink-0", sc.color, sc.bg)}>
@@ -387,11 +388,11 @@ function ContractEditorDialog({ contract, onClose, onSaved }: { contract: Contra
             )}
           </div>
         </div>
-      </DialogContent>
+      </AdaptiveDialogContent>
 
       {/* Signature Dialog */}
-      <Dialog open={showSigDlg} onOpenChange={setShowSigDlg}>
-        <DialogContent className="max-w-md" dir="rtl">
+      <AdaptiveDialog open={showSigDlg} onOpenChange={setShowSigDlg}>
+        <AdaptiveDialogContent className="max-w-md" dir="rtl">
           <DialogHeader><DialogTitle className="flex items-center gap-2"><FileSignature className="h-5 w-5 text-primary" />طلب توقيع رقمي</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>اسم الموقِّع *</Label><Input value={signerName} onChange={e => setSignerName(e.target.value)} placeholder="الاسم الكامل" /></div>
@@ -401,9 +402,9 @@ function ContractEditorDialog({ contract, onClose, onSaved }: { contract: Contra
             <Button variant="outline" onClick={() => setShowSigDlg(false)}>إلغاء</Button>
             <Button onClick={sendSig} disabled={!signerName} className="gap-2"><Send className="h-4 w-4" />إرسال</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
+    </AdaptiveDialog>
   );
 }
 
@@ -429,8 +430,8 @@ function AiPromptDialog({ open, onClose, onCreated }: { open: boolean; onClose: 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Bot className="h-5 w-5 text-primary" />توليد عقد سعودي من الوصف</DialogTitle>
         </DialogHeader>
@@ -448,8 +449,8 @@ function AiPromptDialog({ open, onClose, onCreated }: { open: boolean; onClose: 
             توليد بالذكاء الاصطناعي
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -490,8 +491,8 @@ function CreateContractDialog({ open, onClose, initialData, defaultTemplateId }:
   });
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl max-h-[90dvh] overflow-y-auto" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="max-w-xl max-h-[90dvh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5 text-primary" />
@@ -509,7 +510,7 @@ function CreateContractDialog({ open, onClose, initialData, defaultTemplateId }:
             <div><Label>عنوان العقد *</Label>
               <Input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="مثال: عقد إيجار مكتب الرياض" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label>نوع العقد</Label>
                 <Select value={form.type} onValueChange={v => setForm(p => ({ ...p, type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -523,7 +524,7 @@ function CreateContractDialog({ open, onClose, initialData, defaultTemplateId }:
             <div><Label>أطراف العقد</Label>
               <Input value={form.parties} onChange={e => setForm(p => ({ ...p, parties: e.target.value }))} placeholder="مثال: شركة الأمل، محمد العمري" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label>القيمة المالية</Label>
                 <Input value={form.valueAmount} onChange={e => setForm(p => ({ ...p, valueAmount: e.target.value }))} placeholder="50,000 ريال" />
               </div>
@@ -562,8 +563,8 @@ function CreateContractDialog({ open, onClose, initialData, defaultTemplateId }:
             </Button>
           )}
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 

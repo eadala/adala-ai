@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -423,8 +424,8 @@ export default function OfficeStore() {
       )}
 
       {/* ── Order Dialog ── */}
-      <Dialog open={!!orderDialog} onOpenChange={() => setOrderDialog(null)}>
-        <DialogContent className="max-w-md" dir={lang === "ar" ? "rtl" : "ltr"}>
+      <AdaptiveDialog open={!!orderDialog} onOpenChange={() => setOrderDialog(null)}>
+        <AdaptiveDialogContent className="max-w-md" dir={lang === "ar" ? "rtl" : "ltr"}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {(() => {
@@ -458,7 +459,7 @@ export default function OfficeStore() {
                 </p>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div>
                   <Label className="text-xs font-semibold mb-1 block">{lang === "ar" ? "الاسم الكامل *" : "Full Name *"}</Label>
                   <Input value={orderForm.clientName} onChange={e => setOrderForm(f => ({ ...f, clientName: e.target.value }))} />
@@ -495,8 +496,8 @@ export default function OfficeStore() {
               )}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

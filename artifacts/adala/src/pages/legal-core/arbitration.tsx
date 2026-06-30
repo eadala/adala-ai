@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -176,7 +177,7 @@ function CaseDetail({ c, onClose, onRefresh }: { c: any; onClose: () => void; on
         </TabsList>
 
         <TabsContent value="info" className="space-y-4 flex-1">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 mobile-single-col">
             {[
               { label: "المدّعي", value: c.claimant },
               { label: "المدّعى عليه", value: c.respondent },
@@ -381,8 +382,8 @@ export default function Arbitration() {
       </div>
 
       {/* Create Dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-w-md">
+      <AdaptiveDialog open={showCreate} onOpenChange={setShowCreate}>
+        <AdaptiveDialogContent className="max-w-md">
           <DialogHeader><DialogTitle>تسجيل قضية جديدة</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>عنوان النزاع *</Label><Input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="مثال: نزاع تجاري بين شركة X وشركة Y" /></div>
@@ -395,11 +396,11 @@ export default function Arbitration() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label>المدّعي *</Label><Input value={form.claimant} onChange={e => setForm(p => ({ ...p, claimant: e.target.value }))} /></div>
               <div><Label>المدّعى عليه *</Label><Input value={form.respondent} onChange={e => setForm(p => ({ ...p, respondent: e.target.value }))} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label>المحكّم / الوسيط</Label><Input value={form.arbitrator} onChange={e => setForm(p => ({ ...p, arbitrator: e.target.value }))} /></div>
               <div><Label>المبلغ المطالَب به</Label><Input value={form.claimAmount} onChange={e => setForm(p => ({ ...p, claimAmount: e.target.value }))} placeholder="مثال: 500,000 ريال" /></div>
             </div>
@@ -412,8 +413,8 @@ export default function Arbitration() {
               تسجيل القضية
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

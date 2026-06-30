@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -742,8 +743,8 @@ ${letterhead ? ".page-inner{background:rgba(255,255,255,0.88);}" : ""}
       </div>
 
       {/* Email Dialog */}
-      <Dialog open={showEmail} onOpenChange={setShowEmail}>
-        <DialogContent className="max-w-md">
+      <AdaptiveDialog open={showEmail} onOpenChange={setShowEmail}>
+        <AdaptiveDialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Mail className="h-4 w-4 text-primary" />
@@ -827,8 +828,8 @@ ${letterhead ? ".page-inner{background:rgba(255,255,255,0.88);}" : ""}
               {smtpStatus?.configured ? "إرسال الآن" : "إرسال عبر البريد"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

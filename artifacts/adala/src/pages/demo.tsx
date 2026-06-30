@@ -667,7 +667,7 @@ function ReportsSection() {
           <span className="flex items-center gap-1 text-xs text-slate-500"><span className="w-3 h-2 rounded-sm bg-red-500/40 inline-block" /> مصاريف</span>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 mobile-single-col">
         {[
           { label: "إجمالي الإيرادات", val: "156,667 ﷼", trend: "+22%", up: true },
           { label: "إجمالي المصاريف", val: "67,700 ﷼", trend: "+4%", up: false },
@@ -1378,7 +1378,7 @@ function OfficeProfileSection() {
         <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
           <Users className="w-4 h-4 text-blue-600" /> فريق المكتب
         </h3>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 mobile-single-col">
           {TEAM.map((m, i) => (
             <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
               className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 transition-all cursor-pointer">

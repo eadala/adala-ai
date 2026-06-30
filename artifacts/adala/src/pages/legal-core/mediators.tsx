@@ -7,9 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -331,8 +330,8 @@ export default function MediatorsPage() {
       </Tabs>
 
       {/* ── New Task Dialog ── */}
-      <Dialog open={showNewTask} onOpenChange={setShowNewTask}>
-        <DialogContent className="max-w-lg" dir="rtl">
+      <AdaptiveDialog open={showNewTask} onOpenChange={setShowNewTask}>
+        <AdaptiveDialogContent className="max-w-lg" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-primary" /> نشر مهمة جديدة
@@ -347,7 +346,7 @@ export default function MediatorsPage() {
               <Label className="text-xs font-semibold mb-1 block">الوصف</Label>
               <Textarea rows={3} value={newTask.description} onChange={e => setNewTask(f => ({ ...f, description: e.target.value }))} placeholder="اشرح تفاصيل المهمة المطلوبة..." />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div>
                 <Label className="text-xs font-semibold mb-1 block">التصنيف</Label>
                 <Select value={newTask.category} onValueChange={v => setNewTask(f => ({ ...f, category: v }))}>
@@ -362,7 +361,7 @@ export default function MediatorsPage() {
                 <Input type="number" min="0" value={newTask.commission} onChange={e => setNewTask(f => ({ ...f, commission: e.target.value }))} placeholder="500" dir="ltr" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div>
                 <Label className="text-xs font-semibold mb-1 block">الموعد النهائي</Label>
                 <Input type="date" value={newTask.deadline} onChange={e => setNewTask(f => ({ ...f, deadline: e.target.value }))} dir="ltr" />
@@ -379,12 +378,12 @@ export default function MediatorsPage() {
               {createTask.isPending ? "جارٍ النشر..." : "نشر المهمة"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ── Apply / Agreement Modal ── */}
-      <Dialog open={showApplyModal} onOpenChange={setShowApplyModal}>
-        <DialogContent className="max-w-lg" dir="rtl">
+      <AdaptiveDialog open={showApplyModal} onOpenChange={setShowApplyModal}>
+        <AdaptiveDialogContent className="max-w-lg" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" />
@@ -392,7 +391,7 @@ export default function MediatorsPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div>
                 <Label className="text-xs font-semibold mb-1 block">الاسم الكامل *</Label>
                 <Input value={applyForm.applicant_name} onChange={e => setApplyForm(f => ({ ...f, applicant_name: e.target.value }))} />
@@ -451,12 +450,12 @@ export default function MediatorsPage() {
               {applyMutation.isPending ? "جارٍ الإرسال..." : "تأكيد التقديم"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ── Applications Viewer Dialog ── */}
-      <Dialog open={showApplications} onOpenChange={v => { setShowApplications(v); if (!v) setAppTaskId(null); }}>
-        <DialogContent className="max-w-lg" dir="rtl">
+      <AdaptiveDialog open={showApplications} onOpenChange={v => { setShowApplications(v); if (!v) setAppTaskId(null); }}>
+        <AdaptiveDialogContent className="max-w-lg" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" /> طلبات التقديم
@@ -493,8 +492,8 @@ export default function MediatorsPage() {
               </div>
             ))}
           </div>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* Warning bar */}
       <div className="rounded-xl bg-yellow-500/10 border border-yellow-500/20 p-3 flex items-center gap-2 text-xs text-yellow-400">

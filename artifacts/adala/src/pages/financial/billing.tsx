@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { useToast } from "@/hooks/use-toast";
 import { useOfficePlan } from "@/hooks/use-office-plan";
 import { cn } from "@/lib/utils";
@@ -226,8 +227,8 @@ function UpgradeModal({
   const colors = PLAN_COLORS[targetPlan.id] ?? PLAN_COLORS.free;
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-lg p-0 overflow-hidden border-border/60"
+    <AdaptiveDialog open={open} onOpenChange={v => !v && onClose()}>
+      <AdaptiveDialogContent className="max-w-lg p-0 overflow-hidden border-border/60"
         style={{ background: "linear-gradient(180deg,#FFFFFF 0%,#141E38 100%)" }}>
         <div className="px-6 pt-6 pb-4 border-b border-border/30"
           style={{ background: isUpgrade ? "rgba(201,168,76,0.06)" : "rgba(239,68,68,0.05)" }}>
@@ -329,8 +330,8 @@ function UpgradeModal({
             </Button>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 

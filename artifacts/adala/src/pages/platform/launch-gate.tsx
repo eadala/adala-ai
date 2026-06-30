@@ -428,7 +428,7 @@ export default function LaunchGatePage() {
                   </CardHeader>
                   <CardContent>
                     <div className={`text-3xl font-black ${shieldColor} mb-4`}>{shieldMode}</div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3 mobile-single-col">
                       {[
                         { label: "إجمالي الطلبات",    v: shield.stats?.totalRequests ?? 0 },
                         { label: "طلبات محجوبة",      v: shield.stats?.blockedRequests ?? 0 },

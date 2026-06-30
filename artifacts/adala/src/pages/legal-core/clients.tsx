@@ -267,18 +267,11 @@ export default function Clients() {
 
       {/* Form Dialog (AdaptiveDialog → BottomSheet on mobile) */}
       <AdaptiveDialog open={showForm} onOpenChange={v => { if (!v) closeForm(); }}>
-        <AdaptiveDialogContent
-          className="max-w-md"
-          dir={dir}
-          title={editing ? tx("تعديل العميل", "Edit Client") : tx("إضافة عميل جديد", "Add New Client")}
-          open={showForm}
-          onClose={closeForm}
-          size="lg"
-        >
+        <AdaptiveDialogContent className="max-w-md" dir={dir} size="lg">
           <DialogHeader><DialogTitle>{editing ? tx("تعديل العميل", "Edit Client") : tx("إضافة عميل جديد", "Add New Client")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>{tx("الاسم الكامل *", "Full Name *")}</Label><Input value={form.fullName} onChange={e => setForm(p => ({ ...p, fullName: e.target.value }))} placeholder={tx("اسم العميل أو الشركة", "Client or company name")} /></div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label>{tx("النوع", "Type")}</Label>
                 <Select value={form.type} onValueChange={v => setForm(p => ({ ...p, type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -292,12 +285,12 @@ export default function Clients() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label>{tx("البريد الإلكتروني", "Email")}</Label><Input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} /></div>
               <div><Label>{tx("رقم الجوال", "Phone")}</Label><Input type="tel" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="05xxxxxxxx" /></div>
             </div>
             {form.type === "company" && <div><Label>{tx("اسم الشركة", "Company Name")}</Label><Input value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))} /></div>}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div><Label>{tx("رقم الهوية/السجل", "ID / Registration")}</Label><Input value={form.nationalId} onChange={e => setForm(p => ({ ...p, nationalId: e.target.value }))} /></div>
               <div><Label>{tx("مصدر العميل", "Client Source")}</Label>
                 <Select value={form.source} onValueChange={v => setForm(p => ({ ...p, source: v }))}>

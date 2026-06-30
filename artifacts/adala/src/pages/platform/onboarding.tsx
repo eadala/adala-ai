@@ -396,7 +396,7 @@ export default function OnboardingPage() {
                         className="h-10"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3 mobile-single-col">
                       <div className="space-y-1.5">
                         <Label className="text-sm font-semibold">نوع القضية</Label>
                         <div className="flex flex-wrap gap-1.5">

@@ -452,7 +452,7 @@ function OpeningRequestsSection({ onConvert }: { onConvert: (caseId: string) => 
             <p className="text-sm font-semibold text-violet-600 flex items-center gap-2">
               <BarChart2 className="h-4 w-4" />البيانات المالية (ريال سعودي)
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-single-col">
               {[
                 { key: "total_assets",      label: "إجمالي الأصول" },
                 { key: "total_liabilities", label: "إجمالي الخصوم" },

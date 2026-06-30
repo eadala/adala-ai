@@ -18,8 +18,9 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
@@ -242,13 +243,12 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2 bg-primary hover:bg-primary/90 text-white">
-          <Plus className="h-4 w-4" />فاتورة جديدة
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+    <>
+      <Button className="gap-2 bg-primary hover:bg-primary/90 text-white" onClick={() => setOpen(true)}>
+        <Plus className="h-4 w-4" />فاتورة جديدة
+      </Button>
+      <AdaptiveDialog open={open} onOpenChange={setOpen}>
+      <AdaptiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl" size="full">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
@@ -320,7 +320,7 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
         })()}
 
         {step === "form" && (<div className="space-y-5 pt-2">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 mobile-single-col">
             <div className="space-y-2 col-span-2">
               <Label>عنوان الفاتورة *</Label>
               <Input placeholder="مثال: أتعاب قضية رقم 2025/123" value={title}
@@ -450,8 +450,9 @@ function NewInvoiceDialog({ clients, onCreated }: { clients: Client[]; onCreated
             إنشاء الفاتورة
           </Button>
         </div>)}
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+      </AdaptiveDialog>
+    </>
   );
 }
 

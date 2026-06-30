@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -181,8 +182,8 @@ export default function AiTasks() {
       </Card>
 
       {/* ── Create Task Dialog ── */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-md" dir="rtl">
+      <AdaptiveDialog open={createOpen} onOpenChange={setCreateOpen}>
+        <AdaptiveDialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" /> مهمة تحليل جديدة
@@ -257,12 +258,12 @@ export default function AiTasks() {
               {createMut.isPending ? "جارٍ الإنشاء..." : "إنشاء المهمة"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* ── Task Detail Dialog ── */}
-      <Dialog open={!!detailTask} onOpenChange={() => setDetailTask(null)}>
-        <DialogContent className="max-w-lg" dir="rtl">
+      <AdaptiveDialog open={!!detailTask} onOpenChange={() => setDetailTask(null)}>
+        <AdaptiveDialogContent className="max-w-lg" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
@@ -309,8 +310,8 @@ export default function AiTasks() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailTask(null)}>إغلاق</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

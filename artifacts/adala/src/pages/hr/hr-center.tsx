@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -124,8 +125,8 @@ function EvalDialog({ open, onClose, employees }: { open: boolean; onClose: () =
   if (emp && form.role === "lawyer" && !ROLES.some(r => r.value === form.role)) updStr("role", "lawyer");
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Star className="h-5 w-5 text-yellow-400" />
@@ -272,8 +273,8 @@ function EvalDialog({ open, onClose, employees }: { open: boolean; onClose: () =
             {mut.isPending ? "جارٍ الحفظ..." : "حفظ التقييم"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -302,8 +303,8 @@ function IncentiveDialog({ open, onClose, employees }: { open: boolean; onClose:
   });
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-sm" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="sm:max-w-sm" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Award className="h-5 w-5 text-primary" />
@@ -351,8 +352,8 @@ function IncentiveDialog({ open, onClose, employees }: { open: boolean; onClose:
             {mut.isPending ? "جارٍ الحفظ..." : "حفظ"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 

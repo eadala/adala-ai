@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -364,14 +365,14 @@ export default function FinancialCore() {
               <p className="text-xs text-muted-foreground">قيود مزدوجة القيد — مدين / دائن</p>
             </div>
             <div className="flex gap-2">
-              <Dialog open={newLedgerOpen} onOpenChange={setNewLedgerOpen}>
+              <AdaptiveDialog open={newLedgerOpen} onOpenChange={setNewLedgerOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="gap-1.5"><Plus className="h-3.5 w-3.5" />قيد جديد</Button>
                 </DialogTrigger>
-                <DialogContent>
+                <AdaptiveDialogContent>
                   <DialogHeader><DialogTitle>قيد محاسبي جديد</DialogTitle></DialogHeader>
                   <div className="space-y-3 py-2">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3 mobile-single-col">
                       <div className="space-y-1">
                         <Label className="text-xs">الحساب المدين</Label>
                         <Input placeholder="معرف الحساب" value={newLedger.debitAccount} onChange={e => setNewLedger(p => ({...p, debitAccount: e.target.value}))} />
@@ -407,8 +408,8 @@ export default function FinancialCore() {
                       {createLedger.isPending ? "جاري الحفظ..." : "تسجيل القيد"}
                     </Button>
                   </div>
-                </DialogContent>
-              </Dialog>
+                </AdaptiveDialogContent>
+              </AdaptiveDialog>
               <Button variant="outline" size="sm" onClick={() => refetchLedger()} className="gap-1"><RefreshCw className="h-3.5 w-3.5" /></Button>
             </div>
           </div>
@@ -558,11 +559,11 @@ export default function FinancialCore() {
                   <SelectItem value="failed">فاشل</SelectItem>
                 </SelectContent>
               </Select>
-              <Dialog open={newPayoutOpen} onOpenChange={setNewPayoutOpen}>
+              <AdaptiveDialog open={newPayoutOpen} onOpenChange={setNewPayoutOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="gap-1.5"><Plus className="h-3.5 w-3.5" />تحويل جديد</Button>
                 </DialogTrigger>
-                <DialogContent>
+                <AdaptiveDialogContent>
                   <DialogHeader><DialogTitle>إنشاء تحويل جديد</DialogTitle></DialogHeader>
                   <div className="space-y-3 py-2">
                     <div className="space-y-1">
@@ -573,7 +574,7 @@ export default function FinancialCore() {
                       <Label className="text-xs">اسم المستفيد</Label>
                       <Input placeholder="اسم المكتب / المحامي" value={newPayout.ownerLabel} onChange={e => setNewPayout(p => ({...p, ownerLabel: e.target.value}))} />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3 mobile-single-col">
                       <div className="space-y-1">
                         <Label className="text-xs">المبلغ الإجمالي (ر.س)</Label>
                         <Input type="number" placeholder="0.00" value={newPayout.amount} onChange={e => setNewPayout(p => ({...p, amount: e.target.value}))} />
@@ -597,8 +598,8 @@ export default function FinancialCore() {
                       {createPayout.isPending ? "جاري الإنشاء..." : "إنشاء التحويل"}
                     </Button>
                   </div>
-                </DialogContent>
-              </Dialog>
+                </AdaptiveDialogContent>
+              </AdaptiveDialog>
             </div>
           </div>
 

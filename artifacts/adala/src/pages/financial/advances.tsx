@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Wallet, Plus, Loader2, CheckCircle2, Clock, XCircle, RefreshCw, ChevronDown } from "lucide-react";
@@ -150,12 +151,12 @@ export default function Advances() {
         )}
 
         {/* Create dialog */}
-        <Dialog open={open} onOpenChange={v => !v && setOpen(false)}>
-          <DialogContent className="bg-card border-border text-foreground max-w-md" dir="rtl">
+        <AdaptiveDialog open={open} onOpenChange={v => !v && setOpen(false)}>
+          <AdaptiveDialogContent className="bg-card border-border text-foreground max-w-md" dir="rtl">
             <DialogHeader><DialogTitle>سلفة جديدة</DialogTitle></DialogHeader>
             <div className="space-y-3 py-2">
               <div><Label className="text-xs text-muted-foreground">اسم الموظف *</Label><Input value={form.employeeName??""} onChange={e=>set("employeeName",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mobile-single-col">
                 <div><Label className="text-xs text-muted-foreground">المبلغ (ر.س) *</Label><Input type="number" min="0" value={form.amount??""} onChange={e=>set("amount",e.target.value)} className="bg-background/50 border-border mt-1 text-sm"/></div>
                 <div><Label className="text-xs text-muted-foreground">أقساط السداد (شهر)</Label><Input type="number" value={form.repaymentMonths??1} onChange={e=>set("repaymentMonths",parseInt(e.target.value))} className="bg-background/50 border-border mt-1 text-sm"/></div>
               </div>
@@ -169,12 +170,12 @@ export default function Advances() {
                 {createMut.isPending&&<Loader2 className="h-4 w-4 ms-1 animate-spin"/>}حفظ
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </AdaptiveDialogContent>
+        </AdaptiveDialog>
 
         {/* Repay dialog */}
-        <Dialog open={!!repayId} onOpenChange={v=>!v&&setRepayId(null)}>
-          <DialogContent className="bg-card border-border text-foreground max-w-sm" dir="rtl">
+        <AdaptiveDialog open={!!repayId} onOpenChange={v=>!v&&setRepayId(null)}>
+          <AdaptiveDialogContent className="bg-card border-border text-foreground max-w-sm" dir="rtl">
             <DialogHeader><DialogTitle>تسجيل دفعة سداد</DialogTitle></DialogHeader>
             <div className="py-2">
               <Label className="text-xs text-muted-foreground">مبلغ الدفعة (ر.س)</Label>
@@ -187,8 +188,8 @@ export default function Advances() {
                 {repayMut.isPending&&<Loader2 className="h-4 w-4 ms-1 animate-spin"/>}تسجيل
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </AdaptiveDialogContent>
+        </AdaptiveDialog>
     </div>
   );
 }

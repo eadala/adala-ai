@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -453,8 +454,8 @@ export default function BranchesPage() {
 
         {/* ── Create / Edit Dialog ── */}
         {(showCreate || !!editing) && (
-          <Dialog open onOpenChange={() => { setShowCreate(false); setEditing(null); }}>
-            <DialogContent className="max-w-lg" dir="rtl">
+          <AdaptiveDialog open onOpenChange={() => { setShowCreate(false); setEditing(null); }}>
+            <AdaptiveDialogContent className="max-w-lg" dir="rtl">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-primary" />
@@ -462,7 +463,7 @@ export default function BranchesPage() {
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-2">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 mobile-single-col">
                   <div className="space-y-1.5 col-span-2">
                     <Label>اسم الفرع <span className="text-destructive">*</span></Label>
                     <Input placeholder="مثال: فرع الرياض" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
@@ -506,14 +507,14 @@ export default function BranchesPage() {
                   {editing ? "حفظ التعديلات" : "إنشاء الفرع"}
                 </Button>
               </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            </AdaptiveDialogContent>
+          </AdaptiveDialog>
         )}
 
         {/* ── Delete Confirm ── */}
         {deleting && (
-          <Dialog open onOpenChange={() => setDeleting(null)}>
-            <DialogContent dir="rtl">
+          <AdaptiveDialog open onOpenChange={() => setDeleting(null)}>
+            <AdaptiveDialogContent dir="rtl">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-destructive">
                   <XCircle className="h-5 w-5" /> تعطيل الفرع
@@ -530,14 +531,14 @@ export default function BranchesPage() {
                   تعطيل الفرع
                 </Button>
               </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            </AdaptiveDialogContent>
+          </AdaptiveDialog>
         )}
 
         {/* ── Transfer Case Dialog ── */}
         {transferTarget && (
-          <Dialog open onOpenChange={() => { setTransferTarget(null); setTransferCaseId(""); }}>
-            <DialogContent dir="rtl">
+          <AdaptiveDialog open onOpenChange={() => { setTransferTarget(null); setTransferCaseId(""); }}>
+            <AdaptiveDialogContent dir="rtl">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <ArrowRightLeft className="h-5 w-5 text-primary" /> تحويل قضية إلى {transferTarget.name}
@@ -574,8 +575,8 @@ export default function BranchesPage() {
                   تحويل القضية
                 </Button>
               </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            </AdaptiveDialogContent>
+          </AdaptiveDialog>
         )}
       </div>
     </Layout>

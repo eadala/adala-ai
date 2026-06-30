@@ -954,7 +954,7 @@ function AIDocumentIntelligence() {
                     </CardContent></Card>
                   )}
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 mobile-single-col">
                     {[
                       { label:"نوع المستند",    value: displayed.document_type, icon:<FileText className="h-3.5 w-3.5 text-blue-500" /> },
                       { label:"نسبة الثقة",     value: displayed.confidence_score ? `${Math.round(Number(displayed.confidence_score)*100)}%` : null, icon:<CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> },

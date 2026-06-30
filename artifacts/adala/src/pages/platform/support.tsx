@@ -14,9 +14,8 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { useToast } from "@/hooks/use-toast";
 import {
   HeadphonesIcon, Plus, Loader2, Send, Clock, CheckCircle2,
@@ -250,8 +249,8 @@ function CreateDialog({
   const selectedCat = CATEGORIES.find(c => c.value === form.category);
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[560px] p-0 overflow-hidden" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={handleClose}>
+      <AdaptiveDialogContent className="sm:max-w-[560px] p-0 overflow-hidden" dir="rtl">
         {/* Top bar */}
         <div className="bg-gradient-to-r from-primary to-primary/80 p-5 text-primary-foreground">
           <div className="flex items-center gap-3">
@@ -387,8 +386,8 @@ function CreateDialog({
             <Button variant="outline" onClick={() => setStep("category")}>رجوع</Button>
           </DialogFooter>
         )}
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 

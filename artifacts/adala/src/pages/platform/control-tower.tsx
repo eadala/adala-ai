@@ -10,9 +10,8 @@ import { AdminLayout } from "@/components/admin-layout";
 import { Badge }    from "@/components/ui/badge";
 import { Button }   from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
@@ -489,8 +488,8 @@ export default function ControlTower() {
         </div>
 
         {/* ── Deep Inspect Modal ───────────────────────────────── */}
-        <Dialog open={!!inspectId} onOpenChange={(o) => !o && setInspectId(null)}>
-          <DialogContent className="max-w-3xl bg-[#0D1629] border-slate-700 text-slate-200" dir="rtl">
+        <AdaptiveDialog open={!!inspectId} onOpenChange={(o) => !o && setInspectId(null)}>
+          <AdaptiveDialogContent className="max-w-3xl bg-[#0D1629] border-slate-700 text-slate-200" dir="rtl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-slate-100">
                 <Eye className="h-4 w-4 text-blue-400" />
@@ -552,8 +551,8 @@ export default function ControlTower() {
                 </Button>
               </div>
             )}
-          </DialogContent>
-        </Dialog>
+          </AdaptiveDialogContent>
+        </AdaptiveDialog>
 
       </div>
     </AdminLayout>

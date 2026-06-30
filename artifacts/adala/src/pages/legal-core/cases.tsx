@@ -473,13 +473,7 @@ export default function Cases() {
 
       {/* ── New Case Dialog (AdaptiveDialog → BottomSheet on mobile) ── */}
       <AdaptiveDialog open={newOpen} onOpenChange={v => { setNewOpen(v); if (!v) { setForm({ title: "", caseType: "civil", clientName: "", description: "" }); setClientInput("select"); } }}>
-        <AdaptiveDialogContent
-          className="max-w-md"
-          title="قضية جديدة"
-          open={newOpen}
-          onClose={() => { setNewOpen(false); setForm({ title: "", caseType: "civil", clientName: "", description: "" }); setClientInput("select"); }}
-          size="lg"
-        >
+        <AdaptiveDialogContent className="max-w-md" title="قضية جديدة" size="lg">
           <DialogHeader>
             <DialogTitle>قضية جديدة</DialogTitle>
           </DialogHeader>

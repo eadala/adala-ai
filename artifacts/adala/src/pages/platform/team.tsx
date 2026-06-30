@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -475,8 +476,8 @@ export default function TeamPage() {
       </Tabs>
 
       {/* ── Invite Dialog ── */}
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-        <DialogContent className="max-w-sm" dir="rtl">
+      <AdaptiveDialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <AdaptiveDialogContent className="max-w-sm" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <UserPlus className="h-4 w-4 text-primary" />دعوة عضو جديد
@@ -529,8 +530,8 @@ export default function TeamPage() {
               {sendInvite.isPending ? "جارٍ الإرسال..." : "إرسال الدعوة"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

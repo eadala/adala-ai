@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -100,8 +101,8 @@ function PayslipModal({ payroll, onClose }: { payroll: any; onClose: () => void 
   const net = parseFloat(payroll?.net_salary ?? payroll?.netSalary ?? "0");
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+    <AdaptiveDialog open onOpenChange={onClose}>
+      <AdaptiveDialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Printer className="h-5 w-5 text-primary" />
@@ -207,8 +208,8 @@ function PayslipModal({ payroll, onClose }: { payroll: any; onClose: () => void 
             <Printer className="h-4 w-4" />طباعة / PDF
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -232,15 +233,15 @@ function AnnouncementDialog({ open, onClose }: { open: boolean; onClose: () => v
   });
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="sm:max-w-lg" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Megaphone className="h-5 w-5 text-primary" />إضافة إعلان داخلي
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mobile-single-col">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">العنوان *</Label>
               <Input value={form.title} onChange={e => upd("title", e.target.value)} placeholder="عنوان الإعلان..." />
@@ -261,7 +262,7 @@ function AnnouncementDialog({ open, onClose }: { open: boolean; onClose: () => v
             <Label className="text-xs font-semibold">محتوى الإعلان *</Label>
             <Textarea value={form.content} onChange={e => upd("content", e.target.value)} placeholder="نص الإعلان..." rows={4} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mobile-single-col">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">القسم المستهدف (اختياري)</Label>
               <Input value={form.targetDept} onChange={e => upd("targetDept", e.target.value)} placeholder="الكل" />
@@ -278,8 +279,8 @@ function AnnouncementDialog({ open, onClose }: { open: boolean; onClose: () => v
             {mut.isPending ? "جارٍ النشر..." : "نشر الإعلان"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -306,15 +307,15 @@ function RequestDialog({ open, onClose, employees }: { open: boolean; onClose: (
   });
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="sm:max-w-lg" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Send className="h-5 w-5 text-primary" />طلب موظف جديد
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mobile-single-col">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">الموظف *</Label>
               <Select value={form.employeeId} onValueChange={v => upd("employeeId", v)}>
@@ -357,8 +358,8 @@ function RequestDialog({ open, onClose, employees }: { open: boolean; onClose: (
             {mut.isPending ? "جارٍ الإرسال..." : "إرسال الطلب"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -382,8 +383,8 @@ function RespondDialog({ open, onClose, request }: { open: boolean; onClose: () 
   });
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-sm" dir="rtl">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="sm:max-w-sm" dir="rtl">
         <DialogHeader>
           <DialogTitle>الرد على الطلب</DialogTitle>
         </DialogHeader>
@@ -414,8 +415,8 @@ function RespondDialog({ open, onClose, request }: { open: boolean; onClose: () 
             {mut.isPending ? "جارٍ الحفظ..." : "حفظ"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 

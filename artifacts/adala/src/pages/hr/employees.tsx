@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -88,7 +89,7 @@ function EmployeeCard({ emp, onEdit, onDelete }: any) {
 function EmployeeForm({ form, setForm, onSubmit, loading, isEdit, onClose }: any) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 mobile-single-col">
         <div><Label>رقم الموظف *</Label><Input value={form.employeeNo} onChange={e => setForm((p: any) => ({ ...p, employeeNo: e.target.value }))} placeholder="EMP-001" /></div>
         <div><Label>الاسم الكامل *</Label><Input value={form.fullName} onChange={e => setForm((p: any) => ({ ...p, fullName: e.target.value }))} /></div>
         <div><Label>البريد الإلكتروني</Label><Input value={form.email} onChange={e => setForm((p: any) => ({ ...p, email: e.target.value }))} type="email" /></div>
@@ -257,8 +258,8 @@ export default function Employees() {
       )}
 
       {/* Create Dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <AdaptiveDialog open={showCreate} onOpenChange={setShowCreate}>
+        <AdaptiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>إضافة موظف جديد</DialogTitle></DialogHeader>
           <EmployeeForm form={form} setForm={setForm} isEdit={false} onClose={() => setShowCreate(false)} />
           <DialogFooter>
@@ -267,12 +268,12 @@ export default function Employees() {
               {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />} إضافة
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editEmp} onOpenChange={v => !v && setEditEmp(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <AdaptiveDialog open={!!editEmp} onOpenChange={v => !v && setEditEmp(null)}>
+        <AdaptiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>تعديل بيانات الموظف</DialogTitle></DialogHeader>
           <EmployeeForm form={form} setForm={setForm} isEdit={true} onClose={() => setEditEmp(null)} />
           <DialogFooter>
@@ -281,8 +282,8 @@ export default function Employees() {
               {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}<Save className="h-4 w-4" /> حفظ
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AdaptiveDialogContent>
+      </AdaptiveDialog>
     </div>
   );
 }

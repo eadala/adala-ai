@@ -20,7 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -233,8 +234,8 @@ function InviteDialog({ open, onClose, roles }: { open: boolean; onClose: () => 
   });
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" style={{ color: GOLD }} />
@@ -266,8 +267,8 @@ function InviteDialog({ open, onClose, roles }: { open: boolean; onClose: () => 
             {mut.isPending ? "جارٍ الإرسال..." : "إرسال الدعوة"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
@@ -309,8 +310,8 @@ function RoleDialog({ open, onClose, editRole }: { open: boolean; onClose: () =>
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+    <AdaptiveDialog open={open} onOpenChange={onClose}>
+      <AdaptiveDialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-5 w-5" style={{ color: GOLD }} />
@@ -318,7 +319,7 @@ function RoleDialog({ open, onClose, editRole }: { open: boolean; onClose: () =>
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-5 py-2">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 mobile-single-col">
             <div className="space-y-2">
               <Label>اسم الدور</Label>
               <Input placeholder="مثال: محامي أول" value={displayName} onChange={e => setDisplayName(e.target.value)} />
@@ -385,8 +386,8 @@ function RoleDialog({ open, onClose, editRole }: { open: boolean; onClose: () =>
             {mut.isPending ? "جارٍ الحفظ..." : isEdit ? "حفظ التعديلات" : "إنشاء الدور"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdaptiveDialogContent>
+    </AdaptiveDialog>
   );
 }
 
