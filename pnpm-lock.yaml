@@ -162,6 +162,9 @@ importers:
       '@google-cloud/storage':
         specifier: ^7.19.0
         version: 7.19.0
+      '@opentelemetry/instrumentation':
+        specifier: ^0.219.0
+        version: 0.219.0(@opentelemetry/api@1.9.1)
       nodemailer:
         specifier: ^8.0.10
         version: 8.0.10
@@ -582,8 +585,8 @@ importers:
         specifier: ^8.2.0
         version: 8.2.0
       http-proxy-middleware:
-        specifier: ^4.0.0
-        version: 4.0.0
+        specifier: ^4.1.1
+        version: 4.1.1
       node-cron:
         specifier: ^4.2.1
         version: 4.2.1
@@ -4038,10 +4041,6 @@ packages:
   http-proxy-agent@5.0.0:
     resolution: {integrity: sha512-n2hY8YdoRE1i7r6M0w9DIw5GgZN0G25P8zLCRQ8rjXtTU3vsNFBI/vWK/UIeE6g5MUUz6avwAPXmL6Fy9D/90w==}
     engines: {node: '>= 6'}
-
-  http-proxy-middleware@4.0.0:
-    resolution: {integrity: sha512-wuHwaUtmC0XzJNHqRp41zXtt5ojpHbusXGhq6781VvnjWUYPu7opmOF3eomGNujT07kEOnHWZyV9UZzKimVCKA==}
-    engines: {node: ^22.15.0 || ^24.0.0 || >=26.0.0}
 
   http-proxy-middleware@4.1.1:
     resolution: {integrity: sha512-KX5ZofGXLFXqFAkQoOWZ+rTtaLTut7m0gyL+QzJrdejtIZ+F4bPPDoe7reISg2+v0CAz5OfVwEJEhty7X+e57g==}
@@ -9470,16 +9469,6 @@ snapshots:
       '@tootallnate/once': 2.0.1
       agent-base: 6.0.2
       debug: 4.4.3
-    transitivePeerDependencies:
-      - supports-color
-
-  http-proxy-middleware@4.0.0:
-    dependencies:
-      debug: 4.4.3
-      httpxy: 0.5.3
-      is-glob: 4.0.3
-      is-plain-obj: 4.1.0
-      micromatch: 4.0.8
     transitivePeerDependencies:
       - supports-color
 

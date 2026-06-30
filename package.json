@@ -115,6 +115,7 @@
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",
+    "@opentelemetry/instrumentation": "^0.219.0",
     "nodemailer": "^8.0.10",
     "stripe": "^22.2.0",
     "stripe-replit-sync": "^1.0.0"
