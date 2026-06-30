@@ -140,6 +140,7 @@ import calendarRouter         from "../modules/operations/calendar";
 import tasksRouter            from "../modules/operations/tasks";
 import messagesRouter         from "../modules/operations/messages";
 import internalMessagesRouter from "../modules/operations/internal-messages";
+import conversationsRouter    from "../modules/operations/conversations";
 import notificationsRouter    from "../modules/operations/notifications";
 import eventsRouter           from "../modules/operations/events";
 import storageRouter          from "../modules/operations/storage";
@@ -301,6 +302,7 @@ router.use(calendarRouter);
 router.use(tasksRouter);
 router.use(messagesRouter);
 router.use("/internal-messages", internalMessagesRouter);
+router.use("/conversations",    conversationsRouter);
 router.use(notificationsRouter);
 router.use((req, _res, next) => {
   if (req.url === "/appointments" || req.url.startsWith("/appointments/") || req.url.startsWith("/appointments?")) {

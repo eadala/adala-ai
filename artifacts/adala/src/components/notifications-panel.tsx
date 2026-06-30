@@ -124,6 +124,8 @@ export function NotificationsPanel() {
             if (locationRef.current.startsWith("/messages")) {
               qc.invalidateQueries({ queryKey: ["messages"] });
             }
+            /* Broadcast to any page-level listener (e.g. ConversationsPanel) */
+            window.dispatchEvent(new CustomEvent("sse:NEW_MESSAGE", { detail: ev }));
             /* Also show it in the live feed with a distinct label */
             setLiveEvents(prev => [ev, ...prev].slice(0, 50));
             if (!open) setNewLiveCount(n => n + 1);
