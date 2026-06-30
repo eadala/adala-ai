@@ -97,6 +97,7 @@ const FirmAdmin            = lazy(() => import("@/pages/platform/firm-admin"));
 const BackupCenter         = lazy(() => import("@/pages/platform/backup"));
 const StorageSettings      = lazy(() => import("@/pages/platform/storage-settings"));
 const DocumentCenter       = lazy(() => import("@/pages/platform/document-center"));
+const DesignSystemPage     = lazy(() => import("@/pages/platform/design-system"));
 const AdalaBuildStudio     = lazy(() => import("@/pages/platform/studio"));
 const ThemeBuilderPage     = lazy(() => import("@/pages/platform/theme-builder"));
 const EngineeringCenter    = lazy(() => import("@/pages/platform/engineering-center"));
@@ -956,6 +957,7 @@ function AppRoutes() {
             <Route path="/website-builder"><ProtectedRoute><WebsiteBuilder /></ProtectedRoute></Route>
             <Route path="/storage-settings"><ProtectedRoute><StorageSettings /></ProtectedRoute></Route>
             <Route path="/document-center"><ProtectedRoute><DocumentCenter /></ProtectedRoute></Route>
+            <Route path="/design-system"><ProtectedRoute><DesignSystemPage /></ProtectedRoute></Route>
             <Route path="/firm-admin"><ProtectedRoute><FirmAdmin /></ProtectedRoute></Route>
             <Route path="/backup"><ProtectedRoute><BackupCenter /></ProtectedRoute></Route>
             <Route path="/theme-builder"><ProtectedRoute><ThemeBuilderPage /></ProtectedRoute></Route>

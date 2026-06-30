@@ -83,6 +83,9 @@ import commandCenterRouter from "../modules/ai/commandCenter";
 // ── JLWM — Justice Legal World Model ─────────────────────────────────────────
 import jlwmRouter from "../modules/jlwm/index";
 
+// ── Metrics (Web Vitals) ─────────────────────────────────────────────────────
+import metricsRouter from "./metrics.js";
+
 // ── Platform ─────────────────────────────────────────────────────────────────
 import adminRouter               from "../modules/platform/admin";
 import managedIntegrationsRouter from "../modules/platform/managedIntegrations";
@@ -341,5 +344,8 @@ router.use(bankruptcyDemoRouter);
 
 // ── JLWM — Justice Legal World Model ─────────────────────────
 router.use(jlwmRouter);
+
+// ── Metrics (Web Vitals) ─────────────────────────────────────────────────────
+router.use("/metrics", metricsRouter);
 
 export default router;

@@ -9,7 +9,10 @@
     "lint": "eslint src --max-warnings=9999",
     "lint:fix": "eslint src --fix --max-warnings=9999",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "governance:gate": "bash ../../scripts/governance/quality-gate.sh",
+    "governance:audit": "node ../../scripts/governance/ui-audit.mjs",
+    "governance:audit:json": "node ../../scripts/governance/ui-audit.mjs --json"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
