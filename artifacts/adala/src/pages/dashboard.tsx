@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -720,6 +720,95 @@ const EVENT_COLORS: Record<string, string> = {
   other:          "border-border/50 bg-muted/30 text-muted-foreground",
 };
 
+/* ══════════════════════════════════════════════════════
+   TRIAL EXPIRED GUARD
+   - Shows overlay immediately when trial expires (plan = 'free')
+   - Auto-redirects to /billing after 24-hour grace period
+══════════════════════════════════════════════════════ */
+function TrialExpiredGuard() {
+  const [, navigate] = useLocation();
+  const { planSlug, isLoaded } = useOfficePlan();
+
+  const { data: trialStatus } = useQuery<{
+    isTrial: boolean; expired: boolean; daysLeft: number;
+    trialEnd: string | null; officeName: string;
+  }>({
+    queryKey: ["trial-status-guard"],
+    queryFn: () => fetch(`${BASE}/api/onboarding/trial-status`).then(r => r.json()),
+    staleTime: 5 * 60_000,
+    retry: false,
+    enabled: isLoaded,
+  });
+
+  const GRACE_MS = 24 * 60 * 60 * 1000;
+
+  const isExpired  = trialStatus?.expired === true;
+  const isFree     = planSlug === "free";
+  const trialEndMs = trialStatus?.trialEnd ? new Date(trialStatus.trialEnd).getTime() : null;
+  const graceOver  = trialEndMs ? Date.now() > trialEndMs + GRACE_MS : false;
+
+  /* Auto-redirect once 24-hour grace has elapsed */
+  useEffect(() => {
+    if (isLoaded && isExpired && isFree && graceOver) {
+      navigate("/billing");
+    }
+  }, [isLoaded, isExpired, isFree, graceOver, navigate]);
+
+  /* Countdown to end of grace period */
+  const [msLeft, setMsLeft] = useState<number>(0);
+  useEffect(() => {
+    if (!trialEndMs || !isExpired || !isFree || graceOver) return;
+    const update = () => setMsLeft(Math.max(0, trialEndMs + GRACE_MS - Date.now()));
+    update();
+    const id = setInterval(update, 60_000);
+    return () => clearInterval(id);
+  }, [trialEndMs, isExpired, isFree, graceOver]);
+
+  const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
+
+  /* Only show overlay when: expired + free + grace still active */
+  if (!isLoaded || !isExpired || !isFree || graceOver) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
+    >
+      <div className="max-w-md w-full mx-4 rounded-2xl border border-amber-500/30 bg-card shadow-2xl overflow-hidden">
+        {/* Header strip */}
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+            <Clock className="h-5 w-5 text-amber-500" />
+          </div>
+          <div>
+            <p className="font-bold text-foreground text-base leading-tight">انتهت فترة التجربة</p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              متبقٍ {hoursLeft} ساعة قبل تعليق الحساب تلقائياً
+            </p>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-4 text-center">
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            انتهت فترة التجربة، يرجى اختيار باقة للاستمرار
+          </p>
+          <p className="text-xs text-muted-foreground/60">
+            بياناتك محفوظة بالكامل وستبقى متاحة فور تفعيل أي باقة.
+          </p>
+
+          <Link href="/billing">
+            <Button className="w-full gap-2 h-10 text-sm font-semibold mt-2">
+              <Crown className="h-4 w-4" />
+              اختر باقتك الآن
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useUser();
   const { tx, isAr, dateLocale } = useLang();
@@ -800,6 +889,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 max-w-7xl">
+
+      <TrialExpiredGuard />
 
       {/* ══════════════════════════════════════════════
           HERO BRIEFING — same bold Arabic energy as landing
