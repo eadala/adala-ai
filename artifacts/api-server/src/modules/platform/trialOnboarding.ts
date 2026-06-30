@@ -57,7 +57,7 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
       inviteEmail?: string;
     };
 
-    const officeId = `trial_${userId.slice(-8)}`;
+    const officeId = `trial_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
 
     const existing = await sqlOne(sql`SELECT id FROM trial_offices WHERE user_id = ${userId}`);
     if (existing) {
