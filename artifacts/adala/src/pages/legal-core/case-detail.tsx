@@ -735,35 +735,58 @@ function TasksMini({ caseId, onAdd }: { caseId: string; onAdd: () => void }) {
   );
 }
 
-/* Hub mini (docs + invoices) */
+/* Hub mini — موحّد: ملفات + فواتير + مهام + مالي */
 function HubMini({ caseId }: { caseId: string }) {
   const { data: hub } = useApi<any>(["case-hub", caseId], `/api/cases/${caseId}/hub`);
   const docs     = hub?.documents ?? [];
   const invoices = hub?.invoices  ?? [];
   const events   = hub?.events    ?? [];
-  const total    = invoices.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0);
+  const tasks    = hub?.tasks     ?? [];
+  const revenues = hub?.revenues  ?? [];
+  const expenses = hub?.expenses  ?? [];
+  const summary  = hub?.summary;
+
+  const totalInv  = invoices.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0);
+  const unpaidInv = summary?.invoices?.unpaid ?? invoices.filter((i: any) => i.status !== "paid").length;
+  const openTasks = summary?.tasks?.open ?? tasks.filter((t: any) => !["done","completed","cancelled"].includes(t.status)).length;
+  const netPL     = (summary?.financials?.totalRevenue ?? revenues.reduce((s: number, r: any) => s + Number(r.amount || 0), 0))
+                  - (summary?.financials?.totalExpense ?? expenses.reduce((s: number, e: any) => s + Number(e.amount || 0), 0));
 
   return (
     <Card className="border shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-xs font-semibold flex items-center gap-1.5">
-          <Paperclip className="h-3.5 w-3.5 text-primary" />ملفات &amp; فواتير
+          <Paperclip className="h-3.5 w-3.5 text-primary" />نظرة شاملة على القضية
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0 space-y-3">
-        {/* Quick stats row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {/* Quick stats — 6 مؤشرات */}
+        <div className="grid grid-cols-3 gap-1.5">
           {[
-            { label: "فواتير",  val: invoices.length,  color: "text-blue-600" },
-            { label: "مستندات", val: docs.length,       color: "text-violet-600" },
-            { label: "جلسات",   val: events.length,    color: "text-amber-600" },
-          ].map(({ label, val, color }) => (
-            <div key={label} className="text-center bg-muted/30 rounded-lg py-1.5">
-              <p className={cn("text-base font-bold", color)}>{val}</p>
-              <p className="text-xs text-muted-foreground">{label}</p>
+            { label: "فواتير",   val: invoices.length, sub: unpaidInv > 0 ? `${unpaidInv} غير مدفوعة` : "مدفوعة", color: "text-blue-600" },
+            { label: "مستندات",  val: docs.length,     sub: "",            color: "text-violet-600" },
+            { label: "جلسات",    val: events.length,   sub: "",            color: "text-amber-600" },
+            { label: "مهام",     val: tasks.length,    sub: openTasks > 0 ? `${openTasks} مفتوحة` : "منجزة", color: "text-rose-600" },
+            { label: "إيرادات",  val: revenues.length, sub: "",            color: "text-emerald-600" },
+            { label: "مصروفات",  val: expenses.length, sub: "",            color: "text-orange-600" },
+          ].map(({ label, val, sub, color }) => (
+            <div key={label} className="text-center bg-muted/30 rounded-lg py-1.5 px-1">
+              <p className={cn("text-sm font-bold", color)}>{val}</p>
+              <p className="text-[10px] text-muted-foreground leading-tight">{label}</p>
+              {sub && <p className="text-[9px] text-muted-foreground/70 leading-tight">{sub}</p>}
             </div>
           ))}
         </div>
+
+        {/* P&L mini */}
+        {(revenues.length > 0 || expenses.length > 0) && (
+          <div className="flex items-center justify-between text-xs bg-muted/20 rounded-lg px-2 py-1.5">
+            <span className="text-muted-foreground">صافي الأرباح</span>
+            <span className={cn("font-semibold", netPL >= 0 ? "text-emerald-600" : "text-red-600")}>
+              {netPL >= 0 ? "+" : ""}{netPL.toLocaleString("ar-SA")} ر.س
+            </span>
+          </div>
+        )}
 
         {/* Recent invoices */}
         {invoices.slice(0, 3).map((inv: any) => (
@@ -775,10 +798,10 @@ function HubMini({ caseId }: { caseId: string }) {
           </div>
         ))}
 
-        {total > 0 && (
+        {totalInv > 0 && (
           <div className="flex items-center justify-between text-xs border-t pt-2">
             <span className="text-muted-foreground">إجمالي الفواتير</span>
-            <span className="font-semibold">{total.toLocaleString("ar-SA")} ر.س</span>
+            <span className="font-semibold">{totalInv.toLocaleString("ar-SA")} ر.س</span>
           </div>
         )}
 
