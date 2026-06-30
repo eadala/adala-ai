@@ -1,0 +1,322 @@
+# P0 - Production Recovery & Platform Synchronization
+# Project: Adalah AI
+# Priority: CRITICAL
+# Goal: Restore Production, synchronize repositories, and achieve 100% CI/CD PASS.
+
+## Current Situation
+
+لدينا الحالة التالية:
+
+- نسخة Replit هي أحدث نسخة وتعمل بشكل طبيعي.
+- GitHub يحتوي على تعديلات من مطور آخر على نسخة أقدم.
+- Production (AdalahAI.com) يعتمد على GitHub.
+- الموقع في Production لا يعمل بشكل صحيح بينما نسخة Replit تعمل.
+- GitHub Actions يفشل في Frontend Quality Gate.
+- المطلوب معالجة الأسباب الجذرية وليس تجاوزها.
+
+==================================================
+PHASE 1 — Repository Audit & Synchronization
+==================================================
+
+اعتبر GitHub وReplit مستودعين متباعدين (Diverged).
+
+نفّذ:
+
+1. تحليل كامل للمستودعين.
+2. تحديد:
+   - Last Common Commit
+   - Ahead / Behind
+   - Diverged Commits
+   - Changed Files
+   - Merge Conflicts
+3. إنشاء خطة Merge آمنة.
+
+ممنوع تماماً:
+
+- git push --force
+- git reset --hard
+- حذف أي Commit
+- تعطيل GitHub Actions
+
+بعد الدمج:
+
+- GitHub يصبح مطابقاً لـ Replit.
+- يصبح GitHub هو Source of Truth الوحيد.
+
+==================================================
+PHASE 2 — Fix TypeScript (BLOCKER)
+==================================================
+
+إصلاح جميع أخطاء TypeScript.
+
+خصوصاً:
+
+TS6305
+
+راجع:
+
+- tsconfig.json
+- tsconfig references
+- package.json لكل Package
+- pnpm workspace
+- Project References
+
+تأكد أن الحزم التالية تُبنى قبل TypeCheck:
+
+- lib/api-client-react
+- lib/object-storage-web
+
+إذا لزم الأمر:
+
+- استخدم tsc --build
+- أو أضف Build للحزم المشتركة قبل typecheck.
+
+ثم أصلح جميع أخطاء:
+
+TS7006
+
+ولا يُسمح باستخدام:
+
+any
+
+إلا إذا كان مبرراً ومكتوباً في التقرير.
+
+==================================================
+PHASE 3 — Build Pipeline
+==================================================
+
+راجع GitHub Workflow بالكامل.
+
+يجب أن يكون ترتيب التنفيذ:
+
+Install
+↓
+Build Shared Libraries
+↓
+Generate Types
+↓
+TypeCheck
+↓
+Lint
+↓
+Tests
+↓
+Build
+↓
+Bundle Audit
+↓
+Deploy
+
+لا يسمح بتشغيل TypeCheck قبل Build للحزم المشتركة.
+
+==================================================
+PHASE 4 — Bundle Optimization
+==================================================
+
+لا تقم بزيادة Bundle Budget.
+
+يبقى:
+
+4096 KB
+
+المطلوب:
+
+1. تحليل Bundle باستخدام:
+
+- rollup-plugin-visualizer
+أو
+- vite-bundle-analyzer
+
+2. تطبيق Code Splitting الحقيقي.
+
+3. Lazy Loading لجميع الصفحات الثقيلة.
+
+يشمل:
+
+- العقود
+- الذكاء الاصطناعي
+- مركز القيادة القانونية
+- إدارة المنصة
+- التقارير
+- الرسوم البيانية
+- Bankruptcy
+- HR Enterprise
+
+4. إنشاء Manual Chunks مثل:
+
+vendor-react
+
+vendor-ui
+
+vendor-charts
+
+vendor-ai
+
+vendor-editor
+
+vendor-pdf
+
+vendor-utils
+
+5. إزالة:
+
+Unused Imports
+
+Dead Code
+
+Duplicate Dependencies
+
+Barrel Imports غير الضرورية.
+
+6. مراجعة:
+
+App.tsx
+
+Router
+
+Layout
+
+Navigation
+
+وتأكد أن Initial Bundle هو الحد الأدنى فقط.
+
+==================================================
+PHASE 5 — Production Verification
+==================================================
+
+بعد نجاح Build:
+
+تحقق من:
+
+Environment Variables
+
+API Base URL
+
+CORS
+
+Cookies
+
+Authentication
+
+Reverse Proxy
+
+HTTPS
+
+Assets
+
+Routing
+
+SPA Fallback
+
+Health Check
+
+تحقق أن:
+
+AdalahAI.com
+
+يعمل بنفس سلوك نسخة Replit.
+
+==================================================
+PHASE 6 — Platform Validation
+==================================================
+
+نفّذ بالكامل:
+
+pnpm install
+
+pnpm build
+
+pnpm typecheck
+
+pnpm lint
+
+pnpm validate:routes
+
+pnpm validate:platform
+
+pnpm governance:gate
+
+ويجب أن تكون جميعها PASS.
+
+==================================================
+PHASE 7 — Quality Gates
+==================================================
+
+يجب أن تكون النتائج النهائية:
+
+✅ TypeScript PASS
+
+✅ ESLint PASS
+
+✅ Build PASS
+
+✅ Bundle Budget PASS
+
+✅ Accessibility PASS
+
+✅ Architecture Lock PASS
+
+✅ UI Governance PASS
+
+✅ Route Validation PASS
+
+✅ Platform Governance PASS
+
+==================================================
+PHASE 8 — Production Deployment
+==================================================
+
+بعد نجاح جميع البوابات فقط:
+
+Deploy Production
+
+ثم نفّذ اختباراً كاملاً يشمل:
+
+- Login
+- Dashboard
+- Cases
+- Clients
+- Contracts
+- Documents
+- Financial
+- AI Center
+- Bankruptcy
+- HR
+- Communications
+- Notifications
+- Integrations
+- Mobile
+- Tablet
+- Desktop
+
+وتأكد من:
+
+- عدم وجود Console Errors.
+- عدم وجود Network Errors.
+- عدم وجود Runtime Errors.
+- عدم وجود White Screen.
+- عدم وجود Loading Loop.
+- جميع Routes تعمل.
+- جميع APIs تستجيب.
+- جميع Feature Flags تعمل.
+- جميع صلاحيات RBAC تعمل.
+
+==================================================
+FINAL REPORT
+==================================================
+
+قدّم تقريراً نهائياً يتضمن:
+
+1. Root Cause الحقيقي لتعطل Production.
+2. سبب اختلاف Replit وGitHub.
+3. عدد Commits التي تم دمجها.
+4. الملفات التي حدث بها Merge Conflict.
+5. كيفية حل كل تعارض.
+6. سبب أخطاء TS6305.
+7. سبب أخطاء TS7006.
+8. سبب تضخم Bundle.
+9. حجم Bundle قبل وبعد التحسين.
+10. نتيجة جميع Quality Gates.
+11. تأكيد أن GitHub أصبح المصدر الرسمي الوحيد.
+12. تأكيد أن نسخة Production تطابق GitHub وتطابق Replit بنسبة 100%.
+13. تقديم تقرير نهائي مع توصيات تمنع تكرار المشكلة مستقبلاً.

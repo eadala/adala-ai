@@ -117,6 +117,39 @@ export default defineConfig({
           ) {
             return "vendor-i18n";
           }
+          // Tiptap rich-text editor — heavy, only used in contracts page
+          if (id.includes("node_modules/@tiptap/")) {
+            return "vendor-editor";
+          }
+          // Framer Motion — animations, large, independent release cycle
+          if (id.includes("node_modules/framer-motion")) {
+            return "vendor-motion";
+          }
+          // Sentry monitoring — non-critical, load after app init
+          if (
+            id.includes("node_modules/@sentry/") ||
+            id.includes("node_modules/@sentry-internal/")
+          ) {
+            return "vendor-monitoring";
+          }
+          // PDF / document utilities
+          if (
+            id.includes("node_modules/jspdf") ||
+            id.includes("node_modules/html2canvas") ||
+            id.includes("node_modules/pdfmake")
+          ) {
+            return "vendor-pdf";
+          }
+          // General utilities (non-UI, non-react)
+          if (
+            id.includes("node_modules/date-fns") ||
+            id.includes("node_modules/zod") ||
+            id.includes("node_modules/js-yaml") ||
+            id.includes("node_modules/linkify-it") ||
+            id.includes("node_modules/markdown-it")
+          ) {
+            return "vendor-utils";
+          }
           // Everything else (Radix, shadcn utils, cmdk, etc.) → Rollup auto
         },
       },

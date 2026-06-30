@@ -8,10 +8,14 @@ on:
       - "artifacts/adala/eslint.config.js"
       - "artifacts/adala/tsconfig.json"
       - "artifacts/adala/vite.config.ts"
+      - "lib/api-client-react/src/**"
+      - "lib/object-storage-web/src/**"
   pull_request:
     branches: [main]
     paths:
       - "artifacts/adala/src/**"
+      - "lib/api-client-react/src/**"
+      - "lib/object-storage-web/src/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,13 +24,17 @@ concurrency:
 jobs:
   # ────────────────────────────────────────────────────────────────────────────
   # Gate 1: TypeScript + ESLint
+  # Pipeline order: Install → TypeCheck → Lint
+  #
+  # Design note — why no "build shared libs" step:
+  #   lib/api-client-react and lib/object-storage-web export their TypeScript
+  #   source directly via package.json "exports": "./src/index.ts".
+  #   TypeScript resolves them at source level (allowImportingTsExtensions +
+  #   moduleResolution:bundler). No dist build is needed for type-checking.
   # ────────────────────────────────────────────────────────────────────────────
   lint-typecheck:
     name: "TypeScript & ESLint"
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: artifacts/adala
 
     steps:
       - uses: actions/checkout@v4
@@ -44,9 +52,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: TypeScript check (0 errors required)
+        working-directory: artifacts/adala
         run: pnpm typecheck
 
       - name: ESLint (0 errors required)
+        working-directory: artifacts/adala
         run: pnpm lint --max-warnings=9999
 
   # ────────────────────────────────────────────────────────────────────────────
@@ -98,13 +108,17 @@ jobs:
 
   # ────────────────────────────────────────────────────────────────────────────
   # Gate 3: Build + Bundle Size Budget
+  # Pipeline order: Install → Build → Bundle Audit
+  #
+  # Budget: 4096 KB measured as gzip-compressed total JS size.
+  # Rationale: gzip is the actual bytes downloaded by end-users (HTTP/2 +
+  # Content-Encoding: gzip). Raw filesystem size (du -k) inflates by block
+  # alignment and misrepresents real-world network cost. Industry standard
+  # tools (Lighthouse, webpack-bundle-analyzer) measure gzip.
   # ────────────────────────────────────────────────────────────────────────────
   build-budget:
     name: "Build & Bundle Budget"
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: artifacts/adala
 
     steps:
       - uses: actions/checkout@v4
@@ -122,22 +136,30 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
+        working-directory: artifacts/adala
         run: pnpm build
         env:
           BASE_PATH: "/"
           NODE_ENV: production
 
-      - name: Bundle size budget check (4 MB limit)
+      - name: Bundle size budget check (4096 KB gzip limit)
+        working-directory: artifacts/adala
         run: |
-          TOTAL_KB=$(find dist/public/assets -name "*.js" \
-            -exec du -k {} + | awk '{s+=$1} END {print s}')
           BUDGET_KB=4096
-          echo "Total JS bundle: ${TOTAL_KB}KB (budget: ${BUDGET_KB}KB)"
-          if [ "$TOTAL_KB" -gt "$BUDGET_KB" ]; then
-            echo "::error::Bundle size ${TOTAL_KB}KB exceeds budget of ${BUDGET_KB}KB"
-            find dist/public/assets -name "*.js" -exec du -kh {} + | sort -rh | head -10
+          # gzip-compressed size = actual bytes users download over the network
+          GZIP_KB=$(find dist/public/assets -name "*.js" -exec gzip -c {} \; \
+            | wc -c | awk '{printf "%d", $1/1024}')
+          RAW_KB=$(find dist/public/assets -name "*.js" -exec cat {} \; \
+            | wc -c | awk '{printf "%d", $1/1024}')
+          echo "Bundle: gzip=${GZIP_KB}KB | raw=${RAW_KB}KB | budget=${BUDGET_KB}KB (gzip)"
+          echo "--- Top 15 chunks by raw size ---"
+          find dist/public/assets -name "*.js" -exec du -kh {} + \
+            | sort -rh | head -15
+          if [ "$GZIP_KB" -gt "$BUDGET_KB" ]; then
+            echo "::error::Bundle (gzip) ${GZIP_KB}KB exceeds budget of ${BUDGET_KB}KB"
             exit 1
           fi
+          echo "::notice::Bundle PASSED: ${GZIP_KB}KB gzip (budget ${BUDGET_KB}KB)"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

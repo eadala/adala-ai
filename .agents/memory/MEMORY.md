@@ -1,3 +1,4 @@
+- [Adala TS Project References](adala-ts-project-refs.md) — NEVER add "references" to adala tsconfig; libs export ./src/index.ts directly; moduleResolution:bundler resolves them; CI bundle measured in gzip (~1649KB)
 - [Adala Upload Governance](adala-upload-governance.md) — uploadGuard.ts 8-layer security; 3 endpoints protected; 9-point fileUploadRegistry; 81/81 regression tests pass; node:test self-contained (no ESM import issues)
 - [Adala Governance Framework](adala-governance.md) — quality-gate.sh 8 gates; set -euo pipefail + grep no-match exit-1 → use (grep ... || true) | wc -l pattern; ESLint Architecture Lock; web-vitals monitoring; /design-system page
 - [Adala SuperAdmin Enterprise Hardening](adala-superadmin-audit.md) — 37 files fixed; 0 legacy isSuperAdmin remaining; rate limiting + 19-test suite; getSaRateLimitStats() exported
