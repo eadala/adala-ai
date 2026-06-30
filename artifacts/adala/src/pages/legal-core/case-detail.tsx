@@ -1615,18 +1615,45 @@ export default function CaseDetail({ id }: { id: string }) {
   const [documentOpen,  setDocumentOpen] = useState(false);
   const msgRef = useRef<HTMLDivElement>(null);
 
-  const changeStatus = (status: string) => {
+  /* Unpaid-invoice warning state */
+  const [closeWarning, setCloseWarning] = useState<{ message: string; unpaidCount: number; pendingStatus: string } | null>(null);
+
+  const changeStatus = (status: string, force = false) => {
     updateCase.mutate(
-      { id, data: { status } as any },
+      { id, data: { status, ...(force ? { force: true } : {}) } as any },
       {
-        onSuccess: () => {
+        onSuccess: (data: any) => {
+          /* Server returned a warning instead of applying the update */
+          if (data?.requiresConfirmation) {
+            setCloseWarning({ message: data.message, unpaidCount: data.unpaidCount, pendingStatus: status });
+            return;
+          }
           qc.invalidateQueries({ queryKey: getGetCaseQueryKey(id) });
           qc.invalidateQueries({ queryKey: ["cases-stats"] });
           toast({ title: "✅ تم تحديث الحالة" });
         },
-        onError: () => toast({ variant: "destructive", title: "خطأ في التحديث" }),
+        onError: (err: any) => {
+          const status409 = err?.response?.status === 409 || err?.status === 409 || String(err?.message).includes("409");
+          if (status409) {
+            toast({
+              variant: "destructive",
+              title: "⚠️ تعارض في التعديل",
+              description: "تم تعديل هذه القضية من شخص آخر. يرجى تحديث الصفحة ثم إعادة المحاولة.",
+            });
+          } else {
+            toast({ variant: "destructive", title: "خطأ في التحديث" });
+          }
+        },
       }
     );
+  };
+
+  /* Confirm close despite unpaid invoices */
+  const confirmCloseAnyway = () => {
+    if (!closeWarning) return;
+    const { pendingStatus } = closeWarning;
+    setCloseWarning(null);
+    changeStatus(pendingStatus, true);
   };
 
   const handleMsgAction = () => {
@@ -1773,6 +1800,28 @@ export default function CaseDetail({ id }: { id: string }) {
         caseId={id}
         caseTitle={c.title as string}
       />
+
+      {/* ══ UNPAID INVOICE WARNING DIALOG ══ */}
+      <Dialog open={!!closeWarning} onOpenChange={v => !v && setCloseWarning(null)}>
+        <DialogContent className="max-w-sm" dir={dir}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              ⚠️ تحذير — فواتير غير مدفوعة
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {closeWarning?.message}
+          </p>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setCloseWarning(null)}>
+              إلغاء
+            </Button>
+            <Button variant="destructive" onClick={confirmCloseAnyway}>
+              إغلاق القضية رغم ذلك
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

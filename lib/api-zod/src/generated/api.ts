@@ -87,7 +87,9 @@ export const UpdateCaseBody = zod.object({
   "caseType": zod.string().optional(),
   "status": zod.string().optional(),
   "clientName": zod.string().optional(),
-  "assignedTo": zod.string().optional()
+  "assignedTo": zod.string().optional(),
+  "version": zod.number().optional(),
+  "force": zod.boolean().optional()
 })
 
 export const UpdateCaseResponse = zod.object({

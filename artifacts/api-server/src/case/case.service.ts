@@ -32,7 +32,7 @@ export class CaseService {
   }
 
   /* ── Count (for pagination totals) ── */
-  async countCases(filters?: Pick<CaseFilters, "status" | "caseType" | "search">): Promise<number> {
+  async countCases(filters?: Pick<CaseFilters, "status" | "caseType" | "search" | "assignedUserId">): Promise<number> {
     return this.repo.countAll(filters);
   }
 
@@ -74,12 +74,18 @@ export class CaseService {
     return { before, after: updated };
   }
 
-  /* ── Delete ── */
+  /* ── Soft Delete (default) ── */
   async deleteCase(id: string): Promise<void> {
     await this.getCase(id);
-    await this.repo.delete(id);
+    await this.repo.softDelete(id);
     CaseEvents.emit("CASE_DELETED", { id });
-    auditLog({ userId: this.userId, action: "delete", resource: "cases", resourceId: id }).catch(() => {});
+    auditLog({ userId: this.userId, action: "soft_delete", resource: "cases", resourceId: id }).catch(() => {});
+  }
+
+  /* ── Hard Delete (super_admin only) ── */
+  async hardDeleteCase(id: string): Promise<void> {
+    await this.repo.hardDelete(id);
+    auditLog({ userId: this.userId, action: "hard_delete", resource: "cases", resourceId: id }).catch(() => {});
   }
 
   /* ── WhatsApp notification (private helper) ── */

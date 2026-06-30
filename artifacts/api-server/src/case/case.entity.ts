@@ -21,6 +21,8 @@ export interface CaseEntity {
   createdBy?:  string;
   createdAt:   Date;
   updatedAt:   Date;
+  version:     number;
+  deletedAt?:  Date | null;
 }
 
 export interface CreateCaseInput {
@@ -41,14 +43,16 @@ export interface UpdateCaseInput {
   status?:      CaseStatus;
   clientName?:  string;
   assignedTo?:  string;
+  version?:     number;
 }
 
 export interface CaseFilters {
-  status?:   CaseStatus;
-  caseType?: CaseType;
-  search?:   string;
-  limit?:    number;
-  offset?:   number;
+  status?:         CaseStatus;
+  caseType?:       CaseType;
+  search?:         string;
+  limit?:          number;
+  offset?:         number;
+  assignedUserId?: string;
 }
 
 /* ── Labels for Arabic UI ── */

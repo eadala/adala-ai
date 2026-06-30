@@ -22,9 +22,48 @@ import { runAIAnalysis, getLatestInsight, approveAITask, rejectAITask } from "..
 
 const router = Router();
 
+/* ════════════════════════════════════════════════════
+   ONE-TIME STARTUP MIGRATIONS
+════════════════════════════════════════════════════ */
+(async () => {
+  const migs = [
+    /* Soft delete */
+    sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`,
+    /* Optimistic locking */
+    sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1`,
+    /* Clients soft delete */
+    sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`,
+    /* Performance indexes */
+    sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`,
+    sql`CREATE INDEX IF NOT EXISTS idx_cases_title_trgm ON cases USING GIN (title gin_trgm_ops)`,
+    sql`CREATE INDEX IF NOT EXISTS idx_cases_client_name ON cases (LOWER(client_name))`,
+    sql`CREATE INDEX IF NOT EXISTS idx_cases_office_active ON cases (office_id) WHERE deleted_at IS NULL`,
+    /* Partial unique index — allows multiple NULLs in same office */
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_uq_cases_office_case_number
+        ON cases (office_id, case_number) WHERE case_number IS NOT NULL`,
+  ];
+  for (const m of migs) {
+    await db.execute(m).catch(() => {});
+  }
+})();
+
 function getTenant(req: any): string { return req.tenantId; }
 function getAuth(req: any)           { return req.auth; }
 function getService(req: any)        { return new CaseService(getTenant(req), getAuth(req)?.userId); }
+
+/* Helper: resolve office role for the current user */
+async function getOfficeRole(userId: string, tenantId: string): Promise<string> {
+  try {
+    const rows = await db.execute(sql`
+      SELECT role FROM office_members
+      WHERE user_id = ${userId} AND office_id = ${tenantId} AND status = 'active'
+      LIMIT 1
+    `);
+    return ((rows as any).rows ?? rows)?.[0]?.role ?? "lawyer";
+  } catch { return "lawyer"; }
+}
+
+const PRIVILEGED_ROLES = new Set(["owner", "admin"]);
 
 function serializeCase(c: any) {
   return {
@@ -63,10 +102,24 @@ router.get("/cases", requireAuthWithTenant, async (req, res) => {
     const limit  = req.query.limit  ? Math.min(200, parseInt(String(req.query.limit))) : null;
     const search = req.query.search ? String(req.query.search) : undefined;
 
+    /* ── Row-level visibility by role ── */
+    const userId   = getAuth(req)?.userId as string | undefined;
+    const tenantId = getTenant(req);
+    const isSA     = (req as any).isSuperAdmin;
+
+    let assignedUserId: string | undefined;
+    if (!isSA && userId) {
+      const role = await getOfficeRole(userId, tenantId);
+      if (!PRIVILEGED_ROLES.has(role)) {
+        assignedUserId = userId;
+      }
+    }
+
     const filters = {
       status:   q.status   as any,
       caseType: q.caseType as any,
       search,
+      assignedUserId,
       ...(page && limit ? { limit, offset: (page - 1) * limit } : {}),
     };
 
@@ -74,8 +127,7 @@ router.get("/cases", requireAuthWithTenant, async (req, res) => {
     const cases = await svc.listCases(filters);
 
     if (page && limit) {
-      /* COUNT uses same filters but no LIMIT/OFFSET */
-      const total = await svc.countCases({ status: filters.status, caseType: filters.caseType, search });
+      const total = await svc.countCases({ status: filters.status, caseType: filters.caseType, search, assignedUserId });
       res.json({ data: cases.map(serializeCase), total, page, limit, pages: Math.ceil(total / limit) });
       return;
     }
@@ -185,16 +237,44 @@ router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
 /* PATCH /cases/:id */
 router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const id   = String(req.params.id);
-    const body = UpdateCaseBody.parse(req.body);
-    const before = await getService(req).getCase(id).catch(() => null);
-    const { after } = await getService(req).updateCase(id, {
+    const id    = String(req.params.id);
+    /* Read version and force BEFORE Zod strips them */
+    const clientVersion: number | undefined = typeof req.body.version === "number" ? req.body.version : undefined;
+    const force: boolean = req.body.force === true;
+
+    const body  = UpdateCaseBody.parse(req.body);
+    const svc   = getService(req);
+
+    /* ── Fix 5: warn if closing with unpaid invoices ── */
+    if (body.status === "closed" && !force) {
+      const caseId = id;
+      const tenantId = getTenant(req);
+      const unpaidRows = await db.execute(sql`
+        SELECT COUNT(*) AS cnt
+        FROM client_invoices
+        WHERE case_id = ${caseId} AND office_id = ${tenantId} AND status != 'paid'
+      `);
+      const unpaidCount = Number(((unpaidRows as any).rows ?? unpaidRows)?.[0]?.cnt ?? 0);
+      if (unpaidCount > 0) {
+        res.json({
+          requiresConfirmation: true,
+          warning: true,
+          unpaidCount,
+          message: `لديك ${unpaidCount} فاتورة غير مدفوعة مرتبطة بهذه القضية. هل تريد إغلاقها رغم ذلك؟`,
+        });
+        return;
+      }
+    }
+
+    const before = await svc.getCase(id).catch(() => null);
+    const { after } = await svc.updateCase(id, {
       title:       body.title,
       description: body.description,
       caseType:    body.caseType as any,
       status:      body.status as any,
       clientName:  body.clientName,
       assignedTo:  body.assignedTo,
+      version:     clientVersion,
     });
     auditLog({
       ...auditMeta(req), action: "update", resource: "case", resourceId: id,
@@ -207,12 +287,27 @@ router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-/* DELETE /cases/:id */
+/* DELETE /cases/:id — soft delete (moves to archive) */
 router.delete("/cases/:id", requireAuthWithTenant, requirePermission("cases:delete"), async (req, res) => {
   try {
     const delId = String(req.params.id);
     await getService(req).deleteCase(delId);
-    auditLog({ ...auditMeta(req), action: "delete", resource: "case", resourceId: delId }).catch(() => {});
+    auditLog({ ...auditMeta(req), action: "soft_delete", resource: "case", resourceId: delId }).catch(() => {});
+    res.status(204).end();
+  } catch (e: any) {
+    res.status(e.statusCode ?? 500).json({ error: e.message });
+  }
+});
+
+/* DELETE /cases/:id/hard — permanent, super_admin only */
+router.delete("/cases/:id/hard", requireAuthWithTenant, async (req, res) => {
+  if (!(req as any).isSuperAdmin) {
+    return res.status(403).json({ error: "الحذف النهائي متاح لمدير النظام فقط" });
+  }
+  try {
+    const delId = String(req.params.id);
+    await getService(req).hardDeleteCase(delId);
+    auditLog({ ...auditMeta(req), action: "hard_delete", resource: "case", resourceId: delId }).catch(() => {});
     res.status(204).end();
   } catch (e: any) {
     res.status(e.statusCode ?? 500).json({ error: e.message });

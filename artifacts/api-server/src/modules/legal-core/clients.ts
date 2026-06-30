@@ -11,8 +11,9 @@ import { auditLog, auditMeta } from "../../lib/auditLogger";
 
 const router = Router();
 
-/* ── One-time migration: add client_account_id column if missing ─────────── */
+/* ── One-time migrations ─────────────────────────────────────────────────── */
 db.execute(sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_account_id TEXT`).catch(() => {});
+db.execute(sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`).catch(() => {});
 
 // ── Zod schemas ───────────────────────────────────────────────────────────────
 const CreateClientSchema = z.object({
@@ -55,12 +56,13 @@ router.get("/clients", requireAuthWithTenant, async (req, res) => {
       db.select().from(clientsTable)
         .where(and(
           eq((clientsTable as any).officeId, tenantId),
+          sql`deleted_at IS NULL`,
           search ? sql`(LOWER(full_name) LIKE ${"%" + search + "%"} OR LOWER(email) LIKE ${"%" + search + "%"} OR phone LIKE ${"%" + search + "%"})` : sql`true`,
         ))
         .orderBy(desc(clientsTable.createdAt))
         .limit(pageSize)
         .offset(pageOffset),
-      db.execute(sql`SELECT COUNT(*) AS total FROM clients WHERE office_id = ${tenantId} ${searchCond}`)
+      db.execute(sql`SELECT COUNT(*) AS total FROM clients WHERE office_id = ${tenantId} AND deleted_at IS NULL ${searchCond}`)
         .then((r: any) => { const rows = Array.isArray(r) ? r : (r?.rows ?? []); return rows[0]; }),
     ]);
 
@@ -153,14 +155,41 @@ router.patch("/clients/:id", requireAuthWithTenant, validate(UpdateClientSchema)
   }
 });
 
-// ── DELETE /clients/:id ───────────────────────────────────────────────────────
+// ── DELETE /clients/:id (soft delete with active-case guard) ─────────────────
 router.delete("/clients/:id", requireAuthWithTenant, requirePermission("clients:delete"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
-    await db.delete(clientsTable)
-      .where(and(eq(clientsTable.id, String(req.params.id)), eq((clientsTable as any).officeId, tenantId)));
-    auditLog({ ...auditMeta(req), action: "delete", resource: "client", resourceId: String(req.params.id) }).catch(() => {});
+
+    const clientId = String(req.params.id);
+
+    /* Fetch client to get full_name for name-based case lookup */
+    const clientRows = await db.execute(sql`
+      SELECT full_name FROM clients WHERE id = ${clientId}::uuid AND office_id = ${tenantId} LIMIT 1
+    `);
+    const client: any = ((clientRows as any).rows ?? clientRows)?.[0];
+    if (!client) return apiErr(res, 404, "NOT_FOUND", "العميل غير موجود");
+
+    /* Block deletion if client has active (non-closed, non-deleted) cases */
+    const activeRows = await db.execute(sql`
+      SELECT COUNT(*) AS cnt FROM cases
+      WHERE client_name = ${client.full_name}
+        AND office_id   = ${tenantId}
+        AND status     != 'closed'
+        AND deleted_at IS NULL
+    `);
+    const activeCnt = Number(((activeRows as any).rows ?? activeRows)?.[0]?.cnt ?? 0);
+    if (activeCnt > 0) {
+      return apiErr(res, 400, "HAS_ACTIVE_CASES",
+        `لا يمكن حذف هذا العميل، لديه ${activeCnt} قضية نشطة. أغلق القضايا أولاً أو أرشفها قبل حذف العميل.`);
+    }
+
+    /* Soft delete */
+    await db.execute(sql`
+      UPDATE clients SET deleted_at = NOW()
+      WHERE id = ${clientId}::uuid AND office_id = ${tenantId}
+    `);
+    auditLog({ ...auditMeta(req), action: "soft_delete", resource: "client", resourceId: clientId }).catch(() => {});
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });

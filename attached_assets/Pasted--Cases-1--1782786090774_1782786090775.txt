@@ -1,0 +1,45 @@
+أحتاج إصلاح المشاكل الحرجة التالية في قسم القضايا (Cases)، دفعة واحدة، بدون كسر أي كود موجود:
+
+== 1. Soft Delete للقضية ==
+في case.repository.ts وcase.service.ts:
+- أضف عمود deleted_at TIMESTAMPTZ (nullable) في جدول cases
+- حوّل delete() من DELETE فعلي إلى UPDATE deleted_at = NOW()
+- عدّل كل استعلام يجلب قضايا ليضيف WHERE deleted_at IS NULL
+- فقط super_admin يقدر يحذف نهائياً (hard delete) بعد ذلك، بـ endpoint منفصل
+
+== 2. منع حذف عميل له قضايا نشطة ==
+في clients.ts السطر 161:
+- قبل DELETE FROM clients، تحقق: SELECT COUNT(*) FROM cases WHERE client_name = ? AND office_id = ? AND status != 'closed' AND deleted_at IS NULL
+- إذا العدد > 0، ارفض الحذف بخطأ 400 وأعد رسالة واضحة: "لا يمكن حذف هذا العميل، له X قضية نشطة"
+- اقترح بديل soft delete للعميل أيضاً (نفس آلية deleted_at)
+
+== 3. تقييد رؤية القضايا حسب الصلاحية ==
+في cases.ts السطر 59-89 (GET /cases):
+- أضف فلتراً حسب دور المستخدم:
+  - owner/admin في المكتب → يرى كل القضايا (كالوضع الحالي)
+  - محامٍ عادي → يرى فقط القضايا حيث assigned_to = currentUser.id
+- إذا لم يوجد نظام أدوار واضح حالياً، أعطني أولاً الخيارات الموجودة في جدول roles/permissions لأقرر طريقة الفلترة المناسبة
+
+== 4. Optimistic Locking لمنع التعديل المتزامن الصامت ==
+في case.repository.ts السطر 115-118:
+- أضف عمود version INTEGER DEFAULT 1 في جدول cases
+- عند كل UPDATE: WHERE id = ? AND version = ?clientVersion، ثم SET version = version + 1
+- إذا لم يتطابق أي صف، أعد خطأ 409 مع رسالة: "تم تعديل هذه القضية من شخص آخر، يرجى تحديث الصفحة"
+- عدّل الواجهة (frontend) لتعالج خطأ 409 بعرض تنبيه واضح للمستخدم
+
+== 5. تحذير عند إغلاق قضية بفواتير غير مدفوعة ==
+في PATCH /cases/:id عند تغيير status إلى 'closed':
+- تحقق: SELECT COUNT(*) FROM client_invoices WHERE case_id = ? AND status != 'paid'
+- إذا > 0، لا تمنع الإغلاق، لكن أعد response يحتوي warning: true مع رسالة، يحتاج الفرونت تأكيداً إضافياً (confirm dialog) قبل الإرسال النهائي
+
+== 6. فهرسة البحث ==
+نفّذ:
+CREATE INDEX idx_cases_title_search ON cases USING gin (to_tsvector('arabic', title));
+CREATE INDEX idx_cases_client_name ON cases (client_name);
+وحوّل البحث الحالي (LIKE '%q%') لاستخدام full-text search عبر to_tsvector
+
+== 7. تفرّد رقم القضية ==
+أضف: ALTER TABLE cases ADD CONSTRAINT uq_office_case_number UNIQUE (office_id, case_number)
+تأكد أن هذا لا يكسر القضايا الموجودة حالياً بـ case_number = NULL أو مكرر (افحص أولاً قبل تطبيق القيد، وأخبرني إذا وُجد تكرار يحتاج حل يدوي قبل تطبيق القيد)
+
+أعطني تأكيداً نهائياً بعد كل تعديل: ما تم تطبيقه ✅ وما يحتاج اختباراً يدوياً مني
