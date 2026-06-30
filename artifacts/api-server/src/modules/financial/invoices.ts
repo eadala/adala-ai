@@ -300,23 +300,53 @@ router.put("/invoices/:id", requireAuthWithTenant, validate(UpdateInvoiceSchema)
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
     const { title, items, taxEnabled, vatRate, dueDate, notes, status } = req.body;
 
-    const updates: Record<string, any> = { updatedAt: new Date() };
-    if (title      !== undefined) updates.title      = title;
-    if (status     !== undefined) updates.status     = status;
-    if (dueDate    !== undefined) updates.dueDate    = dueDate;
-    if (notes      !== undefined) updates.notes      = notes;
-    if (taxEnabled !== undefined) updates.taxEnabled = taxEnabled;
+    /* ── Fetch current invoice to enforce status lock ── */
+    const currentRows = await sqlRows(sql`
+      SELECT status FROM client_invoices
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
+      LIMIT 1
+    `);
+    if (!currentRows.length) return apiErr(res, 404, "NOT_FOUND", "الفاتورة غير موجودة");
+    const currentStatus = currentRows[0].status as string;
 
-    if (items) {
-      const taxOn = taxEnabled !== undefined ? taxEnabled : true;
-      const rate  = vatRate ?? 15;
-      const { subtotal, taxAmount, total } = InvoiceEngine.build(items, taxOn, rate);
-      updates.items     = JSON.stringify(items);
-      updates.subtotal  = subtotal;
-      updates.vatRate   = taxOn ? rate : 0;
-      updates.vatAmount = taxAmount;
-      updates.total     = total;
-      updates.taxEnabled = taxOn;
+    /* ── Financial-field lock for sent/paid invoices ── */
+    const LOCKED_STATUSES = ["sent", "paid", "partially_paid"];
+    const isLocked = LOCKED_STATUSES.includes(currentStatus);
+
+    if (isLocked && (items !== undefined || taxEnabled !== undefined || vatRate !== undefined || title !== undefined)) {
+      return apiErr(res, 403, "INVOICE_LOCKED",
+        "لا يمكن تعديل فاتورة مُرسلة أو مدفوعة — أنشئ فاتورة دائن (Credit Note) لإجراء أي تصحيح مالي");
+    }
+
+    /* ── Block reversing a paid invoice's status ── */
+    if (currentStatus === "paid" && status !== undefined && status !== "paid") {
+      return apiErr(res, 403, "INVOICE_LOCKED",
+        "لا يمكن تغيير حالة فاتورة مدفوعة");
+    }
+
+    /* ── Build allowed updates ── */
+    const updates: Record<string, any> = { updatedAt: new Date() };
+
+    /* Non-financial fields — always allowed */
+    if (dueDate !== undefined) updates.dueDate = dueDate;
+    if (notes   !== undefined) updates.notes   = notes;
+
+    /* Financial + status fields — only for draft/overdue/cancelled */
+    if (!isLocked) {
+      if (title      !== undefined) updates.title      = title;
+      if (status     !== undefined) updates.status     = status;
+      if (taxEnabled !== undefined) updates.taxEnabled = taxEnabled;
+      if (items) {
+        const taxOn = taxEnabled !== undefined ? taxEnabled : true;
+        const rate  = vatRate ?? 15;
+        const { subtotal, taxAmount, total } = InvoiceEngine.build(items, taxOn, rate);
+        updates.items      = JSON.stringify(items);
+        updates.subtotal   = subtotal;
+        updates.vatRate    = taxOn ? rate : 0;
+        updates.vatAmount  = taxAmount;
+        updates.total      = total;
+        updates.taxEnabled = taxOn;
+      }
     }
 
     const [updated] = await db.update(invoicesTable).set(updates)
@@ -327,7 +357,13 @@ router.put("/invoices/:id", requireAuthWithTenant, validate(UpdateInvoiceSchema)
       .returning();
 
     if (!updated) return apiErr(res, 404, "NOT_FOUND", "الفاتورة غير موجودة");
-    auditLog({ ...auditMeta(req), action: "update", resource: "invoice", resourceId: String(req.params.id) }).catch(() => {});
+    auditLog({
+      ...auditMeta(req),
+      action: "update",
+      resource: "invoice",
+      resourceId: String(req.params.id),
+      details: `الحالة قبل: ${currentStatus}${isLocked ? " (حقول غير مالية فقط)" : ""}`,
+    }).catch(() => {});
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
