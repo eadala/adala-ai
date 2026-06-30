@@ -13,7 +13,8 @@
     "governance:gate": "bash ../../scripts/governance/quality-gate.sh",
     "governance:audit": "node ../../scripts/governance/ui-audit.mjs",
     "governance:audit:json": "node ../../scripts/governance/ui-audit.mjs --json",
-    "validate:routes": "node scripts/validate-routes.mjs"
+    "validate:routes": "node scripts/validate-routes.mjs",
+    "validate:platform": "node ../../scripts/governance/platform-check.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

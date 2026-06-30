@@ -184,6 +184,16 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Gate 9 — Platform Governance (8 registries)
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "\n${BOLD}[9/9] Platform Governance — 8 Registry Layers${RESET}"
+if node "$(dirname "$0")/platform-check.mjs" 2>&1 | grep -q "PASS"; then
+  gate_pass "Platform Governance: all 8 layers registered and validated"
+else
+  gate_fail "Platform Governance check failed — run: node scripts/governance/platform-check.mjs"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────────────────────────────────
 echo ""
