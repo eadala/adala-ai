@@ -175,13 +175,19 @@ router.post("/backup/create", requireAuthWithTenant, async (req, res) => {
       accounting,
     };
 
-    const dataStr = JSON.stringify(payload, null, 2);
-    const sizeBytes = Buffer.byteLength(dataStr, "utf8");
-    const fileName = `backup-${dateStr()}.json`;
+    const dataStr   = JSON.stringify(payload, null, 2);
+    const rawBuffer = Buffer.from(dataStr, "utf8");
+    const sizeBytes = rawBuffer.byteLength;
+    const fileName  = `backup-${dateStr()}.json`;
+
+    /* ── Encrypt before storing — wrap as JSON envelope ── */
+    const toStore = isEncryptionEnabled()
+      ? JSON.stringify({ encrypted: true, v: 1, data: encryptBuffer(rawBuffer).toString("base64") })
+      : dataStr;
 
     const [job] = await db.execute(sql`
       INSERT INTO backup_jobs (type, schedule_type, status, size_bytes, file_name, file_data, completed_at, office_id)
-      VALUES (${type}, ${scheduleType ?? null}, 'completed', ${sizeBytes}, ${fileName}, ${dataStr}, NOW(), ${tenantId})
+      VALUES (${type}, ${scheduleType ?? null}, 'completed', ${sizeBytes}, ${fileName}, ${toStore}, NOW(), ${tenantId})
       RETURNING id
     `).then((r: any) => { const rows = Array.isArray(r) ? r : (r?.rows ?? []); return [rows[0]]; });
 
@@ -209,9 +215,20 @@ router.get("/backup/jobs/:id/download", requireAuthWithTenant, async (req, res) 
     `).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
     const job = rows[0];
     if (!job) return res.status(404).json({ error: "النسخة الاحتياطية غير موجودة" });
+
+    /* ── Decrypt envelope before sending plain JSON to user ── */
+    let fileData: string = job.file_data ?? "{}";
+    try {
+      const wrapper = JSON.parse(fileData);
+      if (wrapper?.encrypted === true && wrapper?.data) {
+        const decrypted = safeDecryptBuffer(Buffer.from(wrapper.data, "base64"));
+        fileData = decrypted.toString("utf8");
+      }
+    } catch { /* not a wrapper — treat as raw JSON */ }
+
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${job.file_name ?? "backup.json"}"`);
-    res.send(job.file_data ?? "{}");
+    res.send(fileData);
   } catch {
     res.status(500).json({ error: "خطأ في تحميل النسخة الاحتياطية" });
   }
@@ -588,7 +605,13 @@ router.get("/backup/dr-test", requireAuthWithTenant, async (req, res) => {
         SELECT file_data FROM backup_jobs WHERE id = ${lastJob.id} AND office_id = ${tenantId}
       `).then((r: any) => { const rows = Array.isArray(r) ? r : (r?.rows ?? []); return rows[0]; });
       try {
-        const parsed = JSON.parse(jobData?.file_data ?? "null");
+        let rawParsed = JSON.parse(jobData?.file_data ?? "null");
+        /* Unwrap encrypted envelope if present */
+        if (rawParsed?.encrypted === true && rawParsed?.data) {
+          const dec = safeDecryptBuffer(Buffer.from(rawParsed.data, "base64"));
+          rawParsed = JSON.parse(dec.toString("utf8"));
+        }
+        const parsed = rawParsed;
         const entityCount = Object.values(parsed ?? {}).reduce((acc: number, v) => acc + (Array.isArray(v) ? v.length : 0), 0);
         results.data_integrity = { ok: parsed !== null, detail: `${entityCount} سجل قابل للاستعادة` };
       } catch {
@@ -737,6 +760,10 @@ router.post("/backup/restore/tenant/:tenantId", requireAuthWithTenant, async (re
         const encryptedBuffer = await downloadBackup(parsed.storageKey);
         const decrypted       = (parsed.encrypted && isEncryptionEnabled()) ? decryptBuffer(encryptedBuffer) : encryptedBuffer;
         snapshotData          = JSON.parse(decrypted.toString("utf8"));
+      } else if (parsed?.encrypted === true && parsed?.data) {
+        /* Encrypted envelope stored in backup_jobs — decrypt with current key */
+        const decrypted = safeDecryptBuffer(Buffer.from(parsed.data, "base64"));
+        snapshotData    = JSON.parse(decrypted.toString("utf8"));
       } else {
         snapshotData = parsed;
       }
@@ -833,6 +860,10 @@ router.post("/backup/restore/self", requireAuthWithTenant, async (req, res) => {
         const encryptedBuffer = await downloadBackup(parsed.storageKey);
         const decrypted       = (parsed.encrypted && isEncryptionEnabled()) ? decryptBuffer(encryptedBuffer) : encryptedBuffer;
         snapshotData          = JSON.parse(decrypted.toString("utf8"));
+      } else if (parsed?.encrypted === true && parsed?.data) {
+        /* Encrypted envelope stored in backup_jobs — decrypt with current key */
+        const decrypted = safeDecryptBuffer(Buffer.from(parsed.data, "base64"));
+        snapshotData    = JSON.parse(decrypted.toString("utf8"));
       } else {
         snapshotData = parsed;
       }
