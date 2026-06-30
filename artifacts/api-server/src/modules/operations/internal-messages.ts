@@ -16,6 +16,111 @@ async function ensureCaseIdColumn() {
 }
 ensureCaseIdColumn();
 
+/* ── Full-Text Search Migration ─────────────────────────────────────────────
+   Adds a GENERATED ALWAYS AS STORED tsvector column that PostgreSQL keeps
+   in sync automatically — existing rows are backfilled instantly on ALTER,
+   new rows are indexed on INSERT.
+   Uses 'arabic' FTS config (confirmed available on this PG 16 instance).
+   Falls back silently if the column already exists.
+──────────────────────────────────────────────────────────────────────────── */
+async function ensureFullTextSearch() {
+  try {
+    /* 1. Add generated tsvector column (backfills all existing rows automatically) */
+    await db.execute(sql`
+      ALTER TABLE office_messages
+        ADD COLUMN IF NOT EXISTS search_vector tsvector
+        GENERATED ALWAYS AS (
+          to_tsvector('arabic', coalesce(subject, '') || ' ' || coalesce(body, ''))
+        ) STORED
+    `);
+  } catch (e: any) {
+    /* Column already exists or other transient error — not fatal */
+    if (!e.message?.includes("already exists")) {
+      console.warn("[FTS] search_vector column skipped:", e.message);
+    }
+  }
+  try {
+    /* 2. GIN index for fast @@ queries */
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS idx_messages_search
+        ON office_messages USING gin(search_vector)
+    `);
+  } catch (e: any) {
+    console.warn("[FTS] GIN index skipped:", e.message);
+  }
+}
+ensureFullTextSearch();
+
+/* ── Group Conversations Schema ────────────────────────────────────────────
+   Adds the foundation for group/thread-based messaging:
+     message_conversations — the "room" (direct or group)
+     conversation_members  — who is in the room + their role
+     office_messages.conversation_id — links a message to a conversation
+
+   Rules:
+   • conversation_id is NULLABLE — existing messages are unaffected
+   • type = 'direct' for 1-to-1, 'group' for multi-member rooms
+   • office_id on both tables ensures full multi-tenant isolation
+   • No routes or UI built in this step — schema only
+──────────────────────────────────────────────────────────────────────────── */
+async function ensureConversationTables() {
+  /* 1. Conversations table */
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS message_conversations (
+      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id   TEXT NOT NULL,
+      title       TEXT,
+      type        TEXT NOT NULL DEFAULT 'direct' CHECK (type IN ('direct','group')),
+      created_by  TEXT NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
+
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS idx_conv_office
+      ON message_conversations(office_id)
+  `).catch(() => {});
+
+  /* 2. Conversation members table */
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS conversation_members (
+      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      conversation_id   UUID NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
+      office_id         TEXT NOT NULL,
+      user_id           TEXT NOT NULL,
+      user_name         TEXT,
+      role              TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin','member')),
+      joined_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (conversation_id, user_id)
+    )
+  `).catch(() => {});
+
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS idx_conv_members_conv
+      ON conversation_members(conversation_id)
+  `).catch(() => {});
+
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS idx_conv_members_user
+      ON conversation_members(user_id, office_id)
+  `).catch(() => {});
+
+  /* 3. Add conversation_id FK to office_messages (nullable — no breaking change) */
+  await db.execute(sql`
+    ALTER TABLE office_messages
+      ADD COLUMN IF NOT EXISTS conversation_id UUID
+      REFERENCES message_conversations(id) ON DELETE SET NULL
+  `).catch(() => {});
+
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS idx_messages_conv
+      ON office_messages(conversation_id)
+      WHERE conversation_id IS NOT NULL
+  `).catch(() => {});
+}
+ensureConversationTables();
+
 function getClientIp(req: Request): string {
   const forwarded = req.headers["x-forwarded-for"];
   if (forwarded) return String(forwarded).split(",")[0].trim();
@@ -34,7 +139,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const { folder = "inbox", search = "" } = req.query as any;
     const userId = (req as any).auth?.userId ?? "anonymous";
-    const searchParam = search ? `%${search}%` : null;
+    const searchTerm: string | null = search ? String(search).trim() : null;
 
     let rows: any[] = [];
 
@@ -54,7 +159,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
         WHERE m.sender_id = ${userId} AND m.folder != 'draft'
-          ${searchParam ? sql`AND (m.subject ILIKE ${searchParam} OR m.body ILIKE ${searchParam})` : sql``}
+          ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
         GROUP BY m.id
         ORDER BY m.created_at DESC
         LIMIT 100
@@ -71,7 +176,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         FROM office_messages m
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         WHERE m.sender_id = ${userId} AND m.folder = 'draft'
-          ${searchParam ? sql`AND (m.subject ILIKE ${searchParam} OR m.body ILIKE ${searchParam})` : sql``}
+          ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
         GROUP BY m.id
         ORDER BY m.created_at DESC
         LIMIT 100
@@ -92,7 +197,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
         WHERE m.folder = 'archive'
-          ${searchParam ? sql`AND (m.subject ILIKE ${searchParam} OR m.body ILIKE ${searchParam})` : sql``}
+          ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
         GROUP BY m.id
         ORDER BY m.created_at DESC
         LIMIT 100
@@ -116,7 +221,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         LEFT JOIN office_message_recipients r2 ON r2.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
         WHERE m.folder = 'sent'
-          ${searchParam ? sql`AND (m.subject ILIKE ${searchParam} OR m.body ILIKE ${searchParam})` : sql``}
+          ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
         GROUP BY m.id, r_me.is_read, r_me.read_at, r_me.reader_ip
         ORDER BY m.created_at DESC
         LIMIT 100
