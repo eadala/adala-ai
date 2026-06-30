@@ -175,6 +175,21 @@ app.use("/api/storage/upload",  uploadLimiter);
 app.use("/api/documents/upload", uploadLimiter);
 app.use("/api/branding/upload",  uploadLimiter);
 
+// Info/recon endpoints — 20 req / 1min per IP (prevent infrastructure mapping)
+const infoLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "تجاوزت حد الاستعلام المسموح به — انتظر دقيقة" },
+});
+app.use("/api/billing/calc-fee",     infoLimiter);
+app.use("/api/billing/stripe-status", infoLimiter);
+app.use("/api/email/smtp-status",    infoLimiter);
+app.use("/api/rbac/permissions",     infoLimiter);
+app.use("/api/platform/modules",     infoLimiter);
+app.use("/api/fincore/providers",    infoLimiter);
+
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")

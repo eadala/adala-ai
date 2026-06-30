@@ -370,7 +370,7 @@ router.patch("/rbac/users/:id/status", requireAuthWithTenant, async (req, res) =
 });
 
 export const ALL_PERMISSIONS_LIST = ALL_PERMISSIONS;
-router.get("/rbac/permissions", (_req, res) => {
+router.get("/rbac/permissions", requireAuth, (_req, res) => {
   res.json(ALL_PERMISSIONS);
 });
 

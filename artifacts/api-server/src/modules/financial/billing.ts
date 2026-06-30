@@ -100,7 +100,7 @@ router.get("/billing/plans", async (_req, res) => {
   }
 });
 
-router.get("/billing/stripe-status", async (_req, res) => {
+router.get("/billing/stripe-status", requireAuth, async (_req, res) => {
   try {
     await getUncachableStripeClient();
     const key = process.env.STRIPE_SECRET_KEY ?? "";
