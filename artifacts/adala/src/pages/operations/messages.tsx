@@ -18,13 +18,15 @@ import {
   Paperclip, Trash2, X, Users, MessageSquare,
   CheckCircle2, Eye, Monitor, Smartphone, Tablet, Clock,
   Mail, ChevronRight, Menu, ArrowRight, MessageSquareDot,
+  BarChart3, Sparkles, Bot, TrendingUp, MessageCircle,
+  AlarmClock, ListChecks, Lightbulb, Languages, ClipboardList,
 } from "lucide-react";
 import { useAuth } from "@clerk/react";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 /* ─── Shared Types ──────────────────────────────────────────────────────── */
-type AppMode = "mail" | "conversations";
+type AppMode = "mail" | "conversations" | "analytics";
 type Folder  = "inbox" | "sent" | "drafts" | "archive";
 type MobileView = "folders" | "list" | "detail";
 
@@ -109,14 +111,244 @@ export default function Messages() {
           <MessageSquareDot className="h-4 w-4" />
           <span className="hidden sm:inline">المحادثات</span>
         </button>
+        <button
+          onClick={() => setMode("analytics")}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+            mode === "analytics"
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+          )}
+        >
+          <BarChart3 className="h-4 w-4" />
+          <span className="hidden sm:inline">تحليلات</span>
+        </button>
       </div>
 
       {/* ── Panels ── */}
       <div className="flex-1 overflow-hidden">
         {mode === "mail"          && <MailPanel />}
         {mode === "conversations" && <ConversationsPanel />}
+        {mode === "analytics"     && <AnalyticsPanel />}
       </div>
     </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ANALYTICS PANEL
+══════════════════════════════════════════════════════════════════════════════ */
+const AI_TOOL_DEFS = [
+  { key: "summarize",            icon: Lightbulb,     label: "ملخص المحادثة" },
+  { key: "extract_tasks",        icon: ListChecks,    label: "استخراج المهام" },
+  { key: "extract_decisions",    icon: CheckCircle2,  label: "استخراج القرارات" },
+  { key: "extract_appointments", icon: AlarmClock,    label: "استخراج المواعيد" },
+  { key: "suggest_reply",        icon: MessageCircle, label: "اقتراح رد" },
+  { key: "translate",            icon: Languages,     label: "ترجمة" },
+  { key: "meeting_minutes",      icon: ClipboardList, label: "محضر اجتماع" },
+] as const;
+
+type AiToolKey = (typeof AI_TOOL_DEFS)[number]["key"];
+
+function AnalyticsPanel() {
+  const [days, setDays] = useState<7 | 14 | 30 | 90>(30);
+
+  const { data, isLoading, refetch } = useQuery<any>({
+    queryKey: ["msg-analytics", days],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/internal-messages/analytics?days=${days}`);
+      if (!r.ok) throw new Error("failed");
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
+
+  const bar = (count: number, max: number) =>
+    Math.round((Math.max(1, count) / Math.max(1, max)) * 100);
+
+  const maxSender = Math.max(...(data?.topSenders ?? []).map((s: any) => s.count), 1);
+  const maxCase   = Math.max(...(data?.topCases   ?? []).map((c: any) => c.msg_count), 1);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground gap-3">
+        <RefreshCw className="h-5 w-5 animate-spin" />
+        <span className="text-sm">جارٍ تحميل التحليلات…</span>
+      </div>
+    );
+  }
+
+  return (
+    <ScrollArea className="h-full">
+      <div className="p-4 space-y-4" dir="rtl">
+
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />تحليلات المراسلات
+            </h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5">آخر {days} يوم</p>
+          </div>
+          <div className="flex items-center gap-1">
+            {([7, 14, 30, 90] as const).map(d => (
+              <button
+                key={d}
+                onClick={() => setDays(d)}
+                className={cn(
+                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
+                  days === d ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80",
+                )}
+              >{d}د</button>
+            ))}
+            <Button variant="ghost" size="icon" className="h-7 w-7 mr-1" onClick={() => refetch()}>
+              <RefreshCw className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+
+        {/* KPI cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "إجمالي الرسائل", value: data?.totalMessages ?? 0, icon: Mail, color: "text-blue-500" },
+            { label: "غير مقروءة",     value: data?.unreadCount   ?? 0, icon: Eye,  color: "text-amber-500" },
+            {
+              label: "متوسط الاستجابة",
+              value: data?.avgResponseHours ? `${data.avgResponseHours} س` : "—",
+              icon: Clock, color: "text-emerald-500",
+            },
+            {
+              label: "المحادثات النشطة",
+              value: data?.conversations?.total ?? 0,
+              icon: MessageSquareDot, color: "text-violet-500",
+            },
+          ].map(k => (
+            <div key={k.label} className="rounded-xl border bg-muted/30 p-3 flex flex-col gap-1">
+              <div className={cn("flex items-center gap-1.5 text-[11px] text-muted-foreground")}>
+                <k.icon className={cn("h-3.5 w-3.5", k.color)} />
+                {k.label}
+              </div>
+              <p className={cn("text-xl font-bold", k.color)}>{k.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* KPI badge */}
+        {data?.kpis && (
+          <div className="flex flex-wrap gap-2 text-xs">
+            <Badge variant="outline" className="gap-1">
+              <TrendingUp className="h-3 w-3 text-primary" />
+              {(data.kpis.messagesPerDay).toFixed(1)} رسالة/يوم
+            </Badge>
+            {data.kpis.responseTimeRating && (
+              <Badge variant="outline" className={cn("gap-1",
+                data.kpis.responseTimeRating === "ممتاز" && "border-emerald-500 text-emerald-500",
+                data.kpis.responseTimeRating === "جيد"   && "border-blue-500 text-blue-500",
+                data.kpis.responseTimeRating === "متوسط" && "border-amber-500 text-amber-500",
+                data.kpis.responseTimeRating === "بطيء"  && "border-red-500 text-red-500",
+              )}>
+                <Clock className="h-3 w-3" />وقت الاستجابة: {data.kpis.responseTimeRating}
+              </Badge>
+            )}
+            <Badge variant="outline" className="gap-1">
+              <MessageCircle className="h-3 w-3 text-violet-500" />
+              {data?.conversations?.messages ?? 0} رسالة في المحادثات
+            </Badge>
+          </div>
+        )}
+
+        {/* Daily activity chart (simple bar) */}
+        {(data?.dailyCounts ?? []).length > 0 && (
+          <div className="rounded-xl border p-4">
+            <h3 className="text-xs font-semibold mb-3 flex items-center gap-1.5">
+              <BarChart3 className="h-3.5 w-3.5 text-primary" />النشاط اليومي
+            </h3>
+            <div className="flex items-end gap-0.5 h-24 overflow-x-auto pb-1">
+              {[...(data?.dailyCounts ?? [])].reverse().slice(0, 30).map((d: any, i: number) => {
+                const maxCount = Math.max(...(data?.dailyCounts ?? []).map((x: any) => Number(x.count)), 1);
+                const pct = Math.max(4, bar(Number(d.count), maxCount));
+                return (
+                  <div key={i} className="flex flex-col items-center gap-0.5 flex-1 min-w-[6px]" title={`${d.day}: ${d.count}`}>
+                    <div
+                      className="w-full bg-primary/70 rounded-t-sm transition-all"
+                      style={{ height: `${pct}%` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1 text-center">
+              {[...(data?.dailyCounts ?? [])].reverse().slice(0, 1)[0]?.day ?? ""} ← {[...(data?.dailyCounts ?? [])].slice(0, 1)[0]?.day ?? ""}
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Top senders */}
+          {(data?.topSenders ?? []).length > 0 && (
+            <div className="rounded-xl border p-4">
+              <h3 className="text-xs font-semibold mb-3 flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-primary" />أكثر المرسِلين نشاطاً
+              </h3>
+              <div className="space-y-2">
+                {(data?.topSenders ?? []).map((s: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[11px] font-medium truncate">{s.sender_name}</span>
+                        <span className="text-[10px] text-muted-foreground flex-shrink-0 mr-1">{s.count}</span>
+                      </div>
+                      <div className="h-1 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary/60 rounded-full" style={{ width: `${bar(s.count, maxSender)}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Top cases */}
+          {(data?.topCases ?? []).length > 0 && (
+            <div className="rounded-xl border p-4">
+              <h3 className="text-xs font-semibold mb-3 flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-primary" />أكثر القضايا مراسلةً
+              </h3>
+              <div className="space-y-2">
+                {(data?.topCases ?? []).map((c: any, i: number) => (
+                  <div key={c.id} className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-violet-500/15 flex items-center justify-center text-[10px] font-bold text-violet-500 flex-shrink-0">
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[11px] font-medium truncate">{c.title}</span>
+                        <span className="text-[10px] text-muted-foreground flex-shrink-0 mr-1">{c.msg_count}</span>
+                      </div>
+                      <div className="h-1 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-violet-500/50 rounded-full" style={{ width: `${bar(c.msg_count, maxCase)}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Empty state */}
+        {data?.totalMessages === 0 && (
+          <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
+            <BarChart3 className="h-12 w-12 opacity-10" />
+            <p className="text-sm">لا توجد بيانات مراسلات في الفترة المحددة</p>
+          </div>
+        )}
+
+      </div>
+    </ScrollArea>
   );
 }
 
@@ -556,6 +788,7 @@ function ConversationsPanel() {
                   ))}
                 </div>
               )}
+              <AiToolsButton conversationId={selectedConv.id} />
               <AddMemberButton convId={selectedConv.id} isAdmin={selectedConv.my_role === "admin"} onAdded={() => { qc.invalidateQueries({ queryKey: ["conv-messages", selectedConv.id] }); }} />
             </div>
 
@@ -632,6 +865,116 @@ function ConversationsPanel() {
         }}
       />
     </div>
+  );
+}
+
+/* ── AI Tools Button ────────────────────────────────────────────────────── */
+function AiToolsButton({ conversationId }: { conversationId: string }) {
+  const [open, setOpen]         = useState(false);
+  const [activeTool, setActiveTool] = useState<AiToolKey | null>(null);
+  const [result, setResult]     = useState<string>("");
+  const [loading, setLoading]   = useState(false);
+  const { toast } = useToast();
+
+  const runTool = async (tool: AiToolKey) => {
+    setActiveTool(tool);
+    setResult("");
+    setLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/internal-messages/ai-tools`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tool, conversationId }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "فشل");
+      setResult(d.result ?? "");
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyResult = () => {
+    navigator.clipboard.writeText(result).then(() =>
+      toast({ title: "تم النسخ", description: "تم نسخ النتيجة إلى الحافظة" })
+    );
+  };
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-primary"
+        title="أدوات الذكاء الاصطناعي"
+        onClick={() => { setOpen(true); setActiveTool(null); setResult(""); }}
+      >
+        <Sparkles className="h-4 w-4" />
+      </Button>
+
+      <Dialog open={open} onOpenChange={v => !v && setOpen(false)}>
+        <DialogContent className="max-w-lg" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-primary" />
+              أدوات الذكاء الاصطناعي للمحادثة
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Tool picker */}
+          <div className="grid grid-cols-2 gap-2">
+            {AI_TOOL_DEFS.map(t => (
+              <button
+                key={t.key}
+                onClick={() => runTool(t.key)}
+                disabled={loading}
+                className={cn(
+                  "flex items-center gap-2 p-3 rounded-xl border text-sm text-right transition-all",
+                  activeTool === t.key
+                    ? "border-primary bg-primary/5 text-primary"
+                    : "border-border text-foreground hover:bg-muted/60",
+                  loading && activeTool === t.key && "animate-pulse",
+                )}
+              >
+                {loading && activeTool === t.key
+                  ? <RefreshCw className="h-4 w-4 animate-spin flex-shrink-0" />
+                  : <t.icon className="h-4 w-4 flex-shrink-0 text-primary/70" />
+                }
+                <span className="text-xs font-medium">{t.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Result */}
+          {result && (
+            <div className="rounded-xl border bg-muted/30 p-3 relative">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-primary flex items-center gap-1">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {AI_TOOL_DEFS.find(t => t.key === activeTool)?.label}
+                </span>
+                <Button variant="ghost" size="sm" className="h-6 text-[11px] gap-1 text-muted-foreground hover:text-foreground" onClick={copyResult}>
+                  <ClipboardList className="h-3 w-3" />نسخ
+                </Button>
+              </div>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">{result}</p>
+            </div>
+          )}
+
+          {!result && !loading && (
+            <p className="text-xs text-muted-foreground text-center py-2">
+              اختر أداة أعلاه لتحليل رسائل هذه المحادثة بالذكاء الاصطناعي
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>إغلاق</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

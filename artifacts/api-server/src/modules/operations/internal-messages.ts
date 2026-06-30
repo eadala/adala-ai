@@ -414,15 +414,200 @@ router.put("/:id/archive", requireAuthWithTenant, async (req: Request, res: Resp
   }
 });
 
-// DELETE /api/internal-messages/:id
+// DELETE /api/internal-messages/:id  (soft delete)
 router.delete("/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId as string;
-    await db.execute(sql`DELETE FROM office_messages WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}`);
+    await db.execute(sql`
+      UPDATE office_messages SET deleted_at = NOW()
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
+    `);
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
+
+/* ══════════════════════════════════════════════════════
+   ANALYTICS — GET /api/internal-messages/analytics
+   لوحة تحكم شاملة لنظام المراسلات
+══════════════════════════════════════════════════════ */
+router.get("/analytics", requireAuthWithTenant, async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).tenantId as string;
+    const userId   = (req as any).auth?.userId ?? "";
+    const days     = Math.min(90, Math.max(1, Number(req.query.days ?? 30)));
+
+    const [dailyCounts, topSenders, unreadCount, convStats, topCases, avgResponse, aiUsage] = await Promise.all([
+      db.execute(sql`
+        SELECT DATE(created_at) AS day, COUNT(*)::int AS count
+        FROM office_messages
+        WHERE office_id = ${tenantId}
+          AND created_at >= NOW() - (${days} || ' days')::interval
+          AND (deleted_at IS NULL OR deleted_at > NOW())
+          AND folder != 'draft'
+        GROUP BY day ORDER BY day DESC LIMIT ${days}
+      `).catch(() => ({ rows: [] })),
+
+      db.execute(sql`
+        SELECT sender_name, COUNT(*)::int AS count
+        FROM office_messages
+        WHERE office_id = ${tenantId}
+          AND created_at >= NOW() - (${days} || ' days')::interval
+          AND folder != 'draft'
+          AND (deleted_at IS NULL OR deleted_at > NOW())
+        GROUP BY sender_name ORDER BY count DESC LIMIT 5
+      `).catch(() => ({ rows: [] })),
+
+      db.execute(sql`
+        SELECT COUNT(*)::int AS n
+        FROM office_message_recipients r
+        JOIN office_messages m ON m.id = r.message_id
+        WHERE r.user_id = ${userId} AND r.is_read = FALSE
+          AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
+      `).catch(() => ({ rows: [{ n: 0 }] })),
+
+      db.execute(sql`
+        SELECT
+          COUNT(DISTINCT mc.id)::int AS total_conversations,
+          (SELECT COUNT(*)::int FROM office_messages WHERE conversation_id IS NOT NULL
+            AND office_id = ${tenantId}
+            AND (deleted_at IS NULL OR deleted_at > NOW())) AS total_conv_messages
+        FROM message_conversations mc
+        WHERE mc.office_id = ${tenantId}
+      `).catch(() => ({ rows: [{ total_conversations: 0, total_conv_messages: 0 }] })),
+
+      db.execute(sql`
+        SELECT c.id, c.title, COUNT(m.id)::int AS msg_count
+        FROM office_messages m
+        JOIN cases c ON c.id::text = m.case_id::text AND c.office_id = ${tenantId}
+        WHERE m.office_id = ${tenantId}
+          AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
+          AND m.created_at >= NOW() - (${days} || ' days')::interval
+        GROUP BY c.id, c.title ORDER BY msg_count DESC LIMIT 5
+      `).catch(() => ({ rows: [] })),
+
+      db.execute(sql`
+        SELECT ROUND(AVG(EXTRACT(EPOCH FROM (r.read_at - m.created_at)) / 3600)::numeric, 1) AS avg_hours
+        FROM office_messages m
+        JOIN office_message_recipients r ON r.message_id = m.id
+        WHERE m.office_id = ${tenantId} AND r.is_read = TRUE AND r.read_at IS NOT NULL
+          AND m.created_at >= NOW() - (${days} || ' days')::interval
+      `).catch(() => ({ rows: [{ avg_hours: null }] })),
+
+      db.execute(sql`
+        SELECT COUNT(*)::int AS n
+        FROM office_messages
+        WHERE office_id = ${tenantId}
+          AND body ILIKE '%AI%' OR body ILIKE '%ذكاء%' OR body ILIKE '%تلقائي%'
+          AND created_at >= NOW() - (${days} || ' days')::interval
+      `).catch(() => ({ rows: [{ n: 0 }] })),
+    ]);
+
+    const daily = (dailyCounts as any).rows ?? [];
+    const totalMessages = daily.reduce((s: number, r: any) => s + Number(r.count), 0);
+    const conv = ((convStats as any).rows ?? [])[0] ?? {};
+
+    res.json({
+      period:           `${days} يوم`,
+      totalMessages,
+      unreadCount:      Number(((unreadCount as any).rows ?? [])[0]?.n ?? 0),
+      avgResponseHours: Number(((avgResponse as any).rows ?? [])[0]?.avg_hours ?? 0) || null,
+      aiMessages:       Number(((aiUsage as any).rows ?? [])[0]?.n ?? 0),
+      dailyCounts:      daily,
+      topSenders:       (topSenders as any).rows ?? [],
+      topCases:         (topCases as any).rows ?? [],
+      conversations: {
+        total:    Number(conv.total_conversations ?? 0),
+        messages: Number(conv.total_conv_messages ?? 0),
+      },
+      kpis: {
+        messagesPerDay:      totalMessages / Math.max(days, 1),
+        responseTimeRating:  (() => {
+          const h = Number(((avgResponse as any).rows ?? [])[0]?.avg_hours ?? 99);
+          if (h <= 1)  return "ممتاز";
+          if (h <= 4)  return "جيد";
+          if (h <= 24) return "متوسط";
+          return "بطيء";
+        })(),
+      },
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   AI TOOLS — POST /api/internal-messages/ai-tools
+   أدوات ذكاء اصطناعي مدمجة في المراسلات
+══════════════════════════════════════════════════════ */
+router.post("/ai-tools", requireAuthWithTenant, async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).tenantId as string;
+    const { tool, conversationId, messages: inputMessages, targetLanguage } = req.body as {
+      tool: "summarize" | "extract_tasks" | "extract_decisions" | "extract_appointments" | "suggest_reply" | "translate" | "meeting_minutes";
+      conversationId?: string;
+      messages?: Array<{ sender_name: string; body: string; created_at: string }>;
+      targetLanguage?: string;
+    };
+
+    let msgs: any[] = inputMessages ?? [];
+    if (!msgs.length && conversationId) {
+      const r = await db.execute(sql`
+        SELECT m.sender_name, m.body, m.created_at
+        FROM office_messages m
+        WHERE m.conversation_id = ${conversationId}::uuid
+          AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
+        ORDER BY m.created_at ASC LIMIT 60
+      `).catch(() => ({ rows: [] }));
+      msgs = (r as any).rows ?? [];
+    }
+
+    if (!msgs.length) return res.json({ result: "لا توجد رسائل للمعالجة." });
+
+    const convText = msgs.map((m: any) =>
+      `[${new Date(m.created_at).toLocaleTimeString("ar-SA")}] ${m.sender_name ?? "مجهول"}: ${m.body}`
+    ).join("\n");
+
+    const PROMPTS: Record<string, string> = {
+      summarize:            `قدّم ملخصاً موجزاً للمحادثة التالية (3-5 أسطر):\n\n${convText}`,
+      extract_tasks:        `استخرج جميع المهام والواجبات المذكورة وقدّمها كقائمة مرقّمة:\n\n${convText}`,
+      extract_decisions:    `استخرج جميع القرارات والاتفاقيات وقدّمها كقائمة:\n\n${convText}`,
+      extract_appointments: `استخرج جميع المواعيد والتواريخ والجلسات وقدّمها كقائمة:\n\n${convText}`,
+      suggest_reply:        `اقترح ردًّا مهنياً مناسباً على آخر رسالة في المحادثة:\n\n${convText}`,
+      translate:            `ترجم الرسائل التالية إلى ${targetLanguage ?? "الإنجليزية"}:\n\n${convText}`,
+      meeting_minutes:      `أنشئ محضر اجتماع رسمياً يشمل: الحضور، النقاط الرئيسية، القرارات، المهام:\n\n${convText}`,
+    };
+
+    const prompt = PROMPTS[tool];
+    if (!prompt) return res.status(400).json({ error: "أداة غير معروفة" });
+
+    const { callAI } = await import("../ai/aiChat");
+    const { reply } = await callAI(
+      "أنت مساعد قانوني متخصص في تحليل المراسلات المهنية. أجب باللغة العربية.",
+      prompt, [], "gemini", tenantId,
+    );
+
+    res.json({ result: reply, tool, messageCount: msgs.length });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ── Additional indexes (non-blocking startup) ─────────────────────────── */
+(async () => {
+  const extras = [
+    sql`ALTER TABLE office_messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`,
+    sql`CREATE INDEX IF NOT EXISTS idx_msgs_sender_date ON office_messages (sender_id, created_at DESC)`,
+    sql`CREATE INDEX IF NOT EXISTS idx_msgs_office_date ON office_messages (office_id, created_at DESC)`,
+    sql`CREATE INDEX IF NOT EXISTS idx_msgs_office_folder ON office_messages (office_id, folder)`,
+    sql`CREATE INDEX IF NOT EXISTS idx_rcpt_user_unread  ON office_message_recipients (user_id, is_read) WHERE is_read = FALSE`,
+    sql`CREATE INDEX IF NOT EXISTS idx_rcpt_msg         ON office_message_recipients (message_id)`,
+    sql`CREATE INDEX IF NOT EXISTS idx_attach_msg       ON office_message_attachments (message_id)`,
+    sql`CREATE INDEX IF NOT EXISTS idx_conv_updated      ON message_conversations (office_id, updated_at DESC)`,
+  ];
+  for (const m of extras) await db.execute(m).catch(() => {});
+})();
 
 export default router;
