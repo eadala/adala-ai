@@ -8,14 +8,19 @@ on:
       - "artifacts/adala/eslint.config.js"
       - "artifacts/adala/tsconfig.json"
       - "artifacts/adala/vite.config.ts"
+      - "artifacts/adala/package.json"
+      - "pnpm-lock.yaml"
       - "lib/api-client-react/src/**"
       - "lib/object-storage-web/src/**"
+      - ".github/workflows/frontend-quality.yml"
   pull_request:
     branches: [main]
     paths:
       - "artifacts/adala/src/**"
+      - "pnpm-lock.yaml"
       - "lib/api-client-react/src/**"
       - "lib/object-storage-web/src/**"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
