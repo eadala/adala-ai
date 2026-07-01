@@ -1,0 +1,131 @@
+# P0 - Production Readiness Verification & Release Certification
+# Project: Adalah AI
+# Priority: CRITICAL
+
+تم إصلاح أخطاء TypeScript وWorkflow وفق التقرير السابق.
+
+قبل اعتبار المشكلة منتهية، أريد تنفيذ مرحلة "Production Readiness Verification" بالكامل.
+
+==================================================
+PHASE 1 — Verify GitHub Actions
+==================================================
+
+نفّذ GitHub Actions على آخر Commit في main.
+
+يجب أن تكون جميع البوابات PASS بدون أي استثناء:
+
+✅ TypeScript
+✅ ESLint
+✅ Build
+✅ Bundle Audit
+✅ Accessibility
+✅ Architecture Lock
+✅ UI Governance
+✅ Route Validation
+✅ Platform Governance
+
+أرفق رابط Run أو رقم الـ Run مع النتيجة النهائية.
+
+==================================================
+PHASE 2 — Clean Environment Validation
+==================================================
+
+تحقق أن المشروع ينجح في بيئة نظيفة 100% (بدون أي Cache).
+
+نفّذ من بيئة جديدة:
+
+- Clone جديد للمستودع.
+- pnpm install --frozen-lockfile
+- pnpm typecheck
+- pnpm lint
+- pnpm build
+
+لا تعتمد على أي ملفات dist أو cache محلية.
+
+==================================================
+PHASE 3 — Production Deployment
+==================================================
+
+بعد نجاح جميع Quality Gates:
+
+أعد نشر Production من GitHub.
+
+ثم تحقق من:
+
+- نجاح Build.
+- نجاح Deployment.
+- عدم وجود Rollback.
+- استخدام آخر Commit الموجود في main.
+
+==================================================
+PHASE 4 — Runtime Verification
+==================================================
+
+بعد اكتمال النشر، اختبر الموقع الحقيقي:
+
+https://adalahai.com
+
+وتحقق من:
+
+✅ الصفحة الرئيسية تعمل.
+✅ تسجيل الدخول يعمل.
+✅ Dashboard يعمل.
+✅ القضايا تعمل.
+✅ العملاء يعملون.
+✅ العقود تعمل.
+✅ المستندات تعمل.
+✅ العمليات المالية تعمل.
+✅ مركز الذكاء الاصطناعي يعمل.
+✅ مركز القيادة القانونية يعمل.
+✅ عدالة إفلاس تعمل حسب الباقة.
+✅ المراسلات تعمل.
+✅ الإشعارات تعمل.
+✅ جميع Routes تعمل.
+✅ لا يوجد Loading Loop.
+✅ لا يوجد White Screen.
+✅ لا يوجد Runtime Error.
+✅ لا يوجد Console Error.
+✅ لا يوجد Failed Network Requests.
+✅ لا يوجد React Error Boundary.
+
+==================================================
+PHASE 5 — Bundle Verification
+==================================================
+
+قدّم تقريراً منفصلاً يتضمن:
+
+1. Raw Bundle Size.
+2. Gzip Bundle Size.
+3. أكبر 20 ملفاً.
+4. سبب كل ملف يتجاوز 200KB.
+5. خطة مستقبلية لتقليل الحجم دون تغيير Bundle Budget.
+
+لا يتم رفع Bundle Budget لإخفاء المشكلة.
+
+==================================================
+PHASE 6 — Release Certification
+==================================================
+
+أصدر شهادة جاهزية للإنتاج تتضمن:
+
+- Commit SHA المنشور.
+- Build Number.
+- Deployment Time.
+- GitHub Actions Run ID.
+- جميع Quality Gates PASS.
+- جميع الاختبارات PASS.
+- تطابق GitHub وProduction.
+- عدم وجود أخطاء معروفة تمنع التشغيل.
+
+==================================================
+FINAL DELIVERABLE
+==================================================
+
+لا أريد تقريراً عاماً، بل تقرير تحقق (Verification Report) مدعوماً بالأدلة، يشمل:
+
+1. رابط GitHub Actions الناجح.
+2. رقم الـ Commit المنشور.
+3. تأكيد أن AdalahAI.com يعمل فعلياً بعد النشر.
+4. نتائج اختبار التشغيل الحي (Production Smoke Test).
+5. أي مخاطر متبقية (إن وجدت) مع مستوى خطورتها.
+6. تأكيد أن المنصة أصبحت Production Ready دون الاعتماد على حلول مؤقتة أو تجاوزات (Workarounds).

@@ -89,6 +89,8 @@ router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
   const userId   = (req as any).auth?.userId;
   const tenantId = (req as any).tenantId;
 
+  if (!userId) return res.status(401).json({ error: "غير مصرح" });
+
   const rows = sqlRows(await db.execute(sql`
     SELECT
       c.id, c.title, c.type, c.created_by, c.created_at, c.updated_at,

@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Scale, ArrowRight, Shield, Lock, Server, Eye, CheckCircle2, Key, RefreshCw, AlertTriangle, Mail, Building2 } from "lucide-react";
+import { Scale, ArrowRight, Shield, Lock, Server, Eye, CheckCircle2, Key, RefreshCw, AlertTriangle, Building2 } from "lucide-react";
 
 const GOLD = "#1A56DB";
 
