@@ -54,18 +54,18 @@ router.get("/snapshot", requireAuthWithTenant, async (req: Request, res: Respons
   try {
     const officeId = (req as any).tenantId ?? getTenantSafe()?.officeId ?? null;
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
-    const [cases, invoices, events, tasks] = await Promise.all([
-      db.execute(sql`SELECT COUNT(*) FILTER (WHERE status IN ('open','in_progress')) as active FROM cases WHERE office_id=${officeId}`),
-      db.execute(sql`SELECT COUNT(*) FILTER (WHERE status='overdue') as overdue FROM client_invoices WHERE office_id=${officeId}`),
-      db.execute(sql`SELECT COUNT(*) as upcoming FROM events WHERE office_id=${officeId} AND start_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'`),
-      db.execute(sql`SELECT COUNT(*) as pending FROM tasks WHERE office_id=${officeId} AND status != 'done'`),
+
+    const safeCount = async (query: ReturnType<typeof sql>): Promise<number> => {
+      try { const r = await db.execute(query); return Number((r.rows[0] as any)?.count ?? (r.rows[0] as any)?.active ?? (r.rows[0] as any)?.overdue ?? (r.rows[0] as any)?.upcoming ?? (r.rows[0] as any)?.pending ?? 0); } catch { return 0; }
+    };
+
+    const [activeCases, overdueInvoices, upcomingEvents, pendingTasks] = await Promise.all([
+      safeCount(sql`SELECT COUNT(*) FILTER (WHERE status IN ('open','in_progress')) as active FROM cases WHERE office_id=${officeId}`),
+      safeCount(sql`SELECT COUNT(*) FILTER (WHERE status='overdue') as overdue FROM client_invoices WHERE office_id=${officeId}`),
+      safeCount(sql`SELECT COUNT(*) as upcoming FROM events e JOIN cases c ON c.id=e.case_id WHERE c.office_id=${officeId} AND e.start_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'`),
+      safeCount(sql`SELECT COUNT(*) as pending FROM tasks WHERE office_id=${officeId} AND status != 'done'`),
     ]);
-    res.json({
-      activeCases:     Number((cases.rows[0]   as any)?.active   ?? 0),
-      overdueInvoices: Number((invoices.rows[0] as any)?.overdue  ?? 0),
-      upcomingEvents:  Number((events.rows[0]   as any)?.upcoming ?? 0),
-      pendingTasks:    Number((tasks.rows[0]    as any)?.pending  ?? 0),
-    });
+    res.json({ activeCases, overdueInvoices, upcomingEvents, pendingTasks });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
