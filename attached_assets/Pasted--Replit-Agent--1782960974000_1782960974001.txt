@@ -1,0 +1,218 @@
+يمكنك إرسال التوجيه التالي، وهو بصيغة هندسية احترافية ويُلزم المطور أو Replit Agent بإثبات السبب الجذري قبل أي تعديل:
+
+⸻
+
+P0 Engineering Directive — Root Cause Validation & Production Recovery
+
+Priority: P0 (Production Blocking Incident)
+
+Context
+
+الموقع https://adalahai.com لا يزال يتوقف عند شاشة “جاري التحميل…” رغم:
+
+* نجاح Build.
+* نجاح GitHub Actions.
+* تزامن Git بالكامل.
+* نجاح جميع Quality Gates.
+* اكتمال آخر Deployment.
+
+التقرير الحالي يرجح أن المشكلة مرتبطة بـ Clerk ووجود Build قديم في الإنتاج، لكنني أريد إثباتًا تقنيًا كاملاً قبل تنفيذ أي تعديل.
+
+⸻
+
+المرحلة الأولى — إثبات السبب الجذري
+
+لا تعتمد على أي افتراض.
+
+قدّم أدلة تشغيلية تثبت أو تنفي كل فرضية.
+
+1. Clerk Audit
+
+تحقق من:
+
+* VITE_CLERK_PUBLISHABLE_KEY
+* CLERK_SECRET_KEY
+
+وأثبت:
+
+* هل المفتاحان Test أم Live؟
+* هل ينتميان إلى نفس Clerk Instance؟
+* هل تم بناء الـ Bundle باستخدام مفتاح Test؟
+
+لا تعرض المفاتيح كاملة.
+
+⸻
+
+2. Clerk Dashboard Audit
+
+تحقق داخل Clerk Dashboard من:
+
+* Production Instance
+* Allowed Domains
+* Authorized Origins
+* Redirect URLs
+* Authorized Redirect URLs
+* Frontend API
+
+أكد بالأدلة أن:
+
+* https://adalahai.com
+* https://www.adalahai.com
+
+مضافان بشكل صحيح.
+
+إذا لم يكونا موجودين فاذكر ذلك صراحة.
+
+⸻
+
+3. Production Bundle Audit
+
+حدد بدقة:
+
+* اسم ملف JavaScript الذي يعمل حالياً في Production.
+* تاريخ بنائه.
+* Commit SHA الذي أُنتج منه.
+
+ثم أثبت:
+
+* هل يحتوي على pk_test_؟
+* أم يحتوي على pk_live_؟
+
+اذكر الملف والموقع داخل الـ Bundle.
+
+⸻
+
+4. Deployment Audit
+
+أريد معرفة لماذا ما زالت Production تخدم ملفات قديمة.
+
+تحقق من:
+
+* Build ID
+* Deployment ID
+* Container ID
+* آخر Publish
+* آخر Build
+* Commit SHA المستخدم في Deployment
+
+ثم حدد:
+
+* هل Deployment الحالي يستخدم آخر Build؟
+* أم يستخدم Build قديم؟
+* هل يوجد أكثر من Deployment؟
+* هل يوجد Rollback؟
+* هل يوجد Build Cache؟
+
+⸻
+
+5. Asset Verification
+
+تحقق من:
+
+* index.html
+* جميع ملفات JS
+* جميع ملفات CSS
+
+وأرفق:
+
+* HTTP Status
+* Last-Modified
+* ETag
+* Cache-Control
+* Content-Length
+
+إذا كانت الملفات الجديدة تعطي:
+
+* 404
+
+فاشرح السبب الحقيقي.
+
+⸻
+
+6. Runtime Audit
+
+أثناء تشغيل الموقع:
+
+اجمع:
+
+* Browser Console
+* Network
+* أول Exception
+* أول Promise Rejection
+* أول Request فاشل
+
+ثم حدد:
+
+أين يتوقف التطبيق؟
+
+* React
+* Clerk
+* Router
+* Auth
+* Suspense
+* Error Boundary
+
+مع ذكر الملف والسطر المسؤول.
+
+⸻
+
+7. Spinner Root Cause
+
+حدد المسؤول المباشر عن بقاء شاشة:
+
+“جاري التحميل…”
+
+اذكر:
+
+* Component
+* Hook
+* State
+* الشرط البرمجي الذي يمنع إخفاء PageLoader.
+
+⸻
+
+المرحلة الثانية — خطة الإصلاح
+
+بعد إثبات السبب الجذري فقط، قدّم خطة إصلاح تتضمن:
+
+1. الملفات التي ستُعدّل.
+2. سبب كل تعديل.
+3. تأثيره على النظام.
+4. المخاطر المحتملة.
+5. كيفية التحقق من نجاح الإصلاح.
+
+لا تنفذ أي تعديل قبل اعتماد الخطة.
+
+⸻
+
+المرحلة الثالثة — التحقق بعد الإصلاح
+
+بعد تطبيق الإصلاح وإعادة النشر، قدّم تقرير تحقق يتضمن:
+
+* Commit SHA النهائي.
+* Deployment ID.
+* Build ID.
+* اسم ملفات الـ Bundle الجديدة.
+* تأكيد أن جميع ملفات JS وCSS تُرجع HTTP 200.
+* تأكيد اختفاء host_invalid.
+* تأكيد أن Clerk.isLoaded = true.
+* تأكيد اختفاء شاشة “جاري التحميل…”.
+* Screenshot من الصفحة الرئيسية بعد التحميل الكامل.
+* تأكيد أن adalahai.com يعمل بصورة طبيعية على:
+    * Chrome
+    * Safari
+    * وضع التصفح الخفي (Incognito).
+
+⸻
+
+Acceptance Criteria
+
+لن تُعتبر الحادثة مغلقة إلا إذا تحقق ما يلي:
+
+* ✅ تحديد السبب الجذري بالأدلة.
+* ✅ اختفاء خطأ host_invalid.
+* ✅ تحميل آخر Build في Production.
+* ✅ عدم وجود Assets قديمة أو مفقودة.
+* ✅ نجاح تهيئة Clerk.
+* ✅ اختفاء شاشة التحميل نهائياً.
+* ✅ عمل الموقع بشكل طبيعي دون أي تدخل يدوي.
