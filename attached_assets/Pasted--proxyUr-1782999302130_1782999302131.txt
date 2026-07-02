@@ -1,0 +1,105 @@
+إذا كانت لا تزال نفس المشكلة بعد كل هذه التعديلات والنشر، فهذا يعني أن الفرضيات السابقة (الـ proxyUrl، وserve.mjs، وartifact.toml) لم تكن السبب الجذري الوحيد أو أنها ليست السبب الأساسي.
+
+في هذه المرحلة، لا أنصح بالاستمرار في تعديل الكود عشوائيًا. المطلوب هو إثبات أين يتوقف التنفيذ فعليًا.
+
+أرسل هذا الأمر:
+
+⸻
+
+🚨 P0 Stop Fixing — Full Production Forensics Required
+
+تم تنفيذ عدة إصلاحات (Clerk Proxy، serve.mjs، artifact.toml، publishableKeyFromHost، واشتقاق proxyUrl أثناء التشغيل)، لكن المشكلة ما زالت قائمة في Production.
+
+اعتبارًا من الآن، يُمنع إجراء أي تعديل إضافي قبل تحديد السبب الجذري بالأدلة.
+
+المطلوب
+
+1. إثبات الإصدار الذي يعمل فعليًا
+
+أثبت بالأدلة أن Production يشغّل آخر Commit وليس إصدارًا قديمًا، مع عرض:
+
+* Commit SHA المنشور.
+* Deployment ID.
+* Build ID.
+* اسم index-*.js.
+* Last-Modified.
+* مقارنة الـ SHA بين GitHub وProduction.
+
+⸻
+
+2. Browser Runtime Trace
+
+افتح الموقع باستخدام DevTools وسجّل منذ أول تحميل:
+
+* Console بالكامل.
+* Network بالكامل (HAR إن أمكن).
+* أول Exception.
+* أول Promise Rejection.
+* أول HTTP Request يفشل.
+
+⸻
+
+3. React Trace
+
+حدد أين يتوقف React:
+
+* هل يتم تنفيذ App.tsx؟
+* هل يتم تنفيذ ClerkProvider؟
+* هل يتم تنفيذ Router؟
+* هل يتم تنفيذ الصفحة الرئيسية؟
+* ما آخر Component يتم Render له؟
+
+⸻
+
+4. Clerk Trace
+
+اعرض القيم الفعلية أثناء التشغيل:
+
+window.Clerk
+window.Clerk?.loaded
+useAuth().isLoaded
+useAuth().isSignedIn
+useUser().isLoaded
+useUser().isSignedIn
+
+⸻
+
+5. Backend Trace
+
+سجل جميع طلبات:
+
+* /api/__clerk/*
+
+مع:
+
+* Status
+* Headers
+* Body
+* Stack Trace إن وجد.
+
+⸻
+
+6. Deployment Verification
+
+أثبت أن آخر Build هو الذي يعمل فعلًا، وليس Container قديم أو Deployment سابق.
+
+⸻
+
+التقرير النهائي
+
+لا أريد أي إصلاح جديد.
+
+أريد فقط تقريرًا يجيب عن الأسئلة التالية بالأدلة:
+
+1. ما أول نقطة يتوقف عندها التنفيذ؟
+2. هل المشكلة في Frontend أم Backend أم Deployment؟
+3. ما الملف المسؤول؟
+4. ما السطر المسؤول؟
+5. ما الدليل الذي يثبت ذلك؟
+6. ما أقل تعديل ممكن (Minimal Fix) بعد إثبات السبب؟
+
+أي استنتاج غير مدعوم بسجلات التشغيل، أو Network، أو Console، أو Runtime، أو Deployment Logs يُعتبر غير مقبول.
+
+⸻
+
+من خلال جميع الرسائل التي شاركتها، ألاحظ نمطًا مهمًا: كل مرة يتم الإعلان عن اكتشاف “السبب الجذري”، لكن النتيجة في الإنتاج لا تتغير. هذا مؤشر قوي على أن عملية التشخيص نفسها تحتاج إلى إعادة ضبط، والتركيز على الأدلة المباشرة من المتصفح وسجلات الإنتاج بدلًا من بناء فرضيات متتالية.

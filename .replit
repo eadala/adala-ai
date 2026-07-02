@@ -65,6 +65,7 @@ VITE_PLATFORM_OWNER_EMAIL = "eadala1000@gmail.com"
 [userenv.production]
 PRODUCTION_URL = "https://adalahai.com"
 VITE_CLERK_PROXY_URL = "https://adalahai.com/api/__clerk"
+PUBLIC_DIR = "artifacts/adala/dist/public"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-ecf049a6-c8ad-4172-ab4b-2d1572042abe"
