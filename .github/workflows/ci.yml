@@ -66,7 +66,7 @@ jobs:
         run: pnpm --filter @workspace/api-server run build
       - name: Bundle Budget Check (≤ 4096 KB gzip)
         run: |
-          GZIP_KB=$(find artifacts/adala/dist3 -name "*.js" 2>/dev/null | xargs -r gzip -c | wc -c | awk '{printf "%d", $1/1024}')
+          GZIP_KB=$(find artifacts/adala/dist4 -name "*.js" 2>/dev/null | xargs -r gzip -c | wc -c | awk '{printf "%d", $1/1024}')
           echo "Bundle gzip: ${GZIP_KB} KB / 4096 KB budget"
           if [ "$GZIP_KB" -gt 4096 ]; then
             echo "❌ Bundle exceeds 4096 KB gzip budget (${GZIP_KB} KB)"
@@ -78,7 +78,7 @@ jobs:
         if: success()
         with:
           name: build-dist-${{ github.sha }}
-          path: artifacts/adala/dist3/
+          path: artifacts/adala/dist4/
           retention-days: 7
 
   # ─────────────────────────────────────────

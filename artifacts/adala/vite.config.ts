@@ -100,7 +100,7 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist3/public"),
+    outDir: path.resolve(import.meta.dirname, "dist4/public"),
     emptyOutDir: true,
     target: "es2020",
     minify: "esbuild",

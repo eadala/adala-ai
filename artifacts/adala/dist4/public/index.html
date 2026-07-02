@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>عدالة AI</title>
+    <meta name="description" content="عدالة AI — built on Replit. Update this description to reflect the app." />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:title" content="عدالة AI" />
+    <meta property="og:description" content="عدالة AI — built on Replit. Update this description to reflect the app." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="عدالة AI" />
+    <meta name="twitter:description" content="عدالة AI — built on Replit. Update this description to reflect the app." />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="/assets/index-DRsFUE3c.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-react-CT0_hoX6.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-router-DkVvMFVl.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-icons-BFrUBqiJ.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-tanstack-BdGrscrn.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-charts-CneYNIhr.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-i18n-lBdt9ta2.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-clerk-Pjup2QWV.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-DYTvFmH3.css">
+  </head>
+  <body>
+    <script>
+      (function(){
+        /* ── Catch ALL JS errors before React loads ── */
+        window.__adalaErrors = [];
+        function escHtml(s) {
+          return String(s)
+            .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+            .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+        }
+        window.addEventListener("error", function(e) {
+          window.__adalaErrors.push(e.message || String(e));
+          var el = document.getElementById("adala-init-error");
+          if (el) {
+            el.style.display = "block";
+            el.textContent = "[JS Error]\n" +
+              (e.error ? (e.error.message + "\n" + e.error.stack) : e.message);
+          }
+        });
+        window.addEventListener("unhandledrejection", function(e) {
+          window.__adalaErrors.push(String(e.reason));
+          var el = document.getElementById("adala-init-error");
+          if (el) {
+            el.style.display = "block";
+            el.textContent = "[Promise Error]\n" +
+              (e.reason && e.reason.stack ? e.reason.stack : String(e.reason));
+          }
+        });
+      })();
+    </script>
+
+    <div id="root" style="background:#F8FAFC;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Tajawal',sans-serif;">
+      <!-- Shown until React mounts and replaces this content -->
+      <div id="adala-loading" style="text-align:center;color:#1A56DB;">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin:0 auto 12px;">
+          <circle cx="28" cy="28" r="26" stroke="#1A56DB" stroke-width="2" opacity="0.3"/>
+          <path d="M28 8 A20 20 0 0 1 48 28" stroke="#1A56DB" stroke-width="3" stroke-linecap="round">
+            <animateTransform attributeName="transform" type="rotate" from="0 28 28" to="360 28 28" dur="1s" repeatCount="indefinite"/>
+          </path>
+        </svg>
+        <div style="font-size:22px;font-weight:700;letter-spacing:1px;color:#1e3a5f;">عدالة AI</div>
+        <div style="font-size:13px;color:#6b7280;margin-top:6px;">جاري التحميل…</div>
+      </div>
+      <!-- Hidden error display — shown only if JS crashes before React mounts -->
+      <pre id="adala-init-error" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#ffffff;color:#ff6b6b;padding:24px;overflow:auto;font-size:12px;white-space:pre-wrap;font-family:monospace;text-align:left;"></pre>
+    </div>
+
+  </body>
+</html>
