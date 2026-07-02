@@ -1,3 +1,4 @@
+- [GitHub push credential hang](github-push-credential-hang.md) — plain `git push` hangs on askpash password prompt; workaround via mirror clone outside `.git` + explicit token header
 - [Adala TS Project References](adala-ts-project-refs.md) — NEVER add "references" to adala tsconfig; libs export ./src/index.ts directly; moduleResolution:bundler resolves them; CI bundle measured in gzip (~1649KB)
 - [Adala Upload Governance](adala-upload-governance.md) — uploadGuard.ts 8-layer security; 3 endpoints protected; 9-point fileUploadRegistry; 81/81 regression tests pass; node:test self-contained (no ESM import issues)
 - [Adala Governance Framework](adala-governance.md) — quality-gate.sh 8 gates; set -euo pipefail + grep no-match exit-1 → use (grep ... || true) | wc -l pattern; ESLint Architecture Lock; web-vitals monitoring; /design-system page
