@@ -226,9 +226,10 @@ const clerkPubKey = publishableKeyFromHost(
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
 );
 
-// REQUIRED — empty in dev (Clerk hits dev FAPI directly), auto-set in prod.
-// Do NOT gate on import.meta.env.PROD / NODE_ENV — the empty dev value is intentional.
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+// Runtime-derived proxy URL — avoids VITE_ build-time baking issue.
+// In prod (adalahai.com): "https://adalahai.com/api/__clerk"
+// In dev (pk_test_ key): Clerk ignores proxyUrl and calls clerk.accounts.dev directly.
+const clerkProxyUrl = `${window.location.origin}/api/__clerk`;
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
