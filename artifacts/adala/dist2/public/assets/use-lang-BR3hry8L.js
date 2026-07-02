@@ -1,0 +1,1 @@
+import{u as o}from"./vendor-i18n-lBdt9ta2.js";function c(){const{i18n:t}=o(),n=t.language!=="en";function a(r,e){return n?r:e}return{tx:a,isAr:n,isEn:!n,dir:n?"rtl":"ltr",dateLocale:n?"ar-SA":"en-US",lang:t.language}}export{c as u};
