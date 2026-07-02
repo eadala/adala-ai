@@ -4,6 +4,7 @@ import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wo
 import Landing from "@/pages/landing"; // eager — public homepage must never be lazy-blocked
 import { QueryClient, QueryClientProvider, useQueryClient, useQuery } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, useClerk, useAuth } from "@clerk/react";
+import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -218,20 +219,16 @@ const queryClient = new QueryClient({
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-// Use the publishable key directly from the environment variable.
-// publishableKeyFromHost from @clerk/react/internal was throwing in production
-// for the .replit.app hostname, which was corrupting the Clerk singleton and
-// causing ClerkProvider to fail silently → blank page.
-const clerkPubKey: string = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? "";
+// REQUIRED — resolves the key from window.location.hostname so the same build
+// serves dev (pk_test) and prod (pk_live) without any NODE_ENV gates.
+const clerkPubKey = publishableKeyFromHost(
+  window.location.hostname,
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+);
 
-// Replit sets VITE_CLERK_PROXY_URL to a relative path like "/api/__clerk"
-// Clerk v6 requires an absolute URL in production — expand at runtime.
-const _rawProxy = import.meta.env.VITE_CLERK_PROXY_URL;
-const clerkProxyUrl = _rawProxy
-  ? _rawProxy.startsWith("/")
-    ? `${window.location.origin}${_rawProxy}`
-    : _rawProxy
-  : undefined;
+// REQUIRED — empty in dev (Clerk hits dev FAPI directly), auto-set in prod.
+// Do NOT gate on import.meta.env.PROD / NODE_ENV — the empty dev value is intentional.
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
