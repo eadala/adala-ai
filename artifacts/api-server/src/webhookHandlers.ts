@@ -244,7 +244,8 @@ export class WebhookHandlers {
 
       try {
         /* TRANSACTION: subscription status + notification are atomic */
-        await db.transaction(async (tx) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await db.transaction(async (tx: any) => {
           await tx.execute(sql`
             UPDATE subscriptions SET status = 'past_due' WHERE office_id = ${officeId}
           `);
@@ -571,7 +572,7 @@ async function handleOfficeServicePayment(opts: {
       await db.execute(sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_account_id TEXT`).catch(() => {});
       const existingCrm = await db.execute(sql`
         SELECT id FROM clients WHERE LOWER(email) = ${clientEmail.toLowerCase()} AND office_id = ${officeId} LIMIT 1
-      `).then(r => ((r as any).rows ?? [])[0]).catch(() => null);
+      `).then((r: unknown) => ((r as { rows?: { id: unknown }[] }).rows ?? [])[0]).catch(() => null);
       if (existingCrm) {
         await db.execute(sql`
           UPDATE clients SET client_account_id = ${clientId}, updated_at = NOW()
