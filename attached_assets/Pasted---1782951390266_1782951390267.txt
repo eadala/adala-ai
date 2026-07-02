@@ -1,0 +1,226 @@
+استخدم هذا الأمر الاحترافي، فهو يطلب تدقيقاً نهائياً مستقلاً ويركز على الأدلة الفعلية فقط دون أي افتراضات أو تعديلات:
+
+⸻
+
+P0 FINAL RELEASE AUDIT — Independent Production Certification
+
+Objective
+
+نفّذ تدقيقاً نهائياً مستقلاً لإصدار شهادة جاهزية الإنتاج لمنصة عدالة AI.
+
+ممنوع تماماً:
+
+* تعديل أي ملف.
+* إنشاء Commit جديد.
+* Merge أو Rebase أو Cherry-pick.
+* Push أو Force Push.
+* تغيير أي إعدادات.
+
+المطلوب هو التحقق فقط وإصدار تقرير يعتمد على أدلة تشغيلية فعلية.
+
+⸻
+
+Phase 3 — GitHub Actions Verification
+
+تحقق من آخر GitHub Actions Run المرتبط بالفرع الرئيسي.
+
+يجب إرفاق:
+
+* Run Number
+* Run ID
+* Workflow Name
+* Commit SHA
+* Branch
+* وقت البدء والانتهاء
+* مدة التنفيذ
+
+ثم جدول يوضح:
+
+* TypeScript
+* ESLint
+* Build
+* Bundle Budget
+* Route Validation
+* Platform Governance
+* Accessibility
+* Architecture Lock
+* UI Governance
+
+ويجب بيان نتيجة كل بوابة (PASS / FAIL) مع الدليل.
+
+⸻
+
+Phase 4 — Production Runtime Verification
+
+تحقق من بيئة الإنتاج الفعلية (adalahai.com) دون إجراء أي تغيير.
+
+يشمل ذلك:
+
+الموقع
+
+* HTTP Status
+* HTTPS Certificate
+* Response Time
+* الصفحة الرئيسية
+* تسجيل الدخول
+* تسجيل الخروج
+* Dashboard
+* أهم المسارات الأساسية
+
+⸻
+
+API
+
+تحقق من:
+
+* /api/healthz
+* /api/status
+* /api/billing/plans
+* /api/conversations
+* /api/copilot/snapshot
+
+ولكل Endpoint:
+
+* Status Code
+* Response Time
+* Runtime Errors
+* صحة البيانات
+
+⸻
+
+الخدمات
+
+تحقق من:
+
+* Database
+* Authentication
+* Object Storage
+* Stripe
+* Email
+* AI Services
+* Background Jobs
+* Webhooks
+
+وبيّن حالة كل خدمة:
+
+* Operational
+* Degraded
+* Offline
+
+مع السبب الحقيقي.
+
+⸻
+
+Phase 5 — Security Verification
+
+تحقق من:
+
+* HTTPS
+* HSTS
+* CSP
+* X-Frame-Options
+* X-Content-Type-Options
+* Referrer Policy
+* CORS
+
+ثم تحقق من عدم وجود:
+
+* JavaScript Runtime Errors
+* Console Errors
+* Network Failures
+* Failed Requests
+
+⸻
+
+Phase 6 — Version Consistency
+
+أثبت بالأدلة أن الإصدارات متطابقة.
+
+اعرض جدولاً يحتوي على:
+
+* Local Commit SHA
+* GitHub main SHA
+* Latest GitHub Actions SHA
+* Production Deployment SHA (إن أمكن)
+
+ثم حدد:
+
+* هل جميعها متطابقة؟
+* وإن لم تكن، فما سبب الاختلاف؟
+
+⸻
+
+Phase 7 — Remaining Risks
+
+أنشئ جدولاً يتضمن فقط المخاطر الحقيقية المتبقية.
+
+لكل عنصر:
+
+* الوصف
+* السبب
+* التأثير
+* مستوى الخطورة
+* هل يمنع الإطلاق؟ (نعم / لا)
+* التوصية
+
+لا تذكر تحسينات مستقبلية على أنها مخاطر.
+
+⸻
+
+Phase 8 — Production Readiness Certificate
+
+أصدر شهادة نهائية تتضمن:
+
+Repository
+
+* Git Status
+* Synchronization Status
+* Commit SHA
+
+Build
+
+* TypeScript
+* ESLint
+* Build
+* Bundle
+
+Runtime
+
+* Frontend
+* Backend
+* API
+* Database
+
+Security
+
+* Security Headers
+* Authentication
+* Storage
+* Payments
+
+Infrastructure
+
+* GitHub Actions
+* Deployment
+* Monitoring
+
+⸻
+
+Final Executive Decision
+
+اختر حالة واحدة فقط:
+
+* 🟢 PRODUCTION READY
+* 🟡 PRODUCTION READY WITH MINOR RISKS
+* 🔴 NOT PRODUCTION READY
+
+ويجب أن تستند النتيجة إلى الأدلة التي تم التحقق منها فعلياً فقط.
+
+⸻
+
+قواعد التقرير
+
+* لا تعتمد على تقارير سابقة.
+* لا تفترض نجاح أي اختبار.
+* أي عنصر لم يمكن التحقق منه يُذكر صراحةً على أنه “Not Verified” مع بيان السبب.
+* يجب أن يكون التقرير قابلاً للاعتماد عليه كوثيقة اعتماد نهائية قبل إطلاق منصة عدالة AI للإنتاج.
