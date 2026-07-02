@@ -1,0 +1,113 @@
+إذا كان هذا التشخيص صحيحًا، فهو أكثر اتساقًا مع انتقال الحالة من “الموقع لا يعمل إطلاقًا” إلى “الصفحة الرئيسية تعمل لكن المصادقة لا تعمل”. لكنه ما يزال يحتاج إلى تحقق بعد التطبيق.
+
+يمكنك إرسال هذا الأمر الاحترافي:
+
+⸻
+
+P1 Authentication Fix Verification & Production Certification
+
+تم تحديد سبب جذري محتمل في طبقة تكامل Clerk مع التطبيق، وتم تنفيذ إصلاحين فقط دون تغيير أي مفاتيح أو بيانات مستخدمين.
+
+التغييرات المنفذة
+
+1. clerkProxyMiddleware.ts
+    * استبدال التنفيذ الحالي بالقالب (Canonical) الرسمي.
+    * التأكد من وجود:
+        * selfHandleResponse: true
+        * تجميع (buffer) استجابة proxyRes
+        * تمرير جميع رؤوس الاستجابة (Headers) كما هي.
+2. app.ts
+    * استبدال استخدام مفتاح ثابت داخل clerkMiddleware.
+    * استخدام النمط الرسمي المعتمد:
+        * publishableKeyFromHost(getClerkProxyHost(req))
+    * بحيث يتم اختيار الـ Publishable Key الصحيح حسب اسم المضيف (Host).
+
+لم يتم تعديل مفاتيح Clerk، أو بيانات المستخدمين، أو منطق الأعمال، أو قاعدة البيانات.
+
+⸻
+
+المطلوب الآن
+
+بعد النشر (Publish)، نفّذ التحقق التالي بالأدلة:
+
+1. Proxy Verification
+
+تحقق من:
+
+* /api/__clerk/v1/environment
+* /api/__clerk/v1/client
+* /api/__clerk/v1/me
+
+واعرض لكل طلب:
+
+* HTTP Status
+* Response Headers
+* Response Body
+
+ويجب أن يثبت اختفاء host_invalid.
+
+⸻
+
+2. Runtime Verification
+
+تحقق من القيم التالية أثناء تحميل التطبيق:
+
+* Clerk.loaded
+* useAuth().isLoaded
+* useAuth().isSignedIn
+* useUser().isLoaded
+* useUser().isSignedIn
+
+⸻
+
+3. Login Flow Verification
+
+اختبر المسار الكامل:
+
+Landing Page
+→ Sign In
+→ Clerk Authentication
+→ Session Creation
+→ Redirect
+→ Dashboard
+
+وحدد أول نقطة فشل إن وجدت.
+
+⸻
+
+4. Browser Verification
+
+تحقق من:
+
+* عدم وجود Spinner دائم.
+* عدم وجود أخطاء JavaScript.
+* عدم وجود طلبات HTTP 400 أو 500 أثناء تسجيل الدخول.
+
+⸻
+
+5. Backend Verification
+
+راجع سجلات الخادم أثناء تسجيل الدخول وتأكد من:
+
+* عدم وجود Proxy Errors.
+* عدم وجود Middleware Errors.
+* عدم وجود Runtime Exceptions.
+* نجاح إنشاء الجلسة (Session).
+
+⸻
+
+التقرير النهائي
+
+لا تُعلن نجاح الإصلاح إلا إذا تم إثبات ما يلي بالأدلة:
+
+* ✅ الصفحة الرئيسية تعمل.
+* ✅ صفحة تسجيل الدخول تعمل.
+* ✅ /api/__clerk/v1/environment يعيد HTTP 200.
+* ✅ اختفاء host_invalid.
+* ✅ Clerk.isLoaded = true.
+* ✅ نجاح إنشاء الجلسة.
+* ✅ الوصول إلى لوحة التحكم.
+* ✅ عدم وجود أخطاء جديدة (Regression).
+* ✅ إرفاق الأدلة (Logs، Network، Runtime، ولقطات شاشة عند الحاجة).
+
+لا يُعتبر الإصلاح مكتملاً إلا بعد اجتياز جميع عناصر التحقق السابقة.
