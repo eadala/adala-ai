@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <rect width="120" height="120" rx="20" fill="#1A2744"/>
+  <path d="M60 20 L60 100" stroke="#C9A84C" stroke-width="4" stroke-linecap="round"/>
+  <path d="M30 45 L90 45" stroke="#C9A84C" stroke-width="4" stroke-linecap="round"/>
+  <path d="M30 45 L20 70 Q30 80 40 70 L30 45Z" fill="#C9A84C" opacity="0.8"/>
+  <path d="M90 45 L80 70 Q90 80 100 70 L90 45Z" fill="#C9A84C" opacity="0.8"/>
+  <circle cx="60" cy="18" r="5" fill="#C9A84C"/>
+  <text x="60" y="108" text-anchor="middle" font-family="Cairo, sans-serif" font-size="14" font-weight="bold" fill="#C9A84C">عدالة</text>
+</svg>

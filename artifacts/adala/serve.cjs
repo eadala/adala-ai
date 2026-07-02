@@ -7,7 +7,7 @@ const http = require("node:http");
 const fs   = require("node:fs");
 const path = require("node:path");
 
-const DIST = path.join(__dirname, "dist2", "public");
+const DIST = path.join(__dirname, "dist3", "public");
 const PORT = Number(process.env.PORT ?? 3000);
 
 const MIME = {
