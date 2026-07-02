@@ -190,8 +190,8 @@ importers:
         specifier: ^1.41.1
         version: 1.41.1
       nodemailer:
-        specifier: ^9.0.3
-        version: 9.0.3
+        specifier: ^8.0.10
+        version: 8.0.10
       stripe:
         specifier: ^22.2.0
         version: 22.2.0(@types/node@25.6.2)
@@ -4607,10 +4607,6 @@ packages:
 
   nodemailer@8.0.10:
     resolution: {integrity: sha512-BLFuSth7QtHOkBzyqTehWWyub0NTRDuK2Q2SQfnGLsrJnzyU+Yeh4WpV1eZGuARFj1xQJHIdnTuJZLP+b9R1GQ==}
-    engines: {node: '>=6.0.0'}
-
-  nodemailer@9.0.3:
-    resolution: {integrity: sha512-n+YP+NKwR5zRWa60k3GiQ6Q3B4KXCoAw40dAKeCtYn020iNN74aWK2liXIC3ZEATeGql7we3tE3t8QwhY0eskw==}
     engines: {node: '>=6.0.0'}
 
   npm-run-path@6.0.0:
@@ -9981,8 +9977,6 @@ snapshots:
   node-releases@2.0.38: {}
 
   nodemailer@8.0.10: {}
-
-  nodemailer@9.0.3: {}
 
   npm-run-path@6.0.0:
     dependencies:
