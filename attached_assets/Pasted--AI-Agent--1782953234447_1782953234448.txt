@@ -1,0 +1,247 @@
+إليك صيغة احترافية بصياغة هندسية موجهة لفريق التطوير أو الـ AI Agent، تركز على التحقق الفعلي وليس مجرد إنشاء ملفات أو إعدادات:
+
+⸻
+
+P0 FINAL ENGINEERING DIRECTIVE
+
+Repository Governance, Production Validation & Multi-Developer Certification
+
+بعد الانتهاء من إعادة هيكلة GitHub وGit Flow وCI/CD، تبدأ الآن المرحلة النهائية وهي التحقق العملي (Operational Verification).
+
+ممنوع إصدار أي شهادة جاهزية أو اعتبار المهمة مكتملة قبل إثبات كل بند بالأدلة الفعلية.
+
+⸻
+
+المرحلة الأولى — Repository Governance Verification
+
+تحقق عملياً من أن سياسات الحوكمة مطبقة على GitHub وليس فقط موجودة داخل المستودع.
+
+يجب إثبات:
+
+* Branch Protection Rules
+* Required Status Checks
+* Required Pull Request Reviews
+* CODEOWNERS Enforcement
+* منع Direct Push
+* منع Force Push
+* منع Delete Branch
+* Conversation Resolution
+* Required Linear History (إن كانت مفعلة)
+
+ويجب إرفاق الأدلة من GitHub API أو GitHub CLI أو لقطات موثقة.
+
+⸻
+
+المرحلة الثانية — Git Workflow Validation
+
+نفّذ دورة Git كاملة باستخدام فرع تجريبي:
+
+feature/governance-validation
+
+ويجب تنفيذ الدورة التالية بالكامل:
+
+Create Branch
+↓
+Commit
+↓
+Push
+↓
+Open Pull Request
+↓
+Run CI
+↓
+Review
+↓
+Merge → develop
+↓
+Delete Branch
+
+ثم اعرض التقرير الكامل لهذه الدورة.
+
+⸻
+
+المرحلة الثالثة — CI/CD Validation
+
+أثبت أن جميع بوابات الجودة تعمل فعلياً وليس نظرياً.
+
+يشمل ذلك:
+
+* TypeScript
+* ESLint
+* Build
+* Tests
+* Bundle Budget
+* Security Scan
+* Dependency Audit
+* Accessibility
+* Architecture Validation
+* Tenant Isolation
+* License Validation
+* Commit Convention
+
+اعرض:
+
+* مدة كل Gate.
+* حالة كل Gate.
+* Logs المختصرة.
+* سبب النجاح أو الفشل.
+
+⸻
+
+المرحلة الرابعة — Branch Protection Validation
+
+اختبر عملياً أن GitHub يمنع:
+
+* Push مباشر إلى main.
+* Push مباشر إلى develop.
+* Merge عند فشل CI.
+* Merge بدون Review.
+* Merge بدون CODEOWNERS Approval.
+* Force Push.
+* حذف الفروع المحمية.
+
+يجب أن يكون التحقق عملياً وليس وصفاً.
+
+⸻
+
+المرحلة الخامسة — CODEOWNERS Verification
+
+تحقق أن GitHub يطلب مراجعة CODEOWNERS فعلياً.
+
+وجود ملف CODEOWNERS وحده لا يعتبر نجاحاً.
+
+يجب إثبات أن GitHub يفرض المراجعة.
+
+⸻
+
+المرحلة السادسة — Multi-Developer Validation
+
+أثبت أن Workflow يدعم العمل المتوازي بين:
+
+* Replit
+* ChatGPT Codex
+* Cursor
+* VS Code
+* GitHub Desktop
+* المطورين البشريين
+
+ويجب أن يتم ذلك عبر:
+
+Feature Branch
+↓
+Pull Request
+↓
+CI
+↓
+Review
+↓
+Merge
+↓
+Deploy
+
+بدون أي تعارضات.
+
+⸻
+
+المرحلة السابعة — Repository Health Audit
+
+أصدر تقريراً كاملاً عن حالة المستودع يشمل:
+
+* Git Graph.
+* عدد الفروع.
+* الفروع القديمة.
+* الفروع غير المستخدمة.
+* الفروع المتأخرة.
+* الفروع غير المدمجة.
+* Divergence.
+* Detached HEAD.
+* Merge/Rebase Status.
+* git fsck.
+* git gc.
+* Git Objects Integrity.
+* Large Files Audit.
+* Git LFS Status (إن وجد).
+
+⸻
+
+المرحلة الثامنة — Security Verification
+
+تحقق عملياً من:
+
+* عدم وجود Secrets داخل Git History.
+* عدم وجود API Keys مكشوفة.
+* عدم وجود Tokens.
+* نجاح Secret Scan.
+* نجاح Dependency Scan.
+* نجاح License Scan.
+* نجاح Security Audit.
+
+ويجب عرض الأدلة.
+
+⸻
+
+المرحلة التاسعة — Production Verification
+
+تحقق من:
+
+* GitHub Main SHA.
+* Production Deployment SHA (إذا كان متاحاً).
+* Replit SHA.
+* GitHub Actions SHA.
+* Build Number.
+* Release Version.
+
+ثم أكد أن النسخ متطابقة، أو وضّح الفروقات بدقة.
+
+⸻
+
+المرحلة العاشرة — Deployment Validation
+
+نفّذ تحققاً كاملاً بعد النشر يشمل:
+
+* HTTP Status.
+* API Health.
+* Database Connectivity.
+* Object Storage.
+* Stripe.
+* Authentication.
+* File Upload.
+* Background Jobs.
+* Monitoring.
+* Logging.
+* Cron Jobs.
+* AI Services.
+* Email Services.
+* WhatsApp / Telegram Integrations.
+
+ويجب إثبات أن جميع الخدمات تعمل في بيئة الإنتاج.
+
+⸻
+
+المرحلة الحادية عشرة — Evidence-Based Final Report
+
+يجب أن يعتمد التقرير على الأدلة فقط، ويتضمن:
+
+1. الأدلة من GitHub API وGit CLI.
+2. نتائج جميع الاختبارات.
+3. أي بند غير متحقق يُذكر صراحةً بأنه “غير متحقق”.
+4. قائمة المخاطر المتبقية مرتبة حسب الأولوية.
+5. خطة معالجة لكل مخاطرة.
+6. التوصيات المستقبلية.
+
+⸻
+
+المرحلة الثانية عشرة — Production Certification
+
+لا تُصدر شهادة Production Ready إلا إذا تحققت جميع الشروط التالية:
+
+* GitHub هو المصدر الوحيد للحقيقة (Single Source of Truth).
+* جميع سياسات Branch Protection مفعلة ومثبتة.
+* جميع بوابات CI/CD ناجحة.
+* دورة Git Flow اختُبرت عملياً.
+* لا توجد تعارضات أو عمليات Git معلقة.
+* جميع الخدمات الأساسية تعمل في الإنتاج.
+* لا توجد ثغرات أمنية أو مفاتيح مكشوفة.
+* النسخة المنشورة مطابقة للنسخة المعتمدة في GitHub.
+
+مبدأ التنفيذ: لا تعتمد على وجود الملفات أو الإعدادات فقط، بل أثبت بالأدلة أن كل سياسة، وكل Workflow، وكل آلية حماية تعمل فعلياً في GitHub وبيئة الإنتاج، وأن المشروع جاهز للتطوير المتوازي بواسطة عدة مطورين أو وكلاء ذكاء اصطناعي دون تعارضات أو مخاطر على الاستقرار.
