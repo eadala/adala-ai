@@ -18,12 +18,10 @@ localPort = 20637
 run = "pnpm --filter @workspace/adala run dev"
 
 [services.production.build]
-args = [ "pnpm", "--filter", "@workspace/adala", "run", "build" ]
+args = [ "sh", "-c", "echo 'frontend pre-built — skipping vite build'" ]
 
 [services.production.build.env]
 NODE_ENV = "production"
-VITE_BUILD_FORCE = "20260702T16"
-VITE_CLERK_PROXY_URL = "https://adalahai.com/api/__clerk"
 
 [services.production.run]
 args = [ "node", "artifacts/adala/serve.cjs" ]
