@@ -1,0 +1,141 @@
+يمكنك إرسال هذا التوجيه الاحترافي للـ Agent:
+
+⸻
+
+P0 Final Release Verification & Closure Directive
+
+بعد جميع الإصلاحات وعمليات الـ Push والـ CI السابقة، أريد تنفيذ تحقق نهائي شامل وإصدار تقرير يعتمد على الأدلة الفعلية فقط، دون أي افتراضات.
+
+المطلوب
+
+1. GitHub Verification
+
+* تحقق من آخر Commit SHA الموجود على GitHub.
+* تحقق أن origin/main و HEAD متطابقان.
+* تأكد من عدم وجود أي Divergence أو Ahead/Behind.
+* تأكد من عدم وجود Pull Requests مفتوحة أو Commits غير مدمجة.
+
+2. CI/CD Verification
+
+تحقق من آخر GitHub Actions Run وأرفق:
+
+* Run Number
+* Commit SHA
+* Branch
+* النتيجة النهائية
+
+ثم اعرض نتيجة كل Gate:
+
+* Gate 1 — TypeScript
+* Gate 2 — ESLint
+* Gate 3 — Build & Bundle
+* Gate 4 — Security Scan
+* Gate 5 — Dependency Audit
+* Gate 6 — Accessibility
+* Gate 7 — Architecture
+* Gate 8 — Tenant Isolation
+* Gate 9 — License
+* Gate 10 — Commit Convention (إن كان مطبقاً)
+
+إذا فشل أي Gate:
+
+* حدد السبب الجذري.
+* أصلحه.
+* أعد تشغيل CI حتى تصبح جميع الـ Gates ناجحة.
+
+3. Production Deployment
+
+تحقق من:
+
+* آخر Deployment.
+* هل آخر Commit هو نفسه المنشور على Production.
+* حالة Replit Deployment.
+* حالة Custom Domain.
+* حالة Autoscale Deployment.
+
+4. End-to-End Validation
+
+نفذ اختبارات فعلية تشمل:
+
+* Home
+* Dashboard
+* Login
+* Clerk Authentication
+* إنشاء قضية
+* إنشاء عميل
+* رفع ملف
+* إنشاء فاتورة
+* AI Services
+* النظام المالي
+* الموارد البشرية
+* الرسائل
+* التوقيع الإلكتروني
+* Storage
+* Health API
+
+مع توثيق النتائج.
+
+5. Security Validation
+
+تحقق من:
+
+* CSP
+* HSTS
+* JWT Validation
+* RBAC
+* Tenant Isolation
+* SQL Injection
+* XSS
+* File Upload Protection
+* Secrets
+* Rate Limiting
+
+6. Runtime Monitoring
+
+راجع سجلات التشغيل لمدة لا تقل عن 15 دقيقة.
+
+اذكر فقط:
+
+* Critical Errors
+* Runtime Exceptions
+* Memory Leaks
+* Crash Loops
+* Database Errors
+* Stripe Errors
+* Cron Failures
+
+وبيّن هل ما زالت موجودة أم لا.
+
+7. Remaining Risks
+
+أنشئ جدولاً يتضمن:
+
+* جميع المخاطر المتبقية.
+* مستوى كل خطر.
+* هل يمنع الإطلاق أم لا.
+* خطة المعالجة.
+
+8. Final Certification
+
+لا تعلن نجاح المشروع إلا إذا تحققت الشروط التالية جميعها:
+
+* GitHub متزامن بالكامل.
+* لا يوجد Divergence.
+* جميع Quality Gates ناجحة.
+* Production يعمل على آخر Commit.
+* جميع الاختبارات الوظيفية ناجحة.
+* لا توجد أخطاء حرجة مفتوحة.
+* جميع الخدمات الأساسية تعمل بصورة صحيحة.
+
+إذا تحقق كل ما سبق، فأصدر شهادة نهائية تتضمن:
+
+* Commit SHA النهائي.
+* GitHub Actions Run النهائي.
+* Deployment ID.
+* Production URL.
+* تاريخ ووقت الشهادة.
+* عبارة واضحة:
+
+“Production Ready — No Blocking Issues Remaining”
+
+أما إذا بقي أي عنصر غير مكتمل، فلا تصدر شهادة الجاهزية، بل اذكر بالتحديد ما هو المتبقي، ولماذا، وما المطلوب لإنهائه.
