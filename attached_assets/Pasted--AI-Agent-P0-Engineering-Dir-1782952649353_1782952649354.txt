@@ -1,0 +1,200 @@
+يمكنك إرسال هذا التوجيه الاحترافي للمبرمج أو للـ AI Agent المسؤول عن المشروع:
+
+⸻
+
+P0 Engineering Directive — Multi-Developer GitHub Workflow & Repository Governance
+
+بعد الانتهاء من استقرار المنصة، أريد تحويل GitHub إلى المصدر الرسمي الوحيد (Single Source of Truth) مع دعم العمل المتوازي لعدة مطورين (بشر أو AI Agents)، وليس الاعتماد على Replit فقط.
+
+المطلوب
+
+أولاً: إعادة هيكلة Git Workflow
+
+تطبيق Git Flow احترافي بالكامل:
+
+* main
+    * Production فقط.
+    * ممنوع التطوير المباشر عليه.
+* develop
+    * فرع الدمج الرئيسي.
+    * جميع الأعمال الجديدة تدمج هنا أولاً.
+* feature/*
+    * لكل ميزة فرع مستقل.
+    * مثال:
+        * feature/document-center
+        * feature/legal-ai
+        * feature/accounting
+        * feature/hr
+        * feature/client-portal
+* hotfix/*
+    * إصلاحات الإنتاج العاجلة.
+* release/*
+    * تجهيز الإصدارات قبل دمجها إلى main.
+
+⸻
+
+ثانياً: حماية GitHub
+
+فعّل Branch Protection على:
+
+main
+
+ويجب منع:
+
+* Push مباشر
+* Force Push
+* Delete Branch
+* Merge بدون Pull Request
+* Merge عند فشل GitHub Actions
+* Merge بدون مراجعة
+
+ويكون الدمج فقط بعد:
+
+✅ CI Pass
+
+✅ Code Review
+
+✅ Quality Gates Pass
+
+⸻
+
+ثالثاً: دعم تعدد المطورين
+
+المشروع يجب أن يعمل مع:
+
+* Replit Agent
+* Codex / ChatGPT Coding Agent
+* Cursor AI
+* VS Code
+* GitHub Desktop
+* مطورين بشريين
+
+بدون أي تعارضات.
+
+⸻
+
+رابعاً: GitHub هو المرجع الوحيد
+
+أي تعديل يجب أن يكون:
+
+Developer
+
+↓
+
+Feature Branch
+
+↓
+
+Commit
+
+↓
+
+Push
+
+↓
+
+Pull Request
+
+↓
+
+GitHub Actions
+
+↓
+
+Review
+
+↓
+
+Merge
+
+↓
+
+Deploy
+
+وليس:
+
+Developer
+
+↓
+
+Replit مباشرة
+
+⸻
+
+خامساً: CI/CD
+
+أنشئ Workflow احترافي يشمل:
+
+* TypeScript
+* ESLint
+* Tests
+* Build
+* Bundle Size
+* Security Scan
+* Dependency Audit
+* Secret Scan
+* License Check
+* Architecture Validation
+* Accessibility Validation
+
+ولا يسمح بأي Merge عند فشل أي خطوة.
+
+⸻
+
+سادساً: حماية المستودع
+
+أضف:
+
+* CODEOWNERS
+* CONTRIBUTING.md
+* SECURITY.md
+* Issue Templates
+* Pull Request Template
+* Release Notes Template
+* Conventional Commits
+* Semantic Versioning
+
+⸻
+
+سابعاً: منع تعارضات Replit
+
+إذا قام Replit بإنشاء Checkpoint Commits تلقائياً:
+
+* لا يتم دمجها مباشرة.
+* يتم نقل التغييرات إلى Feature Branch مناسب.
+* يمنع إنشاء Merge Commits غير ضرورية.
+* الحفاظ على تاريخ Git نظيف (Clean History).
+
+⸻
+
+ثامناً: جودة Git
+
+تحقق من:
+
+* لا يوجد Divergence.
+* لا يوجد Detached HEAD.
+* لا يوجد Rebase معلق.
+* لا يوجد Merge معلق.
+* لا يوجد Force Push.
+* لا يوجد Commits يتيمة.
+* لا يوجد Branches قديمة بدون استخدام.
+* لا يوجد ملفات غير متتبعة تؤثر على الإنتاج.
+
+⸻
+
+تاسعاً: التحقق النهائي
+
+أصدر تقرير يتضمن:
+
+1. Git Graph النهائي.
+2. جميع الفروع الحالية ووظيفتها.
+3. Branch Protection Rules.
+4. GitHub Actions Status.
+5. حالة Pull Requests.
+6. حالة Deployments.
+7. توافق جميع المطورين مع الـ Workflow الجديد.
+8. أي مخاطر متبقية وخطة معالجتها.
+9. تأكيد أن GitHub أصبح المصدر الرسمي الوحيد لجميع بيئات التطوير.
+10. تأكيد أن المشروع جاهز للعمل بالتوازي بين عدة مطورين أو وكلاء ذكاء اصطناعي دون تعارضات.
+
+الهدف النهائي: بناء بيئة تطوير احترافية قابلة للتوسع، بحيث يستطيع أي مطور أو AI Agent العمل على المشروع بأمان عبر GitHub، مع منع التعارضات، وضمان جودة الكود، وتتبع كامل للتغييرات، واعتماد GitHub كمصدر الحقيقة الوحيد (Single Source of Truth).

@@ -1,0 +1,36 @@
+# CODEOWNERS — عدالة AI
+# كل PR يجب أن يراجعه المالك المعني قبل الدمج.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default: جميع الملفات تحتاج مراجعة المالك الرئيسي
+* @eadala
+
+# Frontend — React + Vite
+/artifacts/adala/src/                   @eadala
+/artifacts/adala/vite.config.ts         @eadala
+/artifacts/adala/tsconfig.json          @eadala
+
+# Backend — API Server
+/artifacts/api-server/src/              @eadala
+/artifacts/api-server/src/modules/     @eadala
+
+# Database & Migrations
+/packages/db/                           @eadala
+/artifacts/api-server/src/core/        @eadala
+
+# CI/CD & GitHub Actions
+/.github/                               @eadala
+
+# Security — أي تعديل في ملفات الأمان يحتاج مراجعة إلزامية
+/artifacts/api-server/src/core/requireAuth.ts      @eadala
+/artifacts/api-server/src/uploadGuard.ts           @eadala
+/artifacts/api-server/src/core/promptSanitizer.ts  @eadala
+/artifacts/api-server/src/stripeClient.ts          @eadala
+
+# Finance — النظام المالي
+/artifacts/api-server/src/modules/financial/       @eadala
+/artifacts/api-server/src/modules/payments/        @eadala
+
+# Workspace Config
+/pnpm-workspace.yaml                    @eadala
+/package.json                           @eadala
