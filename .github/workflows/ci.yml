@@ -25,6 +25,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "20", cache: "pnpm" }
       - run: pnpm install --frozen-lockfile
+      - name: Build lib/db (required for api-server type resolution)
+        run: pnpm --filter @workspace/db build
       - run: pnpm --filter @workspace/adala run typecheck
       - run: pnpm --filter @workspace/api-server run typecheck
 
@@ -199,7 +201,7 @@ jobs:
           test -f pnpm-workspace.yaml || (echo "❌ pnpm-workspace.yaml missing" && exit 1)
           test -d artifacts/adala || (echo "❌ artifacts/adala missing" && exit 1)
           test -d artifacts/api-server || (echo "❌ artifacts/api-server missing" && exit 1)
-          test -d packages/db || (echo "❌ packages/db missing" && exit 1)
+          test -d lib/db || (echo "❌ lib/db missing" && exit 1)
           echo "✅ Monorepo structure valid"
       - name: Check for console.log in production code
         run: |
