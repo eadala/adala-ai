@@ -226,9 +226,13 @@ const clerkPubKey = publishableKeyFromHost(
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
 );
 
-// Vite inlines VITE_CLERK_PROXY_URL at build time (set to https://adalahai.com/api/__clerk
-// in [services.production.build.env]). Empty in dev (Clerk uses dev FAPI directly).
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+// Clerk proxy URL — computed at RUNTIME from window.location.origin.
+// Replit's deployment build does NOT pass env vars to vite, so import.meta.env
+// is always undefined in the bundle. We compute it here instead.
+const _rawProxy = import.meta.env.VITE_CLERK_PROXY_URL ?? "/api/__clerk";
+const clerkProxyUrl = _rawProxy.startsWith("http")
+  ? _rawProxy
+  : `${window.location.origin}${_rawProxy}`;
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
