@@ -25,8 +25,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "20", cache: "pnpm" }
       - run: pnpm install --frozen-lockfile
-      - name: Build lib/db (required for api-server type resolution)
-        run: pnpm --filter @workspace/db build
+      - name: Build lib/db (required by api-server composite project reference)
+        run: cd lib/db && pnpm exec tsc -p tsconfig.json
       - run: pnpm --filter @workspace/adala run typecheck
       - run: pnpm --filter @workspace/api-server run typecheck
 
