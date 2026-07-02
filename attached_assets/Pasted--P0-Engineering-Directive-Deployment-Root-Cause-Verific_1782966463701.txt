@@ -1,0 +1,181 @@
+يمكنك إرسال هذا الأمر الاحترافي:
+
+⸻
+
+🚨 P0 Engineering Directive — Deployment Root Cause Verification (Evidence Only)
+
+أوقف أي تعديلات على الكود أو إنشاء Commits أو إعادة Publish حتى ننتهي من إثبات السبب الجذري.
+
+لا أريد فرضيات أو استنتاجات. أريد أدلة تشغيلية (Operational Evidence) من بيئة Production فقط.
+
+المطلوب
+
+1) Deployment Audit
+
+اعرض التقرير الكامل لآخر Deployment، ويتضمن:
+
+* Deployment ID
+* Commit SHA الذي تم تشغيله فعليًا
+* وقت بدء الـ Build
+* وقت انتهاء الـ Build
+* وقت Activation
+* هل أصبح هذا Deployment هو Active Revision
+
+أثبت ذلك من سجلات Replit Deployment أو أي مصدر رسمي.
+
+⸻
+
+2) Build Audit
+
+أثبت أن عملية البناء اكتملت بالكامل.
+
+اعرض:
+
+* Build Logs كاملة
+* Exit Code
+* Build Duration
+* الملفات التي تم توليدها داخل dist
+* أسماء ملفات JS/CSS الجديدة
+* Hash لكل Bundle
+
+⸻
+
+3) Asset Deployment Verification
+
+أثبت أن ملفات dist الجديدة رُفعت فعلاً إلى Production.
+
+تحقق من:
+
+* index.html
+* index-*.js
+* index-*.css
+
+واعرض:
+
+* Last-Modified
+* ETag
+* Content-Length
+* Cache-Control
+
+ثم قارنها مع ملفات الـ Build المحلي.
+
+⸻
+
+4) Health Check Audit
+
+أريد جميع Health Checks الخاصة بالنشر.
+
+لكل Health Check اعرض:
+
+* Timestamp
+* Path
+* HTTP Status
+* Response Time
+* Pass / Fail
+
+إذا فشل أي Health Check فأرفق الرسالة الأصلية كاملة.
+
+⸻
+
+5) Startup Audit
+
+أثبت بالتوقيتات الدقيقة:
+
+* متى بدأ process التشغيل
+* متى تم فتح PORT
+* متى أصبح السيرفر Ready
+* متى أصبح أول HTTP 200
+
+إذا كان Startup تجاوز المهلة فأثبت ذلك بالسجلات.
+
+⸻
+
+6) Runtime Revision Verification
+
+أثبت أن Production يشغل نفس Commit الموجود في GitHub.
+
+اعرض:
+
+* Commit داخل الحاوية
+* Commit في GitHub
+* Commit في آخر Deployment
+
+إذا كانت مختلفة، فاشرح أين حدث الانقطاع.
+
+⸻
+
+7) Bundle Verification
+
+اعرض اسم الـ Bundle الذي يخدمه Production الآن.
+
+إذا كان ما يزال:
+
+index-Bp3NanmM.js
+
+فحدد لماذا لم يُستبدل.
+
+وإذا أصبح Bundle جديدًا، فأعطِ اسمه الكامل.
+
+⸻
+
+8) Clerk Verification
+
+تحقق من:
+
+GET /api/__clerk/v1/environment
+
+وأرفق:
+
+* HTTP Status
+* Response Body
+* Response Headers
+
+ثم أثبت أن:
+
+* proxyUrl موجود داخل Bundle الإنتاج.
+* publishableKeyFromHost موجود.
+* VITE_CLERK_PROXY_URL موجود.
+* لا يوجد host_invalid.
+
+⸻
+
+9) Production Runtime
+
+تحقق من:
+
+* Landing Page
+* Login
+* Dashboard
+
+وأثبت:
+
+* عدم وجود Infinite Loading.
+* عدم وجود JavaScript Errors.
+* عدم وجود Network Errors.
+* عدم وجود 404 للأصول.
+
+⸻
+
+التقرير النهائي
+
+في النهاية أريد جدولًا واحدًا فقط:
+
+البند	الحالة	الدليل
+Build Completed	✅ / ❌	
+Assets Generated	✅ / ❌	
+Assets Deployed	✅ / ❌	
+Deployment Activated	✅ / ❌	
+Latest Commit Running	✅ / ❌	
+Health Checks Passed	✅ / ❌	
+Startup Successful	✅ / ❌	
+New Bundle Served	✅ / ❌	
+Clerk Healthy	✅ / ❌	
+Landing Page Works	✅ / ❌	
+Login Works	✅ / ❌	
+Dashboard Works	✅ / ❌	
+Infinite Loading Removed	✅ / ❌	
+
+قاعدة إلزامية
+
+* لا تنسب أي سبب إلى pnpm أو serve.mjs أو Replit أو Clerk إلا إذا كان مدعومًا بسجل (Log) أو دليل مباشر.
+* إذا تعذر إثبات أي نقطة، فاكتب بوضوح: “غير مثبت بالأدلة” ولا تبنِ عليها أي استنتاج.
