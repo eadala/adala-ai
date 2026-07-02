@@ -1,0 +1,131 @@
+التقرير الأخير أكثر منطقية من التقارير السابقة، لكنه ما زال يتضمن استنتاجًا لا يمكن اعتباره مؤكدًا قبل التحقق من الإنتاج. لذلك أنصح بأن يكون التوجيه النهائي للمطور بصيغة تحقق (Verification) وليس افتراض نجاح.
+
+يمكنك إرسال هذا البرومبت الاحترافي:
+
+⸻
+
+P0 Final Production Deployment & Verification Directive
+
+Objective
+
+إكمال نشر الإصلاحات إلى بيئة الإنتاج والتحقق بالأدلة أن مشكلة Clerk وشاشة “جاري التحميل…” قد انتهت بالكامل.
+
+لا تعتبر المهمة مكتملة بمجرد نجاح Build أو ظهور Published your App، وإنما بعد نجاح جميع اختبارات التشغيل (Runtime Validation).
+
+⸻
+
+المرحلة الأولى — Production Deployment
+
+انشر آخر Commit الموجود على main.
+
+بعد اكتمال النشر أرفق:
+
+* Commit SHA المنشور.
+* Deployment ID.
+* Build Number.
+* Build Logs كاملة.
+* وقت بداية وانتهاء عملية النشر.
+
+⸻
+
+المرحلة الثانية — Bundle Verification
+
+أثبت أن الإنتاج يستخدم الـ Bundle الجديد.
+
+تحقق من:
+
+curl -s https://adalahai.com | grep -o 'index-[^"]*\.js'
+
+وأرفق:
+
+* اسم ملف JavaScript الجديد.
+* اسم ملف CSS الجديد.
+* Last-Modified.
+* ETag.
+* Cache-Control.
+* CF-Cache-Status.
+
+ويجب إثبات أن:
+
+* لم يعد يتم تحميل index-Bp3NanmM.js.
+* جميع Assets الجديدة تعود بـ HTTP 200.
+* لا توجد ملفات Assets تعيد 404.
+
+⸻
+
+المرحلة الثالثة — Clerk Verification
+
+نفذ:
+
+curl https://adalahai.com/api/__clerk/v1/environment
+
+ويجب أن تكون النتيجة:
+
+* HTTP 200.
+* عدم وجود host_invalid.
+* عدم وجود أخطاء DNS.
+* عدم وجود أخطاء Proxy.
+
+ثم أثبت من المتصفح أن:
+
+* Clerk.isLoaded === true.
+* تم تحميل ClerkProvider بالكامل.
+* لا توجد شاشة تحميل دائمة.
+
+⸻
+
+المرحلة الرابعة — Functional Validation
+
+تحقق من السيناريوهات التالية:
+
+* الصفحة الرئيسية تعمل مباشرة.
+* صفحة تسجيل الدخول تعمل.
+* إنشاء حساب جديد.
+* تسجيل الدخول.
+* تسجيل الخروج.
+* الدخول إلى Dashboard.
+* تحديث الصفحة.
+* فتح رابط مباشر داخل النظام.
+
+يجب أن تنجح جميعها بدون أخطاء.
+
+⸻
+
+المرحلة الخامسة — Runtime & Logs
+
+راجع آخر 30 دقيقة من سجلات الإنتاج.
+
+أكد عدم وجود:
+
+* Runtime Errors.
+* Clerk Errors.
+* host_invalid.
+* DNS Errors.
+* Proxy Errors.
+* Deployment Errors.
+* Container Restart.
+
+⸻
+
+المرحلة السادسة — Final Certification
+
+أصدر تقريراً نهائياً يتضمن:
+
+1. Commit SHA المنشور.
+2. Deployment ID.
+3. Build ID.
+4. أسماء الـ Bundles الجديدة.
+5. نتائج اختبارات Clerk.
+6. نتائج المصادقة.
+7. نتائج الصفحة الرئيسية.
+8. نتائج Logs.
+9. أي مخاطر متبقية.
+10. قرار نهائي: Production Ready أو Not Ready مع التبرير.
+
+لا تُغلق الحادثة إلا إذا أثبتت الأدلة التشغيلية أن:
+
+* الصفحة الرئيسية تعمل بدون شاشة “جاري التحميل…”.
+* Clerk.isLoaded = true.
+* /api/__clerk/v1/environment يعيد HTTP 200.
+* جميع سيناريوهات المصادقة تعمل بنجاح.
+* الإصدار الجديد هو المستخدم فعلياً في بيئة الإنتاج.
