@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "vite build --config vite.config.ts && cp dist/public/index.html dist/public/404.html",
+    "build": "vite build --config vite.config.ts && cp dist4/public/index.html dist4/public/404.html && cp -r dist4/public/. dist-stable/",
     "lint": "eslint src --max-warnings=9999",
     "lint:fix": "eslint src --fix --max-warnings=9999",
     "serve": "node serve.cjs",
