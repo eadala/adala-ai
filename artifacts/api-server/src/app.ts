@@ -97,7 +97,10 @@ app.use(helmet({
     directives: {
       defaultSrc:     ["'self'"],
       scriptSrc:      ["'self'", "'unsafe-inline'",
+                       // Clerk dev instance (dev environment)
                        "https://clerk.accounts.dev", "https://*.clerk.accounts.dev",
+                       // Clerk Turnstile bot-protection (both dev and prod)
+                       "https://challenges.cloudflare.com",
                        "https://js.stripe.com", "https://cdn.jsdelivr.net"],
       workerSrc:      ["'self'", "blob:"],
       styleSrc:       ["'self'", "'unsafe-inline'",
@@ -107,7 +110,10 @@ app.use(helmet({
       fontSrc:        ["'self'", "https://fonts.gstatic.com", "data:"],
       objectSrc:      ["'none'"],
       frameSrc:       ["https://js.stripe.com",
-                       "https://clerk.accounts.dev", "https://*.clerk.accounts.dev"],
+                       // Clerk dev instance
+                       "https://clerk.accounts.dev", "https://*.clerk.accounts.dev",
+                       // Cloudflare Turnstile — required for Clerk sign-in bot protection
+                       "https://challenges.cloudflare.com"],
       baseUri:        ["'self'"],
       formAction:     ["'self'"],
       upgradeInsecureRequests: [],
