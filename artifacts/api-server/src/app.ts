@@ -291,6 +291,11 @@ app.use(preventionErrorHandler);
 if (process.env.NODE_ENV === "production") {
   const publicDir = process.env.PUBLIC_DIR ?? "./public";
 
+  app.use("/assets", express.static(`${publicDir}/assets`, {
+    maxAge: "1d",
+    etag: true,
+  }));
+
   app.use(express.static(publicDir, {
     maxAge: "1d",
     etag: true,
