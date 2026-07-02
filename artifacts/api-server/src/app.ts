@@ -99,6 +99,7 @@ app.use(helmet({
       scriptSrc:      ["'self'", "'unsafe-inline'",
                        // Clerk dev instance (dev environment)
                        "https://clerk.accounts.dev", "https://*.clerk.accounts.dev",
+                       "https://clerk.adalahai.com",
                        // Clerk Turnstile bot-protection (both dev and prod)
                        "https://challenges.cloudflare.com",
                        "https://js.stripe.com", "https://cdn.jsdelivr.net"],
