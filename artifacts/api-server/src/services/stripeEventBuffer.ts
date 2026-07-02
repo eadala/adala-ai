@@ -76,7 +76,7 @@ async function moveToDLQ(stripeEventId: string, type: string, payload: any, erro
   await db.execute(sql`
     INSERT INTO stripe_dead_letters (stripe_event_id, type, payload, error, retry_count)
     VALUES (${stripeEventId}, ${type}, ${JSON.stringify(payload)}, ${error}, ${retryCount})
-  `).catch(e => logger.error({ e }, "[StripeBuffer] DLQ insert failed"));
+  `).catch((e: unknown) => logger.error({ e }, "[StripeBuffer] DLQ insert failed"));
 
   await db.execute(sql`
     UPDATE stripe_events
@@ -133,7 +133,7 @@ export async function bufferAndProcess(
     VALUES (${eventId}, ${eventType}, ${JSON.stringify(event)}, 'processing')
     ON CONFLICT (stripe_event_id) DO UPDATE
       SET status = 'processing', retry_count = stripe_events.retry_count + 1
-  `).catch(e => logger.error({ e }, "[StripeBuffer] Failed to write event buffer"));
+  `).catch((e: unknown) => logger.error({ e }, "[StripeBuffer] Failed to write event buffer"));
 
   /* 4. Process with retry + exponential backoff */
   let lastError = "";
