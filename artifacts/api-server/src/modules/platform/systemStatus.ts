@@ -30,7 +30,8 @@ async function checkAI(): Promise<ServiceCheck> {
 
 async function checkStorage(): Promise<ServiceCheck> {
   const bucket = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
-  if (!bucket) return { name: "storage", label: "التخزين", status: "degraded", detail: "لا يوجد bucket مضبوط" };
+  const hasReplitStorage = process.env.REPLIT_CONNECTORS_HOSTNAME || process.env.REPL_ID;
+  if (!bucket && !hasReplitStorage) return { name: "storage", label: "التخزين", status: "degraded", detail: "لا يوجد bucket مضبوط" };
   return { name: "storage", label: "التخزين", status: "operational" };
 }
 
@@ -67,7 +68,11 @@ async function checkWhatsApp(): Promise<ServiceCheck> {
 
 async function checkPayments(): Promise<ServiceCheck> {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeKey) return { name: "payments", label: "المدفوعات", status: "degraded", detail: "Stripe غير مضبوط" };
+  const hasReplitConnectors = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const hasReplitToken = process.env.REPL_IDENTITY || process.env.WEB_REPL_RENEWAL;
+  if (!stripeKey && !(hasReplitConnectors && hasReplitToken)) {
+    return { name: "payments", label: "المدفوعات", status: "degraded", detail: "Stripe غير مضبوط" };
+  }
   return { name: "payments", label: "المدفوعات", status: "operational" };
 }
 
