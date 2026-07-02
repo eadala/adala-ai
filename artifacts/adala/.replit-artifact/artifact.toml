@@ -22,6 +22,7 @@ args = [ "pnpm", "--filter", "@workspace/adala", "run", "build" ]
 
 [services.production.build.env]
 NODE_ENV = "production"
+VITE_BUILD_FORCE = "20260702T14"
 
 [services.production.run]
 args = [ "node", "artifacts/adala/serve.cjs" ]
