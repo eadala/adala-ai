@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import fs from "node:fs";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const rawPort = process.env.PORT;
@@ -40,6 +41,42 @@ export default defineConfig({
           ),
         ]
       : []),
+    // ── Production preview server: correct cache headers + SPA fallback ─────
+    {
+      name: "preview-cache-and-spa",
+      configurePreviewServer(server) {
+        // 1. Per-file-type cache headers (runs before static file serving)
+        server.middlewares.use((req, res, next) => {
+          const url = (req.url ?? "").split("?")[0];
+          if (url.startsWith("/assets/")) {
+            // Content-hashed assets: safe to cache forever
+            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          } else {
+            // HTML + SW + manifest: never cache — ensures fresh HTML on every deploy
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+            res.setHeader("Pragma", "no-cache");
+          }
+          next();
+        });
+        // 2. SPA fallback — return after built-in static handler so unknown routes
+        //    serve index.html instead of 404 (required for client-side routing)
+        return () => {
+          const distDir = path.resolve(import.meta.dirname, "dist/public");
+          server.middlewares.use((_req, res) => {
+            const indexPath = path.join(distDir, "index.html");
+            try {
+              const html = fs.readFileSync(indexPath, "utf-8");
+              res.setHeader("Content-Type", "text/html; charset=utf-8");
+              res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+              res.end(html);
+            } catch {
+              res.statusCode = 404;
+              res.end("Not found");
+            }
+          });
+        };
+      },
+    },
   ],
   resolve: {
     alias: {
@@ -192,3 +229,6 @@ export default defineConfig({
     allowedHosts: true,
   },
 });
+
+// Plugin is defined outside defineConfig to avoid hoisting issues
+// It controls cache headers per file type and provides SPA fallback for vite preview

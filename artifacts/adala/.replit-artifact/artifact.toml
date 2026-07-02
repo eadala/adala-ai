@@ -19,12 +19,7 @@ run = "pnpm --filter @workspace/adala run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/adala", "run", "build" ]
-publicDir = "artifacts/adala/dist/public"
-serve = "static"
-
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+run = "pnpm --filter @workspace/adala run serve"
 
 [services.env]
 PORT = "20637"
