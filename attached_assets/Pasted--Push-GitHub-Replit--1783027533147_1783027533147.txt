@@ -1,0 +1,110 @@
+إذا توقفت حتى عملية Push إلى GitHub بعد كل مشاكل Replit، فهذا مؤشر على أن المشكلة أصبحت أعمق من مجرد Clerk أو البناء. يجب التوقف عن التخمين وتشخيص طبقة Git أولاً.
+
+أرسل للمبرمج هذا التوجيه:
+
+⸻
+
+🚨 P0 – GitHub Push Failure Investigation
+
+لدينا الآن مشكلة جديدة: التغييرات لم تعد تُرفع إلى GitHub.
+
+قبل إجراء أي تعديل جديد أو محاولة نشر أخرى، أوقف جميع أعمال التطوير وحدد السبب الجذري لهذه المشكلة.
+
+المطلوب
+
+أولاً: تحديد نقطة الفشل
+
+حدد في أي مرحلة يتوقف العمل:
+
+* Git Commit
+* Git Push
+* GitHub Authentication
+* GitHub Remote
+* Replit Git Integration
+* Branch Protection
+* Repository Permissions
+* Large Files / LFS
+* Network / API
+
+لا أريد تخمينات، بل الدليل الفعلي.
+
+⸻
+
+نفّذ التشخيص التالي بالكامل
+
+اعرض نتائج الأوامر التالية مع مخرجاتها كاملة:
+
+git status
+git branch -vv
+git remote -v
+git log --oneline --decorate -10
+git config --list
+git remote show origin
+git rev-parse HEAD
+git rev-parse origin/main
+git fetch origin
+git push origin main
+
+إذا فشل Push:
+
+اعرض الخطأ كاملاً كما هو، بدون اختصار.
+
+⸻
+
+تحقق من GitHub
+
+راجع:
+
+* هل المستودع موجود؟
+* هل الفرع main موجود؟
+* هل هناك Branch Protection؟
+* هل تم إلغاء صلاحية Token؟
+* هل انتهت صلاحية OAuth؟
+* هل تغير Owner أو Repository؟
+* هل تغير عنوان Remote؟
+
+⸻
+
+تحقق من Replit
+
+راجع:
+
+* Git Integration
+* Git Credentials
+* GitHub Connection
+* Workspace Permissions
+* Deployment Permissions
+
+⸻
+
+تحقق من حجم الملفات
+
+نفذ فحصاً للتأكد من عدم وجود ملفات كبيرة تمنع الدفع:
+
+git count-objects -vH
+git lfs ls-files
+find . -type f -size +50M
+
+⸻
+
+المطلوب في التقرير
+
+لا تقل “تم الإصلاح”.
+
+أريد تقريراً يحتوي على:
+
+1. أول أمر فشل.
+2. رسالة الخطأ الكاملة.
+3. سبب الفشل الحقيقي.
+4. هل المشكلة من Git أم GitHub أم Replit.
+5. الإصلاح المقترح.
+6. نسبة الثقة في التشخيص.
+7. الدليل الذي يثبت أن المشكلة انتهت بعد الإصلاح.
+
+⸻
+
+ملاحظة مهمة
+
+إذا كان Replit نفسه لم يعد يستطيع تنفيذ git push أو الاتصال بـ GitHub، فأوقف جميع محاولات النشر مؤقتاً. في هذه الحالة تكون المشكلة في بيئة التطوير أو التكامل مع GitHub، وأي محاولة لإصلاح التطبيق قبل استعادة عمل Git ستكون مضيعة للوقت لأن الكود لن يصل إلى المستودع أو إلى بيئة الإنتاج.
+
+سؤال مهم: ما هي رسالة الخطأ التي تظهر عند محاولة الرفع إلى GitHub؟ انسخها كما هي (أو أرسل لقطة شاشة)، لأنها ستحدد خلال دقائق إن كانت المشكلة في المصادقة، الصلاحيات، أو في Replit نفسه.
