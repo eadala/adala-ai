@@ -24,7 +24,7 @@ args = [ "pnpm", "--filter", "@workspace/adala", "run", "build" ]
 NODE_ENV = "production"
 
 [services.production.run]
-args = [ "node", "artifacts/adala/serve.mjs" ]
+args = [ "node", "artifacts/adala/serve.cjs" ]
 
 [services.production.run.env]
 PORT = "20637"

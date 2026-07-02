@@ -8,7 +8,7 @@
     "build": "vite build --config vite.config.ts && cp dist/public/index.html dist/public/404.html",
     "lint": "eslint src --max-warnings=9999",
     "lint:fix": "eslint src --fix --max-warnings=9999",
-    "serve": "node serve.mjs",
+    "serve": "node serve.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "governance:gate": "bash ../../scripts/governance/quality-gate.sh",
     "governance:audit": "node ../../scripts/governance/ui-audit.mjs",
