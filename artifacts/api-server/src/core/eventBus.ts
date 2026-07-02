@@ -113,7 +113,7 @@ class EventBus {
         ${JSON.stringify(stored.data)}::jsonb,
         ${stored.timestamp}::timestamp
       )
-    `).catch(e => console.error("[EventBus] persist error:", e.message));
+    `).catch((e: unknown) => console.error("[EventBus] persist error:", (e as Error).message));
 
     /* 2. Run specific listeners */
     const handlers = this.listeners.get(stored.type) ?? [];
