@@ -22,7 +22,8 @@ args = [ "pnpm", "--filter", "@workspace/adala", "run", "build" ]
 
 [services.production.build.env]
 NODE_ENV = "production"
-VITE_BUILD_FORCE = "20260702T15"
+VITE_BUILD_FORCE = "20260702T16"
+VITE_CLERK_PROXY_URL = "https://adalahai.com/api/__clerk"
 
 [services.production.run]
 args = [ "node", "artifacts/adala/serve.cjs" ]
