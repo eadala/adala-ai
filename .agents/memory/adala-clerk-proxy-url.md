@@ -1,63 +1,37 @@
 ---
-name: Adala Clerk proxyUrl production blank page
-description: Root cause and fix for production blank page/infinite loading caused by missing or misconfigured VITE_CLERK_PROXY_URL
+name: Adala Clerk proxyUrl — dev vs prod
+description: Root cause and fix for Clerk failing to load (blank/infinite loading, or "failed_to_load_clerk_js") in dev preview vs production, caused by the shared VITE_CLERK_PROXY_URL env var
 ---
 
-# Clerk proxyUrl — Production Infinite Loading Fix
+# Clerk proxyUrl — Dev vs Production
 
 ## The Core Rule (Updated July 2026)
 
-`VITE_CLERK_PROXY_URL` is **NOT auto-provisioned** by `setupClerkWhitelabelAuth()`. It must be set manually as a **production env var** to the **full absolute URL**:
+`clerkProxyMiddleware.ts` is **only mounted in production** (`NODE_ENV === "production"` gate) — Clerk's proxy feature requires a stable, pre-verified domain, which dev preview URLs (random `*.pike.replit.dev` per session) can never satisfy.
 
-```
-VITE_CLERK_PROXY_URL=https://adalahai.com/api/__clerk   (environment: production)
-```
+Therefore the frontend must **never pass a proxyUrl to ClerkProvider in dev** — not even one pointing at a known-good production/replit.app domain, because:
+1. It would be cross-origin from the dev preview's own origin, and CSP `script-src` only allows `'self'` + `clerk.accounts.dev` domains — any other origin gets blocked outright.
+2. Clerk in dev should just fall back to talking directly to its own Frontend API (`clerk.accounts.dev`), which is already CSP-whitelisted and works with dev-mode (`pk_test_`) keys.
 
-**Why full absolute URL:** Clerk v6 requires absolute URL for `proxyUrl`. Do NOT use relative `/api/__clerk`.
-
-## Canonical App.tsx Wiring (use this verbatim)
-
+**Canonical pattern in App.tsx:**
 ```typescript
-import { publishableKeyFromHost } from "@clerk/react/internal";
-
-// Resolves pk_test in dev from env, pk_live in prod from hostname
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
-
-// Empty in dev (intentional — Clerk uses dev FAPI directly), absolute URL in prod
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const clerkProxyUrl = import.meta.env.DEV
+  ? undefined  // let Clerk hit clerk.accounts.dev directly, CSP-safe
+  : (() => {
+      const _rawProxy = import.meta.env.VITE_CLERK_PROXY_URL ?? "/api/__clerk";
+      return _rawProxy.startsWith("http") ? _rawProxy : `${window.location.origin}${_rawProxy}`;
+    })();
 ```
 
-**Why:** The canonical skill code uses `import.meta.env.VITE_CLERK_PROXY_URL` directly — no `_rawProxy` transformation needed — because we set it to the full absolute URL in the production env var.
+**Why:** the "clean" version (`const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL`) that a past iteration of this note recommended is what caused dev breakage — `VITE_CLERK_PROXY_URL` lives in the **shared** env scope, so its value (an absolute production/custom-domain URL) leaks into dev too, and Vite's dev server (unlike the production build) actually inlines env vars, so `import.meta.env.VITE_CLERK_PROXY_URL` is NOT undefined in dev — it resolves to that absolute URL and breaks CSP + Clerk-proxy-domain verification.
 
-**Old pattern (DO NOT USE):**
-```typescript
-// Wrong — had a _rawProxy runtime expansion; now set the absolute URL directly in env var
-const _rawProxy = import.meta.env.VITE_CLERK_PROXY_URL;
-const clerkProxyUrl = _rawProxy ? _rawProxy.startsWith("/") ? `${window.location.origin}${_rawProxy}` : _rawProxy : undefined;
-```
+## P0 Incident Timeline (July 2026)
 
-## P0 Incident Root Cause (July 2026)
-
-Production stuck on "جاري التحميل…" because:
-1. `VITE_CLERK_PROXY_URL` was NEVER baked into production bundles → Clerk JS called `clerk.adalahai.com` DNS → DNS fails → `isLoaded=false` forever
-2. App.tsx had non-canonical `publishableKeyFromHost` avoidance (due to old `.replit.app` issue that no longer applies on `adalahai.com`)
-
-## Fix Applied
-
-1. Set `VITE_CLERK_PROXY_URL=https://adalahai.com/api/__clerk` as production env var
-2. Updated App.tsx to canonical pattern (publishableKeyFromHost + simple clerkProxyUrl)
-3. Ran `setupClerkWhitelabelAuth()` to re-provision Clerk keys
-4. Published new build
-
-## publishableKeyFromHost Note
-
-Previously avoided on `.replit.app` because it threw. On `adalahai.com` it works correctly — resolves `pk_live_Y2xlcmsuYWRhbGFoYWkuY29tJA` from the hostname automatically.
+1. Production custom domain (adalahai.com) was serving a stale bundle/broken Clerk proxy (400) — traced to the custom domain not being linked/verified in Replit's deployment domain settings (`getDeploymentInfo().additionalUrls` was empty) while the `*.replit.app` URL worked correctly.
+2. While investigating, discovered dev preview showed `Clerk: Failed to load Clerk JS ... failed_to_load_clerk_js` for `https://adalahai.com/api/__clerk@6/dist/clerk.browser.js` — because shared env var forced dev to load Clerk JS from the (broken) production domain.
+3. Fix: gate `clerkProxyUrl` on `import.meta.env.DEV` so dev always ignores the env var and lets Clerk connect directly; production keeps using the runtime-computed absolute/relative URL logic.
 
 ## Diagnosis Path
 
-- Check `viewEnvVars({ keys: ["VITE_CLERK_PROXY_URL"] })` — must be set for production
-- Search production bundle for `/api/__clerk` → if absent, proxy URL was not baked in → infinite loading
-- `host_invalid` from curl of `/api/__clerk` in dev workspace is EXPECTED (dev uses test SK, prod uses live SK) — not a real error
+- If dev preview shows a Clerk script-load error or CSP `Refused to load the script` violation mentioning a non-`clerk.accounts.dev` domain → check if `clerkProxyUrl` is being computed from `VITE_CLERK_PROXY_URL` without a dev/prod gate.
+- `getDeploymentInfo().additionalUrls` empty while a custom domain is expected to work → the custom domain was never linked/verified via Replit's Deployments → Custom Domains UI; DNS resolving via Cloudflare with no Replit TXT verification record is corroborating evidence, but final confirmation requires checking the Deployments UI directly (not available via any code-execution API).

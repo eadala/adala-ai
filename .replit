@@ -61,7 +61,7 @@ STRIPE_PUBLISHABLE_KEY = "pk_test_51TegP2DW8Ua4zHxtORN4sRObyWB9DOHKRHo45G6OaINDN
 VITE_STRIPE_PUBLISHABLE_KEY = "pk_test_51TegP2DW8Ua4zHxtORN4sRObyWB9DOHKRHo45G6OaINDNwDeKRvzXNL3VZbBv6MQiRrko8NBkmM2l4AHzT5MFjmS00aKraoGZG"
 PLATFORM_OWNER_EMAIL = "eadala1000@gmail.com"
 VITE_PLATFORM_OWNER_EMAIL = "eadala1000@gmail.com"
-VITE_CLERK_PROXY_URL = "https://adalahai.com/api/__clerk"
+VITE_CLERK_PROXY_URL = "https://legal-platform--ahkm1000.replit.app/api/__clerk"
 
 [userenv.production]
 PRODUCTION_URL = "https://adalahai.com"

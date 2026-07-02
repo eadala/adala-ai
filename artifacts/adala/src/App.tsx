@@ -229,10 +229,23 @@ const clerkPubKey = publishableKeyFromHost(
 // Clerk proxy URL — computed at RUNTIME from window.location.origin.
 // Replit's deployment build does NOT pass env vars to vite, so import.meta.env
 // is always undefined in the bundle. We compute it here instead.
-const _rawProxy = import.meta.env.VITE_CLERK_PROXY_URL ?? "/api/__clerk";
-const clerkProxyUrl = _rawProxy.startsWith("http")
-  ? _rawProxy
-  : `${window.location.origin}${_rawProxy}`;
+//
+// IMPORTANT: the Clerk proxy is only mounted on the server in production
+// (see clerkProxyMiddleware.ts) — Clerk requires the proxy domain to be a
+// verified, stable domain, which dev preview URLs (random *.pike.replit.dev
+// per session) can never be. So in dev we must NOT pass a proxyUrl at all —
+// Clerk then falls back to talking directly to its own Frontend API
+// (clerk.accounts.dev), which is already whitelisted in the CSP script-src.
+// Passing any cross-origin proxyUrl in dev also gets blocked by CSP since
+// script-src only allows 'self' + clerk.accounts.dev, not arbitrary domains.
+const clerkProxyUrl = import.meta.env.DEV
+  ? undefined
+  : (() => {
+      const _rawProxy = import.meta.env.VITE_CLERK_PROXY_URL ?? "/api/__clerk";
+      return _rawProxy.startsWith("http")
+        ? _rawProxy
+        : `${window.location.origin}${_rawProxy}`;
+    })();
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
