@@ -226,26 +226,15 @@ const clerkPubKey = publishableKeyFromHost(
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
 );
 
-// Clerk proxy URL — computed at RUNTIME from window.location.origin.
-// Replit's deployment build does NOT pass env vars to vite, so import.meta.env
-// is always undefined in the bundle. We compute it here instead.
-//
-// IMPORTANT: the Clerk proxy is only mounted on the server in production
-// (see clerkProxyMiddleware.ts) — Clerk requires the proxy domain to be a
-// verified, stable domain, which dev preview URLs (random *.pike.replit.dev
-// per session) can never be. So in dev we must NOT pass a proxyUrl at all —
-// Clerk then falls back to talking directly to its own Frontend API
-// (clerk.accounts.dev), which is already whitelisted in the CSP script-src.
-// Passing any cross-origin proxyUrl in dev also gets blocked by CSP since
-// script-src only allows 'self' + clerk.accounts.dev, not arbitrary domains.
-const clerkProxyUrl = import.meta.env.DEV
-  ? undefined
-  : (() => {
-      const _rawProxy = import.meta.env.VITE_CLERK_PROXY_URL ?? "/api/__clerk";
-      return _rawProxy.startsWith("http")
-        ? _rawProxy
-        : `${window.location.origin}${_rawProxy}`;
-    })();
+// REQUIRED — copy verbatim. Empty in dev (Clerk hits dev FAPI directly), auto-set
+// in prod. Do NOT gate on import.meta.env.PROD / NODE_ENV / import.meta.env.DEV,
+// and do NOT rebuild it from window.location.origin — the auto-provisioned value
+// is already the correct absolute proxy URL for the active deployment domain.
+// Any branching here breaks the prod proxy in ways that are very hard to notice
+// (it can still "work" on the .replit.app domain while silently failing on a
+// linked custom domain, because Clerk validates the proxy host against its own
+// domain registration independent of what the client sends).
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
