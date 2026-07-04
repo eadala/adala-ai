@@ -1,0 +1,199 @@
+إليك برومبت احترافي بصيغة Senior Software Architect / Production Incident، يركز على التنفيذ وليس التخمين:
+
+⸻
+
+P0 Production Recovery Directive – Canonical Clerk Implementation
+
+أنت الآن تعمل كمهندس برمجيات أول (Senior Software Engineer) ومهندس منصات (Platform Engineer).
+
+مهم جداً:
+لا أريد حلولاً التفافية (Workarounds)، ولا ترقيعات مؤقتة، ولا افتراضات.
+أريد الوصول إلى السبب الجذري الحقيقي (Root Cause) وإصلاحه وفق أفضل الممارسات الرسمية (Canonical Implementation).
+
+⸻
+
+المهمة
+
+قم بإجراء مراجعة كاملة لمنظومة المصادقة (Clerk) وعملية النشر (Deployment Pipeline) في المشروع، ثم نفذ الإصلاحات اللازمة.
+
+يجب أن تعتمد فقط على:
+
+* الوثائق الرسمية لـ Clerk
+* أفضل الممارسات الخاصة بـ React + Vite
+* آلية Replit Deployments الرسمية
+
+ويمنع إضافة أي منطق مخصص إلا إذا كان موثقاً رسمياً.
+
+⸻
+
+المطلوب
+
+المرحلة الأولى — Root Cause Analysis
+
+حدد السبب الجذري الحقيقي مع أدلة برمجية لكل نقطة.
+
+يشمل ذلك:
+
+* App.tsx
+* ClerkProvider
+* publishableKey
+* proxyUrl
+* Middleware
+* CSP
+* Environment Variables
+* Build Pipeline
+* Artifact
+* Production Bundle
+* Runtime
+* DNS
+* Deployment
+
+لكل نقطة اذكر:
+
+* الحالة الحالية
+* لماذا تعمل أو لا تعمل
+* الدليل البرمجي
+* الدليل من الـ Runtime
+* هل هي سبب مباشر أم أثر جانبي
+
+⸻
+
+المرحلة الثانية — Code Audit
+
+راجع الملفات التالية بالكامل:
+
+* App.tsx
+* main.tsx
+* clerkProxyMiddleware.ts
+* app.ts
+* vite.config.ts
+* artifact.toml
+* package.json
+* serve.cjs / serve.mjs
+* جميع ملفات Clerk
+
+وابحث عن:
+
+* Workarounds
+* Temporary Fixes
+* Dead Code
+* Duplicate Logic
+* غير المتوافق مع Canonical Clerk
+
+ثم احذفها إن لم تكن ضرورية.
+
+⸻
+
+المرحلة الثالثة — Environment Audit
+
+تحقق من جميع متغيرات البيئة.
+
+خصوصاً:
+
+* CLERK_SECRET_KEY
+* CLERK_PUBLISHABLE_KEY
+* VITE_CLERK_PUBLISHABLE_KEY
+* VITE_CLERK_PROXY_URL
+* أي متغيرات قديمة أو مكررة
+
+ثم حدد:
+
+* أين تُستخدم
+* هل تُستخدم أثناء Build أم Runtime
+* هل يجب حذفها
+* هل يوجد تضارب بينها
+
+⸻
+
+المرحلة الرابعة — Production Build Audit
+
+تحقق من أن عملية البناء تنتج Bundle جديداً فعلاً.
+
+أثبت بالأدلة:
+
+* اسم bundle
+* Hash
+* Last Modified
+* محتوى bundle
+* قيمة publishableKey
+* قيمة proxyUrl
+* جميع استدعاءات Clerk
+
+لا تعتمد على الاستنتاجات.
+
+اعتمد على الأدلة فقط.
+
+⸻
+
+المرحلة الخامسة — Runtime Verification
+
+بعد التنفيذ تحقق من:
+
+* Clerk.isLoaded = true
+* useAuth().isLoaded = true
+* Sign In
+* Sign Up
+* Session
+* Dashboard
+* Protected Routes
+* Middleware
+* API
+* Proxy
+
+⸻
+
+المرحلة السادسة — Production Verification
+
+تحقق من:
+
+* الصفحة الرئيسية
+* صفحة تسجيل الدخول
+* لوحة التحكم
+* Network Requests
+* Console
+* CSP
+* CORS
+* Cookies
+* Headers
+
+ويجب ألا يظهر أي من:
+
+* host_invalid
+* DNS Errors
+* CSP Violations
+* Infinite Loading
+* White Screen
+* 400
+* 401
+* 403
+* 500
+
+⸻
+
+قواعد التنفيذ
+
+* لا تستخدم حلولاً مؤقتة.
+* لا تضف أي Hack.
+* لا تضف أي شرط خاص بالإنتاج أو التطوير إلا إذا أوصت به الوثائق الرسمية.
+* لا تكرر منطقاً موجوداً.
+* لا تترك كوداً غير مستخدم.
+* لا تعتمد على التخمين.
+* إذا لم يوجد دليل، فاكتب صراحة: “غير مثبت بالأدلة”.
+
+⸻
+
+المخرجات المطلوبة
+
+أريد تقريراً نهائياً يتضمن:
+
+1. السبب الجذري الحقيقي.
+2. الأدلة التي تثبت ذلك.
+3. الملفات التي تم تعديلها.
+4. سبب كل تعديل.
+5. المخاطر المحتملة.
+6. كيفية التحقق من نجاح الإصلاح.
+7. تأكيد أن المشروع أصبح متوافقاً بالكامل مع Canonical Clerk Implementation وProduction Best Practices.
+8. قائمة بجميع الحلول الالتفافية التي تمت إزالتها.
+9. قائمة بأي مشاكل متبقية إن وجدت، مع تصنيفها حسب الأولوية (P0، P1، P2).
+
+لا تعتبر المهمة مكتملة إلا إذا كان التطبيق يعمل على بيئة الإنتاج بالكامل، وكانت جميع مراحل المصادقة والنشر تعمل دون أخطاء، مع تقديم أدلة تشغيلية (Runtime Evidence) تثبت نجاح الإصلاح.
