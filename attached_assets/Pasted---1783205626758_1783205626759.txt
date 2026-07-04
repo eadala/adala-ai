@@ -1,0 +1,138 @@
+إليك برومبت تنفيذي قوي وموجّه للمبرمج أو لوكيل الذكاء الاصطناعي، مع تغيير مسار التحقيق بناءً على الأدلة الجديدة:
+
+⸻
+
+P0 INCIDENT — PRODUCTION ORIGIN VERIFICATION (STOP ALL CODE CHANGES)
+
+توقف فورًا عن أي تعديل في الكود أو إعادة نشر أو تعديل Clerk أو Environment Variables.
+
+ظهرت أدلة جديدة تشير إلى أن المشكلة قد لا تكون داخل Replit إطلاقًا، لذلك يجب أولًا إثبات مكان تشغيل الإنتاج الحقيقي قبل تنفيذ أي إصلاح.
+
+المهمة
+
+أريد تحقيقًا جنائيًا (Forensic Investigation) لتحديد الخادم الذي يخدم https://adalahai.com فعليًا.
+
+لا تعتمد على الافتراضات، ولا تُغيّر أي ملف قبل انتهاء التحقيق.
+
+⸻
+
+المرحلة الأولى — Production Origin Verification
+
+تحقق بالأدلة من:
+
+1. ما هو الـ Origin الحقيقي لـ adalahai.com؟
+2. هل الطلب يصل إلى Replit أم إلى Hetzner أم إلى خادم آخر؟
+3. هل Cloudflare يعمل كـ Proxy فقط أم أن الـ Origin هو Hetzner؟
+4. هل يوجد Reverse Proxy أو Load Balancer بين Cloudflare والخادم؟
+
+اعرض جميع الأدلة (IP، Reverse DNS، TLS Certificate، HTTP Headers، Server Signature).
+
+⸻
+
+المرحلة الثانية — DNS Audit
+
+تحقق من جميع سجلات DNS:
+
+* A Record
+* AAAA Record
+* CNAME
+* Proxy Status
+* TTL
+
+وأثبت إلى أين يشير كل سجل.
+
+⸻
+
+المرحلة الثالثة — Deployment Correlation
+
+أثبت بالأدلة:
+
+* هل الـ Deployment الموجود في Replit هو نفسه الذي يخدم adalahai.com؟
+* أم أن adalahai.com يعمل من Deployment أو Server مختلف؟
+* قارن:
+    * Bundle Hash
+    * Build Timestamp
+    * Last-Modified
+    * Commit SHA
+    * Asset Hash
+
+⸻
+
+المرحلة الرابعة — Infrastructure Mapping
+
+ارسم مخطط التنفيذ الحقيقي:
+
+User
+↓
+Cloudflare
+↓
+؟
+↓
+Replit ؟
+Hetzner ؟
+Nginx ؟
+Docker ؟
+Node ؟
+Application
+
+ولا تضع أي عنصر إلا إذا كان مثبتًا بالأدلة.
+
+⸻
+
+المرحلة الخامسة — Clerk Verification
+
+إذا ثبت أن الإنتاج يعمل على Hetzner أو أي خادم مستقل:
+
+* حدد أين توجد متغيرات Clerk المستخدمة فعليًا.
+* حدد أين يتم تحميل:
+    * CLERK_SECRET_KEY
+    * Publishable Key
+    * Proxy URL
+* أثبت هل هذه القيم تأتي من Replit أم من الخادم نفسه.
+
+⸻
+
+المرحلة السادسة — Root Cause
+
+أجب بشكل قاطع:
+
+1. هل المشكلة داخل الكود؟
+2. هل المشكلة داخل Replit؟
+3. هل المشكلة داخل Clerk؟
+4. هل المشكلة داخل Cloudflare؟
+5. هل المشكلة داخل خادم Hetzner؟
+6. هل يوجد أكثر من بيئة إنتاج تعمل في نفس الوقت؟
+
+لا تستخدم عبارات مثل “قد يكون” أو “يبدو”.
+
+⸻
+
+المرحلة السابعة — خطة الإصلاح
+
+إذا ثبت أن الإنتاج يعمل على Hetzner:
+
+أوقف جميع محاولات إصلاح Replit.
+
+بدلاً من ذلك، قدم خطة دقيقة لتحديث بيئة Hetzner تشمل:
+
+* مكان المشروع.
+* طريقة النشر.
+* تحديث البيئة.
+* إعادة البناء.
+* إعادة تشغيل الخدمات.
+* التحقق النهائي.
+
+أما إذا ثبت أن الإنتاج يعمل من Replit، فأثبت ذلك بالأدلة ثم أكمل التحقيق داخل Replit فقط.
+
+⸻
+
+قواعد التنفيذ
+
+* ممنوع تعديل أي ملف أثناء التحقيق.
+* ممنوع إعادة النشر.
+* ممنوع تغيير DNS.
+* ممنوع تغيير Clerk.
+* ممنوع تغيير Environment Variables.
+* اعتمد فقط على الأدلة التشغيلية (Runtime Evidence).
+
+لا تُصدر أي توصية حتى تثبت أولًا أين يعمل adalahai.com فعليًا.
