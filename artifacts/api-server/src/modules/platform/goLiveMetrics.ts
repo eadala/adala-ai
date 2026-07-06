@@ -29,16 +29,52 @@ function toRows(r: any): any[] {
 }
 function n(v: any): number { return Number(v ?? 0); }
 
+/** Validates Stripe is configured for production (live keys + webhook secret). */
+function stripeProductionReadiness(): { ok: boolean; detail: string } {
+  const secret = process.env.STRIPE_SECRET_KEY ?? "";
+  const webhook = process.env.STRIPE_WEBHOOK_SECRET ?? "";
+  const publishable =
+    process.env.VITE_STRIPE_PUBLISHABLE_KEY ??
+    process.env.STRIPE_PUBLISHABLE_KEY ??
+    "";
+
+  const issues: string[] = [];
+
+  if (!secret) {
+    issues.push("STRIPE_SECRET_KEY مفقود");
+  } else if (secret.startsWith("sk_test_")) {
+    issues.push("المفتاح السري في وضع TEST — يتطلب sk_live_*");
+  } else if (!secret.startsWith("sk_live_")) {
+    issues.push("STRIPE_SECRET_KEY غير معروف الصيغة");
+  }
+
+  if (!webhook) {
+    issues.push("STRIPE_WEBHOOK_SECRET مفقود");
+  } else if (!webhook.startsWith("whsec_")) {
+    issues.push("STRIPE_WEBHOOK_SECRET غير صالح");
+  }
+
+  if (!publishable) {
+    issues.push("VITE_STRIPE_PUBLISHABLE_KEY مفقود");
+  } else if (publishable.startsWith("pk_test_")) {
+    issues.push("المفتاح العام في وضع TEST — يتطلب pk_live_*");
+  } else if (!publishable.startsWith("pk_live_")) {
+    issues.push("VITE_STRIPE_PUBLISHABLE_KEY غير معروف الصيغة");
+  }
+
+  if (issues.length === 0) {
+    return { ok: true, detail: "Stripe جاهز للإنتاج (live keys + webhook secret)" };
+  }
+  return { ok: false, detail: issues.join(" · ") };
+}
+
 /* ── Go-live checklist checks ─────────────────────────────────── */
 async function runChecklist(): Promise<{ id: string; label: string; status: "ok" | "warn" | "error"; detail: string }[]> {
   const checks = [
     {
       id: "stripe",
       label: "بوابة الدفع (Stripe)",
-      check: async () => {
-        const ok = !!(process.env.STRIPE_SECRET_KEY);
-        return { ok, detail: ok ? "STRIPE_SECRET_KEY مُهيَّأ" : "لم يُعيَّن STRIPE_SECRET_KEY" };
-      },
+      check: async () => stripeProductionReadiness(),
     },
     {
       id: "ai",
