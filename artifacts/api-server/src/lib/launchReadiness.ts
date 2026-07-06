@@ -96,3 +96,18 @@ export function stripeSystemStatus(): {
   }
   return { status: "operational", detail: "Stripe جاهز للإنتاج" };
 }
+
+/** Logs P0 launch blockers at server boot (production only). */
+export function logLaunchReadinessWarnings(log: (msg: string, meta?: object) => void): void {
+  if (process.env.NODE_ENV !== "production") return;
+
+  const stripe = stripeProductionReadiness();
+  if (!stripe.ok) {
+    log("[LaunchGate] Stripe not production-ready", { detail: stripe.detail });
+  }
+
+  const clerk = clerkProductionReadiness();
+  if (!clerk.ok) {
+    log("[LaunchGate] Clerk not production-ready", { detail: clerk.detail });
+  }
+}
