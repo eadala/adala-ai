@@ -13,6 +13,10 @@ import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import {
+  clerkProductionReadiness,
+  stripeProductionReadiness,
+} from "../../lib/launchReadiness";
 
 const router = Router();
 
@@ -28,45 +32,6 @@ function toRows(r: any): any[] {
   return Array.isArray(r) ? r : (r?.rows ?? []);
 }
 function n(v: any): number { return Number(v ?? 0); }
-
-/** Validates Stripe is configured for production (live keys + webhook secret). */
-function stripeProductionReadiness(): { ok: boolean; detail: string } {
-  const secret = process.env.STRIPE_SECRET_KEY ?? "";
-  const webhook = process.env.STRIPE_WEBHOOK_SECRET ?? "";
-  const publishable =
-    process.env.VITE_STRIPE_PUBLISHABLE_KEY ??
-    process.env.STRIPE_PUBLISHABLE_KEY ??
-    "";
-
-  const issues: string[] = [];
-
-  if (!secret) {
-    issues.push("STRIPE_SECRET_KEY مفقود");
-  } else if (secret.startsWith("sk_test_")) {
-    issues.push("المفتاح السري في وضع TEST — يتطلب sk_live_*");
-  } else if (!secret.startsWith("sk_live_")) {
-    issues.push("STRIPE_SECRET_KEY غير معروف الصيغة");
-  }
-
-  if (!webhook) {
-    issues.push("STRIPE_WEBHOOK_SECRET مفقود");
-  } else if (!webhook.startsWith("whsec_")) {
-    issues.push("STRIPE_WEBHOOK_SECRET غير صالح");
-  }
-
-  if (!publishable) {
-    issues.push("VITE_STRIPE_PUBLISHABLE_KEY مفقود");
-  } else if (publishable.startsWith("pk_test_")) {
-    issues.push("المفتاح العام في وضع TEST — يتطلب pk_live_*");
-  } else if (!publishable.startsWith("pk_live_")) {
-    issues.push("VITE_STRIPE_PUBLISHABLE_KEY غير معروف الصيغة");
-  }
-
-  if (issues.length === 0) {
-    return { ok: true, detail: "Stripe جاهز للإنتاج (live keys + webhook secret)" };
-  }
-  return { ok: false, detail: issues.join(" · ") };
-}
 
 /* ── Go-live checklist checks ─────────────────────────────────── */
 async function runChecklist(): Promise<{ id: string; label: string; status: "ok" | "warn" | "error"; detail: string }[]> {
@@ -141,10 +106,7 @@ async function runChecklist(): Promise<{ id: string; label: string; status: "ok"
     {
       id: "security",
       label: "طبقة الأمان والتشفير",
-      check: async () => {
-        const hasClerk = !!(process.env.VITE_CLERK_PUBLISHABLE_KEY);
-        return { ok: hasClerk, detail: hasClerk ? "Clerk Auth مُفعَّل — JWT + RBAC" : "Clerk غير مُهيَّأ" };
-      },
+      check: async () => clerkProductionReadiness(),
     },
     {
       id: "storage",

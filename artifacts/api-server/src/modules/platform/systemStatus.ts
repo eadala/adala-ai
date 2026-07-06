@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { stripeSystemStatus } from "../../lib/launchReadiness";
 
 const router = Router();
 
@@ -67,13 +68,8 @@ async function checkWhatsApp(): Promise<ServiceCheck> {
 }
 
 async function checkPayments(): Promise<ServiceCheck> {
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  const hasReplitConnectors = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const hasReplitToken = process.env.REPL_IDENTITY || process.env.WEB_REPL_RENEWAL;
-  if (!stripeKey && !(hasReplitConnectors && hasReplitToken)) {
-    return { name: "payments", label: "المدفوعات", status: "degraded", detail: "Stripe غير مضبوط" };
-  }
-  return { name: "payments", label: "المدفوعات", status: "operational" };
+  const { status, detail } = stripeSystemStatus();
+  return { name: "payments", label: "المدفوعات", status, detail };
 }
 
 /* GET /api/status — public endpoint */
