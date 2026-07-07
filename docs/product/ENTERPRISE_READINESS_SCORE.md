@@ -6,7 +6,7 @@
 
 | البُعد | الدرجة | الحالة |
 |--------|--------|--------|
-| **الجاهزية المؤسسية الإجمالية** | **92 / 100** | جاهز مؤسسياً |
+| **الجاهزية المؤسسية الإجمالية** | **93 / 100** | جاهز مؤسسياً |
 | Tenant Kernel | 92 | ✅ PR-TNT-002 |
 | Data Layer (RLS) | 90 | ✅ PR-DATA-001 |
 | Authorization (RBAC) | 90 | ✅ 140+ policies |
@@ -74,6 +74,12 @@ PostgreSQL RLS (app.bypass_rls=false + dataAccess layer)
 ### PR-AUTH-001..003 + PR-HR-EXT + PR-AI-002
 - Authorization kernel + legal + financial + HR extended + payments + AI
 
+### Customer Zero Hardening
+- RBAC enumeration blocked (members, roles, invitations)
+- Frontend nav permission gates (finance + HR)
+- `office_manager` — `hr:manage` + `payments:create`
+- `enterprise-abuse.test.ts` — attack simulation contract
+
 ---
 
 ## فجوات متبقية (للوصول 95+)
@@ -97,7 +103,8 @@ pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/fina
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/hr-extended-rbac.test.ts
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/payments-authz.test.ts
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/ai-gateway-rbac.test.ts
-node scripts/governance/platform-check.mjs
+pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/enterprise-abuse.test.ts
+node scripts/governance/run-enterprise-tests.mjs
 ```
 
 ---

@@ -610,6 +610,18 @@ if (rbacSrc.includes("officeId") && rbacSrc.includes("invitationsTable")) {
   authzWarnings++;
 }
 
+const rbacEnumSrc = readSrc(BACKEND, "src/modules/platform/rbac.ts") ?? "";
+if (
+  rbacEnumSrc.includes('router.get("/rbac/members", requireAuthWithTenant, requirePermission("users:view")')
+  && rbacEnumSrc.includes('router.get("/rbac/roles", requireAuthWithTenant, requirePermission("roles:view")')
+  && rbacEnumSrc.includes('router.get("/rbac/invitations", requireAuthWithTenant, requirePermission("users:view")')
+) {
+  pass("rbac: enumeration محمية — users:view / roles:view");
+} else {
+  fail("rbac: GET members/roles/invitations بدون requirePermission");
+  authzIssues++;
+}
+
 const policySrc = readSrc(BACKEND, "src/core/authorization/routePolicyRegistry.ts") ?? "";
 if (policySrc.includes("TENANT_RBAC") && policySrc.includes("routeClass")) {
   pass("routeClass taxonomy في registry");
