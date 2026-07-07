@@ -16,6 +16,7 @@ import { callAI } from "../modules/ai/aiChat";
 import { encryptBuffer, isEncryptionEnabled } from "../core/backupEncrypt";
 import { uploadBackup, tenantSnapshotKey, fullBackupKey } from "../core/backupStorage";
 import { runAsSystemTenant } from "../core/tenant/backgroundScope";
+import { withTenantRls } from "../core/tenant/rlsScope";
 
 /* ── DB helpers ─────────────────────────────────────── */
 async function sqlAll(q: any): Promise<Record<string, any>[]> {
@@ -89,37 +90,55 @@ async function logFail(id: number, error: string) {
    يفحص القضايا التي لها جلسة خلال 24 ساعة أو موعد نهائي
    قادم ويُنشئ ملخصاً بالذكاء الاصطناعي
 ════════════════════════════════════════════════════════ */
+async function listActiveOfficeIds(): Promise<string[]> {
+  const rows = await sqlAll(sql`
+    SELECT id FROM office_registry
+    WHERE status IS NULL OR status IN ('active', 'suspended')
+    LIMIT 500
+  `);
+  return rows.map((r) => String(r.id));
+}
+
 async function runCaseReviewAgent() {
   const jobId = await logStart("case_review");
   const t0 = Date.now();
   try {
-    /* قضايا لها جلسة خلال 24 ساعة */
-    const upcomingSessions = await sqlAll(sql`
-      SELECT c.id, c.title, c.office_id, c.status, c.type,
-             s.session_date, s.court, s.notes
-      FROM cases c
-      JOIN case_sessions s ON s.case_id = c.id::text
-      WHERE s.session_date BETWEEN NOW() AND NOW() + INTERVAL '24 hours'
-        AND c.status != 'closed'
-      ORDER BY s.session_date ASC
-      LIMIT 50
-    `).catch(() => []);
+    const offices = await listActiveOfficeIds();
+    const upcomingSessions: Record<string, unknown>[] = [];
+    const staleCases: Record<string, unknown>[] = [];
 
-    /* قضايا متأخرة (بدون نشاط منذ 7 أيام) */
-    const staleCases = await sqlAll(sql`
-      SELECT id, title, office_id, status, updated_at
-      FROM cases
-      WHERE status IN ('open','active','in_progress')
-        AND updated_at < NOW() - INTERVAL '7 days'
-      LIMIT 30
-    `).catch(() => []);
+    for (const officeId of offices) {
+      await withTenantRls(officeId, async () => {
+        const sessions = await sqlAll(sql`
+          SELECT c.id, c.title, c.office_id, c.status, c.type,
+                 s.session_date, s.court, s.notes
+          FROM cases c
+          JOIN case_sessions s ON s.case_id = c.id::text
+          WHERE c.office_id = ${officeId}
+            AND s.session_date BETWEEN NOW() AND NOW() + INTERVAL '24 hours'
+            AND c.status != 'closed'
+          ORDER BY s.session_date ASC
+          LIMIT 20
+        `).catch(() => []);
+        const stale = await sqlAll(sql`
+          SELECT id, title, office_id, status, updated_at
+          FROM cases
+          WHERE office_id = ${officeId}
+            AND status IN ('open','active','in_progress')
+            AND updated_at < NOW() - INTERVAL '7 days'
+          LIMIT 10
+        `).catch(() => []);
+        upcomingSessions.push(...sessions);
+        staleCases.push(...stale);
+      });
+    }
 
     let aiSummary = "";
     if (upcomingSessions.length > 0 || staleCases.length > 0) {
       const prompt = `أنت وكيل مراجعة قانوني. فيما يلي بيانات القضايا:
 
 جلسات خلال 24 ساعة (${upcomingSessions.length}):
-${upcomingSessions.slice(0, 5).map(s => `- "${s.title}" — المحكمة: ${s.court ?? "غير محددة"} — ${new Date(s.session_date).toLocaleString("ar-SA")}`).join("\n") || "لا توجد"}
+${upcomingSessions.slice(0, 5).map(s => `- "${s.title}" — المحكمة: ${(s as Record<string, unknown>).court ?? "غير محددة"} — ${new Date(String((s as Record<string, unknown>).session_date)).toLocaleString("ar-SA")}`).join("\n") || "لا توجد"}
 
 قضايا بدون نشاط منذ 7 أيام (${staleCases.length}):
 ${staleCases.slice(0, 5).map(c => `- "${c.title}" (${c.status})`).join("\n") || "لا توجد"}
@@ -153,26 +172,35 @@ async function runInvoiceReminderAgent() {
   const jobId = await logStart("invoice_reminder");
   const t0 = Date.now();
   try {
-    const overdueInvoices = await sqlAll(sql`
-      SELECT
-        ci.id, ci.invoice_number, ci.office_id,
-        ci.total_amount, ci.due_date, ci.status,
-        cl.name AS client_name
-      FROM client_invoices ci
-      LEFT JOIN clients cl ON cl.id = ci.client_id
-      WHERE ci.status IN ('sent','overdue','partially_paid')
-        AND ci.due_date < NOW()
-      ORDER BY ci.due_date ASC
-      LIMIT 100
-    `).catch(() => []);
+    const offices = await listActiveOfficeIds();
+    const overdueInvoices: Record<string, unknown>[] = [];
 
-    /* تحديث حالة الفواتير المنتهية الصلاحية إلى overdue */
-    await sqlExec(sql`
-      UPDATE client_invoices
-      SET status = 'overdue'
-      WHERE status = 'sent'
-        AND due_date < NOW()
-    `);
+    for (const officeId of offices) {
+      await withTenantRls(officeId, async () => {
+        const rows = await sqlAll(sql`
+          SELECT
+            ci.id, ci.invoice_number, ci.office_id,
+            ci.total_amount, ci.due_date, ci.status,
+            cl.name AS client_name
+          FROM client_invoices ci
+          LEFT JOIN clients cl ON cl.id = ci.client_id
+          WHERE ci.office_id = ${officeId}
+            AND ci.status IN ('sent','overdue','partially_paid')
+            AND ci.due_date < NOW()
+          ORDER BY ci.due_date ASC
+          LIMIT 50
+        `).catch(() => []);
+        overdueInvoices.push(...rows);
+
+        await sqlExec(sql`
+          UPDATE client_invoices
+          SET status = 'overdue'
+          WHERE office_id = ${officeId}
+            AND status = 'sent'
+            AND due_date < NOW()
+        `);
+      });
+    }
 
     const totalOverdue = (overdueInvoices as any[]).reduce((sum: number, inv: any) =>
       sum + parseFloat(String(inv.total_amount ?? "0")), 0

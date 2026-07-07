@@ -1,13 +1,7 @@
 /**
- * tenantQuery — Zero Trust query wrapper
+ * @deprecated Use core/tenant/dataAccess.ts — getRequiredTenantId + tenantDB
  *
- * Injects and validates tenant isolation for every DB call.
- * Use this instead of accessing db.execute() directly in route handlers.
- *
- * Usage:
- *   const results = await tenantQuery(req, (tid) =>
- *     db.execute(sql`SELECT * FROM cases WHERE office_id = ${tid}`)
- *   );
+ * Legacy Zero Trust query wrapper. Injects and validates tenant isolation for DB calls.
  */
 import type { Request } from "express";
 

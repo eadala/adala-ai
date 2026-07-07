@@ -268,7 +268,11 @@ app.use(((err: any, _req, res, next) => {
 // connection never carries stale tenant state into the next request.
 app.use((_req, res, next) => {
   res.on("finish", () => {
-    db.execute(sql`SELECT set_config('app.current_tenant', '', false)`).catch(() => {});
+    db.execute(sql`
+      SELECT
+        set_config('app.current_tenant', '', false),
+        set_config('app.bypass_rls', 'false', false)
+    `).catch(() => {});
   });
   next();
 });

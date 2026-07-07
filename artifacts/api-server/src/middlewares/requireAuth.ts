@@ -185,7 +185,8 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
     await db.execute(sql`
       SELECT
         set_config('app.current_tenant', ${officeId}, false),
-        set_config('app.tenant_id',      ${officeId}, false)
+        set_config('app.tenant_id',      ${officeId}, false),
+        set_config('app.bypass_rls',     'false', false)
     `);
   } catch { /* DB config failure is non-fatal — app-level WHERE is primary guard */ }
 
