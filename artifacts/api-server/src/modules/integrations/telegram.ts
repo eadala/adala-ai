@@ -83,8 +83,8 @@ export async function sendTelegramMessage(
 export async function notifyTelegramCaseStatus(updatedCase: any) {
   try {
     await ensureTables();
-    /* Resolve the correct office — fall back to 'default' if not provided */
-    const officeId = updatedCase.office_id ?? updatedCase.officeId ?? "default";
+    const officeId = updatedCase.office_id ?? updatedCase.officeId;
+    if (!officeId || officeId === "default") return;
     const settings = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = ${officeId} LIMIT 1`);
     if (!settings?.enabled || !settings?.notify_cases || !settings?.bot_token || !settings?.chat_id) return;
 
@@ -108,7 +108,7 @@ export async function notifyTelegramCaseStatus(updatedCase: any) {
 
     await db.execute(sql`
       INSERT INTO telegram_logs (office_id, chat_id, message, type, status, error)
-      VALUES ('default', ${settings.chat_id}, ${text}, 'case_update', ${r.ok ? 'sent' : 'failed'}, ${r.error ?? null})
+      VALUES (${officeId}, ${settings.chat_id}, ${text}, 'case_update', ${r.ok ? 'sent' : 'failed'}, ${r.error ?? null})
     `);
   } catch { /* non-fatal */ }
 }
@@ -186,7 +186,7 @@ router.post("/telegram/test", requireAuthWithTenant, async (req: Request, res: R
     const r = await sendTelegramMessage(settings.bot_token, settings.chat_id, text);
     await db.execute(sql`
       INSERT INTO telegram_logs (office_id, chat_id, message, type, status, error)
-      VALUES ('default', ${settings.chat_id}, ${text}, 'test', ${r.ok ? 'sent' : 'failed'}, ${r.error ?? null})
+      VALUES (${tid}, ${settings.chat_id}, ${text}, 'test', ${r.ok ? 'sent' : 'failed'}, ${r.error ?? null})
     `);
     res.json(r);
   } catch (e: any) { res.status(500).json({ error: e.message }); }

@@ -37,7 +37,7 @@ async function sqlOne(query: any): Promise<any> {
    REVENUES  — إيرادات المكتب (مُعزولة بـ office_id)
 ══════════════════════════════════════════════════════════ */
 
-router.get("/accounting/revenues", requireAuthWithTenant, async (req, res) => {
+router.get("/accounting/revenues", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const data = await sqlExec(sql`
@@ -50,7 +50,7 @@ router.get("/accounting/revenues", requireAuthWithTenant, async (req, res) => {
   } catch { res.status(500).json({ error: "خطأ في جلب الإيرادات" }); }
 });
 
-router.post("/accounting/revenues", requireAuthWithTenant, async (req, res) => {
+router.post("/accounting/revenues", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const { title, category, amount, paymentMethod, date, clientId, caseId, notes } = req.body;
@@ -96,7 +96,7 @@ router.post("/accounting/revenues", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message ?? "خطأ في إضافة الإيراد" }); }
 });
 
-router.put("/accounting/revenues/:id", requireAuthWithTenant, async (req, res) => {
+router.put("/accounting/revenues/:id", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const { title, category, amount, paymentMethod, date, notes } = req.body;
@@ -131,7 +131,7 @@ router.delete("/accounting/revenues/:id", requireAuthWithTenant, requirePermissi
    EXPENSES  — مصروفات المكتب (مُعزولة بـ office_id)
 ══════════════════════════════════════════════════════════ */
 
-router.get("/accounting/expenses", requireAuthWithTenant, async (req, res) => {
+router.get("/accounting/expenses", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const data = await sqlExec(sql`
@@ -144,7 +144,7 @@ router.get("/accounting/expenses", requireAuthWithTenant, async (req, res) => {
   } catch { res.status(500).json({ error: "خطأ في جلب المصروفات" }); }
 });
 
-router.post("/accounting/expenses", requireAuthWithTenant, async (req, res) => {
+router.post("/accounting/expenses", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const { title, category, amount, paymentMethod, date, vendor, notes } = req.body;
@@ -190,7 +190,7 @@ router.post("/accounting/expenses", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message ?? "خطأ في إضافة المصروف" }); }
 });
 
-router.put("/accounting/expenses/:id", requireAuthWithTenant, async (req, res) => {
+router.put("/accounting/expenses/:id", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const { title, category, amount, paymentMethod, date, notes } = req.body;
@@ -225,7 +225,7 @@ router.delete("/accounting/expenses/:id", requireAuthWithTenant, requirePermissi
    BANK ACCOUNTS  (مُعزولة بـ office_id)
 ══════════════════════════════════════════════════════════ */
 
-router.get("/accounting/bank-accounts", requireAuthWithTenant, async (req, res) => {
+router.get("/accounting/bank-accounts", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const data = await sqlExec(sql`
@@ -237,7 +237,7 @@ router.get("/accounting/bank-accounts", requireAuthWithTenant, async (req, res) 
   } catch { res.status(500).json({ error: "خطأ في جلب الحسابات" }); }
 });
 
-router.post("/accounting/bank-accounts", requireAuthWithTenant, async (req, res) => {
+router.post("/accounting/bank-accounts", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const { bankName, accountName, accountNumber, iban, currency, currentBalance, isDefault, notes } = req.body;
@@ -252,7 +252,7 @@ router.post("/accounting/bank-accounts", requireAuthWithTenant, async (req, res)
   } catch (e: any) { res.status(500).json({ error: e.message ?? "خطأ في إضافة الحساب" }); }
 });
 
-router.put("/accounting/bank-accounts/:id", requireAuthWithTenant, async (req, res) => {
+router.put("/accounting/bank-accounts/:id", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const { bankName, accountName, accountNumber, iban, currentBalance, isDefault, notes } = req.body;
@@ -284,7 +284,7 @@ router.delete("/accounting/bank-accounts/:id", requireAuthWithTenant, requirePer
    CASH ADVANCES  (مُعزولة بـ office_id)
 ══════════════════════════════════════════════════════════ */
 
-router.get("/accounting/advances", requireAuthWithTenant, async (req, res) => {
+router.get("/accounting/advances", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const data = await sqlExec(sql`
@@ -297,7 +297,7 @@ router.get("/accounting/advances", requireAuthWithTenant, async (req, res) => {
   } catch { res.status(500).json({ error: "خطأ في جلب السلف" }); }
 });
 
-router.post("/accounting/advances", requireAuthWithTenant, async (req, res) => {
+router.post("/accounting/advances", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const { employeeName, employeeId, amount, purpose, repaymentMonths, date, notes } = req.body;
@@ -311,7 +311,7 @@ router.post("/accounting/advances", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message ?? "خطأ في إضافة السلفة" }); }
 });
 
-router.patch("/accounting/advances/:id/approve", requireAuthWithTenant, async (req, res) => {
+router.patch("/accounting/advances/:id/approve", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const row = one(await db.execute(sql`
@@ -325,7 +325,7 @@ router.patch("/accounting/advances/:id/approve", requireAuthWithTenant, async (r
   } catch { res.status(500).json({ error: "خطأ في الموافقة" }); }
 });
 
-router.patch("/accounting/advances/:id/repay", requireAuthWithTenant, async (req, res) => {
+router.patch("/accounting/advances/:id/repay", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const current = one(await db.execute(sql`
@@ -359,7 +359,7 @@ router.delete("/accounting/advances/:id", requireAuthWithTenant, requirePermissi
    FINANCIAL REPORTS — P&L (كل الأرقام من office_id فقط)
 ══════════════════════════════════════════════════════════ */
 
-router.get("/accounting/reports/summary", requireAuthWithTenant, async (req, res) => {
+router.get("/accounting/reports/summary", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const year = new Date().getFullYear();
@@ -415,7 +415,7 @@ router.get("/accounting/reports/summary", requireAuthWithTenant, async (req, res
   } catch { res.status(500).json({ error: "خطأ في التقارير المالية" }); }
 });
 
-router.get("/accounting/cashflow", requireAuthWithTenant, async (req, res) => {
+router.get("/accounting/cashflow", requireAuthWithTenant, requirePermission("financial:view"), async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const now = new Date();
