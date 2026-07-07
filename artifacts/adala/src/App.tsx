@@ -41,14 +41,9 @@ const BranchesPage         = lazy(() => import("@/pages/platform/branches"));
 const AiTasks              = lazy(() => import("@/pages/ai/ai-tasks"));
 const AIRouterDashboard    = lazy(() => import("@/pages/ai/ai-router-dashboard"));
 const AIHub                = lazy(() => import("@/pages/ai/ai-hub"));
-const AICopilotPage        = lazy(() => import("@/pages/ai/ai-copilot"));
-const AiChat               = lazy(() => import("@/pages/ai/ai-chat"));
-const AdoulPage            = lazy(() => import("@/pages/legal-core/adoul"));
 const OpponentSimulator    = lazy(() => import("@/pages/legal-core/opponent-simulator"));
-const AiAgents             = lazy(() => import("@/pages/ai/ai-agents"));
 const CommandCenter        = lazy(() => import("@/pages/ai/command-center"));
 const LegalAIPage          = lazy(() => import("@/pages/legal-core/legal-ai"));
-const AIAssistant          = lazy(() => import("@/pages/ai/ai-assistant"));
 
 // Legal & Research
 const LegalResearch        = lazy(() => import("@/pages/legal-core/legal-research"));
@@ -226,15 +221,16 @@ const clerkPubKey = publishableKeyFromHost(
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
 );
 
-// REQUIRED — copy verbatim. Empty in dev (Clerk hits dev FAPI directly), auto-set
-// in prod. Do NOT gate on import.meta.env.PROD / NODE_ENV / import.meta.env.DEV,
-// and do NOT rebuild it from window.location.origin — the auto-provisioned value
-// is already the correct absolute proxy URL for the active deployment domain.
-// Any branching here breaks the prod proxy in ways that are very hard to notice
-// (it can still "work" on the .replit.app domain while silently failing on a
-// linked custom domain, because Clerk validates the proxy host against its own
-// domain registration independent of what the client sends).
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+// REQUIRED — in dev, never pass proxyUrl: shared env can leak a production
+// absolute URL into Vite's dev server, which breaks CSP and Clerk init.
+// In production, expand relative paths (e.g. /api/__clerk) to absolute URLs
+// as required by Clerk v6.
+const clerkProxyUrl = import.meta.env.DEV
+  ? undefined
+  : (() => {
+      const rawProxy = import.meta.env.VITE_CLERK_PROXY_URL ?? "/api/__clerk";
+      return rawProxy.startsWith("http") ? rawProxy : `${window.location.origin}${rawProxy}`;
+    })();
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
@@ -505,7 +501,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode; label?: string }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     const errorId = this.state.errorId;
-    const label = (this.props as any).label ?? "root";
+    const label = this.props.label ?? "root";
     console.error(`[Adala][${label}][${errorId}]`, error.message, info.componentStack?.slice(0, 400));
     // Send to monitoring (non-blocking)
     try {
@@ -528,7 +524,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode; label?: string }
   render() {
     const { error, errorId } = this.state;
     if (error) {
-      const isModule = !!(this.props as any).label;
+      const isModule = !!this.props.label;
       if (isModule) {
         return (
           <div dir="rtl" style={{
@@ -819,7 +815,7 @@ function AppRoutes() {
 
             {/* ── Portal (public, before /:token catch-all) ── */}
             <Route path="/sign/:token">{({ token }: { token: string }) => <PublicPage><SignPage token={token} /></PublicPage>}</Route>
-            <Route path="/invoice/:token">{(p: any) => <Suspense fallback={<PageLoader />}><InvoicePublic token={p.token} /></Suspense>}</Route>
+            <Route path="/invoice/:token">{({ token }: { token: string }) => <Suspense fallback={<PageLoader />}><InvoicePublic token={token} /></Suspense>}</Route>
             <Route path="/portal/login"><PublicPage><PortalLogin /></PublicPage></Route>
             <Route path="/portal/my-cases"><PublicPage><PortalMyCases /></PublicPage></Route>
             <Route path="/portal/:token"><PublicPage><PortalView /></PublicPage></Route>
