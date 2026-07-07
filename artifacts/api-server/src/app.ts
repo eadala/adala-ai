@@ -17,6 +17,7 @@ import router from "./routes";
 import { requestGuard, preventionErrorHandler } from "./prevention/request.guard";
 import { IsolationMiddleware } from "./isolation/tenant.scope";
 import { runtimeShield } from "./core/runtimeShield";
+import { enforceRoutePolicy } from "./core/authorization";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./webhookHandlers";
 import { db } from "@workspace/db";
@@ -267,7 +268,11 @@ app.use(((err: any, _req, res, next) => {
 // connection never carries stale tenant state into the next request.
 app.use((_req, res, next) => {
   res.on("finish", () => {
-    db.execute(sql`SELECT set_config('app.current_tenant', '', false)`).catch(() => {});
+    db.execute(sql`
+      SELECT
+        set_config('app.current_tenant', '', false),
+        set_config('app.bypass_rls', 'false', false)
+    `).catch(() => {});
   });
   next();
 });
@@ -289,6 +294,7 @@ app.get("/metrics", async (_req, res) => {
 app.use("/api", requestGuard);
 app.use("/api", runtimeShield);
 app.use("/api", IsolationMiddleware);
+app.use("/api", enforceRoutePolicy());
 app.use("/api", router);
 app.use(preventionErrorHandler);
 

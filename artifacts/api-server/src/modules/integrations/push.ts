@@ -5,7 +5,8 @@ import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getVapidPublicKey, sendPushToOffice, sendPush } from "../../lib/webPush";
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { getRequiredTenantId, TenantRequiredError, tenantRequiredResponse } from "../../core/tenantContext";
 
 const router = Router();
 
@@ -17,11 +18,11 @@ router.get("/push/vapid-public-key", (_req: Request, res: Response) => {
 });
 
 /* ── POST /api/push/subscribe ── */
-router.post("/push/subscribe", requireAuth, async (req: Request, res: Response) => {
+router.post("/push/subscribe", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const auth = (req as any).auth;
     const userId   = auth?.userId ?? "anonymous";
-    const officeId = (req as any).tenantId ?? null;
+    const officeId = getRequiredTenantId(req);
     const { endpoint, keys } = req.body.subscription ?? req.body;
 
     if (!endpoint || !keys?.p256dh || !keys?.auth) {
@@ -47,8 +48,11 @@ router.post("/push/subscribe", requireAuth, async (req: Request, res: Response) 
     }).catch(() => {});
 
     res.json({ ok: true });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    if (e instanceof TenantRequiredError) {
+      return res.status(403).json(tenantRequiredResponse());
+    }
+    res.status(500).json({ error: (e as Error).message });
   }
 });
 
@@ -59,21 +63,24 @@ router.delete("/push/unsubscribe", requireAuth, async (req: Request, res: Respon
     if (!endpoint) return res.status(400).json({ error: "endpoint مطلوب" });
     await db.execute(sql`DELETE FROM push_subscriptions WHERE endpoint = ${endpoint}`);
     res.json({ ok: true });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    if (e instanceof TenantRequiredError) {
+      return res.status(403).json(tenantRequiredResponse());
+    }
+    res.status(500).json({ error: (e as Error).message });
   }
 });
 
 /* ── POST /api/push/test — send test push to current user ── */
-router.post("/push/test", requireAuth, async (req: Request, res: Response) => {
+router.post("/push/test", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const auth = (req as any).auth;
     const userId   = auth?.userId ?? "anonymous";
-    const officeId = (req as any).tenantId ?? null;
+    const officeId = getRequiredTenantId(req);
 
     const rows = await db.execute(sql`
       SELECT endpoint, p256dh, auth_key FROM push_subscriptions
-      WHERE user_id = ${userId} ${officeId ? sql`OR office_id = ${officeId}` : sql``}
+      WHERE user_id = ${userId} AND office_id = ${officeId}
       LIMIT 10
     `);
     const subs = rows.rows as any[];
@@ -88,8 +95,11 @@ router.post("/push/test", requireAuth, async (req: Request, res: Response) => {
       })
     ));
     res.json({ ok: true, sent: subs.length });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    if (e instanceof TenantRequiredError) {
+      return res.status(403).json(tenantRequiredResponse());
+    }
+    res.status(500).json({ error: (e as Error).message });
   }
 });
 

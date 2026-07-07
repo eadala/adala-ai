@@ -4,49 +4,17 @@ import { db, rolesTable, invitationsTable, auditLogsTable, usersTable } from "@w
 import { eq, desc } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { resolveTenantId } from "../../middlewares/tenantMiddleware";
+import { getRequiredTenantId } from "../../core/tenantContext";
+import {
+  ALL_PERMISSIONS,
+  loadAuthorizationContext,
+} from "../../core/authorization";
 
 const router = Router();
 
-/* ══════════════════════════════════════════════════════
-   FULL PERMISSIONS MATRIX (Adalah RBAC v2)
-══════════════════════════════════════════════════════ */
-export const ALL_PERMISSIONS = [
-  // Cases
-  "cases:view", "cases:create", "cases:edit", "cases:delete", "cases:assign", "cases:close",
-  // Clients
-  "clients:view", "clients:create", "clients:edit", "clients:delete",
-  // Contracts
-  "contracts:view", "contracts:create", "contracts:edit", "contracts:delete",
-  // Documents
-  "documents:view", "documents:upload", "documents:edit", "documents:delete",
-  // Financial
-  "invoices:view", "invoices:create", "invoices:edit", "invoices:delete",
-  "payments:view", "payments:create",
-  "reports:view", "financial:view",
-  // Payroll (new — Phase 2 RBAC)
-  "payroll:view", "payroll:manage",
-  // Accounting destructive ops (new — Phase 2 RBAC)
-  "accounting:delete",
-  // Users & Roles
-  "users:view", "users:create", "users:edit", "users:delete",
-  "roles:view", "roles:create", "roles:edit",
-  // Settings
-  "settings:view", "settings:edit",
-  // AI
-  "ai:access",
-  // Messaging
-  "messages:view", "messages:send",
-  // Support
-  "support:view", "support:reply",
-  // Referral & Collaboration
-  "referral:create", "referral:view",
-  "collaborator:access",
-  // Audit
-  "audit:view",
-  // Dashboard
-  "dashboard:view",
-];
+/* Re-export canonical catalog for backward compatibility */
+export { ALL_PERMISSIONS };
+export const ALL_PERMISSIONS_LIST = ALL_PERMISSIONS;
 
 /* ══════════════════════════════════════════════════════
    DEFAULT ROLES — Adalah Smart Office
@@ -73,8 +41,9 @@ const DEFAULT_ROLES = [
       "roles:view",
       "reports:view", "financial:view",
       "payroll:view", "payroll:manage",
+      "hr:manage",
       "invoices:view", "invoices:create", "invoices:edit",
-      "payments:view",
+      "payments:view", "payments:create",
       "settings:view",
       "ai:access",
       "messages:view", "messages:send",
@@ -193,7 +162,7 @@ async function logAudit(
 
 // ─── ROLES ──────────────────────────────────────────────────────────────────
 
-router.get("/rbac/roles", requireAuthWithTenant, async (_req, res) => {
+router.get("/rbac/roles", requireAuthWithTenant, requirePermission("roles:view"), async (_req, res) => {
   try {
     await syncDefaultRoles();
     const roles = await db.select().from(rolesTable).orderBy(rolesTable.createdAt);
@@ -270,9 +239,12 @@ router.delete("/rbac/roles/:id", requireAuthWithTenant, requirePermission("roles
 
 // ─── INVITATIONS ────────────────────────────────────────────────────────────
 
-router.get("/rbac/invitations", requireAuthWithTenant, async (_req, res) => {
+router.get("/rbac/invitations", requireAuthWithTenant, requirePermission("users:view"), async (req, res) => {
   try {
-    const invitations = await db.select().from(invitationsTable).orderBy(desc(invitationsTable.createdAt));
+    const officeId = getRequiredTenantId(req);
+    const invitations = await db.select().from(invitationsTable)
+      .where(eq(invitationsTable.officeId, officeId))
+      .orderBy(desc(invitationsTable.createdAt));
     res.json(invitations.map(i => ({
       ...i,
       createdAt: i.createdAt.toISOString(),
@@ -285,12 +257,13 @@ router.get("/rbac/invitations", requireAuthWithTenant, async (_req, res) => {
 
 router.post("/rbac/invitations", requireAuthWithTenant, requirePermission("users:create"), async (req, res) => {
   try {
+    const officeId = getRequiredTenantId(req);
     const { email, role, invitedBy } = req.body as { email: string; role: string; invitedBy?: string };
     if (!email || !role) return res.status(400).json({ error: "البريد الإلكتروني والدور مطلوبان" });
 
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const [created] = await db.insert(invitationsTable).values({
-      email, role, invitedBy, status: "pending", expiresAt,
+      officeId, email, role, invitedBy, status: "pending", expiresAt,
     }).returning();
 
     await logAudit("invite", "user", undefined, `دعوة مستخدم: ${email} بدور ${role}`, invitedBy);
@@ -300,7 +273,7 @@ router.post("/rbac/invitations", requireAuthWithTenant, requirePermission("users
   }
 });
 
-router.patch("/rbac/invitations/:id/resend", requireAuthWithTenant, async (req, res) => {
+router.patch("/rbac/invitations/:id/resend", requireAuthWithTenant, requirePermission("users:create"), async (req, res) => {
   try {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const [updated] = await db.update(invitationsTable)
@@ -325,7 +298,7 @@ router.delete("/rbac/invitations/:id", requireAuthWithTenant, requirePermission(
 
 // ─── AUDIT LOGS ─────────────────────────────────────────────────────────────
 
-router.get("/rbac/audit-logs", requireAuthWithTenant, async (_req, res) => {
+router.get("/rbac/audit-logs", requireAuthWithTenant, requirePermission("audit:view"), async (req, res) => {
   try {
     const logs = await db.select().from(auditLogsTable).orderBy(desc(auditLogsTable.createdAt)).limit(100);
     res.json(logs.map(l => ({ ...l, createdAt: l.createdAt.toISOString() })));
@@ -338,23 +311,31 @@ router.get("/rbac/audit-logs", requireAuthWithTenant, async (_req, res) => {
 
 router.patch("/rbac/users/:id/role", requireAuthWithTenant, requirePermission("roles:edit"), async (req, res) => {
   try {
+    const officeId = getRequiredTenantId(req);
     const { role } = req.body as { role: string };
     if (!role) return res.status(400).json({ error: "الدور مطلوب" });
 
-    const [updated] = await db.update(usersTable)
-      .set({ role })
-      .where(eq(usersTable.id, String(req.params.id)))
-      .returning();
+    const targetUserId = String(req.params.id);
+    const memberUpdate = await db.execute(sql`
+      UPDATE office_members SET role = ${role}
+      WHERE user_id = ${targetUserId} AND office_id = ${officeId} AND status = 'active'
+      RETURNING user_id
+    `) as { rows?: { user_id?: string }[] };
+    const updatedRows = Array.isArray(memberUpdate) ? memberUpdate : (memberUpdate?.rows ?? []);
+    if (!updatedRows[0]?.user_id) {
+      return res.status(404).json({ error: "عضو المكتب غير موجود — استخدم PATCH /api/rbac/members/:memberId/role" });
+    }
 
-    if (!updated) return res.status(404).json({ error: "المستخدم غير موجود" });
-    await logAudit("update_role", "user", String(req.params.id), `تغيير دور ${updated.fullName} إلى ${role}`);
-    res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
+    res.setHeader("Deprecation", "true");
+    res.setHeader("Link", '</api/rbac/members/:memberId/role>; rel="successor-version"');
+    await logAudit("update_role", "member", targetUserId, `تغيير دور العضو إلى ${role} (office_members)`);
+    res.json({ success: true, userId: targetUserId, role, officeId });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
   }
 });
 
-router.patch("/rbac/users/:id/status", requireAuthWithTenant, async (req, res) => {
+router.patch("/rbac/users/:id/status", requireAuthWithTenant, requirePermission("users:edit"), async (req, res) => {
   try {
     const { status } = req.body as { status: string };
     const [updated] = await db.update(usersTable)
@@ -369,7 +350,6 @@ router.patch("/rbac/users/:id/status", requireAuthWithTenant, async (req, res) =
   }
 });
 
-export const ALL_PERMISSIONS_LIST = ALL_PERMISSIONS;
 router.get("/rbac/permissions", requireAuth, (_req, res) => {
   res.json(ALL_PERMISSIONS);
 });
@@ -381,36 +361,40 @@ router.get("/rbac/my-permissions", requireAuthWithTenant, async (req, res) => {
     const userId = auth?.userId;
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
-    const officeId = await resolveTenantId(userId);
-    if (!officeId) return res.json({ role: "guest", displayName: "زائر", permissions: [] });
+    const officeId = getRequiredTenantId(req);
+    if (!officeId) {
+      return res.json({ role: "guest", displayName: "زائر", permissions: [], officeId: null });
+    }
 
-    const memberRows = await db.execute(sql`
-      SELECT role FROM office_members
-      WHERE user_id = ${userId} AND office_id = ${officeId} AND status = 'active'
-      LIMIT 1
-    `) as any;
-    const mArr = Array.isArray(memberRows) ? memberRows : (memberRows?.rows ?? []);
-    const roleName: string = mArr[0]?.role ?? "lawyer";
+    const isSA = !!(req as { isSuperAdmin?: boolean }).isSuperAdmin;
+    const ctx = await loadAuthorizationContext(userId, officeId, { isSuperAdmin: isSA });
+    if (!ctx) {
+      return res.status(403).json({
+        error: "عضوية المكتب غير موجودة أو غير فعّالة",
+        code: "AUTHZ_MEMBERSHIP_REQUIRED",
+        officeId,
+      });
+    }
 
-    await syncDefaultRoles();
-    const roleRows = await db.select().from(rolesTable).where(eq(rolesTable.name, roleName)).limit(1);
-    const roleData = roleRows[0];
-    const permissions: string[] = roleData ? JSON.parse(roleData.permissions) : [];
-
-    res.json({ role: roleName, displayName: roleData?.displayName ?? roleName, permissions, officeId });
+    res.json({
+      role: ctx.roleName,
+      displayName: ctx.roleDisplayName,
+      permissions: ctx.permissions,
+      officeId: ctx.officeId,
+    });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
 // ─── OFFICE MEMBERS LIST ─────────────────────────────────────────────────────
-router.get("/rbac/members", requireAuthWithTenant, async (req, res) => {
+router.get("/rbac/members", requireAuthWithTenant, requirePermission("users:view"), async (req, res) => {
   try {
     const auth = getAuth(req);
     const userId = auth?.userId;
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
-    const officeId = await resolveTenantId(userId);
+    const officeId = getRequiredTenantId(req);
     if (!officeId) return res.json([]);
 
     const rows = await db.execute(sql`
@@ -444,7 +428,7 @@ router.patch("/rbac/members/:memberId/role", requireAuthWithTenant, requirePermi
     const currentUserId = auth?.userId;
     if (!currentUserId) return res.status(401).json({ error: "غير مصرح" });
 
-    const officeId = await resolveTenantId(currentUserId);
+    const officeId = getRequiredTenantId(req);
     if (!officeId) return res.status(404).json({ error: "المكتب غير موجود" });
 
     const { role } = req.body as { role: string };
@@ -473,7 +457,7 @@ router.delete("/rbac/members/:memberId", requireAuthWithTenant, requirePermissio
       return res.status(400).json({ error: "لا يمكنك إزالة نفسك من المكتب" });
     }
 
-    const officeId = await resolveTenantId(currentUserId);
+    const officeId = getRequiredTenantId(req);
     if (!officeId) return res.status(404).json({ error: "المكتب غير موجود" });
 
     await db.execute(sql`
