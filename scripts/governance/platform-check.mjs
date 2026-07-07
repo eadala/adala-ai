@@ -633,6 +633,9 @@ const enforcementModules = [
   "src/modules/financial/accounting.ts",
   "src/modules/financial/payments.ts",
   "src/modules/operations/hr.ts",
+  "src/modules/operations/hr-enterprise.ts",
+  "src/modules/operations/hrInternal.ts",
+  "src/modules/operations/hrPerformance.ts",
 ];
 let unguardedMutations = 0;
 const mutationLineRe = /router\.(post|put|patch|delete)\([^)]+\)[^{]*async/gi;
