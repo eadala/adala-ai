@@ -3,6 +3,10 @@ import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import * as os from "os";
+import {
+  clerkProductionReadiness,
+  stripeProductionReadiness,
+} from "../../lib/launchReadiness";
 
 const router = Router();
 const saGuard = requireSuperAdmin;
@@ -169,8 +173,22 @@ router.get("/executive/production-validation", saGuard, async (_req, res) => {
     const hasStorage = !!(process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID);
     checks.push({ name: "Object Storage", status: hasStorage ? "pass" : "warn", detail: hasStorage ? "مُهيأ" : "غير مُهيأ" });
 
-    // Environment variables
-    const requiredEnv = ["CLERK_SECRET_KEY","VITE_CLERK_PUBLISHABLE_KEY","DATABASE_URL","STRIPE_SECRET_KEY","GEMINI_API_KEY"];
+    // Environment & integration readiness
+    const stripe = stripeProductionReadiness();
+    checks.push({
+      name: "Stripe (إنتاج)",
+      status: stripe.ok ? "pass" : "warn",
+      detail: stripe.detail,
+    });
+
+    const clerk = clerkProductionReadiness();
+    checks.push({
+      name: "Clerk Auth (إنتاج)",
+      status: clerk.ok ? "pass" : "warn",
+      detail: clerk.detail,
+    });
+
+    const requiredEnv = ["DATABASE_URL", "GEMINI_API_KEY"];
     for (const env of requiredEnv) {
       checks.push({ name: `متغير ${env}`, status: process.env[env] ? "pass" : "fail", detail: process.env[env] ? "موجود" : "مفقود" });
     }

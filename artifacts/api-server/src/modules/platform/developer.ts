@@ -5,6 +5,10 @@ import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
 import * as os from "os";
 import * as crypto from "crypto";
+import {
+  clerkProductionReadiness,
+  stripeProductionReadiness,
+} from "../../lib/launchReadiness";
 
 const router = Router();
 const devOnly = requireSuperAdmin;
@@ -324,9 +328,13 @@ router.get("/developer/env-info", devOnly, (_req, res) => {
     else { safe[key] = val; }
   }
   safe["PLATFORM_OWNER_EMAIL_SET"] = process.env.PLATFORM_OWNER_EMAIL ? "✓ مُعيَّن" : "✗ غير مُعيَّن";
-  safe["CLERK_SECRET_KEY_SET"]     = process.env.CLERK_SECRET_KEY ? "✓ مُعيَّن" : "✗ غير مُعيَّن";
   safe["ANTHROPIC_API_KEY_SET"]    = process.env.ANTHROPIC_API_KEY ? "✓ مُعيَّن" : "✗ غير مُعيَّن";
-  safe["STRIPE_SECRET_KEY_SET"]    = process.env.STRIPE_SECRET_KEY ? "✓ مُعيَّن" : "✗ غير مُعيَّن";
+  safe["STRIPE_READINESS"]         = stripeProductionReadiness().ok
+    ? "✓ جاهز للإنتاج"
+    : `⚠ ${stripeProductionReadiness().detail}`;
+  safe["CLERK_READINESS"]          = clerkProductionReadiness().ok
+    ? "✓ جاهز للإنتاج"
+    : `⚠ ${clerkProductionReadiness().detail}`;
   res.json(safe);
 });
 

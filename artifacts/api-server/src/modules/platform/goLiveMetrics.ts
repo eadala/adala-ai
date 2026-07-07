@@ -13,6 +13,10 @@ import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import {
+  clerkProductionReadiness,
+  stripeProductionReadiness,
+} from "../../lib/launchReadiness";
 
 const router = Router();
 
@@ -35,10 +39,7 @@ async function runChecklist(): Promise<{ id: string; label: string; status: "ok"
     {
       id: "stripe",
       label: "بوابة الدفع (Stripe)",
-      check: async () => {
-        const ok = !!(process.env.STRIPE_SECRET_KEY);
-        return { ok, detail: ok ? "STRIPE_SECRET_KEY مُهيَّأ" : "لم يُعيَّن STRIPE_SECRET_KEY" };
-      },
+      check: async () => stripeProductionReadiness(),
     },
     {
       id: "ai",
@@ -105,10 +106,7 @@ async function runChecklist(): Promise<{ id: string; label: string; status: "ok"
     {
       id: "security",
       label: "طبقة الأمان والتشفير",
-      check: async () => {
-        const hasClerk = !!(process.env.VITE_CLERK_PUBLISHABLE_KEY);
-        return { ok: hasClerk, detail: hasClerk ? "Clerk Auth مُفعَّل — JWT + RBAC" : "Clerk غير مُهيَّأ" };
-      },
+      check: async () => clerkProductionReadiness(),
     },
     {
       id: "storage",
