@@ -41,14 +41,9 @@ const BranchesPage         = lazy(() => import("@/pages/platform/branches"));
 const AiTasks              = lazy(() => import("@/pages/ai/ai-tasks"));
 const AIRouterDashboard    = lazy(() => import("@/pages/ai/ai-router-dashboard"));
 const AIHub                = lazy(() => import("@/pages/ai/ai-hub"));
-const AICopilotPage        = lazy(() => import("@/pages/ai/ai-copilot"));
-const AiChat               = lazy(() => import("@/pages/ai/ai-chat"));
-const AdoulPage            = lazy(() => import("@/pages/legal-core/adoul"));
 const OpponentSimulator    = lazy(() => import("@/pages/legal-core/opponent-simulator"));
-const AiAgents             = lazy(() => import("@/pages/ai/ai-agents"));
 const CommandCenter        = lazy(() => import("@/pages/ai/command-center"));
 const LegalAIPage          = lazy(() => import("@/pages/legal-core/legal-ai"));
-const AIAssistant          = lazy(() => import("@/pages/ai/ai-assistant"));
 
 // Legal & Research
 const LegalResearch        = lazy(() => import("@/pages/legal-core/legal-research"));
@@ -506,7 +501,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode; label?: string }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     const errorId = this.state.errorId;
-    const label = (this.props as any).label ?? "root";
+    const label = this.props.label ?? "root";
     console.error(`[Adala][${label}][${errorId}]`, error.message, info.componentStack?.slice(0, 400));
     // Send to monitoring (non-blocking)
     try {
@@ -529,7 +524,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode; label?: string }
   render() {
     const { error, errorId } = this.state;
     if (error) {
-      const isModule = !!(this.props as any).label;
+      const isModule = !!this.props.label;
       if (isModule) {
         return (
           <div dir="rtl" style={{
@@ -820,7 +815,7 @@ function AppRoutes() {
 
             {/* ── Portal (public, before /:token catch-all) ── */}
             <Route path="/sign/:token">{({ token }: { token: string }) => <PublicPage><SignPage token={token} /></PublicPage>}</Route>
-            <Route path="/invoice/:token">{(p: any) => <Suspense fallback={<PageLoader />}><InvoicePublic token={p.token} /></Suspense>}</Route>
+            <Route path="/invoice/:token">{({ token }: { token: string }) => <Suspense fallback={<PageLoader />}><InvoicePublic token={token} /></Suspense>}</Route>
             <Route path="/portal/login"><PublicPage><PortalLogin /></PublicPage></Route>
             <Route path="/portal/my-cases"><PublicPage><PortalMyCases /></PublicPage></Route>
             <Route path="/portal/:token"><PublicPage><PortalView /></PublicPage></Route>
