@@ -103,6 +103,15 @@ export const ROUTE_POLICIES: RoutePolicy[] = [
   { method: "PATCH", path: "/api/hr/leaves/:id", routeClass: "TENANT_RBAC", permission: "hr:manage" },
   { method: "POST", path: "/api/hr/warnings", routeClass: "TENANT_RBAC", permission: "hr:manage" },
   { method: "POST", path: "/api/hr/investigations", routeClass: "TENANT_RBAC", permission: "hr:manage" },
+  // ── payments (Customer Zero P0) ──
+  { method: "GET", path: "/api/payments/transactions", routeClass: "TENANT_RBAC", permission: "payments:view" },
+  { method: "POST", path: "/api/payments/transactions", routeClass: "TENANT_RBAC", permission: "payments:create" },
+  { method: "PATCH", path: "/api/payments/transactions/:id/settle", routeClass: "TENANT_RBAC", permission: "payments:create" },
+  { method: "DELETE", path: "/api/payments/transactions/:id", routeClass: "TENANT_RBAC", permission: "payments:create" },
+  { method: "GET", path: "/api/rbac/roles", routeClass: "TENANT_RBAC", permission: "roles:view" },
+  { method: "GET", path: "/api/rbac/members", routeClass: "TENANT_RBAC", permission: "users:view" },
+  { method: "GET", path: "/api/rbac/invitations", routeClass: "TENANT_RBAC", permission: "users:view" },
+  { method: "PATCH", path: "/api/rbac/invitations/:id/resend", routeClass: "TENANT_RBAC", permission: "users:create" },
   // RBAC admin
   { method: "POST", path: "/api/rbac/roles", routeClass: "TENANT_RBAC", permission: "roles:create" },
   { method: "PATCH", path: "/api/rbac/roles/:id", routeClass: "TENANT_RBAC", permission: "roles:edit" },

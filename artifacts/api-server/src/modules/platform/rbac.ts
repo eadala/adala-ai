@@ -42,8 +42,9 @@ const DEFAULT_ROLES = [
       "roles:view",
       "reports:view", "financial:view",
       "payroll:view", "payroll:manage",
+      "hr:manage",
       "invoices:view", "invoices:create", "invoices:edit",
-      "payments:view",
+      "payments:view", "payments:create",
       "settings:view",
       "ai:access",
       "messages:view", "messages:send",
@@ -162,7 +163,7 @@ async function logAudit(
 
 // ─── ROLES ──────────────────────────────────────────────────────────────────
 
-router.get("/rbac/roles", requireAuthWithTenant, async (_req, res) => {
+router.get("/rbac/roles", requireAuthWithTenant, requirePermission("roles:view"), async (_req, res) => {
   try {
     await syncDefaultRoles();
     const roles = await db.select().from(rolesTable).orderBy(rolesTable.createdAt);
@@ -239,7 +240,7 @@ router.delete("/rbac/roles/:id", requireAuthWithTenant, requirePermission("roles
 
 // ─── INVITATIONS ────────────────────────────────────────────────────────────
 
-router.get("/rbac/invitations", requireAuthWithTenant, async (req, res) => {
+router.get("/rbac/invitations", requireAuthWithTenant, requirePermission("users:view"), async (req, res) => {
   try {
     const officeId = getRequiredTenantId(req);
     const invitations = await db.select().from(invitationsTable)
@@ -273,7 +274,7 @@ router.post("/rbac/invitations", requireAuthWithTenant, requirePermission("users
   }
 });
 
-router.patch("/rbac/invitations/:id/resend", requireAuthWithTenant, async (req, res) => {
+router.patch("/rbac/invitations/:id/resend", requireAuthWithTenant, requirePermission("users:create"), async (req, res) => {
   try {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const [updated] = await db.update(invitationsTable)
@@ -388,7 +389,7 @@ router.get("/rbac/my-permissions", requireAuthWithTenant, async (req, res) => {
 });
 
 // ─── OFFICE MEMBERS LIST ─────────────────────────────────────────────────────
-router.get("/rbac/members", requireAuthWithTenant, async (req, res) => {
+router.get("/rbac/members", requireAuthWithTenant, requirePermission("users:view"), async (req, res) => {
   try {
     const auth = getAuth(req);
     const userId = auth?.userId;

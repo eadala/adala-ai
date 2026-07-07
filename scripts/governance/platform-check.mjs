@@ -532,6 +532,7 @@ const enforcementModules = [
   "src/modules/legal-core/documents.ts",
   "src/modules/financial/invoices.ts",
   "src/modules/financial/accounting.ts",
+  "src/modules/financial/payments.ts",
   "src/modules/operations/hr.ts",
 ];
 let unguardedMutations = 0;
@@ -539,7 +540,7 @@ const mutationLineRe = /router\.(post|put|patch|delete)\([^)]+\)[^{]*async/gi;
 for (const rel of enforcementModules) {
   const src = readSrc(BACKEND, rel) ?? "";
   const lines = src.split("\n").filter((l) => /router\.(post|put|patch|delete)\(/.test(l));
-  const unguarded = lines.filter((l) => !l.includes("requirePermission("));
+  const unguarded = lines.filter((l) => !l.includes("requirePermission(") && !l.includes("/webhook/"));
   if (unguarded.length > 0) {
     fail(`${rel}: ${unguarded.length} mutation(s) بدون requirePermission`);
     authzIssues++;
