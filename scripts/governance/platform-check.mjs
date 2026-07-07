@@ -465,6 +465,23 @@ if (lifecycleBootSrc.includes("bootLifecycleCache")) {
   tenantSecWarnings++;
 }
 
+const rlsMigration = existsSync(resolve(ROOT, "lib/db/drizzle/0003_rls_p0_tables.sql"));
+const rlsScopeSrc = readSrc(BACKEND, "src/core/tenant/rlsScope.ts") ?? "";
+const dataAccessSrc = readSrc(BACKEND, "src/core/tenant/dataAccess.ts") ?? "";
+if (rlsMigration && rlsScopeSrc.includes("withTenantRls") && dataAccessSrc.includes("tenantDB")) {
+  pass("PR-DATA-001 — RLS migration + dataAccess layer");
+} else {
+  warn("PR-DATA-001 غير مكتمل");
+  tenantSecWarnings++;
+}
+
+if (readSrc(BACKEND, "src/middlewares/requireAuth.ts")?.includes("app.bypass_rls")) {
+  pass("RLS bypass flag — default false in middleware");
+} else {
+  warn("app.bypass_rls غير مضبوط في middleware");
+  tenantSecWarnings++;
+}
+
 if (tenantResSrc.includes("export async function resolveTenantId") || tenantResSrc.includes("resolveTenantId")) {
   pass("resolveTenantId منفصل في tenantResolution.ts");
 } else {

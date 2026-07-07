@@ -21,6 +21,13 @@ export {
 
 export { requireEventOfficeId } from "./eventScope";
 export { runAsSystemTenant, SYSTEM_ACTOR_ID } from "./backgroundScope";
+export {
+  withTenantRls,
+  withPlatformRlsBypass,
+  setRlsSession,
+  clearRlsSession,
+} from "./rlsScope";
+export { validateRlsPolicies, bootRlsValidation, RLS_P0_TABLES } from "./rlsValidation";
 
 export {
   resolveTenantWithTrace,

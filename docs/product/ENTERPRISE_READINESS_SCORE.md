@@ -6,7 +6,7 @@
 
 ---
 
-## Overall Score: **7.6 / 10**
+## Overall Score: **7.9 / 10**
 
 | Dimension | Score | Weight | Weighted |
 |-----------|------:|-------:|---------:|
@@ -15,10 +15,10 @@
 | Financial operations | 7.5 | 15% | 1.13 |
 | HR operations | 6.5 | 10% | 0.65 |
 | Authorization & RBAC | 8.5 | 15% | 1.28 |
-| Tenant isolation | 7.5 | 10% | 0.75 |
+| Tenant isolation | 8.0 | 10% | 0.80 |
 | Security posture | 7.0 | 10% | 0.70 |
 | UX & permission clarity | 6.0 | 5% | 0.30 |
-| **Total** | | **100%** | **7.61** |
+| **Total** | | **100%** | **7.86** |
 
 ---
 
@@ -49,10 +49,10 @@
 **Strengths:** Kernel stable; 8 P0 modules governance-blocked; no trainee fallback.  
 **Gaps:** `enforceRoutePolicy` still in `warn` mode; registry lag vs code.
 
-### Tenant isolation (7.5)
+### Tenant isolation (8.0)
 
-**Strengths:** Canonical tenant kernel; fail-closed resolution; DB-backed lifecycle; event listener hardening; subscription tenant scoping.  
-**Gaps:** No PostgreSQL RLS yet (Phase 2); billing.ts manual resolve; emailCron uses legacy default.
+**Strengths:** Canonical kernel; RLS on 10 P0 tables; dataAccess layer; per-office cron; billing scoped.  
+**Gaps:** RLS not on all tables; HR extended modules unguarded; strict authz mode pending.
 
 ### Security (7.0)
 
@@ -85,7 +85,7 @@
 
 ## Gate to 9.0 (Enterprise Production)
 
-- PostgreSQL RLS on P0 tables
+- PostgreSQL RLS on P0 tables ✅ (PR-DATA-001)
 - Multi-branch native support
 - SOC2 audit trail completeness
 - AI governance strict mode
