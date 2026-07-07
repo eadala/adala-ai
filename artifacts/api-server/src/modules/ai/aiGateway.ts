@@ -165,7 +165,8 @@ router.post("/ai/query", requireAuthWithTenant, requirePermission("ai:access"), 
     const result = { reply, modelUsed, tier, cached: false };
     cache.set(cacheKey, result, 600);
 
-    eventBus.emit({ type: "AI_QUERY", officeId, data: { queryType: type, modelUsed, tier } }).catch(() => {});
+    /* ── Emit event (non-blocking) ──────────────────────────── */
+    eventBus.emit({ type: "AI_QUERY", officeId, actorId: (req as { userId?: string }).userId, data: { queryType: type, modelUsed, tier } }).catch(() => {});
 
     auditLog({
       ...auditMeta(req),

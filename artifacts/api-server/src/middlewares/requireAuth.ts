@@ -1,4 +1,5 @@
-import { getAuth, createClerkClient } from "@clerk/express";
+import { getAuth } from "@clerk/express";
+import { checkIsSuperAdmin } from "../core/platform/superAdmin";
 import type { Request, Response, NextFunction } from "express";
 import { resolveTenantId } from "./tenantResolution";
 import {
@@ -6,6 +7,11 @@ import {
   PLATFORM_TENANT_ID,
   tenantRequiredResponse,
 } from "../core/tenantContext";
+import {
+  assertTenantActive,
+  tenantLifecycleResponse,
+  TenantLifecycleError,
+} from "../core/tenant/tenantLifecycle";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import {
@@ -58,34 +64,8 @@ export function getSaRateLimitStats() {
   return { totalBuckets: _saBuckets.size, blockedIps: blocked, topOffenders: top.sort((a, b) => b.count - a.count).slice(0, 10) };
 }
 
-/* ── Super-admin bypass helper ─────────────────────────────────────────
-   Super admins have no office in DB — they get tenantId = "platform".
-   We check both the env whitelist AND Clerk publicMetadata for resilience.
-───────────────────────────────────────────────────────────────────────── */
-let _saClerk: ReturnType<typeof createClerkClient> | null = null;
-function getSAClerk() {
-  if (!_saClerk) _saClerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
-  return _saClerk;
-}
-
-/**
- * checkIsSuperAdmin — THE canonical super-admin check.
- * Always async. Always queries Clerk directly (never stale JWT).
- * Checks BOTH the comma-separated env whitelist AND Clerk publicMetadata role.
- *
- * Import this everywhere instead of writing local isSuperAdmin copies.
- */
-export async function checkIsSuperAdmin(userId: string): Promise<boolean> {
-  const raw = process.env.SUPER_ADMIN_EMAILS ?? process.env.PLATFORM_OWNER_EMAIL ?? "";
-  const saEmails = raw.split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
-  try {
-    const clerk = getSAClerk();
-    const user = await clerk.users.getUser(userId);
-    const email = (user.emailAddresses[0]?.emailAddress ?? "").toLowerCase();
-    /* Allow if in env whitelist OR Clerk metadata marks as super_admin */
-    return saEmails.includes(email) || user.publicMetadata?.role === "super_admin";
-  } catch { return false; }
-}
+/** Re-export canonical super-admin check from platform kernel. */
+export { checkIsSuperAdmin } from "../core/platform/superAdmin";
 
 /**
  * requireSuperAdmin — Express middleware (drop-in replacement for all local
@@ -180,11 +160,21 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
     console.warn(
       `[TENANT-403] path=${req.path} method=${req.method} ` +
       `userId=${userId} headerTenant=${headerTenant ?? "none"} ` +
-      `→ tenant resolution returned null (all 7 steps exhausted)`
+      `→ tenant kernel returned null (fail-closed)`
     );
     return res.status(403).json(tenantRequiredResponse(userId));
   }
   const officeId = tenantId;
+  if (officeId !== PLATFORM_TENANT_ID) {
+    try {
+      await assertTenantActive(officeId);
+    } catch (e) {
+      if (e instanceof TenantLifecycleError) {
+        return res.status(403).json(tenantLifecycleResponse(e));
+      }
+      throw e;
+    }
+  }
   (req as any).tenantId = officeId;
 
   // 🔑 Layer 1: AsyncLocalStorage — getTenant() works anywhere in the stack

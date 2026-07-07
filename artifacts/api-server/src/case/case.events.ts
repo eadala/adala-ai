@@ -14,6 +14,7 @@ export const CaseEvents = new CaseEventBus();
 CaseEvents.on("CASE_CREATED", (data: any) => {
   eventBus.emit({
     type:    "CASE_CREATED",
+    officeId: data.officeId ?? data.office_id,
     actorId: data.createdBy,
     data:    { caseId: data.id, title: data.title, clientName: data.clientName, caseType: data.caseType, status: data.status },
   }).catch(() => {});
@@ -23,6 +24,7 @@ CaseEvents.on("CASE_UPDATED", ({ after }: any) => {
   const evType = after.status === "closed" ? "CASE_CLOSED" : "CASE_UPDATED";
   eventBus.emit({
     type: evType,
+    officeId: after.officeId ?? after.office_id,
     data: { caseId: after.id, title: after.title, status: after.status, assignedTo: after.assignedTo },
   }).catch(() => {});
 });

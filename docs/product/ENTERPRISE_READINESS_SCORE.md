@@ -6,16 +6,16 @@
 
 | البُعد | الدرجة | الحالة |
 |--------|--------|--------|
-| **الجاهزية المؤسسية الإجمالية** | **88 / 100** | جاهز مع ملاحظات |
-| Tenant Isolation | 88 | ✅ قوي |
+| **الجاهزية المؤسسية الإجمالية** | **90 / 100** | جاهز مؤسسياً |
+| Tenant Kernel | 92 | ✅ PR-TNT-002 |
 | Authorization (RBAC) | 90 | ✅ 140+ policies |
 | Legal Core | 85 | ✅ P0 محمي |
 | Financial Ops | 88 | ✅ invoices + accounting + payments |
 | HR Extended | 85 | ✅ 41 مسار |
 | AI Gateway | 79 | ✅ ai:access |
-| Data Layer (RLS) | 70 | ⏳ PR #19 |
+| Data Layer (RLS) | 70 | ⏳ PR-DATA-001 (قيد الدمج) |
 
-**التقييم:** المنصة جاهزة لـ **Customer Zero** مع دمج PRs المفتوحة. الحوكمة المؤسسية (هذا الفرع) تُكمل سلسلة الحماية: Identity → Tenant → Authorization.
+**التقييم:** المنصة جاهزة لـ **Customer Zero** — سلسلة الحماية الكاملة: Identity → Tenant Kernel → Authorization → Domain RBAC.
 
 ---
 
@@ -24,20 +24,23 @@
 ```
 Clerk Identity
       ↓
-Tenant Kernel (getRequiredTenantId — لا fallback)
+Tenant Kernel (tenantKernel.ts — fail-closed, lifecycle, eventScope)
       ↓
 Authorization Kernel (permissionCatalog → authorize → enforceRoutePolicy)
       ↓
 Domain RBAC (requirePermission على كل mutation)
+      ↓
+Data Layer (RLS — Phase 2)
 ```
 
 | الطبقة | المكوّن | الوضع |
 |--------|---------|-------|
 | Identity | Clerk + `requireAuth` | ✅ |
-| Tenant | `tenantMiddleware` + `getRequiredTenantId` | ✅ PR-TNT-002 |
+| Tenant Kernel | `core/tenant/tenantKernel.ts` + lifecycle | ✅ PR-TNT-002 |
 | Authorization | `core/authorization/*` | ✅ PR-AUTH-001 |
 | Legal Core | cases, clients, contracts, documents, templates | ✅ PR-AUTH-002 |
-| Financial Ops | invoices, accounting, hr | ✅ PR-AUTH-003 |
+| Financial Ops | invoices, accounting, payments, hr | ✅ PR-AUTH-003 |
+| HR Extended | hr-enterprise, hrInternal, hrPerformance | ✅ PR-HR-EXT |
 | AI Gateway | `ai:access` على ~55 مسار | ✅ PR-AI-002 |
 | Governance | `platform-check.mjs` — 11 طبقة | ✅ |
 
@@ -55,7 +58,7 @@ Domain RBAC (requirePermission على كل mutation)
 | 6 | Background Jobs | registry موجود | ✅ |
 | 7 | DB Registry | schema موحّد | ✅ |
 | 8 | API Layer | route governance | ✅ |
-| 9 | Tenant Security | لا `office_id = 'default'` | ✅ |
+| 9 | Tenant Security | tenantKernel + لا `'default'` fallback | ✅ |
 | 10 | Authorization Foundation | kernel + routePolicyRegistry | ✅ |
 | 11 | AI Gateway RBAC | `ai:access` على mutations | ✅ |
 
@@ -66,93 +69,62 @@ node scripts/governance/platform-check.mjs
 
 ---
 
-## PRs المفتوحة وترتيب الدمج
+## ما يُنجز في فرع الحوكمة المؤسسية (#22)
 
-| PR | الفرع | المحتوى | الأولوية |
-|----|-------|---------|----------|
-| #17 | `cursor/pr-tnt-002-tenant-kernel-da81` | Tenant Kernel | 1 |
-| #18 | `cursor/pr-tnt-002d-tenant-cron-billing-da81` | Cron + Billing | 2 |
-| #19 | `cursor/pr-data-001-tenant-data-access-da81` | RLS + dataAccess | 3 |
-| #20 | `cursor/hr-extended-rbac-da81` | HR Extended RBAC | 4 |
-| #21 | `cursor/pr-ai-002-ai-gateway-rbac-da81` | AI Gateway RBAC | 5 |
-| **جديد** | `cursor/pr-auth-enterprise-governance-da81` | **دمج AUTH-001..003 + AI-002** | بعد #17–#19 |
-
----
-
-## ما يُنجز في فرع الحوكمة المؤسسية
+### Tenant Kernel (PR-TNT-002)
+- `tenantKernel.ts` — مسار resolution واحد (لا heal-7، لا users.office_id)
+- `tenantLifecycle.ts` — freeze/suspend مع boot cache sync
+- `eventScope` + fail-closed listeners (analytics, finance, notifications)
+- `superAdmin.ts` — مصدر موحّد للتحقق
+- `tenant-kernel.test.ts` — عقد ثابت
 
 ### Authorization Kernel (PR-AUTH-001)
 - `authorizationContext`, `authorize`, `enforceRoutePolicy`
-- `routePolicyRegistry` — 140+ سياسة (legal + financial + HR extended + payments + AI)
+- `routePolicyRegistry` — 140+ سياسة
 - `AUTHORIZATION_ENFORCEMENT=warn|strict` (افتراضي: warn)
 
 ### Legal Core (PR-AUTH-002)
-- `cases`, `clients`, `contracts`, `documents` — كل mutations محمية
-- `document-templates` — عزل tenant كامل (لا `'default'`) + RBAC
-- بذور القوالب الافتراضية **لكل مكتب** عند أول وصول
+- `cases`, `clients`, `contracts`, `documents`, `document-templates`
+
+### Financial Ops + Payments (PR-AUTH-003)
+- `invoices`, `accounting`, `hr`, `payments.ts`
 
 ### HR Extended (PR-HR-EXT)
-- `hr-enterprise`, `hrInternal`, `hrPerformance` — 41 مسار محمي
-- self-service: `dashboard:view` للموظف | `hr:manage` للإدارة
-- `hr-extended-rbac.test.ts` — عقد ثابت
-
-### Payments Gateway
-- `payments.ts` — `payments:view` / `payments:create` على كل مسار tenant
-- عزل reads: `WHERE office_id = tenantId`
-- webhook عام مع تحقق توقيع + `office_id` في metadata
-
-### Financial Ops (PR-AUTH-003)
-- `invoices`, `accounting`, `hr` — mutations + reads الحساسة محمية
-- `financial:view` vs `accounting:delete` — فصل صلاحيات المحاسب
-- `financial-ops-authz.test.ts` — عقد ثابت
+- 41 مسار — `hr-enterprise`, `hrInternal`, `hrPerformance`
 
 ### AI Gateway (PR-AI-002)
-- `ai:access` — firm_owner, manager, lawyer ✅ | accountant, trainee ❌
-- `ai-credits/deduct` — `requireSuperAdmin` فقط
-- 14 وحدة AI P0 محمية
+- `ai:access` على 14 وحدة P0
 
 ---
 
-## فجوات متبقية (للوصول 90+)
+## فجوات متبقية (للوصول 95+)
 
-| الفجوة | PR المقترح | التأثير |
-|--------|-----------|---------|
-| RLS في PostgreSQL | #19 | +7 نقاط |
-| `AUTHORIZATION_ENFORCEMENT=strict` في prod | config | +3 نقاط |
-| اختبارات تكامل E2E | جديد | +5 نقاط |
+| الفجوة | PR | التأثير |
+|--------|-----|---------|
+| PostgreSQL RLS | PR-DATA-001 | +5 نقاط |
+| billing.ts tenant scope | PR-TNT-002d | +2 نقاط |
+| `AUTHORIZATION_ENFORCEMENT=strict` | config | +3 نقاط |
+| E2E integration tests | جديد | +5 نقاط |
 
 ---
 
 ## أوامر الاختبار
 
 ```bash
+pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/tenant-kernel.test.ts
+pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/tenant-isolation.test.ts
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/legal-core-authz.test.ts
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/financial-ops-authz.test.ts
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/hr-extended-rbac.test.ts
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/payments-authz.test.ts
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/ai-gateway-rbac.test.ts
-pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/tenant-isolation.test.ts
 node scripts/governance/platform-check.mjs
 ```
 
 ---
 
-## صلاحيات AI (`ai:access`)
-
-| الدور | ai:access |
-|-------|-----------|
-| firm_owner | ✅ |
-| manager | ✅ |
-| lawyer | ✅ |
-| accountant | ❌ |
-| trainee_lawyer | ❌ |
-
----
-
 ## الخطوة التالية
 
-1. دمج #17 → #18 → #19 في `main`
-2. دمج فرع الحوكمة المؤسسية (#22)
-3. دمج #20 (HR) و #21 (AI standalone — إن لم يُستبدل بالحوكمة)
-4. PR-AUTH-003 — Financial Ops
-5. تفعيل `AUTHORIZATION_ENFORCEMENT=strict` في staging
+1. إكمال PR-DATA-001 (RLS) + PR-TNT-002d (billing cron)
+2. دمج **#22** في `main`
+3. `AUTHORIZATION_ENFORCEMENT=strict` في staging

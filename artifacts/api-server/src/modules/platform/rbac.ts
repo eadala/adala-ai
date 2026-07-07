@@ -4,12 +4,11 @@ import { db, rolesTable, invitationsTable, auditLogsTable, usersTable } from "@w
 import { eq, desc } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { resolveTenantId } from "../../middlewares/tenantMiddleware";
+import { getRequiredTenantId } from "../../core/tenantContext";
 import {
   ALL_PERMISSIONS,
   loadAuthorizationContext,
 } from "../../core/authorization";
-import { getRequiredTenantId } from "../../core/tenantContext";
 
 const router = Router();
 
@@ -361,7 +360,7 @@ router.get("/rbac/my-permissions", requireAuthWithTenant, async (req, res) => {
     const userId = auth?.userId;
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
-    const officeId = (req as { tenantId?: string }).tenantId ?? await resolveTenantId(userId);
+    const officeId = getRequiredTenantId(req);
     if (!officeId) {
       return res.json({ role: "guest", displayName: "زائر", permissions: [], officeId: null });
     }
@@ -394,7 +393,7 @@ router.get("/rbac/members", requireAuthWithTenant, async (req, res) => {
     const userId = auth?.userId;
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
-    const officeId = await resolveTenantId(userId);
+    const officeId = getRequiredTenantId(req);
     if (!officeId) return res.json([]);
 
     const rows = await db.execute(sql`
@@ -428,7 +427,7 @@ router.patch("/rbac/members/:memberId/role", requireAuthWithTenant, requirePermi
     const currentUserId = auth?.userId;
     if (!currentUserId) return res.status(401).json({ error: "غير مصرح" });
 
-    const officeId = await resolveTenantId(currentUserId);
+    const officeId = getRequiredTenantId(req);
     if (!officeId) return res.status(404).json({ error: "المكتب غير موجود" });
 
     const { role } = req.body as { role: string };
@@ -457,7 +456,7 @@ router.delete("/rbac/members/:memberId", requireAuthWithTenant, requirePermissio
       return res.status(400).json({ error: "لا يمكنك إزالة نفسك من المكتب" });
     }
 
-    const officeId = await resolveTenantId(currentUserId);
+    const officeId = getRequiredTenantId(req);
     if (!officeId) return res.status(404).json({ error: "المكتب غير موجود" });
 
     await db.execute(sql`

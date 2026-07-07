@@ -383,7 +383,73 @@ if (tenantMwCompatSrc.includes('export { requireAuthWithTenant } from "./require
   tenantSecWarnings++;
 }
 
-if (tenantResSrc.includes("export async function resolveTenantId")) {
+if (tenantResSrc.includes("tenantKernel")) {
+  pass("tenant kernel — canonical resolver (tenantKernel.ts)");
+} else {
+  warn("tenantKernel.ts غير مؤكد في tenantResolution shim");
+  tenantSecWarnings++;
+}
+
+const kernelSrc = readSrc(BACKEND, "src/core/tenant/tenantKernel.ts") ?? "";
+if (kernelSrc.includes("resolveTenantContext") && !kernelSrc.includes("TENANT-HEAL-7") && !kernelSrc.includes("SELECT office_id FROM users")) {
+  pass("tenant kernel — لا TENANT-HEAL-7 ولا users.office_id fallback");
+} else {
+  fail("tenantKernel ناقص أو يحتوي fallback خطير");
+  tenantSecIssues++;
+}
+
+const lifecycleSrc = readSrc(BACKEND, "src/core/tenant/tenantLifecycle.ts") ?? "";
+if (lifecycleSrc.includes("assertTenantActive") && lifecycleSrc.includes("lifecycle_status")) {
+  pass("tenant lifecycle — persistent freeze/suspend");
+} else {
+  warn("tenantLifecycle غير مكتمل");
+  tenantSecWarnings++;
+}
+
+const reqAuthSrc = readSrc(BACKEND, "src/middlewares/requireAuth.ts") ?? "";
+if (reqAuthSrc.includes("assertTenantActive")) {
+  pass("requireAuthWithTenant — lifecycle gate");
+} else {
+  fail("requireAuthWithTenant بدون lifecycle check");
+  tenantSecIssues++;
+}
+
+const eventBusTenantSrc = readSrc(BACKEND, "src/core/eventBus.ts") ?? "";
+if (!eventBusTenantSrc.includes('?? "default"') && eventBusTenantSrc.includes("missing officeId")) {
+  pass("eventBus — لا default tenant على persist");
+} else {
+  warn("eventBus قد يستخدم default tenant");
+  tenantSecWarnings++;
+}
+
+const listenerFiles = [
+  "src/core/listeners/notificationListener.ts",
+  "src/core/listeners/analyticsListener.ts",
+  "src/core/listeners/autopilotListener.ts",
+  "src/core/listeners/financeListener.ts",
+];
+let listenerFallbacks = 0;
+for (const rel of listenerFiles) {
+  const src = readSrc(BACKEND, rel) ?? "";
+  if (src.includes('?? "default"')) {
+    fail(`${rel}: event listener يستخدم default tenant fallback`);
+    tenantSecIssues++;
+    listenerFallbacks++;
+  }
+}
+if (listenerFallbacks === 0) {
+  pass("event listeners — fail-closed (لا ?? default)");
+}
+
+const lifecycleBootSrc = readSrc(BACKEND, "src/core/tenant/tenantLifecycle.ts") ?? "";
+if (lifecycleBootSrc.includes("bootLifecycleCache")) {
+  pass("tenant lifecycle — boot cache sync");
+} else {
+  warn("bootLifecycleCache غير موجود");
+  tenantSecWarnings++;
+}
+
+if (tenantResSrc.includes("export async function resolveTenantId") || tenantResSrc.includes("resolveTenantId")) {
   pass("resolveTenantId منفصل في tenantResolution.ts");
 } else {
   fail("tenantResolution.ts مفقود أو غير مكتمل");

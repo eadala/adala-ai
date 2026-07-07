@@ -10,14 +10,16 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { auditTenantResolution, resolveTenantWithTrace } from "../core/tenant/tenantResolver";
 import { PLATFORM_TENANT_ID, runWithTenant, tenantRequiredResponse } from "../core/tenantContext";
-import { checkIsSuperAdmin } from "./requireAuth";
-import { resolveTenantId, invalidateTenantCache } from "./tenantResolution";
+import { assertTenantActive, TenantLifecycleError, tenantLifecycleResponse } from "../core/tenant/tenantLifecycle";
+import { checkIsSuperAdmin } from "../core/platform/superAdmin";
+import { resolveTenantId } from "./tenantResolution";
 
 export { resolveTenantId, invalidateTenantCache } from "./tenantResolution";
 
 /** @see requireAuth.requireAuthWithTenant — canonical implementation */
 export { requireAuthWithTenant } from "./requireAuth";
 
+/** @deprecated Use requireAuthWithTenant from requireAuth.ts — lacks ALS, RLS, lifecycle */
 export async function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
   const userId = (req as any).userId as string | undefined;
   if (!userId) return res.status(401).json({ error: "يجب تسجيل الدخول أولاً" });
@@ -50,6 +52,17 @@ export async function requireAuthWithTenantAudit(
     auditTenantResolution(userId, trace, undefined, { ip, userAgent: ua });
     (req as any).tenantId  = trace.tenantId;
     (req as any).tenantTrace = trace.steps;
+
+    if (trace.tenantId !== PLATFORM_TENANT_ID) {
+      try {
+        await assertTenantActive(trace.tenantId);
+      } catch (e) {
+        if (e instanceof TenantLifecycleError) {
+          return res.status(403).json(tenantLifecycleResponse(e));
+        }
+        throw e;
+      }
+    }
 
     await db.execute(sql`
       SELECT
