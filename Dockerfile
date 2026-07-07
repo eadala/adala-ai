@@ -41,8 +41,8 @@ WORKDIR /app
 # Copy built backend (single bundled file + pino workers)
 COPY --from=builder --chown=adala:adala /app/artifacts/api-server/dist/ ./dist/
 
-# Copy built frontend static files
-COPY --from=builder --chown=adala:adala /app/artifacts/adala/dist/public/ ./public/
+# Copy built frontend static files (vite → dist4/public, build script → dist-stable)
+COPY --from=builder --chown=adala:adala /app/artifacts/adala/dist-stable/ ./public/
 COPY --from=builder --chown=adala:adala /app/node_modules/ ./node_modules/
 COPY --from=builder --chown=adala:adala /app/artifacts/api-server/node_modules/ ./artifacts/api-server/node_modules/
 
