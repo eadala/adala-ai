@@ -90,6 +90,22 @@ function testLifecycleBootSync() {
   console.log("  ✅ lifecycle boot cache sync present");
 }
 
+function testEmailCronPerOffice() {
+  const cron = readModule("cron/emailCron.ts");
+  assert.doesNotMatch(cron, /office_id = 'default'/);
+  assert.match(cron, /runAsSystemTenant/);
+  assert.match(cron, /listEmailEnabledOffices/);
+  console.log("  ✅ emailCron — per-office tenant scope");
+}
+
+function testBillingUsesTenantMiddleware() {
+  const billing = readModule("modules/financial/billing.ts");
+  assert.match(billing, /requireAuthWithTenant/);
+  assert.match(billing, /getRequiredTenantId/);
+  assert.doesNotMatch(billing, /resolveTenantId/);
+  console.log("  ✅ billing.ts — canonical tenant middleware");
+}
+
 function main() {
   console.log("Tenant Kernel Hardening Tests — PR-TNT-002\n");
   testCanonicalKernelExists();
@@ -101,6 +117,8 @@ function main() {
   testEventListenersFailClosed();
   testCanonicalSuperAdmin();
   testLifecycleBootSync();
+  testEmailCronPerOffice();
+  testBillingUsesTenantMiddleware();
   console.log("\n✅ All PR-TNT-002 tenant kernel tests passed\n");
 }
 

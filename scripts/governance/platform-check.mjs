@@ -441,6 +441,22 @@ if (listenerFallbacks === 0) {
   pass("event listeners — fail-closed (لا ?? default)");
 }
 
+const emailCronSrc = readSrc(BACKEND, "src/cron/emailCron.ts") ?? "";
+if (!emailCronSrc.includes("office_id = 'default'") && emailCronSrc.includes("runAsSystemTenant")) {
+  pass("emailCron — per-office tenant scope");
+} else {
+  fail("emailCron يستخدم default tenant أو بدون runAsSystemTenant");
+  tenantSecIssues++;
+}
+
+const billingTenantSrc = readSrc(BACKEND, "src/modules/financial/billing.ts") ?? "";
+if (billingTenantSrc.includes("requireAuthWithTenant") && !billingTenantSrc.includes("resolveTenantId")) {
+  pass("billing.ts — canonical tenant middleware");
+} else {
+  warn("billing.ts قد لا يستخدم tenant kernel بالكامل");
+  tenantSecWarnings++;
+}
+
 const lifecycleBootSrc = readSrc(BACKEND, "src/core/tenant/tenantLifecycle.ts") ?? "";
 if (lifecycleBootSrc.includes("bootLifecycleCache")) {
   pass("tenant lifecycle — boot cache sync");
