@@ -16,7 +16,7 @@ export interface RoutePolicy {
   description?: string;
 }
 
-/** Policies — PR-AUTH-001 RBAC + PR-AUTH-002 legal-core. */
+/** Policies — PR-AUTH-001 RBAC + PR-AUTH-002 legal-core + PR-AI-002 AI gateway. */
 export const ROUTE_POLICIES: RoutePolicy[] = [
   // ── cases ──
   { method: "GET", path: "/api/cases", routeClass: "TENANT_RBAC", permission: "cases:view" },
@@ -52,6 +52,36 @@ export const ROUTE_POLICIES: RoutePolicy[] = [
   { method: "GET", path: "/api/documents", routeClass: "TENANT_RBAC", permission: "documents:view" },
   { method: "POST", path: "/api/documents", routeClass: "TENANT_RBAC", permission: "documents:upload" },
   { method: "DELETE", path: "/api/documents/:id", routeClass: "TENANT_RBAC", permission: "documents:delete" },
+  // ── document templates (tenant-scoped, no shared default) ──
+  { method: "GET", path: "/api/document-templates", routeClass: "TENANT_RBAC", permission: "documents:view" },
+  { method: "GET", path: "/api/document-templates/:id", routeClass: "TENANT_RBAC", permission: "documents:view" },
+  { method: "POST", path: "/api/document-templates", routeClass: "TENANT_RBAC", permission: "documents:edit" },
+  { method: "PUT", path: "/api/document-templates/:id", routeClass: "TENANT_RBAC", permission: "documents:edit" },
+  { method: "DELETE", path: "/api/document-templates/:id", routeClass: "TENANT_RBAC", permission: "documents:delete" },
+  { method: "POST", path: "/api/document-templates/:id/generate", routeClass: "TENANT_RBAC", permission: "documents:upload" },
+  { method: "GET", path: "/api/generated-documents", routeClass: "TENANT_RBAC", permission: "documents:view" },
+  { method: "GET", path: "/api/generated-documents/:id", routeClass: "TENANT_RBAC", permission: "documents:view" },
+  // ── AI gateway (PR-AI-002) ──
+  { method: "POST", path: "/api/ai/query", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "GET", path: "/api/ai/analytics/summary", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "GET", path: "/api/ai/analytics/daily", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "GET", path: "/api/ai/analytics/recent", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "GET", path: "/api/ai/query/types", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "GET", path: "/api/ai/query/cache-stats", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/copilot/chat", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "GET", path: "/api/copilot/snapshot", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/copilot/intent", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/ai-assistant", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/ai-chat/message", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/ai-search", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/ai/analyze-case", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/ai-agent/execute", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/ai-workflow/run", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/ai-agents/run", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/command-center/execute", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/cc/chat/:agentType", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/ui-builder/generate", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "GET", path: "/api/office/ai-credits", routeClass: "TENANT_RBAC", permission: "ai:access" },
   // financial
   { method: "DELETE", path: "/api/invoices/:id", routeClass: "TENANT_RBAC", permission: "invoices:delete" },
   { method: "DELETE", path: "/api/accounting/revenues/:id", routeClass: "TENANT_RBAC", permission: "accounting:delete" },

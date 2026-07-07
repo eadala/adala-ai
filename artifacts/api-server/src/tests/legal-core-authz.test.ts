@@ -31,6 +31,7 @@ function testLegalCoreModules() {
     "modules/legal-core/clients.ts",
     "modules/legal-core/contracts.ts",
     "modules/legal-core/documents.ts",
+    "modules/legal-core/document-templates.ts",
   ];
   for (const m of modules) assertMutationsGuarded(m);
   console.log("  ✅ legal-core mutations all require requirePermission");
@@ -44,6 +45,9 @@ function testRouteRegistryCoverage() {
     ["POST", "/api/clients", "clients:create"],
     ["POST", "/api/contracts", "contracts:create"],
     ["POST", "/api/documents", "documents:upload"],
+    ["POST", "/api/document-templates", "documents:edit"],
+    ["POST", "/api/document-templates/:id/generate", "documents:upload"],
+    ["POST", "/api/ai/query", "ai:access"],
   ] as const;
 
   for (const [method, path, perm] of required) {
@@ -51,7 +55,7 @@ function testRouteRegistryCoverage() {
     assert.ok(policy, `missing policy ${method} ${path}`);
     assert.equal(policy?.permission, perm);
   }
-  assert.ok(ROUTE_POLICIES.length >= 40, "expected expanded policy registry");
+  assert.ok(ROUTE_POLICIES.length >= 55, "expected expanded policy registry with AI + templates");
   console.log("  ✅ route policy registry covers legal-core P0");
 }
 
@@ -61,11 +65,21 @@ function testTraineeCannotCreateCase() {
   console.log("  ✅ POST /cases requires cases:create");
 }
 
+function testDocumentTemplatesTenantScoped() {
+  const templates = readModule("modules/legal-core/document-templates.ts");
+  assert.doesNotMatch(templates, /office_id = 'default'/);
+  assert.match(templates, /getRequiredTenantId/);
+  assert.match(templates, /requirePermission\("documents:view"\)/);
+  assert.match(templates, /requirePermission\("documents:edit"\)/);
+  console.log("  ✅ document-templates tenant-scoped + RBAC");
+}
+
 function main() {
   console.log("Legal Core Authorization Tests — PR-AUTH-002\n");
   testLegalCoreModules();
   testRouteRegistryCoverage();
   testTraineeCannotCreateCase();
+  testDocumentTemplatesTenantScoped();
   console.log("\n✅ All PR-AUTH-002 legal-core authz tests passed\n");
 }
 

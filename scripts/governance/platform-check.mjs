@@ -539,6 +539,7 @@ const enforcementModules = [
   "src/modules/legal-core/clients.ts",
   "src/modules/legal-core/contracts.ts",
   "src/modules/legal-core/documents.ts",
+  "src/modules/legal-core/document-templates.ts",
 ];
 let unguardedMutations = 0;
 for (const rel of enforcementModules) {
