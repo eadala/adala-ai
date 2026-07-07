@@ -111,6 +111,8 @@ router.post("/clients", requireAuthWithTenant, requirePermission("clients:create
 
     eventBus.emit({
       type: "CLIENT_ADDED",
+      officeId: tenantId,
+      actorId: (req as { userId?: string }).userId,
       data: { fullName, email, phone, type, company, source },
     }).catch(() => {});
 

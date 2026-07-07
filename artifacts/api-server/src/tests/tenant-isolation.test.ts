@@ -106,9 +106,10 @@ function testT_ISO_01_02() {
   assert.match(requireAuth, /export async function requireAuthWithTenant/);
   assert.doesNotMatch(tenantMw, /export async function requireAuthWithTenant\s*\(/);
   assert.match(tenantMw, /export \{ requireAuthWithTenant \} from "\.\/requireAuth"/);
-  assert.match(tenantResolution, /export async function resolveTenantId/);
+  assert.match(tenantResolution, /tenantKernel/);
+  assert.match(requireAuth, /assertTenantActive/);
   assert.match(requireAuth, /set_config\('app\.current_tenant'/);
-  console.log("  ✅ T-ISO-01/02: single canonical middleware; resolution separated");
+  console.log("  ✅ T-ISO-01/02: single canonical middleware; kernel resolution");
 }
 
 function testLegacyDevFlag() {

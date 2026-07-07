@@ -6,7 +6,7 @@
 
 ---
 
-## Overall Score: **6.8 / 10**
+## Overall Score: **7.6 / 10**
 
 | Dimension | Score | Weight | Weighted |
 |-----------|------:|-------:|---------:|
@@ -15,10 +15,10 @@
 | Financial operations | 7.5 | 15% | 1.13 |
 | HR operations | 6.5 | 10% | 0.65 |
 | Authorization & RBAC | 8.5 | 15% | 1.28 |
-| Tenant isolation | 6.0 | 10% | 0.60 |
+| Tenant isolation | 7.5 | 10% | 0.75 |
 | Security posture | 7.0 | 10% | 0.70 |
 | UX & permission clarity | 6.0 | 5% | 0.30 |
-| **Total** | | **100%** | **6.81** |
+| **Total** | | **100%** | **7.61** |
 
 ---
 
@@ -49,10 +49,10 @@
 **Strengths:** Kernel stable; 8 P0 modules governance-blocked; no trainee fallback.  
 **Gaps:** `enforceRoutePolicy` still in `warn` mode; registry lag vs code.
 
-### Tenant isolation (6.0)
+### Tenant isolation (7.5)
 
-**Strengths:** Phase 1 foundation; P0 hotfixes; ALS context.  
-**Gaps:** 7-step resolver fallbacks; in-memory freeze; no RLS.
+**Strengths:** Canonical tenant kernel; fail-closed resolution; DB-backed lifecycle; event listener hardening; subscription tenant scoping.  
+**Gaps:** No PostgreSQL RLS yet (Phase 2); billing.ts manual resolve; emailCron uses legacy default.
 
 ### Security (7.0)
 
@@ -75,7 +75,9 @@
 | RBAC enumeration blocked | ✅ |
 | Customer Zero seed | ✅ |
 | HR extended modules RBAC | ❌ P1 |
-| PR-TNT-002a resolver hardening | ❌ P1 |
+| PR-TNT-002a resolver hardening | ✅ |
+| PR-TNT-002 event propagation | ✅ |
+| PR-TNT-002 lifecycle persistence | ✅ |
 | `AUTHORIZATION_ENFORCEMENT=strict` | ❌ P1 |
 | Enterprise onboarding runbook | ❌ P2 |
 

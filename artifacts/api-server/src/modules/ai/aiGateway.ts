@@ -170,7 +170,7 @@ router.post("/ai/query", requireAuthWithTenant, async (req, res) => {
     cache.set(cacheKey, result, 600);
 
     /* ── Emit event (non-blocking) ──────────────────────────── */
-    eventBus.emit({ type: "AI_QUERY", data: { queryType: type, modelUsed, tier, officeId } }).catch(() => {});
+    eventBus.emit({ type: "AI_QUERY", officeId, actorId: (req as { userId?: string }).userId, data: { queryType: type, modelUsed, tier } }).catch(() => {});
 
     /* ── Audit log ──────────────────────────────────────────── */
     auditLog({

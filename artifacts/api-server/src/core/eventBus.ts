@@ -58,7 +58,7 @@ async function ensureEventsTable() {
     CREATE TABLE IF NOT EXISTS system_events (
       id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       event_type  TEXT NOT NULL,
-      office_id   TEXT DEFAULT 'default',
+      office_id   TEXT,
       actor_id    TEXT,
       payload     JSONB NOT NULL DEFAULT '{}',
       created_at  TIMESTAMP DEFAULT NOW()
@@ -102,18 +102,22 @@ class EventBus {
       timestamp: new Date().toISOString(),
     };
 
-    /* 1. Persist to DB (non-blocking) */
-    db.execute(sql`
-      INSERT INTO system_events (id, event_type, office_id, actor_id, payload, created_at)
-      VALUES (
-        ${stored.id}::uuid,
-        ${stored.type},
-        ${stored.officeId ?? "default"},
-        ${stored.actorId ?? null},
-        ${JSON.stringify(stored.data)}::jsonb,
-        ${stored.timestamp}::timestamp
-      )
-    `).catch((e: unknown) => console.error("[EventBus] persist error:", (e as Error).message));
+    /* 1. Persist to DB — tenant-scoped events require officeId (fail-closed) */
+    if (!stored.officeId) {
+      console.warn(`[EventBus] emit skipped persist — missing officeId for ${stored.type}`);
+    } else {
+      db.execute(sql`
+        INSERT INTO system_events (id, event_type, office_id, actor_id, payload, created_at)
+        VALUES (
+          ${stored.id}::uuid,
+          ${stored.type},
+          ${stored.officeId},
+          ${stored.actorId ?? null},
+          ${JSON.stringify(stored.data)}::jsonb,
+          ${stored.timestamp}::timestamp
+        )
+      `).catch((e: unknown) => console.error("[EventBus] persist error:", (e as Error).message));
+    }
 
     /* 2. Run specific listeners */
     const handlers = this.listeners.get(stored.type) ?? [];

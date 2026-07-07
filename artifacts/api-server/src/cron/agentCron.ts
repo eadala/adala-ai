@@ -15,6 +15,7 @@ import { logger } from "../lib/logger";
 import { callAI } from "../modules/ai/aiChat";
 import { encryptBuffer, isEncryptionEnabled } from "../core/backupEncrypt";
 import { uploadBackup, tenantSnapshotKey, fullBackupKey } from "../core/backupStorage";
+import { runAsSystemTenant } from "../core/tenant/backgroundScope";
 
 /* ── DB helpers ─────────────────────────────────────── */
 async function sqlAll(q: any): Promise<Record<string, any>[]> {
@@ -441,6 +442,7 @@ async function runTenantBackupCron(): Promise<void> {
     for (const office of offices) {
       const tenantId = String(office.id);
       try {
+        await runAsSystemTenant(tenantId, async () => {
         const [cases, clients, invoices] = await Promise.all([
           sqlAll(sql`SELECT id, title, status, created_at FROM cases WHERE office_id=${tenantId} LIMIT 50000`),
           sqlAll(sql`SELECT id, full_name, created_at FROM clients WHERE office_id=${tenantId} LIMIT 50000`),
@@ -465,7 +467,7 @@ async function runTenantBackupCron(): Promise<void> {
             ${JSON.stringify({ storageKey: key, encrypted: isEncryptionEnabled(), entityCount: cases.length + clients.length + invoices.length })}
           )
         `);
-
+        });
         succeeded++;
       } catch (e) {
         failed++;
