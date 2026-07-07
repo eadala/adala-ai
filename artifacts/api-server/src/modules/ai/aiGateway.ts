@@ -22,7 +22,12 @@
  */
 
 import { Router }            from "express";
-import { requireAuth }       from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import {
+  getRequiredTenantId,
+  tenantRequiredResponse,
+  TenantRequiredError,
+} from "../../core/tenantContext";
 import { callAI, classifyPrompt, logAIUsage } from "./aiChat";
 import { cache }             from "../../core/cache";
 import { eventBus }          from "../../core/eventBus";
@@ -66,7 +71,7 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 };
 
 /* ── Cache key builder — officeId is MANDATORY to prevent cross-tenant leakage ── */
-function buildCacheKey(officeId: string, type: string, input: string, context?: string): string {
+export function buildCacheKey(officeId: string, type: string, input: string, context?: string): string {
   const raw = `${officeId}|${type}|${input}|${context ?? ""}`;
   return `ai:${crypto.createHash("sha256").update(raw).digest("hex").slice(0, 16)}`;
 }
@@ -74,7 +79,7 @@ function buildCacheKey(officeId: string, type: string, input: string, context?: 
 /* ─────────────────────────────────────────────────────────────────
    POST /api/ai/query
 ───────────────────────────────────────────────────────────────── */
-router.post("/ai/query", requireAuth, async (req, res) => {
+router.post("/ai/query", requireAuthWithTenant, async (req, res) => {
   const {
     type    = "legal_assistant",
     input,
@@ -97,7 +102,16 @@ router.post("/ai/query", requireAuth, async (req, res) => {
     return;
   }
 
-  const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+  let officeId: string;
+  try {
+    officeId = getRequiredTenantId(req);
+  } catch (err) {
+    if (err instanceof TenantRequiredError) {
+      res.status(403).json(tenantRequiredResponse());
+      return;
+    }
+    throw err;
+  }
   const cacheKey = buildCacheKey(officeId, type, input.trim(), context);
 
   /* ── Cache hit ──────────────────────────────────────────────── */

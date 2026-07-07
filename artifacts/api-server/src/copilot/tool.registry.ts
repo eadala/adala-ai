@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { getTenantSafe } from "../core/tenantContext";
+import { getRequiredOfficeId } from "../core/tenantContext";
 import { callAI } from "../modules/ai/aiChat";
 
 export interface ToolResult {
@@ -11,7 +11,7 @@ export interface ToolResult {
 }
 
 async function getOfficeId(): Promise<string> {
-  return getTenantSafe()?.officeId ?? "default";
+  return getRequiredOfficeId();
 }
 
 /* ─── Tool: CREATE_CASE ─── */

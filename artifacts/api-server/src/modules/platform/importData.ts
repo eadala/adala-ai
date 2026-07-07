@@ -1,7 +1,8 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { getRequiredTenantId, tenantRequiredResponse, TenantRequiredError } from "../../core/tenantContext";
 
 const router = Router();
 
@@ -15,6 +16,7 @@ async function sqlAll(q: any) {
 /* ─── Import Clients ─────────────────────────────────────────────────── */
 router.post("/import/clients", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = getRequiredTenantId(req);
     const { rows } = req.body as { rows: any[] };
     if (!Array.isArray(rows) || rows.length === 0)
       return res.status(400).json({ error: "لا توجد بيانات للاستيراد" });
@@ -32,19 +34,23 @@ router.post("/import/clients", requireAuthWithTenant, async (req, res) => {
         const city  = (r.city || r.المدينة || r.City || "").trim() || null;
         await db.execute(sql`
           INSERT INTO clients (full_name, email, phone, type, city, status, office_id)
-          VALUES (${name}, ${email}, ${phone}, ${type}, ${city}, 'active', 'default')
+          VALUES (${name}, ${email}, ${phone}, ${type}, ${city}, 'active', ${tenantId})
           ON CONFLICT DO NOTHING
         `);
         inserted++;
       } catch (e: any) { errors.push(e.message); }
     }
     res.json({ inserted, errors: errors.slice(0, 10), total: rows.length });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    if (e instanceof TenantRequiredError) return res.status(403).json(tenantRequiredResponse());
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* ─── Import Cases ───────────────────────────────────────────────────── */
 router.post("/import/cases", requireAuthWithTenant, async (req, res) => {
   try {
+    const tenantId = getRequiredTenantId(req);
     const { rows } = req.body as { rows: any[] };
     if (!Array.isArray(rows) || rows.length === 0)
       return res.status(400).json({ error: "لا توجد بيانات للاستيراد" });
@@ -63,14 +69,17 @@ router.post("/import/cases", requireAuthWithTenant, async (req, res) => {
         const description = (r.description || r.الوصف || r.Description || "").trim() || null;
         await db.execute(sql`
           INSERT INTO cases (title, case_number, type, status, court, description, office_id)
-          VALUES (${title}, ${caseNumber}, ${caseType}, ${status}, ${court}, ${description}, 'default')
+          VALUES (${title}, ${caseNumber}, ${caseType}, ${status}, ${court}, ${description}, ${tenantId})
           ON CONFLICT DO NOTHING
         `);
         inserted++;
       } catch (e: any) { errors.push(e.message); }
     }
     res.json({ inserted, errors: errors.slice(0, 10), total: rows.length });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    if (e instanceof TenantRequiredError) return res.status(403).json(tenantRequiredResponse());
+    res.status(500).json({ error: e.message });
+  }
 });
 
 export default router;

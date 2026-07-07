@@ -62,7 +62,7 @@ if (!permSrc) {
   info(`${permKeys.length} صلاحية مسجّلة`);
 
   // Check all RBAC permission references in backend are in registry
-  const requirePermSrc = readSrc(BACKEND, "src/middleware/requireAuth.ts") ?? "";
+  const requirePermSrc = readSrc(BACKEND, "src/middlewares/requireAuth.ts") ?? "";
   const backendPerms = [...requirePermSrc.matchAll(/requirePermission\(["']([^"']+)["']\)/g)].map(m => m[1]);
   const unregistered = backendPerms.filter(p => !permKeys.includes(p));
   if (unregistered.length === 0) {
