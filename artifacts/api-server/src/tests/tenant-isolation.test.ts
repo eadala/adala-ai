@@ -86,6 +86,14 @@ function testT_ISO_07() {
   assert.match(gateway, /requireAuthWithTenant/);
   assert.match(gateway, /getRequiredTenantId/);
   assert.doesNotMatch(gateway, /tenantId\s*\?\?\s*\(req as any\)\.userId/);
+
+  const providerEngine = readModule("modules/ai/aiProviderEngine.ts");
+  assert.match(providerEngine, /requireAuthWithTenant/);
+  assert.doesNotMatch(providerEngine, /tenantId\s*\?\?\s*\(req as any\)\.userId/);
+
+  const integrations = readModule("modules/platform/managedIntegrations.ts");
+  assert.match(integrations, /requireAuthWithTenant/);
+  assert.doesNotMatch(integrations, /tenantId\s*\?\?\s*\(req as any\)\.userId/);
   console.log("  ✅ T-ISO-07: AI cache keys isolated by officeId, userId, type, model");
 }
 

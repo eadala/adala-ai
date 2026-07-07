@@ -389,10 +389,14 @@ const unsafeFallbackPatterns = [
 
 const criticalTenantFiles = [
   "src/modules/platform/entitlements.ts",
+  "src/modules/platform/managedIntegrations.ts",
   "src/modules/ai/copilot.ts",
   "src/modules/ai/aiGateway.ts",
+  "src/modules/ai/aiProviderEngine.ts",
+  "src/modules/ai/aiCredits.ts",
   "src/copilot/tool.registry.ts",
   "src/modules/operations/internal-messages.ts",
+  "src/modules/integrations/push.ts",
   "src/webhookHandlers.ts",
 ];
 
