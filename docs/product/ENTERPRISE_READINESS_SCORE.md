@@ -6,12 +6,12 @@
 
 | البُعد | الدرجة | الحالة |
 |--------|--------|--------|
-| **الجاهزية المؤسسية الإجمالية** | **78 / 100** | جاهز مع ملاحظات |
+| **الجاهزية المؤسسية الإجمالية** | **84 / 100** | جاهز مع ملاحظات |
 | Tenant Isolation | 85 | ✅ قوي |
-| Authorization (RBAC) | 82 | ✅ kernel مفعّل |
-| Legal Core | 80 | ✅ P0 محمي |
+| Authorization (RBAC) | 88 | ✅ kernel + 100+ policies |
+| Legal Core | 85 | ✅ P0 محمي |
+| Financial Ops | 82 | ✅ PR-AUTH-003 |
 | AI Gateway | 79 | ✅ ai:access |
-| Financial Ops | 55 | ⏳ PR-AUTH-003 |
 | HR Extended | 72 | ⏳ PR #20 |
 | Data Layer (RLS) | 70 | ⏳ PR #19 |
 
@@ -37,6 +37,7 @@ Domain RBAC (requirePermission على كل mutation)
 | Tenant | `tenantMiddleware` + `getRequiredTenantId` | ✅ PR-TNT-002 |
 | Authorization | `core/authorization/*` | ✅ PR-AUTH-001 |
 | Legal Core | cases, clients, contracts, documents, templates | ✅ PR-AUTH-002 |
+| Financial Ops | invoices, accounting, hr | ✅ PR-AUTH-003 |
 | AI Gateway | `ai:access` على ~55 مسار | ✅ PR-AI-002 |
 | Governance | `platform-check.mjs` — 11 طبقة | ✅ |
 
@@ -74,7 +75,7 @@ node scripts/governance/platform-check.mjs
 | #19 | `cursor/pr-data-001-tenant-data-access-da81` | RLS + dataAccess | 3 |
 | #20 | `cursor/hr-extended-rbac-da81` | HR Extended RBAC | 4 |
 | #21 | `cursor/pr-ai-002-ai-gateway-rbac-da81` | AI Gateway RBAC | 5 |
-| **جديد** | `cursor/pr-auth-enterprise-governance-da81` | **دمج AUTH-001 + AUTH-002 + AI-002** | بعد #17–#19 |
+| **جديد** | `cursor/pr-auth-enterprise-governance-da81` | **دمج AUTH-001..003 + AI-002** | بعد #17–#19 |
 
 ---
 
@@ -82,13 +83,18 @@ node scripts/governance/platform-check.mjs
 
 ### Authorization Kernel (PR-AUTH-001)
 - `authorizationContext`, `authorize`, `enforceRoutePolicy`
-- `routePolicyRegistry` — 75+ سياسة (legal + AI + templates)
+- `routePolicyRegistry` — 100+ سياسة (legal + financial + HR + templates + AI P0)
 - `AUTHORIZATION_ENFORCEMENT=warn|strict` (افتراضي: warn)
 
 ### Legal Core (PR-AUTH-002)
 - `cases`, `clients`, `contracts`, `documents` — كل mutations محمية
 - `document-templates` — عزل tenant كامل (لا `'default'`) + RBAC
 - بذور القوالب الافتراضية **لكل مكتب** عند أول وصول
+
+### Financial Ops (PR-AUTH-003)
+- `invoices`, `accounting`, `hr` — mutations + reads الحساسة محمية
+- `financial:view` vs `accounting:delete` — فصل صلاحيات المحاسب
+- `financial-ops-authz.test.ts` — عقد ثابت
 
 ### AI Gateway (PR-AI-002)
 - `ai:access` — firm_owner, manager, lawyer ✅ | accountant, trainee ❌
@@ -101,7 +107,6 @@ node scripts/governance/platform-check.mjs
 
 | الفجوة | PR المقترح | التأثير |
 |--------|-----------|---------|
-| Financial ops RBAC | PR-AUTH-003 | +8 نقاط |
 | HR extended في main | #20 | +5 نقاط |
 | RLS في PostgreSQL | #19 | +7 نقاط |
 | `AUTHORIZATION_ENFORCEMENT=strict` في prod | config | +3 نقاط |
@@ -113,6 +118,7 @@ node scripts/governance/platform-check.mjs
 
 ```bash
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/legal-core-authz.test.ts
+pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/financial-ops-authz.test.ts
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/ai-gateway-rbac.test.ts
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/tenant-isolation.test.ts
 node scripts/governance/platform-check.mjs

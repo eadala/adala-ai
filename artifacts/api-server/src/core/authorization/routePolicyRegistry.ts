@@ -16,7 +16,7 @@ export interface RoutePolicy {
   description?: string;
 }
 
-/** Policies — PR-AUTH-001 RBAC + PR-AUTH-002 legal-core + PR-AI-002 AI gateway. */
+/** Policies — PR-AUTH-001..003 + PR-AI-002 (legal, financial, HR, AI). */
 export const ROUTE_POLICIES: RoutePolicy[] = [
   // ── cases ──
   { method: "GET", path: "/api/cases", routeClass: "TENANT_RBAC", permission: "cases:view" },
@@ -61,6 +61,57 @@ export const ROUTE_POLICIES: RoutePolicy[] = [
   { method: "POST", path: "/api/document-templates/:id/generate", routeClass: "TENANT_RBAC", permission: "documents:upload" },
   { method: "GET", path: "/api/generated-documents", routeClass: "TENANT_RBAC", permission: "documents:view" },
   { method: "GET", path: "/api/generated-documents/:id", routeClass: "TENANT_RBAC", permission: "documents:view" },
+  // ── financial: invoices ──
+  { method: "GET", path: "/api/invoices", routeClass: "TENANT_RBAC", permission: "invoices:view" },
+  { method: "GET", path: "/api/invoices/:id", routeClass: "TENANT_RBAC", permission: "invoices:view" },
+  { method: "POST", path: "/api/invoices", routeClass: "TENANT_RBAC", permission: "invoices:create" },
+  { method: "PUT", path: "/api/invoices/:id", routeClass: "TENANT_RBAC", permission: "invoices:edit" },
+  { method: "DELETE", path: "/api/invoices/:id", routeClass: "TENANT_RBAC", permission: "invoices:delete" },
+  { method: "GET", path: "/api/invoices/:id/payments", routeClass: "TENANT_RBAC", permission: "payments:view" },
+  { method: "POST", path: "/api/invoices/:id/payments", routeClass: "TENANT_RBAC", permission: "payments:create" },
+  { method: "DELETE", path: "/api/invoices/:id/payments/:pid", routeClass: "TENANT_RBAC", permission: "payments:create" },
+  { method: "POST", path: "/api/invoices/:id/payment-link", routeClass: "TENANT_RBAC", permission: "invoices:edit" },
+  { method: "POST", path: "/api/invoices/:id/mark-paid", routeClass: "TENANT_RBAC", permission: "payments:create" },
+  { method: "POST", path: "/api/invoices/:id/send-email", routeClass: "TENANT_RBAC", permission: "invoices:edit" },
+  // ── financial: accounting ──
+  { method: "GET", path: "/api/accounting/revenues", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "POST", path: "/api/accounting/revenues", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "PUT", path: "/api/accounting/revenues/:id", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "DELETE", path: "/api/accounting/revenues/:id", routeClass: "TENANT_RBAC", permission: "accounting:delete" },
+  { method: "GET", path: "/api/accounting/expenses", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "POST", path: "/api/accounting/expenses", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "PUT", path: "/api/accounting/expenses/:id", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "DELETE", path: "/api/accounting/expenses/:id", routeClass: "TENANT_RBAC", permission: "accounting:delete" },
+  { method: "GET", path: "/api/accounting/bank-accounts", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "POST", path: "/api/accounting/bank-accounts", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "PUT", path: "/api/accounting/bank-accounts/:id", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "DELETE", path: "/api/accounting/bank-accounts/:id", routeClass: "TENANT_RBAC", permission: "accounting:delete" },
+  { method: "GET", path: "/api/accounting/advances", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "POST", path: "/api/accounting/advances", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "PATCH", path: "/api/accounting/advances/:id/approve", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "PATCH", path: "/api/accounting/advances/:id/repay", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "DELETE", path: "/api/accounting/advances/:id", routeClass: "TENANT_RBAC", permission: "accounting:delete" },
+  { method: "GET", path: "/api/accounting/reports/summary", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  { method: "GET", path: "/api/accounting/cashflow", routeClass: "TENANT_RBAC", permission: "financial:view" },
+  // ── HR / payroll ──
+  { method: "GET", path: "/api/hr/payroll", routeClass: "TENANT_RBAC", permission: "payroll:view" },
+  { method: "GET", path: "/api/hr/payroll/stats", routeClass: "TENANT_RBAC", permission: "payroll:view" },
+  { method: "POST", path: "/api/hr/payroll/generate", routeClass: "TENANT_RBAC", permission: "payroll:manage" },
+  { method: "PATCH", path: "/api/hr/payroll/:id/pay", routeClass: "TENANT_RBAC", permission: "payroll:manage" },
+  { method: "PATCH", path: "/api/hr/payroll/pay-all", routeClass: "TENANT_RBAC", permission: "payroll:manage" },
+  { method: "POST", path: "/api/hr/attendance", routeClass: "TENANT_RBAC", permission: "hr:manage" },
+  { method: "POST", path: "/api/hr/attendance/check-in", routeClass: "TENANT_RBAC", permission: "dashboard:view" },
+  { method: "POST", path: "/api/hr/attendance/check-out", routeClass: "TENANT_RBAC", permission: "dashboard:view" },
+  { method: "GET", path: "/api/hr/office-location", routeClass: "TENANT_RBAC", permission: "dashboard:view" },
+  { method: "POST", path: "/api/hr/office-location", routeClass: "TENANT_RBAC", permission: "hr:manage" },
+  { method: "GET", path: "/api/hr/employees", routeClass: "TENANT_RBAC", permission: "hr:manage" },
+  { method: "POST", path: "/api/hr/employees", routeClass: "TENANT_RBAC", permission: "hr:manage" },
+  { method: "PATCH", path: "/api/hr/employees/:id", routeClass: "TENANT_RBAC", permission: "hr:manage" },
+  { method: "DELETE", path: "/api/hr/employees/:id", routeClass: "TENANT_RBAC", permission: "hr:manage" },
+  { method: "POST", path: "/api/hr/leaves", routeClass: "TENANT_RBAC", permission: "dashboard:view" },
+  { method: "PATCH", path: "/api/hr/leaves/:id", routeClass: "TENANT_RBAC", permission: "hr:manage" },
+  { method: "POST", path: "/api/hr/warnings", routeClass: "TENANT_RBAC", permission: "hr:manage" },
+  { method: "POST", path: "/api/hr/investigations", routeClass: "TENANT_RBAC", permission: "hr:manage" },
   // ── AI gateway (PR-AI-002) ──
   { method: "POST", path: "/api/ai/query", routeClass: "TENANT_RBAC", permission: "ai:access" },
   { method: "GET", path: "/api/ai/analytics/summary", routeClass: "TENANT_RBAC", permission: "ai:access" },
@@ -82,20 +133,6 @@ export const ROUTE_POLICIES: RoutePolicy[] = [
   { method: "POST", path: "/api/cc/chat/:agentType", routeClass: "TENANT_RBAC", permission: "ai:access" },
   { method: "POST", path: "/api/ui-builder/generate", routeClass: "TENANT_RBAC", permission: "ai:access" },
   { method: "GET", path: "/api/office/ai-credits", routeClass: "TENANT_RBAC", permission: "ai:access" },
-  // financial
-  { method: "DELETE", path: "/api/invoices/:id", routeClass: "TENANT_RBAC", permission: "invoices:delete" },
-  { method: "DELETE", path: "/api/accounting/revenues/:id", routeClass: "TENANT_RBAC", permission: "accounting:delete" },
-  { method: "DELETE", path: "/api/accounting/expenses/:id", routeClass: "TENANT_RBAC", permission: "accounting:delete" },
-  { method: "DELETE", path: "/api/accounting/bank-accounts/:id", routeClass: "TENANT_RBAC", permission: "accounting:delete" },
-  { method: "DELETE", path: "/api/accounting/advances/:id", routeClass: "TENANT_RBAC", permission: "accounting:delete" },
-  // HR / payroll
-  { method: "GET", path: "/api/hr/payroll", routeClass: "TENANT_RBAC", permission: "payroll:view" },
-  { method: "GET", path: "/api/hr/payroll/stats", routeClass: "TENANT_RBAC", permission: "payroll:view" },
-  { method: "POST", path: "/api/hr/payroll/generate", routeClass: "TENANT_RBAC", permission: "payroll:manage" },
-  { method: "PATCH", path: "/api/hr/payroll/:id/pay", routeClass: "TENANT_RBAC", permission: "payroll:manage" },
-  { method: "PATCH", path: "/api/hr/payroll/pay-all", routeClass: "TENANT_RBAC", permission: "payroll:manage" },
-  { method: "POST", path: "/api/hr/attendance", routeClass: "TENANT_RBAC", permission: "hr:manage" },
-  { method: "POST", path: "/api/hr/office-location", routeClass: "TENANT_RBAC", permission: "hr:manage" },
   // RBAC admin
   { method: "POST", path: "/api/rbac/roles", routeClass: "TENANT_RBAC", permission: "roles:create" },
   { method: "PATCH", path: "/api/rbac/roles/:id", routeClass: "TENANT_RBAC", permission: "roles:edit" },

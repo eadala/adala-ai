@@ -55,7 +55,7 @@ function testRouteRegistryCoverage() {
     assert.ok(policy, `missing policy ${method} ${path}`);
     assert.equal(policy?.permission, perm);
   }
-  assert.ok(ROUTE_POLICIES.length >= 55, "expected expanded policy registry with AI + templates");
+  assert.ok(ROUTE_POLICIES.length >= 100, "expected expanded policy registry with financial + AI + templates");
   console.log("  ✅ route policy registry covers legal-core P0");
 }
 

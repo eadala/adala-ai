@@ -540,6 +540,9 @@ const enforcementModules = [
   "src/modules/legal-core/contracts.ts",
   "src/modules/legal-core/documents.ts",
   "src/modules/legal-core/document-templates.ts",
+  "src/modules/financial/invoices.ts",
+  "src/modules/financial/accounting.ts",
+  "src/modules/operations/hr.ts",
 ];
 let unguardedMutations = 0;
 for (const rel of enforcementModules) {
@@ -557,7 +560,7 @@ for (const rel of enforcementModules) {
   }
 }
 if (unguardedMutations === 0) {
-  pass(`legal-core P0 (${enforcementModules.length} modules) — جميع mutations محمية`);
+  pass(`authz P0 (${enforcementModules.length} modules) — جميع mutations محمية`);
 }
 
 recordResult("authorization", authzIssues === 0, authzIssues, authzWarnings);
