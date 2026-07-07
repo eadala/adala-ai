@@ -331,6 +331,60 @@ if (appSrc.includes("runtimeShield")) pass("Runtime Shield مفعّل");
 else warn("runtimeShield غير موجود");
 
 /* ═════════════════════════════════════════════════════════
+   9. AI Gateway RBAC (PR-AI-002)
+═════════════════════════════════════════════════════════ */
+head("9/9 AI Gateway RBAC — requirePermission(ai:access)");
+let aiAuthzIssues = 0;
+const aiEnforcementModules = [
+  "src/modules/ai/aiGateway.ts",
+  "src/modules/ai/copilot.ts",
+  "src/modules/ai/aiChat.ts",
+  "src/modules/ai/ai-agent.ts",
+  "src/modules/ai/ai-engine.ts",
+  "src/modules/ai/ai-assistant.ts",
+  "src/modules/ai/ai-workflow.ts",
+  "src/modules/ai/uiBuilder.ts",
+  "src/modules/ai/command-center/index.ts",
+  "src/modules/ai/aiTasks.ts",
+  "src/modules/ai/aiEvents.ts",
+  "src/modules/ai/aiAgents.ts",
+  "src/modules/ai/commandCenter.ts",
+];
+let aiUnguarded = 0;
+for (const rel of aiEnforcementModules) {
+  const src = readSrc(BACKEND, rel) ?? "";
+  const mutationRe = /router\.(post|put|patch|delete)\([\s\S]*?async/g;
+  let m;
+  while ((m = mutationRe.exec(src)) !== null) {
+    const block = m[0];
+    if (block.includes("requireSuperAdmin") || block.includes("adminOnly")) continue;
+    if (!block.includes("requirePermission(")) {
+      fail(`${rel}: AI mutation بدون requirePermission`);
+      aiAuthzIssues++;
+      aiUnguarded++;
+    }
+  }
+}
+const gatewaySrc = readSrc(BACKEND, "src/modules/ai/aiGateway.ts") ?? "";
+if (gatewaySrc.includes('requireAuthWithTenant, requirePermission("ai:access")')) {
+  pass("aiGateway POST /ai/query محمي بـ ai:access");
+} else {
+  fail("aiGateway /ai/query بدون ai:access");
+  aiAuthzIssues++;
+}
+const creditsSrc = readSrc(BACKEND, "src/modules/ai/aiCredits.ts") ?? "";
+if (creditsSrc.includes('router.post("/ai-credits/deduct", requireSuperAdmin')) {
+  pass("ai-credits/deduct مقفل — super-admin only");
+} else {
+  fail("ai-credits/deduct مفتوح لأي مستخدم");
+  aiAuthzIssues++;
+}
+if (aiUnguarded === 0 && aiAuthzIssues === 0) {
+  pass(`AI P0 (${aiEnforcementModules.length} modules) — جميع mutations محمية بـ ai:access`);
+}
+recordResult("aiAuthz", aiAuthzIssues === 0, aiAuthzIssues);
+
+/* ═════════════════════════════════════════════════════════
    Route Governance (existing check)
 ═════════════════════════════════════════════════════════ */
 head("+ Route Governance (للتأكيد)");
@@ -357,6 +411,7 @@ const layers = [
   ["Background Jobs Registry","jobs"],
   ["DB Registry",             "db"],
   ["API Layer",               "api"],
+  ["AI Gateway RBAC",         "aiAuthz"],
 ];
 
 let criticalFails = 0;

@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -17,7 +17,7 @@ function getIds(req: any) {
 }
 
 /* ── POST /api/copilot/chat ── Legal Orchestrator v2 ── */
-router.post("/chat", requireAuth, async (req: Request, res: Response) => {
+router.post("/chat", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   try {
     const { message, history = [], pageContext = "" } = req.body as {
       message: string;
@@ -50,7 +50,7 @@ router.post("/chat", requireAuth, async (req: Request, res: Response) => {
 });
 
 /* ── GET /api/copilot/snapshot ── */
-router.get("/snapshot", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.get("/snapshot", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   try {
     const officeId = (req as any).tenantId ?? getTenantSafe()?.officeId ?? null;
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
@@ -72,7 +72,7 @@ router.get("/snapshot", requireAuthWithTenant, async (req: Request, res: Respons
 });
 
 /* ── GET /api/copilot/intelligence/:caseId ── */
-router.get("/intelligence/:caseId", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.get("/intelligence/:caseId", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   try {
     const caseId  = String(req.params.caseId);
     const { officeId } = getIds(req);
@@ -84,7 +84,7 @@ router.get("/intelligence/:caseId", requireAuthWithTenant, async (req: Request, 
 });
 
 /* ── POST /api/copilot/intent ── */
-router.post("/intent", requireAuth, async (req: Request, res: Response) => {
+router.post("/intent", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   try {
     const { message } = req.body ?? {};
     if (!message) { res.status(400).json({ error: "message required" }); return; }
@@ -96,7 +96,7 @@ router.post("/intent", requireAuth, async (req: Request, res: Response) => {
 });
 
 /* ── GET /api/copilot/memory ── */
-router.get("/memory", requireAuth, async (req: Request, res: Response) => {
+router.get("/memory", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   try {
     const { userId, officeId } = getIds(req);
     const mem = await recallMemory(userId, officeId);
@@ -107,7 +107,7 @@ router.get("/memory", requireAuth, async (req: Request, res: Response) => {
 });
 
 /* ── POST /api/copilot/memory ── */
-router.post("/memory", requireAuth, async (req: Request, res: Response) => {
+router.post("/memory", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   try {
     const { userId, officeId } = getIds(req);
     const { type = "preference", key, value } = req.body ?? {};

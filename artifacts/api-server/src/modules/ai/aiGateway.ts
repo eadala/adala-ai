@@ -22,7 +22,7 @@
  */
 
 import { Router }            from "express";
-import { requireAuth }       from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { callAI, classifyPrompt, logAIUsage } from "./aiChat";
 import { cache }             from "../../core/cache";
 import { eventBus }          from "../../core/eventBus";
@@ -66,7 +66,7 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 };
 
 /* ── Cache key builder — officeId is MANDATORY to prevent cross-tenant leakage ── */
-function buildCacheKey(officeId: string, type: string, input: string, context?: string): string {
+export function buildCacheKey(officeId: string, type: string, input: string, context?: string): string {
   const raw = `${officeId}|${type}|${input}|${context ?? ""}`;
   return `ai:${crypto.createHash("sha256").update(raw).digest("hex").slice(0, 16)}`;
 }
@@ -74,7 +74,7 @@ function buildCacheKey(officeId: string, type: string, input: string, context?: 
 /* ─────────────────────────────────────────────────────────────────
    POST /api/ai/query
 ───────────────────────────────────────────────────────────────── */
-router.post("/ai/query", requireAuth, async (req, res) => {
+router.post("/ai/query", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   const {
     type    = "legal_assistant",
     input,
@@ -97,7 +97,12 @@ router.post("/ai/query", requireAuth, async (req, res) => {
     return;
   }
 
-  const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+  const officeId = (req as any).tenantId as string;
+  if (!officeId || officeId === "platform") {
+    res.status(403).json({ success: false, error: { code: "TNT_403", message: "المكتب مطلوب" } });
+    return;
+  }
+
   const cacheKey = buildCacheKey(officeId, type, input.trim(), context);
 
   /* ── Cache hit ──────────────────────────────────────────────── */
@@ -131,7 +136,7 @@ router.post("/ai/query", requireAuth, async (req, res) => {
     cache.set(cacheKey, result, 600);
 
     /* ── Emit event (non-blocking) ──────────────────────────── */
-    eventBus.emit({ type: "AI_QUERY", data: { queryType: type, modelUsed, tier, officeId } }).catch(() => {});
+    eventBus.emit({ type: "AI_QUERY", officeId, data: { queryType: type, modelUsed, tier } }).catch(() => {});
 
     /* ── Audit log ──────────────────────────────────────────── */
     auditLog({
@@ -153,10 +158,10 @@ router.post("/ai/query", requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/analytics/summary
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/summary", requireAuth, async (req, res) => {
+router.get("/ai/analytics/summary", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-    const isAdmin  = (req as any).isAdmin === true;
+    const officeId = (req as any).tenantId as string;
+    const isAdmin  = (req as any).isSuperAdmin === true;
     const whereClause = isAdmin ? sql`` : sql`WHERE office_id = ${officeId}`;
     const rows = await db.execute(sql`
       SELECT
@@ -213,10 +218,10 @@ router.get("/ai/analytics/summary", requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/analytics/daily  — 30-day trend
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/daily", requireAuth, async (req, res) => {
+router.get("/ai/analytics/daily", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-    const isAdmin  = (req as any).isAdmin === true;
+    const officeId = (req as any).tenantId as string;
+    const isAdmin  = (req as any).isSuperAdmin === true;
     const rows = await db.execute(sql`
       SELECT
         DATE(created_at)                         AS day,
@@ -248,9 +253,9 @@ router.get("/ai/analytics/daily", requireAuth, async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────────
-   GET /api/ai/analytics/by-office  — per-office breakdown
+   GET /api/ai/analytics/by-office  — per-office breakdown (super-admin)
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/by-office", requireAuth, async (_req, res) => {
+router.get("/ai/analytics/by-office", requireAuthWithTenant, requireSuperAdmin, async (_req, res) => {
   try {
     const rows = await db.execute(sql`
       SELECT office_id,
@@ -278,10 +283,10 @@ router.get("/ai/analytics/by-office", requireAuth, async (_req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/analytics/recent  — last 50 queries
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/recent", requireAuth, async (req, res) => {
+router.get("/ai/analytics/recent", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-    const isAdmin  = (req as any).isAdmin === true;
+    const officeId = (req as any).tenantId as string;
+    const isAdmin  = (req as any).isSuperAdmin === true;
     const rows = await db.execute(sql`
       SELECT id, office_id, query_type, model_used, tier, cost_points, cached, response_ms, created_at
       FROM ai_usage_logs
@@ -295,7 +300,7 @@ router.get("/ai/analytics/recent", requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/query/types  — list available query types
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/query/types", requireAuth, (_req, res) => {
+router.get("/ai/query/types", requireAuthWithTenant, requirePermission("ai:access"), (_req, res) => {
   res.json({
     success: true,
     types: Object.keys(SYSTEM_PROMPTS).map((key) => ({
@@ -316,7 +321,7 @@ router.get("/ai/query/types", requireAuth, (_req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/query/cache-stats  — monitoring
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/query/cache-stats", requireAuth, (_req, res) => {
+router.get("/ai/query/cache-stats", requireAuthWithTenant, requirePermission("ai:access"), (_req, res) => {
   res.json({ success: true, cache: cache.stats() });
 });
 
