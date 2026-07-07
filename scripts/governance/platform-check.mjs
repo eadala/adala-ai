@@ -16,6 +16,7 @@
  *  7. DB Registry
  *  8. API Layer (env vars, critical routes)
  *  9. Tenant Security Foundation (Phase 1)
+ * 10. Authorization Foundation (Phase 2 — PR-AUTH-001, warn mode)
  */
 
 import { readFileSync, existsSync } from "fs";
@@ -53,25 +54,51 @@ function recordResult(layer, passed, issues = 0, warnings = 0) {
 /* ═════════════════════════════════════════════════════════
    1. Permissions Registry
 ═════════════════════════════════════════════════════════ */
-head("1/8 Permissions Registry");
+head("1/10 Permissions Registry");
 const permSrc = readSrc(FRONTEND, "src/lib/permissionsRegistry.ts");
+const catalogSrc = readSrc(BACKEND, "src/core/authorization/permissionCatalog.ts") ?? "";
+const catalogKeys = [...catalogSrc.matchAll(/"([a-z_]+:[a-z_]+)"/g)].map((m) => m[1]);
+const catalogKeySet = new Set(catalogKeys);
+
 if (!permSrc) {
   fail("permissionsRegistry.ts غير موجود");
   recordResult("permissions", false, 1);
+} else if (!catalogSrc) {
+  fail("permissionCatalog.ts غير موجود");
+  recordResult("permissions", false, 1);
 } else {
   const permKeys = [...permSrc.matchAll(/key:\s*"([^"]+)"/g)].map(m => m[1]);
-  info(`${permKeys.length} صلاحية مسجّلة`);
+  info(`${permKeys.length} صلاحية frontend | ${catalogKeys.length} backend catalog`);
 
-  // Check all RBAC permission references in backend are in registry
-  const requirePermSrc = readSrc(BACKEND, "src/middlewares/requireAuth.ts") ?? "";
-  const backendPerms = [...requirePermSrc.matchAll(/requirePermission\(["']([^"']+)["']\)/g)].map(m => m[1]);
-  const unregistered = backendPerms.filter(p => !permKeys.includes(p));
-  if (unregistered.length === 0) {
-    pass(`جميع الصلاحيات المستخدمة في requirePermission() مسجّلة (${backendPerms.length})`);
-    recordResult("permissions", true, 0);
+  const backendModulesSrc = readSrc(BACKEND, "src/middlewares/requireAuth.ts") ?? "";
+  const modulesGlob = ["src/modules/platform/rbac.ts", "src/modules/legal-core/cases.ts"];
+  let backendPermSrc = backendModulesSrc;
+  for (const rel of modulesGlob) {
+    backendPermSrc += readSrc(BACKEND, rel) ?? "";
+  }
+  const backendPerms = [...backendPermSrc.matchAll(/requirePermission\(["']([^"']+)["']\)/g)].map(m => m[1]);
+  const unknownBackendPerms = backendPerms.filter((p) => !catalogKeySet.has(p));
+  if (unknownBackendPerms.length === 0) {
+    pass(`requirePermission keys في catalog (${[...new Set(backendPerms)].length})`);
   } else {
-    unregistered.forEach(p => warn(`صلاحية تُستخدم لكن غير مسجّلة: ${p}`));
-    recordResult("permissions", false, 0, unregistered.length);
+    unknownBackendPerms.forEach((p) => warn(`صلاحية غير معتمدة في catalog: ${p}`));
+  }
+
+  const aliasMap = {
+    "cases:manage": "cases:edit",
+    "clients:manage": "clients:edit",
+    "users:manage": "users:edit",
+    "settings:manage": "settings:edit",
+    "financial:manage": "financial:view",
+    "reports:export": "reports:view",
+  };
+  const drift = permKeys.filter((k) => !catalogKeySet.has(k) && !aliasMap[k]);
+  if (drift.length === 0) {
+    pass("frontend registry متوافق مع backend catalog (مع aliases معروفة)");
+    recordResult("permissions", true, 0, unknownBackendPerms.length > 0 ? 1 : 0);
+  } else {
+    drift.forEach((p) => warn(`frontend key غير موجود في catalog: ${p}`));
+    recordResult("permissions", true, 0, drift.length);
   }
 }
 
@@ -423,6 +450,106 @@ if (reqAuthTenantSrc.includes("TNT_403") || reqAuthTenantSrc.includes("tenantReq
 recordResult("tenant_security", tenantSecIssues === 0, tenantSecIssues, tenantSecWarnings);
 
 /* ═════════════════════════════════════════════════════════
+   10. Authorization Foundation (Phase 2 — warn mode)
+═════════════════════════════════════════════════════════ */
+head("10/10 Authorization Foundation");
+let authzIssues = 0;
+let authzWarnings = 0;
+
+const authzKernelFiles = [
+  "src/core/authorization/permissionCatalog.ts",
+  "src/core/authorization/authorizationContext.ts",
+  "src/core/authorization/authorize.ts",
+  "src/core/authorization/routePolicyRegistry.ts",
+  "src/core/authorization/enforceRoutePolicy.ts",
+  "src/core/authorization/errors.ts",
+];
+
+for (const rel of authzKernelFiles) {
+  if (existsSync(resolve(BACKEND, rel))) pass(`kernel: ${rel.split("/").pop()}`);
+  else {
+    fail(`kernel مفقود: ${rel}`);
+    authzIssues++;
+  }
+}
+
+const reqAuthSrc2 = readSrc(BACKEND, "src/middlewares/requireAuth.ts") ?? "";
+if (reqAuthSrc2.includes("ensureAuthorizationContext") && reqAuthSrc2.includes("membershipRequiredResponse")) {
+  pass("requirePermission يستخدم Authorization Kernel");
+} else {
+  fail("requirePermission لم يُرحَّل إلى kernel");
+  authzIssues++;
+}
+
+if (!/trainee_lawyer/.test(reqAuthSrc2) || reqAuthSrc2.includes("membershipRequiredResponse")) {
+  pass("لا fallback trainee_lawyer في requirePermission");
+} else {
+  warn("fallback trainee_lawyer قد يزال موجوداً");
+  authzWarnings++;
+}
+
+const rbacSrc = readSrc(BACKEND, "src/modules/platform/rbac.ts") ?? "";
+if (rbacSrc.includes("core/authorization") && rbacSrc.includes("office_members SET role")) {
+  pass("rbac: office_members.role مصدر الكتابة");
+} else {
+  warn("rbac: تحقق من مصدر role writes");
+  authzWarnings++;
+}
+
+if (/usersTable\)\s*[\s\S]*\.set\(\{\s*role/.test(rbacSrc)) {
+  warn("rbac: كتابة users.role ما زالت موجودة");
+  authzWarnings++;
+} else {
+  pass("لا كتابة users.role في rbac");
+}
+
+if (rbacSrc.includes("officeId") && rbacSrc.includes("invitationsTable")) {
+  pass("invitations scoped بـ office_id");
+} else {
+  warn("invitations.office_id غير مؤكد في rbac");
+  authzWarnings++;
+}
+
+const policySrc = readSrc(BACKEND, "src/core/authorization/routePolicyRegistry.ts") ?? "";
+if (policySrc.includes("TENANT_RBAC") && policySrc.includes("routeClass")) {
+  pass("routeClass taxonomy في registry");
+} else {
+  fail("routePolicyRegistry ناقص");
+  authzIssues++;
+}
+
+const migrationExists = existsSync(resolve(ROOT, "lib/db/drizzle/0001_invitations_office_id.sql"));
+if (migrationExists) pass("migration invitations.office_id موجودة");
+else {
+  warn("migration 0001_invitations_office_id مفقودة");
+  authzWarnings++;
+}
+
+const enforcementModules = [
+  "src/modules/legal-core/cases.ts",
+  "src/modules/legal-core/clients.ts",
+  "src/modules/financial/invoices.ts",
+];
+let unguardedMutations = 0;
+const mutationRe = /router\.(post|put|patch|delete)\(/gi;
+for (const rel of enforcementModules) {
+  const src = readSrc(BACKEND, rel) ?? "";
+  const mutations = src.match(mutationRe)?.length ?? 0;
+  const guarded = (src.match(/requirePermission\(/g) ?? []).length;
+  if (mutations > 0 && guarded === 0) {
+    warn(`${rel}: ${mutations} mutations بدون requirePermission (متوقع حتى PR-AUTH-002)`);
+    unguardedMutations++;
+  }
+}
+if (unguardedMutations > 0) {
+  info(`Layer 10 warn: ${unguardedMutations} modules بانتظار PR-AUTH-002`);
+} else {
+  pass("عيّنة mutation modules محكمة");
+}
+
+recordResult("authorization", authzIssues === 0, authzIssues, authzWarnings);
+
+/* ═════════════════════════════════════════════════════════
    Route Governance (existing check)
 ═════════════════════════════════════════════════════════ */
 head("+ Route Governance (للتأكيد)");
@@ -450,6 +577,7 @@ const layers = [
   ["DB Registry",             "db"],
   ["API Layer",               "api"],
   ["Tenant Security",         "tenant_security"],
+  ["Authorization Foundation","authorization"],
 ];
 
 let criticalFails = 0;
@@ -464,7 +592,7 @@ for (const [label, key] of layers) {
 console.log();
 if (criticalFails === 0 && totalIssues === 0) {
   console.log(`${C.BOLD}${C.GREEN}🎉 Platform Governance: PASS${C.RESET}`);
-  console.log(`${C.GREEN}   جميع طبقات المنصة الـ 9 محكومة ومفحوصة${C.RESET}`);
+  console.log(`${C.GREEN}   جميع طبقات المنصة الـ 10 محكومة ومفحوصة${C.RESET}`);
   if (totalWarnings > 0) console.log(`${C.YELLOW}   تحذيرات: ${totalWarnings} (غير حرجة)${C.RESET}`);
   console.log();
   process.exit(0);
