@@ -6,13 +6,13 @@
 
 | البُعد | الدرجة | الحالة |
 |--------|--------|--------|
-| **الجاهزية المؤسسية الإجمالية** | **84 / 100** | جاهز مع ملاحظات |
-| Tenant Isolation | 85 | ✅ قوي |
-| Authorization (RBAC) | 88 | ✅ kernel + 100+ policies |
+| **الجاهزية المؤسسية الإجمالية** | **88 / 100** | جاهز مع ملاحظات |
+| Tenant Isolation | 88 | ✅ قوي |
+| Authorization (RBAC) | 90 | ✅ 140+ policies |
 | Legal Core | 85 | ✅ P0 محمي |
-| Financial Ops | 82 | ✅ PR-AUTH-003 |
+| Financial Ops | 88 | ✅ invoices + accounting + payments |
+| HR Extended | 85 | ✅ 41 مسار |
 | AI Gateway | 79 | ✅ ai:access |
-| HR Extended | 72 | ⏳ PR #20 |
 | Data Layer (RLS) | 70 | ⏳ PR #19 |
 
 **التقييم:** المنصة جاهزة لـ **Customer Zero** مع دمج PRs المفتوحة. الحوكمة المؤسسية (هذا الفرع) تُكمل سلسلة الحماية: Identity → Tenant → Authorization.
@@ -83,13 +83,23 @@ node scripts/governance/platform-check.mjs
 
 ### Authorization Kernel (PR-AUTH-001)
 - `authorizationContext`, `authorize`, `enforceRoutePolicy`
-- `routePolicyRegistry` — 100+ سياسة (legal + financial + HR + templates + AI P0)
+- `routePolicyRegistry` — 140+ سياسة (legal + financial + HR extended + payments + AI)
 - `AUTHORIZATION_ENFORCEMENT=warn|strict` (افتراضي: warn)
 
 ### Legal Core (PR-AUTH-002)
 - `cases`, `clients`, `contracts`, `documents` — كل mutations محمية
 - `document-templates` — عزل tenant كامل (لا `'default'`) + RBAC
 - بذور القوالب الافتراضية **لكل مكتب** عند أول وصول
+
+### HR Extended (PR-HR-EXT)
+- `hr-enterprise`, `hrInternal`, `hrPerformance` — 41 مسار محمي
+- self-service: `dashboard:view` للموظف | `hr:manage` للإدارة
+- `hr-extended-rbac.test.ts` — عقد ثابت
+
+### Payments Gateway
+- `payments.ts` — `payments:view` / `payments:create` على كل مسار tenant
+- عزل reads: `WHERE office_id = tenantId`
+- webhook عام مع تحقق توقيع + `office_id` في metadata
 
 ### Financial Ops (PR-AUTH-003)
 - `invoices`, `accounting`, `hr` — mutations + reads الحساسة محمية
@@ -107,7 +117,6 @@ node scripts/governance/platform-check.mjs
 
 | الفجوة | PR المقترح | التأثير |
 |--------|-----------|---------|
-| HR extended في main | #20 | +5 نقاط |
 | RLS في PostgreSQL | #19 | +7 نقاط |
 | `AUTHORIZATION_ENFORCEMENT=strict` في prod | config | +3 نقاط |
 | اختبارات تكامل E2E | جديد | +5 نقاط |
@@ -119,6 +128,8 @@ node scripts/governance/platform-check.mjs
 ```bash
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/legal-core-authz.test.ts
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/financial-ops-authz.test.ts
+pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/hr-extended-rbac.test.ts
+pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/payments-authz.test.ts
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/ai-gateway-rbac.test.ts
 pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/tests/tenant-isolation.test.ts
 node scripts/governance/platform-check.mjs

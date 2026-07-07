@@ -542,7 +542,11 @@ const enforcementModules = [
   "src/modules/legal-core/document-templates.ts",
   "src/modules/financial/invoices.ts",
   "src/modules/financial/accounting.ts",
+  "src/modules/financial/payments.ts",
   "src/modules/operations/hr.ts",
+  "src/modules/operations/hr-enterprise.ts",
+  "src/modules/operations/hrInternal.ts",
+  "src/modules/operations/hrPerformance.ts",
 ];
 let unguardedMutations = 0;
 for (const rel of enforcementModules) {
@@ -552,6 +556,7 @@ for (const rel of enforcementModules) {
   while ((m = mutationRe.exec(src)) !== null) {
     const block = m[0];
     if (block.includes("requireSuperAdmin") || block.includes("adminOnly")) continue;
+    if (block.includes('"/webhook/') || block.includes("'/webhook/")) continue;
     if (!block.includes("requirePermission(")) {
       fail(`${rel}: mutation بدون requirePermission`);
       authzIssues++;

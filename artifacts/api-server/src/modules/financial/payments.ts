@@ -1,10 +1,11 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
 import crypto from "crypto";
 import { eventBus } from "../../core/eventBus";
+import { getRequiredTenantId } from "../../core/tenantContext";
 
 const router = Router();
 
@@ -39,7 +40,7 @@ async function ensurePaymentCols() {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS moyasar_settings (
       id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id         TEXT NOT NULL DEFAULT 'default',
+      office_id         TEXT NOT NULL,
       publishable_key   TEXT,
       secret_key        TEXT,
       webhook_secret    TEXT,
@@ -55,7 +56,7 @@ async function ensurePaymentCols() {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS checkout_settings (
       id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id         TEXT NOT NULL DEFAULT 'default',
+      office_id         TEXT NOT NULL,
       secret_key        TEXT,
       public_key        TEXT,
       webhook_secret    TEXT,
@@ -74,7 +75,7 @@ ensurePaymentCols();
 ══════════════════════════════════════════════════ */
 
 /* GET  /api/payments/connect/status */
-router.get("/payments/connect/status", requireAuthWithTenant, async (req, res) => {
+router.get("/payments/connect/status", requireAuthWithTenant, requirePermission("payments:view"), async (req, res) => {
   try {
     const officeId = (req as any).tenantId;
     const account = await one(sql`SELECT * FROM office_stripe_accounts WHERE office_id = ${officeId} LIMIT 1`);
@@ -114,7 +115,7 @@ router.get("/payments/connect/status", requireAuthWithTenant, async (req, res) =
 });
 
 /* POST /api/payments/connect/create */
-router.post("/payments/connect/create", requireAuthWithTenant, async (req, res) => {
+router.post("/payments/connect/create", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const officeId = (req as any).tenantId as string;
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
@@ -150,7 +151,7 @@ router.post("/payments/connect/create", requireAuthWithTenant, async (req, res) 
 });
 
 /* POST /api/payments/connect/onboarding */
-router.post("/payments/connect/onboarding", requireAuthWithTenant, async (req, res) => {
+router.post("/payments/connect/onboarding", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const { stripeAccountId } = req.body;
     if (!stripeAccountId) return res.status(400).json({ error: "معرّف الحساب مطلوب" });
@@ -169,7 +170,7 @@ router.post("/payments/connect/onboarding", requireAuthWithTenant, async (req, r
 });
 
 /* POST /api/payments/connect/login-link */
-router.post("/payments/connect/login-link", requireAuthWithTenant, async (req, res) => {
+router.post("/payments/connect/login-link", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const { stripeAccountId } = req.body;
     if (!stripeAccountId) return res.status(400).json({ error: "معرّف الحساب مطلوب" });
@@ -182,7 +183,7 @@ router.post("/payments/connect/login-link", requireAuthWithTenant, async (req, r
 /* ══════════════════════════════════════════════════
    PAYMENT INTENTS (Stripe)
 ══════════════════════════════════════════════════ */
-router.post("/payments/intent", requireAuthWithTenant, async (req, res) => {
+router.post("/payments/intent", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const officeId = (req as any).tenantId as string;
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
@@ -244,17 +245,20 @@ router.post("/payments/intent", requireAuthWithTenant, async (req, res) => {
 ══════════════════════════════════════════════════ */
 
 /* GET /api/payments/transactions */
-router.get("/payments/transactions", requireAuthWithTenant, async (_req, res) => {
+router.get("/payments/transactions", requireAuthWithTenant, requirePermission("payments:view"), async (req, res) => {
   try {
+    const officeId = getRequiredTenantId(req);
     const txs = await rows(sql`
-      SELECT * FROM payment_transactions ORDER BY created_at DESC LIMIT 200
+      SELECT * FROM payment_transactions
+      WHERE office_id = ${officeId}
+      ORDER BY created_at DESC LIMIT 200
     `);
     res.json(txs);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 /* POST /api/payments/transactions — manual record */
-router.post("/payments/transactions", requireAuthWithTenant, async (req, res) => {
+router.post("/payments/transactions", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const officeId = (req as any).tenantId as string;
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
@@ -292,7 +296,7 @@ router.post("/payments/transactions", requireAuthWithTenant, async (req, res) =>
 });
 
 /* PATCH /api/payments/transactions/:id/status */
-router.patch("/payments/transactions/:id/status", requireAuthWithTenant, async (req, res) => {
+router.patch("/payments/transactions/:id/status", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId as string;
     const { status } = req.body;
@@ -305,7 +309,7 @@ router.patch("/payments/transactions/:id/status", requireAuthWithTenant, async (
 });
 
 /* PATCH /api/payments/transactions/:id/settle — mark transaction settled */
-router.patch("/payments/transactions/:id/settle", requireAuthWithTenant, async (req, res) => {
+router.patch("/payments/transactions/:id/settle", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId as string;
     const { settlementRef = "" } = req.body;
@@ -322,7 +326,7 @@ router.patch("/payments/transactions/:id/settle", requireAuthWithTenant, async (
 });
 
 /* POST /api/payments/batch-settle — settle all completed unsettled */
-router.post("/payments/batch-settle", requireAuthWithTenant, async (req, res) => {
+router.post("/payments/batch-settle", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId as string;
     const { settlementRef = "" } = req.body;
@@ -342,7 +346,7 @@ router.post("/payments/batch-settle", requireAuthWithTenant, async (req, res) =>
 });
 
 /* DELETE /api/payments/transactions/:id */
-router.delete("/payments/transactions/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/payments/transactions/:id", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId as string;
     await db.execute(sql`
@@ -356,9 +360,9 @@ router.delete("/payments/transactions/:id", requireAuthWithTenant, async (req, r
 /* ══════════════════════════════════════════════════
    WALLET — settlement breakdown
 ══════════════════════════════════════════════════ */
-router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
+router.get("/payments/wallet", requireAuthWithTenant, requirePermission("payments:view"), async (req, res) => {
   try {
-    const officeId = (req as any).tenantId;
+    const officeId = getRequiredTenantId(req);
 
     const totals = await one(sql`
       SELECT
@@ -375,6 +379,7 @@ router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
         COUNT(CASE WHEN status='completed' AND (settlement_status IS NULL OR settlement_status='unsettled')
                    THEN 1 END)::int                                                        AS unsettled_count
       FROM payment_transactions
+      WHERE office_id = ${officeId}
     `);
 
     const monthly = await rows(sql`
@@ -384,7 +389,8 @@ router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
         COALESCE(SUM(platform_fee),0)::numeric AS commission,
         COALESCE(SUM(net_amount),0)::numeric  AS net
       FROM payment_transactions
-      WHERE created_at >= NOW() - INTERVAL '6 months'
+      WHERE office_id = ${officeId}
+        AND created_at >= NOW() - INTERVAL '6 months'
         AND status = 'completed'
       GROUP BY month ORDER BY month
     `);
@@ -396,7 +402,8 @@ router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
         COUNT(*)::int AS count,
         COALESCE(SUM(amount),0)::numeric AS total
       FROM payment_transactions
-      WHERE status = 'completed'
+      WHERE office_id = ${officeId}
+        AND status = 'completed'
       GROUP BY gateway
     `);
 
@@ -426,8 +433,9 @@ router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
 });
 
 /* backwards compat */
-router.get("/payments/stats", requireAuthWithTenant, async (_req, res) => {
+router.get("/payments/stats", requireAuthWithTenant, requirePermission("payments:view"), async (req, res) => {
   try {
+    const officeId = getRequiredTenantId(req);
     const totals = await one(sql`
       SELECT
         COUNT(*)::int                                 AS total_transactions,
@@ -437,6 +445,7 @@ router.get("/payments/stats", requireAuthWithTenant, async (_req, res) => {
         COALESCE(SUM(CASE WHEN status='pending' THEN amount ELSE 0 END),0)::numeric AS pending_amount,
         COALESCE(SUM(CASE WHEN status='completed' THEN amount ELSE 0 END),0)::numeric AS completed_amount
       FROM payment_transactions
+      WHERE office_id = ${officeId}
     `);
 
     const monthly = await rows(sql`
@@ -446,7 +455,8 @@ router.get("/payments/stats", requireAuthWithTenant, async (_req, res) => {
         COALESCE(SUM(platform_fee),0)::numeric AS commission,
         COALESCE(SUM(net_amount),0)::numeric AS net
       FROM payment_transactions
-      WHERE created_at >= NOW() - INTERVAL '6 months'
+      WHERE office_id = ${officeId}
+        AND created_at >= NOW() - INTERVAL '6 months'
         AND status = 'completed'
       GROUP BY month ORDER BY month
     `);
@@ -473,7 +483,7 @@ router.get("/payments/stats", requireAuthWithTenant, async (_req, res) => {
 ══════════════════════════════════════════════════ */
 
 /* GET /api/payments/moyasar/settings */
-router.get("/payments/moyasar/settings", requireAuthWithTenant, async (req, res) => {
+router.get("/payments/moyasar/settings", requireAuthWithTenant, requirePermission("payments:view"), async (req, res) => {
   try {
     const officeId = (req as any).tenantId;
     const s = await one(sql`SELECT * FROM moyasar_settings WHERE office_id=${officeId} LIMIT 1`);
@@ -491,7 +501,7 @@ router.get("/payments/moyasar/settings", requireAuthWithTenant, async (req, res)
 });
 
 /* PUT /api/payments/moyasar/settings */
-router.put("/payments/moyasar/settings", requireAuthWithTenant, async (req, res) => {
+router.put("/payments/moyasar/settings", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const officeId = (req as any).tenantId;
     const { publishableKey, secretKey, webhookSecret, testMode = true, enabled = false } = req.body;
@@ -525,7 +535,7 @@ router.put("/payments/moyasar/settings", requireAuthWithTenant, async (req, res)
 ══════════════════════════════════════════════════ */
 
 /* POST /api/payments/payment-link — generate a Moyasar payment page link */
-router.post("/payments/payment-link", requireAuthWithTenant, async (req, res) => {
+router.post("/payments/payment-link", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const officeId = (req as any).tenantId;
     const {
@@ -575,7 +585,7 @@ router.post("/payments/payment-link", requireAuthWithTenant, async (req, res) =>
 });
 
 /* GET /api/payments/moyasar/success — Moyasar redirect back */
-router.get("/payments/moyasar/success", requireAuthWithTenant, async (req, res) => {
+router.get("/payments/moyasar/success", requireAuthWithTenant, requirePermission("payments:view"), async (req, res) => {
   try {
     const { tx, id: moyasarId, status: mStatus } = req.query as any;
     if (tx) {
@@ -595,7 +605,7 @@ router.get("/payments/moyasar/success", requireAuthWithTenant, async (req, res) 
 ══════════════════════════════════════════════════ */
 
 /* GET /api/payments/checkout/settings */
-router.get("/payments/checkout/settings", requireAuthWithTenant, async (req, res) => {
+router.get("/payments/checkout/settings", requireAuthWithTenant, requirePermission("payments:view"), async (req, res) => {
   try {
     const officeId = (req as any).tenantId;
     const s = await one(sql`SELECT * FROM checkout_settings WHERE office_id=${officeId} LIMIT 1`);
@@ -612,7 +622,7 @@ router.get("/payments/checkout/settings", requireAuthWithTenant, async (req, res
 });
 
 /* PUT /api/payments/checkout/settings */
-router.put("/payments/checkout/settings", requireAuthWithTenant, async (req, res) => {
+router.put("/payments/checkout/settings", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const officeId = (req as any).tenantId;
     const { secretKey, publicKey, webhookSecret, testMode = true, enabled = false } = req.body;
@@ -639,7 +649,7 @@ router.put("/payments/checkout/settings", requireAuthWithTenant, async (req, res
 });
 
 /* POST /api/payments/checkout/create-payment */
-router.post("/payments/checkout/create-payment", requireAuthWithTenant, async (req, res) => {
+router.post("/payments/checkout/create-payment", requireAuthWithTenant, requirePermission("payments:create"), async (req, res) => {
   try {
     const officeId = (req as any).tenantId;
     const { amountSAR, description = "خدمة قانونية", clientName, clientEmail, invoiceId, caseId, commissionPercent = 10 } = req.body;
@@ -698,7 +708,7 @@ router.post("/payments/checkout/create-payment", requireAuthWithTenant, async (r
 });
 
 /* GET /api/payments/checkout/success — Checkout.com redirect back */
-router.get("/payments/checkout/success", requireAuthWithTenant, async (req, res) => {
+router.get("/payments/checkout/success", requireAuthWithTenant, requirePermission("payments:view"), async (req, res) => {
   try {
     const { tx, status: cStatus } = req.query as any;
     if (tx) {
@@ -713,22 +723,44 @@ router.get("/payments/checkout/success", requireAuthWithTenant, async (req, res)
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-/* POST /api/webhook/checkout — Checkout.com webhook */
-router.post("/webhook/checkout", requireAuthWithTenant, async (req, res) => {
+/* POST /api/webhook/checkout — Checkout.com webhook (no user session; verified via secret) */
+router.post("/webhook/checkout", async (req, res) => {
   try {
     const event = req.body;
     const type  = event?.type ?? "";
     const ref   = event?.data?.reference ?? event?.data?.metadata?.tx_id ?? "";
+    const officeId = event?.data?.metadata?.office_id ?? event?.data?.metadata?.officeId ?? null;
+    if (!officeId) {
+      return res.status(400).json({ error: "office_id مطلوب في metadata الحدث" });
+    }
+
+    const sigHeader = req.headers["cko-signature"] ?? req.headers["checkout-signature"];
+    if (sigHeader) {
+      const settings = await one(sql`
+        SELECT webhook_secret FROM checkout_settings WHERE office_id = ${officeId} LIMIT 1
+      `);
+      const secret = settings?.webhook_secret;
+      if (secret) {
+        const raw = (req as { rawBody?: string }).rawBody ?? JSON.stringify(event);
+        const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
+        if (String(sigHeader) !== expected) {
+          return res.status(401).json({ error: "توقيع webhook غير صالح" });
+        }
+      }
+    }
+
     if (type === "payment_captured" || type === "payment_approved") {
       await db.execute(sql`
         UPDATE payment_transactions
         SET status='completed', gateway_payment_id=${event?.data?.id ?? null}, updated_at=NOW()
-        WHERE gateway_payment_id=${ref} OR id=${ref}::uuid
+        WHERE office_id = ${officeId}
+          AND (gateway_payment_id=${ref} OR id=${ref}::uuid)
       `).catch(() => {});
     } else if (type === "payment_declined" || type === "payment_expired") {
       await db.execute(sql`
         UPDATE payment_transactions SET status='failed', updated_at=NOW()
-        WHERE gateway_payment_id=${ref} OR id=${ref}::uuid
+        WHERE office_id = ${officeId}
+          AND (gateway_payment_id=${ref} OR id=${ref}::uuid)
       `).catch(() => {});
     }
     res.json({ ok: true });
