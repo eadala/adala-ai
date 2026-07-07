@@ -16,11 +16,42 @@ export interface RoutePolicy {
   description?: string;
 }
 
-/** Policies registered in PR-AUTH-001 (reference + RBAC module). */
+/** Policies — PR-AUTH-001 RBAC + PR-AUTH-002 legal-core. */
 export const ROUTE_POLICIES: RoutePolicy[] = [
-  // legal-core — already guarded deletes
+  // ── cases ──
+  { method: "GET", path: "/api/cases", routeClass: "TENANT_RBAC", permission: "cases:view" },
+  { method: "GET", path: "/api/cases/stats", routeClass: "TENANT_RBAC", permission: "cases:view" },
+  { method: "POST", path: "/api/cases", routeClass: "TENANT_RBAC", permission: "cases:create" },
+  { method: "GET", path: "/api/cases/:id", routeClass: "TENANT_RBAC", permission: "cases:view" },
+  { method: "PATCH", path: "/api/cases/:id", routeClass: "TENANT_RBAC", permission: "cases:edit" },
   { method: "DELETE", path: "/api/cases/:id", routeClass: "TENANT_RBAC", permission: "cases:delete" },
+  { method: "DELETE", path: "/api/cases/:id/hard", routeClass: "TENANT_RBAC", permission: "cases:delete" },
+  { method: "POST", path: "/api/cases/:id/timeline", routeClass: "TENANT_RBAC", permission: "cases:edit" },
+  { method: "POST", path: "/api/cases/:id/messages", routeClass: "TENANT_RBAC", permission: "cases:edit" },
+  { method: "POST", path: "/api/cases/:id/tasks", routeClass: "TENANT_RBAC", permission: "cases:edit" },
+  { method: "POST", path: "/api/cases/:id/autopilot", routeClass: "TENANT_RBAC", permission: "cases:edit" },
+  { method: "POST", path: "/api/cases/:id/analyze", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "PATCH", path: "/api/cases/:id/court", routeClass: "TENANT_RBAC", permission: "cases:edit" },
+  { method: "POST", path: "/api/cases/:id/hearings", routeClass: "TENANT_RBAC", permission: "cases:edit" },
+  { method: "PATCH", path: "/api/cases/:id/hearings/:hid", routeClass: "TENANT_RBAC", permission: "cases:edit" },
+  { method: "DELETE", path: "/api/cases/:id/hearings/:hid", routeClass: "TENANT_RBAC", permission: "cases:edit" },
+  { method: "POST", path: "/api/cases/:id/documents", routeClass: "TENANT_RBAC", permission: "documents:upload" },
+  { method: "DELETE", path: "/api/cases/:id/documents/:did", routeClass: "TENANT_RBAC", permission: "documents:delete" },
+  // ── clients ──
+  { method: "GET", path: "/api/clients", routeClass: "TENANT_RBAC", permission: "clients:view" },
+  { method: "POST", path: "/api/clients", routeClass: "TENANT_RBAC", permission: "clients:create" },
+  { method: "PATCH", path: "/api/clients/:id", routeClass: "TENANT_RBAC", permission: "clients:edit" },
   { method: "DELETE", path: "/api/clients/:id", routeClass: "TENANT_RBAC", permission: "clients:delete" },
+  // ── contracts ──
+  { method: "POST", path: "/api/contracts", routeClass: "TENANT_RBAC", permission: "contracts:create" },
+  { method: "PATCH", path: "/api/contracts/:id", routeClass: "TENANT_RBAC", permission: "contracts:edit" },
+  { method: "DELETE", path: "/api/contracts/:id", routeClass: "TENANT_RBAC", permission: "contracts:delete" },
+  { method: "POST", path: "/api/contracts/:id/analyze", routeClass: "TENANT_RBAC", permission: "ai:access" },
+  { method: "POST", path: "/api/contracts/generate-from-prompt", routeClass: "TENANT_RBAC", permission: "contracts:create" },
+  // ── documents ──
+  { method: "GET", path: "/api/documents", routeClass: "TENANT_RBAC", permission: "documents:view" },
+  { method: "POST", path: "/api/documents", routeClass: "TENANT_RBAC", permission: "documents:upload" },
+  { method: "DELETE", path: "/api/documents/:id", routeClass: "TENANT_RBAC", permission: "documents:delete" },
   // financial
   { method: "DELETE", path: "/api/invoices/:id", routeClass: "TENANT_RBAC", permission: "invoices:delete" },
   { method: "DELETE", path: "/api/accounting/revenues/:id", routeClass: "TENANT_RBAC", permission: "accounting:delete" },

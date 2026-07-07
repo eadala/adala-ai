@@ -528,23 +528,23 @@ else {
 const enforcementModules = [
   "src/modules/legal-core/cases.ts",
   "src/modules/legal-core/clients.ts",
-  "src/modules/financial/invoices.ts",
+  "src/modules/legal-core/contracts.ts",
+  "src/modules/legal-core/documents.ts",
 ];
 let unguardedMutations = 0;
-const mutationRe = /router\.(post|put|patch|delete)\(/gi;
+const mutationLineRe = /router\.(post|put|patch|delete)\([^)]+\)[^{]*async/gi;
 for (const rel of enforcementModules) {
   const src = readSrc(BACKEND, rel) ?? "";
-  const mutations = src.match(mutationRe)?.length ?? 0;
-  const guarded = (src.match(/requirePermission\(/g) ?? []).length;
-  if (mutations > 0 && guarded === 0) {
-    warn(`${rel}: ${mutations} mutations بدون requirePermission (متوقع حتى PR-AUTH-002)`);
-    unguardedMutations++;
+  const lines = src.split("\n").filter((l) => /router\.(post|put|patch|delete)\(/.test(l));
+  const unguarded = lines.filter((l) => !l.includes("requirePermission("));
+  if (unguarded.length > 0) {
+    fail(`${rel}: ${unguarded.length} mutation(s) بدون requirePermission`);
+    authzIssues++;
+    unguardedMutations += unguarded.length;
   }
 }
-if (unguardedMutations > 0) {
-  info(`Layer 10 warn: ${unguardedMutations} modules بانتظار PR-AUTH-002`);
-} else {
-  pass("عيّنة mutation modules محكمة");
+if (unguardedMutations === 0) {
+  pass(`legal-core P0 (${enforcementModules.length} modules) — جميع mutations محمية`);
 }
 
 recordResult("authorization", authzIssues === 0, authzIssues, authzWarnings);

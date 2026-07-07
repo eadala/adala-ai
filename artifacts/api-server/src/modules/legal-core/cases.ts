@@ -109,7 +109,7 @@ function serializeCase(c: any) {
 ══════════════════════════════════════════════════════ */
 
 /* GET /cases */
-router.get("/cases", requireAuthWithTenant, async (req, res) => {
+router.get("/cases", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const q      = ListCasesQueryParams.parse(req.query);
     const page   = req.query.page   ? Math.max(1, parseInt(String(req.query.page)))    : null;
@@ -152,7 +152,7 @@ router.get("/cases", requireAuthWithTenant, async (req, res) => {
 });
 
 /* GET /cases/stats */
-router.get("/cases/stats", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/stats", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const stats = await getService(req).getStats();
     res.json(stats);
@@ -162,7 +162,7 @@ router.get("/cases/stats", requireAuthWithTenant, async (req, res) => {
 });
 
 /* POST /cases */
-router.post("/cases", requireAuthWithTenant, async (req, res) => {
+router.post("/cases", requireAuthWithTenant, requirePermission("cases:create"), async (req, res) => {
   try {
     const body    = CreateCaseBody.parse(req.body);
     const created = await getService(req).createCase({
@@ -181,7 +181,7 @@ router.post("/cases", requireAuthWithTenant, async (req, res) => {
 });
 
 /* GET /cases/:id */
-router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/:id", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const id = String(req.params.id);
     if (!id || id.length > 200) return res.status(400).json({ error: "معرف غير صالح" });
@@ -249,7 +249,7 @@ router.get("/cases/:id", requireAuthWithTenant, async (req, res) => {
 });
 
 /* PATCH /cases/:id */
-router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
+router.patch("/cases/:id", requireAuthWithTenant, requirePermission("cases:edit"), async (req, res) => {
   try {
     const id    = String(req.params.id);
     /* Read version and force BEFORE Zod strips them */
@@ -337,7 +337,7 @@ router.delete("/cases/:id", requireAuthWithTenant, requirePermission("cases:dele
 });
 
 /* DELETE /cases/:id/hard — permanent, super_admin only */
-router.delete("/cases/:id/hard", requireAuthWithTenant, async (req, res) => {
+router.delete("/cases/:id/hard", requireAuthWithTenant, requirePermission("cases:delete"), async (req, res) => {
   if (!(req as any).isSuperAdmin) {
     return res.status(403).json({ error: "الحذف النهائي متاح لمدير النظام فقط" });
   }
@@ -354,7 +354,7 @@ router.delete("/cases/:id/hard", requireAuthWithTenant, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    HUB — all related entities in one call
 ══════════════════════════════════════════════════════ */
-router.get("/cases/:id/hub", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/:id/hub", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const tenantId = getTenant(req);
     const caseId   = String(req.params.id);
@@ -418,7 +418,7 @@ router.get("/cases/:id/hub", requireAuthWithTenant, async (req, res) => {
    The existing /cases/:id/messages (CaseCommunications/case_messages) is
    untouched — this is purely additive.
 ─────────────────────────────────────────────────────────────────────────── */
-router.get("/cases/:id/linked-comms", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/:id/linked-comms", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const tenantId = getTenant(req);
     const caseId   = String(req.params.id);
@@ -454,7 +454,7 @@ router.get("/cases/:id/linked-comms", requireAuthWithTenant, async (req, res) =>
 /* ══════════════════════════════════════════════════════
    TIMELINE
 ══════════════════════════════════════════════════════ */
-router.get("/cases/:id/timeline", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/:id/timeline", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const entries = await new CaseTimeline(getTenant(req)).getEntries(String(req.params.id));
     res.json(entries);
@@ -463,7 +463,7 @@ router.get("/cases/:id/timeline", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.post("/cases/:id/timeline", requireAuthWithTenant, async (req, res) => {
+router.post("/cases/:id/timeline", requireAuthWithTenant, requirePermission("cases:edit"), async (req, res) => {
   try {
     const auth   = getAuth(req);
     const entry  = await new CaseTimeline(getTenant(req)).addEntry(String(req.params.id), {
@@ -480,7 +480,7 @@ router.post("/cases/:id/timeline", requireAuthWithTenant, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    COMMUNICATIONS (case chat)
 ══════════════════════════════════════════════════════ */
-router.get("/cases/:id/messages", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/:id/messages", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const msgs = await new CaseCommunications(getTenant(req)).getMessages(String(req.params.id));
     res.json(msgs);
@@ -489,7 +489,7 @@ router.get("/cases/:id/messages", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.post("/cases/:id/messages", requireAuthWithTenant, async (req, res) => {
+router.post("/cases/:id/messages", requireAuthWithTenant, requirePermission("cases:edit"), async (req, res) => {
   try {
     const { body: msgBody, sender_name } = req.body;
     if (!msgBody?.trim()) return res.status(400).json({ error: "الرسالة فارغة" });
@@ -508,7 +508,7 @@ router.post("/cases/:id/messages", requireAuthWithTenant, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    TASKS
 ══════════════════════════════════════════════════════ */
-router.get("/cases/:id/tasks", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/:id/tasks", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const tasks = await new CaseTasks(getTenant(req)).getTasks(String(req.params.id));
     res.json(tasks);
@@ -517,7 +517,7 @@ router.get("/cases/:id/tasks", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.post("/cases/:id/tasks", requireAuthWithTenant, async (req, res) => {
+router.post("/cases/:id/tasks", requireAuthWithTenant, requirePermission("cases:edit"), async (req, res) => {
   try {
     const tenantId = getTenant(req);
     const caseId   = String(req.params.id);
@@ -532,7 +532,7 @@ router.post("/cases/:id/tasks", requireAuthWithTenant, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    AI AUTOPILOT
 ══════════════════════════════════════════════════════ */
-router.get("/cases/:id/health", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/:id/health", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const tenantId = getTenant(req);
     const caseId   = String(req.params.id);
@@ -555,7 +555,7 @@ router.get("/cases/:id/health", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.post("/cases/:id/autopilot", requireAuthWithTenant, async (req, res) => {
+router.post("/cases/:id/autopilot", requireAuthWithTenant, requirePermission("cases:edit"), async (req, res) => {
   try {
     const tenantId = getTenant(req);
     const caseId   = String(req.params.id);
@@ -578,7 +578,7 @@ router.post("/cases/:id/autopilot", requireAuthWithTenant, async (req, res) => {
 ══════════════════════════════════════════════════════ */
 
 /** GET /cases/:id/ai-insights — latest cached insight */
-router.get("/cases/:id/ai-insights", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/:id/ai-insights", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const insight = await getLatestInsight(String(req.params.id), getTenant(req));
     res.json(insight ?? null);
@@ -588,7 +588,7 @@ router.get("/cases/:id/ai-insights", requireAuthWithTenant, async (req, res) => 
 });
 
 /** POST /cases/:id/analyze — trigger fresh AI analysis */
-router.post("/cases/:id/analyze", requireAuthWithTenant, async (req, res) => {
+router.post("/cases/:id/analyze", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   try {
     const caseId   = String(req.params.id);
     const tenantId = getTenant(req);
@@ -603,7 +603,7 @@ router.post("/cases/:id/analyze", requireAuthWithTenant, async (req, res) => {
 });
 
 /** POST /cases/:id/ai-insights/approve-task — approve → create real task */
-router.post("/cases/:id/ai-insights/approve-task", requireAuthWithTenant, async (req, res) => {
+router.post("/cases/:id/ai-insights/approve-task", requireAuthWithTenant, requirePermission("cases:edit"), async (req, res) => {
   try {
     const { insightId, taskId } = req.body as { insightId: string; taskId: string };
     const result = await approveAITask(insightId, taskId, String(req.params.id), getTenant(req));
@@ -615,7 +615,7 @@ router.post("/cases/:id/ai-insights/approve-task", requireAuthWithTenant, async 
 });
 
 /** POST /cases/:id/ai-insights/reject-task — reject a pending auto-task */
-router.post("/cases/:id/ai-insights/reject-task", requireAuthWithTenant, async (req, res) => {
+router.post("/cases/:id/ai-insights/reject-task", requireAuthWithTenant, requirePermission("cases:edit"), async (req, res) => {
   try {
     const { insightId, taskId } = req.body as { insightId: string; taskId: string };
     const result = await rejectAITask(insightId, taskId, getTenant(req));
@@ -628,7 +628,7 @@ router.post("/cases/:id/ai-insights/reject-task", requireAuthWithTenant, async (
 /* ══════════════════════════════════════════════════════
    COURT INFO — PATCH /cases/:id/court
 ══════════════════════════════════════════════════════ */
-router.patch("/cases/:id/court", requireAuthWithTenant, async (req, res) => {
+router.patch("/cases/:id/court", requireAuthWithTenant, requirePermission("cases:edit"), async (req, res) => {
   try {
     const id       = String(req.params.id);
     const tenantId = getTenant(req);
@@ -655,7 +655,7 @@ router.patch("/cases/:id/court", requireAuthWithTenant, async (req, res) => {
    HEARINGS CALENDAR — GET /cases/hearings/calendar
    (must be registered BEFORE /:id routes to avoid conflict)
 ══════════════════════════════════════════════════════ */
-router.get("/cases/hearings/calendar", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/hearings/calendar", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const tenantId = getTenant(req);
     const rows = await db.execute(sql`
@@ -757,7 +757,7 @@ async function syncNextHearing(caseId: string, tenantId: string) {
 }
 
 /* GET /cases/:id/hearings */
-router.get("/cases/:id/hearings", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/:id/hearings", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const caseId   = String(req.params.id);
     const tenantId = getTenant(req);
@@ -774,7 +774,7 @@ router.get("/cases/:id/hearings", requireAuthWithTenant, async (req, res) => {
 });
 
 /* POST /cases/:id/hearings */
-router.post("/cases/:id/hearings", requireAuthWithTenant, async (req, res) => {
+router.post("/cases/:id/hearings", requireAuthWithTenant, requirePermission("cases:edit"), async (req, res) => {
   try {
     const caseId   = String(req.params.id);
     const tenantId = getTenant(req);
@@ -808,7 +808,7 @@ router.post("/cases/:id/hearings", requireAuthWithTenant, async (req, res) => {
 });
 
 /* PATCH /cases/:id/hearings/:hid */
-router.patch("/cases/:id/hearings/:hid", requireAuthWithTenant, async (req, res) => {
+router.patch("/cases/:id/hearings/:hid", requireAuthWithTenant, requirePermission("cases:edit"), async (req, res) => {
   try {
     const caseId   = String(req.params.id);
     const hid      = String(req.params.hid);
@@ -847,7 +847,7 @@ router.patch("/cases/:id/hearings/:hid", requireAuthWithTenant, async (req, res)
 });
 
 /* DELETE /cases/:id/hearings/:hid */
-router.delete("/cases/:id/hearings/:hid", requireAuthWithTenant, async (req, res) => {
+router.delete("/cases/:id/hearings/:hid", requireAuthWithTenant, requirePermission("cases:edit"), async (req, res) => {
   try {
     const caseId   = String(req.params.id);
     const hid      = String(req.params.hid);
@@ -872,7 +872,7 @@ router.delete("/cases/:id/hearings/:hid", requireAuthWithTenant, async (req, res
 ═══════════════════════════════════════════════════════ */
 
 /* GET /cases/:id/documents */
-router.get("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/:id/documents", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const caseId   = String(req.params.id);
     const tenantId = getTenant(req);
@@ -891,7 +891,7 @@ router.get("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
 });
 
 /* POST /cases/:id/documents */
-router.post("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
+router.post("/cases/:id/documents", requireAuthWithTenant, requirePermission("documents:upload"), async (req, res) => {
   try {
     const caseId   = String(req.params.id);
     const tenantId = getTenant(req);
@@ -932,7 +932,7 @@ router.post("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
 });
 
 /* GET /cases/:id/documents/:did/download — return the file data */
-router.get("/cases/:id/documents/:did/download", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/:id/documents/:did/download", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const caseId   = String(req.params.id);
     const did      = String(req.params.did);
@@ -963,7 +963,7 @@ router.get("/cases/:id/documents/:did/download", requireAuthWithTenant, async (r
 });
 
 /* DELETE /cases/:id/documents/:did */
-router.delete("/cases/:id/documents/:did", requireAuthWithTenant, async (req, res) => {
+router.delete("/cases/:id/documents/:did", requireAuthWithTenant, requirePermission("documents:delete"), async (req, res) => {
   try {
     const caseId   = String(req.params.id);
     const did      = String(req.params.did);
@@ -983,7 +983,7 @@ router.delete("/cases/:id/documents/:did", requireAuthWithTenant, async (req, re
    INTEGRATION REPORT — GET /cases/:id/integration-report
    تقرير شامل لنسبة تكامل القضية مع جميع الوحدات
 ══════════════════════════════════════════════════════ */
-router.get("/cases/:id/integration-report", requireAuthWithTenant, async (req, res) => {
+router.get("/cases/:id/integration-report", requireAuthWithTenant, requirePermission("cases:view"), async (req, res) => {
   try {
     const tenantId = getTenant(req);
     const caseId   = String(req.params.id);
