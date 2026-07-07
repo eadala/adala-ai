@@ -6,6 +6,7 @@ import { eventBus, StoredEvent } from "../eventBus";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { sendPushToOffice } from "../../lib/webPush";
+import { requireEventOfficeId } from "../tenant/eventScope";
 
 /* ── Per-office settings cache (5 min TTL) ──────────────────────── */
 type Channel = "push_enabled" | "in_app_enabled" | "email_enabled";
@@ -63,7 +64,8 @@ export function registerNotificationListeners() {
 
   eventBus.on("CASE_CREATED", async (event: StoredEvent) => {
     const { title, clientName } = event.data;
-    const officeId = event.officeId ?? "default";
+    const officeId = requireEventOfficeId(event);
+    if (!officeId) return;
     await createInAppNotification(officeId, "CASE_CREATED", "⚖️ قضية جديدة",
       `تم فتح قضية: "${title}" للعميل ${clientName ?? "غير محدد"}`, "/cases");
     await pushOffice(officeId, "CASE_CREATED", {
@@ -74,7 +76,8 @@ export function registerNotificationListeners() {
 
   eventBus.on("CASE_CLOSED", async (event: StoredEvent) => {
     const { title, clientName } = event.data;
-    const officeId = event.officeId ?? "default";
+    const officeId = requireEventOfficeId(event);
+    if (!officeId) return;
     await createInAppNotification(officeId, "CASE_CLOSED", "✅ قضية مُغلقة",
       `تم إغلاق القضية: "${title}" — ${clientName ?? ""}`, "/cases");
     await pushOffice(officeId, "CASE_CLOSED", {
@@ -85,7 +88,8 @@ export function registerNotificationListeners() {
 
   eventBus.on("CASE_UPDATED", async (event: StoredEvent) => {
     const { title } = event.data;
-    const officeId = event.officeId ?? "default";
+    const officeId = requireEventOfficeId(event);
+    if (!officeId) return;
     await createInAppNotification(officeId, "CASE_UPDATED", "🔄 تحديث قضية",
       `تم تحديث القضية: "${title ?? ""}"`, "/cases");
     await pushOffice(officeId, "CASE_UPDATED", {
@@ -96,7 +100,8 @@ export function registerNotificationListeners() {
 
   eventBus.on("CLIENT_ADDED", async (event: StoredEvent) => {
     const { fullName, email } = event.data;
-    const officeId = event.officeId ?? "default";
+    const officeId = requireEventOfficeId(event);
+    if (!officeId) return;
     await createInAppNotification(officeId, "CLIENT_ADDED", "👤 عميل جديد",
       `تم تسجيل العميل: ${fullName}${email ? ` (${email})` : ""}`, "/clients");
     await pushOffice(officeId, "CLIENT_ADDED", {
@@ -107,7 +112,8 @@ export function registerNotificationListeners() {
 
   eventBus.on("INVOICE_CREATED", async (event: StoredEvent) => {
     const { invoiceNumber, total } = event.data;
-    const officeId = event.officeId ?? "default";
+    const officeId = requireEventOfficeId(event);
+    if (!officeId) return;
     await createInAppNotification(officeId, "INVOICE_CREATED", "🧾 فاتورة جديدة",
       `تم إنشاء الفاتورة ${invoiceNumber} بمبلغ ${Number(total).toLocaleString("ar-SA")} ر.س`, "/invoices");
     await pushOffice(officeId, "INVOICE_CREATED", {
@@ -118,7 +124,8 @@ export function registerNotificationListeners() {
 
   eventBus.on("INVOICE_PAID", async (event: StoredEvent) => {
     const { invoiceNumber, total } = event.data;
-    const officeId = event.officeId ?? "default";
+    const officeId = requireEventOfficeId(event);
+    if (!officeId) return;
     await createInAppNotification(officeId, "INVOICE_PAID", "💰 دفعة مستلمة",
       `تم دفع الفاتورة ${invoiceNumber} — ${Number(total).toLocaleString("ar-SA")} ر.س`, "/payment-center");
     await pushOffice(officeId, "INVOICE_PAID", {
@@ -129,7 +136,8 @@ export function registerNotificationListeners() {
 
   eventBus.on("INVOICE_OVERDUE", async (event: StoredEvent) => {
     const { invoiceNumber, total, clientName } = event.data;
-    const officeId = event.officeId ?? "default";
+    const officeId = requireEventOfficeId(event);
+    if (!officeId) return;
     await createInAppNotification(officeId, "INVOICE_OVERDUE", "⚠️ فاتورة متأخرة",
       `الفاتورة ${invoiceNumber} من ${clientName ?? "عميل"} — ${Number(total).toLocaleString("ar-SA")} ر.س`, "/invoices");
     await pushOffice(officeId, "INVOICE_OVERDUE", {
@@ -140,7 +148,8 @@ export function registerNotificationListeners() {
 
   eventBus.on("PAYMENT_SUCCESS", async (event: StoredEvent) => {
     const { amount, clientName, gateway } = event.data;
-    const officeId = event.officeId ?? "default";
+    const officeId = requireEventOfficeId(event);
+    if (!officeId) return;
     await createInAppNotification(officeId, "PAYMENT_SUCCESS", "✅ دفعة ناجحة",
       `استُلمت ${Number(amount).toLocaleString("ar-SA")} ر.س من ${clientName ?? "عميل"} عبر ${gateway ?? ""}`, "/payment-center");
     await pushOffice(officeId, "PAYMENT_SUCCESS", {
@@ -151,7 +160,8 @@ export function registerNotificationListeners() {
 
   eventBus.on("PAYMENT_FAILED", async (event: StoredEvent) => {
     const { amount, clientName } = event.data;
-    const officeId = event.officeId ?? "default";
+    const officeId = requireEventOfficeId(event);
+    if (!officeId) return;
     await createInAppNotification(officeId, "PAYMENT_FAILED", "❌ دفعة فاشلة",
       `فشلت دفعة ${Number(amount ?? 0).toLocaleString("ar-SA")} ر.س من ${clientName ?? "عميل"}`, "/payment-center");
     await pushOffice(officeId, "PAYMENT_FAILED", {
@@ -162,7 +172,8 @@ export function registerNotificationListeners() {
 
   eventBus.on("DOCUMENT_GENERATED", async (event: StoredEvent) => {
     const { docType, title } = event.data;
-    const officeId = event.officeId ?? "default";
+    const officeId = requireEventOfficeId(event);
+    if (!officeId) return;
     await createInAppNotification(officeId, "DOCUMENT_GENERATED", "📄 وثيقة جاهزة",
       `تم إنشاء وثيقة: ${title ?? docType}`, "/legal-ai");
     await pushOffice(officeId, "DOCUMENT_GENERATED", {
@@ -173,7 +184,8 @@ export function registerNotificationListeners() {
 
   eventBus.on("SESSION_REMINDER", async (event: StoredEvent) => {
     const { caseTitle, sessionDate } = event.data;
-    const officeId = event.officeId ?? "default";
+    const officeId = requireEventOfficeId(event);
+    if (!officeId) return;
     await createInAppNotification(officeId, "SESSION_REMINDER", "📅 تذكير بجلسة",
       `جلسة القضية "${caseTitle ?? ""}" — ${sessionDate ?? ""}`, "/cases");
     await pushOffice(officeId, "SESSION_REMINDER", {
@@ -184,7 +196,8 @@ export function registerNotificationListeners() {
 
   eventBus.on("TASK_DUE", async (event: StoredEvent) => {
     const { taskTitle } = event.data;
-    const officeId = event.officeId ?? "default";
+    const officeId = requireEventOfficeId(event);
+    if (!officeId) return;
     await createInAppNotification(officeId, "TASK_DUE", "⏰ مهمة مستحقة",
       `المهمة "${taskTitle ?? ""}" تستحق الإنجاز اليوم`, "/cases");
     await pushOffice(officeId, "TASK_DUE", {

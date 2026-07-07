@@ -12,7 +12,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { eventBus } from "../../core/eventBus";
 
 const router = Router();
@@ -169,7 +169,7 @@ async function seedDefaultRoles(officeId: string): Promise<void> {
 ══════════════════════════════════════════════════════════ */
 
 // POST /api/hr-enterprise/authorize
-router.post("/hr-enterprise/authorize", requireAuthWithTenant, async (req, res) => {
+router.post("/hr-enterprise/authorize", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const { userId, permission } = req.body ?? {};
   if (!userId || !permission) { res.status(400).json({ error: "userId + permission مطلوبان" }); return; }
@@ -184,7 +184,7 @@ router.post("/hr-enterprise/authorize", requireAuthWithTenant, async (req, res) 
 ══════════════════════════════════════════════════════════ */
 
 // GET /api/hr-enterprise/roles
-router.get("/hr-enterprise/roles", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-enterprise/roles", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     await ensureHREnterpriseTables();
@@ -203,7 +203,7 @@ router.get("/hr-enterprise/roles", requireAuthWithTenant, async (req, res) => {
 });
 
 // POST /api/hr-enterprise/roles
-router.post("/hr-enterprise/roles", requireAuthWithTenant, async (req, res) => {
+router.post("/hr-enterprise/roles", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const { name, displayName, description, hierarchy, permissions } = req.body ?? {};
   if (!name || !displayName) { res.status(400).json({ error: "name + displayName مطلوبان" }); return; }
@@ -224,7 +224,7 @@ router.post("/hr-enterprise/roles", requireAuthWithTenant, async (req, res) => {
 });
 
 // PATCH /api/hr-enterprise/roles/:name/permissions
-router.patch("/hr-enterprise/roles/:name/permissions", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr-enterprise/roles/:name/permissions", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const roleName = String(req.params.name);
   const { permissions } = req.body ?? {};
@@ -247,7 +247,7 @@ router.patch("/hr-enterprise/roles/:name/permissions", requireAuthWithTenant, as
 ══════════════════════════════════════════════════════════ */
 
 // GET /api/hr-enterprise/members
-router.get("/hr-enterprise/members", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-enterprise/members", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     await ensureHREnterpriseTables();
@@ -266,7 +266,7 @@ router.get("/hr-enterprise/members", requireAuthWithTenant, async (req, res) => 
 });
 
 // POST /api/hr-enterprise/members — add member to office
-router.post("/hr-enterprise/members", requireAuthWithTenant, async (req, res) => {
+router.post("/hr-enterprise/members", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const { userId, roleName, employeeId } = req.body ?? {};
   if (!userId || !roleName) { res.status(400).json({ error: "userId + roleName مطلوبان" }); return; }
@@ -286,7 +286,7 @@ router.post("/hr-enterprise/members", requireAuthWithTenant, async (req, res) =>
 });
 
 // PATCH /api/hr-enterprise/members/:userId/role — change role
-router.patch("/hr-enterprise/members/:userId/role", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr-enterprise/members/:userId/role", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const targetUserId = String(req.params.userId);
   const { roleName, reason } = req.body ?? {};
@@ -306,7 +306,7 @@ router.patch("/hr-enterprise/members/:userId/role", requireAuthWithTenant, async
 });
 
 // PATCH /api/hr-enterprise/members/:userId/suspend
-router.patch("/hr-enterprise/members/:userId/suspend", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr-enterprise/members/:userId/suspend", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const targetUserId = String(req.params.userId);
   try {
@@ -322,7 +322,7 @@ router.patch("/hr-enterprise/members/:userId/suspend", requireAuthWithTenant, as
 });
 
 // PATCH /api/hr-enterprise/members/:userId/activate
-router.patch("/hr-enterprise/members/:userId/activate", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr-enterprise/members/:userId/activate", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const targetUserId = String(req.params.userId);
   try {
@@ -341,7 +341,7 @@ router.patch("/hr-enterprise/members/:userId/activate", requireAuthWithTenant, a
 ══════════════════════════════════════════════════════════ */
 
 // GET /api/hr-enterprise/workflows
-router.get("/hr-enterprise/workflows", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-enterprise/workflows", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const { status, type } = req.query as Record<string, string>;
   try {
@@ -361,7 +361,7 @@ router.get("/hr-enterprise/workflows", requireAuthWithTenant, async (req, res) =
 });
 
 // GET /api/hr-enterprise/workflows/stats
-router.get("/hr-enterprise/workflows/stats", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-enterprise/workflows/stats", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     await ensureHREnterpriseTables();
@@ -379,7 +379,7 @@ router.get("/hr-enterprise/workflows/stats", requireAuthWithTenant, async (req, 
 });
 
 // POST /api/hr-enterprise/workflows — submit workflow request
-router.post("/hr-enterprise/workflows", requireAuthWithTenant, async (req, res) => {
+router.post("/hr-enterprise/workflows", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const { type, requesterName, subjectUserId, subjectName, payload, priority, notes, expiresAt } = req.body ?? {};
   if (!type) { res.status(400).json({ error: "type مطلوب" }); return; }
@@ -406,7 +406,7 @@ router.post("/hr-enterprise/workflows", requireAuthWithTenant, async (req, res) 
 });
 
 // PATCH /api/hr-enterprise/workflows/:id/approve
-router.patch("/hr-enterprise/workflows/:id/approve", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr-enterprise/workflows/:id/approve", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const { approverName, notes } = req.body ?? {};
   const approverId = (req as any).userId ?? "unknown";
@@ -429,7 +429,7 @@ router.patch("/hr-enterprise/workflows/:id/approve", requireAuthWithTenant, asyn
 });
 
 // PATCH /api/hr-enterprise/workflows/:id/reject
-router.patch("/hr-enterprise/workflows/:id/reject", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr-enterprise/workflows/:id/reject", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const { approverName, notes } = req.body ?? {};
   const approverId = (req as any).userId ?? "unknown";
@@ -452,7 +452,7 @@ router.patch("/hr-enterprise/workflows/:id/reject", requireAuthWithTenant, async
 ══════════════════════════════════════════════════════════ */
 
 // GET /api/hr-enterprise/audit
-router.get("/hr-enterprise/audit", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-enterprise/audit", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const { severity, action } = req.query as Record<string, string>;
   try {
@@ -473,7 +473,7 @@ router.get("/hr-enterprise/audit", requireAuthWithTenant, async (req, res) => {
 ══════════════════════════════════════════════════════════ */
 
 // GET /api/hr-enterprise/overview
-router.get("/hr-enterprise/overview", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-enterprise/overview", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     await ensureHREnterpriseTables();
@@ -512,7 +512,7 @@ router.get("/hr-enterprise/overview", requireAuthWithTenant, async (req, res) =>
 ══════════════════════════════════════════════════════════ */
 
 // GET /api/hr-enterprise/org-chart
-router.get("/hr-enterprise/org-chart", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-enterprise/org-chart", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     await ensureHREnterpriseTables();

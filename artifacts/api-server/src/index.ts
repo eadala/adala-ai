@@ -14,6 +14,8 @@ import { ensureStripeBufferTables } from "./services/stripeEventBuffer";
 import { ensureReconciliationTable, startReconciliationCron } from "./jobs/stripeReconcile";
 import { initVapid } from "./lib/webPush";
 import { loadHardeningState } from "./hardening/production.lock";
+import { bootLifecycleCache } from "./core/tenant/tenantLifecycle";
+import { bootRlsValidation } from "./core/tenant/rlsValidation";
 import { logLaunchReadinessWarnings } from "./lib/launchReadiness";
 import { ensureERPTables } from "./modules/financial/erp-ledger";
 import { ensureBankruptcyTables } from "./modules/bankruptcy/bankruptcy";
@@ -120,6 +122,8 @@ startLogRotationCron();
 registerAllListeners();
 initVapid().catch(e => console.error("[WebPush] init error:", e));
 loadHardeningState().catch(() => {});
+bootLifecycleCache().catch(e => logger.warn({ e }, "bootLifecycleCache failed (non-fatal)"));
+bootRlsValidation().catch(e => logger.error({ e }, "bootRlsValidation failed"));
 logLaunchReadinessWarnings((msg, meta) => logger.warn(meta ?? {}, msg));
 
 /* ── Global process-level error guards ─────────────────────────────────────
