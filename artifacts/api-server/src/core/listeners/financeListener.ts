@@ -4,20 +4,20 @@
 import { eventBus, StoredEvent } from "../eventBus";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { isRealOfficeTenantId } from "../tenantContext";
 
 async function updateWalletStats(data: Record<string, any>) {
   try {
-    /* Update office revenue snapshot */
-    if (data.amount && data.officeId) {
-      await db.execute(sql`
+    const officeId = data.officeId as string | undefined;
+    if (!data.amount || !isRealOfficeTenantId(officeId)) return;
+    await db.execute(sql`
         INSERT INTO office_wallet_snapshots (office_id, last_payment_amount, last_payment_at, updated_at)
-        VALUES (${data.officeId ?? "default"}, ${data.amount}, NOW(), NOW())
+        VALUES (${officeId}, ${data.amount}, NOW(), NOW())
         ON CONFLICT (office_id) DO UPDATE
           SET last_payment_amount = EXCLUDED.last_payment_amount,
               last_payment_at     = NOW(),
               updated_at          = NOW()
       `).catch(() => {});
-    }
   } catch {}
 }
 

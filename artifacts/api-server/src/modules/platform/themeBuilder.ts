@@ -221,7 +221,8 @@ router.get("/theme-builder/tokens", requireAuth, async (req, res) => {
   try {
     await ensureTable();
     const { userId } = getAuth(req as any);
-    const uid = userId ?? "default";
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const uid = userId;
     const row = await sqlOne(sql`
       SELECT tokens FROM office_themes
       WHERE user_id = ${uid} AND is_active = true

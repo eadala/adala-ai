@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db, documentsTable, casesTable } from "@workspace/db";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
@@ -7,7 +7,7 @@ import { ListDocumentsQueryParams, CreateDocumentBody } from "@workspace/api-zod
 
 const router = Router();
 
-router.get("/documents", requireAuthWithTenant, async (req, res) => {
+router.get("/documents", requireAuthWithTenant, requirePermission("documents:view"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     const query = ListDocumentsQueryParams.parse(req.query);
@@ -37,7 +37,7 @@ router.get("/documents", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.post("/documents", requireAuthWithTenant, async (req, res) => {
+router.post("/documents", requireAuthWithTenant, requirePermission("documents:upload"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     const body = CreateDocumentBody.parse(req.body);
@@ -73,7 +73,7 @@ router.get("/documents/:id", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.delete("/documents/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/documents/:id", requireAuthWithTenant, requirePermission("documents:delete"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     await db.delete(documentsTable)

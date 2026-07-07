@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { contractsTable } from "@workspace/db/schema";
@@ -900,7 +900,7 @@ router.get("/contracts/:id", requireAuthWithTenant, async (req, res) => {
 });
 
 // ── POST /contracts ───────────────────────────────────────────────────────────
-router.post("/contracts", requireAuthWithTenant, async (req, res) => {
+router.post("/contracts", requireAuthWithTenant, requirePermission("contracts:create"), async (req, res) => {
   try {
     const tid = (req as any).tenantId;
     const { title, type, parties, details, aiGenerate, notes, expiresAt, clientId, caseId, content: bodyContent, templateId, valueAmount, paymentMethod, selectedClauses } = req.body;
@@ -941,7 +941,7 @@ ${selectedClauseTexts ? `أضف البنود الاختيارية التالية
 });
 
 // ── PATCH /contracts/:id ──────────────────────────────────────────────────────
-router.patch("/contracts/:id", requireAuthWithTenant, async (req, res) => {
+router.patch("/contracts/:id", requireAuthWithTenant, requirePermission("contracts:edit"), async (req, res) => {
   try {
     const tid = (req as any).tenantId;
     const { id } = req.params as Record<string, string>;
@@ -981,7 +981,7 @@ router.patch("/contracts/:id", requireAuthWithTenant, async (req, res) => {
 });
 
 // ── DELETE /contracts/:id ─────────────────────────────────────────────────────
-router.delete("/contracts/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/contracts/:id", requireAuthWithTenant, requirePermission("contracts:delete"), async (req, res) => {
   try {
     const { id } = req.params as Record<string, string>;
     await sqlOne("DELETE FROM contracts WHERE id = $1 AND office_id = $2", [id, (req as any).tenantId]);
@@ -1008,7 +1008,7 @@ router.get("/contracts/:id/versions/:vid", requireAuthWithTenant, async (req, re
 });
 
 // ── POST /contracts/:id/ai-action ─────────────────────────────────────────────
-router.post("/contracts/:id/ai-action", requireAuthWithTenant, async (req, res) => {
+router.post("/contracts/:id/ai-action", requireAuthWithTenant, requirePermission("contracts:edit"), async (req, res) => {
   try {
     const tid = (req as any).tenantId;
     const { id } = req.params as Record<string, string>;
@@ -1043,7 +1043,7 @@ router.post("/contracts/:id/ai-action", requireAuthWithTenant, async (req, res) 
 });
 
 // ── POST /contracts/:id/analyze ───────────────────────────────────────────────
-router.post("/contracts/:id/analyze", requireAuthWithTenant, async (req, res) => {
+router.post("/contracts/:id/analyze", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   try {
     const tid = (req as any).tenantId;
     const { id } = req.params as Record<string, string>;
@@ -1059,7 +1059,7 @@ router.post("/contracts/:id/analyze", requireAuthWithTenant, async (req, res) =>
 });
 
 // ── POST /contracts/generate-from-prompt ──────────────────────────────────────
-router.post("/contracts/generate-from-prompt", requireAuthWithTenant, async (req, res) => {
+router.post("/contracts/generate-from-prompt", requireAuthWithTenant, requirePermission("contracts:create"), async (req, res) => {
   try {
     const tid = (req as any).tenantId;
     const { prompt: userPrompt, selectedClauses } = req.body;
@@ -1084,7 +1084,7 @@ router.get("/contracts/:id/ai-history", requireAuthWithTenant, async (req, res) 
 });
 
 // ── POST /contracts/:id/signature-request ─────────────────────────────────────
-router.post("/contracts/:id/signature-request", requireAuthWithTenant, async (req, res) => {
+router.post("/contracts/:id/signature-request", requireAuthWithTenant, requirePermission("contracts:edit"), async (req, res) => {
   try {
     const tid = (req as any).tenantId;
     const { id } = req.params as Record<string, string>;

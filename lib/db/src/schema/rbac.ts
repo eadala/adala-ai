@@ -15,6 +15,7 @@ export const rolesTable = pgTable("roles", {
 
 export const invitationsTable = pgTable("invitations", {
   id:          text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  officeId:    text("office_id"),
   email:       text("email").notNull(),
   role:        text("role").notNull().default("lawyer"),
   token:       text("token").notNull().$defaultFn(() => crypto.randomUUID()),

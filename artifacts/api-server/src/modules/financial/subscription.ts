@@ -1,5 +1,5 @@
-import { requireAuth } from "../../middlewares/requireAuth";
-import { getAuth } from "@clerk/express";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { getRequiredTenantId } from "../../core/tenantContext";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { plansTable, officePageTable } from "@workspace/db/schema";
@@ -36,8 +36,9 @@ const TRIAL_LIMITS = {
    Used by the frontend to gate UI elements.
    During the 30-day Stripe trial → returns full access.
 ───────────────────────────────────────────────────── */
-router.get("/office/subscription", requireAuth, async (_req, res) => {
+router.get("/office/subscription", requireAuthWithTenant, async (req, res) => {
   try {
+    const officeId = getRequiredTenantId(req);
     /* ── 1. Check Stripe for active trial ── */
     let isTrial = false;
     let trialEndsAt: number | null = null;
@@ -97,7 +98,7 @@ router.get("/office/subscription", requireAuth, async (_req, res) => {
 
     /* ── 2. If in trial → return full access immediately ── */
     if (isTrial) {
-      const offices = await db.select().from(officePageTable).limit(1);
+      const offices = await db.select().from(officePageTable).where(eq(officePageTable.id, officeId)).limit(1);
       const officePlan = offices[0]?.plan ?? "free";
       const plans = await db.select().from(plansTable).where(eq(plansTable.slug, officePlan)).limit(1);
       const plan = plans[0];
@@ -114,8 +115,8 @@ router.get("/office/subscription", requireAuth, async (_req, res) => {
       });
     }
 
-    /* ── 3. Normal path: return plan from DB ── */
-    const offices = await db.select().from(officePageTable).limit(1);
+    /* ── 3. Normal path: return plan from DB (tenant-scoped) ── */
+    const offices = await db.select().from(officePageTable).where(eq(officePageTable.id, officeId)).limit(1);
     const officePlan = offices[0]?.plan ?? "free";
 
     const plans = await db.select().from(plansTable)
@@ -173,11 +174,13 @@ router.get("/office/subscription", requireAuth, async (_req, res) => {
    GET /office/plan-notifications
    Returns plan change notification history (last 20).
 ───────────────────────────────────────────────────── */
-router.get("/office/plan-notifications", requireAuth, async (_req, res) => {
+router.get("/office/plan-notifications", requireAuthWithTenant, async (req, res) => {
   try {
+    const officeId = getRequiredTenantId(req);
     const rows = await db.execute(sql`
       SELECT id, type, old_plan, new_plan, title, message, is_read, created_at
       FROM plan_notifications
+      WHERE office_id = ${officeId}
       ORDER BY created_at DESC
       LIMIT 20
     `);
@@ -191,14 +194,9 @@ router.get("/office/plan-notifications", requireAuth, async (_req, res) => {
    PATCH /office/plan-notifications/read-all
    Mark all plan notifications as read.
 ───────────────────────────────────────────────────── */
-router.patch("/office/plan-notifications/read-all", requireAuth, async (req, res) => {
+router.patch("/office/plan-notifications/read-all", requireAuthWithTenant, async (req, res) => {
   try {
-    const auth = getAuth(req as any);
-    if (!auth?.userId) { res.status(401).json({ error: "غير مصرح" }); return; }
-    // Scope to requesting office's notifications only — never update ALL tenants
-    const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
-    const officeId = await resolveTenantId(auth.userId, req.headers["x-tenant-id"] as string | undefined);
-    if (!officeId) { res.status(403).json({ error: "لا يمكن تحديد المكتب", ok: false }); return; }
+    const officeId = getRequiredTenantId(req);
     await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE WHERE office_id = ${officeId}`);
     res.json({ ok: true });
   } catch (e: any) {

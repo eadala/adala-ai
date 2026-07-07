@@ -11,7 +11,7 @@ async function ensureTable() {
     CREATE TABLE IF NOT EXISTS onboarding_state (
       id          SERIAL PRIMARY KEY,
       user_id     TEXT NOT NULL UNIQUE,
-      office_id   TEXT NOT NULL DEFAULT 'default',
+      office_id   TEXT,
       completed   BOOLEAN NOT NULL DEFAULT FALSE,
       step        INTEGER NOT NULL DEFAULT 0,
       data        JSONB DEFAULT '{}',
@@ -47,7 +47,7 @@ router.put("/onboarding/state", requireAuth, async (req, res) => {
     const { completed, step, data } = req.body;
 
     /* ── When completing onboarding, provision a real office if none exists ── */
-    let resolvedOfficeId = "default";
+    let resolvedOfficeId: string | null = null;
     if (completed) {
       /* Check if user already has an active office membership */
       const existingMember = await sqlOne(sql`
@@ -98,11 +98,7 @@ router.put("/onboarding/state", requireAuth, async (req, res) => {
         completed  = EXCLUDED.completed,
         step       = EXCLUDED.step,
         data       = EXCLUDED.data,
-        office_id  = CASE
-                       WHEN EXCLUDED.office_id != 'default'
-                       THEN EXCLUDED.office_id
-                       ELSE onboarding_state.office_id
-                     END,
+        office_id  = COALESCE(EXCLUDED.office_id, onboarding_state.office_id),
         updated_at = NOW()
       RETURNING *
     `);
