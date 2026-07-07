@@ -35,12 +35,11 @@ export class TenantRequiredError extends Error {
 
 export const TenantStorage = new AsyncLocalStorage<TenantContext>();
 
-/** Dev-only escape hatch for legacy single-office workflows — never in production */
+/** Dev-only escape hatch — never production or staging */
 export function allowLegacyDefaultTenant(): boolean {
-  return (
-    process.env.NODE_ENV === "development" &&
-    process.env.ALLOW_LEGACY_DEFAULT_TENANT === "true"
-  );
+  const env = process.env.NODE_ENV ?? "development";
+  if (env !== "development") return false;
+  return process.env.ALLOW_LEGACY_DEFAULT_TENANT === "true";
 }
 
 /**

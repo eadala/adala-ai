@@ -1,6 +1,6 @@
 import { getAuth, createClerkClient } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
-import { resolveTenantId } from "./tenantMiddleware";
+import { resolveTenantId } from "./tenantResolution";
 import {
   runWithTenant,
   PLATFORM_TENANT_ID,
