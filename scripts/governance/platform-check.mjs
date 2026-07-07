@@ -534,6 +534,31 @@ else {
   authzWarnings++;
 }
 
+const enforcementModules = [
+  "src/modules/legal-core/cases.ts",
+  "src/modules/legal-core/clients.ts",
+  "src/modules/legal-core/contracts.ts",
+  "src/modules/legal-core/documents.ts",
+];
+let unguardedMutations = 0;
+for (const rel of enforcementModules) {
+  const src = readSrc(BACKEND, rel) ?? "";
+  const mutationRe = /router\.(post|put|patch|delete)\([\s\S]*?async/g;
+  let m;
+  while ((m = mutationRe.exec(src)) !== null) {
+    const block = m[0];
+    if (block.includes("requireSuperAdmin") || block.includes("adminOnly")) continue;
+    if (!block.includes("requirePermission(")) {
+      fail(`${rel}: mutation بدون requirePermission`);
+      authzIssues++;
+      unguardedMutations++;
+    }
+  }
+}
+if (unguardedMutations === 0) {
+  pass(`legal-core P0 (${enforcementModules.length} modules) — جميع mutations محمية`);
+}
+
 recordResult("authorization", authzIssues === 0, authzIssues, authzWarnings);
 
 /* ═════════════════════════════════════════════════════════

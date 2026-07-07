@@ -37,7 +37,7 @@ function apiErr(res: any, status: number, code: string, message: string) {
 }
 
 // ── GET /clients ──────────────────────────────────────────────────────────────
-router.get("/clients", requireAuthWithTenant, async (req, res) => {
+router.get("/clients", requireAuthWithTenant, requirePermission("clients:view"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -79,7 +79,7 @@ router.get("/clients", requireAuthWithTenant, async (req, res) => {
 });
 
 // ── POST /clients ─────────────────────────────────────────────────────────────
-router.post("/clients", requireAuthWithTenant, validate(CreateClientSchema), async (req, res) => {
+router.post("/clients", requireAuthWithTenant, requirePermission("clients:create"), validate(CreateClientSchema), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -122,7 +122,7 @@ router.post("/clients", requireAuthWithTenant, validate(CreateClientSchema), asy
 });
 
 // ── PATCH /clients/:id ────────────────────────────────────────────────────────
-router.patch("/clients/:id", requireAuthWithTenant, validate(UpdateClientSchema), async (req, res) => {
+router.patch("/clients/:id", requireAuthWithTenant, requirePermission("clients:edit"), validate(UpdateClientSchema), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -197,7 +197,7 @@ router.delete("/clients/:id", requireAuthWithTenant, requirePermission("clients:
 });
 
 // ── GET /clients/stats ────────────────────────────────────────────────────────
-router.get("/clients/stats", requireAuthWithTenant, async (req, res) => {
+router.get("/clients/stats", requireAuthWithTenant, requirePermission("clients:view"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -216,7 +216,7 @@ router.get("/clients/stats", requireAuthWithTenant, async (req, res) => {
 });
 
 // ── GET /clients/:id ──────────────────────────────────────────────────────────
-router.get("/clients/:id", requireAuthWithTenant, async (req, res) => {
+router.get("/clients/:id", requireAuthWithTenant, requirePermission("clients:view"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -230,7 +230,7 @@ router.get("/clients/:id", requireAuthWithTenant, async (req, res) => {
 });
 
 // ── GET /clients/:id/overview ─────────────────────────────────────────────────
-router.get("/clients/:id/overview", requireAuthWithTenant, async (req, res) => {
+router.get("/clients/:id/overview", requireAuthWithTenant, requirePermission("clients:view"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -286,7 +286,7 @@ router.get("/clients/:id/overview", requireAuthWithTenant, async (req, res) => {
 });
 
 // ── GET /clients/:id/accounting ───────────────────────────────────────────────
-router.get("/clients/:id/accounting", requireAuthWithTenant, async (req, res) => {
+router.get("/clients/:id/accounting", requireAuthWithTenant, requirePermission("clients:view"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -401,7 +401,7 @@ router.get("/clients/:id/accounting", requireAuthWithTenant, async (req, res) =>
 });
 
 // ── GET /clients/:id/portal-activity ─────────────────────────────────────────
-router.get("/clients/:id/portal-activity", requireAuthWithTenant, async (req, res) => {
+router.get("/clients/:id/portal-activity", requireAuthWithTenant, requirePermission("clients:view"), async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
