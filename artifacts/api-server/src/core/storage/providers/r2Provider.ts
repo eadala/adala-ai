@@ -11,6 +11,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Readable } from "stream";
 import type {
   IStorageProvider,
+  StoredObjectInfo,
   StorageHealthResult,
 } from "../types";
 

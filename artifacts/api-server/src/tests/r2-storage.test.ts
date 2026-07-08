@@ -13,8 +13,8 @@ import {
   buildPrivateUploadKey,
   entityIdToObjectKey,
   objectKeyToEntityPath,
-} from "../core/storage/config.ts";
-import { getStorageProvider, resetStorageProviderCache } from "../core/storage/storageFactory.ts";
+} from "../core/storage/config";
+import { getStorageProvider, resetStorageProviderCache } from "../core/storage/storageFactory";
 
 const LIVE = process.env.R2_RUN_LIVE_TEST === "1" && isObjectStorageConfigured();
 
