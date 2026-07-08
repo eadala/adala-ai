@@ -9,9 +9,10 @@ import {
 import { eq, desc, sql } from "drizzle-orm";
 import { encryptBuffer, decryptBuffer, safeDecryptBuffer, isEncryptionEnabled } from "../../core/backupEncrypt";
 import {
-  uploadBackup, downloadBackup, listBackups,
+  uploadBackup, downloadBackup, listBackups, downloadObjectByKey,
   tenantSnapshotKey, latestTenantSnapshotPrefix, fullBackupKey,
 } from "../../core/backupStorage";
+import { isObjectStorageConfigured } from "../../core/storage";
 
 /* ── HR + Accounting raw-SQL helpers (tenant-scoped) ────────── */
 async function fetchHR(tenantId: string) {
@@ -676,7 +677,7 @@ router.get("/backup/dr-test", requireAuthWithTenant, async (req, res) => {
 router.post("/backup/snapshot", requireAuthWithTenant, async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
-    const storageEnabled = !!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
+    const storageEnabled = isObjectStorageConfigured();
 
     /* Collect tenant data */
     const [cases, clients, invoices, contracts, documents, storageFiles] = await Promise.all([
@@ -968,7 +969,7 @@ router.get("/backup/encryption-status", requireAuthWithTenant, async (_req, res)
   res.json({
     enabled:   isEncryptionEnabled(),
     algorithm: "AES-256-CBC + HMAC-SHA256",
-    storage:   !!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ? "Replit Object Storage" : "قاعدة البيانات فقط",
+    storage:   isObjectStorageConfigured() ? "Cloudflare R2" : "قاعدة البيانات فقط",
   });
 });
 
@@ -1050,7 +1051,7 @@ router.post("/backup/migrate-encrypt-jobs", requireAuthWithTenant, async (req, r
    مكتب به 500 ميغابايت ملفات → ~700 ميغابايت نسخة احتياطية.
 ══════════════════════════════════════════════════════════ */
 router.post("/backup/files-content", requireAuthWithTenant, async (req, res) => {
-  if (!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID) {
+  if (!isObjectStorageConfigured()) {
     return res.status(400).json({ error: "Object Storage غير مُهيَّأ" });
   }
   if (!isEncryptionEnabled()) {
@@ -1065,9 +1066,6 @@ router.post("/backup/files-content", requireAuthWithTenant, async (req, res) => 
   const maxBytes = maxFileSizeMB * 1024 * 1024;
 
   try {
-    const { objectStorageClient } = await import("../../lib/objectStorage");
-    const bucket = objectStorageClient.bucket(process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID!);
-
     const files = await fetchStorageFiles(tenantId);
     const eligible = (files as any[]).filter(
       (f: any) => f.storage_key && f.file_size <= maxBytes
@@ -1078,7 +1076,7 @@ router.post("/backup/files-content", requireAuthWithTenant, async (req, res) => 
 
     for (const f of eligible) {
       try {
-        const [contents] = await bucket.file(f.storage_key as string).download();
+        const contents = await downloadObjectByKey(f.storage_key as string);
         const encrypted  = encryptBuffer(contents as Buffer);
         results.push({
           id:             f.id as string,

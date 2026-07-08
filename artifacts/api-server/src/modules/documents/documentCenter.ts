@@ -8,6 +8,7 @@ import { requireAuth, requireAuthWithTenant, requireSuperAdmin} from "../../midd
 import { getAuth } from "@clerk/express";
 
 import { documentStorage } from "../../services/documentStorage";
+import { getStorageProviderLabel } from "../../core/storage";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -292,7 +293,7 @@ router.post("/document-center/confirm-upload", requireAuthWithTenant, async (req
          case_id, client_id, uploaded_by, uploaded_by_name)
       VALUES
         (${officeId}, 'document_center_files', ${storageKey},
-         ${storageKey}, 'replit_object_storage',
+         ${storageKey}, ${getStorageProviderLabel()},
          ${fileName}, ${fileSize ?? 0}, ${fileType ?? "application/octet-stream"},
          ${checksum ?? null}, ${legalCategory ?? "أخرى"},
          ${caseId ?? null}, ${clientId ?? null},

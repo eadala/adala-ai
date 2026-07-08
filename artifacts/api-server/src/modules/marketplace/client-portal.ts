@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 import { getAuth } from "@clerk/express";
 import { createClerkClient } from "@clerk/express";
 import nodemailer from "nodemailer";
-import { objectStorageClient, parseObjectPath } from "../../lib/objectStorage";
+import { getStorageProvider, isObjectStorageConfigured, entityIdToObjectKey, getObjectStorageBucket } from "../../core/storage";
 import { validateUpload } from "../../lib/uploadGuard";
 
 const router = Router();
@@ -461,8 +461,7 @@ router.post("/portal/:token/upload", async (req: Request, res: Response) => {
     let storedPath: string | null = null;
 
     // Upload to Object Storage if configured
-    const privateDir = process.env.PRIVATE_OBJECT_DIR;
-    if (privateDir && fileData) {
+    if (isObjectStorageConfigured() && fileData) {
       try {
         const buffer = Buffer.from(
           fileData.includes(",") ? fileData.split(",")[1] : fileData,
@@ -472,17 +471,16 @@ router.post("/portal/:token/upload", async (req: Request, res: Response) => {
         if (buffer.length > MAX_BYTES) {
           res.status(413).json({ error: "حجم الملف يتجاوز 5 ميغابايت" }); return;
         }
-        const objectPath = `${privateDir}/portal-uploads/${id}`;
-        const { bucketName, objectName } = parseObjectPath(objectPath);
-        const bucket = objectStorageClient.bucket(bucketName);
-        const file = bucket.file(objectName);
-        await file.save(buffer, { metadata: { contentType: fileType ?? "application/octet-stream" } });
-        storedPath = objectPath;
+        const key = entityIdToObjectKey(`portal-uploads/${id}`);
+        await getStorageProvider().putObject(key, buffer, {
+          contentType: fileType ?? "application/octet-stream",
+        });
+        storedPath = `/${getObjectStorageBucket()}/${key}`;
       } catch (storageErr) {
                 res.status(500).json({ error: "فشل رفع الملف لمنظومة التخزين" }); return;
       }
-    } else if (!privateDir) {
-      res.status(503).json({ error: "منظومة التخزين غير مضبوطة (PRIVATE_OBJECT_DIR)" }); return;
+    } else if (!isObjectStorageConfigured()) {
+      res.status(503).json({ error: "منظومة التخزين غير مضبوطة (R2)" }); return;
     }
 
     await db.execute(sql`
