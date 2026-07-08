@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useListDocuments } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -705,6 +706,7 @@ function FolderNameInput({ label, defaultValue = "", onSubmit, onCancel }: { lab
 
 /* ── Main Page ───────────────────────────────────────────────────────────── */
 export default function Documents() {
+  const [location] = useLocation();
   const { data: documents, isLoading: loadingOld } = useListDocuments();
   const [search, setSearch]             = useState("");
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -712,6 +714,12 @@ export default function Documents() {
   const [shareDoc, setShareDoc]         = useState<any>(null);
   const [moveFile, setMoveFile]         = useState<any>(null);
   const [uploadOpen, setUploadOpen]     = useState(false);
+
+  useEffect(() => {
+    if (location === "/documents/new" || location.endsWith("/documents/new")) {
+      setUploadOpen(true);
+    }
+  }, [location]);
   const [newFolderParent, setNewFolderParent] = useState<string | null | "NONE">("NONE"); // "NONE"=hidden
   const [renameFolder, setRenameFolder] = useState<any>(null);
   const [permFolder, setPermFolder]     = useState<any>(null);

@@ -842,6 +842,7 @@ function AppRoutes() {
             <Route path="/clients/:id"><WorkspaceRoute><ClientDetail /></WorkspaceRoute></Route>
 
             {/* Documents */}
+            <Route path="/documents/new"><ProtectedRoute><Documents /></ProtectedRoute></Route>
             <Route path="/documents"><ProtectedRoute><Documents /></ProtectedRoute></Route>
             <Route path="/contracts"><ProtectedRoute><Contracts /></ProtectedRoute></Route>
             <Route path="/letters"><ProtectedRoute><Letters /></ProtectedRoute></Route>
