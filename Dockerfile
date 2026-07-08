@@ -6,8 +6,8 @@
 # ── Stage 1: Builder ─────────────────────────────────────
 FROM node:22-alpine AS builder
 
-# Install pnpm
-RUN npm install -g pnpm@9
+# Install pnpm (pin 9.15.x — deploy --legacy is unavailable in v9)
+RUN npm install -g pnpm@9.15.9
 
 WORKDIR /app
 
@@ -30,7 +30,7 @@ RUN pnpm --filter @workspace/adala build
 RUN pnpm --filter @workspace/api-server build
 
 # Flat production node_modules for runtime externals (@aws-sdk/* in build.mjs)
-RUN pnpm --filter @workspace/api-server deploy --prod --legacy /app/api-runtime \
+RUN pnpm --filter @workspace/api-server deploy --prod /app/api-runtime \
     && cp -a /app/artifacts/api-server/dist/. /app/api-runtime/dist/
 
 
