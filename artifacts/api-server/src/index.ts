@@ -4,7 +4,7 @@ await initTracer();
 import app from "./app";
 import { logger } from "./lib/logger";
 import { runMigrations } from "stripe-replit-sync";
-import { getStripeSync } from "./stripeClient";
+import { getStripeSync, isStripeConfigured } from "./stripeClient";
 import { getProductionBaseUrl } from "./lib/productionUrl";
 import { startEmailCron } from "./cron/emailCron";
 import { startMonitoringCron } from "./cron/monitoringCron";
@@ -63,8 +63,12 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// ─── Initialize Stripe (migrations → sync → webhook) ───
+// ─── Initialize Stripe (optional — only when STRIPE_ENABLED=true) ───
 async function initStripe() {
+  if (!isStripeConfigured()) {
+    logger.info("Stripe disabled — skipping init (set STRIPE_ENABLED=true to enable)");
+    return;
+  }
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) { logger.warn("DATABASE_URL missing — skipping Stripe init"); return; }
   try {

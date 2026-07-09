@@ -10,7 +10,41 @@ export interface ReadinessResult {
   detail: string;
 }
 
+/** Moyasar (primary gateway) production readiness */
+export function moyasarProductionReadiness(): ReadinessResult {
+  const secret = process.env.MOYASAR_SECRET_KEY ?? "";
+  const publishable = process.env.MOYASAR_PUBLISHABLE_KEY ?? "";
+  const productionUrl = process.env.PRODUCTION_URL ?? process.env.APP_URL ?? "";
+
+  const issues: string[] = [];
+
+  if (!secret) issues.push("MOYASAR_SECRET_KEY مفقود");
+  if (!publishable) issues.push("MOYASAR_PUBLISHABLE_KEY مفقود");
+  if (!productionUrl) {
+    issues.push("PRODUCTION_URL مفقود (مطلوب لـ checkout callbacks)");
+  }
+
+  if (issues.length === 0) {
+    return {
+      ok: true,
+      detail: "Moyasar جاهز (secret + publishable + PRODUCTION_URL)",
+    };
+  }
+  return { ok: false, detail: issues.join(" · ") };
+}
+
+export function paymentProductionReadiness(): ReadinessResult {
+  const provider = (process.env.PAYMENT_PROVIDER ?? "moyasar").toLowerCase();
+  if (provider === "stripe" && process.env.STRIPE_ENABLED === "true") {
+    return stripeProductionReadiness();
+  }
+  return moyasarProductionReadiness();
+}
+
 export function stripeProductionReadiness(): ReadinessResult {
+  if (process.env.STRIPE_ENABLED !== "true") {
+    return { ok: true, detail: "Stripe معطّل (STRIPE_ENABLED != true)" };
+  }
   const secret = process.env.STRIPE_SECRET_KEY ?? "";
   const webhook = process.env.STRIPE_WEBHOOK_SECRET ?? "";
   const publishable =
@@ -95,6 +129,10 @@ export function stripeSystemStatus(): {
   status: "operational" | "degraded" | "outage";
   detail: string;
 } {
+  if (process.env.STRIPE_ENABLED !== "true") {
+    return { status: "operational", detail: "Stripe معطّل (اختياري)" };
+  }
+
   const secret = process.env.STRIPE_SECRET_KEY ?? "";
   const webhook = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 
@@ -113,9 +151,9 @@ export function stripeSystemStatus(): {
 export function logLaunchReadinessWarnings(log: (msg: string, meta?: object) => void): void {
   if (process.env.NODE_ENV !== "production") return;
 
-  const stripe = stripeProductionReadiness();
-  if (!stripe.ok) {
-    log("[LaunchGate] Stripe not production-ready", { detail: stripe.detail });
+  const payment = paymentProductionReadiness();
+  if (!payment.ok) {
+    log("[LaunchGate] Payment gateway not production-ready", { detail: payment.detail });
   }
 
   const clerk = clerkProductionReadiness();

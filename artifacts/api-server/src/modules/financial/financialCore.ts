@@ -403,18 +403,38 @@ router.get("/fincore/providers", (_req, res) => {
 
 router.post("/fincore/pay", requireAuthWithTenant, async (req, res) => {
   try {
-    const { provider = "stripe", ...data } = req.body;
+    const tenantId = (req as any).tenantId as string;
+    const { provider, ...data } = req.body;
     if (!data.amount) return res.status(400).json({ error: "المبلغ مطلوب" });
-    const result = await PaymentService.createPayment(provider, data);
+    const result = await PaymentService.createCheckoutSession({
+      tenantId,
+      amount: parseFloat(data.amount),
+      currency: data.currency,
+      description: data.description,
+      invoiceId: data.invoiceId,
+      subscriptionId: data.subscriptionId,
+      customerId: data.customerId,
+      clientName: data.clientName,
+      metadata: data.metadata,
+      provider,
+    });
     res.json(result);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.post("/fincore/refund", requireAuthWithTenant, async (req, res) => {
   try {
-    const { provider = "stripe", paymentId, amount } = req.body;
-    if (!paymentId) return res.status(400).json({ error: "معرف الدفعة مطلوب" });
-    const result = await PaymentService.refund(provider, paymentId, amount);
+    const tenantId = (req as any).tenantId as string;
+    const { provider, paymentId, transactionReference, amount } = req.body;
+    const ref = transactionReference ?? paymentId;
+    if (!ref) return res.status(400).json({ error: "معرف الدفعة مطلوب" });
+    const result = await PaymentService.refundPayment({
+      tenantId,
+      transactionReference: ref,
+      gatewayPaymentId: paymentId,
+      amount,
+      provider,
+    });
     res.json(result);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
