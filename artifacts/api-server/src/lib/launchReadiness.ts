@@ -3,6 +3,8 @@
  * Used by go-live metrics, system status, and super-admin tooling.
  */
 
+import { isObjectStorageConfigured } from "../core/storage";
+
 export interface ReadinessResult {
   ok: boolean;
   detail: string;
@@ -77,17 +79,27 @@ export function clerkProductionReadiness(): ReadinessResult {
   return { ok: false, detail: issues.join(" · ") };
 }
 
+/** Cloudflare R2 / object storage readiness for dashboards. */
+export function r2StorageReadiness(): ReadinessResult {
+  if (isObjectStorageConfigured()) {
+    return { ok: true, detail: "Cloudflare R2 مُهيَّأ (R2_BUCKET_NAME + credentials)" };
+  }
+  return {
+    ok: false,
+    detail: "R2 غير مُهيَّأ — عيّن R2_BUCKET_NAME, R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY",
+  };
+}
+
 /** Maps readiness to public system-status severity. */
 export function stripeSystemStatus(): {
   status: "operational" | "degraded" | "outage";
   detail: string;
 } {
   const secret = process.env.STRIPE_SECRET_KEY ?? "";
-  const hasReplitConnectors = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const hasReplitToken = process.env.REPL_IDENTITY || process.env.WEB_REPL_RENEWAL;
+  const webhook = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 
-  if (!secret && !(hasReplitConnectors && hasReplitToken)) {
-    return { status: "outage", detail: "Stripe غير مضبوط" };
+  if (!secret || !webhook) {
+    return { status: "outage", detail: "Stripe غير مضبوط (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET)" };
   }
 
   const readiness = stripeProductionReadiness();

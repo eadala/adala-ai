@@ -15,6 +15,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import {
   clerkProductionReadiness,
+  r2StorageReadiness,
   stripeProductionReadiness,
 } from "../../lib/launchReadiness";
 
@@ -111,10 +112,7 @@ async function runChecklist(): Promise<{ id: string; label: string; status: "ok"
     {
       id: "storage",
       label: "تخزين الملفات",
-      check: async () => {
-        const ok = !!(process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID);
-        return { ok, detail: ok ? "Object Storage مُهيَّأ" : "DEFAULT_OBJECT_STORAGE_BUCKET_ID غير مُعيَّن" };
-      },
+      check: async () => r2StorageReadiness(),
     },
     {
       id: "tenant_isolation",

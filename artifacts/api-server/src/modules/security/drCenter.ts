@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
 import * as os from "os";
+import { isObjectStorageConfigured } from "../../core/storage";
 
 const router = Router();
 const saGuard = requireSuperAdmin;
@@ -67,8 +68,8 @@ async function checkComponentHealth(component: string): Promise<{ status: string
       return { status: "healthy", latency_ms: Date.now() - start, details: { message: "Database responding" } };
     }
     if (component === "object_storage") {
-      const exists = !!(process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID);
-      return { status: exists ? "healthy" : "degraded", latency_ms: Date.now() - start, details: { configured: exists } };
+      const configured = isObjectStorageConfigured();
+      return { status: configured ? "healthy" : "degraded", latency_ms: Date.now() - start, details: { configured, provider: "cloudflare_r2" } };
     }
     if (component === "memory") {
       const used = process.memoryUsage();

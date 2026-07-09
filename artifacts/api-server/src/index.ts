@@ -5,6 +5,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient";
+import { getProductionBaseUrl } from "./lib/productionUrl";
 import { startEmailCron } from "./cron/emailCron";
 import { startMonitoringCron } from "./cron/monitoringCron";
 import { startAgentCron } from "./cron/agentCron";
@@ -69,9 +70,11 @@ async function initStripe() {
   try {
     await runMigrations({ databaseUrl, schema: "stripe" } as any);
     const stripeSync = await getStripeSync();
-    const webhookBase = process.env.PRODUCTION_URL
-      ?? process.env.APP_URL
-      ?? `https://${(process.env.REPLIT_DOMAINS ?? "").split(",")[0]}`;
+    const webhookBase = getProductionBaseUrl({ required: false });
+    if (!webhookBase) {
+      logger.warn("PRODUCTION_URL/APP_URL missing — skipping Stripe webhook registration");
+      return;
+    }
     await stripeSync.findOrCreateManagedWebhook(`${webhookBase}/api/stripe/webhook`);
     stripeSync.syncBackfill().catch(e => logger.error({ e }, "Stripe backfill error"));
     logger.info("Stripe initialized");

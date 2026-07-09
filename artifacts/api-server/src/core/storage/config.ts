@@ -11,9 +11,9 @@ export function getStorageProviderId(): StorageProviderId {
   return "cloudflare_r2";
 }
 
-/** Primary bucket — R2_BUCKET_NAME takes precedence over legacy Replit var. */
+/** Primary bucket name for object key paths. */
 export function getObjectStorageBucket(): string {
-  const bucket = process.env.R2_BUCKET_NAME || process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
+  const bucket = process.env.R2_BUCKET_NAME;
   if (!bucket) {
     throw new Error(
       "R2_BUCKET_NAME غير مُعيَّن — عيّن متغيرات Cloudflare R2 في البيئة"
@@ -32,7 +32,7 @@ export function isObjectStorageConfigured(): boolean {
       process.env.R2_SECRET_ACCESS_KEY
     );
   }
-  return !!(process.env.R2_BUCKET_NAME || process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID);
+  return false;
 }
 
 /** Provider string stored in DB rows. */

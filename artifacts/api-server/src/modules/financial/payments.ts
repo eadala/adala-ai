@@ -3,6 +3,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
+import { requireProductionBaseUrl } from "../../lib/productionUrl";
 import crypto from "crypto";
 import { eventBus } from "../../core/eventBus";
 
@@ -20,9 +21,11 @@ async function one(q: any): Promise<any | null> {
   return r[0] ?? null;
 }
 
-const BASE_DOMAIN = process.env.REPLIT_DEV_DOMAIN
-  ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-  : "https://adala-ai.app";
+function getBaseDomain(): string {
+  return process.env.BASE_URL?.trim()
+    ? process.env.BASE_URL.trim().replace(/\/+$/, "")
+    : requireProductionBaseUrl();
+}
 
 /* ── auto-migrate ─────────────────────────────────── */
 async function ensurePaymentCols() {
@@ -156,7 +159,7 @@ router.post("/payments/connect/onboarding", requireAuthWithTenant, async (req, r
     if (!stripeAccountId) return res.status(400).json({ error: "معرّف الحساب مطلوب" });
 
     const stripe = await getUncachableStripeClient();
-    const basePath = process.env.BASE_URL ?? BASE_DOMAIN;
+    const basePath = getBaseDomain();
     const link = await stripe.accountLinks.create({
       account: stripeAccountId,
       refresh_url: `${basePath}/payment-center?onboarding=refresh`,
@@ -484,8 +487,8 @@ router.get("/payments/moyasar/settings", requireAuthWithTenant, async (req, res)
       publishableKey: s.publishable_key,
       secretKey:      s.secret_key ? "••••••••" + s.secret_key.slice(-4) : "",
       webhookSecret:  s.webhook_secret ? "••••" : "",
-      callbackUrl:    s.callback_url ?? `${BASE_DOMAIN}/api/webhook/moyasar`,
-      webhookUrl:     `${BASE_DOMAIN}/api/webhook/moyasar`,
+      callbackUrl:    s.callback_url ?? `${getBaseDomain()}/api/webhook/moyasar`,
+      webhookUrl:     `${getBaseDomain()}/api/webhook/moyasar`,
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -505,7 +508,7 @@ router.put("/payments/moyasar/settings", requireAuthWithTenant, async (req, res)
             webhook_secret   = COALESCE(NULLIF(${webhookSecret ?? ""},''), webhook_secret),
             test_mode        = ${testMode},
             enabled          = ${enabled},
-            callback_url     = ${`${BASE_DOMAIN}/api/webhook/moyasar`},
+            callback_url     = ${`${getBaseDomain()}/api/webhook/moyasar`},
             updated_at       = NOW()
         WHERE office_id = ${officeId}
       `);
@@ -513,7 +516,7 @@ router.put("/payments/moyasar/settings", requireAuthWithTenant, async (req, res)
       await db.execute(sql`
         INSERT INTO moyasar_settings (office_id, publishable_key, secret_key, webhook_secret, test_mode, enabled, callback_url)
         VALUES (${officeId}, ${publishableKey ?? null}, ${secretKey ?? null}, ${webhookSecret ?? null},
-                ${testMode}, ${enabled}, ${`${BASE_DOMAIN}/api/webhook/moyasar`})
+                ${testMode}, ${enabled}, ${`${getBaseDomain()}/api/webhook/moyasar`})
       `);
     }
     res.json({ ok: true });
@@ -554,8 +557,8 @@ router.post("/payments/payment-link", requireAuthWithTenant, async (req, res) =>
 
     /* Build Moyasar hosted checkout URL */
     const pubKey = settings?.publishable_key ?? "";
-    const callbackUrl = `${BASE_DOMAIN}/api/webhook/moyasar/callback?tx=${tx?.id ?? ""}`;
-    const successUrl  = `${BASE_DOMAIN}/api/payments/moyasar/success?tx=${tx?.id ?? ""}`;
+    const callbackUrl = `${getBaseDomain()}/api/webhook/moyasar/callback?tx=${tx?.id ?? ""}`;
+    const successUrl  = `${getBaseDomain()}/api/payments/moyasar/success?tx=${tx?.id ?? ""}`;
 
     const moyasarUrl = pubKey
       ? `https://checkout.moyasar.com/v1?publishable_api_key=${pubKey}&amount=${Math.round(amountSAR * 100)}&currency=SAR&description=${encodeURIComponent(description)}&callback_url=${encodeURIComponent(callbackUrl)}&success_url=${encodeURIComponent(successUrl)}&metadata[ref]=${txRef}`
@@ -568,7 +571,7 @@ router.post("/payments/payment-link", requireAuthWithTenant, async (req, res) =>
       platformFee,
       netAmount,
       paymentUrl: moyasarUrl,
-      manualLink: `${BASE_DOMAIN}/pay/${tx?.id ?? ""}`,
+      manualLink: `${getBaseDomain()}/pay/${tx?.id ?? ""}`,
       configured: !!pubKey,
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -586,7 +589,7 @@ router.get("/payments/moyasar/success", requireAuthWithTenant, async (req, res) 
         WHERE id=${tx}::uuid
       `).catch(() => {});
     }
-    res.redirect(`${BASE_DOMAIN}/payment-center?gateway=moyasar&result=${mStatus ?? "unknown"}`);
+    res.redirect(`${getBaseDomain()}/payment-center?gateway=moyasar&result=${mStatus ?? "unknown"}`);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -606,7 +609,7 @@ router.get("/payments/checkout/settings", requireAuthWithTenant, async (req, res
       publicKey:     s.public_key ?? "",
       secretKey:     s.secret_key ? "••••••••" + s.secret_key.slice(-4) : "",
       webhookSecret: s.webhook_secret ? "••••" : "",
-      webhookUrl:    `${BASE_DOMAIN}/api/webhook/checkout`,
+      webhookUrl:    `${getBaseDomain()}/api/webhook/checkout`,
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -662,8 +665,8 @@ router.post("/payments/checkout/create-payment", requireAuthWithTenant, async (r
       RETURNING *
     `);
 
-    const successUrl = `${BASE_DOMAIN}/api/payments/checkout/success?tx=${tx?.id ?? ""}&status=captured`;
-    const failureUrl = `${BASE_DOMAIN}/api/payments/checkout/success?tx=${tx?.id ?? ""}&status=failed`;
+    const successUrl = `${getBaseDomain()}/api/payments/checkout/success?tx=${tx?.id ?? ""}&status=captured`;
+    const failureUrl = `${getBaseDomain()}/api/payments/checkout/success?tx=${tx?.id ?? ""}&status=failed`;
 
     let checkoutUrl: string | null = null;
     if (secretKey) {
@@ -709,7 +712,7 @@ router.get("/payments/checkout/success", requireAuthWithTenant, async (req, res)
         WHERE id=${tx}::uuid
       `).catch(() => {});
     }
-    res.redirect(`${BASE_DOMAIN}/payment-center?gateway=checkout&result=${cStatus ?? "unknown"}`);
+    res.redirect(`${getBaseDomain()}/payment-center?gateway=checkout&result=${cStatus ?? "unknown"}`);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
