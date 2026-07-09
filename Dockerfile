@@ -6,8 +6,8 @@
 # ── Stage 1: Builder ─────────────────────────────────────
 FROM node:22-alpine AS builder
 
-# Install pnpm
-RUN npm install -g pnpm@9
+# Install pnpm (pin 9.15.x — deploy --legacy is unavailable in v9)
+RUN npm install -g pnpm@9.15.9
 
 WORKDIR /app
 
@@ -29,6 +29,10 @@ RUN pnpm --filter @workspace/adala build
 # Build backend (esbuild → single bundled dist/index.mjs)
 RUN pnpm --filter @workspace/api-server build
 
+# Flat production node_modules for runtime externals (@aws-sdk/* in build.mjs)
+RUN pnpm --filter @workspace/api-server deploy --prod /app/api-runtime \
+    && cp -a /app/artifacts/api-server/dist/. /app/api-runtime/dist/
+
 
 # ── Stage 2: Production ──────────────────────────────────
 FROM node:22-alpine AS production
@@ -38,13 +42,12 @@ RUN addgroup -g 1001 -S adala && adduser -u 1001 -S adala -G adala
 
 WORKDIR /app
 
-# Copy built backend (single bundled file + pino workers)
-COPY --from=builder --chown=adala:adala /app/artifacts/api-server/dist/ ./dist/
+# Copy built backend + production runtime deps (@aws-sdk/* are esbuild externals)
+COPY --from=builder --chown=adala:adala /app/api-runtime/dist/ ./dist/
+COPY --from=builder --chown=adala:adala /app/api-runtime/node_modules/ ./node_modules/
 
 # Copy built frontend static files (vite → dist4/public, build script → dist-stable)
 COPY --from=builder --chown=adala:adala /app/artifacts/adala/dist-stable/ ./public/
-COPY --from=builder --chown=adala:adala /app/node_modules/ ./node_modules/
-COPY --from=builder --chown=adala:adala /app/artifacts/api-server/node_modules/ ./artifacts/api-server/node_modules/
 
 
 USER adala

@@ -135,16 +135,16 @@ export const INTEGRATIONS_REGISTRY: IntegrationDefinition[] = [
   {
     id: "object-storage",
     nameAr: "التخزين السحابي",
-    nameEn: "Replit Object Storage",
+    nameEn: "Cloudflare R2",
     category: "storage",
     status: "active",
-    requiredEnvVars: ["DEFAULT_OBJECT_STORAGE_BUCKET_ID"],
+    requiredEnvVars: ["STORAGE_PROVIDER", "R2_BUCKET_NAME", "R2_ENDPOINT", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"],
     optionalEnvVars: ["PRIVATE_OBJECT_DIR", "PUBLIC_OBJECT_SEARCH_PATHS"],
     apiRoutes: ["/api/storage/*", "/api/documents/*"],
     dbTable: "storage_files",
     plans: ["starter", "professional", "enterprise"],
     hasWebhook: false,
-    description: "تخزين المستندات والصور والنسخ الاحتياطية",
+    description: "تخزين المستندات والصور والنسخ الاحتياطية — R2 S3-compatible",
   },
 
   /* ══ الحكومة والجهات الرسمية ════════════════════════════════ */

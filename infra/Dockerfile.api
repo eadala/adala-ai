@@ -1,7 +1,7 @@
 FROM node:22-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 FROM base AS deps
 WORKDIR /app
@@ -18,21 +18,15 @@ COPY lib/ ./lib/
 COPY artifacts/api-server/ ./artifacts/api-server/
 RUN pnpm --filter @workspace/db build 2>/dev/null || true
 RUN pnpm --filter @workspace/api-server run build
+RUN pnpm --filter @workspace/api-server deploy --prod /app/api-runtime \
+    && cp -a /app/artifacts/api-server/dist/. /app/api-runtime/dist/
 
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN corepack enable && corepack prepare pnpm@latest --activate
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY tsconfig.base.json ./
-COPY lib/db/package.json ./lib/db/
-COPY lib/api-zod/package.json ./lib/api-zod/
-COPY artifacts/api-server/package.json ./artifacts/api-server/
-RUN pnpm install --frozen-lockfile --prod
-
-COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
-COPY --from=builder /app/lib/db/dist ./lib/db/dist 2>/dev/null || true
+COPY --from=builder /app/api-runtime/dist ./artifacts/api-server/dist
+COPY --from=builder /app/api-runtime/node_modules ./artifacts/api-server/node_modules
 
 EXPOSE 8080
 ENV PORT=8080

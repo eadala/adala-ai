@@ -17,6 +17,7 @@ import { encryptBuffer, isEncryptionEnabled } from "../core/backupEncrypt";
 import { uploadBackup, tenantSnapshotKey, fullBackupKey } from "../core/backupStorage";
 import { runAsSystemTenant } from "../core/tenant/backgroundScope";
 import { withTenantRls } from "../core/tenant/rlsScope";
+import { isObjectStorageConfigured } from "../core/storage";
 
 /* ── DB helpers ─────────────────────────────────────── */
 async function sqlAll(q: any): Promise<Record<string, any>[]> {
@@ -456,7 +457,7 @@ async function runTenantBackupCron(): Promise<void> {
   let failed    = 0;
 
   try {
-    if (!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID) {
+    if (!isObjectStorageConfigured()) {
       logger.info("[BackupCron] ⚠️ Object Storage غير مكوَّن — تخطّي النسخ");
       return;
     }
@@ -516,7 +517,7 @@ async function runTenantBackupCron(): Promise<void> {
 async function runFullBackupCron(): Promise<void> {
   const t0 = Date.now();
   try {
-    if (!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID) {
+    if (!isObjectStorageConfigured()) {
       logger.info("[BackupCron] ⚠️ Object Storage غير مكوَّن — تخطّي النسخة الكاملة");
       return;
     }
