@@ -15,7 +15,6 @@ import { ensureStripeBufferTables } from "./services/stripeEventBuffer";
 import { ensureReconciliationTable, startReconciliationCron } from "./jobs/stripeReconcile";
 import { initVapid } from "./lib/webPush";
 import { loadHardeningState } from "./hardening/production.lock";
-import { ensurePaymentGatewaySchema } from "./payments/paymentRepository";
 import { logLaunchReadinessWarnings } from "./lib/launchReadiness";
 import { ensureERPTables } from "./modules/financial/erp-ledger";
 import { ensureBankruptcyTables } from "./modules/bankruptcy/bankruptcy";
@@ -89,7 +88,6 @@ async function initStripe() {
 }
 
 ensureAdHocColumns().catch(e => logger.error({ e }, "ensureAdHocColumns failed"));
-ensurePaymentGatewaySchema().catch(e => logger.error({ e }, "ensurePaymentGatewaySchema failed"));
 ensureStripeBufferTables().catch(e => logger.error({ e }, "ensureStripeBufferTables failed"));
 ensureReconciliationTable().catch(e => logger.error({ e }, "ensureReconciliationTable failed"));
 ensureERPTables().catch(e => logger.error({ e }, "ensureERPTables failed"));

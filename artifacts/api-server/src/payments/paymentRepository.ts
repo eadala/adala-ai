@@ -12,19 +12,6 @@ export function generateTransactionReference(prefix = "ADALA"): string {
   return `${prefix}-${Date.now()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 }
 
-/** Runtime schema alignment — no production migration files */
-export async function ensurePaymentGatewaySchema(): Promise<void> {
-  await db.execute(sql`
-    ALTER TABLE payment_transactions
-      ADD COLUMN IF NOT EXISTS subscription_id TEXT,
-      ADD COLUMN IF NOT EXISTS customer_id TEXT,
-      ADD COLUMN IF NOT EXISTS payment_provider TEXT,
-      ADD COLUMN IF NOT EXISTS payment_status TEXT,
-      ADD COLUMN IF NOT EXISTS transaction_reference TEXT,
-      ADD COLUMN IF NOT EXISTS webhook_event_id TEXT
-  `).catch(() => {});
-}
-
 export interface CreateTransactionInput extends CreateCheckoutSessionInput {
   transactionReference: string;
   provider: PaymentProviderId;
@@ -37,8 +24,6 @@ export interface CreateTransactionInput extends CreateCheckoutSessionInput {
 export async function createPaymentTransaction(
   input: CreateTransactionInput
 ): Promise<PaymentTransactionRecord> {
-  await ensurePaymentGatewaySchema();
-
   const platformFee = input.platformFee ?? 0;
   const netAmount = input.netAmount ?? input.amount - platformFee;
   const status = input.status ?? "pending";
@@ -85,8 +70,6 @@ export async function updatePaymentByReference(opts: {
   webhookEventId?: string;
   tenantId?: string;
 }): Promise<boolean> {
-  await ensurePaymentGatewaySchema();
-
   const result = await db.execute(sql`
     UPDATE payment_transactions
     SET
@@ -110,8 +93,6 @@ export async function updatePaymentByGatewayId(opts: {
   webhookEventId?: string;
   tenantId?: string;
 }): Promise<boolean> {
-  await ensurePaymentGatewaySchema();
-
   const result = await db.execute(sql`
     UPDATE payment_transactions
     SET
