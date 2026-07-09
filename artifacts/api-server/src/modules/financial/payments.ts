@@ -2,8 +2,9 @@ import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAut
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { getUncachableStripeClient } from "../../stripeClient";
+import { getUncachableStripeClient, isStripeConfigured } from "../../stripeClient";
 import { requireProductionBaseUrl } from "../../lib/productionUrl";
+import { PaymentService } from "../../payments/paymentService";
 import crypto from "crypto";
 import { eventBus } from "../../core/eventBus";
 
@@ -79,6 +80,9 @@ ensurePaymentCols();
 /* GET  /api/payments/connect/status */
 router.get("/payments/connect/status", requireAuthWithTenant, async (req, res) => {
   try {
+    if (!isStripeConfigured()) {
+      return res.json({ connected: false, stripeDisabled: true });
+    }
     const officeId = (req as any).tenantId;
     const account = await one(sql`SELECT * FROM office_stripe_accounts WHERE office_id = ${officeId} LIMIT 1`);
     if (!account) return res.json({ connected: false });
@@ -119,6 +123,9 @@ router.get("/payments/connect/status", requireAuthWithTenant, async (req, res) =
 /* POST /api/payments/connect/create */
 router.post("/payments/connect/create", requireAuthWithTenant, async (req, res) => {
   try {
+    if (!isStripeConfigured()) {
+      return res.status(503).json({ error: "Stripe معطّل — فعّل STRIPE_ENABLED=true" });
+    }
     const officeId = (req as any).tenantId as string;
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { email, commissionPercent = 10 } = req.body;
@@ -155,6 +162,9 @@ router.post("/payments/connect/create", requireAuthWithTenant, async (req, res) 
 /* POST /api/payments/connect/onboarding */
 router.post("/payments/connect/onboarding", requireAuthWithTenant, async (req, res) => {
   try {
+    if (!isStripeConfigured()) {
+      return res.status(503).json({ error: "Stripe معطّل — فعّل STRIPE_ENABLED=true" });
+    }
     const { stripeAccountId } = req.body;
     if (!stripeAccountId) return res.status(400).json({ error: "معرّف الحساب مطلوب" });
 
@@ -174,6 +184,9 @@ router.post("/payments/connect/onboarding", requireAuthWithTenant, async (req, r
 /* POST /api/payments/connect/login-link */
 router.post("/payments/connect/login-link", requireAuthWithTenant, async (req, res) => {
   try {
+    if (!isStripeConfigured()) {
+      return res.status(503).json({ error: "Stripe معطّل — فعّل STRIPE_ENABLED=true" });
+    }
     const { stripeAccountId } = req.body;
     if (!stripeAccountId) return res.status(400).json({ error: "معرّف الحساب مطلوب" });
     const stripe = await getUncachableStripeClient();
@@ -187,6 +200,9 @@ router.post("/payments/connect/login-link", requireAuthWithTenant, async (req, r
 ══════════════════════════════════════════════════ */
 router.post("/payments/intent", requireAuthWithTenant, async (req, res) => {
   try {
+    if (!isStripeConfigured()) {
+      return res.status(503).json({ error: "Stripe معطّل — استخدم Moyasar عبر /api/payments/payment-link" });
+    }
     const officeId = (req as any).tenantId as string;
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const {
@@ -527,67 +543,65 @@ router.put("/payments/moyasar/settings", requireAuthWithTenant, async (req, res)
    PAYMENT LINK GENERATOR
 ══════════════════════════════════════════════════ */
 
-/* POST /api/payments/payment-link — generate a Moyasar payment page link */
+/* GET /api/payments/providers — unified gateway list */
+router.get("/payments/providers", requireAuthWithTenant, async (_req, res) => {
+  try {
+    res.json(PaymentService.listProviders());
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* POST /api/payments/payment-link — Moyasar hosted checkout via PaymentService */
 router.post("/payments/payment-link", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = (req as any).tenantId;
     const {
       amountSAR, description = "خدمة قانونية", clientName, clientEmail,
-      clientPhone, invoiceId, caseId, commissionPercent = 10,
+      clientPhone, invoiceId, caseId, subscriptionId, customerId,
+      commissionPercent = 10,
     } = req.body;
 
     if (!amountSAR || amountSAR <= 0) return res.status(400).json({ error: "المبلغ مطلوب" });
 
-    const settings = await one(sql`SELECT * FROM moyasar_settings WHERE office_id=${officeId} LIMIT 1`);
-
-    const platformFee = parseFloat((amountSAR * commissionPercent / 100).toFixed(2));
-    const netAmount   = parseFloat((amountSAR - platformFee).toFixed(2));
-    const txRef       = `ADALA-${Date.now()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
-
-    /* Save pending transaction */
-    const [tx] = await rows(sql`
-      INSERT INTO payment_transactions
-        (office_id, client_name, description, amount, platform_fee, net_amount,
-         status, payment_method, invoice_id, case_id, gateway, gateway_payment_id)
-      VALUES
-        (${officeId}, ${clientName ?? null}, ${description}, ${amountSAR}, ${platformFee},
-         ${netAmount}, 'pending', 'moyasar', ${invoiceId ?? null}, ${caseId ?? null}, 'moyasar', ${txRef})
-      RETURNING *
-    `);
-
-    /* Build Moyasar hosted checkout URL */
-    const pubKey = settings?.publishable_key ?? "";
-    const callbackUrl = `${getBaseDomain()}/api/webhook/moyasar/callback?tx=${tx?.id ?? ""}`;
-    const successUrl  = `${getBaseDomain()}/api/payments/moyasar/success?tx=${tx?.id ?? ""}`;
-
-    const moyasarUrl = pubKey
-      ? `https://checkout.moyasar.com/v1?publishable_api_key=${pubKey}&amount=${Math.round(amountSAR * 100)}&currency=SAR&description=${encodeURIComponent(description)}&callback_url=${encodeURIComponent(callbackUrl)}&success_url=${encodeURIComponent(successUrl)}&metadata[ref]=${txRef}`
-      : null;
+    const session = await PaymentService.createCheckoutSession({
+      tenantId: officeId,
+      amount: parseFloat(amountSAR),
+      currency: "SAR",
+      description,
+      clientName,
+      clientEmail,
+      clientPhone,
+      invoiceId,
+      subscriptionId,
+      customerId,
+      commissionPercent,
+      metadata: {
+        office_id: officeId,
+        case_id: caseId ?? "",
+        payment_link: "1",
+      },
+    });
 
     res.json({
-      transactionId: tx?.id,
-      ref: txRef,
+      transactionId: session.transactionId,
+      ref: session.transactionReference,
       amount: amountSAR,
-      platformFee,
-      netAmount,
-      paymentUrl: moyasarUrl,
-      manualLink: `${getBaseDomain()}/pay/${tx?.id ?? ""}`,
-      configured: !!pubKey,
+      platformFee: session.platformFee,
+      netAmount: session.netAmount,
+      paymentUrl: session.checkoutUrl,
+      provider: session.provider,
+      manualLink: `${getBaseDomain()}/pay/${session.transactionId ?? ""}`,
+      configured: !!session.checkoutUrl,
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 /* GET /api/payments/moyasar/success — Moyasar redirect back */
-router.get("/payments/moyasar/success", requireAuthWithTenant, async (req, res) => {
+router.get("/payments/moyasar/success", async (req, res) => {
   try {
-    const { tx, id: moyasarId, status: mStatus } = req.query as any;
-    if (tx) {
-      const finalStatus = mStatus === "paid" ? "completed" : "pending";
-      await db.execute(sql`
-        UPDATE payment_transactions
-        SET status=${finalStatus}, gateway_payment_id=COALESCE(gateway_payment_id, ${moyasarId ?? null}), updated_at=NOW()
-        WHERE id=${tx}::uuid
-      `).catch(() => {});
+    const { ref, id: moyasarId, status: mStatus } = req.query as Record<string, string>;
+    const txRef = ref ?? moyasarId;
+    if (txRef) {
+      await PaymentService.syncPaymentStatus(txRef, "moyasar").catch(() => {});
     }
     res.redirect(`${getBaseDomain()}/payment-center?gateway=moyasar&result=${mStatus ?? "unknown"}`);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
