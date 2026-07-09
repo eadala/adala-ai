@@ -1,16 +1,9 @@
 /**
- * GitHub Client via Replit Connectors SDK
- * ────────────────────────────────────────
- * يستخدم الاتصال الرسمي بـ GitHub عبر Replit Connectors
- * بدلاً من المفتاح الشخصي أو متغيرات البيئة.
+ * GitHub REST API client — uses GITHUB_TOKEN (PAT or fine-grained token).
+ * Replaces Replit Connectors for Deployment Center.
  */
 
-import { ReplitConnectors } from "@replit/connectors-sdk";
-
-/* نُنشئ instance واحد لكل طلب (لا تخزين مؤقت — التوكن ينتهي) */
-function getGitHubConnector() {
-  return new ReplitConnectors();
-}
+const GITHUB_API = "https://api.github.com";
 
 export interface GitHubRepo {
   full_name:        string;
@@ -46,78 +39,89 @@ export interface GitHubBranch {
   sha:       string;
 }
 
-/* ── Fetch repo info ─────────────────────────────────── */
+function getGitHubToken(): string | null {
+  const token = process.env.GITHUB_TOKEN?.trim();
+  return token || null;
+}
+
+async function githubFetch<T>(path: string): Promise<T | null> {
+  const token = getGitHubToken();
+  if (!token) return null;
+
+  try {
+    const res = await fetch(`${GITHUB_API}${path}`, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "adala-api-server",
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchGitHubRepo(owner: string, repo: string): Promise<GitHubRepo | null> {
-  try {
-    const connectors = getGitHubConnector();
-    const res  = await connectors.proxy("github", `/repos/${owner}/${repo}`, { method: "GET" });
-    const data = await res.json() as any;
-    if (data?.message) return null; // e.g. "Not Found"
-    return {
-      full_name:        data.full_name        ?? `${owner}/${repo}`,
-      default_branch:   data.default_branch   ?? "main",
-      description:      data.description      ?? null,
-      stargazers_count: data.stargazers_count  ?? 0,
-      forks_count:      data.forks_count       ?? 0,
-      open_issues_count: data.open_issues_count ?? 0,
-      visibility:       data.visibility        ?? "private",
-      language:         data.language          ?? null,
-      html_url:         data.html_url          ?? "",
-    };
-  } catch { return null; }
+  const data = await githubFetch<Record<string, unknown>>(`/repos/${owner}/${repo}`);
+  if (!data || data.message) return null;
+  return {
+    full_name:         String(data.full_name ?? `${owner}/${repo}`),
+    default_branch:    String(data.default_branch ?? "main"),
+    description:       (data.description as string | null) ?? null,
+    stargazers_count:  Number(data.stargazers_count ?? 0),
+    forks_count:       Number(data.forks_count ?? 0),
+    open_issues_count: Number(data.open_issues_count ?? 0),
+    visibility:        String(data.visibility ?? "private"),
+    language:          (data.language as string | null) ?? null,
+    html_url:          String(data.html_url ?? ""),
+  };
 }
 
-/* ── Fetch latest commits ───────────────────────────── */
 export async function fetchLatestCommits(owner: string, repo: string, perPage = 10): Promise<GitHubCommit[]> {
-  try {
-    const connectors = getGitHubConnector();
-    const res  = await connectors.proxy("github", `/repos/${owner}/${repo}/commits?per_page=${perPage}`, { method: "GET" });
-    const data = await res.json() as any[];
-    if (!Array.isArray(data)) return [];
-    return data.map(c => ({
-      sha:     (c.sha as string).slice(0, 7),
-      message: (c.commit?.message as string ?? "").split("\n")[0].slice(0, 80),
-      author:  c.commit?.author?.name ?? c.author?.login ?? "unknown",
-      date:    c.commit?.author?.date ?? new Date().toISOString(),
-      url:     c.html_url ?? "",
-    }));
-  } catch { return []; }
+  const data = await githubFetch<Record<string, unknown>[]>(
+    `/repos/${owner}/${repo}/commits?per_page=${perPage}`
+  );
+  if (!Array.isArray(data)) return [];
+  return data.map((c) => ({
+    sha:     String(c.sha ?? "").slice(0, 7),
+    message: String((c.commit as any)?.message ?? "").split("\n")[0].slice(0, 80),
+    author:  (c.commit as any)?.author?.name ?? (c.author as any)?.login ?? "unknown",
+    date:    (c.commit as any)?.author?.date ?? new Date().toISOString(),
+    url:     String(c.html_url ?? ""),
+  }));
 }
 
-/* ── Fetch open PRs ─────────────────────────────────── */
 export async function fetchOpenPRs(owner: string, repo: string): Promise<GitHubPR[]> {
-  try {
-    const connectors = getGitHubConnector();
-    const res  = await connectors.proxy("github", `/repos/${owner}/${repo}/pulls?state=open&per_page=5`, { method: "GET" });
-    const data = await res.json() as any[];
-    if (!Array.isArray(data)) return [];
-    return data.map(p => ({
-      number: p.number,
-      title:  (p.title as string ?? "").slice(0, 60),
-      state:  p.state ?? "open",
-      user:   p.user?.login ?? "unknown",
-      url:    p.html_url ?? "",
-    }));
-  } catch { return []; }
+  const data = await githubFetch<Record<string, unknown>[]>(
+    `/repos/${owner}/${repo}/pulls?state=open&per_page=5`
+  );
+  if (!Array.isArray(data)) return [];
+  return data.map((p) => ({
+    number: Number(p.number),
+    title:  String(p.title ?? "").slice(0, 60),
+    state:  String(p.state ?? "open"),
+    user:   (p.user as any)?.login ?? "unknown",
+    url:    String(p.html_url ?? ""),
+  }));
 }
 
-/* ── Fetch branches ─────────────────────────────────── */
 export async function fetchBranches(owner: string, repo: string): Promise<GitHubBranch[]> {
-  try {
-    const connectors = getGitHubConnector();
-    const res  = await connectors.proxy("github", `/repos/${owner}/${repo}/branches?per_page=10`, { method: "GET" });
-    const data = await res.json() as any[];
-    if (!Array.isArray(data)) return [];
-    return data.map(b => ({
-      name:      b.name ?? "",
-      protected: b.protected ?? false,
-      sha:       (b.commit?.sha as string ?? "").slice(0, 7),
-    }));
-  } catch { return []; }
+  const data = await githubFetch<Record<string, unknown>[]>(
+    `/repos/${owner}/${repo}/branches?per_page=10`
+  );
+  if (!Array.isArray(data)) return [];
+  return data.map((b) => ({
+    name:      String(b.name ?? ""),
+    protected: Boolean(b.protected),
+    sha:       String((b.commit as any)?.sha ?? "").slice(0, 7),
+  }));
 }
 
-/* ── Parse owner/repo from full_name ─────────────────── */
 export function parseRepo(fullName: string): { owner: string; repo: string } {
-  const [owner, repo] = (fullName ?? "adalah-ai/platform").split("/");
-  return { owner: owner ?? "adalah-ai", repo: repo ?? "platform" };
+  const [owner, repo] = (fullName ?? "eadala/adala-ai").split("/");
+  return { owner: owner ?? "eadala", repo: repo ?? "adala-ai" };
 }

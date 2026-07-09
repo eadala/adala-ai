@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { randomBytes, randomUUID } from "crypto";
 import nodemailer from "nodemailer";
 import { auditLog, buildLogLine } from "./lib/auditLogger";
+import { getProductionBaseUrl } from "./lib/productionUrl";
 
 /* ── Revenue calculation (mirrors the document spec) ──────────────
    Platform fee : 10%
@@ -698,14 +699,14 @@ async function handleOfficeServicePayment(opts: {
   /* ── Step 11: Welcome email (non-critical — failure must not roll back) ── */
   if (clientEmail) {
     try {
-      const baseUrl = process.env.PRODUCTION_URL
-        ?? process.env.APP_URL
-        ?? (process.env.REPLIT_DOMAINS
-          ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
-          : "https://adalahai.com");
+      const baseUrl = getProductionBaseUrl({ required: false });
+      if (!baseUrl) {
+        console.log("[Webhook] PRODUCTION_URL/APP_URL missing — skipping welcome email");
+      } else {
       const portalUrl = `${baseUrl}/portal/${portalToken}`;
       const officeName = (orderRow.office_name as string | undefined) ?? "مكتب المحاماة";
       await sendAcquisitionEmail({ clientEmail, clientName, officeName, svcLabel, portalUrl });
+      }
     } catch (e) {
       console.error('[Webhook] Welcome email error (non-critical):', e);
     }

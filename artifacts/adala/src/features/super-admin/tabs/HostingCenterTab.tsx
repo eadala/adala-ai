@@ -295,7 +295,7 @@ export function HostingCenterTab({ toast }: { toast: any }) {
                     ["المعالج", status.cpuModel],
                     ["البيئة", status.env],
                     ["Hostname", status.hostname],
-                    ["نطاق Replit", status.replitDomain ?? "—"],
+                    ["نطاق الإنتاج", status.productionUrl ?? "—"],
                     ["عدد المكاتب", String(status.totalOffices)],
                   ].map(([k, v]) => (
                     <div key={k} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors">
@@ -646,7 +646,8 @@ export function HostingCenterTab({ toast }: { toast: any }) {
                 color: "yellow",
                 items: [
                   "CLOUDFLARE_TOKEN — لإدارة DNS تلقائياً",
-                  "REPLIT_DEV_DOMAIN — نطاق التطوير",
+                  "PRODUCTION_URL — نطاق الإنتاج العام",
+                  "GITHUB_TOKEN — GitHub API (Deployment Center)",
                   "DATABASE_URL — PostgreSQL connection",
                   "CLERK_SECRET_KEY — مصادقة المستخدمين",
                 ],

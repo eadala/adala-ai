@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { stripeSystemStatus } from "../../lib/launchReadiness";
+import { isObjectStorageConfigured } from "../../core/storage";
 
 const router = Router();
 
@@ -30,10 +31,15 @@ async function checkAI(): Promise<ServiceCheck> {
 }
 
 async function checkStorage(): Promise<ServiceCheck> {
-  const bucket = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
-  const hasReplitStorage = process.env.REPLIT_CONNECTORS_HOSTNAME || process.env.REPL_ID;
-  if (!bucket && !hasReplitStorage) return { name: "storage", label: "التخزين", status: "degraded", detail: "لا يوجد bucket مضبوط" };
-  return { name: "storage", label: "التخزين", status: "operational" };
+  if (!isObjectStorageConfigured()) {
+    return {
+      name: "storage",
+      label: "التخزين",
+      status: "degraded",
+      detail: "Cloudflare R2 غير مُهيَّأ — راجع متغيرات R2_*",
+    };
+  }
+  return { name: "storage", label: "التخزين", status: "operational", detail: "Cloudflare R2" };
 }
 
 async function checkEmail(): Promise<ServiceCheck> {

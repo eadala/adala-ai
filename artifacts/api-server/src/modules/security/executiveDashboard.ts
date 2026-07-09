@@ -7,6 +7,7 @@ import {
   clerkProductionReadiness,
   stripeProductionReadiness,
 } from "../../lib/launchReadiness";
+import { isObjectStorageConfigured } from "../../core/storage";
 
 const router = Router();
 const saGuard = requireSuperAdmin;
@@ -170,8 +171,8 @@ router.get("/executive/production-validation", saGuard, async (_req, res) => {
     }
 
     // Object Storage
-    const hasStorage = !!(process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID);
-    checks.push({ name: "Object Storage", status: hasStorage ? "pass" : "warn", detail: hasStorage ? "مُهيأ" : "غير مُهيأ" });
+    const hasStorage = isObjectStorageConfigured();
+    checks.push({ name: "Object Storage (R2)", status: hasStorage ? "pass" : "warn", detail: hasStorage ? "مُهيأ" : "R2 غير مُهيأ" });
 
     // Environment & integration readiness
     const stripe = stripeProductionReadiness();

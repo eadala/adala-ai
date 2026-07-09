@@ -318,7 +318,7 @@ router.get("/developer/office-snapshot/:officeId", devOnly, async (req: any, res
 ══════════════════════════════════════════════════ */
 router.get("/developer/env-info", devOnly, (_req, res) => {
   const safe: Record<string, string> = {};
-  const SAFE_KEYS = ["NODE_ENV","PORT","DATABASE_URL","VITE_CLERK_PUBLISHABLE_KEY","REPL_SLUG","REPLIT_DEV_DOMAIN","TZ","LANG"];
+  const SAFE_KEYS = ["NODE_ENV","PORT","DATABASE_URL","VITE_CLERK_PUBLISHABLE_KEY","PRODUCTION_URL","APP_URL","GITHUB_TOKEN","TZ","LANG"];
   for (const key of SAFE_KEYS) {
     const val = process.env[key];
     if (!val) continue;

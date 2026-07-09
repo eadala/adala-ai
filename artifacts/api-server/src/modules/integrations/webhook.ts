@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireProductionBaseUrl } from "../../lib/productionUrl";
 
 const router = Router();
 
@@ -310,9 +311,7 @@ router.get("/webhook/moyasar/callback", async (req: Request, res: Response) => {
         WHERE id = ${tx}::uuid
       `).catch(() => {});
     }
-    const base = process.env.REPLIT_DEV_DOMAIN
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : "https://adala-ai.app";
+    const base = requireProductionBaseUrl();
     res.redirect(`${base}/payment-center?gateway=moyasar&result=${mStatus ?? "unknown"}`);
   } catch (e: any) {
     res.status(500).json({ error: e.message });

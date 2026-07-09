@@ -8,6 +8,7 @@ import {
 } from "@workspace/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
+import { requireProductionBaseUrl } from "../../lib/productionUrl";
 
 const router = Router();
 
@@ -72,10 +73,14 @@ router.post("/office/public/:slug/checkout", async (req, res) => {
   if (!svc) return res.status(404).json({ error: "الخدمة غير موجودة" });
 
   /* Use configured canonical URL — never trust req.headers.origin to avoid redirect hijacking */
-  const appUrl = process.env.APP_URL
-    ?? (process.env.REPLIT_DOMAINS
-      ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
-      : "https://adala.sa");
+  let appUrl: string;
+  try {
+    appUrl = requireProductionBaseUrl();
+  } catch {
+    return res.status(503).json({
+      error: "PRODUCTION_URL أو APP_URL غير مضبوط — لا يمكن إنشاء جلسة دفع",
+    });
+  }
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],

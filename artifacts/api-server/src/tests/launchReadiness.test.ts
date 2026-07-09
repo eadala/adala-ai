@@ -76,9 +76,7 @@ console.log("\n═══ launchReadiness: stripeSystemStatus ═══");
 
 withEnv({
   STRIPE_SECRET_KEY: undefined,
-  REPLIT_CONNECTORS_HOSTNAME: undefined,
-  REPL_IDENTITY: undefined,
-  WEB_REPL_RENEWAL: undefined,
+  STRIPE_WEBHOOK_SECRET: undefined,
 }, () => {
   const r = stripeSystemStatus();
   assert.equal(r.status, "outage");
@@ -89,7 +87,6 @@ withEnv({
   STRIPE_SECRET_KEY: "sk_test_abc",
   STRIPE_WEBHOOK_SECRET: "whsec_abc",
   VITE_STRIPE_PUBLISHABLE_KEY: "pk_test_abc",
-  REPLIT_CONNECTORS_HOSTNAME: undefined,
 }, () => {
   const r = stripeSystemStatus();
   assert.equal(r.status, "degraded");

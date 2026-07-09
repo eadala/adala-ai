@@ -169,7 +169,7 @@ router.get("/admin/deployment/overview", adminOnly, async (_req, res) => {
 
 /* ══════════════════════════════════════════════════════════
    GET /api/admin/deployment/github
-   بيانات GitHub الحقيقية عبر Replit Connectors
+   بيانات GitHub عبر REST API (GITHUB_TOKEN)
 ══════════════════════════════════════════════════════════ */
 router.get("/admin/deployment/github", adminOnly, async (_req, res) => {
   try {

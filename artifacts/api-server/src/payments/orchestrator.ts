@@ -4,6 +4,7 @@
  * Usage: PaymentService.createPayment("stripe" | "moyasar" | "checkout", data)
  */
 import { getUncachableStripeClient } from "../stripeClient";
+import { requireProductionBaseUrl } from "../lib/productionUrl";
 import axios from "axios";
 
 /* ── Interface ────────────────────────────────── */
@@ -84,7 +85,7 @@ class MoyasarAdapter implements PaymentProvider {
         amount: Math.round(data.amount * 100),
         currency: data.currency ?? "SAR",
         description: data.description ?? "خدمة قانونية",
-        callback_url: `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://adala-ai.app"}/api/webhook/moyasar`,
+        callback_url: `${requireProductionBaseUrl()}/api/webhook/moyasar`,
         metadata: data.metadata ?? {},
       },
       { auth: { username: this.apiKey, password: "" } }

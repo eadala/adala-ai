@@ -1,45 +1,27 @@
 import Stripe from 'stripe';
 import { StripeSync } from 'stripe-replit-sync';
 
-async function getStripeCredentials(): Promise<{ secretKey: string; webhookSecret?: string }> {
-  if (process.env.STRIPE_SECRET_KEY) {
-    const key = process.env.STRIPE_SECRET_KEY.trim();
-    if (key.startsWith("pk_")) {
-      throw new Error("STRIPE_SECRET_KEY يبدأ بـ pk_ وهو مفتاح نشر عام — يجب إدخال المفتاح السري الذي يبدأ بـ sk_test_ أو sk_live_");
-    }
-    return {
-      secretKey: key,
-      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-    };
+async function getStripeCredentials(): Promise<{ secretKey: string; webhookSecret: string }> {
+  const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
+  if (!secretKey) {
+    throw new Error(
+      'STRIPE_SECRET_KEY غير مضبوط — عيّن المفتاح السري (sk_test_* أو sk_live_*) في متغيرات البيئة'
+    );
+  }
+  if (secretKey.startsWith('pk_')) {
+    throw new Error(
+      'STRIPE_SECRET_KEY يبدأ بـ pk_ وهو مفتاح نشر عام — يجب إدخال المفتاح السري الذي يبدأ بـ sk_test_ أو sk_live_'
+    );
   }
 
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY
-    ? "repl " + process.env.REPL_IDENTITY
-    : process.env.WEB_REPL_RENEWAL
-      ? "depl " + process.env.WEB_REPL_RENEWAL
-      : null;
-
-  if (!hostname || !xReplitToken) {
-    throw new Error('Stripe integration not connected. Connect Stripe via the Integrations tab first.');
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  if (!webhookSecret) {
+    throw new Error(
+      'STRIPE_WEBHOOK_SECRET غير مضبوط — مطلوب لتأكيد webhooks Stripe (whsec_*)'
+    );
   }
 
-  const resp = await fetch(
-    `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=stripe`,
-    {
-      headers: { Accept: "application/json", X_REPLIT_TOKEN: xReplitToken },
-      signal: AbortSignal.timeout(10_000),
-    }
-  );
-
-  if (!resp.ok) throw new Error(`Failed to fetch Stripe credentials: ${resp.status} ${resp.statusText}`);
-
-  const data = await resp.json() as Record<string, any>;
-  const settings = data.items?.[0]?.settings;
-
-  if (!settings?.secret_key) throw new Error('Stripe integration not connected. Connect Stripe via the Integrations tab first.');
-
-  return { secretKey: settings.secret_key, webhookSecret: settings.webhook_secret };
+  return { secretKey, webhookSecret };
 }
 
 export async function getUncachableStripeClient(): Promise<Stripe> {
@@ -54,6 +36,6 @@ export async function getStripeSync(): Promise<StripeSync> {
   return new StripeSync({
     poolConfig: { connectionString: databaseUrl },
     stripeSecretKey: secretKey,
-    stripeWebhookSecret: webhookSecret ?? '',
+    stripeWebhookSecret: webhookSecret,
   });
 }
