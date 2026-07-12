@@ -11,8 +11,8 @@
  *   integration_requests      — طلبات التفعيل/التعديل من العملاء
  */
 import { Router, Request, Response } from "express";
-import { requireSuperAdmin } from "../../middlewares/requireAuth";
-import { requireAuth }               from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
+import { getRequiredTenantId, TenantRequiredError, tenantRequiredResponse } from "../../core/tenantContext";
 import { db }                        from "@workspace/db";
 import { sql }                       from "drizzle-orm";
 import { getAuth }                   from "@clerk/express";
@@ -264,11 +264,18 @@ ensureTables();
    OFFICE — USER-FACING ROUTES
 ══════════════════════════════════════════════════════════════ */
 
+function handleTenantError(err: unknown, res: Response) {
+  if (err instanceof TenantRequiredError) {
+    return res.status(403).json(tenantRequiredResponse());
+  }
+  throw err;
+}
+
 /** GET /api/integrations — list all integrations + this office's status */
-router.get("/integrations", requireAuth, async (req: Request, res: Response) => {
+router.get("/integrations", requireAuthWithTenant, async (req: Request, res: Response) => {
   await ensureTables();
   try {
-    const officeId  = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+    const officeId = getRequiredTenantId(req);
     const officePlan = await one(sql`
       SELECT plan FROM office_page WHERE office_id = ${officeId}
       UNION ALL
@@ -325,14 +332,17 @@ router.get("/integrations", requireAuth, async (req: Request, res: Response) => 
     });
 
     res.json({ integrations: result, office_plan: planSlug });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+  } catch (err: unknown) {
+    if (handleTenantError(err, res)) return;
+    res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 /** POST /api/integrations/request — submit activation/help request */
-router.post("/integrations/request", requireAuth, async (req: Request, res: Response) => {
+router.post("/integrations/request", requireAuthWithTenant, async (req: Request, res: Response) => {
   await ensureTables();
   try {
-    const officeId      = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+    const officeId = getRequiredTenantId(req);
     const { integration_key, request_type = "activate", message } = req.body;
     if (!integration_key) return res.status(422).json({ error: "integration_key مطلوب" });
 
@@ -353,13 +363,16 @@ router.post("/integrations/request", requireAuth, async (req: Request, res: Resp
       VALUES (${officeId}, ${office?.name ?? officeId}, ${integration_key}, ${request_type}, ${message ?? null})
     `);
     res.json({ success: true, message: "تم إرسال طلبك — سيتواصل معك فريق الدعم خلال 24 ساعة" });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+  } catch (err: unknown) {
+    if (handleTenantError(err, res)) return;
+    res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 /** GET /api/integrations/my-requests — my pending/resolved requests */
-router.get("/integrations/my-requests", requireAuth, async (req: Request, res: Response) => {
+router.get("/integrations/my-requests", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+    const officeId = getRequiredTenantId(req);
     const data = await rows(sql`
       SELECT ir.*, pi.name_ar, pi.icon, pi.color
       FROM integration_requests ir
@@ -369,7 +382,10 @@ router.get("/integrations/my-requests", requireAuth, async (req: Request, res: R
       LIMIT 50
     `);
     res.json({ requests: data });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+  } catch (err: unknown) {
+    if (handleTenantError(err, res)) return;
+    res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 /* ══════════════════════════════════════════════════════════════

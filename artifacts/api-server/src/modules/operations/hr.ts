@@ -35,7 +35,7 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
    EMPLOYEES — مُعزولة بـ office_id
 ══════════════════════════════════════════════════════════ */
 
-router.get("/hr/employees", requireAuthWithTenant, async (req, res) => {
+router.get("/hr/employees", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const data = await sq(sql`
@@ -46,7 +46,7 @@ router.get("/hr/employees", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr/employees/stats", requireAuthWithTenant, async (req, res) => {
+router.get("/hr/employees/stats", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const r = one(await db.execute(sql`
@@ -61,7 +61,7 @@ router.get("/hr/employees/stats", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr/employees", requireAuthWithTenant, async (req, res) => {
+router.post("/hr/employees", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const { fullName, jobTitle, department, salary, phone, email,
@@ -81,7 +81,7 @@ router.post("/hr/employees", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/hr/employees/:id", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr/employees/:id", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const { fullName, jobTitle, department, salary, phone, email,
@@ -107,7 +107,7 @@ router.patch("/hr/employees/:id", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete("/hr/employees/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/hr/employees/:id", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     await db.execute(sql`
@@ -121,7 +121,7 @@ router.delete("/hr/employees/:id", requireAuthWithTenant, async (req, res) => {
    ATTENDANCE — مُعزولة بـ office_id (عبر employee)
 ══════════════════════════════════════════════════════════ */
 
-router.get("/hr/attendance", requireAuthWithTenant, async (req, res) => {
+router.get("/hr/attendance", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const { employeeId, date } = req.query as Record<string, string>;
   try {
@@ -139,7 +139,7 @@ router.get("/hr/attendance", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr/attendance/stats", requireAuthWithTenant, async (req, res) => {
+router.get("/hr/attendance/stats", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const r = one(await db.execute(sql`
@@ -155,7 +155,7 @@ router.get("/hr/attendance/stats", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr/attendance/check-in", requireAuthWithTenant, async (req, res) => {
+router.post("/hr/attendance/check-in", requireAuthWithTenant, requirePermission("dashboard:view"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const { employeeId, latitude, longitude } = req.body;
   try {
@@ -186,7 +186,7 @@ router.post("/hr/attendance/check-in", requireAuthWithTenant, async (req, res) =
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr/attendance/check-out", requireAuthWithTenant, async (req, res) => {
+router.post("/hr/attendance/check-out", requireAuthWithTenant, requirePermission("dashboard:view"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const { employeeId } = req.body;
   try {
@@ -225,7 +225,7 @@ router.post("/hr/attendance", requireAuthWithTenant, requirePermission("hr:manag
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr/office-location", requireAuthWithTenant, async (req, res) => {
+router.get("/hr/office-location", requireAuthWithTenant, requirePermission("dashboard:view"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   const data = one(await db.execute(sql`SELECT * FROM office_location WHERE office_id = ${tid} AND is_active = true LIMIT 1`));
   res.json(data ?? null);
@@ -254,7 +254,7 @@ router.post("/hr/office-location", requireAuthWithTenant, requirePermission("hr:
    LEAVES — مُعزولة بـ office_id
 ══════════════════════════════════════════════════════════ */
 
-router.get("/hr/leaves", requireAuthWithTenant, async (req, res) => {
+router.get("/hr/leaves", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const data = await sq(sql`
@@ -267,7 +267,7 @@ router.get("/hr/leaves", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr/leaves/stats", requireAuthWithTenant, async (req, res) => {
+router.get("/hr/leaves/stats", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const r = one(await db.execute(sql`
@@ -283,7 +283,7 @@ router.get("/hr/leaves/stats", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr/leaves", requireAuthWithTenant, async (req, res) => {
+router.post("/hr/leaves", requireAuthWithTenant, requirePermission("dashboard:view"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const { employeeId, type, startDate, endDate, reason } = req.body;
@@ -322,7 +322,7 @@ router.post("/hr/leaves", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/hr/leaves/:id", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr/leaves/:id", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const { status, approvedBy } = req.body;
@@ -435,7 +435,7 @@ router.patch("/hr/payroll/pay-all", requireAuthWithTenant, requirePermission("pa
    WARNINGS — مُعزولة بـ office_id
 ══════════════════════════════════════════════════════════ */
 
-router.get("/hr/warnings", requireAuthWithTenant, async (req, res) => {
+router.get("/hr/warnings", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const data = await sq(sql`
@@ -448,7 +448,7 @@ router.get("/hr/warnings", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr/warnings", requireAuthWithTenant, async (req, res) => {
+router.post("/hr/warnings", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const { employeeId, type, reason, description, issuedBy } = req.body;
@@ -464,7 +464,7 @@ router.post("/hr/warnings", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/hr/warnings/:id", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr/warnings/:id", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const { status, appealNotes } = req.body;
@@ -482,7 +482,7 @@ router.patch("/hr/warnings/:id", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete("/hr/warnings/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/hr/warnings/:id", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     await db.execute(sql`
@@ -498,7 +498,7 @@ router.delete("/hr/warnings/:id", requireAuthWithTenant, async (req, res) => {
    INVESTIGATIONS — مُعزولة بـ office_id
 ══════════════════════════════════════════════════════════ */
 
-router.get("/hr/investigations", requireAuthWithTenant, async (req, res) => {
+router.get("/hr/investigations", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const data = await sq(sql`
@@ -511,7 +511,7 @@ router.get("/hr/investigations", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr/investigations", requireAuthWithTenant, async (req, res) => {
+router.post("/hr/investigations", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const { employeeId, subject, description, openedBy, committee, sessionDate } = req.body;
@@ -528,7 +528,7 @@ router.post("/hr/investigations", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/hr/investigations/:id", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr/investigations/:id", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const { status, outcome, notes, committee, sessionDate } = req.body;
@@ -549,7 +549,7 @@ router.patch("/hr/investigations/:id", requireAuthWithTenant, async (req, res) =
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete("/hr/investigations/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/hr/investigations/:id", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     await db.execute(sql`

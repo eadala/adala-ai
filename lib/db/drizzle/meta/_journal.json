@@ -2,12 +2,19 @@
   "version": "7",
   "dialect": "postgresql",
   "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1781798489226,
-      "tag": "0000_baseline",
-      "breakpoints": true
-    }
+  {
+    "idx": 0,
+    "version": "7",
+    "when": 1781798489226,
+    "tag": "0000_baseline",
+    "breakpoints": true
+  },
+  {
+    "idx": 1,
+    "version": "7",
+    "when": 1781798489227,
+    "tag": "0001_invitations_office_id",
+    "breakpoints": true
+  }
   ]
 }
