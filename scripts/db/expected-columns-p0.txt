@@ -1,0 +1,17 @@
+# P0 column checks: table.column (verified via information_schema)
+# Format: table_name.column_name
+
+cases.office_id
+cases.source
+cases.created_by
+contracts.office_id
+contracts.template_id
+contract_templates.name
+contract_templates.content
+office_registry.clerk_user_id
+office_registry.owner_email
+office_members.office_id
+office_members.user_id
+office_members.role
+office_members.status
+users.office_id
