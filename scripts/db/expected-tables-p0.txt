@@ -1,0 +1,23 @@
+# P0 tables — runtime blockers if missing (one table name per line)
+# Used by scripts/db/verify-schema.sh
+
+office_registry
+office_page
+office_members
+cases
+contracts
+contract_templates
+contract_categories
+clients
+users
+invitations
+roles
+plans
+audit_logs
+documents
+subscriptions
+onboarding_state
+trial_offices
+system_events
+plan_cms
+login_logs

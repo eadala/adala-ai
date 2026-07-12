@@ -9,7 +9,8 @@
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "lint": "pnpm -r --filter \"./artifacts/**\" --if-present run lint",
-    "lint:fix": "pnpm -r --filter \"./artifacts/**\" --if-present run lint:fix"
+    "lint:fix": "pnpm -r --filter \"./artifacts/**\" --if-present run lint:fix",
+    "test:db-migrations": "bash scripts/db/test-migrations.integration.sh"
   },
   "lint-staged": {
     "artifacts/adala/src/**/*.{ts,tsx}": [

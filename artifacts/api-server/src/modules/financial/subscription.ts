@@ -2,7 +2,7 @@ import { requireAuth } from "../../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { plansTable } from "@workspace/db/schema";
+import { plansTable, officePageTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
@@ -29,12 +29,6 @@ const TRIAL_LIMITS = {
   maxUsers: 999, maxCases: 99999, maxClients: 99999,
   maxAiCalls: 9999, maxStorageGb: 1000, maxBranches: 99,
 };
-
-async function getOfficePlanSlug(): Promise<string> {
-  const rows = await db.execute(sql`SELECT plan FROM office_page ORDER BY created_at LIMIT 1`);
-  const plan = ((rows as any)?.rows ?? [])[0]?.plan as string | undefined;
-  return plan ?? "free";
-}
 
 /* ─────────────────────────────────────────────────────
    GET /office/subscription
@@ -103,7 +97,8 @@ router.get("/office/subscription", requireAuth, async (_req, res) => {
 
     /* ── 2. If in trial → return full access immediately ── */
     if (isTrial) {
-      const officePlan = await getOfficePlanSlug();
+      const offices = await db.select().from(officePageTable).limit(1);
+      const officePlan = offices[0]?.plan ?? "free";
       const plans = await db.select().from(plansTable).where(eq(plansTable.slug, officePlan)).limit(1);
       const plan = plans[0];
       return res.json({
@@ -120,7 +115,8 @@ router.get("/office/subscription", requireAuth, async (_req, res) => {
     }
 
     /* ── 3. Normal path: return plan from DB ── */
-    const officePlan = await getOfficePlanSlug();
+    const offices = await db.select().from(officePageTable).limit(1);
+    const officePlan = offices[0]?.plan ?? "free";
 
     const plans = await db.select().from(plansTable)
       .where(eq(plansTable.slug, officePlan))
