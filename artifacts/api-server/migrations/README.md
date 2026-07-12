@@ -6,7 +6,7 @@
 
 ## ترتيب التنفيذ (Production فارغة أو ناقصة)
 
-من **جذر المستودع**:
+من **جذر المستودع** (`/opt/adala` أو clone path):
 
 ```bash
 export DATABASE_URL="postgresql://user:pass@host:5432/adala"
@@ -17,23 +17,23 @@ bash scripts/db/verify-schema.sh
 # 1) نسخة احتياطية (إلزامي إذا كانت DB موجودة)
 bash scripts/db/backup-restore.sh backup
 
-# 2) Core Drizzle baseline (47 جدول)
+# 2) Core Drizzle baseline (47 جدول) — يشمل office_registry, cases, contracts
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/003_drizzle_baseline_safe.sql
 
-# 3) Tenant isolation columns + indexes
+# 3) Tenant isolation columns + indexes (موجود مسبقاً على main)
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/001_tenant_isolation.sql
 
-# 4) Legal core extensions
+# 4) Legal core extensions — contract_templates + cases columns
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/004_legal_core_extensions.sql
 
-# 5) Tenant/platform tables
+# 5) Tenant/platform tables — office_members, trial_offices, plan_cms, ...
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/005_tenant_platform_tables.sql
 
-# 6) Post-migration API support — login_logs + office_page.website_config
+# 6) Post-migration API support — login_logs + office_page.website_config + metrics
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/006_post_migration_api_support.sql
 
@@ -55,18 +55,36 @@ bash scripts/db/verify-schema.sh
 
 | الجدول / العمود | Migration | مصدر الكود |
 |-----------------|-----------|------------|
-| `office_registry` | 003 | `tenantMiddleware.ts`, `goLiveMetrics.ts` |
-| `office_members` | 005 | `tenantMiddleware.ts` |
-| `office_page` | 003 | Marketplace |
+| `office_registry` | 003 | `goLiveMetrics.ts`, `tenantResolver.ts` |
+| `cases` | 003 + 004 (columns) | Legal core, JLWM |
+| `contracts` | 003 + 004 (columns) | `contracts.ts` |
+| `contract_templates` | 004 | `contracts.ts` ensureTables |
+| `office_members` | 005 | `tenantMiddleware.ts` (لا CREATE في الكود!) |
+| `office_page` | 003 | Marketplace, tenant |
 | `office_page.website_config` | **006** | Drizzle `officePageTable`, `websiteBuilder.ts`, `/office/public/:slug` |
 | `login_logs` | **006** | `loginTracking.ts`, SOC, `launchGate.ts` |
 | `web_vitals` / `route_analytics` | **006** | `routes/metrics.ts` |
-| `cases`, `contracts` | 003 + 004 | Legal core |
+| `clients` | 003 | Legal core |
+
+## ما يبقى بعد Migrations (boot-time)
+
+~100 جدول enterprise تُنشأ عند أول boot للـ API عبر `ensure*Tables()` في
+`artifacts/api-server/src/index.ts` والوحدات. هذه migrations تغطي **P0 + baseline**
+فقط. بعد تطبيق 003–006، شغّل API مرة واحدة لإكمال الجداول المتبقية.
+
+## Rollback
+
+راجع `scripts/db/backup-restore.sh restore` — الاستعادة من pg_dump هي الطريقة الآمنة.
+`DROP TABLE` يدوي غير موصى به على Production.
 
 ## اختبارات Integration (قبل PR)
 
 ```bash
+# PostgreSQL محلي فقط — لا يلمس Production
 bash scripts/db/test-migrations.integration.sh
 ```
 
-يغطي: DB فارغة (003→001→004→005→006)، Production-like بدون `website_config`/`login_logs`، idempotency لـ 006، والمسارات المبلّغ عنها.
+يغطي: DB فارغة (003→001→004→005→006)، Production-like بدون `website_config`/`login_logs`،
+idempotency لـ 006، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
+
+راجع `scripts/db/boot-created-tables.md` لقائمة جداول boot وقيود Docker.
