@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -146,7 +146,7 @@ function calcSalary(baseSalary: number, score: number, ev: any, cfg: Record<stri
 /* ══════════════════════════════════════════════
    ROUTES — SETTINGS
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/settings", requireAuthWithTenant, async (_req, res) => {
+router.get("/hr-perf/settings", requireAuthWithTenant, requirePermission("hr:manage"), async (_req, res) => {
   await ensureTables();
   const rows = await sqlAll(sql`SELECT key, val FROM hr_settings`);
   const obj: Record<string, string> = {};
@@ -154,7 +154,7 @@ router.get("/hr-perf/settings", requireAuthWithTenant, async (_req, res) => {
   res.json(obj);
 });
 
-router.patch("/hr-perf/settings", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr-perf/settings", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const updates = req.body as Record<string, string>;
   for (const [key, val] of Object.entries(updates)) {
@@ -169,7 +169,7 @@ router.patch("/hr-perf/settings", requireAuthWithTenant, async (req, res) => {
 /* ══════════════════════════════════════════════
    ROUTES — PERFORMANCE EVALUATIONS
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/evaluations", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-perf/evaluations", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   try {
@@ -183,7 +183,7 @@ router.get("/hr-perf/evaluations", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr-perf/evaluations/:employeeId", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-perf/evaluations/:employeeId", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   try {
@@ -201,7 +201,7 @@ router.get("/hr-perf/evaluations/:employeeId", requireAuthWithTenant, async (req
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr-perf/evaluate", requireAuthWithTenant, async (req, res) => {
+router.post("/hr-perf/evaluate", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   try {
     const tid = (req as any).tenantId as string;
@@ -228,7 +228,7 @@ router.post("/hr-perf/evaluate", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-router.delete("/hr-perf/evaluations/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/hr-perf/evaluations/:id", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   /* performance_evaluations has no office_id — verify ownership via employee join */
@@ -243,7 +243,7 @@ router.delete("/hr-perf/evaluations/:id", requireAuthWithTenant, async (req, res
 /* ══════════════════════════════════════════════
    ROUTES — INCENTIVES
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-perf/incentives", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   try {
@@ -257,7 +257,7 @@ router.get("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
+router.post("/hr-perf/incentives", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   try {
@@ -275,7 +275,7 @@ router.post("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-router.delete("/hr-perf/incentives/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/hr-perf/incentives/:id", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   /* employee_incentives has no office_id — verify via employee join */
@@ -290,7 +290,7 @@ router.delete("/hr-perf/incentives/:id", requireAuthWithTenant, async (req, res)
 /* ══════════════════════════════════════════════
    ROUTES — SMART PAYROLL SIMULATION
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/smart-payroll/preview", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-perf/smart-payroll/preview", requireAuthWithTenant, requirePermission("payroll:view"), async (req, res) => {
   await ensureTables();
   const tenantId = (req as any).tenantId as string;
   try {
@@ -353,7 +353,7 @@ router.get("/hr-perf/smart-payroll/preview", requireAuthWithTenant, async (req, 
 /* ══════════════════════════════════════════════
    ROUTES — DASHBOARD
 ══════════════════════════════════════════════ */
-router.get("/hr-perf/dashboard", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-perf/dashboard", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const tenantId = (req as any).tenantId as string;
   try {

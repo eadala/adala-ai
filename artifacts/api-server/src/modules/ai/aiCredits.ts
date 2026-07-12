@@ -1,4 +1,5 @@
-import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission, requireSuperAdmin } from "../../middlewares/requireAuth";
+import { getRequiredTenantId, TenantRequiredError, tenantRequiredResponse } from "../../core/tenantContext";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -19,6 +20,13 @@ async function one(q: any): Promise<any | null> {
 }
 
 const adminOnly = requireSuperAdmin;
+
+function handleTenantError(err: unknown, res: import("express").Response) {
+  if (err instanceof TenantRequiredError) {
+    return res.status(403).json(tenantRequiredResponse());
+  }
+  throw err;
+}
 
 /* ── table setup ─────────────────────────── */
 async function ensureTables() {
@@ -93,7 +101,8 @@ router.post("/admin/ai-credits/topup", adminOnly, async (req, res) => {
   await ensureTables();
   try {
     const { userId } = getAuth(req as any);
-    const { officeId = "default", amount, description = "شحن يدوي" } = req.body;
+    const { officeId, amount, description = "شحن يدوي" } = req.body;
+    if (!officeId) return res.status(400).json({ error: "officeId مطلوب" });
     if (!amount || isNaN(parseInt(amount)) || parseInt(amount) <= 0)
       return res.status(400).json({ error: "الرصيد يجب أن يكون رقماً موجباً" });
 
@@ -118,7 +127,8 @@ router.post("/admin/ai-credits/topup", adminOnly, async (req, res) => {
 router.post("/admin/ai-credits/settings", adminOnly, async (req, res) => {
   await ensureTables();
   try {
-    const { officeId = "default", officeName, monthlyAllowance, autoRenew, renewDay } = req.body;
+    const { officeId, officeName, monthlyAllowance, autoRenew, renewDay } = req.body;
+    if (!officeId) return res.status(400).json({ error: "officeId مطلوب" });
     await db.execute(sql`
       INSERT INTO office_ai_credits (office_id, office_name, monthly_allowance, auto_renew, renew_day)
       VALUES (
@@ -166,11 +176,14 @@ router.post("/admin/ai-credits/renew", adminOnly, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-/* ── POST /api/ai-credits/deduct  (internal — called by callAI) ── */
-router.post("/ai-credits/deduct", requireAuth, async (req, res) => {
+/* ── POST /api/ai-credits/deduct  (internal — service-only, not user-facing) ── */
+router.post("/ai-credits/deduct", requireSuperAdmin, async (req, res) => {
   await ensureTables();
   try {
-    const { officeId = "default", model = "gemini", cost = 1 } = req.body;
+    const { officeId, model = "gemini", cost = 1 } = req.body;
+    if (!officeId || typeof officeId !== "string") {
+      return res.status(400).json({ error: "officeId مطلوب" });
+    }
     const credit = await one(sql`SELECT balance FROM office_ai_credits WHERE office_id = ${officeId}`);
     const balance = credit?.balance ?? 0;
     if (balance < cost) return res.status(402).json({ error: "رصيد غير كافٍ", balance });
@@ -183,23 +196,30 @@ router.post("/ai-credits/deduct", requireAuth, async (req, res) => {
       VALUES (${officeId}, ${-cost}, 'usage', ${'استخدام AI - ' + model}, ${model})
     `);
     res.json({ ok: true, balance: balance - cost });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (err: unknown) {
+    if (handleTenantError(err, res)) return;
+    res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 /* ── GET /api/office/ai-credits  (for office users to check their balance) ── */
-router.get("/office/ai-credits", requireAuth, async (_req, res) => {
+router.get("/office/ai-credits", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   await ensureTables();
   try {
-    const credit = await one(sql`SELECT * FROM office_ai_credits WHERE office_id = 'default'`);
+    const officeId = getRequiredTenantId(req);
+    const credit = await one(sql`SELECT * FROM office_ai_credits WHERE office_id = ${officeId}`);
     if (!credit) return res.json({ balance: 0, monthly_allowance: 100, auto_renew: true });
     const usedThisMonth = await one(sql`
       SELECT COALESCE(SUM(ABS(amount)), 0)::int AS used
       FROM ai_credit_transactions
-      WHERE office_id = 'default' AND type = 'usage'
+      WHERE office_id = ${officeId} AND type = 'usage'
         AND created_at >= date_trunc('month', NOW())
     `);
     res.json({ ...credit, used_this_month: usedThisMonth?.used ?? 0 });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (err: unknown) {
+    if (handleTenantError(err, res)) return;
+    res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 /* ── POST /admin/ai-credits/add-office ── register new office ── */

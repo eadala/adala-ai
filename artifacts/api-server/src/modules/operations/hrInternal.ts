@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -61,7 +61,7 @@ async function sqlOne(q: any): Promise<any> {
 /* ══════════════════════════════════════════════
    ANNOUNCEMENTS
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/announcements", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-internal/announcements", requireAuthWithTenant, requirePermission("dashboard:view"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   try {
@@ -75,7 +75,7 @@ router.get("/hr-internal/announcements", requireAuthWithTenant, async (req, res)
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/hr-internal/announcements/all", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-internal/announcements/all", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   try {
@@ -86,7 +86,7 @@ router.get("/hr-internal/announcements/all", requireAuthWithTenant, async (req, 
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr-internal/announcements", requireAuthWithTenant, async (req, res) => {
+router.post("/hr-internal/announcements", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   try {
@@ -101,7 +101,7 @@ router.post("/hr-internal/announcements", requireAuthWithTenant, async (req, res
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-router.delete("/hr-internal/announcements/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/hr-internal/announcements/:id", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   await db.execute(sql`DELETE FROM hr_announcements WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid}`);
@@ -111,7 +111,7 @@ router.delete("/hr-internal/announcements/:id", requireAuthWithTenant, async (re
 /* ══════════════════════════════════════════════
    EMPLOYEE REQUESTS
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/requests", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-internal/requests", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   try {
@@ -126,7 +126,7 @@ router.get("/hr-internal/requests", requireAuthWithTenant, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/hr-internal/requests", requireAuthWithTenant, async (req, res) => {
+router.post("/hr-internal/requests", requireAuthWithTenant, requirePermission("dashboard:view"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   try {
@@ -143,7 +143,7 @@ router.post("/hr-internal/requests", requireAuthWithTenant, async (req, res) => 
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-router.patch("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr-internal/requests/:id", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   try {
     const { status, response, resolvedBy } = req.body as any;
@@ -162,7 +162,7 @@ router.patch("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-router.delete("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/hr-internal/requests/:id", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
   await db.execute(sql`DELETE FROM employee_requests WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid}`);
@@ -172,7 +172,7 @@ router.delete("/hr-internal/requests/:id", requireAuthWithTenant, async (req, re
 /* ══════════════════════════════════════════════
    LEAVE BALANCES
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/leave-balances", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-internal/leave-balances", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   try {
     const year = parseInt(String(req.query.year ?? new Date().getFullYear()));
@@ -226,7 +226,7 @@ router.get("/hr-internal/leave-balances", requireAuthWithTenant, async (req, res
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.patch("/hr-internal/leave-balances/:employeeId", requireAuthWithTenant, async (req, res) => {
+router.patch("/hr-internal/leave-balances/:employeeId", requireAuthWithTenant, requirePermission("hr:manage"), async (req, res) => {
   await ensureTables();
   try {
     const tid = (req as any).tenantId as string;
@@ -247,7 +247,7 @@ router.patch("/hr-internal/leave-balances/:employeeId", requireAuthWithTenant, a
 /* ══════════════════════════════════════════════
    PAYSLIP DATA — مُقيَّد بـ office_id + payroll:view
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/payslip/:payrollId", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-internal/payslip/:payrollId", requireAuthWithTenant, requirePermission("payroll:view"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
     const row = await sqlOne(sql`
@@ -264,7 +264,7 @@ router.get("/hr-internal/payslip/:payrollId", requireAuthWithTenant, async (req,
 /* ══════════════════════════════════════════════
    DASHBOARD STATS
 ══════════════════════════════════════════════ */
-router.get("/hr-internal/dashboard", requireAuthWithTenant, async (req, res) => {
+router.get("/hr-internal/dashboard", requireAuthWithTenant, requirePermission("dashboard:view"), async (req, res) => {
   await ensureTables();
   const tenantId = (req as any).tenantId as string;
   try {

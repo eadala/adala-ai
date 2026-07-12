@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -144,9 +144,9 @@ async function runAutonomousScan(officeId: string) {
 }
 
 /* ── GET /api/ai-events ─────────────────────────── */
-router.get("/ai-events", requireAuth, async (req, res) => {
-  const officeId = (req as any).officeId as string;
-  if (!officeId) { res.json({ events: [] }); return; }
+router.get("/ai-events", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
+  const officeId = (req as any).tenantId as string;
+  if (!officeId || officeId === "platform") { res.json({ events: [] }); return; }
 
   runAutonomousScan(officeId).catch(() => {});
 
@@ -172,8 +172,8 @@ router.get("/ai-events", requireAuth, async (req, res) => {
 });
 
 /* ── POST /api/ai-events/:id/dismiss ─────────────── */
-router.post("/ai-events/:id/dismiss", requireAuth, async (req, res) => {
-  const officeId = (req as any).officeId as string;
+router.post("/ai-events/:id/dismiss", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
+  const officeId = (req as any).tenantId as string;
   const id = parseInt(String(req.params.id));
   if (!officeId || isNaN(id)) { res.status(400).json({ error: "invalid" }); return; }
   try {
@@ -188,9 +188,9 @@ router.post("/ai-events/:id/dismiss", requireAuth, async (req, res) => {
 });
 
 /* ── POST /api/ai-events/scan ─────────────────────── */
-router.post("/ai-events/scan", requireAuth, async (req, res) => {
-  const officeId = (req as any).officeId as string;
-  if (!officeId) { res.status(401).json({ error: "unauthorized" }); return; }
+router.post("/ai-events/scan", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
+  const officeId = (req as any).tenantId as string;
+  if (!officeId || officeId === "platform") { res.status(403).json({ error: "unauthorized" }); return; }
   delete lastScanAt[officeId];
   try {
     await runAutonomousScan(officeId);

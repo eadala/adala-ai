@@ -1,4 +1,4 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router } from "express";
 
 const router = Router();
@@ -62,7 +62,7 @@ async function callGemini(systemPrompt: string, messages: { role: string; conten
   } catch { return null; }
 }
 
-router.post("/ai-agents/run", requireAuth, async (req, res) => {
+router.post("/ai-agents/run", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   const { agentType, input, history = [] } = req.body as { agentType: string; input: string; history: {role:string;content:string}[] };
 
   const agent = AGENTS[agentType];
@@ -99,7 +99,7 @@ router.post("/ai-agents/run", requireAuth, async (req, res) => {
   res.json({ response: agent.fallback(input), agent: agentType });
 });
 
-router.get("/ai-agents/list", requireAuth, (_req, res) => {
+router.get("/ai-agents/list", requireAuthWithTenant, requirePermission("ai:access"), (_req, res) => {
   res.json(Object.entries(AGENTS).map(([key, a]) => ({ key, name: a.name })));
 });
 

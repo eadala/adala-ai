@@ -19,11 +19,9 @@ import { collectMetrics }      from "../../observability/metrics";
 import { getSystemState, setAiLock } from "../../hardening/production.lock";
 import { governanceGuard } from "../../core/governance/governanceKernel";
 import { requireSuperAdmin as ctGuard } from "../../middlewares/requireAuth";
+import { setTenantLifecycle, isOfficeLifecycleBlocked, getLifecycleBlockedOffices } from "../../core/tenant/tenantLifecycle";
 
 const router = Router();
-
-/* ── In-memory Frozen Tenants (persisted to system_events for audit) ──── */
-const frozenTenants = new Set<string>();
 
 /* ── Bootstrap CT security events table ─────────────────────────────── */
 async function ensureCtTables() {
@@ -64,7 +62,7 @@ async function getTenantMatrix() {
     members:  Number(r.members  ?? 0),
     cases:    Number(r.cases    ?? 0),
     invoices: Number(r.invoices ?? 0),
-    frozen:   frozenTenants.has(String(r.office_id)),
+    frozen:   isOfficeLifecycleBlocked(String(r.office_id)),
   }));
 }
 
@@ -154,7 +152,7 @@ router.get("/control-tower/metrics", ctGuard, async (_req, res) => {
       aiLoad,
       tenantMatrix: tenants,
       securityFeed: securityFeed.slice(0, 20),
-      frozenTenants: Array.from(frozenTenants),
+      frozenTenants: getLifecycleBlockedOffices(),
       timestamp: Date.now(),
     });
   } catch (e: any) {
@@ -192,7 +190,7 @@ router.get("/control-tower/stream", ctGuard, (req, res) => {
         mode:         state.mode,
         aiLock:       state.aiLock,
         tenantCount:  tenants.length,
-        frozenCount:  frozenTenants.size,
+        frozenCount:  getLifecycleBlockedOffices().length,
       })}\n\n`);
     } catch { /* non-fatal */ }
   }
@@ -239,7 +237,7 @@ router.get("/control-tower/inspect/:tenantId", ctGuard, async (req, res) => {
   ]);
 
   res.json({
-    tenantId, frozen: frozenTenants.has(tenantId),
+    tenantId, frozen: isOfficeLifecycleBlocked(tenantId),
     cases, clients, invoices, auditLogs, members, aiActivity,
   });
 });
@@ -252,7 +250,10 @@ router.get("/control-tower/security-feed", ctGuard, async (_req, res) => {
 /* POST /control-tower/freeze/:tenantId */
 router.post("/control-tower/freeze/:tenantId", ctGuard, async (req, res) => {
   const tenantId = String((req.params as Record<string, string>).tenantId);
-  frozenTenants.add(tenantId);
+  await setTenantLifecycle(tenantId, "frozen", {
+    reason: req.body?.reason ?? "Admin action",
+    by: (req as { userId?: string }).userId,
+  });
   await db.execute(sql`
     INSERT INTO system_events (event_type, office_id, metadata)
     VALUES ('TENANT_FROZEN', ${tenantId},
@@ -264,7 +265,7 @@ router.post("/control-tower/freeze/:tenantId", ctGuard, async (req, res) => {
 /* DELETE /control-tower/freeze/:tenantId */
 router.delete("/control-tower/freeze/:tenantId", ctGuard, async (req, res) => {
   const tenantId = String((req.params as Record<string, string>).tenantId);
-  frozenTenants.delete(tenantId);
+  await setTenantLifecycle(tenantId, "active");
   await db.execute(sql`
     INSERT INTO system_events (event_type, office_id, metadata)
     VALUES ('TENANT_UNFROZEN', ${tenantId}, '{}'::jsonb)

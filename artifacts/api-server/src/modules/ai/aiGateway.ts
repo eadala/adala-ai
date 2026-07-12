@@ -22,7 +22,12 @@
  */
 
 import { Router }            from "express";
-import { requireAuth }       from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission, requireSuperAdmin } from "../../middlewares/requireAuth";
+import {
+  getRequiredTenantId,
+  tenantRequiredResponse,
+  TenantRequiredError,
+} from "../../core/tenantContext";
 import { callAI, classifyPrompt, logAIUsage } from "./aiChat";
 import { cache }             from "../../core/cache";
 import { eventBus }          from "../../core/eventBus";
@@ -32,6 +37,14 @@ import { sql }               from "drizzle-orm";
 import crypto                from "crypto";
 
 const router = Router();
+
+/** Tenant-scoped analytics; super-admins may query globally */
+function resolveAnalyticsScope(req: unknown): { officeId: string | null; global: boolean } {
+  if ((req as { isSuperAdmin?: boolean }).isSuperAdmin) {
+    return { officeId: null, global: true };
+  }
+  return { officeId: getRequiredTenantId(req), global: false };
+}
 
 /* ── Prompt templates per query type ───────────────────────────── */
 const SYSTEM_PROMPTS: Record<string, string> = {
@@ -65,16 +78,25 @@ const SYSTEM_PROMPTS: Record<string, string> = {
   custom: `أنت مساعد قانوني ذكي متخصص في القانون السعودي.`,
 };
 
-/* ── Cache key builder — officeId is MANDATORY to prevent cross-tenant leakage ── */
-function buildCacheKey(officeId: string, type: string, input: string, context?: string): string {
-  const raw = `${officeId}|${type}|${input}|${context ?? ""}`;
+/* ── Cache key — tenant + user + type + model + input (no shared namespace) ── */
+export interface AiCacheKeyInput {
+  officeId: string;
+  userId:   string;
+  type:     string;
+  model:    string;
+  input:    string;
+  context?: string;
+}
+
+export function buildCacheKey(opts: AiCacheKeyInput): string {
+  const raw = `${opts.officeId}|${opts.userId}|${opts.type}|${opts.model}|${opts.input}|${opts.context ?? ""}`;
   return `ai:${crypto.createHash("sha256").update(raw).digest("hex").slice(0, 16)}`;
 }
 
 /* ─────────────────────────────────────────────────────────────────
    POST /api/ai/query
 ───────────────────────────────────────────────────────────────── */
-router.post("/ai/query", requireAuth, async (req, res) => {
+router.post("/ai/query", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   const {
     type    = "legal_assistant",
     input,
@@ -97,10 +119,26 @@ router.post("/ai/query", requireAuth, async (req, res) => {
     return;
   }
 
-  const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-  const cacheKey = buildCacheKey(officeId, type, input.trim(), context);
+  let officeId: string;
+  try {
+    officeId = getRequiredTenantId(req);
+  } catch (err) {
+    if (err instanceof TenantRequiredError) {
+      res.status(403).json(tenantRequiredResponse());
+      return;
+    }
+    throw err;
+  }
+  const userId = (req as any).userId as string;
+  const cacheKey = buildCacheKey({
+    officeId,
+    userId,
+    type,
+    model,
+    input: input.trim(),
+    context,
+  });
 
-  /* ── Cache hit ──────────────────────────────────────────────── */
   if (!noCache) {
     const cached = cache.get<{ reply: string; modelUsed: string; cached: boolean }>(cacheKey);
     if (cached) {
@@ -109,7 +147,6 @@ router.post("/ai/query", requireAuth, async (req, res) => {
     }
   }
 
-  /* ── Route to correct system prompt ─────────────────────────── */
   const systemPrompt = SYSTEM_PROMPTS[type] ?? SYSTEM_PROMPTS.custom;
   const fullInput    = context
     ? `السياق:\n${context}\n\nالطلب:\n${input}`
@@ -126,14 +163,11 @@ router.post("/ai/query", requireAuth, async (req, res) => {
     );
 
     const result = { reply, modelUsed, tier, cached: false };
-
-    /* ── Cache for 10 minutes ───────────────────────────────── */
     cache.set(cacheKey, result, 600);
 
     /* ── Emit event (non-blocking) ──────────────────────────── */
-    eventBus.emit({ type: "AI_QUERY", data: { queryType: type, modelUsed, tier, officeId } }).catch(() => {});
+    eventBus.emit({ type: "AI_QUERY", officeId, actorId: (req as { userId?: string }).userId, data: { queryType: type, modelUsed, tier } }).catch(() => {});
 
-    /* ── Audit log ──────────────────────────────────────────── */
     auditLog({
       ...auditMeta(req),
       action:   "ai.query",
@@ -153,11 +187,10 @@ router.post("/ai/query", requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/analytics/summary
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/summary", requireAuth, async (req, res) => {
+router.get("/ai/analytics/summary", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-    const isAdmin  = (req as any).isAdmin === true;
-    const whereClause = isAdmin ? sql`` : sql`WHERE office_id = ${officeId}`;
+    const { officeId, global } = resolveAnalyticsScope(req);
+    const whereClause = global ? sql`` : sql`WHERE office_id = ${officeId}`;
     const rows = await db.execute(sql`
       SELECT
         COUNT(*)                                      AS total_queries,
@@ -210,13 +243,9 @@ router.get("/ai/analytics/summary", requireAuth, async (req, res) => {
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-/* ─────────────────────────────────────────────────────────────────
-   GET /api/ai/analytics/daily  — 30-day trend
-───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/daily", requireAuth, async (req, res) => {
+router.get("/ai/analytics/daily", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-    const isAdmin  = (req as any).isAdmin === true;
+    const { officeId, global } = resolveAnalyticsScope(req);
     const rows = await db.execute(sql`
       SELECT
         DATE(created_at)                         AS day,
@@ -228,7 +257,7 @@ router.get("/ai/analytics/daily", requireAuth, async (req, res) => {
         COUNT(*) FILTER (WHERE tier='premium')   AS premium
       FROM ai_usage_logs
       WHERE created_at > NOW() - INTERVAL '30 days'
-        ${isAdmin ? sql`` : sql`AND office_id = ${officeId}`}
+        ${global ? sql`` : sql`AND office_id = ${officeId}`}
       GROUP BY DATE(created_at)
       ORDER BY day ASC
     `) as any;
@@ -247,10 +276,7 @@ router.get("/ai/analytics/daily", requireAuth, async (req, res) => {
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-/* ─────────────────────────────────────────────────────────────────
-   GET /api/ai/analytics/by-office  — per-office breakdown
-───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/by-office", requireAuth, async (_req, res) => {
+router.get("/ai/analytics/by-office", requireAuthWithTenant, requireSuperAdmin, async (_req, res) => {
   try {
     const rows = await db.execute(sql`
       SELECT office_id,
@@ -275,27 +301,20 @@ router.get("/ai/analytics/by-office", requireAuth, async (_req, res) => {
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-/* ─────────────────────────────────────────────────────────────────
-   GET /api/ai/analytics/recent  — last 50 queries
-───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/recent", requireAuth, async (req, res) => {
+router.get("/ai/analytics/recent", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-    const isAdmin  = (req as any).isAdmin === true;
+    const { officeId, global } = resolveAnalyticsScope(req);
     const rows = await db.execute(sql`
       SELECT id, office_id, query_type, model_used, tier, cost_points, cached, response_ms, created_at
       FROM ai_usage_logs
-      ${isAdmin ? sql`` : sql`WHERE office_id = ${officeId}`}
+      ${global ? sql`` : sql`WHERE office_id = ${officeId}`}
       ORDER BY created_at DESC LIMIT 50
     `) as any;
     res.json({ success: true, data: rows?.rows ?? rows ?? [] });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-/* ─────────────────────────────────────────────────────────────────
-   GET /api/ai/query/types  — list available query types
-───────────────────────────────────────────────────────────────── */
-router.get("/ai/query/types", requireAuth, (_req, res) => {
+router.get("/ai/query/types", requireAuthWithTenant, requirePermission("ai:access"), (_req, res) => {
   res.json({
     success: true,
     types: Object.keys(SYSTEM_PROMPTS).map((key) => ({
@@ -313,10 +332,7 @@ router.get("/ai/query/types", requireAuth, (_req, res) => {
   });
 });
 
-/* ─────────────────────────────────────────────────────────────────
-   GET /api/ai/query/cache-stats  — monitoring
-───────────────────────────────────────────────────────────────── */
-router.get("/ai/query/cache-stats", requireAuth, (_req, res) => {
+router.get("/ai/query/cache-stats", requireAuthWithTenant, requirePermission("ai:access"), (_req, res) => {
   res.json({ success: true, cache: cache.stats() });
 });
 

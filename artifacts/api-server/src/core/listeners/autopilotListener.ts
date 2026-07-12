@@ -8,6 +8,7 @@
 import { eventBus }            from "../eventBus";
 import type { StoredEvent }    from "../eventBus";
 import { runCaseAutopilot, ensureAutopilotTable } from "../../agents/caseAutopilot";
+import { requireEventOfficeId } from "../tenant/eventScope";
 
 let tableReady = false;
 
@@ -19,8 +20,8 @@ export function registerAutopilotListeners(): void {
   /* CASE_CREATED → Autopilot بعد 3 ثوانٍ */
   eventBus.on("CASE_CREATED", async (event: StoredEvent) => {
     const { caseId } = event.data ?? {};
-    const officeId  = event.officeId ?? "default";
-    if (!caseId) return;
+    const officeId = requireEventOfficeId(event);
+    if (!caseId || !officeId) return;
 
     /* نُشغّل بشكل غير متزامن حتى لا نُبطئ الاستجابة */
     setTimeout(async () => {
@@ -41,8 +42,8 @@ export function registerAutopilotListeners(): void {
   /* CASE_UPDATED → إعادة التحليل (لا إنشاء مهام مكررة) */
   eventBus.on("CASE_UPDATED", async (event: StoredEvent) => {
     const { caseId } = event.data ?? {};
-    const officeId  = event.officeId ?? "default";
-    if (!caseId) return;
+    const officeId = requireEventOfficeId(event);
+    if (!caseId || !officeId) return;
 
     setTimeout(async () => {
       try {
