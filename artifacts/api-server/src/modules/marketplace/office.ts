@@ -12,6 +12,57 @@ import { requireProductionBaseUrl } from "../../lib/productionUrl";
 
 const router = Router();
 
+/** Columns present in migration 003 — excludes website_config (Drizzle-only). */
+function selectOfficePageSafe() {
+  return db.select({
+    id: officePageTable.id,
+    slug: officePageTable.slug,
+    name: officePageTable.name,
+    plan: officePageTable.plan,
+    logo: officePageTable.logo,
+    tagline: officePageTable.tagline,
+    about: officePageTable.about,
+    licenseNumber: officePageTable.licenseNumber,
+    experienceYears: officePageTable.experienceYears,
+    phone: officePageTable.phone,
+    whatsapp: officePageTable.whatsapp,
+    email: officePageTable.email,
+    address: officePageTable.address,
+    city: officePageTable.city,
+    regions: officePageTable.regions,
+    facebook: officePageTable.facebook,
+    twitter: officePageTable.twitter,
+    linkedin: officePageTable.linkedin,
+    website: officePageTable.website,
+    casesCount: officePageTable.casesCount,
+    clientsCount: officePageTable.clientsCount,
+    successRate: officePageTable.successRate,
+    showStats: officePageTable.showStats,
+    isPublished: officePageTable.isPublished,
+    mapsEmbedUrl: officePageTable.mapsEmbedUrl,
+    googleMapsUrl: officePageTable.googleMapsUrl,
+    primaryColor: officePageTable.primaryColor,
+    createdAt: officePageTable.createdAt,
+    updatedAt: officePageTable.updatedAt,
+  }).from(officePageTable);
+}
+
+async function handleGetMyOffice(req: any, res: any) {
+  try {
+    const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
+    const officeId = await resolveTenantId(
+      req.userId,
+      req.headers["x-tenant-id"] as string | undefined,
+    );
+    const offices = officeId
+      ? await selectOfficePageSafe().where(eq(officePageTable.id, officeId)).limit(1)
+      : await selectOfficePageSafe().limit(1);
+    res.json(offices[0] ?? null);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message ?? "خطأ في جلب بيانات المكتب" });
+  }
+}
+
 /* ═══ PUBLIC ROUTES (no auth) ═══════════════════════════════ */
 
 router.get("/office/public/:slug", async (req, res) => {
@@ -161,11 +212,9 @@ router.post("/office/public/:slug/review", async (req, res) => {
 
 /* ═══ MANAGEMENT ROUTES (auth assumed by middleware) ══════════ */
 
-/* GET my office */
-router.get("/office/my", requireAuth, async (_req, res) => {
-  const offices = await db.select().from(officePageTable).limit(1);
-  res.json(offices[0] ?? null);
-});
+/* GET my office (+ plural alias used by layout/mobile-nav) */
+router.get("/office/my", requireAuth, handleGetMyOffice);
+router.get("/offices/my", requireAuth, handleGetMyOffice);
 
 /* POST create office */
 router.post("/office/my", requireAuth, async (req: any, res) => {

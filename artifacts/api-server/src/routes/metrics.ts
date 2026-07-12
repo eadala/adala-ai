@@ -39,7 +39,18 @@ ensureTable().catch(() => {});
  */
 router.post("/vitals", async (req, res) => {
   try {
-    const { name, value, rating, url } = req.body ?? {};
+    await ensureTable();
+
+    let body: Record<string, unknown> = {};
+    if (typeof req.body === "string" && req.body.length) {
+      try { body = JSON.parse(req.body); } catch { body = {}; }
+    } else if (req.body && typeof req.body === "object") {
+      body = req.body;
+    }
+    const name = typeof body.name === "string" ? body.name : "";
+    const rating = typeof body.rating === "string" ? body.rating : "";
+    const value = body.value;
+    const url = typeof body.url === "string" ? body.url : null;
     if (!name || value == null) return res.status(204).end();
 
     const validNames  = ["LCP", "INP", "CLS", "FCP", "TTFB"];
@@ -92,13 +103,19 @@ router.get("/vitals/summary", async (_req, res) => {
  */
 router.post("/route-analytics", async (req, res) => {
   try {
+    await ensureTable();
+
+    let payload = req.body ?? {};
+    if (typeof payload === "string") {
+      try { payload = JSON.parse(payload); } catch { payload = {}; }
+    }
     const visits: Array<{
       path?: string;
       nameInternal?: string;
       module?: string;
       loadMs?: number;
       ts?: number;
-    }> = Array.isArray(req.body?.visits) ? req.body.visits : [];
+    }> = Array.isArray(payload?.visits) ? payload.visits : [];
 
     for (const v of visits.slice(0, 200)) {
       if (!v.path || typeof v.path !== "string") continue;

@@ -14,6 +14,32 @@ import { getAuth } from "@clerk/express";
 
 const router = Router();
 
+let loginLogsReady: Promise<void> | null = null;
+
+/** login_logs is not created by migrations 003–005; ensure at runtime. */
+function ensureLoginLogsTable(): Promise<void> {
+  if (!loginLogsReady) {
+    loginLogsReady = db.execute(sql`
+      CREATE TABLE IF NOT EXISTS login_logs (
+        id           SERIAL PRIMARY KEY,
+        user_id      TEXT NOT NULL,
+        email        TEXT,
+        full_name    TEXT,
+        ip_address   TEXT,
+        user_agent   TEXT,
+        browser      TEXT,
+        os           TEXT,
+        device_type  TEXT,
+        status       TEXT NOT NULL DEFAULT 'success',
+        office_id    TEXT DEFAULT 'default',
+        session_id   TEXT,
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `).then(() => {}).catch(() => {});
+  }
+  return loginLogsReady;
+}
+
 /* ── helpers ──────────────────────────────────────────── */
 async function rows(q: any): Promise<any[]> {
   try {
@@ -67,6 +93,7 @@ function getClientIp(req: any): string {
 ══════════════════════════════════════════════════ */
 router.post("/security/login", async (req, res) => {
   try {
+    await ensureLoginLogsTable();
     /* Auth required — userId and identity always server-resolved from Clerk */
     const auth = getAuth(req as any);
     if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });

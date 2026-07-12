@@ -229,6 +229,9 @@ app.use(cors({
     callback(new Error(`CORS: origin not allowed — ${origin}`));
   },
 }));
+// sendBeacon posts JSON without application/json — parse as text before global JSON
+app.use("/api/metrics/vitals", express.text({ type: "*/*", limit: "8kb" }));
+app.use("/api/metrics/route-analytics", express.text({ type: "*/*", limit: "64kb" }));
 // Global JSON limit: 3MB (large file uploads use multipart or per-route override)
 app.use(express.json({ limit: "3mb" }));
 app.use(express.urlencoded({ extended: true, limit: "3mb" }));
