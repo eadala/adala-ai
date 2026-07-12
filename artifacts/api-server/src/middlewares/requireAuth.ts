@@ -1,7 +1,11 @@
 import { getAuth, createClerkClient } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
-import { resolveTenantId } from "./tenantMiddleware";
-import { runWithTenant } from "../core/tenantContext";
+import { resolveTenantId } from "./tenantResolution";
+import {
+  runWithTenant,
+  PLATFORM_TENANT_ID,
+  tenantRequiredResponse,
+} from "../core/tenantContext";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -162,20 +166,15 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
     const isSA = await checkIsSuperAdmin(userId);
     if (isSA) {
       (req as any).isSuperAdmin = true;
-      (req as any).tenantId = "platform";
-      return runWithTenant({ userId, officeId: "platform" }, () => next());
+      (req as any).tenantId = PLATFORM_TENANT_ID;
+      return runWithTenant({ userId, officeId: PLATFORM_TENANT_ID }, () => next());
     }
     console.warn(
       `[TENANT-403] path=${req.path} method=${req.method} ` +
       `userId=${userId} headerTenant=${headerTenant ?? "none"} ` +
       `→ tenant resolution returned null (all 7 steps exhausted)`
     );
-    return res.status(403).json({
-      error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب.",
-      code: "TNT_403",
-      userId,
-      hint: "أكمل عملية الإعداد الأولي، أو تواصل مع الدعم الفني إذا أتممت الإعداد مسبقاً.",
-    });
+    return res.status(403).json(tenantRequiredResponse(userId));
   }
   const officeId = tenantId;
   (req as any).tenantId = officeId;
@@ -209,7 +208,7 @@ export function requirePermission(permission: string) {
     const userId: string | undefined = (req as any).userId;
     const officeId: string | undefined = (req as any).tenantId;
 
-    if (!userId || !officeId || officeId === "platform") {
+    if (!userId || !officeId || officeId === PLATFORM_TENANT_ID) {
       return res.status(403).json({ error: "سياق المصادقة مفقود — يجب استدعاء requireAuthWithTenant أولاً" });
     }
 

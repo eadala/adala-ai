@@ -15,6 +15,7 @@
  *  6. Background Jobs Registry
  *  7. DB Registry
  *  8. API Layer (env vars, critical routes)
+ *  9. Tenant Security Foundation (Phase 1)
  */
 
 import { readFileSync, existsSync } from "fs";
@@ -62,7 +63,7 @@ if (!permSrc) {
   info(`${permKeys.length} صلاحية مسجّلة`);
 
   // Check all RBAC permission references in backend are in registry
-  const requirePermSrc = readSrc(BACKEND, "src/middleware/requireAuth.ts") ?? "";
+  const requirePermSrc = readSrc(BACKEND, "src/middlewares/requireAuth.ts") ?? "";
   const backendPerms = [...requirePermSrc.matchAll(/requirePermission\(["']([^"']+)["']\)/g)].map(m => m[1]);
   const unregistered = backendPerms.filter(p => !permKeys.includes(p));
   if (unregistered.length === 0) {
@@ -331,6 +332,97 @@ if (appSrc.includes("runtimeShield")) pass("Runtime Shield مفعّل");
 else warn("runtimeShield غير موجود");
 
 /* ═════════════════════════════════════════════════════════
+   9. Tenant Security Foundation (Phase 1)
+═════════════════════════════════════════════════════════ */
+head("9/9 Tenant Security Foundation");
+let tenantSecIssues = 0;
+let tenantSecWarnings = 0;
+
+const reqAuthTenantSrc = readSrc(BACKEND, "src/middlewares/requireAuth.ts") ?? "";
+const tenantMwCompatSrc = readSrc(BACKEND, "src/middlewares/tenantMiddleware.ts") ?? "";
+const tenantResSrc = readSrc(BACKEND, "src/middlewares/tenantResolution.ts") ?? "";
+
+if ((tenantMwCompatSrc.match(/export async function requireAuthWithTenant\s*\(/g) ?? []).length > 0) {
+  fail("تكرار تنفيذ requireAuthWithTenant في tenantMiddleware.ts");
+  tenantSecIssues++;
+} else {
+  pass("requireAuthWithTenant — تنفيذ واحد في requireAuth.ts");
+}
+
+if (tenantMwCompatSrc.includes('export { requireAuthWithTenant } from "./requireAuth"')) {
+  pass("tenantMiddleware — طبقة توافق (re-export)");
+} else {
+  warn("tenantMiddleware لا يعيد تصدير requireAuthWithTenant");
+  tenantSecWarnings++;
+}
+
+if (tenantResSrc.includes("export async function resolveTenantId")) {
+  pass("resolveTenantId منفصل في tenantResolution.ts");
+} else {
+  fail("tenantResolution.ts مفقود أو غير مكتمل");
+  tenantSecIssues++;
+}
+
+const p0Routes = [
+  ["entitlements", "src/modules/platform/entitlements.ts", [/requireAuthWithTenant/, /getRequiredTenantId/]],
+  ["copilot /chat", "src/modules/ai/copilot.ts", [/router\.post\("\/chat", requireAuthWithTenant/]],
+  ["AI gateway /ai/query", "src/modules/ai/aiGateway.ts", [/router\.post\("\/ai\/query", requireAuthWithTenant/, /getRequiredTenantId/]],
+  ["internal-messages", "src/modules/operations/internal-messages.ts", [/m\.office_id = \$\{tenantId\}/, /requireAuthWithTenant/]],
+];
+
+for (const [label, rel, patterns] of p0Routes) {
+  const src = readSrc(BACKEND, rel) ?? "";
+  const ok = patterns.every((p) => p.test(src));
+  if (ok) pass(`P0 محكم: ${label}`);
+  else {
+    fail(`P0 غير محكم: ${label}`);
+    tenantSecIssues++;
+  }
+}
+
+const unsafeFallbackPatterns = [
+  [/tenantId\s*\?\?\s*\(req as any\)\.userId/, "tenantId ?? userId"],
+  [/tenantId\s*\?\?\s*[^\n]*userId[^\n]*\?\?\s*["']unknown["']/, "tenantId ?? userId ?? unknown"],
+  [/getTenantSafe\(\)\?\.officeId\s*\?\?\s*["']default["']/, "getTenantSafe()?.officeId ?? default"],
+  [/return\s*["']default["']\s*;.*single-tenant/is, "hardcoded return default"],
+];
+
+const criticalTenantFiles = [
+  "src/modules/platform/entitlements.ts",
+  "src/modules/platform/managedIntegrations.ts",
+  "src/modules/ai/copilot.ts",
+  "src/modules/ai/aiGateway.ts",
+  "src/modules/ai/aiProviderEngine.ts",
+  "src/modules/ai/aiCredits.ts",
+  "src/copilot/tool.registry.ts",
+  "src/modules/operations/internal-messages.ts",
+  "src/modules/integrations/push.ts",
+  "src/webhookHandlers.ts",
+];
+
+let fallbackHits = 0;
+for (const rel of criticalTenantFiles) {
+  const src = readSrc(BACKEND, rel) ?? "";
+  for (const [re, label] of unsafeFallbackPatterns) {
+    if (re.test(src)) {
+      fail(`${rel}: fallback غير آمن (${label})`);
+      tenantSecIssues++;
+      fallbackHits++;
+    }
+  }
+}
+if (fallbackHits === 0) pass("لا أنماط tenant fallback حرجة في مسارات P0");
+
+if (reqAuthTenantSrc.includes("TNT_403") || reqAuthTenantSrc.includes("tenantRequiredResponse")) {
+  pass("استجابة TNT_403 موحّدة لمسارات tenant-required");
+} else {
+  warn("TNT_403 response helper غير مؤكد في requireAuth.ts");
+  tenantSecWarnings++;
+}
+
+recordResult("tenant_security", tenantSecIssues === 0, tenantSecIssues, tenantSecWarnings);
+
+/* ═════════════════════════════════════════════════════════
    Route Governance (existing check)
 ═════════════════════════════════════════════════════════ */
 head("+ Route Governance (للتأكيد)");
@@ -357,6 +449,7 @@ const layers = [
   ["Background Jobs Registry","jobs"],
   ["DB Registry",             "db"],
   ["API Layer",               "api"],
+  ["Tenant Security",         "tenant_security"],
 ];
 
 let criticalFails = 0;
@@ -371,7 +464,7 @@ for (const [label, key] of layers) {
 console.log();
 if (criticalFails === 0 && totalIssues === 0) {
   console.log(`${C.BOLD}${C.GREEN}🎉 Platform Governance: PASS${C.RESET}`);
-  console.log(`${C.GREEN}   جميع طبقات المنصة الـ 8 محكومة ومفحوصة${C.RESET}`);
+  console.log(`${C.GREEN}   جميع طبقات المنصة الـ 9 محكومة ومفحوصة${C.RESET}`);
   if (totalWarnings > 0) console.log(`${C.YELLOW}   تحذيرات: ${totalWarnings} (غير حرجة)${C.RESET}`);
   console.log();
   process.exit(0);

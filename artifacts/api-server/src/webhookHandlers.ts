@@ -7,6 +7,20 @@ import nodemailer from "nodemailer";
 import { auditLog, buildLogLine } from "./lib/auditLogger";
 import { getProductionBaseUrl } from "./lib/productionUrl";
 
+/** Stripe webhooks must carry metadata.officeId — no runtime default tenant */
+function resolveStripeOfficeId(
+  metadata: Record<string, string | undefined> | null | undefined,
+  eventId: string,
+  eventType: string,
+): string | null {
+  const officeId = metadata?.officeId;
+  if (officeId && officeId !== "default") return officeId;
+  console.error(
+    `[Webhook] ${eventType} (${eventId}): missing or invalid metadata.officeId — event skipped`,
+  );
+  return null;
+}
+
 /* ── Revenue calculation (mirrors the document spec) ──────────────
    Platform fee : 10%
    Stripe fee   : 2.9% + 1.00 SAR fixed  (approximate for SAR)
@@ -109,7 +123,8 @@ export class WebhookHandlers {
         /* Subscription checkout — provision tenant */
         const plan     = session?.metadata?.plan ?? session?.metadata?.planId ?? 'basic';
         const email    = session?.customer_email ?? session?.customer_details?.email ?? 'unknown';
-        const officeId = session?.metadata?.officeId ?? 'default';
+        const officeId = resolveStripeOfficeId(session?.metadata, eventId, eventType);
+        if (!officeId) return;
         const grossSAR = (session?.amount_total ?? 0) / 100;
 
         console.log(`[Webhook] checkout.session.completed (subscription) — office=${officeId} plan=${plan} amount=${grossSAR} SAR`);
@@ -142,7 +157,12 @@ export class WebhookHandlers {
       const grossSAR = (inv?.amount_paid ?? 0) / 100;
       if (grossSAR <= 0) { /* free plan / zero invoice */ }
       else {
-        const officeId    = inv?.metadata?.officeId ?? inv?.subscription_details?.metadata?.officeId ?? 'default';
+        const officeId = resolveStripeOfficeId(
+          inv?.metadata ?? inv?.subscription_details?.metadata,
+          eventId,
+          eventType,
+        );
+        if (!officeId) return;
         const plan        = inv?.metadata?.plan     ?? inv?.subscription_details?.metadata?.plan     ?? 'unknown';
         const email       = inv?.customer_email ?? 'unknown';
         const periodEnd   = inv?.lines?.data?.[0]?.period?.end
@@ -186,7 +206,8 @@ export class WebhookHandlers {
     ══════════════════════════════════════════════════════════════ */
     if (eventType === 'customer.subscription.updated') {
       const sub      = event.data.object as any;
-      const officeId = sub?.metadata?.officeId ?? 'default';
+      const officeId = resolveStripeOfficeId(sub?.metadata, eventId, eventType);
+      if (!officeId) return;
       const plan     = sub?.metadata?.plan     ?? sub?.metadata?.planId ?? null;
       const status   = sub?.status as string;
 
@@ -224,7 +245,8 @@ export class WebhookHandlers {
     ══════════════════════════════════════════════════════════════ */
     if (eventType === 'customer.subscription.deleted') {
       const sub      = event.data.object as any;
-      const officeId = sub?.metadata?.officeId ?? 'default';
+      const officeId = resolveStripeOfficeId(sub?.metadata, eventId, eventType);
+      if (!officeId) return;
       try {
         await db.execute(sql`
           UPDATE subscriptions SET status = 'cancelled' WHERE office_id = ${officeId}
@@ -240,7 +262,8 @@ export class WebhookHandlers {
     ══════════════════════════════════════════════════════════════ */
     if (eventType === 'invoice.payment_failed') {
       const inv       = event.data.object as any;
-      const officeId  = inv?.metadata?.officeId ?? 'default';
+      const officeId  = resolveStripeOfficeId(inv?.metadata, eventId, eventType);
+      if (!officeId) return;
       const attempt   = inv?.attempt_count ?? 1;
 
       try {
@@ -274,7 +297,8 @@ export class WebhookHandlers {
     ══════════════════════════════════════════════════════════════ */
     if (eventType === 'customer.subscription.trial_will_end') {
       const sub      = event.data.object as any;
-      const officeId = sub?.metadata?.officeId ?? 'default';
+      const officeId = resolveStripeOfficeId(sub?.metadata, eventId, eventType);
+      if (!officeId) return;
       const trialEnd = new Date((sub?.trial_end ?? 0) * 1000).toLocaleDateString('ar-SA');
       try {
         await db.execute(sql`

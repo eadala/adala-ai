@@ -1,20 +1,20 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 /**
- * Login Tracking Routes — Professional SaaS Login Analytics
- *
- * POST /api/security/login        — record a login event (called by frontend)
- * GET  /api/security/logins       — paginated login history
- * GET  /api/security/login-stats  — aggregated stats for dashboard
- * GET  /api/security/active-sessions — users active in last 30 min
+ * Login Tracking Routes — tenant-scoped via requireAuthWithTenant on reads.
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
+import { resolveTenantId } from "../../middlewares/tenantMiddleware";
+import {
+  getRequiredTenantId,
+  tenantRequiredResponse,
+  TenantRequiredError,
+} from "../../core/tenantContext";
 
 const router = Router();
 
-/* ── helpers ──────────────────────────────────────────── */
 async function rows(q: any): Promise<any[]> {
   try {
     const r = await db.execute(q) as any;
@@ -26,7 +26,6 @@ async function one(q: any): Promise<any | null> {
   return r[0] ?? null;
 }
 
-/** Parse browser and OS from user-agent string */
 function parseUserAgent(ua: string): { browser: string; os: string; deviceType: string } {
   const s = ua ?? "";
 
@@ -53,7 +52,6 @@ function parseUserAgent(ua: string): { browser: string; os: string; deviceType: 
   return { browser, os, deviceType };
 }
 
-/** Extract real IP from forwarded headers */
 function getClientIp(req: any): string {
   const forwarded = req.headers["x-forwarded-for"] as string | undefined;
   if (forwarded) {
@@ -62,25 +60,30 @@ function getClientIp(req: any): string {
   return req.ip ?? req.socket?.remoteAddress ?? "غير محدد";
 }
 
-/* ══════════════════════════════════════════════════
-   POST /api/security/login — Record login event
-══════════════════════════════════════════════════ */
+function handleTenantError(err: unknown, res: import("express").Response) {
+  if (err instanceof TenantRequiredError) {
+    return res.status(403).json(tenantRequiredResponse());
+  }
+  throw err;
+}
+
 router.post("/security/login", async (req, res) => {
   try {
-    /* Auth required — userId and identity always server-resolved from Clerk */
     const auth = getAuth(req as any);
     if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
 
     const userId = auth.userId;
-
-    /* Only sessionId accepted from client — identity fields server-resolved */
     const sessionId: string | null = (typeof req.body?.sessionId === "string" && req.body.sessionId)
       ? req.body.sessionId : null;
 
     const ipAddress = getClientIp(req);
     const userAgent = (req.headers["user-agent"] as string) ?? "";
     const { browser, os, deviceType } = parseUserAgent(userAgent);
-    const officeId = "default";
+
+    const officeId = await resolveTenantId(userId);
+    if (!officeId) {
+      return res.status(403).json(tenantRequiredResponse(userId));
+    }
 
     await db.execute(sql`
       INSERT INTO login_logs
@@ -93,191 +96,147 @@ router.post("/security/login", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err: any) {
-        res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-/* ══════════════════════════════════════════════════
-   GET /api/security/logins — Login history
-══════════════════════════════════════════════════ */
-router.get("/security/logins", requireAuth, async (req, res) => {
-  const auth = getAuth(req as any);
-  if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
-
-  const limit  = Math.min(parseInt(String(req.query.limit  ?? 50)), 200);
-  const offset = parseInt(String(req.query.offset ?? 0));
-  const status = req.query.status as string | undefined;
-
+router.get("/security/logins", requireAuthWithTenant, async (req, res) => {
   try {
+    const officeId = getRequiredTenantId(req);
+    const limit  = Math.min(parseInt(String(req.query.limit  ?? 50)), 200);
+    const offset = parseInt(String(req.query.offset ?? 0));
+    const status = req.query.status as string | undefined;
+
     const data = await rows(sql`
       SELECT id, user_id, email, full_name, ip_address, browser, os,
              device_type, status, session_id, created_at
       FROM login_logs
-      WHERE office_id = 'default'
+      WHERE office_id = ${officeId}
         ${status ? sql`AND status = ${status}` : sql``}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
 
-    const total = await one(sql`
-      SELECT COUNT(*)::int AS cnt FROM login_logs WHERE office_id = 'default'
-      ${status ? sql`AND status = ${status}` : sql``}
+    const countRow = await one(sql`
+      SELECT COUNT(*)::int AS cnt FROM login_logs WHERE office_id = ${officeId}
+        ${status ? sql`AND status = ${status}` : sql``}
     `);
 
-    res.json({ logs: data, total: total?.cnt ?? 0, limit, offset });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.json({ data, total: countRow?.cnt ?? 0, limit, offset });
+  } catch (err) {
+    if (handleTenantError(err, res)) return;
+    res.status(500).json({ error: (err as Error).message });
   }
 });
 
-/* ══════════════════════════════════════════════════
-   GET /api/security/login-stats — Dashboard stats
-══════════════════════════════════════════════════ */
-router.get("/security/login-stats", requireAuth, async (req, res) => {
-  const auth = getAuth(req as any);
-  if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
-
+router.get("/security/login-stats", requireAuthWithTenant, async (req, res) => {
   try {
-    const today = await one(sql`
-      SELECT COUNT(*)::int AS cnt FROM login_logs
-      WHERE office_id = 'default'
-        AND created_at >= CURRENT_DATE
-    `);
+    const officeId = getRequiredTenantId(req);
 
-    const total = await one(sql`
-      SELECT COUNT(*)::int AS cnt FROM login_logs WHERE office_id = 'default'
-    `);
-
-    const successCount = await one(sql`
-      SELECT COUNT(*)::int AS cnt FROM login_logs
-      WHERE office_id = 'default' AND status = 'success'
-    `);
-
-    const failedCount = await one(sql`
-      SELECT COUNT(*)::int AS cnt FROM login_logs
-      WHERE office_id = 'default' AND status = 'failed'
-    `);
-
-    const suspiciousCount = await one(sql`
-      SELECT COUNT(*)::int AS cnt FROM login_logs
-      WHERE office_id = 'default' AND status = 'suspicious'
-    `);
-
-    const uniqueUsers = await one(sql`
-      SELECT COUNT(DISTINCT user_id)::int AS cnt FROM login_logs
-      WHERE office_id = 'default' AND user_id IS NOT NULL
-    `);
-
-    const uniqueIps = await one(sql`
-      SELECT COUNT(DISTINCT ip_address)::int AS cnt FROM login_logs
-      WHERE office_id = 'default'
-    `);
-
-    /* Browsers breakdown */
-    const browsers = await rows(sql`
-      SELECT browser, COUNT(*)::int AS cnt
-      FROM login_logs WHERE office_id = 'default'
-      GROUP BY browser ORDER BY cnt DESC LIMIT 6
-    `);
-
-    /* OS breakdown */
-    const devices = await rows(sql`
-      SELECT device_type, COUNT(*)::int AS cnt
-      FROM login_logs WHERE office_id = 'default'
-      GROUP BY device_type ORDER BY cnt DESC
-    `);
-
-    /* Hourly activity (last 7 days) */
-    const hourly = await rows(sql`
+    const stats = await one(sql`
       SELECT
-        TO_CHAR(created_at, 'YYYY-MM-DD HH24') AS hour,
-        COUNT(*)::int AS cnt
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE status = 'success')::int AS success_count,
+        COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_count,
+        COUNT(*) FILTER (WHERE status = 'suspicious')::int AS suspicious_count,
+        COUNT(DISTINCT user_id) FILTER (WHERE user_id IS NOT NULL)::int AS unique_users
       FROM login_logs
-      WHERE office_id = 'default'
-        AND created_at >= NOW() - INTERVAL '7 days'
-      GROUP BY hour ORDER BY hour
+      WHERE office_id = ${officeId}
     `);
 
-    /* Top users */
-    const topUsers = await rows(sql`
-      SELECT email, full_name, COUNT(*)::int AS login_count,
-             MAX(created_at) AS last_login
-      FROM login_logs
-      WHERE office_id = 'default' AND email IS NOT NULL
-      GROUP BY email, full_name
-      ORDER BY login_count DESC LIMIT 10
+    const last24h = await one(sql`
+      SELECT COUNT(*)::int AS cnt FROM login_logs
+      WHERE office_id = ${officeId}
+        AND created_at >= NOW() - INTERVAL '24 hours'
     `);
 
-    /* Recent suspicious */
+    const byBrowser = await rows(sql`
+      SELECT browser, COUNT(*)::int AS count
+      FROM login_logs
+      WHERE office_id = ${officeId}
+      GROUP BY browser ORDER BY count DESC LIMIT 5
+    `);
+
+    const byOs = await rows(sql`
+      SELECT os, COUNT(*)::int AS count
+      FROM login_logs
+      WHERE office_id = ${officeId}
+      GROUP BY os ORDER BY count DESC LIMIT 5
+    `);
+
+    const recentFailed = await rows(sql`
+      SELECT id, user_id, email, ip_address, created_at
+      FROM login_logs
+      WHERE office_id = ${officeId} AND status = 'failed'
+      ORDER BY created_at DESC LIMIT 10
+    `);
+
+    const topEmails = await rows(sql`
+      SELECT email, COUNT(*)::int AS count
+      FROM login_logs
+      WHERE office_id = ${officeId} AND email IS NOT NULL
+      GROUP BY email ORDER BY count DESC LIMIT 5
+    `);
+
     const suspicious = await rows(sql`
-      SELECT id, email, full_name, ip_address, browser, os, created_at
+      SELECT id, user_id, email, ip_address, browser, created_at
       FROM login_logs
-      WHERE office_id = 'default' AND status = 'suspicious'
-      ORDER BY created_at DESC LIMIT 5
+      WHERE office_id = ${officeId} AND status = 'suspicious'
+      ORDER BY created_at DESC LIMIT 10
     `);
 
     res.json({
-      today:           today?.cnt ?? 0,
-      total:           total?.cnt ?? 0,
-      success:         successCount?.cnt ?? 0,
-      failed:          failedCount?.cnt ?? 0,
-      suspicious:      suspiciousCount?.cnt ?? 0,
-      uniqueUsers:     uniqueUsers?.cnt ?? 0,
-      uniqueIps:       uniqueIps?.cnt ?? 0,
-      browsers,
-      devices,
-      hourly,
-      topUsers,
-      recentSuspicious: suspicious,
+      ...stats,
+      last24h: last24h?.cnt ?? 0,
+      byBrowser,
+      byOs,
+      recentFailed,
+      topEmails,
+      suspicious,
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    if (handleTenantError(err, res)) return;
+    res.status(500).json({ error: (err as Error).message });
   }
 });
 
-/* ══════════════════════════════════════════════════
-   GET /api/security/my-sessions — Current user's own sessions
-══════════════════════════════════════════════════ */
-router.get("/security/my-sessions", requireAuth, async (req, res) => {
-  const auth = getAuth(req as any);
-  if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
-
+router.get("/security/active-sessions", requireAuthWithTenant, async (req, res) => {
   try {
+    const officeId = getRequiredTenantId(req);
+
     const data = await rows(sql`
-      SELECT id, ip_address, browser, os, device_type, status, created_at
+      SELECT DISTINCT ON (user_id)
+        user_id, email, full_name, ip_address, browser, os, device_type, session_id, created_at
       FROM login_logs
-      WHERE user_id = ${auth.userId}
-      ORDER BY created_at DESC
-      LIMIT 50
+      WHERE office_id = ${officeId}
+        AND status = 'success'
+        AND created_at >= NOW() - INTERVAL '30 minutes'
+      ORDER BY user_id, created_at DESC
     `);
 
-    const uniqueIps   = new Set(data.map((r: any) => r.ip_address)).size;
-    const deviceBreak = data.reduce((acc: any, r: any) => {
-      acc[r.device_type] = (acc[r.device_type] || 0) + 1;
-      return acc;
-    }, {});
-
-    res.json({ sessions: data, uniqueIps, deviceBreakdown: deviceBreak, total: data.length });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.json(data);
+  } catch (err) {
+    if (handleTenantError(err, res)) return;
+    res.status(500).json({ error: (err as Error).message });
   }
 });
 
-/* ══════════════════════════════════════════════════
-   DELETE /api/security/logins/:id — Remove log entry
-══════════════════════════════════════════════════ */
-router.delete("/security/logins/:id", requireAuth, async (req, res) => {
-  const auth = getAuth(req as any);
-  if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
-
+router.patch("/security/logins/:id/flag", requireAuthWithTenant, async (req, res) => {
   try {
-    await db.execute(sql`
-      DELETE FROM login_logs
-      WHERE id = ${String(req.params.id)}::uuid AND office_id = 'default'
+    const officeId = getRequiredTenantId(req);
+    const { status = "suspicious" } = req.body as { status?: string };
+
+    const updated = await one(sql`
+      UPDATE login_logs SET status = ${status}
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${officeId}
+      RETURNING id, status
     `);
-    res.json({ ok: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+
+    if (!updated) return res.status(404).json({ error: "السجل غير موجود" });
+    res.json(updated);
+  } catch (err) {
+    if (handleTenantError(err, res)) return;
+    res.status(500).json({ error: (err as Error).message });
   }
 });
 
