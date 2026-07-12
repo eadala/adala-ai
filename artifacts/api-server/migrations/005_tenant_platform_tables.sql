@@ -56,7 +56,10 @@ CREATE TABLE IF NOT EXISTS onboarding_state (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ── system_events — eventBus.ts ────────────────────────────────────────────
+-- ── system_events — eventBus.ts + control-tower/production-os/saas-os/monitoring ─
+-- Canonical: event_type, office_id, actor_id, payload (eventBus.ts)
+-- Also used: metadata (control-tower, production-os), severity (monitoring, recovery),
+--            type + source (saas-os) — all added idempotently below.
 CREATE TABLE IF NOT EXISTS system_events (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_type  TEXT NOT NULL,
@@ -65,6 +68,30 @@ CREATE TABLE IF NOT EXISTS system_events (
   payload     JSONB NOT NULL DEFAULT '{}',
   created_at  TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE system_events ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
+ALTER TABLE system_events ADD COLUMN IF NOT EXISTS severity TEXT;
+ALTER TABLE system_events ADD COLUMN IF NOT EXISTS source   TEXT;
+ALTER TABLE system_events ADD COLUMN IF NOT EXISTS type     TEXT;
+
+-- Bridge legacy INSERT paths (saas-os uses type; control-tower uses metadata)
+CREATE OR REPLACE FUNCTION trg_system_events_coalesce_columns()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.event_type IS NULL AND NEW.type IS NOT NULL THEN
+    NEW.event_type := NEW.type;
+  END IF;
+  IF (NEW.payload IS NULL OR NEW.payload = '{}'::jsonb) AND NEW.metadata IS NOT NULL AND NEW.metadata <> '{}'::jsonb THEN
+    NEW.payload := NEW.metadata;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS system_events_coalesce_columns ON system_events;
+CREATE TRIGGER system_events_coalesce_columns
+  BEFORE INSERT ON system_events
+  FOR EACH ROW EXECUTE FUNCTION trg_system_events_coalesce_columns();
 
 CREATE INDEX IF NOT EXISTS idx_system_events_type    ON system_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_system_events_office  ON system_events(office_id);

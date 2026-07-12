@@ -679,7 +679,7 @@ BEGIN
   ) THEN
     BEGIN
       EXECUTE 'ALTER TABLE "attendance" ADD CONSTRAINT "attendance_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;';
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
     END;
   END IF;
 
@@ -688,7 +688,7 @@ BEGIN
   ) THEN
     BEGIN
       EXECUTE 'ALTER TABLE "employee_investigations" ADD CONSTRAINT "employee_investigations_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;';
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
     END;
   END IF;
 
@@ -697,7 +697,7 @@ BEGIN
   ) THEN
     BEGIN
       EXECUTE 'ALTER TABLE "employee_warnings" ADD CONSTRAINT "employee_warnings_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;';
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
     END;
   END IF;
 
@@ -706,7 +706,7 @@ BEGIN
   ) THEN
     BEGIN
       EXECUTE 'ALTER TABLE "leaves" ADD CONSTRAINT "leaves_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;';
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
     END;
   END IF;
 
@@ -715,7 +715,7 @@ BEGIN
   ) THEN
     BEGIN
       EXECUTE 'ALTER TABLE "payroll" ADD CONSTRAINT "payroll_employee_id_employees_id_fk" FOREIGN KEY ("employee_id") REFERENCES "public"."employees"("id") ON DELETE cascade ON UPDATE no action;';
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
     END;
   END IF;
 
@@ -724,7 +724,7 @@ BEGIN
   ) THEN
     BEGIN
       EXECUTE 'ALTER TABLE "office_articles" ADD CONSTRAINT "office_articles_office_id_office_page_id_fk" FOREIGN KEY ("office_id") REFERENCES "public"."office_page"("id") ON DELETE cascade ON UPDATE no action;';
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
     END;
   END IF;
 
@@ -733,7 +733,7 @@ BEGIN
   ) THEN
     BEGIN
       EXECUTE 'ALTER TABLE "office_domains" ADD CONSTRAINT "office_domains_office_id_office_page_id_fk" FOREIGN KEY ("office_id") REFERENCES "public"."office_page"("id") ON DELETE cascade ON UPDATE no action;';
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
     END;
   END IF;
 
@@ -742,7 +742,7 @@ BEGIN
   ) THEN
     BEGIN
       EXECUTE 'ALTER TABLE "office_orders" ADD CONSTRAINT "office_orders_office_id_office_page_id_fk" FOREIGN KEY ("office_id") REFERENCES "public"."office_page"("id") ON DELETE cascade ON UPDATE no action;';
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
     END;
   END IF;
 
@@ -751,7 +751,7 @@ BEGIN
   ) THEN
     BEGIN
       EXECUTE 'ALTER TABLE "office_orders" ADD CONSTRAINT "office_orders_service_id_office_services_id_fk" FOREIGN KEY ("service_id") REFERENCES "public"."office_services"("id") ON DELETE no action ON UPDATE no action;';
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
     END;
   END IF;
 
@@ -760,7 +760,7 @@ BEGIN
   ) THEN
     BEGIN
       EXECUTE 'ALTER TABLE "office_reviews" ADD CONSTRAINT "office_reviews_office_id_office_page_id_fk" FOREIGN KEY ("office_id") REFERENCES "public"."office_page"("id") ON DELETE cascade ON UPDATE no action;';
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
     END;
   END IF;
 
@@ -769,7 +769,7 @@ BEGIN
   ) THEN
     BEGIN
       EXECUTE 'ALTER TABLE "office_services" ADD CONSTRAINT "office_services_office_id_office_page_id_fk" FOREIGN KEY ("office_id") REFERENCES "public"."office_page"("id") ON DELETE cascade ON UPDATE no action;';
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
     END;
   END IF;
 
@@ -778,7 +778,7 @@ BEGIN
   ) THEN
     BEGIN
       EXECUTE 'ALTER TABLE "office_team" ADD CONSTRAINT "office_team_office_id_office_page_id_fk" FOREIGN KEY ("office_id") REFERENCES "public"."office_page"("id") ON DELETE cascade ON UPDATE no action;';
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
     END;
   END IF;
 END $fk$;

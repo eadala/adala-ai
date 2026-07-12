@@ -83,7 +83,7 @@ BASELINE_TABLES=()
 if [[ -f "$BASELINE_MANIFEST" ]]; then
   while IFS= read -r t; do
     BASELINE_TABLES+=("$t")
-  done < <(grep -oP 'CREATE TABLE "\K[^"]+' "$BASELINE_MANIFEST" | sort -u)
+  done < <(sed -n 's/^CREATE TABLE "\([^"]*\)".*/\1/p' "$BASELINE_MANIFEST" | sort -u)
 fi
 
 MISSING_BASELINE=()

@@ -68,3 +68,14 @@ bash scripts/db/verify-schema.sh
 
 راجع `scripts/db/backup-restore.sh restore` — الاستعادة من pg_dump هي الطريقة الآمنة.
 `DROP TABLE` يدوي غير موصى به على Production.
+
+## اختبارات Integration (قبل PR)
+
+```bash
+# PostgreSQL محلي فقط — لا يلمس Production
+bash scripts/db/test-migrations.integration.sh
+```
+
+يغطي: DB فارغة، DB جزئية + idempotency، محاذاة schema، backup/restore.
+
+راجع `scripts/db/boot-created-tables.md` لقائمة جداول boot وقيود Docker.

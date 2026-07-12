@@ -81,7 +81,10 @@ case "$ACTION" in
     echo "⚠️  RESTORE will overwrite existing objects in the database"
     echo "   Source: $DUMP_PATH"
     echo "   Target: $DATABASE_URL"
-    read -r -p "Type RESTORE to confirm: " CONFIRM
+    CONFIRM="${RESTORE_CONFIRM:-}"
+    if [[ -z "$CONFIRM" ]]; then
+      read -r -p "Type RESTORE to confirm: " CONFIRM
+    fi
     if [[ "$CONFIRM" != "RESTORE" ]]; then
       echo "Aborted."
       exit 1
