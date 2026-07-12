@@ -152,7 +152,7 @@ const RecordPaymentSchema = z.object({
 /* ════════════════════════════════════════════════════════════════════════════
    GET /invoices
 ════════════════════════════════════════════════════════════════════════════ */
-router.get("/invoices", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.get("/invoices", requireAuthWithTenant, requirePermission("invoices:view"), async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -233,7 +233,7 @@ router.get("/invoices/public/:token", async (req: Request, res: Response) => {
 /* ════════════════════════════════════════════════════════════════════════════
    GET /invoices/:id
 ════════════════════════════════════════════════════════════════════════════ */
-router.get("/invoices/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.get("/invoices/:id", requireAuthWithTenant, requirePermission("invoices:view"), async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -252,7 +252,7 @@ router.get("/invoices/:id", requireAuthWithTenant, async (req: Request, res: Res
 /* ════════════════════════════════════════════════════════════════════════════
    POST /invoices — إنشاء فاتورة
 ════════════════════════════════════════════════════════════════════════════ */
-router.post("/invoices", requireAuthWithTenant, validate(CreateInvoiceSchema), async (req: Request, res: Response) => {
+router.post("/invoices", requireAuthWithTenant, requirePermission("invoices:create"), validate(CreateInvoiceSchema), async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -312,7 +312,7 @@ router.post("/invoices", requireAuthWithTenant, validate(CreateInvoiceSchema), a
 /* ════════════════════════════════════════════════════════════════════════════
    PUT /invoices/:id — تعديل فاتورة
 ════════════════════════════════════════════════════════════════════════════ */
-router.put("/invoices/:id", requireAuthWithTenant, validate(UpdateInvoiceSchema), async (req: Request, res: Response) => {
+router.put("/invoices/:id", requireAuthWithTenant, requirePermission("invoices:edit"), validate(UpdateInvoiceSchema), async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -420,7 +420,7 @@ router.delete("/invoices/:id", requireAuthWithTenant, requirePermission("invoice
 /* ════════════════════════════════════════════════════════════════════════════
    GET /invoices/:id/payments — قائمة الدفعات
 ════════════════════════════════════════════════════════════════════════════ */
-router.get("/invoices/:id/payments", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.get("/invoices/:id/payments", requireAuthWithTenant, requirePermission("payments:view"), async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -454,7 +454,7 @@ router.get("/invoices/:id/payments", requireAuthWithTenant, async (req: Request,
 /* ════════════════════════════════════════════════════════════════════════════
    POST /invoices/:id/payments — تسجيل دفعة
 ════════════════════════════════════════════════════════════════════════════ */
-router.post("/invoices/:id/payments", requireAuthWithTenant, validate(RecordPaymentSchema), async (req: Request, res: Response) => {
+router.post("/invoices/:id/payments", requireAuthWithTenant, requirePermission("payments:create"), validate(RecordPaymentSchema), async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -542,7 +542,7 @@ router.post("/invoices/:id/payments", requireAuthWithTenant, validate(RecordPaym
 /* ════════════════════════════════════════════════════════════════════════════
    DELETE /invoices/:id/payments/:pid — حذف دفعة
 ════════════════════════════════════════════════════════════════════════════ */
-router.delete("/invoices/:id/payments/:pid", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.delete("/invoices/:id/payments/:pid", requireAuthWithTenant, requirePermission("payments:create"), async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -592,7 +592,7 @@ router.delete("/invoices/:id/payments/:pid", requireAuthWithTenant, async (req: 
    POST /invoices/:id/payment-link — Stripe Payment Link
    المبلغ يُضرب ×100 هنا فقط (تحويل SAR → هللة لـ Stripe)
 ════════════════════════════════════════════════════════════════════════════ */
-router.post("/invoices/:id/payment-link", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.post("/invoices/:id/payment-link", requireAuthWithTenant, requirePermission("invoices:edit"), async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     const [invoice] = await db.select().from(invoicesTable)
@@ -674,7 +674,7 @@ router.post("/invoices/:id/payment-link", requireAuthWithTenant, async (req: Req
 /* ════════════════════════════════════════════════════════════════════════════
    POST /invoices/:id/mark-paid — تسجيل دفعة كاملة سريعة
 ════════════════════════════════════════════════════════════════════════════ */
-router.post("/invoices/:id/mark-paid", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.post("/invoices/:id/mark-paid", requireAuthWithTenant, requirePermission("payments:create"), async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
@@ -735,7 +735,7 @@ router.post("/invoices/:id/mark-paid", requireAuthWithTenant, async (req: Reques
 /* ════════════════════════════════════════════════════════════════════════════
    POST /invoices/:id/send-email — إرسال الفاتورة بالبريد الإلكتروني
 ════════════════════════════════════════════════════════════════════════════ */
-router.post("/invoices/:id/send-email", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.post("/invoices/:id/send-email", requireAuthWithTenant, requirePermission("invoices:edit"), async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");

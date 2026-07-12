@@ -1,4 +1,5 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { getRequiredTenantId } from "../../core/tenantContext";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -135,10 +136,11 @@ function getDeviceInfo(req: Request): string {
 }
 
 // GET /api/internal-messages?folder=inbox|sent|drafts|archive
-router.get("/", requireAuth, async (req: Request, res: Response) => {
+router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tenantId = getRequiredTenantId(req);
     const { folder = "inbox", search = "" } = req.query as any;
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const userId = (req as any).userId ?? (req as any).auth?.userId ?? "anonymous";
     const searchTerm: string | null = search ? String(search).trim() : null;
 
     let rows: any[] = [];
@@ -158,7 +160,9 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         FROM office_messages m
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
-        WHERE m.sender_id = ${userId} AND m.folder != 'draft'
+        WHERE m.office_id = ${tenantId}
+          AND m.sender_id = ${userId} AND m.folder != 'draft'
+          AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
           ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
         GROUP BY m.id
         ORDER BY m.created_at DESC
@@ -175,7 +179,9 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
           '[]'::json AS attachments
         FROM office_messages m
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
-        WHERE m.sender_id = ${userId} AND m.folder = 'draft'
+        WHERE m.office_id = ${tenantId}
+          AND m.sender_id = ${userId} AND m.folder = 'draft'
+          AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
           ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
         GROUP BY m.id
         ORDER BY m.created_at DESC
@@ -196,7 +202,16 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         FROM office_messages m
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
-        WHERE m.folder = 'archive'
+        WHERE m.office_id = ${tenantId}
+          AND m.folder = 'archive'
+          AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
+          AND (
+            m.sender_id = ${userId}
+            OR EXISTS (
+              SELECT 1 FROM office_message_recipients ar
+              WHERE ar.message_id = m.id AND ar.user_id = ${userId}
+            )
+          )
           ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
         GROUP BY m.id
         ORDER BY m.created_at DESC
@@ -220,7 +235,9 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         JOIN office_message_recipients r_me ON r_me.message_id = m.id AND r_me.user_id = ${userId}
         LEFT JOIN office_message_recipients r2 ON r2.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
-        WHERE m.folder = 'sent'
+        WHERE m.office_id = ${tenantId}
+          AND m.folder = 'sent'
+          AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
           ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
         GROUP BY m.id, r_me.is_read, r_me.read_at, r_me.reader_ip
         ORDER BY m.created_at DESC
@@ -236,24 +253,33 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
 });
 
 // GET /api/internal-messages/stats/counts
-router.get("/stats/counts", requireAuth, async (req: Request, res: Response) => {
+router.get("/stats/counts", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const tenantId = getRequiredTenantId(req);
+    const userId = (req as any).userId ?? (req as any).auth?.userId ?? "anonymous";
 
     const inboxQ = await db.execute(sql`
       SELECT COUNT(*) AS total,
         SUM(CASE WHEN r.is_read = FALSE THEN 1 ELSE 0 END) AS unread
       FROM office_messages m
       JOIN office_message_recipients r ON r.message_id = m.id AND r.user_id = ${userId}
-      WHERE m.folder = 'sent'
+      WHERE m.office_id = ${tenantId}
+        AND m.folder = 'sent'
+        AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
     `);
 
     const sentQ = await db.execute(sql`
-      SELECT COUNT(*) AS total FROM office_messages WHERE sender_id = ${userId} AND folder != 'draft'
+      SELECT COUNT(*) AS total FROM office_messages
+      WHERE office_id = ${tenantId}
+        AND sender_id = ${userId} AND folder != 'draft'
+        AND (deleted_at IS NULL OR deleted_at > NOW())
     `);
 
     const draftQ = await db.execute(sql`
-      SELECT COUNT(*) AS total FROM office_messages WHERE sender_id = ${userId} AND folder = 'draft'
+      SELECT COUNT(*) AS total FROM office_messages
+      WHERE office_id = ${tenantId}
+        AND sender_id = ${userId} AND folder = 'draft'
+        AND (deleted_at IS NULL OR deleted_at > NOW())
     `);
 
     res.json({
@@ -267,10 +293,11 @@ router.get("/stats/counts", requireAuth, async (req: Request, res: Response) => 
 });
 
 // GET /api/internal-messages/:id
-router.get("/:id", requireAuth, async (req: Request, res: Response) => {
+router.get("/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tenantId = getRequiredTenantId(req);
     const { id } = req.params as Record<string, string>;
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const userId = (req as any).userId ?? (req as any).auth?.userId ?? "anonymous";
     const ip = getClientIp(req);
 
     const q = await db.execute(sql`
@@ -291,6 +318,14 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
       LEFT JOIN office_message_recipients r ON r.message_id = m.id
       LEFT JOIN office_message_attachments a ON a.message_id = m.id
       WHERE m.id = ${id}::uuid
+        AND m.office_id = ${tenantId}
+        AND (
+          m.sender_id = ${userId}
+          OR EXISTS (
+            SELECT 1 FROM office_message_recipients ar
+            WHERE ar.message_id = m.id AND ar.user_id = ${userId}
+          )
+        )
       GROUP BY m.id
     `);
 
@@ -309,8 +344,9 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
 });
 
 // GET /api/internal-messages/case/:caseId — messages for a specific case
-router.get("/case/:caseId", requireAuth, async (req: Request, res: Response) => {
+router.get("/case/:caseId", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tenantId = getRequiredTenantId(req);
     const { caseId } = req.params as Record<string, string>;
     const numericId = parseInt(caseId, 10);
 
@@ -331,6 +367,8 @@ router.get("/case/:caseId", requireAuth, async (req: Request, res: Response) => 
       FROM office_messages m
       LEFT JOIN office_message_recipients r ON r.message_id = m.id
       WHERE m.case_id = ${numericId}
+        AND m.office_id = ${tenantId}
+        AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
       GROUP BY m.id
       ORDER BY m.created_at DESC
       LIMIT 100
@@ -343,19 +381,20 @@ router.get("/case/:caseId", requireAuth, async (req: Request, res: Response) => 
 });
 
 // POST /api/internal-messages
-router.post("/", requireAuth, async (req: Request, res: Response) => {
+router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tenantId = getRequiredTenantId(req);
     const { subject, body, recipients = [], attachments = [], folder = "sent", tags = [], caseId } = req.body;
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const userId = (req as any).userId ?? (req as any).auth?.userId ?? "anonymous";
     const senderName = (req as any).auth?.sessionClaims?.fullName ?? "المرسِل";
     const ip = getClientIp(req);
     const device = getDeviceInfo(req);
     const tagsArr = `{${(tags as string[]).join(",")}}`;
 
     const ins = await db.execute(sql`
-      INSERT INTO office_messages (subject, body, sender_id, sender_name, sender_ip, device_info, folder, tags, case_id)
+      INSERT INTO office_messages (subject, body, sender_id, sender_name, sender_ip, device_info, folder, tags, case_id, office_id)
       VALUES (${subject}, ${body}, ${userId}, ${senderName}, ${ip}, ${device}, ${folder}, ${tagsArr},
-              ${caseId ? Number(caseId) : null})
+              ${caseId ? Number(caseId) : null}, ${tenantId})
       RETURNING id, subject, body, sender_id, sender_name, folder, created_at, case_id
     `);
 
@@ -406,7 +445,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 // PUT /api/internal-messages/:id/archive
 router.put("/:id/archive", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = getRequiredTenantId(req);
     await db.execute(sql`UPDATE office_messages SET folder = 'archive' WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}`);
     res.json({ ok: true });
   } catch (e: any) {
@@ -417,7 +456,7 @@ router.put("/:id/archive", requireAuthWithTenant, async (req: Request, res: Resp
 // DELETE /api/internal-messages/:id  (soft delete)
 router.delete("/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = getRequiredTenantId(req);
     await db.execute(sql`
       UPDATE office_messages SET deleted_at = NOW()
       WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
@@ -434,7 +473,7 @@ router.delete("/:id", requireAuthWithTenant, async (req: Request, res: Response)
 ══════════════════════════════════════════════════════ */
 router.get("/analytics", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = getRequiredTenantId(req);
     const userId   = (req as any).auth?.userId ?? "";
     const days     = Math.min(90, Math.max(1, Number(req.query.days ?? 30)));
 
@@ -464,6 +503,7 @@ router.get("/analytics", requireAuthWithTenant, async (req: Request, res: Respon
         FROM office_message_recipients r
         JOIN office_messages m ON m.id = r.message_id
         WHERE r.user_id = ${userId} AND r.is_read = FALSE
+          AND m.office_id = ${tenantId}
           AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
       `).catch(() => ({ rows: [{ n: 0 }] })),
 
@@ -544,7 +584,7 @@ router.get("/analytics", requireAuthWithTenant, async (req: Request, res: Respon
 ══════════════════════════════════════════════════════ */
 router.post("/ai-tools", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = getRequiredTenantId(req);
     const { tool, conversationId, messages: inputMessages, targetLanguage } = req.body as {
       tool: "summarize" | "extract_tasks" | "extract_decisions" | "extract_appointments" | "suggest_reply" | "translate" | "meeting_minutes";
       conversationId?: string;

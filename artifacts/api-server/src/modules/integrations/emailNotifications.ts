@@ -128,13 +128,13 @@ router.post("/email-notifications/test", requireAuthWithTenant, async (req, res)
       });
       await db.execute(sql`
         INSERT INTO email_notification_logs (office_id, type, recipient, subject, status)
-        VALUES ('default', 'test', ${to}, 'رسالة تجريبية من عدالة AI', 'sent')
+        VALUES (${tid}, 'test', ${to}, 'رسالة تجريبية من عدالة AI', 'sent')
       `);
       res.json({ ok: true, message: "تم إرسال الرسالة التجريبية بنجاح" });
     } catch (mailErr: any) {
       await db.execute(sql`
         INSERT INTO email_notification_logs (office_id, type, recipient, subject, status, error)
-        VALUES ('default', 'test', ${to}, 'رسالة تجريبية من عدالة AI', 'failed', ${mailErr.message})
+        VALUES (${tid}, 'test', ${to}, 'رسالة تجريبية من عدالة AI', 'failed', ${mailErr.message})
       `);
       res.status(500).json({ error: "فشل الإرسال: " + mailErr.message });
     }
