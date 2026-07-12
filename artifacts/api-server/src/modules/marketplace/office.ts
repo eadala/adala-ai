@@ -12,6 +12,29 @@ import { requireProductionBaseUrl } from "../../lib/productionUrl";
 
 const router = Router();
 
+async function handleGetMyOffice(req: any, res: any) {
+  try {
+    const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
+    const officeId = await resolveTenantId(
+      req.userId,
+      req.headers["x-tenant-id"] as string | undefined,
+    );
+    /* No fallback to "first office" — only return the user's resolved tenant */
+    if (!officeId) {
+      return res.status(403).json({
+        error: "لا يمكن تحديد المكتب المرتبط بهذا الحساب",
+        code: "TNT_403",
+      });
+    }
+    const offices = await db.select().from(officePageTable)
+      .where(eq(officePageTable.id, officeId))
+      .limit(1);
+    res.json(offices[0] ?? null);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message ?? "خطأ في جلب بيانات المكتب" });
+  }
+}
+
 /* ═══ PUBLIC ROUTES (no auth) ═══════════════════════════════ */
 
 router.get("/office/public/:slug", async (req, res) => {
@@ -161,11 +184,9 @@ router.post("/office/public/:slug/review", async (req, res) => {
 
 /* ═══ MANAGEMENT ROUTES (auth assumed by middleware) ══════════ */
 
-/* GET my office */
-router.get("/office/my", requireAuth, async (_req, res) => {
-  const offices = await db.select().from(officePageTable).limit(1);
-  res.json(offices[0] ?? null);
-});
+/* GET my office (+ plural alias used by layout/mobile-nav) */
+router.get("/office/my", requireAuth, handleGetMyOffice);
+router.get("/offices/my", requireAuth, handleGetMyOffice);
 
 /* POST create office */
 router.post("/office/my", requireAuth, async (req: any, res) => {

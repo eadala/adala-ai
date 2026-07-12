@@ -9,11 +9,16 @@ import { evaluateRules, buildRuleContext } from "./rules.engine";
 import { collectMetrics } from "../observability/metrics";
 import { preventionLog } from "./prevention.log";
 
+/** Public beacon endpoint — sendBeacon omits Content-Type: application/json */
+export function isMetricsBeaconPath(path: string): boolean {
+  return path === "/metrics/vitals" || path === "/metrics/route-analytics";
+}
+
 /** حارس عام — يُركَّب على جميع مسارات /api */
 export function requestGuard(req: Request, res: Response, next: NextFunction) {
   try {
     /* 1. تحقق من نوع المحتوى لطلبات POST/PUT/PATCH */
-    if (["POST", "PUT", "PATCH"].includes(req.method)) {
+    if (["POST", "PUT", "PATCH"].includes(req.method) && !isMetricsBeaconPath(req.path)) {
       const contentType = req.headers["content-type"] ?? "";
       if (
         req.body !== undefined &&

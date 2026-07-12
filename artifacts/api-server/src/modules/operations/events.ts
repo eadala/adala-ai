@@ -10,6 +10,58 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
+const MAX_EVENTS_LIMIT = 100;
+
+/**
+ * Tenant comes ONLY from trusted auth context / resolveTenantId.
+ * Query/body tenant_id / office_id are intentionally ignored.
+ */
+async function resolveReqTenantId(req: Request): Promise<string | null> {
+  const existing = (req as any).tenantId as string | undefined;
+  if (existing) return existing;
+  const userId = (req as any).userId as string | undefined;
+  if (!userId) return null;
+  const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
+  /* Header x-tenant-id is validated inside resolveTenantId (membership check). */
+  return resolveTenantId(userId, req.headers["x-tenant-id"] as string | undefined);
+}
+
+function parseLimit(raw: unknown, fallback = 50): number {
+  const n = parseInt(String(raw ?? fallback), 10);
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.min(n, MAX_EVENTS_LIMIT);
+}
+
+async function handleRecentEvents(req: Request, res: Response) {
+  try {
+    const tenantId = await resolveReqTenantId(req);
+    if (!tenantId) { res.json({ events: [], total: 0 }); return; }
+    const limit = parseLimit(req.query.limit, 50);
+    /* Only allowlisted event_type filter — never tenant from query/body */
+    const type = typeof req.query.type === "string" ? req.query.type : undefined;
+
+    const rows = await db.execute(
+      type
+        ? sql`SELECT id, event_type, office_id, actor_id, payload, created_at FROM system_events WHERE event_type=${type} AND office_id=${tenantId} ORDER BY created_at DESC LIMIT ${limit}`
+        : sql`SELECT id, event_type, office_id, actor_id, payload, created_at FROM system_events WHERE office_id=${tenantId} ORDER BY created_at DESC LIMIT ${limit}`
+    );
+
+    const events = (rows.rows as any[]).map(e => ({
+      id:        e.id,
+      type:      e.event_type,
+      label:     (EVENT_LABELS as any)[e.event_type] ?? e.event_type,
+      officeId:  e.office_id,
+      actorId:   e.actor_id,
+      data:      typeof e.payload === "string" ? JSON.parse(e.payload) : e.payload,
+      timestamp: e.created_at,
+    }));
+
+    res.json({ events, total: events.length });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
 /* ── GET /api/events/stream — SSE real-time feed ── */
 router.get("/events/stream", requireAuth, (req: Request, res: Response) => {
   res.setHeader("Content-Type",  "text/event-stream");
@@ -35,40 +87,16 @@ router.get("/events/stream", requireAuth, (req: Request, res: Response) => {
   });
 });
 
+/* ── GET /api/events — alias for layout sidebar (limit query) ── */
+router.get("/events", requireAuth, handleRecentEvents);
+
 /* ── GET /api/events/recent — last N events ── */
-router.get("/events/recent", requireAuth, async (req: Request, res: Response) => {
-  try {
-    const tenantId = (req as any).tenantId;
-    if (!tenantId) { res.json({ events: [], total: 0 }); return; }
-    const limit  = Math.min(parseInt(String(req.query.limit  ?? 50)), 200);
-    const type   = req.query.type   as string | undefined;
-
-    const rows = await db.execute(
-      type
-        ? sql`SELECT id, event_type, office_id, actor_id, payload, created_at FROM system_events WHERE event_type=${type} AND office_id=${tenantId} ORDER BY created_at DESC LIMIT ${limit}`
-        : sql`SELECT id, event_type, office_id, actor_id, payload, created_at FROM system_events WHERE office_id=${tenantId} ORDER BY created_at DESC LIMIT ${limit}`
-    );
-
-    const events = (rows.rows as any[]).map(e => ({
-      id:        e.id,
-      type:      e.event_type,
-      label:     (EVENT_LABELS as any)[e.event_type] ?? e.event_type,
-      officeId:  e.office_id,
-      actorId:   e.actor_id,
-      data:      typeof e.payload === "string" ? JSON.parse(e.payload) : e.payload,
-      timestamp: e.created_at,
-    }));
-
-    res.json({ events, total: events.length });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
+router.get("/events/recent", requireAuth, handleRecentEvents);
 
 /* ── GET /api/events/stats — counts by type (last 30d) ── */
 router.get("/events/stats", requireAuth, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = await resolveReqTenantId(req);
     if (!tenantId) { res.json({ total30d: 0, byType: [], byDay: [], liveClients: 0 }); return; }
     const [totals, byType, byDay] = await Promise.all([
       db.execute(sql`

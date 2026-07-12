@@ -11,12 +11,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MIGRATIONS=(
+MIGRATIONS_BASE=(
   "$ROOT/artifacts/api-server/migrations/003_drizzle_baseline_safe.sql"
   "$ROOT/artifacts/api-server/migrations/001_tenant_isolation.sql"
   "$ROOT/artifacts/api-server/migrations/004_legal_core_extensions.sql"
   "$ROOT/artifacts/api-server/migrations/005_tenant_platform_tables.sql"
 )
+MIGRATION_006="$ROOT/artifacts/api-server/migrations/006_post_migration_api_support.sql"
 
 PASS=0
 FAIL=0
@@ -74,19 +75,28 @@ teardown_db() {
   [[ -n "${TEST_DB:-}" ]] && sudo -u postgres psql -c "DROP DATABASE IF EXISTS \"${TEST_DB}\";" >/dev/null 2>&1 || true
 }
 
-apply_migrations() {
-  for f in "${MIGRATIONS[@]}"; do
+apply_migrations_base() {
+  for f in "${MIGRATIONS_BASE[@]}"; do
     psql_db -f "$f" >/dev/null
   done
 }
 
+apply_migration_006() {
+  psql_db -f "$MIGRATION_006" >/dev/null
+}
+
+apply_all_migrations() {
+  apply_migrations_base
+  apply_migration_006
+}
+
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
-  apply_migrations
+  apply_all_migrations
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-empty.log 2>&1; then
     ok "verify-schema.sh passed on empty DB"
@@ -145,8 +155,8 @@ INSERT INTO office_registry (id, clerk_user_id, owner_email, office_name)
   VALUES ('prod-office-1', 'user_test123', 'owner@test.com', 'Partial Office');
 SQL
 
-  apply_migrations
-  apply_migrations
+  apply_all_migrations
+  apply_all_migrations
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-partial.log 2>&1; then
     ok "verify-schema.sh passed after double migration on partial DB"
@@ -164,7 +174,7 @@ check_schema_alignment() {
   log "Schema alignment — office_members, trial_offices, onboarding_state, office_registry, system_events, plan_cms"
   setup_db "schema"
   trap teardown_db EXIT
-  apply_migrations
+  apply_all_migrations
 
   psql_db <<'SQL' >/dev/null
 -- office_members: ON CONFLICT DO NOTHING + ON CONFLICT (office_id, user_id)
@@ -242,7 +252,7 @@ scenario_backup_restore() {
   log "Backup-restore — insert → backup → mutate → restore → verify"
   setup_db "backup"
   trap teardown_db EXIT
-  apply_migrations
+  apply_all_migrations
 
   psql_db <<'SQL' >/dev/null
 INSERT INTO office_registry (id, clerk_user_id, owner_email, office_name, status)
@@ -284,13 +294,167 @@ SQL
   teardown_db
 }
 
+# ── Scenario 3: post-005 Production-like (missing 006 objects) ───────────────
+scenario_migration_006_idempotent() {
+  log "Scenario 3 — post-005 DB missing 006 objects → apply 006 twice (idempotent)"
+  setup_db "mig006"
+  trap teardown_db EXIT
+
+  apply_migrations_base
+
+  local has_login has_wc has_vitals has_ra
+  has_login=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='login_logs');")
+  has_wc=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='office_page' AND column_name='website_config');")
+  has_vitals=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='web_vitals');")
+  has_ra=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='route_analytics');")
+  [[ "$has_login" == "f" ]] && ok "pre-006: login_logs absent" || bad "pre-006: login_logs should be absent"
+  [[ "$has_wc" == "f" ]] && ok "pre-006: website_config absent" || bad "pre-006: website_config should be absent"
+  [[ "$has_vitals" == "f" ]] && ok "pre-006: web_vitals absent" || bad "pre-006: web_vitals should be absent"
+  [[ "$has_ra" == "f" ]] && ok "pre-006: route_analytics absent" || bad "pre-006: route_analytics should be absent"
+
+  apply_migration_006
+  apply_migration_006
+
+  has_login=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='login_logs');")
+  has_wc=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='office_page' AND column_name='website_config');")
+  has_vitals=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='web_vitals');")
+  has_ra=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='route_analytics');")
+  [[ "$has_login" == "t" ]] && ok "post-006: login_logs present" || bad "post-006: login_logs missing"
+  [[ "$has_wc" == "t" ]] && ok "post-006: website_config present" || bad "post-006: website_config missing"
+  [[ "$has_vitals" == "t" ]] && ok "post-006: web_vitals present" || bad "post-006: web_vitals missing"
+  [[ "$has_ra" == "t" ]] && ok "post-006: route_analytics present" || bad "post-006: route_analytics missing"
+
+  local idx_count
+  idx_count=$(psql_db -At -c "SELECT COUNT(*) FROM pg_indexes WHERE tablename='login_logs';")
+  [[ "$idx_count" -ge 4 ]] && ok "login_logs has indexes ($idx_count)" || bad "login_logs indexes missing ($idx_count)"
+
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-006.log 2>&1; then
+    ok "verify-schema.sh passed after 006"
+  else
+    bad "verify-schema.sh failed after 006"
+    tail -15 /tmp/verify-006.log
+  fi
+
+  trap - EXIT
+  teardown_db
+}
+
+# ── Scenario 4: reported endpoints + office/public schema paths ─────────────
+scenario_reported_endpoints() {
+  log "Scenario 4 — SQL paths for reported 500/404 endpoints + office/public + sendBeacon vitals"
+  setup_db "endpoints"
+  trap teardown_db EXIT
+  apply_all_migrations
+
+  psql_db <<'SQL' >/dev/null
+-- Seed office_page first, then link members to its UUID
+INSERT INTO office_page (id, slug, name, plan, website_config)
+  VALUES ('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'::uuid, 'public-test', 'Public Office', 'starter', '{"templateId":"default"}'::jsonb);
+
+INSERT INTO office_registry (id, clerk_user_id, owner_email, office_name, status)
+  VALUES ('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'user_ep1', 'ep@test.com', 'Endpoint Office', 'active');
+INSERT INTO office_members (office_id, user_id, role, status)
+  VALUES ('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'user_ep1', 'owner', 'active');
+INSERT INTO system_events (event_type, office_id, actor_id, payload)
+  VALUES ('case_created', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'user_ep1', '{"title":"Test"}'::jsonb);
+
+-- GET /api/offices/my — tenant-scoped select only (no first-office fallback)
+SELECT id, slug, name, plan, website_config, created_at, updated_at
+  FROM office_page WHERE id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'::uuid;
+
+-- GET /api/office/subscription — full Drizzle select including website_config
+SELECT id, slug, name, plan, website_config FROM office_page LIMIT 1;
+
+-- GET /api/office/public/:slug
+SELECT website_config FROM office_page WHERE slug = 'public-test';
+
+-- GET /api/events?limit=6 — tenant from resolveTenantId only
+SELECT id, event_type, office_id, actor_id, payload, created_at
+  FROM system_events
+  WHERE office_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+  ORDER BY created_at DESC LIMIT 6;
+
+-- POST /api/security/login
+INSERT INTO login_logs
+  (user_id, email, full_name, ip_address, user_agent, browser, os, device_type,
+   status, office_id, session_id)
+VALUES
+  ('user_ep1', null, null, '127.0.0.1', 'test-agent', 'Chrome', 'Linux', 'desktop',
+   'success', 'default', 'sess_test');
+
+-- POST /api/metrics/vitals (sendBeacon body shape)
+INSERT INTO web_vitals (name, value, rating, url)
+  VALUES ('LCP', 1200, 'good', '/dashboard');
+
+INSERT INTO route_analytics (path, name_internal, module, load_ms, visited_at)
+  VALUES ('/dashboard', 'Dashboard', 'ops', 120, NOW());
+SQL
+  ok "SQL paths: offices/my, subscription, events, login, vitals, office/public"
+
+  local admin_cnt
+  admin_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM office_page;")
+  [[ "$admin_cnt" -ge 1 ]] && ok "admin list offices (db.select officePageTable)" || bad "office_page empty"
+
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-endpoints.log 2>&1; then
+    ok "verify-schema.sh passed after full chain including 006"
+  else
+    bad "verify-schema.sh failed on endpoint scenario"
+    tail -15 /tmp/verify-endpoints.log
+  fi
+
+  trap - EXIT
+  teardown_db
+}
+
+# ── Scenario 5: incomplete schema — API must NOT create tables ───────────────
+scenario_incomplete_schema_no_runtime_ddl() {
+  log "Scenario 5 — incomplete schema (no 006): INSERT fails; no auto-create"
+  setup_db "incomplete"
+  trap teardown_db EXIT
+  apply_migrations_base
+
+  # Simulate what loginTracking / metrics would do without migration 006
+  local login_rc vitals_rc
+  set +e
+  psql_db -c "INSERT INTO login_logs (user_id, status) VALUES ('u1', 'success');" >/tmp/inc-login.log 2>&1
+  login_rc=$?
+  psql_db -c "INSERT INTO web_vitals (name, value, rating) VALUES ('LCP', 1, 'good');" >/tmp/inc-vitals.log 2>&1
+  vitals_rc=$?
+  set -e
+
+  [[ "$login_rc" -ne 0 ]] && ok "login_logs INSERT fails without 006 (no auto-create)" || bad "login_logs should not exist"
+  [[ "$vitals_rc" -ne 0 ]] && ok "web_vitals INSERT fails without 006 (no auto-create)" || bad "web_vitals should not exist"
+
+  # Confirm tables still absent after failed inserts
+  local has_login has_vitals
+  has_login=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='login_logs');")
+  has_vitals=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='web_vitals');")
+  [[ "$has_login" == "f" ]] && ok "login_logs still absent after failed INSERT" || bad "login_logs was created somehow"
+  [[ "$has_vitals" == "f" ]] && ok "web_vitals still absent after failed INSERT" || bad "web_vitals was created somehow"
+
+  # Source audit: PR-touched handlers must not contain CREATE TABLE
+  if ! grep -qE 'CREATE TABLE|ensureTable|ensureLoginLogs' \
+      "$ROOT/artifacts/api-server/src/modules/platform/loginTracking.ts" \
+      "$ROOT/artifacts/api-server/src/routes/metrics.ts"; then
+    ok "loginTracking.ts + metrics.ts contain no Runtime DDL"
+  else
+    bad "Runtime DDL still present in loginTracking/metrics"
+  fi
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
 log "DB migration integration tests (local PostgreSQL only)"
 scenario_empty_db
 scenario_partial_idempotent
+scenario_migration_006_idempotent
 check_schema_alignment
+scenario_reported_endpoints
+scenario_incomplete_schema_no_runtime_ddl
 scenario_backup_restore
 
 echo ""

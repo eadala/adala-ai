@@ -93,7 +93,17 @@ router.post("/security/login", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err: any) {
-        res.status(500).json({ error: err.message });
+    const missing =
+      err?.code === "42P01" || /relation ["']?login_logs["']? does not exist/i.test(err?.message ?? "");
+    if (missing) {
+      return res.status(503).json({
+        error: "جدول login_logs غير موجود — طبّق migration 006_post_migration_api_support.sql",
+        code: "SCHEMA_MISSING",
+        table: "login_logs",
+        migration: "006_post_migration_api_support.sql",
+      });
+    }
+    res.status(500).json({ error: err.message });
   }
 });
 
