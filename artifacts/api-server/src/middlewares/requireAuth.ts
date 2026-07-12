@@ -1,9 +1,21 @@
 import { getAuth, createClerkClient } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
-import { resolveTenantId } from "./tenantMiddleware";
-import { runWithTenant } from "../core/tenantContext";
+import { resolveTenantId } from "./tenantResolution";
+import {
+  runWithTenant,
+  PLATFORM_TENANT_ID,
+  tenantRequiredResponse,
+} from "../core/tenantContext";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import {
+  authorize,
+  authorizationContextMissingResponse,
+  authorizationDeniedResponse,
+  membershipRequiredResponse,
+  ensureAuthorizationContext,
+  type AuthzRequest,
+} from "../core/authorization";
 
 /* ── SA Route Rate Limiting ────────────────────────────────────────────
    Tracks failed SA-access attempts per IP. After MAX_SA_FAILS failures
@@ -162,20 +174,15 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
     const isSA = await checkIsSuperAdmin(userId);
     if (isSA) {
       (req as any).isSuperAdmin = true;
-      (req as any).tenantId = "platform";
-      return runWithTenant({ userId, officeId: "platform" }, () => next());
+      (req as any).tenantId = PLATFORM_TENANT_ID;
+      return runWithTenant({ userId, officeId: PLATFORM_TENANT_ID }, () => next());
     }
     console.warn(
       `[TENANT-403] path=${req.path} method=${req.method} ` +
       `userId=${userId} headerTenant=${headerTenant ?? "none"} ` +
       `→ tenant resolution returned null (all 7 steps exhausted)`
     );
-    return res.status(403).json({
-      error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب.",
-      code: "TNT_403",
-      userId,
-      hint: "أكمل عملية الإعداد الأولي، أو تواصل مع الدعم الفني إذا أتممت الإعداد مسبقاً.",
-    });
+    return res.status(403).json(tenantRequiredResponse(userId));
   }
   const officeId = tenantId;
   (req as any).tenantId = officeId;
@@ -203,47 +210,44 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
 ══════════════════════════════════════════════════════════════════════ */
 export function requirePermission(permission: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
-    // Super-admins bypass all RBAC checks
-    if ((req as any).isSuperAdmin) return next();
+    const authReq = req as AuthzRequest;
+    const userId = authReq.userId;
+    const officeId = authReq.tenantId;
 
-    const userId: string | undefined = (req as any).userId;
-    const officeId: string | undefined = (req as any).tenantId;
-
-    if (!userId || !officeId || officeId === "platform") {
-      return res.status(403).json({ error: "سياق المصادقة مفقود — يجب استدعاء requireAuthWithTenant أولاً" });
+    if (!userId || !officeId || officeId === PLATFORM_TENANT_ID) {
+      return res.status(403).json(authorizationContextMissingResponse());
     }
 
     try {
-      // Step 1: resolve user's role in this office
-      const memberRows = await db.execute(sql`
-        SELECT role FROM office_members
-        WHERE user_id = ${userId} AND office_id = ${officeId} AND status = 'active'
-        LIMIT 1
-      `) as any;
-      const mArr = Array.isArray(memberRows) ? memberRows : (memberRows?.rows ?? []);
-      const roleName: string = mArr[0]?.role ?? "trainee_lawyer";
+      const ctx = await ensureAuthorizationContext(authReq);
+      if (!ctx) {
+        return res.status(403).json(membershipRequiredResponse(officeId));
+      }
 
-      // Step 2: load that role's permission list from the roles table
-      const roleRows = await db.execute(sql`
-        SELECT permissions FROM roles WHERE name = ${roleName} LIMIT 1
-      `) as any;
-      const rArr = Array.isArray(roleRows) ? roleRows : (roleRows?.rows ?? []);
-      const permissions: string[] = rArr[0]?.permissions
-        ? (JSON.parse(rArr[0].permissions) as string[])
-        : [];
-
-      // Step 3: wildcard ("*") = full access; otherwise check exact match
-      if (permissions.includes("*") || permissions.includes(permission)) {
+      if (ctx.isSuperAdmin && !ctx.isImpersonating) {
+        db.execute(sql`
+          INSERT INTO audit_logs (user_id, user_full_name, action, resource, resource_id, details)
+          VALUES (${userId}, ${"Super Admin"}, 'SA_RBAC_BYPASS', 'authorization', ${req.path},
+                  ${JSON.stringify({ officeId, permission, path: req.path, ts: new Date().toISOString() })}::jsonb)
+        `).catch(() => {});
         return next();
       }
 
-      return res.status(403).json({
-        error: "ليس لديك صلاحية تنفيذ هذا الإجراء",
-        required: permission,
-        role: roleName,
-      });
+      const result = authorize(ctx, permission);
+      if (result.allowed) return next();
+
+      return res.status(403).json(
+        authorizationDeniedResponse(permission, {
+          role: ctx.roleName,
+          officeId: ctx.officeId,
+        }),
+      );
     } catch (_e) {
       return res.status(500).json({ error: "خطأ داخلي أثناء التحقق من الصلاحيات" });
     }
   };
 }
+
+/** Re-export authorization kernel middleware for route modules. */
+export { enforceRoutePolicy, loadAuthorizationContext } from "../core/authorization";
+export type { AuthorizationContext, RouteClass } from "../core/authorization";
