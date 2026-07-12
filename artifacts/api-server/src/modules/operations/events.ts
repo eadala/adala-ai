@@ -10,21 +10,35 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
+const MAX_EVENTS_LIMIT = 100;
+
+/**
+ * Tenant comes ONLY from trusted auth context / resolveTenantId.
+ * Query/body tenant_id / office_id are intentionally ignored.
+ */
 async function resolveReqTenantId(req: Request): Promise<string | null> {
   const existing = (req as any).tenantId as string | undefined;
   if (existing) return existing;
   const userId = (req as any).userId as string | undefined;
   if (!userId) return null;
   const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
+  /* Header x-tenant-id is validated inside resolveTenantId (membership check). */
   return resolveTenantId(userId, req.headers["x-tenant-id"] as string | undefined);
+}
+
+function parseLimit(raw: unknown, fallback = 50): number {
+  const n = parseInt(String(raw ?? fallback), 10);
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.min(n, MAX_EVENTS_LIMIT);
 }
 
 async function handleRecentEvents(req: Request, res: Response) {
   try {
     const tenantId = await resolveReqTenantId(req);
     if (!tenantId) { res.json({ events: [], total: 0 }); return; }
-    const limit  = Math.min(parseInt(String(req.query.limit  ?? 50)), 200);
-    const type   = req.query.type   as string | undefined;
+    const limit = parseLimit(req.query.limit, 50);
+    /* Only allowlisted event_type filter — never tenant from query/body */
+    const type = typeof req.query.type === "string" ? req.query.type : undefined;
 
     const rows = await db.execute(
       type

@@ -16,3 +16,13 @@ office_members.role
 office_members.status
 users.office_id
 office_page.website_config
+login_logs.user_id
+login_logs.status
+login_logs.office_id
+login_logs.created_at
+web_vitals.name
+web_vitals.value
+web_vitals.rating
+web_vitals.created_at
+route_analytics.path
+route_analytics.visited_at

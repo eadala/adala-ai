@@ -19,9 +19,16 @@ async function handleGetMyOffice(req: any, res: any) {
       req.userId,
       req.headers["x-tenant-id"] as string | undefined,
     );
-    const offices = officeId
-      ? await db.select().from(officePageTable).where(eq(officePageTable.id, officeId)).limit(1)
-      : await db.select().from(officePageTable).limit(1);
+    /* No fallback to "first office" — only return the user's resolved tenant */
+    if (!officeId) {
+      return res.status(403).json({
+        error: "لا يمكن تحديد المكتب المرتبط بهذا الحساب",
+        code: "TNT_403",
+      });
+    }
+    const offices = await db.select().from(officePageTable)
+      .where(eq(officePageTable.id, officeId))
+      .limit(1);
     res.json(offices[0] ?? null);
   } catch (e: any) {
     res.status(500).json({ error: e.message ?? "خطأ في جلب بيانات المكتب" });

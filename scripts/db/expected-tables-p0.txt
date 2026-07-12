@@ -21,3 +21,5 @@ trial_offices
 system_events
 plan_cms
 login_logs
+web_vitals
+route_analytics

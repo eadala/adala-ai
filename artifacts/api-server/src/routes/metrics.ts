@@ -4,43 +4,27 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-/* ── Ensure tables exist ─────────────────────────────────────────────────── */
-async function ensureTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS web_vitals (
-      id          SERIAL PRIMARY KEY,
-      name        TEXT NOT NULL,
-      value       NUMERIC NOT NULL,
-      rating      TEXT NOT NULL CHECK (rating IN ('good','needs-improvement','poor')),
-      url         TEXT,
-      created_at  TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS route_analytics (
-      id            SERIAL PRIMARY KEY,
-      path          TEXT NOT NULL,
-      name_internal TEXT,
-      module        TEXT,
-      load_ms       INTEGER,
-      visited_at    TIMESTAMPTZ NOT NULL,
-      created_at    TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_route_analytics_path ON route_analytics(path);
-  `);
+function isMissingRelation(err: unknown): boolean {
+  const e = err as { code?: string; message?: string };
+  return e?.code === "42P01" || /relation .+ does not exist/i.test(e?.message ?? "");
 }
-ensureTable().catch(() => {});
+
+function schemaMissing(res: import("express").Response, table: string) {
+  return res.status(503).json({
+    error: `جدول ${table} غير موجود — طبّق migration 006_post_migration_api_support.sql`,
+    code: "SCHEMA_MISSING",
+    table,
+    migration: "006_post_migration_api_support.sql",
+  });
+}
 
 /* ── POST /api/metrics/vitals ─────────────────────────────────────────────
  * Receives Web Vitals data from the frontend (fire-and-forget).
  * Public endpoint — no auth required (beacon API has no headers).
+ * Body may arrive as a raw JSON string (sendBeacon without Content-Type).
  */
 router.post("/vitals", async (req, res) => {
   try {
-    await ensureTable();
-
     let body: Record<string, unknown> = {};
     if (typeof req.body === "string" && req.body.length) {
       try { body = JSON.parse(req.body); } catch { body = {}; }
@@ -64,14 +48,14 @@ router.post("/vitals", async (req, res) => {
       VALUES (${name}, ${Number(value)}, ${rating}, ${url ?? null})
     `);
     res.status(204).end();
-  } catch {
-    res.status(204).end(); // always 204 — frontend fire-and-forget
+  } catch (err) {
+    if (isMissingRelation(err)) return schemaMissing(res, "web_vitals");
+    res.status(204).end(); // other errors — fire-and-forget
   }
 });
 
 /* ── GET /api/metrics/vitals/summary ──────────────────────────────────────
  * Returns aggregated Web Vitals for the last 7 days.
- * Requires admin auth.
  */
 router.get("/vitals/summary", async (_req, res) => {
   try {
@@ -93,21 +77,21 @@ router.get("/vitals/summary", async (_req, res) => {
     const data = Array.isArray(rows) ? rows : (rows as { rows: unknown[] }).rows ?? [];
     res.json({ vitals: data, period: "7d" });
   } catch (e) {
+    if (isMissingRelation(e)) return schemaMissing(res, "web_vitals");
     res.status(500).json({ error: String(e) });
   }
 });
 
 /* ── POST /api/metrics/route-analytics ───────────────────────────────────
  * Receives batch route visit events from the frontend.
- * Fire-and-forget — always returns 204.
  */
 router.post("/route-analytics", async (req, res) => {
   try {
-    await ensureTable();
-
-    let payload = req.body ?? {};
-    if (typeof payload === "string") {
-      try { payload = JSON.parse(payload); } catch { payload = {}; }
+    let payload: Record<string, unknown> = {};
+    if (typeof req.body === "string" && req.body.length) {
+      try { payload = JSON.parse(req.body); } catch { payload = {}; }
+    } else if (req.body && typeof req.body === "object") {
+      payload = req.body;
     }
     const visits: Array<{
       path?: string;
@@ -115,7 +99,7 @@ router.post("/route-analytics", async (req, res) => {
       module?: string;
       loadMs?: number;
       ts?: number;
-    }> = Array.isArray(payload?.visits) ? payload.visits : [];
+    }> = Array.isArray(payload?.visits) ? (payload.visits as any[]) : [];
 
     for (const v of visits.slice(0, 200)) {
       if (!v.path || typeof v.path !== "string") continue;
@@ -131,7 +115,8 @@ router.post("/route-analytics", async (req, res) => {
       `);
     }
     res.status(204).end();
-  } catch {
+  } catch (err) {
+    if (isMissingRelation(err)) return schemaMissing(res, "route_analytics");
     res.status(204).end();
   }
 });
@@ -158,6 +143,7 @@ router.get("/route-analytics/summary", async (_req, res) => {
     const data = Array.isArray(rows) ? rows : (rows as { rows: unknown[] }).rows ?? [];
     res.json({ routes: data, period: "30d" });
   } catch (e) {
+    if (isMissingRelation(e)) return schemaMissing(res, "route_analytics");
     res.status(500).json({ error: String(e) });
   }
 });

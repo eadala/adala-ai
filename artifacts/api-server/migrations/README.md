@@ -49,7 +49,7 @@ bash scripts/db/verify-schema.sh
 | `003_drizzle_baseline_safe.sql` | 47 جدول من `lib/db/drizzle/0000_baseline.sql` |
 | `004_legal_core_extensions.sql` | `contract_templates` + أعمدة `contracts`/`cases` |
 | `005_tenant_platform_tables.sql` | `office_members`, `trial_offices`, `plan_cms`, ... |
-| `006_post_migration_api_support.sql` | `login_logs` + `office_page.website_config` |
+| `006_post_migration_api_support.sql` | `login_logs`, `office_page.website_config`, `web_vitals`, `route_analytics` |
 
 ## جداول P0 (تسبب أخطاء runtime إن غابت)
 
@@ -60,6 +60,7 @@ bash scripts/db/verify-schema.sh
 | `office_page` | 003 | Marketplace |
 | `office_page.website_config` | **006** | Drizzle `officePageTable`, `websiteBuilder.ts`, `/office/public/:slug` |
 | `login_logs` | **006** | `loginTracking.ts`, SOC, `launchGate.ts` |
+| `web_vitals` / `route_analytics` | **006** | `routes/metrics.ts` |
 | `cases`, `contracts` | 003 + 004 | Legal core |
 
 ## اختبارات Integration (قبل PR)
