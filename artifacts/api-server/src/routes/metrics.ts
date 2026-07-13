@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { logEndpointError } from "../lib/endpointErrorLog";
 
 const router = Router();
 
@@ -50,6 +51,7 @@ router.post("/vitals", async (req, res) => {
     res.status(204).end();
   } catch (err) {
     if (isMissingRelation(err)) return schemaMissing(res, "web_vitals");
+    logEndpointError("POST /api/metrics/vitals", req, err);
     res.status(204).end(); // other errors — fire-and-forget
   }
 });
@@ -78,6 +80,7 @@ router.get("/vitals/summary", async (_req, res) => {
     res.json({ vitals: data, period: "7d" });
   } catch (e) {
     if (isMissingRelation(e)) return schemaMissing(res, "web_vitals");
+    logEndpointError("GET /api/metrics/vitals/summary", _req, e);
     res.status(500).json({ error: String(e) });
   }
 });

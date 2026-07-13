@@ -9,6 +9,7 @@ import {
 import { eq, desc, and, sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
 import { requireProductionBaseUrl } from "../../lib/productionUrl";
+import { logEndpointError } from "../../lib/endpointErrorLog";
 
 const router = Router();
 
@@ -31,6 +32,7 @@ async function handleGetMyOffice(req: any, res: any) {
       .limit(1);
     res.json(offices[0] ?? null);
   } catch (e: any) {
+    logEndpointError("GET /api/offices/my", req, e);
     res.status(500).json({ error: e.message ?? "خطأ في جلب بيانات المكتب" });
   }
 }
