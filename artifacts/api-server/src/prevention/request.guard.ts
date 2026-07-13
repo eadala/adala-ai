@@ -9,9 +9,20 @@ import { evaluateRules, buildRuleContext } from "./rules.engine";
 import { collectMetrics } from "../observability/metrics";
 import { preventionLog } from "./prevention.log";
 
+/** Normalize path for beacon matching (strip trailing slash). */
+function normalizeBeaconPath(path: string): string {
+  return path.replace(/\/+$/, "") || "/";
+}
+
 /** Public beacon endpoint — sendBeacon omits Content-Type: application/json */
 export function isMetricsBeaconPath(path: string): boolean {
-  return path === "/metrics/vitals" || path === "/metrics/route-analytics";
+  const p = normalizeBeaconPath(path);
+  return (
+    p === "/metrics/vitals" ||
+    p === "/metrics/route-analytics" ||
+    p === "/api/metrics/vitals" ||
+    p === "/api/metrics/route-analytics"
+  );
 }
 
 /** حارس عام — يُركَّب على جميع مسارات /api */
