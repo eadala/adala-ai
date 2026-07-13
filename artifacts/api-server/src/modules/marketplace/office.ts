@@ -10,30 +10,58 @@ import { eq, desc, and, sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
 import { requireProductionBaseUrl } from "../../lib/productionUrl";
 import { logEndpointError } from "../../lib/endpointErrorLog";
+import { fetchOfficePageForUser } from "../../lib/officePageResolver";
 
 const router = Router();
 
 async function handleGetMyOffice(req: any, res: any) {
+  const endpoint = "GET /api/offices/my";
   try {
     const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
-    const officeId = await resolveTenantId(
+    const tenantId = await resolveTenantId(
       req.userId,
       req.headers["x-tenant-id"] as string | undefined,
     );
     /* No fallback to "first office" — only return the user's resolved tenant */
-    if (!officeId) {
+    if (!tenantId) {
       return res.status(403).json({
         error: "لا يمكن تحديد المكتب المرتبط بهذا الحساب",
         code: "TNT_403",
       });
     }
-    const offices = await db.select().from(officePageTable)
-      .where(eq(officePageTable.id, officeId))
-      .limit(1);
-    res.json(offices[0] ?? null);
-  } catch (e: any) {
-    logEndpointError("GET /api/offices/my", req, e);
-    res.status(500).json({ error: e.message ?? "خطأ في جلب بيانات المكتب" });
+    (req as { _resolvedTenantId?: string })._resolvedTenantId = tenantId;
+
+    const result = await fetchOfficePageForUser(req.userId, tenantId);
+
+    switch (result.kind) {
+      case "found":
+        return res.json(result.office);
+      case "trial_pending":
+        return res.status(404).json({
+          error: "لم يُنشأ صفحة المكتب بعد — أكمل إعداد المكتب أو أنشئ صفحة marketplace",
+          code: "OFFICE_PAGE_NOT_CREATED",
+          trialOfficeId: result.trialOfficeId,
+          officeName: result.officeName ?? null,
+          tenantId: result.tenantId,
+        });
+      case "forbidden":
+        return res.status(403).json({
+          error: "لا يمكن الوصول إلى هذا المكتب",
+          code: "TNT_403",
+        });
+      case "not_found":
+        return res.status(404).json({
+          error: "صفحة المكتب غير موجودة",
+          code: "OFFICE_NOT_FOUND",
+          tenantId: result.tenantId,
+        });
+    }
+  } catch (e: unknown) {
+    logEndpointError(endpoint, req, e, {
+      resolvedTenantId: (req as { _resolvedTenantId?: string })._resolvedTenantId,
+    });
+    const message = e instanceof Error ? e.message : "خطأ في جلب بيانات المكتب";
+    res.status(500).json({ error: message });
   }
 }
 
