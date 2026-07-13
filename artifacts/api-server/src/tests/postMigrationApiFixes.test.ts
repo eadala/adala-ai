@@ -72,17 +72,22 @@ console.log("  ✅ routes/index.ts: all modules registered");
 console.log("\n═══ postMigrationApiFixes: requestGuard beacon paths ═══");
 
 const guardSrc = readSrc("prevention/request.guard.ts");
-assert.match(guardSrc, /isMetricsBeaconPath/);
-assert.match(guardSrc, /\/metrics\/vitals/);
-assert.match(guardSrc, /\/api\/metrics\/vitals/);
-assert.match(guardSrc, /!isMetricsBeaconPath\(req\.path\)/);
+assert.match(guardSrc, /isMetricsBeaconPath|isMetricsBeaconRequest/);
+assert.match(guardSrc, /metricsBeaconPath/);
+assert.match(guardSrc, /!isMetricsBeaconRequest\(req\)/);
 console.log("  ✅ requestGuard exempts metrics beacon paths");
 
 const appSrc = readSrc("app.ts");
 assert.match(appSrc, /sendBeacon posts JSON without application\/json/);
 assert.match(appSrc, /express\.text\(\{ type: "\*\/\*", limit: "8kb" \}/);
-assert.match(appSrc, /isMetricsBeaconPath\(req\.path\)/);
-console.log("  ✅ app.ts: text parser + Clerk skip for sendBeacon vitals");
+assert.match(appSrc, /isMetricsBeaconRequest\(req\)/);
+assert.match(appSrc, /clerkBeaconGate/);
+console.log("  ✅ app.ts: text parser + Clerk skip + diagnostic gate for sendBeacon vitals");
+
+const beaconLib = readSrc("lib/metricsBeaconPath.ts");
+assert.match(beaconLib, /getRequestPathname/);
+assert.match(beaconLib, /endsWith/);
+console.log("  ✅ metricsBeaconPath: originalUrl-aware suffix matching");
 
 const integSrc = readRepo("scripts/db/test-migrations.integration.sh");
 assert.match(integSrc, /006_post_migration_api_support\.sql/);

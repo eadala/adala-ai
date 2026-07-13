@@ -8,28 +8,19 @@ import { circuitBreaker, CIRCUITS, CircuitOpenError } from "./circuit.breaker";
 import { evaluateRules, buildRuleContext } from "./rules.engine";
 import { collectMetrics } from "../observability/metrics";
 import { preventionLog } from "./prevention.log";
-
-/** Normalize path for beacon matching (strip trailing slash). */
-function normalizeBeaconPath(path: string): string {
-  return path.replace(/\/+$/, "") || "/";
-}
-
-/** Public beacon endpoint — sendBeacon omits Content-Type: application/json */
-export function isMetricsBeaconPath(path: string): boolean {
-  const p = normalizeBeaconPath(path);
-  return (
-    p === "/metrics/vitals" ||
-    p === "/metrics/route-analytics" ||
-    p === "/api/metrics/vitals" ||
-    p === "/api/metrics/route-analytics"
-  );
-}
+export {
+  isMetricsBeaconPath,
+  isMetricsBeaconRequest,
+  getRequestPathname,
+  normalizeBeaconPath,
+} from "../lib/metricsBeaconPath";
+import { isMetricsBeaconRequest } from "../lib/metricsBeaconPath";
 
 /** حارس عام — يُركَّب على جميع مسارات /api */
 export function requestGuard(req: Request, res: Response, next: NextFunction) {
   try {
     /* 1. تحقق من نوع المحتوى لطلبات POST/PUT/PATCH */
-    if (["POST", "PUT", "PATCH"].includes(req.method) && !isMetricsBeaconPath(req.path)) {
+    if (["POST", "PUT", "PATCH"].includes(req.method) && !isMetricsBeaconRequest(req)) {
       const contentType = req.headers["content-type"] ?? "";
       if (
         req.body !== undefined &&
