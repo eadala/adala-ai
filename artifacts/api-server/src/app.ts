@@ -14,7 +14,7 @@ import {
   getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
-import { requestGuard, preventionErrorHandler, isMetricsBeaconPath } from "./prevention/request.guard";
+import { requestGuard, preventionErrorHandler, isMetricsBeaconRequest, getRequestPathname } from "./prevention/request.guard";
 import { IsolationMiddleware } from "./isolation/tenant.scope";
 import { runtimeShield } from "./core/runtimeShield";
 import { logger } from "./lib/logger";
@@ -229,9 +229,20 @@ app.use(cors({
     callback(new Error(`CORS: origin not allowed — ${origin}`));
   },
 }));
-// sendBeacon posts JSON without application/json — parse as text before global JSON
-app.use(/^\/api\/metrics\/vitals\/?$/, express.text({ type: "*/*", limit: "8kb" }));
-app.use(/^\/api\/metrics\/route-analytics\/?$/, express.text({ type: "*/*", limit: "64kb" }));
+// sendBeacon posts JSON without application/json — parse as text before global JSON.
+// Use pathname helpers (not Express RegExp mounts) so req.path stays consistent for later middleware.
+const vitalsText = express.text({ type: "*/*", limit: "8kb" });
+const routeAnalyticsText = express.text({ type: "*/*", limit: "64kb" });
+app.use((req, res, next) => {
+  const p = getRequestPathname(req);
+  if (p === "/metrics/vitals" || p.endsWith("/metrics/vitals")) {
+    return vitalsText(req, res, next);
+  }
+  if (p === "/metrics/route-analytics" || p.endsWith("/metrics/route-analytics")) {
+    return routeAnalyticsText(req, res, next);
+  }
+  return next();
+});
 // Global JSON limit: 3MB (large file uploads use multipart or per-route override)
 app.use(express.json({ limit: "3mb" }));
 app.use(express.urlencoded({ extended: true, limit: "3mb" }));
@@ -242,10 +253,27 @@ const clerk = clerkMiddleware((req) => ({
     process.env.CLERK_PUBLISHABLE_KEY,
   ),
 }));
-// Public fire-and-forget beacons — no Clerk session (sendBeacon sends cookies on same-origin)
+// Public fire-and-forget beacons — skip Clerk (sendBeacon sends same-origin cookies).
+// TEMP diagnostic (no secrets): confirms whether skip matched under Production/Coolify paths.
 app.use((req, res, next) => {
-  if (isMetricsBeaconPath(req.path)) return next();
-  return clerk(req, res, next);
+  const skip = isMetricsBeaconRequest(req);
+  if (req.method === "POST" && (skip || /metrics\/vitals/i.test(req.originalUrl ?? ""))) {
+    logger.info(
+      {
+        middleware: "clerkBeaconGate",
+        skip,
+        method: req.method,
+        path: req.path,
+        url: req.url,
+        originalUrl: req.originalUrl,
+        baseUrl: req.baseUrl,
+        pathname: getRequestPathname(req),
+      },
+      "[clerkBeaconGate]",
+    );
+  }
+  if (skip) return next();
+  clerk(req, res, next);
 });
 
 // ─── Clerk JWT error guard ──────────────────────────────────────────────────
