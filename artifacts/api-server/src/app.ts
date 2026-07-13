@@ -14,7 +14,7 @@ import {
   getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
-import { requestGuard, preventionErrorHandler } from "./prevention/request.guard";
+import { requestGuard, preventionErrorHandler, isMetricsBeaconPath } from "./prevention/request.guard";
 import { IsolationMiddleware } from "./isolation/tenant.scope";
 import { runtimeShield } from "./core/runtimeShield";
 import { logger } from "./lib/logger";
@@ -230,20 +230,23 @@ app.use(cors({
   },
 }));
 // sendBeacon posts JSON without application/json — parse as text before global JSON
-app.use("/api/metrics/vitals", express.text({ type: "*/*", limit: "8kb" }));
-app.use("/api/metrics/route-analytics", express.text({ type: "*/*", limit: "64kb" }));
+app.use(/^\/api\/metrics\/vitals\/?$/, express.text({ type: "*/*", limit: "8kb" }));
+app.use(/^\/api\/metrics\/route-analytics\/?$/, express.text({ type: "*/*", limit: "64kb" }));
 // Global JSON limit: 3MB (large file uploads use multipart or per-route override)
 app.use(express.json({ limit: "3mb" }));
 app.use(express.urlencoded({ extended: true, limit: "3mb" }));
 
-app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      getClerkProxyHost(req) ?? "",
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  })),
-);
+const clerk = clerkMiddleware((req) => ({
+  publishableKey: publishableKeyFromHost(
+    getClerkProxyHost(req) ?? "",
+    process.env.CLERK_PUBLISHABLE_KEY,
+  ),
+}));
+// Public fire-and-forget beacons — no Clerk session (sendBeacon sends cookies on same-origin)
+app.use((req, res, next) => {
+  if (isMetricsBeaconPath(req.path)) return next();
+  return clerk(req, res, next);
+});
 
 // ─── Clerk JWT error guard ──────────────────────────────────────────────────
 // Clerk throws synchronously on malformed/tampered tokens before routes run.
