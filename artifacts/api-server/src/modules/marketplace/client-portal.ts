@@ -8,6 +8,7 @@ import { createClerkClient } from "@clerk/express";
 import nodemailer from "nodemailer";
 import { getStorageProvider, isObjectStorageConfigured, entityIdToObjectKey, getObjectStorageBucket } from "../../core/storage";
 import { validateUpload } from "../../lib/uploadGuard";
+import { logEndpointError } from "../../lib/endpointErrorLog";
 
 const router = Router();
 
@@ -261,7 +262,8 @@ router.get("/portal/:token", async (req: Request, res: Response) => {
       uploads: sqlAll(uploadRows),
     });
   } catch (e: any) {
-        res.status(500).json({ error: e.message });
+    logEndpointError("GET /api/portal/:token", req, e, { portalToken: req.params.token });
+    res.status(500).json({ error: e.message });
   }
 });
 

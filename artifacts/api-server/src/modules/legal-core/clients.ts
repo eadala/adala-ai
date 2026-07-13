@@ -8,6 +8,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { eventBus } from "../../core/eventBus";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
+import { logEndpointError } from "../../lib/endpointErrorLog";
 
 const router = Router();
 
@@ -281,6 +282,7 @@ router.get("/clients/:id/overview", requireAuthWithTenant, async (req, res) => {
       },
     });
   } catch (e: any) {
+    logEndpointError("GET /api/clients/:id/overview", req, e, { clientId: req.params.id });
     res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
   }
 });
@@ -466,6 +468,7 @@ router.get("/clients/:id/portal-activity", requireAuthWithTenant, async (req, re
 
     res.json({ portalAccount, caseLinks, storeOrders, marketplaceOrders });
   } catch (e: any) {
+    logEndpointError("GET /api/clients/:id/portal-activity", req, e, { clientId: req.params.id });
     res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: e.message } });
   }
 });

@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { getTenantSafe } from "../../core/tenantContext";
+import { logEndpointError } from "../../lib/endpointErrorLog";
 
 const router = Router();
 
@@ -340,6 +341,7 @@ router.get("/ai-agent/briefing", requireAuthWithTenant, async (req: Request, res
       },
     });
   } catch (e: any) {
+    logEndpointError("GET /api/ai-agent/briefing", req, e);
     res.status(500).json({ error: e.message });
   }
 });
