@@ -22,14 +22,27 @@ function extractDbFields(err: unknown): {
   dbDetail?: string;
   dbHint?: string;
   dbConstraint?: string;
+  causeMessage?: string;
 } {
-  const e = err as PgErrorLike;
-  return {
-    dbCode: e?.code,
-    dbDetail: e?.detail,
-    dbHint: e?.hint,
-    dbConstraint: e?.constraint,
-  };
+  const out: ReturnType<typeof extractDbFields> = {};
+  let current: unknown = err;
+  const seen = new Set<unknown>();
+
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    const e = current as PgErrorLike;
+    if (e?.code && !out.dbCode) out.dbCode = e.code;
+    if (e?.detail && !out.dbDetail) out.dbDetail = e.detail;
+    if (e?.hint && !out.dbHint) out.dbHint = e.hint;
+    if (e?.constraint && !out.dbConstraint) out.dbConstraint = e.constraint;
+    if (e?.message && !out.causeMessage) out.causeMessage = e.message;
+
+    const next = (current as { cause?: unknown }).cause;
+    if (!next || next === current) break;
+    current = next;
+  }
+
+  return out;
 }
 
 /** Structured error log for API handlers — safe for Coolify/production log drains. */
