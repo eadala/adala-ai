@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -8,11 +9,21 @@ import {
   AlertTriangle, CheckCircle2, BarChart3
 } from "lucide-react";
 
+import { useAuthReady } from "@/hooks/use-auth-ready";
+import { authFetch } from "@/lib/authFetch";
+
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (p: string) => `${BASE}${p}`;
 
 function fetchJ(url: string, opts?: RequestInit) {
   return fetch(url, opts).then(r => {
+    if (!r.ok) throw new Error("خطأ");
+    return r.json();
+  });
+}
+
+function authFetchJ(url: string, opts?: RequestInit) {
+  return authFetch(url, opts).then(r => {
     if (!r.ok) throw new Error("خطأ");
     return r.json();
   });
@@ -182,10 +193,12 @@ export default function AICopilotPage() {
   const inputRef  = useRef<HTMLTextAreaElement>(null);
   const qc = useQueryClient();
 
+  const authReady = useAuthReady();
   const snapshotQ = useQuery({
     queryKey: ["copilot-snapshot"],
-    queryFn: () => fetchJ(api("/api/copilot/snapshot")),
+    queryFn: () => authFetchJ(api("/api/copilot/snapshot")),
     staleTime: 60000,
+    enabled: authReady,
   });
   const snap = snapshotQ.data;
 
