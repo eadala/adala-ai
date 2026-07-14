@@ -82,7 +82,15 @@ assert.match(appSrc, /sendBeacon posts JSON without application\/json/);
 assert.match(appSrc, /express\.text\(\{ type: "\*\/\*", limit: "8kb" \}/);
 assert.match(appSrc, /isMetricsBeaconRequest\(req\)/);
 assert.match(appSrc, /clerkBeaconGate/);
-console.log("  ✅ app.ts: text parser + Clerk skip + diagnostic gate for sendBeacon vitals");
+assert.match(appSrc, /evaluateCorsOrigin/);
+assert.match(appSrc, /createCorsOriginRejectedError/);
+console.log("  ✅ app.ts: text parser + Clerk skip + request-aware CORS + diagnostic gate");
+
+const corsPolicy = readSrc("lib/corsOriginPolicy.ts");
+assert.match(corsPolicy, /metrics-beacon-null/);
+assert.match(corsPolicy, /CORS_ORIGIN_NOT_ALLOWED/);
+assert.match(corsPolicy, /statusCode = 403/);
+console.log("  ✅ corsOriginPolicy: Origin null only for beacons; reject as 403");
 
 const beaconLib = readSrc("lib/metricsBeaconPath.ts");
 assert.match(beaconLib, /getRequestPathname/);

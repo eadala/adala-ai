@@ -18,6 +18,10 @@ import { requestGuard, preventionErrorHandler, isMetricsBeaconRequest, getReques
 import { IsolationMiddleware } from "./isolation/tenant.scope";
 import { runtimeShield } from "./core/runtimeShield";
 import { logger } from "./lib/logger";
+import {
+  createCorsOriginRejectedError,
+  evaluateCorsOrigin,
+} from "./lib/corsOriginPolicy";
 import { WebhookHandlers } from "./webhookHandlers";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -60,7 +64,7 @@ app.post(
       const sig = Array.isArray(signature) ? signature[0] : signature;
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
       res.status(200).json({ received: true });
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error({ err }, "Stripe webhook error");
       res.status(400).json({ error: "Webhook processing error" });
     }
@@ -207,28 +211,18 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
   .map((o) => o.trim())
   .filter(Boolean);
 
-// Production domains — always allowed regardless of env var
-const PRODUCTION_DOMAINS = [
-  "https://adalahai.com",
-  "https://www.adalahai.com",
-];
-
-app.use(cors({
-  credentials: true,
-  origin(origin, callback) {
-    if (!origin) return callback(null, true);
-    if (
-      PRODUCTION_DOMAINS.includes(origin) ||
-      ALLOWED_ORIGINS.includes(origin) ||
-      /^https:\/\/.*\.replit\.app$/.test(origin) ||
-      /^https:\/\/.*\.replit\.dev$/.test(origin) ||
-      /^http:\/\/localhost(:\d+)?$/.test(origin)
-    ) {
-      return callback(null, true);
-    }
-    callback(new Error(`CORS: origin not allowed — ${origin}`));
-  },
-}));
+// cors `origin` callback has no `req` — use options delegate so beacon paths can
+// allow opaque Origin "null" without weakening CORS for the rest of the API.
+app.use((req, res, next) => {
+  cors({
+    credentials: true,
+    origin(origin, callback) {
+      const decision = evaluateCorsOrigin(origin, req, ALLOWED_ORIGINS);
+      if (decision.allowed) return callback(null, true);
+      callback(createCorsOriginRejectedError(origin ?? ""));
+    },
+  })(req, res, next);
+});
 // sendBeacon posts JSON without application/json — parse as text before global JSON.
 // Use pathname helpers (not Express RegExp mounts) so req.path stays consistent for later middleware.
 const vitalsText = express.text({ type: "*/*", limit: "8kb" });
@@ -279,16 +273,24 @@ app.use((req, res, next) => {
 // ─── Clerk JWT error guard ──────────────────────────────────────────────────
 // Clerk throws synchronously on malformed/tampered tokens before routes run.
 // Catch those errors and return 401 instead of crashing with 500.
-app.use(((err: any, _req, res, next) => {
-  const stack: string = err?.stack ?? "";
+app.use(((err: unknown, _req, res, next) => {
+  const e = err as {
+    clerkError?: boolean;
+    status?: number;
+    statusCode?: number;
+    name?: string;
+    message?: string;
+    stack?: string;
+  };
+  const stack: string = e.stack ?? "";
   const isClerkAuthError =
-    err?.clerkError === true ||
-    err?.status === 401 || err?.statusCode === 401 ||
-    err?.name === "TokenExpiredError" ||
-    err?.name === "JsonWebTokenError" ||
-    (err?.name === "SyntaxError" && (stack.includes("@clerk") || stack.includes("decodeJwt") || stack.includes("verifyJwt"))) ||
-    err?.message?.includes("Invalid token") ||
-    err?.message?.includes("Unauthenticated");
+    e.clerkError === true ||
+    e.status === 401 || e.statusCode === 401 ||
+    e.name === "TokenExpiredError" ||
+    e.name === "JsonWebTokenError" ||
+    (e.name === "SyntaxError" && (stack.includes("@clerk") || stack.includes("decodeJwt") || stack.includes("verifyJwt"))) ||
+    e.message?.includes("Invalid token") ||
+    e.message?.includes("Unauthenticated");
   if (isClerkAuthError) {
     return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
   }
