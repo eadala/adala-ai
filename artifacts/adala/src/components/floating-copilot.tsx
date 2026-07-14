@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; authFetch migration */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -9,6 +10,8 @@ import {
   Scale, Receipt, CalendarDays, Bell, BarChart3,
   ChevronRight, Loader2, Zap,
 } from "lucide-react";
+import { useAuthReady } from "@/hooks/use-auth-ready";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -66,11 +69,13 @@ export function FloatingCopilot() {
 
   const pageLabel = PAGE_LABELS[location] ?? location;
 
+  const authReady = useAuthReady();
   const { data: snapshot } = useQuery({
     queryKey: ["copilot-snapshot"],
-    queryFn: () => fetch(`${BASE}/api/copilot/snapshot`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/copilot/snapshot`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
     refetchInterval: 120_000,
+    enabled: authReady,
   });
 
   useEffect(() => {

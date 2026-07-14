@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +16,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuthReady } from "@/hooks/use-auth-ready";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -578,6 +581,7 @@ function PresetCard({
 ────────────────────────────────────────────────────────────────── */
 export default function ThemeBuilderPage() {
   const qc = useQueryClient();
+  const authReady = useAuthReady();
   const [tokens, setTokens] = useState<DesignTokens>(DEFAULT_TOKENS);
   const [dirty, setDirty] = useState(false);
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
@@ -589,8 +593,9 @@ export default function ThemeBuilderPage() {
   /* Load saved tokens */
   const { data: saved } = useQuery({
     queryKey: ["theme-builder-tokens"],
-    queryFn: () => fetch(`${BASE}/api/theme-builder/tokens`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/theme-builder/tokens`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
+    enabled: authReady,
   });
 
   /* Load presets */

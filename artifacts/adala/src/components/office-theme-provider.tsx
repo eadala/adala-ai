@@ -1,6 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useBranding } from "@/hooks/use-branding";
+import { useAuthReady } from "@/hooks/use-auth-ready";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -256,12 +259,14 @@ function clearDesignTokens() {
 ═══════════════════════════════════════════════════════════════ */
 export function OfficeThemeProvider() {
   const { data: branding } = useBranding();
+  const authReady = useAuthReady();
 
   const { data: themeData } = useQuery({
     queryKey: ["office-theme-tokens"],
-    queryFn: () => fetch(`${BASE}/api/theme-builder/tokens`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/theme-builder/tokens`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
+    enabled: authReady,
   });
 
   /* Apply design tokens ONLY when the office has a saved custom theme.

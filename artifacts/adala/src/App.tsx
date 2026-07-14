@@ -14,6 +14,7 @@ import { useRole } from "@/hooks/use-role";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useRouteAnalytics } from "@/hooks/use-route-analytics";
 import { OfficeThemeProvider } from "@/components/office-theme-provider";
+import { ClerkAuthFetchBridge } from "@/components/clerk-auth-fetch-bridge";
 
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────────
 // Core (likely first visit)
@@ -796,6 +797,7 @@ function AppRoutes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
+      <ClerkAuthFetchBridge />
       <ClerkQueryClientCacheInvalidator />
       <OfficeThemeProvider />
       <AppErrorBoundary>

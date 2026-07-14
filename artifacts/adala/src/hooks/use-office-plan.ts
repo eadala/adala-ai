@@ -1,4 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { authFetch } from "@/lib/authFetch";
+import { useAuthReady } from "@/hooks/use-auth-ready";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -33,24 +35,26 @@ export interface PlanNotification {
 }
 
 async function fetchSubscription(): Promise<OfficePlan> {
-  const r = await fetch(`${BASE}/api/office/subscription`);
+  const r = await authFetch(`${BASE}/api/office/subscription`);
   if (!r.ok) throw new Error("Failed to fetch subscription");
   return r.json();
 }
 
 export function useOfficePlan() {
-  const { data, isLoading } = useQuery<OfficePlan>({
+  const authReady = useAuthReady();
+  const { data, isPending } = useQuery<OfficePlan>({
     queryKey: ["office-subscription"],
     queryFn: fetchSubscription,
     staleTime: 60_000,
     retry: false,
+    enabled: authReady,
   });
 
   const flags = data?.featureFlags ?? {};
 
   return {
     plan:          data ?? null,
-    isLoaded:      !isLoading,
+    isLoaded:      authReady && !isPending,
     planSlug:      data?.planSlug ?? "free",
     planName:      data?.planName ?? "مجاني",
     planColor:     data?.planColor ?? "#C9A84C",

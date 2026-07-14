@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useRef, useEffect } from "react";
 import { useUser, useClerk, useAuth } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useIsSuperAdmin } from "@/hooks/use-role";
+import { useBranding } from "@/hooks/use-branding";
 import {
   User, Building2, Shield, KeyRound, Monitor,
   Settings, Bell, Globe2, BookOpen, MessageCircle,
@@ -13,8 +15,6 @@ import {
 import { DEV_API } from "@/features/super-admin/shared/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-
-interface Branding { officeName?: string | null; logoUrl?: string | null; primaryColor?: string | null }
 
 const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -83,11 +83,7 @@ export function AccountMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
   const [, setLocation] = useLocation();
 
-  const { data: branding } = useQuery<Branding>({
-    queryKey: ["branding"],
-    queryFn: () => fetch("/api/branding").then(r => { if (!r.ok) throw new Error("خطأ"); return r.json(); }),
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: branding } = useBranding();
 
   const isSuperAdmin = useIsSuperAdmin();
   const qc = useQueryClient();

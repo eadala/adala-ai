@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * Mobile-First Navigation Experience — عدالة AI
  * ─────────────────────────────────────────────
@@ -29,6 +30,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useOfficePlan } from "@/hooks/use-office-plan";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useAuthReady } from "@/hooks/use-auth-ready";
+import { authFetch } from "@/lib/authFetch";
 import { useQuery } from "@tanstack/react-query";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -272,11 +275,12 @@ export function MobileMoreSheet({
   const [showSearch, setShowSearch] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  const authReady = useAuthReady();
   const { data: officeData } = useQuery({
     queryKey: ["office-info-mobile"],
-    queryFn: () => fetch(`${basePath}/api/offices/my`).then(r => r.ok ? r.json() : null),
+    queryFn: () => authFetch(`${basePath}/api/offices/my`).then(r => r.ok ? r.json() : null),
     staleTime: 10 * 60_000,
-    enabled: open,
+    enabled: open && authReady,
   });
 
   useEffect(() => {
