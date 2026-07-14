@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; OFFICE_PAGE_NOT_CREATED soft 200 */
 import { requireAuth } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -11,6 +12,7 @@ import { getUncachableStripeClient } from "../../stripeClient";
 import { requireProductionBaseUrl } from "../../lib/productionUrl";
 import { logEndpointError } from "../../lib/endpointErrorLog";
 import { fetchOfficePageForUser } from "../../lib/officePageResolver";
+import { buildGetMyOfficeHttpResult } from "../../lib/officeMyResponse";
 
 const router = Router();
 
@@ -32,30 +34,8 @@ async function handleGetMyOffice(req: any, res: any) {
     (req as { _resolvedTenantId?: string })._resolvedTenantId = tenantId;
 
     const result = await fetchOfficePageForUser(req.userId, tenantId);
-
-    switch (result.kind) {
-      case "found":
-        return res.json(result.office);
-      case "trial_pending":
-        return res.status(404).json({
-          error: "لم يُنشأ صفحة المكتب بعد — أكمل إعداد المكتب أو أنشئ صفحة marketplace",
-          code: "OFFICE_PAGE_NOT_CREATED",
-          trialOfficeId: result.trialOfficeId,
-          officeName: result.officeName ?? null,
-          tenantId: result.tenantId,
-        });
-      case "forbidden":
-        return res.status(403).json({
-          error: "لا يمكن الوصول إلى هذا المكتب",
-          code: "TNT_403",
-        });
-      case "not_found":
-        return res.status(404).json({
-          error: "صفحة المكتب غير موجودة",
-          code: "OFFICE_NOT_FOUND",
-          tenantId: result.tenantId,
-        });
-    }
+    const { status, body } = buildGetMyOfficeHttpResult(result);
+    return res.status(status).json(body);
   } catch (e: unknown) {
     logEndpointError(endpoint, req, e, {
       resolvedTenantId: (req as { _resolvedTenantId?: string })._resolvedTenantId,
@@ -244,7 +224,7 @@ router.post("/office/my", requireAuth, async (req: any, res) => {
 
 /* PATCH update office — slug is platform-only, stripped here */
 router.patch("/office/my/:id", requireAuth, async (req, res) => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const { slug: _slug, ...safeBody } = req.body;
   const [row] = await db.update(officePageTable)
     .set({ ...safeBody, updatedAt: new Date() })
