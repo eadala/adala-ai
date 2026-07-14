@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; OFFICE_PAGE_NOT_CREATED soft 200 */
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUpload } from "@workspace/object-storage-web";
 import {
@@ -67,6 +68,15 @@ export default function OfficeManagement() {
   const [pageForm, setPageForm] = useState<any>(null);
   const [initName, setInitName] = useState("");
   const [initSlug, setInitSlug] = useState("");
+
+  /* Prefill create form when API returns soft OFFICE_PAGE_NOT_CREATED (200, no id) */
+  useEffect(() => {
+    if (office?.id) return;
+    if (office?.code !== "OFFICE_PAGE_NOT_CREATED") return;
+    if (typeof office?.name === "string" && office.name.trim() && !initName) {
+      setInitName(office.name.trim());
+    }
+  }, [office, initName]);
 
   const createOfficeMutation = useMutation({
     mutationFn: (d: any) => fetch("/api/office/my", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -239,8 +249,11 @@ export default function OfficeManagement() {
 
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
+  /* Soft 200 OFFICE_PAGE_NOT_CREATED has no marketplace page id — show create flow */
+  const marketplacePage = office?.id ? office : null;
+
   /* ── Create office form ── */
-  if (!office) return (
+  if (!marketplacePage) return (
     <div className="max-w-lg mx-auto py-16">
       <div className="text-center mb-8">
         <Globe className="h-12 w-12 mx-auto mb-3 text-primary opacity-60" />
