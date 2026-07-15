@@ -846,6 +846,7 @@ function AppRoutes() {
             {/* Documents */}
             <Route path="/documents/new"><ProtectedRoute><Documents /></ProtectedRoute></Route>
             <Route path="/documents"><ProtectedRoute><Documents /></ProtectedRoute></Route>
+            <Route path="/contracts/new"><ProtectedRoute><Contracts /></ProtectedRoute></Route>
             <Route path="/contracts"><ProtectedRoute><Contracts /></ProtectedRoute></Route>
             <Route path="/letters"><ProtectedRoute><Letters /></ProtectedRoute></Route>
             <Route path="/warnings"><ProtectedRoute><Warnings /></ProtectedRoute></Route>
@@ -893,6 +894,7 @@ function AppRoutes() {
             <Route path="/compliance"><ProtectedRoute><Compliance /></ProtectedRoute></Route>
 
             {/* Finance */}
+            <Route path="/invoices/new"><ProtectedRoute><Invoices /></ProtectedRoute></Route>
             <Route path="/invoices"><ProtectedRoute><Invoices /></ProtectedRoute></Route>
             <Route path="/revenues"><ProtectedRoute><Revenues /></ProtectedRoute></Route>
             <Route path="/expenses"><ProtectedRoute><Expenses /></ProtectedRoute></Route>
