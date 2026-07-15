@@ -1,4 +1,6 @@
-import { requireAuth, requireAuthWithTenant, checkIsSuperAdmin} from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+import { requireAuthWithTenant, checkIsSuperAdmin } from "../../middlewares/requireAuth";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import {
@@ -6,7 +8,7 @@ import {
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../../lib/objectStorage";
-import { ObjectPermission } from "../../lib/objectAcl";
+import { resolveStorageOfficeId } from "../../lib/storageOfficeId";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -150,7 +152,13 @@ async function getMgmtUser(req: any) {
     const user = await getClerkMgmt().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
     const isSA = await checkIsSuperAdmin(auth.userId);
-    let officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
+    // Prefer tenant from requireAuthWithTenant; never fall back to Clerk userId.
+    const resolvedOfficeId = resolveStorageOfficeId({
+      tenantId: req.tenantId,
+      metadataOfficeId: user.publicMetadata?.officeId,
+    });
+    if (!resolvedOfficeId) return null;
+    let officeId: string = resolvedOfficeId;
 
     // Developer impersonation: SA viewing as a specific office
     let isImpersonating = false;
@@ -162,7 +170,7 @@ async function getMgmtUser(req: any) {
         LIMIT 1
       `);
       if (impRows[0]?.impersonated_office_id) {
-        officeId = impRows[0].impersonated_office_id;
+        officeId = String(impRows[0].impersonated_office_id);
         isImpersonating = true;
       }
     }
