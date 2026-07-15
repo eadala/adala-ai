@@ -6,7 +6,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveStorageOfficeId } from "../lib/storageOfficeId";
+import {
+  OFFICE_CONTEXT_REQUIRED,
+  resolveStorageOfficeId,
+  storageMgmtAuthResponse,
+} from "../lib/storageOfficeId";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..");
 const storageTs = readFileSync(join(SRC, "modules/operations/storage.ts"), "utf8");
@@ -69,7 +73,6 @@ console.log("\n═══ resolveStorageOfficeId ═══");
     metadataOfficeId: undefined,
   });
   assert.equal(officeId, null);
-  // Explicit: Clerk userId must never be an implicit fallback input to this helper
   assert.notEqual(officeId, USER_ID);
   console.log("  ✅ auth.userId is never used as officeId by resolver");
 }
@@ -81,6 +84,16 @@ assert.match(
   /resolveStorageOfficeId\(\{\s*tenantId:\s*req\.tenantId/,
   "getMgmtUser must prefer req.tenantId via resolveStorageOfficeId",
 );
+assert.match(
+  storageTs,
+  /reason:\s*"office_required"/,
+  "getMgmtUser must fail closed with office_required when office id cannot be resolved",
+);
+assert.match(
+  storageTs,
+  /storageMgmtAuthResponse\(result\.reason\)/,
+  "handlers must map office_required through storageMgmtAuthResponse",
+);
 assert.doesNotMatch(
   storageTs,
   /officeId\s*=\s*\([^)]*publicMetadata\?\.officeId[^)]*\)\s*\?\?\s*auth\.userId/,
@@ -91,11 +104,31 @@ assert.doesNotMatch(
   /\?\?\s*auth\.userId/,
   "must not use auth.userId as officeId fallback anywhere in storage.ts",
 );
-assert.match(
-  storageTs,
-  /if\s*\(!resolvedOfficeId\)\s*return null/,
-  "getMgmtUser must fail closed when office id cannot be resolved",
-);
-console.log("  ✅ getMgmtUser wired to tenant-first resolution + fail-closed");
+console.log("  ✅ getMgmtUser wired to tenant-first resolution + fail-closed 403");
+
+console.log("\n═══ OFFICE_CONTEXT_REQUIRED response ═══");
+
+{
+  const res = storageMgmtAuthResponse("office_required");
+  assert.equal(res.status, 403);
+  assert.deepEqual(res.body, {
+    code: "OFFICE_CONTEXT_REQUIRED",
+    message: OFFICE_CONTEXT_REQUIRED.message,
+  });
+  assert.equal(
+    res.body.message,
+    "تعذر تحديد المكتب المرتبط بحسابك. يرجى إكمال إعداد المكتب أو التواصل مع المسؤول.",
+  );
+  // Must not imply "not registered in an office" or raw unauthenticated phrasing
+  assert.doesNotMatch(res.body.message, /غير مسجّل|غير مسجل|غير مصادق/);
+  console.log("  ✅ missing office → HTTP 403 OFFICE_CONTEXT_REQUIRED (Arabic UX)");
+}
+
+{
+  const res = storageMgmtAuthResponse("unauthenticated");
+  assert.equal(res.status, 401);
+  assert.deepEqual(res.body, { error: "غير مصادق" });
+  console.log("  ✅ missing auth still → HTTP 401");
+}
 
 console.log("\n✅ storageOfficeId: all checks passed\n");
