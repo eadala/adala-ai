@@ -11,6 +11,7 @@
     "start": "node --max-old-space-size=512 --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:storage": "node --import tsx --test src/tests/r2-storage.test.ts",
+    "test:storage-office-id": "node --import tsx src/tests/storageOfficeId.test.ts",
     "test:post-migration": "node --import tsx src/tests/postMigrationApiFixes.test.ts",
     "test:offices-my": "node --import tsx src/tests/officesMy.test.ts",
     "test:metrics-vitals": "node --import tsx src/tests/metricsBeaconPath.test.ts && node --import tsx src/tests/metricsVitals.integration.test.ts",
