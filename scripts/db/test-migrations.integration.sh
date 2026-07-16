@@ -19,6 +19,7 @@ MIGRATIONS_BASE=(
 )
 MIGRATION_006="$ROOT/artifacts/api-server/migrations/006_post_migration_api_support.sql"
 MIGRATION_007="$ROOT/artifacts/api-server/migrations/007_office_storage_quota_text_tenant.sql"
+MIGRATION_008="$ROOT/artifacts/api-server/migrations/008_storage_files_text_tenant.sql"
 
 PASS=0
 FAIL=0
@@ -90,15 +91,20 @@ apply_migration_007() {
   psql_db -f "$MIGRATION_007" >/dev/null
 }
 
+apply_migration_008() {
+  psql_db -f "$MIGRATION_008" >/dev/null
+}
+
 apply_all_migrations() {
   apply_migrations_base
   apply_migration_006
   apply_migration_007
+  apply_migration_008
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -334,12 +340,13 @@ scenario_migration_006_idempotent() {
   idx_count=$(psql_db -At -c "SELECT COUNT(*) FROM pg_indexes WHERE tablename='login_logs';")
   [[ "$idx_count" -ge 4 ]] && ok "login_logs has indexes ($idx_count)" || bad "login_logs indexes missing ($idx_count)"
 
-  # P0 now includes office_storage_quota (007) — apply before full verify
+  # P0 includes office_storage_quota (007) + storage_files (008)
   apply_migration_007
+  apply_migration_008
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-006.log 2>&1; then
-    ok "verify-schema.sh passed after 006+007"
+    ok "verify-schema.sh passed after 006+007+008"
   else
-    bad "verify-schema.sh failed after 006+007"
+    bad "verify-schema.sh failed after 006+007+008"
     tail -15 /tmp/verify-006.log
   fi
 
@@ -429,6 +436,82 @@ SQL
   teardown_db
 }
 
+# ── Scenario 3c: missing storage_files (42P01) → 008 creates TEXT tenant table ─
+scenario_migration_008_storage_files() {
+  log "Scenario 3c — missing storage_files → 008 CREATE + trial INSERT"
+  setup_db "mig008"
+  trap teardown_db EXIT
+
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+
+  local pre_exists
+  pre_exists=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='storage_files'
+    );
+  ")
+  [[ "$pre_exists" == "f" ]] && ok "pre-008: storage_files absent (42P01 class)" || bad "pre-008: storage_files should be absent"
+
+  set +e
+  psql_db -c "
+    INSERT INTO storage_files (office_id, original_name, file_name, file_size, category)
+    VALUES ('trial_gJ1TIcai', 'a.pdf', 'a.pdf', 1, 'document');
+  " >/tmp/pre-008-insert.log 2>&1
+  local pre_rc=$?
+  set -e
+  [[ "$pre_rc" -ne 0 ]] && ok "pre-008: INSERT fails with missing relation" || bad "pre-008: INSERT should fail"
+
+  apply_migration_008
+  apply_migration_008
+
+  local post_exists post_udt trial_rc
+  post_exists=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='storage_files'
+    );
+  ")
+  post_udt=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_name='storage_files' AND column_name='office_id';
+  ")
+  [[ "$post_exists" == "t" ]] && ok "post-008: storage_files present" || bad "post-008: storage_files missing"
+  [[ "$post_udt" == "text" ]] && ok "post-008: office_id is text" || bad "post-008: office_id udt=$post_udt"
+
+  set +e
+  psql_db <<'SQL' >/tmp/post-008-insert.log 2>&1
+INSERT INTO storage_files (
+  office_id, case_id, client_id, uploaded_by, original_name, file_name,
+  mime_type, file_size, file_hash, file_url, storage_key, category
+) VALUES (
+  'trial_gJ1TIcai', NULL, NULL, 'user_test', 'doc.pdf', 'doc.pdf',
+  'application/pdf', 100, 'abc', NULL, 'k1', 'document'
+);
+INSERT INTO office_storage_quota (office_id, used_bytes, files_count)
+VALUES ('trial_gJ1TIcai', 100, 1)
+ON CONFLICT (office_id) DO UPDATE SET
+  used_bytes = office_storage_quota.used_bytes + 100,
+  files_count = office_storage_quota.files_count + 1,
+  updated_at = NOW();
+SQL
+  trial_rc=$?
+  set -e
+  [[ "$trial_rc" -eq 0 ]] && ok "post-008: trial file+quota register path succeeds" || {
+    bad "post-008: trial register failed"
+    cat /tmp/post-008-insert.log
+  }
+
+  local cnt
+  cnt=$(psql_db -At -c "SELECT COUNT(*) FROM storage_files WHERE office_id='trial_gJ1TIcai';")
+  [[ "$cnt" == "1" ]] && ok "post-008: trial row persisted" || bad "post-008: count=$cnt"
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Scenario 4: reported endpoints + office/public schema paths ─────────────
 scenario_reported_endpoints() {
   log "Scenario 4 — SQL paths for reported 500/404 endpoints + office/public + sendBeacon vitals"
@@ -486,7 +569,7 @@ SQL
   [[ "$admin_cnt" -ge 1 ]] && ok "admin list offices (db.select officePageTable)" || bad "office_page empty"
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-endpoints.log 2>&1; then
-    ok "verify-schema.sh passed after full chain including 006+007"
+    ok "verify-schema.sh passed after full chain including 006+007+008"
   else
     bad "verify-schema.sh failed on endpoint scenario"
     tail -15 /tmp/verify-endpoints.log
@@ -543,6 +626,7 @@ scenario_empty_db
 scenario_partial_idempotent
 scenario_migration_006_idempotent
 scenario_migration_007_text_tenant
+scenario_migration_008_storage_files
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
