@@ -13,6 +13,11 @@ import {
   storageMgmtAuthResponse,
   type StorageMgmtAuthFailure,
 } from "../../lib/storageOfficeId";
+import {
+  registerStorageFileWithQuota,
+  storageRegisterErrorResponse,
+} from "../../lib/storageFileRegister";
+import { logEndpointError } from "../../lib/endpointErrorLog";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -397,10 +402,26 @@ router.post("/storage/files", requireAuthWithTenant, async (req, res) => {
     if (dup.length > 0) return res.status(409).json({ duplicate: true, existing: dup[0], message: "هذا الملف موجود بالفعل" });
   }
   try {
-    const rows = await dbRows(sql`INSERT INTO storage_files (office_id,case_id,client_id,uploaded_by,original_name,file_name,mime_type,file_size,file_hash,file_url,storage_key,category) VALUES (${u.officeId},${caseId??null},${clientId??null},${u.userId},${originalName},${storageKey??originalName},${mimeType??null},${fileSize??0},${fileHash},${fileUrl??null},${storageKey??null},${category}) RETURNING *`);
-    await db.execute(sql`INSERT INTO office_storage_quota (office_id,used_bytes,files_count) VALUES (${u.officeId},${fileSize??0},1) ON CONFLICT (office_id) DO UPDATE SET used_bytes=office_storage_quota.used_bytes+${fileSize??0},files_count=office_storage_quota.files_count+1,updated_at=NOW()`);
-    res.json(rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+    /* Atomic: storage_files insert + quota upsert; rollback file row on quota failure */
+    const { record } = await registerStorageFileWithQuota({
+      officeId: u.officeId,
+      userId: u.userId,
+      originalName,
+      mimeType,
+      fileSize,
+      fileUrl,
+      storageKey,
+      category,
+      caseId,
+      clientId,
+      fileHash,
+    });
+    res.json(record);
+  } catch (e: unknown) {
+    logEndpointError("POST /api/storage/files", req, e, { officeId: u.officeId });
+    const safe = storageRegisterErrorResponse();
+    res.status(safe.status).json(safe.body);
+  }
 });
 
 /* ARCHIVE TOGGLE */

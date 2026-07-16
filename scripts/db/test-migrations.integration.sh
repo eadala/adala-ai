@@ -18,6 +18,7 @@ MIGRATIONS_BASE=(
   "$ROOT/artifacts/api-server/migrations/005_tenant_platform_tables.sql"
 )
 MIGRATION_006="$ROOT/artifacts/api-server/migrations/006_post_migration_api_support.sql"
+MIGRATION_007="$ROOT/artifacts/api-server/migrations/007_office_storage_quota_text_tenant.sql"
 
 PASS=0
 FAIL=0
@@ -85,14 +86,19 @@ apply_migration_006() {
   psql_db -f "$MIGRATION_006" >/dev/null
 }
 
+apply_migration_007() {
+  psql_db -f "$MIGRATION_007" >/dev/null
+}
+
 apply_all_migrations() {
   apply_migrations_base
   apply_migration_006
+  apply_migration_007
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -328,12 +334,96 @@ scenario_migration_006_idempotent() {
   idx_count=$(psql_db -At -c "SELECT COUNT(*) FROM pg_indexes WHERE tablename='login_logs';")
   [[ "$idx_count" -ge 4 ]] && ok "login_logs has indexes ($idx_count)" || bad "login_logs indexes missing ($idx_count)"
 
+  # P0 now includes office_storage_quota (007) — apply before full verify
+  apply_migration_007
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-006.log 2>&1; then
-    ok "verify-schema.sh passed after 006"
+    ok "verify-schema.sh passed after 006+007"
   else
-    bad "verify-schema.sh failed after 006"
+    bad "verify-schema.sh failed after 006+007"
     tail -15 /tmp/verify-006.log
   fi
+
+  trap - EXIT
+  teardown_db
+}
+
+# ── Scenario 3b: UUID/FK legacy office_storage_quota → TEXT via 007 ──────────
+scenario_migration_007_text_tenant() {
+  log "Scenario 3b — legacy UUID+FK office_storage_quota → 007 TEXT tenant model"
+  setup_db "mig007"
+  trap teardown_db EXIT
+
+  apply_migrations_base
+  apply_migration_006
+
+  # Simulate Production-like UUID table FK'd to office_page (pre-007)
+  psql_db <<'SQL' >/dev/null
+DROP TABLE IF EXISTS office_storage_quota CASCADE;
+CREATE TABLE office_storage_quota (
+  office_id UUID PRIMARY KEY REFERENCES office_page(id),
+  used_bytes BIGINT NOT NULL DEFAULT 0,
+  files_count INTEGER NOT NULL DEFAULT 0,
+  max_bytes BIGINT NOT NULL DEFAULT 1073741824,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO office_page (id, slug, name)
+  VALUES ('550e8400-e29b-41d4-a716-446655440000', 'quota-legacy', 'Quota Legacy')
+  ON CONFLICT (id) DO NOTHING;
+INSERT INTO office_storage_quota (office_id, used_bytes, files_count)
+  VALUES ('550e8400-e29b-41d4-a716-446655440000', 42, 1);
+SQL
+
+  local pre_udt pre_fk
+  pre_udt=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_name='office_storage_quota' AND column_name='office_id';
+  ")
+  pre_fk=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint c
+    JOIN pg_class t ON t.oid=c.conrelid
+    JOIN pg_class ft ON ft.oid=c.confrelid
+    WHERE t.relname='office_storage_quota' AND c.contype='f' AND ft.relname='office_page';
+  ")
+  [[ "$pre_udt" == "uuid" ]] && ok "pre-007: office_id is uuid" || bad "pre-007: office_id udt=$pre_udt"
+  [[ "$pre_fk" -ge 1 ]] && ok "pre-007: FK to office_page present" || bad "pre-007: missing FK"
+
+  apply_migration_007
+  apply_migration_007
+
+  local post_udt post_fk preserved trial_rc
+  post_udt=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_name='office_storage_quota' AND column_name='office_id';
+  ")
+  post_fk=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint c
+    JOIN pg_class t ON t.oid=c.conrelid
+    JOIN pg_class ft ON ft.oid=c.confrelid
+    WHERE t.relname='office_storage_quota' AND c.contype='f' AND ft.relname='office_page';
+  ")
+  preserved=$(psql_db -At -c "
+    SELECT used_bytes::text FROM office_storage_quota
+    WHERE office_id='550e8400-e29b-41d4-a716-446655440000';
+  ")
+  [[ "$post_udt" == "text" ]] && ok "post-007: office_id is text" || bad "post-007: office_id udt=$post_udt"
+  [[ "$post_fk" == "0" ]] && ok "post-007: FK to office_page removed" || bad "post-007: FK still present ($post_fk)"
+  [[ "$preserved" == "42" ]] && ok "post-007: existing row preserved" || bad "post-007: preserved=$preserved"
+
+  set +e
+  psql_db <<'SQL' >/tmp/trial-quota.log 2>&1
+INSERT INTO office_storage_quota (office_id, used_bytes, files_count)
+VALUES ('trial_gJ1TIcai', 1, 1)
+ON CONFLICT (office_id) DO UPDATE
+  SET used_bytes = office_storage_quota.used_bytes + 1,
+      files_count = office_storage_quota.files_count + 1,
+      updated_at = NOW();
+SQL
+  trial_rc=$?
+  set -e
+  [[ "$trial_rc" -eq 0 ]] && ok "post-007: trial_* ON CONFLICT upsert succeeds" || {
+    bad "post-007: trial_* upsert failed"
+    cat /tmp/trial-quota.log
+  }
 
   trap - EXIT
   teardown_db
@@ -396,7 +486,7 @@ SQL
   [[ "$admin_cnt" -ge 1 ]] && ok "admin list offices (db.select officePageTable)" || bad "office_page empty"
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-endpoints.log 2>&1; then
-    ok "verify-schema.sh passed after full chain including 006"
+    ok "verify-schema.sh passed after full chain including 006+007"
   else
     bad "verify-schema.sh failed on endpoint scenario"
     tail -15 /tmp/verify-endpoints.log
@@ -452,6 +542,7 @@ log "DB migration integration tests (local PostgreSQL only)"
 scenario_empty_db
 scenario_partial_idempotent
 scenario_migration_006_idempotent
+scenario_migration_007_text_tenant
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
