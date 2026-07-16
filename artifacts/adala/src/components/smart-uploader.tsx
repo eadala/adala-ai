@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; upload Save fix */
 /**
  * SmartUploader — رافع الملفات الذكي
  * Mobile-First | Drag & Drop | Camera | AI Analysis | Image Compression
@@ -11,21 +12,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
+import {
+  getUploadDispatchGate,
+  normalizeUploadFile,
+} from "@/lib/smartUploaderCore";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
-const ALLOWED: Record<string, string> = {
-  "application/pdf": "PDF",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "DOCX",
-  "application/msword": "DOC",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "XLSX",
-  "application/vnd.ms-excel": "XLS",
-  "image/jpeg": "JPG", "image/jpg": "JPG",
-  "image/png": "PNG", "image/webp": "WEBP",
-  "image/heic": "HEIC", "image/heif": "HEIF",
-  "application/zip": "ZIP",
-};
 const MAX_BYTES       = 10 * 1024 * 1024;  // 10 MB hard limit
 /*
  * Compression targets — tuned for legal documents:
@@ -123,11 +118,11 @@ async function compressImage(file: File): Promise<{ file: File; savedBytes: numb
           if (!blob) { resolve({ file, savedBytes: 0 }); return; }
 
           if (blob.size <= IMG_TARGET || quality <= IMG_QUALITY_MIN) {
-            /* Accept this blob */
-            const out = Object.assign(
-              new Blob([blob], { type: "image/jpeg" }),
-              { name: baseName, lastModified: Date.now() }
-            ) as File;
+            /* Accept this blob as a real File so name/type survive upload */
+            const out = new File([blob], baseName, {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            });
             const savedBytes = Math.max(0, file.size - blob.size);
             resolve({ file: out, savedBytes });
           } else {
@@ -173,7 +168,7 @@ const STATUS_LABEL: Record<UpStatus, string> = {
 };
 
 /* ── Component ──────────────────────────────────────────────────────────── */
-export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUploaderProps) {
+export function SmartUploader({ caseId, clientId, onSuccess, compact: _compact }: SmartUploaderProps) {
   const { toast } = useToast();
   const [items, setItems]       = useState<FItem[]>([]);
   const [dragging, setDragging]       = useState(false);
@@ -184,6 +179,10 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
   const fileRef   = useRef<HTMLInputElement>(null);
   const camRef    = useRef<HTMLInputElement>(null);
   const urlRef    = useRef<HTMLInputElement>(null);
+  const itemsRef  = useRef<FItem[]>([]);
+  const busyRef   = useRef(false);
+
+  useEffect(() => { itemsRef.current = items; }, [items]);
 
   const upd = useCallback((id: string, p: Partial<FItem>) =>
     setItems(prev => prev.map(i => i.id === id ? {...i,...p} : i)), []);
@@ -191,9 +190,10 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
   const addFiles = useCallback((list: FileList | File[]) => {
     const arr = Array.from(list);
     const valid: FItem[] = [];
-    for (const f of arr) {
-      if (!ALLOWED[f.type]) {
-        toast({ title: `❌ نوع الملف غير مدعوم`, description: f.name, variant: "destructive" }); continue;
+    for (const raw of arr) {
+      const f = normalizeUploadFile(raw);
+      if (!f) {
+        toast({ title: `❌ نوع الملف غير مدعوم`, description: raw.name, variant: "destructive" }); continue;
       }
       if (f.size > MAX_BYTES) {
         toast({ title: `❌ الملف أكبر من ١٠ MB`, description: f.name, variant: "destructive" }); continue;
@@ -213,86 +213,101 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
     return prev.filter(i => i.id !== id);
   });
 
-  useEffect(() => () => items.forEach(i => i.previewUrl && URL.revokeObjectURL(i.previewUrl)), []);
+  useEffect(() => () => itemsRef.current.forEach(i => i.previewUrl && URL.revokeObjectURL(i.previewUrl)), []);
 
   const uploadAll = async () => {
-    if (busy) return;
-    const pending = items.filter(i => i.status === "queued");
-    if (!pending.length) return;
+    const gate = getUploadDispatchGate({ busy: busyRef.current, items: itemsRef.current });
+    if (!gate.ok) {
+      if (gate.reason === "empty_queue") {
+        toast({
+          title: "لا يوجد ملف للحفظ",
+          description: "اختر ملفاً مدعوماً أولاً ثم اضغط حفظ",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+    busyRef.current = true;
     setBusy(true);
+    const pending = itemsRef.current.filter(i => i.status === "queued");
     const done: any[] = [];
 
-    for (const item of pending) {
-      try {
-        /* 1 ── Compress ALL images automatically */
-        let f = item.original;
-        if (f.type.startsWith("image/")) {
-          upd(item.id, { status: "compressing", progress: 5 });
-          const { file: compressed, savedBytes } = await compressImage(f);
-          f = compressed;
-          upd(item.id, { processed: f, savedBytes });
+    try {
+      for (const item of pending) {
+        try {
+          /* 1 ── Compress ALL images automatically */
+          let f = item.original;
+          if (f.type.startsWith("image/")) {
+            upd(item.id, { status: "compressing", progress: 5 });
+            const { file: compressed, savedBytes } = await compressImage(f);
+            f = compressed;
+            upd(item.id, { processed: f, savedBytes });
+          }
+          const contentType = f.type || "application/octet-stream";
+          upd(item.id, { status: "uploading", progress: 10 });
+
+          /* 2 ── Presigned URL (authenticated) */
+          const urlR = await authFetch(`${BASE}/api/storage/uploads/request-url`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: f.name, size: f.size, contentType }),
+          });
+          if (!urlR.ok) throw new Error("فشل الحصول على رابط الرفع");
+          const { uploadURL, objectPath } = await urlR.json();
+
+          /* 3 ── Upload directly to signed URL (no Bearer) */
+          await xhrUpload(uploadURL, f, pct => upd(item.id, { progress: 10 + Math.round(pct * 0.72) }));
+          upd(item.id, { status: "registering", progress: 82 });
+
+          /* 4 ── Register in DB */
+          const regR = await authFetch(`${BASE}/api/storage/files`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              originalName: item.original.name,
+              mimeType: contentType, fileSize: f.size,
+              storageKey: objectPath,
+              fileUrl: `/api/storage/objects${objectPath}`,
+              category: getCategory(contentType),
+              caseId: caseId ?? null,
+              clientId: clientId ?? null,
+            }),
+          });
+          if (!regR.ok) {
+            const e = await regR.json();
+            if (e.duplicate) { upd(item.id, { status: "done", progress: 100, record: e.existing, error: "مرفوع مسبقاً" }); continue; }
+            throw new Error(e.error ?? "فشل الحفظ");
+          }
+          const record = await regR.json();
+          upd(item.id, { record, progress: 88 });
+
+          /* 5 ── AI Analyze (images + PDF) */
+          const canAnalyze = contentType.startsWith("image/") || contentType === "application/pdf";
+          if (canAnalyze) {
+            upd(item.id, { status: "analyzing", progress: 90 });
+            try {
+              const b64 = await fileToBase64(f);
+              const aR  = await authFetch(`${BASE}/api/storage/analyze`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ base64: b64, mimeType: contentType }),
+              });
+              const ai = await aR.json();
+              upd(item.id, { analysis: ai.ok ? ai : null, status: "done", progress: 100 });
+            } catch { upd(item.id, { status: "done", progress: 100 }); }
+          } else {
+            upd(item.id, { status: "done", progress: 100 });
+          }
+          done.push(record);
+        } catch (err: any) {
+          upd(item.id, { status: "error", error: err.message });
         }
-        upd(item.id, { status: "uploading", progress: 10 });
-
-        /* 2 ── Presigned URL */
-        const urlR = await fetch(`${BASE}/api/storage/uploads/request-url`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: f.name, size: f.size, contentType: f.type }),
-        });
-        if (!urlR.ok) throw new Error("فشل الحصول على رابط الرفع");
-        const { uploadURL, objectPath } = await urlR.json();
-
-        /* 3 ── Upload */
-        await xhrUpload(uploadURL, f, pct => upd(item.id, { progress: 10 + Math.round(pct * 0.72) }));
-        upd(item.id, { status: "registering", progress: 82 });
-
-        /* 4 ── Register in DB */
-        const regR = await fetch(`${BASE}/api/storage/files`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            originalName: item.original.name,
-            mimeType: f.type, fileSize: f.size,
-            storageKey: objectPath,
-            fileUrl: `/api/storage/objects${objectPath}`,
-            category: getCategory(f.type),
-            caseId: caseId ?? null,
-            clientId: clientId ?? null,
-          }),
-        });
-        if (!regR.ok) {
-          const e = await regR.json();
-          if (e.duplicate) { upd(item.id, { status: "done", progress: 100, record: e.existing, error: "مرفوع مسبقاً" }); continue; }
-          throw new Error(e.error ?? "فشل الحفظ");
-        }
-        const record = await regR.json();
-        upd(item.id, { record, progress: 88 });
-
-        /* 5 ── AI Analyze (images + PDF) */
-        const canAnalyze = f.type.startsWith("image/") || f.type === "application/pdf";
-        if (canAnalyze) {
-          upd(item.id, { status: "analyzing", progress: 90 });
-          try {
-            const b64 = await fileToBase64(f);
-            const aR  = await fetch(`${BASE}/api/storage/analyze`, {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ base64: b64, mimeType: f.type }),
-            });
-            const ai = await aR.json();
-            upd(item.id, { analysis: ai.ok ? ai : null, status: "done", progress: 100 });
-          } catch { upd(item.id, { status: "done", progress: 100 }); }
-        } else {
-          upd(item.id, { status: "done", progress: 100 });
-        }
-        done.push(record);
-      } catch (err: any) {
-        upd(item.id, { status: "error", error: err.message });
       }
-    }
 
-    setBusy(false);
-    if (done.length) {
-      toast({ title: `✅ تم رفع ${done.length} ${done.length === 1 ? "ملف" : "ملفات"} بنجاح` });
-      onSuccess?.(done);
+      if (done.length) {
+        toast({ title: `✅ تم رفع ${done.length} ${done.length === 1 ? "ملف" : "ملفات"} بنجاح` });
+        onSuccess?.(done);
+      }
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
   };
 
@@ -312,7 +327,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
     setShowUrlBox(false);
     setUrlValue("");
     try {
-      const r = await fetch(`${BASE}/api/storage/import-url`, {
+      const r = await authFetch(`${BASE}/api/storage/import-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: raw, caseId: caseId ?? null, clientId: clientId ?? null }),
@@ -538,7 +553,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
               title="لصق">
               <Clipboard className="h-3.5 w-3.5" />
             </Button>
-            <Button size="sm" onClick={importFromUrl}
+            <Button type="button" size="sm" onClick={importFromUrl}
               disabled={!urlValue.trim() || urlLoading}
               className="h-9 px-4 text-xs font-bold shrink-0"
               style={{ background:"#2563EB", color:"#ffffff" }}>
@@ -546,7 +561,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 : "استيراد"}
             </Button>
-            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 shrink-0 text-muted-foreground"
+            <Button type="button" size="sm" variant="ghost" className="h-9 w-9 p-0 shrink-0 text-muted-foreground"
               onClick={() => { setShowUrlBox(false); setUrlValue(""); }}>
               <X className="h-3.5 w-3.5" />
             </Button>
@@ -556,7 +571,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
 
       {/* ── Actions ── */}
       <div className="flex flex-col sm:flex-row gap-2">
-        <Button variant="outline" size="sm" disabled={busy}
+        <Button type="button" variant="outline" size="sm" disabled={busy}
           onClick={() => fileRef.current?.click()}
           className="gap-2 flex-1 text-xs h-9">
           {items.length === 0
@@ -564,29 +579,34 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
             : <><Plus  className="h-3.5 w-3.5" /> إضافة المزيد</>}
         </Button>
 
-        <Button variant="outline" size="sm" disabled={busy}
+        <Button type="button" variant="outline" size="sm" disabled={busy}
           onClick={() => camRef.current?.click()}
           className="gap-2 flex-1 sm:flex-none text-xs h-9">
           <Camera className="h-3.5 w-3.5" />
           تصوير
         </Button>
 
-        <Button variant="outline" size="sm" disabled={busy || urlLoading}
+        <Button type="button" variant="outline" size="sm" disabled={busy || urlLoading}
           onClick={() => { setShowUrlBox(v => !v); setTimeout(() => urlRef.current?.focus(), 80); }}
           className="gap-2 flex-1 sm:flex-none text-xs h-9">
           <Globe className="h-3.5 w-3.5" />
           من رابط
         </Button>
 
-        {queuedCount > 0 && (
-          <Button size="sm" onClick={uploadAll} disabled={busy}
-            className="gap-2 font-bold h-9 px-5 sm:px-6"
-            style={{ background:"#2563EB", color:"#ffffff" }}>
-            {busy
-              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> جاري الرفع...</>
-              : <><Upload className="h-3.5 w-3.5" /> ارفع الآن ({queuedCount})</>}
-          </Button>
-        )}
+        {/* Always render Save — empty queue still fires onClick for user feedback (not pointer-events-none). */}
+        <Button
+          type="button"
+          size="sm"
+          onClick={uploadAll}
+          disabled={busy}
+          className="gap-2 font-bold h-9 px-5 sm:px-6"
+          style={{ background:"#2563EB", color:"#ffffff", opacity: queuedCount === 0 && !busy ? 0.55 : undefined }}
+          data-testid="smart-uploader-save"
+        >
+          {busy
+            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> جاري الحفظ...</>
+            : <><Upload className="h-3.5 w-3.5" /> حفظ{queuedCount > 0 ? ` (${queuedCount})` : ""}</>}
+        </Button>
       </div>
 
       {allDone && (
