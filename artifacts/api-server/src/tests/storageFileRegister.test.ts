@@ -24,6 +24,10 @@ const migration007 = readFileSync(
   join(SRC, "..", "migrations", "007_office_storage_quota_text_tenant.sql"),
   "utf8",
 );
+const migration008 = readFileSync(
+  join(SRC, "..", "migrations", "008_storage_files_text_tenant.sql"),
+  "utf8",
+);
 
 const USER_ID = "user_3GAZkvsPRRIyUOY77l9gJ1TIcai";
 const TRIAL_ID = "trial_gJ1TIcai";
@@ -213,14 +217,34 @@ assert.doesNotMatch(registerTs, /auth\.userId/);
 assert.match(storageTs, /officeId:\s*u\.officeId/);
 console.log("  ✅ POST /storage/files uses transaction helper + logEndpointError + safe body");
 
-console.log("\n═══ migration 007 shape ═══");
+console.log("\n═══ migration 007 / 008 shape ═══");
 
 assert.match(migration007, /CREATE TABLE IF NOT EXISTS office_storage_quota/);
 assert.match(migration007, /office_id\s+TYPE TEXT USING office_id::text/);
 assert.match(migration007, /DROP CONSTRAINT/);
 assert.match(migration007, /PRIMARY KEY \(office_id\)|UNIQUE \(office_id\)/);
 assert.match(migration007, /office_page/);
-assert.match(migration007, /ON CONFLICT|UNIQUE\/PRIMARY KEY|UNIQUE or PRIMARY KEY/i);
-console.log("  ✅ 007 creates table, converts UUID→TEXT, drops FKs, ensures UNIQUE/PK");
+console.log("  ✅ 007 creates office_storage_quota TEXT tenant model");
+
+assert.match(migration008, /CREATE TABLE IF NOT EXISTS storage_files/);
+assert.match(migration008, /office_id\s+TEXT NOT NULL/);
+assert.match(migration008, /id\s+UUID PRIMARY KEY/);
+assert.match(migration008, /DROP CONSTRAINT/);
+assert.match(migration008, /idx_storage_files_office_id/);
+assert.doesNotMatch(migration008, /REFERENCES\s+office_page/);
+/* Repo gap: storage_files must not appear in earlier formal migrations */
+const migDir = join(SRC, "..", "migrations");
+for (const name of [
+  "001_tenant_isolation.sql",
+  "003_drizzle_baseline_safe.sql",
+  "004_legal_core_extensions.sql",
+  "005_tenant_platform_tables.sql",
+  "006_post_migration_api_support.sql",
+  "007_office_storage_quota_text_tenant.sql",
+]) {
+  const body = readFileSync(join(migDir, name), "utf8");
+  assert.doesNotMatch(body, /CREATE TABLE IF NOT EXISTS\s+"?storage_files"?/i);
+}
+console.log("  ✅ 008 creates storage_files (TEXT office_id); absent from 001–007");
 
 console.log("\n✅ storageFileRegister: all checks passed\n");
