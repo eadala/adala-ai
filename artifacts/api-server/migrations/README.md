@@ -37,7 +37,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/006_post_migration_api_support.sql
 
-# 7) تحقق بعد التنفيذ
+# 7) Storage quota TEXT tenant model — office_storage_quota
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/007_office_storage_quota_text_tenant.sql
+
+# 8) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -50,6 +54,7 @@ bash scripts/db/verify-schema.sh
 | `004_legal_core_extensions.sql` | `contract_templates` + أعمدة `contracts`/`cases` |
 | `005_tenant_platform_tables.sql` | `office_members`, `trial_offices`, `plan_cms`, ... |
 | `006_post_migration_api_support.sql` | `login_logs`, `office_page.website_config`, `web_vitals`, `route_analytics` |
+| `007_office_storage_quota_text_tenant.sql` | `office_storage_quota` TEXT tenant key (trial_* / permanent); drop FK to `office_page` |
 
 ## جداول P0 (تسبب أخطاء runtime إن غابت)
 
@@ -64,6 +69,7 @@ bash scripts/db/verify-schema.sh
 | `office_page.website_config` | **006** | Drizzle `officePageTable`, `websiteBuilder.ts`, `/office/public/:slug` |
 | `login_logs` | **006** | `loginTracking.ts`, SOC, `launchGate.ts` |
 | `web_vitals` / `route_analytics` | **006** | `routes/metrics.ts` |
+| `office_storage_quota` | **007** | `storage.ts` POST `/storage/files` quota upsert |
 | `clients` | 003 | Legal core |
 
 ## ما يبقى بعد Migrations (boot-time)
@@ -84,7 +90,7 @@ bash scripts/db/verify-schema.sh
 bash scripts/db/test-migrations.integration.sh
 ```
 
-يغطي: DB فارغة (003→001→004→005→006)، Production-like بدون `website_config`/`login_logs`،
-idempotency لـ 006، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
+يغطي: DB فارغة (003→001→004→005→006→007)، Production-like بدون `website_config`/`login_logs`،
+idempotency لـ 006/007، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
 
 راجع `scripts/db/boot-created-tables.md` لقائمة جداول boot وقيود Docker.
