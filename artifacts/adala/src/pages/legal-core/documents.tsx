@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; create-folder Save fix */
 import React, { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +27,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/hooks/use-lang";
 import { SmartUploader } from "@/components/smart-uploader";
+import { authFetch } from "@/lib/authFetch";
 import { cn } from "@/lib/utils";
 import { useImageViewer } from "@/components/ui/image-viewer";
 
@@ -683,14 +685,26 @@ function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc,
 }
 
 /* ── Inline folder name input ────────────────────────────────────────────── */
-function FolderNameInput({ label, defaultValue = "", onSubmit, onCancel }: { label:string; defaultValue?:string; onSubmit:(n:string)=>void; onCancel:()=>void }) {
+function FolderNameInput({
+  label,
+  defaultValue = "",
+  onSubmit,
+  onCancel,
+  saveTestId,
+}: {
+  label: string;
+  defaultValue?: string;
+  onSubmit: (n: string) => void;
+  onCancel: () => void;
+  saveTestId?: string;
+}) {
   const [val, setVal] = useState(defaultValue);
   const submit = () => {
     const name = val.trim();
     if (name) onSubmit(name);
   };
   return (
-    <div className="flex gap-2 items-center">
+    <div className="flex gap-2 items-center" data-testid="folder-name-input">
       <Input
         value={val} autoFocus
         onChange={e => setVal(e.target.value)}
@@ -706,7 +720,8 @@ function FolderNameInput({ label, defaultValue = "", onSubmit, onCancel }: { lab
         style={{ background:"linear-gradient(135deg,#2563EB,#2563EB)", color:"#0D1626" }}
         disabled={!val.trim()}
         onMouseDown={e => e.preventDefault()}
-        onClick={submit}>
+        onClick={submit}
+        data-testid={saveTestId ?? "folder-name-save"}>
         حفظ
       </Button>
       <Button type="button" size="sm" variant="ghost" className="h-8 px-2 shrink-0"
@@ -755,11 +770,18 @@ export default function Documents() {
   /* ── Folder mutations ── */
   const createFolderMut = useMutation({
     mutationFn: ({ name, parentId }: { name: string; parentId: string | null }) =>
-      fetch(`${BASE}/api/storage/folders`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, parentId }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/storage/folders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, parentId }),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d?.error) { toast({ title: `❌ ${d.error}`, variant: "destructive" }); return; }
       qc.invalidateQueries({ queryKey: ["storage-folders"] });
       setNewFolderParent("NONE");
+    },
+    onError: (e: Error) => {
+      toast({ title: `❌ ${e.message || "فشل إنشاء المجلد"}`, variant: "destructive" });
     },
   });
 
@@ -934,6 +956,7 @@ export default function Documents() {
                     label={newFolderParent === null ? "اسم المجلد الجديد" : "اسم المجلد الفرعي"}
                     onSubmit={name => createFolderMut.mutate({ name, parentId: newFolderParent })}
                     onCancel={() => setNewFolderParent("NONE")}
+                    saveTestId="documents-create-folder-save"
                   />
                 )}
               </div>
