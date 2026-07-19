@@ -685,21 +685,35 @@ function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc,
 /* ── Inline folder name input ────────────────────────────────────────────── */
 function FolderNameInput({ label, defaultValue = "", onSubmit, onCancel }: { label:string; defaultValue?:string; onSubmit:(n:string)=>void; onCancel:()=>void }) {
   const [val, setVal] = useState(defaultValue);
+  const submit = () => {
+    const name = val.trim();
+    if (name) onSubmit(name);
+  };
   return (
     <div className="flex gap-2 items-center">
       <Input
         value={val} autoFocus
         onChange={e => setVal(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter" && val.trim()) onSubmit(val.trim()); if (e.key === "Escape") onCancel(); }}
+        onKeyDown={e => {
+          if (e.key === "Enter") { e.preventDefault(); submit(); }
+          if (e.key === "Escape") onCancel();
+        }}
         placeholder={label}
         className="h-8 text-sm flex-1"
       />
-      <Button size="sm" className="h-8 px-3 text-xs font-bold shrink-0"
+      {/* Keep focus on tap so mobile keyboard dismiss doesn't swallow the click. */}
+      <Button type="button" size="sm" className="h-8 px-3 text-xs font-bold shrink-0"
         style={{ background:"linear-gradient(135deg,#2563EB,#2563EB)", color:"#0D1626" }}
-        disabled={!val.trim()} onClick={() => onSubmit(val.trim())}>
+        disabled={!val.trim()}
+        onMouseDown={e => e.preventDefault()}
+        onClick={submit}>
         حفظ
       </Button>
-      <Button size="sm" variant="ghost" className="h-8 px-2 shrink-0" onClick={onCancel}>إلغاء</Button>
+      <Button type="button" size="sm" variant="ghost" className="h-8 px-2 shrink-0"
+        onMouseDown={e => e.preventDefault()}
+        onClick={onCancel}>
+        إلغاء
+      </Button>
     </div>
   );
 }
@@ -735,6 +749,8 @@ export default function Documents() {
   const filteredOld = (documents ?? []).filter((d: any) =>
     !search || d.fileName?.toLowerCase().includes(search.toLowerCase()) || d.caseName?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const { toast } = useToast();
 
   /* ── Folder mutations ── */
   const createFolderMut = useMutation({
@@ -781,8 +797,6 @@ export default function Documents() {
     }
     setFolderPath(path);
   };
-
-  const { toast } = useToast();
 
   return (
     <div className="space-y-6">
@@ -838,13 +852,6 @@ export default function Documents() {
                 <span className="text-[10px] text-muted-foreground">{allFolders.reduce((s,f) => s+(f.file_count??0),0)}</span>
               </button>
 
-              {/* New root folder input */}
-              {newFolderParent === null && (
-                <FolderNameInput label="اسم المجلد الجديد"
-                  onSubmit={name => createFolderMut.mutate({ name, parentId: null })}
-                  onCancel={() => setNewFolderParent("NONE")} />
-              )}
-
               {/* Folder tree */}
               {loadingFolders ? (
                 <div className="space-y-1.5">{[1,2,3].map(i => <Skeleton key={i} className="h-7 w-full rounded-lg" />)}</div>
@@ -861,13 +868,6 @@ export default function Documents() {
                       deleteFolderMut.mutate(f.id);
                   }}
                 />
-              )}
-
-              {/* Sub-folder new input (inside a folder) */}
-              {newFolderParent !== "NONE" && newFolderParent !== null && (
-                <FolderNameInput label="اسم المجلد الفرعي"
-                  onSubmit={name => createFolderMut.mutate({ name, parentId: newFolderParent })}
-                  onCancel={() => setNewFolderParent("NONE")} />
               )}
 
               {/* Rename input */}
@@ -927,6 +927,15 @@ export default function Documents() {
                     مجلد جديد
                   </Button>
                 </div>
+
+                {/* Create-folder input — main pane (not the w-52 sidebar) so حفظ is tappable */}
+                {newFolderParent !== "NONE" && (
+                  <FolderNameInput
+                    label={newFolderParent === null ? "اسم المجلد الجديد" : "اسم المجلد الفرعي"}
+                    onSubmit={name => createFolderMut.mutate({ name, parentId: newFolderParent })}
+                    onCancel={() => setNewFolderParent("NONE")}
+                  />
+                )}
               </div>
 
               {/* Sub-folders chips in current folder */}
