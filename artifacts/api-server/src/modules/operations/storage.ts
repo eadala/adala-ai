@@ -17,6 +17,7 @@ import {
   registerStorageFileWithQuota,
   storageRegisterErrorResponse,
 } from "../../lib/storageFileRegister";
+import { createStorageFolder } from "../../lib/storageFolderCreate";
 import { logEndpointError } from "../../lib/endpointErrorLog";
 
 const router: IRouter = Router();
@@ -756,8 +757,25 @@ router.post("/storage/folders", requireAuthWithTenant, async (req, res) => {
   const dup = await dbRows(sql`SELECT id FROM storage_folders WHERE office_id=${u.officeId} AND COALESCE(parent_id::text,'root')=COALESCE(${parentId ?? null},'root') AND LOWER(name)=LOWER(${name.trim()})`);
   if (dup.length) return res.status(409).json({ error: "مجلد بهذا الاسم موجود بالفعل" });
 
-  const rows = await dbRows(sql`INSERT INTO storage_folders (office_id,parent_id,name,created_by) VALUES (${u.officeId},${parentId??null},${name.trim()},${u.userId}) RETURNING *`);
-  res.json(rows[0]);
+  /*
+   * Deliberately NOT using dbRows() for the INSERT: dbRows swallows every DB
+   * error and returns an empty array, which previously made this route send
+   * an HTTP 200 with an empty body on failure — crashing Safari's
+   * Response.json() with "The string did not match the expected pattern."
+   * and hiding the true cause from logs.
+   */
+  try {
+    const { folder } = await createStorageFolder({
+      officeId: u.officeId,
+      userId: u.userId,
+      name: name.trim(),
+      parentId: parentId ?? null,
+    });
+    res.status(201).json({ folder });
+  } catch (err) {
+    logEndpointError("POST /api/storage/folders", req, err, { officeId: u.officeId });
+    res.status(500).json({ error: "فشل إنشاء المجلد" });
+  }
 });
 
 /* RENAME folder — requires manage permission */
