@@ -1,4 +1,6 @@
-import { requireAuth, requireAuthWithTenant, requireSuperAdmin, checkIsSuperAdmin} from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars -- pre-existing lint debt; tenant fallback removal */
+import { requireAuthWithTenant, requireSuperAdmin, checkIsSuperAdmin} from "../../middlewares/requireAuth";
+import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { Router } from "express";
 import { db, messagesTable, casesTable } from "@workspace/db";
 import { ListMessagesQueryParams, SendMessageBody } from "@workspace/api-zod";
@@ -13,6 +15,13 @@ const getClerkMsg = () => {
   if (!_clerkMsg) _clerkMsg = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
   return _clerkMsg;
 };
+/**
+ * Resolves the acting user + their office role, for the message-reply
+ * permission check only. officeId is ALWAYS derived via the canonical
+ * resolveTenantId() (membership-validated) — it must NEVER fall back to the
+ * Clerk user id. Returns null (fail closed) when no tenant can be resolved,
+ * exactly like the platform's other tenant-aware routes.
+ */
 async function getMsgUser(req: any) {
   const auth = getAuth(req);
   if (!auth?.userId) return null;
@@ -20,7 +29,9 @@ async function getMsgUser(req: any) {
     const user = await getClerkMsg().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
     const isSA = await checkIsSuperAdmin(auth.userId);
-    const officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
+    const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
+    const officeId = await resolveTenantId(auth.userId, headerTenant);
+    if (!officeId) return null; // fail closed — never substitute auth.userId
     const rows = await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`);
     const rowArr = Array.isArray(rows) ? rows : ((rows as any)?.rows ?? []);
     const officeRole: string = rowArr[0]?.role ?? (user.publicMetadata?.role as string) ?? "lawyer";
@@ -42,10 +53,18 @@ async function canReplyToClient(u: NonNullable<Awaited<ReturnType<typeof getMsgU
 // ── GET /messages/conversations  — grouped view ───────────────────────────────
 router.get("/messages/conversations", requireAuthWithTenant, async (req, res) => {
   try {
+    // Office scope comes ONLY from req.tenantId (requireAuthWithTenant) —
+    // a helper-returned officeId must never override the canonical tenant.
     const tenantId = (req as any).tenantId as string;
-    const u = await getMsgUser(req);
-    const effectiveOffice = u?.officeId ?? tenantId;
-    const msgs = await db.execute(sql`SELECT * FROM messages WHERE office_id=${effectiveOffice} ORDER BY created_at ASC`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
+    /*
+     * CONFIRMED (out of scope for this fix): the `messages` table has no
+     * `office_id` column in any migration or the Drizzle schema
+     * (lib/db/src/schema/messages.ts) — this WHERE clause already targets a
+     * column that does not exist. That is a pre-existing schema gap,
+     * unrelated to the userId-as-tenant fallback removed here; fixing it
+     * requires a migration and is intentionally not addressed in this PR.
+     */
+    const msgs = await db.execute(sql`SELECT * FROM messages WHERE office_id=${tenantId} ORDER BY created_at ASC`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
     const allCases = await db.select({ id: casesTable.id, title: casesTable.title }).from(casesTable);
     const caseMap = Object.fromEntries(allCases.map((c) => [c.id, c.title]));
 
@@ -91,11 +110,10 @@ router.get("/messages/conversations", requireAuthWithTenant, async (req, res) =>
 // ── GET /messages  — flat list ────────────────────────────────────────────────
 router.get("/messages", requireAuthWithTenant, async (req, res) => {
   try {
+    // Office scope comes ONLY from req.tenantId — see comment above.
     const tenantId = (req as any).tenantId as string;
-    const u = await getMsgUser(req);
-    const effectiveOffice = u?.officeId ?? tenantId;
     const query = ListMessagesQueryParams.parse(req.query);
-    let msgs = await db.execute(sql`SELECT * FROM messages WHERE office_id=${effectiveOffice} ORDER BY created_at ASC`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])) as any[];
+    let msgs = await db.execute(sql`SELECT * FROM messages WHERE office_id=${tenantId} ORDER BY created_at ASC`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])) as any[];
     if (query.caseId) msgs = msgs.filter((m) => m.caseId === query.caseId);
     if (query.channel) msgs = msgs.filter((m) => m.channel === query.channel);
 
@@ -115,7 +133,10 @@ router.get("/messages", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.post("/messages", requireAuth, async (req, res) => {
+// requireAuthWithTenant: resolves + requires a canonical tenant (via
+// resolveTenantId) before the handler runs, and rejects with 403 when no
+// tenant can be resolved — never substitutes the Clerk user id.
+router.post("/messages", requireAuthWithTenant, async (req, res) => {
   // Outbound messages (to clients) require reply permission
   const u = await getMsgUser(req);
   if (!u) { res.status(401).json({ error: "يجب تسجيل الدخول لإرسال رسائل" }); return; }
@@ -127,6 +148,14 @@ router.post("/messages", requireAuth, async (req, res) => {
   }
   try {
     const body = SendMessageBody.parse(req.body);
+    /*
+     * CONFIRMED (out of scope for this fix): messagesTable (Drizzle schema
+     * lib/db/src/schema/messages.ts) has no officeId/office_id column, and no
+     * migration adds one — inserting one here would fail at runtime and
+     * requires a schema migration, which is out of scope for this PR.
+     * requireAuthWithTenant above still guarantees u.officeId (via
+     * resolveTenantId) is a real, canonical tenant — never the Clerk user id.
+     */
     const [created] = await db.insert(messagesTable).values({
       caseId: body.caseId ?? null,
       channel: body.channel,

@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion, prefer-const -- pre-existing lint debt; tenant fallback removal */
 import { requireAuth, checkIsSuperAdmin} from "../../middlewares/requireAuth";
+import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -307,6 +309,13 @@ const getClerkCA = () => {
   return _clerkCA;
 };
 
+/**
+ * officeId is ALWAYS derived via the canonical resolveTenantId()
+ * (membership-validated) — it must NEVER fall back to the Clerk user id.
+ * Returns null (fail closed) when no tenant can be resolved; callers (e.g.
+ * POST /client-auth/admin-create) already deny on a null result before any
+ * write, so client_case_links.office_id can never receive a Clerk user id.
+ */
 async function getAdminUser(req: Request) {
   const auth = getAuth(req);
   if (!auth?.userId) return null;
@@ -314,7 +323,9 @@ async function getAdminUser(req: Request) {
     const user = await getClerkCA().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
     const isSA = await checkIsSuperAdmin(auth.userId);
-    const officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
+    const headerTenant = (req.headers?.["x-tenant-id"] as string | undefined);
+    const officeId = await resolveTenantId(auth.userId, headerTenant);
+    if (!officeId) return null; // fail closed — never substitute auth.userId
     const mRows = sqlAll(await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`));
     const officeRole: string = mRows[0]?.role ?? (user.publicMetadata?.role as string) ?? "lawyer";
     const isAdmin = isSA || officeRole === "firm_owner" || officeRole === "office_manager";
