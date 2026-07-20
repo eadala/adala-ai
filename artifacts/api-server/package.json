@@ -14,6 +14,8 @@
     "test:storage-office-id": "node --import tsx src/tests/storageOfficeId.test.ts",
     "test:storage-file-register": "node --import tsx src/tests/storageFileRegister.test.ts",
     "test:storage-folder-create": "node --import tsx src/tests/storageFolderCreate.test.ts",
+    "test:tenant-fallback-removal": "node --import tsx src/tests/tenantFallbackRemoval.test.ts",
+    "test:tenant-gated-writes": "node --import tsx src/tests/tenantGatedWrites.test.ts",
     "test:post-migration": "node --import tsx src/tests/postMigrationApiFixes.test.ts",
     "test:offices-my": "node --import tsx src/tests/officesMy.test.ts",
     "test:metrics-vitals": "node --import tsx src/tests/metricsBeaconPath.test.ts && node --import tsx src/tests/metricsVitals.integration.test.ts",

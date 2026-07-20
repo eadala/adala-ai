@@ -1,4 +1,6 @@
 import { requireAuth, checkIsSuperAdmin} from "../../middlewares/requireAuth";
+import { resolveTenantId } from "../../middlewares/tenantMiddleware";
+import { linkClientCase } from "../../lib/clientCaseLinkWrite";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -307,6 +309,13 @@ const getClerkCA = () => {
   return _clerkCA;
 };
 
+/**
+ * officeId is ALWAYS derived via the canonical resolveTenantId()
+ * (membership-validated) — it must NEVER fall back to the Clerk user id.
+ * Returns null (fail closed) when no tenant can be resolved; callers (e.g.
+ * POST /client-auth/admin-create) already deny on a null result before any
+ * write, so client_case_links.office_id can never receive a Clerk user id.
+ */
 async function getAdminUser(req: Request) {
   const auth = getAuth(req);
   if (!auth?.userId) return null;
@@ -314,7 +323,9 @@ async function getAdminUser(req: Request) {
     const user = await getClerkCA().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
     const isSA = await checkIsSuperAdmin(auth.userId);
-    const officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
+    const headerTenant = (req.headers?.["x-tenant-id"] as string | undefined);
+    const officeId = await resolveTenantId(auth.userId, headerTenant);
+    if (!officeId) return null; // fail closed — never substitute auth.userId
     const mRows = sqlAll(await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`));
     const officeRole: string = mRows[0]?.role ?? (user.publicMetadata?.role as string) ?? "lawyer";
     const isAdmin = isSA || officeRole === "firm_owner" || officeRole === "office_manager";
@@ -346,17 +357,23 @@ router.post("/client-auth/admin-create", requireAuth, async (req: Request, res: 
 
     // Link to case if provided
     if (caseId) {
-      let ptToken = portalToken ?? null;
+      const ptToken = portalToken ?? null;
       let ptId: string | null = null;
       if (ptToken) {
         const pt = sqlOne(await db.execute(sql`SELECT id FROM client_portal_tokens WHERE token=${ptToken} LIMIT 1`));
         ptId = pt?.id ?? null;
       }
-      await db.execute(sql`
-        INSERT INTO client_case_links (client_id, case_id, portal_token_id, portal_token, office_id)
-        VALUES (${id}, ${caseId}, ${ptId}, ${ptToken}, ${admin.officeId})
-        ON CONFLICT (client_id, case_id) DO NOTHING
-      `);
+      // Re-resolve (fail-closed, defense in depth) the canonical office
+      // immediately before writing — never trust a previously-computed
+      // officeId for the write itself. linkClientCase performs NO insert
+      // when resolveTenantId returns null, so office_id can never receive
+      // a Clerk user id.
+      const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
+      const linked = await linkClientCase(
+        { userId: admin.userId, headerTenant, clientId: id, caseId, portalTokenId: ptId, portalToken: ptToken },
+        { resolveTenantId, db },
+      );
+      if (!linked) { res.status(401).json({ error: "غير مصادق" }); return; }
     }
 
     res.status(201).json({
