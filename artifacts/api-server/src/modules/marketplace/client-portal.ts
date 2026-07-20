@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars -- pre-existing lint debt; tenant fallback removal */
 import { requireAuth, checkIsSuperAdmin} from "../../middlewares/requireAuth";
 import { resolveTenantId } from "../../middlewares/tenantMiddleware";
+import { writeClientCommSettings } from "../../lib/clientCommSettingsWrite";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -613,20 +613,22 @@ router.patch("/comm-settings", requireAuth, async (req: Request, res: Response) 
     const ir = toArr(clean(intake_roles,   DEFAULT_COMM_ROLES.intake));
     const approval = !!(require_reply_approval ?? false);
 
-    const existing = sqlAll(await db.execute(sql`SELECT id FROM client_comm_settings WHERE office_id=${u.officeId}`));
-    if (existing.length > 0) {
-      await db.execute(sql`
-        UPDATE client_comm_settings SET
-          reply_roles=${rr}::text[], portal_roles=${pr}::text[],
-          timeline_roles=${tr}::text[], intake_roles=${ir}::text[],
-          require_reply_approval=${approval}, updated_at=NOW()
-        WHERE office_id=${u.officeId}`);
-    } else {
-      await db.execute(sql`
-        INSERT INTO client_comm_settings (office_id,reply_roles,portal_roles,timeline_roles,intake_roles,require_reply_approval)
-        VALUES (${u.officeId},${rr}::text[],${pr}::text[],${tr}::text[],${ir}::text[],${approval})`);
-    }
-    const updated = sqlAll(await db.execute(sql`SELECT * FROM client_comm_settings WHERE office_id=${u.officeId}`));
+    // Re-resolve (fail-closed, defense in depth) the canonical office
+    // immediately before writing — never trust a previously-computed
+    // officeId for the write itself. writeClientCommSettings performs NO
+    // write when resolveTenantId returns null.
+    const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
+    const outcome = await writeClientCommSettings(
+      {
+        userId: u.userId,
+        headerTenant,
+        roles: { replyRoles: rr, portalRoles: pr, timelineRoles: tr, intakeRoles: ir, requireReplyApproval: approval },
+      },
+      { resolveTenantId, db },
+    );
+    if (!outcome) { res.status(401).json({ error: "غير مصادق" }); return; }
+
+    const updated = sqlAll(await db.execute(sql`SELECT * FROM client_comm_settings WHERE office_id=${outcome.officeId}`));
     res.json(updated[0] ?? { ok: true });
   } catch (e: any) {
         res.status(500).json({ error: e.message });

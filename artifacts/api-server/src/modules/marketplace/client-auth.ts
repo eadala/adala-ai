@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion, prefer-const -- pre-existing lint debt; tenant fallback removal */
 import { requireAuth, checkIsSuperAdmin} from "../../middlewares/requireAuth";
 import { resolveTenantId } from "../../middlewares/tenantMiddleware";
+import { linkClientCase } from "../../lib/clientCaseLinkWrite";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -357,17 +357,23 @@ router.post("/client-auth/admin-create", requireAuth, async (req: Request, res: 
 
     // Link to case if provided
     if (caseId) {
-      let ptToken = portalToken ?? null;
+      const ptToken = portalToken ?? null;
       let ptId: string | null = null;
       if (ptToken) {
         const pt = sqlOne(await db.execute(sql`SELECT id FROM client_portal_tokens WHERE token=${ptToken} LIMIT 1`));
         ptId = pt?.id ?? null;
       }
-      await db.execute(sql`
-        INSERT INTO client_case_links (client_id, case_id, portal_token_id, portal_token, office_id)
-        VALUES (${id}, ${caseId}, ${ptId}, ${ptToken}, ${admin.officeId})
-        ON CONFLICT (client_id, case_id) DO NOTHING
-      `);
+      // Re-resolve (fail-closed, defense in depth) the canonical office
+      // immediately before writing — never trust a previously-computed
+      // officeId for the write itself. linkClientCase performs NO insert
+      // when resolveTenantId returns null, so office_id can never receive
+      // a Clerk user id.
+      const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
+      const linked = await linkClientCase(
+        { userId: admin.userId, headerTenant, clientId: id, caseId, portalTokenId: ptId, portalToken: ptToken },
+        { resolveTenantId, db },
+      );
+      if (!linked) { res.status(401).json({ error: "غير مصادق" }); return; }
     }
 
     res.status(201).json({

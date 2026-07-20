@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars -- pre-existing lint debt; tenant fallback removal */
-import { requireAuthWithTenant, requireSuperAdmin, checkIsSuperAdmin} from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, checkIsSuperAdmin} from "../../middlewares/requireAuth";
 import { resolveTenantId } from "../../middlewares/tenantMiddleware";
+import { insertForResolvedOffice } from "../../lib/messagesTenantGate";
 import { Router } from "express";
 import { db, messagesTable, casesTable } from "@workspace/db";
 import { ListMessagesQueryParams, SendMessageBody } from "@workspace/api-zod";
@@ -148,24 +148,45 @@ router.post("/messages", requireAuthWithTenant, async (req, res) => {
   }
   try {
     const body = SendMessageBody.parse(req.body);
+    const headerTenant = req.headers["x-tenant-id"] as string | undefined;
     /*
+     * insertForResolvedOffice re-verifies (fail-closed) that a canonical
+     * tenant resolves immediately before the insert — the insert callback
+     * below is NEVER invoked when it does not, independent of the
+     * requireAuthWithTenant check above.
+     *
      * CONFIRMED (out of scope for this fix): messagesTable (Drizzle schema
      * lib/db/src/schema/messages.ts) has no officeId/office_id column, and no
-     * migration adds one — inserting one here would fail at runtime and
-     * requires a schema migration, which is out of scope for this PR.
-     * requireAuthWithTenant above still guarantees u.officeId (via
-     * resolveTenantId) is a real, canonical tenant — never the Clerk user id.
+     * migration adds one — persisting the resolved officeId on the row would
+     * fail at runtime and requires a schema migration (out of scope here;
+     * see PR description). The resolved officeId is intentionally unused
+     * below for that reason — it is still returned so it can be persisted
+     * once the column exists.
      */
-    const [created] = await db.insert(messagesTable).values({
-      caseId: body.caseId ?? null,
-      channel: body.channel,
-      direction: "outbound",
-      content: body.content,
-      status: "sent",
-    }).returning();
+    const created = await insertForResolvedOffice(
+      { userId: u.userId, headerTenant },
+      async () => {
+        const [row] = await db.insert(messagesTable).values({
+          caseId: body.caseId ?? null,
+          channel: body.channel,
+          direction: "outbound",
+          content: body.content,
+          status: "sent",
+        }).returning();
+        return row;
+      },
+      { resolveTenantId },
+    );
+    if (!created) {
+      res.status(403).json({
+        error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب.",
+        code: "TNT_403",
+      });
+      return;
+    }
     res.status(201).json({ ...created, caseName: null, createdAt: created.createdAt.toISOString() });
-  } catch (e: any) {
-    res.status(400).json({ error: e.message });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "خطأ في إرسال الرسالة" });
   }
 });
 
