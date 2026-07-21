@@ -13,7 +13,7 @@
 | `ensureOfficePageSlugs` | `index.ts` | `logger.warn` — data backfill فقط (لا DDL) |
 | ~~`ensureStripeBufferTables`~~ | removed — schema via migration **011** | — |
 | ~~`ensureReconciliationTable`~~ | removed — schema via migration **011** | — |
-| `ensureERPTables` | `erp-ledger.ts` | `logger.error` — FK على جداول مالية |
+| ~~`ensureERPTables`~~ | removed — ERP schema via migration **013** | — |
 | `ensureBankruptcyTables` | `bankruptcy.ts` | `logger.error` |
 | `ensureDocumentCenterSchema` | `documentCenter.ts` | `logger.error` |
 | `ensureJLWMSchema` + 6 جداول فرعية | `jlwm/index.ts` | `logger.error` لكل واحد |
@@ -31,10 +31,12 @@
 - ~~`ensureEventsTable`~~ — removed; `system_events` via migration **005**
 - ~~`ensureTable` (planCms/onboarding/trial)~~ — removed; schema via migration **005** (planCms keeps seed only)
 - ~~`ensureTables` (contracts)~~ — removed; schema via migration **004**
+- ~~`ensureERPTables`~~ — removed; ERP schema via migration **013**
+- ~~`ensureJournalTables` DDL~~ — removed; seed-only via migration **013** schema
 - `ensureTables` — `marketplace.ts`, `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
-- `ensureJournalTables(officeId)` — per-tenant، يُستدعى عند أول استخدام ERP
+- `ensureJournalTables(officeId)` — CoA **seed only** (no DDL)
 
 ## جداول P0 مغطاة بـ Migrations (لا تنتظر boot)
 
@@ -53,6 +55,11 @@
 | `stripe_dead_letters` | 011 |
 | `stripe_reconciliation_log` | 011 |
 | `payment_transactions` | 012 |
+| `office_erp_ledger` | 013 |
+| `financial_anomalies` | 013 |
+| `chart_of_accounts` | 013 |
+| `journal_entries` | 013 |
+| `journal_items` | 013 |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

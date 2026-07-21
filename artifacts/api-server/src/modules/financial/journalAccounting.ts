@@ -14,11 +14,13 @@
  *   GET /accounting/statements/balance-sheet  — الميزانية العمومية
  *   GET /accounting/statements/trial-balance  — ميزان المراجعة
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 
 import { Router }                        from "express";
 import { requireAuthWithTenant }         from "../../middlewares/requireAuth";
 import { db }                            from "@workspace/db";
 import { sql }                           from "drizzle-orm";
+import { logger }                        from "../../lib/logger";
 
 const router = Router();
 
@@ -34,114 +36,127 @@ async function one(q: any): Promise<any> {
   return rr[0] ?? {};
 }
 
+/**
+ * Upsert CoA row without requiring UNIQUE(office_id, account_code).
+ * Preserves prior API shape: returns the resulting row.
+ */
+async function upsertChartAccount(opts: {
+  officeId: string;
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  parentCode?: string | null;
+}): Promise<any> {
+  const updated = await one(sql`
+    UPDATE chart_of_accounts
+    SET account_name = ${opts.accountName},
+        account_type = ${opts.accountType},
+        parent_code  = ${opts.parentCode ?? null}
+    WHERE office_id = ${opts.officeId} AND account_code = ${opts.accountCode}
+    RETURNING *
+  `);
+  if (updated?.id) return updated;
+
+  const inserted = await one(sql`
+    INSERT INTO chart_of_accounts (office_id, account_code, account_name, account_type, parent_code)
+    SELECT ${opts.officeId}, ${opts.accountCode}, ${opts.accountName}, ${opts.accountType}, ${opts.parentCode ?? null}
+    WHERE NOT EXISTS (
+      SELECT 1 FROM chart_of_accounts
+      WHERE office_id = ${opts.officeId} AND account_code = ${opts.accountCode}
+    )
+    RETURNING *
+  `);
+  if (inserted?.id) return inserted;
+
+  return one(sql`
+    SELECT * FROM chart_of_accounts
+    WHERE office_id = ${opts.officeId} AND account_code = ${opts.accountCode}
+    LIMIT 1
+  `);
+}
+
 /* ══════════════════════════════════════════════════════════
-   ENSURE TABLES + SEED
+   SEED Chart of Accounts (schema via migration 013)
+   artifacts/api-server/migrations/013_erp_schema.sql
+   Seed does NOT require UNIQUE(office_id, account_code).
 ══════════════════════════════════════════════════════════ */
 
 export async function ensureJournalTables(officeId: string): Promise<void> {
+  /* Schema DDL removed — migration 013 owns chart_of_accounts / journal_* */
 
-  /* 1. دليل الحسابات */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS chart_of_accounts (
-      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id     TEXT NOT NULL,
-      account_code  TEXT NOT NULL,
-      account_name  TEXT NOT NULL,
-      account_type  TEXT NOT NULL CHECK (account_type IN ('Asset','Liability','Equity','Revenue','Expense')),
-      parent_code   TEXT,
-      is_active     BOOLEAN NOT NULL DEFAULT TRUE,
-      created_at    TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(office_id, account_code)
-    )
-  `).catch(() => {});
+  try {
+    /* ── Seed Chart of Accounts (only if empty for this office) ── */
+    const existing = await one(sql`
+      SELECT COUNT(*) AS cnt FROM chart_of_accounts WHERE office_id = ${officeId}
+    `);
+    if (num(existing.cnt) > 0) return;
 
-  /* 2. رأس القيد */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS journal_entries (
-      id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id        TEXT NOT NULL,
-      entry_date       DATE NOT NULL DEFAULT CURRENT_DATE,
-      description      TEXT NOT NULL,
-      reference_number TEXT,
-      reference_type   TEXT,
-      reference_id     TEXT,
-      posted_by        TEXT,
-      created_at       TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_je_office ON journal_entries(office_id)`).catch(() => {});
+    const accounts = [
+      /* ── الأصول ── */
+      { code: "1000", name: "الأصول المتداولة",          type: "Asset",     parent: null as string | null },
+      { code: "1100", name: "النقدية والأرصدة",          type: "Asset",     parent: "1000" },
+      { code: "1110", name: "الصندوق",                   type: "Asset",     parent: "1100" },
+      { code: "1120", name: "البنك الرئيسي",             type: "Asset",     parent: "1100" },
+      { code: "1200", name: "الذمم المدينة (العملاء)",   type: "Asset",     parent: "1000" },
+      { code: "1210", name: "أتعاب مستحقة",              type: "Asset",     parent: "1200" },
+      { code: "1300", name: "أصول أخرى متداولة",         type: "Asset",     parent: "1000" },
+      { code: "1310", name: "سلف الموظفين",              type: "Asset",     parent: "1300" },
+      { code: "1320", name: "مصروفات مدفوعة مقدماً",    type: "Asset",     parent: "1300" },
+      /* ── الخصوم ── */
+      { code: "2000", name: "الالتزامات المتداولة",      type: "Liability", parent: null },
+      { code: "2100", name: "الدائنون",                  type: "Liability", parent: "2000" },
+      { code: "2200", name: "رواتب مستحقة الدفع",        type: "Liability", parent: "2000" },
+      { code: "2300", name: "ضريبة القيمة المضافة",      type: "Liability", parent: "2000" },
+      { code: "2400", name: "أمانات العملاء",            type: "Liability", parent: "2000" },
+      /* ── حقوق الملكية ── */
+      { code: "3000", name: "حقوق الملكية",              type: "Equity",    parent: null },
+      { code: "3100", name: "رأس المال",                 type: "Equity",    parent: "3000" },
+      { code: "3200", name: "الأرباح المحتجزة",          type: "Equity",    parent: "3000" },
+      { code: "3300", name: "صافي الربح / الخسارة",     type: "Equity",    parent: "3000" },
+      /* ── الإيرادات ── */
+      { code: "4000", name: "الإيرادات",                 type: "Revenue",   parent: null },
+      { code: "4100", name: "أتعاب قضائية",              type: "Revenue",   parent: "4000" },
+      { code: "4200", name: "أتعاب استشارية",            type: "Revenue",   parent: "4000" },
+      { code: "4300", name: "أتعاب عقود وتوثيق",        type: "Revenue",   parent: "4000" },
+      { code: "4400", name: "أتعاب تحكيم",              type: "Revenue",   parent: "4000" },
+      { code: "4500", name: "إيرادات أخرى",              type: "Revenue",   parent: "4000" },
+      /* ── المصروفات ── */
+      { code: "5000", name: "المصروفات",                 type: "Expense",   parent: null },
+      { code: "5100", name: "رواتب ومكافآت",             type: "Expense",   parent: "5000" },
+      { code: "5200", name: "إيجار المكتب",              type: "Expense",   parent: "5000" },
+      { code: "5300", name: "اتصالات وإنترنت",           type: "Expense",   parent: "5000" },
+      { code: "5400", name: "مواد مكتبية",               type: "Expense",   parent: "5000" },
+      { code: "5500", name: "تسويق وإعلان",              type: "Expense",   parent: "5000" },
+      { code: "5600", name: "نقل ومواصلات",              type: "Expense",   parent: "5000" },
+      { code: "5700", name: "رسوم حكومية وقضائية",       type: "Expense",   parent: "5000" },
+      { code: "5800", name: "استهلاك وصيانة",            type: "Expense",   parent: "5000" },
+      { code: "5900", name: "مصروفات متنوعة",            type: "Expense",   parent: "5000" },
+    ];
 
-  /* 3. تفاصيل القيد */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS journal_items (
-      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      entry_id     UUID NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
-      office_id    TEXT NOT NULL,
-      account_code TEXT NOT NULL,
-      account_name TEXT NOT NULL,
-      account_type TEXT NOT NULL,
-      debit        NUMERIC(15,2) NOT NULL DEFAULT 0,
-      credit       NUMERIC(15,2) NOT NULL DEFAULT 0,
-      notes        TEXT
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ji_entry ON journal_items(entry_id)`).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ji_office ON journal_items(office_id)`).catch(() => {});
-
-  /* ── Seed Chart of Accounts (only if empty for this office) ── */
-  const existing = await one(sql`
-    SELECT COUNT(*) AS cnt FROM chart_of_accounts WHERE office_id = ${officeId}
-  `);
-  if (num(existing.cnt) > 0) return;
-
-  const accounts = [
-    /* ── الأصول ── */
-    { code: "1000", name: "الأصول المتداولة",          type: "Asset",     parent: null },
-    { code: "1100", name: "النقدية والأرصدة",          type: "Asset",     parent: "1000" },
-    { code: "1110", name: "الصندوق",                   type: "Asset",     parent: "1100" },
-    { code: "1120", name: "البنك الرئيسي",             type: "Asset",     parent: "1100" },
-    { code: "1200", name: "الذمم المدينة (العملاء)",   type: "Asset",     parent: "1000" },
-    { code: "1210", name: "أتعاب مستحقة",              type: "Asset",     parent: "1200" },
-    { code: "1300", name: "أصول أخرى متداولة",         type: "Asset",     parent: "1000" },
-    { code: "1310", name: "سلف الموظفين",              type: "Asset",     parent: "1300" },
-    { code: "1320", name: "مصروفات مدفوعة مقدماً",    type: "Asset",     parent: "1300" },
-    /* ── الخصوم ── */
-    { code: "2000", name: "الالتزامات المتداولة",      type: "Liability", parent: null },
-    { code: "2100", name: "الدائنون",                  type: "Liability", parent: "2000" },
-    { code: "2200", name: "رواتب مستحقة الدفع",        type: "Liability", parent: "2000" },
-    { code: "2300", name: "ضريبة القيمة المضافة",      type: "Liability", parent: "2000" },
-    { code: "2400", name: "أمانات العملاء",            type: "Liability", parent: "2000" },
-    /* ── حقوق الملكية ── */
-    { code: "3000", name: "حقوق الملكية",              type: "Equity",    parent: null },
-    { code: "3100", name: "رأس المال",                 type: "Equity",    parent: "3000" },
-    { code: "3200", name: "الأرباح المحتجزة",          type: "Equity",    parent: "3000" },
-    { code: "3300", name: "صافي الربح / الخسارة",     type: "Equity",    parent: "3000" },
-    /* ── الإيرادات ── */
-    { code: "4000", name: "الإيرادات",                 type: "Revenue",   parent: null },
-    { code: "4100", name: "أتعاب قضائية",              type: "Revenue",   parent: "4000" },
-    { code: "4200", name: "أتعاب استشارية",            type: "Revenue",   parent: "4000" },
-    { code: "4300", name: "أتعاب عقود وتوثيق",        type: "Revenue",   parent: "4000" },
-    { code: "4400", name: "أتعاب تحكيم",              type: "Revenue",   parent: "4000" },
-    { code: "4500", name: "إيرادات أخرى",              type: "Revenue",   parent: "4000" },
-    /* ── المصروفات ── */
-    { code: "5000", name: "المصروفات",                 type: "Expense",   parent: null },
-    { code: "5100", name: "رواتب ومكافآت",             type: "Expense",   parent: "5000" },
-    { code: "5200", name: "إيجار المكتب",              type: "Expense",   parent: "5000" },
-    { code: "5300", name: "اتصالات وإنترنت",           type: "Expense",   parent: "5000" },
-    { code: "5400", name: "مواد مكتبية",               type: "Expense",   parent: "5000" },
-    { code: "5500", name: "تسويق وإعلان",              type: "Expense",   parent: "5000" },
-    { code: "5600", name: "نقل ومواصلات",              type: "Expense",   parent: "5000" },
-    { code: "5700", name: "رسوم حكومية وقضائية",       type: "Expense",   parent: "5000" },
-    { code: "5800", name: "استهلاك وصيانة",            type: "Expense",   parent: "5000" },
-    { code: "5900", name: "مصروفات متنوعة",            type: "Expense",   parent: "5000" },
-  ];
-
-  for (const a of accounts) {
-    await db.execute(sql`
-      INSERT INTO chart_of_accounts (office_id, account_code, account_name, account_type, parent_code)
-      VALUES (${officeId}, ${a.code}, ${a.name}, ${a.type}, ${a.parent})
-      ON CONFLICT (office_id, account_code) DO NOTHING
-    `).catch(() => {});
+    let seeded = 0;
+    for (const a of accounts) {
+      try {
+        const result = await db.execute(sql`
+          INSERT INTO chart_of_accounts (office_id, account_code, account_name, account_type, parent_code)
+          SELECT ${officeId}, ${a.code}, ${a.name}, ${a.type}, ${a.parent}
+          WHERE NOT EXISTS (
+            SELECT 1 FROM chart_of_accounts
+            WHERE office_id = ${officeId} AND account_code = ${a.code}
+          )
+        `);
+        const rowCount = (result as any)?.rowCount ?? (result as any)?.count ?? 0;
+        if (Number(rowCount) > 0) seeded += 1;
+      } catch (err) {
+        logger.warn(
+          { err, officeId, accountCode: a.code },
+          "[ERP] CoA seed account insert failed (continuing remaining accounts)",
+        );
+      }
+    }
+    logger.info({ officeId, seeded, total: accounts.length }, "[ERP] CoA seed completed");
+  } catch (err) {
+    logger.error({ err, officeId }, "[ERP] CoA seed failed");
+    /* Do not rethrow — callers include fire-and-forget paths; schema is migration-owned. */
   }
 }
 
@@ -205,12 +220,13 @@ router.post("/accounting/journal/accounts", requireAuthWithTenant, async (req, r
     if (!accountCode || !accountName || !accountType) {
       return res.status(400).json({ error: "رمز الحساب والاسم والنوع مطلوبة" });
     }
-    const r = await one(sql`
-      INSERT INTO chart_of_accounts (office_id, account_code, account_name, account_type, parent_code)
-      VALUES (${tenantId}, ${accountCode}, ${accountName}, ${accountType}, ${parentCode ?? null})
-      ON CONFLICT (office_id, account_code) DO UPDATE SET account_name=${accountName}, account_type=${accountType}
-      RETURNING *
-    `);
+    const r = await upsertChartAccount({
+      officeId: tenantId,
+      accountCode,
+      accountName,
+      accountType,
+      parentCode: parentCode ?? null,
+    });
     res.json(r);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

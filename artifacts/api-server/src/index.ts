@@ -16,7 +16,6 @@ import { startReconciliationCron } from "./jobs/stripeReconcile";
 import { initVapid } from "./lib/webPush";
 import { loadHardeningState } from "./hardening/production.lock";
 import { logLaunchReadinessWarnings } from "./lib/launchReadiness";
-import { ensureERPTables } from "./modules/financial/erp-ledger";
 import { ensureBankruptcyTables } from "./modules/bankruptcy/bankruptcy";
 import { ensureBankruptcyV2Tables } from "./modules/bankruptcy/bankruptcyV2";
 import { ensureBankruptcyV3Tables } from "./modules/bankruptcy/bankruptcyV3";
@@ -81,8 +80,7 @@ async function initStripe() {
 }
 
 ensureOfficePageSlugs().catch(e => logger.error({ e }, "ensureOfficePageSlugs failed"));
-/* stripe_events / stripe_dead_letters / stripe_reconciliation_log → migration 011 */
-ensureERPTables().catch(e => logger.error({ e }, "ensureERPTables failed"));
+/* stripe_* → migration 011; payment_transactions → 012; ERP tables → 013 */
 ensureBankruptcyTables().catch(e => logger.error({ e }, "ensureBankruptcyTables failed"));
 ensureDocumentCenterSchema().catch(e => logger.error({ e }, "ensureDocumentCenterSchema failed"));
 ensureJLWMSchema().catch(e => logger.error({ e }, "ensureJLWMSchema failed"));

@@ -30,3 +30,8 @@ stripe_events
 stripe_dead_letters
 stripe_reconciliation_log
 payment_transactions
+office_erp_ledger
+financial_anomalies
+chart_of_accounts
+journal_entries
+journal_items

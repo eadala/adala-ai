@@ -12,11 +12,12 @@
  *   - عدم توازن (Credits ≠ Debits)
  *   - تكرار في المدفوعات
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { Router } from "express";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
-import { getERPBalance, ensureERPTables } from "./erp-ledger";
+import { getERPBalance } from "./erp-ledger";
 
 const router = Router();
 function rows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
@@ -35,7 +36,6 @@ export interface ReconciliationReport {
 }
 
 export async function reconcile(officeId: string): Promise<ReconciliationReport> {
-  await ensureERPTables();
   const now = new Date();
 
   const [balance, unmatchedInv, unmatchedExp, dupPayments, erpLedgerCount] = await Promise.all([
