@@ -21,6 +21,8 @@
 | `ensureBankruptcyV2Tables` | `bankruptcyV2.ts` | `logger.error` |
 | `ensureBankruptcyV3Tables` | `bankruptcyV3.ts` | `logger.error` |
 | ~~`ensurePerformanceIndexes`~~ | removed — indexes via migration **010** | — |
+| ~~`ensurePaymentCols`~~ | removed — `payment_transactions` via migration **012** | — |
+| `ensureGatewaySettingsTables` | `payments.ts` (module load) | `logger.error` — `moyasar_settings` / `checkout_settings` only |
 
 ## ensure* أخرى (lazy — عند أول طلب HTTP)
 
@@ -50,6 +52,7 @@
 | `stripe_events` | 011 |
 | `stripe_dead_letters` | 011 |
 | `stripe_reconciliation_log` | 011 |
+| `payment_transactions` | 012 |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 
