@@ -187,6 +187,9 @@ assert.match(mig013, /idx_ji_entry/);
 assert.match(mig013, /skipping office_erp_ledger entry_type CHECK/);
 assert.match(mig013, /skipping chart_of_accounts UNIQUE/);
 assert.match(mig013, /skipping journal_items FK/);
+assert.match(mig013, /incompatible types journal_items\.entry_id/);
+assert.match(mig013, /datatype_mismatch/);
+assert.match(mig013, /foreign_key_violation/);
 assert.match(mig013, /zta_erp_ledger/);
 
 const erpSrc = readSrc("modules/financial/erp-ledger.ts");
@@ -199,12 +202,17 @@ assert.match(erpSrc, /013_erp_schema/);
 const journalSrc = readSrc("modules/financial/journalAccounting.ts");
 assert.doesNotMatch(journalSrc, /CREATE TABLE/);
 assert.doesNotMatch(journalSrc, /CREATE INDEX/);
+assert.doesNotMatch(journalSrc, /ON CONFLICT\s*\(\s*office_id\s*,\s*account_code\s*\)/);
+assert.match(journalSrc, /WHERE NOT EXISTS/);
+assert.match(journalSrc, /upsertChartAccount/);
 assert.match(journalSrc, /ensureJournalTables/);
 assert.match(journalSrc, /013_erp_schema/);
 assert.match(journalSrc, /Seed Chart of Accounts/);
+assert.match(journalSrc, /\[ERP\] CoA seed/);
+assert.doesNotMatch(journalSrc, /\.catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)/);
 
 assert.doesNotMatch(indexSrc, /ensureERPTables/);
-console.log("  ✅ migration 013 owns ERP tables; Runtime DDL removed; CoA seed retained");
+console.log("  ✅ migration 013 owns ERP tables; Runtime DDL removed; CoA seed/upsert conflict-free");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

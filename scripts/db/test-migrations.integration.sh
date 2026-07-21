@@ -1618,8 +1618,234 @@ SQL
   [[ "$dup_rows" == "2" ]] && ok "D: duplicate CoA rows unmodified" || bad "D: rows=$dup_rows"
   [[ "$warn_hit" -ge 1 ]] && ok "D: WARNING emitted for CoA UNIQUE skip" || bad "D: missing WARNING"
 
+  # CoA seed must succeed without UNIQUE (INSERT ... WHERE NOT EXISTS).
+  local seed_before seed_after seed_rerun
+  seed_before=$(psql_db -At -c "SELECT count(*) FROM chart_of_accounts WHERE office_id = 'office-seed-coa'")
+  psql_db <<'SQL' >/dev/null
+INSERT INTO chart_of_accounts (office_id, account_code, account_name, account_type, parent_code)
+SELECT 'office-seed-coa', v.code, v.name, v.type, v.parent
+FROM (VALUES
+  ('1000', 'Cash', 'Asset', NULL),
+  ('1100', 'Accounts Receivable', 'Asset', NULL),
+  ('2000', 'Accounts Payable', 'Liability', NULL)
+) AS v(code, name, type, parent)
+WHERE NOT EXISTS (
+  SELECT 1 FROM chart_of_accounts c
+  WHERE c.office_id = 'office-seed-coa' AND c.account_code = v.code
+);
+SQL
+  seed_after=$(psql_db -At -c "SELECT count(*) FROM chart_of_accounts WHERE office_id = 'office-seed-coa'")
+  [[ "$seed_after" -ge $((seed_before + 3)) ]] && ok "D: CoA seed succeeds without UNIQUE" || \
+    bad "D: CoA seed failed without UNIQUE (before=$seed_before after=$seed_after)"
+
+  psql_db <<'SQL' >/dev/null
+INSERT INTO chart_of_accounts (office_id, account_code, account_name, account_type, parent_code)
+SELECT 'office-seed-coa', v.code, v.name, v.type, v.parent
+FROM (VALUES
+  ('1000', 'Cash', 'Asset', NULL),
+  ('1100', 'Accounts Receivable', 'Asset', NULL),
+  ('2000', 'Accounts Payable', 'Liability', NULL)
+) AS v(code, name, type, parent)
+WHERE NOT EXISTS (
+  SELECT 1 FROM chart_of_accounts c
+  WHERE c.office_id = 'office-seed-coa' AND c.account_code = v.code
+);
+SQL
+  seed_rerun=$(psql_db -At -c "SELECT count(*) FROM chart_of_accounts WHERE office_id = 'office-seed-coa'")
+  [[ "$seed_rerun" == "$seed_after" ]] && ok "D: CoA re-seed idempotent without UNIQUE" || \
+    bad "D: CoA re-seed not idempotent (after=$seed_after rerun=$seed_rerun)"
+
+  # Account upsert must succeed without UNIQUE (UPDATE then INSERT WHERE NOT EXISTS).
+  psql_db <<'SQL' >/dev/null
+UPDATE chart_of_accounts
+SET account_name = 'Cash Updated', account_type = 'Asset', parent_code = NULL, is_active = true
+WHERE office_id = 'office-seed-coa' AND account_code = '1000';
+INSERT INTO chart_of_accounts (office_id, account_code, account_name, account_type, parent_code, is_active)
+SELECT 'office-seed-coa', '1000', 'Cash Updated', 'Asset', NULL, true
+WHERE NOT EXISTS (
+  SELECT 1 FROM chart_of_accounts
+  WHERE office_id = 'office-seed-coa' AND account_code = '1000'
+);
+INSERT INTO chart_of_accounts (office_id, account_code, account_name, account_type, parent_code, is_active)
+SELECT 'office-seed-coa', '9999', 'New Account', 'Expense', NULL, true
+WHERE NOT EXISTS (
+  SELECT 1 FROM chart_of_accounts
+  WHERE office_id = 'office-seed-coa' AND account_code = '9999'
+);
+SQL
+  local upsert_name upsert_new
+  upsert_name=$(psql_db -At -c "SELECT account_name FROM chart_of_accounts WHERE office_id = 'office-seed-coa' AND account_code = '1000' LIMIT 1")
+  upsert_new=$(psql_db -At -c "SELECT count(*) FROM chart_of_accounts WHERE office_id = 'office-seed-coa' AND account_code = '9999'")
+  [[ "$upsert_name" == "Cash Updated" ]] && ok "D: account upsert UPDATE path without UNIQUE" || \
+    bad "D: upsert UPDATE failed (name=$upsert_name)"
+  [[ "$upsert_new" == "1" ]] && ok "D: account upsert INSERT path without UNIQUE" || \
+    bad "D: upsert INSERT failed (count=$upsert_new)"
+
   apply_migration_013
-  ok "D/F: re-run 013 after unique skip succeeded"
+  ok "D/F: re-run 013 after unique skip + seed/upsert succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── F. Orphan journal_items.entry_id → FK skip with WARNING ──────────────
+  setup_db "mig013_orphan_ji"
+  trap teardown_db EXIT
+  apply_migrations_base
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE chart_of_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  account_code TEXT NOT NULL DEFAULT '1100',
+  account_name TEXT NOT NULL DEFAULT 'Cash',
+  account_type TEXT NOT NULL DEFAULT 'Asset'
+);
+CREATE TABLE office_erp_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  entry_date DATE DEFAULT CURRENT_DATE,
+  entry_type TEXT DEFAULT 'DEBIT',
+  account_code TEXT DEFAULT '1100',
+  account_name TEXT DEFAULT 'Cash',
+  account_type TEXT DEFAULT 'Asset',
+  amount NUMERIC(14,2) DEFAULT 1,
+  currency TEXT DEFAULT 'SAR',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE journal_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  entry_date DATE DEFAULT CURRENT_DATE,
+  description TEXT NOT NULL DEFAULT 'x',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE journal_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entry_id UUID,
+  office_id TEXT NOT NULL DEFAULT 'x',
+  account_code TEXT NOT NULL DEFAULT '1100',
+  account_name TEXT NOT NULL DEFAULT 'Cash',
+  account_type TEXT NOT NULL DEFAULT 'Asset',
+  debit NUMERIC(15,2) DEFAULT 0,
+  credit NUMERIC(15,2) DEFAULT 0
+);
+CREATE TABLE financial_anomalies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  anomaly_type TEXT NOT NULL DEFAULT 'IMBALANCE',
+  severity TEXT DEFAULT 'medium',
+  description TEXT NOT NULL DEFAULT 'x'
+);
+INSERT INTO journal_entries (office_id, description) VALUES ('office-ji', 'valid');
+INSERT INTO journal_items (entry_id, office_id, account_code, account_name, account_type, debit, credit)
+SELECT id, 'office-ji', '1000', 'Cash', 'Asset', 10, 0 FROM journal_entries WHERE office_id = 'office-ji' LIMIT 1;
+INSERT INTO journal_items (entry_id, office_id, account_code, account_name, account_type, debit, credit)
+VALUES ('00000000-0000-4000-8000-000000000099'::uuid, 'office-ji', '2000', 'AP', 'Liability', 0, 10);
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_013" >/tmp/mig013-orphan-ji.log 2>&1
+  local orphan_rc=$?
+  set -e
+  [[ "$orphan_rc" -eq 0 ]] && ok "F: migration 013 succeeds with orphan journal_items" || {
+    bad "F: migration failed with orphan journal_items"; cat /tmp/mig013-orphan-ji.log
+  }
+
+  local orphan_fk orphan_warn
+  orphan_fk=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.journal_items'::regclass AND contype='f'
+      AND conname = 'journal_items_entry_id_fkey';")
+  orphan_warn=$(grep -c 'skipping journal_items FK to journal_entries' /tmp/mig013-orphan-ji.log || true)
+  [[ "$orphan_fk" == "0" ]] && ok "F: journal_items_entry_id_fkey skipped when orphans exist" || \
+    bad "F: FK was created despite orphans"
+  [[ "$orphan_warn" -ge 1 ]] && ok "F: WARNING emitted for orphan journal_items FK skip" || \
+    bad "F: missing orphan FK WARNING"
+
+  apply_migration_013
+  ok "F/F: re-run 013 after orphan FK skip succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── G. Incompatible journal_items.entry_id / journal_entries.id types ────
+  setup_db "mig013_type_mismatch"
+  trap teardown_db EXIT
+  apply_migrations_base
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE chart_of_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  account_code TEXT NOT NULL DEFAULT '1100',
+  account_name TEXT NOT NULL DEFAULT 'Cash',
+  account_type TEXT NOT NULL DEFAULT 'Asset'
+);
+CREATE TABLE office_erp_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  entry_date DATE DEFAULT CURRENT_DATE,
+  entry_type TEXT DEFAULT 'DEBIT',
+  account_code TEXT DEFAULT '1100',
+  account_name TEXT DEFAULT 'Cash',
+  account_type TEXT DEFAULT 'Asset',
+  amount NUMERIC(14,2) DEFAULT 1,
+  currency TEXT DEFAULT 'SAR',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE journal_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  entry_date DATE DEFAULT CURRENT_DATE,
+  description TEXT NOT NULL DEFAULT 'x',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE journal_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entry_id TEXT,
+  office_id TEXT NOT NULL DEFAULT 'x',
+  account_code TEXT NOT NULL DEFAULT '1100',
+  account_name TEXT NOT NULL DEFAULT 'Cash',
+  account_type TEXT NOT NULL DEFAULT 'Asset',
+  debit NUMERIC(15,2) DEFAULT 0,
+  credit NUMERIC(15,2) DEFAULT 0
+);
+CREATE TABLE financial_anomalies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  anomaly_type TEXT NOT NULL DEFAULT 'IMBALANCE',
+  severity TEXT DEFAULT 'medium',
+  description TEXT NOT NULL DEFAULT 'x'
+);
+INSERT INTO journal_entries (office_id, description) VALUES ('office-tm', 'tm');
+INSERT INTO journal_items (entry_id, office_id, account_code, account_name, account_type, debit, credit)
+VALUES ('not-a-uuid', 'office-tm', '1000', 'Cash', 'Asset', 1, 0);
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_013" >/tmp/mig013-type-mismatch.log 2>&1
+  local type_rc=$?
+  set -e
+  [[ "$type_rc" -eq 0 ]] && ok "G: migration 013 continues on entry_id/id type mismatch" || {
+    bad "G: migration aborted on type mismatch"; cat /tmp/mig013-type-mismatch.log
+  }
+
+  local type_fk type_warn erp_ok
+  type_fk=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.journal_items'::regclass AND contype='f'
+      AND conname = 'journal_items_entry_id_fkey';")
+  type_warn=$(grep -cE 'incompatible types|datatype_mismatch' /tmp/mig013-type-mismatch.log || true)
+  erp_ok=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='office_erp_ledger');")
+  [[ "$type_fk" == "0" ]] && ok "G: journal_items_entry_id_fkey skipped on type mismatch" || \
+    bad "G: FK was created despite type mismatch"
+  [[ "$type_warn" -ge 1 ]] && ok "G: WARNING emitted for incompatible entry_id/id types" || \
+    bad "G: missing type-mismatch WARNING"
+  [[ "$erp_ok" == "t" ]] && ok "G: later ERP objects still present after type-mismatch skip" || \
+    bad "G: migration did not complete ERP objects"
+
+  apply_migration_013
+  ok "G/F: re-run 013 after type-mismatch skip succeeded"
 
   trap - EXIT
   teardown_db

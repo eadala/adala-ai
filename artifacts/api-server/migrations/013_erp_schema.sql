@@ -362,10 +362,13 @@ ALTER TABLE journal_items ADD COLUMN IF NOT EXISTS notes TEXT;
 ALTER TABLE journal_items ALTER COLUMN debit SET DEFAULT 0;
 ALTER TABLE journal_items ALTER COLUMN credit SET DEFAULT 0;
 
--- FK entry_id → journal_entries(id) ON DELETE CASCADE — preflight orphans
+-- FK entry_id → journal_entries(id) ON DELETE CASCADE
+-- Preflight: type compatibility + orphans; skip with WARNING (never abort migration)
 DO $$
 DECLARE
   orphan_cnt BIGINT;
+  child_udt  TEXT;
+  parent_udt TEXT;
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_constraint
@@ -374,6 +377,27 @@ BEGIN
       AND pg_get_constraintdef(oid) ILIKE '%entry_id%'
       AND pg_get_constraintdef(oid) ILIKE '%journal_entries%'
   ) THEN
+    RETURN;
+  END IF;
+
+  SELECT c.udt_name INTO child_udt
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public' AND c.table_name = 'journal_items' AND c.column_name = 'entry_id';
+
+  SELECT c.udt_name INTO parent_udt
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public' AND c.table_name = 'journal_entries' AND c.column_name = 'id';
+
+  IF child_udt IS NULL OR parent_udt IS NULL THEN
+    RAISE WARNING
+      '013_erp: skipping journal_items FK — missing entry_id or journal_entries.id column';
+    RETURN;
+  END IF;
+
+  IF child_udt IS DISTINCT FROM parent_udt THEN
+    RAISE WARNING
+      '013_erp: skipping journal_items FK — incompatible types journal_items.entry_id (%) vs journal_entries.id (%); cleanup required (no automatic cast)',
+      child_udt, parent_udt;
     RETURN;
   END IF;
 
@@ -398,6 +422,8 @@ EXCEPTION
   WHEN undefined_table THEN NULL;
   WHEN foreign_key_violation THEN
     RAISE WARNING '013_erp: skipping journal_items FK — foreign_key_violation on legacy data';
+  WHEN datatype_mismatch THEN
+    RAISE WARNING '013_erp: skipping journal_items FK — datatype_mismatch between entry_id and journal_entries.id';
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_ji_entry ON journal_items(entry_id);
