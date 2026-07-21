@@ -20,7 +20,7 @@
 | `ensureReliabilitySchema` | `reliabilityEngine.ts` | `logger.error` |
 | `ensureBankruptcyV2Tables` | `bankruptcyV2.ts` | `logger.error` |
 | `ensureBankruptcyV3Tables` | `bankruptcyV3.ts` | `logger.error` |
-| `ensurePerformanceIndexes` | `index.ts` | `.catch(() => {})` — **صامت** |
+| ~~`ensurePerformanceIndexes`~~ | removed — indexes via migration **010** | — |
 
 ## ensure* أخرى (lazy — عند أول طلب HTTP)
 
@@ -46,6 +46,7 @@
 | `plan_cms` | 005 |
 | `contract_templates` | 004 |
 | `storage_folders` | 009 |
+| `office_ledger` | 010 |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

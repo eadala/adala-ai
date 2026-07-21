@@ -26,3 +26,11 @@ web_vitals.rating
 web_vitals.created_at
 route_analytics.path
 route_analytics.visited_at
+office_ledger.office_id
+office_ledger.type
+office_ledger.amount
+office_ledger.stripe_event_id
+office_ledger.platform_fee
+office_ledger.stripe_fee
+office_ledger.net_amount
+office_ledger.created_at

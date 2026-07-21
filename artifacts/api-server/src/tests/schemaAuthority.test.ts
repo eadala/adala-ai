@@ -29,6 +29,7 @@ assert.ok(migrationFiles.includes("004_legal_core_extensions.sql"));
 assert.ok(migrationFiles.includes("005_tenant_platform_tables.sql"));
 assert.ok(migrationFiles.includes("006_post_migration_api_support.sql"));
 assert.ok(migrationFiles.includes("009_storage_folders.sql"));
+assert.ok(migrationFiles.includes("010_office_ledger_performance_indexes.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -50,8 +51,11 @@ const indexSrc = readSrc("index.ts");
 assert.doesNotMatch(indexSrc, /ALTER TABLE cases ADD COLUMN/);
 assert.doesNotMatch(indexSrc, /ALTER TABLE office_orders ADD COLUMN/);
 assert.doesNotMatch(indexSrc, /ensureAdHocColumns/);
+assert.doesNotMatch(indexSrc, /ensurePerformanceIndexes/);
+assert.doesNotMatch(indexSrc, /CREATE INDEX IF NOT EXISTS idx_cases_office_id/);
+assert.doesNotMatch(indexSrc, /idx_office_ledger_stripe_event_id/);
 assert.match(indexSrc, /ensureOfficePageSlugs/);
-console.log("  ✅ index.ts: boot ALTER DDL removed; slug backfill retained");
+console.log("  ✅ index.ts: boot ALTER/INDEX DDL removed; slug backfill retained");
 
 const contractsSrc = readSrc("modules/legal-core/contracts.ts");
 assert.doesNotMatch(contractsSrc, /CREATE TABLE/);
@@ -81,6 +85,36 @@ const onboardingSrc = readSrc("modules/platform/onboarding.ts");
 assert.doesNotMatch(onboardingSrc, /CREATE TABLE/);
 assert.doesNotMatch(onboardingSrc, /ensureTable\s*\(/);
 console.log("  ✅ onboarding.ts: no Runtime DDL");
+
+console.log("\n═══ schemaAuthority: Batch 2 office_ledger + performance indexes ═══");
+
+const mig010 = readRepo("artifacts/api-server/migrations/010_office_ledger_performance_indexes.sql");
+assert.match(mig010, /CREATE TABLE IF NOT EXISTS office_ledger/);
+assert.match(mig010, /stripe_event_id/);
+assert.match(mig010, /platform_fee/);
+assert.match(mig010, /stripe_fee/);
+assert.match(mig010, /net_amount/);
+assert.match(mig010, /idx_office_ledger_stripe_event_id/);
+assert.match(mig010, /WHERE stripe_event_id IS NOT NULL/);
+assert.match(mig010, /idx_cases_office_id/);
+assert.match(mig010, /idx_cases_status/);
+assert.match(mig010, /idx_cases_office_status/);
+assert.match(mig010, /idx_clients_office_id/);
+assert.match(mig010, /idx_documents_office_id/);
+assert.doesNotMatch(mig010, /CREATE INDEX IF NOT EXISTS idx_tasks_office_due/);
+assert.doesNotMatch(mig010, /CREATE INDEX IF NOT EXISTS idx_tasks_status/);
+assert.doesNotMatch(mig010, /CREATE INDEX IF NOT EXISTS idx_reminders_office_due/);
+assert.match(mig010, /idx_tasks_office_due.*idx_tasks_status.*idx_reminders_office_due/s); // deferred mention only
+assert.match(mig010, /idx_audit_logs_office_ts/);
+assert.match(mig010, /idx_revenues_office_date/);
+assert.match(mig010, /idx_expenses_office_date/);
+assert.match(mig010, /idx_invoices_office_id/);
+assert.match(mig010, /idx_invoices_status/);
+assert.match(mig010, /idx_contracts_office_id/);
+assert.match(mig010, /skipping type CHECK/);
+assert.match(mig010, /skipping idx_office_ledger_stripe_event_id/);
+assert.match(mig010, /duplicate cleanup required/);
+console.log("  ✅ migration 010 owns office_ledger + safe indexes; tasks/reminders deferred");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

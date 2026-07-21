@@ -186,31 +186,3 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 });
-
-/** Performance indexes — run once at startup, idempotent */
-async function ensurePerformanceIndexes() {
-  const indexes = [
-    `CREATE INDEX IF NOT EXISTS idx_cases_office_id       ON cases(office_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_cases_status          ON cases(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_cases_office_status   ON cases(office_id, status)`,
-    `CREATE INDEX IF NOT EXISTS idx_clients_office_id     ON clients(office_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_documents_office_id   ON documents(office_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_tasks_office_due      ON tasks(office_id, due_date)`,
-    `CREATE INDEX IF NOT EXISTS idx_tasks_status          ON tasks(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_reminders_office_due  ON reminders(office_id, due_date)`,
-    `CREATE INDEX IF NOT EXISTS idx_audit_logs_office_ts  ON audit_logs(office_id, created_at DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_revenues_office_date  ON revenues(date DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_expenses_office_date  ON expenses(date DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_invoices_office_id    ON client_invoices(office_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_invoices_status       ON client_invoices(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_contracts_office_id   ON contracts(office_id)`,
-    /* Idempotency index — prevents duplicate ledger entries for same Stripe event */
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_office_ledger_stripe_event_id
-       ON office_ledger(stripe_event_id)
-       WHERE stripe_event_id IS NOT NULL`,
-  ];
-  for (const idx of indexes) {
-    await db.execute(sql.raw(idx)).catch(() => {});
-  }
-}
-ensurePerformanceIndexes().catch(() => {});
