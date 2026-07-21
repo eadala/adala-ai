@@ -617,10 +617,12 @@ SQL
   cnt=$(psql_db -At -c "SELECT COUNT(*) FROM office_ledger WHERE stripe_event_id='evt_test_010';")
   [[ "$cnt" == "1" ]] && ok "A: duplicate stripe_event_id not inserted" || bad "A: count=$cnt"
 
+  # P0 now includes Stripe infra (011) — apply before verify-schema
+  apply_migration_011
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-010.log 2>&1; then
-    ok "A: verify-schema.sh passed after 010"
+    ok "A: verify-schema.sh passed after 010+011"
   else
-    bad "A: verify-schema.sh failed after 010"; tail -20 /tmp/verify-010.log
+    bad "A: verify-schema.sh failed after 010+011"; tail -20 /tmp/verify-010.log
   fi
 
   if ! grep -qE 'ensurePerformanceIndexes|idx_office_ledger_stripe_event_id' \
@@ -1178,7 +1180,7 @@ SQL
   [[ "$admin_cnt" -ge 1 ]] && ok "admin list offices (db.select officePageTable)" || bad "office_page empty"
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-endpoints.log 2>&1; then
-    ok "verify-schema.sh passed after full chain including 006→010"
+    ok "verify-schema.sh passed after full chain including 006→011"
   else
     bad "verify-schema.sh failed on endpoint scenario"
     tail -15 /tmp/verify-endpoints.log
