@@ -14,6 +14,7 @@
  *   GET /accounting/statements/balance-sheet  — الميزانية العمومية
  *   GET /accounting/statements/trial-balance  — ميزان المراجعة
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 
 import { Router }                        from "express";
 import { requireAuthWithTenant }         from "../../middlewares/requireAuth";
@@ -35,58 +36,12 @@ async function one(q: any): Promise<any> {
 }
 
 /* ══════════════════════════════════════════════════════════
-   ENSURE TABLES + SEED
+   SEED Chart of Accounts (schema via migration 013)
+   artifacts/api-server/migrations/013_erp_schema.sql
 ══════════════════════════════════════════════════════════ */
 
 export async function ensureJournalTables(officeId: string): Promise<void> {
-
-  /* 1. دليل الحسابات */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS chart_of_accounts (
-      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id     TEXT NOT NULL,
-      account_code  TEXT NOT NULL,
-      account_name  TEXT NOT NULL,
-      account_type  TEXT NOT NULL CHECK (account_type IN ('Asset','Liability','Equity','Revenue','Expense')),
-      parent_code   TEXT,
-      is_active     BOOLEAN NOT NULL DEFAULT TRUE,
-      created_at    TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(office_id, account_code)
-    )
-  `).catch(() => {});
-
-  /* 2. رأس القيد */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS journal_entries (
-      id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id        TEXT NOT NULL,
-      entry_date       DATE NOT NULL DEFAULT CURRENT_DATE,
-      description      TEXT NOT NULL,
-      reference_number TEXT,
-      reference_type   TEXT,
-      reference_id     TEXT,
-      posted_by        TEXT,
-      created_at       TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_je_office ON journal_entries(office_id)`).catch(() => {});
-
-  /* 3. تفاصيل القيد */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS journal_items (
-      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      entry_id     UUID NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
-      office_id    TEXT NOT NULL,
-      account_code TEXT NOT NULL,
-      account_name TEXT NOT NULL,
-      account_type TEXT NOT NULL,
-      debit        NUMERIC(15,2) NOT NULL DEFAULT 0,
-      credit       NUMERIC(15,2) NOT NULL DEFAULT 0,
-      notes        TEXT
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ji_entry ON journal_items(entry_id)`).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ji_office ON journal_items(office_id)`).catch(() => {});
+  /* Schema DDL removed — migration 013 owns chart_of_accounts / journal_* */
 
   /* ── Seed Chart of Accounts (only if empty for this office) ── */
   const existing = await one(sql`

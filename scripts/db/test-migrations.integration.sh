@@ -24,6 +24,7 @@ MIGRATION_009="$ROOT/artifacts/api-server/migrations/009_storage_folders.sql"
 MIGRATION_010="$ROOT/artifacts/api-server/migrations/010_office_ledger_performance_indexes.sql"
 MIGRATION_011="$ROOT/artifacts/api-server/migrations/011_stripe_infrastructure_tables.sql"
 MIGRATION_012="$ROOT/artifacts/api-server/migrations/012_payment_transactions.sql"
+MIGRATION_013="$ROOT/artifacts/api-server/migrations/013_erp_schema.sql"
 
 PASS=0
 FAIL=0
@@ -115,6 +116,10 @@ apply_migration_012() {
   psql_db -f "$MIGRATION_012" >/dev/null
 }
 
+apply_migration_013() {
+  psql_db -f "$MIGRATION_013" >/dev/null
+}
+
 apply_all_migrations() {
   apply_migrations_base
   apply_migration_006
@@ -124,11 +129,12 @@ apply_all_migrations() {
   apply_migration_010
   apply_migration_011
   apply_migration_012
+  apply_migration_013
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -371,10 +377,11 @@ scenario_migration_006_idempotent() {
   apply_migration_010
   apply_migration_011
   apply_migration_012
+  apply_migration_013
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-006.log 2>&1; then
-    ok "verify-schema.sh passed after 006+007+008+009+010+011+012"
+    ok "verify-schema.sh passed after 006→013"
   else
-    bad "verify-schema.sh failed after 006+007+008+009+010+011+012"
+    bad "verify-schema.sh failed after 006→013"
     tail -15 /tmp/verify-006.log
   fi
 
@@ -624,13 +631,14 @@ SQL
   cnt=$(psql_db -At -c "SELECT COUNT(*) FROM office_ledger WHERE stripe_event_id='evt_test_010';")
   [[ "$cnt" == "1" ]] && ok "A: duplicate stripe_event_id not inserted" || bad "A: count=$cnt"
 
-  # P0 now includes Stripe infra (011) + payment_transactions (012)
+  # P0 includes Stripe (011) + payments (012) + ERP (013)
   apply_migration_011
   apply_migration_012
+  apply_migration_013
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-010.log 2>&1; then
-    ok "A: verify-schema.sh passed after 010+011+012"
+    ok "A: verify-schema.sh passed after 010→013"
   else
-    bad "A: verify-schema.sh failed after 010+011+012"; tail -20 /tmp/verify-010.log
+    bad "A: verify-schema.sh failed after 010→013"; tail -20 /tmp/verify-010.log
   fi
 
   if ! grep -qE 'ensurePerformanceIndexes|idx_office_ledger_stripe_event_id' \
@@ -903,10 +911,11 @@ scenario_migration_011_stripe_infra() {
   ok "A/F: re-run 011 on fresh schema succeeded"
 
   apply_migration_012
+  apply_migration_013
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-011.log 2>&1; then
-    ok "A: verify-schema.sh passed after 011+012"
+    ok "A: verify-schema.sh passed after 011→013"
   else
-    bad "A: verify-schema.sh failed after 011+012"; tail -20 /tmp/verify-011.log
+    bad "A: verify-schema.sh failed after 011→013"; tail -20 /tmp/verify-011.log
   fi
 
   if ! grep -qE 'ensureStripeBufferTables|ensureReconciliationTable|CREATE TABLE IF NOT EXISTS stripe_' \
@@ -1191,10 +1200,11 @@ scenario_migration_012_payment_transactions() {
   apply_migration_012
   ok "A/F: re-run 012 on fresh schema succeeded"
 
+  apply_migration_013
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-012.log 2>&1; then
-    ok "A: verify-schema.sh passed after 012"
+    ok "A: verify-schema.sh passed after 012+013"
   else
-    bad "A: verify-schema.sh failed after 012"; tail -20 /tmp/verify-012.log
+    bad "A: verify-schema.sh failed after 012+013"; tail -20 /tmp/verify-012.log
   fi
 
   if ! grep -qE 'ensurePaymentCols|ALTER TABLE payment_transactions' \
@@ -1373,6 +1383,332 @@ SQL
   teardown_db
 }
 
+# ── Scenario 3g: ERP schema (013) ───────────────────────────────────────────
+scenario_migration_013_erp() {
+  log "Scenario 3g — migration 013: fresh / complete / partial / unique dup / invalid checks / idempotent"
+
+  # ── A. Fresh ─────────────────────────────────────────────────────────────
+  setup_db "mig013_fresh"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_011
+  apply_migration_012
+
+  local pre_erp
+  pre_erp=$(psql_db -At -c "
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='office_erp_ledger');")
+  [[ "$pre_erp" == "f" ]] && ok "A pre-013: office_erp_ledger absent" || bad "A pre-013: should be absent"
+
+  apply_migration_013
+
+  local post_erp post_coa post_je idx_erp uniq_coa fk_ji
+  post_erp=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='office_erp_ledger');")
+  post_coa=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='chart_of_accounts');")
+  post_je=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='journal_entries');")
+  idx_erp=$(psql_db -At -c "SELECT COUNT(*) FROM pg_indexes WHERE indexname='idx_erp_office';")
+  uniq_coa=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.chart_of_accounts'::regclass AND contype='u'
+      AND pg_get_constraintdef(oid) ILIKE '%account_code%';")
+  fk_ji=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.journal_items'::regclass AND contype='f'
+      AND pg_get_constraintdef(oid) ILIKE '%journal_entries%';")
+
+  [[ "$post_erp" == "t" ]] && ok "A: office_erp_ledger created" || bad "A: erp ledger missing"
+  [[ "$post_coa" == "t" ]] && ok "A: chart_of_accounts created" || bad "A: CoA missing"
+  [[ "$post_je" == "t" ]] && ok "A: journal_entries created" || bad "A: journal_entries missing"
+  [[ "$idx_erp" == "1" ]] && ok "A: idx_erp_office present" || bad "A: erp index missing"
+  [[ "$uniq_coa" -ge 1 ]] && ok "A: CoA UNIQUE present" || bad "A: CoA unique missing"
+  [[ "$fk_ji" -ge 1 ]] && ok "A: journal_items FK present" || bad "A: journal FK missing"
+
+  apply_migration_013
+  ok "A/F: re-run 013 on fresh schema succeeded"
+
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-013.log 2>&1; then
+    ok "A: verify-schema.sh passed after 013"
+  else
+    bad "A: verify-schema.sh failed after 013"; tail -20 /tmp/verify-013.log
+  fi
+
+  if ! grep -qE 'ensureERPTables|CREATE TABLE IF NOT EXISTS office_erp_ledger|CREATE TABLE IF NOT EXISTS chart_of_accounts' \
+      "$ROOT/artifacts/api-server/src/modules/financial/erp-ledger.ts" \
+      "$ROOT/artifacts/api-server/src/modules/financial/journalAccounting.ts" \
+      "$ROOT/artifacts/api-server/src/index.ts"; then
+    ok "A: ERP Runtime DDL removed from boot/modules"
+  else
+    bad "A: ERP Runtime DDL still present"
+  fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Complete existing ─────────────────────────────────────────────────
+  setup_db "mig013_complete"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_011
+  apply_migration_012
+  apply_migration_013
+
+  psql_db <<'SQL' >/dev/null
+INSERT INTO office_erp_ledger
+  (office_id, entry_type, account_code, account_name, account_type, amount)
+VALUES ('off_complete', 'DEBIT', '1100', 'Cash', 'Asset', 100);
+INSERT INTO chart_of_accounts (office_id, account_code, account_name, account_type)
+VALUES ('off_complete', '1100', 'Cash', 'Asset');
+SQL
+
+  apply_migration_013
+  apply_migration_013
+
+  local complete_cnt
+  complete_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM office_erp_ledger WHERE office_id='off_complete' AND amount=100;")
+  [[ "$complete_cnt" == "1" ]] && ok "B: existing ERP row preserved" || bad "B: count=$complete_cnt"
+  ok "B/F: re-run 013 on complete schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── C. Partial ERP tables missing columns ────────────────────────────────
+  setup_db "mig013_partial"
+  trap teardown_db EXIT
+  apply_migrations_base
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_erp_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  amount NUMERIC
+);
+INSERT INTO office_erp_ledger (office_id, amount) VALUES ('off_partial', 50);
+CREATE TABLE chart_of_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  account_code TEXT
+);
+CREATE TABLE journal_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT
+);
+CREATE TABLE journal_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entry_id UUID,
+  office_id TEXT
+);
+CREATE TABLE financial_anomalies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT
+);
+SQL
+
+  apply_migration_013
+
+  local erp_cols coa_cols anom_cols partial_row
+  erp_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_name='office_erp_ledger'
+      AND column_name IN ('entry_type','account_code','account_name','account_type','currency','pair_id','created_at');")
+  coa_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_name='chart_of_accounts'
+      AND column_name IN ('account_name','account_type','parent_code','is_active','created_at');")
+  anom_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_name='financial_anomalies'
+      AND column_name IN ('anomaly_type','severity','description','amount','reference','resolved','created_at');")
+  partial_row=$(psql_db -At -c "
+    SELECT COUNT(*) FROM office_erp_ledger WHERE office_id='off_partial' AND amount=50;")
+
+  [[ "$erp_cols" == "7" ]] && ok "C: missing office_erp_ledger columns added" || bad "C: erp cols=$erp_cols"
+  [[ "$coa_cols" == "5" ]] && ok "C: missing chart_of_accounts columns added" || bad "C: coa cols=$coa_cols"
+  [[ "$anom_cols" == "7" ]] && ok "C: missing financial_anomalies columns added" || bad "C: anom cols=$anom_cols"
+  [[ "$partial_row" == "1" ]] && ok "C: legacy ERP row unchanged" || bad "C: legacy row altered"
+
+  apply_migration_013
+  ok "C/F: re-run 013 on repaired partial schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── D. Duplicate CoA UNIQUE(office_id, account_code) ─────────────────────
+  setup_db "mig013_dup"
+  trap teardown_db EXIT
+  apply_migrations_base
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE chart_of_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  account_code TEXT,
+  account_name TEXT,
+  account_type TEXT
+);
+INSERT INTO chart_of_accounts (office_id, account_code, account_name, account_type) VALUES
+  ('off_dup', '1100', 'Cash A', 'Asset'),
+  ('off_dup', '1100', 'Cash B', 'Asset');
+CREATE TABLE office_erp_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  entry_date DATE DEFAULT CURRENT_DATE,
+  entry_type TEXT DEFAULT 'DEBIT',
+  account_code TEXT DEFAULT '1100',
+  account_name TEXT DEFAULT 'Cash',
+  account_type TEXT DEFAULT 'Asset',
+  amount NUMERIC(14,2) DEFAULT 1,
+  currency TEXT DEFAULT 'SAR',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE journal_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  entry_date DATE DEFAULT CURRENT_DATE,
+  description TEXT NOT NULL DEFAULT 'x',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE journal_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entry_id UUID,
+  office_id TEXT NOT NULL DEFAULT 'x',
+  account_code TEXT NOT NULL DEFAULT '1100',
+  account_name TEXT NOT NULL DEFAULT 'Cash',
+  account_type TEXT NOT NULL DEFAULT 'Asset',
+  debit NUMERIC(15,2) DEFAULT 0,
+  credit NUMERIC(15,2) DEFAULT 0
+);
+CREATE TABLE financial_anomalies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  anomaly_type TEXT NOT NULL DEFAULT 'IMBALANCE',
+  severity TEXT DEFAULT 'medium',
+  description TEXT NOT NULL DEFAULT 'x'
+);
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_013" >/tmp/mig013-dup.log 2>&1
+  local dup_rc=$?
+  set -e
+  [[ "$dup_rc" -eq 0 ]] && ok "D: migration 013 succeeds with CoA duplicates" || {
+    bad "D: migration failed with CoA duplicates"; cat /tmp/mig013-dup.log
+  }
+
+  local dup_uniq dup_rows warn_hit
+  dup_uniq=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.chart_of_accounts'::regclass AND contype='u'
+      AND pg_get_constraintdef(oid) ILIKE '%account_code%';")
+  dup_rows=$(psql_db -At -c "
+    SELECT COUNT(*) FROM chart_of_accounts WHERE office_id='off_dup' AND account_code='1100';")
+  warn_hit=$(grep -c 'skipping chart_of_accounts UNIQUE' /tmp/mig013-dup.log || true)
+
+  [[ "$dup_uniq" == "0" ]] && ok "D: CoA UNIQUE NOT created when duplicates exist" || bad "D: unique was created"
+  [[ "$dup_rows" == "2" ]] && ok "D: duplicate CoA rows unmodified" || bad "D: rows=$dup_rows"
+  [[ "$warn_hit" -ge 1 ]] && ok "D: WARNING emitted for CoA UNIQUE skip" || bad "D: missing WARNING"
+
+  apply_migration_013
+  ok "D/F: re-run 013 after unique skip succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── E. Invalid entry_type / account_type ─────────────────────────────────
+  setup_db "mig013_badcheck"
+  trap teardown_db EXIT
+  apply_migrations_base
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_erp_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  entry_type TEXT,
+  account_code TEXT,
+  account_name TEXT,
+  account_type TEXT,
+  amount NUMERIC(14,2)
+);
+INSERT INTO office_erp_ledger (office_id, entry_type, account_code, account_name, account_type, amount)
+VALUES ('off_bad', 'TRANSFER', '1100', 'Cash', 'Asset', 10);
+CREATE TABLE chart_of_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  account_code TEXT,
+  account_name TEXT,
+  account_type TEXT
+);
+INSERT INTO chart_of_accounts (office_id, account_code, account_name, account_type)
+VALUES ('off_bad', '9999', 'Weird', 'Other');
+CREATE TABLE journal_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  entry_date DATE DEFAULT CURRENT_DATE,
+  description TEXT NOT NULL DEFAULT 'x'
+);
+CREATE TABLE journal_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entry_id UUID,
+  office_id TEXT NOT NULL DEFAULT 'x',
+  account_code TEXT NOT NULL DEFAULT 'x',
+  account_name TEXT NOT NULL DEFAULT 'x',
+  account_type TEXT NOT NULL DEFAULT 'x',
+  debit NUMERIC(15,2) DEFAULT 0,
+  credit NUMERIC(15,2) DEFAULT 0
+);
+CREATE TABLE financial_anomalies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL DEFAULT 'x',
+  anomaly_type TEXT NOT NULL DEFAULT 'x',
+  description TEXT NOT NULL DEFAULT 'x'
+);
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_013" >/tmp/mig013-badcheck.log 2>&1
+  local bad_rc=$?
+  set -e
+  [[ "$bad_rc" -eq 0 ]] && ok "E: migration 013 succeeds with invalid CHECK values" || {
+    bad "E: migration failed on invalid checks"; cat /tmp/mig013-badcheck.log
+  }
+
+  local entry_check type_check bad_row warn_entry warn_type
+  entry_check=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.office_erp_ledger'::regclass AND contype='c'
+      AND pg_get_constraintdef(oid) ILIKE '%DEBIT%CREDIT%';")
+  type_check=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.chart_of_accounts'::regclass AND contype='c'
+      AND pg_get_constraintdef(oid) ILIKE '%Asset%Liability%';")
+  bad_row=$(psql_db -At -c "
+    SELECT COUNT(*) FROM office_erp_ledger WHERE office_id='off_bad' AND entry_type='TRANSFER';")
+  warn_entry=$(grep -c 'skipping office_erp_ledger entry_type CHECK' /tmp/mig013-badcheck.log || true)
+  warn_type=$(grep -c 'skipping chart_of_accounts account_type CHECK' /tmp/mig013-badcheck.log || true)
+
+  [[ "$entry_check" == "0" ]] && ok "E: entry_type CHECK skipped" || bad "E: entry_type CHECK added"
+  [[ "$type_check" == "0" ]] && ok "E: account_type CHECK skipped" || bad "E: account_type CHECK added"
+  [[ "$bad_row" == "1" ]] && ok "E: invalid legacy ERP row unchanged" || bad "E: legacy row altered"
+  [[ "$warn_entry" -ge 1 ]] && ok "E: WARNING for entry_type" || bad "E: missing entry_type WARNING"
+  [[ "$warn_type" -ge 1 ]] && ok "E: WARNING for account_type" || bad "E: missing account_type WARNING"
+
+  apply_migration_013
+  ok "E/F: re-run 013 after CHECK skip succeeded"
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Scenario 4: reported endpoints + office/public schema paths ─────────────
 scenario_reported_endpoints() {
   log "Scenario 4 — SQL paths for reported 500/404 endpoints + office/public + sendBeacon vitals"
@@ -1430,7 +1766,7 @@ SQL
   [[ "$admin_cnt" -ge 1 ]] && ok "admin list offices (db.select officePageTable)" || bad "office_page empty"
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-endpoints.log 2>&1; then
-    ok "verify-schema.sh passed after full chain including 006→012"
+    ok "verify-schema.sh passed after full chain including 006→013"
   else
     bad "verify-schema.sh failed on endpoint scenario"
     tail -15 /tmp/verify-endpoints.log
@@ -1467,6 +1803,16 @@ scenario_incomplete_schema_no_runtime_ddl() {
   [[ "$has_vitals" == "f" ]] && ok "web_vitals still absent after failed INSERT" || bad "web_vitals was created somehow"
 
   # Source audit: migration-covered handlers must not contain Runtime DDL
+  if ! grep -qE 'ensureERPTables|CREATE TABLE IF NOT EXISTS office_erp_ledger|CREATE TABLE IF NOT EXISTS chart_of_accounts|CREATE TABLE IF NOT EXISTS journal_entries' \
+      "$ROOT/artifacts/api-server/src/modules/financial/erp-ledger.ts" \
+      "$ROOT/artifacts/api-server/src/modules/financial/journalAccounting.ts" \
+      "$ROOT/artifacts/api-server/src/modules/financial/reconciliation.ts" \
+      "$ROOT/artifacts/api-server/src/index.ts"; then
+    ok "ERP modules contain no Runtime DDL"
+  else
+    bad "ERP Runtime DDL still present"
+  fi
+
   if ! grep -qE 'ensurePaymentCols|ALTER TABLE payment_transactions' \
       "$ROOT/artifacts/api-server/src/modules/financial/payments.ts"; then
     ok "payments.ts has no payment_transactions Runtime DDL"
@@ -1474,7 +1820,7 @@ scenario_incomplete_schema_no_runtime_ddl() {
     bad "payments.ts still alters payment_transactions at boot"
   fi
 
-  if ! grep -qE 'CREATE TABLE|ensureTable|ensureLoginLogs|ensureTables|ensureEventsTable|ensureAdHocColumns|ensureStripeBufferTables|ensureReconciliationTable|ensurePaymentCols' \
+  if ! grep -qE 'CREATE TABLE|ensureTable|ensureLoginLogs|ensureTables|ensureEventsTable|ensureAdHocColumns|ensureStripeBufferTables|ensureReconciliationTable|ensurePaymentCols|ensureERPTables' \
       "$ROOT/artifacts/api-server/src/modules/platform/loginTracking.ts" \
       "$ROOT/artifacts/api-server/src/routes/metrics.ts" \
       "$ROOT/artifacts/api-server/src/modules/legal-core/contracts.ts" \
@@ -1512,6 +1858,7 @@ scenario_migration_008_storage_files
 scenario_migration_010_office_ledger
 scenario_migration_011_stripe_infra
 scenario_migration_012_payment_transactions
+scenario_migration_013_erp
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

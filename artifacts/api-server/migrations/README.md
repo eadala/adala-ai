@@ -66,7 +66,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/012_payment_transactions.sql
 
-# 13) تحقق بعد التنفيذ
+# 13) ERP schema — office_erp_ledger / anomalies / CoA / journal
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/013_erp_schema.sql
+
+# 14) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -85,6 +89,7 @@ bash scripts/db/verify-schema.sh
 | `010_office_ledger_performance_indexes.sql` | `office_ledger` + performance indexes for tables in 001–009 |
 | `011_stripe_infrastructure_tables.sql` | `stripe_events`, `stripe_dead_letters`, `stripe_reconciliation_log` |
 | `012_payment_transactions.sql` | `payment_transactions` (incl. settlement + gateway columns) |
+| `013_erp_schema.sql` | `office_erp_ledger`, `financial_anomalies`, `chart_of_accounts`, `journal_entries`, `journal_items` |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due`, `idx_tasks_status`,
 > `idx_reminders_office_due` must be added in the future numbered migration that
@@ -112,19 +117,25 @@ bash scripts/db/verify-schema.sh
 | `stripe_dead_letters` | **011** | Stripe DLQ |
 | `stripe_reconciliation_log` | **011** | `stripeReconcile.ts` |
 | `payment_transactions` | **012** | `payments.ts` / financial engine |
+| `office_erp_ledger` | **013** | `erp-ledger.ts` double-entry |
+| `financial_anomalies` | **013** | ERP reconcile / financial-guard |
+| `chart_of_accounts` | **013** | `journalAccounting.ts` (seed retained) |
+| `journal_entries` / `journal_items` | **013** | double-entry journal |
 | `clients` | 003 | Legal core |
 
 ## ما يبقى بعد Migrations (boot-time)
 
 ~100 جدول enterprise تُنشأ عند أول boot للـ API عبر `ensure*Tables()` في
 `artifacts/api-server/src/index.ts` والوحدات. هذه migrations تغطي **P0 + baseline**
-فقط. بعد تطبيق 003–012، شغّل API مرة واحدة لإكمال الجداول المتبقية (enterprise).
+فقط. بعد تطبيق 003–013، شغّل API مرة واحدة لإكمال الجداول المتبقية (enterprise).
 
-جداول مغطاة بـ 004/005/010/011/012 لم تعد تُنشأ عبر Runtime DDL:
+جداول مغطاة بـ 004/005/010/011/012/013 لم تعد تُنشأ عبر Runtime DDL:
 `contract_*`, `trial_offices`, `onboarding_state`, `system_events`, `plan_cms`, `office_ledger`,
-`stripe_events`, `stripe_dead_letters`, `stripe_reconciliation_log`, `payment_transactions`
+`stripe_events`, `stripe_dead_letters`, `stripe_reconciliation_log`, `payment_transactions`,
+`office_erp_ledger`, `financial_anomalies`, `chart_of_accounts`, `journal_entries`, `journal_items`
 (+ performance indexes من `ensurePerformanceIndexes`).
 `moyasar_settings` / `checkout_settings` remain Runtime DDL via `ensureGatewaySettingsTables()`.
+`ensureJournalTables` retains CoA seed only (no DDL).
 
 ## Rollback
 
@@ -139,7 +150,7 @@ bash scripts/db/test-migrations.integration.sh
 pnpm --filter @workspace/api-server run test:schema-authority
 ```
 
-يغطي: DB فارغة (003→001→004→005→006→007→008→009→010→011→012)، Production-like بدون `website_config`/`login_logs`،
-idempotency لـ 006/007/008/009/010/011/012، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
+يغطي: DB فارغة (003→001→004→005→006→007→008→009→010→011→012→013)، Production-like بدون `website_config`/`login_logs`،
+idempotency لـ 006/007/008/009/010/011/012/013، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
 
 راجع `scripts/db/boot-created-tables.md` لقائمة جداول boot وقيود Docker.

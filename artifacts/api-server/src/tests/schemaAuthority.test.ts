@@ -32,6 +32,7 @@ assert.ok(migrationFiles.includes("009_storage_folders.sql"));
 assert.ok(migrationFiles.includes("010_office_ledger_performance_indexes.sql"));
 assert.ok(migrationFiles.includes("011_stripe_infrastructure_tables.sql"));
 assert.ok(migrationFiles.includes("012_payment_transactions.sql"));
+assert.ok(migrationFiles.includes("013_erp_schema.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -170,6 +171,40 @@ assert.match(paymentsSrc, /ensureGatewaySettingsTables/);
 assert.match(paymentsSrc, /CREATE TABLE IF NOT EXISTS moyasar_settings/);
 assert.match(paymentsSrc, /CREATE TABLE IF NOT EXISTS checkout_settings/);
 console.log("  ✅ migration 012 owns payment_transactions; ensurePaymentCols removed");
+
+console.log("\n═══ schemaAuthority: Batch ERP (013) ═══");
+
+assert.ok(migrationFiles.includes("013_erp_schema.sql"));
+const mig013 = readRepo("artifacts/api-server/migrations/013_erp_schema.sql");
+assert.match(mig013, /CREATE TABLE IF NOT EXISTS office_erp_ledger/);
+assert.match(mig013, /CREATE TABLE IF NOT EXISTS financial_anomalies/);
+assert.match(mig013, /CREATE TABLE IF NOT EXISTS chart_of_accounts/);
+assert.match(mig013, /CREATE TABLE IF NOT EXISTS journal_entries/);
+assert.match(mig013, /CREATE TABLE IF NOT EXISTS journal_items/);
+assert.match(mig013, /idx_erp_office/);
+assert.match(mig013, /idx_je_office/);
+assert.match(mig013, /idx_ji_entry/);
+assert.match(mig013, /skipping office_erp_ledger entry_type CHECK/);
+assert.match(mig013, /skipping chart_of_accounts UNIQUE/);
+assert.match(mig013, /skipping journal_items FK/);
+assert.match(mig013, /zta_erp_ledger/);
+
+const erpSrc = readSrc("modules/financial/erp-ledger.ts");
+assert.doesNotMatch(erpSrc, /ensureERPTables/);
+assert.doesNotMatch(erpSrc, /CREATE TABLE/);
+assert.doesNotMatch(erpSrc, /CREATE INDEX/);
+assert.doesNotMatch(erpSrc, /ENABLE ROW LEVEL SECURITY/);
+assert.match(erpSrc, /013_erp_schema/);
+
+const journalSrc = readSrc("modules/financial/journalAccounting.ts");
+assert.doesNotMatch(journalSrc, /CREATE TABLE/);
+assert.doesNotMatch(journalSrc, /CREATE INDEX/);
+assert.match(journalSrc, /ensureJournalTables/);
+assert.match(journalSrc, /013_erp_schema/);
+assert.match(journalSrc, /Seed Chart of Accounts/);
+
+assert.doesNotMatch(indexSrc, /ensureERPTables/);
+console.log("  ✅ migration 013 owns ERP tables; Runtime DDL removed; CoA seed retained");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

@@ -37,7 +37,6 @@ blocked_ips
 case_ai_insights
 case_autopilot_reports
 case_timeline
-chart_of_accounts
 checkout_settings
 client_accounts
 client_case_links
@@ -77,7 +76,6 @@ event_reminders
 events
 expenses
 financial_accounts
-financial_anomalies
 generated_documents
 ghost_access_log
 go_live_certificates
@@ -118,8 +116,6 @@ jlwm_recommendation_tracking
 jlwm_simulations
 jlwm_trust_scores
 jlwm_world_states
-journal_entries
-journal_items
 launch_events
 lawyer_payouts
 leave_balances
@@ -136,7 +132,6 @@ moyasar_settings
 office_ai_credits
 office_ai_settings
 office_branches
-office_erp_ledger
 office_integration_status
 office_isolation_config
 office_notification_settings
