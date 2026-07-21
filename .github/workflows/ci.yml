@@ -168,6 +168,10 @@ jobs:
             --exclude-dir=node_modules | wc -l)
           echo "Total route handlers: $TOTAL_ROUTES"
           echo "Auth-protected calls: $PROTECTED"
+          if [ "$TOTAL_ROUTES" -lt 1 ] || [ "$PROTECTED" -lt 1 ]; then
+            echo "❌ Auth coverage audit found no routes and/or no auth guards"
+            exit 1
+          fi
           echo "✅ Auth coverage audit complete"
 
   # ─────────────────────────────────────────
@@ -205,10 +209,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check ARIA and lang attributes
         run: |
-          MISSING_LANG=$(grep -r --include="*.tsx" --include="*.html" \
-            "<html" artifacts/adala/src/ artifacts/adala/index.html \
+          if ! grep -qE '<html[^>]*lang=' artifacts/adala/index.html; then
+            echo "❌ artifacts/adala/index.html missing lang attribute"
+            exit 1
+          fi
+          MISSING_LANG=$(grep -r --include="*.html" \
+            "<html" artifacts/adala/ \
             2>/dev/null | grep -v 'lang=' | wc -l)
           echo "HTML without lang: $MISSING_LANG"
+          if [ "$MISSING_LANG" -gt 0 ]; then
+            echo "❌ HTML document(s) missing lang attribute"
+            exit 1
+          fi
           echo "✅ Accessibility baseline check passed"
       - name: RTL Support Check
         run: |
@@ -243,10 +255,17 @@ jobs:
             "console\.log(" \
             artifacts/adala/src/ artifacts/api-server/src/ \
             --exclude-dir=node_modules \
-            2>/dev/null | grep -v "//.*console.log" | grep -v ".test." | wc -l)
+            2>/dev/null \
+            | grep -v "//.*console.log" \
+            | grep -v ".test." \
+            | grep -v "/tests/" \
+            | grep -vE ':[0-9]+:[[:space:]]*\*' \
+            | grep -v "engineering.ts" \
+            | wc -l)
           echo "console.log in production code: $LOGS"
           if [ "$LOGS" -gt 50 ]; then
-            echo "⚠️  High console.log count ($LOGS) — consider using logger"
+            echo "❌ High console.log count ($LOGS) — exceeds budget of 50"
+            exit 1
           fi
           echo "✅ Architecture check complete"
       - name: Validate no tsconfig references
@@ -275,13 +294,65 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check critical tables have office_id
         run: |
-          MISSING=$(grep -rn \
-            "createTable\|pgTable" \
-            packages/db/src/ --include="*.ts" \
-            2>/dev/null | grep -v "office_id\|officeId\|systemEvents\|planCms\|promoCode\|serviceStat\|serviceStatus\|loginLog\|email_log\|audit_log\|developer_token\|backup_job\|backup_setting\|plan_notification\|gift_sub\|hosting\|workflow_builder_grant\|storage_setting\|journal\|chart_of\|event_daily" \
-            | wc -l)
-          echo "Tables potentially missing office_id check: $MISSING"
-          echo "✅ Tenant isolation audit complete"
+          SCHEMA_DIR="lib/db/src/schema"
+          if [ ! -d "$SCHEMA_DIR" ]; then
+            echo "❌ Schema directory missing: $SCHEMA_DIR"
+            exit 1
+          fi
+          python3 <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          schema = Path("lib/db/src/schema")
+          # Tenant-scoped tables that must declare office_id / officeId today.
+          critical = [
+              "cases",
+              "clients",
+              "contracts",
+              "documents",
+              "client_invoices",
+              "office_services",
+              "office_team",
+              "office_orders",
+              "office_reviews",
+              "office_articles",
+              "office_domains",
+          ]
+          tables = {}
+          for path in schema.rglob("*.ts"):
+              text = path.read_text()
+              for m in re.finditer(r'pgTable\(\s*"([^"]+)"\s*,\s*\{', text):
+                  name = m.group(1)
+                  start = m.end()
+                  depth = 1
+                  i = start
+                  while i < len(text) and depth:
+                      if text[i] == "{":
+                          depth += 1
+                      elif text[i] == "}":
+                          depth -= 1
+                      i += 1
+                  tables[name] = text[start:i]
+
+          if not tables:
+              print("❌ No pgTable definitions found under lib/db/src/schema")
+              sys.exit(1)
+
+          missing = []
+          for name in critical:
+              body = tables.get(name)
+              if body is None:
+                  missing.append(f"{name} (table not found)")
+              elif not re.search(r"officeId|office_id", body):
+                  missing.append(name)
+
+          if missing:
+              print("❌ Critical tables missing office_id:", ", ".join(missing))
+              sys.exit(1)
+
+          print(f"✅ {len(critical)} critical tenant tables declare office_id")
+          PY
 
   # ─────────────────────────────────────────
   # Gate 9: License Check
@@ -298,10 +369,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Check for GPL/AGPL licenses (incompatible with SaaS)
         run: |
+          set -o pipefail
           npx license-checker --onlyAllow \
             "MIT;ISC;BSD-2-Clause;BSD-3-Clause;Apache-2.0;0BSD;CC0-1.0;CC-BY-3.0;CC-BY-4.0;Python-2.0;Unlicense;WTFPL;BlueOak-1.0.0" \
             --excludePrivatePackages \
-            2>&1 | tail -5 || true
+            --excludePackages "stripe-replit-sync@1.0.0" \
+            2>&1 | tee /tmp/license-check.txt | tail -5
           echo "✅ License check complete"
 
   # ─────────────────────────────────────────
@@ -319,12 +392,13 @@ jobs:
         run: |
           TITLE="${{ github.event.pull_request.title }}"
           echo "PR Title: $TITLE"
-          if echo "$TITLE" | grep -qE "^(feat|fix|docs|refactor|perf|test|chore|security|hotfix|release)(\(.+\))?: .{3,}"; then
+          if echo "$TITLE" | grep -qE "^(feat|fix|docs|refactor|perf|test|chore|security|hotfix|release|ci)(\(.+\))?: .{3,}"; then
             echo "✅ PR title follows Conventional Commits"
           else
-            echo "⚠️  PR title should follow: type(scope): description"
+            echo "❌ PR title should follow: type(scope): description"
             echo "   Examples: feat(cases): add case export, fix(auth): token expiry"
-            echo "   Allowed types: feat fix docs refactor perf test chore security hotfix release"
+            echo "   Allowed types: feat fix docs refactor perf test chore security hotfix release ci"
+            exit 1
           fi
 
   # ─────────────────────────────────────────
@@ -344,6 +418,7 @@ jobs:
       - architecture
       - tenant-isolation
       - license
+      - commit-lint
     if: always()
     steps:
       - name: Check all gates
@@ -359,6 +434,7 @@ jobs:
           echo "Architecture:       ${{ needs.architecture.result }}"
           echo "Tenant Isolation:   ${{ needs.tenant-isolation.result }}"
           echo "License:            ${{ needs.license.result }}"
+          echo "Commit Convention:  ${{ needs.commit-lint.result }}"
 
           FAILED=0
           for result in \
@@ -371,7 +447,8 @@ jobs:
             "${{ needs.accessibility.result }}" \
             "${{ needs.architecture.result }}" \
             "${{ needs.tenant-isolation.result }}" \
-            "${{ needs.license.result }}"; do
+            "${{ needs.license.result }}" \
+            "${{ needs.commit-lint.result }}"; do
             if [ "$result" = "failure" ]; then
               FAILED=$((FAILED + 1))
             fi
