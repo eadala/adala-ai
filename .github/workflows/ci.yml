@@ -13,6 +13,38 @@ concurrency:
 
 jobs:
   # ─────────────────────────────────────────
+  # Tests — run existing package.json test scripts
+  # (Phase 1: ensure automated tests execute on PR / main)
+  # ─────────────────────────────────────────
+  test:
+    name: "Tests — existing suite"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "pnpm" }
+      - run: pnpm install --frozen-lockfile
+      - name: API server tests
+        run: |
+          pnpm --filter @workspace/api-server run test:storage
+          pnpm --filter @workspace/api-server run test:storage-office-id
+          pnpm --filter @workspace/api-server run test:storage-file-register
+          pnpm --filter @workspace/api-server run test:storage-folder-create
+          pnpm --filter @workspace/api-server run test:tenant-fallback-removal
+          pnpm --filter @workspace/api-server run test:tenant-gated-writes
+          pnpm --filter @workspace/api-server run test:post-migration
+          pnpm --filter @workspace/api-server run test:offices-my
+          pnpm --filter @workspace/api-server run test:metrics-vitals
+          pnpm --filter @workspace/api-server run test:cors-origin
+      - name: Frontend tests
+        run: |
+          pnpm --filter @workspace/adala run test:auth-fetch
+          pnpm --filter @workspace/adala run test:create-routes
+          pnpm --filter @workspace/adala run test:documents-create-folder
+
+  # ─────────────────────────────────────────
   # Gate 1: TypeScript
   # ─────────────────────────────────────────
   typescript:
@@ -302,6 +334,7 @@ jobs:
     name: "✅ All Gates Passed"
     runs-on: ubuntu-latest
     needs:
+      - test
       - typescript
       - lint
       - build
@@ -316,6 +349,7 @@ jobs:
       - name: Check all gates
         run: |
           echo "=== CI Summary ==="
+          echo "Tests:              ${{ needs.test.result }}"
           echo "TypeScript:         ${{ needs.typescript.result }}"
           echo "ESLint:             ${{ needs.lint.result }}"
           echo "Build+Bundle:       ${{ needs.build.result }}"
@@ -328,6 +362,7 @@ jobs:
 
           FAILED=0
           for result in \
+            "${{ needs.test.result }}" \
             "${{ needs.typescript.result }}" \
             "${{ needs.lint.result }}" \
             "${{ needs.build.result }}" \
