@@ -29,3 +29,4 @@ office_ledger
 stripe_events
 stripe_dead_letters
 stripe_reconciliation_log
+payment_transactions

@@ -23,6 +23,7 @@ MIGRATION_008="$ROOT/artifacts/api-server/migrations/008_storage_files_text_tena
 MIGRATION_009="$ROOT/artifacts/api-server/migrations/009_storage_folders.sql"
 MIGRATION_010="$ROOT/artifacts/api-server/migrations/010_office_ledger_performance_indexes.sql"
 MIGRATION_011="$ROOT/artifacts/api-server/migrations/011_stripe_infrastructure_tables.sql"
+MIGRATION_012="$ROOT/artifacts/api-server/migrations/012_payment_transactions.sql"
 
 PASS=0
 FAIL=0
@@ -110,6 +111,10 @@ apply_migration_011() {
   psql_db -f "$MIGRATION_011" >/dev/null
 }
 
+apply_migration_012() {
+  psql_db -f "$MIGRATION_012" >/dev/null
+}
+
 apply_all_migrations() {
   apply_migrations_base
   apply_migration_006
@@ -118,11 +123,12 @@ apply_all_migrations() {
   apply_migration_009
   apply_migration_010
   apply_migration_011
+  apply_migration_012
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -364,10 +370,11 @@ scenario_migration_006_idempotent() {
   apply_migration_009
   apply_migration_010
   apply_migration_011
+  apply_migration_012
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-006.log 2>&1; then
-    ok "verify-schema.sh passed after 006+007+008+009+010+011"
+    ok "verify-schema.sh passed after 006+007+008+009+010+011+012"
   else
-    bad "verify-schema.sh failed after 006+007+008+009+010+011"
+    bad "verify-schema.sh failed after 006+007+008+009+010+011+012"
     tail -15 /tmp/verify-006.log
   fi
 
@@ -617,12 +624,13 @@ SQL
   cnt=$(psql_db -At -c "SELECT COUNT(*) FROM office_ledger WHERE stripe_event_id='evt_test_010';")
   [[ "$cnt" == "1" ]] && ok "A: duplicate stripe_event_id not inserted" || bad "A: count=$cnt"
 
-  # P0 now includes Stripe infra (011) — apply before verify-schema
+  # P0 now includes Stripe infra (011) + payment_transactions (012)
   apply_migration_011
+  apply_migration_012
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-010.log 2>&1; then
-    ok "A: verify-schema.sh passed after 010+011"
+    ok "A: verify-schema.sh passed after 010+011+012"
   else
-    bad "A: verify-schema.sh failed after 010+011"; tail -20 /tmp/verify-010.log
+    bad "A: verify-schema.sh failed after 010+011+012"; tail -20 /tmp/verify-010.log
   fi
 
   if ! grep -qE 'ensurePerformanceIndexes|idx_office_ledger_stripe_event_id' \
@@ -894,10 +902,11 @@ scenario_migration_011_stripe_infra() {
   apply_migration_011
   ok "A/F: re-run 011 on fresh schema succeeded"
 
+  apply_migration_012
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-011.log 2>&1; then
-    ok "A: verify-schema.sh passed after 011"
+    ok "A: verify-schema.sh passed after 011+012"
   else
-    bad "A: verify-schema.sh failed after 011"; tail -20 /tmp/verify-011.log
+    bad "A: verify-schema.sh failed after 011+012"; tail -20 /tmp/verify-011.log
   fi
 
   if ! grep -qE 'ensureStripeBufferTables|ensureReconciliationTable|CREATE TABLE IF NOT EXISTS stripe_' \
@@ -1123,6 +1132,247 @@ SQL
   teardown_db
 }
 
+# ── Scenario 3f: payment_transactions (012) ─────────────────────────────────
+scenario_migration_012_payment_transactions() {
+  log "Scenario 3f — migration 012: fresh / complete / partial / duplicates / invalid settlement / idempotent"
+
+  # ── A. Fresh database ────────────────────────────────────────────────────
+  setup_db "mig012_fresh"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_011
+
+  local pre_pt
+  pre_pt=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='payment_transactions'
+    );")
+  [[ "$pre_pt" == "f" ]] && ok "A pre-012: payment_transactions absent" || bad "A pre-012: should be absent"
+
+  apply_migration_012
+
+  local post_pt sett_cols office_idx uniq_idx check_cnt
+  post_pt=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='payment_transactions'
+    );")
+  sett_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='payment_transactions'
+      AND column_name IN (
+        'settlement_status','settled_at','settlement_ref',
+        'gateway','gateway_payment_id','payment_link',
+        'office_id','amount','status','created_at','stripe_event_id'
+      );")
+  office_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_payment_transactions_office_id';")
+  uniq_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_payment_transactions_stripe_event_id';")
+  check_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.payment_transactions'::regclass AND contype='c'
+      AND pg_get_constraintdef(oid) ILIKE '%settlement_status%';")
+
+  [[ "$post_pt" == "t" ]] && ok "A: payment_transactions created" || bad "A: table missing"
+  [[ "$sett_cols" == "11" ]] && ok "A: core + settlement/gateway columns present" || bad "A: cols=$sett_cols"
+  [[ "$office_idx" == "1" ]] && ok "A: office_id index present" || bad "A: office index missing"
+  [[ "$uniq_idx" == "1" ]] && ok "A: stripe_event_id unique index present" || bad "A: unique index missing"
+  [[ "$check_cnt" -ge 1 ]] && ok "A: settlement_status CHECK present" || bad "A: CHECK missing"
+
+  apply_migration_012
+  ok "A/F: re-run 012 on fresh schema succeeded"
+
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-012.log 2>&1; then
+    ok "A: verify-schema.sh passed after 012"
+  else
+    bad "A: verify-schema.sh failed after 012"; tail -20 /tmp/verify-012.log
+  fi
+
+  if ! grep -qE 'ensurePaymentCols|ALTER TABLE payment_transactions' \
+      "$ROOT/artifacts/api-server/src/modules/financial/payments.ts"; then
+    ok "A: payment_transactions Runtime DDL removed from payments.ts"
+  else
+    bad "A: payment_transactions Runtime DDL still present"
+  fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Existing complete table ───────────────────────────────────────────
+  setup_db "mig012_complete"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_011
+  apply_migration_012
+
+  psql_db <<'SQL' >/dev/null
+INSERT INTO payment_transactions
+  (office_id, amount, status, gateway, settlement_status, stripe_event_id)
+VALUES ('office_complete', 100, 'completed', 'stripe', 'unsettled', 'evt_pt_complete');
+SQL
+
+  apply_migration_012
+  apply_migration_012
+
+  local complete_cnt
+  complete_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM payment_transactions WHERE stripe_event_id='evt_pt_complete';")
+  [[ "$complete_cnt" == "1" ]] && ok "B: existing complete row preserved" || bad "B: count=$complete_cnt"
+  ok "B/F: re-run 012 on complete schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── C. Partial legacy table missing settlement columns ───────────────────
+  setup_db "mig012_partial"
+  trap teardown_db EXIT
+  apply_migrations_base
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE payment_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  amount NUMERIC,
+  status TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+INSERT INTO payment_transactions (office_id, amount, status)
+VALUES ('office_partial', 42, 'completed');
+SQL
+
+  apply_migration_012
+
+  local partial_cols partial_row
+  partial_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='payment_transactions'
+      AND column_name IN (
+        'settlement_status','settled_at','settlement_ref',
+        'gateway','gateway_payment_id','payment_link'
+      );")
+  partial_row=$(psql_db -At -c "
+    SELECT COUNT(*) FROM payment_transactions
+    WHERE office_id='office_partial' AND amount=42 AND status='completed';")
+
+  [[ "$partial_cols" == "6" ]] && ok "C: settlement/gateway columns added on partial table" || bad "C: cols=$partial_cols"
+  [[ "$partial_row" == "1" ]] && ok "C: legacy row unchanged after column repair" || bad "C: legacy row altered"
+
+  apply_migration_012
+  ok "C/F: re-run 012 on repaired partial schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── D. Duplicate legacy stripe_event_id ──────────────────────────────────
+  setup_db "mig012_dup"
+  trap teardown_db EXIT
+  apply_migrations_base
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE payment_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  amount NUMERIC,
+  status TEXT,
+  stripe_event_id TEXT,
+  settlement_status TEXT
+);
+INSERT INTO payment_transactions (office_id, amount, status, stripe_event_id) VALUES
+  ('office_dup', 10, 'completed', 'evt_pt_dup'),
+  ('office_dup', 20, 'completed', 'evt_pt_dup');
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_012" >/tmp/mig012-dup.log 2>&1
+  local dup_rc=$?
+  set -e
+  [[ "$dup_rc" -eq 0 ]] && ok "D: migration 012 succeeds with duplicate stripe_event_id" || {
+    bad "D: migration failed with duplicates"; cat /tmp/mig012-dup.log
+  }
+
+  local dup_uniq dup_rows warn_hit fee_cols
+  dup_uniq=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_payment_transactions_stripe_event_id';")
+  dup_rows=$(psql_db -At -c "
+    SELECT COUNT(*) FROM payment_transactions WHERE stripe_event_id='evt_pt_dup';")
+  warn_hit=$(grep -c 'skipping unique stripe_event_id' /tmp/mig012-dup.log || true)
+  fee_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='payment_transactions'
+      AND column_name IN ('settlement_status','gateway','payment_link');")
+
+  [[ "$dup_uniq" == "0" ]] && ok "D: unique index NOT created when duplicates exist" || bad "D: unique was created"
+  [[ "$dup_rows" == "2" ]] && ok "D: duplicate rows unmodified" || bad "D: rows=$dup_rows"
+  [[ "$warn_hit" -ge 1 ]] && ok "D: WARNING emitted for duplicate stripe_event_id" || bad "D: missing WARNING"
+  [[ "$fee_cols" == "3" ]] && ok "D: column repairs committed despite skipped unique" || bad "D: cols=$fee_cols"
+
+  apply_migration_012
+  ok "D/F: re-run 012 after duplicate skip succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── E. Invalid legacy settlement_status ──────────────────────────────────
+  setup_db "mig012_badsettlement"
+  trap teardown_db EXIT
+  apply_migrations_base
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE payment_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  amount NUMERIC,
+  status TEXT,
+  settlement_status TEXT
+);
+INSERT INTO payment_transactions (office_id, amount, status, settlement_status)
+VALUES ('office_bad', 99, 'completed', 'pending_wire');
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_012" >/tmp/mig012-badsettlement.log 2>&1
+  local bad_rc=$?
+  set -e
+  [[ "$bad_rc" -eq 0 ]] && ok "E: migration 012 succeeds with invalid settlement_status" || {
+    bad "E: migration failed on invalid settlement"; cat /tmp/mig012-badsettlement.log
+  }
+
+  local bad_check bad_row warn_sett
+  bad_check=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.payment_transactions'::regclass AND contype='c'
+      AND pg_get_constraintdef(oid) ILIKE '%settlement_status%';")
+  bad_row=$(psql_db -At -c "
+    SELECT COUNT(*) FROM payment_transactions
+    WHERE office_id='office_bad' AND settlement_status='pending_wire';")
+  warn_sett=$(grep -c 'skipping settlement_status CHECK' /tmp/mig012-badsettlement.log || true)
+
+  [[ "$bad_check" == "0" ]] && ok "E: settlement_status CHECK skipped" || bad "E: CHECK was added"
+  [[ "$bad_row" == "1" ]] && ok "E: invalid legacy row unchanged" || bad "E: legacy row altered"
+  [[ "$warn_sett" -ge 1 ]] && ok "E: WARNING emitted for invalid settlement_status" || bad "E: missing WARNING"
+
+  apply_migration_012
+  ok "E/F: re-run 012 after CHECK skip succeeded"
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Scenario 4: reported endpoints + office/public schema paths ─────────────
 scenario_reported_endpoints() {
   log "Scenario 4 — SQL paths for reported 500/404 endpoints + office/public + sendBeacon vitals"
@@ -1180,7 +1430,7 @@ SQL
   [[ "$admin_cnt" -ge 1 ]] && ok "admin list offices (db.select officePageTable)" || bad "office_page empty"
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-endpoints.log 2>&1; then
-    ok "verify-schema.sh passed after full chain including 006→011"
+    ok "verify-schema.sh passed after full chain including 006→012"
   else
     bad "verify-schema.sh failed on endpoint scenario"
     tail -15 /tmp/verify-endpoints.log
@@ -1217,7 +1467,14 @@ scenario_incomplete_schema_no_runtime_ddl() {
   [[ "$has_vitals" == "f" ]] && ok "web_vitals still absent after failed INSERT" || bad "web_vitals was created somehow"
 
   # Source audit: migration-covered handlers must not contain Runtime DDL
-  if ! grep -qE 'CREATE TABLE|ensureTable|ensureLoginLogs|ensureTables|ensureEventsTable|ensureAdHocColumns|ensureStripeBufferTables|ensureReconciliationTable' \
+  if ! grep -qE 'ensurePaymentCols|ALTER TABLE payment_transactions' \
+      "$ROOT/artifacts/api-server/src/modules/financial/payments.ts"; then
+    ok "payments.ts has no payment_transactions Runtime DDL"
+  else
+    bad "payments.ts still alters payment_transactions at boot"
+  fi
+
+  if ! grep -qE 'CREATE TABLE|ensureTable|ensureLoginLogs|ensureTables|ensureEventsTable|ensureAdHocColumns|ensureStripeBufferTables|ensureReconciliationTable|ensurePaymentCols' \
       "$ROOT/artifacts/api-server/src/modules/platform/loginTracking.ts" \
       "$ROOT/artifacts/api-server/src/routes/metrics.ts" \
       "$ROOT/artifacts/api-server/src/modules/legal-core/contracts.ts" \
@@ -1254,6 +1511,7 @@ scenario_migration_007_text_tenant
 scenario_migration_008_storage_files
 scenario_migration_010_office_ledger
 scenario_migration_011_stripe_infra
+scenario_migration_012_payment_transactions
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

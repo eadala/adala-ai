@@ -31,6 +31,7 @@ assert.ok(migrationFiles.includes("006_post_migration_api_support.sql"));
 assert.ok(migrationFiles.includes("009_storage_folders.sql"));
 assert.ok(migrationFiles.includes("010_office_ledger_performance_indexes.sql"));
 assert.ok(migrationFiles.includes("011_stripe_infrastructure_tables.sql"));
+assert.ok(migrationFiles.includes("012_payment_transactions.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -145,6 +146,30 @@ assert.doesNotMatch(reconcileSrc, /CREATE INDEX/);
 assert.doesNotMatch(reconcileSrc, /ensureReconciliationTable/);
 assert.match(reconcileSrc, /011_stripe_infrastructure_tables/);
 console.log("  ✅ migration 011 owns stripe_events / dead_letters / reconciliation_log; Runtime DDL removed");
+
+console.log("\n═══ schemaAuthority: Batch 4 payment_transactions ═══");
+
+assert.ok(migrationFiles.includes("012_payment_transactions.sql"));
+const mig012 = readRepo("artifacts/api-server/migrations/012_payment_transactions.sql");
+assert.match(mig012, /CREATE TABLE IF NOT EXISTS payment_transactions/);
+assert.match(mig012, /settlement_status/);
+assert.match(mig012, /settled_at/);
+assert.match(mig012, /settlement_ref/);
+assert.match(mig012, /gateway_payment_id/);
+assert.match(mig012, /payment_link/);
+assert.match(mig012, /idx_payment_transactions_office_id/);
+assert.match(mig012, /skipping settlement_status CHECK/);
+assert.match(mig012, /skipping unique stripe_event_id/);
+
+const paymentsSrc = readSrc("modules/financial/payments.ts");
+assert.doesNotMatch(paymentsSrc, /ensurePaymentCols/);
+assert.doesNotMatch(paymentsSrc, /ALTER TABLE payment_transactions/);
+assert.doesNotMatch(paymentsSrc, /ADD COLUMN IF NOT EXISTS settlement_status/);
+assert.match(paymentsSrc, /012_payment_transactions/);
+assert.match(paymentsSrc, /ensureGatewaySettingsTables/);
+assert.match(paymentsSrc, /CREATE TABLE IF NOT EXISTS moyasar_settings/);
+assert.match(paymentsSrc, /CREATE TABLE IF NOT EXISTS checkout_settings/);
+console.log("  ✅ migration 012 owns payment_transactions; ensurePaymentCols removed");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

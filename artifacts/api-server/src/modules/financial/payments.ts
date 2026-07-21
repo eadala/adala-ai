@@ -31,21 +31,13 @@ function getBaseDomain(): string {
 }
 
 function logEnsureFailure(step: string, err: unknown): void {
-  logger.error({ err }, `[payments] ensurePaymentCols failed: ${step}`);
+  logger.error({ err }, `[payments] ensureGatewaySettingsTables failed: ${step}`);
 }
 
-/* ── auto-migrate ─────────────────────────────────── */
-async function ensurePaymentCols() {
-  await db.execute(sql`
-    ALTER TABLE payment_transactions
-      ADD COLUMN IF NOT EXISTS settlement_status TEXT DEFAULT 'unsettled',
-      ADD COLUMN IF NOT EXISTS settled_at        TIMESTAMP,
-      ADD COLUMN IF NOT EXISTS settlement_ref    TEXT,
-      ADD COLUMN IF NOT EXISTS gateway           TEXT DEFAULT 'manual',
-      ADD COLUMN IF NOT EXISTS gateway_payment_id TEXT,
-      ADD COLUMN IF NOT EXISTS payment_link      TEXT
-  `).catch((err) => logEnsureFailure("payment_transactions columns", err));
-
+/* Gateway settings tables remain Runtime DDL until a future Schema Authority batch.
+   payment_transactions schema is owned by:
+   artifacts/api-server/migrations/012_payment_transactions.sql */
+async function ensureGatewaySettingsTables() {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS moyasar_settings (
       id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -77,7 +69,7 @@ async function ensurePaymentCols() {
     )
   `).catch((err) => logEnsureFailure("checkout_settings table", err));
 }
-ensurePaymentCols();
+ensureGatewaySettingsTables();
 
 /* ══════════════════════════════════════════════════
    STRIPE CONNECT — account management

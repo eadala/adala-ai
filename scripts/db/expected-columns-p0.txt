@@ -45,3 +45,13 @@ stripe_reconciliation_log.run_at
 stripe_reconciliation_log.status
 stripe_reconciliation_log.period_start
 stripe_reconciliation_log.period_end
+payment_transactions.office_id
+payment_transactions.amount
+payment_transactions.status
+payment_transactions.settlement_status
+payment_transactions.gateway
+payment_transactions.gateway_payment_id
+payment_transactions.payment_link
+payment_transactions.settled_at
+payment_transactions.settlement_ref
+payment_transactions.created_at
