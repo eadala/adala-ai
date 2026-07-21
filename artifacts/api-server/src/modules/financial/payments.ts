@@ -1,20 +1,23 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
 import { requireProductionBaseUrl } from "../../lib/productionUrl";
+import { logEndpointError } from "../../lib/endpointErrorLog";
+import { logger } from "../../lib/logger";
+import { logPaymentSideEffectFailure, paymentDbRows } from "../../lib/paymentDb";
 import crypto from "crypto";
 import { eventBus } from "../../core/eventBus";
+
+/* Legacy payment router — Batch 1 only removes error-swallowing; full retype is out of scope. */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 const router = Router();
 
 /* ── helpers ─────────────────────────────────────── */
 async function rows(q: any): Promise<any[]> {
-  try {
-    const r = await db.execute(q) as any;
-    return Array.isArray(r) ? r : (r?.rows ?? []);
-  } catch { return []; }
+  return paymentDbRows((qq) => db.execute(qq as any), q);
 }
 async function one(q: any): Promise<any | null> {
   const r = await rows(q);
@@ -27,6 +30,10 @@ function getBaseDomain(): string {
     : requireProductionBaseUrl();
 }
 
+function logEnsureFailure(step: string, err: unknown): void {
+  logger.error({ err }, `[payments] ensurePaymentCols failed: ${step}`);
+}
+
 /* ── auto-migrate ─────────────────────────────────── */
 async function ensurePaymentCols() {
   await db.execute(sql`
@@ -37,7 +44,7 @@ async function ensurePaymentCols() {
       ADD COLUMN IF NOT EXISTS gateway           TEXT DEFAULT 'manual',
       ADD COLUMN IF NOT EXISTS gateway_payment_id TEXT,
       ADD COLUMN IF NOT EXISTS payment_link      TEXT
-  `).catch(() => {});
+  `).catch((err) => logEnsureFailure("payment_transactions columns", err));
 
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS moyasar_settings (
@@ -53,7 +60,7 @@ async function ensurePaymentCols() {
       updated_at        TIMESTAMP DEFAULT NOW(),
       UNIQUE(office_id)
     )
-  `).catch(() => {});
+  `).catch((err) => logEnsureFailure("moyasar_settings table", err));
 
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS checkout_settings (
@@ -68,7 +75,7 @@ async function ensurePaymentCols() {
       updated_at        TIMESTAMP DEFAULT NOW(),
       UNIQUE(office_id)
     )
-  `).catch(() => {});
+  `).catch((err) => logEnsureFailure("checkout_settings table", err));
 }
 ensurePaymentCols();
 
@@ -103,7 +110,12 @@ router.get("/payments/connect/status", requireAuthWithTenant, async (req, res) =
           payoutsEnabled: sa.payouts_enabled,
           commissionPercent: account.commission_percent,
         });
-      } catch { /* fall through */ }
+      } catch (err) {
+        logger.warn(
+          { err, officeId, stripeAccountId: account.stripe_account_id },
+          "[payments] Stripe account retrieve failed; returning cached connect status",
+        );
+      }
     }
 
     return res.json({
@@ -113,7 +125,10 @@ router.get("/payments/connect/status", requireAuthWithTenant, async (req, res) =
       payoutsEnabled: account.payouts_enabled,
       commissionPercent: account.commission_percent,
     });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    logEndpointError("GET /api/payments/connect/status", req, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* POST /api/payments/connect/create */
@@ -287,11 +302,21 @@ router.post("/payments/transactions", requireAuthWithTenant, async (req, res) =>
         type: "PAYMENT_SUCCESS",
         officeId,
         data: { amount, clientName, description, invoiceId, caseId, gateway: paymentMethod, platformFee, netAmount },
-      }).catch(() => {});
+      }).catch((err) => {
+        logPaymentSideEffectFailure("PAYMENT_SUCCESS event emit failed", err, { officeId });
+      });
+    }
+
+    if (!result[0]) {
+      logEndpointError("POST /api/payments/transactions", req, new Error("INSERT RETURNING empty"));
+      return res.status(500).json({ error: "فشل تسجيل الدفعة" });
     }
 
     res.json(result[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    logEndpointError("POST /api/payments/transactions", req, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* PATCH /api/payments/transactions/:id/status */
@@ -361,8 +386,6 @@ router.delete("/payments/transactions/:id", requireAuthWithTenant, async (req, r
 ══════════════════════════════════════════════════ */
 router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId;
-
     const totals = await one(sql`
       SELECT
         COUNT(*)::int                                                                        AS total_transactions,
@@ -532,8 +555,8 @@ router.post("/payments/payment-link", requireAuthWithTenant, async (req, res) =>
   try {
     const officeId = (req as any).tenantId;
     const {
-      amountSAR, description = "خدمة قانونية", clientName, clientEmail,
-      clientPhone, invoiceId, caseId, commissionPercent = 10,
+      amountSAR, description = "خدمة قانونية", clientName, clientEmail: _clientEmail,
+      clientPhone: _clientPhone, invoiceId, caseId, commissionPercent = 10,
     } = req.body;
 
     if (!amountSAR || amountSAR <= 0) return res.status(400).json({ error: "المبلغ مطلوب" });
@@ -587,10 +610,13 @@ router.get("/payments/moyasar/success", requireAuthWithTenant, async (req, res) 
         UPDATE payment_transactions
         SET status=${finalStatus}, gateway_payment_id=COALESCE(gateway_payment_id, ${moyasarId ?? null}), updated_at=NOW()
         WHERE id=${tx}::uuid
-      `).catch(() => {});
+      `);
     }
     res.redirect(`${getBaseDomain()}/payment-center?gateway=moyasar&result=${mStatus ?? "unknown"}`);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    logEndpointError("GET /api/payments/moyasar/success", req, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* ══════════════════════════════════════════════════
@@ -680,12 +706,20 @@ router.post("/payments/checkout/create-payment", requireAuthWithTenant, async (r
         failure_url: failureUrl,
         metadata: { tx_id: tx?.id ?? "", office_id: officeId },
       };
-      const r = await fetch("https://api.checkout.com/payment-links", {
+      const response = await fetch("https://api.checkout.com/payment-links", {
         method: "POST",
         headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      }).then(x => x.json()).catch(() => ({}));
-      checkoutUrl = (r as any)._links?.redirect?.href ?? null;
+      });
+      if (!response.ok) {
+        const bodyText = await response.text().catch(() => "");
+        throw new Error(`Checkout.com payment-links failed (${response.status}): ${bodyText.slice(0, 200)}`);
+      }
+      const r = (await response.json()) as { _links?: { redirect?: { href?: string } } };
+      checkoutUrl = r._links?.redirect?.href ?? null;
+      if (!checkoutUrl) {
+        throw new Error("Checkout.com payment-links response missing redirect URL");
+      }
     }
 
     res.json({
@@ -697,7 +731,10 @@ router.post("/payments/checkout/create-payment", requireAuthWithTenant, async (r
       paymentUrl: checkoutUrl,
       configured: !!secretKey,
     });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    logEndpointError("POST /api/payments/checkout/create-payment", req, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* GET /api/payments/checkout/success — Checkout.com redirect back */
@@ -710,10 +747,13 @@ router.get("/payments/checkout/success", requireAuthWithTenant, async (req, res)
         UPDATE payment_transactions
         SET status=${finalStatus}, updated_at=NOW()
         WHERE id=${tx}::uuid
-      `).catch(() => {});
+      `);
     }
     res.redirect(`${getBaseDomain()}/payment-center?gateway=checkout&result=${cStatus ?? "unknown"}`);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    logEndpointError("GET /api/payments/checkout/success", req, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* POST /api/webhook/checkout — Checkout.com webhook */
@@ -727,15 +767,18 @@ router.post("/webhook/checkout", requireAuthWithTenant, async (req, res) => {
         UPDATE payment_transactions
         SET status='completed', gateway_payment_id=${event?.data?.id ?? null}, updated_at=NOW()
         WHERE gateway_payment_id=${ref} OR id=${ref}::uuid
-      `).catch(() => {});
+      `);
     } else if (type === "payment_declined" || type === "payment_expired") {
       await db.execute(sql`
         UPDATE payment_transactions SET status='failed', updated_at=NOW()
         WHERE gateway_payment_id=${ref} OR id=${ref}::uuid
-      `).catch(() => {});
+      `);
     }
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    logEndpointError("POST /api/webhook/checkout", req, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 export default router;
