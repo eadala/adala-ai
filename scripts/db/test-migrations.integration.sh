@@ -526,12 +526,13 @@ SQL
   teardown_db
 }
 
-# ── Scenario 3d: office_ledger + performance indexes (010) ───────────────────
+# ── Scenario 3d: office_ledger + performance indexes (010) — A–F coverage ───
 scenario_migration_010_office_ledger() {
-  log "Scenario 3d — office_ledger CREATE + Stripe idempotency index + performance indexes"
-  setup_db "mig010"
-  trap teardown_db EXIT
+  log "Scenario 3d — migration 010: fresh / complete / partial / duplicates / invalid type / idempotent"
 
+  # ── A. Fresh database ────────────────────────────────────────────────────
+  setup_db "mig010_fresh"
+  trap teardown_db EXIT
   apply_migrations_base
   apply_migration_006
   apply_migration_007
@@ -545,12 +546,11 @@ scenario_migration_010_office_ledger() {
       WHERE table_schema='public' AND table_name='office_ledger'
     );
   ")
-  [[ "$pre_exists" == "f" ]] && ok "pre-010: office_ledger absent" || bad "pre-010: office_ledger should be absent"
+  [[ "$pre_exists" == "f" ]] && ok "A pre-010: office_ledger absent" || bad "A pre-010: office_ledger should be absent"
 
   apply_migration_010
-  apply_migration_010
 
-  local post_exists fee_cols uniq_idx cases_idx
+  local post_exists fee_cols uniq_idx check_cnt cases_idx
   post_exists=$(psql_db -At -c "
     SELECT EXISTS (
       SELECT 1 FROM information_schema.tables
@@ -560,23 +560,33 @@ scenario_migration_010_office_ledger() {
   fee_cols=$(psql_db -At -c "
     SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema='public' AND table_name='office_ledger'
-      AND column_name IN ('stripe_fee','platform_fee','net_amount','stripe_event_id');
+      AND column_name IN ('stripe_fee','platform_fee','net_amount','stripe_event_id','currency','created_at','ref','description','stripe_id');
   ")
   uniq_idx=$(psql_db -At -c "
     SELECT COUNT(*) FROM pg_indexes
     WHERE schemaname='public' AND indexname='idx_office_ledger_stripe_event_id';
+  ")
+  check_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.office_ledger'::regclass AND contype='c'
+      AND pg_get_constraintdef(oid) ILIKE '%credit%debit%refund%';
   ")
   cases_idx=$(psql_db -At -c "
     SELECT COUNT(*) FROM pg_indexes
     WHERE schemaname='public' AND indexname='idx_cases_office_id';
   ")
 
-  [[ "$post_exists" == "t" ]] && ok "post-010: office_ledger present" || bad "post-010: office_ledger missing"
-  [[ "$fee_cols" == "4" ]] && ok "post-010: fee + stripe_event_id columns present" || bad "post-010: fee cols=$fee_cols"
-  [[ "$uniq_idx" == "1" ]] && ok "post-010: partial unique stripe_event_id index" || bad "post-010: unique index missing"
-  [[ "$cases_idx" == "1" ]] && ok "post-010: idx_cases_office_id present" || bad "post-010: cases index missing"
+  [[ "$post_exists" == "t" ]] && ok "A: office_ledger created" || bad "A: office_ledger missing"
+  [[ "$fee_cols" == "9" ]] && ok "A: all required columns present" || bad "A: cols=$fee_cols"
+  [[ "$check_cnt" -ge 1 ]] && ok "A: type CHECK present" || bad "A: type CHECK missing"
+  [[ "$uniq_idx" == "1" ]] && ok "A: partial unique stripe_event_id index" || bad "A: unique index missing"
+  [[ "$cases_idx" == "1" ]] && ok "A: idx_cases_office_id present" || bad "A: cases index missing"
 
-  # Idempotent credit insert + duplicate stripe_event_id rejected by unique index path
+  # F (fresh): idempotent re-run
+  apply_migration_010
+  ok "A/F: re-run 010 on fresh schema succeeded"
+
+  # Insert + ON CONFLICT path (index present)
   psql_db <<'SQL' >/tmp/post-010-insert.log 2>&1
 INSERT INTO office_ledger
   (office_id, type, amount, currency, ref, description,
@@ -585,7 +595,6 @@ VALUES
   ('trial_ledger1', 'credit', 100, 'SAR', 'SUB_PRO', 'test',
    'ch_test', 'evt_test_010', 10, 3.9, 86.1)
 ON CONFLICT (stripe_event_id) WHERE stripe_event_id IS NOT NULL DO NOTHING;
-
 INSERT INTO office_ledger
   (office_id, type, amount, currency, ref, description,
    stripe_id, stripe_event_id, platform_fee, stripe_fee, net_amount)
@@ -594,30 +603,212 @@ VALUES
    'ch_test', 'evt_test_010', 10, 3.9, 86.1)
 ON CONFLICT (stripe_event_id) WHERE stripe_event_id IS NOT NULL DO NOTHING;
 SQL
-  local insert_rc=$?
-  [[ "$insert_rc" -eq 0 ]] && ok "post-010: credit insert + idempotent conflict ok" || {
-    bad "post-010: ledger insert failed"
-    cat /tmp/post-010-insert.log
+  local insert_rc=$? cnt
+  [[ "$insert_rc" -eq 0 ]] && ok "A: credit insert + idempotent conflict ok" || {
+    bad "A: ledger insert failed"; cat /tmp/post-010-insert.log
   }
-
-  local cnt
   cnt=$(psql_db -At -c "SELECT COUNT(*) FROM office_ledger WHERE stripe_event_id='evt_test_010';")
-  [[ "$cnt" == "1" ]] && ok "post-010: duplicate stripe_event_id not inserted" || bad "post-010: count=$cnt"
+  [[ "$cnt" == "1" ]] && ok "A: duplicate stripe_event_id not inserted" || bad "A: count=$cnt"
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-010.log 2>&1; then
-    ok "verify-schema.sh passed after 010"
+    ok "A: verify-schema.sh passed after 010"
   else
-    bad "verify-schema.sh failed after 010"
-    tail -20 /tmp/verify-010.log
+    bad "A: verify-schema.sh failed after 010"; tail -20 /tmp/verify-010.log
   fi
 
-  # Source audit: boot must not recreate these indexes
   if ! grep -qE 'ensurePerformanceIndexes|idx_office_ledger_stripe_event_id' \
       "$ROOT/artifacts/api-server/src/index.ts"; then
-    ok "index.ts no longer contains ensurePerformanceIndexes DDL"
+    ok "A: index.ts has no ensurePerformanceIndexes Runtime DDL"
   else
-    bad "index.ts still has performance-index Runtime DDL"
+    bad "A: index.ts still has performance-index Runtime DDL"
   fi
+
+  if ! grep -qE 'CREATE INDEX IF NOT EXISTS idx_tasks_office_due|CREATE INDEX IF NOT EXISTS idx_tasks_status|CREATE INDEX IF NOT EXISTS idx_reminders_office_due' \
+      "$ROOT/artifacts/api-server/migrations/010_office_ledger_performance_indexes.sql"; then
+    ok "A: 010 does not CREATE tasks/reminders indexes"
+  else
+    bad "A: 010 still CREATE INDEX for tasks/reminders"
+  fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Existing complete office_ledger ───────────────────────────────────
+  setup_db "mig010_complete"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+
+  psql_db <<'SQL' >/dev/null
+INSERT INTO office_ledger (office_id, type, amount, currency, stripe_event_id, platform_fee, stripe_fee, net_amount)
+VALUES ('office_complete', 'credit', 50, 'SAR', 'evt_complete_1', 5, 2, 43);
+SQL
+
+  apply_migration_010
+  apply_migration_010
+
+  local complete_cnt complete_idx
+  complete_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM office_ledger WHERE stripe_event_id='evt_complete_1';")
+  complete_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_office_ledger_stripe_event_id';
+  ")
+  [[ "$complete_cnt" == "1" ]] && ok "B: existing complete row preserved" || bad "B: row count=$complete_cnt"
+  [[ "$complete_idx" == "1" ]] && ok "B: unique index remains after idempotent re-run" || bad "B: unique index missing"
+  ok "B/F: re-run 010 on complete schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── C. Existing partial legacy office_ledger ─────────────────────────────
+  setup_db "mig010_partial"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  ref TEXT,
+  description TEXT,
+  stripe_id TEXT
+);
+INSERT INTO office_ledger (office_id, type, amount, ref)
+VALUES ('office_partial', 'credit', 10, 'LEGACY');
+SQL
+
+  apply_migration_010
+
+  local partial_cols partial_row
+  partial_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='office_ledger'
+      AND column_name IN ('stripe_event_id','platform_fee','stripe_fee','net_amount','currency','created_at');
+  ")
+  partial_row=$(psql_db -At -c "
+    SELECT COUNT(*) FROM office_ledger WHERE office_id='office_partial' AND amount=10 AND ref='LEGACY';
+  ")
+  [[ "$partial_cols" == "6" ]] && ok "C: missing columns added on partial legacy table" || bad "C: cols=$partial_cols"
+  [[ "$partial_row" == "1" ]] && ok "C: legacy row unchanged after column repair" || bad "C: legacy row altered"
+
+  apply_migration_010
+  ok "C/F: re-run 010 on repaired partial schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── D. Duplicate legacy stripe_event_id ──────────────────────────────────
+  setup_db "mig010_dups"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  stripe_event_id TEXT
+);
+INSERT INTO office_ledger (office_id, type, amount, stripe_event_id) VALUES
+  ('office_dup', 'credit', 1, 'evt_dup_legacy'),
+  ('office_dup', 'credit', 2, 'evt_dup_legacy');
+SQL
+
+  # Capture NOTICE/WARNING from migration
+  set +e
+  psql_db -f "$MIGRATION_010" >/tmp/mig010-dup.log 2>&1
+  local dup_rc=$?
+  set -e
+  [[ "$dup_rc" -eq 0 ]] && ok "D: migration 010 succeeds with duplicate stripe_event_id" || {
+    bad "D: migration failed with duplicates"; cat /tmp/mig010-dup.log
+  }
+
+  local dup_idx dup_rows warn_hit fee_after
+  dup_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_office_ledger_stripe_event_id';
+  ")
+  dup_rows=$(psql_db -At -c "
+    SELECT COUNT(*) FROM office_ledger WHERE stripe_event_id='evt_dup_legacy';
+  ")
+  fee_after=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='office_ledger'
+      AND column_name IN ('platform_fee','stripe_fee','net_amount');
+  ")
+  warn_hit=$(grep -c 'skipping idx_office_ledger_stripe_event_id' /tmp/mig010-dup.log || true)
+
+  [[ "$dup_idx" == "0" ]] && ok "D: unique index NOT created when duplicates exist" || bad "D: unique index was created"
+  [[ "$dup_rows" == "2" ]] && ok "D: duplicate rows unmodified" || bad "D: rows changed count=$dup_rows"
+  [[ "$fee_after" == "3" ]] && ok "D: column repairs committed despite skipped index" || bad "D: fee cols=$fee_after"
+  [[ "$warn_hit" -ge 1 ]] && ok "D: WARNING emitted for duplicate stripe_event_id" || bad "D: missing duplicate WARNING"
+
+  apply_migration_010
+  ok "D/F: re-run 010 after duplicate skip succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── E. Invalid legacy type data ──────────────────────────────────────────
+  setup_db "mig010_badtype"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  amount NUMERIC NOT NULL
+);
+INSERT INTO office_ledger (office_id, type, amount)
+VALUES ('office_badtype', 'adjustment', 99);
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_010" >/tmp/mig010-badtype.log 2>&1
+  local badtype_rc=$?
+  set -e
+  [[ "$badtype_rc" -eq 0 ]] && ok "E: migration 010 succeeds with invalid type value" || {
+    bad "E: migration failed on invalid type"; cat /tmp/mig010-badtype.log
+  }
+
+  local bad_check bad_row warn_type
+  bad_check=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.office_ledger'::regclass AND contype='c'
+      AND pg_get_constraintdef(oid) ILIKE '%credit%debit%refund%';
+  ")
+  bad_row=$(psql_db -At -c "
+    SELECT COUNT(*) FROM office_ledger WHERE office_id='office_badtype' AND type='adjustment' AND amount=99;
+  ")
+  warn_type=$(grep -c 'skipping type CHECK' /tmp/mig010-badtype.log || true)
+
+  [[ "$bad_check" == "0" ]] && ok "E: type CHECK skipped for invalid legacy type" || bad "E: CHECK was added"
+  [[ "$bad_row" == "1" ]] && ok "E: invalid legacy row unchanged" || bad "E: legacy row altered"
+  [[ "$warn_type" -ge 1 ]] && ok "E: WARNING emitted for invalid type" || bad "E: missing type WARNING"
+
+  apply_migration_010
+  ok "E/F: re-run 010 after CHECK skip succeeded"
 
   trap - EXIT
   teardown_db

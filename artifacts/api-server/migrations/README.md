@@ -74,7 +74,12 @@ bash scripts/db/verify-schema.sh
 | `007_office_storage_quota_text_tenant.sql` | `office_storage_quota` TEXT tenant key (trial_* / permanent); drop FK to `office_page` |
 | `008_storage_files_text_tenant.sql` | `storage_files` formal CREATE (TEXT `office_id`); fixes Production `42P01` |
 | `009_storage_folders.sql` | `storage_folders` + `folder_permissions` |
-| `010_office_ledger_performance_indexes.sql` | `office_ledger` + boot performance indexes |
+| `010_office_ledger_performance_indexes.sql` | `office_ledger` + performance indexes for tables in 001–009 |
+
+> **Deferred indexes (not in 010):** `idx_tasks_office_due`, `idx_tasks_status`,
+> `idx_reminders_office_due` must be added in the future numbered migration that
+> formally `CREATE`s the `tasks` and `reminders` tables. Do not re-run 010 for them.
+
 
 ## جداول P0 (تسبب أخطاء runtime إن غابت)
 

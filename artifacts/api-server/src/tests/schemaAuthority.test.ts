@@ -101,16 +101,20 @@ assert.match(mig010, /idx_cases_status/);
 assert.match(mig010, /idx_cases_office_status/);
 assert.match(mig010, /idx_clients_office_id/);
 assert.match(mig010, /idx_documents_office_id/);
-assert.match(mig010, /idx_tasks_office_due/);
-assert.match(mig010, /idx_tasks_status/);
-assert.match(mig010, /idx_reminders_office_due/);
+assert.doesNotMatch(mig010, /CREATE INDEX IF NOT EXISTS idx_tasks_office_due/);
+assert.doesNotMatch(mig010, /CREATE INDEX IF NOT EXISTS idx_tasks_status/);
+assert.doesNotMatch(mig010, /CREATE INDEX IF NOT EXISTS idx_reminders_office_due/);
+assert.match(mig010, /idx_tasks_office_due.*idx_tasks_status.*idx_reminders_office_due/s); // deferred mention only
 assert.match(mig010, /idx_audit_logs_office_ts/);
 assert.match(mig010, /idx_revenues_office_date/);
 assert.match(mig010, /idx_expenses_office_date/);
 assert.match(mig010, /idx_invoices_office_id/);
 assert.match(mig010, /idx_invoices_status/);
 assert.match(mig010, /idx_contracts_office_id/);
-console.log("  ✅ migration 010 owns office_ledger + all ensurePerformanceIndexes indexes");
+assert.match(mig010, /skipping type CHECK/);
+assert.match(mig010, /skipping idx_office_ledger_stripe_event_id/);
+assert.match(mig010, /duplicate cleanup required/);
+console.log("  ✅ migration 010 owns office_ledger + safe indexes; tasks/reminders deferred");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
