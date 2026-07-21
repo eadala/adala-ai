@@ -45,6 +45,46 @@ jobs:
           pnpm --filter @workspace/adala run test:documents-create-folder
 
   # ─────────────────────────────────────────
+  # DB Migrations — existing test:db-migrations
+  # (Phase 3: ephemeral local PostgreSQL; script uses sudo -u postgres)
+  # ─────────────────────────────────────────
+  db-migrations:
+    name: "DB Migrations — test:db-migrations"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - name: Install isolated PostgreSQL
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            postgresql postgresql-contrib postgresql-client
+          sudo service postgresql start
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 60); do
+            if sudo -u postgres psql -c 'SELECT 1' >/dev/null 2>&1; then
+              echo "PostgreSQL is ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "PostgreSQL failed to become ready in time"
+          exit 1
+      - name: Allow postgres OS user to read workspace
+        run: |
+          # test-migrations runs `psql -f` as the postgres OS user. On GHA,
+          # /home/runner is typically mode 750, so postgres cannot traverse
+          # into $GITHUB_WORKSPACE (Permission denied on migration SQL files).
+          sudo chmod o+x /home/runner
+          sudo chmod -R o+rX /home/runner/work
+      - name: Run migration integration tests
+        # Reuses package.json → scripts/db/test-migrations.integration.sh
+        # Creates ephemeral DBs + CI-only role adala_test / test (no secrets).
+        run: pnpm run test:db-migrations
+
+  # ─────────────────────────────────────────
   # Gate 1: TypeScript
   # ─────────────────────────────────────────
   typescript:
@@ -409,6 +449,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - test
+      - db-migrations
       - typescript
       - lint
       - build
@@ -425,6 +466,7 @@ jobs:
         run: |
           echo "=== CI Summary ==="
           echo "Tests:              ${{ needs.test.result }}"
+          echo "DB Migrations:      ${{ needs.db-migrations.result }}"
           echo "TypeScript:         ${{ needs.typescript.result }}"
           echo "ESLint:             ${{ needs.lint.result }}"
           echo "Build+Bundle:       ${{ needs.build.result }}"
@@ -439,6 +481,7 @@ jobs:
           FAILED=0
           for result in \
             "${{ needs.test.result }}" \
+            "${{ needs.db-migrations.result }}" \
             "${{ needs.typescript.result }}" \
             "${{ needs.lint.result }}" \
             "${{ needs.build.result }}" \
