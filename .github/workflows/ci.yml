@@ -72,6 +72,13 @@ jobs:
           done
           echo "PostgreSQL failed to become ready in time"
           exit 1
+      - name: Allow postgres OS user to read workspace
+        run: |
+          # test-migrations runs `psql -f` as the postgres OS user. On GHA,
+          # /home/runner is typically mode 750, so postgres cannot traverse
+          # into $GITHUB_WORKSPACE (Permission denied on migration SQL files).
+          sudo chmod o+x /home/runner
+          sudo chmod -R o+rX /home/runner/work
       - name: Run migration integration tests
         # Reuses package.json → scripts/db/test-migrations.integration.sh
         # Creates ephemeral DBs + CI-only role adala_test / test (no secrets).
