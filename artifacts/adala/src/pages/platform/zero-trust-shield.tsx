@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
@@ -11,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -67,12 +69,12 @@ export default function ZeroTrustShield() {
 
   const { data: status, isLoading, refetch } = useQuery<ZeroTrustStatus>({
     queryKey: ["zt-status"],
-    queryFn: () => fetch(`${BASE}/api/zero-trust/status`).then(r => r.json()),
+    queryFn: () => authFetch(`${BASE}/api/zero-trust/status`).then(r => r.json()),
     staleTime: 60_000,
   });
 
   const applyRLS = useMutation({
-    mutationFn: () => fetch(`${BASE}/api/zero-trust/apply-rls`, { method: "POST" }).then(r => r.json()),
+    mutationFn: () => authFetch(`${BASE}/api/zero-trust/apply-rls`, { method: "POST" }).then(r => r.json()),
     onSuccess: (d) => {
       toast({ title: `✅ RLS مُطبَّق: ${d.applied?.length ?? 0} جدول`, description: d.errors?.length ? `${d.errors.length} خطأ` : undefined });
       refetch();
@@ -83,7 +85,7 @@ export default function ZeroTrustShield() {
   async function runScan() {
     setScanning(true);
     try {
-      const d = await fetch(`${BASE}/api/zero-trust/scan`).then(r => r.json());
+      const d = await authFetch(`${BASE}/api/zero-trust/scan`).then(r => r.json());
       setScan(d); setTab("scan");
     } catch { toast({ title: "فشل الفحص", variant: "destructive" }); }
     finally { setScanning(false); }
@@ -92,7 +94,7 @@ export default function ZeroTrustShield() {
   async function runRedTeam() {
     setRedTeaming(true);
     try {
-      const d = await fetch(`${BASE}/api/zero-trust/red-team`, { method: "POST" }).then(r => r.json());
+      const d = await authFetch(`${BASE}/api/zero-trust/red-team`, { method: "POST" }).then(r => r.json());
       setRedTeam(d); setTab("redteam");
     } catch { toast({ title: "فشل الاختبار", variant: "destructive" }); }
     finally { setRedTeaming(false); }

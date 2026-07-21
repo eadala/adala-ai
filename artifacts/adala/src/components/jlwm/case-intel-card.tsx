@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * JLWM — Case Intelligence Sidebar Card
  * Compact widget for case-detail.tsx sidebar.
@@ -11,6 +12,7 @@ import { Badge }     from "@/components/ui/badge";
 import { Button }    from "@/components/ui/button";
 import { Progress }  from "@/components/ui/progress";
 import { useToast }  from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const OUTCOME_LABELS: Record<string, string> = {
   win:"فوز", loss:"خسارة", settlement:"تسوية", ongoing:"مستمرة",
@@ -27,7 +29,7 @@ export default function JLWMCaseIntelCard({ caseId }: { caseId: string }) {
   const { data: predData } = useQuery({
     queryKey: ["jlwm","predictions","case", caseId],
     queryFn: async () => {
-      const r = await fetch(`/api/jlwm/predictions/case/${caseId}`);
+      const r = await authFetch(`/api/jlwm/predictions/case/${caseId}`);
       if (!r.ok) return null;
       return r.json();
     },
@@ -38,7 +40,7 @@ export default function JLWMCaseIntelCard({ caseId }: { caseId: string }) {
   const { data: litigData } = useQuery({
     queryKey: ["jlwm","litigation", caseId],
     queryFn: async () => {
-      const r = await fetch(`/api/jlwm/litigation/${caseId}`);
+      const r = await authFetch(`/api/jlwm/litigation/${caseId}`);
       if (!r.ok) return null;
       return r.json();
     },
@@ -49,8 +51,8 @@ export default function JLWMCaseIntelCard({ caseId }: { caseId: string }) {
   const analyzeMut = useMutation({
     mutationFn: async () => {
       const [p, l] = await Promise.all([
-        fetch(`/api/jlwm/predictions/case/${caseId}`, { method:"POST", headers:{"Content-Type":"application/json"}, body:"{}" }),
-        fetch(`/api/jlwm/litigation/${caseId}/analyze`, { method:"POST", headers:{"Content-Type":"application/json"}, body:"{}" }),
+        authFetch(`/api/jlwm/predictions/case/${caseId}`, { method:"POST", headers:{"Content-Type":"application/json"}, body:"{}" }),
+        authFetch(`/api/jlwm/litigation/${caseId}/analyze`, { method:"POST", headers:{"Content-Type":"application/json"}, body:"{}" }),
       ]);
       if (!p.ok && !l.ok) throw new Error("فشل التحليل");
     },

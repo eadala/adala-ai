@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; authFetch migration */
 /**
  * usePushNotifications — manages browser push subscription lifecycle
  */
 import { useState, useEffect, useCallback } from "react";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 const SW_PATH = "/sw.js"; // service worker at root scope
@@ -62,7 +64,7 @@ export function usePushNotifications() {
       });
 
       /* Send to server */
-      const resp = await fetch(`${BASE}/api/push/subscribe`, {
+      const resp = await authFetch(`${BASE}/api/push/subscribe`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ subscription: sub.toJSON(), officeId }),
@@ -85,7 +87,7 @@ export function usePushNotifications() {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await fetch(`${BASE}/api/push/unsubscribe`, {
+        await authFetch(`${BASE}/api/push/unsubscribe`, {
           method:  "DELETE",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({ endpoint: sub.endpoint }),
@@ -101,7 +103,7 @@ export function usePushNotifications() {
 
   /* Test push */
   const sendTest = useCallback(async (officeId = "default") => {
-    const r = await fetch(`${BASE}/api/push/test`, {
+    const r = await authFetch(`${BASE}/api/push/test`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ officeId }),

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -54,17 +56,17 @@ export default function Tasks() {
 
   const { data: tasks = [], isLoading } = useQuery<any[]>({
     queryKey: ["tasks"],
-    queryFn: () => fetch("/api/office-tasks").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch("/api/office-tasks").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: stats } = useQuery<any>({
     queryKey: ["tasks-stats"],
-    queryFn: () => fetch("/api/office-tasks/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch("/api/office-tasks/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: employees = [] } = useQuery<any[]>({
     queryKey: ["employees"],
-    queryFn: () => fetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const cleanPayload = (data: any) => ({
@@ -77,7 +79,7 @@ export default function Tasks() {
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      const r = await fetch("/api/office-tasks", {
+      const r = await authFetch("/api/office-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cleanPayload(data)),
@@ -100,7 +102,7 @@ export default function Tasks() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...data }: any) => {
-      const r = await fetch(`${BASE}/api/office-tasks/${id}`, {
+      const r = await authFetch(`${BASE}/api/office-tasks/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cleanPayload(data)),
@@ -121,7 +123,7 @@ export default function Tasks() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/office-tasks/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => authFetch(`${BASE}/api/office-tasks/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["tasks-stats"] });

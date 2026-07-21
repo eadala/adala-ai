@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 import type {
   JLWMDashboard, RiskLevel, Priority, AlertSeverity,
 } from "@/types/jlwm";
@@ -67,7 +69,7 @@ export default function JLWMDashboard() {
   const { data: dash, isLoading, refetch } = useQuery<JLWMDashboard>({
     queryKey: ["jlwm", "dashboard"],
     queryFn: async () => {
-      const r = await fetch("/api/jlwm/dashboard");
+      const r = await authFetch("/api/jlwm/dashboard");
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
@@ -76,7 +78,7 @@ export default function JLWMDashboard() {
 
   const syncMut = useMutation({
     mutationFn: async () => {
-      const r = await fetch("/api/jlwm/twins/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target: "all" }) });
+      const r = await authFetch("/api/jlwm/twins/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target: "all" }) });
       if (!r.ok) throw new Error("فشل التزامن");
       return r.json();
     },
@@ -86,7 +88,7 @@ export default function JLWMDashboard() {
 
   const computeMut = useMutation({
     mutationFn: async () => {
-      const r = await fetch("/api/jlwm/world-state/compute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ withNarrative: false }) });
+      const r = await authFetch("/api/jlwm/world-state/compute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ withNarrative: false }) });
       if (!r.ok) throw new Error("فشل");
       return r.json();
     },

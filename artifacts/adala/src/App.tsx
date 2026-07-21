@@ -1,3 +1,4 @@
+ 
 import { lazy, Suspense, useState, useEffect, useRef, Component } from "react";
 import type { ReactNode, ErrorInfo } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
@@ -15,6 +16,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { useRouteAnalytics } from "@/hooks/use-route-analytics";
 import { OfficeThemeProvider } from "@/components/office-theme-provider";
 import { ClerkAuthFetchBridge } from "@/components/clerk-auth-fetch-bridge";
+import { authFetch } from "@/lib/authFetch";
 
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────────
 // Core (likely first visit)
@@ -676,7 +678,7 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
 
   const { data, isLoading } = useQuery({
     queryKey: ["onboarding-state"],
-    queryFn: () => fetch(`${basePath}/api/onboarding/state`).then(r => r.json()),
+    queryFn: () => authFetch(`${basePath}/api/onboarding/state`).then(r => r.json()),
     staleTime: 10 * 60 * 1000,
     retry: false,
     enabled: !skip,

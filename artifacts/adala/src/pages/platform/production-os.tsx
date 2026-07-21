@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useCallback, useEffect } from "react";
 import { AdminLayout } from "@/components/admin-layout";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/react";
+import { authFetch } from "@/lib/authFetch";
 import {
   Cpu, MemoryStick, Database, Activity, AlertTriangle,
   CheckCircle2, XCircle, Zap, RefreshCw, Play,
@@ -23,11 +24,12 @@ function apiUrl(path: string) {
   return `${base}${API}${path}`;
 }
 
-async function authFetch(url: string, opts: RequestInit = {}, getToken?: () => Promise<string | null>) {
-  const token = getToken ? await getToken() : null;
-  const headers: Record<string,string> = { "Content-Type": "application/json", ...(opts.headers as Record<string,string> ?? {}) };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(url, { ...opts, headers });
+async function apiJson(url: string, opts: RequestInit = {}) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...((opts.headers as Record<string, string> | undefined) ?? {}),
+  };
+  const res = await authFetch(url, { ...opts, headers });
   if (!res.ok) throw new Error(await res.text().catch(() => `HTTP ${res.status}`));
   return res.json();
 }
@@ -66,8 +68,6 @@ function MetricCard({ icon: Icon, label, value, sub, color = "text-blue-400" }: 
 }
 
 export default function ProductionOS() {
-  const { getToken } = useAuth();
-  const _getToken = getToken;
   const qc = useQueryClient();
   const [tickResult, setTickResult] = useState<any>(null);
   const [pilotResult, setPilotResult] = useState<any>(null);
@@ -76,7 +76,7 @@ export default function ProductionOS() {
   /* ── Status polling ── */
   const { data: status, refetch: refetchStatus, isLoading: statusLoading } = useQuery({
     queryKey: ["prod-os-status"],
-    queryFn: () => authFetch(apiUrl("/production-os/status"), {}, _getToken),
+    queryFn: () => apiJson(apiUrl("/production-os/status"), {}),
     refetchInterval: 30_000,
     staleTime: 20_000,
   });
@@ -84,32 +84,32 @@ export default function ProductionOS() {
   /* ── Incidents ── */
   const { data: incidents, refetch: refetchIncidents } = useQuery({
     queryKey: ["prod-os-incidents"],
-    queryFn: () => authFetch(apiUrl("/production-os/incidents"), {}, _getToken),
+    queryFn: () => apiJson(apiUrl("/production-os/incidents"), {}),
     staleTime: 30_000,
   });
 
   /* ── Business Pulse ── */
   const { data: pulse, refetch: refetchPulse, isLoading: pulseLoading } = useQuery({
     queryKey: ["prod-os-pulse"],
-    queryFn: () => authFetch(apiUrl("/production-os/business-pulse"), {}, _getToken),
+    queryFn: () => apiJson(apiUrl("/production-os/business-pulse"), {}),
     staleTime: 60_000,
   });
 
   /* ── Demo Sync status ── */
   const { data: demoSync, refetch: refetchDemoSync, isLoading: demoSyncLoading } = useQuery({
     queryKey: ["demo-sync-status"],
-    queryFn: () => authFetch(apiUrl("/demo-sync/status"), {}, _getToken),
+    queryFn: () => apiJson(apiUrl("/demo-sync/status"), {}),
     staleTime: 30_000,
   });
 
   const { data: demoHistory, refetch: refetchDemoHistory } = useQuery({
     queryKey: ["demo-sync-history"],
-    queryFn: () => authFetch(apiUrl("/demo-sync/history"), {}, _getToken),
+    queryFn: () => apiJson(apiUrl("/demo-sync/history"), {}),
     staleTime: 30_000,
   });
 
   const syncMut = useMutation({
-    mutationFn: () => authFetch(apiUrl("/demo-sync/run"), { method: "POST" }, _getToken),
+    mutationFn: () => apiJson(apiUrl("/demo-sync/run"), { method: "POST" }),
     onSuccess: (data) => {
       setSyncResult(data);
       qc.invalidateQueries({ queryKey: ["demo-sync-status"] });
@@ -118,13 +118,13 @@ export default function ProductionOS() {
   });
 
   const reseedMut = useMutation({
-    mutationFn: (officeId: string) => authFetch(apiUrl(`/demo-sync/reseed/${officeId}`), { method: "POST" }, _getToken),
+    mutationFn: (officeId: string) => apiJson(apiUrl(`/demo-sync/reseed/${officeId}`), { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["demo-sync-status"] }),
   });
 
   /* ── Tick mutation ── */
   const tickMut = useMutation({
-    mutationFn: () => authFetch(apiUrl("/production-os/tick"), { method: "POST" }, _getToken),
+    mutationFn: () => apiJson(apiUrl("/production-os/tick"), { method: "POST" }),
     onSuccess: (data) => {
       setTickResult(data);
       qc.invalidateQueries({ queryKey: ["prod-os-status"] });
@@ -134,13 +134,13 @@ export default function ProductionOS() {
 
   /* ── Business Pilot mutation ── */
   const pilotMut = useMutation({
-    mutationFn: () => authFetch(apiUrl("/production-os/business-pilot"), { method: "POST" }, _getToken),
+    mutationFn: () => apiJson(apiUrl("/production-os/business-pilot"), { method: "POST" }),
     onSuccess: (data) => { setPilotResult(data); qc.invalidateQueries({ queryKey: ["prod-os-pulse"] }); },
   });
 
   /* ── Resolve incident mutation ── */
   const resolveInc = useMutation({
-    mutationFn: (id: string) => authFetch(apiUrl(`/production-os/incidents/${id}/resolve`), { method: "PATCH" }, _getToken),
+    mutationFn: (id: string) => apiJson(apiUrl(`/production-os/incidents/${id}/resolve`), { method: "PATCH" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["prod-os-incidents"] }),
   });
 

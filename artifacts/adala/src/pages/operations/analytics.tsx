@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -14,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -222,7 +224,7 @@ export default function Analytics() {
 
   const qOpts = (key: string[]) => ({
     queryKey: [...key, period],
-    queryFn: () => fetch(`${BASE}/api/analytics/${key[0]}?period=${period}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/analytics/${key[0]}?period=${period}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
   });
 
@@ -234,7 +236,7 @@ export default function Analytics() {
 
   const { data: aiData, isFetching: aiLoading } = useQuery<{ insights: string; modelUsed: string; cached: boolean }>({
     queryKey: ["ai-insights", period, aiForce],
-    queryFn: () => fetch(`${BASE}/api/analytics/ai-insights?period=${period}${aiForce > 0 ? "&force=1" : ""}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/analytics/ai-insights?period=${period}${aiForce > 0 ? "&force=1" : ""}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: aiRequested,
     staleTime: Infinity,
   });

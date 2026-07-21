@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps -- pre-existing lint debt; authFetch migration */
 /**
  * useLoginTracker — fires once when the user successfully signs in,
  * and records the login event to the backend with device info.
@@ -7,6 +8,7 @@
  */
 import { useEffect, useRef } from "react";
 import { useUser } from "@clerk/react";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -29,7 +31,7 @@ export function useLoginTracker() {
     };
 
     // Fire-and-forget — don't block the UI
-    fetch(`${BASE}/api/security/login`, {
+    authFetch(`${BASE}/api/security/login`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify(payload),

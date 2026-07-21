@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * Integrations Hub Tab — لوحة مركز التكاملات (Super Admin)
  * ─────────────────────────────────────────────────────────
@@ -30,6 +31,7 @@ import { Label }    from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn }       from "@/lib/utils";
 import { _getToken } from "../shared/api";
+import { authFetch } from "@/lib/authFetch";
 
 /* ── helpers ─────────────────────────────────────────────── */
 const PLAN_LABELS: Record<string, string> = {
@@ -48,7 +50,7 @@ async function rawApi(path: string, opts?: RequestInit) {
   const token = _getToken ? await _getToken() : null;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}/api${path}`, { headers, ...opts });
+  const res = await authFetch(`${BASE}/api${path}`, { headers, ...opts });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? `HTTP ${res.status}`); }
   return res.json();
 }

@@ -99,7 +99,7 @@ export function FloatingCopilot() {
 
     try {
       const history = messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
-      const res = await fetch(`${BASE}/api/copilot/chat`, {
+      const res = await authFetch(`${BASE}/api/copilot/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: msg, history, pageContext: pageLabel }),

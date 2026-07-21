@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useListCases, useCreateCase } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -29,6 +30,7 @@ import { useToast }        from "@/hooks/use-toast";
 import { getListCasesQueryKey } from "@workspace/api-client-react";
 import { useLang }         from "@/hooks/use-lang";
 import { cn }              from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -117,12 +119,12 @@ export default function Cases() {
   const { data: cases, isLoading }    = useListCases();
   const { data: stats }               = useQuery<any>({
     queryKey: ["cases-stats"],
-    queryFn:  () => fetch(`${BASE}/api/cases/stats`).then(r => r.json()),
+    queryFn:  () => authFetch(`${BASE}/api/cases/stats`).then(r => r.json()),
     staleTime: 30_000,
   });
   const { data: clientsList = [] }    = useQuery<{ id: string; fullName: string }[]>({
     queryKey: ["clients-for-cases"],
-    queryFn:  () => fetch(`${BASE}/api/clients`).then(r => r.ok ? r.json() : []),
+    queryFn:  () => authFetch(`${BASE}/api/clients`).then(r => r.ok ? r.json() : []),
     staleTime: 60_000,
   });
   const createCase  = useCreateCase();
@@ -137,7 +139,7 @@ export default function Cases() {
 
   const updateCaseMut = useMutation({
     mutationFn: ({ id, ...data }: any) =>
-      fetch(`${BASE}/api/cases/${id}`, {
+      authFetch(`${BASE}/api/cases/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -148,7 +150,7 @@ export default function Cases() {
 
   const deleteCaseMut = useMutation({
     mutationFn: (id: string) =>
-      fetch(`${BASE}/api/cases/${id}`, { method: "DELETE" })
+      authFetch(`${BASE}/api/cases/${id}`, { method: "DELETE" })
         .then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { invalidateCases(); toast({ title: "🗑️ تم حذف القضية" }); },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),

@@ -1,8 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-/* Token injected by <SuperAdmin> on every render */
+/**
+ * Legacy token injection used by <SuperAdmin>.
+ * Shared authFetch + ClerkAuthFetchBridge is the source of truth;
+ * keep the setter so existing SuperAdmin wiring does not break.
+ */
 export let _getToken: (() => Promise<string | null>) | null = null;
 
 export function setTokenGetter(fn: () => Promise<string | null>) {
@@ -10,10 +15,9 @@ export function setTokenGetter(fn: () => Promise<string | null>) {
 }
 
 export async function API(path: string, opts?: RequestInit) {
-  const token = _getToken ? await _getToken() : null;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}/api/admin${path}`, { headers, ...opts });
+  const headers = new Headers(opts?.headers);
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const res = await authFetch(`${BASE}/api/admin${path}`, { ...opts, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
     throw new Error(err.error ?? `HTTP ${res.status}`);
@@ -22,10 +26,9 @@ export async function API(path: string, opts?: RequestInit) {
 }
 
 export async function DEV_API(path: string, opts?: RequestInit) {
-  const token = _getToken ? await _getToken() : null;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}/api/developer${path}`, { headers, ...opts });
+  const headers = new Headers(opts?.headers);
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const res = await authFetch(`${BASE}/api/developer${path}`, { ...opts, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
     throw new Error(err.error ?? `HTTP ${res.status}`);

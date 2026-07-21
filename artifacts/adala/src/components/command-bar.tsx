@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import {
@@ -9,6 +10,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
+import { authFetch } from "@/lib/authFetch";
 import {
   Scale, Users, Receipt, FileText, CalendarDays, Bot, Sparkles,
   Plus, BarChart3, Settings, Search, ArrowRight, Zap,
@@ -104,7 +106,7 @@ export function CommandBar() {
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const r = await fetch(`${BASE}/api/search/global?q=${encodeURIComponent(q)}&limit=5`);
+        const r = await authFetch(`${BASE}/api/search/global?q=${encodeURIComponent(q)}&limit=5`);
         const d = await r.json();
         setResults(d.results ?? []);
       } catch {}

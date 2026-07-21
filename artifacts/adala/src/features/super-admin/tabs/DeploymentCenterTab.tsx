@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,6 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { API } from "@/features/super-admin/shared/api";
+import { authFetch } from "@/lib/authFetch";
 
 /* ── Types ─────────────────────────────────────────── */
 interface OverviewData {
@@ -797,7 +799,7 @@ function GitHubSyncCard({ ghData, ghLoading, ghub }: { ghData: any; ghLoading: b
     setPushLogs(["🔄 جاري الاتصال بالخادم…"]);
     setPushSuccess(null);
     try {
-      const res = await fetch("/api/admin/deployment/github/push", {
+      const res = await authFetch("/api/admin/deployment/github/push", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

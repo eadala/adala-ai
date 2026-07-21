@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import {
   ArrowRight, Star
 } from "lucide-react";
 import { toast } from "sonner";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -155,7 +157,7 @@ export default function DocumentTemplates() {
   const { data: templates = [], isLoading } = useQuery<any[]>({
     queryKey: ["document-templates"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/document-templates`);
+      const r = await authFetch(`${BASE}/api/document-templates`);
       if (!r.ok) throw new Error("failed");
       return r.json();
     },
@@ -164,7 +166,7 @@ export default function DocumentTemplates() {
   const { data: generatedDocs = [], isLoading: genLoading } = useQuery<any[]>({
     queryKey: ["generated-documents"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/generated-documents`);
+      const r = await authFetch(`${BASE}/api/generated-documents`);
       if (!r.ok) return [];
       return r.json();
     },
@@ -173,7 +175,7 @@ export default function DocumentTemplates() {
   const { data: cases = [] } = useQuery<any[]>({
     queryKey: ["cases-list"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/cases`);
+      const r = await authFetch(`${BASE}/api/cases`);
       if (!r.ok) return [];
       return r.json();
     },
@@ -182,7 +184,7 @@ export default function DocumentTemplates() {
   const { data: clients = [] } = useQuery<any[]>({
     queryKey: ["clients-list"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/clients`);
+      const r = await authFetch(`${BASE}/api/clients`);
       if (!r.ok) return [];
       return r.json();
     },
@@ -191,7 +193,7 @@ export default function DocumentTemplates() {
   const generateMutation = useMutation({
     mutationFn: async () => {
       if (!selectedTemplate) return;
-      const r = await fetch(`${BASE}/api/document-templates/${selectedTemplate.id}/generate`, {
+      const r = await authFetch(`${BASE}/api/document-templates/${selectedTemplate.id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -222,7 +224,7 @@ export default function DocumentTemplates() {
       let parsedFields: any[] = [];
       try { parsedFields = JSON.parse(newTemplate.fields); } catch { parsedFields = []; }
       if (!Array.isArray(parsedFields)) parsedFields = [];
-      const r = await fetch(`${BASE}/api/document-templates`, {
+      const r = await authFetch(`${BASE}/api/document-templates`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...newTemplate, fields: parsedFields }),
@@ -243,7 +245,7 @@ export default function DocumentTemplates() {
   });
 
   const openEditor = async (template: any) => {
-    const r = await fetch(`${BASE}/api/document-templates/${template.id}`);
+    const r = await authFetch(`${BASE}/api/document-templates/${template.id}`);
     if (!r.ok) { toast.error("فشل تحميل القالب"); return; }
     const full = await r.json();
     setSelectedTemplate(full);
@@ -276,7 +278,7 @@ export default function DocumentTemplates() {
   };
 
   const viewGeneratedDoc = async (doc: any) => {
-    const r = await fetch(`${BASE}/api/generated-documents/${doc.id}`);
+    const r = await authFetch(`${BASE}/api/generated-documents/${doc.id}`);
     if (!r.ok) { toast.error("فشل تحميل الوثيقة"); return; }
     const full = await r.json();
     setPreviewDoc(full);

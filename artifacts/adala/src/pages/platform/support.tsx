@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * مركز الدعم الفني — Support Center
  * تذاكر دعم متخصصة ترسل لفريق إدارة المنصة
@@ -24,6 +25,7 @@ import {
   Ticket, ArrowUpRight, Inbox, User2, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -100,7 +102,7 @@ function StarRating({ value, onChange }: { value: number; onChange: (n: number) 
 }
 
 async function api(path: string, opts?: RequestInit) {
-  const res = await fetch(`${BASE}/api${path}`, {
+  const res = await authFetch(`${BASE}/api${path}`, {
     headers: { "Content-Type": "application/json" },
     ...opts,
   });

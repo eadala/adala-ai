@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import {
   TrendingUp, ClipboardList, ChevronDown, ChevronUp, Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -72,14 +74,14 @@ export function CaseAutopilotCard({ caseId }: { caseId: string }) {
 
   const { data: report, isLoading } = useQuery<AutopilotReport>({
     queryKey:  ["case-health", caseId],
-    queryFn:   () => fetch(`${BASE}/api/cases/${caseId}/health`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn:   () => authFetch(`${BASE}/api/cases/${caseId}/health`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled:   !!caseId,
     staleTime: 5 * 60_000,
   });
 
   const runAutopilot = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/cases/${caseId}/autopilot`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/cases/${caseId}/autopilot`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (data) => {
       qc.setQueryData(["case-health", caseId], data);
       toast({

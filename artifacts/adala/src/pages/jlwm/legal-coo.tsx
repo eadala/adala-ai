@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,6 +14,7 @@ import { DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/co
 import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -68,7 +70,7 @@ export default function LegalCOOPage() {
   const { data: dashboard, isLoading: dashLoading } = useQuery({
     queryKey: ["jlwm", "coo", "dashboard"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/jlwm/coo/dashboard`);
+      const r = await authFetch(`${BASE}/api/jlwm/coo/dashboard`);
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
@@ -78,7 +80,7 @@ export default function LegalCOOPage() {
   const { data: actions, isLoading: actionsLoading } = useQuery({
     queryKey: ["jlwm", "coo", "actions", statusFilter],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/jlwm/coo/actions?status=${statusFilter}&limit=30`);
+      const r = await authFetch(`${BASE}/api/jlwm/coo/actions?status=${statusFilter}&limit=30`);
       if (!r.ok) throw new Error(await r.text());
       return r.json() as Promise<{ actions: any[] }>;
     },
@@ -86,7 +88,7 @@ export default function LegalCOOPage() {
 
   const scanMut = useMutation({
     mutationFn: async () => {
-      const r = await fetch(`${BASE}/api/jlwm/coo/scan`, {
+      const r = await authFetch(`${BASE}/api/jlwm/coo/scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" }});
       if (!r.ok) throw new Error(await r.text());
@@ -101,7 +103,7 @@ export default function LegalCOOPage() {
   async function doAction(action: "approve" | "reject" | "execute", id: string) {
     const endpoint = `${BASE}/api/jlwm/coo/actions/${id}/${action}`;
     const body = action === "reject" ? { reason: rejectReason } : {};
-    const r = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const r = await authFetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * Legal OS — نظام التشغيل القانوني
  * ───────────────────────────────────
@@ -9,6 +10,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { authFetch } from "@/lib/authFetch";
 import {
   Scale, DollarSign, FileText, CheckSquare, Bot, Activity,
   Lock, Shield, RefreshCw, TrendingUp, TrendingDown,
@@ -20,7 +22,7 @@ import {
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 async function get(url: string) {
-  const r = await fetch(url);
+  const r = await authFetch(url);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }

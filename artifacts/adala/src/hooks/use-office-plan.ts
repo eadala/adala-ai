@@ -1,3 +1,4 @@
+ 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/authFetch";
 import { useAuthReady } from "@/hooks/use-auth-ready";
@@ -71,12 +72,12 @@ export function usePlanNotifications() {
   const qc = useQueryClient();
   const { data = [] } = useQuery<PlanNotification[]>({
     queryKey: ["plan-notifications"],
-    queryFn: () => fetch(`${BASE}/api/office/plan-notifications`).then(r => r.json()),
+    queryFn: () => authFetch(`${BASE}/api/office/plan-notifications`).then(r => r.json()),
     staleTime: 30_000,
   });
 
   const markRead = useMutation({
-    mutationFn: () => fetch(`${BASE}/api/office/plan-notifications/read-all`, { method: "PATCH" }),
+    mutationFn: () => authFetch(`${BASE}/api/office/plan-notifications/read-all`, { method: "PATCH" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["plan-notifications"] }),
   });
 

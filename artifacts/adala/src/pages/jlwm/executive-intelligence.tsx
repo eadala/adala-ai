@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -59,7 +61,7 @@ export default function ExecutiveIntelligencePage() {
   const { data: report, isLoading } = useQuery({
     queryKey: ["jlwm", "executive", "latest", reportType],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/jlwm/executive/latest?type=${reportType}`);
+      const r = await authFetch(`${BASE}/api/jlwm/executive/latest?type=${reportType}`);
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
@@ -69,7 +71,7 @@ export default function ExecutiveIntelligencePage() {
   const { data: reportsList } = useQuery({
     queryKey: ["jlwm", "executive", "list"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/jlwm/executive/reports?limit=10`);
+      const r = await authFetch(`${BASE}/api/jlwm/executive/reports?limit=10`);
       if (!r.ok) throw new Error(await r.text());
       return r.json() as Promise<{ reports: any[] }>;
     },
@@ -78,7 +80,7 @@ export default function ExecutiveIntelligencePage() {
 
   const generateMut = useMutation({
     mutationFn: async () => {
-      const r = await fetch(`${BASE}/api/jlwm/executive/generate`, {
+      const r = await authFetch(`${BASE}/api/jlwm/executive/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: reportType }),

@@ -55,7 +55,7 @@ function MimeIcon({ mime, cls }: { mime?: string; cls?: string }) {
 function useFolders() {
   return useQuery<any[]>({
     queryKey: ["storage-folders"],
-    queryFn: () => fetch(`${BASE}/api/storage/folders`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/storage/folders`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
   });
 }
@@ -64,7 +64,7 @@ function useStorageFiles(search: string, folderId: string | null, enabled = true
   const folderParam = folderId === null ? "root" : folderId;
   return useQuery<any[]>({
     queryKey: ["storage-files", search, folderParam],
-    queryFn: () => fetch(
+    queryFn: () => authFetch(
       `${BASE}/api/storage/files?limit=200${search ? `&search=${encodeURIComponent(search)}` : ""}&folderId=${folderParam}`
     ).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
@@ -76,7 +76,7 @@ function useStorageFiles(search: string, folderId: string | null, enabled = true
 function usePortalTokens(caseId: string | null | undefined, enabled: boolean) {
   return useQuery<any[]>({
     queryKey: ["portal-tokens", caseId],
-    queryFn: () => fetch(`${BASE}/api/portal/tokens/${caseId}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/portal/tokens/${caseId}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!caseId && enabled,
     staleTime: 30_000,
   });
@@ -88,8 +88,8 @@ function ShareDialog({ doc, open, onClose, tx, dir }: { doc: any; open: boolean;
   const { data: tokens = [], isLoading } = usePortalTokens(doc?.caseId ?? doc?.case_id, open);
   const toggleMut = useMutation({
     mutationFn: async ({ tokenId, docId, shared }: { tokenId: string; docId: string; shared: boolean }) => {
-      if (shared) return fetch(`${BASE}/api/portal/tokens/${tokenId}/share-doc`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ docId }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
-      return fetch(`${BASE}/api/portal/tokens/${tokenId}/share-doc/${docId}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
+      if (shared) return authFetch(`${BASE}/api/portal/tokens/${tokenId}/share-doc`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ docId }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
+      return authFetch(`${BASE}/api/portal/tokens/${tokenId}/share-doc/${docId}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
     },
     onSuccess: (d, vars) => {
       if (d?.error) { toast({ title: tx("خطأ","Error"), description: d.error, variant: "destructive" }); return; }
@@ -130,7 +130,7 @@ function MoveDialog({ file, folders, open, onClose }: { file: any; folders: any[
   const [selected, setSelected] = useState<string | null>(file?.folder_id ?? null);
   const moveMut = useMutation({
     mutationFn: (folderId: string | null) =>
-      fetch(`${BASE}/api/storage/files/${file.id}/folder`, {
+      authFetch(`${BASE}/api/storage/files/${file.id}/folder`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ folderId }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -230,7 +230,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
 
   const { data, isLoading, refetch } = useQuery<any>({
     queryKey: ["folder-permissions", folder?.id],
-    queryFn: () => fetch(`${BASE}/api/storage/folders/${folder.id}/permissions`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/storage/folders/${folder.id}/permissions`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: open && !!folder?.id,
     staleTime: 10_000,
   });
@@ -241,7 +241,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
   const saveVis = async () => {
     setSavingVis(true);
     try {
-      const r = await fetch(`${BASE}/api/storage/folders/${folder.id}/permissions`, {
+      const r = await authFetch(`${BASE}/api/storage/folders/${folder.id}/permissions`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ visibility: vis }),
       });
@@ -257,7 +257,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
 
   const grantMut = useMutation({
     mutationFn: ({ userId, userName, canWrite }: { userId: string; userName: string; canWrite: boolean }) =>
-      fetch(`${BASE}/api/storage/folders/${folder.id}/permissions/users`, {
+      authFetch(`${BASE}/api/storage/folders/${folder.id}/permissions/users`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, userName, canRead: true, canWrite, canDelete: false }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -267,7 +267,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
 
   const revokeMut = useMutation({
     mutationFn: (userId: string) =>
-      fetch(`${BASE}/api/storage/folders/${folder.id}/permissions/users/${userId}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/storage/folders/${folder.id}/permissions/users/${userId}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast({ title: "تم سحب الصلاحية" }); refetch(); },
   });
 
@@ -484,7 +484,7 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
   const { open: openImage, viewer: imageViewer } = useImageViewer();
 
   const trashMut = useMutation({
-    mutationFn: () => fetch(`${BASE}/api/storage/files/${file.id}/trash`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: () => authFetch(`${BASE}/api/storage/files/${file.id}/trash`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast({ title: tx("تم النقل إلى المهملات","Moved to trash") }); qc.invalidateQueries({ queryKey: ["storage-files"] }); },
     onError: () => toast({ title: tx("❌ فشل الحذف","❌ Delete failed"), variant: "destructive" }),
   });
@@ -587,7 +587,7 @@ function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc,
 
   const deleteMut = useMutation({
     mutationFn: (id: string) =>
-      fetch(`${BASE}/api/documents/${id}`, { method: "DELETE" }).then(r => { if (!r.ok && r.status !== 204) throw new Error("خطأ في الخادم"); }),
+      authFetch(`${BASE}/api/documents/${id}`, { method: "DELETE" }).then(r => { if (!r.ok && r.status !== 204) throw new Error("خطأ في الخادم"); }),
     onSuccess: () => { toast({ title: tx("تم حذف المستند","Document deleted") }); qc.invalidateQueries({ queryKey: ["documents"] }); },
     onError: () => toast({ title: tx("❌ فشل الحذف","❌ Delete failed"), variant: "destructive" }),
   });
@@ -787,7 +787,7 @@ export default function Documents() {
 
   const renameFolderMut = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) =>
-      fetch(`${BASE}/api/storage/folders/${id}/rename`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/storage/folders/${id}/rename`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d?.error) { toast({ title: `❌ ${d.error}`, variant: "destructive" }); return; }
       qc.invalidateQueries({ queryKey: ["storage-folders"] }); setRenameFolder(null);
@@ -795,7 +795,7 @@ export default function Documents() {
   });
 
   const deleteFolderMut = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/storage/folders/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => authFetch(`${BASE}/api/storage/folders/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: ["storage-folders"] });
       qc.invalidateQueries({ queryKey: ["storage-files"] });

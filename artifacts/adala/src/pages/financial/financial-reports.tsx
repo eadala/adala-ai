@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; authFetch migration */
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import {
   ArrowUpRight, ArrowDownRight, Printer, Users, Briefcase,
   AlertCircle, Bot, Send, Clock, FileText, Scale,
 } from "lucide-react";
+import { authFetch } from "@/lib/authFetch";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -85,13 +87,13 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 function SummaryTab() {
   const { data, isLoading } = useQuery<any>({
     queryKey: ["accounting-summary"],
-    queryFn: () => fetch(`${BASE}/api/accounting/reports/summary`).then(r => r.json()),
+    queryFn: () => authFetch(`${BASE}/api/accounting/reports/summary`).then(r => r.json()),
     staleTime: 5 * 60_000,
   });
 
   const { data: unified } = useQuery<any>({
     queryKey: ["accounting-unified-summary"],
-    queryFn: () => fetch(`${BASE}/api/accounting/unified-summary`).then(r => r.json()),
+    queryFn: () => authFetch(`${BASE}/api/accounting/unified-summary`).then(r => r.json()),
     staleTime: 5 * 60_000,
   });
 
@@ -235,17 +237,17 @@ function LegalLinkTab() {
 
   const { data: byClient, isLoading: lcLoad } = useQuery<any[]>({
     queryKey: ["reports-by-client"],
-    queryFn: () => fetch(`${BASE}/api/accounting/reports/by-client`).then(r => r.json()),
+    queryFn: () => authFetch(`${BASE}/api/accounting/reports/by-client`).then(r => r.json()),
     staleTime: 5 * 60_000,
   });
   const { data: byCase, isLoading: csLoad } = useQuery<any>({
     queryKey: ["reports-by-case"],
-    queryFn: () => fetch(`${BASE}/api/accounting/reports/by-case`).then(r => r.json()),
+    queryFn: () => authFetch(`${BASE}/api/accounting/reports/by-case`).then(r => r.json()),
     staleTime: 5 * 60_000,
   });
   const { data: byLawyer, isLoading: lwLoad } = useQuery<any[]>({
     queryKey: ["reports-by-lawyer"],
-    queryFn: () => fetch(`${BASE}/api/accounting/reports/by-lawyer`).then(r => r.json()),
+    queryFn: () => authFetch(`${BASE}/api/accounting/reports/by-lawyer`).then(r => r.json()),
     staleTime: 5 * 60_000,
   });
 
@@ -406,7 +408,7 @@ function ARAgingTab() {
 
   const { data, isLoading } = useQuery<any>({
     queryKey: ["ar-aging"],
-    queryFn: () => fetch(`${BASE}/api/accounting/reports/ar-aging`).then(r => r.json()),
+    queryFn: () => authFetch(`${BASE}/api/accounting/reports/ar-aging`).then(r => r.json()),
     staleTime: 3 * 60_000,
   });
 
@@ -517,7 +519,7 @@ function PeriodComparisonTab() {
 
   const { data, isLoading } = useQuery<any>({
     queryKey: ["period-comparison", period],
-    queryFn: () => fetch(`${BASE}/api/accounting/reports/period-comparison?period=${period}`).then(r => r.json()),
+    queryFn: () => authFetch(`${BASE}/api/accounting/reports/period-comparison?period=${period}`).then(r => r.json()),
     staleTime: 5 * 60_000,
   });
 
@@ -630,7 +632,7 @@ function AIAssistantTab() {
 
   const { mutate, isPending } = useMutation({
     mutationFn: (q: string) =>
-      fetch(`${BASE}/api/accounting/ai-analysis`, {
+      authFetch(`${BASE}/api/accounting/ai-analysis`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q }),

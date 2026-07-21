@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import {
   Gavel, Send, RotateCcw, FileText, Shield, Scale, Users, DollarSign,
@@ -15,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE_URL = import.meta.env.BASE_URL ?? "/";
 
@@ -180,7 +182,7 @@ function SetupForm({ onGenerate }: { onGenerate: (report: PrepReport) => void })
     }
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}api/judge-prep/generate`, {
+      const res = await authFetch(`${BASE_URL}api/judge-prep/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ caseType, judgeStyle, factsummary, strengths, weaknesses, previousNotes }),

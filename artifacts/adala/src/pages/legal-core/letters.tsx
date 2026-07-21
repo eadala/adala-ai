@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useRef } from "react";
 import { useBranding } from "@/hooks/use-branding";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -12,6 +13,7 @@ import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 import {
   FileText, Copy, Printer, Search, ChevronLeft,
   Scale, Handshake, DollarSign, Building2, Star, Check,
@@ -434,11 +436,11 @@ export default function Letters() {
 
   const { data: smtpStatus } = useQuery<{ configured: boolean }>({
     queryKey: ["smtp-status"],
-    queryFn: () => fetch("/api/email/smtp-status").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch("/api/email/smtp-status").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const sendEmailMutation = useMutation({
-    mutationFn: (data: any) => fetch("/api/email/send-letter", {
+    mutationFn: (data: any) => authFetch("/api/email/send-letter", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),

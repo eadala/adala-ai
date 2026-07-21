@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; authFetch migration */
 /**
  * 🏛️ Adala Control Tower — SOC + Admin Observatory
  * لوحة المراقبة الاحترافية — رؤية ٣٦٠° للمنصة
@@ -16,6 +17,7 @@ import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 import {
   Shield, Zap, Activity, Users, Building2, AlertTriangle,
   Eye, Snowflake, RefreshCw, Wifi, WifiOff, Lock, Unlock,
@@ -104,18 +106,17 @@ export default function ControlTower() {
   const [inspectId, setInspectId]     = useState<string | null>(null);
   const [inspectTab, setInspectTab]   = useState("cases");
 
-  /* async token (for authenticated fetch) */
+  /* async token (for EventSource; fetch uses shared authFetch) */
   const [token, setToken] = useState<string | null>(null);
   useEffect(() => { getToken().then(t => setToken(t ?? null)); }, [getToken]);
 
-  /* authenticated fetch helper */
-  const authFetch = useCallback(async (url: string, opts: RequestInit = {}) => {
-    const t = token ?? await getToken();
-    return fetch(url, {
+  const apiJson = useCallback(async (url: string, opts: RequestInit = {}) => {
+    const res = await authFetch(url, {
       ...opts,
-      headers: { ...(opts.headers ?? {}), Authorization: `Bearer ${t}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(opts.headers ?? {}) },
     });
-  }, [token, getToken]);
+    return res;
+  }, []);
 
   /* ── SSE connection ─────────────────────────────────────────────── */
   useEffect(() => {

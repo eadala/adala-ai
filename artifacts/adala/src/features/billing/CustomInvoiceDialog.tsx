@@ -1,3 +1,5 @@
+ 
+ 
 import { useState } from "react";
 import { DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
@@ -10,6 +12,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -63,7 +66,7 @@ export function CustomInvoice({ open, onClose }: { open: boolean; onClose: () =>
 
     setLoading(true);
     try {
-      const r = await fetch(`${BASE}/api/billing/custom-invoice-link`, {
+      const r = await authFetch(`${BASE}/api/billing/custom-invoice-link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

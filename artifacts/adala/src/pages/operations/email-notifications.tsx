@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import {
   Bell, AlertTriangle, Clock, FileText, CreditCard, PlayCircle, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -32,12 +34,12 @@ export default function EmailNotificationsPage() {
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["email-notif-settings"],
-    queryFn: () => fetch(`${BASE}/api/email-notifications/settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/email-notifications/settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: logs = [] } = useQuery<any[]>({
     queryKey: ["email-notif-logs"],
-    queryFn: () => fetch(`${BASE}/api/email-notifications/logs`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/email-notifications/logs`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export default function EmailNotificationsPage() {
 
   const saveMut = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/email-notifications/settings`, {
+      authFetch(`${BASE}/api/email-notifications/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, smtpPort: parseInt(form.smtpPort) || 587 }),
@@ -68,7 +70,7 @@ export default function EmailNotificationsPage() {
 
   const testMut = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/email-notifications/test`, {
+      authFetch(`${BASE}/api/email-notifications/test`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to: testEmail }),
@@ -82,7 +84,7 @@ export default function EmailNotificationsPage() {
 
   const runNowMut = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/email-notifications/run-now`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/email-notifications/run-now`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d.error) toast.error(d.error);
       else {

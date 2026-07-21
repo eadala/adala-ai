@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * Hearings Calendar — تقويم جلسات المحكمة
  * عرض كل جلسات المكتب القادمة والسابقة في مكان واحد
@@ -16,6 +17,7 @@ import {
   Building2, Hash, ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -170,7 +172,7 @@ export default function HearingsCalendar() {
 
   const { data: hearings = [], isLoading } = useQuery<any[]>({
     queryKey: ["hearings-calendar"],
-    queryFn:  () => fetch(`${BASE}/api/cases/hearings/calendar`).then(r => r.ok ? r.json() : []),
+    queryFn:  () => authFetch(`${BASE}/api/cases/hearings/calendar`).then(r => r.ok ? r.json() : []),
     staleTime: 60_000,
   });
 

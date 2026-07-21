@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -15,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -59,7 +61,7 @@ export default function PredictionAccuracyPage() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["jlwm", "accuracy", "stats"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/jlwm/accuracy/stats`);
+      const r = await authFetch(`${BASE}/api/jlwm/accuracy/stats`);
       if (!r.ok) throw new Error(await r.text());
       return r.json() as Promise<{ stats: any[]; overall_accuracy: number; total_records_types: number }>;
     },
@@ -69,7 +71,7 @@ export default function PredictionAccuracyPage() {
   const { data: calibration } = useQuery({
     queryKey: ["jlwm", "accuracy", "calibration"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/jlwm/accuracy/calibration`);
+      const r = await authFetch(`${BASE}/api/jlwm/accuracy/calibration`);
       if (!r.ok) throw new Error(await r.text());
       return r.json() as Promise<{ calibration: Record<string, any[]> }>;
     },
@@ -79,7 +81,7 @@ export default function PredictionAccuracyPage() {
   const { data: history, isLoading: histLoading } = useQuery({
     queryKey: ["jlwm", "accuracy", "history"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/jlwm/accuracy/history?limit=30`);
+      const r = await authFetch(`${BASE}/api/jlwm/accuracy/history?limit=30`);
       if (!r.ok) throw new Error(await r.text());
       return r.json() as Promise<{ records: any[]; total: number }>;
     },
@@ -98,7 +100,7 @@ export default function PredictionAccuracyPage() {
         : form.predictionType === "duration"
         ? { actual_days: Number(form.actualDays) }
         : { actual_revenue: Number(form.actualAmount) };
-      const r = await fetch(`${BASE}/api/jlwm/accuracy/record`, {
+      const r = await authFetch(`${BASE}/api/jlwm/accuracy/record`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

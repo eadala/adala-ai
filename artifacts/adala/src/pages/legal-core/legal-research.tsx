@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -12,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
   all: { label: "الكل", icon: BookOpen, color: "#6366F1" },
@@ -41,12 +43,12 @@ export default function LegalResearch() {
 
   const { data: featured = [] } = useQuery<any[]>({
     queryKey: ["legal-research-featured"],
-    queryFn: () => fetch("/api/legal-research/featured").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch("/api/legal-research/featured").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const searchMutation = useMutation({
     mutationFn: ({ q, cat }: { q: string; cat: string }) =>
-      fetch("/api/legal-research/search", {
+      authFetch("/api/legal-research/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: q, category: cat }),
