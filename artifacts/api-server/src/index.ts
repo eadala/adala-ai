@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 import { initTracer } from "./observability/tracer";
 await initTracer();
 
@@ -26,15 +27,12 @@ import { seedNorthSouthDemoData } from "./modules/jlwm/jlwmDemoSeed";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
-/** Ensure ad-hoc columns added outside the Drizzle schema always exist at boot */
-async function ensureAdHocColumns() {
+/**
+ * Data backfill only — schema DDL authority is artifacts/api-server/migrations/
+ * (cases/office_orders columns live in 004_legal_core_extensions.sql).
+ */
+async function ensureOfficePageSlugs() {
   try {
-    await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS source       TEXT DEFAULT 'manual'`);
-    await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS store_order_id TEXT`);
-    await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS created_by    TEXT`);
-    await db.execute(sql`ALTER TABLE office_orders ADD COLUMN IF NOT EXISTS auto_case_id TEXT`);
-    await db.execute(sql`ALTER TABLE office_orders ADD COLUMN IF NOT EXISTS portal_token TEXT`);
-
     /* Auto-generate slugs for any office_page rows that have none.
        Pattern: lower-cased name with spaces→dashes + short id suffix */
     await db.execute(sql`
@@ -45,7 +43,7 @@ async function ensureAdHocColumns() {
         AND name IS NOT NULL AND name <> ''
     `);
   } catch (e: any) {
-    logger.warn({ err: e.message }, "ensureAdHocColumns: non-fatal migration warning");
+    logger.warn({ err: e.message }, "ensureOfficePageSlugs: non-fatal backfill warning");
   }
 }
 
@@ -83,7 +81,7 @@ async function initStripe() {
   }
 }
 
-ensureAdHocColumns().catch(e => logger.error({ e }, "ensureAdHocColumns failed"));
+ensureOfficePageSlugs().catch(e => logger.error({ e }, "ensureOfficePageSlugs failed"));
 ensureStripeBufferTables().catch(e => logger.error({ e }, "ensureStripeBufferTables failed"));
 ensureReconciliationTable().catch(e => logger.error({ e }, "ensureReconciliationTable failed"));
 ensureERPTables().catch(e => logger.error({ e }, "ensureERPTables failed"));

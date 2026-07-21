@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -28,45 +29,8 @@ async function sqlAll<T = any>(q: string, params: any[] = []): Promise<T[]> {
   return ((r as any).rows ?? r) as T[];
 }
 
-// ── Ensure tables ──────────────────────────────────────────────────────────────
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS contract_categories (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(), office_id TEXT,
-      name TEXT NOT NULL, name_en TEXT, icon TEXT DEFAULT 'FileText',
-      color TEXT DEFAULT '#6366F1', is_system BOOLEAN DEFAULT true,
-      sort_order INTEGER DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS contract_templates (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      category_id UUID REFERENCES contract_categories(id) ON DELETE SET NULL,
-      office_id TEXT, name TEXT NOT NULL, name_en TEXT, description TEXT,
-      content TEXT NOT NULL DEFAULT '', variables JSONB DEFAULT '[]',
-      is_system BOOLEAN DEFAULT true, usage_count INTEGER DEFAULT 0,
-      created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS contract_versions (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(), contract_id UUID NOT NULL,
-      office_id TEXT, version_number INTEGER NOT NULL DEFAULT 1,
-      content TEXT, note TEXT, created_by TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS contract_ai_history (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(), contract_id UUID NOT NULL,
-      office_id TEXT, action TEXT NOT NULL, prompt TEXT, result TEXT,
-      model_used TEXT, tokens_used INTEGER DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS template_id UUID;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS value_amount TEXT;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS payment_method TEXT;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS lawyer_id TEXT;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS version_number INTEGER DEFAULT 1;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS optional_clauses JSONB DEFAULT '[]';
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS compliance_score TEXT;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS compliance_notes TEXT;
-  `);
-}
-ensureTables().catch(console.error);
+// Schema for contract_* tables + contracts column extensions:
+// artifacts/api-server/migrations/004_legal_core_extensions.sql (no Runtime DDL).
 
 // ── Saudi Legal Format Header ──────────────────────────────────────────────────
 function saudiHeader(title: string, party1Label = "الطرف الأول", party2Label = "الطرف الثاني") {

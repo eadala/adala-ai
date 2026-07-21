@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; schema authority */
 /**
  * عدالة AI — Event Bus Core
  * Persistent, type-safe event bus with SSE real-time broadcasting
@@ -53,28 +54,7 @@ export interface StoredEvent extends EventPayload {
 type EventHandler = (event: StoredEvent) => void | Promise<void>;
 
 /* ── Ensure DB table ──────────────────────────────────── */
-async function ensureEventsTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS system_events (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      event_type  TEXT NOT NULL,
-      office_id   TEXT DEFAULT 'default',
-      actor_id    TEXT,
-      payload     JSONB NOT NULL DEFAULT '{}',
-      created_at  TIMESTAMP DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_system_events_type      ON system_events(event_type)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_system_events_office    ON system_events(office_id)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_system_events_created   ON system_events(created_at DESC)
-  `).catch(() => {});
-}
-ensureEventsTable();
+/* system_events schema: artifacts/api-server/migrations/005_tenant_platform_tables.sql */
 
 /* ── Event Bus ────────────────────────────────────────── */
 class EventBus {

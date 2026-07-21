@@ -1,21 +1,22 @@
 # Boot-Created Tables — API Runtime DDL
 
-**لا تعتمد على boot لإنشاء جداول P0.** استخدم migrations `003→001→004→005` أولاً.
+**Schema authority:** `artifacts/api-server/migrations/*.sql` (apply via `psql`).
+**لا تعتمد على boot لإنشاء جداول P0.** استخدم migrations `003→001→004→005→…→009` أولاً.
 
-عند تشغيل API، تُنشأ **188 جدولاً** إضافياً عبر `CREATE TABLE IF NOT EXISTS` في
+عند تشغيل API، تُنشأ جداول enterprise إضافية عبر `CREATE TABLE IF NOT EXISTS` في
 `artifacts/api-server/src/**` (قائمة كاملة في `boot-created-tables.txt`).
 
 ## ensure* المُستدعاة عند Boot (`index.ts`)
 
 | الدالة | الملف | سلوك الفشل |
 |--------|-------|------------|
-| `ensureAdHocColumns` | `index.ts` | `logger.warn` — يفشل إذا `cases`/`office_page`/`office_orders` ناقصة |
+| `ensureOfficePageSlugs` | `index.ts` | `logger.warn` — data backfill فقط (لا DDL) |
 | `ensureStripeBufferTables` | `stripeEventBuffer.ts` | `logger.error` — يحتاج `stripe` schema من `runMigrations` |
 | `ensureReconciliationTable` | `stripeReconcile.ts` | `logger.error` |
 | `ensureERPTables` | `erp-ledger.ts` | `logger.error` — FK على جداول مالية |
 | `ensureBankruptcyTables` | `bankruptcy.ts` | `logger.error` |
 | `ensureDocumentCenterSchema` | `documentCenter.ts` | `logger.error` |
-| `ensureJLWMSchema` + 6 جداول فرعية | `jlwm/index.ts` | `logger.error` لكل واحدة |
+| `ensureJLWMSchema` + 6 جداول فرعية | `jlwm/index.ts` | `logger.error` لكل واحد |
 | `ensureReliabilitySchema` | `reliabilityEngine.ts` | `logger.error` |
 | `ensureBankruptcyV2Tables` | `bankruptcyV2.ts` | `logger.error` |
 | `ensureBankruptcyV3Tables` | `bankruptcyV3.ts` | `logger.error` |
@@ -25,9 +26,10 @@
 
 معظمها `.catch(() => {})` أو `catch { return null }` — **تفشل بصمت** إذا التبعيات ناقصة:
 
-- `ensureEventsTable` — `eventBus.ts` (يُستدعى عند import)
-- `ensureTable` — `planCms.ts`, `onboarding.ts`, `trialOnboarding.ts`
-- `ensureTables` — `contracts.ts`, `marketplace.ts`, `production-os.ts`, `control-tower.ts`, ...
+- ~~`ensureEventsTable`~~ — removed; `system_events` via migration **005**
+- ~~`ensureTable` (planCms/onboarding/trial)~~ — removed; schema via migration **005** (planCms keeps seed only)
+- ~~`ensureTables` (contracts)~~ — removed; schema via migration **004**
+- `ensureTables` — `marketplace.ts`, `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
 - `ensureJournalTables(officeId)` — per-tenant، يُستدعى عند أول استخدام ERP
@@ -43,6 +45,7 @@
 | `system_events` | 005 |
 | `plan_cms` | 005 |
 | `contract_templates` | 004 |
+| `storage_folders` | 009 |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 
@@ -75,4 +78,5 @@ bash scripts/db/verify-schema.sh
 ```bash
 # يتطلب PostgreSQL محلي (لا Production)
 bash scripts/db/test-migrations.integration.sh
+pnpm --filter @workspace/api-server run test:schema-authority
 ```
