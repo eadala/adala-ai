@@ -164,9 +164,6 @@ security_events
 security_sessions
 server_config
 storage_migration_log
-stripe_dead_letters
-stripe_events
-stripe_reconciliation_log
 support_ai_analysis
 support_knowledge_base
 support_ticket_attachments

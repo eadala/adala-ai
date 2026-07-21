@@ -34,3 +34,14 @@ office_ledger.platform_fee
 office_ledger.stripe_fee
 office_ledger.net_amount
 office_ledger.created_at
+stripe_events.stripe_event_id
+stripe_events.status
+stripe_events.payload
+stripe_events.created_at
+stripe_dead_letters.stripe_event_id
+stripe_dead_letters.error
+stripe_dead_letters.created_at
+stripe_reconciliation_log.run_at
+stripe_reconciliation_log.status
+stripe_reconciliation_log.period_start
+stripe_reconciliation_log.period_end

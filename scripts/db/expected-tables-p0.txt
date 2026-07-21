@@ -26,3 +26,6 @@ route_analytics
 office_storage_quota
 storage_files
 office_ledger
+stripe_events
+stripe_dead_letters
+stripe_reconciliation_log
