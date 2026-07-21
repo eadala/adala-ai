@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@clerk/react";
 import { authFetch } from "@/lib/authFetch";
 
 /* ── Types ── */
@@ -107,14 +106,12 @@ export default function AiCooPage() {
   const [notifForm, setNotifForm]   = useState<any>(null);
   const [sendResult, setSendResult] = useState<any>(null);
   const chatRef = useRef<HTMLDivElement>(null);
-  const { getToken } = useAuth();
   const qc = useQueryClient();
 
   const { data, isLoading, refetch, isFetching, dataUpdatedAt } = useQuery<CooData>({
     queryKey: ["ai-coo-overview"],
     queryFn: async () => {
-      const tk = await getToken();
-      const r = await authFetch("/api/ai-coo/overview", { headers: { Authorization: `Bearer ${tk}` } });
+      const r = await authFetch("/api/ai-coo/overview");
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
@@ -123,11 +120,10 @@ export default function AiCooPage() {
 
   const askMut = useMutation({
     mutationFn: async (q: string) => {
-      const tk = await getToken();
       const context = data ? `صحة تشغيلية: ${data.healthScore}/100 | قضايا نشطة: ${data.domains.cases.active} | موظفون: ${data.domains.hr.total} | إيرادات: ${data.domains.finance.monthlyRevenue.toLocaleString("ar-SA")} ريال` : "";
       const r = await authFetch("/api/ai-coo/ask", {
         method: "POST",
-        headers: { Authorization: `Bearer ${tk}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q, context }),
       });
       if (!r.ok) throw new Error(await r.text());
@@ -164,8 +160,7 @@ export default function AiCooPage() {
   const { data: notifData, isLoading: notifLoading } = useQuery<any>({
     queryKey: ["ai-coo-notif-settings"],
     queryFn: async () => {
-      const tk = await getToken();
-      const r  = await authFetch("/api/ai-coo/notif-settings", { headers: { Authorization: `Bearer ${tk}` } });
+      const r  = await authFetch("/api/ai-coo/notif-settings");
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
@@ -180,10 +175,9 @@ export default function AiCooPage() {
 
   const saveMut = useMutation({
     mutationFn: async (body: any) => {
-      const tk = await getToken();
       const r  = await authFetch("/api/ai-coo/notif-settings", {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${tk}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!r.ok) throw new Error(await r.text());
@@ -194,10 +188,9 @@ export default function AiCooPage() {
 
   const notifyMut = useMutation({
     mutationFn: async () => {
-      const tk = await getToken();
       const r  = await authFetch("/api/ai-coo/notify", {
         method: "POST",
-        headers: { Authorization: `Bearer ${tk}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
       if (!r.ok) throw new Error(await r.text());

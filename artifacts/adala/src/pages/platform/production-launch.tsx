@@ -5,7 +5,6 @@
  * Architecture layers + readiness + Docker config + launch confirmation
  */
 import { useState } from "react";
-import { useAuth } from "@clerk/react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -212,16 +211,12 @@ function ArchDiagram({ layers }: { layers: ArchLayer[] }) {
    DOCKER CONFIG TAB
 ══════════════════════════════════════════════════════════════════ */
 function DockerTab() {
-  const { getToken } = useAuth();
   const [tab, setTab] = useState<"compose" | "coolify" | "nginx">("compose");
 
   const { data, isLoading } = useQuery({
     queryKey: ["prod-launch-docker"],
     queryFn: async () => {
-      const token = await getToken();
-      const r = await authFetch(`${BASE}/api/production-launch/docker-config`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const r = await authFetch(`${BASE}/api/production-launch/docker-config`);
       return r.json();
     },
   });
@@ -306,7 +301,6 @@ function DockerTab() {
    LAUNCH CONFIRM TAB
 ══════════════════════════════════════════════════════════════════ */
 function LaunchTab({ readiness }: { readiness?: Readiness }) {
-  const { getToken } = useAuth();
   const { toast } = useToast();
   const [phase, setPhase] = useState<"staging" | "production">("production");
   const [notes, setNotes] = useState("");
@@ -315,20 +309,16 @@ function LaunchTab({ readiness }: { readiness?: Readiness }) {
   const { data: history, refetch: refetchHistory } = useQuery({
     queryKey: ["launch-history"],
     queryFn: async () => {
-      const token = await getToken();
-      const r = await authFetch(`${BASE}/api/production-launch/history`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const r = await authFetch(`${BASE}/api/production-launch/history`);
       return r.json();
     },
   });
 
   const launch = useMutation({
     mutationFn: async () => {
-      const token = await getToken();
       const r = await authFetch(`${BASE}/api/production-launch/confirm`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phase, notes,
           gateScore: readiness?.overall,
@@ -478,15 +468,10 @@ function LaunchTab({ readiness }: { readiness?: Readiness }) {
    MAIN PAGE
 ══════════════════════════════════════════════════════════════════ */
 export default function ProductionLaunchCenter() {
-  const { getToken } = useAuth();
-
   const { data, isLoading, refetch, isFetching } = useQuery<Readiness>({
     queryKey: ["production-launch-readiness"],
     queryFn: async () => {
-      const token = await getToken();
-      const r = await authFetch(`${BASE}/api/production-launch/readiness`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const r = await authFetch(`${BASE}/api/production-launch/readiness`);
       if (!r.ok) throw new Error("fetch failed");
       return r.json();
     },

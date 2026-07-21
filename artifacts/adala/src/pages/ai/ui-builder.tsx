@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
@@ -14,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@clerk/react";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -317,7 +318,6 @@ function TemplateCard({ tpl, onSelect }: { tpl: any; onSelect: () => void }) {
 
 /* ─── Main Page ─── */
 export default function UIBuilderPage() {
-  const { getToken } = useAuth();
   const [prompt, setPrompt]     = useState("");
   const [schema, setSchema]     = useState<any>(null);
   const [showJson, setShowJson] = useState(false);
@@ -326,10 +326,7 @@ export default function UIBuilderPage() {
   const { data: templatesData } = useQuery({
     queryKey: ["ui-builder-templates"],
     queryFn: async () => {
-      const token = await getToken();
-      const r = await fetch(apiUrl("/ui-builder/templates"), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const r = await authFetch(apiUrl("/ui-builder/templates"));
       return r.json();
     },
     staleTime: Infinity,
@@ -337,10 +334,9 @@ export default function UIBuilderPage() {
 
   const generateMutation = useMutation({
     mutationFn: async (p: string) => {
-      const token = await getToken();
-      const r = await fetch(apiUrl("/ui-builder/generate"), {
+      const r = await authFetch(apiUrl("/ui-builder/generate"), {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: p }),
       });
       const data = await r.json();

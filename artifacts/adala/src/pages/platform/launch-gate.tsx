@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect } from "react";
-import { useAuth } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -161,7 +160,6 @@ function ArchLayer({ color, label, items }: { color: string; label: string; item
 }
 
 export default function LaunchGatePage() {
-  const { getToken } = useAuth();
   const qc = useQueryClient();
   const [expandedGates, setExpandedGates] = useState<Set<number>>(new Set());
   const [report, setReport]   = useState<LaunchReport | null>(null);
@@ -170,7 +168,6 @@ export default function LaunchGatePage() {
 
   const headers = async () => ({
     "Content-Type": "application/json",
-    Authorization: `Bearer ${await getToken()}`,
   });
 
   const { data: shieldData, refetch: refetchShield } = useQuery({
