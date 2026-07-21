@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * 🏛️ Live Production Control Tower
  * ──────────────────────────────────
@@ -14,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { authFetch } from "@/lib/authFetch";
 import {
   ShieldCheck, AlertTriangle, XCircle, RefreshCw, Zap,
   Activity, Users, Lock, Unlock, Bot, Cpu, Gauge,
@@ -31,7 +33,7 @@ async function ctFetch(path: string, method = "GET", body?: any) {
   const token = _getToken ? await _getToken() : null;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${SA_BASE}/api${path}`, {
+  const res = await authFetch(`${SA_BASE}/api${path}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,

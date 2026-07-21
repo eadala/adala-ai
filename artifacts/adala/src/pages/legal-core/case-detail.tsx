@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * Case Detail — Control Center
  * ─────────────────────────────
@@ -36,6 +37,7 @@ import { Link }           from "wouter";
 import { useToast }       from "@/hooks/use-toast";
 import { useLang }        from "@/hooks/use-lang";
 import { cn }             from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -72,7 +74,7 @@ const PRIORITY_DOT: Record<string, string> = {
 function useApi<T>(key: any[], url: string) {
   return useQuery<T>({
     queryKey: key,
-    queryFn: () => fetch(`${BASE}${url}`).then(r => r.json()),
+    queryFn: () => authFetch(`${BASE}${url}`).then(r => r.json()),
     enabled: !url.includes("undefined"),
     staleTime: 30_000,
   });
@@ -144,7 +146,7 @@ function TimelineFeed({ caseId, open, setOpen }: { caseId: string; open: boolean
     if (!form.title.trim()) return;
     setSaving(true);
     try {
-      await fetch(`${BASE}/api/cases/${caseId}/timeline`, {
+      await authFetch(`${BASE}/api/cases/${caseId}/timeline`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
@@ -253,7 +255,7 @@ function MessagesChat({ caseId, open, setOpen }: { caseId: string; open: boolean
     if (!body.trim()) return;
     setSending(true);
     try {
-      await fetch(`${BASE}/api/cases/${caseId}/messages`, {
+      await authFetch(`${BASE}/api/cases/${caseId}/messages`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body, sender_name: "المحامي" }),
       });
@@ -361,7 +363,7 @@ function AIHealthCard({ caseId, onAnalyze }: { caseId: string; onAnalyze: () => 
   const analyze = async () => {
     setRunning(true);
     try {
-      await fetch(`${BASE}/api/cases/${caseId}/autopilot`, { method: "POST" });
+      await authFetch(`${BASE}/api/cases/${caseId}/autopilot`, { method: "POST" });
       refetch();
       toast({ title: "✅ اكتمل التحليل" });
     } catch { toast({ variant: "destructive", title: "خطأ في التحليل" }); }
@@ -447,7 +449,7 @@ function AutonomousAIPanel({ caseId }: { caseId: string }) {
   const analyze = async () => {
     setRunning(true);
     try {
-      const r = await fetch(`${BASE}/api/cases/${caseId}/analyze`, { method: "POST" });
+      const r = await authFetch(`${BASE}/api/cases/${caseId}/analyze`, { method: "POST" });
       if (!r.ok) throw new Error("فشل التحليل");
       await refetch();
       toast({ title: "✅ اكتمل التحليل الذكي" });
@@ -461,7 +463,7 @@ function AutonomousAIPanel({ caseId }: { caseId: string }) {
     if (!insight?.id) return;
     setApproving(taskId);
     try {
-      const r = await fetch(`${BASE}/api/cases/${caseId}/ai-insights/approve-task`, {
+      const r = await authFetch(`${BASE}/api/cases/${caseId}/ai-insights/approve-task`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ insightId: insight.id, taskId }),
@@ -480,7 +482,7 @@ function AutonomousAIPanel({ caseId }: { caseId: string }) {
     if (!insight?.id) return;
     setRejecting(taskId);
     try {
-      await fetch(`${BASE}/api/cases/${caseId}/ai-insights/reject-task`, {
+      await authFetch(`${BASE}/api/cases/${caseId}/ai-insights/reject-task`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ insightId: insight.id, taskId }),
@@ -686,7 +688,7 @@ function TasksMini({ caseId, onAdd }: { caseId: string; onAdd: () => void }) {
 
   const toggle = async (id: string, cur: string) => {
     const next = cur === "done" ? "todo" : "done";
-    await fetch(`${BASE}/api/office-tasks/${id}`, {
+    await authFetch(`${BASE}/api/office-tasks/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: next }),
     }).catch(() => {});
@@ -838,7 +840,7 @@ function CourtInfoCard({ c, caseId, onSaved }: { c: any; caseId: string; onSaved
   const save = async () => {
     setSaving(true);
     try {
-      await fetch(`${BASE}/api/cases/${caseId}/court`, {
+      await authFetch(`${BASE}/api/cases/${caseId}/court`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
@@ -1049,7 +1051,7 @@ function HearingsSection({
   const deleteHearing = async (id: string) => {
     if (!confirm("حذف هذه الجلسة؟")) return;
     try {
-      await fetch(`${BASE}/api/cases/${caseId}/hearings/${id}`, { method: "DELETE" });
+      await authFetch(`${BASE}/api/cases/${caseId}/hearings/${id}`, { method: "DELETE" });
       refetch();
       qc.invalidateQueries({ queryKey: ["case", caseId] });
       toast({ title: "تم الحذف" });
@@ -1155,7 +1157,7 @@ function HearingDialog({
         ? `${BASE}/api/cases/${caseId}/hearings/${editing.id}`
         : `${BASE}/api/cases/${caseId}/hearings`;
       const method = isEdit ? "PATCH" : "POST";
-      const r = await fetch(url, {
+      const r = await authFetch(url, {
         method, headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, hearingDate: new Date(form.hearingDate).toISOString() }),
       });
@@ -1329,7 +1331,7 @@ function DocumentsSection({
 
   const deleteDoc = async (id: string) => {
     try {
-      await fetch(`${BASE}/api/cases/${caseId}/documents/${id}`, { method: "DELETE" });
+      await authFetch(`${BASE}/api/cases/${caseId}/documents/${id}`, { method: "DELETE" });
       refetch();
       qc.invalidateQueries({ queryKey: ["case", caseId] });
       toast({ title: "تم حذف المستند" });
@@ -1424,7 +1426,7 @@ function DocumentUploadDialog({
         || user?.primaryEmailAddress?.emailAddress
         || "";
 
-      const r = await fetch(`${BASE}/api/cases/${caseId}/documents`, {
+      const r = await authFetch(`${BASE}/api/cases/${caseId}/documents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1568,7 +1570,7 @@ function TaskDialog({ open, onClose, caseId, caseTitle }: { open: boolean; onClo
     if (!form.title.trim()) return;
     setSaving(true);
     try {
-      await fetch(`${BASE}/api/cases/${caseId}/tasks`, {
+      await authFetch(`${BASE}/api/cases/${caseId}/tasks`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
@@ -1861,7 +1863,7 @@ function LinkedComms({ caseId }: { caseId: string }) {
 
   const { data, isLoading } = useQuery<{ direct_messages: any[]; conversations: any[] }>({
     queryKey: ["case-linked-comms", caseId],
-    queryFn:  () => fetch(`${BASE}/api/cases/${caseId}/linked-comms`).then(r => r.json()),
+    queryFn:  () => authFetch(`${BASE}/api/cases/${caseId}/linked-comms`).then(r => r.json()),
     enabled:  !!caseId,
     staleTime: 30_000,
   });

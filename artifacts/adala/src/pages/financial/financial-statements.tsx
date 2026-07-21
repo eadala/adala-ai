@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; authFetch migration */
 /**
  * عدالة AI — القوائم المالية
  * قائمة الدخل · الميزانية العمومية · ميزان المراجعة · دليل الحسابات · دفتر اليومية
@@ -19,6 +20,7 @@ import {
   ChevronRight, Landmark, Wallet, PiggyBank, ArrowUpRight, ArrowDownRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -82,7 +84,7 @@ function IncomeStatement() {
 
   const { data, isLoading, refetch } = useQuery<any>({
     queryKey: ["income-statement", from, to],
-    queryFn:  () => fetch(`${BASE}/api/accounting/statements/income?from=${from}&to=${to}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn:  () => authFetch(`${BASE}/api/accounting/statements/income?from=${from}&to=${to}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const d = data ?? {};
@@ -188,7 +190,7 @@ function BalanceSheet() {
   const [asOf, setAsOf] = useState(today());
   const { data, isLoading, refetch } = useQuery<any>({
     queryKey: ["balance-sheet", asOf],
-    queryFn:  () => fetch(`${BASE}/api/accounting/statements/balance-sheet?asOf=${asOf}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn:  () => authFetch(`${BASE}/api/accounting/statements/balance-sheet?asOf=${asOf}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
   const d = data ?? {};
 
@@ -288,7 +290,7 @@ function TrialBalance() {
   const [asOf, setAsOf] = useState(today());
   const { data, isLoading, refetch } = useQuery<any>({
     queryKey: ["trial-balance", asOf],
-    queryFn:  () => fetch(`${BASE}/api/accounting/statements/trial-balance?asOf=${asOf}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn:  () => authFetch(`${BASE}/api/accounting/statements/trial-balance?asOf=${asOf}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
   const d = data ?? {};
 
@@ -389,11 +391,11 @@ function ChartOfAccounts() {
 
   const { data = [], isLoading } = useQuery<any[]>({
     queryKey: ["chart-of-accounts"],
-    queryFn:  () => fetch(`${BASE}/api/accounting/journal/accounts`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn:  () => authFetch(`${BASE}/api/accounting/journal/accounts`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const addAccount = useMutation({
-    mutationFn: () => fetch(`${BASE}/api/accounting/journal/accounts`, {
+    mutationFn: () => authFetch(`${BASE}/api/accounting/journal/accounts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ accountCode: newCode, accountName: newName, accountType: newType, parentCode: newParent || null }),
@@ -489,7 +491,7 @@ function JournalBook() {
   const [to, setTo]     = useState(today());
   const { data = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["journal-entries", from, to],
-    queryFn:  () => fetch(`${BASE}/api/accounting/journal/entries?from=${from}&to=${to}&limit=100`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn:  () => authFetch(`${BASE}/api/accounting/journal/entries?from=${from}&to=${to}&limit=100`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   return (

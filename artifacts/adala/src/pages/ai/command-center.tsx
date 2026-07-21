@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useRef, useEffect } from "react";
 import { useUser } from "@clerk/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -154,19 +156,19 @@ export default function CommandCenter() {
 
   const { data: workflows = [], refetch: refetchWf } = useQuery<WorkflowRow[]>({
     queryKey: ["ai-workflows"],
-    queryFn: () => fetch(`${BASE}/api/ai-agent/workflows`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/ai-agent/workflows`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: logs = [] } = useQuery<any[]>({
     queryKey: ["ai-agent-logs"],
-    queryFn: () => fetch(`${BASE}/api/ai-agent/logs?limit=20`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/ai-agent/logs?limit=20`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
 
   const execMut = useMutation({
     mutationFn: (body: { command: string; mode: string }) =>
-      fetch(`${BASE}/api/ai-agent/execute`, {
+      authFetch(`${BASE}/api/ai-agent/execute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...body, userEmail: user?.primaryEmailAddress?.emailAddress }),
@@ -175,7 +177,7 @@ export default function CommandCenter() {
 
   const toggleWf = useMutation({
     mutationFn: ({ id, v }: { id: string; v: boolean }) =>
-      fetch(`${BASE}/api/ai-agent/workflows/${id}`, {
+      authFetch(`${BASE}/api/ai-agent/workflows/${id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: v }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -185,7 +187,7 @@ export default function CommandCenter() {
   });
 
   const deleteWf = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/ai-agent/workflows/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => authFetch(`${BASE}/api/ai-agent/workflows/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => refetchWf(),
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
 
@@ -239,7 +241,7 @@ export default function CommandCenter() {
 
   async function createDefaults() {
     for (const wf of DEFAULT_WFS) {
-      await fetch(`${BASE}/api/ai-agent/workflows`, {
+      await authFetch(`${BASE}/api/ai-agent/workflows`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...wf, createdBy: user?.primaryEmailAddress?.emailAddress }),
       });

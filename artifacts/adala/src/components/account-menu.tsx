@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useRef, useEffect } from "react";
-import { useUser, useClerk, useAuth } from "@clerk/react";
+import { useUser, useClerk } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useIsSuperAdmin } from "@/hooks/use-role";
@@ -12,9 +12,9 @@ import {
   Crown, ChevronRight, AlertTriangle, Code2, Briefcase,
   Sparkles, Fingerprint, XCircle,
 } from "lucide-react";
-import { DEV_API } from "@/features/super-admin/shared/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -87,14 +87,12 @@ export function AccountMenu() {
 
   const isSuperAdmin = useIsSuperAdmin();
   const qc = useQueryClient();
-  const { getToken } = useAuth();
 
-  /* Direct API call using Clerk token — avoids _getToken singleton */
+  /* Developer API via shared authFetch */
   const devFetch = async (path: string, opts?: RequestInit) => {
-    const token = await getToken();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    const res = await fetch(`${basePath}/api/developer${path}`, { headers, ...opts });
+    const headers = new Headers(opts?.headers);
+    if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+    const res = await authFetch(`${basePath}/api/developer${path}`, { ...opts, headers });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   };

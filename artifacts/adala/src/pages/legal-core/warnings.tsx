@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -19,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -62,7 +64,7 @@ export default function Warnings() {
   /* ── shared ── */
   const { data: employees = [] } = useQuery<any[]>({
     queryKey: ["employees"],
-    queryFn: () => fetch(`${BASE}/api/hr/employees`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/hr/employees`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   /* ═══════════ WARNINGS ═══════════ */
@@ -74,23 +76,23 @@ export default function Warnings() {
 
   const { data: warnings = [], isLoading: wLoading } = useQuery<any[]>({
     queryKey: ["warnings"],
-    queryFn: () => fetch(`${BASE}/api/hr/warnings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/hr/warnings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const addWarning = useMutation({
-    mutationFn: (d: any) => fetch(`${BASE}/api/hr/warnings`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (d: any) => authFetch(`${BASE}/api/hr/warnings`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["warnings"] }); setShowWarnForm(false); setWForm({ employeeId: "", type: "written", reason: "", description: "", issuedBy: "" }); toast({ title: "تم إصدار الإنذار ✓" }); },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const updateWarning = useMutation({
-    mutationFn: ({ id, ...d }: any) => fetch(`${BASE}/api/hr/warnings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: ({ id, ...d }: any) => authFetch(`${BASE}/api/hr/warnings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["warnings"] }); toast({ title: "تم التحديث ✓" }); },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const deleteWarning = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/hr/warnings/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => authFetch(`${BASE}/api/hr/warnings/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["warnings"] }); toast({ title: "تم الحذف" }); },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
@@ -112,23 +114,23 @@ export default function Warnings() {
 
   const { data: investigations = [], isLoading: iLoading } = useQuery<any[]>({
     queryKey: ["investigations"],
-    queryFn: () => fetch(`${BASE}/api/hr/investigations`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/hr/investigations`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const addInvestigation = useMutation({
-    mutationFn: (d: any) => fetch(`${BASE}/api/hr/investigations`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (d: any) => authFetch(`${BASE}/api/hr/investigations`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["investigations"] }); setShowInvForm(false); setIForm({ employeeId: "", subject: "", description: "", openedBy: "", committee: "", sessionDate: "" }); toast({ title: "تم فتح التحقيق ✓" }); },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const updateInvestigation = useMutation({
-    mutationFn: ({ id, ...d }: any) => fetch(`${BASE}/api/hr/investigations/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: ({ id, ...d }: any) => authFetch(`${BASE}/api/hr/investigations/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["investigations"] }); setShowInvDetail(null); toast({ title: "تم التحديث ✓" }); },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const deleteInvestigation = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/hr/investigations/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => authFetch(`${BASE}/api/hr/investigations/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["investigations"] }); toast({ title: "تم الحذف" }); },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });

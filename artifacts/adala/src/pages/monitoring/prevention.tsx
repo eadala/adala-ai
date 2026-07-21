@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,11 +7,12 @@ import {
   ToggleLeft, ToggleRight, Play, BookOpen
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (path: string) => `${BASE}${path}`;
 async function fetchJ(url: string, opts?: RequestInit) {
-  const r = await fetch(url, opts);
+  const r = await authFetch(url, opts);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }

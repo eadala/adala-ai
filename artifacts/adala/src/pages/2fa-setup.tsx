@@ -1,3 +1,4 @@
+ 
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Shield, Copy, CheckCircle, AlertCircle, Smartphone, Key } from "lucide-react";
@@ -6,6 +7,7 @@ import { Input }    from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge }    from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -20,11 +22,11 @@ export default function TwoFactorSetup() {
 
   const { data: status } = useQuery<{ enabled: boolean; configured: boolean }>({
     queryKey: ["2fa-status"],
-    queryFn: () => fetch(`${BASE}/api/2fa/status`).then(r => r.json()),
+    queryFn: () => authFetch(`${BASE}/api/2fa/status`).then(r => r.json()),
   });
 
   const setupMut = useMutation({
-    mutationFn: () => fetch(`${BASE}/api/2fa/setup`, { method: "POST" }).then(r => r.json()),
+    mutationFn: () => authFetch(`${BASE}/api/2fa/setup`, { method: "POST" }).then(r => r.json()),
     onSuccess: (data) => {
       setQrData(data);
       setStep("qr");
@@ -34,7 +36,7 @@ export default function TwoFactorSetup() {
 
   const verifyMut = useMutation({
     mutationFn: (t: string) =>
-      fetch(`${BASE}/api/2fa/verify`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: t }) }).then(r => {
+      authFetch(`${BASE}/api/2fa/verify`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: t }) }).then(r => {
         if (!r.ok) throw new Error("invalid");
         return r.json();
       }),
@@ -48,7 +50,7 @@ export default function TwoFactorSetup() {
 
   const disableMut = useMutation({
     mutationFn: (t: string) =>
-      fetch(`${BASE}/api/2fa/disable`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: t }) }).then(r => {
+      authFetch(`${BASE}/api/2fa/disable`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: t }) }).then(r => {
         if (!r.ok) throw new Error("invalid");
         return r.json();
       }),

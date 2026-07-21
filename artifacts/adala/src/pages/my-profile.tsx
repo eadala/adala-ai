@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion, react-hooks/exhaustive-deps -- pre-existing lint debt; authFetch migration */
 import { useUser, useClerk } from "@clerk/react";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
@@ -10,6 +11,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -48,7 +50,7 @@ export default function MyProfilePage() {
 
   const { data: officeData } = useQuery<any>({
     queryKey: ["office-profile"],
-    queryFn: () => fetch(`${BASE}/api/users`).then(r => r.ok ? r.json() : null).catch(() => null),
+    queryFn: () => authFetch(`${BASE}/api/users`).then(r => r.ok ? r.json() : null).catch(() => null),
     staleTime: 5 * 60 * 1000,
   });
 

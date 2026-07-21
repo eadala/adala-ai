@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { useAuth } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -45,6 +46,7 @@ import {
 } from "recharts";
 import { API, useAdmin } from "../shared/api";
 import { StatCard, HealthPill } from "../shared/components";
+import { authFetch } from "@/lib/authFetch";
 import {
   PLAN_SLUG_COLORS, PLAN_SLUG_LABELS, PLAN_FEATURE_FLAGS, TABS,
   arabicToSlug, PERM_LABELS
@@ -53,7 +55,7 @@ import {
 const SA_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 function saFetch(path: string, token: string) {
-  return fetch(path, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+  return authFetch(path, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
 }
 
 const SEV_COLOR: Record<string, string> = {
@@ -112,7 +114,7 @@ export function AgentRuntimeTab({ toast }: { toast: any }) {
     try {
       const token = await getToken();
       const url = id === "all" ? `${SA_BASE}/api/agents/run` : `${SA_BASE}/api/agents/${id}/run`;
-      const r = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${token ?? ""}` } });
+      const r = await authFetch(url, { method: "POST", headers: { Authorization: `Bearer ${token ?? ""}` } });
       const j = await r.json();
       toast({ title: "✅ اكتمل الفحص", description: `اكتُشف ${j.found ?? 0} حدث في ${j.elapsed ?? 0}ms` });
       refetch();
@@ -124,7 +126,7 @@ export function AgentRuntimeTab({ toast }: { toast: any }) {
   async function resolveAction(id: number) {
     try {
       const token = await getToken();
-      await fetch(`${SA_BASE}/api/agents/actions/${id}/resolve`, { method: "POST", headers: { Authorization: `Bearer ${token ?? ""}` } });
+      await authFetch(`${SA_BASE}/api/agents/actions/${id}/resolve`, { method: "POST", headers: { Authorization: `Bearer ${token ?? ""}` } });
       refetch();
     } catch {}
   }

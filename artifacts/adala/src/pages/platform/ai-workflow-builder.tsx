@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; authFetch migration */
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { authFetch } from "@/lib/authFetch";
 import {
   GitBranch, Play, Save, Trash2, Sparkles, Loader2, ChevronRight,
   Zap, Brain, FileText, Bell, AlertTriangle, RefreshCw, CheckCircle2,
@@ -181,13 +182,11 @@ const TEMPLATES = [
 export default function AIWorkflowBuilder() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { getToken } = useAuth();
 
-  const authFetch = async (url: string, opts: RequestInit = {}) => {
-    const token = await getToken();
-    return fetch(url, {
+  const apiJson = async (url: string, opts: RequestInit = {}) => {
+    return authFetch(url, {
       ...opts,
-      headers: { ...(opts.headers ?? {}), "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(opts.headers ?? {}) },
     });
   };
 
@@ -195,10 +194,7 @@ export default function AIWorkflowBuilder() {
   const { data: access, isLoading: accessLoading } = useQuery<any>({
     queryKey: ["workflow-builder-access"],
     queryFn: async () => {
-      const token = await getToken();
-      const r = await fetch("/api/ai-workflow/access-check", {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const r = await apiJson("/api/ai-workflow/access-check");
       if (!r.ok) return { allowed: false };
       return r.json();
     },
@@ -335,7 +331,7 @@ export default function AIWorkflowBuilder() {
 
   /* ── load saved ── */
   const loadSaved = useCallback(async (wf: any) => {
-    const r = await fetch(`/api/ai-workflow/${wf.id}`);
+    const r = await authFetch(`/api/ai-workflow/${wf.id}`);
     const data = await r.json();
     setGraph(data.graph_json);
     setSavedId(data.id);

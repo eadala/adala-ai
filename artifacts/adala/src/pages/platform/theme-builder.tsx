@@ -601,7 +601,7 @@ export default function ThemeBuilderPage() {
   /* Load presets */
   const { data: presets = [] } = useQuery<any[]>({
     queryKey: ["theme-builder-presets"],
-    queryFn: () => fetch(`${BASE}/api/theme-builder/presets`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/theme-builder/presets`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: Infinity,
   });
 
@@ -612,7 +612,7 @@ export default function ThemeBuilderPage() {
 
   /* Save mutation */
   const saveMut = useMutation({
-    mutationFn: () => fetch(`${BASE}/api/theme-builder/save`, {
+    mutationFn: () => authFetch(`${BASE}/api/theme-builder/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tokens, name: themeName }),

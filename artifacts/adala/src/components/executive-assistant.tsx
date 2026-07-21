@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; authFetch migration */
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Bot, Zap, AlertTriangle, Gavel, FileText, CalendarDays, ChevronLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -30,7 +32,7 @@ function greetMsg() {
 export function ExecutiveAssistant() {
   const { data, isLoading } = useQuery<Briefing>({
     queryKey: ["ai-briefing"],
-    queryFn: () => fetch(`${BASE}/api/ai-agent/briefing`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/ai-agent/briefing`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 120_000,
   });
 

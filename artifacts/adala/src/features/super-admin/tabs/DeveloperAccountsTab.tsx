@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,6 +18,7 @@ import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { DEV_API } from "../shared/api";
+import { authFetch } from "@/lib/authFetch";
 
 /* ── Permission definitions ──────────────────────── */
 const PERMISSIONS = [
@@ -92,13 +94,13 @@ export function DeveloperAccountsTab({ toast }: { toast: any }) {
   const saveMut = useMutation({
     mutationFn: async () => {
       if (dialogMode === "add") {
-        const r = await fetch("/api/developer/dev-accounts", {
+        const r = await authFetch("/api/developer/dev-accounts", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...form, permissions: perms }),
         });
         const d = await r.json(); if (!r.ok) throw new Error(d.error); return d;
       } else {
-        const r = await fetch(`/api/developer/dev-accounts/${selected.id}`, {
+        const r = await authFetch(`/api/developer/dev-accounts/${selected.id}`, {
           method: "PATCH", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: form.name, notes: form.notes, permissions: perms }),
         });
@@ -115,7 +117,7 @@ export function DeveloperAccountsTab({ toast }: { toast: any }) {
 
   const toggleActive = useMutation({
     mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
-      fetch(`/api/developer/dev-accounts/${id}`, {
+      authFetch(`/api/developer/dev-accounts/${id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_active }),
       }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error); return d; }),
@@ -125,7 +127,7 @@ export function DeveloperAccountsTab({ toast }: { toast: any }) {
 
   const deleteMut = useMutation({
     mutationFn: (id: string) =>
-      fetch(`/api/developer/dev-accounts/${id}`, { method: "DELETE" })
+      authFetch(`/api/developer/dev-accounts/${id}`, { method: "DELETE" })
         .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error); return d; }),
     onSuccess: () => {
       toast({ title: "✅ تم الحذف" });

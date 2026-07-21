@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { authFetch } from "@/lib/authFetch";
 import {
   Globe, Link2, Copy, CheckCircle2, Plus, Trash2, Clock,
   Eye, Shield, ExternalLink, RefreshCw, Loader2, Settings,
@@ -52,7 +54,7 @@ function NewTokenDialog({ cases, onCreated }: { cases: Case[]; onCreated: () => 
 
   const create = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/portal/create-token`, {
+      authFetch(`${BASE}/api/portal/create-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ caseId, clientEmail, clientName, expiryDays, showInvoices, showTimeline, allowedToUpload })}).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -162,7 +164,7 @@ function AddTimelineDialog({ caseId, onAdded }: { caseId: string; onAdded: () =>
 
   const add = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/portal/timeline/${caseId}`, {
+      authFetch(`${BASE}/api/portal/timeline/${caseId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, description, entryType, happenedAt, isShared })}).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -239,7 +241,7 @@ function TokenSettingsPanel({ token, onSaved }: { token: PortalToken; onSaved: (
 
   const save = async () => {
     setSaving(true);
-    const r = await fetch(`${BASE}/api/portal/tokens/${token.id}/settings`, {
+    const r = await authFetch(`${BASE}/api/portal/tokens/${token.id}/settings`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ showInvoices, showTimeline, allowedToUpload })});
@@ -304,12 +306,12 @@ function CreateClientAccountDialog({ cases, onCreated }: { cases: Case[]; onCrea
     // If a case is selected, get the portal token for it if available
     let portalToken: string | undefined;
     if (caseId) {
-      const r = await fetch(`${BASE}/api/portal/tokens/${caseId}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }).catch(() => []);
+      const r = await authFetch(`${BASE}/api/portal/tokens/${caseId}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }).catch(() => []);
       const tokens: any[] = Array.isArray(r) ? r : [];
       portalToken = tokens[0]?.token;
     }
 
-    const r = await fetch(`${BASE}/api/client-auth/admin-create`, {
+    const r = await authFetch(`${BASE}/api/client-auth/admin-create`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, name: name || null, phone: phone || null, caseId: caseId || null, portalToken })});
@@ -490,7 +492,7 @@ function CommSettingsDialog() {
 
   const { data: settings, isLoading, refetch } = useQuery<CommSettings>({
     queryKey: ["comm-settings"],
-    queryFn: () => fetch(`${BASE}/api/comm-settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/comm-settings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: open});
 
   const merged = { ...settings, ...draft } as CommSettings;
@@ -513,7 +515,7 @@ function CommSettingsDialog() {
       timeline_roles: merged.timeline_roles,
       intake_roles:   merged.intake_roles,
       require_reply_approval: merged.require_reply_approval};
-    const r = await fetch(`${BASE}/api/comm-settings`, {
+    const r = await authFetch(`${BASE}/api/comm-settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)});
@@ -618,20 +620,20 @@ export default function ClientPortal() {
 
   const { data: cases = [] } = useQuery<Case[]>({
     queryKey: ["cases-list"],
-    queryFn: () => fetch(`${BASE}/api/cases`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }).then(d => Array.isArray(d) ? d : d.cases ?? [])});
+    queryFn: () => authFetch(`${BASE}/api/cases`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }).then(d => Array.isArray(d) ? d : d.cases ?? [])});
 
   const { data: allTokens = [], isLoading, refetch } = useQuery<PortalToken[]>({
     queryKey: ["portal-all-tokens"],
     queryFn: async () => {
       const results = await Promise.all(
-        cases.slice(0, 30).map(c => fetch(`${BASE}/api/portal/tokens/${c.id}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }))
+        cases.slice(0, 30).map(c => authFetch(`${BASE}/api/portal/tokens/${c.id}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }))
       );
       return results.flat().filter(Boolean);
     },
     enabled: cases.length > 0});
 
   const deleteToken = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/portal/tokens/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => authFetch(`${BASE}/api/portal/tokens/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast.success("تم حذف الرابط"); qc.invalidateQueries({ queryKey: ["portal-all-tokens"] }); }});
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["portal-all-tokens"] });

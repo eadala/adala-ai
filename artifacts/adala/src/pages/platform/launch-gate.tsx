@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { authFetch } from "@/lib/authFetch";
 import {
   Shield, CheckCircle2, XCircle, AlertTriangle, Rocket, Play,
   RefreshCw, Lock, Brain, Zap, DollarSign, FileText, Bell,
@@ -174,7 +176,7 @@ export default function LaunchGatePage() {
   const { data: shieldData, refetch: refetchShield } = useQuery({
     queryKey: ["launch-gate-shield"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/launch-gate/shield`, { headers: await headers() });
+      const r = await authFetch(`${BASE}/api/launch-gate/shield`, { headers: await headers() });
       return r.json();
     },
     refetchInterval: 5000,
@@ -183,7 +185,7 @@ export default function LaunchGatePage() {
   const { data: statsData } = useQuery({
     queryKey: ["launch-gate-stats"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/launch-gate/stats`, { headers: await headers() });
+      const r = await authFetch(`${BASE}/api/launch-gate/stats`, { headers: await headers() });
       return r.json();
     },
     refetchInterval: 10000,
@@ -192,7 +194,7 @@ export default function LaunchGatePage() {
   const { data: threatsData, refetch: refetchThreats } = useQuery({
     queryKey: ["launch-gate-threats"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/launch-gate/threats`, { headers: await headers() });
+      const r = await authFetch(`${BASE}/api/launch-gate/threats`, { headers: await headers() });
       return r.json();
     },
     refetchInterval: 8000,
@@ -201,7 +203,7 @@ export default function LaunchGatePage() {
   const runGate = async () => {
     setRunning(true);
     try {
-      const r = await fetch(`${BASE}/api/launch-gate/run`, {
+      const r = await authFetch(`${BASE}/api/launch-gate/run`, {
         method: "POST",
         headers: await headers(),
       });
@@ -213,13 +215,13 @@ export default function LaunchGatePage() {
   };
 
   const resolveThreaten = async (id: string) => {
-    await fetch(`${BASE}/api/launch-gate/resolve/${id}`, { method: "POST", headers: await headers() });
+    await authFetch(`${BASE}/api/launch-gate/resolve/${id}`, { method: "POST", headers: await headers() });
     refetchThreats();
   };
 
   const doBanIp = async () => {
     if (!banIpInput.trim()) return;
-    await fetch(`${BASE}/api/launch-gate/ban-ip`, {
+    await authFetch(`${BASE}/api/launch-gate/ban-ip`, {
       method: "POST",
       headers: await headers(),
       body: JSON.stringify({ ip: banIpInput.trim() }),

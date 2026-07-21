@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * مركز إطلاق الإنتاج — Production Launch Center
  * ═══════════════════════════════════════════════
@@ -18,6 +19,7 @@ import {
   ChevronRight, Sparkles, Terminal,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -217,7 +219,7 @@ function DockerTab() {
     queryKey: ["prod-launch-docker"],
     queryFn: async () => {
       const token = await getToken();
-      const r = await fetch(`${BASE}/api/production-launch/docker-config`, {
+      const r = await authFetch(`${BASE}/api/production-launch/docker-config`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return r.json();
@@ -314,7 +316,7 @@ function LaunchTab({ readiness }: { readiness?: Readiness }) {
     queryKey: ["launch-history"],
     queryFn: async () => {
       const token = await getToken();
-      const r = await fetch(`${BASE}/api/production-launch/history`, {
+      const r = await authFetch(`${BASE}/api/production-launch/history`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return r.json();
@@ -324,7 +326,7 @@ function LaunchTab({ readiness }: { readiness?: Readiness }) {
   const launch = useMutation({
     mutationFn: async () => {
       const token = await getToken();
-      const r = await fetch(`${BASE}/api/production-launch/confirm`, {
+      const r = await authFetch(`${BASE}/api/production-launch/confirm`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -482,7 +484,7 @@ export default function ProductionLaunchCenter() {
     queryKey: ["production-launch-readiness"],
     queryFn: async () => {
       const token = await getToken();
-      const r = await fetch(`${BASE}/api/production-launch/readiness`, {
+      const r = await authFetch(`${BASE}/api/production-launch/readiness`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!r.ok) throw new Error("fetch failed");

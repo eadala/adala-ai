@@ -1690,7 +1690,7 @@ export function Layout({ children }: { children: ReactNode }) {
   /* Onboarding gate */
   const { data: onboardingState } = useQuery({
     queryKey: ["onboarding-state"],
-    queryFn: () => fetch(`${basePath}/api/onboarding/state`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    queryFn: () => authFetch(`${basePath}/api/onboarding/state`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
     enabled: isLoaded && !!user,
     staleTime: 5 * 60_000,
   });
@@ -1701,7 +1701,7 @@ export function Layout({ children }: { children: ReactNode }) {
   /* Badges */
   const { data: remindersData } = useQuery({
     queryKey: ["reminders-count"],
-    queryFn: () => fetch(`${basePath}/api/reminders/count`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    queryFn: () => authFetch(`${basePath}/api/reminders/count`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
     enabled: isLoaded && !!user,
     staleTime: 60_000,
     refetchInterval: 60_000,

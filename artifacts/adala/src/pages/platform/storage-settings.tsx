@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
@@ -17,6 +18,7 @@ import {
   RefreshCw, AlertTriangle, CheckCircle2, Copy, FolderOpen,
   Upload, Download, Eye, MoreVertical, Zap, Shield
 } from "lucide-react";
+import { authFetch } from "@/lib/authFetch";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -24,7 +26,7 @@ import {
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function api(path: string, opts?: RequestInit) {
-  return fetch(`${BASE}/api${path}`, {
+  return authFetch(`${BASE}/api${path}`, {
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     ...opts,

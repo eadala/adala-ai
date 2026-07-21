@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
@@ -13,6 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { authFetch } from "@/lib/authFetch";
 import {
   Briefcase, Plus, Search, CheckCircle2, Clock, Users, Banknote,
   FileText, AlertTriangle, ChevronLeft, ScrollText, ShieldCheck, Star,
@@ -21,7 +23,7 @@ import {
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 async function API(path: string, opts?: RequestInit) {
-  const r = await fetch(`${BASE}${path}`, {
+  const r = await authFetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     ...opts,

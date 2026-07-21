@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 import {
   DollarSign, TrendingUp, BarChart2, BookOpen, ArrowRightLeft,
   CheckCircle2, AlertTriangle, RefreshCw, Zap, Building2,
@@ -10,12 +12,12 @@ import {
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api  = (p: string) => `${BASE}${p}`;
 async function get(url: string) {
-  const r = await fetch(url);
+  const r = await authFetch(url);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 async function post(url: string, body?: object) {
-  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const r = await authFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }

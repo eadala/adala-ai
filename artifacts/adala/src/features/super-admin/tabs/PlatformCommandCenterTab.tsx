@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { useAuth } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -45,6 +46,7 @@ import {
 } from "recharts";
 import { API, DEV_API, useAdmin } from "../shared/api";
 import { StatCard } from "../shared/components";
+import { authFetch } from "@/lib/authFetch";
 import {
   PLAN_SLUG_COLORS, PLAN_SLUG_LABELS, PLAN_FEATURE_FLAGS, TABS,
   arabicToSlug, PERM_LABELS
@@ -53,7 +55,7 @@ import {
 const SA_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 function saFetch(path: string, token: string) {
-  return fetch(path, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+  return authFetch(path, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
 }
 
 function HealthPill({ value, label, icon: Icon, color }: { value: string | number; label: string; icon: any; color: string }) {

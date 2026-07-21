@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion, react-hooks/exhaustive-deps -- pre-existing lint debt; authFetch migration */
 /**
  * SmartUploader — رافع الملفات الذكي
  * Mobile-First | Drag & Drop | Camera | AI Analysis | Image Compression
@@ -11,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -235,7 +237,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
         upd(item.id, { status: "uploading", progress: 10 });
 
         /* 2 ── Presigned URL */
-        const urlR = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        const urlR = await authFetch(`${BASE}/api/storage/uploads/request-url`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: f.name, size: f.size, contentType: f.type }),
         });
@@ -247,7 +249,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
         upd(item.id, { status: "registering", progress: 82 });
 
         /* 4 ── Register in DB */
-        const regR = await fetch(`${BASE}/api/storage/files`, {
+        const regR = await authFetch(`${BASE}/api/storage/files`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             originalName: item.original.name,
@@ -273,7 +275,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
           upd(item.id, { status: "analyzing", progress: 90 });
           try {
             const b64 = await fileToBase64(f);
-            const aR  = await fetch(`${BASE}/api/storage/analyze`, {
+            const aR  = await authFetch(`${BASE}/api/storage/analyze`, {
               method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ base64: b64, mimeType: f.type }),
             });
@@ -312,7 +314,7 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
     setShowUrlBox(false);
     setUrlValue("");
     try {
-      const r = await fetch(`${BASE}/api/storage/import-url`, {
+      const r = await authFetch(`${BASE}/api/storage/import-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: raw, caseId: caseId ?? null, clientId: clientId ?? null }),

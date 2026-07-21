@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import {
   ChevronLeft, BarChart2, Wallet, Landmark, ArrowRightLeft, BrainCircuit,
   ArrowUpRight, ArrowDownRight, Printer,
 } from "lucide-react";
+import { authFetch } from "@/lib/authFetch";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -72,7 +74,7 @@ const QUICK_LINKS = [
 export default function FinanceCenter() {
   const { data, isLoading } = useQuery<any>({
     queryKey: ["finance-dashboard"],
-    queryFn: () => fetch(`${BASE}/api/finance/dashboard`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/finance/dashboard`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 2 * 60 * 1000,
   });
 

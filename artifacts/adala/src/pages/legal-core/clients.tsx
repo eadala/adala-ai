@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -19,6 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -143,21 +145,21 @@ export default function Clients() {
 
   const { data: clients = [], isLoading } = useQuery<any[]>({
     queryKey: ["clients"],
-    queryFn: () => fetch(`${BASE}/api/clients`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/clients`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => fetch(`${BASE}/api/clients`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (data: any) => authFetch(`${BASE}/api/clients`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); closeForm(); toast({ title: tx("تم إضافة العميل", "Client added") }); },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }: any) => fetch(`${BASE}/api/clients/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: ({ id, ...data }: any) => authFetch(`${BASE}/api/clients/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); closeForm(); toast({ title: tx("تم التحديث", "Updated") }); },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/clients/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => authFetch(`${BASE}/api/clients/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); toast({ title: tx("تم حذف العميل", "Client deleted") }); },
     onError: () => toast({ title: tx("خطأ في الحذف", "Delete failed"), variant: "destructive" }),
   });

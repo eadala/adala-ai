@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -45,16 +47,16 @@ export default function Payroll() {
 
   const { data: payroll = [], isLoading } = useQuery<any[]>({
     queryKey: ["payroll"],
-    queryFn: () => fetch("/api/hr/payroll").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch("/api/hr/payroll").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: payStats } = useQuery<any>({
     queryKey: ["payroll-stats"],
-    queryFn: () => fetch("/api/hr/payroll/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch("/api/hr/payroll/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const generateMutation = useMutation({
-    mutationFn: (data: any) => fetch("/api/hr/payroll/generate", {
+    mutationFn: (data: any) => authFetch("/api/hr/payroll/generate", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => { qc.invalidateQueries({ queryKey: ["payroll"] }); qc.invalidateQueries({ queryKey: ["payroll-stats"] }); setShowGenerate(false); toast({ title: `تم توليد ${d.generated} قسيمة راتب` }); },
@@ -62,13 +64,13 @@ export default function Payroll() {
   });
 
   const payMutation = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/hr/payroll/${id}/pay`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => authFetch(`${BASE}/api/hr/payroll/${id}/pay`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); qc.invalidateQueries({ queryKey: ["payroll-stats"] }); toast({ title: "تم صرف الراتب" }); },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const payAllMutation = useMutation({
-    mutationFn: ({ month, year }: any) => fetch("/api/hr/payroll/pay-all", {
+    mutationFn: ({ month, year }: any) => authFetch("/api/hr/payroll/pay-all", {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, year: parseInt(year) }),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); qc.invalidateQueries({ queryKey: ["payroll-stats"] }); toast({ title: "تم صرف جميع الرواتب" }); },

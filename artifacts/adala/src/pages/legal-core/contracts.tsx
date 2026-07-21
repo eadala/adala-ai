@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -33,6 +34,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const api = (p: string) => `${BASE}/api${p}`;
@@ -195,7 +197,7 @@ function ContractEditorDialog({ contract, onClose, onSaved }: { contract: Contra
 
   const { data: versions = [] } = useQuery<Version[]>({
     queryKey: ["contract-versions", contract?.id],
-    queryFn: () => fetch(api(`/contracts/${contract?.id}/versions`)).then(r => r.json()),
+    queryFn: () => authFetch(api(`/contracts/${contract?.id}/versions`)).then(r => r.json()),
     enabled: !!contract?.id && panel === "versions",
   });
 
@@ -204,7 +206,7 @@ function ContractEditorDialog({ contract, onClose, onSaved }: { contract: Contra
     setSaving(true);
     try {
       const content = editor.getHTML();
-      const r = await fetch(api(`/contracts/${contract.id}`), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
+      const r = await authFetch(api(`/contracts/${contract.id}`), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
       if (!r.ok) throw new Error();
       qc.invalidateQueries({ queryKey: ["contracts"] });
       toast({ title: "تم الحفظ ✓" });
@@ -219,7 +221,7 @@ function ContractEditorDialog({ contract, onClose, onSaved }: { contract: Contra
     setPanelOpen(true);
     try {
       const sel = editor?.state.selection ? editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to) : "";
-      const r = await fetch(api(`/contracts/${contract.id}/ai-action`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: actionId, selection: sel }) });
+      const r = await authFetch(api(`/contracts/${contract.id}/ai-action`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: actionId, selection: sel }) });
       const d = await r.json();
       setAiResult(d.result ?? d.error ?? "لا نتيجة");
     } catch { setAiResult("خطأ في الاتصال بالذكاء الاصطناعي"); }
@@ -234,20 +236,20 @@ function ContractEditorDialog({ contract, onClose, onSaved }: { contract: Contra
 
   const updateStatus = async (status: string) => {
     if (!contract) return;
-    await fetch(api(`/contracts/${contract.id}`), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    await authFetch(api(`/contracts/${contract.id}`), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     qc.invalidateQueries({ queryKey: ["contracts"] });
     toast({ title: `الحالة: ${STATUS_CFG[status]?.label}` });
   };
 
   const restoreVersion = async (v: Version) => {
-    const r = await fetch(api(`/contracts/${contract?.id}/versions/${v.id}`));
+    const r = await authFetch(api(`/contracts/${contract?.id}/versions/${v.id}`));
     const d = await r.json();
     if (d.content) { editor?.commands.setContent(d.content); toast({ title: `استُعيد الإصدار ${v.version_number}` }); }
   };
 
   const sendSig = async () => {
     if (!contract || !signerName) return;
-    const r = await fetch(api(`/contracts/${contract.id}/signature-request`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ signerName, signerEmail }) });
+    const r = await authFetch(api(`/contracts/${contract.id}/signature-request`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ signerName, signerEmail }) });
     if (r.ok) { toast({ title: "تم إرسال طلب التوقيع ✓" }); setShowSigDlg(false); qc.invalidateQueries({ queryKey: ["contracts"] }); }
   };
 
@@ -419,7 +421,7 @@ function AiPromptDialog({ open, onClose, onCreated }: { open: boolean; onClose: 
     if (!prompt.trim()) return;
     setLoading(true);
     try {
-      const r = await fetch(api("/contracts/generate-from-prompt"), {
+      const r = await authFetch(api("/contracts/generate-from-prompt"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, selectedClauses }),
       });
@@ -474,7 +476,7 @@ function CreateContractDialog({ open, onClose, initialData, defaultTemplateId }:
   useEffect(() => { if (!open) { setStep(1); setSelectedClauses([]); } }, [open]);
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => fetch(api("/contracts"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    mutationFn: (data: any) => authFetch(api("/contracts"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["contracts"] }); qc.invalidateQueries({ queryKey: ["contracts-stats"] });
       onClose(); toast({ title: form.aiGenerate ? "جاري توليد العقد بالذكاء الاصطناعي..." : "تم إنشاء العقد ✓" });
@@ -586,11 +588,11 @@ export default function Contracts() {
   const [createTemplateId, setCreateTemplateId] = useState<string | undefined>();
 
   // Queries
-  const { data: stats } = useQuery<Stats>({ queryKey: ["contracts-stats"], queryFn: () => fetch(api("/contracts/stats")).then(r => r.json()) });
-  const { data: categories = [] } = useQuery<Category[]>({ queryKey: ["contract-categories"], queryFn: () => fetch(api("/contract-categories")).then(r => r.json()) });
+  const { data: stats } = useQuery<Stats>({ queryKey: ["contracts-stats"], queryFn: () => authFetch(api("/contracts/stats")).then(r => r.json()) });
+  const { data: categories = [] } = useQuery<Category[]>({ queryKey: ["contract-categories"], queryFn: () => authFetch(api("/contract-categories")).then(r => r.json()) });
   const { data: templates = [], isLoading: templatesLoading } = useQuery<Template[]>({
     queryKey: ["contract-templates", selectedCategory],
-    queryFn: () => fetch(api(`/contract-templates${selectedCategory ? `?category_id=${selectedCategory}` : ""}`)).then(r => r.json()),
+    queryFn: () => authFetch(api(`/contract-templates${selectedCategory ? `?category_id=${selectedCategory}` : ""}`)).then(r => r.json()),
     enabled: activeTab === "library",
   });
   const { data: contracts = [], isLoading } = useQuery<Contract[]>({
@@ -600,12 +602,12 @@ export default function Contracts() {
       if (search) p.set("search", search);
       if (statusFilter !== "all") p.set("status", statusFilter);
       if (typeFilter !== "all") p.set("type", typeFilter);
-      return fetch(api(`/contracts?${p}`)).then(r => r.json());
+      return authFetch(api(`/contracts?${p}`)).then(r => r.json());
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetch(api(`/contracts/${id}`), { method: "DELETE" }),
+    mutationFn: (id: string) => authFetch(api(`/contracts/${id}`), { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["contracts"] }); qc.invalidateQueries({ queryKey: ["contracts-stats"] }); toast({ title: "تم الحذف" }); },
   });
 

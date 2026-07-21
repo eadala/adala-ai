@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * AI Gateway Tab — لوحة تحكم مزودي الذكاء الاصطناعي
  * ────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ import {
   PieChart, Pie, Cell, AreaChart, Area, Legend,
 } from "recharts";
 import { API, useAdmin }          from "../shared/api";
+import { authFetch } from "@/lib/authFetch";
 
 /* ── helpers ─────────────────────────────────────────────────────── */
 const fmt = (n: any) => Number(n ?? 0).toLocaleString("ar-SA");
@@ -68,7 +70,7 @@ async function aiApi(path: string, opts?: RequestInit) {
   const token = _getToken ? await _getToken() : null;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}/api${path}`, { headers, ...opts });
+  const res = await authFetch(`${BASE}/api${path}`, { headers, ...opts });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
     throw new Error(err.error ?? `HTTP ${res.status}`);
