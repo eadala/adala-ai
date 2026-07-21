@@ -54,7 +54,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/009_storage_folders.sql
 
-# 10) تحقق بعد التنفيذ
+# 10) office_ledger + performance indexes (Schema Authority Batch 2)
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/010_office_ledger_performance_indexes.sql
+
+# 11) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -70,6 +74,7 @@ bash scripts/db/verify-schema.sh
 | `007_office_storage_quota_text_tenant.sql` | `office_storage_quota` TEXT tenant key (trial_* / permanent); drop FK to `office_page` |
 | `008_storage_files_text_tenant.sql` | `storage_files` formal CREATE (TEXT `office_id`); fixes Production `42P01` |
 | `009_storage_folders.sql` | `storage_folders` + `folder_permissions` |
+| `010_office_ledger_performance_indexes.sql` | `office_ledger` + boot performance indexes |
 
 ## جداول P0 (تسبب أخطاء runtime إن غابت)
 
@@ -87,16 +92,18 @@ bash scripts/db/verify-schema.sh
 | `office_storage_quota` | **007** | `storage.ts` POST `/storage/files` quota upsert |
 | `storage_files` | **008** | `storageFileRegister.ts` / POST `/storage/files` insert |
 | `storage_folders` | **009** | `storage.ts` folder management |
+| `office_ledger` | **010** | billing / Stripe webhooks / reconcile |
 | `clients` | 003 | Legal core |
 
 ## ما يبقى بعد Migrations (boot-time)
 
 ~100 جدول enterprise تُنشأ عند أول boot للـ API عبر `ensure*Tables()` في
 `artifacts/api-server/src/index.ts` والوحدات. هذه migrations تغطي **P0 + baseline**
-فقط. بعد تطبيق 003–009، شغّل API مرة واحدة لإكمال الجداول المتبقية (enterprise).
+فقط. بعد تطبيق 003–010، شغّل API مرة واحدة لإكمال الجداول المتبقية (enterprise).
 
-جداول مغطاة بـ 004/005 لم تعد تُنشأ عبر Runtime DDL:
-`contract_*`, `trial_offices`, `onboarding_state`, `system_events`, `plan_cms`.
+جداول مغطاة بـ 004/005/010 لم تعد تُنشأ عبر Runtime DDL:
+`contract_*`, `trial_offices`, `onboarding_state`, `system_events`, `plan_cms`, `office_ledger`
+(+ performance indexes من `ensurePerformanceIndexes`).
 
 ## Rollback
 
@@ -111,7 +118,7 @@ bash scripts/db/test-migrations.integration.sh
 pnpm --filter @workspace/api-server run test:schema-authority
 ```
 
-يغطي: DB فارغة (003→001→004→005→006→007→008→009)، Production-like بدون `website_config`/`login_logs`،
-idempotency لـ 006/007/008/009، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
+يغطي: DB فارغة (003→001→004→005→006→007→008→009→010)، Production-like بدون `website_config`/`login_logs`،
+idempotency لـ 006/007/008/009/010، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
 
 راجع `scripts/db/boot-created-tables.md` لقائمة جداول boot وقيود Docker.

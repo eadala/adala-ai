@@ -21,6 +21,7 @@ MIGRATION_006="$ROOT/artifacts/api-server/migrations/006_post_migration_api_supp
 MIGRATION_007="$ROOT/artifacts/api-server/migrations/007_office_storage_quota_text_tenant.sql"
 MIGRATION_008="$ROOT/artifacts/api-server/migrations/008_storage_files_text_tenant.sql"
 MIGRATION_009="$ROOT/artifacts/api-server/migrations/009_storage_folders.sql"
+MIGRATION_010="$ROOT/artifacts/api-server/migrations/010_office_ledger_performance_indexes.sql"
 
 PASS=0
 FAIL=0
@@ -100,17 +101,22 @@ apply_migration_009() {
   psql_db -f "$MIGRATION_009" >/dev/null
 }
 
+apply_migration_010() {
+  psql_db -f "$MIGRATION_010" >/dev/null
+}
+
 apply_all_migrations() {
   apply_migrations_base
   apply_migration_006
   apply_migration_007
   apply_migration_008
   apply_migration_009
+  apply_migration_010
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -346,13 +352,15 @@ scenario_migration_006_idempotent() {
   idx_count=$(psql_db -At -c "SELECT COUNT(*) FROM pg_indexes WHERE tablename='login_logs';")
   [[ "$idx_count" -ge 4 ]] && ok "login_logs has indexes ($idx_count)" || bad "login_logs indexes missing ($idx_count)"
 
-  # P0 includes office_storage_quota (007) + storage_files (008)
+  # P0 includes office_storage_quota (007) + storage_files (008) + office_ledger (010)
   apply_migration_007
   apply_migration_008
+  apply_migration_009
+  apply_migration_010
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-006.log 2>&1; then
-    ok "verify-schema.sh passed after 006+007+008"
+    ok "verify-schema.sh passed after 006+007+008+009+010"
   else
-    bad "verify-schema.sh failed after 006+007+008"
+    bad "verify-schema.sh failed after 006+007+008+009+010"
     tail -15 /tmp/verify-006.log
   fi
 
@@ -518,6 +526,103 @@ SQL
   teardown_db
 }
 
+# ── Scenario 3d: office_ledger + performance indexes (010) ───────────────────
+scenario_migration_010_office_ledger() {
+  log "Scenario 3d — office_ledger CREATE + Stripe idempotency index + performance indexes"
+  setup_db "mig010"
+  trap teardown_db EXIT
+
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+
+  local pre_exists
+  pre_exists=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='office_ledger'
+    );
+  ")
+  [[ "$pre_exists" == "f" ]] && ok "pre-010: office_ledger absent" || bad "pre-010: office_ledger should be absent"
+
+  apply_migration_010
+  apply_migration_010
+
+  local post_exists fee_cols uniq_idx cases_idx
+  post_exists=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='office_ledger'
+    );
+  ")
+  fee_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='office_ledger'
+      AND column_name IN ('stripe_fee','platform_fee','net_amount','stripe_event_id');
+  ")
+  uniq_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_office_ledger_stripe_event_id';
+  ")
+  cases_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_cases_office_id';
+  ")
+
+  [[ "$post_exists" == "t" ]] && ok "post-010: office_ledger present" || bad "post-010: office_ledger missing"
+  [[ "$fee_cols" == "4" ]] && ok "post-010: fee + stripe_event_id columns present" || bad "post-010: fee cols=$fee_cols"
+  [[ "$uniq_idx" == "1" ]] && ok "post-010: partial unique stripe_event_id index" || bad "post-010: unique index missing"
+  [[ "$cases_idx" == "1" ]] && ok "post-010: idx_cases_office_id present" || bad "post-010: cases index missing"
+
+  # Idempotent credit insert + duplicate stripe_event_id rejected by unique index path
+  psql_db <<'SQL' >/tmp/post-010-insert.log 2>&1
+INSERT INTO office_ledger
+  (office_id, type, amount, currency, ref, description,
+   stripe_id, stripe_event_id, platform_fee, stripe_fee, net_amount)
+VALUES
+  ('trial_ledger1', 'credit', 100, 'SAR', 'SUB_PRO', 'test',
+   'ch_test', 'evt_test_010', 10, 3.9, 86.1)
+ON CONFLICT (stripe_event_id) WHERE stripe_event_id IS NOT NULL DO NOTHING;
+
+INSERT INTO office_ledger
+  (office_id, type, amount, currency, ref, description,
+   stripe_id, stripe_event_id, platform_fee, stripe_fee, net_amount)
+VALUES
+  ('trial_ledger1', 'credit', 100, 'SAR', 'SUB_PRO', 'dup',
+   'ch_test', 'evt_test_010', 10, 3.9, 86.1)
+ON CONFLICT (stripe_event_id) WHERE stripe_event_id IS NOT NULL DO NOTHING;
+SQL
+  local insert_rc=$?
+  [[ "$insert_rc" -eq 0 ]] && ok "post-010: credit insert + idempotent conflict ok" || {
+    bad "post-010: ledger insert failed"
+    cat /tmp/post-010-insert.log
+  }
+
+  local cnt
+  cnt=$(psql_db -At -c "SELECT COUNT(*) FROM office_ledger WHERE stripe_event_id='evt_test_010';")
+  [[ "$cnt" == "1" ]] && ok "post-010: duplicate stripe_event_id not inserted" || bad "post-010: count=$cnt"
+
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-010.log 2>&1; then
+    ok "verify-schema.sh passed after 010"
+  else
+    bad "verify-schema.sh failed after 010"
+    tail -20 /tmp/verify-010.log
+  fi
+
+  # Source audit: boot must not recreate these indexes
+  if ! grep -qE 'ensurePerformanceIndexes|idx_office_ledger_stripe_event_id' \
+      "$ROOT/artifacts/api-server/src/index.ts"; then
+    ok "index.ts no longer contains ensurePerformanceIndexes DDL"
+  else
+    bad "index.ts still has performance-index Runtime DDL"
+  fi
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Scenario 4: reported endpoints + office/public schema paths ─────────────
 scenario_reported_endpoints() {
   log "Scenario 4 — SQL paths for reported 500/404 endpoints + office/public + sendBeacon vitals"
@@ -575,7 +680,7 @@ SQL
   [[ "$admin_cnt" -ge 1 ]] && ok "admin list offices (db.select officePageTable)" || bad "office_page empty"
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-endpoints.log 2>&1; then
-    ok "verify-schema.sh passed after full chain including 006+007+008"
+    ok "verify-schema.sh passed after full chain including 006→010"
   else
     bad "verify-schema.sh failed on endpoint scenario"
     tail -15 /tmp/verify-endpoints.log
@@ -645,6 +750,7 @@ scenario_partial_idempotent
 scenario_migration_006_idempotent
 scenario_migration_007_text_tenant
 scenario_migration_008_storage_files
+scenario_migration_010_office_ledger
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
