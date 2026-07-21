@@ -1385,7 +1385,7 @@ SQL
 
 # ── Scenario 3g: ERP schema (013) ───────────────────────────────────────────
 scenario_migration_013_erp() {
-  log "Scenario 3g — migration 013: fresh / complete / partial / unique dup / invalid checks / idempotent"
+  log "Scenario 3g — migration 013: fresh / complete / partial / unique+seed/upsert / orphan FK / type mismatch / invalid checks / idempotent"
 
   # ── A. Fresh ─────────────────────────────────────────────────────────────
   setup_db "mig013_fresh"
