@@ -30,6 +30,7 @@ assert.ok(migrationFiles.includes("005_tenant_platform_tables.sql"));
 assert.ok(migrationFiles.includes("006_post_migration_api_support.sql"));
 assert.ok(migrationFiles.includes("009_storage_folders.sql"));
 assert.ok(migrationFiles.includes("010_office_ledger_performance_indexes.sql"));
+assert.ok(migrationFiles.includes("011_stripe_infrastructure_tables.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -52,6 +53,8 @@ assert.doesNotMatch(indexSrc, /ALTER TABLE cases ADD COLUMN/);
 assert.doesNotMatch(indexSrc, /ALTER TABLE office_orders ADD COLUMN/);
 assert.doesNotMatch(indexSrc, /ensureAdHocColumns/);
 assert.doesNotMatch(indexSrc, /ensurePerformanceIndexes/);
+assert.doesNotMatch(indexSrc, /ensureStripeBufferTables/);
+assert.doesNotMatch(indexSrc, /ensureReconciliationTable/);
 assert.doesNotMatch(indexSrc, /CREATE INDEX IF NOT EXISTS idx_cases_office_id/);
 assert.doesNotMatch(indexSrc, /idx_office_ledger_stripe_event_id/);
 assert.match(indexSrc, /ensureOfficePageSlugs/);
@@ -115,6 +118,33 @@ assert.match(mig010, /skipping type CHECK/);
 assert.match(mig010, /skipping idx_office_ledger_stripe_event_id/);
 assert.match(mig010, /duplicate cleanup required/);
 console.log("  ✅ migration 010 owns office_ledger + safe indexes; tasks/reminders deferred");
+
+console.log("\n═══ schemaAuthority: Batch 3 Stripe infrastructure ═══");
+
+const mig011 = readRepo("artifacts/api-server/migrations/011_stripe_infrastructure_tables.sql");
+assert.match(mig011, /CREATE TABLE IF NOT EXISTS stripe_events/);
+assert.match(mig011, /CREATE TABLE IF NOT EXISTS stripe_dead_letters/);
+assert.match(mig011, /CREATE TABLE IF NOT EXISTS stripe_reconciliation_log/);
+assert.match(mig011, /idx_stripe_events_status/);
+assert.match(mig011, /idx_stripe_events_created/);
+assert.match(mig011, /idx_stripe_dlq_created/);
+assert.match(mig011, /idx_reconciliation_run_at/);
+assert.match(mig011, /skipping stripe_events status CHECK/);
+assert.match(mig011, /skipping unique stripe_events\.stripe_event_id/);
+assert.match(mig011, /skipping stripe_reconciliation_log status CHECK/);
+
+const bufferSrc = readSrc("services/stripeEventBuffer.ts");
+assert.doesNotMatch(bufferSrc, /CREATE TABLE/);
+assert.doesNotMatch(bufferSrc, /CREATE INDEX/);
+assert.doesNotMatch(bufferSrc, /ensureStripeBufferTables/);
+assert.match(bufferSrc, /011_stripe_infrastructure_tables/);
+
+const reconcileSrc = readSrc("jobs/stripeReconcile.ts");
+assert.doesNotMatch(reconcileSrc, /CREATE TABLE/);
+assert.doesNotMatch(reconcileSrc, /CREATE INDEX/);
+assert.doesNotMatch(reconcileSrc, /ensureReconciliationTable/);
+assert.match(reconcileSrc, /011_stripe_infrastructure_tables/);
+console.log("  ✅ migration 011 owns stripe_events / dead_letters / reconciliation_log; Runtime DDL removed");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

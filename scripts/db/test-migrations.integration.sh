@@ -22,6 +22,7 @@ MIGRATION_007="$ROOT/artifacts/api-server/migrations/007_office_storage_quota_te
 MIGRATION_008="$ROOT/artifacts/api-server/migrations/008_storage_files_text_tenant.sql"
 MIGRATION_009="$ROOT/artifacts/api-server/migrations/009_storage_folders.sql"
 MIGRATION_010="$ROOT/artifacts/api-server/migrations/010_office_ledger_performance_indexes.sql"
+MIGRATION_011="$ROOT/artifacts/api-server/migrations/011_stripe_infrastructure_tables.sql"
 
 PASS=0
 FAIL=0
@@ -105,6 +106,10 @@ apply_migration_010() {
   psql_db -f "$MIGRATION_010" >/dev/null
 }
 
+apply_migration_011() {
+  psql_db -f "$MIGRATION_011" >/dev/null
+}
+
 apply_all_migrations() {
   apply_migrations_base
   apply_migration_006
@@ -112,11 +117,12 @@ apply_all_migrations() {
   apply_migration_008
   apply_migration_009
   apply_migration_010
+  apply_migration_011
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -352,15 +358,16 @@ scenario_migration_006_idempotent() {
   idx_count=$(psql_db -At -c "SELECT COUNT(*) FROM pg_indexes WHERE tablename='login_logs';")
   [[ "$idx_count" -ge 4 ]] && ok "login_logs has indexes ($idx_count)" || bad "login_logs indexes missing ($idx_count)"
 
-  # P0 includes office_storage_quota (007) + storage_files (008) + office_ledger (010)
+  # P0 includes office_storage_quota (007) + storage_files (008) + office_ledger (010) + stripe infra (011)
   apply_migration_007
   apply_migration_008
   apply_migration_009
   apply_migration_010
+  apply_migration_011
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-006.log 2>&1; then
-    ok "verify-schema.sh passed after 006+007+008+009+010"
+    ok "verify-schema.sh passed after 006+007+008+009+010+011"
   else
-    bad "verify-schema.sh failed after 006+007+008+009+010"
+    bad "verify-schema.sh failed after 006+007+008+009+010+011"
     tail -15 /tmp/verify-006.log
   fi
 
@@ -814,6 +821,306 @@ SQL
   teardown_db
 }
 
+# ── Scenario 3e: Stripe infrastructure (011) ────────────────────────────────
+scenario_migration_011_stripe_infra() {
+  log "Scenario 3e — migration 011: fresh / complete / partial / duplicates / invalid status / idempotent"
+
+  # ── A. Fresh database ────────────────────────────────────────────────────
+  setup_db "mig011_fresh"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+
+  local pre_events
+  pre_events=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='stripe_events'
+    );")
+  [[ "$pre_events" == "f" ]] && ok "A pre-011: stripe_events absent" || bad "A pre-011: stripe_events should be absent"
+
+  apply_migration_011
+
+  local post_events post_dlq post_recon ev_cols uniq_idx status_check idx_status idx_recon
+  post_events=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='stripe_events'
+    );")
+  post_dlq=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='stripe_dead_letters'
+    );")
+  post_recon=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='stripe_reconciliation_log'
+    );")
+  ev_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='stripe_events'
+      AND column_name IN ('stripe_event_id','type','payload','status','retry_count','last_error','created_at','processed_at');")
+  uniq_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.stripe_events'::regclass AND contype='u'
+      AND pg_get_constraintdef(oid) ILIKE '%stripe_event_id%';")
+  status_check=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.stripe_events'::regclass AND contype='c'
+      AND pg_get_constraintdef(oid) ILIKE '%pending%processing%done%failed%';")
+  idx_status=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_stripe_events_status';")
+  idx_recon=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_reconciliation_run_at';")
+
+  [[ "$post_events" == "t" ]] && ok "A: stripe_events created" || bad "A: stripe_events missing"
+  [[ "$post_dlq" == "t" ]] && ok "A: stripe_dead_letters created" || bad "A: stripe_dead_letters missing"
+  [[ "$post_recon" == "t" ]] && ok "A: stripe_reconciliation_log created" || bad "A: stripe_reconciliation_log missing"
+  [[ "$ev_cols" == "8" ]] && ok "A: stripe_events required columns present" || bad "A: cols=$ev_cols"
+  [[ "$uniq_idx" -ge 1 ]] && ok "A: stripe_event_id unique present" || bad "A: unique missing"
+  [[ "$status_check" -ge 1 ]] && ok "A: stripe_events status CHECK present" || bad "A: status CHECK missing"
+  [[ "$idx_status" == "1" ]] && ok "A: idx_stripe_events_status present" || bad "A: status index missing"
+  [[ "$idx_recon" == "1" ]] && ok "A: idx_reconciliation_run_at present" || bad "A: recon index missing"
+
+  apply_migration_011
+  ok "A/F: re-run 011 on fresh schema succeeded"
+
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-011.log 2>&1; then
+    ok "A: verify-schema.sh passed after 011"
+  else
+    bad "A: verify-schema.sh failed after 011"; tail -20 /tmp/verify-011.log
+  fi
+
+  if ! grep -qE 'ensureStripeBufferTables|ensureReconciliationTable|CREATE TABLE IF NOT EXISTS stripe_' \
+      "$ROOT/artifacts/api-server/src/index.ts" \
+      "$ROOT/artifacts/api-server/src/services/stripeEventBuffer.ts" \
+      "$ROOT/artifacts/api-server/src/jobs/stripeReconcile.ts"; then
+    ok "A: Runtime Stripe DDL helpers removed"
+  else
+    bad "A: Runtime Stripe DDL still present"
+  fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Existing complete tables ──────────────────────────────────────────
+  setup_db "mig011_complete"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_011
+
+  psql_db <<'SQL' >/dev/null
+INSERT INTO stripe_events (stripe_event_id, type, payload, status)
+VALUES ('evt_complete_011', 'invoice.paid', '{"id":"evt_complete_011"}'::jsonb, 'done');
+INSERT INTO stripe_dead_letters (stripe_event_id, type, payload, error)
+VALUES ('evt_dlq_011', 'charge.failed', '{"id":"evt_dlq_011"}'::jsonb, 'test error');
+INSERT INTO stripe_reconciliation_log (period_start, period_end, status)
+VALUES (NOW() - interval '1 day', NOW(), 'ok');
+SQL
+
+  apply_migration_011
+  apply_migration_011
+
+  local complete_cnt
+  complete_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM stripe_events WHERE stripe_event_id='evt_complete_011';")
+  [[ "$complete_cnt" == "1" ]] && ok "B: existing complete stripe_events row preserved" || bad "B: row count=$complete_cnt"
+  ok "B/F: re-run 011 on complete schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── C. Existing partial legacy stripe_events ─────────────────────────────
+  setup_db "mig011_partial"
+  trap teardown_db EXIT
+  apply_migrations_base
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE stripe_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_event_id TEXT,
+  type TEXT
+);
+INSERT INTO stripe_events (stripe_event_id, type) VALUES ('evt_partial_011', 'invoice.paid');
+CREATE TABLE stripe_dead_letters (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_event_id TEXT
+);
+CREATE TABLE stripe_reconciliation_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_at TIMESTAMPTZ DEFAULT NOW()
+);
+SQL
+
+  apply_migration_011
+
+  local partial_cols partial_row dlq_cols recon_cols
+  partial_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='stripe_events'
+      AND column_name IN ('payload','status','retry_count','last_error','created_at','processed_at');")
+  partial_row=$(psql_db -At -c "
+    SELECT COUNT(*) FROM stripe_events WHERE stripe_event_id='evt_partial_011' AND type='invoice.paid';")
+  dlq_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='stripe_dead_letters'
+      AND column_name IN ('type','payload','error','retry_count','created_at');")
+  recon_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='stripe_reconciliation_log'
+      AND column_name IN ('period_start','period_end','stripe_count','db_count','missing_count','drift_count','status','details','error');")
+
+  [[ "$partial_cols" == "6" ]] && ok "C: missing stripe_events columns added" || bad "C: cols=$partial_cols"
+  [[ "$partial_row" == "1" ]] && ok "C: legacy stripe_events row unchanged" || bad "C: legacy row altered"
+  [[ "$dlq_cols" == "5" ]] && ok "C: missing stripe_dead_letters columns added" || bad "C: dlq cols=$dlq_cols"
+  [[ "$recon_cols" == "9" ]] && ok "C: missing reconciliation_log columns added" || bad "C: recon cols=$recon_cols"
+
+  apply_migration_011
+  ok "C/F: re-run 011 on repaired partial schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── D. Duplicate legacy stripe_event_id ──────────────────────────────────
+  setup_db "mig011_dup"
+  trap teardown_db EXIT
+  apply_migrations_base
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE stripe_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_event_id TEXT,
+  type TEXT,
+  payload JSONB,
+  status TEXT DEFAULT 'pending'
+);
+INSERT INTO stripe_events (stripe_event_id, type, payload) VALUES
+  ('evt_dup_011', 'invoice.paid', '{}'::jsonb),
+  ('evt_dup_011', 'invoice.paid', '{}'::jsonb);
+CREATE TABLE stripe_dead_letters (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_event_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  error TEXT NOT NULL,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE stripe_reconciliation_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  period_start TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  period_end TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  status TEXT NOT NULL DEFAULT 'ok'
+);
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_011" >/tmp/mig011-dup.log 2>&1
+  local dup_rc=$?
+  set -e
+  [[ "$dup_rc" -eq 0 ]] && ok "D: migration 011 succeeds with duplicate stripe_event_id" || {
+    bad "D: migration failed with duplicates"; cat /tmp/mig011-dup.log
+  }
+
+  local dup_uniq dup_rows warn_hit
+  dup_uniq=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.stripe_events'::regclass AND contype='u'
+      AND pg_get_constraintdef(oid) ILIKE '%stripe_event_id%';")
+  dup_rows=$(psql_db -At -c "SELECT COUNT(*) FROM stripe_events WHERE stripe_event_id='evt_dup_011';")
+  warn_hit=$(grep -c 'skipping unique stripe_events.stripe_event_id' /tmp/mig011-dup.log || true)
+
+  [[ "$dup_uniq" == "0" ]] && ok "D: unique NOT created when duplicates exist" || bad "D: unique was created"
+  [[ "$dup_rows" == "2" ]] && ok "D: duplicate rows unmodified" || bad "D: rows changed count=$dup_rows"
+  [[ "$warn_hit" -ge 1 ]] && ok "D: WARNING emitted for duplicate stripe_event_id" || bad "D: missing duplicate WARNING"
+
+  local post_dlq_exists
+  post_dlq_exists=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='stripe_dead_letters'
+    );")
+  [[ "$post_dlq_exists" == "t" ]] && ok "D: other tables committed despite skipped unique" || bad "D: dead_letters missing"
+
+  apply_migration_011
+  ok "D/F: re-run 011 after duplicate skip succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── E. Invalid legacy status data ────────────────────────────────────────
+  setup_db "mig011_badstatus"
+  trap teardown_db EXIT
+  apply_migrations_base
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE stripe_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_event_id TEXT UNIQUE,
+  type TEXT,
+  payload JSONB,
+  status TEXT
+);
+INSERT INTO stripe_events (stripe_event_id, type, payload, status)
+VALUES ('evt_badstatus_011', 'invoice.paid', '{}'::jsonb, 'queued');
+CREATE TABLE stripe_dead_letters (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_event_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  error TEXT NOT NULL,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE stripe_reconciliation_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  period_start TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  period_end TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  status TEXT NOT NULL DEFAULT 'ok'
+);
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_011" >/tmp/mig011-badstatus.log 2>&1
+  local badstatus_rc=$?
+  set -e
+  [[ "$badstatus_rc" -eq 0 ]] && ok "E: migration 011 succeeds with invalid status value" || {
+    bad "E: migration failed on invalid status"; cat /tmp/mig011-badstatus.log
+  }
+
+  local bad_check bad_row warn_status
+  bad_check=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.stripe_events'::regclass AND contype='c'
+      AND pg_get_constraintdef(oid) ILIKE '%pending%processing%done%failed%';")
+  bad_row=$(psql_db -At -c "
+    SELECT COUNT(*) FROM stripe_events WHERE stripe_event_id='evt_badstatus_011' AND status='queued';")
+  warn_status=$(grep -c 'skipping stripe_events status CHECK' /tmp/mig011-badstatus.log || true)
+
+  [[ "$bad_check" == "0" ]] && ok "E: status CHECK skipped for invalid legacy status" || bad "E: CHECK was added"
+  [[ "$bad_row" == "1" ]] && ok "E: invalid legacy row unchanged" || bad "E: legacy row altered"
+  [[ "$warn_status" -ge 1 ]] && ok "E: WARNING emitted for invalid status" || bad "E: missing status WARNING"
+
+  apply_migration_011
+  ok "E/F: re-run 011 after CHECK skip succeeded"
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Scenario 4: reported endpoints + office/public schema paths ─────────────
 scenario_reported_endpoints() {
   log "Scenario 4 — SQL paths for reported 500/404 endpoints + office/public + sendBeacon vitals"
@@ -908,13 +1215,15 @@ scenario_incomplete_schema_no_runtime_ddl() {
   [[ "$has_vitals" == "f" ]] && ok "web_vitals still absent after failed INSERT" || bad "web_vitals was created somehow"
 
   # Source audit: migration-covered handlers must not contain Runtime DDL
-  if ! grep -qE 'CREATE TABLE|ensureTable|ensureLoginLogs|ensureTables|ensureEventsTable|ensureAdHocColumns' \
+  if ! grep -qE 'CREATE TABLE|ensureTable|ensureLoginLogs|ensureTables|ensureEventsTable|ensureAdHocColumns|ensureStripeBufferTables|ensureReconciliationTable' \
       "$ROOT/artifacts/api-server/src/modules/platform/loginTracking.ts" \
       "$ROOT/artifacts/api-server/src/routes/metrics.ts" \
       "$ROOT/artifacts/api-server/src/modules/legal-core/contracts.ts" \
       "$ROOT/artifacts/api-server/src/core/eventBus.ts" \
       "$ROOT/artifacts/api-server/src/modules/platform/trialOnboarding.ts" \
       "$ROOT/artifacts/api-server/src/modules/platform/onboarding.ts" \
+      "$ROOT/artifacts/api-server/src/services/stripeEventBuffer.ts" \
+      "$ROOT/artifacts/api-server/src/jobs/stripeReconcile.ts" \
       "$ROOT/artifacts/api-server/src/index.ts"; then
     ok "migration-covered modules contain no Runtime DDL"
   else
@@ -942,6 +1251,7 @@ scenario_migration_006_idempotent
 scenario_migration_007_text_tenant
 scenario_migration_008_storage_files
 scenario_migration_010_office_ledger
+scenario_migration_011_stripe_infra
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

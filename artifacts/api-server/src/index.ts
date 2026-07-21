@@ -12,8 +12,7 @@ import { startMonitoringCron } from "./cron/monitoringCron";
 import { startAgentCron } from "./cron/agentCron";
 import { startLogRotationCron } from "./cron/logRotationCron";
 import { registerAllListeners } from "./core/listeners/index";
-import { ensureStripeBufferTables } from "./services/stripeEventBuffer";
-import { ensureReconciliationTable, startReconciliationCron } from "./jobs/stripeReconcile";
+import { startReconciliationCron } from "./jobs/stripeReconcile";
 import { initVapid } from "./lib/webPush";
 import { loadHardeningState } from "./hardening/production.lock";
 import { logLaunchReadinessWarnings } from "./lib/launchReadiness";
@@ -82,8 +81,7 @@ async function initStripe() {
 }
 
 ensureOfficePageSlugs().catch(e => logger.error({ e }, "ensureOfficePageSlugs failed"));
-ensureStripeBufferTables().catch(e => logger.error({ e }, "ensureStripeBufferTables failed"));
-ensureReconciliationTable().catch(e => logger.error({ e }, "ensureReconciliationTable failed"));
+/* stripe_events / stripe_dead_letters / stripe_reconciliation_log → migration 011 */
 ensureERPTables().catch(e => logger.error({ e }, "ensureERPTables failed"));
 ensureBankruptcyTables().catch(e => logger.error({ e }, "ensureBankruptcyTables failed"));
 ensureDocumentCenterSchema().catch(e => logger.error({ e }, "ensureDocumentCenterSchema failed"));

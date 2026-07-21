@@ -11,8 +11,8 @@
 | الدالة | الملف | سلوك الفشل |
 |--------|-------|------------|
 | `ensureOfficePageSlugs` | `index.ts` | `logger.warn` — data backfill فقط (لا DDL) |
-| `ensureStripeBufferTables` | `stripeEventBuffer.ts` | `logger.error` — يحتاج `stripe` schema من `runMigrations` |
-| `ensureReconciliationTable` | `stripeReconcile.ts` | `logger.error` |
+| ~~`ensureStripeBufferTables`~~ | removed — schema via migration **011** | — |
+| ~~`ensureReconciliationTable`~~ | removed — schema via migration **011** | — |
 | `ensureERPTables` | `erp-ledger.ts` | `logger.error` — FK على جداول مالية |
 | `ensureBankruptcyTables` | `bankruptcy.ts` | `logger.error` |
 | `ensureDocumentCenterSchema` | `documentCenter.ts` | `logger.error` |
@@ -47,6 +47,9 @@
 | `contract_templates` | 004 |
 | `storage_folders` | 009 |
 | `office_ledger` | 010 |
+| `stripe_events` | 011 |
+| `stripe_dead_letters` | 011 |
+| `stripe_reconciliation_log` | 011 |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 
