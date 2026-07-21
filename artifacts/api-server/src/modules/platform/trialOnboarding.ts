@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; schema authority */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -24,27 +25,9 @@ async function sqlAll(q: any): Promise<any[]> {
   } catch { return []; }
 }
 
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS trial_offices (
-      id            SERIAL PRIMARY KEY,
-      user_id       TEXT NOT NULL UNIQUE,
-      office_id     TEXT NOT NULL,
-      office_name   TEXT NOT NULL DEFAULT '',
-      specialty     TEXT NOT NULL DEFAULT '',
-      office_size   TEXT NOT NULL DEFAULT 'solo',
-      trial_start   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      trial_end     TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days',
-      converted     BOOLEAN NOT NULL DEFAULT FALSE,
-      converted_at  TIMESTAMPTZ,
-      setup_data    JSONB DEFAULT '{}',
-      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-}
+/* trial_offices schema: artifacts/api-server/migrations/005_tenant_platform_tables.sql */
 
 router.post("/onboarding/setup", requireAuth, async (req, res) => {
-  await ensureTables();
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -190,7 +173,6 @@ router.post("/onboarding/ai-suggest", requireAuth, async (req, res) => {
 });
 
 router.get("/onboarding/trial-status", requireAuth, async (req, res) => {
-  await ensureTables();
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.json({ isTrial: false });

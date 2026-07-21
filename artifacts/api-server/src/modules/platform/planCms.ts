@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; schema authority */
 import { Router } from "express";
 import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
@@ -152,29 +153,9 @@ export const DEFAULT_PLANS = [
   },
 ];
 
-/* ── Ensure table + new columns ─────────────────────────── */
-async function ensureTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS plan_cms (
-      id              TEXT PRIMARY KEY,
-      name_ar         TEXT NOT NULL,
-      name_en         TEXT NOT NULL,
-      monthly_price   INTEGER NOT NULL DEFAULT 0,
-      yearly_price    INTEGER NOT NULL DEFAULT 0,
-      color           TEXT NOT NULL DEFAULT '#64748B',
-      description     TEXT,
-      badge           TEXT,
-      features        JSONB NOT NULL DEFAULT '[]',
-      recommended     BOOLEAN NOT NULL DEFAULT false,
-      is_contact_only BOOLEAN NOT NULL DEFAULT false,
-      sort_order      INTEGER NOT NULL DEFAULT 0,
-      updated_at      TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  /* Add feature_flags and limits columns if not present */
-  await db.execute(sql`ALTER TABLE plan_cms ADD COLUMN IF NOT EXISTS feature_flags JSONB NOT NULL DEFAULT '{}'`);
-  await db.execute(sql`ALTER TABLE plan_cms ADD COLUMN IF NOT EXISTS limits JSONB NOT NULL DEFAULT '{}'`);
-
+/* plan_cms schema: artifacts/api-server/migrations/005_tenant_platform_tables.sql
+   This helper only seeds / backfills plan rows — no Runtime DDL. */
+async function ensurePlanSeed() {
   /* Seed if empty */
   const result = await db.execute(sql`SELECT COUNT(*) as cnt FROM plan_cms`) as any;
   const rows = Array.isArray(result) ? result : (result?.rows ?? []);
@@ -252,7 +233,7 @@ function rowToPlan(row: any) {
 /* ── Public helper for billing.ts ─────────────────────────── */
 export async function getDbPlans() {
   try {
-    await ensureTable();
+    await ensurePlanSeed();
     const result = await db.execute(sql`SELECT * FROM plan_cms ORDER BY sort_order ASC`) as any;
     const rows = Array.isArray(result) ? result : (result?.rows ?? []);
     if (!rows.length) return DEFAULT_PLANS.map(p => ({ ...p, name: p.nameAr, price: p.monthlyPrice, popular: p.recommended, isFree: p.monthlyPrice === 0 }));
@@ -291,7 +272,7 @@ router.get("/admin/plans", adminOnly, async (_req, res) => {
 ══════════════════════════════════════════════════════ */
 router.put("/admin/plans/:id", adminOnly, async (req, res) => {
   try {
-    await ensureTable();
+    await ensurePlanSeed();
     const { id } = req.params as Record<string, string>;
     const { nameAr, nameEn, monthlyPrice, yearlyPrice, color, description, badge, features, recommended, isContactOnly, sortOrder, featureFlags, limits } = req.body;
 
@@ -327,7 +308,7 @@ router.put("/admin/plans/:id", adminOnly, async (req, res) => {
 ══════════════════════════════════════════════════════ */
 router.post("/admin/plans", adminOnly, async (req, res) => {
   try {
-    await ensureTable();
+    await ensurePlanSeed();
     const { id, nameAr, nameEn, monthlyPrice, yearlyPrice, color, description, badge, features, recommended, isContactOnly, sortOrder, featureFlags, limits } = req.body;
 
     if (!id || !nameAr) return res.status(400).json({ error: "id و nameAr مطلوبان" });
@@ -365,7 +346,7 @@ router.post("/admin/plans", adminOnly, async (req, res) => {
 ══════════════════════════════════════════════════════ */
 router.delete("/admin/plans/:id", adminOnly, async (req, res) => {
   try {
-    await ensureTable();
+    await ensurePlanSeed();
     const { id } = req.params as Record<string, string>;
     const builtIn = ["free", "basic", "pro", "growth", "advanced", "enterprise", "elite"];
     if (builtIn.includes(id)) return res.status(400).json({ error: "لا يمكن حذف الباقات الافتراضية" });
@@ -381,7 +362,7 @@ router.delete("/admin/plans/:id", adminOnly, async (req, res) => {
 ══════════════════════════════════════════════════════ */
 router.post("/admin/plans/reset", adminOnly, async (_req, res) => {
   try {
-    await ensureTable();
+    await ensurePlanSeed();
     for (const p of DEFAULT_PLANS) {
       await db.execute(sql`
         INSERT INTO plan_cms (id, name_ar, name_en, monthly_price, yearly_price, color, description, badge, features, recommended, is_contact_only, sort_order, feature_flags, limits)

@@ -20,6 +20,7 @@ MIGRATIONS_BASE=(
 MIGRATION_006="$ROOT/artifacts/api-server/migrations/006_post_migration_api_support.sql"
 MIGRATION_007="$ROOT/artifacts/api-server/migrations/007_office_storage_quota_text_tenant.sql"
 MIGRATION_008="$ROOT/artifacts/api-server/migrations/008_storage_files_text_tenant.sql"
+MIGRATION_009="$ROOT/artifacts/api-server/migrations/009_storage_folders.sql"
 
 PASS=0
 FAIL=0
@@ -95,16 +96,21 @@ apply_migration_008() {
   psql_db -f "$MIGRATION_008" >/dev/null
 }
 
+apply_migration_009() {
+  psql_db -f "$MIGRATION_009" >/dev/null
+}
+
 apply_all_migrations() {
   apply_migrations_base
   apply_migration_006
   apply_migration_007
   apply_migration_008
+  apply_migration_009
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -605,13 +611,25 @@ scenario_incomplete_schema_no_runtime_ddl() {
   [[ "$has_login" == "f" ]] && ok "login_logs still absent after failed INSERT" || bad "login_logs was created somehow"
   [[ "$has_vitals" == "f" ]] && ok "web_vitals still absent after failed INSERT" || bad "web_vitals was created somehow"
 
-  # Source audit: PR-touched handlers must not contain CREATE TABLE
-  if ! grep -qE 'CREATE TABLE|ensureTable|ensureLoginLogs' \
+  # Source audit: migration-covered handlers must not contain Runtime DDL
+  if ! grep -qE 'CREATE TABLE|ensureTable|ensureLoginLogs|ensureTables|ensureEventsTable|ensureAdHocColumns' \
       "$ROOT/artifacts/api-server/src/modules/platform/loginTracking.ts" \
-      "$ROOT/artifacts/api-server/src/routes/metrics.ts"; then
-    ok "loginTracking.ts + metrics.ts contain no Runtime DDL"
+      "$ROOT/artifacts/api-server/src/routes/metrics.ts" \
+      "$ROOT/artifacts/api-server/src/modules/legal-core/contracts.ts" \
+      "$ROOT/artifacts/api-server/src/core/eventBus.ts" \
+      "$ROOT/artifacts/api-server/src/modules/platform/trialOnboarding.ts" \
+      "$ROOT/artifacts/api-server/src/modules/platform/onboarding.ts" \
+      "$ROOT/artifacts/api-server/src/index.ts"; then
+    ok "migration-covered modules contain no Runtime DDL"
   else
-    bad "Runtime DDL still present in loginTracking/metrics"
+    bad "Runtime DDL still present in migration-covered modules"
+  fi
+
+  if ! grep -qE 'CREATE TABLE|ALTER TABLE plan_cms' \
+      "$ROOT/artifacts/api-server/src/modules/platform/planCms.ts"; then
+    ok "planCms.ts contains no Runtime DDL (seed only)"
+  else
+    bad "planCms.ts still has Runtime DDL"
   fi
 
   trap - EXIT

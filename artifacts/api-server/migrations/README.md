@@ -1,6 +1,11 @@
 # Database Migrations — عدالة AI
 
-**لا تستخدم `drizzle-kit push` على Production.**
+**Schema authority:** `artifacts/api-server/migrations/*.sql` is the sole
+production DDL source. Do **not** use `drizzle-kit push` on Production.
+Do **not** add Runtime `CREATE TABLE` / boot `ALTER TABLE` for tables already
+covered here — apply the numbered migration instead.
+
+`lib/db/src/schema` is the ORM type source only (Drizzle queries).
 
 جميع الملفات هنا idempotent وآمنة للتشغيل اليدوي عبر `psql`.
 
@@ -45,7 +50,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/008_storage_files_text_tenant.sql
 
-# 9) تحقق بعد التنفيذ
+# 9) Storage folders + folder_permissions
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/009_storage_folders.sql
+
+# 10) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -60,6 +69,7 @@ bash scripts/db/verify-schema.sh
 | `006_post_migration_api_support.sql` | `login_logs`, `office_page.website_config`, `web_vitals`, `route_analytics` |
 | `007_office_storage_quota_text_tenant.sql` | `office_storage_quota` TEXT tenant key (trial_* / permanent); drop FK to `office_page` |
 | `008_storage_files_text_tenant.sql` | `storage_files` formal CREATE (TEXT `office_id`); fixes Production `42P01` |
+| `009_storage_folders.sql` | `storage_folders` + `folder_permissions` |
 
 ## جداول P0 (تسبب أخطاء runtime إن غابت)
 
@@ -68,7 +78,7 @@ bash scripts/db/verify-schema.sh
 | `office_registry` | 003 | `goLiveMetrics.ts`, `tenantResolver.ts` |
 | `cases` | 003 + 004 (columns) | Legal core, JLWM |
 | `contracts` | 003 + 004 (columns) | `contracts.ts` |
-| `contract_templates` | 004 | `contracts.ts` ensureTables |
+| `contract_templates` | 004 | `contracts.ts` (no Runtime DDL) |
 | `office_members` | 005 | `tenantMiddleware.ts` (لا CREATE في الكود!) |
 | `office_page` | 003 | Marketplace, tenant |
 | `office_page.website_config` | **006** | Drizzle `officePageTable`, `websiteBuilder.ts`, `/office/public/:slug` |
@@ -76,13 +86,17 @@ bash scripts/db/verify-schema.sh
 | `web_vitals` / `route_analytics` | **006** | `routes/metrics.ts` |
 | `office_storage_quota` | **007** | `storage.ts` POST `/storage/files` quota upsert |
 | `storage_files` | **008** | `storageFileRegister.ts` / POST `/storage/files` insert |
+| `storage_folders` | **009** | `storage.ts` folder management |
 | `clients` | 003 | Legal core |
 
 ## ما يبقى بعد Migrations (boot-time)
 
 ~100 جدول enterprise تُنشأ عند أول boot للـ API عبر `ensure*Tables()` في
 `artifacts/api-server/src/index.ts` والوحدات. هذه migrations تغطي **P0 + baseline**
-فقط. بعد تطبيق 003–006، شغّل API مرة واحدة لإكمال الجداول المتبقية.
+فقط. بعد تطبيق 003–009، شغّل API مرة واحدة لإكمال الجداول المتبقية (enterprise).
+
+جداول مغطاة بـ 004/005 لم تعد تُنشأ عبر Runtime DDL:
+`contract_*`, `trial_offices`, `onboarding_state`, `system_events`, `plan_cms`.
 
 ## Rollback
 
@@ -94,9 +108,10 @@ bash scripts/db/verify-schema.sh
 ```bash
 # PostgreSQL محلي فقط — لا يلمس Production
 bash scripts/db/test-migrations.integration.sh
+pnpm --filter @workspace/api-server run test:schema-authority
 ```
 
-يغطي: DB فارغة (003→001→004→005→006→007→008)، Production-like بدون `website_config`/`login_logs`،
-idempotency لـ 006/007/008، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
+يغطي: DB فارغة (003→001→004→005→006→007→008→009)، Production-like بدون `website_config`/`login_logs`،
+idempotency لـ 006/007/008/009، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
 
 راجع `scripts/db/boot-created-tables.md` لقائمة جداول boot وقيود Docker.

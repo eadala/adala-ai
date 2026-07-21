@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 import { requireAuth } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -6,20 +7,7 @@ import { getAuth } from "@clerk/express";
 
 const router = Router();
 
-async function ensureTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS onboarding_state (
-      id          SERIAL PRIMARY KEY,
-      user_id     TEXT NOT NULL UNIQUE,
-      office_id   TEXT NOT NULL DEFAULT 'default',
-      completed   BOOLEAN NOT NULL DEFAULT FALSE,
-      step        INTEGER NOT NULL DEFAULT 0,
-      data        JSONB DEFAULT '{}',
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-}
+/* onboarding_state schema: artifacts/api-server/migrations/005_tenant_platform_tables.sql */
 
 async function sqlOne(q: any) {
   try {
@@ -30,7 +18,6 @@ async function sqlOne(q: any) {
 }
 
 router.get("/onboarding/state", requireAuth, async (req, res) => {
-  await ensureTable();
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.json({ completed: false, step: 0, data: {} });
@@ -40,7 +27,6 @@ router.get("/onboarding/state", requireAuth, async (req, res) => {
 });
 
 router.put("/onboarding/state", requireAuth, async (req, res) => {
-  await ensureTable();
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
