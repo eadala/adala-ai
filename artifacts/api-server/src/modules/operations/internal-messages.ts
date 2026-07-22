@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { eventBus } from "../../core/eventBus";
+import { getMessageFtsConfig } from "./messageFtsConfig";
 
 const router = Router();
 
@@ -16,40 +18,14 @@ async function ensureCaseIdColumn() {
 }
 ensureCaseIdColumn();
 
-/* ── Full-Text Search Migration ─────────────────────────────────────────────
-   Adds a GENERATED ALWAYS AS STORED tsvector column that PostgreSQL keeps
-   in sync automatically — existing rows are backfilled instantly on ALTER,
-   new rows are indexed on INSERT.
-   Uses 'arabic' FTS config (confirmed available on this PG 16 instance).
-   Falls back silently if the column already exists.
-──────────────────────────────────────────────────────────────────────────── */
-async function ensureFullTextSearch() {
-  try {
-    /* 1. Add generated tsvector column (backfills all existing rows automatically) */
-    await db.execute(sql`
-      ALTER TABLE office_messages
-        ADD COLUMN IF NOT EXISTS search_vector tsvector
-        GENERATED ALWAYS AS (
-          to_tsvector('arabic', coalesce(subject, '') || ' ' || coalesce(body, ''))
-        ) STORED
-    `);
-  } catch (e: any) {
-    /* Column already exists or other transient error — not fatal */
-    if (!e.message?.includes("already exists")) {
-      console.warn("[FTS] search_vector column skipped:", e.message);
-    }
-  }
-  try {
-    /* 2. GIN index for fast @@ queries */
-    await db.execute(sql`
-      CREATE INDEX IF NOT EXISTS idx_messages_search
-        ON office_messages USING gin(search_vector)
-    `);
-  } catch (e: any) {
-    console.warn("[FTS] GIN index skipped:", e.message);
-  }
+/* Full-text search schema is owned by migration 016_office_messages_fts.sql.
+   Query config is read from the live search_vector generated expression. */
+
+function messageSearchPredicate(searchTerm: string | null, ftsConfig: string | null) {
+  return searchTerm && ftsConfig
+    ? sql`AND m.search_vector @@ plainto_tsquery(${ftsConfig}::regconfig, ${searchTerm})`
+    : sql``;
 }
-ensureFullTextSearch();
 
 /* ── Group Conversations Schema ────────────────────────────────────────────
    Adds the foundation for group/thread-based messaging:
@@ -140,6 +116,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
     const { folder = "inbox", search = "" } = req.query as any;
     const userId = (req as any).auth?.userId ?? "anonymous";
     const searchTerm: string | null = search ? String(search).trim() : null;
+    const ftsConfig = searchTerm ? await getMessageFtsConfig() : null;
 
     let rows: any[] = [];
 
@@ -159,7 +136,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
         WHERE m.sender_id = ${userId} AND m.folder != 'draft'
-          ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
+          ${messageSearchPredicate(searchTerm, ftsConfig)}
         GROUP BY m.id
         ORDER BY m.created_at DESC
         LIMIT 100
@@ -176,7 +153,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         FROM office_messages m
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         WHERE m.sender_id = ${userId} AND m.folder = 'draft'
-          ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
+          ${messageSearchPredicate(searchTerm, ftsConfig)}
         GROUP BY m.id
         ORDER BY m.created_at DESC
         LIMIT 100
@@ -197,7 +174,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
         WHERE m.folder = 'archive'
-          ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
+          ${messageSearchPredicate(searchTerm, ftsConfig)}
         GROUP BY m.id
         ORDER BY m.created_at DESC
         LIMIT 100
@@ -221,7 +198,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         LEFT JOIN office_message_recipients r2 ON r2.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
         WHERE m.folder = 'sent'
-          ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
+          ${messageSearchPredicate(searchTerm, ftsConfig)}
         GROUP BY m.id, r_me.is_read, r_me.read_at, r_me.reader_ip
         ORDER BY m.created_at DESC
         LIMIT 100
