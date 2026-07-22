@@ -5,6 +5,15 @@ cases.office_id
 cases.source
 cases.created_by
 cases.branch_id
+cases.case_number
+cases.court_name
+cases.court_code
+cases.court_city
+cases.court_district_number
+cases.court_district_type
+cases.next_hearing_date
+cases.deleted_at
+cases.version
 contracts.office_id
 contracts.template_id
 contract_templates.name
