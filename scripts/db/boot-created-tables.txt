@@ -106,7 +106,6 @@ mfa_status_cache
 moyasar_settings
 office_ai_credits
 office_ai_settings
-office_branches
 office_integration_status
 office_isolation_config
 office_notification_settings

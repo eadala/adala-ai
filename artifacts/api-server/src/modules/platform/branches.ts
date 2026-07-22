@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; schema authority */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -23,35 +24,8 @@ async function sqlOne(q: any): Promise<any> {
 }
 
 async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS office_branches (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id   TEXT NOT NULL,
-      name        TEXT NOT NULL,
-      code        TEXT,
-      location    TEXT,
-      description TEXT,
-      phone       TEXT,
-      email       TEXT,
-      manager_user_id TEXT,
-      manager_name    TEXT,
-      status      TEXT NOT NULL DEFAULT 'active',
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_office_branches_office ON office_branches(office_id)`);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_office_branches_status ON office_branches(office_id, status)`);
-
-  await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES office_branches(id) ON DELETE SET NULL`);
-  await db.execute(sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES office_branches(id) ON DELETE SET NULL`);
-  await db.execute(sql`ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES office_branches(id) ON DELETE SET NULL`);
-  await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES office_branches(id) ON DELETE SET NULL`);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_cases_branch ON cases(branch_id) WHERE branch_id IS NOT NULL`);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_clients_branch ON clients(branch_id) WHERE branch_id IS NOT NULL`);
+  // Schema authority: office_branches, tasks.branch_id, and branch indexes live in migration 015_tasks_branches_schema.sql.
 }
-
-ensureTables().catch(console.error);
 
 async function getOfficePlan(officeId: string): Promise<string> {
   const row = await sqlOne(sql`SELECT plan FROM office_page WHERE id::text = ${officeId} OR slug = ${officeId} LIMIT 1`);
