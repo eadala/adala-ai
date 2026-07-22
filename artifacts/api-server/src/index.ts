@@ -16,9 +16,6 @@ import { startReconciliationCron } from "./jobs/stripeReconcile";
 import { initVapid } from "./lib/webPush";
 import { loadHardeningState } from "./hardening/production.lock";
 import { logLaunchReadinessWarnings } from "./lib/launchReadiness";
-import { ensureBankruptcyTables } from "./modules/bankruptcy/bankruptcy";
-import { ensureBankruptcyV2Tables } from "./modules/bankruptcy/bankruptcyV2";
-import { ensureBankruptcyV3Tables } from "./modules/bankruptcy/bankruptcyV3";
 import { ensureDocumentCenterSchema } from "./modules/documents/documentCenter";
 import { ensureJLWMSchema, ensureFuturePathsTable, ensureSimulationsTable, ensureLitigationIntelTable, ensureAccuracyTable, ensureExecutiveTable, ensureCOOTable, ensureReliabilitySchema } from "./modules/jlwm/index";
 import { seedNorthSouthDemoData } from "./modules/jlwm/jlwmDemoSeed";
@@ -80,8 +77,7 @@ async function initStripe() {
 }
 
 ensureOfficePageSlugs().catch(e => logger.error({ e }, "ensureOfficePageSlugs failed"));
-/* stripe_* → migration 011; payment_transactions → 012; ERP tables → 013 */
-ensureBankruptcyTables().catch(e => logger.error({ e }, "ensureBankruptcyTables failed"));
+/* stripe_* → migration 011; payment_transactions → 012; ERP tables → 013; bankruptcy_* → migration 014 */
 ensureDocumentCenterSchema().catch(e => logger.error({ e }, "ensureDocumentCenterSchema failed"));
 ensureJLWMSchema().catch(e => logger.error({ e }, "ensureJLWMSchema failed"));
 ensureFuturePathsTable().catch(e => logger.error({ e }, "ensureFuturePathsTable failed"));
@@ -106,8 +102,6 @@ setTimeout(() => {
     .catch(e => logger.error({ err: e.message }, "[JLWM Seed] Auto-seed failed (non-fatal)"));
 }, 8000); // 8s delay so all tables are ready first
 
-ensureBankruptcyV2Tables().catch(e => logger.error({ e }, "ensureBankruptcyV2Tables failed"));
-ensureBankruptcyV3Tables().catch(e => logger.error({ e }, "ensureBankruptcyV3Tables failed"));
 initStripe();
 startEmailCron();
 startMonitoringCron();

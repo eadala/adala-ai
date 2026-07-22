@@ -25,6 +25,7 @@ MIGRATION_010="$ROOT/artifacts/api-server/migrations/010_office_ledger_performan
 MIGRATION_011="$ROOT/artifacts/api-server/migrations/011_stripe_infrastructure_tables.sql"
 MIGRATION_012="$ROOT/artifacts/api-server/migrations/012_payment_transactions.sql"
 MIGRATION_013="$ROOT/artifacts/api-server/migrations/013_erp_schema.sql"
+MIGRATION_014="$ROOT/artifacts/api-server/migrations/014_bankruptcy_schema.sql"
 
 PASS=0
 FAIL=0
@@ -120,7 +121,11 @@ apply_migration_013() {
   psql_db -f "$MIGRATION_013" >/dev/null
 }
 
-apply_all_migrations() {
+apply_migration_014() {
+  psql_db -f "$MIGRATION_014" >/dev/null
+}
+
+apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
   apply_migration_007
@@ -132,9 +137,14 @@ apply_all_migrations() {
   apply_migration_013
 }
 
+apply_all_migrations() {
+  apply_migrations_through_013
+  apply_migration_014
+}
+
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -378,10 +388,11 @@ scenario_migration_006_idempotent() {
   apply_migration_011
   apply_migration_012
   apply_migration_013
+  apply_migration_014
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-006.log 2>&1; then
-    ok "verify-schema.sh passed after 006→013"
+    ok "verify-schema.sh passed after 006→014"
   else
-    bad "verify-schema.sh failed after 006→013"
+    bad "verify-schema.sh failed after 006→014"
     tail -15 /tmp/verify-006.log
   fi
 
@@ -631,14 +642,15 @@ SQL
   cnt=$(psql_db -At -c "SELECT COUNT(*) FROM office_ledger WHERE stripe_event_id='evt_test_010';")
   [[ "$cnt" == "1" ]] && ok "A: duplicate stripe_event_id not inserted" || bad "A: count=$cnt"
 
-  # P0 includes Stripe (011) + payments (012) + ERP (013)
+  # P0 includes Stripe (011) + payments (012) + ERP (013) + Bankruptcy (014)
   apply_migration_011
   apply_migration_012
   apply_migration_013
+  apply_migration_014
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-010.log 2>&1; then
-    ok "A: verify-schema.sh passed after 010→013"
+    ok "A: verify-schema.sh passed after 010→014"
   else
-    bad "A: verify-schema.sh failed after 010→013"; tail -20 /tmp/verify-010.log
+    bad "A: verify-schema.sh failed after 010→014"; tail -20 /tmp/verify-010.log
   fi
 
   if ! grep -qE 'ensurePerformanceIndexes|idx_office_ledger_stripe_event_id' \
@@ -912,10 +924,11 @@ scenario_migration_011_stripe_infra() {
 
   apply_migration_012
   apply_migration_013
+  apply_migration_014
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-011.log 2>&1; then
-    ok "A: verify-schema.sh passed after 011→013"
+    ok "A: verify-schema.sh passed after 011→014"
   else
-    bad "A: verify-schema.sh failed after 011→013"; tail -20 /tmp/verify-011.log
+    bad "A: verify-schema.sh failed after 011→014"; tail -20 /tmp/verify-011.log
   fi
 
   if ! grep -qE 'ensureStripeBufferTables|ensureReconciliationTable|CREATE TABLE IF NOT EXISTS stripe_' \
@@ -1201,10 +1214,11 @@ scenario_migration_012_payment_transactions() {
   ok "A/F: re-run 012 on fresh schema succeeded"
 
   apply_migration_013
+  apply_migration_014
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-012.log 2>&1; then
-    ok "A: verify-schema.sh passed after 012+013"
+    ok "A: verify-schema.sh passed after 012+013+014"
   else
-    bad "A: verify-schema.sh failed after 012+013"; tail -20 /tmp/verify-012.log
+    bad "A: verify-schema.sh failed after 012+013+014"; tail -20 /tmp/verify-012.log
   fi
 
   if ! grep -qE 'ensurePaymentCols|ALTER TABLE payment_transactions' \
@@ -1431,10 +1445,11 @@ scenario_migration_013_erp() {
   apply_migration_013
   ok "A/F: re-run 013 on fresh schema succeeded"
 
+  apply_migration_014
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-013.log 2>&1; then
-    ok "A: verify-schema.sh passed after 013"
+    ok "A: verify-schema.sh passed after 013+014"
   else
-    bad "A: verify-schema.sh failed after 013"; tail -20 /tmp/verify-013.log
+    bad "A: verify-schema.sh failed after 013+014"; tail -20 /tmp/verify-013.log
   fi
 
   if ! grep -qE 'ensureERPTables|CREATE TABLE IF NOT EXISTS office_erp_ledger|CREATE TABLE IF NOT EXISTS chart_of_accounts' \
@@ -1935,6 +1950,320 @@ SQL
   teardown_db
 }
 
+# ── Scenario 3h: Bankruptcy schema (014) ────────────────────────────────────
+scenario_migration_014_bankruptcy() {
+  log "Scenario 3h — migration 014: fresh / idempotent / partial / duplicate UNIQUE / invalid CHECK / orphan FK / Runtime DDL audit"
+
+  # ── A. Fresh ─────────────────────────────────────────────────────────────
+  setup_db "mig014_fresh"
+  trap teardown_db EXIT
+  apply_migrations_through_013
+
+  local pre_bk
+  pre_bk=$(psql_db -At -c "
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='bankruptcy_cases');")
+  [[ "$pre_bk" == "f" ]] && ok "A pre-014: bankruptcy_cases absent" || bad "A pre-014: should be absent"
+
+  apply_migration_014
+
+  local bk_tables idx_case idx_alert_partial uniq_case fk_creditor is_demo_cols
+  bk_tables=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.tables
+    WHERE table_schema='public'
+      AND table_name IN (
+        'bankruptcy_cases','bk_creditors','bk_claims','bk_claim_documents','bk_assets',
+        'bk_asset_valuations','bk_meetings','bk_distributions','bk_distribution_items',
+        'bk_reports','bk_ai_analysis','bk_timeline','bk_audit_logs','bk_notifications',
+        'bk_workflows','bk_workflow_steps','bk_workflow_events','bk_tasks','bk_task_comments',
+        'bk_task_assignments','bk_templates','bk_alerts','bk_opening_requests',
+        'bk_opening_request_documents','bk_emergency_locks'
+      );")
+  idx_case=$(psql_db -At -c "SELECT COUNT(*) FROM pg_indexes WHERE indexname='idx_bk_cases_office_status';")
+  idx_alert_partial=$(psql_db -At -c "SELECT COUNT(*) FROM pg_indexes WHERE indexname='idx_bk_alerts_active' AND indexdef ILIKE '%WHERE%status%active%';")
+  uniq_case=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.bankruptcy_cases'::regclass
+      AND contype='u'
+      AND pg_get_constraintdef(oid) ILIKE '%office_id%'
+      AND pg_get_constraintdef(oid) ILIKE '%case_number%';")
+  fk_creditor=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.bk_creditors'::regclass
+      AND contype='f'
+      AND conname='bk_creditors_case_id_fkey';")
+  is_demo_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public'
+      AND column_name='is_demo'
+      AND table_name IN (
+        'bankruptcy_cases','bk_creditors','bk_claims','bk_assets','bk_meetings',
+        'bk_distributions','bk_distribution_items','bk_reports','bk_ai_analysis',
+        'bk_tasks','bk_alerts','bk_opening_requests','bk_opening_request_documents'
+      );")
+
+  [[ "$bk_tables" == "25" ]] && ok "A: all 25 bankruptcy tables created" || bad "A: bankruptcy table count=$bk_tables"
+  [[ "$idx_case" == "1" ]] && ok "A: idx_bk_cases_office_status present" || bad "A: case index missing"
+  [[ "$idx_alert_partial" == "1" ]] && ok "A: partial idx_bk_alerts_active present" || bad "A: alert partial index missing"
+  [[ "$uniq_case" -ge 1 ]] && ok "A: bankruptcy_cases UNIQUE present" || bad "A: case unique missing"
+  [[ "$fk_creditor" == "1" ]] && ok "A: bk_creditors FK present" || bad "A: creditor FK missing"
+  [[ "$is_demo_cols" == "13" ]] && ok "A: demo is_demo columns present" || bad "A: demo columns=$is_demo_cols"
+
+  apply_migration_014
+  ok "A/F: re-run 014 on fresh schema succeeded"
+
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-014.log 2>&1; then
+    ok "A: verify-schema.sh passed after 014"
+  else
+    bad "A: verify-schema.sh failed after 014"; tail -20 /tmp/verify-014.log
+  fi
+
+  if ! grep -qE 'CREATE TABLE|CREATE INDEX' \
+      "$ROOT/artifacts/api-server/src/modules/bankruptcy/bankruptcy.ts" \
+      "$ROOT/artifacts/api-server/src/modules/bankruptcy/bankruptcyV2.ts" \
+      "$ROOT/artifacts/api-server/src/modules/bankruptcy/bankruptcyV3.ts"; then
+    ok "A: bankruptcy modules contain no CREATE TABLE/INDEX Runtime DDL"
+  else
+    bad "A: bankruptcy module Runtime DDL still present"
+  fi
+  if ! grep -qE 'ALTER TABLE .*is_demo' "$ROOT/artifacts/api-server/src/modules/bankruptcy/bankruptcyDemo.ts" \
+      && ! grep -qE 'ensureBankruptcyTables\(\)\.catch|ensureBankruptcyV2Tables\(\)\.catch|ensureBankruptcyV3Tables\(\)\.catch' "$ROOT/artifacts/api-server/src/index.ts" \
+      && ! grep -qE 'ensureEocTables|CREATE TABLE IF NOT EXISTS bk_emergency_locks' "$ROOT/artifacts/api-server/src/modules/platform/admin.ts"; then
+    ok "A: boot/demo/EOC Bankruptcy Runtime DDL removed"
+  else
+    bad "A: boot/demo/EOC Bankruptcy Runtime DDL still present"
+  fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Partial Bankruptcy tables missing columns ────────────────────────
+  setup_db "mig014_partial"
+  trap teardown_db EXIT
+  apply_migrations_through_013
+
+  psql_db <<'SQL' >/dev/null
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE bankruptcy_cases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  case_number TEXT
+);
+INSERT INTO bankruptcy_cases (office_id, case_number) VALUES ('off_partial', 'BK-PART-1');
+CREATE TABLE bk_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  case_id UUID,
+  office_id TEXT
+);
+CREATE TABLE bk_ai_analysis (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  case_id UUID,
+  office_id TEXT
+);
+CREATE TABLE bk_asset_valuations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  asset_id UUID
+);
+CREATE TABLE bk_emergency_locks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT
+);
+SQL
+
+  apply_migration_014
+
+  local partial_case_cols report_cols ai_cols asset_val_cols eoc_cols partial_row
+  partial_case_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_name='bankruptcy_cases'
+      AND column_name IN ('debtor_name','debtor_type','procedure_type','status','deleted_at','is_demo','updated_at');")
+  report_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_name='bk_reports'
+      AND column_name IN ('report_type','report_title','category','metadata','is_demo','created_at');")
+  ai_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_name='bk_ai_analysis'
+      AND column_name IN ('analysis_type','token_count','generated_at','is_demo');")
+  asset_val_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_name='bk_asset_valuations'
+      AND column_name IN ('office_id','valuator_name','valuation_amount','created_at');")
+  eoc_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_name='bk_emergency_locks'
+      AND column_name IN ('lock_type','target_id','reason','locked_by','is_active','expires_at','created_at','released_at');")
+  partial_row=$(psql_db -At -c "
+    SELECT COUNT(*) FROM bankruptcy_cases WHERE office_id='off_partial' AND case_number='BK-PART-1';")
+
+  [[ "$partial_case_cols" == "7" ]] && ok "B: bankruptcy_cases missing columns added" || bad "B: case cols=$partial_case_cols"
+  [[ "$report_cols" == "6" ]] && ok "B: bk_reports V2 columns added" || bad "B: report cols=$report_cols"
+  [[ "$ai_cols" == "4" ]] && ok "B: bk_ai_analysis token/demo columns added" || bad "B: ai cols=$ai_cols"
+  [[ "$asset_val_cols" == "4" ]] && ok "B: bk_asset_valuations office_id repaired" || bad "B: asset valuation cols=$asset_val_cols"
+  [[ "$eoc_cols" == "8" ]] && ok "B: bk_emergency_locks columns added" || bad "B: eoc cols=$eoc_cols"
+  [[ "$partial_row" == "1" ]] && ok "B: legacy bankruptcy row unchanged" || bad "B: legacy row altered"
+
+  apply_migration_014
+  ok "B/F: re-run 014 on repaired partial schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── C. Duplicate bankruptcy_cases UNIQUE(office_id, case_number) ────────
+  setup_db "mig014_dup"
+  trap teardown_db EXIT
+  apply_migrations_through_013
+
+  psql_db <<'SQL' >/dev/null
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE bankruptcy_cases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  case_number TEXT,
+  debtor_name TEXT,
+  debtor_type TEXT,
+  procedure_type TEXT,
+  status TEXT
+);
+INSERT INTO bankruptcy_cases (office_id, case_number, debtor_name, debtor_type, procedure_type, status) VALUES
+  ('off_dup', 'BK-DUP-1', 'Debtor A', 'company', 'liquidation', 'active'),
+  ('off_dup', 'BK-DUP-1', 'Debtor B', 'company', 'liquidation', 'active');
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_014" >/tmp/mig014-dup.log 2>&1
+  local dup_rc=$?
+  set -e
+  [[ "$dup_rc" -eq 0 ]] && ok "C: migration 014 succeeds with duplicate case_number" || {
+    bad "C: migration 014 failed with duplicate case_number"; cat /tmp/mig014-dup.log
+  }
+
+  local dup_uniq dup_rows dup_warn
+  dup_uniq=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.bankruptcy_cases'::regclass
+      AND contype='u'
+      AND conname='bankruptcy_cases_office_id_case_number_key';")
+  dup_rows=$(psql_db -At -c "
+    SELECT COUNT(*) FROM bankruptcy_cases WHERE office_id='off_dup' AND case_number='BK-DUP-1';")
+  dup_warn=$(grep -c 'skipping bankruptcy_cases UNIQUE' /tmp/mig014-dup.log || true)
+
+  [[ "$dup_uniq" == "0" ]] && ok "C: bankruptcy_cases UNIQUE skipped on duplicates" || bad "C: unique was created"
+  [[ "$dup_rows" == "2" ]] && ok "C: duplicate case rows unmodified" || bad "C: rows=$dup_rows"
+  [[ "$dup_warn" -ge 1 ]] && ok "C: WARNING emitted for duplicate case UNIQUE skip" || bad "C: missing duplicate UNIQUE WARNING"
+
+  apply_migration_014
+  ok "C/F: re-run 014 after unique skip succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── D. Invalid bankruptcy_cases.status CHECK ────────────────────────────
+  setup_db "mig014_badcheck"
+  trap teardown_db EXIT
+  apply_migrations_through_013
+
+  psql_db <<'SQL' >/dev/null
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE bankruptcy_cases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  case_number TEXT,
+  debtor_name TEXT,
+  debtor_type TEXT,
+  procedure_type TEXT,
+  status TEXT
+);
+INSERT INTO bankruptcy_cases (office_id, case_number, debtor_name, debtor_type, procedure_type, status)
+VALUES ('off_bad', 'BK-BAD-1', 'Bad Status Debtor', 'company', 'liquidation', 'open');
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_014" >/tmp/mig014-badcheck.log 2>&1
+  local bad_rc=$?
+  set -e
+  [[ "$bad_rc" -eq 0 ]] && ok "D: migration 014 succeeds with invalid bankruptcy status" || {
+    bad "D: migration 014 failed on invalid status"; cat /tmp/mig014-badcheck.log
+  }
+
+  local status_check bad_status_row status_warn
+  status_check=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.bankruptcy_cases'::regclass
+      AND contype='c'
+      AND conname='bankruptcy_cases_status_check';")
+  bad_status_row=$(psql_db -At -c "
+    SELECT COUNT(*) FROM bankruptcy_cases WHERE office_id='off_bad' AND status='open';")
+  status_warn=$(grep -c 'skipping bankruptcy_cases status CHECK' /tmp/mig014-badcheck.log || true)
+
+  [[ "$status_check" == "0" ]] && ok "D: bankruptcy_cases status CHECK skipped" || bad "D: status CHECK added"
+  [[ "$bad_status_row" == "1" ]] && ok "D: invalid legacy status row unchanged" || bad "D: legacy status row altered"
+  [[ "$status_warn" -ge 1 ]] && ok "D: WARNING emitted for status CHECK skip" || bad "D: missing status CHECK WARNING"
+
+  apply_migration_014
+  ok "D/F: re-run 014 after CHECK skip succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── E. Orphan bk_creditors.case_id → FK skip with WARNING ───────────────
+  setup_db "mig014_orphan_fk"
+  trap teardown_db EXIT
+  apply_migrations_through_013
+
+  psql_db <<'SQL' >/dev/null
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE bankruptcy_cases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  case_number TEXT,
+  debtor_name TEXT,
+  debtor_type TEXT,
+  procedure_type TEXT,
+  status TEXT
+);
+CREATE TABLE bk_creditors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  case_id UUID,
+  office_id TEXT,
+  name TEXT,
+  type TEXT
+);
+INSERT INTO bankruptcy_cases (id, office_id, case_number, debtor_name, debtor_type, procedure_type, status)
+VALUES ('00000000-0000-4000-8000-000000000001'::uuid, 'off_fk', 'BK-FK-1', 'Valid Debtor', 'company', 'liquidation', 'active');
+INSERT INTO bk_creditors (case_id, office_id, name, type)
+VALUES ('00000000-0000-4000-8000-000000000099'::uuid, 'off_fk', 'Orphan Creditor', 'unsecured');
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_014" >/tmp/mig014-orphan-fk.log 2>&1
+  local orphan_rc=$?
+  set -e
+  [[ "$orphan_rc" -eq 0 ]] && ok "E: migration 014 succeeds with orphan bk_creditors.case_id" || {
+    bad "E: migration 014 failed with orphan creditor"; cat /tmp/mig014-orphan-fk.log
+  }
+
+  local creditor_fk orphan_warn orphan_row
+  creditor_fk=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.bk_creditors'::regclass
+      AND contype='f'
+      AND conname='bk_creditors_case_id_fkey';")
+  orphan_warn=$(grep -c 'skipping bk_creditors FK to bankruptcy_cases' /tmp/mig014-orphan-fk.log || true)
+  orphan_row=$(psql_db -At -c "
+    SELECT COUNT(*) FROM bk_creditors WHERE name='Orphan Creditor';")
+
+  [[ "$creditor_fk" == "0" ]] && ok "E: bk_creditors.case_id FK skipped on orphan" || bad "E: creditor FK was created"
+  [[ "$orphan_warn" -ge 1 ]] && ok "E: WARNING emitted for orphan creditor FK skip" || bad "E: missing orphan FK WARNING"
+  [[ "$orphan_row" == "1" ]] && ok "E: orphan legacy creditor row unchanged" || bad "E: orphan row altered"
+
+  apply_migration_014
+  ok "E/F: re-run 014 after orphan FK skip succeeded"
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Scenario 4: reported endpoints + office/public schema paths ─────────────
 scenario_reported_endpoints() {
   log "Scenario 4 — SQL paths for reported 500/404 endpoints + office/public + sendBeacon vitals"
@@ -1992,7 +2321,7 @@ SQL
   [[ "$admin_cnt" -ge 1 ]] && ok "admin list offices (db.select officePageTable)" || bad "office_page empty"
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-endpoints.log 2>&1; then
-    ok "verify-schema.sh passed after full chain including 006→013"
+    ok "verify-schema.sh passed after full chain including 006→014"
   else
     bad "verify-schema.sh failed on endpoint scenario"
     tail -15 /tmp/verify-endpoints.log
@@ -2085,6 +2414,7 @@ scenario_migration_010_office_ledger
 scenario_migration_011_stripe_infra
 scenario_migration_012_payment_transactions
 scenario_migration_013_erp
+scenario_migration_014_bankruptcy
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
