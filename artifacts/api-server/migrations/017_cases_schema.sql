@@ -16,7 +16,7 @@
 --
 -- Apply AFTER: 003 → 001 → 004 → … → 016
 -- Idempotent / legacy-safe. Does NOT drop or rename Production columns.
--- Unexpected ALTER/DDL failures abort the migration (no WHEN others swallow).
+-- Unexpected ALTER/DDL failures abort the migration (no broad catch-all).
 -- Unique index is skipped only when duplicate (office_id, case_number) rows exist.
 -- Do NOT apply via Runtime DDL / drizzle-kit push.
 -- ═══════════════════════════════════════════════════════════════════════════

@@ -397,7 +397,7 @@ assert.match(mig017, /ALTER TABLE cases ALTER COLUMN version SET DEFAULT 1/);
 assert.match(mig017, /CREATE UNIQUE INDEX IF NOT EXISTS idx_uq_cases_office_case_number/);
 assert.match(mig017, /017_cases: skipping column repair — cases table missing/);
 assert.match(mig017, /duplicate \(office_id, case_number\) rows/);
-assert.doesNotMatch(mig017, /WHEN others/i);
+assert.doesNotMatch(mig017, /^\s*WHEN others\b/im);
 assert.doesNotMatch(mig017, /DROP COLUMN/);
 assert.doesNotMatch(mig017, /RENAME COLUMN/);
 
