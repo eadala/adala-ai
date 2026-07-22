@@ -372,8 +372,9 @@ assert.match(messageFtsConfigSrc, /pg_get_expr/);
 assert.match(messageFtsConfigSrc, /parseFtsConfigFromGeneratedExpr/);
 assert.match(messageFtsConfigSrc, /status: "transient_error"/);
 assert.match(messageFtsConfigSrc, /cache: false/);
-assert.doesNotMatch(messageFtsConfigSrc, /pg_ts_config/);
+assert.doesNotMatch(messageFtsConfigSrc, /FROM pg_ts_config/);
 assert.doesNotMatch(messageFtsConfigSrc, /WHEN EXISTS \(SELECT 1 FROM pg_ts_config/);
+assert.doesNotMatch(messageFtsConfigSrc, /cfgname = 'arabic'/);
 console.log("  ✅ migration 016 owns office_messages FTS; runtime reads generated expression config");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");

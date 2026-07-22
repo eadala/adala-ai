@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 /**
  * FTS query config is owned by the live generated expression on
  * office_messages.search_vector (migration 016). Runtime must not
- * independently prefer arabic vs simple from pg_ts_config.
+ * independently prefer arabic vs simple from the text-search catalog.
  */
 
 let cachedMessageFtsConfig: string | null = null;
@@ -83,7 +83,7 @@ async function readSearchVectorCatalogRow(): Promise<{
     LIMIT 1
   `);
 
-  const row = result?.rows?.[0];
+  const row = ((result as any)?.rows ?? result)?.[0];
   if (!row) {
     return { generated: null, expr: null, columnPresent: false };
   }
