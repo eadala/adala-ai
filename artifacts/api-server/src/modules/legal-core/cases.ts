@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; schema authority */
 /**
  * Cases Router — واجهة API للقضايا (Architecture: Clean Controller)
  * ──────────────────────────────────────────────────────────────────
@@ -42,9 +43,7 @@ const router = Router();
     sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_uq_cases_office_case_number
         ON cases (office_id, case_number) WHERE case_number IS NOT NULL`,
 
-    /* ── Cross-module integration indexes (prevent N+1 on related tables) ── */
-    sql`CREATE INDEX IF NOT EXISTS idx_tasks_case_id           ON tasks (case_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_tasks_office_case       ON tasks (office_id, case_id)`,
+    /* ── Cross-module integration indexes (task indexes live in migration 015) ── */
     sql`CREATE INDEX IF NOT EXISTS idx_invoices_case_office    ON client_invoices (case_id, office_id)`,
     sql`CREATE INDEX IF NOT EXISTS idx_contracts_case_office   ON contracts (case_id, office_id)`,
     sql`CREATE INDEX IF NOT EXISTS idx_revenues_case_office    ON revenues (case_id, office_id)`,

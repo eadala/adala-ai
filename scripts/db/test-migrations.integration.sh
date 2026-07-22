@@ -26,6 +26,7 @@ MIGRATION_011="$ROOT/artifacts/api-server/migrations/011_stripe_infrastructure_t
 MIGRATION_012="$ROOT/artifacts/api-server/migrations/012_payment_transactions.sql"
 MIGRATION_013="$ROOT/artifacts/api-server/migrations/013_erp_schema.sql"
 MIGRATION_014="$ROOT/artifacts/api-server/migrations/014_bankruptcy_schema.sql"
+MIGRATION_015="$ROOT/artifacts/api-server/migrations/015_tasks_branches_schema.sql"
 
 PASS=0
 FAIL=0
@@ -125,6 +126,10 @@ apply_migration_014() {
   psql_db -f "$MIGRATION_014" >/dev/null
 }
 
+apply_migration_015() {
+  psql_db -f "$MIGRATION_015" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -140,11 +145,12 @@ apply_migrations_through_013() {
 apply_all_migrations() {
   apply_migrations_through_013
   apply_migration_014
+  apply_migration_015
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -389,10 +395,11 @@ scenario_migration_006_idempotent() {
   apply_migration_012
   apply_migration_013
   apply_migration_014
+  apply_migration_015
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-006.log 2>&1; then
-    ok "verify-schema.sh passed after 006→014"
+    ok "verify-schema.sh passed after 006→015"
   else
-    bad "verify-schema.sh failed after 006→014"
+    bad "verify-schema.sh failed after 006→015"
     tail -15 /tmp/verify-006.log
   fi
 
@@ -642,15 +649,16 @@ SQL
   cnt=$(psql_db -At -c "SELECT COUNT(*) FROM office_ledger WHERE stripe_event_id='evt_test_010';")
   [[ "$cnt" == "1" ]] && ok "A: duplicate stripe_event_id not inserted" || bad "A: count=$cnt"
 
-  # P0 includes Stripe (011) + payments (012) + ERP (013) + Bankruptcy (014)
+  # P0 includes Stripe (011) + payments (012) + ERP (013) + Bankruptcy (014) + Tasks/Branches (015)
   apply_migration_011
   apply_migration_012
   apply_migration_013
   apply_migration_014
+  apply_migration_015
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-010.log 2>&1; then
-    ok "A: verify-schema.sh passed after 010→014"
+    ok "A: verify-schema.sh passed after 010→015"
   else
-    bad "A: verify-schema.sh failed after 010→014"; tail -20 /tmp/verify-010.log
+    bad "A: verify-schema.sh failed after 010→015"; tail -20 /tmp/verify-010.log
   fi
 
   if ! grep -qE 'ensurePerformanceIndexes|idx_office_ledger_stripe_event_id' \
@@ -925,10 +933,11 @@ scenario_migration_011_stripe_infra() {
   apply_migration_012
   apply_migration_013
   apply_migration_014
+  apply_migration_015
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-011.log 2>&1; then
-    ok "A: verify-schema.sh passed after 011→014"
+    ok "A: verify-schema.sh passed after 011→015"
   else
-    bad "A: verify-schema.sh failed after 011→014"; tail -20 /tmp/verify-011.log
+    bad "A: verify-schema.sh failed after 011→015"; tail -20 /tmp/verify-011.log
   fi
 
   if ! grep -qE 'ensureStripeBufferTables|ensureReconciliationTable|CREATE TABLE IF NOT EXISTS stripe_' \
@@ -1215,10 +1224,11 @@ scenario_migration_012_payment_transactions() {
 
   apply_migration_013
   apply_migration_014
+  apply_migration_015
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-012.log 2>&1; then
-    ok "A: verify-schema.sh passed after 012+013+014"
+    ok "A: verify-schema.sh passed after 012+013+014+015"
   else
-    bad "A: verify-schema.sh failed after 012+013+014"; tail -20 /tmp/verify-012.log
+    bad "A: verify-schema.sh failed after 012+013+014+015"; tail -20 /tmp/verify-012.log
   fi
 
   if ! grep -qE 'ensurePaymentCols|ALTER TABLE payment_transactions' \
@@ -1446,10 +1456,11 @@ scenario_migration_013_erp() {
   ok "A/F: re-run 013 on fresh schema succeeded"
 
   apply_migration_014
+  apply_migration_015
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-013.log 2>&1; then
-    ok "A: verify-schema.sh passed after 013+014"
+    ok "A: verify-schema.sh passed after 013+014+015"
   else
-    bad "A: verify-schema.sh failed after 013+014"; tail -20 /tmp/verify-013.log
+    bad "A: verify-schema.sh failed after 013+014+015"; tail -20 /tmp/verify-013.log
   fi
 
   if ! grep -qE 'ensureERPTables|CREATE TABLE IF NOT EXISTS office_erp_ledger|CREATE TABLE IF NOT EXISTS chart_of_accounts' \
@@ -2012,10 +2023,11 @@ scenario_migration_014_bankruptcy() {
   apply_migration_014
   ok "A/F: re-run 014 on fresh schema succeeded"
 
+  apply_migration_015
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-014.log 2>&1; then
-    ok "A: verify-schema.sh passed after 014"
+    ok "A: verify-schema.sh passed after 014+015"
   else
-    bad "A: verify-schema.sh failed after 014"; tail -20 /tmp/verify-014.log
+    bad "A: verify-schema.sh failed after 014+015"; tail -20 /tmp/verify-014.log
   fi
 
   if ! grep -qE 'CREATE TABLE|CREATE INDEX' \
@@ -2264,6 +2276,249 @@ SQL
   teardown_db
 }
 
+# ── Scenario 3i: Tasks + Branches schema (015) ──────────────────────────────
+scenario_migration_015_tasks_branches() {
+  log "Scenario 3i — migration 015: tasks/branches fresh / idempotent / partial / FK skip / Runtime DDL audit"
+
+  # ── A. Fresh ─────────────────────────────────────────────────────────────
+  setup_db "mig015_fresh"
+  trap teardown_db EXIT
+  apply_migrations_through_013
+  apply_migration_014
+
+  local pre_tasks pre_branches
+  pre_tasks=$(psql_db -At -c "
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='tasks');")
+  pre_branches=$(psql_db -At -c "
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='office_branches');")
+  [[ "$pre_tasks" == "f" ]] && ok "A pre-015: tasks absent" || bad "A pre-015: tasks should be absent"
+  [[ "$pre_branches" == "f" ]] && ok "A pre-015: office_branches absent" || bad "A pre-015: office_branches should be absent"
+
+  apply_migration_015
+
+  local tb_tables task_cols branch_cols branch_fks task_idx branch_idx
+  tb_tables=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.tables
+    WHERE table_schema='public'
+      AND table_name IN ('tasks','office_branches');")
+  task_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='tasks'
+      AND column_name IN (
+        'id','office_id','title','description','status','priority','assignee_name',
+        'assigned_to','due_date','case_id','case_title','created_by','tags',
+        'branch_id','created_at','updated_at'
+      );")
+  branch_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='office_branches'
+      AND column_name IN (
+        'id','office_id','name','code','location','description','phone','email',
+        'manager_user_id','manager_name','status','created_at','updated_at'
+      );")
+  branch_fks=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE contype='f'
+      AND conname IN (
+        'cases_branch_id_fkey','clients_branch_id_fkey',
+        'client_invoices_branch_id_fkey','tasks_branch_id_fkey'
+      );")
+  task_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public'
+      AND indexname IN (
+        'idx_tasks_office_due','idx_tasks_status',
+        'idx_tasks_case_id','idx_tasks_office_case'
+      );")
+  branch_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public'
+      AND indexname IN (
+        'idx_office_branches_office','idx_office_branches_status',
+        'idx_cases_branch','idx_clients_branch'
+      );")
+
+  [[ "$tb_tables" == "2" ]] && ok "A: tasks and office_branches created" || bad "A: table count=$tb_tables"
+  [[ "$task_cols" == "16" ]] && ok "A: tasks required columns present" || bad "A: task cols=$task_cols"
+  [[ "$branch_cols" == "13" ]] && ok "A: office_branches required columns present" || bad "A: branch cols=$branch_cols"
+  [[ "$branch_fks" == "4" ]] && ok "A: branch_id FKs present on four tables" || bad "A: branch FKs=$branch_fks"
+  [[ "$task_idx" == "4" ]] && ok "A: tasks indexes present" || bad "A: task indexes=$task_idx"
+  [[ "$branch_idx" == "4" ]] && ok "A: office/branch indexes present" || bad "A: branch indexes=$branch_idx"
+
+  apply_migration_015
+  ok "A/F: re-run 015 on fresh schema succeeded"
+
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-015.log 2>&1; then
+    ok "A: verify-schema.sh passed after 015"
+  else
+    bad "A: verify-schema.sh failed after 015"; tail -20 /tmp/verify-015.log
+  fi
+
+  if ! grep -qE 'ALTER TABLE tasks|ensureTables\(\)\.catch' \
+      "$ROOT/artifacts/api-server/src/modules/platform/branches.ts"; then
+    ok "A: branches.ts has no startup ALTER TABLE tasks"
+  else
+    bad "A: branches.ts still alters tasks at startup"
+  fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Partial tasks/office_branches schemas missing columns ─────────────
+  setup_db "mig015_partial"
+  trap teardown_db EXIT
+  apply_migrations_through_013
+  apply_migration_014
+
+  psql_db <<'SQL' >/dev/null
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE office_branches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+);
+CREATE TABLE tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  title TEXT
+);
+INSERT INTO tasks (office_id, title) VALUES ('off_partial', 'Legacy task');
+SQL
+
+  apply_migration_015
+
+  local partial_task_cols partial_branch_cols partial_branch_id_cols partial_row
+  partial_task_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='tasks'
+      AND column_name IN (
+        'description','status','priority','assignee_name','assigned_to','due_date',
+        'case_id','case_title','created_by','tags','branch_id','created_at','updated_at'
+      );")
+  partial_branch_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='office_branches'
+      AND column_name IN (
+        'office_id','name','code','location','description','phone','email',
+        'manager_user_id','manager_name','status','created_at','updated_at'
+      );")
+  partial_branch_id_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public'
+      AND column_name='branch_id'
+      AND table_name IN ('cases','clients','client_invoices','tasks');")
+  partial_row=$(psql_db -At -c "SELECT COUNT(*) FROM tasks WHERE title='Legacy task';")
+
+  [[ "$partial_task_cols" == "13" ]] && ok "B: tasks missing columns added" || bad "B: task cols=$partial_task_cols"
+  [[ "$partial_branch_cols" == "12" ]] && ok "B: office_branches missing columns added" || bad "B: branch cols=$partial_branch_cols"
+  [[ "$partial_branch_id_cols" == "4" ]] && ok "B: branch_id columns repaired on four tables" || bad "B: branch_id cols=$partial_branch_id_cols"
+  [[ "$partial_row" == "1" ]] && ok "B: legacy task row unchanged" || bad "B: legacy task row altered"
+
+  apply_migration_015
+  ok "B/F: re-run 015 on repaired partial schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── C. Orphan tasks.branch_id → FK skip with WARNING ────────────────────
+  setup_db "mig015_orphan_fk"
+  trap teardown_db EXIT
+  apply_migrations_through_013
+  apply_migration_014
+
+  psql_db <<'SQL' >/dev/null
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  title TEXT,
+  branch_id UUID
+);
+INSERT INTO tasks (office_id, title, branch_id)
+VALUES ('off_fk', 'Orphan branch task', '00000000-0000-4000-8000-000000000099'::uuid);
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_015" >/tmp/mig015-orphan-fk.log 2>&1
+  local orphan_rc=$?
+  set -e
+  [[ "$orphan_rc" -eq 0 ]] && ok "C: migration 015 succeeds with orphan tasks.branch_id" || {
+    bad "C: migration 015 failed with orphan task branch"; cat /tmp/mig015-orphan-fk.log
+  }
+
+  local task_branch_fk orphan_warn orphan_task
+  task_branch_fk=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.tasks'::regclass
+      AND contype='f'
+      AND conname='tasks_branch_id_fkey';")
+  orphan_warn=$(grep -c 'skipping tasks FK to office_branches' /tmp/mig015-orphan-fk.log || true)
+  orphan_task=$(psql_db -At -c "SELECT COUNT(*) FROM tasks WHERE title='Orphan branch task';")
+
+  [[ "$task_branch_fk" == "0" ]] && ok "C: tasks.branch_id FK skipped on orphan" || bad "C: tasks branch FK was created"
+  [[ "$orphan_warn" -ge 1 ]] && ok "C: WARNING emitted for orphan branch FK skip" || bad "C: missing orphan FK WARNING"
+  [[ "$orphan_task" == "1" ]] && ok "C: orphan legacy task row unchanged" || bad "C: orphan task row altered"
+
+  apply_migration_015
+  ok "C/F: re-run 015 after orphan FK skip succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── D. Datatype mismatch tasks.branch_id TEXT → FK skip, non-abort ──────
+  setup_db "mig015_type_mismatch"
+  trap teardown_db EXIT
+  apply_migrations_through_013
+  apply_migration_014
+
+  psql_db <<'SQL' >/dev/null
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  title TEXT,
+  branch_id TEXT
+);
+INSERT INTO tasks (office_id, title, branch_id)
+VALUES ('off_type', 'Text branch task', 'not-a-uuid');
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_015" >/tmp/mig015-type-mismatch.log 2>&1
+  local type_rc=$?
+  set -e
+  [[ "$type_rc" -eq 0 ]] && ok "D: migration 015 succeeds with tasks.branch_id TEXT" || {
+    bad "D: migration 015 failed on branch_id datatype mismatch"; cat /tmp/mig015-type-mismatch.log
+  }
+
+  local branch_udt mismatch_fk mismatch_warn text_task
+  branch_udt=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='tasks' AND column_name='branch_id';")
+  mismatch_fk=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.tasks'::regclass
+      AND contype='f'
+      AND conname='tasks_branch_id_fkey';")
+  mismatch_warn=$(grep -c 'incompatible types tasks.branch_id' /tmp/mig015-type-mismatch.log || true)
+  text_task=$(psql_db -At -c "SELECT COUNT(*) FROM tasks WHERE branch_id='not-a-uuid';")
+
+  [[ "$branch_udt" == "text" ]] && ok "D: tasks.branch_id TEXT preserved" || bad "D: branch_id udt=$branch_udt"
+  [[ "$mismatch_fk" == "0" ]] && ok "D: tasks.branch_id FK skipped on type mismatch" || bad "D: type-mismatch FK was created"
+  [[ "$mismatch_warn" -ge 1 ]] && ok "D: WARNING emitted for branch_id type mismatch" || bad "D: missing type mismatch WARNING"
+  [[ "$text_task" == "1" ]] && ok "D: text branch legacy task row unchanged" || bad "D: text task row altered"
+
+  apply_migration_015
+  ok "D/F: re-run 015 after datatype mismatch skip succeeded"
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Scenario 4: reported endpoints + office/public schema paths ─────────────
 scenario_reported_endpoints() {
   log "Scenario 4 — SQL paths for reported 500/404 endpoints + office/public + sendBeacon vitals"
@@ -2321,7 +2576,7 @@ SQL
   [[ "$admin_cnt" -ge 1 ]] && ok "admin list offices (db.select officePageTable)" || bad "office_page empty"
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-endpoints.log 2>&1; then
-    ok "verify-schema.sh passed after full chain including 006→014"
+    ok "verify-schema.sh passed after full chain including 006→015"
   else
     bad "verify-schema.sh failed on endpoint scenario"
     tail -15 /tmp/verify-endpoints.log
@@ -2415,6 +2670,7 @@ scenario_migration_011_stripe_infra
 scenario_migration_012_payment_transactions
 scenario_migration_013_erp
 scenario_migration_014_bankruptcy
+scenario_migration_015_tasks_branches
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

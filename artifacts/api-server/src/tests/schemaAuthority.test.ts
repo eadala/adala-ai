@@ -34,6 +34,7 @@ assert.ok(migrationFiles.includes("011_stripe_infrastructure_tables.sql"));
 assert.ok(migrationFiles.includes("012_payment_transactions.sql"));
 assert.ok(migrationFiles.includes("013_erp_schema.sql"));
 assert.ok(migrationFiles.includes("014_bankruptcy_schema.sql"));
+assert.ok(migrationFiles.includes("015_tasks_branches_schema.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -289,6 +290,47 @@ assert.doesNotMatch(adminSrc, /CREATE TABLE IF NOT EXISTS bk_emergency_locks/);
 assert.doesNotMatch(adminSrc, /ensureEocTables/);
 assert.match(adminSrc, /014_bankruptcy_schema/);
 console.log("  ✅ migration 014 owns Bankruptcy tables; Runtime DDL removed from boot/demo/EOC");
+
+console.log("\n═══ schemaAuthority: Batch Tasks/Branches (015) ═══");
+
+const mig015 = readRepo("artifacts/api-server/migrations/015_tasks_branches_schema.sql");
+assert.match(mig015, /CREATE TABLE IF NOT EXISTS office_branches/);
+assert.match(mig015, /CREATE TABLE IF NOT EXISTS tasks/);
+assert.match(mig015, /office_id\s+TEXT/);
+assert.match(mig015, /case_id\s+TEXT/);
+assert.match(mig015, /branch_id\s+UUID/);
+assert.match(mig015, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS branch_id UUID/);
+assert.match(mig015, /ALTER TABLE clients ADD COLUMN IF NOT EXISTS branch_id UUID/);
+assert.match(mig015, /ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS branch_id UUID/);
+assert.match(mig015, /ALTER TABLE tasks ADD COLUMN IF NOT EXISTS branch_id UUID/);
+assert.doesNotMatch(mig015, /ALTER TABLE tasks ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES/);
+assert.match(mig015, /idx_office_branches_office/);
+assert.match(mig015, /idx_office_branches_status/);
+assert.match(mig015, /idx_tasks_office_due/);
+assert.match(mig015, /idx_tasks_status/);
+assert.match(mig015, /idx_tasks_case_id/);
+assert.match(mig015, /idx_tasks_office_case/);
+assert.match(mig015, /idx_cases_branch/);
+assert.match(mig015, /idx_clients_branch/);
+assert.match(mig015, /pg_temp\.add_015_tb_fk/);
+assert.match(mig015, /015_tb: skipping % FK to %/);
+assert.match(mig015, /orphan row\(s\)/);
+assert.match(mig015, /incompatible types/);
+assert.match(mig015, /foreign_key_violation/);
+assert.match(mig015, /datatype_mismatch/);
+
+const branchesSrc = readSrc("modules/platform/branches.ts");
+assert.doesNotMatch(branchesSrc, /ALTER TABLE tasks/);
+assert.doesNotMatch(branchesSrc, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS branch_id/);
+assert.doesNotMatch(branchesSrc, /CREATE TABLE IF NOT EXISTS office_branches/);
+assert.doesNotMatch(branchesSrc, /ensureTables\(\)\.catch/);
+assert.match(branchesSrc, /015_tasks_branches_schema/);
+
+const casesSrc = readSrc("modules/legal-core/cases.ts");
+assert.doesNotMatch(casesSrc, /CREATE INDEX IF NOT EXISTS idx_tasks_case_id/);
+assert.doesNotMatch(casesSrc, /CREATE INDEX IF NOT EXISTS idx_tasks_office_case/);
+assert.match(casesSrc, /task indexes live in migration 015/);
+console.log("  ✅ migration 015 owns tasks/branches; Runtime DDL/indexes removed");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

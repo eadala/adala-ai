@@ -9,6 +9,7 @@ contracts
 contract_templates
 contract_categories
 clients
+tasks
 users
 invitations
 roles
@@ -26,6 +27,7 @@ route_analytics
 office_storage_quota
 storage_files
 office_ledger
+office_branches
 stripe_events
 stripe_dead_letters
 stripe_reconciliation_log
