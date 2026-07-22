@@ -6,21 +6,44 @@ import {
 
 console.log("═══ demoSeedPolicy unit tests ═══");
 
-assert.equal(isDemoSeedEnabled({ NODE_ENV: "production" }), false);
+assert.equal(
+  isDemoSeedEnabled({}),
+  false,
+  "DEMO_SEED_ENABLED unset → seed disabled",
+);
+assert.equal(
+  isDemoSeedEnabled({ NODE_ENV: "production" }),
+  false,
+  "production with unset DEMO_SEED_ENABLED → disabled",
+);
+assert.equal(
+  isDemoSeedEnabled({ NODE_ENV: undefined as unknown as string }),
+  false,
+  "unset NODE_ENV alone must not enable seed",
+);
+assert.equal(
+  isDemoSeedEnabled({ NODE_ENV: "development" }),
+  false,
+  "development without DEMO_SEED_ENABLED → disabled",
+);
 assert.equal(
   isDemoSeedEnabled({ NODE_ENV: "production", DEMO_SEED_ENABLED: "true" }),
   true,
 );
 assert.equal(
-  isDemoSeedEnabled({ NODE_ENV: "production", DEMO_SEED_ENABLED: "false" }),
-  false,
+  isDemoSeedEnabled({ DEMO_SEED_ENABLED: "true" }),
+  true,
+  "explicit DEMO_SEED_ENABLED=true enables seed regardless of NODE_ENV",
 );
-assert.equal(isDemoSeedEnabled({ NODE_ENV: "development" }), true);
 assert.equal(
   isDemoSeedEnabled({ NODE_ENV: "development", DEMO_SEED_ENABLED: "false" }),
   false,
 );
-console.log("  ✅ Production environment guard");
+assert.equal(
+  isDemoSeedEnabled({ NODE_ENV: "production", DEMO_SEED_ENABLED: "false" }),
+  false,
+);
+console.log("  ✅ Demo seed only when DEMO_SEED_ENABLED=true (no NODE_ENV inference)");
 
 assert.deepEqual(
   classifyDemoSeedError({ code: "42703", message: 'column "case_number" does not exist' }),

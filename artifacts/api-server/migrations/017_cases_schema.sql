@@ -15,7 +15,9 @@
 --   Active cases API (GET / PATCH court / unique index) already requires these.
 --
 -- Apply AFTER: 003 → 001 → 004 → … → 016
--- Idempotent / legacy-safe. Does NOT drop, rename, or backfill Production data.
+-- Idempotent / legacy-safe. Does NOT drop or rename Production columns.
+-- Unexpected ALTER/DDL failures abort the migration (no WHEN others swallow).
+-- Unique index is skipped only when duplicate (office_id, case_number) rows exist.
 -- Do NOT apply via Runtime DDL / drizzle-kit push.
 -- ═══════════════════════════════════════════════════════════════════════════
 
@@ -28,6 +30,7 @@ BEGIN
     FROM information_schema.tables
     WHERE table_schema = 'public'
       AND table_name = 'cases'
+      AND table_type = 'BASE TABLE'
   ) THEN
     RAISE WARNING '017_cases: skipping column repair — cases table missing';
     RETURN;
@@ -49,12 +52,25 @@ BEGIN
 EXCEPTION
   WHEN undefined_table THEN
     RAISE WARNING '017_cases: skipping column repair — cases table missing';
-  WHEN others THEN
-    RAISE WARNING '017_cases: column repair skipped — %', SQLERRM;
+  WHEN undefined_column THEN
+    RAISE WARNING '017_cases: skipping column repair — required column missing';
 END $$;
 
 DO $$
+DECLARE
+  dup_count BIGINT;
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'cases'
+      AND table_type = 'BASE TABLE'
+  ) THEN
+    RAISE WARNING '017_cases: skipping unique index — cases missing';
+    RETURN;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1
     FROM information_schema.columns
@@ -66,6 +82,20 @@ BEGIN
     RETURN;
   END IF;
 
+  SELECT COUNT(*) INTO dup_count
+  FROM (
+    SELECT 1
+    FROM cases
+    WHERE case_number IS NOT NULL
+    GROUP BY office_id, case_number
+    HAVING COUNT(*) > 1
+  ) d;
+
+  IF dup_count > 0 THEN
+    RAISE WARNING '017_cases: skipping idx_uq_cases_office_case_number — duplicate (office_id, case_number) rows (% groups)', dup_count;
+    RETURN;
+  END IF;
+
   CREATE UNIQUE INDEX IF NOT EXISTS idx_uq_cases_office_case_number
     ON cases (office_id, case_number)
     WHERE case_number IS NOT NULL;
@@ -74,8 +104,6 @@ EXCEPTION
     RAISE WARNING '017_cases: skipping unique index — cases missing';
   WHEN undefined_column THEN
     RAISE WARNING '017_cases: skipping unique index — case_number missing';
-  WHEN others THEN
-    RAISE WARNING '017_cases: unique index skipped — %', SQLERRM;
 END $$;
 
 COMMIT;

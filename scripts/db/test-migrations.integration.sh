@@ -3147,13 +3147,14 @@ SQL
     && ok "C: failure mentions case_number (not vague table-missing)" \
     || bad "C: error log did not mention case_number"
 
-  # Production guard (source-level — Demo seed off unless DEMO_SEED_ENABLED)
-  if grep -q 'isDemoSeedEnabled' "$ROOT/artifacts/api-server/src/modules/platform/demoMode.ts" \
-      && grep -q 'DEMO_SEED_ENABLED' "$ROOT/artifacts/api-server/src/modules/platform/demoSeedPolicy.ts" \
-      && ! grep -q 'table may not exist yet' "$ROOT/artifacts/api-server/src/modules/platform/demoMode.ts"; then
-    ok "D: Demo seed has Production guard + accurate error classification"
+  # Production guard (source-level — Demo seed ONLY when DEMO_SEED_ENABLED=true)
+  if grep -q 'DEMO_SEED_ENABLED === "true"' "$ROOT/artifacts/api-server/src/modules/platform/demoSeedPolicy.ts" \
+      && ! grep -qE 'NODE_ENV\s*(!==|===)\s*["'"'"']production["'"'"']' "$ROOT/artifacts/api-server/src/modules/platform/demoSeedPolicy.ts" \
+      && ! grep -q 'table may not exist yet' "$ROOT/artifacts/api-server/src/modules/platform/demoMode.ts" \
+      && ! grep -q 'WHEN others' "$MIGRATION_017"; then
+    ok "D: Demo seed opt-in only + migration has no WHEN others swallow"
   else
-    bad "D: Demo seed guard/logging regression"
+    bad "D: Demo seed / exception-handling regression"
   fi
 
   if ! grep -qE 'ALTER TABLE cases ADD COLUMN IF NOT EXISTS deleted_at|ALTER TABLE cases ADD COLUMN IF NOT EXISTS version|CREATE UNIQUE INDEX IF NOT EXISTS idx_uq_cases_office_case_number' \
@@ -3162,6 +3163,70 @@ SQL
   else
     bad "D: cases.ts still contains 017-owned Runtime DDL"
   fi
+
+  if grep -q 'case_number' "$ROOT/lib/db/src/schema/cases.ts" \
+      && grep -q 'next_hearing_date' "$ROOT/lib/db/src/schema/cases.ts" \
+      && grep -q 'deleted_at' "$ROOT/lib/db/src/schema/cases.ts" \
+      && grep -q 'version' "$ROOT/lib/db/src/schema/cases.ts"; then
+    ok "D: Drizzle cases schema includes Migration 017 columns"
+  else
+    bad "D: Drizzle cases schema missing 017 columns"
+  fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── E. Duplicate (office_id, case_number) → WARNING, skip index, no abort ─
+  setup_db "mig017_dup_cn"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+
+  psql_db <<'SQL' >/dev/null
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS case_number TEXT;
+INSERT INTO cases (id, title, case_type, status, office_id, case_number, created_at, updated_at)
+VALUES
+  ('dup-a', 'Case A', 'مدنية', 'open', 'off1', 'CN-DUP', NOW(), NOW()),
+  ('dup-b', 'Case B', 'مدنية', 'open', 'off1', 'CN-DUP', NOW(), NOW());
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_017" >/tmp/mig017-dup.log 2>&1
+  local dup_rc=$?
+  set -e
+  [[ "$dup_rc" -eq 0 ]] && ok "E: migration 017 succeeds with duplicate case_number rows" || {
+    bad "E: migration 017 aborted on duplicates"; cat /tmp/mig017-dup.log
+  }
+  local dup_warn dup_idx
+  dup_warn=$(grep -c 'duplicate (office_id, case_number) rows' /tmp/mig017-dup.log || true)
+  dup_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_uq_cases_office_case_number';")
+  [[ "$dup_warn" -ge 1 ]] && ok "E: WARNING emitted for duplicate case_number detection" || bad "E: duplicate WARNING absent"
+  [[ "$dup_idx" == "0" ]] && ok "E: unique index skipped when duplicates exist" || bad "E: unexpected index count=$dup_idx"
+
+  apply_migration_017
+  ok "E/F: re-run 017 with duplicates remains idempotent (still skipped)"
+
+  trap - EXIT
+  teardown_db
+
+  # ── F. Unexpected ALTER failure must abort migration ─────────────────────
+  setup_db "mig017_bad_alter"
+  trap teardown_db EXIT
+  # cases as a VIEW → ALTER TABLE ADD COLUMN is unexpected and must fail loudly
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE cases_base (id text PRIMARY KEY, title text);
+CREATE VIEW cases AS SELECT id, title FROM cases_base;
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_017" >/tmp/mig017-bad-alter.log 2>&1
+  local bad_alter_rc=$?
+  set -e
+  [[ "$bad_alter_rc" -ne 0 ]] && ok "F: unexpected ALTER failure aborts migration" || {
+    bad "F: migration swallowed unexpected ALTER failure"; cat /tmp/mig017-bad-alter.log
+  }
 
   trap - EXIT
   teardown_db

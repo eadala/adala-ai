@@ -1,12 +1,13 @@
 /** Pure Demo seed policy helpers (no DB import). */
 
-/** Optional Demo seed — off in production unless DEMO_SEED_ENABLED=true. */
+/**
+ * Optional Demo seed — runs ONLY when DEMO_SEED_ENABLED=true is set explicitly.
+ * Never inferred from NODE_ENV (production must not enable by accident).
+ */
 export function isDemoSeedEnabled(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  if (env.DEMO_SEED_ENABLED === "true") return true;
-  if (env.DEMO_SEED_ENABLED === "false") return false;
-  return env.NODE_ENV !== "production";
+  return env.DEMO_SEED_ENABLED === "true";
 }
 
 export function classifyDemoSeedError(err: unknown): {

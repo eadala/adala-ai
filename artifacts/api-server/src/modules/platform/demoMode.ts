@@ -14,12 +14,9 @@ const DEMO_PASS  = process.env.DEMO_PASSWORD ?? "Demo@2025!";
 
 async function ensureDemoData() {
   if (!isDemoSeedEnabled()) {
-    /* Production default is silent skip; explicit false logs once for operators. */
+    /* Seed runs only when DEMO_SEED_ENABLED=true — never inferred from NODE_ENV. */
     if (process.env.DEMO_SEED_ENABLED === "false") {
-      logger.info(
-        { nodeEnv: process.env.NODE_ENV },
-        "[Demo] Seed skipped — DEMO_SEED_ENABLED=false",
-      );
+      logger.info("[Demo] Seed skipped — DEMO_SEED_ENABLED=false");
     }
     return;
   }
