@@ -102,7 +102,9 @@ router.get("/stats", async (_req, res) => {
         (SELECT COUNT(*) FROM cases   WHERE office_id = ${DEMO_OFFICE_ID}) AS case_count,
         (SELECT COUNT(*) FROM clients WHERE office_id = ${DEMO_OFFICE_ID}) AS client_count
     `);
-    const r = ((rows as { rows?: Array<Record<string, unknown>> }).rows ?? rows as Array<Record<string, unknown>>)?.[0] ?? {};
+    const list = (rows as { rows?: Array<Record<string, unknown>> }).rows
+      ?? (rows as unknown as Array<Record<string, unknown>>);
+    const r = list?.[0] ?? {};
     res.json({ cases: Number(r.case_count ?? 5), clients: Number(r.client_count ?? 3), offices: 47, ai_tasks: 312 });
   } catch {
     res.json({ cases: 5, clients: 3, offices: 47, ai_tasks: 312 });
