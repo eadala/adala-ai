@@ -2538,12 +2538,37 @@ SQL
 
 # ── Scenario 3j: Office Messages FTS (016) ─────────────────────────────────
 scenario_migration_016_office_messages_fts() {
-  log "Scenario 3j — migration 016: office_messages FTS fresh / idempotent / partial / legacy / Runtime DDL audit"
+  log "Scenario 3j — migration 016: office_messages FTS config SoT / legacy / idempotent / Runtime DDL audit"
 
-  # ── A. Fresh ─────────────────────────────────────────────────────────────
-  setup_db "mig016_fresh"
+  # Helper: read config literal from live generated expression (runtime SoT)
+  read_generated_fts_cfg() {
+    psql_db -At -c "
+      SELECT (regexp_match(pg_get_expr(ad.adbin, ad.adrelid),
+                           'to_tsvector\(\s*''([^'']+)''', 'i'))[1]
+      FROM pg_attribute a
+      JOIN pg_class c ON c.oid = a.attrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      LEFT JOIN pg_attrdef ad ON ad.adrelid = a.attrelid AND ad.adnum = a.attnum
+      WHERE n.nspname='public'
+        AND c.relname='office_messages'
+        AND a.attname='search_vector'
+        AND NOT a.attisdropped
+        AND a.attgenerated IN ('s','v')
+      LIMIT 1;"
+  }
+
+  # ── A. Fresh with arabic present (when available) ────────────────────────
+  setup_db "mig016_fresh_arabic"
   trap teardown_db EXIT
   apply_migrations_through_015
+
+  local arabic_present
+  arabic_present=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname='arabic');")
+  if [[ "$arabic_present" != "t" ]]; then
+    psql_db -c "CREATE TEXT SEARCH CONFIGURATION arabic (COPY = simple);" >/dev/null
+    arabic_present=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname='arabic');")
+  fi
+  [[ "$arabic_present" == "t" ]] && ok "A pre: arabic text search config present" || bad "A pre: could not ensure arabic config"
 
   local pre_messages
   pre_messages=$(psql_db -At -c "
@@ -2553,7 +2578,7 @@ scenario_migration_016_office_messages_fts() {
 
   apply_migration_016
 
-  local msg_table msg_cols vector_udt gin_idx fts_cfg query_count
+  local msg_table msg_cols vector_udt gin_idx gen_cfg query_count
   msg_table=$(psql_db -At -c "
     SELECT EXISTS (SELECT 1 FROM information_schema.tables
       WHERE table_schema='public' AND table_name='office_messages');")
@@ -2576,11 +2601,7 @@ scenario_migration_016_office_messages_fts() {
     WHERE schemaname='public'
       AND tablename='office_messages'
       AND indexname='idx_messages_search';")
-  fts_cfg=$(psql_db -At -c "
-    SELECT CASE
-      WHEN EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname='arabic') THEN 'arabic'
-      ELSE 'simple'
-    END;")
+  gen_cfg=$(read_generated_fts_cfg)
 
   psql_db <<'SQL' >/dev/null
 INSERT INTO office_messages (office_id, subject, body, sender_id, sender_name, folder)
@@ -2588,17 +2609,23 @@ VALUES ('off_fts', 'contract notice', 'hello contract body', 'u1', 'User One', '
 SQL
   query_count=$(psql_db -At -c "
     SELECT COUNT(*) FROM office_messages
-    WHERE search_vector @@ plainto_tsquery('${fts_cfg}', 'contract');")
+    WHERE search_vector @@ plainto_tsquery('${gen_cfg}', 'contract');")
 
   [[ "$msg_table" == "t" ]] && ok "A: office_messages created" || bad "A: office_messages missing"
   [[ "$msg_cols" == "15" ]] && ok "A: office_messages FTS/key columns present" || bad "A: office_messages cols=$msg_cols"
   [[ "$vector_udt" == "tsvector" ]] && ok "A: search_vector is tsvector" || bad "A: search_vector udt=$vector_udt"
   [[ "$gin_idx" == "1" ]] && ok "A: idx_messages_search GIN index present" || bad "A: idx_messages_search count=$gin_idx"
-  [[ "$fts_cfg" == "arabic" || "$fts_cfg" == "simple" ]] && ok "A: FTS config resolves to $fts_cfg" || bad "A: unexpected FTS config=$fts_cfg"
-  [[ "$query_count" == "1" ]] && ok "A: @@ query works with chosen FTS config" || bad "A: @@ query count=$query_count"
+  [[ "$gen_cfg" == "arabic" ]] && ok "A: generated expression uses arabic" || bad "A: generated cfg=$gen_cfg (expected arabic)"
+  [[ "$query_count" == "1" ]] && ok "A: @@ query works with discovered generated config" || bad "A: @@ query count=$query_count"
+
+  # Runtime SoT check: same catalog extraction the app uses
+  local runtime_cfg
+  runtime_cfg=$(read_generated_fts_cfg)
+  [[ "$runtime_cfg" == "$gen_cfg" ]] && ok "A: runtime config equals generated expression config ($runtime_cfg)" \
+    || bad "A: runtime/expression mismatch runtime=$runtime_cfg expr=$gen_cfg"
 
   apply_migration_016
-  ok "A/F: re-run 016 on fresh schema succeeded"
+  ok "A/F: re-run 016 on fresh arabic schema succeeded (idempotent)"
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-016.log 2>&1; then
     ok "A: verify-schema.sh passed after 016"
@@ -2613,13 +2640,44 @@ SQL
     bad "A: internal-messages.ts still contains startup FTS DDL"
   fi
 
-  if grep -q "ELSE 'simple'" "$MIGRATION_016" \
-      && grep -q "ELSE 'simple'" "$ROOT/artifacts/api-server/src/modules/operations/internal-messages.ts" \
-      && ! grep -q "plainto_tsquery('arabic'" "$ROOT/artifacts/api-server/src/modules/operations/internal-messages.ts"; then
-    ok "A: migration and search code include simple fallback (not arabic-only)"
+  if grep -q 'pg_get_expr' "$ROOT/artifacts/api-server/src/modules/operations/messageFtsConfig.ts" \
+      && grep -q 'transient_error' "$ROOT/artifacts/api-server/src/modules/operations/messageFtsConfig.ts" \
+      && ! grep -q 'pg_ts_config' "$ROOT/artifacts/api-server/src/modules/operations/messageFtsConfig.ts"; then
+    ok "A: runtime FTS config reads generated expression (not independent pg_ts_config)"
   else
-    bad "A: FTS config fallback missing or search is arabic-only"
+    bad "A: runtime FTS config source-of-truth missing or still uses pg_ts_config"
   fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── A2. Arabic absent → simple ───────────────────────────────────────────
+  setup_db "mig016_fresh_simple"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+
+  psql_db -c "DROP TEXT SEARCH CONFIGURATION IF EXISTS arabic;" >/dev/null 2>&1 || true
+  local arabic_gone
+  arabic_gone=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname='arabic');")
+  [[ "$arabic_gone" == "f" ]] && ok "A2 pre: arabic config absent" || bad "A2 pre: arabic still present"
+
+  apply_migration_016
+  local simple_cfg simple_query
+  simple_cfg=$(read_generated_fts_cfg)
+  psql_db <<'SQL' >/dev/null
+INSERT INTO office_messages (office_id, subject, body, sender_id, sender_name, folder)
+VALUES ('off_simple', 'contract notice', 'hello contract body', 'u1', 'User One', 'sent');
+SQL
+  simple_query=$(psql_db -At -c "
+    SELECT COUNT(*) FROM office_messages
+    WHERE search_vector @@ plainto_tsquery('${simple_cfg}', 'contract');")
+
+  [[ "$simple_cfg" == "simple" ]] && ok "A2: generated expression falls back to simple" || bad "A2: cfg=$simple_cfg"
+  [[ "$(read_generated_fts_cfg)" == "simple" ]] && ok "A2: runtime config equals simple expression" || bad "A2: runtime mismatch"
+  [[ "$simple_query" == "1" ]] && ok "A2: @@ query works with simple config" || bad "A2: query count=$simple_query"
+
+  apply_migration_016
+  ok "A2/F: re-run 016 with simple config succeeded (idempotent)"
 
   trap - EXIT
   teardown_db
@@ -2644,7 +2702,7 @@ SQL
     bad "B: migration 016 failed with partial office_messages"; cat /tmp/mig016-partial.log
   }
 
-  local partial_cols partial_vector gin_partial
+  local partial_cols partial_vector gin_partial partial_cfg
   partial_cols=$(psql_db -At -c "
     SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema='public'
@@ -2660,10 +2718,12 @@ SQL
     WHERE schemaname='public'
       AND tablename='office_messages'
       AND indexname='idx_messages_search';")
+  partial_cfg=$(read_generated_fts_cfg)
 
   [[ "$partial_cols" == "5" ]] && ok "B: subject/body and related columns repaired in one apply" || bad "B: repaired cols=$partial_cols"
   [[ "$partial_vector" == "tsvector" ]] && ok "B: search_vector created after column repair in one apply" || bad "B: search_vector udt=$partial_vector"
   [[ "$gin_partial" == "1" ]] && ok "B: GIN index created on repaired partial table" || bad "B: gin count=$gin_partial"
+  [[ -n "$partial_cfg" ]] && ok "B: generated expression config readable ($partial_cfg)" || bad "B: generated config missing"
 
   apply_migration_016
   ok "B/F: re-run 016 on repaired partial schema succeeded"
@@ -2671,7 +2731,7 @@ SQL
   trap - EXIT
   teardown_db
 
-  # ── C. Existing tsvector search_vector → skip add, create GIN ───────────
+  # ── C. Existing non-generated tsvector → WARNING, skip GIN, preserve ─────
   setup_db "mig016_existing_vector"
   trap teardown_db EXIT
   apply_migrations_through_015
@@ -2686,9 +2746,15 @@ CREATE TABLE office_messages (
 );
 SQL
 
-  apply_migration_016
+  set +e
+  psql_db -f "$MIGRATION_016" >/tmp/mig016-nongen.log 2>&1
+  local nongen_rc=$?
+  set -e
+  [[ "$nongen_rc" -eq 0 ]] && ok "C: migration 016 succeeds with non-generated tsvector" || {
+    bad "C: migration 016 failed with non-generated tsvector"; cat /tmp/mig016-nongen.log
+  }
 
-  local existing_udt existing_idx
+  local existing_udt existing_idx nongen_warn
   existing_udt=$(psql_db -At -c "
     SELECT udt_name FROM information_schema.columns
     WHERE table_schema='public'
@@ -2699,8 +2765,52 @@ SQL
     WHERE schemaname='public'
       AND tablename='office_messages'
       AND indexname='idx_messages_search';")
-  [[ "$existing_udt" == "tsvector" ]] && ok "C: existing tsvector search_vector preserved" || bad "C: existing search_vector udt=$existing_udt"
-  [[ "$existing_idx" == "1" ]] && ok "C: GIN index created when vector present" || bad "C: GIN index count=$existing_idx"
+  nongen_warn=$(grep -c '016_fts: skipping search_vector — existing tsvector is not a compatible generated expression' /tmp/mig016-nongen.log || true)
+  local gin_unverified_warn
+  gin_unverified_warn=$(grep -c '016_fts: skipping idx_messages_search — search_vector expression unverifiable' /tmp/mig016-nongen.log || true)
+
+  [[ "$existing_udt" == "tsvector" ]] && ok "C: non-generated tsvector preserved" || bad "C: existing search_vector udt=$existing_udt"
+  [[ "$nongen_warn" -ge 1 ]] && ok "C: WARNING emitted for non-generated tsvector" || bad "C: non-generated WARNING absent"
+  [[ "$gin_unverified_warn" -ge 1 ]] && ok "C: WARNING emitted skipping unverifiable GIN" || bad "C: unverifiable GIN WARNING absent"
+  [[ "$existing_idx" == "0" ]] && ok "C: GIN index skipped for non-generated tsvector" || bad "C: GIN index count=$existing_idx"
+
+  trap - EXIT
+  teardown_db
+
+  # ── C2. Generated tsvector with unreadable expression → WARNING, skip GIN ─
+  setup_db "mig016_bad_expr"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+
+  psql_db <<'SQL' >/dev/null
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject TEXT,
+  body TEXT,
+  search_vector tsvector GENERATED ALWAYS AS (NULL::tsvector) STORED
+);
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_016" >/tmp/mig016-bad-expr.log 2>&1
+  local bad_expr_rc=$?
+  set -e
+  [[ "$bad_expr_rc" -eq 0 ]] && ok "C2: migration 016 succeeds with unreadable generated expression" || {
+    bad "C2: migration 016 failed with unreadable expression"; cat /tmp/mig016-bad-expr.log
+  }
+
+  local bad_expr_warn bad_expr_gin bad_expr_idx
+  bad_expr_warn=$(grep -c '016_fts: skipping search_vector — existing tsvector is not a compatible generated expression' /tmp/mig016-bad-expr.log || true)
+  bad_expr_gin=$(grep -c '016_fts: skipping idx_messages_search — search_vector expression unverifiable' /tmp/mig016-bad-expr.log || true)
+  bad_expr_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public'
+      AND tablename='office_messages'
+      AND indexname='idx_messages_search';")
+  [[ "$bad_expr_warn" -ge 1 ]] && ok "C2: WARNING for incompatible/unreadable generated expression" || bad "C2: expression WARNING absent"
+  [[ "$bad_expr_gin" -ge 1 ]] && ok "C2: GIN skipped for unreadable expression" || bad "C2: unverifiable GIN WARNING absent"
+  [[ "$bad_expr_idx" == "0" ]] && ok "C2: no idx_messages_search created" || bad "C2: unexpected GIN count=$bad_expr_idx"
 
   trap - EXIT
   teardown_db

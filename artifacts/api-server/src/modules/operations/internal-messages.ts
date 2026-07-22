@@ -4,6 +4,7 @@ import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { eventBus } from "../../core/eventBus";
+import { getMessageFtsConfig } from "./messageFtsConfig";
 
 const router = Router();
 
@@ -17,24 +18,10 @@ async function ensureCaseIdColumn() {
 }
 ensureCaseIdColumn();
 
-/* Full-text search schema is owned by migration 016_office_messages_fts.sql. */
-let messageFtsConfigPromise: Promise<"arabic" | "simple"> | null = null;
+/* Full-text search schema is owned by migration 016_office_messages_fts.sql.
+   Query config is read from the live search_vector generated expression. */
 
-async function getMessageFtsConfig(): Promise<"arabic" | "simple"> {
-  messageFtsConfigPromise ??= db.execute(sql`
-    SELECT CASE
-      WHEN EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname = 'arabic') THEN 'arabic'
-      ELSE 'simple'
-    END AS config
-  `).then((result: any) => {
-    const config = result?.rows?.[0]?.config;
-    return config === "arabic" ? "arabic" : "simple";
-  }).catch(() => "simple" as const);
-
-  return messageFtsConfigPromise;
-}
-
-function messageSearchPredicate(searchTerm: string | null, ftsConfig: "arabic" | "simple" | null) {
+function messageSearchPredicate(searchTerm: string | null, ftsConfig: string | null) {
   return searchTerm && ftsConfig
     ? sql`AND m.search_vector @@ plainto_tsquery(${ftsConfig}::regconfig, ${searchTerm})`
     : sql``;

@@ -10,6 +10,10 @@
 -- Source of truth (former Runtime DDL):
 --   ensureFullTextSearch() — artifacts/api-server/src/modules/operations/internal-messages.ts
 --
+-- FTS config source of truth after apply:
+--   the stored GENERATED expression on office_messages.search_vector
+--   (runtime reads it via pg_attribute / pg_attrdef / pg_get_expr)
+--
 -- Column types: ASSUMED for existing columns (ADD COLUMN IF NOT EXISTS does not
 -- rewrite types). No automatic CAST/rewrite of production data.
 --
@@ -18,6 +22,7 @@
 --   - CREATE TABLE IF NOT EXISTS + ADD COLUMN IF NOT EXISTS (no NOT NULL force)
 --   - search_vector uses arabic text search config when present, otherwise simple
 --   - incompatible legacy search_vector columns are skipped with WARNING
+--   - non-generated / unreadable tsvector is preserved; GIN is skipped
 --   - FTS repairs still COMMIT when generated column/index creation is skipped
 -- Do NOT apply via Runtime DDL / drizzle-kit push.
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -75,6 +80,9 @@ DO $$
 DECLARE
   fts_cfg TEXT;
   existing_udt TEXT;
+  att_generated TEXT;
+  gen_expr TEXT;
+  expr_cfg TEXT;
 BEGIN
   IF NOT EXISTS (
     SELECT 1
@@ -111,7 +119,29 @@ BEGIN
 
   IF existing_udt IS NOT NULL THEN
     IF existing_udt = 'tsvector' THEN
-      RAISE NOTICE '016_fts: search_vector already exists';
+      SELECT a.attgenerated::text, pg_get_expr(ad.adbin, ad.adrelid)
+        INTO att_generated, gen_expr
+      FROM pg_attribute a
+      JOIN pg_class cls ON cls.oid = a.attrelid
+      JOIN pg_namespace n ON n.oid = cls.relnamespace
+      LEFT JOIN pg_attrdef ad
+        ON ad.adrelid = a.attrelid
+       AND ad.adnum = a.attnum
+      WHERE n.nspname = 'public'
+        AND cls.relname = 'office_messages'
+        AND a.attname = 'search_vector'
+        AND NOT a.attisdropped
+      LIMIT 1;
+
+      IF att_generated IN ('s', 'v') AND gen_expr IS NOT NULL THEN
+        expr_cfg := (regexp_match(gen_expr, 'to_tsvector\(\s*''([^'']+)''', 'i'))[1];
+      END IF;
+
+      IF expr_cfg IS NOT NULL THEN
+        RAISE NOTICE '016_fts: search_vector already exists (generated, config=%)', expr_cfg;
+      ELSE
+        RAISE WARNING '016_fts: skipping search_vector — existing tsvector is not a compatible generated expression';
+      END IF;
     ELSE
       RAISE WARNING '016_fts: skipping search_vector — incompatible existing type';
     END IF;
@@ -139,9 +169,13 @@ EXCEPTION
 END $$;
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- 4) GIN index for @@ predicates
+-- 4) GIN index for @@ predicates (only when expression config is verifiable)
 -- ═══════════════════════════════════════════════════════════════════════════
 DO $$
+DECLARE
+  att_generated TEXT;
+  gen_expr TEXT;
+  expr_cfg TEXT;
 BEGIN
   IF NOT EXISTS (
     SELECT 1
@@ -152,6 +186,29 @@ BEGIN
       AND udt_name = 'tsvector'
   ) THEN
     RAISE WARNING '016_fts: skipping idx_messages_search — search_vector missing';
+    RETURN;
+  END IF;
+
+  SELECT a.attgenerated::text, pg_get_expr(ad.adbin, ad.adrelid)
+    INTO att_generated, gen_expr
+  FROM pg_attribute a
+  JOIN pg_class cls ON cls.oid = a.attrelid
+  JOIN pg_namespace n ON n.oid = cls.relnamespace
+  LEFT JOIN pg_attrdef ad
+    ON ad.adrelid = a.attrelid
+   AND ad.adnum = a.attnum
+  WHERE n.nspname = 'public'
+    AND cls.relname = 'office_messages'
+    AND a.attname = 'search_vector'
+    AND NOT a.attisdropped
+  LIMIT 1;
+
+  IF att_generated IN ('s', 'v') AND gen_expr IS NOT NULL THEN
+    expr_cfg := (regexp_match(gen_expr, 'to_tsvector\(\s*''([^'']+)''', 'i'))[1];
+  END IF;
+
+  IF expr_cfg IS NULL THEN
+    RAISE WARNING '016_fts: skipping idx_messages_search — search_vector expression unverifiable';
     RETURN;
   END IF;
 

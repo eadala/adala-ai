@@ -348,19 +348,33 @@ assert.match(mig016, /ON office_messages USING gin\(search_vector\)/);
 assert.match(mig016, /016_fts: skipping search_vector — office_messages missing/);
 assert.match(mig016, /016_fts: skipping search_vector — subject or body missing/);
 assert.match(mig016, /016_fts: skipping search_vector — incompatible existing type/);
+assert.match(mig016, /016_fts: skipping search_vector — existing tsvector is not a compatible generated expression/);
 assert.match(mig016, /016_fts: skipping idx_messages_search — search_vector missing/);
+assert.match(mig016, /016_fts: skipping idx_messages_search — search_vector expression unverifiable/);
+assert.match(mig016, /pg_get_expr\(ad\.adbin, ad\.adrelid\)/);
+assert.match(mig016, /regexp_match\(gen_expr,/);
 
 const internalMessagesSrc = readSrc("modules/operations/internal-messages.ts");
 assert.doesNotMatch(internalMessagesSrc, /ensureFullTextSearch/);
 assert.doesNotMatch(internalMessagesSrc, /ADD COLUMN IF NOT EXISTS search_vector/);
 assert.doesNotMatch(internalMessagesSrc, /CREATE INDEX IF NOT EXISTS idx_messages_search/);
 assert.doesNotMatch(internalMessagesSrc, /plainto_tsquery\('arabic'/);
+assert.doesNotMatch(internalMessagesSrc, /pg_ts_config/);
 assert.match(internalMessagesSrc, /016_office_messages_fts/);
 assert.match(internalMessagesSrc, /getMessageFtsConfig/);
-assert.match(internalMessagesSrc, /pg_ts_config/);
-assert.match(internalMessagesSrc, /ELSE 'simple'/);
+assert.match(internalMessagesSrc, /from "\.\/messageFtsConfig"/);
 assert.match(internalMessagesSrc, /plainto_tsquery\(\$\{ftsConfig\}::regconfig/);
-console.log("  ✅ migration 016 owns office_messages FTS; internal search uses arabic/simple config");
+
+const messageFtsConfigSrc = readSrc("modules/operations/messageFtsConfig.ts");
+assert.match(messageFtsConfigSrc, /pg_attribute/);
+assert.match(messageFtsConfigSrc, /pg_attrdef/);
+assert.match(messageFtsConfigSrc, /pg_get_expr/);
+assert.match(messageFtsConfigSrc, /parseFtsConfigFromGeneratedExpr/);
+assert.match(messageFtsConfigSrc, /status: "transient_error"/);
+assert.match(messageFtsConfigSrc, /cache: false/);
+assert.doesNotMatch(messageFtsConfigSrc, /pg_ts_config/);
+assert.doesNotMatch(messageFtsConfigSrc, /WHEN EXISTS \(SELECT 1 FROM pg_ts_config/);
+console.log("  ✅ migration 016 owns office_messages FTS; runtime reads generated expression config");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
