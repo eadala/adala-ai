@@ -74,7 +74,8 @@ export async function getMessageFtsConfig(): Promise<string> {
     return messageFtsConfigInflight;
   }
 
-  const inflight = (async () => {
+  let settleInflight: Promise<string> | null = null;
+  settleInflight = (async () => {
     try {
       const row = await readSearchVectorCatalogRow();
       const resolved = resolveMessageFtsConfigFromCatalogResult({
@@ -94,12 +95,12 @@ export async function getMessageFtsConfig(): Promise<string> {
       // Intentionally do not set cachedMessageFtsConfig.
       return resolved.config;
     } finally {
-      if (messageFtsConfigInflight === inflight) {
+      if (messageFtsConfigInflight === settleInflight) {
         messageFtsConfigInflight = null;
       }
     }
   })();
 
-  messageFtsConfigInflight = inflight;
-  return inflight;
+  messageFtsConfigInflight = settleInflight;
+  return settleInflight;
 }
