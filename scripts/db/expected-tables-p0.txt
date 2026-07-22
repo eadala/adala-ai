@@ -10,6 +10,7 @@ contract_templates
 contract_categories
 clients
 tasks
+office_messages
 users
 invitations
 roles

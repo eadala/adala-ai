@@ -1,7 +1,7 @@
 # Boot-Created Tables — API Runtime DDL
 
 **Schema authority:** `artifacts/api-server/migrations/*.sql` (apply via `psql`).
-**لا تعتمد على boot لإنشاء جداول P0.** استخدم migrations `003→001→004→005→…→015` أولاً.
+**لا تعتمد على boot لإنشاء جداول P0.** استخدم migrations `003→001→004→005→…→016` أولاً.
 
 عند تشغيل API، تُنشأ جداول enterprise إضافية عبر `CREATE TABLE IF NOT EXISTS` في
 `artifacts/api-server/src/**` (قائمة كاملة في `boot-created-tables.txt`).
@@ -35,6 +35,7 @@
 - ~~`ensureJournalTables` DDL~~ — removed; seed-only via migration **013** schema
 - ~~`ensureDemoColumns` (bankruptcy demo)~~ — no-op; `is_demo` columns via migration **014**
 - ~~`ensureTables` (branches)~~ — removed; `office_branches`, `tasks.branch_id`, and branch indexes via migration **015**
+- ~~`ensureFullTextSearch` (internal-messages)~~ — removed; `office_messages.search_vector` and `idx_messages_search` via migration **016**
 - `ensureTables` — `marketplace.ts`, `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -89,6 +90,7 @@
 | `bk_emergency_locks` | 014 |
 | `tasks` | 015 |
 | `office_branches` | 015 |
+| `office_messages.search_vector` | 016 |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

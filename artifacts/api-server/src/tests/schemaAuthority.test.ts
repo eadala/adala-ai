@@ -35,6 +35,7 @@ assert.ok(migrationFiles.includes("012_payment_transactions.sql"));
 assert.ok(migrationFiles.includes("013_erp_schema.sql"));
 assert.ok(migrationFiles.includes("014_bankruptcy_schema.sql"));
 assert.ok(migrationFiles.includes("015_tasks_branches_schema.sql"));
+assert.ok(migrationFiles.includes("016_office_messages_fts.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -331,6 +332,35 @@ assert.doesNotMatch(casesSrc, /CREATE INDEX IF NOT EXISTS idx_tasks_case_id/);
 assert.doesNotMatch(casesSrc, /CREATE INDEX IF NOT EXISTS idx_tasks_office_case/);
 assert.match(casesSrc, /task indexes live in migration 015/);
 console.log("  ✅ migration 015 owns tasks/branches; Runtime DDL/indexes removed");
+
+console.log("\n═══ schemaAuthority: Batch FTS (016) ═══");
+
+const mig016 = readRepo("artifacts/api-server/migrations/016_office_messages_fts.sql");
+assert.match(mig016, /CREATE TABLE IF NOT EXISTS office_messages/);
+assert.match(mig016, /subject\s+TEXT/);
+assert.match(mig016, /body\s+TEXT/);
+assert.match(mig016, /search_vector tsvector GENERATED ALWAYS AS/);
+assert.match(mig016, /to_tsvector\(%L/);
+assert.match(mig016, /EXISTS \(SELECT 1 FROM pg_ts_config WHERE cfgname = 'arabic'\)/);
+assert.match(mig016, /ELSE 'simple'/);
+assert.match(mig016, /CREATE INDEX IF NOT EXISTS idx_messages_search/);
+assert.match(mig016, /ON office_messages USING gin\(search_vector\)/);
+assert.match(mig016, /016_fts: skipping search_vector — office_messages missing/);
+assert.match(mig016, /016_fts: skipping search_vector — subject or body missing/);
+assert.match(mig016, /016_fts: skipping search_vector — incompatible existing type/);
+assert.match(mig016, /016_fts: skipping idx_messages_search — search_vector missing/);
+
+const internalMessagesSrc = readSrc("modules/operations/internal-messages.ts");
+assert.doesNotMatch(internalMessagesSrc, /ensureFullTextSearch/);
+assert.doesNotMatch(internalMessagesSrc, /ADD COLUMN IF NOT EXISTS search_vector/);
+assert.doesNotMatch(internalMessagesSrc, /CREATE INDEX IF NOT EXISTS idx_messages_search/);
+assert.doesNotMatch(internalMessagesSrc, /plainto_tsquery\('arabic'/);
+assert.match(internalMessagesSrc, /016_office_messages_fts/);
+assert.match(internalMessagesSrc, /getMessageFtsConfig/);
+assert.match(internalMessagesSrc, /pg_ts_config/);
+assert.match(internalMessagesSrc, /ELSE 'simple'/);
+assert.match(internalMessagesSrc, /plainto_tsquery\(\$\{ftsConfig\}::regconfig/);
+console.log("  ✅ migration 016 owns office_messages FTS; internal search uses arabic/simple config");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

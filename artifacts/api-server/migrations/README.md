@@ -78,7 +78,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/015_tasks_branches_schema.sql
 
-# 16) تحقق بعد التنفيذ
+# 16) Office Messages FTS — office_messages / search_vector / GIN
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/016_office_messages_fts.sql
+
+# 17) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -100,6 +104,7 @@ bash scripts/db/verify-schema.sh
 | `013_erp_schema.sql` | `office_erp_ledger`, `financial_anomalies`, `chart_of_accounts`, `journal_entries`, `journal_items` |
 | `014_bankruptcy_schema.sql` | `bankruptcy_cases` + 24 `bk_*` Bankruptcy tables |
 | `015_tasks_branches_schema.sql` | `tasks` + `office_branches` + branch assignment FKs/indexes |
+| `016_office_messages_fts.sql` | `office_messages` + `search_vector` + `idx_messages_search` |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -135,15 +140,17 @@ bash scripts/db/verify-schema.sh
 | `bankruptcy_cases` / `bk_*` Bankruptcy tables | **014** | Bankruptcy case, workflow, opening request, demo, and EOC modules |
 | `tasks` | **015** | Office/legal tasks (`/office-tasks`, case tasks, JLWM) |
 | `office_branches` + `branch_id` FKs | **015** | `branches.ts` |
+| `office_messages.search_vector` | **016** | `internal-messages.ts` FTS search |
 | `clients` | 003 | Legal core |
 
 ## ما يبقى بعد Migrations (boot-time)
 
 ~100 جدول enterprise تُنشأ عند أول boot للـ API عبر `ensure*Tables()` في
 `artifacts/api-server/src/index.ts` والوحدات. هذه migrations تغطي **P0 + baseline**
-فقط. بعد تطبيق 003–015، شغّل API مرة واحدة لإكمال الجداول المتبقية (enterprise).
+فقط. بعد تطبيق 003–016، شغّل API مرة واحدة لإكمال الجداول المتبقية (enterprise).
+بعد تطبيق **016** لم يعد FTS الخاص بـ `office_messages.search_vector` يُنشأ عبر Runtime DDL.
 
-جداول مغطاة بـ 004/005/010/011/012/013/014/015 لم تعد تُنشأ عبر Runtime DDL:
+جداول مغطاة بـ 004/005/010/011/012/013/014/015/016 لم تعد تُنشأ عبر Runtime DDL:
 `contract_*`, `trial_offices`, `onboarding_state`, `system_events`, `plan_cms`, `office_ledger`,
 `stripe_events`, `stripe_dead_letters`, `stripe_reconciliation_log`, `payment_transactions`,
 `office_erp_ledger`, `financial_anomalies`, `chart_of_accounts`, `journal_entries`, `journal_items`,
@@ -152,7 +159,7 @@ bash scripts/db/verify-schema.sh
 `bk_ai_analysis`, `bk_timeline`, `bk_audit_logs`, `bk_notifications`, `bk_workflows`,
 `bk_workflow_steps`, `bk_workflow_events`, `bk_tasks`, `bk_task_comments`, `bk_task_assignments`,
 `bk_templates`, `bk_alerts`, `bk_opening_requests`, `bk_opening_request_documents`,
-`bk_emergency_locks`, `tasks`, `office_branches`
+`bk_emergency_locks`, `tasks`, `office_branches`, `office_messages.search_vector`
 (+ performance indexes من `ensurePerformanceIndexes`).
 `moyasar_settings` / `checkout_settings` remain Runtime DDL via `ensureGatewaySettingsTables()`.
 `ensureJournalTables` retains CoA seed only (no DDL).
@@ -170,7 +177,7 @@ bash scripts/db/test-migrations.integration.sh
 pnpm --filter @workspace/api-server run test:schema-authority
 ```
 
-يغطي: DB فارغة (003→001→004→005→006→007→008→009→010→011→012→013→014→015)، Production-like بدون `website_config`/`login_logs`،
-idempotency لـ 006/007/008/009/010/011/012/013/014/015، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
+يغطي: DB فارغة (003→001→004→005→006→007→008→009→010→011→012→013→014→015→016)، Production-like بدون `website_config`/`login_logs`،
+idempotency لـ 006/007/008/009/010/011/012/013/014/015/016، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
 
 راجع `scripts/db/boot-created-tables.md` لقائمة جداول boot وقيود Docker.

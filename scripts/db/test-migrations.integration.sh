@@ -27,6 +27,7 @@ MIGRATION_012="$ROOT/artifacts/api-server/migrations/012_payment_transactions.sq
 MIGRATION_013="$ROOT/artifacts/api-server/migrations/013_erp_schema.sql"
 MIGRATION_014="$ROOT/artifacts/api-server/migrations/014_bankruptcy_schema.sql"
 MIGRATION_015="$ROOT/artifacts/api-server/migrations/015_tasks_branches_schema.sql"
+MIGRATION_016="$ROOT/artifacts/api-server/migrations/016_office_messages_fts.sql"
 
 PASS=0
 FAIL=0
@@ -130,6 +131,10 @@ apply_migration_015() {
   psql_db -f "$MIGRATION_015" >/dev/null
 }
 
+apply_migration_016() {
+  psql_db -f "$MIGRATION_016" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -142,15 +147,20 @@ apply_migrations_through_013() {
   apply_migration_013
 }
 
-apply_all_migrations() {
+apply_migrations_through_015() {
   apply_migrations_through_013
   apply_migration_014
   apply_migration_015
 }
 
+apply_all_migrations() {
+  apply_migrations_through_015
+  apply_migration_016
+}
+
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015,016 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -396,10 +406,11 @@ scenario_migration_006_idempotent() {
   apply_migration_013
   apply_migration_014
   apply_migration_015
+  apply_migration_016
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-006.log 2>&1; then
-    ok "verify-schema.sh passed after 006→015"
+    ok "verify-schema.sh passed after 006→016"
   else
-    bad "verify-schema.sh failed after 006→015"
+    bad "verify-schema.sh failed after 006→016"
     tail -15 /tmp/verify-006.log
   fi
 
@@ -649,16 +660,17 @@ SQL
   cnt=$(psql_db -At -c "SELECT COUNT(*) FROM office_ledger WHERE stripe_event_id='evt_test_010';")
   [[ "$cnt" == "1" ]] && ok "A: duplicate stripe_event_id not inserted" || bad "A: count=$cnt"
 
-  # P0 includes Stripe (011) + payments (012) + ERP (013) + Bankruptcy (014) + Tasks/Branches (015)
+  # P0 includes Stripe (011) + payments (012) + ERP (013) + Bankruptcy (014) + Tasks/Branches (015) + Office Messages FTS (016)
   apply_migration_011
   apply_migration_012
   apply_migration_013
   apply_migration_014
   apply_migration_015
+  apply_migration_016
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-010.log 2>&1; then
-    ok "A: verify-schema.sh passed after 010→015"
+    ok "A: verify-schema.sh passed after 010→016"
   else
-    bad "A: verify-schema.sh failed after 010→015"; tail -20 /tmp/verify-010.log
+    bad "A: verify-schema.sh failed after 010→016"; tail -20 /tmp/verify-010.log
   fi
 
   if ! grep -qE 'ensurePerformanceIndexes|idx_office_ledger_stripe_event_id' \
@@ -934,10 +946,11 @@ scenario_migration_011_stripe_infra() {
   apply_migration_013
   apply_migration_014
   apply_migration_015
+  apply_migration_016
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-011.log 2>&1; then
-    ok "A: verify-schema.sh passed after 011→015"
+    ok "A: verify-schema.sh passed after 011→016"
   else
-    bad "A: verify-schema.sh failed after 011→015"; tail -20 /tmp/verify-011.log
+    bad "A: verify-schema.sh failed after 011→016"; tail -20 /tmp/verify-011.log
   fi
 
   if ! grep -qE 'ensureStripeBufferTables|ensureReconciliationTable|CREATE TABLE IF NOT EXISTS stripe_' \
@@ -1225,10 +1238,11 @@ scenario_migration_012_payment_transactions() {
   apply_migration_013
   apply_migration_014
   apply_migration_015
+  apply_migration_016
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-012.log 2>&1; then
-    ok "A: verify-schema.sh passed after 012+013+014+015"
+    ok "A: verify-schema.sh passed after 012+013+014+015+016"
   else
-    bad "A: verify-schema.sh failed after 012+013+014+015"; tail -20 /tmp/verify-012.log
+    bad "A: verify-schema.sh failed after 012+013+014+015+016"; tail -20 /tmp/verify-012.log
   fi
 
   if ! grep -qE 'ensurePaymentCols|ALTER TABLE payment_transactions' \
@@ -1457,10 +1471,11 @@ scenario_migration_013_erp() {
 
   apply_migration_014
   apply_migration_015
+  apply_migration_016
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-013.log 2>&1; then
-    ok "A: verify-schema.sh passed after 013+014+015"
+    ok "A: verify-schema.sh passed after 013+014+015+016"
   else
-    bad "A: verify-schema.sh failed after 013+014+015"; tail -20 /tmp/verify-013.log
+    bad "A: verify-schema.sh failed after 013+014+015+016"; tail -20 /tmp/verify-013.log
   fi
 
   if ! grep -qE 'ensureERPTables|CREATE TABLE IF NOT EXISTS office_erp_ledger|CREATE TABLE IF NOT EXISTS chart_of_accounts' \
@@ -2024,10 +2039,11 @@ scenario_migration_014_bankruptcy() {
   ok "A/F: re-run 014 on fresh schema succeeded"
 
   apply_migration_015
+  apply_migration_016
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-014.log 2>&1; then
-    ok "A: verify-schema.sh passed after 014+015"
+    ok "A: verify-schema.sh passed after 014+015+016"
   else
-    bad "A: verify-schema.sh failed after 014+015"; tail -20 /tmp/verify-014.log
+    bad "A: verify-schema.sh failed after 014+015+016"; tail -20 /tmp/verify-014.log
   fi
 
   if ! grep -qE 'CREATE TABLE|CREATE INDEX' \
@@ -2351,11 +2367,12 @@ scenario_migration_015_tasks_branches() {
 
   apply_migration_015
   ok "A/F: re-run 015 on fresh schema succeeded"
+  apply_migration_016
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-015.log 2>&1; then
-    ok "A: verify-schema.sh passed after 015"
+    ok "A: verify-schema.sh passed after 015+016"
   else
-    bad "A: verify-schema.sh failed after 015"; tail -20 /tmp/verify-015.log
+    bad "A: verify-schema.sh failed after 015+016"; tail -20 /tmp/verify-015.log
   fi
 
   if ! grep -qE 'ALTER TABLE tasks|ensureTables\(\)\.catch' \
@@ -2519,6 +2536,218 @@ SQL
   teardown_db
 }
 
+# ── Scenario 3j: Office Messages FTS (016) ─────────────────────────────────
+scenario_migration_016_office_messages_fts() {
+  log "Scenario 3j — migration 016: office_messages FTS fresh / idempotent / partial / legacy / Runtime DDL audit"
+
+  # ── A. Fresh ─────────────────────────────────────────────────────────────
+  setup_db "mig016_fresh"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+
+  local pre_messages
+  pre_messages=$(psql_db -At -c "
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='office_messages');")
+  [[ "$pre_messages" == "f" ]] && ok "A pre-016: office_messages absent" || bad "A pre-016: office_messages should be absent"
+
+  apply_migration_016
+
+  local msg_table msg_cols vector_udt gin_idx fts_cfg query_count
+  msg_table=$(psql_db -At -c "
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='office_messages');")
+  msg_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='office_messages'
+      AND column_name IN (
+        'id','office_id','subject','body','sender_id','sender_name','sender_ip',
+        'device_info','folder','tags','case_id','conversation_id','deleted_at',
+        'created_at','search_vector'
+      );")
+  vector_udt=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='office_messages'
+      AND column_name='search_vector';")
+  gin_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public'
+      AND tablename='office_messages'
+      AND indexname='idx_messages_search';")
+  fts_cfg=$(psql_db -At -c "
+    SELECT CASE
+      WHEN EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname='arabic') THEN 'arabic'
+      ELSE 'simple'
+    END;")
+
+  psql_db <<'SQL' >/dev/null
+INSERT INTO office_messages (office_id, subject, body, sender_id, sender_name, folder)
+VALUES ('off_fts', 'contract notice', 'hello contract body', 'u1', 'User One', 'sent');
+SQL
+  query_count=$(psql_db -At -c "
+    SELECT COUNT(*) FROM office_messages
+    WHERE search_vector @@ plainto_tsquery('${fts_cfg}', 'contract');")
+
+  [[ "$msg_table" == "t" ]] && ok "A: office_messages created" || bad "A: office_messages missing"
+  [[ "$msg_cols" == "15" ]] && ok "A: office_messages FTS/key columns present" || bad "A: office_messages cols=$msg_cols"
+  [[ "$vector_udt" == "tsvector" ]] && ok "A: search_vector is tsvector" || bad "A: search_vector udt=$vector_udt"
+  [[ "$gin_idx" == "1" ]] && ok "A: idx_messages_search GIN index present" || bad "A: idx_messages_search count=$gin_idx"
+  [[ "$fts_cfg" == "arabic" || "$fts_cfg" == "simple" ]] && ok "A: FTS config resolves to $fts_cfg" || bad "A: unexpected FTS config=$fts_cfg"
+  [[ "$query_count" == "1" ]] && ok "A: @@ query works with chosen FTS config" || bad "A: @@ query count=$query_count"
+
+  apply_migration_016
+  ok "A/F: re-run 016 on fresh schema succeeded"
+
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-016.log 2>&1; then
+    ok "A: verify-schema.sh passed after 016"
+  else
+    bad "A: verify-schema.sh failed after 016"; tail -20 /tmp/verify-016.log
+  fi
+
+  if ! grep -qE 'ensureFullTextSearch|ADD COLUMN IF NOT EXISTS search_vector|CREATE INDEX IF NOT EXISTS idx_messages_search' \
+      "$ROOT/artifacts/api-server/src/modules/operations/internal-messages.ts"; then
+    ok "A: internal-messages.ts has no startup FTS ALTER/INDEX DDL"
+  else
+    bad "A: internal-messages.ts still contains startup FTS DDL"
+  fi
+
+  if grep -q "ELSE 'simple'" "$MIGRATION_016" \
+      && grep -q "ELSE 'simple'" "$ROOT/artifacts/api-server/src/modules/operations/internal-messages.ts" \
+      && ! grep -q "plainto_tsquery('arabic'" "$ROOT/artifacts/api-server/src/modules/operations/internal-messages.ts"; then
+    ok "A: migration and search code include simple fallback (not arabic-only)"
+  else
+    bad "A: FTS config fallback missing or search is arabic-only"
+  fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Partial office_messages missing subject/body (repaired in one apply) ─
+  setup_db "mig016_partial"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+
+  psql_db <<'SQL' >/dev/null
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+);
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_016" >/tmp/mig016-partial.log 2>&1
+  local partial_rc=$?
+  set -e
+  [[ "$partial_rc" -eq 0 ]] && ok "B: migration 016 succeeds with partial office_messages" || {
+    bad "B: migration 016 failed with partial office_messages"; cat /tmp/mig016-partial.log
+  }
+
+  local partial_cols partial_vector gin_partial
+  partial_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='office_messages'
+      AND column_name IN ('subject','body','created_at','conversation_id','deleted_at');")
+  partial_vector=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='office_messages'
+      AND column_name='search_vector';")
+  gin_partial=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public'
+      AND tablename='office_messages'
+      AND indexname='idx_messages_search';")
+
+  [[ "$partial_cols" == "5" ]] && ok "B: subject/body and related columns repaired in one apply" || bad "B: repaired cols=$partial_cols"
+  [[ "$partial_vector" == "tsvector" ]] && ok "B: search_vector created after column repair in one apply" || bad "B: search_vector udt=$partial_vector"
+  [[ "$gin_partial" == "1" ]] && ok "B: GIN index created on repaired partial table" || bad "B: gin count=$gin_partial"
+
+  apply_migration_016
+  ok "B/F: re-run 016 on repaired partial schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── C. Existing tsvector search_vector → skip add, create GIN ───────────
+  setup_db "mig016_existing_vector"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+
+  psql_db <<'SQL' >/dev/null
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject TEXT,
+  body TEXT,
+  search_vector tsvector
+);
+SQL
+
+  apply_migration_016
+
+  local existing_udt existing_idx
+  existing_udt=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='office_messages'
+      AND column_name='search_vector';")
+  existing_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public'
+      AND tablename='office_messages'
+      AND indexname='idx_messages_search';")
+  [[ "$existing_udt" == "tsvector" ]] && ok "C: existing tsvector search_vector preserved" || bad "C: existing search_vector udt=$existing_udt"
+  [[ "$existing_idx" == "1" ]] && ok "C: GIN index created when vector present" || bad "C: GIN index count=$existing_idx"
+
+  trap - EXIT
+  teardown_db
+
+  # ── D. Incompatible search_vector type → WARNING, no abort ──────────────
+  setup_db "mig016_bad_vector"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+
+  psql_db <<'SQL' >/dev/null
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject TEXT,
+  body TEXT,
+  search_vector TEXT
+);
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_016" >/tmp/mig016-bad-vector.log 2>&1
+  local bad_vector_rc=$?
+  set -e
+  [[ "$bad_vector_rc" -eq 0 ]] && ok "D: migration 016 succeeds with incompatible search_vector" || {
+    bad "D: migration 016 failed with incompatible search_vector"; cat /tmp/mig016-bad-vector.log
+  }
+
+  local bad_vector_udt bad_vector_warn bad_vector_idx
+  bad_vector_udt=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='office_messages'
+      AND column_name='search_vector';")
+  bad_vector_warn=$(grep -c '016_fts: skipping search_vector — incompatible existing type' /tmp/mig016-bad-vector.log || true)
+  bad_vector_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public'
+      AND tablename='office_messages'
+      AND indexname='idx_messages_search';")
+  [[ "$bad_vector_udt" == "text" ]] && ok "D: incompatible search_vector TEXT preserved" || bad "D: bad vector udt=$bad_vector_udt"
+  [[ "$bad_vector_warn" -ge 1 ]] && ok "D: WARNING emitted for incompatible search_vector" || bad "D: incompatible search_vector WARNING absent"
+  [[ "$bad_vector_idx" == "0" ]] && ok "D: GIN index skipped for incompatible vector" || bad "D: unexpected GIN index count=$bad_vector_idx"
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Scenario 4: reported endpoints + office/public schema paths ─────────────
 scenario_reported_endpoints() {
   log "Scenario 4 — SQL paths for reported 500/404 endpoints + office/public + sendBeacon vitals"
@@ -2576,7 +2805,7 @@ SQL
   [[ "$admin_cnt" -ge 1 ]] && ok "admin list offices (db.select officePageTable)" || bad "office_page empty"
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-endpoints.log 2>&1; then
-    ok "verify-schema.sh passed after full chain including 006→015"
+    ok "verify-schema.sh passed after full chain including 006→016"
   else
     bad "verify-schema.sh failed on endpoint scenario"
     tail -15 /tmp/verify-endpoints.log
@@ -2671,6 +2900,7 @@ scenario_migration_012_payment_transactions
 scenario_migration_013_erp
 scenario_migration_014_bankruptcy
 scenario_migration_015_tasks_branches
+scenario_migration_016_office_messages_fts
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
