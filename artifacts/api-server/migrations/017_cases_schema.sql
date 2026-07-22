@@ -30,7 +30,6 @@ BEGIN
     FROM information_schema.tables
     WHERE table_schema = 'public'
       AND table_name = 'cases'
-      AND table_type = 'BASE TABLE'
   ) THEN
     RAISE WARNING '017_cases: skipping column repair — cases table missing';
     RETURN;
@@ -65,7 +64,6 @@ BEGIN
     FROM information_schema.tables
     WHERE table_schema = 'public'
       AND table_name = 'cases'
-      AND table_type = 'BASE TABLE'
   ) THEN
     RAISE WARNING '017_cases: skipping unique index — cases missing';
     RETURN;
