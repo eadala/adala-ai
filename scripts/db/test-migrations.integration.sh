@@ -2641,8 +2641,9 @@ SQL
   fi
 
   if grep -q 'pg_get_expr' "$ROOT/artifacts/api-server/src/modules/operations/messageFtsConfig.ts" \
-      && grep -q 'transient_error' "$ROOT/artifacts/api-server/src/modules/operations/messageFtsConfig.ts" \
-      && ! grep -qE "FROM pg_ts_config|cfgname = 'arabic'" "$ROOT/artifacts/api-server/src/modules/operations/messageFtsConfig.ts"; then
+      && grep -q 'transient_error' "$ROOT/artifacts/api-server/src/modules/operations/messageFtsConfigLogic.ts" \
+      && ! grep -qE "FROM pg_ts_config|cfgname = 'arabic'" "$ROOT/artifacts/api-server/src/modules/operations/messageFtsConfig.ts" \
+      && ! grep -qE "FROM pg_ts_config|cfgname = 'arabic'" "$ROOT/artifacts/api-server/src/modules/operations/messageFtsConfigLogic.ts"; then
     ok "A: runtime FTS config reads generated expression (not independent pg_ts_config)"
   else
     bad "A: runtime FTS config source-of-truth missing or still uses pg_ts_config"

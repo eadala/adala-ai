@@ -2,14 +2,9 @@ import assert from "node:assert/strict";
 import {
   parseFtsConfigFromGeneratedExpr,
   resolveMessageFtsConfigFromCatalogResult,
-  __getCachedMessageFtsConfigForTests,
-  __resetMessageFtsConfigCacheForTests,
-} from "../modules/operations/messageFtsConfig";
+} from "../modules/operations/messageFtsConfigLogic";
 
 console.log("═══ messageFtsConfig unit tests ═══");
-
-__resetMessageFtsConfigCacheForTests();
-assert.equal(__getCachedMessageFtsConfigForTests(), null);
 
 assert.equal(
   parseFtsConfigFromGeneratedExpr(
@@ -71,9 +66,9 @@ const transient = resolveMessageFtsConfigFromCatalogResult({
 });
 assert.deepEqual(transient, { config: "simple", cache: false });
 assert.equal(
-  __getCachedMessageFtsConfigForTests(),
-  null,
-  "transient catalog failure must not permanently cache simple",
+  transient.cache,
+  false,
+  "temporary catalog lookup failure must not permanently cache simple",
 );
 
 console.log("  ✅ parse + cache policy: expression config / absent / transient");

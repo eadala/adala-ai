@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- drizzle execute row typing */
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { resolveMessageFtsConfigFromCatalogResult } from "./messageFtsConfigLogic";
+
+export {
+  parseFtsConfigFromGeneratedExpr,
+  resolveMessageFtsConfigFromCatalogResult,
+} from "./messageFtsConfigLogic";
 
 /**
  * FTS query config is owned by the live generated expression on
@@ -11,15 +17,6 @@ import { sql } from "drizzle-orm";
 let cachedMessageFtsConfig: string | null = null;
 let messageFtsConfigInflight: Promise<string> | null = null;
 
-/** Extract to_tsvector('<config>', ...) literal from pg_get_expr output. */
-export function parseFtsConfigFromGeneratedExpr(
-  expr: string | null | undefined,
-): string | null {
-  if (!expr) return null;
-  const match = /to_tsvector\(\s*'([^']+)'/i.exec(expr);
-  return match?.[1] ?? null;
-}
-
 export function __resetMessageFtsConfigCacheForTests(): void {
   cachedMessageFtsConfig = null;
   messageFtsConfigInflight = null;
@@ -27,38 +24,6 @@ export function __resetMessageFtsConfigCacheForTests(): void {
 
 export function __getCachedMessageFtsConfigForTests(): string | null {
   return cachedMessageFtsConfig;
-}
-
-/**
- * Catalog read outcome used by resolveMessageFtsConfigFromCatalogResult.
- * Transient failures must not permanently cache the request-scoped fallback.
- */
-export function resolveMessageFtsConfigFromCatalogResult(input: {
-  status: "ok";
-  generated: string | null;
-  expr: string | null;
-  columnPresent: boolean;
-} | {
-  status: "transient_error";
-}): { config: string; cache: boolean } {
-  if (input.status === "transient_error") {
-    return { config: "simple", cache: false };
-  }
-
-  if (!input.columnPresent) {
-    return { config: "simple", cache: true };
-  }
-
-  const isGenerated = input.generated === "s" || input.generated === "v";
-  if (isGenerated) {
-    const parsed = parseFtsConfigFromGeneratedExpr(input.expr);
-    if (parsed) {
-      return { config: parsed, cache: true };
-    }
-  }
-
-  // Column exists but expression is absent/unreadable — definitive catalog read.
-  return { config: "simple", cache: true };
 }
 
 async function readSearchVectorCatalogRow(): Promise<{
