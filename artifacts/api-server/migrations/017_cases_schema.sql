@@ -80,11 +80,15 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Match PostgreSQL UNIQUE null-distinct semantics for
+  -- UNIQUE (office_id, case_number) WHERE case_number IS NOT NULL:
+  -- only non-NULL office_id + non-NULL case_number pairs can conflict.
   SELECT COUNT(*) INTO dup_count
   FROM (
     SELECT 1
     FROM cases
-    WHERE case_number IS NOT NULL
+    WHERE office_id IS NOT NULL
+      AND case_number IS NOT NULL
     GROUP BY office_id, case_number
     HAVING COUNT(*) > 1
   ) d;

@@ -3176,7 +3176,7 @@ SQL
   trap - EXIT
   teardown_db
 
-  # ── E. Duplicate (office_id, case_number) → WARNING, skip index, no abort ─
+  # ── E. Duplicate case_number with office_id NOT NULL → WARNING + skip ────
   setup_db "mig017_dup_cn"
   trap teardown_db EXIT
   apply_migrations_through_015
@@ -3194,7 +3194,7 @@ SQL
   psql_db -f "$MIGRATION_017" >/tmp/mig017-dup.log 2>&1
   local dup_rc=$?
   set -e
-  [[ "$dup_rc" -eq 0 ]] && ok "E: migration 017 succeeds with duplicate case_number rows" || {
+  [[ "$dup_rc" -eq 0 ]] && ok "E: migration 017 succeeds with non-null office_id duplicates" || {
     bad "E: migration 017 aborted on duplicates"; cat /tmp/mig017-dup.log
   }
   local dup_warn dup_idx
@@ -3202,11 +3202,61 @@ SQL
   dup_idx=$(psql_db -At -c "
     SELECT COUNT(*) FROM pg_indexes
     WHERE schemaname='public' AND indexname='idx_uq_cases_office_case_number';")
-  [[ "$dup_warn" -ge 1 ]] && ok "E: WARNING emitted for duplicate case_number detection" || bad "E: duplicate WARNING absent"
-  [[ "$dup_idx" == "0" ]] && ok "E: unique index skipped when duplicates exist" || bad "E: unexpected index count=$dup_idx"
+  [[ "$dup_warn" -ge 1 ]] && ok "E: WARNING emitted for non-null office_id duplicate case_number" || bad "E: duplicate WARNING absent"
+  [[ "$dup_idx" == "0" ]] && ok "E: unique index skipped when non-null office_id duplicates exist" || bad "E: unexpected index count=$dup_idx"
 
   apply_migration_017
   ok "E/F: re-run 017 with duplicates remains idempotent (still skipped)"
+
+  # Cleanup duplicates then reapply → index created
+  psql_db -c "DELETE FROM cases WHERE id = 'dup-b';" >/dev/null
+  apply_migration_017
+  local cleaned_idx
+  cleaned_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_uq_cases_office_case_number';")
+  [[ "$cleaned_idx" == "1" ]] && ok "E: after duplicate cleanup + reapply, unique index created" \
+    || bad "E: index missing after cleanup (count=$cleaned_idx)"
+
+  apply_migration_017
+  ok "E/F2: re-run 017 after index create is idempotent"
+
+  trap - EXIT
+  teardown_db
+
+  # ── E2. Duplicate case_number with office_id NULL → index still created ──
+  setup_db "mig017_dup_null_office"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+
+  psql_db <<'SQL' >/dev/null
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS case_number TEXT;
+INSERT INTO cases (id, title, case_type, status, office_id, case_number, created_at, updated_at)
+VALUES
+  ('null-a', 'Null Office A', 'مدنية', 'open', NULL, 'CN-NULL', NOW(), NOW()),
+  ('null-b', 'Null Office B', 'مدنية', 'open', NULL, 'CN-NULL', NOW(), NOW());
+SQL
+
+  set +e
+  psql_db -f "$MIGRATION_017" >/tmp/mig017-null-office.log 2>&1
+  local null_office_rc=$?
+  set -e
+  [[ "$null_office_rc" -eq 0 ]] && ok "E2: migration 017 succeeds with NULL office_id duplicate case_numbers" || {
+    bad "E2: migration 017 aborted on NULL office_id dups"; cat /tmp/mig017-null-office.log
+  }
+  local null_warn null_idx
+  null_warn=$(grep -c 'duplicate (office_id, case_number) rows' /tmp/mig017-null-office.log || true)
+  null_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_uq_cases_office_case_number';")
+  [[ "$null_warn" -eq 0 ]] && ok "E2: no false-positive duplicate WARNING for NULL office_id" \
+    || bad "E2: unexpected duplicate WARNING for NULL office_id"
+  [[ "$null_idx" == "1" ]] && ok "E2: unique index created despite NULL office_id duplicate case_numbers" \
+    || bad "E2: index missing (count=$null_idx)"
+
+  apply_migration_017
+  ok "E2/F: re-run 017 with NULL office_id dups is idempotent"
 
   trap - EXIT
   teardown_db
