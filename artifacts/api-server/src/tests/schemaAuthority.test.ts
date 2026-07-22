@@ -33,6 +33,7 @@ assert.ok(migrationFiles.includes("010_office_ledger_performance_indexes.sql"));
 assert.ok(migrationFiles.includes("011_stripe_infrastructure_tables.sql"));
 assert.ok(migrationFiles.includes("012_payment_transactions.sql"));
 assert.ok(migrationFiles.includes("013_erp_schema.sql"));
+assert.ok(migrationFiles.includes("014_bankruptcy_schema.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -213,6 +214,81 @@ assert.doesNotMatch(journalSrc, /\.catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)/);
 
 assert.doesNotMatch(indexSrc, /ensureERPTables/);
 console.log("  ✅ migration 013 owns ERP tables; Runtime DDL removed; CoA seed/upsert conflict-free");
+
+console.log("\n═══ schemaAuthority: Batch Bankruptcy (014) ═══");
+
+assert.ok(migrationFiles.includes("014_bankruptcy_schema.sql"));
+const mig014 = readRepo("artifacts/api-server/migrations/014_bankruptcy_schema.sql");
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bankruptcy_cases/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_creditors/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_claims/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_claim_documents/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_assets/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_asset_valuations/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_meetings/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_distributions/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_distribution_items/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_reports/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_ai_analysis/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_timeline/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_audit_logs/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_notifications/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_workflows/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_workflow_steps/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_workflow_events/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_tasks/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_task_comments/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_task_assignments/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_templates/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_alerts/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_opening_requests/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_opening_request_documents/);
+assert.match(mig014, /CREATE TABLE IF NOT EXISTS bk_emergency_locks/);
+assert.match(mig014, /bankruptcy_cases_office_id_case_number_key/);
+assert.match(mig014, /idx_bk_cases_office_status/);
+assert.match(mig014, /idx_bk_tasks_due/);
+assert.match(mig014, /idx_bk_alerts_active/);
+assert.match(mig014, /idx_bk_or_office/);
+assert.match(mig014, /idx_bk_emg_office/);
+assert.match(mig014, /is_demo/);
+assert.match(mig014, /deleted_at/);
+assert.match(mig014, /category/);
+assert.match(mig014, /metadata/);
+assert.match(mig014, /token_count/);
+assert.match(mig014, /014_bk: skipping % CHECK/);
+assert.match(mig014, /014_bk: skipping % UNIQUE/);
+assert.match(mig014, /014_bk: skipping % FK to %/);
+assert.match(mig014, /bankruptcy_cases status/);
+assert.match(mig014, /foreign_key_violation/);
+assert.match(mig014, /datatype_mismatch/);
+
+const bankruptcySrc = readSrc("modules/bankruptcy/bankruptcy.ts");
+const bankruptcyV2Src = readSrc("modules/bankruptcy/bankruptcyV2.ts");
+const bankruptcyV3Src = readSrc("modules/bankruptcy/bankruptcyV3.ts");
+const bankruptcyDemoSrc = readSrc("modules/bankruptcy/bankruptcyDemo.ts");
+const adminSrc = readSrc("modules/platform/admin.ts");
+
+for (const src of [bankruptcySrc, bankruptcyV2Src, bankruptcyV3Src]) {
+  assert.doesNotMatch(src, /CREATE TABLE/);
+  assert.doesNotMatch(src, /CREATE INDEX/);
+  assert.match(src, /014_bankruptcy_schema/);
+}
+assert.match(bankruptcySrc, /ensureBankruptcyTables/);
+assert.doesNotMatch(bankruptcySrc, /CREATE TABLE IF NOT EXISTS bankruptcy_cases/);
+assert.doesNotMatch(bankruptcyV2Src, /ALTER TABLE bk_reports ADD COLUMN/);
+assert.doesNotMatch(bankruptcyV3Src, /CREATE TABLE IF NOT EXISTS bk_opening_requests/);
+
+assert.doesNotMatch(indexSrc, /ensureBankruptcyTables\(\)/);
+assert.doesNotMatch(indexSrc, /ensureBankruptcyV2Tables\(\)/);
+assert.doesNotMatch(indexSrc, /ensureBankruptcyV3Tables\(\)/);
+assert.match(indexSrc, /bankruptcy_\* → migration 014/);
+
+assert.doesNotMatch(bankruptcyDemoSrc, /ALTER TABLE .*is_demo/);
+assert.match(bankruptcyDemoSrc, /014_bankruptcy_schema/);
+assert.doesNotMatch(adminSrc, /CREATE TABLE IF NOT EXISTS bk_emergency_locks/);
+assert.doesNotMatch(adminSrc, /ensureEocTables/);
+assert.match(adminSrc, /014_bankruptcy_schema/);
+console.log("  ✅ migration 014 owns Bankruptcy tables; Runtime DDL removed from boot/demo/EOC");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

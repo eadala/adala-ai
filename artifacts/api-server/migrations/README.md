@@ -70,7 +70,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/013_erp_schema.sql
 
-# 14) تحقق بعد التنفيذ
+# 14) Bankruptcy schema — bankruptcy_cases / bk_* tables
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/014_bankruptcy_schema.sql
+
+# 15) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -90,6 +94,7 @@ bash scripts/db/verify-schema.sh
 | `011_stripe_infrastructure_tables.sql` | `stripe_events`, `stripe_dead_letters`, `stripe_reconciliation_log` |
 | `012_payment_transactions.sql` | `payment_transactions` (incl. settlement + gateway columns) |
 | `013_erp_schema.sql` | `office_erp_ledger`, `financial_anomalies`, `chart_of_accounts`, `journal_entries`, `journal_items` |
+| `014_bankruptcy_schema.sql` | `bankruptcy_cases` + 24 `bk_*` Bankruptcy tables |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due`, `idx_tasks_status`,
 > `idx_reminders_office_due` must be added in the future numbered migration that
@@ -121,18 +126,25 @@ bash scripts/db/verify-schema.sh
 | `financial_anomalies` | **013** | ERP reconcile / financial-guard |
 | `chart_of_accounts` | **013** | `journalAccounting.ts` (seed retained) |
 | `journal_entries` / `journal_items` | **013** | double-entry journal |
+| `bankruptcy_cases` / `bk_*` Bankruptcy tables | **014** | Bankruptcy case, workflow, opening request, demo, and EOC modules |
 | `clients` | 003 | Legal core |
 
 ## ما يبقى بعد Migrations (boot-time)
 
 ~100 جدول enterprise تُنشأ عند أول boot للـ API عبر `ensure*Tables()` في
 `artifacts/api-server/src/index.ts` والوحدات. هذه migrations تغطي **P0 + baseline**
-فقط. بعد تطبيق 003–013، شغّل API مرة واحدة لإكمال الجداول المتبقية (enterprise).
+فقط. بعد تطبيق 003–014، شغّل API مرة واحدة لإكمال الجداول المتبقية (enterprise).
 
-جداول مغطاة بـ 004/005/010/011/012/013 لم تعد تُنشأ عبر Runtime DDL:
+جداول مغطاة بـ 004/005/010/011/012/013/014 لم تعد تُنشأ عبر Runtime DDL:
 `contract_*`, `trial_offices`, `onboarding_state`, `system_events`, `plan_cms`, `office_ledger`,
 `stripe_events`, `stripe_dead_letters`, `stripe_reconciliation_log`, `payment_transactions`,
-`office_erp_ledger`, `financial_anomalies`, `chart_of_accounts`, `journal_entries`, `journal_items`
+`office_erp_ledger`, `financial_anomalies`, `chart_of_accounts`, `journal_entries`, `journal_items`,
+`bankruptcy_cases`, `bk_creditors`, `bk_claims`, `bk_claim_documents`, `bk_assets`,
+`bk_asset_valuations`, `bk_meetings`, `bk_distributions`, `bk_distribution_items`, `bk_reports`,
+`bk_ai_analysis`, `bk_timeline`, `bk_audit_logs`, `bk_notifications`, `bk_workflows`,
+`bk_workflow_steps`, `bk_workflow_events`, `bk_tasks`, `bk_task_comments`, `bk_task_assignments`,
+`bk_templates`, `bk_alerts`, `bk_opening_requests`, `bk_opening_request_documents`,
+`bk_emergency_locks`
 (+ performance indexes من `ensurePerformanceIndexes`).
 `moyasar_settings` / `checkout_settings` remain Runtime DDL via `ensureGatewaySettingsTables()`.
 `ensureJournalTables` retains CoA seed only (no DDL).
@@ -150,7 +162,7 @@ bash scripts/db/test-migrations.integration.sh
 pnpm --filter @workspace/api-server run test:schema-authority
 ```
 
-يغطي: DB فارغة (003→001→004→005→006→007→008→009→010→011→012→013)، Production-like بدون `website_config`/`login_logs`،
-idempotency لـ 006/007/008/009/010/011/012/013، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
+يغطي: DB فارغة (003→001→004→005→006→007→008→009→010→011→012→013→014)، Production-like بدون `website_config`/`login_logs`،
+idempotency لـ 006/007/008/009/010/011/012/013/014، محاذاة schema، backup/restore، والمسارات المبلّغ عنها.
 
 راجع `scripts/db/boot-created-tables.md` لقائمة جداول boot وقيود Docker.

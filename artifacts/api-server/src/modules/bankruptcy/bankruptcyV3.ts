@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; schema authority */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -16,66 +17,10 @@ function badId(res: any) { res.status(400).json({ error: "معرف غير صال
 function genRequestNumber() { return `BK-REQ-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`; }
 
 /* ══════════════════════════════════════════════════════════
-   ENSURE TABLES
+   ENSURE TABLES — schema owned by migration 014
 ══════════════════════════════════════════════════════════ */
 export async function ensureBankruptcyV3Tables() {
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS bk_opening_requests (
-      id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id                TEXT NOT NULL,
-      request_number           TEXT NOT NULL,
-      company_name             TEXT NOT NULL,
-      commercial_registration  TEXT,
-      entity_type              TEXT,
-      industry                 TEXT,
-      employee_count           INT,
-      annual_revenue           NUMERIC(18,2),
-      total_assets             NUMERIC(18,2),
-      total_liabilities        NUMERIC(18,2),
-      available_cash           NUMERIC(18,2),
-      due_debts                NUMERIC(18,2),
-      procedure_recommendation TEXT,
-      eligibility_score        INT,
-      financial_distress_score INT,
-      liquidity_risk_score     INT,
-      recovery_potential_score INT,
-      confidence_level         INT,
-      ai_analysis              JSONB,
-      readiness_score          INT,
-      readiness_details        JSONB,
-      court_package_content    TEXT,
-      court_package_generated_at TIMESTAMPTZ,
-      status                   TEXT NOT NULL DEFAULT 'draft'
-                                 CHECK (status IN (
-                                   'draft','under_assessment','documents_pending',
-                                   'ai_analysis','ready_for_filing','under_legal_review',
-                                   'approved_for_submission','submitted_to_court',
-                                   'converted_to_case','closed','cancelled'
-                                 )),
-      converted_case_id        UUID REFERENCES bankruptcy_cases(id) ON DELETE SET NULL,
-      created_by               TEXT,
-      notes                    TEXT,
-      created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS bk_opening_request_documents (
-      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id     TEXT NOT NULL,
-      request_id    UUID NOT NULL REFERENCES bk_opening_requests(id) ON DELETE CASCADE,
-      document_type TEXT NOT NULL,
-      file_name     TEXT NOT NULL,
-      file_url      TEXT,
-      notes         TEXT,
-      uploaded_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_bk_or_office   ON bk_opening_requests(office_id, status)`);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_bk_or_docs_req ON bk_opening_request_documents(request_id)`);
+  /* Schema DDL removed — artifacts/api-server/migrations/014_bankruptcy_schema.sql owns bankruptcy V3 tables. */
 }
 
 /* ══════════════════════════════════════════════════════════

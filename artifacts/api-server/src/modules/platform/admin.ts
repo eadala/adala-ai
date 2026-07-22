@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; schema authority */
 import { requireAuth, requireSuperAdmin} from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -1369,24 +1370,7 @@ router.post("/admin/bankruptcy/audit-logs", adminOnly, async (req: any, res) => 
    BANKRUPTCY EOC — Enterprise Operations Center
 ══════════════════════════════════════════════════════════ */
 
-async function ensureEocTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS bk_emergency_locks (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id   TEXT NOT NULL,
-      lock_type   TEXT NOT NULL,
-      target_id   TEXT,
-      reason      TEXT,
-      locked_by   TEXT NOT NULL,
-      is_active   BOOLEAN NOT NULL DEFAULT TRUE,
-      expires_at  TIMESTAMPTZ,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      released_at TIMESTAMPTZ
-    )
-  `);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_bk_emg_office ON bk_emergency_locks(office_id, is_active)`);
-}
-ensureEocTables().catch(() => {});
+/* bk_emergency_locks schema is owned by artifacts/api-server/migrations/014_bankruptcy_schema.sql. */
 
 async function eocAudit(adminId: string, ip: string, officeId: string | null, action: string, meta?: object) {
   await db.execute(sql`
