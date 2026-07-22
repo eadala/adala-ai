@@ -28,20 +28,15 @@ const router = Router();
    ONE-TIME STARTUP MIGRATIONS
 ════════════════════════════════════════════════════ */
 (async () => {
+  /* cases.case_number / court_* / deleted_at / version / idx_uq_cases_office_case_number
+     are owned by migration 017_cases_schema.sql — no Runtime DDL for those. */
   const migs = [
-    /* Soft delete */
-    sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`,
-    /* Optimistic locking */
-    sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1`,
-    /* Clients soft delete */
+    /* Clients soft delete (not owned by 017) */
     sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`,
     /* Performance indexes — plain B-tree on title (no pg_trgm dependency) */
     sql`CREATE INDEX IF NOT EXISTS idx_cases_title ON cases (title)`,
     sql`CREATE INDEX IF NOT EXISTS idx_cases_client_name ON cases (LOWER(client_name))`,
     sql`CREATE INDEX IF NOT EXISTS idx_cases_office_active ON cases (office_id) WHERE deleted_at IS NULL`,
-    /* Partial unique index — allows multiple NULLs in same office */
-    sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_uq_cases_office_case_number
-        ON cases (office_id, case_number) WHERE case_number IS NOT NULL`,
 
     /* ── Cross-module integration indexes (task indexes live in migration 015) ── */
     sql`CREATE INDEX IF NOT EXISTS idx_invoices_case_office    ON client_invoices (case_id, office_id)`,

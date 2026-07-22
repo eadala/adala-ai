@@ -2,6 +2,9 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
+import { classifyDemoSeedError, isDemoSeedEnabled } from "./demoSeedPolicy";
+
+export { classifyDemoSeedError, isDemoSeedEnabled } from "./demoSeedPolicy";
 
 const router = Router();
 
@@ -10,10 +13,22 @@ const DEMO_EMAIL = process.env.DEMO_EMAIL ?? "demo@adalah-ai.sa";
 const DEMO_PASS  = process.env.DEMO_PASSWORD ?? "Demo@2025!";
 
 async function ensureDemoData() {
+  if (!isDemoSeedEnabled()) {
+    /* Production default is silent skip; explicit false logs once for operators. */
+    if (process.env.DEMO_SEED_ENABLED === "false") {
+      logger.info(
+        { nodeEnv: process.env.NODE_ENV },
+        "[Demo] Seed skipped — DEMO_SEED_ENABLED=false",
+      );
+    }
+    return;
+  }
+
   try {
+    /* office_registry.id is TEXT PK — store canonical UUID string without ::uuid cast */
     await db.execute(sql`
       INSERT INTO office_registry (id, clerk_user_id, owner_email, office_name, plan_name, status, joined_at)
-      VALUES (${DEMO_OFFICE_ID}::uuid, 'demo_user_seed', ${DEMO_EMAIL}, 'مكتب التجربة — عدالة AI', 'professional', 'active', NOW())
+      VALUES (${DEMO_OFFICE_ID}, 'demo_user_seed', ${DEMO_EMAIL}, 'مكتب التجربة — عدالة AI', 'professional', 'active', NOW())
       ON CONFLICT (id) DO NOTHING
     `);
 
@@ -28,9 +43,10 @@ async function ensureDemoData() {
       { id: clientIds[2], name: "مجموعة الأفق التجارية", email: "legal@ufuq.sa",    phone: "0112345678", type: "company"    },
     ];
     for (const c of clientData) {
+      /* clients.id is UUID PK */
       await db.execute(sql`
         INSERT INTO clients (id, full_name, email, phone, type, office_id, created_at)
-        VALUES (${c.id}::uuid, ${c.name}, ${c.email}, ${c.phone}, ${c.type}, ${DEMO_OFFICE_ID}::uuid, NOW())
+        VALUES (${c.id}::uuid, ${c.name}, ${c.email}, ${c.phone}, ${c.type}, ${DEMO_OFFICE_ID}, NOW())
         ON CONFLICT (id) DO NOTHING
       `);
     }
@@ -43,16 +59,26 @@ async function ensureDemoData() {
       { id: "ddddca05-0000-0000-0000-000000000005", title: "قضية ملكية فكرية — علامة تجارية",  type: "ملكية فكرية", status: "closed",  clientName: "شركة النخبة للاستثمار",      cn: "2024/IP/0198" },
     ];
     for (const c of caseData) {
+      /* cases.id is TEXT PK; ON CONFLICT (id) matches PRIMARY KEY */
       await db.execute(sql`
         INSERT INTO cases (id, title, case_number, case_type, status, client_name, office_id, created_at, updated_at)
-        VALUES (${c.id}::uuid, ${c.title}, ${c.cn}, ${c.type}, ${c.status}, ${c.clientName}, ${DEMO_OFFICE_ID}::uuid, NOW(), NOW())
+        VALUES (${c.id}, ${c.title}, ${c.cn}, ${c.type}, ${c.status}, ${c.clientName}, ${DEMO_OFFICE_ID}, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
       `);
     }
 
     logger.info("[Demo] Seed data ready ✅");
   } catch (e) {
-    logger.warn({ e }, "[Demo] Seed skipped (table may not exist yet)");
+    const classified = classifyDemoSeedError(e);
+    logger.warn(
+      {
+        err: e,
+        pgCode: classified.code,
+        reason: classified.reason,
+        hint: "cases.case_number and court columns are owned by migration 017_cases_schema.sql",
+      },
+      `[Demo] Seed skipped — ${classified.reason}${classified.code ? ` (${classified.code})` : ""}`,
+    );
   }
 }
 
@@ -73,10 +99,10 @@ router.get("/stats", async (_req, res) => {
   try {
     const rows = await db.execute(sql`
       SELECT
-        (SELECT COUNT(*) FROM cases   WHERE office_id = ${DEMO_OFFICE_ID}::uuid) AS case_count,
-        (SELECT COUNT(*) FROM clients WHERE office_id = ${DEMO_OFFICE_ID}::uuid) AS client_count
-    `) as any;
-    const r = (rows.rows ?? rows)?.[0] ?? {};
+        (SELECT COUNT(*) FROM cases   WHERE office_id = ${DEMO_OFFICE_ID}) AS case_count,
+        (SELECT COUNT(*) FROM clients WHERE office_id = ${DEMO_OFFICE_ID}) AS client_count
+    `);
+    const r = ((rows as { rows?: Array<Record<string, unknown>> }).rows ?? rows as Array<Record<string, unknown>>)?.[0] ?? {};
     res.json({ cases: Number(r.case_count ?? 5), clients: Number(r.client_count ?? 3), offices: 47, ai_tasks: 312 });
   } catch {
     res.json({ cases: 5, clients: 3, offices: 47, ai_tasks: 312 });

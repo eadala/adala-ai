@@ -36,6 +36,7 @@ assert.ok(migrationFiles.includes("013_erp_schema.sql"));
 assert.ok(migrationFiles.includes("014_bankruptcy_schema.sql"));
 assert.ok(migrationFiles.includes("015_tasks_branches_schema.sql"));
 assert.ok(migrationFiles.includes("016_office_messages_fts.sql"));
+assert.ok(migrationFiles.includes("017_cases_schema.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -379,6 +380,38 @@ assert.doesNotMatch(messageFtsConfigSrc, /cfgname = 'arabic'/);
 assert.doesNotMatch(messageFtsLogicSrc, /FROM pg_ts_config/);
 assert.doesNotMatch(messageFtsLogicSrc, /cfgname = 'arabic'/);
 console.log("  ✅ migration 016 owns office_messages FTS; runtime reads generated expression config");
+
+console.log("\n═══ schemaAuthority: Batch Cases (017) + Demo seed ═══");
+
+const mig017 = readRepo("artifacts/api-server/migrations/017_cases_schema.sql");
+assert.match(mig017, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS case_number TEXT/);
+assert.match(mig017, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS court_name TEXT/);
+assert.match(mig017, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS court_code TEXT/);
+assert.match(mig017, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS court_city TEXT/);
+assert.match(mig017, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS court_district_number INTEGER/);
+assert.match(mig017, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS court_district_type TEXT/);
+assert.match(mig017, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS next_hearing_date TIMESTAMPTZ/);
+assert.match(mig017, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ/);
+assert.match(mig017, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS version INTEGER/);
+assert.match(mig017, /CREATE UNIQUE INDEX IF NOT EXISTS idx_uq_cases_office_case_number/);
+assert.match(mig017, /017_cases: skipping column repair — cases table missing/);
+assert.doesNotMatch(mig017, /DROP COLUMN/);
+assert.doesNotMatch(mig017, /RENAME COLUMN/);
+
+const casesSrc017 = readSrc("modules/legal-core/cases.ts");
+assert.match(casesSrc017, /017_cases_schema/);
+assert.doesNotMatch(casesSrc017, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS deleted_at/);
+assert.doesNotMatch(casesSrc017, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS version/);
+assert.doesNotMatch(casesSrc017, /CREATE UNIQUE INDEX IF NOT EXISTS idx_uq_cases_office_case_number/);
+
+const demoModeSrc = readSrc("modules/platform/demoMode.ts");
+assert.match(demoModeSrc, /isDemoSeedEnabled/);
+assert.match(demoModeSrc, /classifyDemoSeedError/);
+assert.match(demoModeSrc, /017_cases_schema/);
+assert.doesNotMatch(demoModeSrc, /table may not exist yet/);
+assert.match(demoModeSrc, /ON CONFLICT \(id\) DO NOTHING/);
+assert.match(demoModeSrc, /INSERT INTO cases \(id, title, case_number, case_type, status, client_name, office_id, created_at, updated_at\)/);
+console.log("  ✅ migration 017 owns cases court/soft-delete columns; Demo seed guarded + accurate logs");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

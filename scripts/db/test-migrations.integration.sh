@@ -28,6 +28,7 @@ MIGRATION_013="$ROOT/artifacts/api-server/migrations/013_erp_schema.sql"
 MIGRATION_014="$ROOT/artifacts/api-server/migrations/014_bankruptcy_schema.sql"
 MIGRATION_015="$ROOT/artifacts/api-server/migrations/015_tasks_branches_schema.sql"
 MIGRATION_016="$ROOT/artifacts/api-server/migrations/016_office_messages_fts.sql"
+MIGRATION_017="$ROOT/artifacts/api-server/migrations/017_cases_schema.sql"
 
 PASS=0
 FAIL=0
@@ -135,6 +136,10 @@ apply_migration_016() {
   psql_db -f "$MIGRATION_016" >/dev/null
 }
 
+apply_migration_017() {
+  psql_db -f "$MIGRATION_017" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -156,11 +161,12 @@ apply_migrations_through_015() {
 apply_all_migrations() {
   apply_migrations_through_015
   apply_migration_016
+  apply_migration_017
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015,016 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015,016,017 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -407,10 +413,11 @@ scenario_migration_006_idempotent() {
   apply_migration_014
   apply_migration_015
   apply_migration_016
+  apply_migration_017
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-006.log 2>&1; then
-    ok "verify-schema.sh passed after 006→016"
+    ok "verify-schema.sh passed after 006→017"
   else
-    bad "verify-schema.sh failed after 006→016"
+    bad "verify-schema.sh failed after 006→017"
     tail -15 /tmp/verify-006.log
   fi
 
@@ -667,10 +674,11 @@ SQL
   apply_migration_014
   apply_migration_015
   apply_migration_016
+  apply_migration_017
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-010.log 2>&1; then
-    ok "A: verify-schema.sh passed after 010→016"
+    ok "A: verify-schema.sh passed after 010→017"
   else
-    bad "A: verify-schema.sh failed after 010→016"; tail -20 /tmp/verify-010.log
+    bad "A: verify-schema.sh failed after 010→017"; tail -20 /tmp/verify-010.log
   fi
 
   if ! grep -qE 'ensurePerformanceIndexes|idx_office_ledger_stripe_event_id' \
@@ -947,10 +955,11 @@ scenario_migration_011_stripe_infra() {
   apply_migration_014
   apply_migration_015
   apply_migration_016
+  apply_migration_017
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-011.log 2>&1; then
-    ok "A: verify-schema.sh passed after 011→016"
+    ok "A: verify-schema.sh passed after 011→017"
   else
-    bad "A: verify-schema.sh failed after 011→016"; tail -20 /tmp/verify-011.log
+    bad "A: verify-schema.sh failed after 011→017"; tail -20 /tmp/verify-011.log
   fi
 
   if ! grep -qE 'ensureStripeBufferTables|ensureReconciliationTable|CREATE TABLE IF NOT EXISTS stripe_' \
@@ -1239,10 +1248,11 @@ scenario_migration_012_payment_transactions() {
   apply_migration_014
   apply_migration_015
   apply_migration_016
+  apply_migration_017
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-012.log 2>&1; then
-    ok "A: verify-schema.sh passed after 012+013+014+015+016"
+    ok "A: verify-schema.sh passed after 012+013+014+015+016+017"
   else
-    bad "A: verify-schema.sh failed after 012+013+014+015+016"; tail -20 /tmp/verify-012.log
+    bad "A: verify-schema.sh failed after 012+013+014+015+016+017"; tail -20 /tmp/verify-012.log
   fi
 
   if ! grep -qE 'ensurePaymentCols|ALTER TABLE payment_transactions' \
@@ -1472,10 +1482,11 @@ scenario_migration_013_erp() {
   apply_migration_014
   apply_migration_015
   apply_migration_016
+  apply_migration_017
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-013.log 2>&1; then
-    ok "A: verify-schema.sh passed after 013+014+015+016"
+    ok "A: verify-schema.sh passed after 013+014+015+016+017"
   else
-    bad "A: verify-schema.sh failed after 013+014+015+016"; tail -20 /tmp/verify-013.log
+    bad "A: verify-schema.sh failed after 013+014+015+016+017"; tail -20 /tmp/verify-013.log
   fi
 
   if ! grep -qE 'ensureERPTables|CREATE TABLE IF NOT EXISTS office_erp_ledger|CREATE TABLE IF NOT EXISTS chart_of_accounts' \
@@ -2040,10 +2051,11 @@ scenario_migration_014_bankruptcy() {
 
   apply_migration_015
   apply_migration_016
+  apply_migration_017
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-014.log 2>&1; then
-    ok "A: verify-schema.sh passed after 014+015+016"
+    ok "A: verify-schema.sh passed after 014+015+016+017"
   else
-    bad "A: verify-schema.sh failed after 014+015+016"; tail -20 /tmp/verify-014.log
+    bad "A: verify-schema.sh failed after 014+015+016+017"; tail -20 /tmp/verify-014.log
   fi
 
   if ! grep -qE 'CREATE TABLE|CREATE INDEX' \
@@ -2368,11 +2380,12 @@ scenario_migration_015_tasks_branches() {
   apply_migration_015
   ok "A/F: re-run 015 on fresh schema succeeded"
   apply_migration_016
+  apply_migration_017
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-015.log 2>&1; then
-    ok "A: verify-schema.sh passed after 015+016"
+    ok "A: verify-schema.sh passed after 015+016+017"
   else
-    bad "A: verify-schema.sh failed after 015+016"; tail -20 /tmp/verify-015.log
+    bad "A: verify-schema.sh failed after 015+016+017"; tail -20 /tmp/verify-015.log
   fi
 
   if ! grep -qE 'ALTER TABLE tasks|ensureTables\(\)\.catch' \
@@ -2626,11 +2639,12 @@ SQL
 
   apply_migration_016
   ok "A/F: re-run 016 on fresh arabic schema succeeded (idempotent)"
+  apply_migration_017
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-016.log 2>&1; then
-    ok "A: verify-schema.sh passed after 016"
+    ok "A: verify-schema.sh passed after 016+017"
   else
-    bad "A: verify-schema.sh failed after 016"; tail -20 /tmp/verify-016.log
+    bad "A: verify-schema.sh failed after 016+017"; tail -20 /tmp/verify-016.log
   fi
 
   if ! grep -qE 'ensureFullTextSearch|ADD COLUMN IF NOT EXISTS search_vector|CREATE INDEX IF NOT EXISTS idx_messages_search' \
@@ -2916,7 +2930,7 @@ SQL
   [[ "$admin_cnt" -ge 1 ]] && ok "admin list offices (db.select officePageTable)" || bad "office_page empty"
 
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-endpoints.log 2>&1; then
-    ok "verify-schema.sh passed after full chain including 006→016"
+    ok "verify-schema.sh passed after full chain including 006→017"
   else
     bad "verify-schema.sh failed on endpoint scenario"
     tail -15 /tmp/verify-endpoints.log
@@ -2996,6 +3010,163 @@ scenario_incomplete_schema_no_runtime_ddl() {
   teardown_db
 }
 
+# ── Scenario 3k: Cases schema (017) + Demo seed INSERT shape ────────────────
+scenario_migration_017_cases_schema() {
+  log "Scenario 3k — migration 017: cases schema / Demo seed INSERT / idempotency"
+
+  # ── A. cases table absent → WARNING, no abort ────────────────────────────
+  setup_db "mig017_no_cases"
+  trap teardown_db EXIT
+  # Minimal DB without cases
+  psql_db -c 'CREATE EXTENSION IF NOT EXISTS "pgcrypto";' >/dev/null
+  set +e
+  psql_db -f "$MIGRATION_017" >/tmp/mig017-nocases.log 2>&1
+  local nocases_rc=$?
+  set -e
+  [[ "$nocases_rc" -eq 0 ]] && ok "A: migration 017 succeeds when cases absent" || {
+    bad "A: migration 017 aborted when cases absent"; cat /tmp/mig017-nocases.log
+  }
+  local nocases_warn
+  nocases_warn=$(grep -c '017_cases: skipping column repair — cases table missing' /tmp/mig017-nocases.log || true)
+  [[ "$nocases_warn" -ge 1 ]] && ok "A: WARNING for absent cases table" || bad "A: absent-table WARNING missing"
+  trap - EXIT
+  teardown_db
+
+  # ── B. Fresh schema through 016 then 017 ─────────────────────────────────
+  setup_db "mig017_fresh"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+
+  local pre_cn
+  pre_cn=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='cases' AND column_name='case_number'
+    );")
+  [[ "$pre_cn" == "f" ]] && ok "B pre: case_number absent before 017" || bad "B pre: case_number unexpectedly present"
+
+  apply_migration_017
+
+  local cols idx
+  cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='cases'
+      AND column_name IN (
+        'case_number','court_name','court_code','court_city',
+        'court_district_number','court_district_type','next_hearing_date',
+        'deleted_at','version'
+      );")
+  idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_uq_cases_office_case_number';")
+  [[ "$cols" == "9" ]] && ok "B: expected cases schema columns present" || bad "B: cols=$cols"
+  [[ "$idx" == "1" ]] && ok "B: unique index on (office_id, case_number) present" || bad "B: index count=$idx"
+
+  # Demo-shaped INSERT (text PK + ON CONFLICT id) — twice for idempotency
+  psql_db <<'SQL' >/dev/null
+INSERT INTO cases (id, title, case_number, case_type, status, client_name, office_id, created_at, updated_at)
+VALUES (
+  'ddddca01-0000-0000-0000-000000000001',
+  'نزاع عقاري — حي الملقا',
+  '2025/E/1024',
+  'عقاري',
+  'open',
+  'شركة النخبة للاستثمار',
+  'ddddeeee-0000-0000-0000-000000000099',
+  NOW(),
+  NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+SQL
+  ok "B: Demo-shaped cases INSERT succeeded (ON CONFLICT id compatible)"
+
+  psql_db <<'SQL' >/dev/null
+INSERT INTO cases (id, title, case_number, case_type, status, client_name, office_id, created_at, updated_at)
+VALUES (
+  'ddddca01-0000-0000-0000-000000000001',
+  'نزاع عقاري — حي الملقا',
+  '2025/E/1024',
+  'عقاري',
+  'open',
+  'شركة النخبة للاستثمار',
+  'ddddeeee-0000-0000-0000-000000000099',
+  NOW(),
+  NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+SQL
+  local case_count
+  case_count=$(psql_db -At -c "SELECT COUNT(*) FROM cases WHERE id='ddddca01-0000-0000-0000-000000000001';")
+  [[ "$case_count" == "1" ]] && ok "B: seed already applied / repeated INSERT idempotent" || bad "B: case_count=$case_count"
+
+  # office_id has no FK — invalid office must not abort seed INSERT
+  set +e
+  psql_db <<'SQL' >/tmp/mig017-bad-office.log 2>&1
+INSERT INTO cases (id, title, case_number, case_type, status, client_name, office_id, created_at, updated_at)
+VALUES (
+  'ddddca99-0000-0000-0000-000000000099',
+  'orphan office case',
+  '2025/X/9999',
+  'مدنية',
+  'open',
+  'orphan',
+  'ffffffff-ffff-ffff-ffff-ffffffffffff',
+  NOW(),
+  NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+SQL
+  local bad_office_rc=$?
+  set -e
+  [[ "$bad_office_rc" -eq 0 ]] && ok "B: INSERT with non-existent office_id succeeds (no office FK)" \
+    || bad "B: unexpected FK failure on office_id"
+
+  apply_migration_017
+  ok "B/F: re-run 017 idempotent"
+
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-017.log 2>&1; then
+    ok "B: verify-schema.sh passed after 017"
+  else
+    bad "B: verify-schema.sh failed after 017"; tail -20 /tmp/verify-017.log
+  fi
+
+  # Stale/missing seed column simulation: drop case_number → INSERT fails with 42703
+  psql_db -c 'ALTER TABLE cases DROP COLUMN case_number;' >/dev/null
+  set +e
+  psql_db <<'SQL' >/tmp/mig017-stale.log 2>&1
+INSERT INTO cases (id, title, case_number, case_type, status, client_name, office_id, created_at, updated_at)
+VALUES ('ddddca02-0000-0000-0000-000000000002','x','2025/T/1','تأمين','open','y','ddddeeee-0000-0000-0000-000000000099',NOW(),NOW())
+ON CONFLICT (id) DO NOTHING;
+SQL
+  local stale_rc=$?
+  set -e
+  [[ "$stale_rc" -ne 0 ]] && ok "C: stale/missing case_number makes Demo INSERT fail (42703)" \
+    || bad "C: expected INSERT failure when case_number missing"
+  grep -qi 'case_number' /tmp/mig017-stale.log \
+    && ok "C: failure mentions case_number (not vague table-missing)" \
+    || bad "C: error log did not mention case_number"
+
+  # Production guard (source-level — Demo seed off unless DEMO_SEED_ENABLED)
+  if grep -q 'isDemoSeedEnabled' "$ROOT/artifacts/api-server/src/modules/platform/demoMode.ts" \
+      && grep -q 'DEMO_SEED_ENABLED' "$ROOT/artifacts/api-server/src/modules/platform/demoSeedPolicy.ts" \
+      && ! grep -q 'table may not exist yet' "$ROOT/artifacts/api-server/src/modules/platform/demoMode.ts"; then
+    ok "D: Demo seed has Production guard + accurate error classification"
+  else
+    bad "D: Demo seed guard/logging regression"
+  fi
+
+  if ! grep -qE 'ALTER TABLE cases ADD COLUMN IF NOT EXISTS deleted_at|ALTER TABLE cases ADD COLUMN IF NOT EXISTS version|CREATE UNIQUE INDEX IF NOT EXISTS idx_uq_cases_office_case_number' \
+      "$ROOT/artifacts/api-server/src/modules/legal-core/cases.ts"; then
+    ok "D: cases.ts no longer runs 017-owned Runtime DDL"
+  else
+    bad "D: cases.ts still contains 017-owned Runtime DDL"
+  fi
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -3012,6 +3183,7 @@ scenario_migration_013_erp
 scenario_migration_014_bankruptcy
 scenario_migration_015_tasks_branches
 scenario_migration_016_office_messages_fts
+scenario_migration_017_cases_schema
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

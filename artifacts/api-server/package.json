@@ -21,7 +21,8 @@
     "test:metrics-vitals": "node --import tsx src/tests/metricsBeaconPath.test.ts && node --import tsx src/tests/metricsVitals.integration.test.ts",
     "test:cors-origin": "node --import tsx src/tests/corsOriginPolicy.test.ts",
     "test:payments-error-swallowing": "node --import tsx src/tests/paymentsErrorSwallowing.test.ts",
-    "test:schema-authority": "node --import tsx src/tests/schemaAuthority.test.ts && node --import tsx src/tests/messageFtsConfig.test.ts"
+    "test:schema-authority": "node --import tsx src/tests/schemaAuthority.test.ts && node --import tsx src/tests/messageFtsConfig.test.ts && node --import tsx src/tests/demoSeedPolicy.test.ts",
+    "test:demo-seed": "node --import tsx src/tests/demoSeedPolicy.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1080.0",
