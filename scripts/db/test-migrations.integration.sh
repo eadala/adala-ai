@@ -30,6 +30,7 @@ MIGRATION_015="$ROOT/artifacts/api-server/migrations/015_tasks_branches_schema.s
 MIGRATION_016="$ROOT/artifacts/api-server/migrations/016_office_messages_fts.sql"
 MIGRATION_017="$ROOT/artifacts/api-server/migrations/017_cases_schema.sql"
 MIGRATION_018="$ROOT/artifacts/api-server/migrations/018_money_numeric_batch1.sql"
+MIGRATION_019="$ROOT/artifacts/api-server/migrations/019_money_numeric_batch2.sql"
 
 PASS=0
 FAIL=0
@@ -145,6 +146,10 @@ apply_migration_018() {
   psql_db -f "$MIGRATION_018" >/dev/null
 }
 
+apply_migration_019() {
+  psql_db -f "$MIGRATION_019" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -168,11 +173,12 @@ apply_all_migrations() {
   apply_migration_016
   apply_migration_017
   apply_migration_018
+  apply_migration_019
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018,019 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -3505,6 +3511,241 @@ SQL
   teardown_db
 }
 
+# ── Scenario 3m: Money Numeric Batch 2 (019) ────────────────────────────────
+scenario_migration_019_money_numeric_batch2() {
+  log "Scenario 3m — migration 019: bare NUMERIC → NUMERIC(18,2) payment/ledger"
+
+  # ── A. Missing tables → NOTICE, success ───────────────────────────────────
+  setup_db "mig019_empty"
+  trap teardown_db EXIT
+  psql_db -f "$MIGRATION_019" >/tmp/mig019-empty.log 2>&1
+  local empty_rc=$?
+  [[ "$empty_rc" -eq 0 ]] && ok "A: migration 019 succeeds when tables absent" || {
+    bad "A: migration 019 aborted when tables absent"; cat /tmp/mig019-empty.log
+  }
+  local empty_notice
+  empty_notice=$(grep -c '019_money: skipping' /tmp/mig019-empty.log || true)
+  [[ "$empty_notice" -ge 1 ]] && ok "A: NOTICE emitted for missing tables" || bad "A: missing NOTICE"
+
+  # ── B. Fresh bare NUMERIC through 018 → 019 converts safe SAR values ──────
+  setup_db "mig019_fresh"
+  apply_migrations_through_015
+  apply_migration_016
+  apply_migration_017
+  apply_migration_018
+
+  local pre_amt
+  pre_amt=$(psql_db -At -c "
+    SELECT udt_name||':'||COALESCE(numeric_precision::text,'∅')||','||COALESCE(numeric_scale::text,'∅')
+    FROM information_schema.columns
+    WHERE table_name='payment_transactions' AND column_name='amount';")
+  if [[ "$pre_amt" != "numeric:18,2" ]]; then
+    ok "B pre: payment_transactions.amount not yet NUMERIC(18,2) ($pre_amt)"
+  else
+    bad "B pre: already numeric(18,2) before 019: $pre_amt"
+  fi
+
+  psql_db <<'SQL' >/dev/null
+INSERT INTO payment_transactions
+  (id, office_id, amount, platform_fee, net_amount, stripe_fee, status)
+VALUES
+  ('11111111-1111-1111-1111-111111111101'::uuid, 'off-a', 100, 10, 90, 2.90, 'completed'),
+  ('11111111-1111-1111-1111-111111111102'::uuid, 'off-a', 10.50, 1.05, 9.45, 0.30, 'completed'),
+  ('11111111-1111-1111-1111-111111111103'::uuid, 'off-a', 199.99, NULL, NULL, NULL, 'pending'),
+  ('11111111-1111-1111-1111-111111111104'::uuid, 'off-a', -5.00, 0, -5.00, 0, 'refunded');
+
+INSERT INTO office_ledger
+  (id, office_id, type, amount, platform_fee, stripe_fee, net_amount)
+VALUES
+  ('22222222-2222-2222-2222-222222222201'::uuid, 'off-a', 'credit', 100.00, 10.00, 2.90, 87.10),
+  ('22222222-2222-2222-2222-222222222202'::uuid, 'off-a', 'debit', 25.50, 0, 0, 25.50),
+  ('22222222-2222-2222-2222-222222222203'::uuid, 'off-a', 'credit', 1.2300, 0.1200, 0.0000, 1.1100);
+SQL
+
+  apply_migration_019
+
+  local post_ok=1 post_line post_types
+  post_types=$(psql_db -At -c "
+    SELECT table_name||'.'||column_name||'='||udt_name||'('||COALESCE(numeric_precision::text,'')||','||COALESCE(numeric_scale::text,'')||')'
+    FROM information_schema.columns
+    WHERE table_schema='public'
+      AND (
+        (table_name='payment_transactions' AND column_name IN ('amount','platform_fee','net_amount','stripe_fee'))
+        OR (table_name='office_ledger' AND column_name IN ('amount','platform_fee','stripe_fee','net_amount'))
+      )
+    ORDER BY 1;")
+  while IFS= read -r post_line; do
+    [[ -z "$post_line" ]] && continue
+    if [[ "$post_line" != *"=numeric(18,2)" ]]; then
+      bad "B: unexpected type $post_line"
+      post_ok=0
+    fi
+  done <<< "$post_types"
+  [[ "$post_ok" -eq 1 ]] && ok "B: all Batch-2 columns are numeric(18,2)"
+
+  local bare_left
+  bare_left=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public'
+      AND (
+        (table_name='payment_transactions' AND column_name IN ('amount','platform_fee','net_amount','stripe_fee'))
+        OR (table_name='office_ledger' AND column_name IN ('amount','platform_fee','stripe_fee','net_amount'))
+      )
+      AND NOT (udt_name='numeric' AND numeric_precision=18 AND numeric_scale=2);")
+  [[ "$bare_left" == "0" ]] && ok "B: no in-scope bare NUMERIC remains" || bad "B: bare left=$bare_left"
+
+  local vals
+  vals=$(psql_db -At -c "
+    SELECT amount::text FROM payment_transactions
+    WHERE id='11111111-1111-1111-1111-111111111102'::uuid;")
+  [[ "$vals" == "10.50" ]] && ok "B: 2-decimal value preserved" || bad "B: frac=$vals"
+
+  local trail
+  trail=$(psql_db -At -c "
+    SELECT amount::text FROM office_ledger
+    WHERE id='22222222-2222-2222-2222-222222222203'::uuid;")
+  [[ "$trail" == "1.23" ]] && ok "B: trailing-zero numeric preserved as 1.23" || bad "B: trail=$trail"
+
+  local neg
+  neg=$(psql_db -At -c "
+    SELECT amount::text FROM payment_transactions
+    WHERE id='11111111-1111-1111-1111-111111111104'::uuid;")
+  [[ "$neg" == "-5.00" ]] && ok "B: negative value preserved" || bad "B: neg=$neg"
+
+  local null_fee
+  null_fee=$(psql_db -At -c "
+    SELECT platform_fee IS NULL FROM payment_transactions
+    WHERE id='11111111-1111-1111-1111-111111111103'::uuid;")
+  [[ "$null_fee" == "t" ]] && ok "B: NULL fee preserved" || bad "B: null_fee=$null_fee"
+
+  local def_pf
+  def_pf=$(psql_db -At -c "
+    SELECT column_default FROM information_schema.columns
+    WHERE table_name='office_ledger' AND column_name='platform_fee';")
+  echo "$def_pf" | grep -Eq '0' && ok "B: office_ledger.platform_fee default preserved" || bad "B: default=$def_pf"
+
+  local nn_amt
+  nn_amt=$(psql_db -At -c "
+    SELECT is_nullable FROM information_schema.columns
+    WHERE table_name='payment_transactions' AND column_name='amount';")
+  [[ "$nn_amt" == "NO" ]] && ok "B: payment_transactions.amount remains NOT NULL" || bad "B: nullability=$nn_amt"
+
+  local sum_amt
+  sum_amt=$(psql_db -At -c "SELECT SUM(amount)::text FROM payment_transactions WHERE office_id='off-a';")
+  [[ -n "$sum_amt" ]] && ok "B: SUM(amount) works ($sum_amt)" || bad "B: SUM failed"
+
+  psql_db -c "
+    INSERT INTO payment_transactions (id, office_id, amount, status)
+    VALUES ('11111111-1111-1111-1111-111111111199'::uuid, 'off-a', 3.14159, 'pending');" >/dev/null
+  local new_amt
+  new_amt=$(psql_db -At -c "
+    SELECT amount::text FROM payment_transactions
+    WHERE id='11111111-1111-1111-1111-111111111199'::uuid;")
+  [[ "$new_amt" == "3.14" ]] && ok "B: post-migration insert rounds to scale 2" || bad "B: insert=$new_amt"
+
+  apply_migration_019
+  ok "B/F: re-run 019 idempotent"
+
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-019.log 2>&1; then
+    ok "B: verify-schema.sh passed after 019"
+  else
+    bad "B: verify-schema.sh failed after 019"; tail -20 /tmp/verify-019.log
+  fi
+
+  # ── C. Partial column presence ────────────────────────────────────────────
+  setup_db "mig019_partial"
+  apply_migrations_through_015
+  apply_migration_016
+  apply_migration_017
+  apply_migration_018
+  psql_db -c "ALTER TABLE payment_transactions DROP COLUMN stripe_fee;" >/dev/null
+  psql_db -f "$MIGRATION_019" >/tmp/mig019-partial.log 2>&1
+  local partial_rc=$?
+  [[ "$partial_rc" -eq 0 ]] && ok "C: migration 019 succeeds with partial columns" || {
+    bad "C: aborted on partial"; cat /tmp/mig019-partial.log
+  }
+  grep -q '019_money: skipping payment_transactions.stripe_fee — column missing' /tmp/mig019-partial.log \
+    && ok "C: NOTICE for missing stripe_fee" || bad "C: missing column NOTICE absent"
+  local amt_type
+  amt_type=$(psql_db -At -c "
+    SELECT udt_name||'('||numeric_precision||','||numeric_scale||')'
+    FROM information_schema.columns
+    WHERE table_name='payment_transactions' AND column_name='amount';")
+  [[ "$amt_type" == "numeric(18,2)" ]] && ok "C: other columns still converted" || bad "C: amount=$amt_type"
+
+  # ── D. >2 meaningful decimals must abort ──────────────────────────────────
+  setup_db "mig019_scale"
+  apply_migrations_through_015
+  apply_migration_016
+  apply_migration_017
+  apply_migration_018
+  psql_db -c "
+    INSERT INTO payment_transactions (id, office_id, amount, status)
+    VALUES ('11111111-1111-1111-1111-1111111111aa'::uuid, 'off-b', 1.234, 'pending');" >/dev/null
+  set +e
+  psql_db -f "$MIGRATION_019" >/tmp/mig019-scale.log 2>&1
+  local scale_rc=$?
+  set -e
+  [[ "$scale_rc" -ne 0 ]] && ok "D: aborts on >2 meaningful decimals" || {
+    bad "D: did not abort on scale>2"; cat /tmp/mig019-scale.log
+  }
+  grep -qi 'more than 2 meaningful decimal places' /tmp/mig019-scale.log \
+    && ok "D: scale abort message emitted" || bad "D: scale message missing"
+
+  # ── E. Overflow must abort ────────────────────────────────────────────────
+  setup_db "mig019_overflow"
+  apply_migrations_through_015
+  apply_migration_016
+  apply_migration_017
+  apply_migration_018
+  psql_db -c "
+    INSERT INTO payment_transactions (id, office_id, amount, status)
+    VALUES ('11111111-1111-1111-1111-1111111111bb'::uuid, 'off-c', 10000000000000000, 'pending');" >/dev/null
+  set +e
+  psql_db -f "$MIGRATION_019" >/tmp/mig019-overflow.log 2>&1
+  local ov_rc=$?
+  set -e
+  [[ "$ov_rc" -ne 0 ]] && ok "E: aborts on NUMERIC(18,2) overflow" || {
+    bad "E: did not abort on overflow"; cat /tmp/mig019-overflow.log
+  }
+  grep -qi 'exceeding NUMERIC(18,2) range' /tmp/mig019-overflow.log \
+    && ok "E: overflow abort message emitted" || bad "E: overflow message missing"
+
+  # ── F. Unexpected type (real) must abort ──────────────────────────────────
+  setup_db "mig019_badtype"
+  apply_migrations_through_015
+  apply_migration_016
+  apply_migration_017
+  apply_migration_018
+  psql_db -c "ALTER TABLE payment_transactions ALTER COLUMN amount TYPE real USING amount::real;" >/dev/null
+  set +e
+  psql_db -f "$MIGRATION_019" >/tmp/mig019-badtype.log 2>&1
+  local badtype_rc=$?
+  set -e
+  [[ "$badtype_rc" -ne 0 ]] && ok "F: aborts on unexpected real type" || {
+    bad "F: swallowed unexpected type"; cat /tmp/mig019-badtype.log
+  }
+  grep -qi 'unexpected type' /tmp/mig019-badtype.log \
+    && ok "F: unexpected-type message emitted" || bad "F: type message missing"
+  if ! grep -qi 'WHEN others' "$MIGRATION_019"; then
+    ok "F: migration 019 has no WHEN others"
+  else
+    bad "F: migration 019 contains WHEN others"
+  fi
+
+  # ── G. Static schema/registry guard ───────────────────────────────────────
+  if grep -q "NUMERIC(18,2)" "$ROOT/artifacts/api-server/src/lib/dbRegistry.ts" \
+     && grep -q "payment_transactions" "$MIGRATION_019" \
+     && grep -q "office_ledger" "$MIGRATION_019"; then
+    ok "G: dbRegistry + migration 019 targets aligned"
+  else
+    bad "G: registry/migration drift"
+  fi
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -3523,6 +3764,7 @@ scenario_migration_015_tasks_branches
 scenario_migration_016_office_messages_fts
 scenario_migration_017_cases_schema
 scenario_migration_018_money_numeric_batch1
+scenario_migration_019_money_numeric_batch2
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
