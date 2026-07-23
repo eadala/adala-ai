@@ -53,10 +53,8 @@ console.log("\n═══ objectStorageLabels ═══");
     src,
     /storage_provider TEXT DEFAULT 'cloudflare_r2'/,
   );
-  assert.match(
-    src,
-    /ALTER COLUMN storage_provider SET DEFAULT 'cloudflare_r2'/,
-  );
+  assert.doesNotMatch(src, /ALTER COLUMN storage_provider SET DEFAULT/);
+  assert.doesNotMatch(src, /ALTER TABLE document_versions/);
   assert.match(
     src,
     /storage_provider = \$\{result\.provider\}/,

@@ -113,11 +113,6 @@ export async function ensureDocumentCenterSchema() {
       created_at     TIMESTAMPTZ DEFAULT NOW()
     )
   `).catch(() => {});
-  /* Default only — does not rewrite existing rows */
-  await db.execute(sql`
-    ALTER TABLE document_versions
-      ALTER COLUMN storage_provider SET DEFAULT 'cloudflare_r2'
-  `).catch(() => {});
   await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dv_doc_id   ON document_versions(document_id)`).catch(() => {});
   await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dv_doc_ver  ON document_versions(document_id, version_number)`).catch(() => {});
   await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dv_office   ON document_versions(office_id)`).catch(() => {});
