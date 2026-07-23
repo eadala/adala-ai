@@ -1,6 +1,6 @@
 /**
  * Canonical public base URL for production callbacks, webhooks, and emails.
- * Requires PRODUCTION_URL or APP_URL — no Replit or hardcoded domain fallbacks.
+ * Requires PRODUCTION_URL or APP_URL — no hardcoded domain fallbacks.
  */
 
 const MISSING_MSG =

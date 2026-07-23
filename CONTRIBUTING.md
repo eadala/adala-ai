@@ -61,11 +61,11 @@ git pull origin develop
 git branch -d feature/your-feature-name
 ```
 
-## AI Agents (Replit Agent / Codex / Cursor)
+## AI Agents (Codex / Cursor / Cloud Agents)
 
 - كل agent يعمل على feature branch مستقل
-- Replit checkpoints تبقى في replit-agent branch (لا تُدمج مباشرةً في main)
-- التغييرات الحقيقية تُنقل عبر PR من feature branch
+- التغييرات تُنقل عبر PR من feature branch إلى `main`
+- لا تُدمج نتائج الوكلاء مباشرة في `main` بدون مراجعة
 
 ## Branch Naming
 

@@ -1,7 +1,6 @@
 /**
- * Production static file server — CommonJS for ~100ms cold start.
- * ESM (serve.mjs) took ~332ms, exceeding Replit's 246ms healthcheck window.
- * CJS binds port in ~115ms — well within the healthcheck window.
+ * Production static file server — CommonJS for fast cold start.
+ * CJS binds the listen port quickly so reverse-proxy healthchecks succeed.
  */
 const http = require("node:http");
 const fs   = require("node:fs");

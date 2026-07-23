@@ -162,10 +162,10 @@ router.get("/production-launch/readiness", requireSuperAdmin, async (req, res) =
       color: "orange",
       score: 70,
       checks: [
-        { label: "SSL/TLS مُهيَّأ على Replit", ok: true },
+        { label: "SSL/TLS مُهيَّأ على Hetzner + Coolify", ok: true },
         { label: "Cloudflare WAF — يحتاج تهيئة يدوية", ok: false },
         { label: "Rate limiting edge-level — يحتاج تهيئة", ok: false },
-        { label: "DDoS protection — Replit managed", ok: true },
+        { label: "DDoS protection — Cloudflare / host-level", ok: true },
       ],
       components: ["Cloudflare DNS", "WAF Rules", "DDoS Protection", "SSL Termination"],
     });

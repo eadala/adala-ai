@@ -42,15 +42,15 @@ if (process.env.SENTRY_DSN) {
 
 const app: Express = express();
 
-// ── Replit deployment healthcheck — MUST be first, no middleware ──────────
-// artifact.toml [services.production.health.startup] path = "/api/healthz"
-// Also keep /api and /api/ping for backwards compat.
+// ── Deployment healthcheck — MUST be first, no middleware ─────────────────
+// Coolify/Docker HEALTHCHECK and reverse-proxy probes use /api/healthz (and
+// /api/health → healthz). Keep /api and /api/ping for backwards compat.
 // All three bypass ALL middleware so they always respond immediately.
 app.get("/api/healthz", (_req, res) => res.status(200).json({ ok: true, status: "healthy", ts: Date.now() }));
 app.get("/api", (_req, res) => res.status(200).json({ ok: true, status: "healthy", ts: Date.now() }));
 app.get("/api/ping", (_req, res) => res.status(200).json({ ok: true }));
 
-// Trust Replit's reverse proxy so rate-limit reads the real client IP
+// Trust the reverse proxy (Coolify/Nginx) so rate-limit reads the real client IP
 app.set("trust proxy", 1);
 
 // ─── Stripe Webhook MUST be before express.json() ───

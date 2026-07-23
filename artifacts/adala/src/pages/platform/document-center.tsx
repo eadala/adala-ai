@@ -1119,7 +1119,7 @@ function MigrationPanel() {
             <p className="font-medium">كيف يعمل الترحيل؟</p>
             <ul className="text-xs space-y-1 list-disc list-inside text-blue-700">
               <li>يقرأ الملفات القديمة المُخزَّنة كـ Base64 في قاعدة البيانات</li>
-              <li>يرفعها إلى Replit Object Storage</li>
+              <li>يرفعها إلى Object Storage (Cloudflare R2)</li>
               <li>يتحقق من سلامة الملف عبر SHA-256 checksum</li>
               <li>يُحدّث السجل بمفتاح التخزين الجديد</li>
               <li>الملفات القديمة تبقى محفوظة حتى تتحقق بنفسك</li>

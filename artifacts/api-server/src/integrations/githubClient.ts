@@ -1,6 +1,6 @@
 /**
  * GitHub REST API client — uses GITHUB_TOKEN (PAT or fine-grained token).
- * Replaces Replit Connectors for Deployment Center.
+ * GitHub API client for Deployment Center.
  */
 
 const GITHUB_API = "https://api.github.com";

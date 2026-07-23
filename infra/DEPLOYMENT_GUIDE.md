@@ -42,7 +42,9 @@ ssh root@YOUR_SERVER_IP 'bash -s' < scripts/hetzner-setup.sh
 | `ANTHROPIC_API_KEY` | من Anthropic |
 | `OPENAI_API_KEY` | من OpenAI |
 | `ALLOWED_ORIGINS` | https://yourdomain.com |
-| `DEFAULT_OBJECT_STORAGE_BUCKET_ID` | من Replit |
+| `R2_BUCKET_NAME` | اسم bucket على Cloudflare R2 |
+| `R2_ENDPOINT` | endpoint حساب R2 |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | مفاتيح R2 |
 
 ---
 
@@ -63,13 +65,18 @@ bash /opt/adala/infra/ssl-init.sh yourdomain.com admin@yourdomain.com
 
 ---
 
-## الخطوة 5: ترحيل البيانات
+## الخطوة 5: ترحيل البيانات (اختياري — لمرة واحدة)
+
+إذا كانت لديك نسخة قديمة من قاعدة البيانات وتحتاج ترحيل لمرة واحدة إلى Hetzner، استخدم السكربت التاريخي (يتوقع متغير المصدر كما هو معرّف في السكربت):
 
 ```bash
+# سكربت ترحيل تاريخي لمرة واحدة — ليس جزءاً من مسار Coolify اليومي
 REPLIT_DB_URL="postgresql://..." \
 HETZNER_DB_URL="postgresql://adala:PASSWORD@IP:5432/adala" \
 bash scripts/migrate-replit-to-hetzner.sh
 ```
+
+للنشر اليومي على Coolify لا حاجة لهذا السكربت.
 
 ---
 

@@ -61,7 +61,7 @@ Replace origins with your actual frontend URLs (`ALLOWED_ORIGINS` / Clerk domain
 |----------|---------|
 | `PRIVATE_OBJECT_DIR` | Legacy `/bucket/prefix` — maps to object key prefix (default: `private`) |
 | `PUBLIC_OBJECT_SEARCH_PATHS` | Comma-separated `/bucket/prefix` for public asset search paths |
-| `DEFAULT_OBJECT_STORAGE_BUCKET_ID` | Legacy Replit bucket name — use `R2_BUCKET_NAME` instead |
+| `DEFAULT_OBJECT_STORAGE_BUCKET_ID` | Obsolete legacy bucket id — use `R2_BUCKET_NAME` instead |
 
 ## Health check test
 

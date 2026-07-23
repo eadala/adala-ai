@@ -226,8 +226,8 @@ const clerkPubKey = publishableKeyFromHost(
 
 // REQUIRED — in dev, never pass proxyUrl: shared env can leak a production
 // absolute URL into Vite's dev server, which breaks CSP and Clerk init.
-// In production, only pass proxyUrl when VITE_CLERK_PROXY_URL is set (e.g.
-// Replit proxy). Custom-domain Clerk (clerk.adalahai.com) needs no proxyUrl.
+// In production, only pass proxyUrl when VITE_CLERK_PROXY_URL is set.
+// Custom-domain Clerk (clerk.adalahai.com) needs no proxyUrl.
 const clerkProxyUrl = import.meta.env.DEV
   ? undefined
   : (() => {

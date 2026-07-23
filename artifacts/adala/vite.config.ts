@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import fs from "node:fs";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const rawPort = process.env.PORT;
 const isBuild = process.argv.includes("build");
@@ -27,20 +26,6 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss({ optimize: false }),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer({
-              root: path.resolve(import.meta.dirname, ".."),
-            }),
-          ),
-          await import("@replit/vite-plugin-dev-banner").then((m) =>
-            m.devBanner(),
-          ),
-        ]
-      : []),
     // ── Production preview server: correct cache headers + SPA fallback ─────
     {
       name: "preview-cache-and-spa",
@@ -92,10 +77,6 @@ export default defineConfig({
       "@tanstack/react-table",
       "@tanstack/react-query",
       "wouter",
-    ],
-    exclude: [
-      "@replit/vite-plugin-cartographer",
-      "@replit/vite-plugin-dev-banner",
     ],
   },
   root: path.resolve(import.meta.dirname),
