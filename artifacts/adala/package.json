@@ -18,7 +18,8 @@
     "governance:audit:json": "node ../../scripts/governance/ui-audit.mjs --json",
     "validate:routes": "node scripts/validate-routes.mjs",
     "validate:platform": "node ../../scripts/governance/platform-check.mjs",
-    "test:auth-fetch-migration": "pnpm --dir ../api-server exec tsx ../adala/src/tests/authFetchMigrationComplete.test.ts"
+    "test:auth-fetch-migration": "pnpm --dir ../api-server exec tsx ../adala/src/tests/authFetchMigrationComplete.test.ts",
+    "test:object-storage-labels": "pnpm --dir ../api-server exec tsx ../adala/src/tests/objectStorageLabels.test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

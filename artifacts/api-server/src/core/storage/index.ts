@@ -22,3 +22,9 @@ export {
 
 export { getStorageProvider, resetStorageProviderCache } from "./storageFactory";
 export { createR2Provider } from "./providers/r2Provider";
+export {
+  OBJECT_STORAGE_PROVIDER_LABELS,
+  OBJECT_STORAGE_PROVIDER_SQL_PREDICATE,
+  isObjectStorageProviderLabel,
+  type ObjectStorageProviderLabel,
+} from "./objectStorageLabels";
