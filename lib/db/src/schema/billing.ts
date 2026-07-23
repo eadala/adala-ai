@@ -1,10 +1,10 @@
-import { pgTable, text, real, integer, timestamp, boolean, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, numeric, integer, timestamp, boolean, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const invoicesTable = pgTable("invoices", {
   id:        text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  amount:    real("amount").notNull(),
+  amount:    numeric("amount", { precision: 18, scale: 2 }).notNull(),
   status:    text("status").notNull().default("pending"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -12,7 +12,7 @@ export const invoicesTable = pgTable("invoices", {
 export const subscriptionsTable = pgTable("subscriptions", {
   id:              text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   planName:        text("plan_name").notNull(),
-  planPrice:       real("plan_price").notNull(),
+  planPrice:       numeric("plan_price", { precision: 18, scale: 2 }).notNull(),
   status:          text("status").notNull().default("active"),
   startDate:       timestamp("start_date").notNull().defaultNow(),
   endDate:         timestamp("end_date").notNull(),
@@ -26,7 +26,7 @@ export const usageLogsTable = pgTable("usage_logs", {
   id:        text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   feature:   text("feature").notNull(),
   units:     integer("units").notNull(),
-  cost:      real("cost").notNull(),
+  cost:      numeric("cost", { precision: 18, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

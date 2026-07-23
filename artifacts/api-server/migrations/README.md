@@ -86,7 +86,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/017_cases_schema.sql
 
-# 18) تحقق بعد التنفيذ
+# 18) Money Numeric Batch 1 — REAL → NUMERIC(18,2) for core SAR fields
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/018_money_numeric_batch1.sql
+
+# 19) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -110,6 +114,7 @@ bash scripts/db/verify-schema.sh
 | `015_tasks_branches_schema.sql` | `tasks` + `office_branches` + branch assignment FKs/indexes |
 | `016_office_messages_fts.sql` | `office_messages` + `search_vector` + `idx_messages_search` |
 | `017_cases_schema.sql` | `cases.case_number` / court_* / `deleted_at` / `version` + unique index |
+| `018_money_numeric_batch1.sql` | REAL → `NUMERIC(18,2)` for invoices/subscriptions/usage_logs/plans/discount_codes/ai_api_keys money columns |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.

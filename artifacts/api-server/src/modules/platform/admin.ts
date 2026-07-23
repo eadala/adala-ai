@@ -15,6 +15,13 @@ import { getUncachableStripeClient } from "../../stripeClient";
 const router = Router();
 const adminOnly = requireSuperAdmin;
 
+/** Coerce Drizzle NUMERIC (string) → JSON number for Batch-1 money fields. */
+function moneyNum(v: unknown): number {
+  if (v == null || v === "") return 0;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
 /* ── Clerk Backend Client (lazy) ──────────────────── */
 let _clerk: ReturnType<typeof createClerkClient> | null = null;
 function getClerk() {
@@ -41,7 +48,7 @@ router.get("/admin/stats", adminOnly, async (_req, res) => {
     totalTickets: totalTickets.count,
     openTickets: openTickets.count,
     totalAiUsage: totalAiUsage.total ?? 0,
-    totalCost: totalCost.total ?? 0,
+    totalCost: moneyNum(totalCost.total),
     activePlans: activePlans.count,
   });
 });
@@ -108,19 +115,27 @@ router.patch("/admin/users/:id", adminOnly, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    DISCOUNT CODES
 ══════════════════════════════════════════════════════ */
+function serializeDiscount(row: typeof discountCodesTable.$inferSelect) {
+  return { ...row, value: moneyNum(row.value) };
+}
+
 router.get("/admin/discounts", adminOnly, async (_req, res) => {
   const codes = await db.select().from(discountCodesTable).orderBy(desc(discountCodesTable.createdAt));
-  res.json(codes);
+  res.json(codes.map(serializeDiscount));
 });
 
 router.post("/admin/discounts", adminOnly, async (req, res) => {
-  const code = await db.insert(discountCodesTable).values(req.body).returning();
-  res.json(code[0]);
+  const body = { ...req.body };
+  if (body.value != null) body.value = String(body.value);
+  const code = await db.insert(discountCodesTable).values(body).returning();
+  res.json(serializeDiscount(code[0]));
 });
 
 router.patch("/admin/discounts/:id", adminOnly, async (req, res) => {
-  const updated = await db.update(discountCodesTable).set(req.body).where(eq(discountCodesTable.id, String(req.params.id))).returning();
-  res.json(updated[0]);
+  const body = { ...req.body };
+  if (body.value != null) body.value = String(body.value);
+  const updated = await db.update(discountCodesTable).set(body).where(eq(discountCodesTable.id, String(req.params.id))).returning();
+  res.json(updated[0] ? serializeDiscount(updated[0]) : updated[0]);
 });
 
 router.delete("/admin/discounts/:id", adminOnly, async (req, res) => {
@@ -139,7 +154,7 @@ router.get("/admin/ai-keys", adminOnly, async (_req, res) => {
     totalCost: aiApiKeysTable.totalCost, lastUsedAt: aiApiKeysTable.lastUsedAt,
     createdAt: aiApiKeysTable.createdAt,
   }).from(aiApiKeysTable).orderBy(desc(aiApiKeysTable.createdAt));
-  res.json(keys);
+  res.json(keys.map((k) => ({ ...k, totalCost: moneyNum(k.totalCost) })));
 });
 
 router.post("/admin/ai-keys", adminOnly, async (req, res) => {
@@ -147,7 +162,7 @@ router.post("/admin/ai-keys", adminOnly, async (req, res) => {
   const keyMasked = keyValue.slice(0, 8) + "..." + keyValue.slice(-4);
   const keyHash = Buffer.from(keyValue).toString("base64");
   const key = await db.insert(aiApiKeysTable).values({ provider, keyLabel, keyHash, keyMasked }).returning();
-  res.json({ ...key[0], keyHash: undefined });
+  res.json({ ...key[0], keyHash: undefined, totalCost: moneyNum(key[0].totalCost) });
 });
 
 router.patch("/admin/ai-keys/:id", adminOnly, async (req, res) => {
@@ -315,7 +330,14 @@ router.get("/admin/usage", adminOnly, async (_req, res) => {
     totalCost: sum(usageLogsTable.cost),
     count: count(),
   }).from(usageLogsTable).groupBy(usageLogsTable.feature);
-  res.json({ logs, summary });
+  res.json({
+    logs: logs.map((l) => ({ ...l, cost: moneyNum(l.cost) })),
+    summary: summary.map((s) => ({
+      ...s,
+      totalCost: moneyNum(s.totalCost),
+      totalUnits: s.totalUnits == null ? 0 : Number(s.totalUnits),
+    })),
+  });
 });
 
 /* ══════════════════════════════════════════════════════

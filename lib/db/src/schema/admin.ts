@@ -1,4 +1,4 @@
-import { pgTable, text, real, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, numeric, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -9,9 +9,9 @@ export const plansTable = pgTable("plans", {
   nameEn:        text("name_en"),
   slug:          text("slug"),
   description:   text("description"),
-  price:         real("price").notNull().default(0),
-  monthlyPrice:  real("monthly_price"),
-  yearlyPrice:   real("yearly_price"),
+  price:         numeric("price", { precision: 18, scale: 2 }).notNull().default("0"),
+  monthlyPrice:  numeric("monthly_price", { precision: 18, scale: 2 }),
+  yearlyPrice:   numeric("yearly_price", { precision: 18, scale: 2 }),
   billingCycle:  text("billing_cycle").notNull().default("monthly"),
   color:         text("color").default("#C9A84C"),
   features:      jsonb("features").$type<string[]>().default([]),
@@ -36,7 +36,7 @@ export const discountCodesTable = pgTable("discount_codes", {
   id:         text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   code:       text("code").notNull().unique(),
   type:       text("type").notNull().default("percent"),
-  value:      real("value").notNull(),
+  value:      numeric("value", { precision: 18, scale: 2 }).notNull(),
   planId:     text("plan_id"),
   maxUses:    integer("max_uses").notNull().default(100),
   usedCount:  integer("used_count").notNull().default(0),
@@ -54,7 +54,7 @@ export const aiApiKeysTable = pgTable("ai_api_keys", {
   keyMasked:   text("key_masked").notNull(),
   isActive:    boolean("is_active").notNull().default(true),
   usageCount:  integer("usage_count").notNull().default(0),
-  totalCost:   real("total_cost").notNull().default(0),
+  totalCost:   numeric("total_cost", { precision: 18, scale: 2 }).notNull().default("0"),
   lastUsedAt:  timestamp("last_used_at"),
   createdAt:   timestamp("created_at").notNull().defaultNow(),
 });
