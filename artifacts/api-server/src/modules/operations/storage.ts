@@ -19,7 +19,11 @@ import {
 } from "../../lib/storageFileRegister";
 import { createStorageFolder } from "../../lib/storageFolderCreate";
 import { logEndpointError } from "../../lib/endpointErrorLog";
-import { tenantOwnsStorageObject } from "../../lib/storageObjectOwnership";
+import {
+  entityIdFromCanonicalKey,
+  normalizeToCanonicalObjectKey,
+  tenantOwnsCanonicalObjectKey,
+} from "../../lib/storageObjectOwnership";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -99,24 +103,46 @@ router.get("/storage/public-objects/*filePath", requireAuthWithTenant, async (re
  * be protected with authentication or ACL checks based on the use case.
  */
 router.get("/storage/objects/*path", requireAuthWithTenant, async (req: Request, res: Response) => {
+  const notFound = () => {
+    res.status(404).json({ error: "Object not found" });
+  };
+
   try {
     const raw = String(req.params.path);
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
-    const objectPath = `/objects/${wildcardPath}`;
-    const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
-
-    // Tenant ownership via DB references only — do NOT use canAccessObjectEntity.
     const tenantId = (req as any).tenantId as string | undefined;
-    const owns = await tenantOwnsStorageObject({
-      tenantId: tenantId ?? "",
-      wildcardPath,
-      objectKey: objectFile.key,
-    });
-    if (!owns) {
-      res.status(403).json({ error: "Forbidden" });
+
+    // Canonicalize first — reject traversal / ambiguous paths without touching storage.
+    const canonicalKey = normalizeToCanonicalObjectKey(wildcardPath);
+    if (!canonicalKey) {
+      notFound();
       return;
     }
 
+    // Ownership BEFORE object lookup — never reveal existence of foreign/missing keys.
+    let owns = false;
+    try {
+      owns = await tenantOwnsCanonicalObjectKey({
+        tenantId: tenantId ?? "",
+        canonicalKey,
+      });
+    } catch (dbErr) {
+      req.log.error({ err: dbErr }, "Ownership check failed (fail closed)");
+      notFound();
+      return;
+    }
+    if (!owns) {
+      notFound();
+      return;
+    }
+
+    const entityId = entityIdFromCanonicalKey(canonicalKey);
+    if (!entityId) {
+      notFound();
+      return;
+    }
+
+    const objectFile = await objectStorageService.getObjectEntityFile(`/objects/${entityId}`);
     const response = await objectStorageService.downloadObject(objectFile);
 
     res.status(response.status);
@@ -130,12 +156,12 @@ router.get("/storage/objects/*path", requireAuthWithTenant, async (req: Request,
     }
   } catch (error) {
     if (error instanceof ObjectNotFoundError) {
-      req.log.warn({ err: error }, "Object not found");
-      res.status(404).json({ error: "Object not found" });
+      notFound();
       return;
     }
     req.log.error({ err: error }, "Error serving object");
-    res.status(500).json({ error: "Failed to serve object" });
+    // Fail closed — do not stream; use same 404 to avoid existence oracle.
+    notFound();
   }
 });
 
