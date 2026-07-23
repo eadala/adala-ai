@@ -53,7 +53,6 @@ DECLARE
   col_udt text;
   col_precision int;
   col_scale int;
-  is_nullable text;
   i int;
 BEGIN
   FOR i IN 1 .. array_length(targets, 1) LOOP
@@ -75,9 +74,8 @@ BEGIN
 
     SELECT cols.udt_name,
            cols.numeric_precision,
-           cols.numeric_scale,
-           cols.is_nullable
-      INTO col_udt, col_precision, col_scale, is_nullable
+           cols.numeric_scale
+      INTO col_udt, col_precision, col_scale
     FROM information_schema.columns cols
     WHERE cols.table_schema = 'public'
       AND cols.table_name = t
