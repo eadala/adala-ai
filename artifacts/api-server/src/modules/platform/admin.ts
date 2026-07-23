@@ -168,7 +168,14 @@ router.post("/admin/ai-keys", adminOnly, async (req, res) => {
 router.patch("/admin/ai-keys/:id", adminOnly, async (req, res) => {
   const { isActive } = req.body;
   const updated = await db.update(aiApiKeysTable).set({ isActive }).where(eq(aiApiKeysTable.id, String(req.params.id))).returning();
-  res.json(updated[0]);
+  res.json(
+    updated[0]
+      ? {
+          ...updated[0],
+          totalCost: moneyNum(updated[0].totalCost),
+        }
+      : updated[0],
+  );
 });
 
 router.delete("/admin/ai-keys/:id", adminOnly, async (req, res) => {
