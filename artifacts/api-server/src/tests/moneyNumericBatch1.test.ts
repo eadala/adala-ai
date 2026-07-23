@@ -55,14 +55,12 @@ assert.doesNotMatch(mig018, /cost_points/);
 const adminRuntime = read("artifacts/api-server/src/modules/platform/admin.ts");
 assert.match(adminRuntime, /function moneyNum/);
 /* PATCH /admin/ai-keys/:id must coerce totalCost to a JSON number (same as GET/POST). */
-assert.match(
-  adminRuntime,
-  /router\.patch\("\/admin\/ai-keys\/:id"[\s\S]*?totalCost:\s*moneyNum\(updated\[0\]\.totalCost\)/,
-);
-assert.doesNotMatch(
-  adminRuntime,
-  /router\.patch\("\/admin\/ai-keys\/:id"[\s\S]*?res\.json\(updated\[0\]\);/,
-);
+const patchAiKeys = adminRuntime.match(
+  /router\.patch\("\/admin\/ai-keys\/:id",[\s\S]*?\n\}\);/,
+)?.[0];
+assert.ok(patchAiKeys, "PATCH /admin/ai-keys/:id handler not found");
+assert.match(patchAiKeys, /totalCost:\s*moneyNum\(updated\[0\]\.totalCost\)/);
+assert.doesNotMatch(patchAiKeys, /res\.json\(\s*updated\[0\]\s*\)/);
 
 console.log("  ✅ Migration 018 + Drizzle Batch-1 money guards passed");
 console.log("  ✅ PATCH /admin/ai-keys/:id serializes totalCost via moneyNum\n");
