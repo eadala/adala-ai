@@ -38,6 +38,7 @@ assert.ok(migrationFiles.includes("015_tasks_branches_schema.sql"));
 assert.ok(migrationFiles.includes("016_office_messages_fts.sql"));
 assert.ok(migrationFiles.includes("017_cases_schema.sql"));
 assert.ok(migrationFiles.includes("018_money_numeric_batch1.sql"));
+assert.ok(migrationFiles.includes("019_money_numeric_batch2.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -478,6 +479,39 @@ assert.doesNotMatch(adminSchema, /\breal\s*\(/);
 assert.match(adminSrc, /function moneyNum/);
 assert.match(adminSrc, /serializeDiscount/);
 console.log("  ✅ migration 018 converts Batch-1 REAL money → NUMERIC(18,2); Drizzle aligned; no REAL in billing/admin schemas");
+
+console.log("\n═══ schemaAuthority: Money Numeric Batch 2 (019) ═══");
+
+const mig019 = readRepo("artifacts/api-server/migrations/019_money_numeric_batch2.sql");
+assert.match(mig019, /Migration 019: Money Numeric Batch 2/);
+assert.match(mig019, /NUMERIC\(18,2\)/);
+assert.match(mig019, /::numeric\(18,2\)/);
+assert.match(mig019, /more than 2 meaningful decimal places/);
+assert.match(mig019, /exceeding NUMERIC\(18,2\) range/);
+assert.match(mig019, /ARRAY\['payment_transactions',\s*'amount'/);
+assert.match(mig019, /ARRAY\['payment_transactions',\s*'platform_fee'/);
+assert.match(mig019, /ARRAY\['payment_transactions',\s*'net_amount'/);
+assert.match(mig019, /ARRAY\['payment_transactions',\s*'stripe_fee'/);
+assert.match(mig019, /ARRAY\['office_ledger',\s*'amount'/);
+assert.match(mig019, /ARRAY\['office_ledger',\s*'platform_fee'/);
+assert.match(mig019, /ARRAY\['office_ledger',\s*'stripe_fee'/);
+assert.match(mig019, /ARRAY\['office_ledger',\s*'net_amount'/);
+assert.doesNotMatch(mig019, /EXCEPTION\s+WHEN\s+others/i);
+assert.doesNotMatch(mig019, /^\s*WHEN others/im);
+assert.doesNotMatch(mig019, /ARRAY\['client_invoices'/);
+assert.doesNotMatch(mig019, /ARRAY\['invoices'/);
+assert.doesNotMatch(mig019, /ARRAY\['plans'/);
+assert.match(mig019, /RAISE NOTICE '019_money: skipping/);
+assert.match(mig019, /expected numeric/);
+assert.match(mig019, /No ×100 \/ ÷100/);
+
+const dbRegistry = readRepo("artifacts/api-server/src/lib/dbRegistry.ts");
+assert.match(dbRegistry, /tableName: "payment_transactions"/);
+assert.match(dbRegistry, /name: "amount", type: "NUMERIC\(18,2\)"/);
+assert.match(dbRegistry, /name: "stripe_fee", type: "NUMERIC\(18,2\)"/);
+assert.match(dbRegistry, /name: "net_amount", type: "NUMERIC\(18,2\)"/);
+assert.match(dbRegistry, /name: "platform_fee", type: "NUMERIC\(18,2\)"/);
+console.log("  ✅ migration 019 tightens payment/ledger bare NUMERIC → NUMERIC(18,2); preflight aborts unsafe data; dbRegistry aligned");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

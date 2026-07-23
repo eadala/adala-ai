@@ -90,7 +90,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/018_money_numeric_batch1.sql
 
-# 19) تحقق بعد التنفيذ
+# 19) Money Numeric Batch 2 — bare NUMERIC → NUMERIC(18,2) payment/ledger
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/019_money_numeric_batch2.sql
+
+# 20) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -115,6 +119,7 @@ bash scripts/db/verify-schema.sh
 | `016_office_messages_fts.sql` | `office_messages` + `search_vector` + `idx_messages_search` |
 | `017_cases_schema.sql` | `cases.case_number` / court_* / `deleted_at` / `version` + unique index |
 | `018_money_numeric_batch1.sql` | REAL → `NUMERIC(18,2)` for invoices/subscriptions/usage_logs/plans/discount_codes/ai_api_keys money columns |
+| `019_money_numeric_batch2.sql` | bare `NUMERIC` → `NUMERIC(18,2)` for `payment_transactions` / `office_ledger` fee & amount columns |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
