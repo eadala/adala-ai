@@ -29,6 +29,7 @@ MIGRATION_014="$ROOT/artifacts/api-server/migrations/014_bankruptcy_schema.sql"
 MIGRATION_015="$ROOT/artifacts/api-server/migrations/015_tasks_branches_schema.sql"
 MIGRATION_016="$ROOT/artifacts/api-server/migrations/016_office_messages_fts.sql"
 MIGRATION_017="$ROOT/artifacts/api-server/migrations/017_cases_schema.sql"
+MIGRATION_018="$ROOT/artifacts/api-server/migrations/018_money_numeric_batch1.sql"
 
 PASS=0
 FAIL=0
@@ -140,6 +141,10 @@ apply_migration_017() {
   psql_db -f "$MIGRATION_017" >/dev/null
 }
 
+apply_migration_018() {
+  psql_db -f "$MIGRATION_018" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -162,11 +167,12 @@ apply_all_migrations() {
   apply_migrations_through_015
   apply_migration_016
   apply_migration_017
+  apply_migration_018
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015,016,017 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -3282,6 +3288,223 @@ SQL
   teardown_db
 }
 
+# ── Scenario 3l: Money Numeric Batch 1 (018) ────────────────────────────────
+scenario_migration_018_money_numeric_batch1() {
+  log "Scenario 3l — migration 018: REAL → NUMERIC(18,2) money Batch 1"
+
+  # ── A. Missing tables → NOTICE, success ───────────────────────────────────
+  setup_db "mig018_empty"
+  trap teardown_db EXIT
+  psql_db -f "$MIGRATION_018" >/tmp/mig018-empty.log 2>&1
+  local empty_rc=$?
+  [[ "$empty_rc" -eq 0 ]] && ok "A: migration 018 succeeds when money tables absent" || {
+    bad "A: migration 018 aborted when tables absent"; cat /tmp/mig018-empty.log
+  }
+  local empty_notice
+  empty_notice=$(grep -c '018_money: skipping' /tmp/mig018-empty.log || true)
+  [[ "$empty_notice" -ge 1 ]] && ok "A: NOTICE emitted for missing tables" || bad "A: missing NOTICE for absent tables"
+
+  # ── B. Fresh 003 REAL columns → 018 converts + preserves values ───────────
+  setup_db "mig018_fresh"
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_011
+  apply_migration_012
+  apply_migration_013
+  apply_migration_014
+  apply_migration_015
+  apply_migration_016
+  apply_migration_017
+
+  local pre_type
+  pre_type=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='invoices' AND column_name='amount';")
+  [[ "$pre_type" == "float4" ]] && ok "B pre: invoices.amount is REAL (float4)" || bad "B pre: invoices.amount udt=$pre_type"
+
+  psql_db <<'SQL' >/dev/null
+INSERT INTO invoices (id, amount, status) VALUES
+  ('inv-whole', 100::real, 'pending'),
+  ('inv-frac', 10.5::real, 'pending'),
+  ('inv-round', 1.235::real, 'pending'),
+  ('inv-neg', (-25.5)::real, 'pending');
+
+INSERT INTO subscriptions (id, plan_name, plan_price, status, start_date, end_date)
+VALUES ('sub-1', 'pro', 199.99::real, 'active', NOW(), NOW() + interval '30 days');
+
+INSERT INTO usage_logs (id, feature, units, cost) VALUES
+  ('ul-1', 'ai', 3, 0.12::real);
+
+INSERT INTO plans (id, name, price, monthly_price, yearly_price)
+VALUES ('plan-1', 'Starter', 0::real, 99.9::real, 999.99::real);
+
+INSERT INTO discount_codes (id, code, type, value)
+VALUES
+  ('dc-pct', 'PCT10', 'percent', 10::real),
+  ('dc-fix', 'SAR50', 'fixed', 50.25::real);
+
+INSERT INTO ai_api_keys (id, provider, key_label, key_hash, key_masked, total_cost)
+VALUES ('aik-1', 'openai', 'prod', 'hh', 'sk-...xxxx', 12.345::real);
+SQL
+
+  apply_migration_018
+
+  local post_types
+  post_types=$(psql_db -At -c "
+    SELECT table_name||'.'||column_name||'='||udt_name||'('||COALESCE(numeric_precision::text,'')||','||COALESCE(numeric_scale::text,'')||')'
+    FROM information_schema.columns
+    WHERE table_schema='public'
+      AND (
+        (table_name='invoices' AND column_name='amount')
+        OR (table_name='subscriptions' AND column_name='plan_price')
+        OR (table_name='usage_logs' AND column_name='cost')
+        OR (table_name='plans' AND column_name IN ('price','monthly_price','yearly_price'))
+        OR (table_name='discount_codes' AND column_name='value')
+        OR (table_name='ai_api_keys' AND column_name='total_cost')
+      )
+    ORDER BY 1;")
+  local post_ok=1
+  local post_line
+  while IFS= read -r post_line; do
+    [[ -z "$post_line" ]] && continue
+    if [[ "$post_line" != *"=numeric(18,2)" ]]; then
+      bad "B: unexpected type $post_line"
+      post_ok=0
+    fi
+  done <<< "$post_types"
+  [[ "$post_ok" -eq 1 ]] && ok "B: all Batch-1 columns are numeric(18,2)"
+
+  local real_left
+  real_left=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public'
+      AND (
+        (table_name='invoices' AND column_name='amount')
+        OR (table_name='subscriptions' AND column_name='plan_price')
+        OR (table_name='usage_logs' AND column_name='cost')
+        OR (table_name='plans' AND column_name IN ('price','monthly_price','yearly_price'))
+        OR (table_name='discount_codes' AND column_name='value')
+        OR (table_name='ai_api_keys' AND column_name='total_cost')
+      )
+      AND udt_name IN ('float4','float8');")
+  [[ "$real_left" == "0" ]] && ok "B: no in-scope REAL/DOUBLE PRECISION remain" || bad "B: REAL left count=$real_left"
+
+  # Value preservation / rounding (1.235::real → numeric(18,2) via PG cast)
+  local inv_vals
+  inv_vals=$(psql_db -At -c "
+    SELECT id||'='||amount::text FROM invoices
+    WHERE id IN ('inv-whole','inv-frac','inv-round','inv-neg')
+    ORDER BY id;")
+  echo "$inv_vals" | grep -q 'inv-whole=100.00' && ok "B: whole number preserved" || bad "B: whole=$inv_vals"
+  echo "$inv_vals" | grep -q 'inv-frac=10.50' && ok "B: fraction preserved" || bad "B: frac=$inv_vals"
+  echo "$inv_vals" | grep -q 'inv-neg=-25.50' && ok "B: negative preserved" || bad "B: neg=$inv_vals"
+  echo "$inv_vals" | grep -q 'inv-round=1.24' && ok "B: rounding to 2 decimals applied (1.235::real → 1.24)" || bad "B: round=$inv_vals"
+
+  local aik_cost
+  aik_cost=$(psql_db -At -c "SELECT total_cost::text FROM ai_api_keys WHERE id='aik-1';")
+  [[ "$aik_cost" == "12.35" ]] && ok "B: ai_api_keys.total_cost rounded to 12.35" || bad "B: aik_cost=$aik_cost"
+
+  # Defaults + nullability
+  local price_default nullable_monthly notnull_amount
+  price_default=$(psql_db -At -c "
+    SELECT column_default FROM information_schema.columns
+    WHERE table_name='plans' AND column_name='price';")
+  nullable_monthly=$(psql_db -At -c "
+    SELECT is_nullable FROM information_schema.columns
+    WHERE table_name='plans' AND column_name='monthly_price';")
+  notnull_amount=$(psql_db -At -c "
+    SELECT is_nullable FROM information_schema.columns
+    WHERE table_name='invoices' AND column_name='amount';")
+  echo "$price_default" | grep -Eq '0' && ok "B: plans.price default preserved" || bad "B: price default=$price_default"
+  [[ "$nullable_monthly" == "YES" ]] && ok "B: plans.monthly_price remains nullable" || bad "B: monthly nullable=$nullable_monthly"
+  [[ "$notnull_amount" == "NO" ]] && ok "B: invoices.amount remains NOT NULL" || bad "B: amount nullability=$notnull_amount"
+
+  # NULL allowed on nullable monthly/yearly
+  psql_db -c "UPDATE plans SET monthly_price = NULL, yearly_price = NULL WHERE id='plan-1';" >/dev/null
+  ok "B: NULL write on nullable plan prices succeeds"
+
+  # Aggregates / inserts still work
+  local sum_amt
+  sum_amt=$(psql_db -At -c "SELECT SUM(amount)::text FROM invoices WHERE id LIKE 'inv-%';")
+  [[ -n "$sum_amt" ]] && ok "B: SUM(amount) works ($sum_amt)" || bad "B: SUM failed"
+
+  psql_db -c "INSERT INTO invoices (id, amount) VALUES ('inv-new', 3.14159);" >/dev/null
+  local new_amt
+  new_amt=$(psql_db -At -c "SELECT amount::text FROM invoices WHERE id='inv-new';")
+  [[ "$new_amt" == "3.14" ]] && ok "B: insert rounds to NUMERIC(18,2)" || bad "B: insert amount=$new_amt"
+
+  # discount_codes dual meaning preserved (percent + fixed)
+  local dc_types
+  dc_types=$(psql_db -At -c "SELECT code||':'||type||'='||value::text FROM discount_codes ORDER BY code;")
+  echo "$dc_types" | grep -q 'PCT10:percent=10.00' && ok "B: percent discount value preserved" || bad "B: dc=$dc_types"
+  echo "$dc_types" | grep -q 'SAR50:fixed=50.25' && ok "B: fixed SAR discount value preserved" || bad "B: dc=$dc_types"
+
+  # Idempotent re-run
+  apply_migration_018
+  ok "B/F: re-run 018 idempotent"
+
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-018.log 2>&1; then
+    ok "B: verify-schema.sh passed after 018"
+  else
+    bad "B: verify-schema.sh failed after 018"; tail -20 /tmp/verify-018.log
+  fi
+
+  # ── C. Partial column presence ────────────────────────────────────────────
+  setup_db "mig018_partial"
+  apply_migrations_base
+  psql_db -c "ALTER TABLE invoices DROP COLUMN amount;" >/dev/null
+  psql_db -f "$MIGRATION_018" >/tmp/mig018-partial.log 2>&1
+  local partial_rc=$?
+  [[ "$partial_rc" -eq 0 ]] && ok "C: migration 018 succeeds with partial columns" || {
+    bad "C: migration 018 aborted on partial"; cat /tmp/mig018-partial.log
+  }
+  grep -q '018_money: skipping invoices.amount — column missing' /tmp/mig018-partial.log \
+    && ok "C: NOTICE for missing invoices.amount" || bad "C: missing column NOTICE absent"
+
+  local plans_type
+  plans_type=$(psql_db -At -c "
+    SELECT udt_name||'('||numeric_precision||','||numeric_scale||')'
+    FROM information_schema.columns
+    WHERE table_name='plans' AND column_name='price';")
+  [[ "$plans_type" == "numeric(18,2)" ]] && ok "C: other columns still converted" || bad "C: plans.price=$plans_type"
+
+  # ── D. Unexpected type aborts ─────────────────────────────────────────────
+  setup_db "mig018_badtype"
+  apply_migrations_base
+  psql_db -c "ALTER TABLE invoices ALTER COLUMN amount TYPE text USING amount::text;" >/dev/null
+  set +e
+  psql_db -f "$MIGRATION_018" >/tmp/mig018-badtype.log 2>&1
+  local badtype_rc=$?
+  set -e
+  [[ "$badtype_rc" -ne 0 ]] && ok "D: migration 018 aborts on unexpected type" || {
+    bad "D: migration swallowed unexpected type"; cat /tmp/mig018-badtype.log
+  }
+  grep -qi 'refusing to convert' /tmp/mig018-badtype.log \
+    && ok "D: refusing-to-convert error emitted" || bad "D: abort message missing"
+  if ! grep -qi 'WHEN others' "$MIGRATION_018"; then
+    ok "D: migration 018 has no WHEN others"
+  else
+    bad "D: migration 018 contains WHEN others"
+  fi
+
+  # ── E. Drizzle schema guard (static) ──────────────────────────────────────
+  if grep -q 'numeric("amount", { precision: 18, scale: 2 })' "$ROOT/lib/db/src/schema/billing.ts" \
+     && grep -q 'numeric("total_cost", { precision: 18, scale: 2 })' "$ROOT/lib/db/src/schema/admin.ts" \
+     && ! grep -qE '\breal\s*\(' "$ROOT/lib/db/src/schema/billing.ts" \
+     && ! grep -qE '\breal\s*\(' "$ROOT/lib/db/src/schema/admin.ts"; then
+    ok "E: Drizzle billing/admin schemas match Migration 018 (no REAL)"
+  else
+    bad "E: Drizzle schema drift vs Migration 018"
+  fi
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -3299,6 +3522,7 @@ scenario_migration_014_bankruptcy
 scenario_migration_015_tasks_branches
 scenario_migration_016_office_messages_fts
 scenario_migration_017_cases_schema
+scenario_migration_018_money_numeric_batch1
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

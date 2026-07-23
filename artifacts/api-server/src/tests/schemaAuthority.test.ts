@@ -37,6 +37,7 @@ assert.ok(migrationFiles.includes("014_bankruptcy_schema.sql"));
 assert.ok(migrationFiles.includes("015_tasks_branches_schema.sql"));
 assert.ok(migrationFiles.includes("016_office_messages_fts.sql"));
 assert.ok(migrationFiles.includes("017_cases_schema.sql"));
+assert.ok(migrationFiles.includes("018_money_numeric_batch1.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -434,6 +435,50 @@ assert.match(demoPolicySrc, /DEMO_SEED_ENABLED === "true"/);
 assert.doesNotMatch(demoPolicySrc, /NODE_ENV\s*!==\s*["']production["']/);
 assert.doesNotMatch(demoPolicySrc, /NODE_ENV\s*===\s*["']production["']/);
 console.log("  ✅ migration 017 owns cases court/soft-delete columns; Demo seed opt-in only");
+
+console.log("\n═══ schemaAuthority: Money Numeric Batch 1 (018) ═══");
+
+const mig018 = readRepo("artifacts/api-server/migrations/018_money_numeric_batch1.sql");
+assert.match(mig018, /Migration 018: Money Numeric Batch 1/);
+assert.match(mig018, /NUMERIC\(18,2\)/);
+assert.match(mig018, /::numeric\(18,2\)/);
+assert.match(mig018, /round-half-away-from-zero/);
+assert.match(mig018, /ARRAY\['invoices',\s*'amount'/);
+assert.match(mig018, /ARRAY\['subscriptions',\s*'plan_price'/);
+assert.match(mig018, /ARRAY\['usage_logs',\s*'cost'/);
+assert.match(mig018, /ARRAY\['plans',\s*'price'/);
+assert.match(mig018, /ARRAY\['plans',\s*'monthly_price'/);
+assert.match(mig018, /ARRAY\['plans',\s*'yearly_price'/);
+assert.match(mig018, /ARRAY\['discount_codes',\s*'value'/);
+assert.match(mig018, /ARRAY\['ai_api_keys',\s*'total_cost'/);
+assert.doesNotMatch(mig018, /WHEN others/i);
+assert.doesNotMatch(mig018, /ARRAY\['client_invoices'/);
+assert.doesNotMatch(mig018, /ARRAY\['payment_transactions'/);
+assert.doesNotMatch(mig018, /ARRAY\['office_ledger'/);
+assert.doesNotMatch(mig018, /ARRAY\['contracts'/);
+assert.doesNotMatch(mig018, /ARRAY\['arbitration/);
+assert.doesNotMatch(mig018, /cost_points/);
+assert.match(mig018, /RAISE NOTICE '018_money: skipping/);
+assert.match(mig018, /refusing to convert/);
+
+const billingSchema = readRepo("lib/db/src/schema/billing.ts");
+assert.match(billingSchema, /numeric\("amount",\s*\{\s*precision:\s*18,\s*scale:\s*2\s*\}\)/);
+assert.match(billingSchema, /numeric\("plan_price",\s*\{\s*precision:\s*18,\s*scale:\s*2\s*\}\)/);
+assert.match(billingSchema, /numeric\("cost",\s*\{\s*precision:\s*18,\s*scale:\s*2\s*\}\)/);
+assert.doesNotMatch(billingSchema, /\breal\s*\(/);
+
+const adminSchema = readRepo("lib/db/src/schema/admin.ts");
+assert.match(adminSchema, /numeric\("price",\s*\{\s*precision:\s*18,\s*scale:\s*2\s*\}\)/);
+assert.match(adminSchema, /numeric\("monthly_price",\s*\{\s*precision:\s*18,\s*scale:\s*2\s*\}\)/);
+assert.match(adminSchema, /numeric\("yearly_price",\s*\{\s*precision:\s*18,\s*scale:\s*2\s*\}\)/);
+assert.match(adminSchema, /numeric\("value",\s*\{\s*precision:\s*18,\s*scale:\s*2\s*\}\)/);
+assert.match(adminSchema, /numeric\("total_cost",\s*\{\s*precision:\s*18,\s*scale:\s*2\s*\}\)/);
+assert.doesNotMatch(adminSchema, /\breal\s*\(/);
+
+assert.match(adminSrc, /function moneyNum/);
+assert.match(adminSrc, /serializeDiscount/);
+console.log("  ✅ migration 018 converts Batch-1 REAL money → NUMERIC(18,2); Drizzle aligned; no REAL in billing/admin schemas");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");
