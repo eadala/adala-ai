@@ -19,6 +19,7 @@ import {
 } from "../../lib/storageFileRegister";
 import { createStorageFolder } from "../../lib/storageFolderCreate";
 import { logEndpointError } from "../../lib/endpointErrorLog";
+import { tenantOwnsStorageObject } from "../../lib/storageObjectOwnership";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -104,20 +105,17 @@ router.get("/storage/objects/*path", requireAuthWithTenant, async (req: Request,
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
-    // --- Protected route example (uncomment when auth gate is required) ---
-    // if (!req.isAuthenticated()) {
-    //   res.status(401).json({ error: "Unauthorized" });
-    //   return;
-    // }
-    // const canAccess = await objectStorageService.canAccessObjectEntity({
-    //   userId: req.user.id,
-    //   objectFile,
-    //   requestedPermission: ObjectPermission.READ,
-    // });
-    // if (!canAccess) {
-    //   res.status(403).json({ error: "Forbidden" });
-    //   return;
-    // }
+    // Tenant ownership via DB references only — do NOT use canAccessObjectEntity.
+    const tenantId = (req as any).tenantId as string | undefined;
+    const owns = await tenantOwnsStorageObject({
+      tenantId: tenantId ?? "",
+      wildcardPath,
+      objectKey: objectFile.key,
+    });
+    if (!owns) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
 
     const response = await objectStorageService.downloadObject(objectFile);
 
