@@ -275,7 +275,7 @@ router.post("/engineering/ai-review", engineeringOnly, async (req: any, res) => 
 - Auth: Clerk + JWT
 - AI: Gemini 2.5 Flash / Claude / OpenAI
 - Payments: Stripe Connect + Moyasar
-- Storage: Replit Object Storage
+- Storage: Cloudflare R2
 - Notifications: Email (Resend) + WhatsApp (Twilio) + Push Notifications
 
 قدّم تقريرك باللغة العربية بشكل منظّم واحترافي مع:

@@ -76,6 +76,32 @@ console.log("\n═══ corsOriginPolicy: evaluateCorsOrigin ═══");
 }
 
 {
+  for (const origin of [
+    "https://example.replit.app",
+    "https://example.replit.dev",
+    "https://example.repl.co",
+    "https://repl.it",
+  ]) {
+    const d = evaluateCorsOrigin(origin, {
+      method: "POST",
+      originalUrl: "/api/offices/my",
+    });
+    assert.equal(d.allowed, false, origin);
+  }
+  console.log("  ✅ legacy Replit origins → rejected");
+}
+
+{
+  const d = evaluateCorsOrigin("http://localhost:5173", {
+    method: "POST",
+    originalUrl: "/api/offices/my",
+  });
+  assert.equal(d.allowed, true);
+  assert.equal(d.reason, "allowlist");
+  console.log("  ✅ localhost development origin → allowed");
+}
+
+{
   const d = evaluateCorsOrigin("https://evil.example", {
     method: "POST",
     originalUrl: "/api/metrics/vitals",

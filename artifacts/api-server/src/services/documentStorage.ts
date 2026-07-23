@@ -1,6 +1,6 @@
 /**
  * DocumentStorageService — طبقة تخزين المستندات الموحّدة
- * Cloudflare R2 (S3-compatible) — لا اعتماد على Replit sidecar.
+ * Cloudflare R2 (S3-compatible) — no host-sidecar dependency.
  *
  * مسارات التخزين:
  *   docs/{officeId}/cases/{caseId}/{uuid}_{filename}

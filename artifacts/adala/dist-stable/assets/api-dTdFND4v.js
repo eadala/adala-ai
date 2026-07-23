@@ -1,1 +1,0 @@
-const n="/".replace(/\/$/,"");async function a(t,s){const o=`${n}/api${t.startsWith("/")?t:"/"+t}`,r=await fetch(o,s);if(!r.ok){const e=await r.json().catch(()=>({error:r.statusText}));throw new Error(e?.error??`HTTP ${r.status}`)}return r.json()}export{a as A};

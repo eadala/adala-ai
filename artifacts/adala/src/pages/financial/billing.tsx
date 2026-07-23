@@ -774,7 +774,7 @@ export default function Billing() {
               <div>
                 <p className="text-sm font-semibold text-yellow-400">Stripe يحتاج المفتاح السري</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  أضف <code className="bg-muted px-1 rounded">STRIPE_SECRET_KEY</code> في Replit Secrets لتفعيل الدفع.
+                  أضف <code className="bg-muted px-1 rounded">STRIPE_SECRET_KEY</code> في متغيرات بيئة Coolify لتفعيل الدفع.
                 </p>
               </div>
             </div>

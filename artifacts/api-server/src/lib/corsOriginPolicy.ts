@@ -30,7 +30,7 @@ export type CorsPolicyRequest = PathLike & {
  * - Missing Origin (non-browser / same-origin omit): allowed.
  * - Literal "null" (opaque origin, e.g. sendBeacon privacy contexts): allowed
  *   ONLY for public metrics beacon paths (normalized originalUrl/path).
- * - Otherwise: production domains, ALLOWED_ORIGINS, replit, localhost.
+ * - Otherwise: production domains, ALLOWED_ORIGINS, localhost.
  */
 export function evaluateCorsOrigin(
   origin: string | undefined,
@@ -52,8 +52,6 @@ export function evaluateCorsOrigin(
   if (
     (PRODUCTION_CORS_DOMAINS as readonly string[]).includes(origin) ||
     allowedOrigins.includes(origin) ||
-    /^https:\/\/.*\.replit\.app$/.test(origin) ||
-    /^https:\/\/.*\.replit\.dev$/.test(origin) ||
     /^http:\/\/localhost(:\d+)?$/.test(origin)
   ) {
     return { allowed: true, reason: "allowlist" };
