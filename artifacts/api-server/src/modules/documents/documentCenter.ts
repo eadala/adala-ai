@@ -8,7 +8,10 @@ import { requireAuth, requireAuthWithTenant, requireSuperAdmin} from "../../midd
 import { getAuth } from "@clerk/express";
 
 import { documentStorage } from "../../services/documentStorage";
-import { getStorageProviderLabel } from "../../core/storage";
+import {
+  getStorageProviderLabel,
+  OBJECT_STORAGE_PROVIDER_SQL_PREDICATE,
+} from "../../core/storage";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -99,7 +102,7 @@ export async function ensureDocumentCenterSchema() {
       office_id      TEXT NOT NULL,
       version_number INT  NOT NULL DEFAULT 1,
       storage_key    TEXT,
-      storage_provider TEXT DEFAULT 'replit_object_storage',
+      storage_provider TEXT DEFAULT 'cloudflare_r2',
       checksum       TEXT,
       file_size      BIGINT DEFAULT 0,
       mime_type      TEXT,
@@ -472,11 +475,11 @@ router.get("/document-center/stats", requireAuthWithTenant, async (req, res) => 
     const { rows: counts } = await db.execute(sql`
       SELECT
         COUNT(*)                                                         AS total_files,
-        COUNT(*) FILTER (WHERE storage_provider = 'replit_object_storage') AS object_files,
+        COUNT(*) FILTER (WHERE ${sql.raw(OBJECT_STORAGE_PROVIDER_SQL_PREDICATE)}) AS object_files,
         COUNT(*) FILTER (WHERE storage_provider = 'db_base64')          AS base64_files,
         COUNT(*) FILTER (WHERE is_archived = TRUE)                       AS archived_files,
         COALESCE(SUM(file_size), 0)                                      AS total_bytes,
-        COALESCE(SUM(file_size) FILTER (WHERE storage_provider = 'replit_object_storage'), 0) AS object_bytes,
+        COALESCE(SUM(file_size) FILTER (WHERE ${sql.raw(OBJECT_STORAGE_PROVIDER_SQL_PREDICATE)}), 0) AS object_bytes,
         legal_category
       FROM document_center_files
       WHERE office_id = ${officeId}
@@ -536,7 +539,7 @@ router.get("/document-center/admin/stats", requireAuth, requireSuperAdmin, async
         SELECT office_id,
                COUNT(*)            AS total_files,
                SUM(file_size)      AS total_bytes,
-               COUNT(*) FILTER (WHERE storage_provider = 'replit_object_storage') AS migrated
+               COUNT(*) FILTER (WHERE ${sql.raw(OBJECT_STORAGE_PROVIDER_SQL_PREDICATE)}) AS migrated
         FROM   document_center_files
         GROUP  BY office_id
         ORDER  BY total_bytes DESC
@@ -737,11 +740,14 @@ router.post("/document-center/files/:id/versions", requireAuthWithTenant, async 
       RETURNING id, version_number, file_size, created_at, is_current
     `);
 
-    /* حدّث رقم الإصدار في الجدول الرئيسي */
+    /* حدّث رقم الإصدار في الجدول الرئيسي — key + provider together */
     await db.execute(sql`
       UPDATE document_center_files
-      SET version = ${nextVer}, storage_key = ${result.storageKey},
-          file_size = ${result.size}, updated_at = NOW()
+      SET version = ${nextVer},
+          storage_key = ${result.storageKey},
+          storage_provider = ${result.provider},
+          file_size = ${result.size},
+          updated_at = NOW()
       WHERE id = ${id}
     `);
 

@@ -28,6 +28,10 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { authFetch } from "@/lib/authFetch";
+import {
+  canDownloadObjectStorageFile,
+  isObjectStorageProviderLabel,
+} from "@/lib/objectStorageLabels";
 
 const BASE = import.meta.env.BASE_URL;
 const api  = (p: string) => `${BASE}api/${p}`.replace(/\/\//g, "/");
@@ -72,8 +76,14 @@ function mimeIcon(mime: string) {
 }
 
 function providerBadge(provider: string) {
-  if (provider === "replit_object_storage")
-    return <Badge className="bg-green-100 text-green-700 text-xs gap-1"><CloudUpload className="h-3 w-3" />Object Storage</Badge>;
+  if (isObjectStorageProviderLabel(provider)) {
+    return (
+      <Badge className="bg-green-100 text-green-700 text-xs gap-1">
+        <CloudUpload className="h-3 w-3" />
+        {provider === "cloudflare_r2" ? "Cloudflare R2" : "Object Storage"}
+      </Badge>
+    );
+  }
   return <Badge variant="outline" className="text-xs gap-1"><CloudOff className="h-3 w-3" />قاعدة البيانات</Badge>;
 }
 
@@ -375,7 +385,7 @@ function FileLibrary({ filterCategory, showArchived }: { filterCategory?: string
                       <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0"><MoreVertical className="h-3.5 w-3.5" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40">
-                      {f.storage_provider === "replit_object_storage" && (
+                      {canDownloadObjectStorageFile(f) && (
                         <DropdownMenuItem onClick={() => downloadFile(f.id, f.file_name)} className="gap-2"><Download className="h-3.5 w-3.5" />تنزيل</DropdownMenuItem>
                       )}
                       <DropdownMenuItem onClick={() => archiveFile(f.id, !f.is_archived)} className="gap-2">

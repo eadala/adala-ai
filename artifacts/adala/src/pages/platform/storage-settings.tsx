@@ -481,13 +481,13 @@ function SettingsTab() {
           <CardTitle className="text-sm text-muted-foreground">مزود التخزين</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {["replit", "cloudflare-r2", "local"].map(p => {
-              const currentVal = val("default_provider", "replit");
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {["cloudflare-r2", "local"].map(p => {
+              const currentVal = val("default_provider", "cloudflare-r2");
               return (
                 <button key={p} onClick={() => setVals(v => ({ ...v, default_provider: p }))}
                   className={`p-3 rounded-xl border text-sm font-medium transition-all ${currentVal === p ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-card border-border text-muted-foreground/60 hover:border-primary/30"}`}>
-                  {p === "replit" ? "🟢 Replit Storage" : p === "cloudflare-r2" ? "☁️ Cloudflare R2" : "💾 تخزين محلي"}
+                  {p === "cloudflare-r2" ? "☁️ Cloudflare R2" : "💾 تخزين محلي"}
                 </button>
               );
             })}

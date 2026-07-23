@@ -11,6 +11,7 @@
     "start": "node --max-old-space-size=512 --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:storage": "node --import tsx --test src/tests/r2-storage.test.ts",
+    "test:object-storage-labels": "node --import tsx src/tests/objectStorageLabels.test.ts",
     "test:storage-office-id": "node --import tsx src/tests/storageOfficeId.test.ts",
     "test:storage-file-register": "node --import tsx src/tests/storageFileRegister.test.ts",
     "test:storage-folder-create": "node --import tsx src/tests/storageFolderCreate.test.ts",
