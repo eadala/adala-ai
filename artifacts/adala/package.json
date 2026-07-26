@@ -19,7 +19,8 @@
     "validate:routes": "node scripts/validate-routes.mjs",
     "validate:platform": "node ../../scripts/governance/platform-check.mjs",
     "test:auth-fetch-migration": "pnpm --dir ../api-server exec tsx ../adala/src/tests/authFetchMigrationComplete.test.ts",
-    "test:object-storage-labels": "pnpm --dir ../api-server exec tsx ../adala/src/tests/objectStorageLabels.test.ts"
+    "test:object-storage-labels": "pnpm --dir ../api-server exec tsx ../adala/src/tests/objectStorageLabels.test.ts",
+    "test:legal-core-pagination": "pnpm --dir ../api-server exec tsx ../adala/src/tests/legalCorePaginationUi.test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

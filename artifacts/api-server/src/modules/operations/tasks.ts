@@ -1,7 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; pagination touch-up */
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import {
+  MAX_PAGE_LIMIT,
+  parsePageLimit,
+  queryHasPageAndLimit,
+} from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -22,29 +28,77 @@ function toUuid(v: any): string | null {
   return String(v);
 }
 
+const TASK_ORDER = sql`
+  ORDER BY
+    CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
+    COALESCE(due_date, '9999-12-31'::date),
+    created_at DESC
+`;
+
+function taskFilterSql(q: Record<string, unknown>) {
+  const search = typeof q.search === "string" && q.search.trim() ? q.search.trim() : null;
+  const status = typeof q.status === "string" && q.status && q.status !== "all" ? q.status : null;
+  const priority = typeof q.priority === "string" && q.priority && q.priority !== "all" ? q.priority : null;
+  const assignee =
+    typeof q.assignee === "string" && q.assignee.trim() && q.assignee !== "all"
+      ? q.assignee.trim()
+      : null;
+
+  return {
+    searchCond: search
+      ? sql`AND (
+          title ILIKE ${"%" + search + "%"}
+          OR COALESCE(assignee_name, '') ILIKE ${"%" + search + "%"}
+          OR COALESCE(case_title, '') ILIKE ${"%" + search + "%"}
+        )`
+      : sql``,
+    statusCond: status ? sql`AND status = ${status}` : sql``,
+    priorityCond: priority ? sql`AND priority = ${priority}` : sql``,
+    assigneeCond: assignee ? sql`AND assignee_name = ${assignee}` : sql``,
+  };
+}
+
 router.get("/office-tasks", requireAuthWithTenant, async (req, res) => {
   try {
     const officeId = toUuid((req as any).tenantId);
-    let r;
-    if (officeId) {
-      r = await db.execute(sql`
-        SELECT * FROM tasks
-        WHERE office_id = ${officeId}::uuid OR office_id IS NULL
-        ORDER BY
-          CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
-          COALESCE(due_date, '9999-12-31'::date),
-          created_at DESC
-      `);
-    } else {
-      r = await db.execute(sql`
-        SELECT * FROM tasks
-        ORDER BY
-          CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
-          COALESCE(due_date, '9999-12-31'::date),
-          created_at DESC
-      `);
+    const paginated = queryHasPageAndLimit(req.query);
+    const { page, limit, offset } = paginated
+      ? parsePageLimit(req.query, 50)
+      : { page: 1, limit: MAX_PAGE_LIMIT, offset: 0 };
+    const { searchCond, statusCond, priorityCond, assigneeCond } = taskFilterSql(
+      req.query as Record<string, unknown>,
+    );
+    const officeCond = officeId
+      ? sql`WHERE (office_id = ${officeId}::uuid OR office_id IS NULL)`
+      : sql`WHERE TRUE`;
+
+    const r = await db.execute(sql`
+      SELECT * FROM tasks
+      ${officeCond}
+      ${searchCond} ${statusCond} ${priorityCond} ${assigneeCond}
+      ${TASK_ORDER}
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+    const rows = sqlAll(r);
+
+    if (!paginated) {
+      res.json(rows);
+      return;
     }
-    res.json(sqlAll(r));
+
+    const countR = await db.execute(sql`
+      SELECT COUNT(*)::int AS total FROM tasks
+      ${officeCond}
+      ${searchCond} ${statusCond} ${priorityCond} ${assigneeCond}
+    `);
+    const total = Number(sqlOne(countR)?.total ?? 0);
+    res.json({
+      data: rows,
+      total,
+      page,
+      limit,
+      pages: Math.max(1, Math.ceil(total / limit)),
+    });
   } catch (e: any) {
     console.error("[office-tasks] GET error:", e.message);
     res.status(500).json({ error: e.message });

@@ -18,8 +18,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type TasksPageResponse = { data: any[]; total: number; page: number; limit: number; pages: number };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   todo:        { label: "قيد الانتظار",  color: "text-muted-foreground",   bg: "bg-muted/30 10 border-slate-500/30",   icon: Circle },
@@ -51,13 +54,32 @@ export default function Tasks() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: tasks = [], isLoading } = useQuery<any[]>({
-    queryKey: ["tasks"],
-    queryFn: () => authFetch("/api/office-tasks").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  /* Kanban: soft-capped array (≤200). List: page+limit envelope. */
+  const { data: tasksPage, isLoading } = useQuery<TasksPageResponse | any[]>({
+    queryKey: ["tasks", view, page, search, priorityFilter],
+    queryFn: async () => {
+      const p = new URLSearchParams();
+      if (search.trim()) p.set("search", search.trim());
+      if (priorityFilter !== "all") p.set("priority", priorityFilter);
+      if (view === "list") {
+        p.set("page", String(page));
+        p.set("limit", String(LEGAL_LIST_PAGE_SIZE));
+      }
+      const qs = p.toString();
+      const r = await authFetch(`/api/office-tasks${qs ? `?${qs}` : ""}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      return r.json();
+    },
   });
+
+  const tasks: any[] = Array.isArray(tasksPage)
+    ? tasksPage
+    : (tasksPage?.data ?? []);
+  const tasksTotal = Array.isArray(tasksPage) ? tasks.length : Number(tasksPage?.total ?? 0);
 
   const { data: stats } = useQuery<any>({
     queryKey: ["tasks-stats"],
@@ -135,12 +157,8 @@ export default function Tasks() {
     updateMutation.mutate({ id: task.id, status: newStatus });
   };
 
-  const filtered = tasks.filter(t => {
-    const matchSearch = !search || t.title?.toLowerCase().includes(search.toLowerCase()) ||
-      t.assignee_name?.toLowerCase().includes(search.toLowerCase());
-    const matchPriority = priorityFilter === "all" || t.priority === priorityFilter;
-    return matchSearch && matchPriority;
-  });
+  /* Filters applied server-side for bounded list/kanban fetches. */
+  const filtered = tasks;
 
   const openEdit = (task: any) => {
     setForm({
@@ -280,11 +298,11 @@ export default function Tasks() {
         </div>
         <div className="flex gap-2">
           <div className="flex items-center gap-1 bg-muted/30 border rounded-xl p-1">
-            <button onClick={() => setView("kanban")}
+            <button onClick={() => { setView("kanban"); setPage(1); }}
               className={cn("p-1.5 rounded-lg transition-all", view === "kanban" ? "bg-primary/10 text-primary" : "text-muted-foreground")}>
               <LayoutGrid className="h-4 w-4" />
             </button>
-            <button onClick={() => setView("list")}
+            <button onClick={() => { setView("list"); setPage(1); }}
               className={cn("p-1.5 rounded-lg transition-all", view === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground")}>
               <List className="h-4 w-4" />
             </button>
@@ -321,9 +339,9 @@ export default function Tasks() {
       <div className="flex gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في المهام..." className="pe-9" />
+          <Input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="بحث في المهام..." className="pe-9" />
         </div>
-        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+        <Select value={priorityFilter} onValueChange={v => { setPriorityFilter(v); setPage(1); }}>
           <SelectTrigger className="w-[130px]"><SelectValue placeholder="الأولوية" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">كل الأولويات</SelectItem>
@@ -405,6 +423,14 @@ export default function Tasks() {
                   })}
                 </tbody>
               </table>
+            </div>
+            <div className="px-3 pb-3">
+              <ListPagination
+                page={page}
+                pageSize={LEGAL_LIST_PAGE_SIZE}
+                total={tasksTotal}
+                onPageChange={setPage}
+              />
             </div>
           </CardContent>
         </Card>

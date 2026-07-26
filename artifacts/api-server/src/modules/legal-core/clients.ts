@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; pagination touch-up */
 import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { validate } from "../../middlewares/validate";
 import { Router } from "express";
@@ -9,6 +10,11 @@ import { sql } from "drizzle-orm";
 import { eventBus } from "../../core/eventBus";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
 import { logEndpointError } from "../../lib/endpointErrorLog";
+import {
+  MAX_PAGE_LIMIT,
+  parsePageLimit,
+  queryHasPageAndLimit,
+} from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -43,34 +49,60 @@ router.get("/clients", requireAuthWithTenant, async (req, res) => {
     const tenantId = (req as any).tenantId;
     if (!tenantId) return apiErr(res, 403, "FORBIDDEN", "مكتب غير محدد");
 
-    const page   = req.query.page   ? Math.max(1, parseInt(String(req.query.page)))    : null;
-    const lim    = req.query.limit  ? Math.min(200, parseInt(String(req.query.limit))) : null;
-    const search = req.query.search ? String(req.query.search).toLowerCase()           : null;
+    const paginated = queryHasPageAndLimit(req.query);
+    const paging = paginated
+      ? parsePageLimit(req.query, 50)
+      : { page: 1, limit: 100, offset: 0 };
+    const search = req.query.search ? String(req.query.search).toLowerCase() : null;
+    const type =
+      typeof req.query.type === "string" && req.query.type && req.query.type !== "all"
+        ? req.query.type
+        : null;
+    const status =
+      typeof req.query.status === "string" && req.query.status && req.query.status !== "all"
+        ? req.query.status
+        : null;
 
-    const pageSize   = lim ?? 100;
-    const pageOffset = page && lim ? (page - 1) * lim : 0;
     const searchCond = search
-      ? sql`AND (LOWER(full_name) LIKE ${"%" + search + "%"} OR LOWER(email) LIKE ${"%" + search + "%"} OR phone LIKE ${"%" + search + "%"})`
+      ? sql`AND (LOWER(full_name) LIKE ${"%" + search + "%"} OR LOWER(COALESCE(email,'')) LIKE ${"%" + search + "%"} OR COALESCE(phone,'') LIKE ${"%" + search + "%"} OR LOWER(COALESCE(company,'')) LIKE ${"%" + search + "%"})`
       : sql``;
+    const typeCond = type ? sql`AND type = ${type}` : sql``;
+    const statusCond = status ? sql`AND status = ${status}` : sql``;
 
     const [clients, countRow] = await Promise.all([
       db.select().from(clientsTable)
         .where(and(
           eq((clientsTable as any).officeId, tenantId),
           sql`deleted_at IS NULL`,
-          search ? sql`(LOWER(full_name) LIKE ${"%" + search + "%"} OR LOWER(email) LIKE ${"%" + search + "%"} OR phone LIKE ${"%" + search + "%"})` : sql`true`,
+          search
+            ? sql`(LOWER(full_name) LIKE ${"%" + search + "%"} OR LOWER(COALESCE(email,'')) LIKE ${"%" + search + "%"} OR COALESCE(phone,'') LIKE ${"%" + search + "%"} OR LOWER(COALESCE(company,'')) LIKE ${"%" + search + "%"})`
+            : sql`true`,
+          type ? sql`type = ${type}` : sql`true`,
+          status ? sql`status = ${status}` : sql`true`,
         ))
         .orderBy(desc(clientsTable.createdAt))
-        .limit(pageSize)
-        .offset(pageOffset),
-      db.execute(sql`SELECT COUNT(*) AS total FROM clients WHERE office_id = ${tenantId} AND deleted_at IS NULL ${searchCond}`)
-        .then((r: any) => { const rows = Array.isArray(r) ? r : (r?.rows ?? []); return rows[0]; }),
+        .limit(Math.min(paging.limit, MAX_PAGE_LIMIT))
+        .offset(paging.offset),
+      db.execute(sql`
+        SELECT COUNT(*) AS total FROM clients
+        WHERE office_id = ${tenantId} AND deleted_at IS NULL
+        ${searchCond} ${typeCond} ${statusCond}
+      `).then((r: any) => {
+        const rows = Array.isArray(r) ? r : (r?.rows ?? []);
+        return rows[0];
+      }),
     ]);
 
     const total = Number(countRow?.total ?? 0);
 
-    if (page && lim) {
-      res.json({ data: clients, total, page, limit: lim, pages: Math.ceil(total / lim) });
+    if (paginated) {
+      res.json({
+        data: clients,
+        total,
+        page: paging.page,
+        limit: paging.limit,
+        pages: Math.max(1, Math.ceil(total / paging.limit)),
+      });
     } else {
       res.json(clients);
     }

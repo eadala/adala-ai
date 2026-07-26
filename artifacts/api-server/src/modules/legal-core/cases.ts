@@ -21,6 +21,7 @@ import { runCaseAutopilot, ensureAutopilotTable }  from "../../agents/caseAutopi
 import { auditLog, auditMeta }                      from "../../lib/auditLogger";
 import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace/api-zod";
 import { runAIAnalysis, getLatestInsight, approveAITask, rejectAITask } from "../../case/case.ai";
+import { parsePageLimit, queryHasPageAndLimit } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -105,9 +106,9 @@ function serializeCase(c: any) {
 /* GET /cases */
 router.get("/cases", requireAuthWithTenant, async (req, res) => {
   try {
-    const q      = ListCasesQueryParams.parse(req.query);
-    const page   = req.query.page   ? Math.max(1, parseInt(String(req.query.page)))    : null;
-    const limit  = req.query.limit  ? Math.min(200, parseInt(String(req.query.limit))) : null;
+    const q = ListCasesQueryParams.parse(req.query);
+    const paginated = queryHasPageAndLimit(req.query);
+    const paging = paginated ? parsePageLimit(req.query, 50) : null;
     const search = req.query.search ? String(req.query.search) : undefined;
 
     /* ── Row-level visibility by role ── */
@@ -128,15 +129,26 @@ router.get("/cases", requireAuthWithTenant, async (req, res) => {
       caseType: q.caseType as any,
       search,
       assignedUserId,
-      ...(page && limit ? { limit, offset: (page - 1) * limit } : {}),
+      ...(paging ? { limit: paging.limit, offset: paging.offset } : {}),
     };
 
     const svc   = getService(req);
     const cases = await svc.listCases(filters);
 
-    if (page && limit) {
-      const total = await svc.countCases({ status: filters.status, caseType: filters.caseType, search, assignedUserId });
-      res.json({ data: cases.map(serializeCase), total, page, limit, pages: Math.ceil(total / limit) });
+    if (paging) {
+      const total = await svc.countCases({
+        status: filters.status,
+        caseType: filters.caseType,
+        search,
+        assignedUserId,
+      });
+      res.json({
+        data: cases.map(serializeCase),
+        total,
+        page: paging.page,
+        limit: paging.limit,
+        pages: Math.max(1, Math.ceil(total / paging.limit)),
+      });
       return;
     }
     res.json(cases.map(serializeCase));
