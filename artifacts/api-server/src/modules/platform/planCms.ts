@@ -154,53 +154,39 @@ export const DEFAULT_PLANS = [
 ];
 
 /* plan_cms schema: artifacts/api-server/migrations/005_tenant_platform_tables.sql
-   This helper only seeds / backfills plan rows — no Runtime DDL. */
-async function ensurePlanSeed() {
-  /* Seed if empty */
-  const result = await db.execute(sql`SELECT COUNT(*) as cnt FROM plan_cms`) as any;
+   This helper only seeds when the table is empty — no Runtime DDL.
+   Non-empty tables are read-only here so public GET /plans never rewrites admin-edited values. */
+export type PlanCmsDb = {
+  execute: (q: unknown) => Promise<unknown>;
+};
+
+type PlanCmsDeps = { db?: PlanCmsDb };
+
+function planCmsDb(deps?: PlanCmsDeps): PlanCmsDb {
+  return deps?.db ?? (db as unknown as PlanCmsDb);
+}
+
+/** Seed canonical defaults only when plan_cms has zero rows. No UPDATE/INSERT when non-empty. */
+export async function ensurePlanSeed(deps?: PlanCmsDeps) {
+  const database = planCmsDb(deps);
+  const result = await database.execute(sql`SELECT COUNT(*) as cnt FROM plan_cms`) as any;
   const rows = Array.isArray(result) ? result : (result?.rows ?? []);
   const cnt  = Number(rows[0]?.cnt ?? rows[0]?.count ?? 0);
-  if (cnt === 0) {
-    for (const p of DEFAULT_PLANS) {
-      await db.execute(sql`
-        INSERT INTO plan_cms (id, name_ar, name_en, monthly_price, yearly_price, color, description, badge, features, recommended, is_contact_only, sort_order, feature_flags, limits)
-        VALUES (
-          ${p.id}, ${p.nameAr}, ${p.nameEn}, ${p.monthlyPrice}, ${p.yearlyPrice},
-          ${p.color}, ${p.description}, ${p.badge ?? null},
-          ${JSON.stringify(p.features)}::jsonb,
-          ${p.recommended}, ${p.isContactOnly}, ${p.sortOrder},
-          ${JSON.stringify(p.featureFlags)}::jsonb,
-          ${JSON.stringify(p.limits)}::jsonb
-        )
-        ON CONFLICT (id) DO NOTHING
-      `);
-    }
-  } else {
-    /* Backfill feature_flags/limits for existing rows that have empty {} */
-    for (const p of DEFAULT_PLANS) {
-      await db.execute(sql`
-        UPDATE plan_cms SET
-          feature_flags = CASE WHEN feature_flags = '{}'::jsonb THEN ${JSON.stringify(p.featureFlags)}::jsonb ELSE feature_flags END,
-          limits        = CASE WHEN limits        = '{}'::jsonb THEN ${JSON.stringify(p.limits)}::jsonb        ELSE limits        END
-        WHERE id = ${p.id}
-      `);
-    }
-    /* Always insert new plans (e.g. bk-*) that may not exist yet */
-    const BK_IDS = ["bk-starter", "bk-pro", "bk-enterprise"];
-    for (const p of DEFAULT_PLANS.filter(x => BK_IDS.includes(x.id))) {
-      await db.execute(sql`
-        INSERT INTO plan_cms (id, name_ar, name_en, monthly_price, yearly_price, color, description, badge, features, recommended, is_contact_only, sort_order, feature_flags, limits)
-        VALUES (
-          ${p.id}, ${p.nameAr}, ${p.nameEn}, ${p.monthlyPrice}, ${p.yearlyPrice},
-          ${p.color}, ${p.description}, ${p.badge ?? null},
-          ${JSON.stringify(p.features)}::jsonb,
-          ${p.recommended}, ${p.isContactOnly}, ${p.sortOrder},
-          ${JSON.stringify(p.featureFlags)}::jsonb,
-          ${JSON.stringify(p.limits)}::jsonb
-        )
-        ON CONFLICT (id) DO NOTHING
-      `);
-    }
+  if (cnt !== 0) return;
+
+  for (const p of DEFAULT_PLANS) {
+    await database.execute(sql`
+      INSERT INTO plan_cms (id, name_ar, name_en, monthly_price, yearly_price, color, description, badge, features, recommended, is_contact_only, sort_order, feature_flags, limits)
+      VALUES (
+        ${p.id}, ${p.nameAr}, ${p.nameEn}, ${p.monthlyPrice}, ${p.yearlyPrice},
+        ${p.color}, ${p.description}, ${p.badge ?? null},
+        ${JSON.stringify(p.features)}::jsonb,
+        ${p.recommended}, ${p.isContactOnly}, ${p.sortOrder},
+        ${JSON.stringify(p.featureFlags)}::jsonb,
+        ${JSON.stringify(p.limits)}::jsonb
+      )
+      ON CONFLICT (id) DO NOTHING
+    `);
   }
 }
 
@@ -231,10 +217,11 @@ function rowToPlan(row: any) {
 }
 
 /* ── Public helper for billing.ts ─────────────────────────── */
-export async function getDbPlans() {
+export async function getDbPlans(deps?: PlanCmsDeps) {
   try {
-    await ensurePlanSeed();
-    const result = await db.execute(sql`SELECT * FROM plan_cms ORDER BY sort_order ASC`) as any;
+    await ensurePlanSeed(deps);
+    const database = planCmsDb(deps);
+    const result = await database.execute(sql`SELECT * FROM plan_cms ORDER BY sort_order ASC`) as any;
     const rows = Array.isArray(result) ? result : (result?.rows ?? []);
     if (!rows.length) return DEFAULT_PLANS.map(p => ({ ...p, name: p.nameAr, price: p.monthlyPrice, popular: p.recommended, isFree: p.monthlyPrice === 0 }));
     return rows.map(rowToPlan);
