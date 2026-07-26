@@ -262,10 +262,10 @@ export function OfficeThemeProvider() {
   const authReady = useAuthReady();
 
   const { data: themeData } = useQuery({
-    queryKey: ["office-theme-tokens"],
+    /* Shared with theme-builder page — avoids a second /theme-builder/tokens fetch. */
+    queryKey: ["theme-builder-tokens"],
     queryFn: () => authFetch(`${BASE}/api/theme-builder/tokens`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
     enabled: authReady,
   });
 

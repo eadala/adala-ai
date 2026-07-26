@@ -594,7 +594,7 @@ export default function ThemeBuilderPage() {
   const { data: saved } = useQuery({
     queryKey: ["theme-builder-tokens"],
     queryFn: () => authFetch(`${BASE}/api/theme-builder/tokens`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
     enabled: authReady,
   });
 
@@ -621,7 +621,6 @@ export default function ThemeBuilderPage() {
       toast.success("تم حفظ الثيم وتطبيقه على التطبيق ✨");
       setDirty(false);
       qc.invalidateQueries({ queryKey: ["theme-builder-tokens"] });
-      qc.invalidateQueries({ queryKey: ["office-theme-tokens"] });
     },
     onError: () => toast.error("حدث خطأ أثناء الحفظ"),
   });

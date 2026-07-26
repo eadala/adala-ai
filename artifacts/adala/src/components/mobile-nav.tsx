@@ -277,7 +277,8 @@ export function MobileMoreSheet({
 
   const authReady = useAuthReady();
   const { data: officeData } = useQuery({
-    queryKey: ["office-info-mobile"],
+    /* Shared with layout footer — same endpoint, one cache entry. */
+    queryKey: ["offices", "my"],
     queryFn: () => authFetch(`${basePath}/api/offices/my`).then(r => r.ok ? r.json() : null),
     staleTime: 10 * 60_000,
     enabled: open && authReady,
