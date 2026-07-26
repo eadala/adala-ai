@@ -103,15 +103,16 @@ function formatDate(d: string | null) {
 function RestoreSection({ jobs }: { jobs: BackupJob[] }) {
   const [restoring, setRestoring]   = useState<string | null>(null);
   const [snapshotting, setSnapshot] = useState(false);
-  const [encStatus, setEncStatus]   = useState<{ enabled: boolean; storage: string } | null>(null);
   const qc = useQueryClient();
 
-  useEffect(() => {
-    authFetch(`${BASE}/api/backup/encryption-status`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => d && setEncStatus(d))
-      .catch(() => null);
-  }, []);
+  const { data: encStatus = null } = useQuery<{ enabled: boolean; storage: string } | null>({
+    queryKey: ["backup-encryption-status"],
+    queryFn: () =>
+      authFetch(`${BASE}/api/backup/encryption-status`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    staleTime: 10 * 60_000,
+  });
 
   async function handleRestore(jobId?: string) {
     const label = jobId ? "هذه النسخة الاحتياطية" : "أحدث نسخة من Object Storage";

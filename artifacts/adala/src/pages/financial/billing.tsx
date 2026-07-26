@@ -372,7 +372,7 @@ export default function Billing() {
 
   const handleCheckoutDone = useCallback(() => {
     setSuccessSessionId(null);
-    qc.invalidateQueries({ queryKey: ["office-plan"] });
+    qc.invalidateQueries({ queryKey: ["office-subscription"] });
     qc.invalidateQueries({ queryKey: ["billing-overview"] });
     qc.invalidateQueries({ queryKey: ["entitlements"] });
     qc.invalidateQueries({ queryKey: ["plan-notifications"] });
@@ -409,6 +409,7 @@ export default function Billing() {
   const { data: plans = [], isLoading: plansLoading } = useQuery<any[]>({
     queryKey: ["billing-plans"],
     queryFn: () => fetch(`${BASE}/api/billing/plans`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    staleTime: 10 * 60_000,
   });
   const { data: entitlements = [], isLoading: entLoading } = useQuery<any[]>({
     queryKey: ["entitlements"],
@@ -457,7 +458,7 @@ export default function Billing() {
         toast({ title: "🎁 تم تفعيل الاشتراك المجاني!", description: `باقة ${data.planSlug} فعّالة حتى ${new Date(data.endsAt).toLocaleDateString("ar-SA")}` });
         setPromoCode("");
         refetchGift();
-        qc.invalidateQueries({ queryKey: ["office-plan"] });
+        qc.invalidateQueries({ queryKey: ["office-subscription"] });
       } else {
         toast({ title: "خطأ", description: data.error, variant: "destructive" });
       }

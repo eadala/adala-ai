@@ -1337,7 +1337,7 @@ function SidebarFooterCard({
 
   const authReady = useAuthReady();
   const { data: officeData } = useQuery({
-    queryKey: ["office-info-footer"],
+    queryKey: ["offices", "my"],
     queryFn: () => authFetch(`${basePath}/api/offices/my`).then(r => r.ok ? r.json() : null),
     staleTime: 10 * 60_000,
     enabled: authReady,

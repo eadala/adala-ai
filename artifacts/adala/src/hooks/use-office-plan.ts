@@ -46,7 +46,8 @@ export function useOfficePlan() {
   const { data, isPending } = useQuery<OfficePlan>({
     queryKey: ["office-subscription"],
     queryFn: fetchSubscription,
-    staleTime: 60_000,
+    /* Match global QueryClient staleTime — plan/flags change rarely; layout mounts this hook many times. */
+    staleTime: 5 * 60_000,
     retry: false,
     enabled: authReady,
   });
