@@ -6,7 +6,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { MAX_PAGE_LIMIT, parseLimitOffset } from "../lib/paginationSafety";
+import {
+  MAX_PAGE_LIMIT,
+  parseLimitOffset,
+  parsePageLimit,
+  queryHasPageAndLimit,
+} from "../lib/paginationSafety";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -61,6 +66,24 @@ console.log("\n═══ parseLimitOffset: offset policy ═══");
     offset: 0,
   });
   console.log("  ✅ offset omitted/valid/invalid → policy OK");
+}
+
+console.log("\n═══ parsePageLimit + dual-mode gate ═══");
+
+{
+  assert.equal(queryHasPageAndLimit({ page: "1", limit: "50" }), true);
+  assert.equal(queryHasPageAndLimit({ limit: "50" }), false);
+  assert.deepEqual(parsePageLimit({ page: "4", limit: "10" }, 50), {
+    page: 4,
+    limit: 10,
+    offset: 30,
+  });
+  assert.deepEqual(parsePageLimit({ page: "1", limit: "999" }, 50), {
+    page: 1,
+    limit: 200,
+    offset: 0,
+  });
+  console.log("  ✅ parsePageLimit / queryHasPageAndLimit OK");
 }
 
 console.log("\n═══ route wiring + response shape preservation ═══");

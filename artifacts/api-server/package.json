@@ -21,6 +21,7 @@
     "test:dead-helper-cleanup": "node --import tsx src/tests/deadHelperCleanup.test.ts",
     "test:plan-seed-reads": "node --import tsx src/tests/planSeedReads.test.ts",
     "test:pagination-safety": "node --import tsx src/tests/paginationSafety.test.ts",
+    "test:legal-core-pagination": "node --import tsx src/tests/legalCorePagination.test.ts",
     "test:post-migration": "node --import tsx src/tests/postMigrationApiFixes.test.ts",
     "test:offices-my": "node --import tsx src/tests/officesMy.test.ts",
     "test:metrics-vitals": "node --import tsx src/tests/metricsBeaconPath.test.ts && node --import tsx src/tests/metricsVitals.integration.test.ts",

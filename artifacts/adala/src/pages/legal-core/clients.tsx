@@ -21,8 +21,17 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type ClientsPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 const EMPTY_FORM = { fullName: "", type: "individual", email: "", phone: "", company: "", nationalId: "", notes: "", status: "active", source: "direct" };
 
@@ -117,6 +126,7 @@ export default function Clients() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -143,24 +153,67 @@ export default function Clients() {
     { value: "other",       label: tx("أخرى", "Other") },
   ];
 
-  const { data: clients = [], isLoading } = useQuery<any[]>({
-    queryKey: ["clients"],
-    queryFn: () => authFetch(`${BASE}/api/clients`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  const { data: clientsPage, isLoading } = useQuery<ClientsPageResponse>({
+    queryKey: ["clients", page, search, typeFilter, statusFilter],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if (search.trim()) p.set("search", search.trim());
+      if (typeFilter !== "all") p.set("type", typeFilter);
+      if (statusFilter !== "all") p.set("status", statusFilter);
+      const r = await authFetch(`${BASE}/api/clients?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return {
+          data: json,
+          total: json.length,
+          page: 1,
+          limit: json.length || LEGAL_LIST_PAGE_SIZE,
+          pages: 1,
+        };
+      }
+      return json as ClientsPageResponse;
+    },
+  });
+  const clients = clientsPage?.data ?? [];
+  const clientsTotal = Number(clientsPage?.total ?? 0);
+
+  const { data: clientStats } = useQuery<any>({
+    queryKey: ["clients-stats"],
+    queryFn: () => authFetch(`${BASE}/api/clients/stats`).then(r => (r.ok ? r.json() : null)),
+    staleTime: 30_000,
   });
 
   const createMutation = useMutation({
     mutationFn: (data: any) => authFetch(`${BASE}/api/clients`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); closeForm(); toast({ title: tx("تم إضافة العميل", "Client added") }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      qc.invalidateQueries({ queryKey: ["clients-stats"] });
+      closeForm();
+      toast({ title: tx("تم إضافة العميل", "Client added") });
+    },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, ...data }: any) => authFetch(`${BASE}/api/clients/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); closeForm(); toast({ title: tx("تم التحديث", "Updated") }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      qc.invalidateQueries({ queryKey: ["clients-stats"] });
+      closeForm();
+      toast({ title: tx("تم التحديث", "Updated") });
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => authFetch(`${BASE}/api/clients/${id}`, { method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["clients"] }); toast({ title: tx("تم حذف العميل", "Client deleted") }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      qc.invalidateQueries({ queryKey: ["clients-stats"] });
+      toast({ title: tx("تم حذف العميل", "Client deleted") });
+    },
     onError: () => toast({ title: tx("خطأ في الحذف", "Delete failed"), variant: "destructive" }),
   });
 
@@ -178,17 +231,13 @@ export default function Clients() {
     else createMutation.mutate(form);
   };
 
-  const filtered = clients.filter(c =>
-    (typeFilter === "all" || c.type === typeFilter) &&
-    (statusFilter === "all" || c.status === statusFilter) &&
-    (c.fullName.includes(search) || c.email?.includes(search) || c.company?.includes(search) || !search)
-  );
+  const filtered = clients;
 
   const stats = {
-    total:     clients.length,
-    active:    clients.filter(c => c.status === "active").length,
-    companies: clients.filter(c => c.type === "company").length,
-    potential: clients.filter(c => c.status === "potential").length,
+    total:     clientStats?.total ?? clientsTotal,
+    active:    clientStats?.active ?? 0,
+    companies: clientStats?.companies ?? 0,
+    potential: clientStats?.potential ?? 0,
   };
 
   return (
@@ -235,16 +284,16 @@ export default function Clients() {
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder={tx("بحث بالاسم أو البريد أو الشركة...", "Search by name, email or company...")} className="pe-10" value={search} onChange={e => setSearch(e.target.value)} />
+          <Input placeholder={tx("بحث بالاسم أو البريد أو الشركة...", "Search by name, email or company...")} className="pe-10" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
+        <Select value={typeFilter} onValueChange={v => { setTypeFilter(v); setPage(1); }}>
           <SelectTrigger className="w-36"><SelectValue placeholder={tx("النوع", "Type")} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{tx("جميع الأنواع", "All Types")}</SelectItem>
             {CLIENT_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
           <SelectTrigger className="w-36"><SelectValue placeholder={tx("الحالة", "Status")} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{tx("جميع الحالات", "All Statuses")}</SelectItem>
@@ -262,8 +311,17 @@ export default function Clients() {
           <p>{tx("لا يوجد عملاء — أضف عميلك الأول", "No clients — add your first client")}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(c => <ClientCard key={c.id} client={c} onEdit={openEdit} onDelete={(id: string) => handleDelete(id, c.fullName)} tx={tx} dir={dir} />)}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map(c => <ClientCard key={c.id} client={c} onEdit={openEdit} onDelete={(id: string) => handleDelete(id, c.fullName)} tx={tx} dir={dir} />)}
+          </div>
+          <ListPagination
+            page={page}
+            pageSize={LEGAL_LIST_PAGE_SIZE}
+            total={clientsTotal}
+            onPageChange={setPage}
+            dir={dir}
+          />
         </div>
       )}
 

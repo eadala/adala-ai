@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
-import { useListCases, useCreateCase } from "@workspace/api-client-react";
+import { useCreateCase } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button }          from "@/components/ui/button";
@@ -31,8 +31,17 @@ import { getListCasesQueryKey } from "@workspace/api-client-react";
 import { useLang }         from "@/hooks/use-lang";
 import { cn }              from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type CasesPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 /* ─── Config ─── */
 const STATUS_CFG = {
@@ -111,12 +120,39 @@ export default function Cases() {
   const [statusFilter, setStatus]     = useState<string>("all");
   const [typeFilter, setType]         = useState<string>("all");
   const [view, setView]               = useState<"table" | "kanban">("table");
+  const [page, setPage]               = useState(1);
   const [importOpen, setImportOpen]   = useState(false);
   const [newOpen, setNewOpen]         = useState(false);
   const [clientInput, setClientInput] = useState<"select" | "text">("select");
   const [form, setForm]               = useState({ title: "", caseType: "civil", clientName: "", description: "" });
 
-  const { data: cases, isLoading }    = useListCases();
+  const { data: casesPage, isLoading } = useQuery<CasesPageResponse>({
+    queryKey: ["cases-list", view, page, search, statusFilter, typeFilter],
+    queryFn: async () => {
+      const p = new URLSearchParams();
+      p.set("page", "1");
+      /* Table: paginate at 50. Kanban: soft max page for board columns. */
+      if (view === "table") {
+        p.set("page", String(page));
+        p.set("limit", String(LEGAL_LIST_PAGE_SIZE));
+        if (statusFilter !== "all") p.set("status", statusFilter);
+      } else {
+        p.set("limit", "200");
+      }
+      if (typeFilter !== "all") p.set("caseType", typeFilter);
+      if (search.trim()) p.set("search", search.trim());
+      const r = await authFetch(`${BASE}/api/cases?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as CasesPageResponse;
+    },
+  });
+  const cases = casesPage?.data ?? [];
+  const casesTotal = Number(casesPage?.total ?? 0);
+
   const { data: stats }               = useQuery<any>({
     queryKey: ["cases-stats"],
     queryFn:  () => authFetch(`${BASE}/api/cases/stats`).then(r => r.json()),
@@ -134,6 +170,7 @@ export default function Cases() {
 
   const invalidateCases = () => {
     qc.invalidateQueries({ queryKey: getListCasesQueryKey() });
+    qc.invalidateQueries({ queryKey: ["cases-list"] });
     qc.invalidateQueries({ queryKey: ["cases-stats"] });
   };
 
@@ -156,13 +193,10 @@ export default function Cases() {
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
-  const filtered = cases?.filter(c => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || c.title.toLowerCase().includes(q) || (c.clientName ?? "").toLowerCase().includes(q);
-    const matchStatus = statusFilter === "all" || c.status === statusFilter;
-    const matchType   = typeFilter   === "all" || c.caseType === typeFilter;
-    return matchSearch && matchStatus && matchType;
-  }) ?? [];
+  /* Filters applied server-side; status filter skipped on kanban so all columns fill. */
+  const filtered = view === "kanban" && statusFilter !== "all"
+    ? cases.filter(c => c.status === statusFilter)
+    : cases;
 
   const kanbanCols: Array<{ key: string; label: string; color: string }> = [
     { key: "open",        label: "مفتوحة",       color: "border-t-blue-500"  },
@@ -212,7 +246,7 @@ export default function Cases() {
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="إجمالي القضايا" value={stats?.total ?? cases?.length ?? 0}           icon={Briefcase}  color="text-primary" />
+        <StatCard label="إجمالي القضايا" value={stats?.total ?? casesTotal}                   icon={Briefcase}  color="text-primary" />
         <StatCard label="مفتوحة"          value={stats?.open ?? 0}                             icon={Scale}       color="text-blue-600" />
         <StatCard label="قيد التنفيذ"     value={stats?.inProgress ?? 0}                       icon={Clock}       color="text-amber-600" />
         <StatCard label="مغلقة"           value={stats?.closed ?? 0}                           icon={CheckCheck}  color="text-muted-foreground" />
@@ -225,7 +259,7 @@ export default function Cases() {
           {[{ key: "all", label: "الكل" }, ...Object.entries(STATUS_CFG).map(([k, v]) => ({ key: k, label: v.label }))].map(s => (
             <button
               key={s.key}
-              onClick={() => setStatus(s.key)}
+              onClick={() => { setStatus(s.key); setPage(1); }}
               className={cn(
                 "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
                 statusFilter === s.key
@@ -239,7 +273,7 @@ export default function Cases() {
         <div className="flex-1" />
 
         {/* Type select */}
-        <Select value={typeFilter} onValueChange={setType}>
+        <Select value={typeFilter} onValueChange={v => { setType(v); setPage(1); }}>
           <SelectTrigger className="w-36 h-8 text-xs">
             <SelectValue placeholder="نوع القضية" />
           </SelectTrigger>
@@ -256,16 +290,16 @@ export default function Cases() {
             className="ps-9 h-8 w-52 text-sm"
             placeholder="بحث..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
           />
         </div>
 
         {/* View toggle */}
         <div className="flex border rounded-lg overflow-hidden">
-          <button onClick={() => setView("table")} className={cn("p-1.5 transition-colors", view === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}>
+          <button onClick={() => { setView("table"); setPage(1); }} className={cn("p-1.5 transition-colors", view === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}>
             <List className="h-4 w-4" />
           </button>
-          <button onClick={() => setView("kanban")} className={cn("p-1.5 transition-colors", view === "kanban" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}>
+          <button onClick={() => { setView("kanban"); setPage(1); }} className={cn("p-1.5 transition-colors", view === "kanban" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}>
             <LayoutGrid className="h-4 w-4" />
           </button>
         </div>
@@ -447,6 +481,14 @@ export default function Cases() {
             })}
             <p className="text-center text-xs text-muted-foreground py-2">{filtered.length} قضية</p>
           </div>
+
+          <ListPagination
+            page={page}
+            pageSize={LEGAL_LIST_PAGE_SIZE}
+            total={casesTotal}
+            onPageChange={setPage}
+            dir={dir}
+          />
         </>
       )}
 

@@ -6,6 +6,11 @@ import { contractsTable } from "@workspace/db/schema";
 import { sql } from "drizzle-orm";
 import { callAI } from "../ai/aiChat";
 import { auditLog } from "../../lib/auditLogger";
+import {
+  MAX_PAGE_LIMIT,
+  parsePageLimit,
+  queryHasPageAndLimit,
+} from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -842,13 +847,48 @@ router.get("/contracts", requireAuthWithTenant, async (req, res) => {
   try {
     const tid = (req as any).tenantId;
     const { search, status, type } = req.query as Record<string, string>;
-    let q = "SELECT c.*, cl.full_name as client_name, cs.title as case_title FROM contracts c LEFT JOIN clients cl ON cl.id::text = c.client_id::text AND cl.office_id = c.office_id LEFT JOIN cases cs ON cs.id::text = c.case_id::text AND cs.office_id = c.office_id WHERE c.office_id = $1";
+    const paginated = queryHasPageAndLimit(req.query);
+    const { page, limit, offset } = paginated
+      ? parsePageLimit(req.query, 50)
+      : { page: 1, limit: MAX_PAGE_LIMIT, offset: 0 };
+
+    let where =
+      "FROM contracts c LEFT JOIN clients cl ON cl.id::text = c.client_id::text AND cl.office_id = c.office_id LEFT JOIN cases cs ON cs.id::text = c.case_id::text AND cs.office_id = c.office_id WHERE c.office_id = $1";
     const p: any[] = [tid];
-    if (search) { q += ` AND (c.title ILIKE $${p.length + 1} OR c.notes ILIKE $${p.length + 1})`; p.push(`%${search}%`); }
-    if (status && status !== "all") { q += ` AND c.status = $${p.length + 1}`; p.push(status); }
-    if (type && type !== "all") { q += ` AND c.type = $${p.length + 1}`; p.push(type); }
-    q += " ORDER BY c.created_at DESC";
-    res.json(await sqlAll(q, p));
+    if (search) {
+      where += ` AND (c.title ILIKE $${p.length + 1} OR c.notes ILIKE $${p.length + 1})`;
+      p.push(`%${search}%`);
+    }
+    if (status && status !== "all") {
+      where += ` AND c.status = $${p.length + 1}`;
+      p.push(status);
+    }
+    if (type && type !== "all") {
+      where += ` AND c.type = $${p.length + 1}`;
+      p.push(type);
+    }
+
+    const dataSql =
+      `SELECT c.*, cl.full_name as client_name, cs.title as case_title ${where} ORDER BY c.created_at DESC LIMIT $${p.length + 1} OFFSET $${p.length + 2}`;
+    const rows = await sqlAll(dataSql, [...p, limit, offset]);
+
+    if (!paginated) {
+      res.json(rows);
+      return;
+    }
+
+    const countRow = await sqlOne<{ total: string | number }>(
+      `SELECT COUNT(*)::int AS total ${where}`,
+      p,
+    );
+    const total = Number(countRow?.total ?? 0);
+    res.json({
+      data: rows,
+      total,
+      page,
+      limit,
+      pages: Math.max(1, Math.ceil(total / limit)),
+    });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

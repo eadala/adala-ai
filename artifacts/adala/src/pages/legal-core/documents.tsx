@@ -2,7 +2,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useListDocuments } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,8 +29,17 @@ import { SmartUploader } from "@/components/smart-uploader";
 import { authFetch } from "@/lib/authFetch";
 import { cn } from "@/lib/utils";
 import { useImageViewer } from "@/components/ui/image-viewer";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type DocumentsPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 function fmtSize(bytes?: number) {
@@ -582,7 +590,10 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
 }
 
 /* ── Legacy documents tab ────────────────────────────────────────────────── */
-function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc, tx, dateLocale, qc }: any) {
+function LegacyDocTab({
+  filteredOld, loadingOld, search, setSearch, setShareDoc, tx, dateLocale, qc, dir,
+  page, setPage, total,
+}: any) {
   const { toast } = useToast();
 
   const deleteMut = useMutation({
@@ -603,7 +614,7 @@ function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc,
         <div className="relative flex-1 max-w-md">
           <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder={tx("البحث في المستندات...","Search documents...")}
-            value={search} onChange={e => setSearch(e.target.value)} className="ps-4 pe-10" />
+            value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="ps-4 pe-10" />
         </div>
       </div>
       {loadingOld ? (
@@ -616,6 +627,7 @@ function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc,
           <h3 className="text-lg font-medium">{tx("لا توجد مستندات","No Documents")}</h3>
         </div>
       ) : (
+        <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredOld.map((doc: any) => (
             <Card key={doc.id} className="hover-elevate group cursor-pointer transition-all">
@@ -679,6 +691,14 @@ function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc,
             </Card>
           ))}
         </div>
+        <ListPagination
+          page={page}
+          pageSize={LEGAL_LIST_PAGE_SIZE}
+          total={total}
+          onPageChange={setPage}
+          dir={dir}
+        />
+        </div>
       )}
     </>
   );
@@ -736,13 +756,41 @@ function FolderNameInput({
 /* ── Main Page ───────────────────────────────────────────────────────────── */
 export default function Documents() {
   const [location] = useLocation();
-  const { data: documents, isLoading: loadingOld } = useListDocuments();
   const [search, setSearch]             = useState("");
+  const [legacyPage, setLegacyPage]     = useState(1);
+  const [activeTab, setActiveTab]       = useState("smart");
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [folderPath, setFolderPath]     = useState<Array<{id:string;name:string}>>([]);
   const [shareDoc, setShareDoc]         = useState<any>(null);
   const [moveFile, setMoveFile]         = useState<any>(null);
   const [uploadOpen, setUploadOpen]     = useState(false);
+
+  const { data: documentsPage, isLoading: loadingOld } = useQuery<DocumentsPageResponse>({
+    queryKey: ["documents", legacyPage, search, activeTab],
+    enabled: activeTab === "legacy",
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(legacyPage),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if (search.trim()) p.set("search", search.trim());
+      const r = await authFetch(`${BASE}/api/documents?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return {
+          data: json,
+          total: json.length,
+          page: 1,
+          limit: json.length || LEGAL_LIST_PAGE_SIZE,
+          pages: 1,
+        };
+      }
+      return json as DocumentsPageResponse;
+    },
+  });
+  const documents = documentsPage?.data ?? [];
+  const documentsTotal = Number(documentsPage?.total ?? 0);
 
   useEffect(() => {
     if (location === "/documents/new" || location.endsWith("/documents/new")) {
@@ -761,9 +809,7 @@ export default function Documents() {
   const { data: storageFiles = [], isLoading: loadingFiles, refetch: refetchFiles } =
     useStorageFiles(search, currentFolderId);
 
-  const filteredOld = (documents ?? []).filter((d: any) =>
-    !search || d.fileName?.toLowerCase().includes(search.toLowerCase()) || d.caseName?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredOld = documents;
 
   const { toast } = useToast();
 
@@ -836,7 +882,7 @@ export default function Documents() {
       </div>
 
       {/* ── Tabs ── */}
-      <Tabs defaultValue="smart" dir={dir}>
+      <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v === "legacy") setLegacyPage(1); }} dir={dir}>
         <TabsList className="mb-4">
           <TabsTrigger value="smart" className="gap-2">
             <Sparkles className="h-3.5 w-3.5" />
@@ -1023,7 +1069,20 @@ export default function Documents() {
 
         {/* ══ Legacy Case Documents Tab ══ */}
         <TabsContent value="legacy">
-          <LegacyDocTab filteredOld={filteredOld} loadingOld={loadingOld} search={search} setSearch={setSearch} setShareDoc={setShareDoc} tx={tx} dateLocale={dateLocale} qc={qc} />
+          <LegacyDocTab
+            filteredOld={filteredOld}
+            loadingOld={loadingOld}
+            search={search}
+            setSearch={(v: string) => { setSearch(v); setLegacyPage(1); }}
+            setShareDoc={setShareDoc}
+            tx={tx}
+            dateLocale={dateLocale}
+            qc={qc}
+            dir={dir}
+            page={legacyPage}
+            setPage={setLegacyPage}
+            total={documentsTotal}
+          />
         </TabsContent>
       </Tabs>
 
