@@ -21,6 +21,7 @@ import { requireAuthWithTenant }         from "../../middlewares/requireAuth";
 import { db }                            from "@workspace/db";
 import { sql }                           from "drizzle-orm";
 import { logger }                        from "../../lib/logger";
+import { parseLimitOffset }              from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -238,8 +239,7 @@ router.post("/accounting/journal/accounts", requireAuthWithTenant, async (req, r
 router.get("/accounting/journal/entries", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const limit    = parseInt(String(req.query.limit ?? "50"));
-    const offset   = parseInt(String(req.query.offset ?? "0"));
+    const { limit, offset } = parseLimitOffset(req.query, 50);
     const from     = req.query.from as string | undefined;
     const to       = req.query.to   as string | undefined;
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 /**
  * Financial Core System — عدالة AI
@@ -7,6 +8,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { PaymentService } from "../../payments/orchestrator";
+import { parseLimitOffset } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -191,12 +193,12 @@ router.get("/fincore/dashboard", requireAuthWithTenant, async (req, res) => {
 router.get("/fincore/ledger", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId as string;
-    const { limit = 100, offset = 0 } = req.query;
+    const { limit, offset } = parseLimitOffset(req.query, 100);
     const entries = await rows(sql`
       SELECT * FROM ledger_entries
       WHERE office_id = ${tenantId}
       ORDER BY created_at DESC
-      LIMIT ${Number(limit)} OFFSET ${Number(offset)}
+      LIMIT ${limit} OFFSET ${offset}
     `);
     const total = await one(sql`SELECT COUNT(*)::int AS count FROM ledger_entries WHERE office_id = ${tenantId}`);
     res.json({ entries, total: total?.count ?? 0 });

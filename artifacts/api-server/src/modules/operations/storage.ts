@@ -24,6 +24,7 @@ import {
   normalizeToCanonicalObjectKey,
   tenantOwnsCanonicalObjectKey,
 } from "../../lib/storageObjectOwnership";
+import { parseLimitOffset } from "../../lib/paginationSafety";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -365,7 +366,8 @@ router.get("/storage/files", requireAuthWithTenant, async (req, res) => {
   const loaded = await getMgmtUser(req);
   if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
   const u = loaded.user;
-  const { category, archived, deleted, search, caseId, folderId, limit = "100", offset = "0" } = req.query as any;
+  const { category, archived, deleted, search, caseId, folderId } = req.query as any;
+  const { limit, offset } = parseLimitOffset(req.query, 100);
   const of2 = u.isSA ? sql`1=1` : sql`office_id=${u.officeId}`;
   const cf  = category ? sql`AND category=${category}` : sql``;
   const af  = archived === "true" ? sql`AND is_archived=true AND NOT is_deleted` : deleted === "true" ? sql`AND is_deleted=true` : sql`AND NOT is_deleted`;
@@ -375,7 +377,7 @@ router.get("/storage/files", requireAuthWithTenant, async (req, res) => {
   const fof = folderId === "root" ? sql`AND folder_id IS NULL`
             : folderId ? sql`AND folder_id=${folderId}::uuid`
             : sql``;
-  const rows = await dbRows(sql`SELECT id,office_id,case_id,folder_id,original_name,file_name,mime_type,file_size,category,is_archived,is_deleted,deleted_at,archived_at,created_at,file_url FROM storage_files WHERE ${of2} ${af} ${cf} ${sf} ${csf} ${fof} ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`);
+  const rows = await dbRows(sql`SELECT id,office_id,case_id,folder_id,original_name,file_name,mime_type,file_size,category,is_archived,is_deleted,deleted_at,archived_at,created_at,file_url FROM storage_files WHERE ${of2} ${af} ${cf} ${sf} ${csf} ${fof} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`);
   res.json(rows);
 });
 
