@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 /**
  * Tenant Middleware — Multi-Tenant Resolution
  *
@@ -207,57 +209,12 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
 }
 
 /**
- * Combined guard: auth + tenant resolution in one middleware.
- * Replaces requireAuth for routes that need both userId and tenantId.
- * Also injects AsyncLocalStorage tenant context (Kernel Layer 1).
- */
-export async function requireAuthWithTenant(req: Request, res: Response, next: NextFunction) {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
-
-  (req as any).userId = userId;
-
-  const headerTenant = req.headers["x-tenant-id"] as string | undefined;
-  const tenantId = await resolveTenantId(userId, headerTenant);
-  if (!tenantId) {
-    /* Super-admin has no office — allow with synthetic "platform" tenant */
-    const isSA = await isSuperAdminUser(userId);
-    if (isSA) {
-      (req as any).isSuperAdmin = true;
-      (req as any).tenantId = "platform";
-      const { runWithTenant } = await import("../core/tenantContext");
-      return runWithTenant({ userId, officeId: "platform" }, () => next());
-    }
-    console.warn(
-      `[TENANT-403] path=${req.path} method=${req.method} ` +
-      `userId=${userId} → tenant resolution returned null (all 7 steps exhausted)`
-    );
-    return res.status(403).json({
-      error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب.",
-      code: "TNT_403",
-      userId,
-      hint: "أكمل عملية الإعداد الأولي، أو تواصل مع الدعم الفني إذا أتممت الإعداد مسبقاً.",
-    });
-  }
-  const officeId = tenantId;
-  (req as any).tenantId = officeId;
-
-  const { runWithTenant } = await import("../core/tenantContext");
-  const { db } = await import("@workspace/db");
-  const { sql } = await import("drizzle-orm");
-
-  /* Layer 3 — RLS: force all queries to see only this tenant's rows */
-  db.execute(sql`SELECT set_config('app.current_tenant', ${officeId}, false)`)
-    .catch(() => {});
-
-  runWithTenant({ userId, officeId }, () => next());
-}
-
-/**
- * requireAuthWithTenantAudit — same as requireAuthWithTenant but also
- * writes a non-blocking entry to tenant_audit_logs via TIRE.
- * Use on sensitive endpoints that need full audit trail.
+ * requireAuthWithTenant lives in requireAuth.ts (canonical live export).
+ * Do not re-export a duplicate here — importers must use middlewares/requireAuth.
+ *
+ * requireAuthWithTenantAudit — auth + tenant resolution with a non-blocking
+ * tenant_audit_logs entry via TIRE. Use on sensitive endpoints that need a
+ * full audit trail.
  */
 export async function requireAuthWithTenantAudit(
   req: Request,

@@ -18,6 +18,7 @@
     "test:storage-folder-create": "node --import tsx src/tests/storageFolderCreate.test.ts",
     "test:tenant-fallback-removal": "node --import tsx src/tests/tenantFallbackRemoval.test.ts",
     "test:tenant-gated-writes": "node --import tsx src/tests/tenantGatedWrites.test.ts",
+    "test:dead-helper-cleanup": "node --import tsx src/tests/deadHelperCleanup.test.ts",
     "test:post-migration": "node --import tsx src/tests/postMigrationApiFixes.test.ts",
     "test:offices-my": "node --import tsx src/tests/officesMy.test.ts",
     "test:metrics-vitals": "node --import tsx src/tests/metricsBeaconPath.test.ts && node --import tsx src/tests/metricsVitals.integration.test.ts",
