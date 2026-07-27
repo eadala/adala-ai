@@ -308,15 +308,51 @@ console.log("\n═══ frontend primary consumers ═══");
   const aiTasks = readAdala("pages/ai/ai-tasks.tsx");
   assert.match(aiTasks, /p\.set\("search"/);
   assert.doesNotMatch(aiTasks, /tasks\.filter\(/);
-  /* Pickers must still omit page+limit (soft-cap array). */
-  const attendance = readAdala("pages/hr/attendance.tsx");
-  assert.match(attendance, /authFetch\("\/api\/hr\/employees"\)/);
-  assert.doesNotMatch(
-    attendance,
-    /hr\/employees\?.*page=/,
-    "attendance employee picker must not force page+limit",
-  );
-  console.log("  ✅ primary FE pages send page+limit; pickers stay array-mode");
+
+  /* Employee pickers: bounded server-search (page+limit+search), not array soft-cap dumps. */
+  const picker = readAdala("components/employee-search-select.tsx");
+  assert.match(picker, /api\/hr\/employees\?\$\{p\}/);
+  assert.match(picker, /p\.set\("page"/);
+  assert.match(picker, /p\.set\("limit"/);
+  assert.match(picker, /p\.set\("search"/);
+  assert.match(picker, /PICKER_LIMIT\s*=\s*50/);
+  assert.doesNotMatch(picker, /authFetch\(`\$\{BASE\}\/api\/hr\/employees`\)/);
+
+  const pickerPages = [
+    "pages/hr/leaves.tsx",
+    "pages/hr/attendance.tsx",
+    "pages/legal-core/warnings.tsx",
+    "pages/operations/tasks.tsx",
+    "pages/hr/hr-systems.tsx",
+    "pages/hr/hr-center.tsx",
+  ];
+  for (const p of pickerPages) {
+    const src = readAdala(p);
+    assert.match(src, /EmployeeSearchSelect/, `${p} EmployeeSearchSelect`);
+    assert.doesNotMatch(
+      src,
+      /authFetch\([`'"]\/api\/hr\/employees[`'"]\)/,
+      `${p} must not dump /api/hr/employees array mode for pickers`,
+    );
+  }
+
+  /* Unwired-list fixes: mediators + bankruptcy paginated; smart-docs array unbounded. */
+  const smartDocs = read("modules/legal-core/smart-documents.ts");
+  const smartStart = smartDocs.indexOf("if (!paginated)");
+  const smartLimit = smartDocs.indexOf("LIMIT ${limit} OFFSET ${offset}");
+  assert.ok(smartStart >= 0 && smartLimit > smartStart, "smart-documents dual-mode blocks");
+  const smartArray = smartDocs.slice(smartStart, smartLimit);
+  assert.doesNotMatch(smartArray, /LIMIT/, "smart-documents array mode must be unbounded");
+  assert.doesNotMatch(smartArray, /MAX_PAGE_LIMIT/);
+  assert.match(smartArray, /ORDER\s+BY\s+created_at DESC, id DESC/);
+
+  /* Page-local finance totals must be labeled; global cards use envelope.stats. */
+  assert.match(revenues, /مجموع الصفحة/);
+  assert.doesNotMatch(revenues, /thisMonth\s*=\s*rows\./);
+  assert.doesNotMatch(revenues, /thisMonth\s*=\s*.*reduce/);
+  assert.doesNotMatch(expenses, /thisMonth\s*=\s*.*reduce/);
+
+  console.log("  ✅ primary FE pages + searchable pickers + list/stats contracts");
 }
 
 console.log("\n✅ remainingListsPagination tests passed\n");

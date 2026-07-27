@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
 import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
+import { EmployeeSearchSelect } from "@/components/employee-search-select";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -71,11 +72,6 @@ export default function Warnings() {
   const qc = useQueryClient();
 
   /* ── shared ── */
-  const { data: employees = [] } = useQuery<any[]>({
-    queryKey: ["employees"],
-    queryFn: () => authFetch(`${BASE}/api/hr/employees`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-  });
-
   /* ═══════════ WARNINGS ═══════════ */
   const [wSearch, setWSearch]       = useState("");
   const [wFilter, setWFilter]       = useState("all");
@@ -423,10 +419,12 @@ export default function Warnings() {
           <div className="space-y-3">
             <div>
               <Label className="text-xs font-semibold mb-1 block">الموظف *</Label>
-              <Select value={wForm.employeeId} onValueChange={v => setWForm(f => ({ ...f, employeeId: v }))}>
-                <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
-                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.fullName} — {e.jobTitle}</SelectItem>)}</SelectContent>
-              </Select>
+              <EmployeeSearchSelect
+                value={wForm.employeeId}
+                onValueChange={v => setWForm(f => ({ ...f, employeeId: v }))}
+                placeholder="ابحث عن موظف..."
+                showJobTitle
+              />
             </div>
             <div>
               <Label className="text-xs font-semibold mb-1 block">نوع الإنذار *</Label>
@@ -519,10 +517,12 @@ export default function Warnings() {
           <div className="space-y-3">
             <div>
               <Label className="text-xs font-semibold mb-1 block">الموظف المُحقَّق معه *</Label>
-              <Select value={iForm.employeeId} onValueChange={v => setIForm(f => ({ ...f, employeeId: v }))}>
-                <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
-                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.fullName} — {e.jobTitle}</SelectItem>)}</SelectContent>
-              </Select>
+              <EmployeeSearchSelect
+                value={iForm.employeeId}
+                onValueChange={v => setIForm(f => ({ ...f, employeeId: v }))}
+                placeholder="ابحث عن موظف..."
+                showJobTitle
+              />
             </div>
             <div>
               <Label className="text-xs font-semibold mb-1 block">موضوع التحقيق *</Label>

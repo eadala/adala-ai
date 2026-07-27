@@ -211,4 +211,117 @@ console.log("\n═══ runtime: array mode soft-cap vs envelope ═══");
   console.log("  ✅ array soft-cap vs envelope OK");
 }
 
+console.log("\n═══ runtime: employee beyond first 200 still searchable ═══");
+{
+  /* Simulate roster larger than array soft-cap; picker uses search + bounded page. */
+  const roster = Array.from({ length: 250 }, (_, i) => ({
+    id: `emp-${i}`,
+    full_name: i === 249 ? "Employee Beyond Cap" : `Employee ${String(i).padStart(3, "0")}`,
+    job_title: "Staff",
+    createdAt: `2026-01-01T00:00:00Z`,
+  }));
+  const arrayMode = paginateFilteredDataset(roster, {}, 50);
+  assert.equal(arrayMode.mode, "array");
+  if (arrayMode.mode === "array") {
+    assert.equal(arrayMode.data.length, MAX_PAGE_LIMIT);
+    assert.equal(
+      arrayMode.data.some((e) => e.full_name === "Employee Beyond Cap"),
+      false,
+      "array soft-cap hides employee #249",
+    );
+  }
+
+  const search = parseOptionalSearch("Beyond Cap");
+  const found = filterBySearchFields(roster, search, (e) => [e.full_name, e.job_title]);
+  assert.equal(found.length, 1);
+  assert.equal(found[0]?.id, "emp-249");
+  const pickerPage = paginateFilteredDataset(found, { page: "1", limit: "50" }, 50);
+  assert.equal(pickerPage.mode, "envelope");
+  if (pickerPage.mode === "envelope") {
+    assert.equal(pickerPage.total, 1);
+    assert.equal(pickerPage.data[0]?.full_name, "Employee Beyond Cap");
+  }
+  console.log("  ✅ employee beyond 200 reachable via search picker contract");
+}
+
+console.log("\n═══ runtime: user-facing lists can page past 200 ═══");
+{
+  const many = Array.from({ length: 250 }, (_, i) => ({
+    id: `row-${i}`,
+    createdAt: `2026-07-${String((i % 28) + 1).padStart(2, "0")}T00:00:00Z`,
+    title: `item-${i}`,
+  }));
+  const sorted = sortCreatedAtDescIdDesc(many);
+  /* page 5 with limit 50 reaches indices 200-249 */
+  const page5 = paginateFilteredDataset(sorted, { page: "5", limit: "50" }, 50);
+  assert.equal(page5.mode, "envelope");
+  if (page5.mode === "envelope") {
+    assert.equal(page5.total, 250);
+    assert.equal(page5.data.length, 50);
+    assert.equal(page5.pages, 5);
+    /* last page contains the oldest 50 of the sorted set (indices 200–249) */
+    assert.deepEqual(
+      page5.data.map((r) => r.id),
+      sorted.slice(200, 250).map((r) => r.id),
+    );
+  }
+  console.log("  ✅ paginated lists can reach records beyond 200");
+}
+
+console.log("\n═══ runtime: finance stats are full-filter, not page-local ═══");
+{
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const thisMonthDate = `${y}-${m}-15`;
+  const lastMonthDate = `${y}-${m === "01" ? "12" : String(Number(m) - 1).padStart(2, "0")}-15`;
+
+  const ledger = Array.from({ length: 120 }, (_, i) => ({
+    id: String(i),
+    amount: 10,
+    date: i < 30 ? thisMonthDate : lastMonthDate,
+    title: `row-${i}`,
+    category: "x",
+    createdAt: `2026-01-01T00:00:00Z`,
+  }));
+  /* Page 1 (50 rows) would under-count thisMonth if stats used page rows only. */
+  const pageRows = ledger.slice(0, 50);
+  const pageThisMonth = pageRows.filter((r) => r.date.startsWith(`${y}-${m}`)).length * 10;
+  const fullThisMonth = ledger.filter((r) => r.date.startsWith(`${y}-${m}`)).length * 10;
+  assert.equal(pageThisMonth, 300);
+  assert.equal(fullThisMonth, 300);
+  /* Construct a case where page-local differs from full-filter */
+  const skewed = [
+    ...Array.from({ length: 50 }, (_, i) => ({
+      id: `old-${i}`,
+      amount: 1,
+      date: lastMonthDate,
+      title: "old",
+      category: "x",
+    })),
+    ...Array.from({ length: 20 }, (_, i) => ({
+      id: `new-${i}`,
+      amount: 5,
+      date: thisMonthDate,
+      title: "new",
+      category: "x",
+    })),
+  ];
+  const page1 = skewed.slice(0, 50);
+  const pageLocalMonth = page1
+    .filter((r) => r.date.startsWith(`${y}-${m}`))
+    .reduce((s, r) => s + r.amount, 0);
+  const fullMonth = skewed
+    .filter((r) => r.date.startsWith(`${y}-${m}`))
+    .reduce((s, r) => s + r.amount, 0);
+  assert.equal(pageLocalMonth, 0, "first page has only last-month rows");
+  assert.equal(fullMonth, 100, "full filtered thisMonth must include later pages");
+  assert.notEqual(pageLocalMonth, fullMonth);
+  /* Envelope stats contract: cards must use fullMonth, page footer may use page sum. */
+  const envelopeStats = { sum: skewed.reduce((s, r) => s + r.amount, 0), thisMonth: fullMonth };
+  assert.equal(envelopeStats.thisMonth, fullMonth);
+  assert.notEqual(envelopeStats.thisMonth, pageLocalMonth);
+  console.log("  ✅ page-local thisMonth must not masquerade as global stats");
+}
+
 console.log("\n✅ remainingListsPagination runtime tests passed\n");

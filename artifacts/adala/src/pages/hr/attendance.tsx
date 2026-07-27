@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
+import { EmployeeSearchSelect } from "@/components/employee-search-select";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -89,11 +90,6 @@ export default function Attendance() {
     queryFn: () => authFetch("/api/hr/attendance/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
     refetchInterval: 120_000,
-  });
-
-  const { data: employees = [] } = useQuery<any[]>({
-    queryKey: ["employees"],
-    queryFn: () => authFetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: officeLocation, refetch: refetchOffice } = useQuery<any>({
@@ -407,10 +403,11 @@ export default function Attendance() {
           <DialogHeader><DialogTitle>تسجيل حضور يدوي</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>الموظف *</Label>
-              <Select value={selectedEmp} onValueChange={setSelectedEmp}>
-                <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
-                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.fullName}</SelectItem>)}</SelectContent>
-              </Select>
+              <EmployeeSearchSelect
+                value={selectedEmp}
+                onValueChange={setSelectedEmp}
+                placeholder="ابحث عن موظف..."
+              />
             </div>
             <div><Label>التاريخ</Label><Input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-2">

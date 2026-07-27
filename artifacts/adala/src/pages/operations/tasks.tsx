@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
 import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
+import { EmployeeSearchSelect } from "@/components/employee-search-select";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -84,11 +85,6 @@ export default function Tasks() {
   const { data: stats } = useQuery<any>({
     queryKey: ["tasks-stats"],
     queryFn: () => authFetch("/api/office-tasks/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-  });
-
-  const { data: employees = [] } = useQuery<any[]>({
-    queryKey: ["employees"],
-    queryFn: () => authFetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const cleanPayload = (data: any) => ({
@@ -478,18 +474,14 @@ export default function Tasks() {
             <div className="grid grid-cols-2 gap-3 mobile-single-col">
               <div>
                 <Label>المسؤول</Label>
-                <Select
-                  value={form.assigneeName || "__none__"}
-                  onValueChange={v => setForm(p => ({ ...p, assigneeName: v === "__none__" ? "" : v }))}
-                >
-                  <SelectTrigger><SelectValue placeholder="اختر موظفاً" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">بدون تعيين</SelectItem>
-                    {(employees ?? []).map((e: any) => e?.fullName ? (
-                      <SelectItem key={e.id} value={e.fullName}>{e.fullName}</SelectItem>
-                    ) : null)}
-                  </SelectContent>
-                </Select>
+                <EmployeeSearchSelect
+                  value={form.assigneeName}
+                  onValueChange={v => setForm(p => ({ ...p, assigneeName: v }))}
+                  valueMode="fullName"
+                  placeholder="ابحث عن موظف..."
+                  allowClear
+                  clearLabel="بدون تعيين"
+                />
               </div>
               <div>
                 <Label>تاريخ الانتهاء</Label>

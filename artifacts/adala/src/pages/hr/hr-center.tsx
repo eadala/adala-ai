@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { authFetch } from "@/lib/authFetch";
+import { EmployeeSearchSelect } from "@/components/employee-search-select";
 import {
   Users, Star, TrendingUp, TrendingDown, DollarSign, Award,
   AlertCircle, Plus, Trash2, Sparkles, BarChart3, Brain,
@@ -26,7 +27,6 @@ import {
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 /* ══════════════════════════════════════════════ TYPES */
-interface Employee { id: string; full_name: string; job_title: string; department: string; salary: string; status: string }
 interface Evaluation { id: number; employee_id: string; employee_name: string; job_title: string; period: string; performance_score: number; role: string; cases_closed: number; cases_delayed: number; tasks_completed: number; errors: number; on_time_days: number; late_days: number; absent_days: number; notes?: string; created_at: string }
 interface Incentive { id: number; employee_id: string; employee_name: string; job_title: string; type: string; amount: number; reason: string; period?: string; created_at: string }
 
@@ -79,7 +79,7 @@ function calcScoreLocal(form: any): number {
 }
 
 /* ══════════════════════════════════════════════ EVAL DIALOG */
-function EvalDialog({ open, onClose, employees }: { open: boolean; onClose: () => void; employees: Employee[] }) {
+function EvalDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [form, setForm] = useState({
@@ -123,9 +123,6 @@ function EvalDialog({ open, onClose, employees }: { open: boolean; onClose: () =
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
-  const emp = employees.find(e => e.id === form.employeeId);
-  if (emp && form.role === "lawyer" && !ROLES.some(r => r.value === form.role)) updStr("role", "lawyer");
-
   return (
     <AdaptiveDialog open={open} onOpenChange={onClose}>
       <AdaptiveDialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
@@ -139,10 +136,12 @@ function EvalDialog({ open, onClose, employees }: { open: boolean; onClose: () =
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pb-2 border-b border-border/50">
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold">الموظف *</Label>
-            <Select value={form.employeeId} onValueChange={v => updStr("employeeId", v)}>
-              <SelectTrigger><SelectValue placeholder="اختر..." /></SelectTrigger>
-              <SelectContent>{employees.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.full_name}</SelectItem>)}</SelectContent>
-            </Select>
+            <EmployeeSearchSelect
+              value={form.employeeId}
+              onValueChange={v => updStr("employeeId", v)}
+              status="active"
+              placeholder="ابحث عن موظف..."
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold">الفترة</Label>
@@ -281,7 +280,7 @@ function EvalDialog({ open, onClose, employees }: { open: boolean; onClose: () =
 }
 
 /* ══════════════════════════════════════════════ INCENTIVE DIALOG */
-function IncentiveDialog({ open, onClose, employees }: { open: boolean; onClose: () => void; employees: Employee[] }) {
+function IncentiveDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [form, setForm] = useState({ employeeId: "", type: "bonus", amount: "", reason: "", period: `${currMonth} ${currYear}` });
@@ -334,10 +333,12 @@ function IncentiveDialog({ open, onClose, employees }: { open: boolean; onClose:
           </div>
           <div className="space-y-1">
             <Label className="text-xs font-semibold">الموظف *</Label>
-            <Select value={form.employeeId} onValueChange={v => upd("employeeId", v)}>
-              <SelectTrigger><SelectValue placeholder="اختر..." /></SelectTrigger>
-              <SelectContent>{employees.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.full_name}</SelectItem>)}</SelectContent>
-            </Select>
+            <EmployeeSearchSelect
+              value={form.employeeId}
+              onValueChange={v => upd("employeeId", v)}
+              status="active"
+              placeholder="ابحث عن موظف..."
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-xs font-semibold">المبلغ (ريال) *</Label>
@@ -367,12 +368,6 @@ export default function HRCenter() {
   const [evalDialog, setEvalDialog] = useState(false);
   const [incDialog, setIncDialog] = useState(false);
   const [payPeriod, setPayPeriod] = useState(`${currMonth} ${currYear}`);
-
-  const { data: employees = [] } = useQuery<Employee[]>({
-    queryKey: ["hr-employees-list"],
-    queryFn: () => authFetch(`${BASE}/api/hr/employees`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-  });
-  const activeEmps = employees.filter(e => e.status === "active");
 
   const { data: dashboard, isLoading: dashLoading, refetch: refetchDash } = useQuery<any>({
     queryKey: ["hr-dashboard"],
@@ -450,7 +445,7 @@ export default function HRCenter() {
           {/* KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "موظفون نشطون",  value: dashboard?.empCount ?? activeEmps.length,                icon: Users,       color: "#6366F1" },
+              { label: "موظفون نشطون",  value: dashboard?.empCount ?? 0,                icon: Users,       color: "#6366F1" },
               { label: "متوسط الأداء",  value: `${Math.round(dashboard?.avgScore ?? 0)}%`,              icon: Target,      color: "#10B981" },
               { label: "مكافآت مسجّلة", value: `${fmt(dashboard?.bonusTotal ?? 0)} ر.س`,              icon: TrendingUp,  color: "#2563EB" },
               { label: "خصومات مسجّلة", value: `${fmt(dashboard?.deductTotal ?? 0)} ر.س`,             icon: TrendingDown, color: "#EF4444" },
@@ -864,8 +859,8 @@ export default function HRCenter() {
         </TabsContent>
       </Tabs>
 
-      <EvalDialog open={evalDialog} onClose={() => setEvalDialog(false)} employees={activeEmps} />
-      <IncentiveDialog open={incDialog} onClose={() => setIncDialog(false)} employees={activeEmps} />
+      <EvalDialog open={evalDialog} onClose={() => setEvalDialog(false)} />
+      <IncentiveDialog open={incDialog} onClose={() => setIncDialog(false)} />
     </div>
   );
 }

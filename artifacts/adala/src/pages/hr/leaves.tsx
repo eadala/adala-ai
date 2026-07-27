@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
 import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
+import { EmployeeSearchSelect } from "@/components/employee-search-select";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -77,11 +78,6 @@ export default function Leaves() {
   const { data: stats } = useQuery<any>({
     queryKey: ["leaves-stats"],
     queryFn: () => authFetch("/api/hr/leaves/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-  });
-
-  const { data: employees = [] } = useQuery<any[]>({
-    queryKey: ["employees"],
-    queryFn: () => authFetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMutation = useMutation({
@@ -219,10 +215,11 @@ export default function Leaves() {
           <DialogHeader><DialogTitle>طلب إجازة جديد</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>الموظف *</Label>
-              <Select value={form.employeeId} onValueChange={v => setForm(p => ({ ...p, employeeId: v }))}>
-                <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
-                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.fullName}</SelectItem>)}</SelectContent>
-              </Select>
+              <EmployeeSearchSelect
+                value={form.employeeId}
+                onValueChange={v => setForm(p => ({ ...p, employeeId: v }))}
+                placeholder="ابحث عن موظف..."
+              />
             </div>
             <div><Label>نوع الإجازة</Label>
               <Select value={form.type} onValueChange={v => setForm(p => ({ ...p, type: v }))}>
