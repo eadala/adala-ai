@@ -460,21 +460,51 @@ router.post("/hr/payroll/generate", requireAuthWithTenant, requirePermission("pa
   const tid = (req as any).tenantId as string;
   try {
     const { month, year } = req.body;
-    const employees = await sq(sql`SELECT * FROM employees WHERE office_id = ${tid} AND status = 'active'`);
-    const entries = [];
-    for (const emp of employees) {
-      const base = num(emp.salary);
-      const gosi = base * 0.1, allowances = base * 0.15, deductions = 0;
-      const net = base + allowances - deductions - gosi;
-      const row = one(await db.execute(sql`
-        INSERT INTO payroll (employee_id, month, year, base_salary, allowances, deductions, gosi, net_salary, status)
-        VALUES (${emp.id}::uuid, ${month}, ${parseInt(year)},
-                ${String(base)}, ${String(allowances)}, ${String(deductions)},
-                ${String(gosi)}, ${String(net)}, 'draft')
-        RETURNING *
-      `));
-      entries.push(row);
+    if (!month || year == null || year === "") {
+      return res.status(400).json({ error: "month و year مطلوبان" });
     }
+    const yearInt = parseInt(String(year), 10);
+    if (!Number.isFinite(yearInt)) {
+      return res.status(400).json({ error: "year غير صالح" });
+    }
+
+    /*
+     * Set-based generate: one INSERT…SELECT…RETURNING.
+     * Skips employees that already have a payroll row for (month, year)
+     * (no schema UNIQUE — application-level NOT EXISTS).
+     * Math matches legacy: allowances=15%, gosi=10%, deductions=0.
+     */
+    const result = await db.execute(sql`
+      INSERT INTO payroll (
+        employee_id, month, year,
+        base_salary, allowances, deductions, gosi, net_salary, status
+      )
+      SELECT
+        e.id,
+        ${String(month)},
+        ${yearInt},
+        CAST(COALESCE(e.salary, '0') AS NUMERIC),
+        CAST(COALESCE(e.salary, '0') AS NUMERIC) * 0.15,
+        0,
+        CAST(COALESCE(e.salary, '0') AS NUMERIC) * 0.1,
+        CAST(COALESCE(e.salary, '0') AS NUMERIC)
+          + CAST(COALESCE(e.salary, '0') AS NUMERIC) * 0.15
+          - CAST(COALESCE(e.salary, '0') AS NUMERIC) * 0.1,
+        'draft'
+      FROM employees e
+      WHERE e.office_id = ${tid}
+        AND e.status = 'active'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM payroll p
+          WHERE p.employee_id = e.id
+            AND p.month = ${String(month)}
+            AND p.year = ${yearInt}
+        )
+      RETURNING *
+    `);
+    const entries = rows(result);
+
     res.json({ generated: entries.length, entries });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
