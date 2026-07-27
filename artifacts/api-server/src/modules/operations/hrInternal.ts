@@ -3,7 +3,6 @@ import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAut
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { MAX_PAGE_LIMIT } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -72,7 +71,6 @@ router.get("/hr-internal/announcements", requireAuthWithTenant, async (req, res)
       WHERE office_id = ${tid}
         AND (expires_at IS NULL OR expires_at >= CURRENT_DATE)
       ORDER BY created_at DESC
-      LIMIT ${MAX_PAGE_LIMIT}
     `);
     res.json(rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -84,7 +82,6 @@ router.get("/hr-internal/announcements/all", requireAuthWithTenant, async (req, 
   try {
     const rows = await sqlAll(sql`
       SELECT * FROM hr_announcements WHERE office_id = ${tid} ORDER BY created_at DESC
-      LIMIT ${MAX_PAGE_LIMIT}
     `);
     res.json(rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -125,7 +122,6 @@ router.get("/hr-internal/requests", requireAuthWithTenant, async (req, res) => {
       INNER JOIN employees e ON er.employee_id = e.id::text AND e.office_id = ${tid}
       WHERE er.office_id = ${tid}
       ORDER BY er.created_at DESC
-      LIMIT ${MAX_PAGE_LIMIT}
     `);
     res.json(rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }

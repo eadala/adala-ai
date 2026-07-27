@@ -153,17 +153,22 @@ console.log("\n═══ soft-cap endpoints ═══");
   const support = read("modules/platform/support-enterprise.ts");
   const hrInternal = read("modules/operations/hrInternal.ts");
   const hrPerf = read("modules/operations/hrPerformance.ts");
+  const admin = read("modules/platform/admin.ts");
 
-  assert.match(cases, /MAX_PAGE_LIMIT/);
-  assert.match(timeline, /MAX_PAGE_LIMIT/);
-  assert.match(comms, /MAX_PAGE_LIMIT/);
-  assert.match(tasks, /MAX_PAGE_LIMIT/);
-  assert.match(docs, /MAX_PAGE_LIMIT/);
-  assert.match(calendar, /MAX_PAGE_LIMIT/);
+  /* Nested / ancillary lists must remain unbounded (no MAX_PAGE_LIMIT soft-cap). */
+  assert.doesNotMatch(cases, /MAX_PAGE_LIMIT/);
+  assert.doesNotMatch(timeline, /MAX_PAGE_LIMIT/);
+  assert.doesNotMatch(comms, /MAX_PAGE_LIMIT/);
+  assert.doesNotMatch(tasks, /MAX_PAGE_LIMIT/);
+  assert.doesNotMatch(docs, /MAX_PAGE_LIMIT/);
+  assert.doesNotMatch(calendar, /MAX_PAGE_LIMIT/);
+  assert.doesNotMatch(hrInternal, /MAX_PAGE_LIMIT/);
+  assert.doesNotMatch(hrPerf, /MAX_PAGE_LIMIT/);
+  assert.doesNotMatch(admin, /\.limit\(MAX_PAGE_LIMIT\)/);
+  assert.doesNotMatch(admin, /LIMIT \$\{MAX_PAGE_LIMIT\}/);
   assert.match(support, /parseLimitOffset\(req\.query,\s*50\)/);
-  assert.match(hrInternal, /MAX_PAGE_LIMIT/);
-  assert.match(hrPerf, /MAX_PAGE_LIMIT/);
-  console.log("  ✅ soft-cap / clamp wiring present");
+  assert.match(support, /ORDER BY t\.created_at DESC, t\.id DESC/);
+  console.log("  ✅ unbounded nested lists restored; support clamp retained");
 }
 
 console.log("\n═══ COUNT predicates share list filters (HR employees) ═══");
@@ -181,6 +186,50 @@ console.log("\n═══ COUNT predicates share list filters (HR employees) ═�
     "employees list + COUNT must both apply filter conds",
   );
   console.log("  ✅ employees list/COUNT share filters");
+}
+
+console.log("\n═══ filter + COUNT parity (accounting / HR / arbitration / AI) ═══");
+{
+  const accounting = read("modules/financial/accounting.ts");
+  const hr = read("modules/operations/hr.ts");
+  const arbitration = read("modules/legal-core/arbitration.ts");
+  const aiTasks = read("modules/ai/aiTasks.ts");
+
+  const revBlock = accounting.slice(
+    accounting.indexOf('router.get("/accounting/revenues"'),
+    accounting.indexOf('router.post("/accounting/revenues"'),
+  );
+  assert.equal(
+    (revBlock.match(/\$\{searchCond\} \$\{categoryCond\}/g) ?? []).length,
+    2,
+    "revenues list + COUNT must share search/category",
+  );
+  assert.match(revBlock, /ORDER BY date DESC, created_at DESC, id DESC/);
+
+  const leavesBlock = hr.slice(
+    hr.indexOf('router.get("/hr/leaves"'),
+    hr.indexOf('router.get("/hr/leaves/stats"'),
+  );
+  assert.equal(
+    (leavesBlock.match(/\$\{statusCond\}/g) ?? []).length,
+    2,
+    "leaves list + COUNT must share statusCond",
+  );
+  assert.match(leavesBlock, /ORDER BY l\.created_at DESC, l\.id DESC/);
+
+  const attBlock = hr.slice(
+    hr.indexOf('router.get("/hr/attendance"'),
+    hr.indexOf('router.get("/hr/attendance/stats"'),
+  );
+  assert.match(attBlock, /effectiveLimit = paginated \? limit : 500/);
+  assert.match(attBlock, /LIMIT \$\{effectiveLimit\} OFFSET \$\{effectiveOffset\}/);
+
+  assert.match(arbitration, /req\.query\.type/);
+  assert.match(arbitration, /desc\(arbitrationCasesTable\.id\)/);
+  assert.match(aiTasks, /req\.query\.search/);
+  assert.match(aiTasks, /ilike\(aiTasksTable\.type/);
+  assert.match(aiTasks, /asc\(aiTasksTable\.id\)/);
+  console.log("  ✅ filter/COUNT parity + id tie-breakers + attendance 500");
 }
 
 console.log("\n═══ frontend primary consumers ═══");

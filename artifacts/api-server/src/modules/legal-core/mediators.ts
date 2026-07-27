@@ -37,7 +37,7 @@ router.get("/mediators/tasks", requireAuth, async (req: any, res) => {
     let idx = 2;
     if (category) { q += ` AND mt.category = $${idx++}`; params.push(category); }
     if (search) { q += ` AND (mt.title ILIKE $${idx++} OR mt.description ILIKE $${idx - 1})`; params.push(`%${search}%`); }
-    q += ` ORDER BY mt.created_at DESC LIMIT $${idx++} OFFSET $${idx++}`;
+    q += ` ORDER BY mt.created_at DESC, mt.id DESC LIMIT $${idx++} OFFSET $${idx++}`;
     params.push(limit, offset);
     const pgResult = await (db as any).$client.query(q, params);
     const rows = pgResult.rows ?? [];
@@ -67,7 +67,7 @@ router.get("/mediators/my-tasks", requireAuth, async (req: any, res) => {
              (SELECT COUNT(*) FROM mediator_applications WHERE task_id = mt.id) AS application_count
       FROM mediator_tasks mt
       WHERE mt.office_id = ${officeId}
-      ORDER BY mt.created_at DESC
+      ORDER BY mt.created_at DESC, mt.id DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
     if (!paginated) return res.json(rows);

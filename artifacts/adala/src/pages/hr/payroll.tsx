@@ -56,12 +56,13 @@ export default function Payroll() {
   const qc = useQueryClient();
 
   const { data: pageRes, isLoading } = useQuery<PayrollPageResponse>({
-    queryKey: ["payroll", page],
+    queryKey: ["payroll", page, monthFilter],
     queryFn: async () => {
       const p = new URLSearchParams({
         page: String(page),
         limit: String(LEGAL_LIST_PAGE_SIZE),
       });
+      if (monthFilter !== "all") p.set("month", monthFilter);
       const r = await authFetch(`${BASE}/api/hr/payroll?${p}`);
       if (!r.ok) throw new Error("خطأ في الخادم");
       const json = await r.json();
@@ -101,10 +102,8 @@ export default function Payroll() {
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
-  const months = [...new Set(payroll.map(p => p.month))];
-  const filtered = payroll.filter(p => monthFilter === "all" || p.month === monthFilter);
-  const draftCount = filtered.filter(p => p.status === "draft").length;
-  const totalNet = filtered.reduce((s, p) => s + parseFloat(String(p.netSalary || "0")), 0);
+  const draftCount = payroll.filter(p => p.status === "draft").length;
+  const totalNet = payroll.reduce((s, p) => s + parseFloat(String(p.netSalary || "0")), 0);
 
   return (
     <div className="space-y-6">
@@ -117,7 +116,7 @@ export default function Payroll() {
           <PrintButton label="طباعة الكشف">
             <DocumentPrintTemplate
               title="كشف الرواتب"
-              subtitle={`${monthFilter !== "all" ? monthFilter : "جميع الشهور"} — ${filtered.length} موظف`}
+              subtitle={`${monthFilter !== "all" ? monthFilter : "جميع الشهور"} — ${listTotal} موظف`}
               date={new Date().toLocaleDateString("ar-EG")}
               showStamp
               showSignature
@@ -131,7 +130,7 @@ export default function Payroll() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((p: any, i: number) => (
+                  {payroll.map((p: any, i: number) => (
                     <tr key={p.id} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
                       <td style={{ border: "1px solid #ddd", padding: "6px 8px" }}><div style={{ fontWeight: 600 }}>{p.employeeName}</div><div style={{ fontSize: "10px", color: "#888" }}>{p.jobTitle}</div></td>
                       <td style={{ border: "1px solid #ddd", padding: "6px 8px" }}>{p.month} {p.year}</td>
@@ -188,7 +187,7 @@ export default function Payroll() {
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="الشهر" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">كل الشهور</SelectItem>
-            {months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+            {MONTHS_AR.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
           </SelectContent>
         </Select>
         {draftCount > 0 && (
@@ -216,12 +215,12 @@ export default function Payroll() {
               <tbody>
                 {isLoading ? (
                   <tr><td colSpan={9} className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></td></tr>
-                ) : filtered.length === 0 ? (
+                ) : payroll.length === 0 ? (
                   <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">
                     <DollarSign className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     لا توجد بيانات — قم بتوليد كشف الرواتب
                   </td></tr>
-                ) : filtered.map((p: any) => {
+                ) : payroll.map((p: any) => {
                   const s = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.draft;
                   const StatusIcon = s.icon;
                   return (
@@ -268,18 +267,18 @@ export default function Payroll() {
         </CardContent>
       </Card>
 
-      {/* Breakdown (if filtered month) */}
-      {filtered.length > 0 && (
+      {/* Breakdown (current page) */}
+      {payroll.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /> ملخص كشف الرواتب</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /> ملخص الصفحة الحالية</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               {[
-                { label: "إجمالي الرواتب الأساسية", value: filtered.reduce((s, p) => s + parseFloat(String(p.baseSalary || "0")), 0), color: "#6366F1" },
-                { label: "إجمالي البدلات", value: filtered.reduce((s, p) => s + parseFloat(String(p.allowances || "0")), 0), color: "#10B981" },
-                { label: "إجمالي التأمينات", value: filtered.reduce((s, p) => s + parseFloat(String(p.gosi || "0")), 0), color: "#F97316" },
+                { label: "إجمالي الرواتب الأساسية", value: payroll.reduce((s, p) => s + parseFloat(String(p.baseSalary || "0")), 0), color: "#6366F1" },
+                { label: "إجمالي البدلات", value: payroll.reduce((s, p) => s + parseFloat(String(p.allowances || "0")), 0), color: "#10B981" },
+                { label: "إجمالي التأمينات", value: payroll.reduce((s, p) => s + parseFloat(String(p.gosi || "0")), 0), color: "#F97316" },
                 { label: "إجمالي الصافي", value: totalNet, color: "#2563EB" },
               ].map(s => (
                 <div key={s.label} className="text-center p-3 bg-muted/30 rounded-xl">
@@ -290,10 +289,10 @@ export default function Payroll() {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs mb-1">
-                <span>نسبة الصرف</span>
-                <span className="font-bold text-primary">{filtered.length > 0 ? Math.round((filtered.filter(p => p.status === "paid").length / filtered.length) * 100) : 0}%</span>
+                <span>نسبة الصرف (الصفحة)</span>
+                <span className="font-bold text-primary">{payroll.length > 0 ? Math.round((payroll.filter(p => p.status === "paid").length / payroll.length) * 100) : 0}%</span>
               </div>
-              <Progress value={filtered.length > 0 ? (filtered.filter(p => p.status === "paid").length / filtered.length) * 100 : 0} className="h-2" />
+              <Progress value={payroll.length > 0 ? (payroll.filter(p => p.status === "paid").length / payroll.length) * 100 : 0} className="h-2" />
             </div>
           </CardContent>
         </Card>

@@ -2,7 +2,7 @@
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db, aiTasksTable, casesTable } from "@workspace/db";
-import { and, eq, sql, asc, count, inArray } from "drizzle-orm";
+import { and, eq, sql, asc, count, inArray, or, ilike } from "drizzle-orm";
 import { ListAiTasksQueryParams, CreateAiTaskBody } from "@workspace/api-zod";
 import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
 
@@ -12,10 +12,20 @@ router.get("/tasks", requireAuthWithTenant, async (req, res) => {
   try {
     const query = ListAiTasksQueryParams.parse(req.query);
     const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+    const search =
+      typeof req.query.search === "string" && req.query.search.trim()
+        ? req.query.search.trim()
+        : null;
 
     const where = and(
       query.status ? eq(aiTasksTable.status, query.status) : sql`true`,
       query.caseId ? eq(aiTasksTable.caseId, query.caseId) : sql`true`,
+      search
+        ? or(
+            ilike(aiTasksTable.type, `%${search}%`),
+            ilike(aiTasksTable.inputText, `%${search}%`),
+          )
+        : sql`true`,
     );
 
     /*
@@ -25,7 +35,7 @@ router.get("/tasks", requireAuthWithTenant, async (req, res) => {
     const [tasks, aggRow] = await Promise.all([
       db.select().from(aiTasksTable)
         .where(where)
-        .orderBy(asc(aiTasksTable.createdAt))
+        .orderBy(asc(aiTasksTable.createdAt), asc(aiTasksTable.id))
         .limit(limit)
         .offset(offset),
       db.select({ total: count() }).from(aiTasksTable).where(where)

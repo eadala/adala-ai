@@ -43,16 +43,33 @@ router.get("/accounting/revenues", requireAuthWithTenant, async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+    const search =
+      typeof req.query.search === "string" && req.query.search.trim()
+        ? req.query.search.trim()
+        : null;
+    const category =
+      typeof req.query.category === "string" && req.query.category && req.query.category !== "all"
+        ? req.query.category
+        : null;
+    const searchCond = search
+      ? sql`AND (
+          COALESCE(title, '') ILIKE ${"%" + search + "%"}
+          OR COALESCE(category, '') ILIKE ${"%" + search + "%"}
+        )`
+      : sql``;
+    const categoryCond = category ? sql`AND category = ${category}` : sql``;
     const data = await sqlExec(sql`
       SELECT * FROM revenues
       WHERE office_id = ${tenantId} AND deleted_at IS NULL
-      ORDER BY date DESC, created_at DESC
+        ${searchCond} ${categoryCond}
+      ORDER BY date DESC, created_at DESC, id DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
     if (!paginated) return res.json(data);
     const countRow = await sqlOne(sql`
       SELECT COUNT(*)::int AS total FROM revenues
       WHERE office_id = ${tenantId} AND deleted_at IS NULL
+        ${searchCond} ${categoryCond}
     `);
     res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch { res.status(500).json({ error: "خطأ في جلب الإيرادات" }); }
@@ -143,16 +160,33 @@ router.get("/accounting/expenses", requireAuthWithTenant, async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+    const search =
+      typeof req.query.search === "string" && req.query.search.trim()
+        ? req.query.search.trim()
+        : null;
+    const category =
+      typeof req.query.category === "string" && req.query.category && req.query.category !== "all"
+        ? req.query.category
+        : null;
+    const searchCond = search
+      ? sql`AND (
+          COALESCE(title, '') ILIKE ${"%" + search + "%"}
+          OR COALESCE(category, '') ILIKE ${"%" + search + "%"}
+        )`
+      : sql``;
+    const categoryCond = category ? sql`AND category = ${category}` : sql``;
     const data = await sqlExec(sql`
       SELECT * FROM expenses
       WHERE office_id = ${tenantId} AND deleted_at IS NULL
-      ORDER BY date DESC, created_at DESC
+        ${searchCond} ${categoryCond}
+      ORDER BY date DESC, created_at DESC, id DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
     if (!paginated) return res.json(data);
     const countRow = await sqlOne(sql`
       SELECT COUNT(*)::int AS total FROM expenses
       WHERE office_id = ${tenantId} AND deleted_at IS NULL
+        ${searchCond} ${categoryCond}
     `);
     res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch { res.status(500).json({ error: "خطأ في جلب المصروفات" }); }
@@ -302,16 +336,23 @@ router.get("/accounting/advances", requireAuthWithTenant, async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
     const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+    const status =
+      typeof req.query.status === "string" && req.query.status && req.query.status !== "all"
+        ? req.query.status
+        : null;
+    const statusCond = status ? sql`AND status = ${status}` : sql``;
     const data = await sqlExec(sql`
       SELECT * FROM cash_advances
       WHERE office_id = ${tenantId}
-      ORDER BY date DESC
+        ${statusCond}
+      ORDER BY date DESC, id DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
     if (!paginated) return res.json(data);
     const countRow = await sqlOne(sql`
       SELECT COUNT(*)::int AS total FROM cash_advances
       WHERE office_id = ${tenantId}
+        ${statusCond}
     `);
     res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch { res.status(500).json({ error: "خطأ في جلب السلف" }); }

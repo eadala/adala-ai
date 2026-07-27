@@ -51,7 +51,7 @@ router.get("/reminders", requireAuthWithTenant, async (req, res) => {
       LEFT JOIN cases c ON c.id = r.case_id
       WHERE r.office_id = ${tenantId}
         ${doneCond}
-      ORDER BY r.done ASC, r.due_date ASC NULLS LAST, r.created_at DESC
+      ORDER BY r.done ASC, r.due_date ASC NULLS LAST, r.created_at DESC, r.id DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
     if (!paginated) return res.json(rows);

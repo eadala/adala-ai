@@ -5,7 +5,6 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { getAuth } from "@clerk/express";
-import { MAX_PAGE_LIMIT } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -84,7 +83,6 @@ router.get("/calendar/events", requireAuthWithTenant, async (req: Request, res: 
           AND EXTRACT(YEAR  FROM start_at) = ${y}
           AND EXTRACT(MONTH FROM start_at) = ${m}
         ORDER BY start_at ASC
-        LIMIT ${MAX_PAGE_LIMIT}
       `);
     } else {
       rows = await dbRows(sql`

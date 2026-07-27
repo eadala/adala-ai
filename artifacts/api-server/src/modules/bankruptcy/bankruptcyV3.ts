@@ -60,7 +60,7 @@ router.get("/bankruptcy/opening-requests", requireAuth, async (req: any, res) =>
       WHERE r.office_id = ${officeId}
         ${statusCond}
         ${qCond}
-      ORDER BY r.created_at DESC
+      ORDER BY r.created_at DESC, r.id DESC
       LIMIT ${limit} OFFSET ${offset}
     `));
     if (!paginated) return res.json(rows);

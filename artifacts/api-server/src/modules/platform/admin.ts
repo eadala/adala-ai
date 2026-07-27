@@ -11,7 +11,7 @@ import { eq, desc, count, sum } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
 import { getUncachableStripeClient } from "../../stripeClient";
-import { listPageEnvelope, resolveDualModePaging, MAX_PAGE_LIMIT } from "../../lib/paginationSafety";
+import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
 
 const router = Router();
 const adminOnly = requireSuperAdmin;
@@ -60,7 +60,7 @@ router.get("/admin/stats", adminOnly, async (_req, res) => {
 router.get("/admin/offices", adminOnly, async (req, res) => {
   const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
   const offices = await db.select().from(officePageTable)
-    .orderBy(desc(officePageTable.createdAt))
+    .orderBy(desc(officePageTable.createdAt), desc(officePageTable.id))
     .limit(limit)
     .offset(offset);
   if (!paginated) return res.json(offices);
@@ -106,7 +106,7 @@ router.patch("/admin/offices/:id", adminOnly, async (req, res) => {
 router.get("/admin/users", adminOnly, async (req, res) => {
   const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
   const users = await db.select().from(usersTable)
-    .orderBy(desc(usersTable.createdAt))
+    .orderBy(desc(usersTable.createdAt), desc(usersTable.id))
     .limit(limit)
     .offset(offset);
   if (!paginated) return res.json(users);
@@ -134,8 +134,7 @@ function serializeDiscount(row: typeof discountCodesTable.$inferSelect) {
 
 router.get("/admin/discounts", adminOnly, async (_req, res) => {
   const codes = await db.select().from(discountCodesTable)
-    .orderBy(desc(discountCodesTable.createdAt))
-    .limit(MAX_PAGE_LIMIT);
+    .orderBy(desc(discountCodesTable.createdAt));
   res.json(codes.map(serializeDiscount));
 });
 
@@ -302,7 +301,7 @@ router.delete("/admin/legal-systems/:id", adminOnly, async (req, res) => {
 router.get("/admin/support", adminOnly, async (req, res) => {
   const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
   const tickets = await db.select().from(supportTicketsTable)
-    .orderBy(desc(supportTicketsTable.createdAt))
+    .orderBy(desc(supportTicketsTable.createdAt), desc(supportTicketsTable.id))
     .limit(limit)
     .offset(offset);
   if (!paginated) return res.json(tickets);
@@ -691,7 +690,6 @@ router.get("/admin/tenants", adminOnly, async (_req, res) => {
           GROUP BY office_id
         ) l ON l.office_id = op.id::text
         ORDER BY op.created_at DESC
-        LIMIT ${MAX_PAGE_LIMIT}
       `),
       db.execute(sql`SELECT COUNT(*)::int AS total FROM office_page`),
     ]);

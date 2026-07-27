@@ -42,12 +42,14 @@ export default function Expenses() {
   const [delId,setDelId]=useState<string|null>(null);
 
   const {data:pageRes,isLoading}=useQuery<ExpensesPageResponse>({
-    queryKey:["accounting-expenses",page],
+    queryKey:["accounting-expenses",page,search,catFilter],
     queryFn:async()=>{
       const p=new URLSearchParams({
         page:String(page),
         limit:String(LEGAL_LIST_PAGE_SIZE),
       });
+      if(search.trim()) p.set("search",search.trim());
+      if(catFilter!=="all") p.set("category",catFilter);
       const r=await authFetch(`${BASE}/api/accounting/expenses?${p}`);
       if(!r.ok) throw new Error("خطأ في الخادم");
       const json=await r.json();
@@ -70,7 +72,13 @@ export default function Expenses() {
 
   const delMut=useMutation({
     mutationFn:(id:string)=>authFetch(`${BASE}/api/accounting/expenses/${id}`,{method:"DELETE"}).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess:()=>{qc.invalidateQueries({queryKey:["accounting-expenses"]});qc.invalidateQueries({queryKey:["accounting-summary"]});toast.success("تم الحذف");setDelId(null);},
+    onSuccess:()=>{
+      if(page>1&&rows.length<=1) setPage(p=>Math.max(1,p-1));
+      qc.invalidateQueries({queryKey:["accounting-expenses"]});
+      qc.invalidateQueries({queryKey:["accounting-summary"]});
+      toast.success("تم الحذف");
+      setDelId(null);
+    },
   });
 
   function close_(){setOpen(false);setEditing(null);setForm(empty());}
@@ -78,8 +86,7 @@ export default function Expenses() {
   function openCreate(){setEditing(null);setForm(empty());setOpen(true);}
   function set(k:string,v:string){setForm(f=>({...f,[k]:v}));}
 
-  const filtered=rows.filter(r=>catFilter==="all"||r.category===catFilter).filter(r=>!search||r.title.includes(search)||r.category.includes(search));
-  const total=filtered.reduce((s,r)=>s+parseFloat(String(r.amount||0)),0);
+  const pageTotal=rows.reduce((s,r)=>s+parseFloat(String(r.amount||0)),0);
   const thisMonth=rows.filter(r=>r.date?.startsWith(today().slice(0,7))).reduce((s,r)=>s+parseFloat(String(r.amount||0)),0);
 
   return (
@@ -97,7 +104,7 @@ export default function Expenses() {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">إجمالي المصاريف</p><p className="text-xl font-bold text-red-400">{fmt(rows.reduce((s,r)=>s+parseFloat(String(r.amount||0)),0))}</p></CardContent></Card>
           <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">مصاريف هذا الشهر</p><p className="text-xl font-bold text-primary">{fmt(thisMonth)}</p></CardContent></Card>
-          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السجلات</p><p className="text-2xl font-bold text-foreground">{rows.length}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السجلات</p><p className="text-2xl font-bold text-foreground">{listTotal}</p></CardContent></Card>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -111,13 +118,13 @@ export default function Expenses() {
           </Select>
         </div>
 
-        {filtered.length>0&&<p className="text-sm text-primary">المجموع: {fmt(total)} ({filtered.length} سجل)</p>}
+        {rows.length>0&&<p className="text-sm text-primary">مجموع الصفحة: {fmt(pageTotal)} ({rows.length} سجل)</p>}
 
         <Card className="bg-card border-border">
           <CardContent className="p-0">
             {isLoading?(
               <div className="flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ms-2"/>جارٍ التحميل...</div>
-            ):filtered.length===0?(
+            ):rows.length===0?(
               <div className="flex flex-col items-center py-14 text-muted-foreground"><TrendingDown className="h-10 w-10 mb-2 opacity-20"/><p className="text-sm">لا توجد مصاريف</p><Button size="sm" variant="link" className="text-primary mt-1" onClick={openCreate}>إضافة أول مصروف</Button></div>
             ):(
               <div className="space-y-2">
@@ -133,7 +140,7 @@ export default function Expenses() {
                       <th className="px-4 py-3 font-medium">الإجراءات</th>
                     </tr></thead>
                     <tbody>
-                      {filtered.map(r=>(
+                      {rows.map(r=>(
                         <tr key={r.id} className="border-b border-border/50 hover:bg-card-accent/30">
                           <td className="px-4 py-3 text-foreground font-medium">{r.title}</td>
                           <td className="px-4 py-3"><Badge variant="outline" className="border-red-500/30 text-red-400 text-xs">{r.category}</Badge></td>

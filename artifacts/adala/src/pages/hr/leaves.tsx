@@ -55,12 +55,13 @@ export default function Leaves() {
   const qc = useQueryClient();
 
   const { data: pageRes, isLoading } = useQuery<LeavesPageResponse>({
-    queryKey: ["leaves", page],
+    queryKey: ["leaves", page, statusFilter],
     queryFn: async () => {
       const p = new URLSearchParams({
         page: String(page),
         limit: String(LEGAL_LIST_PAGE_SIZE),
       });
+      if (statusFilter !== "all") p.set("status", statusFilter);
       const r = await authFetch(`${BASE}/api/hr/leaves?${p}`);
       if (!r.ok) throw new Error("خطأ في الخادم");
       const json = await r.json();
@@ -100,8 +101,6 @@ export default function Leaves() {
     if (!start || !end) return 0;
     return Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1;
   };
-
-  const filtered = leaves.filter(l => statusFilter === "all" || l.status === statusFilter);
 
   return (
     <div className="space-y-6">
@@ -153,14 +152,14 @@ export default function Leaves() {
       {/* Leave Cards */}
       {isLoading ? (
         <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-      ) : filtered.length === 0 ? (
+      ) : leaves.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <CalendarDays className="h-12 w-12 mx-auto mb-4 opacity-30" />
           <p>لا توجد طلبات إجازة</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((l: any) => {
+          {leaves.map((l: any) => {
             const s = STATUS_CONFIG[l.status] ?? STATUS_CONFIG.pending;
             const t = LEAVE_TYPES[l.type] ?? LEAVE_TYPES.annual;
             const StatusIcon = s.icon;

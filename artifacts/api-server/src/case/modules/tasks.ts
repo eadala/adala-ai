@@ -5,7 +5,6 @@
 
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { MAX_PAGE_LIMIT } from "../../lib/paginationSafety";
 
 export class CaseTasks {
   constructor(private readonly tenantId: string) {}
@@ -18,7 +17,6 @@ export class CaseTasks {
       WHERE case_id = ${caseId}
         AND (office_id::text = ${this.tenantId} OR office_id IS NULL)
       ORDER BY created_at DESC
-      LIMIT ${MAX_PAGE_LIMIT}
     `).catch(() => ({ rows: [] }));
     return (r as any).rows ?? (r as any) ?? [];
   }

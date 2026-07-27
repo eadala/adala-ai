@@ -265,7 +265,7 @@ router.get("/support/tickets", requireAuth, async (req: Request, res: Response) 
         ${category ? sql`AND t.category = ${category}` : sql``}
         ${search ? sql`AND (t.subject ILIKE ${"%" + search + "%"} OR t.body ILIKE ${"%" + search + "%"})` : sql``}
       GROUP BY t.id, aa.ticket_id, aa.ai_type, aa.ai_priority, aa.ai_summary, aa.ai_confidence, aa.model_used
-      ORDER BY t.created_at DESC
+      ORDER BY t.created_at DESC, t.id DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
 

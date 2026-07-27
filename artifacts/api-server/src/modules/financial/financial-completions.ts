@@ -255,7 +255,7 @@ router.get("/accounting/credit-notes", requireAuthWithTenant, async (req: Reques
       FROM credit_notes cn
       LEFT JOIN client_invoices ci ON ci.id::text = cn.original_invoice_id
       WHERE cn.office_id = ${tenantId}
-      ORDER BY cn.issued_at DESC
+      ORDER BY cn.issued_at DESC, cn.id DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
     if (!paginated) return res.json(data);

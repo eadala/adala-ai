@@ -3,7 +3,6 @@ import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAut
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { MAX_PAGE_LIMIT } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -180,7 +179,6 @@ router.get("/hr-perf/evaluations", requireAuthWithTenant, async (req, res) => {
       FROM performance_evaluations pe
       INNER JOIN employees e ON pe.employee_id = e.id::text AND e.office_id = ${tid}
       ORDER BY pe.created_at DESC
-      LIMIT ${MAX_PAGE_LIMIT}
     `);
     res.json(rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -255,7 +253,6 @@ router.get("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
       FROM employee_incentives ei
       INNER JOIN employees e ON ei.employee_id = e.id::text AND e.office_id = ${tid}
       ORDER BY ei.created_at DESC
-      LIMIT ${MAX_PAGE_LIMIT}
     `);
     res.json(rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }

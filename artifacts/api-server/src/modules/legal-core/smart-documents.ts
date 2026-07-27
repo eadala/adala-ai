@@ -101,7 +101,7 @@ router.get("/smart-documents", requireAuthWithTenant, async (req, res) => {
                  uploaded_by, notes, created_at
           FROM   smart_documents
           WHERE  office_id = ${tenantId} ${filter}
-          ORDER  BY created_at DESC
+          ORDER  BY created_at DESC, id DESC
           LIMIT ${limit} OFFSET ${offset}`,
     );
 

@@ -31,10 +31,17 @@ router.get("/arbitration/cases", requireAuthWithTenant, async (req, res) => {
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
     const tenantId = (req as any).tenantId as string;
     const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
-    const where = drizzleSql`office_id = ${tenantId}`;
+    const type =
+      typeof req.query.type === "string" && req.query.type && req.query.type !== "all"
+        ? req.query.type
+        : null;
+    const where = and(
+      drizzleSql`office_id = ${tenantId}`,
+      type ? eq(arbitrationCasesTable.type, type) : undefined,
+    );
     const cases = await db.select().from(arbitrationCasesTable)
       .where(where)
-      .orderBy(desc(arbitrationCasesTable.createdAt))
+      .orderBy(desc(arbitrationCasesTable.createdAt), desc(arbitrationCasesTable.id))
       .limit(limit)
       .offset(offset);
     if (!paginated) return res.json(cases);

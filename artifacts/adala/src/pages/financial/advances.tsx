@@ -46,12 +46,13 @@ export default function Advances() {
   const [page, setPage] = useState(1);
 
   const { data: pageRes, isLoading } = useQuery<AdvancesPageResponse>({
-    queryKey: ["accounting-advances", page],
+    queryKey: ["accounting-advances", page, filterStatus],
     queryFn: async () => {
       const p = new URLSearchParams({
         page: String(page),
         limit: String(LEGAL_LIST_PAGE_SIZE),
       });
+      if (filterStatus !== "all") p.set("status", filterStatus);
       const r = await authFetch(`${BASE}/api/accounting/advances?${p}`);
       if (!r.ok) throw new Error("خطأ في الخادم");
       const json = await r.json();
@@ -82,12 +83,15 @@ export default function Advances() {
 
   const delMut = useMutation({
     mutationFn: (id: string) => authFetch(`${BASE}/api/accounting/advances/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounting-advances"] }); toast.success("تم الحذف"); },
+    onSuccess: () => {
+      if (page > 1 && rows.length <= 1) setPage(p => Math.max(1, p - 1));
+      qc.invalidateQueries({ queryKey: ["accounting-advances"] });
+      toast.success("تم الحذف");
+    },
   });
 
   function set(k: string, v: any) { setForm(f => ({ ...f, [k]: v })); }
 
-  const filtered = rows.filter(r => filterStatus === "all" || r.status === filterStatus);
   const totalAdvances = rows.reduce((s, r) => s + parseFloat(String(r.amount || 0)), 0);
   const totalRepaid = rows.reduce((s, r) => s + parseFloat(String(r.amountRepaid || 0)), 0);
   const outstanding = totalAdvances - totalRepaid;
@@ -106,7 +110,7 @@ export default function Advances() {
           <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">إجمالي السلف</p><p className="text-xl font-bold text-foreground">{fmt(totalAdvances)}</p></CardContent></Card>
           <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">المسدد</p><p className="text-xl font-bold text-green-400">{fmt(totalRepaid)}</p></CardContent></Card>
           <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">القائم</p><p className="text-xl font-bold text-primary">{fmt(outstanding)}</p></CardContent></Card>
-          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السلف</p><p className="text-2xl font-bold text-foreground">{rows.length}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السلف</p><p className="text-2xl font-bold text-foreground">{listTotal}</p></CardContent></Card>
         </div>
 
         {/* Status filter */}
@@ -121,11 +125,11 @@ export default function Advances() {
 
         {isLoading ? (
           <div className="flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ms-2" />جارٍ التحميل...</div>
-        ) : filtered.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="flex flex-col items-center py-14 text-muted-foreground"><Wallet className="h-10 w-10 mb-2 opacity-20" /><p className="text-sm">لا توجد سلف</p></div>
         ) : (
           <div className="space-y-2">
-            {filtered.map(r => {
+            {rows.map(r => {
               const st = STATUS_MAP[r.status] ?? STATUS_MAP.pending;
               const StIcon = st.icon;
               const pct = parseFloat(String(r.amount||0)) > 0 ? (parseFloat(String(r.amountRepaid||0)) / parseFloat(String(r.amount))) * 100 : 0;
