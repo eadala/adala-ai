@@ -48,6 +48,7 @@ type UsersPageResponse = {
   page: number;
   limit: number;
   pages: number;
+  stats?: { active: number };
 };
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -724,6 +725,7 @@ export default function Users() {
   });
   const users = usersPage?.data ?? [];
   const usersTotal = Number(usersPage?.total ?? 0);
+  const usersActive = Number(usersPage?.stats?.active ?? 0);
   const { data: roles = [], isLoading: rolesLoading } = useRoles();
   const { data: invitations = [], isLoading: invitationsLoading } = useInvitations();
   const { data: auditLogs = [], isLoading: auditLoading } = useAuditLogs();
@@ -820,7 +822,7 @@ export default function Users() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "إجمالي الأعضاء",    value: usersTotal,                                          icon: UsersIcon,  color: "#6366F1" },
-          { label: "أعضاء نشطون",       value: users.filter(u => u.status === "active").length,       icon: UserCheck,  color: "#10B981" },
+          { label: "أعضاء نشطون",       value: usersActive,                                         icon: UserCheck,  color: "#10B981" },
           { label: "الأدوار المُعرَّفة", value: roles.length,                                                icon: Key,        color: "#2563EB" },
           { label: "دعوات معلقة",       value: pendingInvitations,                                          icon: Send,       color: "#F59E0B" },
         ].map(stat => (

@@ -32,13 +32,22 @@ router.get("/users", requireAuthWithTenant, async (req, res) => {
 
     const where = and(searchCond);
 
-    const [users, countRow] = await Promise.all([
+    /*
+     * NOTE (tracked separately — do not fix here):
+     * GET /api/users has no office_id / tenant filter and no GET-specific
+     * requirePermission check. Pre-existing authorization gap.
+     */
+    const [users, aggRow] = await Promise.all([
       db.select().from(usersTable)
         .where(where)
         .orderBy(asc(usersTable.createdAt))
         .limit(limit)
         .offset(offset),
-      db.select({ total: sql<number>`count(*)::int` }).from(usersTable).where(where)
+      /* Same search/visibility predicates as the list; active is full-dataset. */
+      db.select({
+        total: sql<number>`count(*)::int`,
+        active: sql<number>`count(*) FILTER (WHERE ${usersTable.status} = 'active')::int`,
+      }).from(usersTable).where(where)
         .then((rows) => rows[0]),
     ]);
 
@@ -49,13 +58,15 @@ router.get("/users", requireAuthWithTenant, async (req, res) => {
       return;
     }
 
-    const total = Number(countRow?.total ?? 0);
+    const total = Number(aggRow?.total ?? 0);
+    const active = Number(aggRow?.active ?? 0);
     res.json({
       data: mapped,
       total,
       page,
       limit,
       pages: Math.max(1, Math.ceil(total / limit)),
+      stats: { active },
     });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

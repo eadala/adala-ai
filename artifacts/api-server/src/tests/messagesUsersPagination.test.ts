@@ -69,8 +69,38 @@ console.log("\n═══ backend wiring ═══");
   assert.match(users, /orderBy\(asc\(usersTable\.createdAt\)\)/);
   assert.match(users, /res\.json\(mapped\)/);
   assert.match(users, /data: mapped/);
+  /* Active aggregate must use FILTER (full filtered set), not page slice. */
+  assert.match(
+    users,
+    /count\(\*\) FILTER \(WHERE \$\{usersTable\.status\} = 'active'\)::int/,
+  );
+  assert.match(users, /stats:\s*\{\s*active\s*\}/);
+  assert.match(users, /\.from\(usersTable\)\.where\(where\)/);
 
   console.log("  ✅ messages/conversations/users use helper + SQL bounds");
+}
+
+console.log("\n═══ users active-stat aggregate (not page-local) ═══");
+{
+  const users = read("modules/platform/users.ts");
+  const usersPage = readAdala("pages/platform/users.tsx");
+
+  /* Backend: active count shares the same `where` as list + total. */
+  assert.match(users, /active: sql<number>`count\(\*\) FILTER/);
+  assert.doesNotMatch(
+    users,
+    /stats:[\s\S]*users\.filter|active:[\s\S]*\.length/,
+  );
+
+  /* Frontend must consume backend stats, not page.data filter. */
+  assert.match(usersPage, /usersPage\?\.stats\?\.active/);
+  assert.match(usersPage, /usersActive/);
+  assert.doesNotMatch(
+    usersPage,
+    /users\.filter\(u\s*=>\s*u\.status\s*===\s*"active"\)\.length/,
+  );
+
+  console.log("  ✅ active count is DB aggregate over full filtered set");
 }
 
 console.log("\n═══ frontend consumers ═══");
