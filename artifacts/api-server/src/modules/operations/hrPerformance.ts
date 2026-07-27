@@ -3,6 +3,14 @@ import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAut
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import {
+  buildSmartPayrollPreview,
+  incentiveAggToMap,
+  selectLatestEvaluationsByEmployee,
+  type SmartPayrollEmployee,
+  type SmartPayrollEvaluation,
+  type SmartPayrollIncentiveAgg,
+} from "../../lib/hrSmartPayroll";
 
 const router = Router();
 
@@ -120,28 +128,6 @@ async function getSettings(): Promise<Record<string, number>> {
   const m: Record<string, number> = {};
   for (const r of rows) m[r.key] = parseFloat(r.val);
   return m;
-}
-
-function calcSalary(baseSalary: number, score: number, ev: any, cfg: Record<string, number>) {
-  let bonus = 0;
-  let deduction = 0;
-
-  if (score >= cfg.threshold_excellent)  bonus = baseSalary * cfg.bonus_rate_excellent;
-  else if (score >= cfg.threshold_good)  bonus = baseSalary * cfg.bonus_rate_good;
-  else if (score >= cfg.threshold_above_avg) bonus = baseSalary * cfg.bonus_rate_above_avg;
-
-  if ((ev.late_days ?? 0) > cfg.deduct_late_threshold)
-    deduction += baseSalary * cfg.deduct_late_rate;
-  if ((ev.absent_days ?? 0) > cfg.deduct_absent_threshold)
-    deduction += baseSalary * cfg.deduct_absent_rate;
-  if (score < cfg.deduct_poor_threshold)
-    deduction += baseSalary * cfg.deduct_poor_rate;
-
-  const gosi = baseSalary * cfg.gosi_rate;
-  const allowance = baseSalary * cfg.allowance_rate;
-  const net = Math.max(0, baseSalary + allowance + bonus - deduction - gosi);
-
-  return { baseSalary, allowance, bonus, deduction, gosi, net, score };
 }
 
 /* ══════════════════════════════════════════════
@@ -289,65 +275,92 @@ router.delete("/hr-perf/incentives/:id", requireAuthWithTenant, async (req, res)
 });
 
 /* ══════════════════════════════════════════════
-   ROUTES — SMART PAYROLL SIMULATION
+   ROUTES — SMART PAYROLL SIMULATION (set-based)
 ══════════════════════════════════════════════ */
 router.get("/hr-perf/smart-payroll/preview", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   const tenantId = (req as any).tenantId as string;
   try {
     const { period } = req.query as { period?: string };
+    const periodFilter =
+      typeof period === "string" && period.trim() ? period.trim() : null;
+
     const cfg = await getSettings();
-    const employees = await sqlAll(sql`SELECT * FROM employees WHERE status = 'active' AND office_id = ${tenantId} ORDER BY full_name`);
 
-    const results = [];
-    for (const emp of employees) {
-      const baseSalary = parseFloat(String(emp.salary || "0"));
+    /* 1) Active tenant employees */
+    const employees = (await sqlAll(sql`
+      SELECT id, full_name, job_title, department, salary, office_id, status
+      FROM employees
+      WHERE status = 'active' AND office_id = ${tenantId}
+      ORDER BY full_name
+    `)) as SmartPayrollEmployee[];
 
-      /* get latest evaluation for this period or latest */
-      const ev = period
-        ? await sqlOne(sql`SELECT * FROM performance_evaluations WHERE employee_id = ${emp.id}::text AND period = ${period} ORDER BY created_at DESC LIMIT 1`)
-        : await sqlOne(sql`SELECT * FROM performance_evaluations WHERE employee_id = ${emp.id}::text ORDER BY created_at DESC LIMIT 1`);
+    /* 2) Latest evaluation per employee (deterministic: created_at DESC, id DESC) */
+    const evaluations = (await sqlAll(sql`
+      SELECT DISTINCT ON (pe.employee_id)
+        pe.id,
+        pe.employee_id,
+        pe.performance_score,
+        pe.late_days,
+        pe.absent_days,
+        pe.period,
+        pe.created_at
+      FROM performance_evaluations pe
+      INNER JOIN employees e
+        ON pe.employee_id = e.id::text
+       AND e.office_id = ${tenantId}
+       AND e.status = 'active'
+      WHERE 1=1
+        ${periodFilter ? sql`AND pe.period = ${periodFilter}` : sql``}
+      ORDER BY pe.employee_id, pe.created_at DESC, pe.id DESC
+    `)) as SmartPayrollEvaluation[];
 
-      const score = ev ? parseFloat(String(ev.performance_score)) : 75; /* default 75 */
-      const evData = ev ?? { late_days: 0, absent_days: 0 };
-      const calc = calcSalary(baseSalary, score, evData, cfg);
+    /* 3–4) Grouped incentive aggregates — no per-row joins into employees list */
+    const bonusRows = (await sqlAll(sql`
+      SELECT ei.employee_id, COALESCE(SUM(ei.amount), 0)::numeric AS total
+      FROM employee_incentives ei
+      INNER JOIN employees e
+        ON ei.employee_id = e.id::text
+       AND e.office_id = ${tenantId}
+       AND e.status = 'active'
+      WHERE ei.type = 'bonus'
+        ${periodFilter ? sql`AND ei.period = ${periodFilter}` : sql``}
+      GROUP BY ei.employee_id
+    `)) as SmartPayrollIncentiveAgg[];
 
-      /* get manual incentives */
-      const manualBonuses = await sqlAll(sql`
-        SELECT SUM(amount)::numeric as total FROM employee_incentives
-        WHERE employee_id = ${emp.id}::text AND type = 'bonus'
-        ${period ? sql`AND period = ${period}` : sql``}
-      `);
-      const manualDeductions = await sqlAll(sql`
-        SELECT SUM(amount)::numeric as total FROM employee_incentives
-        WHERE employee_id = ${emp.id}::text AND type = 'deduction'
-        ${period ? sql`AND period = ${period}` : sql``}
-      `);
+    const deductionRows = (await sqlAll(sql`
+      SELECT ei.employee_id, COALESCE(SUM(ei.amount), 0)::numeric AS total
+      FROM employee_incentives ei
+      INNER JOIN employees e
+        ON ei.employee_id = e.id::text
+       AND e.office_id = ${tenantId}
+       AND e.status = 'active'
+      WHERE ei.type = 'deduction'
+        ${periodFilter ? sql`AND ei.period = ${periodFilter}` : sql``}
+      GROUP BY ei.employee_id
+    `)) as SmartPayrollIncentiveAgg[];
 
-      const extraBonus = parseFloat(String((manualBonuses[0]?.total) ?? 0));
-      const extraDeduction = parseFloat(String((manualDeductions[0]?.total) ?? 0));
-      const finalNet = Math.max(0, calc.net + extraBonus - extraDeduction);
+    const preview = buildSmartPayrollPreview({
+      employees,
+      evaluationsByEmployee: selectLatestEvaluationsByEmployee(evaluations, periodFilter),
+      bonusByEmployee: incentiveAggToMap(
+        bonusRows.map((r) => ({
+          employee_id: String(r.employee_id),
+          total: parseFloat(String(r.total ?? 0)) || 0,
+        })),
+      ),
+      deductionByEmployee: incentiveAggToMap(
+        deductionRows.map((r) => ({
+          employee_id: String(r.employee_id),
+          total: parseFloat(String(r.total ?? 0)) || 0,
+        })),
+      ),
+      cfg,
+      period: periodFilter,
+      tenantId,
+    });
 
-      results.push({
-        employeeId: String(emp.id),
-        employeeName: emp.full_name,
-        jobTitle: emp.job_title,
-        department: emp.department,
-        baseSalary: calc.baseSalary,
-        allowance: calc.allowance,
-        performanceBonus: calc.bonus,
-        manualBonus: extraBonus,
-        deduction: calc.deduction + extraDeduction,
-        gosi: calc.gosi,
-        netSalary: finalNet,
-        performanceScore: score,
-        hasEvaluation: !!ev,
-      });
-    }
-
-    const totalNet = results.reduce((s, r) => s + r.netSalary, 0);
-    const avgScore = results.length > 0 ? results.reduce((s, r) => s + r.performanceScore, 0) / results.length : 0;
-    res.json({ employees: results, totalNet, avgScore: Math.round(avgScore), period: period ?? "latest" });
+    res.json(preview);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
