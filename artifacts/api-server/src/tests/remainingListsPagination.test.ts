@@ -126,7 +126,7 @@ const dualFiles: Array<{ name: string; path: string; markers: RegExp[] }> = [
       /\/admin\/offices/,
       /\/admin\/users/,
       /\/admin\/support/,
-      /LIMIT 200/,
+      /desc\(officePageTable\.id\)|orderBy\(desc\([^)]+createdAt\),\s*desc\([^)]+\.id\)/,
     ],
   },
 ];
@@ -221,8 +221,10 @@ console.log("\n═══ filter + COUNT parity (accounting / HR / arbitration / 
     hr.indexOf('router.get("/hr/attendance"'),
     hr.indexOf('router.get("/hr/attendance/stats"'),
   );
-  assert.match(attBlock, /effectiveLimit = paginated \? limit : 500/);
+  assert.match(attBlock, /dualModeEffectiveBounds/);
+  assert.match(attBlock, /500/);
   assert.match(attBlock, /LIMIT \$\{effectiveLimit\} OFFSET \$\{effectiveOffset\}/);
+  assert.match(attBlock, /ORDER BY a\.created_at DESC, a\.id DESC/);
 
   assert.match(arbitration, /req\.query\.type/);
   assert.match(arbitration, /desc\(arbitrationCasesTable\.id\)/);
@@ -252,6 +254,24 @@ console.log("\n═══ frontend primary consumers ═══");
     assert.match(src, /LEGAL_LIST_PAGE_SIZE/, `${p} page size`);
     assert.match(src, /page:\s*String\(/, `${p} page param`);
   }
+  /* Server-side filters must be sent; list rows must not be re-filtered by search/category/status. */
+  const revenues = readAdala("pages/financial/revenues.tsx");
+  assert.match(revenues, /p\.set\("search"/);
+  assert.match(revenues, /p\.set\("category"/);
+  assert.doesNotMatch(revenues, /catFilter==="all"\s*\|\|/);
+  assert.doesNotMatch(revenues, /r\.title\.includes\(search\)/);
+
+  const leaves = readAdala("pages/hr/leaves.tsx");
+  assert.match(leaves, /p\.set\("status"/);
+  assert.doesNotMatch(leaves, /leaves\.filter\(/);
+
+  const warnings = readAdala("pages/legal-core/warnings.tsx");
+  assert.match(warnings, /p\.set\("search"/);
+  assert.doesNotMatch(warnings, /filteredW|warnings\.filter\(/);
+
+  const aiTasks = readAdala("pages/ai/ai-tasks.tsx");
+  assert.match(aiTasks, /p\.set\("search"/);
+  assert.doesNotMatch(aiTasks, /tasks\.filter\(/);
   /* Pickers must still omit page+limit (soft-cap array). */
   const attendance = readAdala("pages/hr/attendance.tsx");
   assert.match(attendance, /authFetch\("\/api\/hr\/employees"\)/);

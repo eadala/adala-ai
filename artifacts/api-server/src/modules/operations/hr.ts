@@ -10,7 +10,11 @@ import { requireAuthWithTenant, requirePermission } from "../../middlewares/requ
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
+import {
+  dualModeEffectiveBounds,
+  listPageEnvelope,
+  resolveDualModePaging,
+} from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -161,8 +165,10 @@ router.get("/hr/attendance", requireAuthWithTenant, async (req, res) => {
   const { employeeId, date } = req.query as Record<string, string>;
   try {
     const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
-    const effectiveLimit = paginated ? limit : 500;
-    const effectiveOffset = paginated ? offset : 0;
+    const { limit: effectiveLimit, offset: effectiveOffset } = dualModeEffectiveBounds(
+      { paginated, limit, offset },
+      500,
+    );
     const filters = sql`
       WHERE 1=1
         ${employeeId ? sql`AND a.employee_id = ${employeeId}::uuid` : sql``}
