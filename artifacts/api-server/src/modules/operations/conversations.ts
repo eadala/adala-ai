@@ -9,6 +9,10 @@ import {
   parsePageLimit,
   queryHasPageAndLimit,
 } from "../../lib/paginationSafety";
+import {
+  buildConversationMemberRows,
+  resolveUniqueMemberIds,
+} from "../../lib/conversationMemberCreate";
 
 const router = Router();
 
@@ -73,18 +77,36 @@ router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
     RETURNING *
   `))[0];
 
-  const allIds: string[] = [...new Set<string>([userId, ...otherMembers])];
-  for (const uid of allIds) {
-    const role = uid === userId ? "admin" : "member";
-    const nameRow = sqlRows(await db.execute(sql`
-      SELECT COALESCE(full_name, first_name, email) AS name FROM users WHERE id = ${uid} LIMIT 1
-    `))[0];
-    const uname = nameRow?.name ?? uid;
+  /* Set-based members: one name lookup + one bulk INSERT (no per-member loop). */
+  const allIds = resolveUniqueMemberIds(userId, otherMembers);
+  const nameRows = sqlRows(await db.execute(sql`
+    SELECT id, COALESCE(full_name, first_name, email) AS name
+    FROM users
+    WHERE id = ANY(${allIds}::text[])
+  `)).map((r: any) => ({ id: String(r.id), name: r.name == null ? null : String(r.name) }));
+
+  const memberRows = buildConversationMemberRows({
+    conversationId: String(convRow.id),
+    officeId: String(tenantId),
+    creatorId: userId,
+    memberIds: otherMembers,
+    nameRows,
+  });
+
+  if (memberRows.length > 0) {
+    const userIds = memberRows.map((r) => r.user_id);
+    const userNames = memberRows.map((r) => r.user_name);
+    const roles = memberRows.map((r) => r.role);
     await db.execute(sql`
       INSERT INTO conversation_members (conversation_id, office_id, user_id, user_name, role)
-      VALUES (${convRow.id}::uuid, ${tenantId}, ${uid}, ${uname}, ${role})
+      SELECT ${String(convRow.id)}::uuid, ${tenantId}, t.user_id, t.user_name, t.role
+      FROM unnest(
+        ${userIds}::text[],
+        ${userNames}::text[],
+        ${roles}::text[]
+      ) AS t(user_id, user_name, role)
       ON CONFLICT (conversation_id, user_id) DO NOTHING
-    `).catch(() => {});
+    `);
   }
 
   return res.json({ conversation: convRow });
