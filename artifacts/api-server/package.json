@@ -25,6 +25,7 @@
     "test:messages-users-pagination": "node --import tsx src/tests/messagesUsersPagination.test.ts",
     "test:remaining-lists-pagination": "node --import tsx src/tests/remainingListsPagination.test.ts",
     "test:remaining-lists-pagination-runtime": "node --import tsx src/tests/remainingListsPagination.runtime.test.ts",
+    "test:hr-leave-balances": "node --import tsx src/tests/hrLeaveBalances.runtime.test.ts",
     "test:post-migration": "node --import tsx src/tests/postMigrationApiFixes.test.ts",
     "test:offices-my": "node --import tsx src/tests/officesMy.test.ts",
     "test:metrics-vitals": "node --import tsx src/tests/metricsBeaconPath.test.ts && node --import tsx src/tests/metricsVitals.integration.test.ts",
