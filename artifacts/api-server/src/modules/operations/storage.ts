@@ -18,6 +18,7 @@ import {
   storageRegisterErrorResponse,
 } from "../../lib/storageFileRegister";
 import { createStorageFolder } from "../../lib/storageFolderCreate";
+import { filterVisibleFolders } from "../../lib/storageFolderListAccess";
 import { logEndpointError } from "../../lib/endpointErrorLog";
 import {
   entityIdFromCanonicalKey,
@@ -743,7 +744,7 @@ router.get("/storage/ai-analysis", requireAuthWithTenant, async (req, res) => {
    FOLDER MANAGEMENT  (permissions-enforced)
 ══════════════════════════════════════════════════ */
 
-/* LIST folders — returns only folders the user can read */
+/* LIST folders — returns only folders the user can read (set-based ACL; O(1) queries) */
 router.get("/storage/folders", requireAuthWithTenant, async (req, res) => {
   const loaded = await getMgmtUser(req);
   if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
@@ -757,12 +758,19 @@ router.get("/storage/folders", requireAuthWithTenant, async (req, res) => {
     WHERE f.office_id=${u.officeId}
     ORDER BY f.name ASC`);
 
-  // Filter by read permission
-  const visible: any[] = [];
-  for (const f of all) {
-    const ok = await getFolderAccess(f.id, u, "read");
-    if (ok) visible.push({ ...f, isOwner: f.created_by === u.userId, canManage: f.created_by === u.userId || u.isAdmin });
-  }
+  // Batch-load this user's custom grants for office folders (fixed 2nd query).
+  // SA short-circuit still uses the same path with an empty map for shape parity.
+  const perms = u.isSA
+    ? []
+    : await dbRows(sql`
+        SELECT fp.folder_id, fp.user_id, fp.can_read, fp.can_write
+        FROM folder_permissions fp
+        INNER JOIN storage_folders f
+          ON f.id = fp.folder_id AND f.office_id = ${u.officeId}
+        WHERE fp.user_id = ${u.userId}
+      `);
+
+  const visible = filterVisibleFolders(all, u, perms);
   res.json(visible);
 });
 
