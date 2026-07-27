@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; pagination touch-up */
 /**
  * Financial Completions — عدالة AI
  * ─────────────────────────────────────────────────────────────────────────
@@ -20,6 +21,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { callAI } from "../ai/aiChat";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
+import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -247,14 +249,23 @@ export async function recordInvoiceRevision({
 router.get("/accounting/credit-notes", requireAuthWithTenant, async (req: Request, res: Response) => {
   const tenantId = (req as any).tenantId as string;
   try {
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
     const data = await sqlAll(sql`
       SELECT cn.*, ci.title AS invoice_title, ci.invoice_number
       FROM credit_notes cn
       LEFT JOIN client_invoices ci ON ci.id::text = cn.original_invoice_id
       WHERE cn.office_id = ${tenantId}
       ORDER BY cn.issued_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `);
-    res.json(data);
+    if (!paginated) return res.json(data);
+    const countRow = await sqlOne(sql`
+      SELECT COUNT(*)::int AS total
+      FROM credit_notes cn
+      LEFT JOIN client_invoices ci ON ci.id::text = cn.original_invoice_id
+      WHERE cn.office_id = ${tenantId}
+    `);
+    res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

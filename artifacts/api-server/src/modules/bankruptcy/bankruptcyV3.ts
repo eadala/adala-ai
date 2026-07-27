@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { callBkAI, saveReportToStorage } from "./bankruptcyIntegrations";
+import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
 // V3: Pre-Bankruptcy Opening Requests Module
 
 const router = Router();
@@ -47,16 +48,30 @@ router.get("/bankruptcy/opening-requests", requireAuth, async (req: any, res) =>
   const officeId = req.tenantId as string;
   const { status, q } = req.query as Record<string, string>;
   try {
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+    const statusCond = status ? sql`AND r.status = ${status}` : sql``;
+    const qCond = q
+      ? sql`AND (r.company_name ILIKE ${"%" + q + "%"} OR r.request_number ILIKE ${"%" + q + "%"})`
+      : sql``;
     const rows = sqlAll(await db.execute(sql`
       SELECT r.*,
         (SELECT COUNT(*) FROM bk_opening_request_documents d WHERE d.request_id = r.id) AS doc_count
       FROM bk_opening_requests r
       WHERE r.office_id = ${officeId}
-        ${status ? sql`AND r.status = ${status}` : sql``}
-        ${q ? sql`AND (r.company_name ILIKE ${"%" + q + "%"} OR r.request_number ILIKE ${"%" + q + "%"})` : sql``}
+        ${statusCond}
+        ${qCond}
       ORDER BY r.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `));
-    res.json(rows);
+    if (!paginated) return res.json(rows);
+    const countRow = sqlOne(await db.execute(sql`
+      SELECT COUNT(*)::int AS total
+      FROM bk_opening_requests r
+      WHERE r.office_id = ${officeId}
+        ${statusCond}
+        ${qCond}
+    `));
+    res.json(listPageEnvelope(rows, Number(countRow?.total ?? 0), page, limit));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

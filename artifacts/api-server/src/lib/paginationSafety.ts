@@ -80,3 +80,35 @@ export function parsePageLimit(
   }
   return { page, limit, offset: (page - 1) * limit };
 }
+
+/**
+ * Dual-mode list paging: when both page+limit are present, return safe page/limit/offset;
+ * otherwise soft-cap at MAX_PAGE_LIMIT (legacy raw-array contract).
+ */
+export function resolveDualModePaging(
+  query: { page?: unknown; limit?: unknown },
+  defaultLimit = 50,
+): { paginated: boolean; page: number; limit: number; offset: number } {
+  const paginated = queryHasPageAndLimit(query);
+  if (paginated) {
+    const { page, limit, offset } = parsePageLimit(query, defaultLimit);
+    return { paginated, page, limit, offset };
+  }
+  return { paginated: false, page: 1, limit: MAX_PAGE_LIMIT, offset: 0 };
+}
+
+/** Standard paginated list envelope. */
+export function listPageEnvelope<T>(
+  data: T[],
+  total: number,
+  page: number,
+  limit: number,
+) {
+  return {
+    data,
+    total,
+    page,
+    limit,
+    pages: Math.max(1, Math.ceil(total / Math.max(1, limit))),
+  };
+}

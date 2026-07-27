@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; pagination touch-up */
 import { requireAuth } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -23,6 +25,7 @@ async function getOfficeId(userId: string): Promise<string | null> {
 router.get("/mediators/tasks", requireAuth, async (req: any, res) => {
   try {
     const { status = "open", category, search } = req.query as any;
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
     let q = `
       SELECT mt.*, o.name AS office_name,
              (SELECT COUNT(*) FROM mediator_applications WHERE task_id = mt.id) AS application_count
@@ -34,10 +37,20 @@ router.get("/mediators/tasks", requireAuth, async (req: any, res) => {
     let idx = 2;
     if (category) { q += ` AND mt.category = $${idx++}`; params.push(category); }
     if (search) { q += ` AND (mt.title ILIKE $${idx++} OR mt.description ILIKE $${idx - 1})`; params.push(`%${search}%`); }
-    q += ` ORDER BY mt.created_at DESC`;
+    q += ` ORDER BY mt.created_at DESC LIMIT $${idx++} OFFSET $${idx++}`;
+    params.push(limit, offset);
     const pgResult = await (db as any).$client.query(q, params);
     const rows = pgResult.rows ?? [];
-    res.json(rows);
+    if (!paginated) return res.json(rows);
+
+    let countQ = `SELECT COUNT(*)::int AS total FROM mediator_tasks mt WHERE mt.status = $1`;
+    const countParams: any[] = [status];
+    let cIdx = 2;
+    if (category) { countQ += ` AND mt.category = $${cIdx++}`; countParams.push(category); }
+    if (search) { countQ += ` AND (mt.title ILIKE $${cIdx++} OR mt.description ILIKE $${cIdx - 1})`; countParams.push(`%${search}%`); }
+    const countResult = await (db as any).$client.query(countQ, countParams);
+    const total = Number(countResult.rows?.[0]?.total ?? 0);
+    res.json(listPageEnvelope(rows, total, page, limit));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -48,14 +61,20 @@ router.get("/mediators/my-tasks", requireAuth, async (req: any, res) => {
   try {
     const officeId = await getOfficeId(req.userId);
     if (!officeId) return res.json([]);
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
     const rows = await exAll(sql`
       SELECT mt.*,
              (SELECT COUNT(*) FROM mediator_applications WHERE task_id = mt.id) AS application_count
       FROM mediator_tasks mt
       WHERE mt.office_id = ${officeId}
       ORDER BY mt.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `);
-    res.json(rows);
+    if (!paginated) return res.json(rows);
+    const countRow = await exOne(sql`
+      SELECT COUNT(*)::int AS total FROM mediator_tasks mt WHERE mt.office_id = ${officeId}
+    `);
+    res.json(listPageEnvelope(rows, Number(countRow?.total ?? 0), page, limit));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

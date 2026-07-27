@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; pagination touch-up */
 /**
  * HR Core Module — عدالة AI
  * ─────────────────────────────────────────────────────────────────────────
@@ -9,6 +10,7 @@ import { requireAuthWithTenant, requirePermission } from "../../middlewares/requ
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -38,11 +40,44 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 router.get("/hr/employees", requireAuthWithTenant, async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+    const search =
+      typeof req.query.search === "string" && req.query.search.trim()
+        ? req.query.search.trim()
+        : null;
+    const department =
+      typeof req.query.department === "string" && req.query.department && req.query.department !== "all"
+        ? req.query.department
+        : null;
+    const status =
+      typeof req.query.status === "string" && req.query.status && req.query.status !== "all"
+        ? req.query.status
+        : null;
+
+    const searchCond = search
+      ? sql`AND (
+          COALESCE(full_name, '') ILIKE ${"%" + search + "%"}
+          OR COALESCE(job_title, '') ILIKE ${"%" + search + "%"}
+          OR COALESCE(employee_no, '') ILIKE ${"%" + search + "%"}
+        )`
+      : sql``;
+    const deptCond = department ? sql`AND department = ${department}` : sql``;
+    const statusCond = status ? sql`AND status = ${status}` : sql``;
+
     const data = await sq(sql`
-      SELECT * FROM employees WHERE office_id = ${tid}
+      SELECT * FROM employees
+      WHERE office_id = ${tid}
+        ${searchCond} ${deptCond} ${statusCond}
       ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `);
-    res.json(data);
+    if (!paginated) return res.json(data);
+    const countRow = await s1(sql`
+      SELECT COUNT(*)::int AS total FROM employees
+      WHERE office_id = ${tid}
+        ${searchCond} ${deptCond} ${statusCond}
+    `);
+    res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -125,17 +160,28 @@ router.get("/hr/attendance", requireAuthWithTenant, async (req, res) => {
   const tid = (req as any).tenantId as string;
   const { employeeId, date } = req.query as Record<string, string>;
   try {
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+    const filters = sql`
+      WHERE 1=1
+        ${employeeId ? sql`AND a.employee_id = ${employeeId}::uuid` : sql``}
+        ${date ? sql`AND a.work_date = ${date}::date` : sql``}
+    `;
     const data = await sq(sql`
       SELECT a.*, e.full_name AS employee_name, e.job_title, e.department
       FROM attendance a
       INNER JOIN employees e ON e.id = a.employee_id AND e.office_id = ${tid}
-      WHERE 1=1
-        ${employeeId ? sql`AND a.employee_id = ${employeeId}::uuid` : sql``}
-        ${date ? sql`AND a.work_date = ${date}::date` : sql``}
+      ${filters}
       ORDER BY a.created_at DESC
-      LIMIT 500
+      LIMIT ${limit} OFFSET ${offset}
     `);
-    res.json(data);
+    if (!paginated) return res.json(data);
+    const countRow = await s1(sql`
+      SELECT COUNT(*)::int AS total
+      FROM attendance a
+      INNER JOIN employees e ON e.id = a.employee_id AND e.office_id = ${tid}
+      ${filters}
+    `);
+    res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -257,13 +303,21 @@ router.post("/hr/office-location", requireAuthWithTenant, requirePermission("hr:
 router.get("/hr/leaves", requireAuthWithTenant, async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
     const data = await sq(sql`
       SELECT l.*, e.full_name AS employee_name, e.job_title
       FROM leaves l
       INNER JOIN employees e ON e.id = l.employee_id AND e.office_id = ${tid}
       ORDER BY l.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `);
-    res.json(data);
+    if (!paginated) return res.json(data);
+    const countRow = await s1(sql`
+      SELECT COUNT(*)::int AS total
+      FROM leaves l
+      INNER JOIN employees e ON e.id = l.employee_id AND e.office_id = ${tid}
+    `);
+    res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -347,13 +401,21 @@ router.patch("/hr/leaves/:id", requireAuthWithTenant, async (req, res) => {
 router.get("/hr/payroll", requireAuthWithTenant, requirePermission("payroll:view"), async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
     const data = await sq(sql`
       SELECT p.*, e.full_name AS employee_name, e.job_title
       FROM payroll p
       INNER JOIN employees e ON e.id = p.employee_id AND e.office_id = ${tid}
       ORDER BY p.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `);
-    res.json(data);
+    if (!paginated) return res.json(data);
+    const countRow = await s1(sql`
+      SELECT COUNT(*)::int AS total
+      FROM payroll p
+      INNER JOIN employees e ON e.id = p.employee_id AND e.office_id = ${tid}
+    `);
+    res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -438,13 +500,21 @@ router.patch("/hr/payroll/pay-all", requireAuthWithTenant, requirePermission("pa
 router.get("/hr/warnings", requireAuthWithTenant, async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
     const data = await sq(sql`
       SELECT w.*, e.full_name AS employee_name, e.job_title, e.department
       FROM employee_warnings w
       INNER JOIN employees e ON e.id = w.employee_id AND e.office_id = ${tid}
       ORDER BY w.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `);
-    res.json(data);
+    if (!paginated) return res.json(data);
+    const countRow = await s1(sql`
+      SELECT COUNT(*)::int AS total
+      FROM employee_warnings w
+      INNER JOIN employees e ON e.id = w.employee_id AND e.office_id = ${tid}
+    `);
+    res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -501,13 +571,21 @@ router.delete("/hr/warnings/:id", requireAuthWithTenant, async (req, res) => {
 router.get("/hr/investigations", requireAuthWithTenant, async (req, res) => {
   const tid = (req as any).tenantId as string;
   try {
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
     const data = await sq(sql`
       SELECT i.*, e.full_name AS employee_name, e.job_title, e.department
       FROM employee_investigations i
       INNER JOIN employees e ON e.id = i.employee_id AND e.office_id = ${tid}
       ORDER BY i.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `);
-    res.json(data);
+    if (!paginated) return res.json(data);
+    const countRow = await s1(sql`
+      SELECT COUNT(*)::int AS total
+      FROM employee_investigations i
+      INNER JOIN employees e ON e.id = i.employee_id AND e.office_id = ${tid}
+    `);
+    res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

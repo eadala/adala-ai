@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; pagination touch-up */
 /**
  * Case Documents Module — وحدة مستندات القضية
  */
 
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { MAX_PAGE_LIMIT } from "../../lib/paginationSafety";
 
 export class CaseDocuments {
   constructor(private readonly tenantId: string) {}
@@ -14,6 +16,7 @@ export class CaseDocuments {
       FROM documents
       WHERE case_id = ${caseId} AND office_id = ${this.tenantId}
       ORDER BY created_at DESC
+      LIMIT ${MAX_PAGE_LIMIT}
     `);
     return (r as any).rows ?? (r as any) ?? [];
   }

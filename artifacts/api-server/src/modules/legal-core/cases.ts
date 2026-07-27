@@ -21,7 +21,7 @@ import { runCaseAutopilot, ensureAutopilotTable }  from "../../agents/caseAutopi
 import { auditLog, auditMeta }                      from "../../lib/auditLogger";
 import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace/api-zod";
 import { runAIAnalysis, getLatestInsight, approveAITask, rejectAITask } from "../../case/case.ai";
-import { parsePageLimit, queryHasPageAndLimit } from "../../lib/paginationSafety";
+import { parsePageLimit, queryHasPageAndLimit, MAX_PAGE_LIMIT } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -772,6 +772,7 @@ router.get("/cases/:id/hearings", requireAuthWithTenant, async (req, res) => {
       FROM case_hearings
       WHERE case_id = ${caseId} AND office_id = ${tenantId}
       ORDER BY hearing_date DESC
+      LIMIT ${MAX_PAGE_LIMIT}
     `);
     res.json((rows as any).rows ?? []);
   } catch (e: any) {
@@ -889,6 +890,7 @@ router.get("/cases/:id/documents", requireAuthWithTenant, async (req, res) => {
       FROM documents
       WHERE case_id = ${caseId} AND office_id = ${tenantId}
       ORDER BY created_at DESC
+      LIMIT ${MAX_PAGE_LIMIT}
     `);
     res.json(rows);
   } catch (e: any) {

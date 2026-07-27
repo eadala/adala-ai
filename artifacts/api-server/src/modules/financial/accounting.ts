@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; pagination touch-up */
 /**
  * Accounting Module — عدالة AI
  * ─────────────────────────────────────────────────────────────────────────
@@ -12,6 +13,7 @@ import { db } from "@workspace/db";
 import { autoPostJournalEntry, ensureJournalTables } from "./journalAccounting";
 import { sql } from "drizzle-orm";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
+import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -40,13 +42,19 @@ async function sqlOne(query: any): Promise<any> {
 router.get("/accounting/revenues", requireAuthWithTenant, async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
     const data = await sqlExec(sql`
       SELECT * FROM revenues
       WHERE office_id = ${tenantId} AND deleted_at IS NULL
       ORDER BY date DESC, created_at DESC
-      LIMIT 500
+      LIMIT ${limit} OFFSET ${offset}
     `);
-    res.json(data);
+    if (!paginated) return res.json(data);
+    const countRow = await sqlOne(sql`
+      SELECT COUNT(*)::int AS total FROM revenues
+      WHERE office_id = ${tenantId} AND deleted_at IS NULL
+    `);
+    res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch { res.status(500).json({ error: "خطأ في جلب الإيرادات" }); }
 });
 
@@ -134,13 +142,19 @@ router.delete("/accounting/revenues/:id", requireAuthWithTenant, requirePermissi
 router.get("/accounting/expenses", requireAuthWithTenant, async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
     const data = await sqlExec(sql`
       SELECT * FROM expenses
       WHERE office_id = ${tenantId} AND deleted_at IS NULL
       ORDER BY date DESC, created_at DESC
-      LIMIT 500
+      LIMIT ${limit} OFFSET ${offset}
     `);
-    res.json(data);
+    if (!paginated) return res.json(data);
+    const countRow = await sqlOne(sql`
+      SELECT COUNT(*)::int AS total FROM expenses
+      WHERE office_id = ${tenantId} AND deleted_at IS NULL
+    `);
+    res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch { res.status(500).json({ error: "خطأ في جلب المصروفات" }); }
 });
 
@@ -287,13 +301,19 @@ router.delete("/accounting/bank-accounts/:id", requireAuthWithTenant, requirePer
 router.get("/accounting/advances", requireAuthWithTenant, async (req, res) => {
   const tenantId = (req as any).tenantId as string;
   try {
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
     const data = await sqlExec(sql`
       SELECT * FROM cash_advances
       WHERE office_id = ${tenantId}
       ORDER BY date DESC
-      LIMIT 200
+      LIMIT ${limit} OFFSET ${offset}
     `);
-    res.json(data);
+    if (!paginated) return res.json(data);
+    const countRow = await sqlOne(sql`
+      SELECT COUNT(*)::int AS total FROM cash_advances
+      WHERE office_id = ${tenantId}
+    `);
+    res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
   } catch { res.status(500).json({ error: "خطأ في جلب السلف" }); }
 });
 

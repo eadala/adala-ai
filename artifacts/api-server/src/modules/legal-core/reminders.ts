@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; pagination touch-up */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -40,16 +42,26 @@ router.get("/reminders", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     const { done } = req.query;
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+    const doneCond =
+      done === "true" ? sql`AND r.done = true` : done === "false" ? sql`AND r.done = false` : sql``;
     const rows = await sqlAll(sql`
       SELECT r.*, c.title as case_title
       FROM reminders r
       LEFT JOIN cases c ON c.id = r.case_id
       WHERE r.office_id = ${tenantId}
-        ${done === "true" ? sql`AND r.done = true` : done === "false" ? sql`AND r.done = false` : sql``}
+        ${doneCond}
       ORDER BY r.done ASC, r.due_date ASC NULLS LAST, r.created_at DESC
-      LIMIT 200
+      LIMIT ${limit} OFFSET ${offset}
     `);
-    res.json(rows);
+    if (!paginated) return res.json(rows);
+    const countRow = await sqlOne(sql`
+      SELECT COUNT(*)::int AS total
+      FROM reminders r
+      WHERE r.office_id = ${tenantId}
+        ${doneCond}
+    `);
+    res.json(listPageEnvelope(rows, Number(countRow?.total ?? 0), page, limit));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; pagination touch-up */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 /**
  * Arbitration routes — fixed:
@@ -10,8 +11,9 @@ import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAut
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { arbitrationCasesTable } from "@workspace/db/schema";
-import { eq, desc, and, sql as drizzleSql } from "drizzle-orm";
+import { eq, desc, and, sql as drizzleSql, count } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
+import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -28,10 +30,16 @@ router.get("/arbitration/cases", requireAuthWithTenant, async (req, res) => {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
     const tenantId = (req as any).tenantId as string;
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+    const where = drizzleSql`office_id = ${tenantId}`;
     const cases = await db.select().from(arbitrationCasesTable)
-      .where(drizzleSql`office_id = ${tenantId}`)
-      .orderBy(desc(arbitrationCasesTable.createdAt));
-    res.json(cases);
+      .where(where)
+      .orderBy(desc(arbitrationCasesTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+    if (!paginated) return res.json(cases);
+    const [agg] = await db.select({ total: count() }).from(arbitrationCasesTable).where(where);
+    res.json(listPageEnvelope(cases, Number(agg?.total ?? 0), page, limit));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

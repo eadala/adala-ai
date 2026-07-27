@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; pagination touch-up */
 /**
  * Case Communications Module — وحدة الاتصالات الداخلية للقضية
  * ─────────────────────────────────────────────────────────────
@@ -6,6 +7,7 @@
 
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { MAX_PAGE_LIMIT } from "../../lib/paginationSafety";
 
 export class CaseCommunications {
   constructor(private readonly tenantId: string) {}
@@ -16,6 +18,7 @@ export class CaseCommunications {
       FROM case_messages
       WHERE case_id = ${caseId} AND office_id = ${this.tenantId}
       ORDER BY created_at ASC
+      LIMIT ${MAX_PAGE_LIMIT}
     `);
     return (r as any).rows ?? (r as any) ?? [];
   }
