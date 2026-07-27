@@ -30,6 +30,7 @@ type RevenuesPageResponse = {
   page: number;
   limit: number;
   pages: number;
+  stats?: { sum: number; thisMonth: number };
 };
 
 const empty = ():Partial<Revenue> => ({ title:"", category:"أتعاب محاماة", amount:"", paymentMethod:"bank", date:today(), notes:"" });
@@ -90,7 +91,8 @@ export default function Revenues() {
   function set(k:string,v:string) { setForm(f=>({...f,[k]:v})); }
 
   const pageTotal = rows.reduce((s,r) => s+parseFloat(String(r.amount||0)), 0);
-  const thisMonth = rows.filter(r => r.date?.startsWith(today().slice(0,7))).reduce((s,r)=>s+parseFloat(String(r.amount||0)),0);
+  const totalSum = Number(pageRes?.stats?.sum ?? 0);
+  const thisMonth = Number(pageRes?.stats?.thisMonth ?? 0);
 
   return (
     <div className="p-6 space-y-5 max-w-6xl mx-auto">
@@ -114,7 +116,7 @@ export default function Revenues() {
           <Card className="bg-card border-border">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground mb-1">إجمالي الإيرادات</p>
-              <p className="text-xl font-bold text-green-400">{fmt(rows.reduce((s,r)=>s+parseFloat(String(r.amount||0)),0))}</p>
+              <p className="text-xl font-bold text-green-400">{fmt(totalSum)}</p>
             </CardContent>
           </Card>
           <Card className="bg-card border-border">

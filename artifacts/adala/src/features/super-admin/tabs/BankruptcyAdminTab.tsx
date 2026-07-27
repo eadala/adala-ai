@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -19,6 +20,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart as RechartsPie, Pie,
 } from "recharts";
 import { API } from "../shared/api";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 /* ── helpers ── */
 function fmt(n: any) { return Number(n ?? 0).toLocaleString("ar-SA"); }
@@ -82,6 +84,7 @@ export function BankruptcyAdminTab({ toast }: { toast: any }) {
   const [subTab, setSubTab] = useState<TabId>("stats");
   const [caseQ,  setCaseQ]  = useState("");
   const [reqQ,   setReqQ]   = useState("");
+  const [reqPage, setReqPage] = useState(1);
   const [officeFilter, setOfficeFilter] = useState("");
 
   /* emergency form */
@@ -112,16 +115,31 @@ export function BankruptcyAdminTab({ toast }: { toast: any }) {
     },
     staleTime: 30_000, enabled: subTab === "cases",
   });
-  const { data: requests = [], isLoading: reqLoading } = useQuery<any[]>({
-    queryKey: ["sa-bk-reqs", reqQ, officeFilter],
-    queryFn: () => {
-      const qs = new URLSearchParams();
+  const { data: reqPageRes, isLoading: reqLoading } = useQuery<{
+    data: any[];
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  }>({
+    queryKey: ["sa-bk-reqs", reqQ, officeFilter, reqPage],
+    queryFn: async () => {
+      const qs = new URLSearchParams({
+        page: String(reqPage),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
       if (reqQ) qs.set("q", reqQ);
       if (officeFilter) qs.set("office_id", officeFilter);
-      return API(`/bankruptcy/opening-requests?${qs}`);
+      const json = await API(`/bankruptcy/opening-requests?${qs}`);
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json;
     },
     staleTime: 30_000, enabled: subTab === "requests",
   });
+  const requests = reqPageRes?.data ?? [];
+  const reqTotal = Number(reqPageRes?.total ?? 0);
   const { data: auditLogs = [], isLoading: auditLoading, refetch: refetchAudit } = useQuery<any[]>({
     queryKey: ["sa-bk-audit", officeFilter],
     queryFn: () => API(`/bankruptcy/audit-logs${officeFilter ? `?office_id=${officeFilter}` : ""}`),
@@ -359,10 +377,10 @@ export function BankruptcyAdminTab({ toast }: { toast: any }) {
       {subTab === "requests" && (
         <div className="space-y-3">
           <div className="flex gap-2 flex-wrap">
-            <SearchBox value={reqQ} onChange={setReqQ} placeholder="بحث باسم الشركة أو رقم الطلب..." />
-            {officeFilter && <ClearFilter onClick={() => setOfficeFilter("")} />}
+            <SearchBox value={reqQ} onChange={v => { setReqQ(v); setReqPage(1); }} placeholder="بحث باسم الشركة أو رقم الطلب..." />
+            {officeFilter && <ClearFilter onClick={() => { setOfficeFilter(""); setReqPage(1); }} />}
           </div>
-          <p className="text-xs text-muted-foreground">{requests.length} نتيجة</p>
+          <p className="text-xs text-muted-foreground">{reqTotal} نتيجة</p>
           {reqLoading ? <Spinner /> : (
             <div className="space-y-2">
               {requests.map((r: any) => (
@@ -388,6 +406,12 @@ export function BankruptcyAdminTab({ toast }: { toast: any }) {
                 </Card>
               ))}
               {requests.length === 0 && <EmptyState icon={FilePlus2} label="لا توجد طلبات" />}
+              <ListPagination
+                page={reqPage}
+                pageSize={LEGAL_LIST_PAGE_SIZE}
+                total={reqTotal}
+                onPageChange={setReqPage}
+              />
             </div>
           )}
         </div>

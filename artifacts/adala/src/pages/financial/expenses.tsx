@@ -28,6 +28,7 @@ type ExpensesPageResponse = {
   page: number;
   limit: number;
   pages: number;
+  stats?: { sum: number; thisMonth: number };
 };
 const empty=():Partial<Expense>=>{return{title:"",category:"مصاريف متنوعة",amount:"",paymentMethod:"bank",date:today(),vendor:"",notes:""}};
 
@@ -87,7 +88,8 @@ export default function Expenses() {
   function set(k:string,v:string){setForm(f=>({...f,[k]:v}));}
 
   const pageTotal=rows.reduce((s,r)=>s+parseFloat(String(r.amount||0)),0);
-  const thisMonth=rows.filter(r=>r.date?.startsWith(today().slice(0,7))).reduce((s,r)=>s+parseFloat(String(r.amount||0)),0);
+  const totalSum=Number(pageRes?.stats?.sum??0);
+  const thisMonth=Number(pageRes?.stats?.thisMonth??0);
 
   return (
     <div className="p-6 space-y-5 max-w-6xl mx-auto">
@@ -102,7 +104,7 @@ export default function Expenses() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">إجمالي المصاريف</p><p className="text-xl font-bold text-red-400">{fmt(rows.reduce((s,r)=>s+parseFloat(String(r.amount||0)),0))}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">إجمالي المصاريف</p><p className="text-xl font-bold text-red-400">{fmt(totalSum)}</p></CardContent></Card>
           <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">مصاريف هذا الشهر</p><p className="text-xl font-bold text-primary">{fmt(thisMonth)}</p></CardContent></Card>
           <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السجلات</p><p className="text-2xl font-bold text-foreground">{listTotal}</p></CardContent></Card>
         </div>

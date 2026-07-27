@@ -15,12 +15,41 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 import {
   Briefcase, Plus, Search, CheckCircle2, Clock, Users, Banknote,
   FileText, AlertTriangle, ChevronLeft, ScrollText, ShieldCheck, Star,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type ListPageResponse<T = any> = {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
+
+function normalizeListPage(json: unknown): ListPageResponse {
+  if (Array.isArray(json)) {
+    return {
+      data: json,
+      total: json.length,
+      page: 1,
+      limit: json.length || LEGAL_LIST_PAGE_SIZE,
+      pages: 1,
+    };
+  }
+  const env = json as ListPageResponse;
+  return {
+    data: Array.isArray(env?.data) ? env.data : [],
+    total: Number(env?.total ?? 0),
+    page: Number(env?.page ?? 1),
+    limit: Number(env?.limit ?? LEGAL_LIST_PAGE_SIZE),
+    pages: Number(env?.pages ?? 1),
+  };
+}
 
 async function API(path: string, opts?: RequestInit) {
   const r = await authFetch(`${BASE}${path}`, {
@@ -63,6 +92,8 @@ export default function MediatorsPage() {
   const [tab, setTab] = useState("market");
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [myPage, setMyPage] = useState(1);
   const [showNewTask, setShowNewTask] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
@@ -78,21 +109,35 @@ export default function MediatorsPage() {
     message: "", agreed_to_terms: false,
   });
 
-  const { data: tasks = [], isLoading: loadingTasks } = useQuery({
-    queryKey: ["mediator-tasks", catFilter, search],
-    queryFn: () => {
-      const p = new URLSearchParams({ status: "open" });
+  const { data: tasksPage, isLoading: loadingTasks } = useQuery({
+    queryKey: ["mediator-tasks", catFilter, search, page],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        status: "open",
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
       if (catFilter !== "all") p.set("category", catFilter);
       if (search) p.set("search", search);
-      return API(`/api/mediators/tasks?${p}`);
+      return normalizeListPage(await API(`/api/mediators/tasks?${p}`));
     },
   });
+  const tasks = tasksPage?.data ?? [];
+  const tasksTotal = Number(tasksPage?.total ?? 0);
 
-  const { data: myTasks = [] } = useQuery({
-    queryKey: ["mediator-my-tasks"],
-    queryFn: () => API("/api/mediators/my-tasks"),
+  const { data: myTasksPage } = useQuery({
+    queryKey: ["mediator-my-tasks", myPage],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(myPage),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      return normalizeListPage(await API(`/api/mediators/my-tasks?${p}`));
+    },
     enabled: tab === "my-tasks",
   });
+  const myTasks = myTasksPage?.data ?? [];
+  const myTasksTotal = Number(myTasksPage?.total ?? 0);
 
   const { data: myApplications = [] } = useQuery({
     queryKey: ["mediator-my-apps"],
@@ -202,10 +247,10 @@ export default function MediatorsPage() {
                 placeholder="ابحث عن مهمة..."
                 className="pe-9"
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={e => { setSearch(e.target.value); setPage(1); }}
               />
             </div>
-            <Select value={catFilter} onValueChange={setCatFilter}>
+            <Select value={catFilter} onValueChange={v => { setCatFilter(v); setPage(1); }}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="التصنيف" />
               </SelectTrigger>
@@ -227,7 +272,7 @@ export default function MediatorsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {(tasks as any[]).map((task: any) => (
+              {tasks.map((task: any) => (
                 <div key={task.id} className="rounded-2xl border border-border/50 bg-card p-5 hover:border-primary/30 transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -258,13 +303,19 @@ export default function MediatorsPage() {
                   </div>
                 </div>
               ))}
+              <ListPagination
+                page={page}
+                pageSize={LEGAL_LIST_PAGE_SIZE}
+                total={tasksTotal}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </TabsContent>
 
         {/* ── My Tasks Tab ── */}
         <TabsContent value="my-tasks" className="space-y-3">
-          {(myTasks as any[]).length === 0 ? (
+          {myTasks.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-20" />
               <p>لم تنشر أي مهام بعد</p>
@@ -272,7 +323,9 @@ export default function MediatorsPage() {
                 <Plus className="h-3.5 w-3.5 ms-1" /> نشر أول مهمة
               </Button>
             </div>
-          ) : (myTasks as any[]).map((task: any) => (
+          ) : (
+            <>
+              {myTasks.map((task: any) => (
             <div key={task.id} className="rounded-2xl border border-border/50 bg-card p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
@@ -300,7 +353,15 @@ export default function MediatorsPage() {
                 </div>
               </div>
             </div>
-          ))}
+              ))}
+              <ListPagination
+                page={myPage}
+                pageSize={LEGAL_LIST_PAGE_SIZE}
+                total={myTasksTotal}
+                onPageChange={setMyPage}
+              />
+            </>
+          )}
         </TabsContent>
 
         {/* ── My Applications Tab ── */}

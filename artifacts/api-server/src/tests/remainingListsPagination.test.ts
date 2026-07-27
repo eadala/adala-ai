@@ -101,7 +101,12 @@ const dualFiles: Array<{ name: string; path: string; markers: RegExp[] }> = [
   {
     name: "smart-documents",
     path: "modules/legal-core/smart-documents.ts",
-    markers: [/resolveDualModePaging/, /listPageEnvelope/, /LIMIT \$\{limit\} OFFSET \$\{offset\}/],
+    markers: [
+      /resolveDualModePaging/,
+      /listPageEnvelope/,
+      /LIMIT \$\{limit\} OFFSET \$\{offset\}/,
+      /if \(!paginated\)/,
+    ],
   },
   {
     name: "reminders",
@@ -201,10 +206,25 @@ console.log("\n═══ filter + COUNT parity (accounting / HR / arbitration / 
   );
   assert.equal(
     (revBlock.match(/\$\{searchCond\} \$\{categoryCond\}/g) ?? []).length,
-    2,
-    "revenues list + COUNT must share search/category",
+    3,
+    "revenues list + COUNT + stats must share search/category",
   );
   assert.match(revBlock, /ORDER BY date DESC, created_at DESC, id DESC/);
+  assert.match(revBlock, /sum_total/);
+  assert.match(revBlock, /sum_month/);
+  assert.match(revBlock, /stats:\s*\{/);
+
+  const expBlock = accounting.slice(
+    accounting.indexOf('router.get("/accounting/expenses"'),
+    accounting.indexOf('router.post("/accounting/expenses"'),
+  );
+  assert.equal(
+    (expBlock.match(/\$\{searchCond\} \$\{categoryCond\}/g) ?? []).length,
+    3,
+    "expenses list + COUNT + stats must share search/category",
+  );
+  assert.match(expBlock, /sum_total/);
+  assert.match(expBlock, /stats:\s*\{/);
 
   const leavesBlock = hr.slice(
     hr.indexOf('router.get("/hr/leaves"'),
@@ -246,6 +266,8 @@ console.log("\n═══ frontend primary consumers ═══");
     "pages/legal-core/arbitration.tsx",
     "pages/legal-core/warnings.tsx",
     "pages/legal-core/reminders.tsx",
+    "pages/legal-core/mediators.tsx",
+    "pages/bankruptcy/index.tsx",
     "pages/ai/ai-tasks.tsx",
   ];
   for (const p of pages) {
@@ -258,8 +280,22 @@ console.log("\n═══ frontend primary consumers ═══");
   const revenues = readAdala("pages/financial/revenues.tsx");
   assert.match(revenues, /p\.set\("search"/);
   assert.match(revenues, /p\.set\("category"/);
+  assert.match(revenues, /stats\?\.sum/);
+  assert.match(revenues, /stats\?\.thisMonth/);
   assert.doesNotMatch(revenues, /catFilter==="all"\s*\|\|/);
   assert.doesNotMatch(revenues, /r\.title\.includes\(search\)/);
+
+  const expenses = readAdala("pages/financial/expenses.tsx");
+  assert.match(expenses, /stats\?\.sum/);
+  assert.match(expenses, /stats\?\.thisMonth/);
+
+  const mediators = readAdala("pages/legal-core/mediators.tsx");
+  assert.match(mediators, /setPage\(1\)/);
+  assert.match(mediators, /myPage/);
+
+  const bankruptcy = readAdala("pages/bankruptcy/index.tsx");
+  assert.match(bankruptcy, /setPage\(1\)/);
+  assert.match(bankruptcy, /pageRes\?\.data/);
 
   const leaves = readAdala("pages/hr/leaves.tsx");
   assert.match(leaves, /p\.set\("status"/);

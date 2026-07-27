@@ -71,7 +71,24 @@ router.get("/accounting/revenues", requireAuthWithTenant, async (req, res) => {
       WHERE office_id = ${tenantId} AND deleted_at IS NULL
         ${searchCond} ${categoryCond}
     `);
-    res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
+    const agg = await sqlOne(sql`
+      SELECT
+        COALESCE(SUM(CAST(amount AS NUMERIC)),0) AS sum_total,
+        COALESCE(SUM(CAST(amount AS NUMERIC)) FILTER (
+          WHERE date >= date_trunc('month', CURRENT_DATE)::date
+            AND date < (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month')::date
+        ),0) AS sum_month
+      FROM revenues
+      WHERE office_id = ${tenantId} AND deleted_at IS NULL
+        ${searchCond} ${categoryCond}
+    `);
+    res.json({
+      ...listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit),
+      stats: {
+        sum: Number(agg?.sum_total ?? 0),
+        thisMonth: Number(agg?.sum_month ?? 0),
+      },
+    });
   } catch { res.status(500).json({ error: "خطأ في جلب الإيرادات" }); }
 });
 
@@ -188,7 +205,24 @@ router.get("/accounting/expenses", requireAuthWithTenant, async (req, res) => {
       WHERE office_id = ${tenantId} AND deleted_at IS NULL
         ${searchCond} ${categoryCond}
     `);
-    res.json(listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit));
+    const agg = await sqlOne(sql`
+      SELECT
+        COALESCE(SUM(CAST(amount AS NUMERIC)),0) AS sum_total,
+        COALESCE(SUM(CAST(amount AS NUMERIC)) FILTER (
+          WHERE date >= date_trunc('month', CURRENT_DATE)::date
+            AND date < (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month')::date
+        ),0) AS sum_month
+      FROM expenses
+      WHERE office_id = ${tenantId} AND deleted_at IS NULL
+        ${searchCond} ${categoryCond}
+    `);
+    res.json({
+      ...listPageEnvelope(data, Number(countRow?.total ?? 0), page, limit),
+      stats: {
+        sum: Number(agg?.sum_total ?? 0),
+        thisMonth: Number(agg?.sum_month ?? 0),
+      },
+    });
   } catch { res.status(500).json({ error: "خطأ في جلب المصروفات" }); }
 });
 
