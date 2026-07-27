@@ -124,29 +124,42 @@ router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
     ? parsePageLimit(req.query, 50)
     : { page: 1, limit: MAX_PAGE_LIMIT, offset: 0 };
 
+  /* Set-based list: CTEs + DISTINCT ON / GROUP BY — no per-row correlated scalars. */
   const rows = sqlRows(await db.execute(sql`
+    WITH my_convs AS (
+      SELECT
+        c.id, c.title, c.type, c.created_by, c.created_at, c.updated_at,
+        my.role AS my_role
+      FROM message_conversations c
+      JOIN conversation_members my
+        ON my.conversation_id = c.id AND my.user_id = ${userId}
+      WHERE c.office_id = ${tenantId}
+    ),
+    last_msgs AS (
+      SELECT DISTINCT ON (m.conversation_id)
+        m.conversation_id,
+        m.body,
+        m.created_at
+      FROM office_messages m
+      INNER JOIN my_convs mc ON mc.id = m.conversation_id
+      ORDER BY m.conversation_id, m.created_at DESC
+    ),
+    member_counts AS (
+      SELECT cm.conversation_id, COUNT(*)::int AS member_count
+      FROM conversation_members cm
+      INNER JOIN my_convs mc ON mc.id = cm.conversation_id
+      GROUP BY cm.conversation_id
+    )
     SELECT
       c.id, c.title, c.type, c.created_by, c.created_at, c.updated_at,
-      (
-        SELECT m.body FROM office_messages m
-        WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1
-      ) AS last_message,
-      (
-        SELECT m.created_at FROM office_messages m
-        WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1
-      ) AS last_message_at,
-      (
-        SELECT COUNT(*)::int FROM conversation_members cm2 WHERE cm2.conversation_id = c.id
-      ) AS member_count,
-      my.role AS my_role
-    FROM message_conversations c
-    JOIN conversation_members my
-      ON my.conversation_id = c.id AND my.user_id = ${userId}
-    WHERE c.office_id = ${tenantId}
-    ORDER BY COALESCE(
-      (SELECT m.created_at FROM office_messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1),
-      c.created_at
-    ) DESC
+      lm.body AS last_message,
+      lm.created_at AS last_message_at,
+      COALESCE(cnt.member_count, 0) AS member_count,
+      c.my_role
+    FROM my_convs c
+    LEFT JOIN last_msgs lm ON lm.conversation_id = c.id
+    LEFT JOIN member_counts cnt ON cnt.conversation_id = c.id
+    ORDER BY COALESCE(lm.created_at, c.created_at) DESC
     LIMIT ${limit} OFFSET ${offset}
   `));
 
