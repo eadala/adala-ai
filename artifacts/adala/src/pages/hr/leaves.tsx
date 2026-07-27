@@ -17,8 +17,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
+import { EmployeeSearchSelect } from "@/components/employee-search-select";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type LeavesPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 const LEAVE_TYPES: Record<string, { label: string; color: string }> = {
   annual: { label: "سنوية", color: "#6366F1" },
@@ -41,22 +51,33 @@ export default function Leaves() {
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: leaves = [], isLoading } = useQuery<any[]>({
-    queryKey: ["leaves"],
-    queryFn: () => authFetch("/api/hr/leaves").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  const { data: pageRes, isLoading } = useQuery<LeavesPageResponse>({
+    queryKey: ["leaves", page, statusFilter],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if (statusFilter !== "all") p.set("status", statusFilter);
+      const r = await authFetch(`${BASE}/api/hr/leaves?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as LeavesPageResponse;
+    },
   });
+  const leaves = pageRes?.data ?? [];
+  const total = Number(pageRes?.total ?? 0);
 
   const { data: stats } = useQuery<any>({
     queryKey: ["leaves-stats"],
     queryFn: () => authFetch("/api/hr/leaves/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-  });
-
-  const { data: employees = [] } = useQuery<any[]>({
-    queryKey: ["employees"],
-    queryFn: () => authFetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMutation = useMutation({
@@ -76,8 +97,6 @@ export default function Leaves() {
     if (!start || !end) return 0;
     return Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1;
   };
-
-  const filtered = leaves.filter(l => statusFilter === "all" || l.status === statusFilter);
 
   return (
     <div className="space-y-6">
@@ -118,7 +137,7 @@ export default function Leaves() {
       {/* Filter */}
       <div className="flex gap-2 flex-wrap">
         {[{ v: "all", l: "الكل" }, { v: "pending", l: "قيد المراجعة" }, { v: "approved", l: "موافق" }, { v: "rejected", l: "مرفوض" }].map(f => (
-          <button key={f.v} onClick={() => setStatusFilter(f.v)}
+          <button key={f.v} onClick={() => { setStatusFilter(f.v); setPage(1); }}
             className={cn("text-xs px-4 py-1.5 rounded-xl border font-medium transition-all",
               statusFilter === f.v ? "bg-primary/10 border-primary text-primary" : "border-muted text-muted-foreground hover:border-primary/30")}>
             {f.l}
@@ -129,14 +148,14 @@ export default function Leaves() {
       {/* Leave Cards */}
       {isLoading ? (
         <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-      ) : filtered.length === 0 ? (
+      ) : leaves.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <CalendarDays className="h-12 w-12 mx-auto mb-4 opacity-30" />
           <p>لا توجد طلبات إجازة</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((l: any) => {
+          {leaves.map((l: any) => {
             const s = STATUS_CONFIG[l.status] ?? STATUS_CONFIG.pending;
             const t = LEAVE_TYPES[l.type] ?? LEAVE_TYPES.annual;
             const StatusIcon = s.icon;
@@ -181,6 +200,12 @@ export default function Leaves() {
               </Card>
             );
           })}
+          <ListPagination
+            page={page}
+            pageSize={LEGAL_LIST_PAGE_SIZE}
+            total={total}
+            onPageChange={setPage}
+          />
         </div>
       )}
 
@@ -190,10 +215,11 @@ export default function Leaves() {
           <DialogHeader><DialogTitle>طلب إجازة جديد</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>الموظف *</Label>
-              <Select value={form.employeeId} onValueChange={v => setForm(p => ({ ...p, employeeId: v }))}>
-                <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
-                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.fullName}</SelectItem>)}</SelectContent>
-              </Select>
+              <EmployeeSearchSelect
+                value={form.employeeId}
+                onValueChange={v => setForm(p => ({ ...p, employeeId: v }))}
+                placeholder="ابحث عن موظف..."
+              />
             </div>
             <div><Label>نوع الإجازة</Label>
               <Select value={form.type} onValueChange={v => setForm(p => ({ ...p, type: v }))}>

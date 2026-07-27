@@ -19,14 +19,24 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type RemindersPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 const empty = () => ({ title: "", body: "", dueDate: "", dueTime: "", priority: "medium", category: "general", caseId: "" });
 
 export default function RemindersPage() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<"all" | "pending" | "done">("pending");
+  const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState(empty());
@@ -48,15 +58,28 @@ export default function RemindersPage() {
     { value: "meeting",  label: tx("اجتماع", "Meeting") },
   ];
 
-  const { data: rows = [], isLoading } = useQuery<any[]>({
-    queryKey: ["reminders", filter],
-    queryFn: () => {
-      const q = filter === "pending" ? "?done=false" : filter === "done" ? "?done=true" : "";
-      return authFetch(`${BASE}/api/reminders${q}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
+  const { data: pageRes, isLoading } = useQuery<RemindersPageResponse>({
+    queryKey: ["reminders", filter, page],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if (filter === "pending") p.set("done", "false");
+      else if (filter === "done") p.set("done", "true");
+      const r = await authFetch(`${BASE}/api/reminders?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as RemindersPageResponse;
     },
     staleTime: 60_000,
     refetchInterval: 2 * 60_000,
   });
+  const rows = pageRes?.data ?? [];
+  const listTotal = Number(pageRes?.total ?? 0);
 
   const saveMut = useMutation({
     mutationFn: (data: any) => {
@@ -136,7 +159,7 @@ export default function RemindersPage() {
         ].map(tab => (
           <button
             key={tab.key}
-            onClick={() => setFilter(tab.key as any)}
+            onClick={() => { setFilter(tab.key as any); setPage(1); }}
             className={cn(
               "px-4 py-1.5 text-sm font-medium rounded-t transition-colors",
               filter === tab.key ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
@@ -223,6 +246,13 @@ export default function RemindersPage() {
               </Card>
             );
           })}
+          <ListPagination
+            page={page}
+            pageSize={LEGAL_LIST_PAGE_SIZE}
+            total={listTotal}
+            onPageChange={setPage}
+            dir={dir}
+          />
         </div>
       )}
 

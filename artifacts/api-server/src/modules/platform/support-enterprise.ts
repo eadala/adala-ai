@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; pagination touch-up */
 /**
  * Enterprise Support Center — عدالة AI
  * ─────────────────────────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 import { runSupportAIPipeline } from "./support-ai";
 import { eventBus } from "../../core/eventBus";
+import { parseLimitOffset } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -241,7 +243,8 @@ router.get("/support/tickets", requireAuth, async (req: Request, res: Response) 
   const { userId } = getAuth(req);
   if (!userId) { res.status(401).json({ error: "غير مصرح" }); return; }
   try {
-    const { status, priority, category, search, limit = 50, offset = 0 } = req.query as any;
+    const { status, priority, category, search } = req.query as any;
+    const { limit, offset } = parseLimitOffset(req.query, 50);
 
     const r = await db.execute(sql`
       SELECT
@@ -262,8 +265,8 @@ router.get("/support/tickets", requireAuth, async (req: Request, res: Response) 
         ${category ? sql`AND t.category = ${category}` : sql``}
         ${search ? sql`AND (t.subject ILIKE ${"%" + search + "%"} OR t.body ILIKE ${"%" + search + "%"})` : sql``}
       GROUP BY t.id, aa.ticket_id, aa.ai_type, aa.ai_priority, aa.ai_summary, aa.ai_confidence, aa.model_used
-      ORDER BY t.created_at DESC
-      LIMIT ${Number(limit)} OFFSET ${Number(offset)}
+      ORDER BY t.created_at DESC, t.id DESC
+      LIMIT ${limit} OFFSET ${offset}
     `);
 
     res.json(rows(r));

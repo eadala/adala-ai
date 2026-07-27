@@ -23,6 +23,8 @@
     "test:pagination-safety": "node --import tsx src/tests/paginationSafety.test.ts",
     "test:legal-core-pagination": "node --import tsx src/tests/legalCorePagination.test.ts",
     "test:messages-users-pagination": "node --import tsx src/tests/messagesUsersPagination.test.ts",
+    "test:remaining-lists-pagination": "node --import tsx src/tests/remainingListsPagination.test.ts",
+    "test:remaining-lists-pagination-runtime": "node --import tsx src/tests/remainingListsPagination.runtime.test.ts",
     "test:post-migration": "node --import tsx src/tests/postMigrationApiFixes.test.ts",
     "test:offices-my": "node --import tsx src/tests/officesMy.test.ts",
     "test:metrics-vitals": "node --import tsx src/tests/metricsBeaconPath.test.ts && node --import tsx src/tests/metricsVitals.integration.test.ts",

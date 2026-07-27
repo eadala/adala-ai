@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
-import { useListAiTasks } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,8 +15,17 @@ import { useState } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+
+type AiTasksPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 const TASK_TYPE_MAP: Record<string, string> = {
   summarize: "تلخيص مستند",
@@ -37,13 +45,34 @@ const PRIORITY_MAP: Record<number, string> = { 1: "عاجل جداً", 2: "عا�
 export default function AiTasks() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { data: tasks = [], isLoading, refetch } = useListAiTasks();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [detailTask, setDetailTask] = useState<any>(null);
   const [form, setForm] = useState({ type: "summarize", caseId: "", priority: "3", inputText: "" });
+
+  const { data: pageRes, isLoading, refetch } = useQuery<AiTasksPageResponse>({
+    queryKey: ["listAiTasks", page, statusFilter, search],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if (statusFilter !== "all") p.set("status", statusFilter);
+      if (search.trim()) p.set("search", search.trim());
+      const r = await authFetch(`${BASE}/api/tasks?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as AiTasksPageResponse;
+    },
+  });
+  const tasks = pageRes?.data ?? [];
+  const listTotal = Number(pageRes?.total ?? 0);
 
   const { data: cases = [] } = useQuery<any[]>({
     queryKey: ["cases-mini"],
@@ -63,14 +92,6 @@ export default function AiTasks() {
       setForm({ type: "summarize", caseId: "", priority: "3", inputText: "" });
     },
     onError: () => toast({ title: "خطأ في إنشاء المهمة", variant: "destructive" }),
-  });
-
-  const filtered = (tasks as any[]).filter(t => {
-    const matchSearch = !search ||
-      (TASK_TYPE_MAP[t.type] ?? t.type).includes(search) ||
-      (t.caseName ?? "").includes(search);
-    const matchStatus = statusFilter === "all" || t.status === statusFilter;
-    return matchSearch && matchStatus;
   });
 
   return (
@@ -98,10 +119,10 @@ export default function AiTasks() {
               placeholder="البحث بنوع المهمة أو اسم القضية..."
               className="ps-4 pe-10"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="جميع الحالات" />
             </SelectTrigger>
@@ -138,14 +159,14 @@ export default function AiTasks() {
                     <TableCell></TableCell>
                   </TableRow>
                 ))
-              ) : filtered.length === 0 ? (
+              ) : tasks.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                     {search || statusFilter !== "all" ? "لا توجد نتائج مطابقة" : "لا توجد مهام ذكاء اصطناعي حالية — اضغط «مهمة تحليل جديدة» للبدء"}
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((task: any) => {
+                tasks.map((task: any) => {
                   const statusInfo = STATUS_MAP[task.status] || STATUS_MAP.pending;
                   const StatusIcon = statusInfo.icon;
                   return (
@@ -180,6 +201,16 @@ export default function AiTasks() {
               )}
             </TableBody>
           </Table>
+          {!isLoading && listTotal > 0 && (
+            <div className="px-6 pb-4">
+              <ListPagination
+                page={page}
+                pageSize={LEGAL_LIST_PAGE_SIZE}
+                total={listTotal}
+                onPageChange={setPage}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

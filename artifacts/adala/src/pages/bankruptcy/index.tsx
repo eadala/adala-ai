@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 /* ── API Helper ─────────────────────────────────────────── */
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
@@ -269,6 +270,7 @@ function OpeningRequestsSection({ onConvert }: { onConvert: (caseId: string) => 
   const [selected, setSelected] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"info" | "ai" | "docs" | "package">("info");
   const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [aiLoading, setAiLoading] = useState(false);
   const [pkgLoading, setPkgLoading] = useState(false);
   const [convertLoading, setConvertLoading] = useState(false);
@@ -282,11 +284,30 @@ function OpeningRequestsSection({ onConvert }: { onConvert: (caseId: string) => 
   });
 
   /* ── Queries ── */
-  const { data: requests = [], isLoading, refetch: refetchList } = useQuery<any[]>({
-    queryKey: ["bk-opening-requests", statusFilter],
-    queryFn: () => api(`/bankruptcy/opening-requests${statusFilter ? `?status=${statusFilter}` : ""}`),
+  const { data: pageRes, isLoading, refetch: refetchList } = useQuery<{
+    data: any[];
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  }>({
+    queryKey: ["bk-opening-requests", statusFilter, page],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if (statusFilter) p.set("status", statusFilter);
+      const json = await api(`/bankruptcy/opening-requests?${p}`);
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json;
+    },
     staleTime: 20_000,
   });
+  const requests = pageRes?.data ?? [];
+  const listTotal = Number(pageRes?.total ?? 0);
 
   const { data: detail, refetch: refetchDetail } = useQuery({
     queryKey: ["bk-opening-req-detail", selected?.id],
@@ -863,7 +884,7 @@ function OpeningRequestsSection({ onConvert }: { onConvert: (caseId: string) => 
           <h2 className="text-lg font-bold flex items-center gap-2">
             <FilePlus2 className="h-5 w-5 text-blue-600" />طلبات افتتاح إجراءات الإفلاس
           </h2>
-          <p className="text-sm text-muted-foreground">{requests.length} طلب</p>
+          <p className="text-sm text-muted-foreground">{listTotal} طلب</p>
         </div>
         <Button className="gap-1.5" onClick={() => setView("create")}>
           <Plus className="h-4 w-4" />طلب جديد
@@ -892,7 +913,7 @@ function OpeningRequestsSection({ onConvert }: { onConvert: (caseId: string) => 
       {/* Status Filters */}
       <div className="flex gap-2 flex-wrap">
         {(["", "draft","under_assessment","documents_pending","ai_analysis","ready_for_filing","under_legal_review","approved_for_submission","submitted_to_court","converted_to_case","closed","cancelled"] as string[]).map(s => (
-          <button key={s} onClick={() => setStatusFilter(s)}
+          <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
             className={`text-xs px-3 py-1 rounded-full border transition-all ${statusFilter === s ? "bg-blue-600 text-white border-blue-600" : "border-border/50 hover:bg-accent"}`}>
             {s === "" ? "الكل" : STATUS_AR[s] ?? s}
           </button>
@@ -962,6 +983,12 @@ function OpeningRequestsSection({ onConvert }: { onConvert: (caseId: string) => 
           );
         })}
       </div>
+      <ListPagination
+        page={page}
+        pageSize={LEGAL_LIST_PAGE_SIZE}
+        total={listTotal}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

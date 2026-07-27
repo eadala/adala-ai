@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { authFetch } from "@/lib/authFetch";
+import { EmployeeSearchSelect } from "@/components/employee-search-select";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -287,7 +288,7 @@ function AnnouncementDialog({ open, onClose }: { open: boolean; onClose: () => v
 }
 
 /* ══════════════════════════════════════════════ REQUEST DIALOG */
-function RequestDialog({ open, onClose, employees }: { open: boolean; onClose: () => void; employees: any[] }) {
+function RequestDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [form, setForm] = useState({ employeeId: "", type: "salary_cert", subject: "", body: "" });
@@ -320,10 +321,12 @@ function RequestDialog({ open, onClose, employees }: { open: boolean; onClose: (
           <div className="grid grid-cols-2 gap-3 mobile-single-col">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">الموظف *</Label>
-              <Select value={form.employeeId} onValueChange={v => upd("employeeId", v)}>
-                <SelectTrigger><SelectValue placeholder="اختر..." /></SelectTrigger>
-                <SelectContent>{employees.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.full_name}</SelectItem>)}</SelectContent>
-              </Select>
+              <EmployeeSearchSelect
+                value={form.employeeId}
+                onValueChange={v => upd("employeeId", v)}
+                status="active"
+                placeholder="ابحث عن موظف..."
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">نوع الطلب</Label>
@@ -433,12 +436,6 @@ export default function HRSystems() {
   const [payslipTarget, setPayslipTarget] = useState<any>(null);
   const [balYear, setBalYear] = useState(String(new Date().getFullYear()));
 
-  const { data: employees = [] } = useQuery<any[]>({
-    queryKey: ["hr-employees-list"],
-    queryFn: () => authFetch(`${BASE}/api/hr/employees`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-  });
-  const activeEmps = employees.filter((e: any) => e.status === "active");
-
   const { data: dash } = useQuery<any>({
     queryKey: ["hr-internal-dash"],
     queryFn: () => authFetch(`${BASE}/api/hr-internal/dashboard`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -505,7 +502,7 @@ export default function HRSystems() {
           { label: "إعلانات نشطة",    value: dash?.announcements ?? 0,    icon: Megaphone,     color: "#6366F1" },
           { label: "طلبات معلّقة",    value: dash?.pendingRequests ?? 0,  icon: Clock,          color: "#F59E0B" },
           { label: "إجازات معلّقة",   value: dash?.pendingLeaves ?? 0,    icon: CalendarDays,   color: "#EF4444" },
-          { label: "موظفون نشطون",    value: dash?.totalEmployees ?? activeEmps.length, icon: Users, color: "#10B981" },
+          { label: "موظفون نشطون",    value: dash?.totalEmployees ?? 0, icon: Users, color: "#10B981" },
         ].map(c => (
           <div key={c.label} className="rounded-2xl border border-border/50 bg-card p-3 flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${c.color}15` }}>
@@ -766,7 +763,7 @@ export default function HRSystems() {
 
       {/* Dialogs */}
       <AnnouncementDialog open={annDialog} onClose={() => setAnnDialog(false)} />
-      <RequestDialog open={reqDialog} onClose={() => setReqDialog(false)} employees={activeEmps} />
+      <RequestDialog open={reqDialog} onClose={() => setReqDialog(false)} />
       {respondTarget && <RespondDialog open onClose={() => setRespondTarget(null)} request={respondTarget} />}
       {payslipTarget && <PayslipModal payroll={payslipTarget} onClose={() => setPayslipTarget(null)} />}
     </div>

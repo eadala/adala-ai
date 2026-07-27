@@ -11,6 +11,7 @@ import { eq, desc, count, sum } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
 import { getUncachableStripeClient } from "../../stripeClient";
+import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
 
 const router = Router();
 const adminOnly = requireSuperAdmin;
@@ -56,9 +57,15 @@ router.get("/admin/stats", adminOnly, async (_req, res) => {
 /* ══════════════════════════════════════════════════════
    ALL OFFICES
 ══════════════════════════════════════════════════════ */
-router.get("/admin/offices", adminOnly, async (_req, res) => {
-  const offices = await db.select().from(officePageTable).orderBy(desc(officePageTable.createdAt));
-  res.json(offices);
+router.get("/admin/offices", adminOnly, async (req, res) => {
+  const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+  const offices = await db.select().from(officePageTable)
+    .orderBy(desc(officePageTable.createdAt), desc(officePageTable.id))
+    .limit(limit)
+    .offset(offset);
+  if (!paginated) return res.json(offices);
+  const [agg] = await db.select({ total: count() }).from(officePageTable);
+  res.json(listPageEnvelope(offices, Number(agg?.total ?? 0), page, limit));
 });
 
 router.patch("/admin/offices/:id", adminOnly, async (req, res) => {
@@ -96,9 +103,15 @@ router.patch("/admin/offices/:id", adminOnly, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    ALL USERS
 ══════════════════════════════════════════════════════ */
-router.get("/admin/users", adminOnly, async (_req, res) => {
-  const users = await db.select().from(usersTable).orderBy(desc(usersTable.createdAt));
-  res.json(users);
+router.get("/admin/users", adminOnly, async (req, res) => {
+  const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+  const users = await db.select().from(usersTable)
+    .orderBy(desc(usersTable.createdAt), desc(usersTable.id))
+    .limit(limit)
+    .offset(offset);
+  if (!paginated) return res.json(users);
+  const [agg] = await db.select({ total: count() }).from(usersTable);
+  res.json(listPageEnvelope(users, Number(agg?.total ?? 0), page, limit));
 });
 
 router.patch("/admin/users/:id", adminOnly, async (req, res) => {
@@ -120,7 +133,8 @@ function serializeDiscount(row: typeof discountCodesTable.$inferSelect) {
 }
 
 router.get("/admin/discounts", adminOnly, async (_req, res) => {
-  const codes = await db.select().from(discountCodesTable).orderBy(desc(discountCodesTable.createdAt));
+  const codes = await db.select().from(discountCodesTable)
+    .orderBy(desc(discountCodesTable.createdAt));
   res.json(codes.map(serializeDiscount));
 });
 
@@ -284,9 +298,15 @@ router.delete("/admin/legal-systems/:id", adminOnly, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    SUPPORT TICKETS
 ══════════════════════════════════════════════════════ */
-router.get("/admin/support", adminOnly, async (_req, res) => {
-  const tickets = await db.select().from(supportTicketsTable).orderBy(desc(supportTicketsTable.createdAt));
-  res.json(tickets);
+router.get("/admin/support", adminOnly, async (req, res) => {
+  const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+  const tickets = await db.select().from(supportTicketsTable)
+    .orderBy(desc(supportTicketsTable.createdAt), desc(supportTicketsTable.id))
+    .limit(limit)
+    .offset(offset);
+  if (!paginated) return res.json(tickets);
+  const [agg] = await db.select({ total: count() }).from(supportTicketsTable);
+  res.json(listPageEnvelope(tickets, Number(agg?.total ?? 0), page, limit));
 });
 
 router.post("/admin/support", requireAuth, async (req, res) => {
@@ -637,43 +657,47 @@ router.post("/admin/billing/pay/:id", adminOnly, async (req, res) => {
 /* ── GET /api/admin/tenants — list all offices + plan + revenue ── */
 router.get("/admin/tenants", adminOnly, async (_req, res) => {
   try {
-    const tenants = await db.execute(sql`
-      SELECT
-        op.id::text              AS id,
-        op.name                  AS name,
-        op.email                 AS email,
-        op.plan                  AS plan,
-        op.stripe_customer_id    AS stripe_customer_id,
-        op.created_at            AS created_at,
-        COALESCE(m.member_count, 0)::int AS member_count,
-        COALESCE(l.gross_total, 0)::numeric AS gross_total,
-        COALESCE(l.net_total,   0)::numeric AS net_total,
-        COALESCE(l.stripe_fee_total, 0)::numeric AS stripe_fee_total,
-        COALESCE(l.platform_fee_total, 0)::numeric AS platform_fee_total,
-        COALESCE(l.tx_count, 0)::int AS tx_count
-      FROM office_page op
-      LEFT JOIN (
-        SELECT office_id, COUNT(*) AS member_count
-        FROM office_members WHERE status = 'active'
-        GROUP BY office_id
-      ) m ON m.office_id = op.id::text
-      LEFT JOIN (
+    const [tenants, countResult] = await Promise.all([
+      db.execute(sql`
         SELECT
-          office_id,
-          SUM(amount)       AS gross_total,
-          SUM(net_amount)   AS net_total,
-          SUM(stripe_fee)   AS stripe_fee_total,
-          SUM(platform_fee) AS platform_fee_total,
-          COUNT(*)          AS tx_count
-        FROM office_ledger WHERE type = 'credit'
-        GROUP BY office_id
-      ) l ON l.office_id = op.id::text
-      ORDER BY op.created_at DESC
-    `);
+          op.id::text              AS id,
+          op.name                  AS name,
+          op.email                 AS email,
+          op.plan                  AS plan,
+          op.stripe_customer_id    AS stripe_customer_id,
+          op.created_at            AS created_at,
+          COALESCE(m.member_count, 0)::int AS member_count,
+          COALESCE(l.gross_total, 0)::numeric AS gross_total,
+          COALESCE(l.net_total,   0)::numeric AS net_total,
+          COALESCE(l.stripe_fee_total, 0)::numeric AS stripe_fee_total,
+          COALESCE(l.platform_fee_total, 0)::numeric AS platform_fee_total,
+          COALESCE(l.tx_count, 0)::int AS tx_count
+        FROM office_page op
+        LEFT JOIN (
+          SELECT office_id, COUNT(*) AS member_count
+          FROM office_members WHERE status = 'active'
+          GROUP BY office_id
+        ) m ON m.office_id = op.id::text
+        LEFT JOIN (
+          SELECT
+            office_id,
+            SUM(amount)       AS gross_total,
+            SUM(net_amount)   AS net_total,
+            SUM(stripe_fee)   AS stripe_fee_total,
+            SUM(platform_fee) AS platform_fee_total,
+            COUNT(*)          AS tx_count
+          FROM office_ledger WHERE type = 'credit'
+          GROUP BY office_id
+        ) l ON l.office_id = op.id::text
+        ORDER BY op.created_at DESC
+      `),
+      db.execute(sql`SELECT COUNT(*)::int AS total FROM office_page`),
+    ]);
 
     const rows = (tenants as any)?.rows ?? [];
+    const total = Number(((countResult as any)?.rows ?? [])[0]?.total ?? rows.length);
     return res.json({
-      total: rows.length,
+      total,
       tenants: rows.map((r: any) => ({
         id:               r.id,
         name:             r.name,

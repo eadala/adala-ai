@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; pagination touch-up */
 /**
  * Case Tasks Module — وحدة المهام المرتبطة بالقضية
  */

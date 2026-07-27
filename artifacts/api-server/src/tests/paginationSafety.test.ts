@@ -8,9 +8,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   MAX_PAGE_LIMIT,
+  listPageEnvelope,
   parseLimitOffset,
   parsePageLimit,
   queryHasPageAndLimit,
+  resolveDualModePaging,
 } from "../lib/paginationSafety";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -84,6 +86,30 @@ console.log("\n═══ parsePageLimit + dual-mode gate ═══");
     offset: 0,
   });
   console.log("  ✅ parsePageLimit / queryHasPageAndLimit OK");
+}
+
+console.log("\n═══ resolveDualModePaging + listPageEnvelope ═══");
+{
+  assert.deepEqual(resolveDualModePaging({ page: "3", limit: "25" }, 50), {
+    paginated: true,
+    page: 3,
+    limit: 25,
+    offset: 50,
+  });
+  assert.deepEqual(resolveDualModePaging({ page: "1" }, 50), {
+    paginated: false,
+    page: 1,
+    limit: MAX_PAGE_LIMIT,
+    offset: 0,
+  });
+  assert.deepEqual(listPageEnvelope([1, 2], 2, 1, 50), {
+    data: [1, 2],
+    total: 2,
+    page: 1,
+    limit: 50,
+    pages: 1,
+  });
+  console.log("  ✅ resolveDualModePaging / listPageEnvelope OK");
 }
 
 console.log("\n═══ route wiring + response shape preservation ═══");

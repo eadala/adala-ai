@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; pagination touch-up */
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import express, { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
+import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
 
 const router = Router();
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
@@ -82,12 +84,37 @@ router.get("/smart-documents", requireAuthWithTenant, async (req, res) => {
   try {
     const tenantId                          = (req as any).tenantId as string;
     const { entityType, entityId } = req.query as Record<string, string>;
+    const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
 
     const filter =
       entityType === "case"     && entityId ? sql` AND case_id     = ${entityId}` :
       entityType === "client"   && entityId ? sql` AND client_id   = ${entityId}` :
       entityType === "contract" && entityId ? sql` AND contract_id = ${entityId}` :
       sql``;
+
+    const mapRow = (d: any) => ({
+      ...d,
+      ai_parties:     toArray(d.ai_parties),
+      ai_dates:       toArray(d.ai_dates),
+      ai_amounts:     toArray(d.ai_amounts),
+      ai_keywords:    toArray(d.ai_keywords),
+      ai_deed_numbers: toArray(d.ai_deed_numbers),
+    });
+
+    if (!paginated) {
+      const result = await db.execute(
+        sql`SELECT id, office_id, case_id, client_id, contract_id,
+                   file_name, file_type, file_size, file_url,
+                   cloud_provider, cloud_file_id, cloud_file_url,
+                   ai_analyzed, ai_summary, ai_parties, ai_dates, ai_amounts,
+                   ai_document_type, ai_keywords, ai_deed_numbers, ai_risk_notes,
+                   uploaded_by, notes, created_at
+            FROM   smart_documents
+            WHERE  office_id = ${tenantId} ${filter}
+            ORDER  BY created_at DESC, id DESC`,
+      );
+      return res.json(rows(result).map(mapRow));
+    }
 
     const result = await db.execute(
       sql`SELECT id, office_id, case_id, client_id, contract_id,
@@ -98,17 +125,17 @@ router.get("/smart-documents", requireAuthWithTenant, async (req, res) => {
                  uploaded_by, notes, created_at
           FROM   smart_documents
           WHERE  office_id = ${tenantId} ${filter}
-          ORDER  BY created_at DESC`,
+          ORDER  BY created_at DESC, id DESC
+          LIMIT ${limit} OFFSET ${offset}`,
     );
+    const mapped = rows(result).map(mapRow);
 
-    res.json(rows(result).map(d => ({
-      ...d,
-      ai_parties:     toArray(d.ai_parties),
-      ai_dates:       toArray(d.ai_dates),
-      ai_amounts:     toArray(d.ai_amounts),
-      ai_keywords:    toArray(d.ai_keywords),
-      ai_deed_numbers: toArray(d.ai_deed_numbers),
-    })));
+    const countResult = await db.execute(sql`
+      SELECT COUNT(*)::int AS total FROM smart_documents
+      WHERE office_id = ${tenantId} ${filter}
+    `);
+    const total = Number(rows(countResult)[0]?.total ?? 0);
+    res.json(listPageEnvelope(mapped, total, page, limit));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

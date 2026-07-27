@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Wallet, Plus, Loader2, CheckCircle2, Clock, XCircle, RefreshCw, ChevronDown } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 function fmt(n: any) { return parseFloat(String(n || 0)).toLocaleString("ar-SA", { maximumFractionDigits: 0 }) + " ر.س"; }
@@ -26,6 +27,13 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = 
 };
 
 interface Advance { id:string; employeeName:string; amount:string; purpose:string; repaymentMonths:number; amountRepaid:string; status:string; date:string; notes:string|null; }
+type AdvancesPageResponse = {
+  data: Advance[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 const empty = ():Partial<Advance> => ({ employeeName:"", amount:"", purpose:"", repaymentMonths:1, date:today(), notes:"" });
 
 export default function Advances() {
@@ -35,11 +43,27 @@ export default function Advances() {
   const [repayId, setRepayId] = useState<string|null>(null);
   const [repayAmt, setRepayAmt] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [page, setPage] = useState(1);
 
-  const { data: rows = [], isLoading } = useQuery<Advance[]>({
-    queryKey: ["accounting-advances"],
-    queryFn: () => authFetch(`${BASE}/api/accounting/advances`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  const { data: pageRes, isLoading } = useQuery<AdvancesPageResponse>({
+    queryKey: ["accounting-advances", page, filterStatus],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if (filterStatus !== "all") p.set("status", filterStatus);
+      const r = await authFetch(`${BASE}/api/accounting/advances?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as AdvancesPageResponse;
+    },
   });
+  const rows = pageRes?.data ?? [];
+  const listTotal = Number(pageRes?.total ?? 0);
 
   const createMut = useMutation({
     mutationFn: (data: any) => authFetch(`${BASE}/api/accounting/advances`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -59,12 +83,15 @@ export default function Advances() {
 
   const delMut = useMutation({
     mutationFn: (id: string) => authFetch(`${BASE}/api/accounting/advances/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounting-advances"] }); toast.success("تم الحذف"); },
+    onSuccess: () => {
+      if (page > 1 && rows.length <= 1) setPage(p => Math.max(1, p - 1));
+      qc.invalidateQueries({ queryKey: ["accounting-advances"] });
+      toast.success("تم الحذف");
+    },
   });
 
   function set(k: string, v: any) { setForm(f => ({ ...f, [k]: v })); }
 
-  const filtered = rows.filter(r => filterStatus === "all" || r.status === filterStatus);
   const totalAdvances = rows.reduce((s, r) => s + parseFloat(String(r.amount || 0)), 0);
   const totalRepaid = rows.reduce((s, r) => s + parseFloat(String(r.amountRepaid || 0)), 0);
   const outstanding = totalAdvances - totalRepaid;
@@ -83,13 +110,13 @@ export default function Advances() {
           <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">إجمالي السلف</p><p className="text-xl font-bold text-foreground">{fmt(totalAdvances)}</p></CardContent></Card>
           <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">المسدد</p><p className="text-xl font-bold text-green-400">{fmt(totalRepaid)}</p></CardContent></Card>
           <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">القائم</p><p className="text-xl font-bold text-primary">{fmt(outstanding)}</p></CardContent></Card>
-          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السلف</p><p className="text-2xl font-bold text-foreground">{rows.length}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السلف</p><p className="text-2xl font-bold text-foreground">{listTotal}</p></CardContent></Card>
         </div>
 
         {/* Status filter */}
         <div className="flex flex-wrap gap-2">
           {[{ v:"all",l:"الكل"},...Object.entries(STATUS_MAP).map(([v,c])=>({v,l:c.label}))].map(s=>(
-            <button key={s.v} onClick={()=>setFilterStatus(s.v)}
+            <button key={s.v} onClick={()=>{ setFilterStatus(s.v); setPage(1); }}
               className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filterStatus===s.v ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
               {s.l}
             </button>
@@ -98,11 +125,11 @@ export default function Advances() {
 
         {isLoading ? (
           <div className="flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ms-2" />جارٍ التحميل...</div>
-        ) : filtered.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="flex flex-col items-center py-14 text-muted-foreground"><Wallet className="h-10 w-10 mb-2 opacity-20" /><p className="text-sm">لا توجد سلف</p></div>
         ) : (
           <div className="space-y-2">
-            {filtered.map(r => {
+            {rows.map(r => {
               const st = STATUS_MAP[r.status] ?? STATUS_MAP.pending;
               const StIcon = st.icon;
               const pct = parseFloat(String(r.amount||0)) > 0 ? (parseFloat(String(r.amountRepaid||0)) / parseFloat(String(r.amount))) * 100 : 0;
@@ -149,6 +176,12 @@ export default function Advances() {
                 </Card>
               );
             })}
+            <ListPagination
+              page={page}
+              pageSize={LEGAL_LIST_PAGE_SIZE}
+              total={listTotal}
+              onPageChange={setPage}
+            />
           </div>
         )}
 

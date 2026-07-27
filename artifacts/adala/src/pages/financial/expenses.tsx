@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { TrendingDown, Plus, Pencil, Trash2, Search, Loader2 } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const CATEGORIES = ["رواتب وتعويضات","إيجار وعقارات","مرافق واتصالات","مستلزمات مكتبية","تسويق وإعلان","سفر ومواصلات","تقنية معلومات","رسوم قانونية","مصاريف متنوعة"];
@@ -21,21 +22,46 @@ const today = () => new Date().toISOString().split("T")[0];
 function fmt(n:any) { return parseFloat(String(n||0)).toLocaleString("ar-SA",{maximumFractionDigits:0})+" ر.س"; }
 
 interface Expense{id:string;title:string;category:string;amount:string;paymentMethod:string;date:string;vendor:string|null;notes:string|null;}
+type ExpensesPageResponse = {
+  data: Expense[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+  stats?: { sum: number; thisMonth: number };
+};
 const empty=():Partial<Expense>=>{return{title:"",category:"مصاريف متنوعة",amount:"",paymentMethod:"bank",date:today(),vendor:"",notes:""}};
 
 export default function Expenses() {
   const qc=useQueryClient();
   const [search,setSearch]=useState("");
   const [catFilter,setCatFilter]=useState("all");
+  const [page,setPage]=useState(1);
   const [open,setOpen]=useState(false);
   const [editing,setEditing]=useState<Expense|null>(null);
   const [form,setForm]=useState<Partial<Expense>>(empty());
   const [delId,setDelId]=useState<string|null>(null);
 
-  const {data:rows=[],isLoading}=useQuery<Expense[]>({
-    queryKey:["accounting-expenses"],
-    queryFn:()=>authFetch(`${BASE}/api/accounting/expenses`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  const {data:pageRes,isLoading}=useQuery<ExpensesPageResponse>({
+    queryKey:["accounting-expenses",page,search,catFilter],
+    queryFn:async()=>{
+      const p=new URLSearchParams({
+        page:String(page),
+        limit:String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if(search.trim()) p.set("search",search.trim());
+      if(catFilter!=="all") p.set("category",catFilter);
+      const r=await authFetch(`${BASE}/api/accounting/expenses?${p}`);
+      if(!r.ok) throw new Error("خطأ في الخادم");
+      const json=await r.json();
+      if(Array.isArray(json)){
+        return{data:json,total:json.length,page:1,limit:json.length||LEGAL_LIST_PAGE_SIZE,pages:1};
+      }
+      return json as ExpensesPageResponse;
+    },
   });
+  const rows=pageRes?.data??[];
+  const listTotal=Number(pageRes?.total??0);
 
   const saveMut=useMutation({
     mutationFn:(data:any)=>editing
@@ -47,7 +73,13 @@ export default function Expenses() {
 
   const delMut=useMutation({
     mutationFn:(id:string)=>authFetch(`${BASE}/api/accounting/expenses/${id}`,{method:"DELETE"}).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess:()=>{qc.invalidateQueries({queryKey:["accounting-expenses"]});qc.invalidateQueries({queryKey:["accounting-summary"]});toast.success("تم الحذف");setDelId(null);},
+    onSuccess:()=>{
+      if(page>1&&rows.length<=1) setPage(p=>Math.max(1,p-1));
+      qc.invalidateQueries({queryKey:["accounting-expenses"]});
+      qc.invalidateQueries({queryKey:["accounting-summary"]});
+      toast.success("تم الحذف");
+      setDelId(null);
+    },
   });
 
   function close_(){setOpen(false);setEditing(null);setForm(empty());}
@@ -55,9 +87,9 @@ export default function Expenses() {
   function openCreate(){setEditing(null);setForm(empty());setOpen(true);}
   function set(k:string,v:string){setForm(f=>({...f,[k]:v}));}
 
-  const filtered=rows.filter(r=>catFilter==="all"||r.category===catFilter).filter(r=>!search||r.title.includes(search)||r.category.includes(search));
-  const total=filtered.reduce((s,r)=>s+parseFloat(String(r.amount||0)),0);
-  const thisMonth=rows.filter(r=>r.date?.startsWith(today().slice(0,7))).reduce((s,r)=>s+parseFloat(String(r.amount||0)),0);
+  const pageTotal=rows.reduce((s,r)=>s+parseFloat(String(r.amount||0)),0);
+  const totalSum=Number(pageRes?.stats?.sum??0);
+  const thisMonth=Number(pageRes?.stats?.thisMonth??0);
 
   return (
     <div className="p-6 space-y-5 max-w-6xl mx-auto">
@@ -72,59 +104,69 @@ export default function Expenses() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">إجمالي المصاريف</p><p className="text-xl font-bold text-red-400">{fmt(rows.reduce((s,r)=>s+parseFloat(String(r.amount||0)),0))}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">إجمالي المصاريف</p><p className="text-xl font-bold text-red-400">{fmt(totalSum)}</p></CardContent></Card>
           <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">مصاريف هذا الشهر</p><p className="text-xl font-bold text-primary">{fmt(thisMonth)}</p></CardContent></Card>
-          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السجلات</p><p className="text-2xl font-bold text-foreground">{rows.length}</p></CardContent></Card>
+          <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground mb-1">عدد السجلات</p><p className="text-2xl font-bold text-foreground">{listTotal}</p></CardContent></Card>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <div className="relative flex-1 min-w-48">
             <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground"/>
-            <Input placeholder="بحث..." value={search} onChange={e=>setSearch(e.target.value)} className="pe-9 bg-card border-border text-foreground h-9 text-sm"/>
+            <Input placeholder="بحث..." value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} className="pe-9 bg-card border-border text-foreground h-9 text-sm"/>
           </div>
-          <Select value={catFilter} onValueChange={setCatFilter}>
+          <Select value={catFilter} onValueChange={v=>{setCatFilter(v);setPage(1);}}>
             <SelectTrigger className="w-44 h-9 bg-card border-border text-sm"><SelectValue placeholder="الفئة"/></SelectTrigger>
             <SelectContent><SelectItem value="all">جميع الفئات</SelectItem>{CATEGORIES.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
         </div>
 
-        {filtered.length>0&&<p className="text-sm text-primary">المجموع: {fmt(total)} ({filtered.length} سجل)</p>}
+        {rows.length>0&&<p className="text-sm text-primary">مجموع الصفحة: {fmt(pageTotal)} ({rows.length} سجل)</p>}
 
         <Card className="bg-card border-border">
           <CardContent className="p-0">
             {isLoading?(
               <div className="flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin ms-2"/>جارٍ التحميل...</div>
-            ):filtered.length===0?(
+            ):rows.length===0?(
               <div className="flex flex-col items-center py-14 text-muted-foreground"><TrendingDown className="h-10 w-10 mb-2 opacity-20"/><p className="text-sm">لا توجد مصاريف</p><Button size="sm" variant="link" className="text-primary mt-1" onClick={openCreate}>إضافة أول مصروف</Button></div>
             ):(
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-border text-muted-foreground text-right">
-                    <th className="px-4 py-3 font-medium">العنوان</th>
-                    <th className="px-4 py-3 font-medium">الفئة</th>
-                    <th className="px-4 py-3 font-medium">المبلغ</th>
-                    <th className="px-4 py-3 font-medium">المورد</th>
-                    <th className="px-4 py-3 font-medium">طريقة الدفع</th>
-                    <th className="px-4 py-3 font-medium">التاريخ</th>
-                    <th className="px-4 py-3 font-medium">الإجراءات</th>
-                  </tr></thead>
-                  <tbody>
-                    {filtered.map(r=>(
-                      <tr key={r.id} className="border-b border-border/50 hover:bg-card-accent/30">
-                        <td className="px-4 py-3 text-foreground font-medium">{r.title}</td>
-                        <td className="px-4 py-3"><Badge variant="outline" className="border-red-500/30 text-red-400 text-xs">{r.category}</Badge></td>
-                        <td className="px-4 py-3 text-red-400 font-bold">{fmt(r.amount)}</td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs">{r.vendor||"—"}</td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs">{METHODS.find(m=>m.v===r.paymentMethod)?.l??r.paymentMethod}</td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs">{r.date}</td>
-                        <td className="px-4 py-3"><div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-primary" onClick={()=>openEdit(r)}><Pencil className="h-3.5 w-3.5"/></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-red-400" onClick={()=>setDelId(r.id)}><Trash2 className="h-3.5 w-3.5"/></Button>
-                        </div></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b border-border text-muted-foreground text-right">
+                      <th className="px-4 py-3 font-medium">العنوان</th>
+                      <th className="px-4 py-3 font-medium">الفئة</th>
+                      <th className="px-4 py-3 font-medium">المبلغ</th>
+                      <th className="px-4 py-3 font-medium">المورد</th>
+                      <th className="px-4 py-3 font-medium">طريقة الدفع</th>
+                      <th className="px-4 py-3 font-medium">التاريخ</th>
+                      <th className="px-4 py-3 font-medium">الإجراءات</th>
+                    </tr></thead>
+                    <tbody>
+                      {rows.map(r=>(
+                        <tr key={r.id} className="border-b border-border/50 hover:bg-card-accent/30">
+                          <td className="px-4 py-3 text-foreground font-medium">{r.title}</td>
+                          <td className="px-4 py-3"><Badge variant="outline" className="border-red-500/30 text-red-400 text-xs">{r.category}</Badge></td>
+                          <td className="px-4 py-3 text-red-400 font-bold">{fmt(r.amount)}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">{r.vendor||"—"}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">{METHODS.find(m=>m.v===r.paymentMethod)?.l??r.paymentMethod}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">{r.date}</td>
+                          <td className="px-4 py-3"><div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-primary" onClick={()=>openEdit(r)}><Pencil className="h-3.5 w-3.5"/></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-red-400" onClick={()=>setDelId(r.id)}><Trash2 className="h-3.5 w-3.5"/></Button>
+                          </div></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="px-4 pb-3">
+                  <ListPagination
+                    page={page}
+                    pageSize={LEGAL_LIST_PAGE_SIZE}
+                    total={listTotal}
+                    onPageChange={setPage}
+                  />
+                </div>
               </div>
             )}
           </CardContent>

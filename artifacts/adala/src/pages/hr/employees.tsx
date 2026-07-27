@@ -20,8 +20,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type EmployeesPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 const DEPARTMENTS = ["القانوني", "الإداري", "المالي", "تقنية المعلومات", "الموارد البشرية", "خدمة العملاء"];
 const CONTRACT_TYPES: Record<string, string> = { permanent: "دائم", temporary: "مؤقت", parttime: "جزء من الوقت", freelance: "مستقل" };
@@ -141,16 +150,34 @@ export default function Employees() {
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
   const [editEmp, setEditEmp] = useState<any>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: employees = [], isLoading } = useQuery<any[]>({
-    queryKey: ["employees"],
-    queryFn: () => authFetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  const { data: pageRes, isLoading } = useQuery<EmployeesPageResponse>({
+    queryKey: ["employees", page, search, deptFilter, statusFilter],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if (search.trim()) p.set("search", search.trim());
+      if (deptFilter !== "all") p.set("department", deptFilter);
+      if (statusFilter !== "all") p.set("status", statusFilter);
+      const r = await authFetch(`${BASE}/api/hr/employees?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as EmployeesPageResponse;
+    },
   });
+  const employees = pageRes?.data ?? [];
+  const total = Number(pageRes?.total ?? 0);
 
   const { data: stats } = useQuery<any>({
     queryKey: ["employees-stats"],
@@ -173,14 +200,6 @@ export default function Employees() {
     mutationFn: (id: string) => authFetch(`${BASE}/api/hr/employees/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); qc.invalidateQueries({ queryKey: ["employees-stats"] }); toast({ title: "تم الحذف" }); },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
-  });
-
-  const filtered = employees.filter(e => {
-    const q = search.toLowerCase();
-    if (q && !e.fullName?.toLowerCase().includes(q) && !e.jobTitle?.toLowerCase().includes(q) && !e.employeeNo?.toLowerCase().includes(q)) return false;
-    if (deptFilter !== "all" && e.department !== deptFilter) return false;
-    if (statusFilter !== "all" && e.status !== statusFilter) return false;
-    return true;
   });
 
   const openEdit = (emp: any) => { setEditEmp(emp); setForm({ employeeNo: emp.employeeNo, fullName: emp.fullName, email: emp.email ?? "", phone: emp.phone ?? "", nationalId: emp.nationalId ?? "", jobTitle: emp.jobTitle, department: emp.department ?? "", salary: emp.salary, salaryType: emp.salaryType ?? "monthly", hireDate: emp.hireDate ?? "", contractType: emp.contractType ?? "permanent", status: emp.status, gender: emp.gender ?? "male", nationality: emp.nationality ?? "سعودي", notes: emp.notes ?? "" }); };
@@ -225,16 +244,16 @@ export default function Employees() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث بالاسم أو المسمى أو الرقم..." className="pe-9" />
+          <Input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="بحث بالاسم أو المسمى أو الرقم..." className="pe-9" />
         </div>
-        <Select value={deptFilter} onValueChange={setDeptFilter}>
+        <Select value={deptFilter} onValueChange={v => { setDeptFilter(v); setPage(1); }}>
           <SelectTrigger className="w-[140px]"><SelectValue placeholder="القسم" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">كل الأقسام</SelectItem>
             {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
           <SelectTrigger className="w-[130px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">كل الحالات</SelectItem>
@@ -248,14 +267,22 @@ export default function Employees() {
       {/* Grid */}
       {isLoading ? (
         <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-      ) : filtered.length === 0 ? (
+      ) : employees.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <Users className="h-12 w-12 mx-auto mb-4 opacity-30" />
           <p>لا يوجد موظفون — أضف أول موظف</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(e => <EmployeeCard key={e.id} emp={e} onEdit={openEdit} onDelete={(id: string) => { if (window.confirm(`هل تريد حذف الموظف "${e.fullName}"؟`)) deleteMutation.mutate(id); }} />)}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {employees.map(e => <EmployeeCard key={e.id} emp={e} onEdit={openEdit} onDelete={(id: string) => { if (window.confirm(`هل تريد حذف الموظف "${e.fullName}"؟`)) deleteMutation.mutate(id); }} />)}
+          </div>
+          <ListPagination
+            page={page}
+            pageSize={LEGAL_LIST_PAGE_SIZE}
+            total={total}
+            onPageChange={setPage}
+          />
         </div>
       )}
 
