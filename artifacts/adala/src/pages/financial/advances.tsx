@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Wallet, Plus, Loader2, CheckCircle2, Clock, XCircle, RefreshCw, ChevronDown } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 function fmt(n: any) { return parseFloat(String(n || 0)).toLocaleString("ar-SA", { maximumFractionDigits: 0 }) + " ر.س"; }
@@ -26,6 +27,13 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = 
 };
 
 interface Advance { id:string; employeeName:string; amount:string; purpose:string; repaymentMonths:number; amountRepaid:string; status:string; date:string; notes:string|null; }
+type AdvancesPageResponse = {
+  data: Advance[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 const empty = ():Partial<Advance> => ({ employeeName:"", amount:"", purpose:"", repaymentMonths:1, date:today(), notes:"" });
 
 export default function Advances() {
@@ -35,11 +43,26 @@ export default function Advances() {
   const [repayId, setRepayId] = useState<string|null>(null);
   const [repayAmt, setRepayAmt] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [page, setPage] = useState(1);
 
-  const { data: rows = [], isLoading } = useQuery<Advance[]>({
-    queryKey: ["accounting-advances"],
-    queryFn: () => authFetch(`${BASE}/api/accounting/advances`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  const { data: pageRes, isLoading } = useQuery<AdvancesPageResponse>({
+    queryKey: ["accounting-advances", page],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      const r = await authFetch(`${BASE}/api/accounting/advances?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as AdvancesPageResponse;
+    },
   });
+  const rows = pageRes?.data ?? [];
+  const listTotal = Number(pageRes?.total ?? 0);
 
   const createMut = useMutation({
     mutationFn: (data: any) => authFetch(`${BASE}/api/accounting/advances`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -89,7 +112,7 @@ export default function Advances() {
         {/* Status filter */}
         <div className="flex flex-wrap gap-2">
           {[{ v:"all",l:"الكل"},...Object.entries(STATUS_MAP).map(([v,c])=>({v,l:c.label}))].map(s=>(
-            <button key={s.v} onClick={()=>setFilterStatus(s.v)}
+            <button key={s.v} onClick={()=>{ setFilterStatus(s.v); setPage(1); }}
               className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filterStatus===s.v ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
               {s.l}
             </button>
@@ -149,6 +172,12 @@ export default function Advances() {
                 </Card>
               );
             })}
+            <ListPagination
+              page={page}
+              pageSize={LEGAL_LIST_PAGE_SIZE}
+              total={listTotal}
+              onPageChange={setPage}
+            />
           </div>
         )}
 

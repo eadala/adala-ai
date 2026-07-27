@@ -22,8 +22,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type ArbitrationPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
   pending: { label: "قيد التسجيل", color: "text-yellow-400", icon: Clock },
@@ -270,14 +279,29 @@ export default function Arbitration() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedCase, setSelectedCase] = useState<any>(null);
   const [typeFilter, setTypeFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [form, setForm] = useState(EMPTY_FORM);
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: cases = [], isLoading, refetch } = useQuery<any[]>({
-    queryKey: ["arbitration"],
-    queryFn: () => authFetch(`${BASE}/api/arbitration/cases`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  const { data: pageRes, isLoading, refetch } = useQuery<ArbitrationPageResponse>({
+    queryKey: ["arbitration", page],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      const r = await authFetch(`${BASE}/api/arbitration/cases?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as ArbitrationPageResponse;
+    },
   });
+  const cases = pageRes?.data ?? [];
+  const listTotal = Number(pageRes?.total ?? 0);
 
   const { data: stats } = useQuery<any>({
     queryKey: ["arbitration-stats"],
@@ -343,7 +367,7 @@ export default function Arbitration() {
       {/* Filter */}
       <div className="flex gap-2">
         {[{ value: "all", label: "الكل" }, { value: "arbitration", label: "تحكيم" }, { value: "mediation", label: "وساطة" }].map(f => (
-          <button key={f.value} onClick={() => setTypeFilter(f.value)}
+          <button key={f.value} onClick={() => { setTypeFilter(f.value); setPage(1); }}
             className={cn("px-4 py-1.5 rounded-xl text-sm font-medium border transition-all",
               typeFilter === f.value ? "bg-primary/10 border-primary text-primary" : "border-muted text-muted-foreground hover:border-primary/30")}>
             {f.label}
@@ -369,6 +393,12 @@ export default function Arbitration() {
                   onClick={() => setSelectedCase(c.id === selectedCase?.id ? null : c)}
                   onDelete={(id: string) => { if (window.confirm("هل تريد حذف هذه القضية نهائياً؟")) deleteMutation.mutate(id); }} />
               ))}
+              <ListPagination
+                page={page}
+                pageSize={LEGAL_LIST_PAGE_SIZE}
+                total={listTotal}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </div>

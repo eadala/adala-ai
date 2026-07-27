@@ -18,8 +18,17 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type PayrollPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 const MONTHS_EN = ["01","02","03","04","05","06","07","08","09","10","11","12"];
@@ -42,13 +51,28 @@ export default function Payroll() {
   const [genMonth, setGenMonth] = useState(currentMonth);
   const [genYear, setGenYear] = useState(String(currentYear));
   const [monthFilter, setMonthFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: payroll = [], isLoading } = useQuery<any[]>({
-    queryKey: ["payroll"],
-    queryFn: () => authFetch("/api/hr/payroll").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  const { data: pageRes, isLoading } = useQuery<PayrollPageResponse>({
+    queryKey: ["payroll", page],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      const r = await authFetch(`${BASE}/api/hr/payroll?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as PayrollPageResponse;
+    },
   });
+  const payroll = pageRes?.data ?? [];
+  const listTotal = Number(pageRes?.total ?? 0);
 
   const { data: payStats } = useQuery<any>({
     queryKey: ["payroll-stats"],
@@ -160,7 +184,7 @@ export default function Payroll() {
 
       {/* Filter + Pay All */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <Select value={monthFilter} onValueChange={setMonthFilter}>
+        <Select value={monthFilter} onValueChange={v => { setMonthFilter(v); setPage(1); }}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="الشهر" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">كل الشهور</SelectItem>
@@ -231,6 +255,16 @@ export default function Payroll() {
               </tbody>
             </table>
           </div>
+          {!isLoading && listTotal > 0 && (
+            <div className="px-3 pb-3">
+              <ListPagination
+                page={page}
+                pageSize={LEGAL_LIST_PAGE_SIZE}
+                total={listTotal}
+                onPageChange={setPage}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

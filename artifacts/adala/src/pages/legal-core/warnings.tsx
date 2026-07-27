@@ -21,8 +21,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type ListPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 /* ── config ──────────────────────────────────────────── */
 
@@ -70,14 +79,29 @@ export default function Warnings() {
   /* ═══════════ WARNINGS ═══════════ */
   const [wSearch, setWSearch]       = useState("");
   const [wFilter, setWFilter]       = useState("all");
+  const [wPage, setWPage]           = useState(1);
   const [showWarnForm, setShowWarnForm]   = useState(false);
   const [showWarnDetail, setShowWarnDetail] = useState<any>(null);
   const [wForm, setWForm] = useState({ employeeId: "", type: "written", reason: "", description: "", issuedBy: "" });
 
-  const { data: warnings = [], isLoading: wLoading } = useQuery<any[]>({
-    queryKey: ["warnings"],
-    queryFn: () => authFetch(`${BASE}/api/hr/warnings`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  const { data: wPageRes, isLoading: wLoading } = useQuery<ListPageResponse>({
+    queryKey: ["warnings", wPage],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(wPage),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      const r = await authFetch(`${BASE}/api/hr/warnings?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as ListPageResponse;
+    },
   });
+  const warnings = wPageRes?.data ?? [];
+  const warningsTotal = Number(wPageRes?.total ?? 0);
 
   const addWarning = useMutation({
     mutationFn: (d: any) => authFetch(`${BASE}/api/hr/warnings`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -106,16 +130,31 @@ export default function Warnings() {
   /* ═══════════ INVESTIGATIONS ═══════════ */
   const [iSearch, setISearch]       = useState("");
   const [iFilter, setIFilter]       = useState("all");
+  const [iPage, setIPage]           = useState(1);
   const [showInvForm, setShowInvForm]   = useState(false);
   const [showInvDetail, setShowInvDetail] = useState<any>(null);
   const [iForm, setIForm] = useState({
     employeeId: "", subject: "", description: "", openedBy: "", committee: "", sessionDate: "",
   });
 
-  const { data: investigations = [], isLoading: iLoading } = useQuery<any[]>({
-    queryKey: ["investigations"],
-    queryFn: () => authFetch(`${BASE}/api/hr/investigations`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  const { data: iPageRes, isLoading: iLoading } = useQuery<ListPageResponse>({
+    queryKey: ["investigations", iPage],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(iPage),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      const r = await authFetch(`${BASE}/api/hr/investigations?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as ListPageResponse;
+    },
   });
+  const investigations = iPageRes?.data ?? [];
+  const investigationsTotal = Number(iPageRes?.total ?? 0);
 
   const addInvestigation = useMutation({
     mutationFn: (d: any) => authFetch(`${BASE}/api/hr/investigations`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -192,9 +231,9 @@ export default function Warnings() {
           <div className="flex gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={wSearch} onChange={e => setWSearch(e.target.value)} placeholder="بحث بالاسم أو السبب..." className="pe-9" />
+              <Input value={wSearch} onChange={e => { setWSearch(e.target.value); setWPage(1); }} placeholder="بحث بالاسم أو السبب..." className="pe-9" />
             </div>
-            <Select value={wFilter} onValueChange={setWFilter}>
+            <Select value={wFilter} onValueChange={v => { setWFilter(v); setWPage(1); }}>
               <SelectTrigger className="w-[150px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">جميع الحالات</SelectItem>
@@ -276,6 +315,12 @@ export default function Warnings() {
                   </Card>
                 );
               })}
+              <ListPagination
+                page={wPage}
+                pageSize={LEGAL_LIST_PAGE_SIZE}
+                total={warningsTotal}
+                onPageChange={setWPage}
+              />
             </div>
           )}
         </TabsContent>
@@ -285,9 +330,9 @@ export default function Warnings() {
           <div className="flex gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={iSearch} onChange={e => setISearch(e.target.value)} placeholder="بحث بالاسم أو الموضوع..." className="pe-9" />
+              <Input value={iSearch} onChange={e => { setISearch(e.target.value); setIPage(1); }} placeholder="بحث بالاسم أو الموضوع..." className="pe-9" />
             </div>
-            <Select value={iFilter} onValueChange={setIFilter}>
+            <Select value={iFilter} onValueChange={v => { setIFilter(v); setIPage(1); }}>
               <SelectTrigger className="w-[150px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">جميع الحالات</SelectItem>
@@ -366,6 +411,12 @@ export default function Warnings() {
                   </Card>
                 );
               })}
+              <ListPagination
+                page={iPage}
+                pageSize={LEGAL_LIST_PAGE_SIZE}
+                total={investigationsTotal}
+                onPageChange={setIPage}
+              />
             </div>
           )}
         </TabsContent>
