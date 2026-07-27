@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
-import { useListUsers } from "@workspace/api-client-react";
+import { getListUsersQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -30,9 +30,26 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { format } from "date-fns";
 import { arSA } from "date-fns/locale";
 import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
+type UsersPageResponse = {
+  data: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    phone?: string | null;
+    role: string;
+    status: string;
+    createdAt: string;
+  }>;
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+  stats?: { active: number };
+};
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Role {
@@ -681,7 +698,34 @@ function RoleDialog({ open, onClose, role }: { open: boolean; onClose: () => voi
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function Users() {
-  const { data: users, isLoading: usersLoading } = useListUsers();
+  const [page, setPage] = useState(1);
+  const [userSearch, setUserSearch] = useState("");
+  const { data: usersPage, isLoading: usersLoading } = useQuery<UsersPageResponse>({
+    queryKey: ["users-list", page, userSearch],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if (userSearch.trim()) p.set("search", userSearch.trim());
+      const r = await authFetch(`${BASE}/api/users?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return {
+          data: json,
+          total: json.length,
+          page: 1,
+          limit: json.length || LEGAL_LIST_PAGE_SIZE,
+          pages: 1,
+        };
+      }
+      return json as UsersPageResponse;
+    },
+  });
+  const users = usersPage?.data ?? [];
+  const usersTotal = Number(usersPage?.total ?? 0);
+  const usersActive = Number(usersPage?.stats?.active ?? 0);
   const { data: roles = [], isLoading: rolesLoading } = useRoles();
   const { data: invitations = [], isLoading: invitationsLoading } = useInvitations();
   const { data: auditLogs = [], isLoading: auditLoading } = useAuditLogs();
@@ -689,16 +733,18 @@ export default function Users() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [roleDialog, setRoleDialog] = useState<{ open: boolean; role?: Role }>({ open: false });
   const [activeTab, setActiveTab] = useState("users");
-  const [userSearch, setUserSearch] = useState("");
 
   const { toast } = useToast();
   const qc = useQueryClient();
 
   const pendingInvitations = invitations.filter(i => i.status === "pending").length;
-  const filteredUsers = (users ?? []).filter(u =>
-    u.fullName.toLowerCase().includes(userSearch.toLowerCase()) ||
-    u.email?.toLowerCase().includes(userSearch.toLowerCase())
-  );
+  const filteredUsers = users;
+
+  const invalidateUsers = () => {
+    qc.invalidateQueries({ queryKey: ["users-list"] });
+    qc.invalidateQueries({ queryKey: getListUsersQueryKey() });
+    qc.invalidateQueries({ queryKey: ["listUsers"] });
+  };
 
   const changeRole = async (userId: string, role: string) => {
     const r = await authFetch(`${BASE}/api/rbac/users/${userId}/role`, {
@@ -708,7 +754,7 @@ export default function Users() {
     });
     if (r.ok) {
       toast({ title: "✅ تم تغيير الدور" });
-      qc.invalidateQueries({ queryKey: ["listUsers"] });
+      invalidateUsers();
       qc.invalidateQueries({ queryKey: ["rbac-audit-logs"] });
     }
   };
@@ -721,7 +767,7 @@ export default function Users() {
     });
     if (r.ok) {
       toast({ title: status === "active" ? "✅ تم تفعيل الحساب" : "⛔ تم تعطيل الحساب" });
-      qc.invalidateQueries({ queryKey: ["listUsers"] });
+      invalidateUsers();
       qc.invalidateQueries({ queryKey: ["rbac-audit-logs"] });
     }
   };
@@ -775,8 +821,8 @@ export default function Users() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "إجمالي الأعضاء",    value: users?.length ?? 0,                                          icon: UsersIcon,  color: "#6366F1" },
-          { label: "أعضاء نشطون",       value: users?.filter(u => u.status === "active").length ?? 0,       icon: UserCheck,  color: "#10B981" },
+          { label: "إجمالي الأعضاء",    value: usersTotal,                                          icon: UsersIcon,  color: "#6366F1" },
+          { label: "أعضاء نشطون",       value: usersActive,                                         icon: UserCheck,  color: "#10B981" },
           { label: "الأدوار المُعرَّفة", value: roles.length,                                                icon: Key,        color: "#2563EB" },
           { label: "دعوات معلقة",       value: pendingInvitations,                                          icon: Send,       color: "#F59E0B" },
         ].map(stat => (
@@ -816,7 +862,7 @@ export default function Users() {
             <Input
               placeholder="ابحث باسم المستخدم أو البريد..."
               value={userSearch}
-              onChange={e => setUserSearch(e.target.value)}
+              onChange={e => { setUserSearch(e.target.value); setPage(1); }}
               className="pe-9"
             />
           </div>
@@ -963,6 +1009,12 @@ export default function Users() {
               </Table>
             </CardContent>
           </Card>
+          <ListPagination
+            page={page}
+            pageSize={LEGAL_LIST_PAGE_SIZE}
+            total={usersTotal}
+            onPageChange={setPage}
+          />
         </TabsContent>
 
         {/* ══ TAB 2: ROLES ══ */}

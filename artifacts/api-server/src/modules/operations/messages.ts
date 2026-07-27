@@ -5,7 +5,14 @@ import { Router } from "express";
 import { db, messagesTable, casesTable } from "@workspace/db";
 import { ListMessagesQueryParams, SendMessageBody } from "@workspace/api-zod";
 import { getAuth, createClerkClient } from "@clerk/express";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
+import {
+  MAX_PAGE_LIMIT,
+  parsePageLimit,
+  queryHasPageAndLimit,
+} from "../../lib/paginationSafety";
+
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt in message helpers; pagination touch-up */
 
 const router = Router();
 
@@ -50,27 +57,39 @@ async function canReplyToClient(u: NonNullable<Awaited<ReturnType<typeof getMsgU
   } catch { return DEFAULT_REPLY_ROLES.includes(u.officeRole); }
 }
 
+function sqlRows(r: any): any[] {
+  return Array.isArray(r) ? r : (r?.rows ?? []);
+}
+
 // ── GET /messages/conversations  — grouped view ───────────────────────────────
 router.get("/messages/conversations", requireAuthWithTenant, async (req, res) => {
   try {
-    // Office scope comes ONLY from req.tenantId (requireAuthWithTenant) —
-    // a helper-returned officeId must never override the canonical tenant.
     const tenantId = (req as any).tenantId as string;
     /*
-     * CONFIRMED (out of scope for this fix): the `messages` table has no
-     * `office_id` column in any migration or the Drizzle schema
-     * (lib/db/src/schema/messages.ts) — this WHERE clause already targets a
-     * column that does not exist. That is a pre-existing schema gap,
-     * unrelated to the userId-as-tenant fallback removed here; fixing it
-     * requires a migration and is intentionally not addressed in this PR.
+     * Soft-cap: load the newest MAX_PAGE_LIMIT messages for this office, then
+     * group. Full historical grouping required unbounded load and is not
+     * suitable for page/limit without a different conversation model.
      */
-    const msgs = await db.execute(sql`SELECT * FROM messages WHERE office_id=${tenantId} ORDER BY created_at ASC`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
-    const allCases = await db.select({ id: casesTable.id, title: casesTable.title }).from(casesTable);
+    const msgs = sqlRows(await db.execute(sql`
+      SELECT * FROM (
+        SELECT * FROM messages
+        WHERE office_id = ${tenantId}
+        ORDER BY created_at DESC
+        LIMIT ${MAX_PAGE_LIMIT}
+      ) recent
+      ORDER BY created_at ASC
+    `));
+
+    const caseIds = [...new Set(msgs.map((m: any) => m.caseId ?? m.case_id).filter(Boolean))] as string[];
+    const allCases = caseIds.length > 0
+      ? await db.select({ id: casesTable.id, title: casesTable.title }).from(casesTable)
+        .where(eq((casesTable as any).officeId, tenantId))
+      : [];
     const caseMap = Object.fromEntries(allCases.map((c) => [c.id, c.title]));
 
-    const groups: Record<string, typeof msgs> = {};
+    const groups: Record<string, any[]> = {};
     for (const m of msgs) {
-      const key = m.caseId ?? "__direct__";
+      const key = (m.caseId ?? m.case_id) ?? "__direct__";
       if (!groups[key]) groups[key] = [];
       groups[key].push(m);
     }
@@ -79,25 +98,29 @@ router.get("/messages/conversations", requireAuthWithTenant, async (req, res) =>
       const lastMsg = messages[messages.length - 1];
       const unread = messages.filter((m: any) => m.direction === "inbound" && m.status !== "read").length;
       const name = key === "__direct__" ? "مراسلات مباشرة" : (caseMap[key] ?? `قضية ${key.slice(0, 8)}`);
+      const createdAt = lastMsg.createdAt ?? lastMsg.created_at;
       return {
         id: key,
         caseId: key === "__direct__" ? null : key,
         name,
         channel: lastMsg.channel ?? "internal",
         lastMsg: lastMsg.content,
-        time: lastMsg.createdAt.toISOString(),
+        time: createdAt instanceof Date ? createdAt.toISOString() : String(createdAt),
         unread,
         starred: false,
         online: false,
         caseRef: key !== "__direct__" ? key.slice(0, 8).toUpperCase() : undefined,
-        messages: messages.map((m: any) => ({
-          id: m.id,
-          from: m.direction === "inbound" ? "client" : "me",
-          content: m.content,
-          time: m.createdAt.toISOString(),
-          status: m.status ?? undefined,
-          channel: m.channel ?? "internal",
-        })),
+        messages: messages.map((m: any) => {
+          const t = m.createdAt ?? m.created_at;
+          return {
+            id: m.id,
+            from: m.direction === "inbound" ? "client" : "me",
+            content: m.content,
+            time: t instanceof Date ? t.toISOString() : String(t),
+            status: m.status ?? undefined,
+            channel: m.channel ?? "internal",
+          };
+        }),
       };
     });
 
@@ -110,24 +133,64 @@ router.get("/messages/conversations", requireAuthWithTenant, async (req, res) =>
 // ── GET /messages  — flat list ────────────────────────────────────────────────
 router.get("/messages", requireAuthWithTenant, async (req, res) => {
   try {
-    // Office scope comes ONLY from req.tenantId — see comment above.
     const tenantId = (req as any).tenantId as string;
     const query = ListMessagesQueryParams.parse(req.query);
-    let msgs = await db.execute(sql`SELECT * FROM messages WHERE office_id=${tenantId} ORDER BY created_at ASC`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])) as any[];
-    if (query.caseId) msgs = msgs.filter((m) => m.caseId === query.caseId);
-    if (query.channel) msgs = msgs.filter((m) => m.channel === query.channel);
+    const paginated = queryHasPageAndLimit(req.query);
+    const { page, limit, offset } = paginated
+      ? parsePageLimit(req.query, 50)
+      : { page: 1, limit: MAX_PAGE_LIMIT, offset: 0 };
 
-    const caseIds = [...new Set(msgs.map((m) => m.caseId).filter(Boolean))] as string[];
+    const caseCond = query.caseId ? sql`AND case_id = ${query.caseId}` : sql``;
+    const channelCond = query.channel ? sql`AND channel = ${query.channel}` : sql``;
+
+    const msgs = sqlRows(await db.execute(sql`
+      SELECT * FROM messages
+      WHERE office_id = ${tenantId}
+      ${caseCond} ${channelCond}
+      ORDER BY created_at ASC
+      LIMIT ${limit} OFFSET ${offset}
+    `));
+
+    const caseIds = [...new Set(msgs.map((m: any) => m.caseId ?? m.case_id).filter(Boolean))] as string[];
     const cases = caseIds.length > 0
       ? await db.select({ id: casesTable.id, title: casesTable.title }).from(casesTable)
+        .where(eq((casesTable as any).officeId, tenantId))
       : [];
     const caseMap = Object.fromEntries(cases.map((c) => [c.id, c.title]));
 
-    res.json(msgs.map((m) => ({
-      id: m.id, caseId: m.caseId, caseName: m.caseId ? (caseMap[m.caseId] ?? null) : null,
-      channel: m.channel, direction: m.direction, content: m.content, status: m.status,
-      createdAt: m.createdAt.toISOString(),
-    })));
+    const mapped = msgs.map((m: any) => {
+      const caseId = m.caseId ?? m.case_id ?? null;
+      const createdAt = m.createdAt ?? m.created_at;
+      return {
+        id: m.id,
+        caseId,
+        caseName: caseId ? (caseMap[caseId] ?? null) : null,
+        channel: m.channel,
+        direction: m.direction,
+        content: m.content,
+        status: m.status,
+        createdAt: createdAt instanceof Date ? createdAt.toISOString() : String(createdAt),
+      };
+    });
+
+    if (!paginated) {
+      res.json(mapped);
+      return;
+    }
+
+    const total = Number(sqlRows(await db.execute(sql`
+      SELECT COUNT(*)::int AS total FROM messages
+      WHERE office_id = ${tenantId}
+      ${caseCond} ${channelCond}
+    `))[0]?.total ?? 0);
+
+    res.json({
+      data: mapped,
+      total,
+      page,
+      limit,
+      pages: Math.max(1, Math.ceil(total / limit)),
+    });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
