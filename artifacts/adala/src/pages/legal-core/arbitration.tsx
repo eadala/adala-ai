@@ -285,12 +285,13 @@ export default function Arbitration() {
   const qc = useQueryClient();
 
   const { data: pageRes, isLoading, refetch } = useQuery<ArbitrationPageResponse>({
-    queryKey: ["arbitration", page],
+    queryKey: ["arbitration", page, typeFilter],
     queryFn: async () => {
       const p = new URLSearchParams({
         page: String(page),
         limit: String(LEGAL_LIST_PAGE_SIZE),
       });
+      if (typeFilter !== "all") p.set("type", typeFilter);
       const r = await authFetch(`${BASE}/api/arbitration/cases?${p}`);
       if (!r.ok) throw new Error("خطأ في الخادم");
       const json = await r.json();
@@ -323,11 +324,14 @@ export default function Arbitration() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => authFetch(`${BASE}/api/arbitration/cases/${id}`, { method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["arbitration"] }); if (selectedCase) setSelectedCase(null); toast({ title: "تم الحذف" }); },
+    onSuccess: () => {
+      if (page > 1 && cases.length <= 1) setPage(p => Math.max(1, p - 1));
+      qc.invalidateQueries({ queryKey: ["arbitration"] });
+      if (selectedCase) setSelectedCase(null);
+      toast({ title: "تم الحذف" });
+    },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
-
-  const filtered = cases.filter(c => typeFilter === "all" || c.type === typeFilter);
 
   // If a case is selected, update it from latest data
   const currentCase = selectedCase ? cases.find(c => c.id === selectedCase.id) ?? selectedCase : null;
@@ -381,14 +385,14 @@ export default function Arbitration() {
         <div className={cn(currentCase ? "lg:col-span-2" : "col-span-1")}>
           {isLoading ? (
             <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : filtered.length === 0 ? (
+          ) : cases.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <Handshake className="h-12 w-12 mx-auto mb-4 opacity-30" />
               <p>لا توجد قضايا — أضف أولى القضايا</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {filtered.map(c => (
+              {cases.map(c => (
                 <CaseCard key={c.id} c={c}
                   onClick={() => setSelectedCase(c.id === selectedCase?.id ? null : c)}
                   onDelete={(id: string) => { if (window.confirm("هل تريد حذف هذه القضية نهائياً؟")) deleteMutation.mutate(id); }} />

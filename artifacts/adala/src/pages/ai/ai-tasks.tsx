@@ -54,13 +54,14 @@ export default function AiTasks() {
   const [form, setForm] = useState({ type: "summarize", caseId: "", priority: "3", inputText: "" });
 
   const { data: pageRes, isLoading, refetch } = useQuery<AiTasksPageResponse>({
-    queryKey: ["listAiTasks", page, statusFilter],
+    queryKey: ["listAiTasks", page, statusFilter, search],
     queryFn: async () => {
       const p = new URLSearchParams({
         page: String(page),
         limit: String(LEGAL_LIST_PAGE_SIZE),
       });
       if (statusFilter !== "all") p.set("status", statusFilter);
+      if (search.trim()) p.set("search", search.trim());
       const r = await authFetch(`${BASE}/api/tasks?${p}`);
       if (!r.ok) throw new Error("خطأ في الخادم");
       const json = await r.json();
@@ -91,13 +92,6 @@ export default function AiTasks() {
       setForm({ type: "summarize", caseId: "", priority: "3", inputText: "" });
     },
     onError: () => toast({ title: "خطأ في إنشاء المهمة", variant: "destructive" }),
-  });
-
-  const filtered = tasks.filter(t => {
-    const matchSearch = !search ||
-      (TASK_TYPE_MAP[t.type] ?? t.type).includes(search) ||
-      (t.caseName ?? "").includes(search);
-    return matchSearch;
   });
 
   return (
@@ -165,14 +159,14 @@ export default function AiTasks() {
                     <TableCell></TableCell>
                   </TableRow>
                 ))
-              ) : filtered.length === 0 ? (
+              ) : tasks.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                     {search || statusFilter !== "all" ? "لا توجد نتائج مطابقة" : "لا توجد مهام ذكاء اصطناعي حالية — اضغط «مهمة تحليل جديدة» للبدء"}
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((task: any) => {
+                tasks.map((task: any) => {
                   const statusInfo = STATUS_MAP[task.status] || STATUS_MAP.pending;
                   const StatusIcon = statusInfo.icon;
                   return (

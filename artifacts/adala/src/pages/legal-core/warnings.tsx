@@ -85,12 +85,14 @@ export default function Warnings() {
   const [wForm, setWForm] = useState({ employeeId: "", type: "written", reason: "", description: "", issuedBy: "" });
 
   const { data: wPageRes, isLoading: wLoading } = useQuery<ListPageResponse>({
-    queryKey: ["warnings", wPage],
+    queryKey: ["warnings", wPage, wSearch, wFilter],
     queryFn: async () => {
       const p = new URLSearchParams({
         page: String(wPage),
         limit: String(LEGAL_LIST_PAGE_SIZE),
       });
+      if (wSearch.trim()) p.set("search", wSearch.trim());
+      if (wFilter !== "all") p.set("status", wFilter);
       const r = await authFetch(`${BASE}/api/hr/warnings?${p}`);
       if (!r.ok) throw new Error("خطأ في الخادم");
       const json = await r.json();
@@ -117,14 +119,12 @@ export default function Warnings() {
 
   const deleteWarning = useMutation({
     mutationFn: (id: string) => authFetch(`${BASE}/api/hr/warnings/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["warnings"] }); toast({ title: "تم الحذف" }); },
+    onSuccess: () => {
+      if (wPage > 1 && warnings.length <= 1) setWPage(p => Math.max(1, p - 1));
+      qc.invalidateQueries({ queryKey: ["warnings"] });
+      toast({ title: "تم الحذف" });
+    },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
-  });
-
-  const filteredW = warnings.filter(w => {
-    if (wFilter !== "all" && w.status !== wFilter) return false;
-    if (wSearch && !w.employeeName?.includes(wSearch) && !w.reason?.includes(wSearch)) return false;
-    return true;
   });
 
   /* ═══════════ INVESTIGATIONS ═══════════ */
@@ -138,12 +138,14 @@ export default function Warnings() {
   });
 
   const { data: iPageRes, isLoading: iLoading } = useQuery<ListPageResponse>({
-    queryKey: ["investigations", iPage],
+    queryKey: ["investigations", iPage, iSearch, iFilter],
     queryFn: async () => {
       const p = new URLSearchParams({
         page: String(iPage),
         limit: String(LEGAL_LIST_PAGE_SIZE),
       });
+      if (iSearch.trim()) p.set("search", iSearch.trim());
+      if (iFilter !== "all") p.set("status", iFilter);
       const r = await authFetch(`${BASE}/api/hr/investigations?${p}`);
       if (!r.ok) throw new Error("خطأ في الخادم");
       const json = await r.json();
@@ -170,14 +172,12 @@ export default function Warnings() {
 
   const deleteInvestigation = useMutation({
     mutationFn: (id: string) => authFetch(`${BASE}/api/hr/investigations/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["investigations"] }); toast({ title: "تم الحذف" }); },
+    onSuccess: () => {
+      if (iPage > 1 && investigations.length <= 1) setIPage(p => Math.max(1, p - 1));
+      qc.invalidateQueries({ queryKey: ["investigations"] });
+      toast({ title: "تم الحذف" });
+    },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
-  });
-
-  const filteredI = investigations.filter(i => {
-    if (iFilter !== "all" && i.status !== iFilter) return false;
-    if (iSearch && !i.employeeName?.includes(iSearch) && !i.subject?.includes(iSearch)) return false;
-    return true;
   });
 
   /* ═══════════ RENDER ═══════════ */
@@ -192,11 +192,11 @@ export default function Warnings() {
           </h1>
           <p className="text-muted-foreground text-sm">إدارة المخالفات التأديبية وتوجيه التحقيقات</p>
         </div>
-        {/* stats */}
+        {/* stats — list totals only */}
         <div className="flex gap-3 text-center">
           {[
-            { label: "إنذار سارٍ", val: warnings.filter(w => w.status === "active").length, color: "#EF4444" },
-            { label: "تحقيق جارٍ", val: investigations.filter(i => i.status === "in_progress" || i.status === "open").length, color: "#F59E0B" },
+            { label: "إجمالي الإنذارات", val: warningsTotal, color: "#EF4444" },
+            { label: "إجمالي التحقيقات", val: investigationsTotal, color: "#F59E0B" },
           ].map(s => (
             <div key={s.label} className="px-4 py-2 rounded-xl bg-card/50 border border-border/50 min-w-[90px]">
               <div className="text-xl font-black" style={{ color: s.color }}>{s.val}</div>
@@ -210,19 +210,9 @@ export default function Warnings() {
         <TabsList className="mb-4">
           <TabsTrigger value="warnings" className="gap-2">
             <AlertTriangle className="h-4 w-4" /> الإنذارات
-            {warnings.filter(w => w.status === "active").length > 0 && (
-              <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[9px]">
-                {warnings.filter(w => w.status === "active").length}
-              </Badge>
-            )}
           </TabsTrigger>
           <TabsTrigger value="investigations" className="gap-2">
             <Gavel className="h-4 w-4" /> التحقيقات
-            {investigations.filter(i => i.status !== "closed").length > 0 && (
-              <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-[9px]">
-                {investigations.filter(i => i.status !== "closed").length}
-              </Badge>
-            )}
           </TabsTrigger>
         </TabsList>
 
@@ -249,14 +239,14 @@ export default function Warnings() {
 
           {wLoading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-          ) : filteredW.length === 0 ? (
+          ) : warnings.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <AlertTriangle className="h-10 w-10 mx-auto mb-3 opacity-20" />
               <p className="text-sm">لا توجد إنذارات مطابقة</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredW.map((w: any) => {
+              {warnings.map((w: any) => {
                 const wType = WARNING_TYPES[w.type] ?? WARNING_TYPES.written;
                 const wSt = WARNING_STATUS[w.status] ?? WARNING_STATUS.active;
                 const WIcon = wSt.icon;
@@ -348,14 +338,14 @@ export default function Warnings() {
 
           {iLoading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-          ) : filteredI.length === 0 ? (
+          ) : investigations.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <Gavel className="h-10 w-10 mx-auto mb-3 opacity-20" />
               <p className="text-sm">لا توجد تحقيقات مطابقة</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredI.map((inv: any) => {
+              {investigations.map((inv: any) => {
                 const iSt = INV_STATUS[inv.status] ?? INV_STATUS.open;
                 const IIcon = iSt.icon;
                 const outcome = inv.outcome ? INV_OUTCOMES[inv.outcome] : null;
