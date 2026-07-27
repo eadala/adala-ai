@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
-import { requireAuthWithTenant } from "../../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission, requireSuperAdmin } from "../../../middlewares/requireAuth";
 import { aiTenantGuard } from "./middleware/ai-tenant-guard";
 import { aiOrchestrator } from "./orchestrator";
 import { IsolatedMemory } from "./memory/isolated-memory";
@@ -14,11 +14,7 @@ const router = Router();
 function rows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 
 /* ── POST /api/cc/chat/:agentType — main chat ──────────────────────────── */
-router.post(
-  "/cc/chat/:agentType",
-  requireAuthWithTenant,
-  aiTenantGuard,
-  async (req, res) => {
+router.post("/cc/chat/:agentType", requireAuthWithTenant, requirePermission("ai:access"), aiTenantGuard, async (req, res) => {
     const agentType = req.params.agentType as AIAgentType;
     const officeId  = (req as any).tenantId as string;
     const userId    = (req as any).userId   as string;
@@ -38,15 +34,10 @@ router.post(
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
-  }
-);
+});
 
 /* ── POST /api/cc/auto-route — intent-based routing ───────────────────── */
-router.post(
-  "/cc/auto-route",
-  requireAuthWithTenant,
-  aiTenantGuard,
-  async (req, res) => {
+router.post("/cc/auto-route", requireAuthWithTenant, requirePermission("ai:access"), aiTenantGuard, async (req, res) => {
     const officeId = (req as any).tenantId as string;
     const userId   = (req as any).userId   as string;
     const { message, sessionId, history = [], model = "auto" } = req.body ?? {};
@@ -62,11 +53,10 @@ router.post(
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
-  }
-);
+});
 
 /* ── GET /api/cc/sessions — list sessions ─────────────────────────────── */
-router.get("/cc/sessions", requireAuthWithTenant, async (req, res) => {
+router.get("/cc/sessions", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   const officeId = (req as any).tenantId as string;
   const userId   = (req as any).userId   as string;
   try {
@@ -81,7 +71,7 @@ router.get("/cc/sessions", requireAuthWithTenant, async (req, res) => {
 });
 
 /* ── GET /api/cc/sessions/:id ─────────────────────────────────────────── */
-router.get("/cc/sessions/:id", requireAuthWithTenant, async (req, res) => {
+router.get("/cc/sessions/:id", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   const officeId = (req as any).tenantId as string;
   const sessionId = String(req.params.id);
   try {
@@ -91,7 +81,7 @@ router.get("/cc/sessions/:id", requireAuthWithTenant, async (req, res) => {
 });
 
 /* ── DELETE /api/cc/sessions/:id ──────────────────────────────────────── */
-router.delete("/cc/sessions/:id", requireAuthWithTenant, async (req, res) => {
+router.delete("/cc/sessions/:id", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   const officeId  = (req as any).tenantId as string;
   const sessionId = String(req.params.id);
   IsolatedMemory.clear(officeId, sessionId);
@@ -102,7 +92,7 @@ router.delete("/cc/sessions/:id", requireAuthWithTenant, async (req, res) => {
 });
 
 /* ── GET /api/cc/health — office health score ─────────────────────────── */
-router.get("/cc/health", requireAuthWithTenant, aiTenantGuard, async (req, res) => {
+router.get("/cc/health", requireAuthWithTenant, requirePermission("ai:access"), aiTenantGuard, async (req, res) => {
   const officeId = (req as any).tenantId as string;
   try {
     const health = await computeOfficeHealth(officeId);
@@ -111,7 +101,7 @@ router.get("/cc/health", requireAuthWithTenant, aiTenantGuard, async (req, res) 
 });
 
 /* ── GET /api/cc/daily-report ─────────────────────────────────────────── */
-router.get("/cc/daily-report", requireAuthWithTenant, aiTenantGuard, async (req, res) => {
+router.get("/cc/daily-report", requireAuthWithTenant, requirePermission("ai:access"), aiTenantGuard, async (req, res) => {
   const officeId = (req as any).tenantId as string;
   try {
     const report = await generateDailyReport(officeId);
@@ -120,8 +110,7 @@ router.get("/cc/daily-report", requireAuthWithTenant, aiTenantGuard, async (req,
 });
 
 /* ── POST /api/cc/autonomous/run — super-admin trigger ───────────────── */
-router.post("/cc/autonomous/run", requireAuthWithTenant, async (req, res) => {
-  if (!(req as any).isSuperAdmin) { res.status(403).json({ error: "super admin only" }); return; }
+router.post("/cc/autonomous/run", requireAuthWithTenant, requireSuperAdmin, async (_req, res) => {
   try {
     runAutonomousForAllOffices().catch(() => {});
     res.json({ started: true, message: "Autonomous layer running in background" });

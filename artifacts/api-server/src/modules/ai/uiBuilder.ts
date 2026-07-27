@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { callAI } from "./aiChat";
 
 const router = Router();
@@ -95,11 +95,11 @@ const TEMPLATES = [
   },
 ];
 
-router.get("/ui-builder/templates", requireAuthWithTenant, async (_req, res) => {
+router.get("/ui-builder/templates", requireAuthWithTenant, requirePermission("ai:access"), async (_req, res) => {
   res.json({ templates: TEMPLATES });
 });
 
-router.post("/ui-builder/generate", requireAuthWithTenant, async (req, res) => {
+router.post("/ui-builder/generate", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   try {
     const { prompt } = req.body;
     if (!prompt || prompt.trim().length < 5) {

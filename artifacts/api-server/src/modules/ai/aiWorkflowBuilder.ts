@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, requirePermission, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { callAI } from "./aiChat";
 
 const router = Router();
@@ -40,7 +40,7 @@ async function requireWorkflowAccess(req: any, res: any, next: any) {
 }
 
 /* ── GET /ai-workflow/access-check ───────────────────────────────── */
-router.get("/ai-workflow/access-check", requireAuthWithTenant, async (req: any, res) => {
+router.get("/ai-workflow/access-check", requireAuthWithTenant, requirePermission("ai:access"), async (req: any, res) => {
   try {
     const allowed = await canUseWorkflowBuilder(req);
     const officeId = await getOfficeId(req.auth.userId);
@@ -119,7 +119,7 @@ const SYSTEM_PROMPT = `أنت محرك بناء سير العمل الذكي ل�
 أنواع العقد: trigger (زناد) / ai_think (تفكير) / legal_doc (وثيقة) / notify (إشعار) / condition (شرط) / action (إجراء) / loop (حلقة) / output (نتيجة)
 ضع العقد هرمياً x:100-900 y:80-700. استخدم ألواناً جذابة. أنشئ 4-10 عقد.`;
 
-router.post("/ai-workflow/generate", requireAuthWithTenant, requireWorkflowAccess, async (req: any, res) => {
+router.post("/ai-workflow/generate", requireAuthWithTenant, requirePermission("ai:access"), requireWorkflowAccess, async (req: any, res) => {
   try {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: "prompt مطلوب" });
@@ -136,7 +136,7 @@ router.post("/ai-workflow/generate", requireAuthWithTenant, requireWorkflowAcces
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/ai-workflow", requireAuthWithTenant, requireWorkflowAccess, async (req: any, res) => {
+router.get("/ai-workflow", requireAuthWithTenant, requirePermission("ai:access"), requireWorkflowAccess, async (req: any, res) => {
   try {
     const officeId = req.isSuperAdmin ? null : await getOfficeId(req.auth.userId);
     const rows = await sqlAll(
@@ -148,7 +148,7 @@ router.get("/ai-workflow", requireAuthWithTenant, requireWorkflowAccess, async (
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/ai-workflow", requireAuthWithTenant, requireWorkflowAccess, async (req: any, res) => {
+router.post("/ai-workflow", requireAuthWithTenant, requirePermission("ai:access"), requireWorkflowAccess, async (req: any, res) => {
   try {
     const officeId = await getOfficeId(req.auth.userId);
     if (!officeId && !req.isSuperAdmin) return res.status(404).json({ error: "لا يوجد مكتب" });
@@ -163,7 +163,7 @@ router.post("/ai-workflow", requireAuthWithTenant, requireWorkflowAccess, async 
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.get("/ai-workflow/:id", requireAuthWithTenant, requireWorkflowAccess, async (req: any, res) => {
+router.get("/ai-workflow/:id", requireAuthWithTenant, requirePermission("ai:access"), requireWorkflowAccess, async (req: any, res) => {
   try {
     const row = await sqlOne(sql`SELECT * FROM ai_workflows WHERE id = ${String(req.params.id)}::uuid`);
     if (!row) return res.status(404).json({ error: "غير موجود" });
@@ -171,14 +171,14 @@ router.get("/ai-workflow/:id", requireAuthWithTenant, requireWorkflowAccess, asy
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete("/ai-workflow/:id", requireAuthWithTenant, requireWorkflowAccess, async (req: any, res) => {
+router.delete("/ai-workflow/:id", requireAuthWithTenant, requirePermission("ai:access"), requireWorkflowAccess, async (req: any, res) => {
   try {
     await db.execute(sql`DELETE FROM ai_workflows WHERE id = ${String(req.params.id)}::uuid`);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/ai-workflow/:id/execute", requireAuthWithTenant, requireWorkflowAccess, async (req: any, res) => {
+router.post("/ai-workflow/:id/execute", requireAuthWithTenant, requirePermission("ai:access"), requireWorkflowAccess, async (req: any, res) => {
   try {
     const wf = await sqlOne(sql`SELECT * FROM ai_workflows WHERE id = ${String(req.params.id)}::uuid`);
     if (!wf) return res.status(404).json({ error: "غير موجود" });

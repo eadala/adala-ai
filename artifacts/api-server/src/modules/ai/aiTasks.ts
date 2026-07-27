@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db, aiTasksTable, casesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -6,7 +6,7 @@ import { ListAiTasksQueryParams, CreateAiTaskBody } from "@workspace/api-zod";
 
 const router = Router();
 
-router.get("/tasks", requireAuthWithTenant, async (req, res) => {
+router.get("/tasks", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   try {
     const query = ListAiTasksQueryParams.parse(req.query);
     let tasks = await db.select().from(aiTasksTable).orderBy(aiTasksTable.createdAt);
@@ -30,7 +30,7 @@ router.get("/tasks", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.post("/tasks", requireAuthWithTenant, async (req, res) => {
+router.post("/tasks", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   try {
     const body = CreateAiTaskBody.parse(req.body);
     const [created] = await db.insert(aiTasksTable).values({
@@ -59,7 +59,7 @@ router.post("/tasks", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.get("/tasks/:id", requireAuthWithTenant, async (req, res) => {
+router.get("/tasks/:id", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   try {
     const [found] = await db.select().from(aiTasksTable).where(eq(aiTasksTable.id, String(req.params.id)));
     if (!found) return res.status(404).json({ error: "Not found" });

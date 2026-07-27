@@ -1,4 +1,4 @@
-import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
@@ -133,7 +133,7 @@ async function processQuery(question: string, tenantId: string): Promise<{ respo
 }
 
 // POST /api/ai-assistant
-router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.post("/", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   try {
     const { question } = req.body;
     if (!question?.trim()) return res.status(400).json({ error: "السؤال مطلوب" });
@@ -152,7 +152,7 @@ router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
 });
 
 // GET /api/ai-assistant/history
-router.get("/history", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.get("/history", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).auth?.userId ?? "anonymous";
     const r = await db.execute(sql`
@@ -169,7 +169,7 @@ router.get("/history", requireAuthWithTenant, async (req: Request, res: Response
 });
 
 // GET /api/ai-assistant/suggestions
-router.get("/suggestions", requireAuthWithTenant, async (_req: Request, res: Response) => {
+router.get("/suggestions", requireAuthWithTenant, requirePermission("ai:access"), async (_req: Request, res: Response) => {
   res.json([
     "ما هي القضايا المفتوحة؟",
     "ما هي الجلسات القادمة؟",

@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db, casesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
@@ -47,7 +47,7 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
 }
 
 // ─── POST /ai-workflow/run ────────────────────────────────────────────────────
-router.post("/ai-workflow/run", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.post("/ai-workflow/run", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   try {
     const { caseId, userId } = req.body;
     if (!caseId) { res.status(400).json({ error: "caseId مطلوب" }); return; }
@@ -61,7 +61,7 @@ router.post("/ai-workflow/run", requireAuthWithTenant, async (req: Request, res:
     const wfId = randomUUID();
     await db.execute(sql`
       INSERT INTO ai_workflows (id, case_id, user_id, office_id, status, steps, started_at, created_at)
-      VALUES (${wfId}, ${caseId}, ${userId ?? "default"}, ${tenantId}, 'running', '[]'::jsonb, NOW(), NOW())
+      VALUES (${wfId}, ${caseId}, ${userId ?? (req as any).userId ?? null}, ${tenantId}, 'running', '[]'::jsonb, NOW(), NOW())
     `);
 
     const caseInfo = `
@@ -137,7 +137,7 @@ router.post("/ai-workflow/run", requireAuthWithTenant, async (req: Request, res:
 });
 
 // ─── GET /ai-workflow/:caseId ─────────────────────────────────────────────────
-router.get("/ai-workflow/:caseId", requireAuthWithTenant, async (req: Request, res: Response) => {
+router.get("/ai-workflow/:caseId", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   try {
     const { caseId } = req.params as Record<string, string>;
     const rows = await db.execute(sql`

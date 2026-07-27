@@ -1,4 +1,4 @@
-import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -166,11 +166,14 @@ router.post("/admin/ai-credits/renew", adminOnly, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-/* ── POST /api/ai-credits/deduct  (internal — called by callAI) ── */
-router.post("/ai-credits/deduct", requireAuth, async (req, res) => {
+/* ── POST /api/ai-credits/deduct  (internal — service-only, not user-facing) ── */
+router.post("/ai-credits/deduct", requireSuperAdmin, async (req, res) => {
   await ensureTables();
   try {
-    const { officeId = "default", model = "gemini", cost = 1 } = req.body;
+    const { officeId, model = "gemini", cost = 1 } = req.body;
+    if (!officeId || typeof officeId !== "string") {
+      return res.status(400).json({ error: "officeId مطلوب" });
+    }
     const credit = await one(sql`SELECT balance FROM office_ai_credits WHERE office_id = ${officeId}`);
     const balance = credit?.balance ?? 0;
     if (balance < cost) return res.status(402).json({ error: "رصيد غير كافٍ", balance });
@@ -187,15 +190,17 @@ router.post("/ai-credits/deduct", requireAuth, async (req, res) => {
 });
 
 /* ── GET /api/office/ai-credits  (for office users to check their balance) ── */
-router.get("/office/ai-credits", requireAuth, async (_req, res) => {
+router.get("/office/ai-credits", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   await ensureTables();
   try {
-    const credit = await one(sql`SELECT * FROM office_ai_credits WHERE office_id = 'default'`);
+    const officeId = (req as any).tenantId as string;
+    if (!officeId || officeId === "platform") return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const credit = await one(sql`SELECT * FROM office_ai_credits WHERE office_id = ${officeId}`);
     if (!credit) return res.json({ balance: 0, monthly_allowance: 100, auto_renew: true });
     const usedThisMonth = await one(sql`
       SELECT COALESCE(SUM(ABS(amount)), 0)::int AS used
       FROM ai_credit_transactions
-      WHERE office_id = 'default' AND type = 'usage'
+      WHERE office_id = ${officeId} AND type = 'usage'
         AND created_at >= date_trunc('month', NOW())
     `);
     res.json({ ...credit, used_this_month: usedThisMonth?.used ?? 0 });

@@ -9,7 +9,7 @@
  *   • إحصائيات التكلفة بالريال السعودي
  */
 import { Router, Request, Response } from "express";
-import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, requirePermission, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db }                        from "@workspace/db";
 import { sql }                       from "drizzle-orm";
 
@@ -342,10 +342,11 @@ router.get("/ai/gateway/cost-analytics", adminOnly, async (_req, res) => {
 ══════════════════════════════════════════════════════════════════ */
 
 /* GET /api/ai/gateway/my-settings */
-router.get("/ai/gateway/my-settings", requireAuth, async (req: Request, res: Response) => {
+router.get("/ai/gateway/my-settings", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   await ensureTables();
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+    const officeId = (req as any).tenantId as string;
+    if (!officeId || officeId === "platform") return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const s = await one(sql`SELECT * FROM office_ai_settings WHERE office_id = ${officeId} LIMIT 1`);
     const defaults = { preferred_provider: "auto", mode: "balanced", smart_routing: true, allowed_providers: ["gemini","claude","openai","deepseek"] };
     res.json({ settings: s ?? defaults });
@@ -353,10 +354,11 @@ router.get("/ai/gateway/my-settings", requireAuth, async (req: Request, res: Res
 });
 
 /* PUT /api/ai/gateway/my-settings */
-router.put("/ai/gateway/my-settings", requireAuth, async (req: Request, res: Response) => {
+router.put("/ai/gateway/my-settings", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   await ensureTables();
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+    const officeId = (req as any).tenantId as string;
+    if (!officeId || officeId === "platform") return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { preferred_provider, mode, smart_routing } = req.body;
     await db.execute(sql`
       INSERT INTO office_ai_settings (office_id, preferred_provider, mode, smart_routing)
@@ -373,9 +375,10 @@ router.put("/ai/gateway/my-settings", requireAuth, async (req: Request, res: Res
 });
 
 /* GET /api/ai/gateway/my-usage — usage history for office */
-router.get("/ai/gateway/my-usage", requireAuth, async (req: Request, res: Response) => {
+router.get("/ai/gateway/my-usage", requireAuthWithTenant, requirePermission("ai:access"), async (req: Request, res: Response) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+    const officeId = (req as any).tenantId as string;
+    if (!officeId || officeId === "platform") return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const limit    = Math.min(Number((req.query as any).limit) || 50, 200);
     const [logs, stats] = await Promise.all([
       rows(sql`

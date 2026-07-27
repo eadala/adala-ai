@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requirePermission, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -512,11 +512,11 @@ async function processAiTask(taskType: string, content: string): Promise<string>
 }
 
 /* ── Available models endpoint (auth required) ── */
-router.get("/ai-models/available", requireAuth, (_req, res) => {
+router.get("/ai-models/available", requireAuthWithTenant, requirePermission("ai:access"), (_req, res) => {
   res.json(getAvailableModels());
 });
 
-router.post("/ai-chat/message", requireAuth, async (req, res) => {
+router.post("/ai-chat/message", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   const { message, caseId, history = [], model = "auto" } = req.body as {
     message: string;
     caseId?: number;
@@ -548,23 +548,23 @@ router.post("/ai-chat/message", requireAuth, async (req, res) => {
   return res.json({ reply, modelUsed });
 });
 
-router.post("/ai-tasks/:id/process", requireAuth, async (req, res) => {
+router.post("/ai-tasks/:id/process", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   const id = parseInt(String(req.params.id));
   if (isNaN(id)) return res.status(400).json({ error: "معرف غير صالح" });
-  const tenantId = (req as any).tenantId as string | undefined;
+  const tenantId = (req as any).tenantId as string;
+  if (!tenantId || tenantId === "platform") return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
 
   try {
-    const taskRows = await db.execute(sql`SELECT * FROM ai_tasks WHERE id = ${id} AND (office_id IS NULL OR office_id = ${tenantId ?? ''}) LIMIT 1`) as any;
+    const taskRows = await db.execute(sql`SELECT * FROM ai_tasks WHERE id = ${id} AND office_id = ${tenantId} LIMIT 1`) as any;
     const taskArr = Array.isArray(taskRows) ? taskRows : (taskRows?.rows ?? []);
     if (!taskArr.length) return res.status(404).json({ error: "المهمة غير موجودة" });
     const t = taskArr[0];
 
-    await db.execute(sql`UPDATE ai_tasks SET status = 'running' WHERE id = ${id} AND (office_id IS NULL OR office_id = ${tenantId ?? ''})`);
+    await db.execute(sql`UPDATE ai_tasks SET status = 'running' WHERE id = ${id} AND office_id = ${tenantId}`);
 
     let docContent = "";
     if (t.document_id) {
-      /* SECURITY: scope document read to the tenant that owns the ai_task */
-      const docRows = await db.execute(sql`SELECT * FROM documents WHERE id = ${t.document_id} AND (office_id IS NULL OR office_id = ${tenantId ?? ''}) LIMIT 1`) as any;
+      const docRows = await db.execute(sql`SELECT * FROM documents WHERE id = ${t.document_id} AND office_id = ${tenantId} LIMIT 1`) as any;
       const docArr = Array.isArray(docRows) ? docRows : (docRows?.rows ?? []);
       if (docArr.length) docContent = docArr[0].ocr_text ?? docArr[0].file_name ?? "";
     }
@@ -574,14 +574,14 @@ router.post("/ai-tasks/:id/process", requireAuth, async (req, res) => {
 
     await db.execute(sql`
       UPDATE ai_tasks SET status = 'done', output_text = ${result}, updated_at = NOW()
-      WHERE id = ${id} AND (office_id IS NULL OR office_id = ${tenantId ?? ''})
+      WHERE id = ${id} AND office_id = ${tenantId}
     `);
 
     return res.json({ success: true, result });
   } catch (e: any) { return res.status(500).json({ error: e.message }); }
 });
 
-router.post("/ai-search", requireAuthWithTenant, async (req, res) => {
+router.post("/ai-search", requireAuthWithTenant, requirePermission("ai:access"), async (req, res) => {
   const { query } = req.body as { query: string };
   if (!query) return res.status(400).json({ error: "استعلام البحث مطلوب" });
   const tenantId = (req as any).tenantId as string;
