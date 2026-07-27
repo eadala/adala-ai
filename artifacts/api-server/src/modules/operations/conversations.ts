@@ -1,8 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; pagination touch-up */
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { eventBus } from "../../core/eventBus";
+import {
+  MAX_PAGE_LIMIT,
+  parsePageLimit,
+  queryHasPageAndLimit,
+} from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -38,7 +44,7 @@ async function getMemberIds(convId: string): Promise<string[]> {
 /* ── 1. POST /conversations ────────────────────────────────────────────── */
 router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
   const userId   = (req as any).auth?.userId;
-  const userName = (req as any).auth?.fullName ?? (req as any).auth?.firstName ?? "مستخدم";
+  const _userName = (req as any).auth?.fullName ?? (req as any).auth?.firstName ?? "مستخدم";
   const tenantId = (req as any).tenantId;
   const { title, type = "direct", memberIds = [], caseId = null } = req.body;
 
@@ -91,6 +97,11 @@ router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
 
   if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
+  const paginated = queryHasPageAndLimit(req.query);
+  const { page, limit, offset } = paginated
+    ? parsePageLimit(req.query, 50)
+    : { page: 1, limit: MAX_PAGE_LIMIT, offset: 0 };
+
   const rows = sqlRows(await db.execute(sql`
     SELECT
       c.id, c.title, c.type, c.created_by, c.created_at, c.updated_at,
@@ -114,17 +125,39 @@ router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
       (SELECT m.created_at FROM office_messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1),
       c.created_at
     ) DESC
+    LIMIT ${limit} OFFSET ${offset}
   `));
-  return res.json(rows);
+
+  if (!paginated) {
+    return res.json(rows);
+  }
+
+  const total = Number(sqlRows(await db.execute(sql`
+    SELECT COUNT(*)::int AS total
+    FROM message_conversations c
+    JOIN conversation_members my
+      ON my.conversation_id = c.id AND my.user_id = ${userId}
+    WHERE c.office_id = ${tenantId}
+  `))[0]?.total ?? 0);
+
+  return res.json({
+    data: rows,
+    total,
+    page,
+    limit,
+    pages: Math.max(1, Math.ceil(total / limit)),
+  });
 });
 
 /* ── 3. GET /conversations/:id/messages ────────────────────────────────── */
 router.get("/:id/messages", requireAuthWithTenant, async (req: Request, res: Response) => {
   const userId   = (req as any).auth?.userId;
   const convId   = String(req.params.id);
-  const page     = Math.max(1, parseInt(String(req.query.page ?? "1")));
-  const pageSize = Math.min(50, Math.max(10, parseInt(String(req.query.pageSize ?? "30"))));
-  const offset   = (page - 1) * pageSize;
+  /* Preserve pageSize query alias; default 30 matches prior endpoint default. */
+  const { page, limit: pageSize, offset } = parsePageLimit(
+    { page: req.query.page, limit: req.query.pageSize ?? req.query.limit },
+    30,
+  );
 
   if (!/^[0-9a-f-]{36}$/.test(convId)) {
     return res.status(400).json({ error: "معرّف المحادثة غير صحيح" });
