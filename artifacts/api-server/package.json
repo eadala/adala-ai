@@ -18,6 +18,7 @@
     "test:storage-folder-create": "node --import tsx src/tests/storageFolderCreate.test.ts",
     "test:storage-folders-acl": "node --import tsx src/tests/storageFoldersAcl.runtime.test.ts",
     "test:conversation-member-create": "node --import tsx src/tests/conversationMemberCreate.runtime.test.ts",
+    "test:internal-message-create": "node --import tsx src/tests/internalMessageCreate.runtime.test.ts",
     "test:tenant-fallback-removal": "node --import tsx src/tests/tenantFallbackRemoval.test.ts",
     "test:tenant-gated-writes": "node --import tsx src/tests/tenantGatedWrites.test.ts",
     "test:dead-helper-cleanup": "node --import tsx src/tests/deadHelperCleanup.test.ts",

@@ -4,6 +4,10 @@ import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { eventBus } from "../../core/eventBus";
+import {
+  buildMessageAttachmentRows,
+  buildMessageRecipientRows,
+} from "../../lib/internalMessageCreate";
 import { getMessageFtsConfig } from "./messageFtsConfig";
 
 const router = Router();
@@ -338,26 +342,42 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
     const msg = ins.rows[0] as any;
 
-    for (const r of recipients as any[]) {
+    /* Set-based side-effects: fixed ≤2 write statements (no per-row loops). */
+    const recipientRows = buildMessageRecipientRows(String(msg.id), recipients as any[]);
+    const attachmentRows = buildMessageAttachmentRows(String(msg.id), attachments as any[]);
+
+    if (recipientRows.length > 0) {
+      const userIds = recipientRows.map((r) => r.user_id);
+      const userNames = recipientRows.map((r) => r.user_name);
       await db.execute(sql`
         INSERT INTO office_message_recipients (message_id, user_id, user_name)
-        VALUES (${msg.id}::uuid, ${r.userId}, ${r.userName ?? r.userId})
+        SELECT ${String(msg.id)}::uuid, t.user_id, t.user_name
+        FROM unnest(
+          ${userIds}::text[],
+          ${userNames}::text[]
+        ) AS t(user_id, user_name)
       `);
     }
 
-    for (const a of attachments as any[]) {
+    if (attachmentRows.length > 0) {
+      const fileNames = attachmentRows.map((a) => a.file_name);
+      const fileUrls = attachmentRows.map((a) => a.file_url);
+      const fileSizes = attachmentRows.map((a) => a.file_size);
       await db.execute(sql`
         INSERT INTO office_message_attachments (message_id, file_name, file_url, file_size)
-        VALUES (${msg.id}::uuid, ${a.fileName}, ${a.fileUrl}, ${a.fileSize ?? 0})
+        SELECT ${String(msg.id)}::uuid, t.file_name, t.file_url, t.file_size
+        FROM unnest(
+          ${fileNames}::text[],
+          ${fileUrls}::text[],
+          ${fileSizes}::int[]
+        ) AS t(file_name, file_url, file_size)
       `);
     }
 
     /* ── Targeted SSE notification — only to the intended recipients ──
        sendToUsers() does NOT broadcast to the whole office, only to the
        specific users whose SSE connections are registered with their userId. */
-    const recipientIds = (recipients as any[])
-      .map((r: any) => r.userId)
-      .filter((id: any) => typeof id === "string" && id.length > 0);
+    const recipientIds = recipientRows.map((r) => r.user_id);
 
     if (recipientIds.length > 0) {
       eventBus.sendToUsers(recipientIds, {
