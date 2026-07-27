@@ -312,8 +312,9 @@ console.log("\n═══ frontend primary consumers ═══");
   /* Employee pickers: bounded server-search (page+limit+search), not array soft-cap dumps. */
   const picker = readAdala("components/employee-search-select.tsx");
   assert.match(picker, /api\/hr\/employees\?\$\{p\}/);
-  assert.match(picker, /p\.set\("page"/);
-  assert.match(picker, /p\.set\("limit"/);
+  assert.match(picker, /new URLSearchParams\(\{/);
+  assert.match(picker, /page:\s*"1"/);
+  assert.match(picker, /limit:\s*String\(PICKER_LIMIT\)/);
   assert.match(picker, /p\.set\("search"/);
   assert.match(picker, /PICKER_LIMIT\s*=\s*50/);
   assert.doesNotMatch(picker, /authFetch\(`\$\{BASE\}\/api\/hr\/employees`\)/);
