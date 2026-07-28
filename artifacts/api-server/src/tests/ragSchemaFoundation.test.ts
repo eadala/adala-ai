@@ -2,8 +2,8 @@
  * Focused validation for migration 021 RAG schema foundation (Stage 11.2).
  * Run: pnpm --filter @workspace/api-server run test:rag-schema
  *
- * Optional live tenant-mismatch negative test when DATABASE_URL points at
- * a pgvector-enabled Postgres (same as migration integration).
+ * Live tenant-mismatch INSERT checks live in
+ * scripts/db/test-migrations.integration.sh (requires pgvector).
  */
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
@@ -160,7 +160,9 @@ console.log("\n═══ negative schema: cross-office chunk cannot satisfy comp
 {
   const mig = readMig("021_rag_schema_foundation.sql");
   /* Single-column document_id FK would allow office_id ≠ document.office_id.
-     Composite FK makes that pair illegal at the database layer. */
+     Composite FK makes that pair illegal at the database layer.
+     Live INSERT rejection is covered by scripts/db/test-migrations.integration.sh
+     scenario_migration_021_rag_tenant_fk (requires pgvector). */
   assert.match(mig, /rag_chunks_office_document_fkey/);
   assert.match(
     mig,
@@ -174,102 +176,5 @@ console.log("\n═══ negative schema: cross-office chunk cannot satisfy comp
   assert.match(mig, /DROP CONSTRAINT rag_chunks_document_id_fkey/);
   console.log("  ✅ schema forbids cross-office document_id pairing");
 }
-
-console.log("\n═══ negative integration: cross-office insert (live if DATABASE_URL + pg) ═══");
-async function tenantMismatchNegative() {
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.log("  ⏭️  skipped (DATABASE_URL unset)");
-    return;
-  }
-
-  let Client: typeof import("pg").Client;
-  try {
-    ({ Client } = await import("pg"));
-  } catch {
-    console.log("  ⏭️  skipped (pg module unavailable)");
-    return;
-  }
-
-  const client = new Client({ connectionString: url });
-  try {
-    await client.connect();
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.log(`  ⏭️  skipped (cannot connect: ${msg})`);
-    return;
-  }
-
-  const dbName = `rag_tenant_neg_${process.pid}_${Date.now()}`;
-  try {
-    await client.query(`CREATE DATABASE "${dbName}"`);
-  } catch (e: unknown) {
-    await client.end();
-    const msg = e instanceof Error ? e.message : String(e);
-    console.log(`  ⏭️  skipped (cannot CREATE DATABASE: ${msg})`);
-    return;
-  }
-  await client.end();
-
-  const testUrl = url.replace(/\/[^/]+(\?|$)/, `/${dbName}$1`);
-  const db = new Client({ connectionString: testUrl });
-  try {
-    await db.connect();
-    const ext = await db.query(
-      `SELECT 1 FROM pg_available_extensions WHERE name = 'vector'`,
-    );
-    if (ext.rowCount === 0) {
-      console.log("  ⏭️  skipped (pgvector extension not available)");
-      return;
-    }
-
-    const mig = readMig("021_rag_schema_foundation.sql");
-    await db.query(mig);
-
-    await db.query(`
-      INSERT INTO document_center_files
-        (id, office_id, source_table, source_id, file_name)
-      VALUES
-        ('doc-a', 'office-a', 'document_center_files', 'src-a', 'a.pdf'),
-        ('doc-b', 'office-b', 'document_center_files', 'src-b', 'b.pdf')
-    `);
-
-    await db.query(`
-      INSERT INTO rag_chunks (office_id, document_id, chunk_index, content)
-      VALUES ('office-a', 'doc-a', 0, 'same-office chunk ok')
-    `);
-
-    let rejected = false;
-    try {
-      await db.query(`
-        INSERT INTO rag_chunks (office_id, document_id, chunk_index, content)
-        VALUES ('office-a', 'doc-b', 0, 'cross-office chunk must fail')
-      `);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      rejected = /foreign key|rag_chunks_office_document_fkey/i.test(msg);
-      if (!rejected) throw e;
-    }
-    assert.equal(
-      rejected,
-      true,
-      "cross-office (office_id, document_id) insert must violate composite FK",
-    );
-    console.log("  ✅ composite FK rejects chunk for another office's document");
-  } finally {
-    await db.end().catch(() => {});
-    const admin = new Client({ connectionString: url });
-    try {
-      await admin.connect();
-      await admin.query(`DROP DATABASE IF EXISTS "${dbName}"`);
-    } catch {
-      /* ignore cleanup */
-    } finally {
-      await admin.end().catch(() => {});
-    }
-  }
-}
-
-await tenantMismatchNegative();
 
 console.log("\n✅ rag schema foundation tests passed\n");

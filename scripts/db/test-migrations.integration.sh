@@ -157,6 +157,15 @@ apply_migration_020() {
 }
 
 apply_migration_021() {
+  # Migration 021 hard-requires pgvector. Skip apply when the extension package
+  # is not installed so earlier scenarios (empty/partial) do not abort the suite.
+  # CI installs postgresql-N-pgvector; scenario_migration_021_rag_tenant_fk asserts live.
+  local has_vector
+  has_vector=$(psql_db -At -c "SELECT 1 FROM pg_available_extensions WHERE name='vector'" 2>/dev/null || true)
+  if [[ "$has_vector" != "1" ]]; then
+    skip "021_rag_schema_foundation.sql (pgvector extension not available)"
+    return 0
+  fi
   psql_db -f "$MIGRATION_021" >/dev/null
 }
 

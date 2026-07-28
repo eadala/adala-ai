@@ -55,12 +55,21 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with: { version: 9 }
-      - name: Install isolated PostgreSQL
+      - name: Install isolated PostgreSQL + pgvector
         run: |
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
             postgresql postgresql-contrib postgresql-client
           sudo service postgresql start
+          # Migration 021 requires the pgvector extension (HNSW). Install the
+          # matching major package from Ubuntu/PGDG so CREATE EXTENSION vector works.
+          PG_MAJOR=$(sudo -u postgres psql -Atqc "SHOW server_version_num;" | cut -c1-2)
+          if ! sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "postgresql-${PG_MAJOR}-pgvector"; then
+            echo "Ubuntu package missing — enabling PGDG apt repo for postgresql-${PG_MAJOR}-pgvector"
+            sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "postgresql-${PG_MAJOR}-pgvector"
+          fi
+          sudo -u postgres psql -c "SELECT default_version FROM pg_available_extensions WHERE name='vector';"
       - name: Wait for PostgreSQL
         run: |
           for i in $(seq 1 60); do
