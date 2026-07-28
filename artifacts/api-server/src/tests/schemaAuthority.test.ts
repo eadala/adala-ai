@@ -40,6 +40,7 @@ assert.ok(migrationFiles.includes("017_cases_schema.sql"));
 assert.ok(migrationFiles.includes("018_money_numeric_batch1.sql"));
 assert.ok(migrationFiles.includes("019_money_numeric_batch2.sql"));
 assert.ok(migrationFiles.includes("020_performance_hotpath_indexes.sql"));
+assert.ok(migrationFiles.includes("021_rag_schema_foundation.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -525,6 +526,20 @@ assert.match(mig020, /CREATE INDEX IF NOT EXISTS idx_conv_members_user/);
 assert.doesNotMatch(mig020, /CREATE TABLE|ALTER TABLE|DROP INDEX/i);
 assert.match(mig020, /020_indexes: skipping/);
 console.log("  ✅ migration 020 is CREATE INDEX IF NOT EXISTS only; guarded for missing tables/columns");
+
+console.log("\n═══ schemaAuthority: migration 021 RAG schema foundation (Stage 11.2) ═══");
+const mig021 = readRepo("artifacts/api-server/migrations/021_rag_schema_foundation.sql");
+assert.match(mig021, /CREATE EXTENSION IF NOT EXISTS vector/);
+assert.match(mig021, /CREATE TABLE IF NOT EXISTS rag_chunks/);
+assert.match(mig021, /vector\(1536\)/);
+assert.match(mig021, /REFERENCES document_center_files \(id\) ON DELETE CASCADE/);
+assert.match(mig021, /UNIQUE \(office_id, document_id, chunk_index\)/);
+assert.match(mig021, /extracted_text/);
+assert.match(mig021, /CREATE TABLE IF NOT EXISTS document_center_files/);
+assert.match(mig021, /CREATE TABLE IF NOT EXISTS document_ai_metadata/);
+assert.doesNotMatch(mig021, /float8\[\]|REAL\[\]/);
+assert.match(mig021, /No float\[] \/ JSON embedding fallback is permitted/);
+console.log("  ✅ migration 021 owns pgvector + rag_chunks + document_center formalization; no embedding fallback");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
