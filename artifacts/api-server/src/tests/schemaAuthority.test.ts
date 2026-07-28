@@ -39,6 +39,7 @@ assert.ok(migrationFiles.includes("016_office_messages_fts.sql"));
 assert.ok(migrationFiles.includes("017_cases_schema.sql"));
 assert.ok(migrationFiles.includes("018_money_numeric_batch1.sql"));
 assert.ok(migrationFiles.includes("019_money_numeric_batch2.sql"));
+assert.ok(migrationFiles.includes("020_performance_hotpath_indexes.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -512,6 +513,18 @@ assert.match(dbRegistry, /name: "stripe_fee", type: "NUMERIC\(18,2\)"/);
 assert.match(dbRegistry, /name: "net_amount", type: "NUMERIC\(18,2\)"/);
 assert.match(dbRegistry, /name: "platform_fee", type: "NUMERIC\(18,2\)"/);
 console.log("  ✅ migration 019 tightens payment/ledger bare NUMERIC → NUMERIC(18,2); preflight aborts unsafe data; dbRegistry aligned");
+
+console.log("\n═══ schemaAuthority: migration 020 hot-path indexes (Stage 10.7) ═══");
+const mig020 = readRepo("artifacts/api-server/migrations/020_performance_hotpath_indexes.sql");
+assert.match(mig020, /CREATE INDEX IF NOT EXISTS idx_office_messages_conversation_created/);
+assert.match(mig020, /CREATE INDEX IF NOT EXISTS idx_folder_permissions_user_id/);
+assert.match(mig020, /CREATE INDEX IF NOT EXISTS idx_employees_office_status/);
+assert.match(mig020, /CREATE INDEX IF NOT EXISTS idx_payroll_employee_period/);
+assert.match(mig020, /CREATE INDEX IF NOT EXISTS idx_events_case_id/);
+assert.match(mig020, /CREATE INDEX IF NOT EXISTS idx_conv_members_user/);
+assert.doesNotMatch(mig020, /CREATE TABLE|ALTER TABLE|DROP INDEX/i);
+assert.match(mig020, /020_indexes: skipping/);
+console.log("  ✅ migration 020 is CREATE INDEX IF NOT EXISTS only; guarded for missing tables/columns");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

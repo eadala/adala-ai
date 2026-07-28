@@ -31,6 +31,7 @@ MIGRATION_016="$ROOT/artifacts/api-server/migrations/016_office_messages_fts.sql
 MIGRATION_017="$ROOT/artifacts/api-server/migrations/017_cases_schema.sql"
 MIGRATION_018="$ROOT/artifacts/api-server/migrations/018_money_numeric_batch1.sql"
 MIGRATION_019="$ROOT/artifacts/api-server/migrations/019_money_numeric_batch2.sql"
+MIGRATION_020="$ROOT/artifacts/api-server/migrations/020_performance_hotpath_indexes.sql"
 
 PASS=0
 FAIL=0
@@ -150,6 +151,10 @@ apply_migration_019() {
   psql_db -f "$MIGRATION_019" >/dev/null
 }
 
+apply_migration_020() {
+  psql_db -f "$MIGRATION_020" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -174,11 +179,12 @@ apply_all_migrations() {
   apply_migration_017
   apply_migration_018
   apply_migration_019
+  apply_migration_020
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018,019 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018,019,020 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
