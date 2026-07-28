@@ -32,6 +32,7 @@ MIGRATION_017="$ROOT/artifacts/api-server/migrations/017_cases_schema.sql"
 MIGRATION_018="$ROOT/artifacts/api-server/migrations/018_money_numeric_batch1.sql"
 MIGRATION_019="$ROOT/artifacts/api-server/migrations/019_money_numeric_batch2.sql"
 MIGRATION_020="$ROOT/artifacts/api-server/migrations/020_performance_hotpath_indexes.sql"
+MIGRATION_021="$ROOT/artifacts/api-server/migrations/021_rag_schema_foundation.sql"
 
 PASS=0
 FAIL=0
@@ -155,6 +156,19 @@ apply_migration_020() {
   psql_db -f "$MIGRATION_020" >/dev/null
 }
 
+apply_migration_021() {
+  # Migration 021 hard-requires pgvector. Skip apply when the extension package
+  # is not installed so earlier scenarios (empty/partial) do not abort the suite.
+  # CI installs postgresql-N-pgvector; scenario_migration_021_rag_tenant_fk asserts live.
+  local has_vector
+  has_vector=$(psql_db -At -c "SELECT 1 FROM pg_available_extensions WHERE name='vector'" 2>/dev/null || true)
+  if [[ "$has_vector" != "1" ]]; then
+    skip "021_rag_schema_foundation.sql (pgvector extension not available)"
+    return 0
+  fi
+  psql_db -f "$MIGRATION_021" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -180,11 +194,12 @@ apply_all_migrations() {
   apply_migration_018
   apply_migration_019
   apply_migration_020
+  apply_migration_021
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018,019,020 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018,019,020,021 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -3752,6 +3767,81 @@ SQL
   teardown_db
 }
 
+# ── Scenario 021: RAG schema + tenant mismatch FK negative ─────────────────
+scenario_migration_021_rag_tenant_fk() {
+  log "Scenario 021 — RAG schema foundation + cross-office chunk FK rejection"
+  setup_db "mig021_rag"
+  trap teardown_db EXIT
+
+  # pgvector may be absent on stock local Postgres — skip (do not fail suite)
+  local has_vector
+  has_vector=$(psql_db -At -c "SELECT 1 FROM pg_available_extensions WHERE name='vector'" 2>/dev/null || true)
+  if [[ "$has_vector" != "1" ]]; then
+    skip "021: pgvector not available on this PostgreSQL — install pgvector/pgvector:pg16 to run live"
+    trap - EXIT
+    teardown_db
+    return 0
+  fi
+
+  apply_all_migrations
+
+  local fk_def hnsw_idx redundant_idx
+  fk_def=$(psql_db -At -c "
+    SELECT pg_get_constraintdef(c.oid)
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    WHERE t.relname='rag_chunks' AND c.conname='rag_chunks_office_document_fkey';")
+  [[ "$fk_def" == *"FOREIGN KEY (office_id, document_id)"*"REFERENCES document_center_files(office_id, id)"* ]] \
+    && ok "021: composite tenant FK present" \
+    || bad "021: composite FK missing/unexpected: $fk_def"
+
+  hnsw_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE tablename='rag_chunks' AND indexname='idx_rag_chunks_embedding_hnsw';")
+  [[ "$hnsw_idx" == "1" ]] && ok "021: HNSW index present" || bad "021: HNSW index count=$hnsw_idx"
+
+  redundant_idx=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE tablename='rag_chunks'
+      AND indexname IN ('idx_rag_chunks_office_document','idx_rag_chunks_office_document_chunk');")
+  [[ "$redundant_idx" == "0" ]] && ok "021: redundant btree indexes absent" || bad "021: redundant indexes=$redundant_idx"
+
+  psql_db <<'SQL' >/dev/null
+INSERT INTO document_center_files (id, office_id, source_table, source_id, file_name)
+VALUES
+  ('doc-a', 'office-a', 'document_center_files', 'src-a', 'a.pdf'),
+  ('doc-b', 'office-b', 'document_center_files', 'src-b', 'b.pdf');
+INSERT INTO rag_chunks (office_id, document_id, chunk_index, content)
+VALUES ('office-a', 'doc-a', 0, 'same-office ok');
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO rag_chunks (office_id, document_id, chunk_index, content)
+    VALUES ('office-a', 'doc-b', 0, 'cross-office must fail');" >/tmp/mig021-cross.log 2>&1
+  local cross_rc=$?
+  set -e
+  [[ "$cross_rc" -ne 0 ]] && ok "021: cross-office chunk INSERT rejected" || {
+    bad "021: cross-office chunk INSERT was allowed"; cat /tmp/mig021-cross.log
+  }
+  grep -qiE 'foreign key|rag_chunks_office_document_fkey' /tmp/mig021-cross.log \
+    && ok "021: rejection cites composite FK" \
+    || bad "021: unexpected error on cross-office insert"
+
+  # Runtime DDL removed for 021-owned tables
+  if ! grep -qE 'CREATE TABLE IF NOT EXISTS document_center_files' \
+        "$ROOT/artifacts/api-server/src/modules/documents/documentCenter.ts" \
+     && ! grep -qE 'CREATE TABLE IF NOT EXISTS document_ai_metadata' \
+        "$ROOT/artifacts/api-server/src/modules/documents/documentCenter.ts"; then
+    ok "021: Runtime DDL for document_center_files / document_ai_metadata removed"
+  else
+    bad "021: Runtime DDL still creates document_center tables"
+  fi
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -3771,6 +3861,7 @@ scenario_migration_016_office_messages_fts
 scenario_migration_017_cases_schema
 scenario_migration_018_money_numeric_batch1
 scenario_migration_019_money_numeric_batch2
+scenario_migration_021_rag_tenant_fk
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

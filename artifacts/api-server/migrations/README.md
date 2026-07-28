@@ -98,7 +98,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/020_performance_hotpath_indexes.sql
 
-# 21) تحقق بعد التنفيذ
+# 21) RAG schema foundation (Stage 11.2) — requires pgvector
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/021_rag_schema_foundation.sql
+
+# 22) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -125,6 +129,7 @@ bash scripts/db/verify-schema.sh
 | `018_money_numeric_batch1.sql` | REAL → `NUMERIC(18,2)` for invoices/subscriptions/usage_logs/plans/discount_codes/ai_api_keys money columns |
 | `019_money_numeric_batch2.sql` | bare `NUMERIC` → `NUMERIC(18,2)` for `payment_transactions` / `office_ledger` fee & amount columns |
 | `020_performance_hotpath_indexes.sql` | High-impact hot-path indexes (conversations, storage ACL, HR, events) — `CREATE INDEX` only |
+| `021_rag_schema_foundation.sql` | pgvector + `document_center_files` / `document_ai_metadata` formalization + `rag_chunks` with composite tenant FK `(office_id, document_id) → (office_id, id)` + `vector(1536)` HNSW (Stage 11.2). **Requires pgvector-enabled Postgres (≥0.5).** Coolify: changing repo `docker-compose` does **not** change the deployed DB image — switch Coolify Postgres to `pgvector/pgvector:pg16` (or equivalent) **before** applying 021. Same major (16→16 pgvector) can keep the existing data volume; major upgrades need dump/restore. Embedding contract: Decision A — keep `vector(1536)` (text-embedding-3-small); Stage 11.3 must reject incompatible dims. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.

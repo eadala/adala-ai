@@ -1,6 +1,8 @@
 -- Enable UUID generation (PostgreSQL 13+ has gen_random_uuid() built-in)
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+-- RAG (Stage 11.2) — requires pgvector-enabled image (e.g. pgvector/pgvector:pg16)
+CREATE EXTENSION IF NOT EXISTS "vector";
 
 -- ═══════════════════════════════════════════════════════════
 -- ai_workflows — UUID-native (no TEXT workaround needed here)

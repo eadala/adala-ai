@@ -40,6 +40,7 @@ assert.ok(migrationFiles.includes("017_cases_schema.sql"));
 assert.ok(migrationFiles.includes("018_money_numeric_batch1.sql"));
 assert.ok(migrationFiles.includes("019_money_numeric_batch2.sql"));
 assert.ok(migrationFiles.includes("020_performance_hotpath_indexes.sql"));
+assert.ok(migrationFiles.includes("021_rag_schema_foundation.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -525,6 +526,43 @@ assert.match(mig020, /CREATE INDEX IF NOT EXISTS idx_conv_members_user/);
 assert.doesNotMatch(mig020, /CREATE TABLE|ALTER TABLE|DROP INDEX/i);
 assert.match(mig020, /020_indexes: skipping/);
 console.log("  ✅ migration 020 is CREATE INDEX IF NOT EXISTS only; guarded for missing tables/columns");
+
+console.log("\n═══ schemaAuthority: migration 021 RAG schema foundation (Stage 11.2) ═══");
+const mig021 = readRepo("artifacts/api-server/migrations/021_rag_schema_foundation.sql");
+assert.match(mig021, /CREATE EXTENSION IF NOT EXISTS vector/);
+assert.match(mig021, /CREATE TABLE IF NOT EXISTS rag_chunks/);
+assert.match(mig021, /vector\(1536\)/);
+assert.match(mig021, /Decision A/);
+assert.match(mig021, /text-embedding-3-small/);
+assert.match(mig021, /document_center_files_office_id_id_key/);
+assert.match(mig021, /UNIQUE \(office_id, id\)/);
+assert.match(
+  mig021,
+  /FOREIGN KEY \(office_id, document_id\)\s+REFERENCES document_center_files \(office_id, id\)\s+ON DELETE CASCADE/s,
+);
+assert.doesNotMatch(
+  mig021,
+  /REFERENCES document_center_files \(id\) ON DELETE CASCADE/,
+);
+assert.match(mig021, /UNIQUE \(office_id, document_id, chunk_index\)/);
+assert.match(mig021, /USING hnsw \(embedding vector_cosine_ops\)/);
+assert.doesNotMatch(mig021, /USING ivfflat/i);
+assert.match(mig021, /extracted_text/);
+assert.match(mig021, /CREATE TABLE IF NOT EXISTS document_center_files/);
+assert.match(mig021, /CREATE TABLE IF NOT EXISTS document_ai_metadata/);
+assert.doesNotMatch(mig021, /float8\[\]|REAL\[\]/);
+assert.match(mig021, /No float\[] \/ JSON embedding fallback is permitted/);
+
+const docCenterSrc = readSrc("modules/documents/documentCenter.ts");
+assert.match(docCenterSrc, /021_rag_schema_foundation/);
+assert.doesNotMatch(docCenterSrc, /CREATE TABLE IF NOT EXISTS document_center_files/);
+assert.doesNotMatch(docCenterSrc, /CREATE TABLE IF NOT EXISTS document_ai_metadata/);
+assert.doesNotMatch(docCenterSrc, /CREATE INDEX IF NOT EXISTS idx_dcf_/);
+assert.doesNotMatch(docCenterSrc, /CREATE INDEX IF NOT EXISTS idx_dam_/);
+assert.doesNotMatch(docCenterSrc, /ALTER TABLE document_center_files/);
+assert.doesNotMatch(docCenterSrc, /ALTER TABLE document_ai_metadata/);
+assert.match(docCenterSrc, /to_regclass\('public\.document_center_files'\)/);
+console.log("  ✅ migration 021 owns pgvector + composite tenant FK + document_center; Runtime DDL removed");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
