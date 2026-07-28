@@ -174,6 +174,11 @@ import { createClerkClient, getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import crypto from "crypto";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 let _clerk2: ReturnType<typeof createClerkClient> | null = null;
 const getClerkMgmt = () => {
@@ -564,7 +569,7 @@ router.post("/storage/analyze", requireAuthWithTenant, async (req, res) => {
   const { base64, mimeType } = req.body;
   if (!base64 || !mimeType) return res.status(400).json({ error: "base64 و mimeType مطلوبان" });
 
-  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  const GEMINI_KEY = getGeminiApiKey();
   if (!GEMINI_KEY) return res.json({ ok: false, error: "Gemini غير متاح" });
 
   const prompt = `أنت محلل مستندات قانوني خبير. حلل هذا المستند وأرجع JSON فقط بدون أي markdown أو نص إضافي:
@@ -581,10 +586,10 @@ router.post("/storage/analyze", requireAuthWithTenant, async (req, res) => {
 
   try {
     const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      geminiGenerateContentUrl("gemini-2.5-flash"),
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: geminiApiHeaders(GEMINI_KEY),
         body: JSON.stringify({
           contents: [{ parts: [
             { inline_data: { mime_type: mimeType, data: base64 } },

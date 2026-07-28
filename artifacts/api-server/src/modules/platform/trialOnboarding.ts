@@ -5,10 +5,15 @@ import { sql } from "drizzle-orm";
 import { requireAuth } from "../../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 import { callAI } from "../ai/aiChat";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
 
-const GEMINI_KEY = process.env.GEMINI_API_KEY ?? "";
+const GEMINI_KEY = getGeminiApiKey() ?? "";
 
 async function sqlOne(q: any): Promise<any> {
   try {
@@ -143,10 +148,10 @@ router.post("/onboarding/ai-suggest", requireAuth, async (req, res) => {
     };
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      geminiGenerateContentUrl("gemini-2.5-flash"),
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: geminiApiHeaders(GEMINI_KEY || undefined),
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompts[type] }] }],
           generationConfig: { temperature: 0.8, maxOutputTokens: 300, responseMimeType: "application/json" },

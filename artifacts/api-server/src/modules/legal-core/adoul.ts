@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing; Gemini auth hardening */
 /**
  * عدول — مساعد قانوني ذكي مبدع
  * مسار مستقل قابل للنسخ لأي مشروع
@@ -12,6 +13,11 @@ import { callAI } from "../ai/aiChat";
 import { requireAuth } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiStreamGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
 
@@ -23,8 +29,8 @@ const publicLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_STREAM_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?key=${GEMINI_API_KEY}&alt=sse`;
+const GEMINI_API_KEY = getGeminiApiKey();
+const GEMINI_STREAM_URL = geminiStreamGenerateContentUrl("gemini-2.5-flash");
 
 /* ─── System prompts per mode ─────────────────────────────────── */
 const BASE_PERSONA = `أنت "عدول" — مساعد قانوني ذكي ومبدع، طوّرته منصة عدالة AI.
@@ -125,7 +131,7 @@ router.post("/stream", requireAuth, async (req, res) => {
   try {
     const geminiRes = await fetch(GEMINI_STREAM_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: geminiApiHeaders(GEMINI_API_KEY ?? undefined),
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents,
@@ -285,7 +291,7 @@ async function streamFromGemini(
   try {
     const geminiRes = await fetch(GEMINI_STREAM_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: geminiApiHeaders(GEMINI_API_KEY ?? undefined),
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents,

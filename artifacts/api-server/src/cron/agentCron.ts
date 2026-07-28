@@ -21,6 +21,11 @@ import { callAI } from "../modules/ai/aiChat";
 import { encryptBuffer, isEncryptionEnabled } from "../core/backupEncrypt";
 import { uploadBackup, tenantSnapshotKey, fullBackupKey } from "../core/backupStorage";
 import { isObjectStorageConfigured } from "../core/storage";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../lib/geminiAuth";
 
 /* ── DB helpers ─────────────────────────────────────── */
 async function sqlAll(q: any): Promise<Record<string, any>[]> {
@@ -263,14 +268,14 @@ async function runAiHealthCheckAgent() {
     const results: Record<string, { ok: boolean; latencyMs?: number; error?: string }> = {};
 
     /* فحص Gemini */
-    if (process.env.GEMINI_API_KEY) {
+    if (getGeminiApiKey()) {
       const t = Date.now();
       try {
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+          geminiGenerateContentUrl("gemini-2.5-flash"),
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: geminiApiHeaders(getGeminiApiKey()),
             body: JSON.stringify({
               contents: [{ role: "user", parts: [{ text: "ping" }] }],
               generationConfig: { maxOutputTokens: 5 },
