@@ -17,6 +17,11 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 import { uploadGuardMiddleware } from "../../lib/uploadGuard";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
 
@@ -963,7 +968,7 @@ router.post("/document-center/retention-policies/scan", requireAuthWithTenant, a
    V2 — OCR & AI DOCUMENT INTELLIGENCE
 ════════════════════════════════════════════════════════════ */
 
-const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_KEY = getGeminiApiKey();
 
 async function callGeminiDocIntel(base64: string, mime: string, fileName: string): Promise<any> {
   if (!GEMINI_KEY) return null;
@@ -1000,10 +1005,10 @@ async function callGeminiDocIntel(base64: string, mime: string, fileName: string
     : [{ text: prompt }];
 
   const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+    geminiGenerateContentUrl("gemini-2.0-flash"),
     {
       method:  "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: geminiApiHeaders(GEMINI_KEY),
       body:    JSON.stringify({ contents: [{ parts }] }),
       signal:  AbortSignal.timeout(45_000),
     },

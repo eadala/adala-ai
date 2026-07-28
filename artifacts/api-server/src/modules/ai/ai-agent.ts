@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing; Gemini auth hardening */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
@@ -5,17 +6,22 @@ import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { getTenantSafe } from "../../core/tenantContext";
 import { logEndpointError } from "../../lib/endpointErrorLog";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
 
 async function callGemini(prompt: string): Promise<string> {
-  const key = process.env.GEMINI_API_KEY;
+  const key = getGeminiApiKey();
   if (!key) throw new Error("GEMINI_API_KEY not set");
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+    geminiGenerateContentUrl("gemini-2.0-flash"),
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: geminiApiHeaders(key),
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { maxOutputTokens: 1200, temperature: 0.2 },

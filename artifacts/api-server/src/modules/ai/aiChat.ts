@@ -1,12 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing; Gemini auth hardening */
 import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { sanitizePrompt, logInjectionAttempt, SYSTEM_PROMPT_GUARD } from "../../core/promptSanitizer";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
 
-const GEMINI_API_KEY    = process.env.GEMINI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_API_KEY    = process.env.OPENAI_API_KEY;
 const DEEPSEEK_API_KEY  = process.env.DEEPSEEK_API_KEY;
@@ -98,11 +103,11 @@ ensureUsageTable();
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL;
 const OLLAMA_MODEL    = process.env.OLLAMA_MODEL ?? "gemma3:4b";
-const OLLAMA_FALLBACK = process.env.OLLAMA_FALLBACK_ENABLED === "true";
+const _OLLAMA_FALLBACK = process.env.OLLAMA_FALLBACK_ENABLED === "true";
 
 export function getAvailableModels() {
   return {
-    gemini:  !!GEMINI_API_KEY,
+    gemini:  !!getGeminiApiKey(),
     claude:  !!ANTHROPIC_API_KEY,
     openai:  !!OPENAI_API_KEY,
     ollama:  !!OLLAMA_BASE_URL,
@@ -141,7 +146,8 @@ async function callOllamaAI(
 }
 
 async function callGeminiAI(systemPrompt: string, userMessage: string, history: { role: string; content: string }[] = []): Promise<string> {
-  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY غير متوفر");
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) throw new Error("GEMINI_API_KEY غير متوفر");
   const contents = [
     ...history.map(h => ({
       role: h.role === "assistant" ? "model" : "user",
@@ -150,10 +156,10 @@ async function callGeminiAI(systemPrompt: string, userMessage: string, history: 
     { role: "user", parts: [{ text: userMessage }] },
   ];
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    geminiGenerateContentUrl("gemini-2.5-flash"),
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: geminiApiHeaders(apiKey),
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents,
@@ -350,9 +356,11 @@ export async function callAI(
     return { reply, modelUsed: model, tier };
   };
 
+  const geminiKey = getGeminiApiKey();
+
   if (preferredModel === "deepseek" && DEEPSEEK_API_KEY)
     return forced("deepseek", () => callDeepSeekAI(guardedSystemPrompt, safeMessage, history));
-  if (preferredModel === "gemini"   && GEMINI_API_KEY)
+  if (preferredModel === "gemini"   && geminiKey)
     return forced("gemini",   () => callGeminiAI(guardedSystemPrompt, safeMessage, history));
   if (preferredModel === "claude"   && ANTHROPIC_API_KEY)
     return forced("claude",   () => callClaudeAI(guardedSystemPrompt, safeMessage, history));
@@ -377,13 +385,13 @@ export async function callAI(
   if (tier === "cheap") {
     /* cheap: DeepSeek → Gemini → Ollama */
     if (DEEPSEEK_API_KEY)  { const r = await tryModel("deepseek", () => callDeepSeekAI(guardedSystemPrompt, safeMessage, history)); if (r) return r; }
-    if (GEMINI_API_KEY)    { const r = await tryModel("gemini",   () => callGeminiAI(guardedSystemPrompt, safeMessage, history));   if (r) return r; }
+    if (geminiKey)         { const r = await tryModel("gemini",   () => callGeminiAI(guardedSystemPrompt, safeMessage, history));   if (r) return r; }
     if (OLLAMA_BASE_URL)   { const r = await tryModel(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(guardedSystemPrompt, safeMessage, history)); if (r) return r; }
   }
 
   if (tier === "mid") {
     /* mid: Gemini → DeepSeek → Ollama */
-    if (GEMINI_API_KEY)    { const r = await tryModel("gemini",   () => callGeminiAI(guardedSystemPrompt, safeMessage, history));   if (r) return r; }
+    if (geminiKey)         { const r = await tryModel("gemini",   () => callGeminiAI(guardedSystemPrompt, safeMessage, history));   if (r) return r; }
     if (DEEPSEEK_API_KEY)  { const r = await tryModel("deepseek", () => callDeepSeekAI(guardedSystemPrompt, safeMessage, history)); if (r) return r; }
     if (OLLAMA_BASE_URL)   { const r = await tryModel(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(guardedSystemPrompt, safeMessage, history)); if (r) return r; }
   }
@@ -392,7 +400,7 @@ export async function callAI(
     /* premium: Claude → OpenAI → Gemini → Ollama */
     if (ANTHROPIC_API_KEY) { const r = await tryModel("claude",   () => callClaudeAI(guardedSystemPrompt, safeMessage, history));   if (r) return r; }
     if (OPENAI_API_KEY)    { const r = await tryModel("openai",   () => callOpenAI(guardedSystemPrompt, safeMessage, history));     if (r) return r; }
-    if (GEMINI_API_KEY)    { const r = await tryModel("gemini",   () => callGeminiAI(guardedSystemPrompt, safeMessage, history));   if (r) return r; }
+    if (geminiKey)         { const r = await tryModel("gemini",   () => callGeminiAI(guardedSystemPrompt, safeMessage, history));   if (r) return r; }
     if (OLLAMA_BASE_URL)   { const r = await tryModel(`ollama:${OLLAMA_MODEL}`, () => callOllamaAI(guardedSystemPrompt, safeMessage, history)); if (r) return r; }
   }
 

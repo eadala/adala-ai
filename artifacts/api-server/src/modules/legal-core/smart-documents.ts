@@ -5,9 +5,14 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
 import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
-const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_KEY = getGeminiApiKey();
 
 function rows(r: any): any[] {
   if (Array.isArray(r)) return r;
@@ -46,10 +51,10 @@ async function analyzeDocument(
       : [{ text: `${prompt}\n\n(تحليل بناءً على اسم الملف فقط — المحتوى غير متاح)` }];
 
     const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      geminiGenerateContentUrl("gemini-2.5-flash"),
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: geminiApiHeaders(GEMINI_KEY),
         body: JSON.stringify({
           contents: [{ parts }],
           generationConfig: { temperature: 0.1, maxOutputTokens: 1500 },

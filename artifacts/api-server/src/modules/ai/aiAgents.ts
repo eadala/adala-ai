@@ -1,5 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing; Gemini auth hardening */
 import { requireAuth } from "../../middlewares/requireAuth";
 import { Router } from "express";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
 
@@ -37,7 +43,7 @@ const AGENTS: Record<string, { name: string; systemPrompt: string; fallback: (in
 };
 
 async function callGemini(systemPrompt: string, messages: { role: string; content: string }[], maxTokens = 1500): Promise<string | null> {
-  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  const GEMINI_KEY = getGeminiApiKey();
   if (!GEMINI_KEY) return null;
   try {
     const history = messages.slice(0, -1).map(m => ({
@@ -46,10 +52,10 @@ async function callGemini(systemPrompt: string, messages: { role: string; conten
     }));
     const lastMsg = messages[messages.length - 1];
     const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      geminiGenerateContentUrl("gemini-2.5-flash"),
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: geminiApiHeaders(GEMINI_KEY),
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents: [...history, { role: "user", parts: [{ text: lastMsg.content }] }],

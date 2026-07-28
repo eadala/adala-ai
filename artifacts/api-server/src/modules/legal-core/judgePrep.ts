@@ -1,5 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing; Gemini auth hardening */
 import { requireAuth } from "../../middlewares/requireAuth";
 import { Router } from "express";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
 
@@ -20,7 +26,7 @@ const JUDGE_STYLE_DESC: Record<string, string> = {
 };
 
 async function callAI(prompt: string): Promise<string> {
-  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  const GEMINI_KEY = getGeminiApiKey();
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
@@ -29,10 +35,10 @@ async function callAI(prompt: string): Promise<string> {
   if (GEMINI_KEY) {
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+        geminiGenerateContentUrl("gemini-2.5-flash"),
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: geminiApiHeaders(GEMINI_KEY),
           body: JSON.stringify({
             contents: [{ parts: [{ text: `${systemInstruction}\n\n${prompt}` }] }],
             generationConfig: { maxOutputTokens: 4096, responseMimeType: "application/json" },
@@ -166,7 +172,7 @@ router.post("/judge-prep/generate", requireAuth, async (req, res) => {
     }
     const result = JSON.parse(jsonMatch[0]);
     res.json(result);
-  } catch (err) {
+  } catch (_err) {
     res.json(JSON.parse(generateFallback()));
   }
 });

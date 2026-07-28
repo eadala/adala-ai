@@ -1,5 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing; Gemini auth hardening */
 import { requireAuth } from "../../middlewares/requireAuth";
 import { Router } from "express";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
 
@@ -19,7 +25,7 @@ const CASE_TYPE_CONTEXTS: Record<string, string> = {
 };
 
 async function callGemini(systemPrompt: string, messages: { role: string; content: string }[], maxTokens = 1024): Promise<string | null> {
-  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  const GEMINI_KEY = getGeminiApiKey();
   if (!GEMINI_KEY) return null;
   try {
     const contents = messages.map(m => ({
@@ -27,10 +33,10 @@ async function callGemini(systemPrompt: string, messages: { role: string; conten
       parts: [{ text: m.content }],
     }));
     const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      geminiGenerateContentUrl("gemini-2.5-flash"),
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: geminiApiHeaders(GEMINI_KEY),
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents,
@@ -151,17 +157,17 @@ ${userMessages}
 
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
-  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  const GEMINI_KEY = getGeminiApiKey();
 
   try {
     let raw = "";
 
     if (GEMINI_KEY) {
       const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+        geminiGenerateContentUrl("gemini-2.5-flash"),
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: geminiApiHeaders(GEMINI_KEY),
           body: JSON.stringify({
             contents: [{ parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
             generationConfig: { maxOutputTokens: 1024, responseMimeType: "application/json" },
