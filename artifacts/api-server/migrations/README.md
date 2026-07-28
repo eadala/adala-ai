@@ -94,7 +94,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/019_money_numeric_batch2.sql
 
-# 20) تحقق بعد التنفيذ
+# 20) Hot-path performance indexes (Stage 10.7) — CREATE INDEX only
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/020_performance_hotpath_indexes.sql
+
+# 21) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -120,6 +124,7 @@ bash scripts/db/verify-schema.sh
 | `017_cases_schema.sql` | `cases.case_number` / court_* / `deleted_at` / `version` + unique index |
 | `018_money_numeric_batch1.sql` | REAL → `NUMERIC(18,2)` for invoices/subscriptions/usage_logs/plans/discount_codes/ai_api_keys money columns |
 | `019_money_numeric_batch2.sql` | bare `NUMERIC` → `NUMERIC(18,2)` for `payment_transactions` / `office_ledger` fee & amount columns |
+| `020_performance_hotpath_indexes.sql` | High-impact hot-path indexes (conversations, storage ACL, HR, events) — `CREATE INDEX` only |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
