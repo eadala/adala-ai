@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; overlap-guard wiring only */
 /**
  * 🔄 Demo Sync Engine — عدالة AI
  * ══════════════════════════════════════════════════════════
@@ -20,6 +21,10 @@ import { sql }       from "drizzle-orm";
 import { getAuth }   from "@clerk/express";
 import cron          from "node-cron";
 import { logger }    from "../../lib/logger";
+import {
+  CRON_JOB_NAMES,
+  withCronOverlapProtection,
+} from "../../lib/cronOverlapGuard";
 
 const router = Router();
 const guard = requireSuperAdmin;
@@ -335,19 +340,21 @@ router.post("/demo-sync/reseed/:officeId", guard, async (req, res) => {
    CRON — auto sync every hour (development only — skip in production)
 ══════════════════════════════════════════════════════════════════ */
 cron.schedule("0 * * * *", async () => {
-  if (process.env.NODE_ENV === "production") return; // no demo sync in prod
-  try {
-    logger.info("[DemoSync] Hourly auto-sync starting…");
-    const prodConfig = await fetchProductionConfig();
-    const result = await syncDemoOffices(prodConfig);
-    await db.execute(sql`
-      INSERT INTO demo_sync_log (office_id, office_label, synced_plan, actions_count, triggered_by, synced_at)
-      VALUES (gen_random_uuid()::text, 'all-offices', 'professional', ${result.actions.length}, 'cron', NOW())
-    `).catch(() => {});
-    logger.info({ actions: result.actions.length }, "[DemoSync] Hourly sync done ✅");
-  } catch (e: any) {
-    logger.error({ err: e.message }, "[DemoSync] Hourly sync failed");
-  }
+  await withCronOverlapProtection(CRON_JOB_NAMES.demoSync, async () => {
+    if (process.env.NODE_ENV === "production") return; // no demo sync in prod
+    try {
+      logger.info("[DemoSync] Hourly auto-sync starting…");
+      const prodConfig = await fetchProductionConfig();
+      const result = await syncDemoOffices(prodConfig);
+      await db.execute(sql`
+        INSERT INTO demo_sync_log (office_id, office_label, synced_plan, actions_count, triggered_by, synced_at)
+        VALUES (gen_random_uuid()::text, 'all-offices', 'professional', ${result.actions.length}, 'cron', NOW())
+      `).catch(() => {});
+      logger.info({ actions: result.actions.length }, "[DemoSync] Hourly sync done ✅");
+    } catch (e: any) {
+      logger.error({ err: e.message }, "[DemoSync] Hourly sync failed");
+    }
+  });
 });
 
 export default router;

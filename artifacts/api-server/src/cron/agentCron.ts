@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; overlap-guard wiring only */
 /**
  * Agent Cron — وكلاء الذكاء الاصطناعي التلقائيون
  *
@@ -12,6 +13,10 @@ import cron from "node-cron";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import {
+  CRON_JOB_NAMES,
+  withCronOverlapProtection,
+} from "../lib/cronOverlapGuard";
 import { callAI } from "../modules/ai/aiChat";
 import { encryptBuffer, isEncryptionEnabled } from "../core/backupEncrypt";
 import { uploadBackup, tenantSnapshotKey, fullBackupKey } from "../core/backupStorage";
@@ -359,19 +364,23 @@ export function startAgentCron() {
     /* ── كل 4 ساعات في production / كل ساعة في dev ── */
     const agentSchedule = process.env.NODE_ENV === "production" ? "0 */4 * * *" : "0 * * * *";
     cron.schedule(agentSchedule, async () => {
-      logger.info("[AgentCron] 🤖 Starting agent run…");
-      await Promise.allSettled([
-        runCaseReviewAgent(),
-        runInvoiceReminderAgent(),
-        runAiHealthCheckAgent(),
-      ]);
-      logger.info("[AgentCron] ✅ Agent run complete");
+      await withCronOverlapProtection(CRON_JOB_NAMES.agentRun, async () => {
+        logger.info("[AgentCron] 🤖 Starting agent run…");
+        await Promise.allSettled([
+          runCaseReviewAgent(),
+          runInvoiceReminderAgent(),
+          runAiHealthCheckAgent(),
+        ]);
+        logger.info("[AgentCron] ✅ Agent run complete");
+      });
     });
 
     /* ── يومياً الساعة 2 صباحاً: اللقطة اليومية ── */
     cron.schedule("0 2 * * *", async () => {
-      logger.info("[AgentCron] 📊 Starting daily snapshot…");
-      await runDailySnapshotAgent();
+      await withCronOverlapProtection(CRON_JOB_NAMES.agentDailySnapshot, async () => {
+        logger.info("[AgentCron] 📊 Starting daily snapshot…");
+        await runDailySnapshotAgent();
+      });
     });
 
     /* ── تشغيل فوري عند البدء (بعد 10 ثوانٍ) ── */
@@ -521,15 +530,19 @@ async function runFullBackupCron(): Promise<void> {
 /* Register backup crons after main crons are already set up */
 setTimeout(() => {
   /* لقطات المكاتب كل 6 ساعات */
-  cron.schedule("0 */6 * * *", () => {
-    logger.info("[BackupCron] 🔐 Starting tenant snapshots (6h cycle)…");
-    runTenantBackupCron();
+  cron.schedule("0 */6 * * *", async () => {
+    await withCronOverlapProtection(CRON_JOB_NAMES.backupTenant, async () => {
+      logger.info("[BackupCron] 🔐 Starting tenant snapshots (6h cycle)…");
+      await runTenantBackupCron();
+    });
   });
 
   /* نسخة كاملة يومياً الساعة 02:30 (30 دقيقة بعد daily_snapshot) */
-  cron.schedule("30 2 * * *", () => {
-    logger.info("[BackupCron] 💾 Starting full system backup (daily 02:30)…");
-    runFullBackupCron();
+  cron.schedule("30 2 * * *", async () => {
+    await withCronOverlapProtection(CRON_JOB_NAMES.backupFull, async () => {
+      logger.info("[BackupCron] 💾 Starting full system backup (daily 02:30)…");
+      await runFullBackupCron();
+    });
   });
 
   logger.info("[BackupCron] ✅ Backup crons registered — tenant every 6h + full daily at 02:30");
