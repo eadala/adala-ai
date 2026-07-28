@@ -532,14 +532,37 @@ const mig021 = readRepo("artifacts/api-server/migrations/021_rag_schema_foundati
 assert.match(mig021, /CREATE EXTENSION IF NOT EXISTS vector/);
 assert.match(mig021, /CREATE TABLE IF NOT EXISTS rag_chunks/);
 assert.match(mig021, /vector\(1536\)/);
-assert.match(mig021, /REFERENCES document_center_files \(id\) ON DELETE CASCADE/);
+assert.match(mig021, /Decision A/);
+assert.match(mig021, /text-embedding-3-small/);
+assert.match(mig021, /document_center_files_office_id_id_key/);
+assert.match(mig021, /UNIQUE \(office_id, id\)/);
+assert.match(
+  mig021,
+  /FOREIGN KEY \(office_id, document_id\)\s+REFERENCES document_center_files \(office_id, id\)\s+ON DELETE CASCADE/s,
+);
+assert.doesNotMatch(
+  mig021,
+  /REFERENCES document_center_files \(id\) ON DELETE CASCADE/,
+);
 assert.match(mig021, /UNIQUE \(office_id, document_id, chunk_index\)/);
+assert.match(mig021, /USING hnsw \(embedding vector_cosine_ops\)/);
+assert.doesNotMatch(mig021, /USING ivfflat/i);
 assert.match(mig021, /extracted_text/);
 assert.match(mig021, /CREATE TABLE IF NOT EXISTS document_center_files/);
 assert.match(mig021, /CREATE TABLE IF NOT EXISTS document_ai_metadata/);
 assert.doesNotMatch(mig021, /float8\[\]|REAL\[\]/);
 assert.match(mig021, /No float\[] \/ JSON embedding fallback is permitted/);
-console.log("  ✅ migration 021 owns pgvector + rag_chunks + document_center formalization; no embedding fallback");
+
+const docCenterSrc = readSrc("modules/documents/documentCenter.ts");
+assert.match(docCenterSrc, /021_rag_schema_foundation/);
+assert.doesNotMatch(docCenterSrc, /CREATE TABLE IF NOT EXISTS document_center_files/);
+assert.doesNotMatch(docCenterSrc, /CREATE TABLE IF NOT EXISTS document_ai_metadata/);
+assert.doesNotMatch(docCenterSrc, /CREATE INDEX IF NOT EXISTS idx_dcf_/);
+assert.doesNotMatch(docCenterSrc, /CREATE INDEX IF NOT EXISTS idx_dam_/);
+assert.doesNotMatch(docCenterSrc, /ALTER TABLE document_center_files/);
+assert.doesNotMatch(docCenterSrc, /ALTER TABLE document_ai_metadata/);
+assert.match(docCenterSrc, /to_regclass\('public\.document_center_files'\)/);
+console.log("  ✅ migration 021 owns pgvector + composite tenant FK + document_center; Runtime DDL removed");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

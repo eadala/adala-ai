@@ -3,22 +3,37 @@
 --
 -- Owns:
 --   CREATE EXTENSION vector (pgvector) — required, no float[] fallback
---   document_center_files formal CREATE (was Runtime DDL only)
---   document_ai_metadata formal CREATE incl. extracted_text (was Runtime DDL)
+--   document_center_files formal CREATE (Schema Authority; Runtime DDL removed)
+--   document_ai_metadata formal CREATE incl. extracted_text (Runtime DDL removed)
 --   rag_chunks tenant-safe chunk + embedding store
 --
--- Embedding dimension decision (Stage 11.3 default):
---   vector(1536) — OpenAI text-embedding-3-small default / widely supported
---   by OpenAI-compatible providers. No EMBEDDING_MODEL in repo config yet;
---   change requires a follow-up migration if a different dim is chosen.
+-- Embedding dimension contract (Decision A — Stage 11.2 / 11.3):
+--   Column: embedding vector(1536)
+--   Approved production contract: OpenAI text-embedding-3-small (1536 dims)
+--     (also the default output size for OpenAI-compatible 1536-dim APIs).
+--   Repo today: chat providers only (Gemini / Claude / GPT). No EMBEDDING_MODEL
+--     env or embedding call site exists yet — Stage 11.3 has not selected a
+--     production embedding provider beyond this schema contract.
+--   Stage 11.3 MUST:
+--     1) configure exactly one embedding model whose output dimension is 1536;
+--     2) reject / fail closed on any model or response with dim ≠ 1536;
+--     3) ship a follow-up migration BEFORE changing this column type if a
+--        different dimension is later approved (no silent ALTER of vector(N)).
+--   Do NOT speculate on Gemini embedding dims here — chat ≠ embeddings.
 --
--- Document relation:
---   rag_chunks.document_id → document_center_files(id) ON DELETE CASCADE
---   (Document Center is the RAG corpus source from Stage 11.1 discovery;
---    storage_files is the separate Storage Manager path — not used here.)
+-- Document relation (tenant-safe):
+--   UNIQUE (office_id, id) on document_center_files
+--   rag_chunks (office_id, document_id)
+--     → document_center_files (office_id, id) ON DELETE CASCADE
+--   Prevents a chunk from referencing another office's document at DB level.
+--   (Document Center is the RAG corpus; storage_files is separate — unused here.)
+--
+-- Indexes retained:
+--   UNIQUE (office_id, document_id, chunk_index) — tenant-doc lookup + ordered chunks
+--   HNSW (embedding vector_cosine_ops) — vector similarity (deterministic; no IVFFlat)
 --
 -- Apply AFTER: … → 019 → 020
--- Requires: PostgreSQL with pgvector installed
+-- Requires: PostgreSQL with pgvector ≥ 0.5 (HNSW)
 --   (e.g. image pgvector/pgvector:pg16 — NOT stock postgres:alpine)
 -- Idempotent / legacy-safe. Do NOT apply via Runtime DDL / drizzle-kit push.
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -44,7 +59,8 @@ EXCEPTION
 END $$;
 
 -- ── 2) document_center_files (Schema Authority for existing Runtime table) ─
--- Column set derived from documentCenter.ts ensureDocumentCenterSchema().
+-- Column set derived from former documentCenter.ts ensureDocumentCenterSchema().
+-- office_id is TEXT NOT NULL (tenant key); id is TEXT PK.
 CREATE TABLE IF NOT EXISTS document_center_files (
   id               TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   office_id        TEXT NOT NULL,
@@ -89,6 +105,37 @@ ALTER TABLE document_center_files ADD COLUMN IF NOT EXISTS is_archived BOOLEAN;
 ALTER TABLE document_center_files ADD COLUMN IF NOT EXISTS version INT;
 ALTER TABLE document_center_files ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;
 ALTER TABLE document_center_files ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+
+-- Tenant key must be NOT NULL before composite FK / UNIQUE (office_id, id)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM document_center_files WHERE office_id IS NULL
+  ) THEN
+    RAISE EXCEPTION
+      '021_rag: document_center_files.office_id contains NULL; '
+      'backfill office_id before applying tenant-safe RAG FK.';
+  END IF;
+  ALTER TABLE document_center_files ALTER COLUMN office_id SET NOT NULL;
+EXCEPTION
+  WHEN undefined_table THEN NULL;
+END $$;
+
+-- Composite FK target: (office_id, id) must be UNIQUE (id alone is PK)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'document_center_files_office_id_id_key'
+  ) THEN
+    ALTER TABLE document_center_files
+      ADD CONSTRAINT document_center_files_office_id_id_key
+      UNIQUE (office_id, id);
+  END IF;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN undefined_table THEN NULL;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_dcf_office_id
   ON document_center_files (office_id);
@@ -157,8 +204,7 @@ CREATE INDEX IF NOT EXISTS idx_dam_office
 CREATE TABLE IF NOT EXISTS rag_chunks (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   office_id    TEXT NOT NULL,
-  document_id  TEXT NOT NULL
-                 REFERENCES document_center_files (id) ON DELETE CASCADE,
+  document_id  TEXT NOT NULL,
   chunk_index  INTEGER NOT NULL,
   content      TEXT NOT NULL,
   embedding    vector(1536),
@@ -168,7 +214,11 @@ CREATE TABLE IF NOT EXISTS rag_chunks (
   CONSTRAINT rag_chunks_chunk_index_nonneg CHECK (chunk_index >= 0),
   CONSTRAINT rag_chunks_content_nonempty CHECK (length(btrim(content)) > 0),
   CONSTRAINT rag_chunks_office_document_chunk_uq
-    UNIQUE (office_id, document_id, chunk_index)
+    UNIQUE (office_id, document_id, chunk_index),
+  CONSTRAINT rag_chunks_office_document_fkey
+    FOREIGN KEY (office_id, document_id)
+    REFERENCES document_center_files (office_id, id)
+    ON DELETE CASCADE
 );
 
 -- Idempotent column repairs for partial/legacy creates
@@ -236,16 +286,29 @@ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- FK repair if table existed without FK
+-- Replace legacy single-column document FK with composite tenant FK
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'rag_chunks_document_id_fkey'
+  ) THEN
+    ALTER TABLE rag_chunks DROP CONSTRAINT rag_chunks_document_id_fkey;
+  END IF;
+EXCEPTION
+  WHEN undefined_table THEN NULL;
+END $$;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
-    WHERE conname = 'rag_chunks_document_id_fkey'
+    WHERE conname = 'rag_chunks_office_document_fkey'
   ) AND to_regclass('public.document_center_files') IS NOT NULL THEN
     ALTER TABLE rag_chunks
-      ADD CONSTRAINT rag_chunks_document_id_fkey
-      FOREIGN KEY (document_id) REFERENCES document_center_files (id)
+      ADD CONSTRAINT rag_chunks_office_document_fkey
+      FOREIGN KEY (office_id, document_id)
+      REFERENCES document_center_files (office_id, id)
       ON DELETE CASCADE;
   END IF;
 EXCEPTION
@@ -254,15 +317,15 @@ EXCEPTION
 END $$;
 
 -- ── 5) Indexes ─────────────────────────────────────────────────────────────
--- Tenant + document lookup / ordered chunk retrieval (UNIQUE already covers
--- office_id, document_id, chunk_index — add explicit lookup helpers)
-CREATE INDEX IF NOT EXISTS idx_rag_chunks_office_document
-  ON rag_chunks (office_id, document_id);
-
-CREATE INDEX IF NOT EXISTS idx_rag_chunks_office_document_chunk
-  ON rag_chunks (office_id, document_id, chunk_index);
+-- Tenant-document lookup + ordered chunks: covered by
+--   UNIQUE (office_id, document_id, chunk_index)
+--   (leftmost prefix serves (office_id, document_id) lookups).
+-- Drop redundant btree indexes if an earlier 021 revision created them.
+DROP INDEX IF EXISTS idx_rag_chunks_office_document;
+DROP INDEX IF EXISTS idx_rag_chunks_office_document_chunk;
 
 -- Tenant-scoped vector similarity (cosine). HNSW requires pgvector ≥ 0.5.
+-- Deterministic: fail the migration if HNSW cannot be created (no IVFFlat).
 -- Queries MUST still filter office_id in WHERE for tenant isolation.
 DO $$
 BEGIN
@@ -271,23 +334,11 @@ BEGIN
     USING hnsw (embedding vector_cosine_ops)
     WITH (m = 16, ef_construction = 64);
 EXCEPTION
-  WHEN undefined_object THEN
-    -- Older pgvector: fall back to IVFFlat cosine
-    BEGIN
-      CREATE INDEX IF NOT EXISTS idx_rag_chunks_embedding_ivfflat
-        ON rag_chunks
-        USING ivfflat (embedding vector_cosine_ops)
-        WITH (lists = 100);
-    EXCEPTION
-      WHEN OTHERS THEN
-        RAISE WARNING
-          '021_rag: could not create HNSW/IVFFlat vector index (%). '
-          'Table and btree indexes still created; add a vector index after upgrading pgvector.',
-          SQLERRM;
-    END;
   WHEN OTHERS THEN
-    RAISE WARNING
-      '021_rag: vector index creation skipped (%). Btree tenant indexes remain.',
+    RAISE EXCEPTION
+      '021_rag: HNSW index idx_rag_chunks_embedding_hnsw is required '
+      '(deterministic production schema). Use pgvector ≥ 0.5 '
+      '(e.g. image pgvector/pgvector:pg16). No IVFFlat / silent fallback. (%).',
       SQLERRM;
 END $$;
 

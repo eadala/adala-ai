@@ -3,9 +3,9 @@
  * Upload → Object Storage | Metadata → DB | Migration Worker | Dashboard
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- legacy route handlers; out of Stage 11.2 scope */
 import { Router } from "express";
 import { requireAuth, requireAuthWithTenant, requireSuperAdmin} from "../../middlewares/requireAuth";
-import { getAuth } from "@clerk/express";
 
 import { documentStorage } from "../../services/documentStorage";
 import {
@@ -21,7 +21,8 @@ import { uploadGuardMiddleware } from "../../lib/uploadGuard";
 const router = Router();
 
 /* ═══════════════════════════════════════════════════════
-   DB BOOTSTRAP — idempotent columns + tables
+   DB BOOTSTRAP — legacy tables still Runtime; Document Center
+   core tables are Schema Authority via migration 021.
 ═══════════════════════════════════════════════════════ */
 export async function ensureDocumentCenterSchema() {
   const cols: string[] = [
@@ -55,45 +56,33 @@ export async function ensureDocumentCenterSchema() {
   `).catch(() => {});
 
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS document_center_files (
-      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id       TEXT NOT NULL,
-      source_table    TEXT NOT NULL,
-      source_id       TEXT NOT NULL,
-      storage_key     TEXT,
-      storage_provider TEXT DEFAULT 'db_base64',
-      file_name       TEXT,
-      file_size       BIGINT DEFAULT 0,
-      mime_type       TEXT,
-      checksum        TEXT,
-      legal_category  TEXT,
-      tags            TEXT[],
-      case_id         TEXT,
-      client_id       TEXT,
-      contract_id     TEXT,
-      uploaded_by     TEXT,
-      uploaded_by_name TEXT,
-      is_archived     BOOLEAN DEFAULT FALSE,
-      version         INT DEFAULT 1,
-      created_at      TIMESTAMPTZ DEFAULT NOW(),
-      updated_at      TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_dcf_office_id    ON document_center_files(office_id)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_dcf_case_id      ON document_center_files(case_id)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_dcf_category     ON document_center_files(office_id, legal_category)
-  `).catch(() => {});
-  await db.execute(sql`
     CREATE INDEX IF NOT EXISTS idx_sml_office_status ON storage_migration_log(office_id, status)
   `).catch(() => {});
 
-  /* ── V2 Tables ─────────────────────────────────────────────────────── */
+  /* document_center_files + document_ai_metadata:
+     Schema Authority = artifacts/api-server/migrations/021_rag_schema_foundation.sql
+     No Runtime CREATE TABLE / ALTER TABLE / CREATE INDEX for these tables. */
+  try {
+    const { rows } = await db.execute(sql`
+      SELECT
+        to_regclass('public.document_center_files') IS NOT NULL AS has_dcf,
+        to_regclass('public.document_ai_metadata') IS NOT NULL AS has_dam
+    `);
+    const row = rows[0] as { has_dcf?: boolean; has_dam?: boolean } | undefined;
+    if (!row?.has_dcf || !row?.has_dam) {
+      logger.error(
+        { has_dcf: row?.has_dcf ?? false, has_dam: row?.has_dam ?? false },
+        "document_center_files / document_ai_metadata missing — apply migration 021_rag_schema_foundation.sql",
+      );
+    }
+  } catch (e) {
+    logger.error(
+      { e },
+      "document center schema readiness check failed — apply migration 021_rag_schema_foundation.sql",
+    );
+  }
+
+  /* ── V2 Tables (still Runtime until a future Schema Authority batch) ── */
 
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS document_versions (
@@ -145,27 +134,6 @@ export async function ensureDocumentCenterSchema() {
     )
   `).catch(() => {});
   await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_rp_office ON retention_policies(office_id)`).catch(() => {});
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS document_ai_metadata (
-      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      document_id     TEXT NOT NULL,
-      office_id       TEXT NOT NULL,
-      extracted_text  TEXT,
-      summary         TEXT,
-      document_type   TEXT,
-      parties         TEXT[],
-      dates           TEXT[],
-      obligations     TEXT[],
-      amounts         TEXT[],
-      keywords        TEXT[],
-      confidence_score FLOAT DEFAULT 0,
-      processed_at    TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(document_id)
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dam_doc_id ON document_ai_metadata(document_id)`).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dam_office ON document_ai_metadata(office_id)`).catch(() => {});
 
   /* Seed default retention policies (office-agnostic template = office_id '__default__') */
   const defaults = [
