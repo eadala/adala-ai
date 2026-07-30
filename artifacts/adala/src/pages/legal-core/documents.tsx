@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/hooks/use-lang";
 import { SmartUploader } from "@/components/smart-uploader";
 import { authFetch } from "@/lib/authFetch";
+import { fetchStorageFileSignedUrl, openStorageFile } from "@/lib/storageSignedUrl";
 import { cn } from "@/lib/utils";
 import { useImageViewer } from "@/components/ui/image-viewer";
 import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
@@ -490,6 +491,21 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
   const { toast } = useToast();
   const qc = useQueryClient();
   const { open: openImage, viewer: imageViewer } = useImageViewer();
+  const isImage = !!file.mime_type?.startsWith("image/");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [opening, setOpening] = useState(false);
+
+  useEffect(() => {
+    if (!isImage || !file?.id) {
+      setPreviewUrl(null);
+      return;
+    }
+    let cancelled = false;
+    fetchStorageFileSignedUrl(String(file.id))
+      .then(({ url }) => { if (!cancelled) setPreviewUrl(url); })
+      .catch(() => { if (!cancelled) setPreviewUrl(null); });
+    return () => { cancelled = true; };
+  }, [file?.id, isImage]);
 
   const trashMut = useMutation({
     mutationFn: () => authFetch(`${BASE}/api/storage/files/${file.id}/trash`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -502,23 +518,47 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
     trashMut.mutate();
   };
 
-  const fileUrl = file.file_url
-    ? (file.file_url.startsWith("/") ? `${BASE}${file.file_url}` : file.file_url)
-    : null;
-  const isImage = file.mime_type?.startsWith("image/");
-  const preview = isImage && fileUrl ? fileUrl : null;
+  const handleOpen = async () => {
+    if (!file?.id || opening) return;
+    setOpening(true);
+    try {
+      await openStorageFile(String(file.id));
+    } catch (e: any) {
+      toast({ title: tx("تعذر فتح الملف","Could not open file"), description: e?.message, variant: "destructive" });
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!file?.id || opening) return;
+    setOpening(true);
+    try {
+      const { url, fileName } = await fetchStorageFileSignedUrl(String(file.id));
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.download = fileName || file.original_name || "file";
+      a.click();
+    } catch (e: any) {
+      toast({ title: tx("تعذر تحميل الملف","Could not download file"), description: e?.message, variant: "destructive" });
+    } finally {
+      setOpening(false);
+    }
+  };
 
   return (
     <Card className="hover-elevate group transition-all overflow-hidden">
       {imageViewer}
       <CardContent className="p-0">
-        {preview && (
+        {previewUrl && (
           <div
             className="h-28 overflow-hidden bg-muted/40 cursor-zoom-in relative"
-            onClick={() => openImage(preview)}
+            onClick={() => openImage(previewUrl)}
             title={tx("انقر للتكبير", "Click to enlarge")}
           >
-            <img src={preview} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt="" loading="lazy" />
+            <img src={previewUrl} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt="" loading="lazy" />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
               <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
             </div>
@@ -536,17 +576,14 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                {fileUrl && (
+                {file.id && (
                   <>
-                    <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
-                      <a href={fileUrl} target="_blank" rel="noreferrer">
-                        <ExternalLink className="h-4 w-4" />{tx("فتح","Open")}
-                      </a>
+                    <DropdownMenuItem className="gap-2 cursor-pointer" disabled={opening} onClick={handleOpen}>
+                      {opening ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+                      {tx("فتح","Open")}
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
-                      <a href={fileUrl} download={file.original_name}>
-                        <Download className="h-4 w-4" />{tx("تحميل","Download")}
-                      </a>
+                    <DropdownMenuItem className="gap-2 cursor-pointer" disabled={opening} onClick={handleDownload}>
+                      <Download className="h-4 w-4" />{tx("تحميل","Download")}
                     </DropdownMenuItem>
                   </>
                 )}

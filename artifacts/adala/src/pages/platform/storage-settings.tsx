@@ -19,6 +19,7 @@ import {
   Upload, Download, Eye, MoreVertical, Zap, Shield
 } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
+import { openStorageFile } from "@/lib/storageSignedUrl";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -276,9 +277,20 @@ function FileManagerTab() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {f.is_archived && <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-xs">مؤرشف</Badge>}
-                {f.file_url && (
-                  <Button size="sm" variant="ghost" className="text-muted-foreground/50 hover:text-white h-7 w-7 p-0" asChild>
-                    <a href={f.file_url} target="_blank" rel="noreferrer"><Eye className="w-3.5 h-3.5" /></a>
+                {f.id && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground/50 hover:text-white h-7 w-7 p-0"
+                    onClick={async () => {
+                      try {
+                        await openStorageFile(String(f.id));
+                      } catch (e: any) {
+                        toast.error(e?.message || "تعذر فتح الملف");
+                      }
+                    }}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
                   </Button>
                 )}
                 <DropdownMenu>

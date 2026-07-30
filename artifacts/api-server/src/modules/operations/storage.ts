@@ -46,15 +46,19 @@ router.post("/storage/uploads/request-url", requireAuthWithTenant, async (req: R
 
   try {
     const { name, size, contentType } = parsed.data;
+    const safeType =
+      typeof contentType === "string" && contentType.trim()
+        ? contentType.trim()
+        : "application/octet-stream";
 
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL(safeType);
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
     res.json(
       RequestUploadUrlResponse.parse({
         uploadURL,
         objectPath,
-        metadata: { name, size, contentType },
+        metadata: { name, size, contentType: safeType },
       }),
     );
   } catch (error) {
@@ -457,6 +461,83 @@ router.post("/storage/files", requireAuthWithTenant, async (req, res) => {
   }
 });
 
+/**
+ * GET /storage/files/:id/signed-url
+ *
+ * Authenticated short-lived R2 GET URL for opening/downloading a private file.
+ * Tenant ownership is verified via storage_files row (office_id) before signing.
+ * Follows Document Center download pattern — objects stay private.
+ */
+router.get("/storage/files/:id/signed-url", requireAuthWithTenant, async (req, res) => {
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
+  const id = String(req.params.id ?? "").trim();
+  if (!id) return res.status(400).json({ error: "معرف الملف مطلوب" });
+
+  try {
+    const rows = await dbRows(sql`
+      SELECT id, office_id, original_name, mime_type, storage_key, file_url, is_deleted
+      FROM storage_files
+      WHERE id = ${id}::uuid
+        AND (office_id = ${u.officeId} OR ${u.isSA})
+      LIMIT 1
+    `);
+    const file = rows[0];
+    if (!file || file.is_deleted) {
+      return res.status(404).json({ error: "الملف غير موجود" });
+    }
+
+    const refs = [file.storage_key, file.file_url].filter(
+      (r): r is string => typeof r === "string" && r.trim().length > 0,
+    );
+    if (refs.length === 0) {
+      return res.status(422).json({ error: "لا يوجد مفتاح تخزين لهذا الملف" });
+    }
+
+    /* Prefer storage_key; repair legacy duplicated /objects/objects/ in file_url. */
+    let canonicalKey: string | null = null;
+    for (const ref of refs) {
+      canonicalKey = normalizeToCanonicalObjectKey(ref);
+      if (canonicalKey) break;
+      const repaired = ref.replace(/\/objects\/objects\//g, "/objects/");
+      if (repaired !== ref) {
+        canonicalKey = normalizeToCanonicalObjectKey(repaired);
+        if (canonicalKey) break;
+      }
+    }
+    if (!canonicalKey) {
+      return res.status(404).json({ error: "مسار التخزين غير صالح" });
+    }
+
+    /* Defense in depth: canonical ownership for non-SA */
+    if (!u.isSA) {
+      const owns = await tenantOwnsCanonicalObjectKey({
+        tenantId: u.officeId,
+        canonicalKey,
+      });
+      if (!owns) {
+        return res.status(404).json({ error: "الملف غير موجود" });
+      }
+    }
+
+    const ttlSec = 300;
+    const url = await objectStorageService.getObjectEntityDownloadURL(canonicalKey, ttlSec);
+    res.json({
+      url,
+      fileName: file.original_name,
+      contentType: file.mime_type ?? "application/octet-stream",
+      expiresIn: ttlSec,
+    });
+  } catch (e: unknown) {
+    if (e instanceof ObjectNotFoundError) {
+      return res.status(404).json({ error: "الملف غير موجود" });
+    }
+    logEndpointError("GET /api/storage/files/:id/signed-url", req, e, { officeId: u.officeId });
+    res.status(500).json({ error: "تعذر إنشاء رابط التحميل" });
+  }
+});
+
 /* ARCHIVE TOGGLE */
 router.patch("/storage/files/:id/archive", requireAuthWithTenant, async (req, res) => {
   const loaded = await getMgmtUser(req);
@@ -679,27 +760,32 @@ router.post("/storage/import-url", requireAuthWithTenant, async (req, res) => {
     if (buffer.length === 0) throw new Error("الملف فارغ");
     if (buffer.length > 10 * 1024 * 1024) throw new Error("الملف أكبر من 10 MB");
 
-    /* 2 ── رفع لمنظومة التخزين */
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    /* 2 ── رفع لمنظومة التخزين (Content-Type must match the signed PUT) */
+    const safeType = contentType.trim() || "application/octet-stream";
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL(safeType);
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
     const putRes = await fetch(uploadURL, {
       method: "PUT",
-      headers: { "Content-Type": contentType },
+      headers: { "Content-Type": safeType },
       body: buffer,
     });
     if (!putRes.ok) throw new Error("فشل حفظ الملف في التخزين");
 
-    /* 3 ── تسجيل في قاعدة البيانات */
+    /* 3 ── تسجيل في قاعدة البيانات — file_url is /api/storage + /objects/... (no double objects/) */
     const fileHash = crypto.createHash("sha256").update(objectPath).digest("hex");
     const dup = await dbRows(sql`SELECT id, original_name FROM storage_files WHERE file_hash=${fileHash} AND office_id=${u.officeId} AND NOT is_deleted`);
     if (dup.length > 0) return res.status(409).json({ duplicate: true, existing: dup[0], message: "هذا الملف موجود بالفعل" });
 
-    const category = contentType.startsWith("image/") ? "image"
-      : contentType === "application/pdf" ? "pdf"
-      : contentType.includes("word") ? "word"
-      : contentType.includes("sheet") || contentType.includes("excel") ? "excel"
+    const category = safeType.startsWith("image/") ? "image"
+      : safeType === "application/pdf" ? "pdf"
+      : safeType.includes("word") ? "word"
+      : safeType.includes("sheet") || safeType.includes("excel") ? "excel"
       : "document";
+
+    const privateApiUrl = objectPath.startsWith("/objects/")
+      ? `/api/storage${objectPath}`
+      : `/api/storage/objects/${objectPath.replace(/^\//, "")}`;
 
     const rows = await dbRows(sql`
       INSERT INTO storage_files
@@ -707,8 +793,8 @@ router.post("/storage/import-url", requireAuthWithTenant, async (req, res) => {
          file_size, file_hash, file_url, storage_key, category)
       VALUES
         (${u.officeId}, ${caseId ?? null}, ${clientId ?? null}, ${u.userId},
-         ${fileName}, ${objectPath}, ${contentType}, ${buffer.length}, ${fileHash},
-         ${`/api/storage/objects${objectPath}`}, ${objectPath}, ${category})
+         ${fileName}, ${objectPath}, ${safeType}, ${buffer.length}, ${fileHash},
+         ${privateApiUrl}, ${objectPath}, ${category})
       RETURNING *`);
 
     await db.execute(sql`
