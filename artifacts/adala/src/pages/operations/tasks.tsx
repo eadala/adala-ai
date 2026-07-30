@@ -55,17 +55,21 @@ export default function Tasks() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [assigneeFilter, setAssigneeFilter] = useState("");
   const [page, setPage] = useState(1);
   const { toast } = useToast();
   const qc = useQueryClient();
 
   /* Kanban: soft-capped array (≤200). List: page+limit envelope. */
   const { data: tasksPage, isLoading } = useQuery<TasksPageResponse | any[]>({
-    queryKey: ["tasks", view, page, search, priorityFilter],
+    queryKey: ["tasks", view, page, search, priorityFilter, statusFilter, assigneeFilter],
     queryFn: async () => {
       const p = new URLSearchParams();
       if (search.trim()) p.set("search", search.trim());
       if (priorityFilter !== "all") p.set("priority", priorityFilter);
+      if (statusFilter !== "all") p.set("status", statusFilter);
+      if (assigneeFilter.trim()) p.set("assignee", assigneeFilter.trim());
       if (view === "list") {
         p.set("page", String(page));
         p.set("limit", String(LEGAL_LIST_PAGE_SIZE));
@@ -141,11 +145,20 @@ export default function Tasks() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => authFetch(`${BASE}/api/office-tasks/${id}`, { method: "DELETE" }),
+    mutationFn: async (id: string) => {
+      const r = await authFetch(`${BASE}/api/office-tasks/${id}`, { method: "DELETE" });
+      let body: { error?: string } = {};
+      try { body = await r.json(); } catch { /* ignore */ }
+      if (!r.ok) throw new Error(body.error || "فشل حذف المهمة");
+      return body;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["tasks-stats"] });
       toast({ title: "تم حذف المهمة" });
+    },
+    onError: (e: any) => {
+      toast({ title: e.message || "فشل حذف المهمة", variant: "destructive" });
     },
   });
 
@@ -337,6 +350,15 @@ export default function Tasks() {
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="بحث في المهام..." className="pe-9" />
         </div>
+        <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
+          <SelectTrigger className="w-[140px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">كل الحالات</SelectItem>
+            {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={priorityFilter} onValueChange={v => { setPriorityFilter(v); setPage(1); }}>
           <SelectTrigger className="w-[130px]"><SelectValue placeholder="الأولوية" /></SelectTrigger>
           <SelectContent>
@@ -346,6 +368,17 @@ export default function Tasks() {
             ))}
           </SelectContent>
         </Select>
+        <div className="w-[200px]">
+          <EmployeeSearchSelect
+            value={assigneeFilter}
+            onValueChange={v => { setAssigneeFilter(v); setPage(1); }}
+            valueMode="fullName"
+            allowClear
+            clearLabel="كل المسؤولين"
+            placeholder="تصفية بالمسؤول"
+            className="w-full"
+          />
+        </div>
       </div>
 
       {isLoading ? (

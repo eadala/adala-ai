@@ -14,6 +14,7 @@
     "test:create-routes": "pnpm --dir ../api-server exec tsx ../adala/src/tests/createRoutes.test.ts",
     "test:documents-create-folder": "pnpm --dir ../api-server exec tsx ../adala/src/tests/documentsCreateFolder.test.ts",
     "test:storage-signed-open": "pnpm --dir ../api-server exec tsx ../adala/src/tests/storageSignedOpen.test.ts",
+    "test:office-tasks-mutate": "pnpm --dir ../api-server exec tsx ../adala/src/tests/officeTasksMutate.test.ts",
     "governance:gate": "bash ../../scripts/governance/quality-gate.sh",
     "governance:audit": "node ../../scripts/governance/ui-audit.mjs",
     "governance:audit:json": "node ../../scripts/governance/ui-audit.mjs --json",

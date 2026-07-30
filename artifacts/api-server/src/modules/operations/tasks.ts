@@ -8,6 +8,7 @@ import {
   parsePageLimit,
   queryHasPageAndLimit,
 } from "../../lib/paginationSafety";
+import { toUuid } from "../../lib/taskTenantVisibility";
 
 const router = Router();
 
@@ -23,9 +24,19 @@ function sqlOne(r: any): any {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function toUuid(v: any): string | null {
-  if (!v || !UUID_RE.test(String(v))) return null;
-  return String(v);
+
+/** SQL predicate (no WHERE) aligned with GET visibility. */
+function taskTenantVisibilityPred(tenantId: unknown) {
+  const officeId = toUuid(tenantId);
+  if (officeId) {
+    return sql`(office_id = ${officeId}::uuid OR office_id IS NULL)`;
+  }
+  return sql`TRUE`;
+}
+
+/** SQL WHERE clause for list/stats — same predicate as mutations. */
+function taskListOfficeCond(tenantId: unknown) {
+  return sql`WHERE ${taskTenantVisibilityPred(tenantId)}`;
 }
 
 const TASK_ORDER = sql`
@@ -60,7 +71,7 @@ function taskFilterSql(q: Record<string, unknown>) {
 
 router.get("/office-tasks", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = toUuid((req as any).tenantId);
+    const tenantId = (req as any).tenantId as string;
     const paginated = queryHasPageAndLimit(req.query);
     const { page, limit, offset } = paginated
       ? parsePageLimit(req.query, 50)
@@ -68,9 +79,7 @@ router.get("/office-tasks", requireAuthWithTenant, async (req, res) => {
     const { searchCond, statusCond, priorityCond, assigneeCond } = taskFilterSql(
       req.query as Record<string, unknown>,
     );
-    const officeCond = officeId
-      ? sql`WHERE (office_id = ${officeId}::uuid OR office_id IS NULL)`
-      : sql`WHERE TRUE`;
+    const officeCond = taskListOfficeCond(tenantId);
 
     const r = await db.execute(sql`
       SELECT * FROM tasks
@@ -107,30 +116,18 @@ router.get("/office-tasks", requireAuthWithTenant, async (req, res) => {
 
 router.get("/office-tasks/stats", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = toUuid((req as any).tenantId);
-    let r;
-    if (officeId) {
-      r = await db.execute(sql`
-        SELECT
-          COUNT(*)::int as total,
-          COUNT(*) FILTER (WHERE status = 'todo')::int as todo,
-          COUNT(*) FILTER (WHERE status = 'in_progress')::int as in_progress,
-          COUNT(*) FILTER (WHERE status = 'done')::int as done,
-          COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status != 'done')::int as overdue
-        FROM tasks
-        WHERE office_id = ${officeId}::uuid OR office_id IS NULL
-      `);
-    } else {
-      r = await db.execute(sql`
-        SELECT
-          COUNT(*)::int as total,
-          COUNT(*) FILTER (WHERE status = 'todo')::int as todo,
-          COUNT(*) FILTER (WHERE status = 'in_progress')::int as in_progress,
-          COUNT(*) FILTER (WHERE status = 'done')::int as done,
-          COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status != 'done')::int as overdue
-        FROM tasks
-      `);
-    }
+    const tenantId = (req as any).tenantId as string;
+    const officeCond = taskListOfficeCond(tenantId);
+    const r = await db.execute(sql`
+      SELECT
+        COUNT(*)::int as total,
+        COUNT(*) FILTER (WHERE status = 'todo')::int as todo,
+        COUNT(*) FILTER (WHERE status = 'in_progress')::int as in_progress,
+        COUNT(*) FILTER (WHERE status = 'done')::int as done,
+        COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status != 'done')::int as overdue
+      FROM tasks
+      ${officeCond}
+    `);
     res.json(sqlOne(r) ?? { total: 0, todo: 0, in_progress: 0, done: 0, overdue: 0 });
   } catch (e: any) {
     console.error("[office-tasks/stats] GET error:", e.message);
@@ -175,6 +172,7 @@ router.patch("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
     const { title, description, status, priority, assigneeName, dueDate, caseTitle } = req.body;
     const dueDateVal = dueDate || null;
     const tenantId = (req as any).tenantId as string;
+    const vis = taskTenantVisibilityPred(tenantId);
     const r = await db.execute(sql`
       UPDATE tasks SET
         title = COALESCE(${title || null}, title),
@@ -185,10 +183,12 @@ router.patch("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
         due_date = COALESCE(${dueDateVal ? sql`${dueDateVal}::date` : sql`NULL`}, due_date),
         case_title = COALESCE(${caseTitle || null}, case_title),
         updated_at = NOW()
-      WHERE id = ${id}::uuid AND office_id = ${tenantId}
+      WHERE id = ${id}::uuid AND ${vis}
       RETURNING *
     `);
-    res.json(sqlOne(r));
+    const row = sqlOne(r);
+    if (!row) return res.status(404).json({ error: "المهمة غير موجودة" });
+    res.json(row);
   } catch (e: any) {
     console.error("[office-tasks] PATCH error:", e.message);
     res.status(500).json({ error: e.message });
@@ -200,7 +200,14 @@ router.delete("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
     const { id } = req.params as Record<string, string>;
     if (!UUID_RE.test(id)) return res.status(400).json({ error: "معرف غير صالح" });
     const tenantId = (req as any).tenantId as string;
-    await db.execute(sql`DELETE FROM tasks WHERE id = ${id}::uuid AND office_id = ${tenantId}`);
+    const vis = taskTenantVisibilityPred(tenantId);
+    const r = await db.execute(sql`
+      DELETE FROM tasks
+      WHERE id = ${id}::uuid AND ${vis}
+      RETURNING id
+    `);
+    const row = sqlOne(r);
+    if (!row) return res.status(404).json({ error: "المهمة غير موجودة" });
     res.json({ ok: true });
   } catch (e: any) {
     console.error("[office-tasks] DELETE error:", e.message);
