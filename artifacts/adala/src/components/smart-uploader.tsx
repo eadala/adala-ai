@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { authFetch } from "@/lib/authFetch";
+import { privateStorageObjectApiPath } from "@/lib/storageSignedUrl";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -156,11 +157,17 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-async function xhrUpload(url: string, file: File, onPct: (n:number)=>void): Promise<void> {
+async function xhrUpload(
+  url: string,
+  file: File,
+  onPct: (n: number) => void,
+  contentType?: string,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    /* Must match the Content-Type signed into the upload URL */
+    xhr.setRequestHeader("Content-Type", contentType || file.type || "application/octet-stream");
     xhr.upload.onprogress = e => { if (e.lengthComputable) onPct(Math.round(e.loaded/e.total*88)); };
     xhr.onload  = () => xhr.status < 300 ? (onPct(90), resolve()) : reject(new Error(`HTTP ${xhr.status}`));
     xhr.onerror = () => reject(new Error("فشل الاتصال بالخادم"));
@@ -236,26 +243,31 @@ export function SmartUploader({ caseId, clientId, onSuccess, compact }: SmartUpl
         }
         upd(item.id, { status: "uploading", progress: 10 });
 
-        /* 2 ── Presigned URL */
+        /* 2 ── Presigned URL (sign the same MIME the PUT will send) */
+        const mimeType = f.type?.trim() || "application/octet-stream";
         const urlR = await authFetch(`${BASE}/api/storage/uploads/request-url`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: f.name, size: f.size, contentType: f.type }),
+          body: JSON.stringify({ name: f.name, size: f.size, contentType: mimeType }),
         });
         if (!urlR.ok) throw new Error("فشل الحصول على رابط الرفع");
-        const { uploadURL, objectPath } = await urlR.json();
+        const { uploadURL, objectPath, metadata } = await urlR.json();
+        const signedType =
+          (typeof metadata?.contentType === "string" && metadata.contentType.trim())
+            ? metadata.contentType.trim()
+            : mimeType;
 
         /* 3 ── Upload */
-        await xhrUpload(uploadURL, f, pct => upd(item.id, { progress: 10 + Math.round(pct * 0.72) }));
+        await xhrUpload(uploadURL, f, pct => upd(item.id, { progress: 10 + Math.round(pct * 0.72) }), signedType);
         upd(item.id, { status: "registering", progress: 82 });
 
-        /* 4 ── Register in DB */
+        /* 4 ── Register in DB (file_url without duplicated /objects/) */
         const regR = await authFetch(`${BASE}/api/storage/files`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             originalName: item.original.name,
-            mimeType: f.type, fileSize: f.size,
+            mimeType: signedType, fileSize: f.size,
             storageKey: objectPath,
-            fileUrl: `/api/storage/objects${objectPath}`,
+            fileUrl: privateStorageObjectApiPath(objectPath),
             category: getCategory(f.type),
             caseId: caseId ?? null,
             clientId: clientId ?? null,

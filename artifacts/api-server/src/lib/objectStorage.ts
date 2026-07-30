@@ -90,18 +90,46 @@ export class ObjectStorageService {
     return new Response(webStream, { headers });
   }
 
-  async getObjectEntityUploadURL(): Promise<string> {
+  async getObjectEntityUploadURL(contentType?: string): Promise<string> {
     if (!isObjectStorageConfigured()) {
       throw new Error("Object storage غير مُهيَّأ — عيّن متغيرات R2");
     }
 
     const objectId = randomUUID();
     const key = buildPrivateUploadKey(objectId);
+    const type =
+      typeof contentType === "string" && contentType.trim()
+        ? contentType.trim()
+        : "application/octet-stream";
 
     return this.provider().getSignedUrl(key, {
       method: "PUT",
       ttlSec: 900,
-      contentType: "application/octet-stream",
+      contentType: type,
+    });
+  }
+
+  /**
+   * Short-lived GET URL for a private object.
+   * Accepts a canonical R2 key (`{prefix}/uploads/{id}`) or an entity path (`/objects/uploads/{id}`).
+   */
+  async getObjectEntityDownloadURL(objectKeyOrPath: string, ttlSec = 300): Promise<string> {
+    if (!isObjectStorageConfigured()) {
+      throw new Error("Object storage غير مُهيَّأ — عيّن متغيرات R2");
+    }
+    let key: string;
+    if (objectKeyOrPath.startsWith("/objects/")) {
+      const parts = objectKeyOrPath.slice(1).split("/");
+      const entityId = parts.slice(1).join("/");
+      if (!entityId) throw new ObjectNotFoundError();
+      key = entityIdToObjectKey(entityId);
+    } else {
+      key = objectKeyOrPath.replace(/^\/+/, "").trim();
+    }
+    if (!key) throw new ObjectNotFoundError();
+    return this.provider().getSignedUrl(key, {
+      method: "GET",
+      ttlSec: Math.min(Math.max(ttlSec, 30), 900),
     });
   }
 
