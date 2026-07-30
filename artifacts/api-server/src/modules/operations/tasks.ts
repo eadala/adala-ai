@@ -8,7 +8,7 @@ import {
   parsePageLimit,
   queryHasPageAndLimit,
 } from "../../lib/paginationSafety";
-import { toUuid } from "../../lib/taskTenantVisibility";
+import { toUuid, resolveMutationOfficeId } from "../../lib/taskTenantVisibility";
 
 const router = Router();
 
@@ -25,18 +25,21 @@ function sqlOne(r: any): any {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** SQL predicate (no WHERE) aligned with GET visibility. */
-function taskTenantVisibilityPred(tenantId: unknown) {
+/**
+ * GET list WHERE — temporary legacy readability (own office OR NULL office_id).
+ * Mutations must NOT use this predicate.
+ */
+function taskListOfficeCond(tenantId: unknown) {
   const officeId = toUuid(tenantId);
   if (officeId) {
-    return sql`(office_id = ${officeId}::uuid OR office_id IS NULL)`;
+    return sql`WHERE (office_id = ${officeId}::uuid OR office_id IS NULL)`;
   }
-  return sql`TRUE`;
+  return sql`WHERE TRUE`;
 }
 
-/** SQL WHERE clause for list/stats — same predicate as mutations. */
-function taskListOfficeCond(tenantId: unknown) {
-  return sql`WHERE ${taskTenantVisibilityPred(tenantId)}`;
+/** Strict mutate ownership: office_id = :officeId only (no IS NULL, no TRUE). */
+function taskMutationOfficePred(officeId: string) {
+  return sql`office_id = ${officeId}::uuid`;
 }
 
 const TASK_ORDER = sql`
@@ -169,10 +172,18 @@ router.patch("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { id } = req.params as Record<string, string>;
     if (!UUID_RE.test(id)) return res.status(400).json({ error: "معرف غير صالح" });
+
+    const officeId = resolveMutationOfficeId((req as any).tenantId);
+    if (!officeId) {
+      return res.status(403).json({
+        error: "تعذر تحديد المكتب — صلاحية التعديل مرفوضة",
+        code: "TNT_403",
+      });
+    }
+
     const { title, description, status, priority, assigneeName, dueDate, caseTitle } = req.body;
     const dueDateVal = dueDate || null;
-    const tenantId = (req as any).tenantId as string;
-    const vis = taskTenantVisibilityPred(tenantId);
+    const own = taskMutationOfficePred(officeId);
     const r = await db.execute(sql`
       UPDATE tasks SET
         title = COALESCE(${title || null}, title),
@@ -183,7 +194,7 @@ router.patch("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
         due_date = COALESCE(${dueDateVal ? sql`${dueDateVal}::date` : sql`NULL`}, due_date),
         case_title = COALESCE(${caseTitle || null}, case_title),
         updated_at = NOW()
-      WHERE id = ${id}::uuid AND ${vis}
+      WHERE id = ${id}::uuid AND ${own}
       RETURNING *
     `);
     const row = sqlOne(r);
@@ -199,11 +210,19 @@ router.delete("/office-tasks/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { id } = req.params as Record<string, string>;
     if (!UUID_RE.test(id)) return res.status(400).json({ error: "معرف غير صالح" });
-    const tenantId = (req as any).tenantId as string;
-    const vis = taskTenantVisibilityPred(tenantId);
+
+    const officeId = resolveMutationOfficeId((req as any).tenantId);
+    if (!officeId) {
+      return res.status(403).json({
+        error: "تعذر تحديد المكتب — صلاحية الحذف مرفوضة",
+        code: "TNT_403",
+      });
+    }
+
+    const own = taskMutationOfficePred(officeId);
     const r = await db.execute(sql`
       DELETE FROM tasks
-      WHERE id = ${id}::uuid AND ${vis}
+      WHERE id = ${id}::uuid AND ${own}
       RETURNING id
     `);
     const row = sqlOne(r);
