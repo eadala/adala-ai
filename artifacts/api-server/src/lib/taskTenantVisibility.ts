@@ -1,16 +1,18 @@
 /**
- * Office-tasks tenant rules.
+ * Office-tasks tenant ownership (strict).
  *
- * LIST (GET) — temporary legacy readability:
- *   UUID tenant: office_id = tenant OR office_id IS NULL
- *   Non-UUID: unrestricted list (historical GET WHERE TRUE)
+ * All operations (GET / INSERT / PATCH / DELETE) require a resolved office UUID:
+ *   office_id = :resolvedTenantOfficeId
  *
- * MUTATE (PATCH/DELETE) — strict ownership only:
- *   office_id = resolvedTenantOfficeId
- *   Non-UUID tenant → reject (403); no WHERE TRUE
- *   NULL office_id rows are legacy orphans: readable, not mutable by ordinary tenants.
- *   Do not reassign NULL → current tenant on mutate. Cleanup is a separate migration stage.
- *   No platform-wide mutate via non-UUID string in this stage.
+ * Never treat office_id IS NULL as belonging to the caller.
+ * Never use WHERE TRUE for tenant scoping.
+ * Non-UUID tenant resolution → reject (403) — no platform mutate/list bypass.
+ *
+ * Legacy NULL office_id rows are orphans (POST /office-tasks toUuid fallback,
+ * case autopilot omitting office_id). They are backfilled via trusted
+ * case_id→cases / branch_id→office_branches joins in migration 022, or moved
+ * to tasks_orphan_quarantine when ownership is ambiguous. Cleanup is not
+ * inferred from the currently logged-in tenant.
  */
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,35 +22,45 @@ export function toUuid(v: unknown): string | null {
   return String(v);
 }
 
-/** Resolve office UUID required for PATCH/DELETE. Null → reject mutation. */
+/** Resolve office UUID required for any task read/write. Null → 403. */
 export function resolveMutationOfficeId(tenantId: unknown): string | null {
   return toUuid(tenantId);
 }
 
+/** Alias — same resolution for list and mutate. */
+export function resolveTaskOfficeId(tenantId: unknown): string | null {
+  return resolveMutationOfficeId(tenantId);
+}
+
 /**
- * Strict mutate ownership. NULL office_id is never mutable by ordinary tenants.
- * Non-UUID tenant never mutates.
+ * Strict ownership: task.office_id must equal the resolved tenant office UUID.
+ * NULL / empty / other office → false.
  */
-export function canMutateTaskOffice(
+export function canAccessTaskOffice(
   taskOfficeId: string | null | undefined,
   tenantId: string | null | undefined,
 ): boolean {
-  const officeId = resolveMutationOfficeId(tenantId);
+  const officeId = resolveTaskOfficeId(tenantId);
   if (!officeId) return false;
   if (taskOfficeId == null || taskOfficeId === "") return false;
   return String(taskOfficeId).toLowerCase() === officeId.toLowerCase();
 }
 
+/** @deprecated Use canAccessTaskOffice — mutate and list share the same rule. */
+export function canMutateTaskOffice(
+  taskOfficeId: string | null | undefined,
+  tenantId: string | null | undefined,
+): boolean {
+  return canAccessTaskOffice(taskOfficeId, tenantId);
+}
+
 /**
- * GET list visibility (legacy). Prefer canMutateTaskOffice for write checks.
- * @deprecated for mutation — list-only until NULL-office cleanup migration.
+ * @deprecated List no longer includes NULL-office orphans.
+ * Kept only so older tests importing the name fail closed (always false for NULL).
  */
 export function isTaskListedForTenant(
   taskOfficeId: string | null | undefined,
   tenantId: string | null | undefined,
 ): boolean {
-  const officeId = toUuid(tenantId);
-  if (!officeId) return true;
-  if (taskOfficeId == null || taskOfficeId === "") return true;
-  return String(taskOfficeId).toLowerCase() === officeId.toLowerCase();
+  return canAccessTaskOffice(taskOfficeId, tenantId);
 }

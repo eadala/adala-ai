@@ -277,7 +277,7 @@ router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
         `).catch(() => ({ rows: [{ cnt: 0 }] })),
         db.execute(sql`
           SELECT COUNT(*) AS cnt FROM tasks
-          WHERE case_id = ${caseId} AND (office_id::text = ${tenantId} OR office_id IS NULL)
+          WHERE case_id = ${caseId} AND office_id::text = ${tenantId}
             AND status NOT IN ('done','completed','cancelled')
         `).catch(() => ({ rows: [{ cnt: 0 }] })),
         db.execute(sql`
@@ -371,7 +371,7 @@ router.get("/cases/:id/hub", requireAuthWithTenant, async (req, res) => {
       db.execute(sql`SELECT id,invoice_number,title,total,status,due_date,created_at FROM client_invoices WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC`),
       db.execute(sql`SELECT id,title,event_type,start_at,location,status FROM events WHERE case_id = ${caseId} ORDER BY start_at DESC LIMIT 20`),
       db.execute(sql`SELECT id,file_name,file_type,file_size,created_at FROM documents WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC LIMIT 20`),
-      db.execute(sql`SELECT id,title,status,priority,assignee_name,due_date,created_at FROM tasks WHERE case_id = ${caseId} AND (office_id::text = ${tenantId} OR office_id IS NULL) ORDER BY created_at DESC LIMIT 30`).catch(() => ({ rows: [] })),
+      db.execute(sql`SELECT id,title,status,priority,assignee_name,due_date,created_at FROM tasks WHERE case_id = ${caseId} AND office_id::text = ${tenantId} ORDER BY created_at DESC LIMIT 30`).catch(() => ({ rows: [] })),
       db.execute(sql`SELECT id,title,category,amount,date,created_at FROM revenues WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY date DESC LIMIT 20`).catch(() => ({ rows: [] })),
       db.execute(sql`SELECT id,title,category,amount,date,created_at FROM expenses WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY date DESC LIMIT 20`).catch(() => ({ rows: [] })),
     ]);
@@ -1014,7 +1014,7 @@ router.get("/cases/:id/integration-report", requireAuthWithTenant, async (req, r
     ] = await Promise.all([
       db.execute(sql`SELECT id,title,status,case_type,created_at FROM cases WHERE id = ${caseId} AND office_id = ${tenantId} LIMIT 1`),
       db.execute(sql`SELECT COUNT(*)::int AS n FROM client_invoices     WHERE case_id = ${caseId} AND office_id = ${tenantId}`).catch(() => ({ rows: [{ n: 0 }] })),
-      db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks               WHERE case_id = ${caseId} AND (office_id::text = ${tenantId} OR office_id IS NULL)`).catch(() => ({ rows: [{ n: 0 }] })),
+      db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks               WHERE case_id = ${caseId} AND office_id::text = ${tenantId}`).catch(() => ({ rows: [{ n: 0 }] })),
       db.execute(sql`SELECT COUNT(*)::int AS n FROM documents           WHERE case_id = ${caseId} AND office_id = ${tenantId}`).catch(() => ({ rows: [{ n: 0 }] })),
       db.execute(sql`SELECT COUNT(*)::int AS n FROM events              WHERE case_id = ${caseId}`).catch(() => ({ rows: [{ n: 0 }] })),
       db.execute(sql`SELECT COUNT(*)::int AS n FROM case_hearings       WHERE case_id = ${caseId} AND office_id = ${tenantId}`).catch(() => ({ rows: [{ n: 0 }] })),

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 /**
  * عدالة AI — Case Autopilot Engine
  *
@@ -11,6 +12,7 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { callAI } from "../modules/ai/aiChat";
+import { resolveTaskOfficeId } from "../lib/taskTenantVisibility";
 
 /* ── Types ─────────────────────────────────────────────── */
 
@@ -195,10 +197,19 @@ async function createAutopilotTasks(
 
   if (tasks.length === 0) return 0;
 
+  const officeId = resolveTaskOfficeId(tenantId);
+  if (!officeId) {
+    /* Never insert office_id NULL — skip orphan creation when tenant is non-UUID */
+    return 0;
+  }
+  const caseIdVal = c.id != null ? String(c.id) : null;
+
   for (const t of tasks) {
     await db.execute(sql`
-      INSERT INTO tasks (title, description, status, priority, case_title, created_by, tags)
+      INSERT INTO tasks (office_id, case_id, title, description, status, priority, case_title, created_by, tags)
       VALUES (
+        ${officeId}::uuid,
+        ${caseIdVal},
         ${t.title},
         ${t.description},
         'todo',

@@ -41,6 +41,7 @@ assert.ok(migrationFiles.includes("018_money_numeric_batch1.sql"));
 assert.ok(migrationFiles.includes("019_money_numeric_batch2.sql"));
 assert.ok(migrationFiles.includes("020_performance_hotpath_indexes.sql"));
 assert.ok(migrationFiles.includes("021_rag_schema_foundation.sql"));
+assert.ok(migrationFiles.includes("022_tasks_tenant_ownership.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -563,6 +564,21 @@ assert.doesNotMatch(docCenterSrc, /ALTER TABLE document_center_files/);
 assert.doesNotMatch(docCenterSrc, /ALTER TABLE document_ai_metadata/);
 assert.match(docCenterSrc, /to_regclass\('public\.document_center_files'\)/);
 console.log("  ✅ migration 021 owns pgvector + composite tenant FK + document_center; Runtime DDL removed");
+
+console.log("\n═══ schemaAuthority: migration 022 tasks tenant ownership (Stage 15) ═══");
+const mig022 = readRepo("artifacts/api-server/migrations/022_tasks_tenant_ownership.sql");
+assert.match(mig022, /CREATE TABLE IF NOT EXISTS tasks_orphan_quarantine/);
+assert.match(mig022, /FROM cases c/);
+assert.match(mig022, /office_branches/);
+assert.match(mig022, /ALTER TABLE tasks ALTER COLUMN office_id SET NOT NULL/);
+assert.match(mig022, /RAISE EXCEPTION/);
+assert.match(mig022, /idx_tasks_office_id/);
+assert.match(mig022, /FK to office_page intentionally omitted/);
+assert.doesNotMatch(mig022, /ORDER BY created_at LIMIT 1/);
+const tasksOpsSrc = readSrc("modules/operations/tasks.ts");
+assert.doesNotMatch(tasksOpsSrc, /office_id IS NULL/);
+assert.match(tasksOpsSrc, /resolveTaskOfficeId/);
+console.log("  ✅ migration 022 backfills trusted owners, quarantines orphans, NOT NULL; app has no NULL visibility");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

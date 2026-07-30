@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 /**
  * Case AI — Autonomous Legal Assistant Engine
  * ─────────────────────────────────────────────
@@ -12,6 +13,7 @@
 import { db }    from "@workspace/db";
 import { sql }   from "drizzle-orm";
 import { callAI } from "../modules/ai/aiChat";
+import { resolveTaskOfficeId } from "../lib/taskTenantVisibility";
 
 /* ── helpers ────────────────────────────────────── */
 function sqlOne(r: any)  { return (r?.rows ?? r)?.[0] ?? null; }
@@ -334,8 +336,10 @@ export async function approveAITask(
   const target  = tasks.find(t => t.id === taskId);
   if (!target || target.status !== "pending_approval") return null;
 
-  /* create real task */
-  /* case_id is TEXT, office_id is UUID */
+  /* create real task — never insert office_id NULL */
+  const resolvedOffice = resolveTaskOfficeId(officeId);
+  if (!resolvedOffice) return null;
+
   const created = sqlOne(await db.execute(sql`
     INSERT INTO tasks (case_id, title, description, priority, status, office_id)
     VALUES (
@@ -344,7 +348,7 @@ export async function approveAITask(
       ${target.description ?? ""},
       ${target.priority ?? "medium"},
       'todo',
-      ${officeId}::uuid
+      ${resolvedOffice}::uuid
     )
     RETURNING *
   `));
@@ -353,7 +357,7 @@ export async function approveAITask(
   const updated = tasks.map(t => t.id === taskId ? { ...t, status: "approved" as const } : t);
   await db.execute(sql`
     UPDATE case_ai_insights SET auto_tasks = ${JSON.stringify(updated)}::jsonb
-    WHERE id = ${insightId} AND office_id = ${officeId}
+    WHERE id = ${insightId} AND office_id = ${resolvedOffice}
   `);
 
   return created;
