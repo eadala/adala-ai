@@ -589,8 +589,15 @@ assert.match(mig023, /legacy_default_office_unresolved/);
 assert.match(mig023, /INSERT INTO office_page/);
 assert.match(mig023, /RAISE EXCEPTION/);
 assert.match(mig023, /trial_offices/);
+assert.match(mig023, /role = 'owner'/);
+assert.match(mig023, /abort BEFORE office_page creation/i);
 assert.doesNotMatch(mig023, /FROM office_page ORDER BY created_at LIMIT 1/);
-console.log("  ✅ migration 023 maps trial_* → UUID with fail-closed ownership; no first-office guess");
+assert.doesNotMatch(mig023, /role IN \('owner',\s*'admin'\)/);
+const preflight023 = readRepo("scripts/db/preflight-migration-023.sql");
+assert.match(preflight023, /READ-ONLY|SELECT only/i);
+assert.match(preflight023, /chosen_action/);
+assert.match(preflight023, /map_to_new_or_existing/);
+console.log("  ✅ migration 023 trusted-only ownership + read-only preflight; no first-office guess");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

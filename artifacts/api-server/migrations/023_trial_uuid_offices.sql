@@ -5,17 +5,34 @@
 -- Converts every existing legacy trial_* tenant into one canonical office_page
 -- UUID and remaps trusted tenant-owned TEXT office_id columns by exact old id.
 --
--- Ownership (fail closed — no guessing):
---   1) trial_offices.user_id for that office_id (preferred)
---   2) else unique active owner/admin in office_members
---   3) else unique active member if exactly one user
---   Conflicting / missing owners → record + RAISE before COMMIT
+-- Trusted ownership ONLY (fail closed — no guessing):
+--   Allowed automatic mapping:
+--     1) exactly one explicit trial_offices.user_id for that office_id
+--     2) exactly one active office_members.role = 'owner'
+--     3) after a trusted owner is chosen, reuse an existing UUID office that
+--        already belongs to that same owner (no second office_page)
+--   Sources (1) and (2) must agree when both present.
+--
+--   role='admin' is NOT used for automatic ownership.
+--   Repository evidence: trial onboarding / provisionOfficeForUser /
+--   TENANT-HEAL always INSERT office_members with role='owner' for the
+--   trial creator (officeProvision.ts, trialOnboarding paths, tenantMiddleware).
+--   No code path assigns the trial creator as 'admin'.
+--
+--   NOT allowed as automatic ownership:
+--     - unique ordinary member (non-owner)
+--     - users.office_id alone
+--     - earliest member / timestamps / first matching row
+--     - current logged-in user / session tenant
+--
+--   Missing or disagreeing trusted sources → abort BEFORE any office_page
+--   insert or business remap (entire transaction rolls back).
 --
 -- Does NOT:
 --   - duplicate Migration 022 NULL-task logic
 --   - auto-map office_id = 'default' (reported in legacy_default_office_unresolved)
---   - infer ownership from timestamps / current tenant / arbitrary first match
 --   - delete unresolved user data
+--   - trust preflight script output (validation is repeated here independently)
 --
 -- Idempotent: re-run reuses legacy_trial_office_map; UPDATE only exact old ids.
 --
@@ -76,8 +93,6 @@ DECLARE
   uuid_re CONSTANT TEXT := '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
   trial_re CONSTANT TEXT := '^trial_';
   r RECORD;
-  owner_id TEXT;
-  owner_count INT;
   new_uuid UUID;
   existing_uuid TEXT;
   page_office_name TEXT;
@@ -86,6 +101,10 @@ DECLARE
   tbl TEXT;
   col_udt TEXT;
   sql_update TEXT;
+  trial_owner TEXT;
+  trial_owner_n INT;
+  member_owner TEXT;
+  member_owner_n INT;
   -- TEXT office_id business tables safe to remap by exact old id
   remap_tables TEXT[] := ARRAY[
     'cases', 'clients', 'contracts', 'client_invoices', 'employees',
@@ -184,160 +203,92 @@ BEGIN
   ) ON COMMIT DROP;
 
   FOR r IN SELECT old_office_id FROM tmp_trial_ids ORDER BY old_office_id LOOP
-    owner_id := NULL;
-    owner_count := 0;
+    trial_owner := NULL;
+    trial_owner_n := 0;
+    member_owner := NULL;
+    member_owner_n := 0;
 
-    -- Prefer explicit trial_offices.user_id
     SELECT COUNT(DISTINCT user_id)::int, MIN(user_id)
-      INTO owner_count, owner_id
+      INTO trial_owner_n, trial_owner
     FROM trial_offices
     WHERE office_id = r.old_office_id;
 
-    IF owner_count = 1 AND owner_id IS NOT NULL THEN
-      INSERT INTO tmp_trial_owners (old_office_id, owner_user_id, resolve_source)
-      VALUES (r.old_office_id, owner_id, 'trial_offices.user_id');
-      CONTINUE;
-    END IF;
+    SELECT COUNT(DISTINCT user_id)::int, MIN(user_id)
+      INTO member_owner_n, member_owner
+    FROM office_members
+    WHERE office_id = r.old_office_id
+      AND status = 'active'
+      AND role = 'owner';
 
-    IF owner_count > 1 THEN
+    IF trial_owner_n > 1 THEN
       INSERT INTO tmp_trial_owners (old_office_id, conflict, conflict_code, conflict_details)
       VALUES (
         r.old_office_id, TRUE, 'MULTIPLE_TRIAL_OFFICE_OWNERS',
         jsonb_build_object(
-          'owner_count', owner_count,
+          'owner_count', trial_owner_n,
           'user_ids', (SELECT jsonb_agg(DISTINCT user_id) FROM trial_offices WHERE office_id = r.old_office_id)
         )
       );
-      CONTINUE;
-    END IF;
-
-    -- Unique active owner/admin membership
-    SELECT COUNT(DISTINCT user_id)::int, MIN(user_id)
-      INTO owner_count, owner_id
-    FROM office_members
-    WHERE office_id = r.old_office_id
-      AND status = 'active'
-      AND role IN ('owner', 'admin');
-
-    IF owner_count = 1 AND owner_id IS NOT NULL THEN
-      INSERT INTO tmp_trial_owners (old_office_id, owner_user_id, resolve_source)
-      VALUES (r.old_office_id, owner_id, 'office_members.owner_admin');
-      CONTINUE;
-    END IF;
-
-    IF owner_count > 1 THEN
+    ELSIF member_owner_n > 1 THEN
       INSERT INTO tmp_trial_owners (old_office_id, conflict, conflict_code, conflict_details)
       VALUES (
         r.old_office_id, TRUE, 'MULTIPLE_MEMBER_OWNERS',
         jsonb_build_object(
-          'owner_count', owner_count,
+          'owner_count', member_owner_n,
           'user_ids', (
             SELECT jsonb_agg(DISTINCT user_id) FROM office_members
-            WHERE office_id = r.old_office_id AND status = 'active' AND role IN ('owner', 'admin')
+            WHERE office_id = r.old_office_id AND status = 'active' AND role = 'owner'
           )
         )
       );
-      CONTINUE;
-    END IF;
-
-    -- Exactly one active member of any role
-    SELECT COUNT(DISTINCT user_id)::int, MIN(user_id)
-      INTO owner_count, owner_id
-    FROM office_members
-    WHERE office_id = r.old_office_id AND status = 'active';
-
-    IF owner_count = 1 AND owner_id IS NOT NULL THEN
-      INSERT INTO tmp_trial_owners (old_office_id, owner_user_id, resolve_source)
-      VALUES (r.old_office_id, owner_id, 'office_members.sole_active');
-      CONTINUE;
-    END IF;
-
-    IF owner_count > 1 THEN
+    ELSIF trial_owner_n = 1 AND member_owner_n = 1
+          AND trial_owner IS DISTINCT FROM member_owner THEN
       INSERT INTO tmp_trial_owners (old_office_id, conflict, conflict_code, conflict_details)
       VALUES (
-        r.old_office_id, TRUE, 'MULTIPLE_ACTIVE_MEMBERS_NO_OWNER',
+        r.old_office_id, TRUE, 'OWNER_SOURCE_CONFLICT',
         jsonb_build_object(
-          'member_count', owner_count,
-          'user_ids', (
-            SELECT jsonb_agg(DISTINCT user_id) FROM office_members
-            WHERE office_id = r.old_office_id AND status = 'active'
+          'trial_owner_user_id', trial_owner,
+          'owner_member_user_id', member_owner
+        )
+      );
+    ELSIF trial_owner_n = 1 THEN
+      INSERT INTO tmp_trial_owners (old_office_id, owner_user_id, resolve_source)
+      VALUES (r.old_office_id, trial_owner, 'trial_offices.user_id');
+    ELSIF member_owner_n = 1 THEN
+      INSERT INTO tmp_trial_owners (old_office_id, owner_user_id, resolve_source)
+      VALUES (r.old_office_id, member_owner, 'office_members.role_owner');
+    ELSE
+      /* Ordinary members / users.office_id / admin-only are NOT trusted ownership */
+      INSERT INTO tmp_trial_owners (old_office_id, conflict, conflict_code, conflict_details)
+      VALUES (
+        r.old_office_id, TRUE, 'MISSING_TRUSTED_OWNER',
+        jsonb_build_object(
+          'reason', 'need exactly one trial_offices.user_id or exactly one active role=owner membership',
+          'ordinary_member_count', (
+            SELECT COUNT(DISTINCT user_id) FROM office_members
+            WHERE office_id = r.old_office_id AND status = 'active' AND role IS DISTINCT FROM 'owner'
+          ),
+          'users_office_id_count', (
+            SELECT COUNT(DISTINCT id) FROM users WHERE office_id = r.old_office_id
+          ),
+          'admin_member_count', (
+            SELECT COUNT(DISTINCT user_id) FROM office_members
+            WHERE office_id = r.old_office_id AND status = 'active' AND role = 'admin'
           )
         )
       );
-      CONTINUE;
     END IF;
-
-    -- users.office_id pointing at this trial id (sole user)
-    SELECT COUNT(DISTINCT id)::int, MIN(id)
-      INTO owner_count, owner_id
-    FROM users
-    WHERE office_id = r.old_office_id;
-
-    IF owner_count = 1 AND owner_id IS NOT NULL THEN
-      INSERT INTO tmp_trial_owners (old_office_id, owner_user_id, resolve_source)
-      VALUES (r.old_office_id, owner_id, 'users.office_id');
-      CONTINUE;
-    END IF;
-
-    IF owner_count > 1 THEN
-      INSERT INTO tmp_trial_owners (old_office_id, conflict, conflict_code, conflict_details)
-      VALUES (
-        r.old_office_id, TRUE, 'MULTIPLE_USERS_OFFICE_ID',
-        jsonb_build_object('user_count', owner_count)
-      );
-      CONTINUE;
-    END IF;
-
-    INSERT INTO tmp_trial_owners (old_office_id, conflict, conflict_code, conflict_details)
-    VALUES (
-      r.old_office_id, TRUE, 'MISSING_OWNER',
-      jsonb_build_object('reason', 'no trial_offices, members, or users row owns this trial id')
-    );
   END LOOP;
-
-  -- Cross-check: trial_offices owner vs member owners disagree
-  INSERT INTO legacy_trial_office_conflicts (old_office_id, conflict_code, details)
-  SELECT t.old_office_id, 'OWNER_SOURCE_CONFLICT', jsonb_build_object(
-    'trial_user', tr.user_id,
-    'member_owners', (
-      SELECT jsonb_agg(DISTINCT om.user_id) FROM office_members om
-      WHERE om.office_id = t.old_office_id AND om.status = 'active' AND om.role IN ('owner', 'admin')
-        AND om.user_id IS DISTINCT FROM tr.user_id
-    )
-  )
-  FROM tmp_trial_owners t
-  JOIN trial_offices tr ON tr.office_id = t.old_office_id
-  WHERE t.conflict = FALSE
-    AND EXISTS (
-      SELECT 1 FROM office_members om
-      WHERE om.office_id = t.old_office_id
-        AND om.status = 'active'
-        AND om.role IN ('owner', 'admin')
-        AND om.user_id IS DISTINCT FROM tr.user_id
-    );
-
-  UPDATE tmp_trial_owners t
-  SET conflict = TRUE,
-      conflict_code = 'OWNER_SOURCE_CONFLICT'
-  FROM legacy_trial_office_conflicts c
-  WHERE c.old_office_id = t.old_office_id
-    AND c.conflict_code = 'OWNER_SOURCE_CONFLICT'
-    AND t.conflict = FALSE;
 
   INSERT INTO legacy_trial_office_conflicts (old_office_id, conflict_code, details)
   SELECT old_office_id, conflict_code, conflict_details
   FROM tmp_trial_owners
-  WHERE conflict = TRUE
-    AND NOT EXISTS (
-      SELECT 1 FROM legacy_trial_office_conflicts c
-      WHERE c.old_office_id = tmp_trial_owners.old_office_id
-        AND c.conflict_code = tmp_trial_owners.conflict_code
-    );
+  WHERE conflict = TRUE;
 
   SELECT COUNT(*)::int INTO conflict_count FROM tmp_trial_owners WHERE conflict;
   IF conflict_count > 0 THEN
     RAISE EXCEPTION
-      '023_trial: % legacy trial id(s) have unresolved/conflicting ownership — fail closed: %',
+      '023_trial: % legacy trial id(s) have unresolved/conflicting ownership — abort BEFORE office_page creation: %',
       conflict_count,
       (SELECT string_agg(old_office_id || ':' || COALESCE(conflict_code, '?'), ', ' ORDER BY old_office_id)
        FROM tmp_trial_owners WHERE conflict);
@@ -369,11 +320,13 @@ BEGIN
     LIMIT 1;
 
     IF new_uuid IS NULL THEN
-      -- Existing canonical UUID membership for this owner (do not create second office)
+      /* Existing UUID office proven for this trusted owner only (role=owner).
+         Do not use ordinary membership or earliest arbitrary row across tenants. */
       SELECT om.office_id INTO existing_uuid
       FROM office_members om
       WHERE om.user_id = r.owner_user_id
         AND om.status = 'active'
+        AND om.role = 'owner'
         AND om.office_id ~* uuid_re
       ORDER BY om.created_at ASC NULLS LAST
       LIMIT 1;

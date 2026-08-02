@@ -10,6 +10,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MIG023="$ROOT/artifacts/api-server/migrations/023_trial_uuid_offices.sql"
+PREFLIGHT="$ROOT/scripts/db/preflight-migration-023.sql"
 MIGRATIONS_BASE=(
   "$ROOT/artifacts/api-server/migrations/003_drizzle_baseline_safe.sql"
   "$ROOT/artifacts/api-server/migrations/001_tenant_isolation.sql"
@@ -267,6 +268,251 @@ SQL
   teardown_db
 }
 
+# ── 7) Sole ordinary member is NOT trusted ownership ───────────────────────
+scenario_ordinary_member_not_owner() {
+  log "scenario: sole ordinary member is not treated as owner"
+  setup_db ordinary
+  trap teardown_db EXIT
+  apply_base
+  seed_user "user_ord" "ord@test.local"
+  psql_db <<'SQL' >/dev/null
+INSERT INTO office_members (office_id, user_id, role, status)
+VALUES ('trial_ordinary1', 'user_ord', 'lawyer', 'active');
+INSERT INTO cases (id, title, office_id) VALUES ('case_ord', 'x', 'trial_ordinary1');
+SQL
+  if psql_db -f "$MIG023" >/tmp/mig023_ordinary.log 2>&1; then
+    bad "ordinary member must not auto-own"
+  else
+    ok "ordinary member aborts migration"
+  fi
+  local case_oid
+  case_oid=$(psql_db -At -c "SELECT office_id FROM cases WHERE id='case_ord'")
+  [[ "$case_oid" == "trial_ordinary1" ]] && ok "no remap after ordinary-member abort" || bad "case mutated ($case_oid)"
+  trap - EXIT
+  teardown_db
+}
+
+# ── 8) users.office_id alone is NOT sufficient ─────────────────────────────
+scenario_users_office_id_alone() {
+  log "scenario: users.office_id alone is not ownership"
+  setup_db usersonly
+  trap teardown_db EXIT
+  apply_base
+  seed_user "user_uo" "uo@test.local"
+  psql_db <<'SQL' >/dev/null
+UPDATE users SET office_id = 'trial_users_only' WHERE id = 'user_uo';
+INSERT INTO cases (id, title, office_id) VALUES ('case_uo', 'x', 'trial_users_only');
+SQL
+  if psql_db -f "$MIG023" >/tmp/mig023_users_only.log 2>&1; then
+    bad "users.office_id alone must not auto-own"
+  else
+    ok "users.office_id alone aborts migration"
+  fi
+  local case_oid
+  case_oid=$(psql_db -At -c "SELECT office_id FROM cases WHERE id='case_uo'")
+  [[ "$case_oid" == "trial_users_only" ]] && ok "no remap after users.office_id abort" || bad "case mutated ($case_oid)"
+  trap - EXIT
+  teardown_db
+}
+
+# ── 9) Explicit trial_offices.user_id succeeds (no membership required) ───
+scenario_explicit_trial_owner() {
+  log "scenario: explicit trial_offices.user_id succeeds"
+  setup_db trialowner
+  trap teardown_db EXIT
+  apply_base
+  seed_user "user_to" "to@test.local"
+  psql_db <<'SQL' >/dev/null
+INSERT INTO trial_offices (user_id, office_id, office_name)
+VALUES ('user_to', 'trial_owner_only', 'مالك');
+INSERT INTO cases (id, title, office_id) VALUES ('case_to', 'x', 'trial_owner_only');
+SQL
+  psql_db -f "$MIG023" >/dev/null
+  local new_id
+  new_id=$(psql_db -At -c "SELECT new_office_uuid::text FROM legacy_trial_office_map WHERE old_office_id='trial_owner_only'")
+  [[ "$new_id" =~ ^[0-9a-f-]{36}$ ]] && ok "explicit trial owner maps to UUID" || bad "map invalid ($new_id)"
+  psql_db -At -c "SELECT user_id FROM office_members WHERE office_id='$new_id' AND role='owner' AND status='active'" \
+    | grep -qx "user_to" && ok "owner membership created for trial owner" || bad "owner membership missing"
+  trap - EXIT
+  teardown_db
+}
+
+# ── 10) Explicit active role=owner membership succeeds (no trial row) ─────
+scenario_explicit_owner_membership() {
+  log "scenario: explicit owner membership succeeds"
+  setup_db ownermem
+  trap teardown_db EXIT
+  apply_base
+  seed_user "user_om" "om@test.local"
+  psql_db <<'SQL' >/dev/null
+INSERT INTO office_members (office_id, user_id, role, status)
+VALUES ('trial_owner_mem', 'user_om', 'owner', 'active');
+INSERT INTO cases (id, title, office_id) VALUES ('case_om', 'x', 'trial_owner_mem');
+SQL
+  psql_db -f "$MIG023" >/dev/null
+  local new_id
+  new_id=$(psql_db -At -c "SELECT new_office_uuid::text FROM legacy_trial_office_map WHERE old_office_id='trial_owner_mem'")
+  [[ "$new_id" =~ ^[0-9a-f-]{36}$ ]] && ok "owner membership maps to UUID" || bad "map invalid ($new_id)"
+  trap - EXIT
+  teardown_db
+}
+
+# ── 11) Conflicting trial owner vs owner membership aborts ────────────────
+scenario_trial_vs_member_owner_conflict() {
+  log "scenario: trial owner disagrees with owner membership"
+  setup_db srcconflict
+  trap teardown_db EXIT
+  apply_base
+  seed_user "user_sa" "sa@test.local"
+  seed_user "user_sb" "sb@test.local"
+  psql_db <<'SQL' >/dev/null
+INSERT INTO trial_offices (user_id, office_id, office_name)
+VALUES ('user_sa', 'trial_src_conflict', 'تعارض');
+INSERT INTO office_members (office_id, user_id, role, status)
+VALUES ('trial_src_conflict', 'user_sb', 'owner', 'active');
+INSERT INTO cases (id, title, office_id) VALUES ('case_sc', 'x', 'trial_src_conflict');
+SQL
+  if psql_db -f "$MIG023" >/tmp/mig023_src_conflict.log 2>&1; then
+    bad "trial vs member owner conflict must abort"
+  else
+    ok "conflicting trial owner and owner membership aborts"
+  fi
+  local case_oid
+  case_oid=$(psql_db -At -c "SELECT office_id FROM cases WHERE id='case_sc'")
+  [[ "$case_oid" == "trial_src_conflict" ]] && ok "no remap after source conflict" || bad "case mutated ($case_oid)"
+  grep -qi "OWNER_SOURCE_CONFLICT\|unresolved/conflicting" /tmp/mig023_src_conflict.log \
+    && ok "abort mentions ownership conflict" || bad "unexpected abort reason"
+  trap - EXIT
+  teardown_db
+}
+
+# ── 12) role=admin alone is NOT trusted (repo assigns creator as owner) ───
+scenario_admin_alone_not_owner() {
+  log "scenario: role=admin alone is not trusted ownership"
+  setup_db adminonly
+  trap teardown_db EXIT
+  apply_base
+  seed_user "user_ad" "ad@test.local"
+  psql_db <<'SQL' >/dev/null
+INSERT INTO office_members (office_id, user_id, role, status)
+VALUES ('trial_admin_only', 'user_ad', 'admin', 'active');
+INSERT INTO cases (id, title, office_id) VALUES ('case_ad', 'x', 'trial_admin_only');
+SQL
+  if psql_db -f "$MIG023" >/tmp/mig023_admin.log 2>&1; then
+    bad "admin-only must not auto-own"
+  else
+    ok "admin-only aborts migration"
+  fi
+  trap - EXIT
+  teardown_db
+}
+
+# ── 13) Preflight read-only + required classifications ─────────────────────
+scenario_preflight_readonly() {
+  log "scenario: preflight is read-only and reports classifications"
+  setup_db preflight
+  trap teardown_db EXIT
+  apply_base
+  seed_user "user_pf1" "pf1@test.local"
+  seed_user "user_pf2" "pf2@test.local"
+  seed_user "user_pf3" "pf3@test.local"
+  seed_user "user_pf4" "pf4@test.local"
+  seed_user "user_pf5" "pf5@test.local"
+  psql_db <<'SQL' >/dev/null
+-- map_to_new_or_existing (trial owner)
+INSERT INTO trial_offices (user_id, office_id, office_name)
+VALUES ('user_pf1', 'trial_pf_ok', 'حسن');
+INSERT INTO office_members (office_id, user_id, role, status)
+VALUES ('trial_pf_ok', 'user_pf1', 'owner', 'active');
+INSERT INTO cases (id, title, office_id) VALUES ('case_pf_ok', 'ok', 'trial_pf_ok');
+INSERT INTO tasks (id, title, office_id, status)
+VALUES ('aaaaaaaa-0001-4000-8000-0000000000f1'::uuid, 't', 'trial_pf_ok', 'pending');
+-- unresolved: ordinary member
+INSERT INTO office_members (office_id, user_id, role, status)
+VALUES ('trial_pf_ord', 'user_pf2', 'lawyer', 'active');
+-- unresolved: users.office_id alone
+UPDATE users SET office_id = 'trial_pf_uo' WHERE id = 'user_pf3';
+INSERT INTO cases (id, title, office_id) VALUES ('case_pf_uo', 'uo', 'trial_pf_uo');
+-- conflict: trial owner vs owner member
+INSERT INTO trial_offices (user_id, office_id, office_name)
+VALUES ('user_pf4', 'trial_pf_conflict', 'تعارض');
+INSERT INTO office_members (office_id, user_id, role, status)
+VALUES ('trial_pf_conflict', 'user_pf5', 'owner', 'active');
+-- NULL task for 022 + default inventory
+INSERT INTO tasks (id, title, office_id, status)
+VALUES ('aaaaaaaa-0001-4000-8000-0000000000f2'::uuid, 'null', NULL, 'pending');
+INSERT INTO cases (id, title, office_id) VALUES ('case_pf_def', 'd', 'default');
+-- two legacy ids → same trusted owner (reported by preflight)
+INSERT INTO office_members (office_id, user_id, role, status) VALUES
+  ('trial_pf_m1', 'user_pf1', 'owner', 'active'),
+  ('trial_pf_m2', 'user_pf1', 'owner', 'active');
+SQL
+
+  local before after
+  before=$(psql_db -At -c "
+    SELECT md5(string_agg(x, '|' ORDER BY x)) FROM (
+      SELECT ('cases:' || office_id || ':' || COUNT(*)::text) AS x FROM cases GROUP BY office_id
+      UNION ALL
+      SELECT ('tasks:' || COALESCE(office_id,'∅') || ':' || COUNT(*)::text) FROM tasks GROUP BY office_id
+      UNION ALL
+      SELECT ('page:' || id::text) FROM office_page
+      UNION ALL
+      SELECT ('mem:' || office_id || ':' || user_id || ':' || role) FROM office_members
+    ) s;")
+
+  if ! psql_db -f "$PREFLIGHT" >/tmp/mig023_preflight.out 2>&1; then
+    bad "preflight should succeed"
+    cat /tmp/mig023_preflight.out >&2
+  else
+    ok "preflight runs successfully"
+  fi
+
+  after=$(psql_db -At -c "
+    SELECT md5(string_agg(x, '|' ORDER BY x)) FROM (
+      SELECT ('cases:' || office_id || ':' || COUNT(*)::text) AS x FROM cases GROUP BY office_id
+      UNION ALL
+      SELECT ('tasks:' || COALESCE(office_id,'∅') || ':' || COUNT(*)::text) FROM tasks GROUP BY office_id
+      UNION ALL
+      SELECT ('page:' || id::text) FROM office_page
+      UNION ALL
+      SELECT ('mem:' || office_id || ':' || user_id || ':' || role) FROM office_members
+    ) s;")
+  [[ "$before" == "$after" ]] && ok "preflight is read-only (fingerprint unchanged)" || bad "preflight mutated data"
+
+  local col
+  for col in old_office_id trial_owner_user_id owner_member_user_id admin_member_user_id existing_uuid_office chosen_owner chosen_action conflict_reason; do
+    grep -q "$col" /tmp/mig023_preflight.out && ok "preflight column $col" || bad "missing preflight column $col"
+  done
+
+  grep -q "map_to_new_or_existing" /tmp/mig023_preflight.out && ok "preflight reports map_to_new_or_existing" || bad "missing map action"
+  grep -q "unresolved" /tmp/mig023_preflight.out && ok "preflight reports unresolved" || bad "missing unresolved"
+  grep -q "conflict" /tmp/mig023_preflight.out && ok "preflight reports conflict" || bad "missing conflict"
+  grep -qi "two legacy ids\|legacy_id_count\|old_office_ids" /tmp/mig023_preflight.out \
+    && ok "preflight reports two-legacy-ids-one-owner" || bad "missing two-legacy report"
+  grep -qi "rows that would be remapped\|trial_rows" /tmp/mig023_preflight.out \
+    && ok "preflight reports remap row counts" || bad "missing remap counts"
+  grep -qi "default office_id\|default_rows" /tmp/mig023_preflight.out \
+    && ok "preflight reports default office_id rows" || bad "missing default inventory"
+  grep -qi "null_tasks_left_for_022\|NULL tasks" /tmp/mig023_preflight.out \
+    && ok "preflight reports NULL tasks for 022" || bad "missing NULL task report"
+  grep -qi "tasks_with_trial_office_id\|tasks" /tmp/mig023_preflight.out \
+    && ok "preflight reports tasks with trial_* ids" || bad "missing trial task report"
+
+  local map_exists
+  map_exists=$(psql_db -At -c "SELECT to_regclass('public.legacy_trial_office_map') IS NOT NULL")
+  [[ "$map_exists" == "f" ]] && ok "preflight created no map tables" || bad "preflight created map tables"
+
+  # Ensure SQL file itself is SELECT-only (ignore comments / \echo)
+  if grep -Eiv '^\s*--' "$PREFLIGHT" | grep -Eiq '^\s*(INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|TRUNCATE|COPY)\b'; then
+    bad "preflight SQL contains mutating statements"
+  else
+    ok "preflight SQL file is SELECT-only"
+  fi
+
+  trap - EXIT
+  teardown_db
+}
+
 require_cmd
 ensure_role
 log "Migration 023 integration tests (local PostgreSQL)"
@@ -276,6 +522,13 @@ scenario_conflict_owners
 scenario_existing_uuid
 scenario_null_task_and_default
 scenario_idempotent_rerun
+scenario_ordinary_member_not_owner
+scenario_users_office_id_alone
+scenario_explicit_trial_owner
+scenario_explicit_owner_membership
+scenario_trial_vs_member_owner_conflict
+scenario_admin_alone_not_owner
+scenario_preflight_readonly
 
 echo ""
 echo "═══════════════════════════════════════════════════════════"
