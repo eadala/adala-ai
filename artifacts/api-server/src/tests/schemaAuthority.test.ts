@@ -599,6 +599,18 @@ assert.match(preflight023, /chosen_action/);
 assert.match(preflight023, /map_to_new_or_existing/);
 console.log("  ✅ migration 023 trusted-only ownership + read-only preflight; no first-office guess");
 
+console.log("\n═══ schemaAuthority: Stage 15.2e default closure (scoped flow) ═══");
+const onboarding152e = readRepo("artifacts/api-server/src/modules/platform/onboarding.ts");
+const trial152e = readRepo("artifacts/api-server/src/modules/platform/trialOnboarding.ts");
+const caseEvents152e = readRepo("artifacts/api-server/src/case/case.events.ts");
+const eventBus152e = readRepo("artifacts/api-server/src/core/eventBus.ts");
+assert.doesNotMatch(onboarding152e, /\?\?\s*["']default["']/);
+assert.match(onboarding152e, /LEGACY_NON_UUID/);
+assert.match(trial152e, /needsMigration/);
+assert.match(caseEvents152e, /officeId/);
+assert.doesNotMatch(eventBus152e, /officeId\s*\?\?\s*["']default["']/);
+console.log("  ✅ onboarding/trial/CASE_CREATED/eventBus no longer invent default tenant ids");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

@@ -6,6 +6,7 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { Response } from "express";
+import { isUuid } from "../lib/officePageResolverLogic";
 
 /* ── Event Types ──────────────────────────────────────── */
 export type EventType =
@@ -82,13 +83,16 @@ class EventBus {
       timestamp: new Date().toISOString(),
     };
 
-    /* 1. Persist to DB (non-blocking) */
+    /* 1. Persist to DB (non-blocking).
+       Stage 15.2e — never invent "default"; only persist canonical Office UUID or NULL. */
+    const persistOfficeId =
+      stored.officeId && isUuid(String(stored.officeId)) ? String(stored.officeId) : null;
     db.execute(sql`
       INSERT INTO system_events (id, event_type, office_id, actor_id, payload, created_at)
       VALUES (
         ${stored.id}::uuid,
         ${stored.type},
-        ${stored.officeId ?? "default"},
+        ${persistOfficeId},
         ${stored.actorId ?? null},
         ${JSON.stringify(stored.data)}::jsonb,
         ${stored.timestamp}::timestamp

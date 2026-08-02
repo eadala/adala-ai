@@ -75,23 +75,15 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
         },
       });
     } else if (existing?.office_id) {
-      /* Legacy trial_* — update metadata only; remap deferred (no second provisioner) */
-      officeId = String(existing.office_id);
-      await db.execute(sql`
-        UPDATE trial_offices SET
-          office_name = ${officeName ?? ""},
-          specialty   = ${specialty ?? ""},
-          office_size = ${officeSize ?? "solo"},
-          setup_data  = ${JSON.stringify(setupData)}::jsonb
-        WHERE user_id = ${userId}
-      `);
-      await db.execute(sql`
-        UPDATE onboarding_state
-        SET completed = true, step = 10,
-            data = ${JSON.stringify({ officeName, specialty, officeSize, firstCase })}::jsonb,
-            updated_at = NOW()
-        WHERE user_id = ${userId}
-      `);
+      /* Legacy trial_* — fail closed: no second office, no business writes under legacy id */
+      return res.status(409).json({
+        error: "المكتب الحالي يحتاج ترحيل إلى معرف UUID قبل المتابعة (Stage 15.2c)",
+        code: "LEGACY_NON_UUID",
+        needsMigration: true,
+        migrationStage: "15.2c",
+        legacyOfficeId: String(existing.office_id),
+        action: "remap_to_uuid_office_page",
+      });
     } else {
       try {
         const result = await provisionOfficeForUser({
@@ -112,7 +104,7 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
         });
         officeId = result.officeId;
         provisionedFresh = result.created;
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (e instanceof OfficeProvisionError && e.code === "LEGACY_NON_UUID") {
           const legacy = await sqlOne(sql`
             SELECT office_id FROM trial_offices WHERE user_id = ${userId}
@@ -121,20 +113,28 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
             WHERE user_id = ${userId} AND status = 'active'
             LIMIT 1
           `);
-          if (!legacy?.office_id) throw e;
-          officeId = String(legacy.office_id);
-          await db.execute(sql`
-            UPDATE trial_offices SET
-              office_name = ${officeName ?? ""},
-              specialty   = ${specialty ?? ""},
-              office_size = ${officeSize ?? "solo"},
-              setup_data  = ${JSON.stringify(setupData)}::jsonb
-            WHERE user_id = ${userId}
-          `);
-        } else {
-          throw e;
+          return res.status(409).json({
+            error: e.message,
+            code: "LEGACY_NON_UUID",
+            needsMigration: true,
+            migrationStage: "15.2c",
+            legacyOfficeId: legacy?.office_id ? String(legacy.office_id) : null,
+            action: "remap_to_uuid_office_page",
+          });
         }
+        throw e;
       }
+    }
+
+    if (!isUuid(officeId)) {
+      return res.status(409).json({
+        error: "المكتب الحالي يحتاج ترحيل إلى معرف UUID قبل المتابعة (Stage 15.2c)",
+        code: "LEGACY_NON_UUID",
+        needsMigration: true,
+        migrationStage: "15.2c",
+        legacyOfficeId: officeId,
+        action: "remap_to_uuid_office_page",
+      });
     }
 
     invalidateTenantCache(userId);
@@ -142,6 +142,7 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
     let createdCaseId: number | null = null;
     if (firstCase?.title) {
       try {
+        /* Business seed only under canonical Office UUID */
         const caseRow = await sqlOne(sql`
           INSERT INTO cases (title, case_type, status, created_by, office_id)
           VALUES (
@@ -163,16 +164,35 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
             RETURNING id
           `);
           if (client?.id) {
-            await db.execute(sql`
-              UPDATE cases SET client_id = ${client.id} WHERE id = ${createdCaseId}
-            `).catch(() => {});
+            try {
+              await db.execute(sql`
+                UPDATE cases SET client_id = ${client.id} WHERE id = ${createdCaseId}
+              `);
+            } catch (linkErr: unknown) {
+              console.error(
+                "[trialOnboarding] case-client link failed:",
+                linkErr instanceof Error ? linkErr.message : linkErr,
+              );
+            }
           }
         }
-      } catch { /* first-case seed is best-effort; office provision already committed */ }
+      } catch (seedErr: unknown) {
+        console.error(
+          "[trialOnboarding] first-case seed failed:",
+          seedErr instanceof Error ? seedErr.message : seedErr,
+        );
+        return res.status(500).json({
+          error: "تم إنشاء المكتب لكن فشل إنشاء القضية التجريبية",
+          code: "FIRST_CASE_SEED_FAILED",
+          officeId,
+          created: provisionedFresh,
+        });
+      }
     }
 
     res.json({ ok: true, officeId, createdCaseId, trialDays: 7, created: provisionedFresh });
   } catch (e: any) {
+    console.error("[trialOnboarding] setup failed:", e?.message ?? e);
     res.status(500).json({ error: e.message });
   }
 });

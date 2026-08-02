@@ -57,7 +57,9 @@ export class CaseTasks {
 
   async updateTaskStatus(taskId: string, status: string): Promise<void> {
     const officeId = resolveTaskOfficeId(this.tenantId);
-    if (!officeId) return;
+    if (!officeId) {
+      throw new Error("تعذر تحديد المكتب — صلاحية تحديث المهمة مرفوضة");
+    }
 
     await db.execute(sql`
       UPDATE tasks SET status = ${status}, updated_at = NOW()
