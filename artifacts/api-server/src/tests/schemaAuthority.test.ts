@@ -42,6 +42,7 @@ assert.ok(migrationFiles.includes("019_money_numeric_batch2.sql"));
 assert.ok(migrationFiles.includes("020_performance_hotpath_indexes.sql"));
 assert.ok(migrationFiles.includes("021_rag_schema_foundation.sql"));
 assert.ok(migrationFiles.includes("022_tasks_tenant_ownership.sql"));
+assert.ok(migrationFiles.includes("023_trial_uuid_offices.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -579,6 +580,17 @@ const tasksOpsSrc = readSrc("modules/operations/tasks.ts");
 assert.doesNotMatch(tasksOpsSrc, /office_id IS NULL/);
 assert.match(tasksOpsSrc, /resolveTaskOfficeId/);
 console.log("  ✅ migration 022 backfills trusted owners, quarantines orphans, NOT NULL; app has no NULL visibility");
+
+console.log("\n═══ schemaAuthority: migration 023 trial → UUID offices (Stage 15.2c) ═══");
+const mig023 = readRepo("artifacts/api-server/migrations/023_trial_uuid_offices.sql");
+assert.match(mig023, /CREATE TABLE IF NOT EXISTS legacy_trial_office_map/);
+assert.match(mig023, /legacy_trial_office_conflicts/);
+assert.match(mig023, /legacy_default_office_unresolved/);
+assert.match(mig023, /INSERT INTO office_page/);
+assert.match(mig023, /RAISE EXCEPTION/);
+assert.match(mig023, /trial_offices/);
+assert.doesNotMatch(mig023, /FROM office_page ORDER BY created_at LIMIT 1/);
+console.log("  ✅ migration 023 maps trial_* → UUID with fail-closed ownership; no first-office guess");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
