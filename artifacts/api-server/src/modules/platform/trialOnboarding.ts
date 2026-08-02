@@ -4,12 +4,17 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { requireAuth } from "../../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
-import { callAI } from "../ai/aiChat";
 import {
   getGeminiApiKey,
   geminiApiHeaders,
   geminiGenerateContentUrl,
 } from "../../lib/geminiAuth";
+import { isUuid } from "../../lib/officePageResolverLogic";
+import {
+  OfficeProvisionError,
+  provisionOfficeForUser,
+} from "../../lib/officeProvision";
+import { invalidateTenantCache } from "../../middlewares/tenantMiddleware";
 
 const router = Router();
 
@@ -45,49 +50,94 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
       inviteEmail?: string;
     };
 
-    const officeId = `trial_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+    const setupData = { firstCase, inviteEmail };
+    let officeId: string;
+    let provisionedFresh = false;
 
-    const existing = await sqlOne(sql`SELECT id FROM trial_offices WHERE user_id = ${userId}`);
-    if (existing) {
+    const existing = await sqlOne(sql`SELECT office_id FROM trial_offices WHERE user_id = ${userId}`);
+    if (existing?.office_id && isUuid(String(existing.office_id))) {
+      officeId = String(existing.office_id);
+      /* Idempotent retry: refresh metadata via helper (same UUID) */
+      await provisionOfficeForUser({
+        ownerUserId: userId,
+        officeName: officeName ?? "مكتب المحاماة",
+        plan: "trial",
+        lifecycle: "trial",
+        context: "onboarding_setup",
+        specialty: specialty ?? "",
+        officeSize: officeSize ?? "solo",
+        setupData,
+        writeTrialOffices: true,
+        onboarding: {
+          completed: true,
+          step: 10,
+          data: { officeName, specialty, officeSize, firstCase },
+        },
+      });
+    } else if (existing?.office_id) {
+      /* Legacy trial_* — update metadata only; remap deferred (no second provisioner) */
+      officeId = String(existing.office_id);
       await db.execute(sql`
         UPDATE trial_offices SET
           office_name = ${officeName ?? ""},
           specialty   = ${specialty ?? ""},
           office_size = ${officeSize ?? "solo"},
-          setup_data  = ${JSON.stringify({ firstCase, inviteEmail })}::jsonb
+          setup_data  = ${JSON.stringify(setupData)}::jsonb
+        WHERE user_id = ${userId}
+      `);
+      await db.execute(sql`
+        UPDATE onboarding_state
+        SET completed = true, step = 10,
+            data = ${JSON.stringify({ officeName, specialty, officeSize, firstCase })}::jsonb,
+            updated_at = NOW()
         WHERE user_id = ${userId}
       `);
     } else {
-      await db.execute(sql`
-        INSERT INTO trial_offices (user_id, office_id, office_name, specialty, office_size, setup_data)
-        VALUES (
-          ${userId}, ${officeId},
-          ${officeName ?? ""}, ${specialty ?? ""}, ${officeSize ?? "solo"},
-          ${JSON.stringify({ firstCase, inviteEmail })}::jsonb
-        )
-      `);
+      try {
+        const result = await provisionOfficeForUser({
+          ownerUserId: userId,
+          officeName: officeName ?? "مكتب المحاماة",
+          plan: "trial",
+          lifecycle: "trial",
+          context: "onboarding_setup",
+          specialty: specialty ?? "",
+          officeSize: officeSize ?? "solo",
+          setupData,
+          writeTrialOffices: true,
+          onboarding: {
+            completed: true,
+            step: 10,
+            data: { officeName, specialty, officeSize, firstCase },
+          },
+        });
+        officeId = result.officeId;
+        provisionedFresh = result.created;
+      } catch (e: any) {
+        if (e instanceof OfficeProvisionError && e.code === "LEGACY_NON_UUID") {
+          const legacy = await sqlOne(sql`
+            SELECT office_id FROM trial_offices WHERE user_id = ${userId}
+            UNION ALL
+            SELECT office_id FROM office_members
+            WHERE user_id = ${userId} AND status = 'active'
+            LIMIT 1
+          `);
+          if (!legacy?.office_id) throw e;
+          officeId = String(legacy.office_id);
+          await db.execute(sql`
+            UPDATE trial_offices SET
+              office_name = ${officeName ?? ""},
+              specialty   = ${specialty ?? ""},
+              office_size = ${officeSize ?? "solo"},
+              setup_data  = ${JSON.stringify(setupData)}::jsonb
+            WHERE user_id = ${userId}
+          `);
+        } else {
+          throw e;
+        }
+      }
     }
 
-    /* Ensure office_members entry exists so resolveTenantId can find this user */
-    await db.execute(sql`
-      INSERT INTO office_members (office_id, user_id, role, status)
-      VALUES (${officeId}, ${userId}, 'owner', 'active')
-      ON CONFLICT DO NOTHING
-    `).catch(() => {});
-
-    /* Also update users.office_id for fast lookup */
-    await db.execute(sql`
-      UPDATE users SET office_id = ${officeId}
-      WHERE id = ${userId} AND office_id IS NULL
-    `).catch(() => {});
-
-    await db.execute(sql`
-      UPDATE onboarding_state
-      SET completed = true, step = 10,
-          data = ${JSON.stringify({ officeName, specialty, officeSize, firstCase })}::jsonb,
-          updated_at = NOW()
-      WHERE user_id = ${userId}
-    `);
+    invalidateTenantCache(userId);
 
     let createdCaseId: number | null = null;
     if (firstCase?.title) {
@@ -118,10 +168,10 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
             `).catch(() => {});
           }
         }
-      } catch { }
+      } catch { /* first-case seed is best-effort; office provision already committed */ }
     }
 
-    res.json({ ok: true, officeId, createdCaseId, trialDays: 7 });
+    res.json({ ok: true, officeId, createdCaseId, trialDays: 7, created: provisionedFresh });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

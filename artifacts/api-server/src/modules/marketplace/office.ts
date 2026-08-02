@@ -198,28 +198,60 @@ router.post("/office/public/:slug/review", async (req, res) => {
 router.get("/office/my", requireAuth, handleGetMyOffice);
 router.get("/offices/my", requireAuth, handleGetMyOffice);
 
-/* POST create office */
+/* POST create office — canonical transactional provision (office_page UUID + satellites) */
 router.post("/office/my", requireAuth, async (req: any, res) => {
   const { userId } = (req as any);
-  const [row] = await db.insert(officePageTable).values(req.body).returning();
-  if (row?.id && userId) {
-    /* Link owner to this office */
-    db.execute(sql`
-      INSERT INTO office_members (office_id, user_id, role, status)
-      VALUES (${String(row.id)}, ${userId}, 'owner', 'active')
-      ON CONFLICT DO NOTHING
-    `).catch(() => {});
-    db.execute(sql`
-      INSERT INTO office_registry (id, clerk_user_id, office_name, status)
-      VALUES (${String(row.id)}, ${userId}, ${req.body.name ?? ''}, 'active')
-      ON CONFLICT (id) DO UPDATE SET clerk_user_id = EXCLUDED.clerk_user_id
-    `).catch(() => {});
-    db.execute(sql`
-      UPDATE users SET office_id = ${String(row.id)}
-      WHERE id = ${userId} AND office_id IS NULL
-    `).catch(() => {});
+  if (!userId) {
+    res.status(401).json({ error: "غير مصرح" });
+    return;
   }
-  res.json(row);
+  try {
+    const { provisionOfficeForUser } = await import("../../lib/officeProvision");
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const officeName = String(body.name ?? body.officeName ?? "مكتب المحاماة");
+    const result = await provisionOfficeForUser({
+      ownerUserId: userId,
+      officeName,
+      plan: typeof body.plan === "string" ? body.plan : "starter",
+      lifecycle: "marketplace",
+      context: "marketplace",
+      ownerEmail: typeof body.email === "string" ? body.email : undefined,
+      writeTrialOffices: false,
+      page: {
+        slug: typeof body.slug === "string" ? body.slug : undefined,
+        tagline: typeof body.tagline === "string" ? body.tagline : undefined,
+        about: typeof body.about === "string" ? body.about : undefined,
+        phone: typeof body.phone === "string" ? body.phone : undefined,
+        email: typeof body.email === "string" ? body.email : undefined,
+        city: typeof body.city === "string" ? body.city : undefined,
+        address: typeof body.address === "string" ? body.address : undefined,
+        logo: typeof body.logo === "string" ? body.logo : undefined,
+        isPublished: Boolean(body.isPublished),
+        primaryColor: typeof body.primaryColor === "string" ? body.primaryColor : undefined,
+      },
+    });
+    const { invalidateTenantCache } = await import("../../middlewares/tenantMiddleware");
+    invalidateTenantCache(userId);
+    const [row] = await db.select().from(officePageTable)
+      .where(eq(officePageTable.id, result.officeId)).limit(1);
+    if (!row) {
+      res.status(500).json({ error: "تعذر إنشاء المكتب" });
+      return;
+    }
+    res.json(row);
+  } catch (e: any) {
+    if (e?.name === "OfficeProvisionError") {
+      const code = String(e.code ?? "");
+      if (code === "LEGACY_NON_UUID" || code === "DUPLICATE_ACTIVE_MEMBERSHIP") {
+        res.status(409).json({ error: e.message, code });
+        return;
+      }
+      res.status(400).json({ error: e.message, code });
+      return;
+    }
+    logEndpointError("POST /api/office/my", req, e);
+    res.status(500).json({ error: e?.message ?? "تعذر إنشاء المكتب" });
+  }
 });
 
 /* PATCH update office — slug is platform-only, stripped here */

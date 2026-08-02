@@ -4,6 +4,12 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
+import { isUuid } from "../../lib/officePageResolverLogic";
+import {
+  OfficeProvisionError,
+  provisionOfficeForUser,
+} from "../../lib/officeProvision";
+import { invalidateTenantCache } from "../../middlewares/tenantMiddleware";
 
 const router = Router();
 
@@ -33,48 +39,62 @@ router.put("/onboarding/state", requireAuth, async (req, res) => {
     const { completed, step, data } = req.body;
 
     /* ── When completing onboarding, provision a real office if none exists ── */
-    let resolvedOfficeId = "default";
+    let resolvedOfficeId: string | null = null;
     if (completed) {
-      /* Check if user already has an active office membership */
       const existingMember = await sqlOne(sql`
         SELECT office_id FROM office_members
         WHERE user_id = ${userId} AND status = 'active'
         LIMIT 1
       `);
 
-      if (existingMember?.office_id) {
-        resolvedOfficeId = existingMember.office_id;
+      if (existingMember?.office_id && isUuid(String(existingMember.office_id))) {
+        resolvedOfficeId = String(existingMember.office_id);
+      } else if (existingMember?.office_id) {
+        /* Legacy non-UUID membership (trial_*, default) — do not remap in this stage */
+        resolvedOfficeId = String(existingMember.office_id);
       } else {
-        /* Provision a new trial office for this user */
-        const safeId = userId.replace(/[^a-zA-Z0-9]/g, "").slice(-8);
-        const newOfficeId = `trial_${safeId}`;
         const officeName: string =
           (data as any)?.officeName ?? (data as any)?.name ?? "مكتب المحاماة";
-
-        /* Insert into trial_offices (source of truth for trial tenants) */
-        await db.execute(sql`
-          INSERT INTO trial_offices (user_id, office_id, office_name)
-          VALUES (${userId}, ${newOfficeId}, ${officeName})
-          ON CONFLICT (user_id) DO UPDATE SET office_name = EXCLUDED.office_name
-        `);
-
-        /* Insert into office_members so tenant resolution hits step 3 immediately */
-        await db.execute(sql`
-          INSERT INTO office_members (office_id, user_id, role, status)
-          VALUES (${newOfficeId}, ${userId}, 'owner', 'active')
-          ON CONFLICT (office_id, user_id) DO NOTHING
-        `);
-
-        resolvedOfficeId = newOfficeId;
-        console.log(`[ONBOARDING] Provisioned office ${newOfficeId} for user ${userId}`);
+        try {
+          const provisioned = await provisionOfficeForUser({
+            ownerUserId: userId,
+            officeName,
+            plan: "trial",
+            lifecycle: "trial",
+            context: "onboarding_state",
+            specialty: (data as any)?.specialty,
+            officeSize: (data as any)?.officeSize,
+            writeTrialOffices: true,
+            onboarding: {
+              completed: true,
+              step: step ?? 10,
+              data: data ?? {},
+            },
+          });
+          resolvedOfficeId = provisioned.officeId;
+          invalidateTenantCache(userId);
+          console.log(`[ONBOARDING] Provisioned office ${resolvedOfficeId} for user ${userId}`);
+        } catch (e: any) {
+          if (e instanceof OfficeProvisionError && e.code === "LEGACY_NON_UUID") {
+            /* Keep legacy tenant id; onboarding_state update still proceeds */
+            const trial = await sqlOne(sql`
+              SELECT office_id FROM trial_offices WHERE user_id = ${userId} LIMIT 1
+            `);
+            resolvedOfficeId = trial?.office_id ? String(trial.office_id) : "default";
+          } else {
+            throw e;
+          }
+        }
       }
     }
+
+    const officeForState = resolvedOfficeId ?? "default";
 
     const row = await sqlOne(sql`
       INSERT INTO onboarding_state (user_id, office_id, completed, step, data, updated_at)
       VALUES (
         ${userId},
-        ${resolvedOfficeId},
+        ${officeForState},
         ${completed ?? false},
         ${step ?? 0},
         ${JSON.stringify(data ?? {})}::jsonb,
