@@ -1,18 +1,29 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 /**
- * Tenant Identity Resolution Engine (TIRE v2)
+ * Tenant Identity Resolution Engine (TIRE v2) — Stage 15.2b
  * ─────────────────────────────────────────────
- * Deterministic — every user maps to exactly ONE tenant.
- * No guessing. No silent fallbacks. Full audit trail.
+ * Deterministic — every normal user maps to exactly ONE UUID tenant.
+ * Legacy trial_* fail closed. HEAL uses canonical provisionOfficeForUser.
  *
  * Resolution order:
- *   1. office_members   (primary — fast path after first visit)
- *   2. office_registry  (owner lookup by clerk_user_id)
- *   3. trial_offices    (onboarding trail — auto-links to office_members)
- *   4. FAIL → throw TENANT_NOT_RESOLVED
+ *   1. office_members   (UUID only)
+ *   2. office_registry  (UUID only → await auto-link)
+ *   3. trial_offices    (UUID only; legacy trial_* → fail closed)
+ *   4. onboarding heal  (await provisionOfficeForUser)
+ *   5. FAIL → throw TENANT_NOT_RESOLVED
  */
 
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { provisionOfficeForUser, OfficeProvisionError } from "../../lib/officeProvision";
+import {
+  LEGACY_NON_UUID_TENANT,
+  PLATFORM_FORBIDDEN_FOR_USER,
+  TENANT_PROVISION_FAILED,
+  TenantResolutionError,
+  acceptNormalUserTenantId,
+} from "../../lib/tenantResolution";
+import { isUuid } from "../../lib/officePageResolverLogic";
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -21,7 +32,8 @@ export type TenantSource =
   | "office_registry"
   | "trial_offices"
   | "impersonation"
-  | "header";
+  | "header"
+  | "heal_provision";
 
 export interface TenantResolutionTrace {
   tenantId: string;
@@ -41,18 +53,19 @@ async function dbOne(q: any): Promise<any> {
   } catch { return null; }
 }
 
-/* ── Auto-link helper ────────────────────────────────────────────────── */
+/* ── Auto-link helper (UUID only, awaited) ───────────────────────────── */
 
 async function autoLink(userId: string, officeId: string): Promise<void> {
-  db.execute(sql`
+  if (!isUuid(officeId)) return;
+  await db.execute(sql`
     INSERT INTO office_members (office_id, user_id, role, status)
     VALUES (${officeId}, ${userId}, 'owner', 'active')
-    ON CONFLICT DO NOTHING
-  `).catch(() => {});
-  db.execute(sql`
+    ON CONFLICT (office_id, user_id) DO NOTHING
+  `);
+  await db.execute(sql`
     UPDATE users SET office_id = ${officeId}
-    WHERE id = ${userId} AND office_id IS NULL
-  `).catch(() => {});
+    WHERE id = ${userId} AND (office_id IS NULL OR office_id = 'default')
+  `);
 }
 
 /* ── Main resolver ───────────────────────────────────────────────────── */
@@ -64,12 +77,27 @@ export async function resolveTenantWithTrace(
   const steps: string[] = [];
   const now = new Date().toISOString();
 
-  /* 0. Explicit header (API keys / dev access) */
+  /* 0. Explicit header (API keys / dev access) — membership checked by caller paths;
+     here we still reject legacy trial_* for normal resolution consistency. */
   if (headerTenantId) {
     steps.push("HEADER_TENANT_ID");
-    const t: TenantResolutionTrace = { tenantId: headerTenantId, role: "api_key", source: "header", steps, resolvedAt: now };
-    import("./tenantVersioning").then(m => m.bindTenant(userId, headerTenantId, "header")).catch(() => {});
-    return t;
+    const accepted = acceptNormalUserTenantId(headerTenantId, {
+      userId,
+      source: "header",
+    });
+    if (!accepted) {
+      steps.push("HEADER_EMPTY_OR_DEFAULT");
+    } else {
+      const t: TenantResolutionTrace = {
+        tenantId: accepted,
+        role: "api_key",
+        source: "header",
+        steps,
+        resolvedAt: now,
+      };
+      import("./tenantVersioning").then(m => m.bindTenant(userId, accepted, "header")).catch(() => {});
+      return t;
+    }
   }
 
   /* 1. office_members — primary source */
@@ -80,10 +108,22 @@ export async function resolveTenantWithTrace(
     ORDER BY created_at ASC LIMIT 1
   `);
   if (member?.office_id) {
-    steps.push("FOUND_office_members");
-    const t: TenantResolutionTrace = { tenantId: member.office_id, role: member.role ?? "member", source: "office_members", steps, resolvedAt: now };
-    import("./tenantVersioning").then(m => m.bindTenant(userId, member.office_id, "office_members")).catch(() => {});
-    return t;
+    const accepted = acceptNormalUserTenantId(String(member.office_id), {
+      userId,
+      source: "office_members",
+    });
+    if (accepted) {
+      steps.push("FOUND_office_members");
+      const t: TenantResolutionTrace = {
+        tenantId: accepted,
+        role: member.role ?? "member",
+        source: "office_members",
+        steps,
+        resolvedAt: now,
+      };
+      import("./tenantVersioning").then(m => m.bindTenant(userId, accepted, "office_members")).catch(() => {});
+      return t;
+    }
   }
   steps.push("MISS_office_members");
 
@@ -95,15 +135,27 @@ export async function resolveTenantWithTrace(
     LIMIT 1
   `);
   if (registry?.id) {
-    steps.push("FOUND_office_registry → AUTO_LINK");
-    await autoLink(userId, registry.id);
-    const t: TenantResolutionTrace = { tenantId: registry.id, role: "owner", source: "office_registry", steps, resolvedAt: now };
-    import("./tenantVersioning").then(m => m.bindTenant(userId, registry.id, "office_registry")).catch(() => {});
-    return t;
+    const accepted = acceptNormalUserTenantId(String(registry.id), {
+      userId,
+      source: "office_registry",
+    });
+    if (accepted) {
+      steps.push("FOUND_office_registry → AUTO_LINK");
+      await autoLink(userId, accepted);
+      const t: TenantResolutionTrace = {
+        tenantId: accepted,
+        role: "owner",
+        source: "office_registry",
+        steps,
+        resolvedAt: now,
+      };
+      import("./tenantVersioning").then(m => m.bindTenant(userId, accepted, "office_registry")).catch(() => {});
+      return t;
+    }
   }
   steps.push("MISS_office_registry");
 
-  /* 3. trial_offices — onboarding trail */
+  /* 3. trial_offices — UUID lifecycle only */
   steps.push("CHECK_trial_offices");
   const trial = await dbOne(sql`
     SELECT office_id FROM trial_offices
@@ -111,15 +163,99 @@ export async function resolveTenantWithTrace(
     LIMIT 1
   `);
   if (trial?.office_id) {
-    steps.push("FOUND_trial_offices → AUTO_LINK");
-    await autoLink(userId, trial.office_id);
-    const t: TenantResolutionTrace = { tenantId: trial.office_id, role: "owner", source: "trial_offices", steps, resolvedAt: now };
-    import("./tenantVersioning").then(m => m.bindTenant(userId, trial.office_id, "trial_offices")).catch(() => {});
-    return t;
+    const accepted = acceptNormalUserTenantId(String(trial.office_id), {
+      userId,
+      source: "trial_offices",
+    });
+    if (accepted) {
+      steps.push("FOUND_trial_offices → AUTO_LINK");
+      await autoLink(userId, accepted);
+      const t: TenantResolutionTrace = {
+        tenantId: accepted,
+        role: "owner",
+        source: "trial_offices",
+        steps,
+        resolvedAt: now,
+      };
+      import("./tenantVersioning").then(m => m.bindTenant(userId, accepted, "trial_offices")).catch(() => {});
+      return t;
+    }
   }
   steps.push("MISS_trial_offices");
 
-  /* 4. Complete failure */
+  /* 4. HEAL — completed onboarding without canonical office */
+  steps.push("CHECK_onboarding_heal");
+  const onboard = await dbOne(sql`
+    SELECT data FROM onboarding_state
+    WHERE user_id = ${userId} AND completed = true
+    LIMIT 1
+  `);
+  if (onboard) {
+    if (userId === "platform") {
+      throw new TenantResolutionError(
+        PLATFORM_FORBIDDEN_FOR_USER,
+        "Refusing HEAL provision for platform context",
+        { userId, source: "heal_provision" },
+      );
+    }
+    steps.push("HEAL_PROVISION_AWAIT");
+    let officeName = "مكتب المحاماة";
+    try {
+      const data = onboard.data;
+      const parsed = typeof data === "string" ? JSON.parse(data) : data;
+      if (parsed && typeof parsed === "object" && (parsed as any).officeName) {
+        officeName = String((parsed as any).officeName);
+      }
+    } catch { /* default name */ }
+
+    try {
+      const result = await provisionOfficeForUser({
+        ownerUserId: userId,
+        officeName,
+        plan: "trial",
+        lifecycle: "trial",
+        context: "onboarding_state",
+        writeTrialOffices: true,
+        onboarding: { completed: true, step: 10, data: {} },
+      });
+      if (!isUuid(result.officeId)) {
+        throw new TenantResolutionError(
+          TENANT_PROVISION_FAILED,
+          "HEAL provision returned non-UUID office id",
+          { userId, officeId: result.officeId },
+        );
+      }
+      steps.push("FOUND_heal_provision");
+      const t: TenantResolutionTrace = {
+        tenantId: result.officeId,
+        role: "owner",
+        source: "heal_provision",
+        steps,
+        resolvedAt: now,
+      };
+      import("./tenantVersioning").then(m => m.bindTenant(userId, result.officeId, "office_members")).catch(() => {});
+      return t;
+    } catch (err: unknown) {
+      if (err instanceof TenantResolutionError) throw err;
+      if (err instanceof OfficeProvisionError && err.code === "LEGACY_NON_UUID") {
+        throw new TenantResolutionError(
+          LEGACY_NON_UUID_TENANT,
+          err.message,
+          {
+            userId,
+            source: "heal_provision",
+            needsMigration: true,
+            migrationStage: "15.2c",
+            provisionCode: err.code,
+          },
+        );
+      }
+      throw err;
+    }
+  }
+  steps.push("MISS_onboarding_heal");
+
+  /* 5. Complete failure */
   steps.push("TENANT_NOT_RESOLVED");
   throw Object.assign(new Error("TENANT_NOT_RESOLVED"), { steps, userId });
 }

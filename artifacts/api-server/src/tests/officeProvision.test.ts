@@ -368,8 +368,9 @@ console.log("\n═══ route adoption (source) ═══");
 {
   const heal = readSrc("middlewares/tenantMiddleware.ts");
   assert.match(heal, /TENANT-HEAL-7/);
-  assert.doesNotMatch(heal, /provisionOfficeForUser/);
-  console.log("  ✅ TENANT-HEAL-7 left unchanged (resolution path)");
+  assert.match(heal, /provisionOfficeForUser|healProvisionOffice/);
+  assert.doesNotMatch(heal, /trial_\$\{safeId\}/);
+  console.log("  ✅ TENANT-HEAL-7 uses canonical provision (no trial_* mint)");
 }
 
 console.log("\n✅ officeProvision tests passed\n");

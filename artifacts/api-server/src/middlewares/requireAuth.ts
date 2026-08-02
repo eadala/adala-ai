@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt in auth middleware */
 import { getAuth, createClerkClient } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
 import { resolveTenantId } from "./tenantMiddleware";
@@ -154,11 +155,30 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
   let tenantId: string | null = null;
   try {
     tenantId = await resolveTenantId(userId, headerTenant);
-  } catch {
+  } catch (err: unknown) {
+    const { TenantResolutionError, LEGACY_NON_UUID_TENANT } = await import("../lib/tenantResolution");
+    if (err instanceof TenantResolutionError && err.code === LEGACY_NON_UUID_TENANT) {
+      return res.status(409).json({
+        error: "حسابك يستخدم معرّف مكتب قديم ويتطلب ترحيل البيانات",
+        code: err.code,
+        ...err.details,
+      });
+    }
+    if (err instanceof TenantResolutionError) {
+      return res.status(403).json({
+        error: err.message,
+        code: err.code,
+        ...err.details,
+      });
+    }
+    console.error(
+      `[TENANT-ERR] path=${req.path} userId=${userId} resolveTenantId threw:`,
+      err instanceof Error ? err.message : err,
+    );
     return res.status(403).json({ error: "خطأ في تحديد المكتب — حاول مجدداً." });
   }
   if (!tenantId) {
-    /* Super-admin has no office — allow with synthetic "platform" tenant */
+    /* Super-admin has no office — allow with synthetic "platform" tenant (explicit SA only) */
     const isSA = await checkIsSuperAdmin(userId);
     if (isSA) {
       (req as any).isSuperAdmin = true;
@@ -176,6 +196,17 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
       userId,
       hint: "أكمل عملية الإعداد الأولي، أو تواصل مع الدعم الفني إذا أتممت الإعداد مسبقاً.",
     });
+  }
+  /* Normal users must never carry the synthetic platform tenant */
+  if (tenantId === "platform") {
+    const isSA = await checkIsSuperAdmin(userId);
+    if (!isSA) {
+      return res.status(403).json({
+        error: "سياق المنصة غير متاح لهذا الحساب",
+        code: "PLATFORM_FORBIDDEN_FOR_USER",
+      });
+    }
+    (req as any).isSuperAdmin = true;
   }
   const officeId = tenantId;
   (req as any).tenantId = officeId;
