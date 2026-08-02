@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 /**
  * عدالة AI — Case Autopilot Engine
  *
@@ -7,12 +7,31 @@
  * - يكتشف نقاط الخطر القانوني
  * - يُنشئ مهام عمل محددة تلقائياً
  * - يتوقع احتمالية النجاح بالذكاء الاصطناعي
+ *
+ * Stage 15.2d — task creation returns a structured result (never silent success).
  */
 
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { callAI } from "../modules/ai/aiChat";
-import { resolveTaskOfficeId } from "../lib/taskTenantVisibility";
+import {
+  createAutopilotTasks as createAutopilotTasksWithDb,
+  type AutopilotTaskCreateResult,
+  type AutopilotTaskDb,
+  type AutopilotCaseContext,
+} from "./autopilotTaskCreation";
+
+export {
+  classifyAutopilotInsertOutcome,
+  httpStatusForAutopilotTaskCreation,
+  planAutopilotTasks,
+  resolveAutopilotOfficeId,
+  type AutopilotTaskCreateError,
+  type AutopilotTaskCreateResult,
+  type AutopilotTaskCreateStatus,
+  type AutopilotTaskDb,
+  type PlannedAutopilotTask,
+} from "./autopilotTaskCreation";
 
 /* ── Types ─────────────────────────────────────────────── */
 
@@ -23,7 +42,10 @@ export interface CaseHealthReport {
   risks:           string[];
   missingData:     string[];
   nextSteps:       string[];
+  /** Actual rows inserted (never planned count). */
   tasksCreated:    number;
+  /** Full task-creation contract for callers. */
+  taskCreation:    AutopilotTaskCreateResult;
   outcomePrediction: {
     successProbability: number;     // 0-100
     label:              string;
@@ -33,7 +55,7 @@ export interface CaseHealthReport {
   runAt:           string;
 }
 
-interface CaseContext {
+interface CaseContext extends AutopilotCaseContext {
   case:      any;
   documents: any[];
   events:    any[];
@@ -47,6 +69,23 @@ interface CaseContext {
 async function rows(q: any): Promise<any[]> {
   const r = await db.execute(q);
   return (r as any)?.rows ?? (Array.isArray(r) ? r : []);
+}
+
+function defaultAutopilotDb(): AutopilotTaskDb {
+  return {
+    execute: (q) => db.execute(q as any),
+    transaction: (fn) => db.transaction(async (tx: any) => fn({ execute: (q) => tx.execute(q) })),
+  };
+}
+
+/** Production entry — uses the shared DB pool in one atomic transaction. */
+export async function createAutopilotTasks(
+  ctx: CaseContext,
+  missing: string[],
+  tenantId: string | null | undefined,
+  deps: AutopilotTaskDb = defaultAutopilotDb(),
+): Promise<AutopilotTaskCreateResult> {
+  return createAutopilotTasksWithDb(ctx, missing, tenantId, deps);
 }
 
 /* ── Fetch full case context ────────────────────────────── */
@@ -135,102 +174,12 @@ function grade(score: number): "A" | "B" | "C" | "D" | "F" {
   return "F";
 }
 
-/* ── Auto-create tasks ──────────────────────────────────── */
-
-async function createAutopilotTasks(
-  ctx:      CaseContext,
-  missing:  string[],
-  tenantId: string
-): Promise<number> {
-  const c = ctx.case;
-  const caseTitle = c.title ?? "القضية";
-  const tasks: Array<{ title: string; priority: string; description: string }> = [];
-
-  if (!c.client_name) {
-    tasks.push({
-      title:       "إضافة بيانات العميل",
-      priority:    "high",
-      description: `استكمال بيانات العميل في القضية "${caseTitle}"`,
-    });
-  }
-
-  if (!c.description || c.description.trim().length < 20) {
-    tasks.push({
-      title:       "استكمال وصف القضية",
-      priority:    "medium",
-      description: `إضافة وصف تفصيلي لملابسات القضية "${caseTitle}"`,
-    });
-  }
-
-  if (ctx.documents.length === 0) {
-    tasks.push({
-      title:       "رفع مستندات القضية",
-      priority:    "high",
-      description: `رفع المستندات والأدلة الداعمة للقضية "${caseTitle}"`,
-    });
-  }
-
-  const upcoming = ctx.events.filter(e => e.start_at && new Date(e.start_at) > new Date());
-  if (upcoming.length === 0 && (c.status === "open" || c.status === "in_progress")) {
-    tasks.push({
-      title:       "تحديد موعد الجلسة القادمة",
-      priority:    "high",
-      description: `إدراج موعد الجلسة القادمة في التقويم للقضية "${caseTitle}"`,
-    });
-  }
-
-  if (ctx.contracts.length === 0) {
-    tasks.push({
-      title:       "إعداد عقد الوكالة القانونية",
-      priority:    "medium",
-      description: `إنشاء وتوقيع عقد الوكالة القانونية للقضية "${caseTitle}"`,
-    });
-  }
-
-  if (!c.assigned_to) {
-    tasks.push({
-      title:       "تعيين المحامي المسؤول",
-      priority:    "medium",
-      description: `تحديد المحامي المسؤول عن متابعة القضية "${caseTitle}"`,
-    });
-  }
-
-  if (tasks.length === 0) return 0;
-
-  const officeId = resolveTaskOfficeId(tenantId);
-  if (!officeId) {
-    /* Never insert office_id NULL — skip orphan creation when tenant is non-UUID */
-    return 0;
-  }
-  const caseIdVal = c.id != null ? String(c.id) : null;
-
-  for (const t of tasks) {
-    await db.execute(sql`
-      INSERT INTO tasks (office_id, case_id, title, description, status, priority, case_title, created_by, tags)
-      VALUES (
-        ${officeId}::uuid,
-        ${caseIdVal},
-        ${t.title},
-        ${t.description},
-        'todo',
-        ${t.priority},
-        ${caseTitle},
-        'autopilot',
-        ARRAY['autopilot', 'ai-generated']::text[]
-      )
-    `).catch(() => {});
-  }
-
-  return tasks.length;
-}
-
 /* ── AI Outcome Prediction ──────────────────────────────── */
 
 async function predictOutcome(
   ctx:   CaseContext,
   score: number
 ): Promise<CaseHealthReport["outcomePrediction"]> {
-  const c = ctx.case;
   const docsCount = ctx.documents.length;
   const hasContract = ctx.contracts.length > 0;
   const hasHearing = ctx.events.some(e => e.start_at && new Date(e.start_at) > new Date());
@@ -299,9 +248,18 @@ export async function runCaseAutopilot(
     generateAISummary(ctx, score, risks),
   ]);
 
-  const tasksCreated = createTasks
+  const taskCreation: AutopilotTaskCreateResult = createTasks
     ? await createAutopilotTasks(ctx, missing, tenantId)
-    : 0;
+    : {
+        status: "skipped",
+        planned: 0,
+        created: 0,
+        failed: 0,
+        skipped: 0,
+        reason: "create_tasks_disabled",
+      };
+
+  const tasksCreated = taskCreation.created;
 
   const report: CaseHealthReport = {
     caseId,
@@ -311,37 +269,42 @@ export async function runCaseAutopilot(
     missingData:       missing,
     nextSteps:         missing.map(m => `معالجة: ${m}`),
     tasksCreated,
+    taskCreation,
     outcomePrediction: prediction,
     aiSummary,
     runAt:             new Date().toISOString(),
   };
 
-  /* Persist analysis snapshot */
-  await db.execute(sql`
-    INSERT INTO case_autopilot_reports
-      (case_id, office_id, health_score, grade, risks, missing_data, next_steps,
-       tasks_created, outcome_prediction, ai_summary, run_at)
-    VALUES (
-      ${caseId}, ${tenantId}, ${score}, ${grade(score)},
-      ${JSON.stringify(risks)}::jsonb,
-      ${JSON.stringify(missing)}::jsonb,
-      ${JSON.stringify(report.nextSteps)}::jsonb,
-      ${tasksCreated},
-      ${JSON.stringify(prediction)}::jsonb,
-      ${aiSummary},
-      NOW()
-    )
-    ON CONFLICT (case_id) DO UPDATE SET
-      health_score       = EXCLUDED.health_score,
-      grade              = EXCLUDED.grade,
-      risks              = EXCLUDED.risks,
-      missing_data       = EXCLUDED.missing_data,
-      next_steps         = EXCLUDED.next_steps,
-      tasks_created      = EXCLUDED.tasks_created,
-      outcome_prediction = EXCLUDED.outcome_prediction,
-      ai_summary         = EXCLUDED.ai_summary,
-      run_at             = NOW()
-  `).catch(() => {});
+  /* Persist analysis snapshot — failures are logged, never presented as task success */
+  try {
+    await db.execute(sql`
+      INSERT INTO case_autopilot_reports
+        (case_id, office_id, health_score, grade, risks, missing_data, next_steps,
+         tasks_created, outcome_prediction, ai_summary, run_at)
+      VALUES (
+        ${caseId}, ${tenantId}, ${score}, ${grade(score)},
+        ${JSON.stringify(risks)}::jsonb,
+        ${JSON.stringify(missing)}::jsonb,
+        ${JSON.stringify(report.nextSteps)}::jsonb,
+        ${tasksCreated},
+        ${JSON.stringify(prediction)}::jsonb,
+        ${aiSummary},
+        NOW()
+      )
+      ON CONFLICT (case_id) DO UPDATE SET
+        health_score       = EXCLUDED.health_score,
+        grade              = EXCLUDED.grade,
+        risks              = EXCLUDED.risks,
+        missing_data       = EXCLUDED.missing_data,
+        next_steps         = EXCLUDED.next_steps,
+        tasks_created      = EXCLUDED.tasks_created,
+        outcome_prediction = EXCLUDED.outcome_prediction,
+        ai_summary         = EXCLUDED.ai_summary,
+        run_at             = NOW()
+    `);
+  } catch (e: any) {
+    console.error("[Autopilot] failed to persist case_autopilot_reports:", e?.message ?? e);
+  }
 
   return report;
 }
@@ -349,23 +312,27 @@ export async function runCaseAutopilot(
 /* ── Ensure Table ───────────────────────────────────────── */
 
 export async function ensureAutopilotTable(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS case_autopilot_reports (
-      case_id            TEXT PRIMARY KEY,
-      office_id          TEXT NOT NULL,
-      health_score       INTEGER NOT NULL DEFAULT 0,
-      grade              TEXT NOT NULL DEFAULT 'F',
-      risks              JSONB NOT NULL DEFAULT '[]',
-      missing_data       JSONB NOT NULL DEFAULT '[]',
-      next_steps         JSONB NOT NULL DEFAULT '[]',
-      tasks_created      INTEGER NOT NULL DEFAULT 0,
-      outcome_prediction JSONB NOT NULL DEFAULT '{}',
-      ai_summary         TEXT,
-      run_at             TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_autopilot_office ON case_autopilot_reports(office_id)
-  `).catch(() => {});
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS case_autopilot_reports (
+        case_id            TEXT PRIMARY KEY,
+        office_id          TEXT NOT NULL,
+        health_score       INTEGER NOT NULL DEFAULT 0,
+        grade              TEXT NOT NULL DEFAULT 'F',
+        risks              JSONB NOT NULL DEFAULT '[]',
+        missing_data       JSONB NOT NULL DEFAULT '[]',
+        next_steps         JSONB NOT NULL DEFAULT '[]',
+        tasks_created      INTEGER NOT NULL DEFAULT 0,
+        outcome_prediction JSONB NOT NULL DEFAULT '{}',
+        ai_summary         TEXT,
+        run_at             TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS idx_autopilot_office ON case_autopilot_reports(office_id)
+    `);
+  } catch (e: any) {
+    console.error("[Autopilot] ensureAutopilotTable failed:", e?.message ?? e);
+    throw e;
+  }
 }

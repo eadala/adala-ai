@@ -16,7 +16,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC = join(__dirname, "..");
 const tasksTs = readFileSync(join(SRC, "modules/operations/tasks.ts"), "utf8");
 const visTs = readFileSync(join(SRC, "lib/taskTenantVisibility.ts"), "utf8");
-const autopilotTs = readFileSync(join(SRC, "agents/caseAutopilot.ts"), "utf8");
+const autopilotTs = [
+  readFileSync(join(SRC, "agents/caseAutopilot.ts"), "utf8"),
+  readFileSync(join(SRC, "agents/autopilotTaskCreation.ts"), "utf8"),
+].join("\n");
 const caseTasksTs = readFileSync(join(SRC, "case/modules/tasks.ts"), "utf8");
 const caseAiTs = readFileSync(join(SRC, "case/case.ai.ts"), "utf8");
 const casesTs = readFileSync(join(SRC, "modules/legal-core/cases.ts"), "utf8");
@@ -67,10 +70,10 @@ console.log("\n═══ GET/PATCH/DELETE/INSERT share strict predicate ══�
 console.log("\n═══ INSERT paths never create NULL office_id ═══");
 
 {
-  assert.match(autopilotTs, /resolveTaskOfficeId/);
+  assert.match(autopilotTs, /resolveAutopilotOfficeId|resolveTaskOfficeId/);
   assert.match(autopilotTs, /office_id, case_id/);
   assert.match(autopilotTs, /\$\{officeId\}::uuid/);
-  assert.match(autopilotTs, /if \(!officeId\)/);
+  assert.match(autopilotTs, /MISSING_CANONICAL_OFFICE_UUID|if \(!officeId\)/);
   assert.doesNotMatch(
     autopilotTs.slice(autopilotTs.indexOf("INSERT INTO tasks")),
     /INSERT INTO tasks \(title,/,

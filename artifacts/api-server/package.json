@@ -19,6 +19,7 @@
     "test:office-provision": "node --import tsx src/tests/officeProvision.test.ts",
     "test:tenant-heal7": "node --import tsx src/tests/tenantHeal7.test.ts",
     "test:migration-023": "node --import tsx src/tests/trialUuidMigration023.test.ts",
+    "test:autopilot": "node --import tsx src/tests/autopilotFailureSignaling.test.ts",
     "test:storage-file-register": "node --import tsx src/tests/storageFileRegister.test.ts",
     "test:storage-folder-create": "node --import tsx src/tests/storageFolderCreate.test.ts",
     "test:storage-folders-acl": "node --import tsx src/tests/storageFoldersAcl.runtime.test.ts",
