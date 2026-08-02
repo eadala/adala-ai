@@ -33,7 +33,10 @@ import {
   TENANT_PROVISION_FAILED,
   TenantResolutionError,
   acceptNormalUserTenantId,
+  assertCanonicalBusinessOfficeId,
+  classifyTenantId,
   isCacheableTenantId,
+  takeCanonicalTenantOrContinue,
 } from "../lib/tenantResolution";
 import { isUuid } from "../lib/officePageResolverLogic";
 
@@ -195,7 +198,7 @@ export async function resolveTenantId(
   const checkSA = deps?.isSuperAdmin ?? isSuperAdminUser;
   const provision = deps?.provision ?? ((input) => provisionOfficeForUser(input));
 
-  /* 1. Explicit header — membership-validated; SA may target any office UUID */
+  /* 1. Explicit header — membership-validated; SA may target a UUID office only */
   if (headerTenantId) {
     try {
       const memberCheck = await client.execute(sql`
@@ -213,8 +216,11 @@ export async function resolveTenantId(
 
       const isSA = await checkSA(userId);
       if (isSA) {
-        /* SA may inspect a specific office via header; never treat as normal-user cache */
-        return headerTenantId;
+        /* SA header targeting must be a canonical UUID — never legacy text as office_id */
+        return assertCanonicalBusinessOfficeId(headerTenantId, {
+          userId,
+          source: "header_sa",
+        });
       }
     } catch (err) {
       if (err instanceof TenantResolutionError) throw err;
@@ -222,7 +228,7 @@ export async function resolveTenantId(
     }
   }
 
-  /* 1b. Developer impersonation — SA viewing as another office */
+  /* 1b. Developer impersonation — SA may view a UUID office only (no legacy write context) */
   try {
     const imp = await client.execute(sql`
       SELECT impersonated_office_id FROM developer_impersonation
@@ -232,10 +238,39 @@ export async function resolveTenantId(
     `);
     const impOffice = firstVal(imp, "impersonated_office_id");
     if (impOffice) {
-      /* Impersonation is SA-only; return target as-is without normal-user cache */
-      return impOffice;
+      const isSA = await checkSA(userId);
+      if (!isSA) {
+        throw new TenantResolutionError(
+          PLATFORM_FORBIDDEN_FOR_USER,
+          "Impersonation requires a verified super-admin",
+          { userId, source: "impersonation", officeId: impOffice },
+        );
+      }
+      /* Legacy impersonation targets fail closed — cannot authorize business writes */
+      if (classifyTenantId(impOffice) !== "uuid") {
+        throw new TenantResolutionError(
+          LEGACY_NON_UUID_TENANT,
+          `Legacy impersonation target ${impOffice} requires migration (Stage 15.2c)`,
+          {
+            userId,
+            source: "impersonation",
+            legacyOfficeId: impOffice,
+            needsMigration: true,
+            migrationStage: "15.2c",
+            action: "remap_to_uuid_office_page",
+            blocksBusinessWrites: true,
+          },
+        );
+      }
+      return assertCanonicalBusinessOfficeId(impOffice, {
+        userId,
+        source: "impersonation",
+      });
     }
-  } catch { /* optional table */ }
+  } catch (err) {
+    if (err instanceof TenantResolutionError) throw err;
+    /* optional table */
+  }
 
   /* 2. Cache — UUID only */
   const cached = cache.get(userId);
@@ -244,7 +279,7 @@ export async function resolveTenantId(
     cache.delete(userId);
   }
 
-  /* 3. office_members */
+  /* 3. office_members — UUID only; non-UUID (except empty/default sentinel) fails closed */
   const memberRows = await client.execute(sql`
     SELECT office_id FROM office_members
     WHERE user_id = ${userId} AND status = 'active'
@@ -252,14 +287,14 @@ export async function resolveTenantId(
     LIMIT 1
   `);
   const memberId = firstVal(memberRows, "office_id");
-  if (memberId) {
-    const accepted = acceptNormalUserTenantId(memberId, {
+  if (memberId != null) {
+    const taken = takeCanonicalTenantOrContinue(memberId, {
       userId,
       source: "office_members",
     });
-    if (accepted) {
-      cacheSet(cache, userId, accepted, nowFn());
-      return accepted;
+    if (taken.status === "uuid") {
+      cacheSet(cache, userId, taken.officeId, nowFn());
+      return taken.officeId;
     }
   }
 
@@ -268,14 +303,14 @@ export async function resolveTenantId(
     SELECT office_id FROM users WHERE id = ${userId} LIMIT 1
   `);
   const userOffice = firstVal(userRows, "office_id");
-  if (userOffice) {
-    const accepted = acceptNormalUserTenantId(userOffice, {
+  if (userOffice != null) {
+    const taken = takeCanonicalTenantOrContinue(userOffice, {
       userId,
       source: "users.office_id",
     });
-    if (accepted) {
-      cacheSet(cache, userId, accepted, nowFn());
-      return accepted;
+    if (taken.status === "uuid") {
+      cacheSet(cache, userId, taken.officeId, nowFn());
+      return taken.officeId;
     }
   }
 
@@ -286,15 +321,15 @@ export async function resolveTenantId(
     LIMIT 1
   `);
   const regOffice = firstVal(regRows, "id");
-  if (regOffice) {
-    const accepted = acceptNormalUserTenantId(regOffice, {
+  if (regOffice != null) {
+    const taken = takeCanonicalTenantOrContinue(regOffice, {
       userId,
       source: "office_registry",
     });
-    if (accepted) {
-      await awaitLinkMembership(client, userId, accepted);
-      cacheSet(cache, userId, accepted, nowFn());
-      return accepted;
+    if (taken.status === "uuid") {
+      await awaitLinkMembership(client, userId, taken.officeId);
+      cacheSet(cache, userId, taken.officeId, nowFn());
+      return taken.officeId;
     }
   }
 
@@ -305,15 +340,15 @@ export async function resolveTenantId(
     LIMIT 1
   `);
   const trialOffice = firstVal(trialRows, "office_id");
-  if (trialOffice) {
-    const accepted = acceptNormalUserTenantId(trialOffice, {
+  if (trialOffice != null) {
+    const taken = takeCanonicalTenantOrContinue(trialOffice, {
       userId,
       source: "trial_offices",
     });
-    if (accepted) {
-      await awaitLinkMembership(client, userId, accepted);
-      cacheSet(cache, userId, accepted, nowFn());
-      return accepted;
+    if (taken.status === "uuid") {
+      await awaitLinkMembership(client, userId, taken.officeId);
+      cacheSet(cache, userId, taken.officeId, nowFn());
+      return taken.officeId;
     }
   }
 

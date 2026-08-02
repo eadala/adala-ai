@@ -1,6 +1,6 @@
 /**
  * Pure tenant-id classification + structured resolution errors.
- * Used by tenantMiddleware / TIRE so Stage 15.2b rules stay testable.
+ * Stage 15.2b final: normal users resolve only to canonical Office UUIDs.
  */
 import { isTrialTenantId, isUuid } from "./officePageResolverLogic";
 
@@ -38,13 +38,31 @@ export function isCacheableTenantId(value: string): boolean {
   return classifyTenantId(value) === "uuid";
 }
 
+function legacyMigrationError(
+  officeId: string,
+  meta: { userId: string; source: string },
+  extra: Record<string, unknown> = {},
+): TenantResolutionError {
+  return new TenantResolutionError(
+    LEGACY_NON_UUID_TENANT,
+    `Non-UUID tenant ${officeId} requires migration (Stage 15.2c)`,
+    {
+      userId: meta.userId,
+      source: meta.source,
+      legacyOfficeId: officeId,
+      needsMigration: true,
+      migrationStage: "15.2c",
+      action: "remap_to_uuid_office_page",
+      ...extra,
+    },
+  );
+}
+
 /**
  * Accept a resolved office id for a normal user.
  * - UUID → return
- * - default / empty → treat as missing (null)
- * - trial_* → fail closed with migration payload (no second office)
- * - platform → never for normal users
- * - other text → return but caller must not cache
+ * - empty → null (no value; continue resolution / HEAL)
+ * - default / trial_* / platform / arbitrary text → fail closed (never returned)
  */
 export function acceptNormalUserTenantId(
   officeId: string | null | undefined,
@@ -55,7 +73,6 @@ export function acceptNormalUserTenantId(
     case "uuid":
       return String(officeId);
     case "empty":
-    case "default":
       return null;
     case "platform":
       throw new TenantResolutionError(
@@ -63,22 +80,62 @@ export function acceptNormalUserTenantId(
         "Normal users must never resolve to the synthetic platform tenant",
         { userId: meta.userId, source: meta.source, officeId: "platform" },
       );
+    case "default":
     case "legacy_trial":
-      throw new TenantResolutionError(
-        LEGACY_NON_UUID_TENANT,
-        `Legacy non-UUID tenant ${String(officeId)} requires migration (Stage 15.2c)`,
-        {
-          userId: meta.userId,
-          source: meta.source,
-          legacyOfficeId: String(officeId),
-          needsMigration: true,
-          migrationStage: "15.2c",
-          action: "remap_trial_to_uuid_office_page",
-        },
-      );
     case "other":
-      return String(officeId);
+      throw legacyMigrationError(String(officeId), meta);
     default:
       return null;
   }
+}
+
+/**
+ * Lookup helper for resolution steps: UUID wins; empty continues to later
+ * steps / HEAL; any non-UUID value (default, trial_*, platform, text) fails closed.
+ */
+export function takeCanonicalTenantOrContinue(
+  officeId: string | null | undefined,
+  meta: { userId: string; source: string },
+): { status: "uuid"; officeId: string } | { status: "continue" } {
+  const kind = classifyTenantId(officeId);
+  if (kind === "uuid") return { status: "uuid", officeId: String(officeId) };
+  if (kind === "empty") return { status: "continue" };
+  /* default / trial_* / platform / arbitrary text — fail closed, never returned */
+  acceptNormalUserTenantId(officeId, meta);
+  return { status: "continue" };
+}
+
+/**
+ * Gate for ordinary business-data writes (and SA office targeting).
+ * Only a canonical Office UUID is allowed as office_id.
+ * "platform" / "default" / trial_* / arbitrary text are never business office ids.
+ */
+export function assertCanonicalBusinessOfficeId(
+  officeId: string | null | undefined,
+  meta: { userId: string; source: string },
+): string {
+  const kind = classifyTenantId(officeId);
+  if (kind === "uuid") return String(officeId);
+  if (kind === "platform") {
+    throw new TenantResolutionError(
+      PLATFORM_FORBIDDEN_FOR_USER,
+      "Synthetic platform context cannot own or write business office data",
+      { userId: meta.userId, source: meta.source, officeId: "platform" },
+    );
+  }
+  if (kind === "empty") {
+    throw new TenantResolutionError(
+      LEGACY_NON_UUID_TENANT,
+      "Business writes require a canonical Office UUID",
+      {
+        userId: meta.userId,
+        source: meta.source,
+        legacyOfficeId: null,
+        needsMigration: true,
+        migrationStage: "15.2c",
+        action: "remap_to_uuid_office_page",
+      },
+    );
+  }
+  throw legacyMigrationError(String(officeId), meta, { blocksBusinessWrites: true });
 }

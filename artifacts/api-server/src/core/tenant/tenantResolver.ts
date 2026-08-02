@@ -21,7 +21,7 @@ import {
   PLATFORM_FORBIDDEN_FOR_USER,
   TENANT_PROVISION_FAILED,
   TenantResolutionError,
-  acceptNormalUserTenantId,
+  takeCanonicalTenantOrContinue,
 } from "../../lib/tenantResolution";
 import { isUuid } from "../../lib/officePageResolverLogic";
 
@@ -81,23 +81,22 @@ export async function resolveTenantWithTrace(
      here we still reject legacy trial_* for normal resolution consistency. */
   if (headerTenantId) {
     steps.push("HEADER_TENANT_ID");
-    const accepted = acceptNormalUserTenantId(headerTenantId, {
+    const taken = takeCanonicalTenantOrContinue(headerTenantId, {
       userId,
       source: "header",
     });
-    if (!accepted) {
-      steps.push("HEADER_EMPTY_OR_DEFAULT");
-    } else {
+    if (taken.status === "uuid") {
       const t: TenantResolutionTrace = {
-        tenantId: accepted,
+        tenantId: taken.officeId,
         role: "api_key",
         source: "header",
         steps,
         resolvedAt: now,
       };
-      import("./tenantVersioning").then(m => m.bindTenant(userId, accepted, "header")).catch(() => {});
+      import("./tenantVersioning").then(m => m.bindTenant(userId, taken.officeId, "header")).catch(() => {});
       return t;
     }
+    steps.push("HEADER_EMPTY");
   }
 
   /* 1. office_members — primary source */
@@ -107,21 +106,21 @@ export async function resolveTenantWithTrace(
     WHERE user_id = ${userId} AND status = 'active'
     ORDER BY created_at ASC LIMIT 1
   `);
-  if (member?.office_id) {
-    const accepted = acceptNormalUserTenantId(String(member.office_id), {
+  if (member?.office_id != null) {
+    const taken = takeCanonicalTenantOrContinue(String(member.office_id), {
       userId,
       source: "office_members",
     });
-    if (accepted) {
+    if (taken.status === "uuid") {
       steps.push("FOUND_office_members");
       const t: TenantResolutionTrace = {
-        tenantId: accepted,
+        tenantId: taken.officeId,
         role: member.role ?? "member",
         source: "office_members",
         steps,
         resolvedAt: now,
       };
-      import("./tenantVersioning").then(m => m.bindTenant(userId, accepted, "office_members")).catch(() => {});
+      import("./tenantVersioning").then(m => m.bindTenant(userId, taken.officeId, "office_members")).catch(() => {});
       return t;
     }
   }
@@ -134,22 +133,22 @@ export async function resolveTenantWithTrace(
     WHERE clerk_user_id = ${userId} AND status = 'active'
     LIMIT 1
   `);
-  if (registry?.id) {
-    const accepted = acceptNormalUserTenantId(String(registry.id), {
+  if (registry?.id != null) {
+    const taken = takeCanonicalTenantOrContinue(String(registry.id), {
       userId,
       source: "office_registry",
     });
-    if (accepted) {
+    if (taken.status === "uuid") {
       steps.push("FOUND_office_registry → AUTO_LINK");
-      await autoLink(userId, accepted);
+      await autoLink(userId, taken.officeId);
       const t: TenantResolutionTrace = {
-        tenantId: accepted,
+        tenantId: taken.officeId,
         role: "owner",
         source: "office_registry",
         steps,
         resolvedAt: now,
       };
-      import("./tenantVersioning").then(m => m.bindTenant(userId, accepted, "office_registry")).catch(() => {});
+      import("./tenantVersioning").then(m => m.bindTenant(userId, taken.officeId, "office_registry")).catch(() => {});
       return t;
     }
   }
@@ -162,22 +161,22 @@ export async function resolveTenantWithTrace(
     WHERE user_id = ${userId}
     LIMIT 1
   `);
-  if (trial?.office_id) {
-    const accepted = acceptNormalUserTenantId(String(trial.office_id), {
+  if (trial?.office_id != null) {
+    const taken = takeCanonicalTenantOrContinue(String(trial.office_id), {
       userId,
       source: "trial_offices",
     });
-    if (accepted) {
+    if (taken.status === "uuid") {
       steps.push("FOUND_trial_offices → AUTO_LINK");
-      await autoLink(userId, accepted);
+      await autoLink(userId, taken.officeId);
       const t: TenantResolutionTrace = {
-        tenantId: accepted,
+        tenantId: taken.officeId,
         role: "owner",
         source: "trial_offices",
         steps,
         resolvedAt: now,
       };
-      import("./tenantVersioning").then(m => m.bindTenant(userId, accepted, "trial_offices")).catch(() => {});
+      import("./tenantVersioning").then(m => m.bindTenant(userId, taken.officeId, "trial_offices")).catch(() => {});
       return t;
     }
   }

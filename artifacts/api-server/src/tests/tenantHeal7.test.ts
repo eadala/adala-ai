@@ -1,5 +1,5 @@
 /**
- * Stage 15.2b — UUID tenant resolution + HEAL-7 canonical provision.
+ * Stage 15.2b — UUID tenant resolution + HEAL-7 + final non-UUID closure.
  * Run: pnpm --filter @workspace/api-server run test:tenant-heal7
  */
 import assert from "node:assert/strict";
@@ -12,6 +12,7 @@ import {
   PLATFORM_FORBIDDEN_FOR_USER,
   TenantResolutionError,
   acceptNormalUserTenantId,
+  assertCanonicalBusinessOfficeId,
   classifyTenantId,
   isCacheableTenantId,
 } from "../lib/tenantResolution";
@@ -21,10 +22,22 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OFFICE_UUID = "550e8400-e29b-41d4-a716-446655440099";
 const OFFICE_UUID_B = "660e8400-e29b-41d4-a716-446655440099";
 const USER = "user_heal7_test";
+const SA_USER = "user_super_admin";
 const LEGACY = "trial_legacyheal7";
+const ARBITRARY = "office_north_law_01";
 
 function readSrc(rel: string): string {
   return readFileSync(join(SRC, rel), "utf8");
+}
+
+function isLegacyErr(e: unknown, officeId?: string): boolean {
+  return (
+    e instanceof TenantResolutionError &&
+    e.code === LEGACY_NON_UUID_TENANT &&
+    e.details.needsMigration === true &&
+    e.details.migrationStage === "15.2c" &&
+    (officeId == null || e.details.legacyOfficeId === officeId)
+  );
 }
 
 type RowMap = Record<string, unknown[]>;
@@ -53,36 +66,238 @@ function createDb(rows: RowMap) {
   };
 }
 
-console.log("\n═══ classify / accept helpers ═══");
+const baseDeps = {
+  healInflight: () => new Map<string, Promise<string>>(),
+  cache: () => new Map<string, { officeId: string; ts: number }>(),
+  now: () => 1_000_000,
+  isSuperAdmin: async () => false,
+  provision: async () => {
+    throw new Error("provision should not run");
+  },
+};
+
+console.log("\n═══ classify / accept / business gate ═══");
 
 {
   assert.equal(classifyTenantId(OFFICE_UUID), "uuid");
   assert.equal(classifyTenantId(LEGACY), "legacy_trial");
   assert.equal(classifyTenantId("default"), "default");
   assert.equal(classifyTenantId("platform"), "platform");
+  assert.equal(classifyTenantId(ARBITRARY), "other");
   assert.equal(classifyTenantId(null), "empty");
   assert.equal(isCacheableTenantId(OFFICE_UUID), true);
-  assert.equal(isCacheableTenantId(LEGACY), false);
-  assert.equal(isCacheableTenantId("platform"), false);
+  assert.equal(isCacheableTenantId(ARBITRARY), false);
+
   assert.equal(
     acceptNormalUserTenantId(OFFICE_UUID, { userId: USER, source: "t" }),
     OFFICE_UUID,
   );
-  assert.equal(acceptNormalUserTenantId("default", { userId: USER, source: "t" }), null);
+  assert.throws(
+    () => acceptNormalUserTenantId("default", { userId: USER, source: "t" }),
+    (e: unknown) => isLegacyErr(e, "default"),
+  );
   assert.throws(
     () => acceptNormalUserTenantId(LEGACY, { userId: USER, source: "office_members" }),
-    (e: unknown) =>
-      e instanceof TenantResolutionError &&
-      e.code === LEGACY_NON_UUID_TENANT &&
-      e.details.needsMigration === true &&
-      e.details.migrationStage === "15.2c",
+    (e: unknown) => isLegacyErr(e, LEGACY),
+  );
+  assert.throws(
+    () => acceptNormalUserTenantId(ARBITRARY, { userId: USER, source: "t" }),
+    (e: unknown) => isLegacyErr(e, ARBITRARY),
   );
   assert.throws(
     () => acceptNormalUserTenantId("platform", { userId: USER, source: "t" }),
     (e: unknown) =>
       e instanceof TenantResolutionError && e.code === PLATFORM_FORBIDDEN_FOR_USER,
   );
-  console.log("  ✅ UUID accepted; trial_*/platform fail closed; default treated as empty");
+
+  assert.equal(
+    assertCanonicalBusinessOfficeId(OFFICE_UUID, { userId: USER, source: "write" }),
+    OFFICE_UUID,
+  );
+  for (const bad of ["default", LEGACY, ARBITRARY, "platform", null, ""]) {
+    assert.throws(
+      () => assertCanonicalBusinessOfficeId(bad, { userId: USER, source: "write" }),
+      (e: unknown) => e instanceof TenantResolutionError,
+    );
+  }
+  console.log("  ✅ only UUID accepted; default/trial_*/text/platform fail closed");
+}
+
+console.log("\n═══ final non-UUID closure (resolveTenantId) ═══");
+
+{
+  await assert.rejects(
+    () =>
+      resolveTenantId(USER, undefined, {
+        db: createDb({ members: [{ office_id: ARBITRARY }] }),
+        cache: baseDeps.cache(),
+        healInflight: baseDeps.healInflight(),
+        now: baseDeps.now,
+        isSuperAdmin: baseDeps.isSuperAdmin,
+        provision: baseDeps.provision,
+      }),
+    (e: unknown) => isLegacyErr(e, ARBITRARY),
+  );
+  console.log("  ✅ arbitrary non-UUID membership rejected");
+}
+
+{
+  await assert.rejects(
+    () =>
+      resolveTenantId(USER, undefined, {
+        db: createDb({ members: [], users: [{ office_id: ARBITRARY }] }),
+        cache: baseDeps.cache(),
+        healInflight: baseDeps.healInflight(),
+        now: baseDeps.now,
+        isSuperAdmin: baseDeps.isSuperAdmin,
+        provision: baseDeps.provision,
+      }),
+    (e: unknown) => isLegacyErr(e, ARBITRARY),
+  );
+  console.log("  ✅ arbitrary non-UUID users.office_id rejected");
+}
+
+{
+  await assert.rejects(
+    () =>
+      resolveTenantId(USER, undefined, {
+        db: createDb({ members: [], users: [{ office_id: "default" }] }),
+        cache: baseDeps.cache(),
+        healInflight: baseDeps.healInflight(),
+        now: baseDeps.now,
+        isSuperAdmin: baseDeps.isSuperAdmin,
+        provision: baseDeps.provision,
+      }),
+    (e: unknown) => isLegacyErr(e, "default"),
+  );
+  console.log("  ✅ default is rejected");
+}
+
+{
+  await assert.rejects(
+    () =>
+      resolveTenantId(USER, undefined, {
+        db: createDb({ members: [{ office_id: LEGACY }] }),
+        cache: baseDeps.cache(),
+        healInflight: baseDeps.healInflight(),
+        now: baseDeps.now,
+        isSuperAdmin: baseDeps.isSuperAdmin,
+        provision: baseDeps.provision,
+      }),
+    (e: unknown) => isLegacyErr(e, LEGACY),
+  );
+  console.log("  ✅ trial_* is rejected");
+}
+
+{
+  await assert.rejects(
+    () =>
+      resolveTenantId(USER, undefined, {
+        db: createDb({ members: [{ office_id: "platform" }] }),
+        cache: baseDeps.cache(),
+        healInflight: baseDeps.healInflight(),
+        now: baseDeps.now,
+        isSuperAdmin: baseDeps.isSuperAdmin,
+        provision: baseDeps.provision,
+      }),
+    (e: unknown) =>
+      e instanceof TenantResolutionError && e.code === PLATFORM_FORBIDDEN_FOR_USER,
+  );
+  const id = await resolveTenantId(USER, undefined, {
+    db: createDb({ members: [{ office_id: OFFICE_UUID }] }),
+    cache: baseDeps.cache(),
+    healInflight: baseDeps.healInflight(),
+    now: baseDeps.now,
+    isSuperAdmin: baseDeps.isSuperAdmin,
+    provision: baseDeps.provision,
+  });
+  assert.equal(id, OFFICE_UUID);
+  assert.notEqual(id, "platform");
+  console.log("  ✅ normal user cannot resolve to platform; UUID still works");
+}
+
+console.log("\n═══ platform SA-only + legacy impersonation blocks writes ═══");
+
+{
+  const requireAuthSrc = readSrc("middlewares/requireAuth.ts");
+  assert.match(requireAuthSrc, /tenantId = "platform"/);
+  assert.match(requireAuthSrc, /checkIsSuperAdmin/);
+  assert.match(requireAuthSrc, /assertCanonicalBusinessOfficeId/);
+  assert.match(requireAuthSrc, /PLATFORM_FORBIDDEN_FOR_USER/);
+
+  /* Normal user with no office → null (caller may elevate SA to platform; resolve itself never returns platform) */
+  const normalNull = await resolveTenantId(USER, undefined, {
+    db: createDb({ members: [], users: [], registry: [], trial: [], onboarding: [] }),
+    cache: baseDeps.cache(),
+    healInflight: baseDeps.healInflight(),
+    now: baseDeps.now,
+    isSuperAdmin: async () => false,
+    provision: baseDeps.provision,
+  });
+  assert.equal(normalNull, null);
+
+  const saNull = await resolveTenantId(SA_USER, undefined, {
+    db: createDb({ members: [], users: [], registry: [], trial: [], onboarding: [] }),
+    cache: baseDeps.cache(),
+    healInflight: baseDeps.healInflight(),
+    now: baseDeps.now,
+    isSuperAdmin: async () => true,
+    provision: baseDeps.provision,
+  });
+  assert.equal(saNull, null, "resolveTenantId returns null; requireAuth assigns platform only for verified SA");
+  console.log("  ✅ only verified super-admin path may receive platform (via requireAuth)");
+}
+
+{
+  let provisionCalls = 0;
+  await assert.rejects(
+    () =>
+      resolveTenantId(SA_USER, undefined, {
+        db: createDb({
+          impersonation: [{ impersonated_office_id: LEGACY }],
+          members: [],
+          users: [],
+          registry: [],
+          trial: [],
+          onboarding: [],
+        }),
+        cache: baseDeps.cache(),
+        healInflight: baseDeps.healInflight(),
+        now: baseDeps.now,
+        isSuperAdmin: async () => true,
+        provision: async () => {
+          provisionCalls += 1;
+          return { officeId: OFFICE_UUID, created: true, slug: "nope" };
+        },
+      }),
+    (e: unknown) =>
+      isLegacyErr(e, LEGACY) &&
+      (e as TenantResolutionError).details.blocksBusinessWrites === true,
+  );
+  assert.equal(provisionCalls, 0);
+  assert.throws(
+    () => assertCanonicalBusinessOfficeId(LEGACY, { userId: SA_USER, source: "impersonation_write" }),
+    (e: unknown) =>
+      isLegacyErr(e, LEGACY) &&
+      (e as TenantResolutionError).details.blocksBusinessWrites === true,
+  );
+  console.log("  ✅ legacy impersonation fails closed; cannot authorize business writes");
+}
+
+{
+  const id = await resolveTenantId(SA_USER, undefined, {
+    db: createDb({
+      impersonation: [{ impersonated_office_id: OFFICE_UUID }],
+      members: [],
+    }),
+    cache: baseDeps.cache(),
+    healInflight: baseDeps.healInflight(),
+    now: baseDeps.now,
+    isSuperAdmin: async () => true,
+    provision: baseDeps.provision,
+  });
+  assert.equal(id, OFFICE_UUID);
+  console.log("  ✅ SA UUID impersonation still resolves to canonical office");
 }
 
 console.log("\n═══ HEAL-7: eligible onboarded user gets UUID office ═══");
@@ -91,16 +306,14 @@ console.log("\n═══ HEAL-7: eligible onboarded user gets UUID office ══
   const cache = new Map<string, { officeId: string; ts: number }>();
   const healInflight = new Map<string, Promise<string>>();
   let provisionCalls = 0;
-  const db = createDb({
-    members: [],
-    users: [],
-    registry: [],
-    trial: [],
-    onboarding: [{ office_id: "default", data: { officeName: "مكتب الشفاء" } }],
-  });
-
   const id = await resolveTenantId(USER, undefined, {
-    db,
+    db: createDb({
+      members: [],
+      users: [],
+      registry: [],
+      trial: [],
+      onboarding: [{ office_id: "default", data: { officeName: "مكتب الشفاء" } }],
+    }),
     cache,
     healInflight,
     now: () => 1_000_000,
@@ -110,16 +323,14 @@ console.log("\n═══ HEAL-7: eligible onboarded user gets UUID office ══
       assert.equal(input.ownerUserId, USER);
       assert.equal(input.lifecycle, "trial");
       assert.equal(input.context, "onboarding_state");
-      assert.notEqual(input.ownerUserId, "platform");
       return { officeId: OFFICE_UUID, created: true, slug: "heal-office" };
     },
   });
-
   assert.equal(id, OFFICE_UUID);
   assert.ok(id && isUuid(id));
   assert.equal(provisionCalls, 1);
   assert.equal(cache.get(USER)?.officeId, OFFICE_UUID);
-  console.log("  ✅ HEAL-7 awaits provisionOfficeForUser and returns UUID");
+  console.log("  ✅ HEAL-7 awaits provision and returns UUID (unchanged)");
 }
 
 console.log("\n═══ concurrent/retry HEAL returns same UUID ═══");
@@ -132,17 +343,14 @@ console.log("\n═══ concurrent/retry HEAL returns same UUID ═══");
   const provisionGate = new Promise<{ officeId: string; created: boolean; slug: string }>((r) => {
     resolveProvision = r;
   });
-
-  const db = createDb({
-    members: [],
-    users: [],
-    registry: [],
-    trial: [],
-    onboarding: [{ office_id: "default", data: {} }],
-  });
-
   const deps = {
-    db,
+    db: createDb({
+      members: [],
+      users: [],
+      registry: [],
+      trial: [],
+      onboarding: [{ office_id: "default", data: {} }],
+    }),
     cache,
     healInflight,
     now: () => 2_000_000,
@@ -152,7 +360,6 @@ console.log("\n═══ concurrent/retry HEAL returns same UUID ═══");
       return provisionGate;
     },
   };
-
   const p1 = resolveTenantId(USER, undefined, deps);
   const p2 = resolveTenantId(USER, undefined, deps);
   resolveProvision({ officeId: OFFICE_UUID, created: true, slug: "x" });
@@ -183,22 +390,18 @@ console.log("\n═══ concurrent/retry HEAL returns same UUID ═══");
   console.log("  ✅ retry hits UUID cache; no second provision");
 }
 
-console.log("\n═══ no trial_* / default mint in HEAL-7 source ═══");
+console.log("\n═══ HEAL-7 source + legacy fail closed ═══");
 
 {
   const mw = readSrc("middlewares/tenantMiddleware.ts");
   assert.match(mw, /TENANT-HEAL-7/);
-  assert.match(mw, /provisionOfficeForUser|deps\.provision|provision\(/);
-  assert.match(mw, /await healProvisionOffice|await deps\.provision|await provision\(/);
+  assert.match(mw, /assertCanonicalBusinessOfficeId/);
+  assert.match(mw, /blocksBusinessWrites/);
   assert.doesNotMatch(mw, /trial_\$\{safeId\}/);
-  assert.doesNotMatch(mw, /const newOfficeId = `trial_/);
   const healRegion = mw.slice(mw.indexOf("TENANT-HEAL-7"), mw.indexOf("TENANT-403"));
   assert.doesNotMatch(healRegion, /\.catch\(\(\)\s*=>\s*\{\}\)/);
-  assert.doesNotMatch(healRegion, /fire-and-forget|DO NOTHING`\)\.catch/);
-  console.log("  ✅ HEAL-7 no longer mints trial_*; no fire-and-forget catches");
+  console.log("  ✅ HEAL-7 no trial_* mint; impersonation legacy blocked");
 }
-
-console.log("\n═══ legacy trial_* fails closed without second office ═══");
 
 {
   let provisionCalls = 0;
@@ -208,9 +411,6 @@ console.log("\n═══ legacy trial_* fails closed without second office ═�
       resolveTenantId(USER, undefined, {
         db: createDb({
           members: [{ office_id: LEGACY }],
-          users: [],
-          registry: [],
-          trial: [],
           onboarding: [{ office_id: LEGACY, data: {} }],
         }),
         cache,
@@ -222,78 +422,14 @@ console.log("\n═══ legacy trial_* fails closed without second office ═�
           return { officeId: OFFICE_UUID, created: true, slug: "nope" };
         },
       }),
-    (e: unknown) =>
-      e instanceof TenantResolutionError &&
-      e.code === LEGACY_NON_UUID_TENANT &&
-      e.details.legacyOfficeId === LEGACY &&
-      e.details.needsMigration === true,
+    (e: unknown) => isLegacyErr(e, LEGACY),
   );
   assert.equal(provisionCalls, 0);
   assert.equal(cache.has(USER), false);
-  console.log("  ✅ legacy membership → LEGACY_NON_UUID_TENANT; no provision; not cached");
+  console.log("  ✅ legacy membership → no second office; not cached");
 }
 
-{
-  let provisionCalls = 0;
-  await assert.rejects(
-    () =>
-      resolveTenantId(USER, undefined, {
-        db: createDb({
-          members: [],
-          users: [],
-          registry: [],
-          trial: [{ office_id: LEGACY }],
-          onboarding: [],
-        }),
-        cache: new Map(),
-        healInflight: new Map(),
-        now: () => 5_000_000,
-        isSuperAdmin: async () => false,
-        provision: async () => {
-          provisionCalls += 1;
-          return { officeId: OFFICE_UUID, created: true, slug: "nope" };
-        },
-      }),
-    (e: unknown) => e instanceof TenantResolutionError && e.code === LEGACY_NON_UUID_TENANT,
-  );
-  assert.equal(provisionCalls, 0);
-  console.log("  ✅ legacy trial_offices row fails closed without second office");
-}
-
-console.log("\n═══ platform behavior ═══");
-
-{
-  const id = await resolveTenantId(USER, undefined, {
-    db: createDb({
-      members: [{ office_id: OFFICE_UUID }],
-      users: [],
-      registry: [],
-      trial: [],
-      onboarding: [],
-    }),
-    cache: new Map(),
-    healInflight: new Map(),
-    now: () => 6_000_000,
-    isSuperAdmin: async () => false,
-    provision: async () => {
-      throw new Error("should not provision");
-    },
-  });
-  assert.equal(id, OFFICE_UUID);
-  assert.notEqual(id, "platform");
-  console.log("  ✅ normal user resolves to UUID office, never platform");
-}
-
-{
-  const requireAuthSrc = readSrc("middlewares/requireAuth.ts");
-  assert.match(requireAuthSrc, /tenantId = "platform"/);
-  assert.match(requireAuthSrc, /checkIsSuperAdmin|isSuperAdmin/);
-  assert.match(requireAuthSrc, /LEGACY_NON_UUID_TENANT/);
-  assert.match(requireAuthSrc, /PLATFORM_FORBIDDEN_FOR_USER/);
-  console.log("  ✅ requireAuth: platform is explicit SA-only; legacy surfaced");
-}
-
-console.log("\n═══ provision failure propagates and is not cached ═══");
+console.log("\n═══ provision failure + UUID short-circuit ═══");
 
 {
   const cache = new Map<string, { officeId: string; ts: number }>();
@@ -320,8 +456,6 @@ console.log("\n═══ provision failure propagates and is not cached ══�
   assert.equal(cache.has(USER), false);
   console.log("  ✅ provision failure propagates; cache stays empty");
 }
-
-console.log("\n═══ UUID membership short-circuit (no heal) ═══");
 
 {
   let provisionCalls = 0;

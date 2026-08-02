@@ -207,7 +207,32 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
       });
     }
     (req as any).isSuperAdmin = true;
+    (req as any).tenantId = "platform";
+    return runWithTenant({ userId, officeId: "platform" }, () => next());
   }
+
+  /* Business context: only canonical Office UUID may be used as office_id */
+  try {
+    const { assertCanonicalBusinessOfficeId } = await import("../lib/tenantResolution");
+    tenantId = assertCanonicalBusinessOfficeId(tenantId, {
+      userId,
+      source: "requireAuthWithTenant",
+    });
+  } catch (err: unknown) {
+    const { TenantResolutionError, LEGACY_NON_UUID_TENANT } = await import("../lib/tenantResolution");
+    if (err instanceof TenantResolutionError && err.code === LEGACY_NON_UUID_TENANT) {
+      return res.status(409).json({
+        error: "حسابك يستخدم معرّف مكتب قديم ويتطلب ترحيل البيانات",
+        code: err.code,
+        ...err.details,
+      });
+    }
+    if (err instanceof TenantResolutionError) {
+      return res.status(403).json({ error: err.message, code: err.code, ...err.details });
+    }
+    throw err;
+  }
+
   const officeId = tenantId;
   (req as any).tenantId = officeId;
 
