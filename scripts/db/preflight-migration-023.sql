@@ -204,17 +204,47 @@ ORDER BY owner_user_id;
 
 \echo '═══ 023 PREFLIGHT: row counts that would be remapped (exact trial_* match) ═══'
 
+-- Core identity + always-present business tables
 SELECT 'cases' AS table_name, COUNT(*)::int AS trial_rows FROM cases WHERE office_id LIKE 'trial_%'
 UNION ALL SELECT 'clients', COUNT(*)::int FROM clients WHERE office_id LIKE 'trial_%'
 UNION ALL SELECT 'tasks', COUNT(*)::int FROM tasks WHERE office_id LIKE 'trial_%'
-UNION ALL SELECT 'documents', COUNT(*)::int FROM documents WHERE office_id LIKE 'trial_%'
-UNION ALL SELECT 'employees', COUNT(*)::int FROM employees WHERE office_id LIKE 'trial_%'
-UNION ALL SELECT 'storage_files', COUNT(*)::int FROM storage_files WHERE office_id LIKE 'trial_%'
 UNION ALL SELECT 'office_members', COUNT(*)::int FROM office_members WHERE office_id LIKE 'trial_%'
 UNION ALL SELECT 'trial_offices', COUNT(*)::int FROM trial_offices WHERE office_id LIKE 'trial_%'
 UNION ALL SELECT 'onboarding_state', COUNT(*)::int FROM onboarding_state WHERE office_id LIKE 'trial_%'
 UNION ALL SELECT 'users', COUNT(*)::int FROM users WHERE office_id LIKE 'trial_%'
 ORDER BY table_name;
+
+-- Optional tables (NOTICE only if present with office_id — never aborts when absent)
+DO $$
+DECLARE
+  t text;
+  n bigint;
+  has_col boolean;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'documents', 'employees', 'storage_files', 'storage_folders',
+    'contracts', 'client_invoices', 'office_branches', 'office_messages'
+  ]
+  LOOP
+    IF to_regclass('public.' || t) IS NULL THEN
+      RAISE NOTICE '023_preflight: table % absent — skip remap count', t;
+      CONTINUE;
+    END IF;
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = t AND column_name = 'office_id'
+    ) INTO has_col;
+    IF NOT has_col THEN
+      RAISE NOTICE '023_preflight: table % has no office_id — skip remap count', t;
+      CONTINUE;
+    END IF;
+    EXECUTE format(
+      'SELECT COUNT(*) FROM %I WHERE office_id::text LIKE %L',
+      t, 'trial_%'
+    ) INTO n;
+    RAISE NOTICE '023_preflight: remap_count table=% trial_rows=%', t, n;
+  END LOOP;
+END $$;
 
 \echo '═══ 023 PREFLIGHT: default office_id inventory (NOT auto-mapped) ═══'
 
@@ -224,6 +254,16 @@ UNION ALL SELECT 'tasks', COUNT(*)::int FROM tasks WHERE office_id = 'default'
 UNION ALL SELECT 'onboarding_state', COUNT(*)::int FROM onboarding_state WHERE office_id = 'default'
 UNION ALL SELECT 'system_events', COUNT(*)::int FROM system_events WHERE office_id = 'default'
 UNION ALL SELECT 'office_members', COUNT(*)::int FROM office_members WHERE office_id = 'default'
+UNION ALL SELECT 'users', COUNT(*)::int FROM users WHERE office_id = 'default'
+UNION ALL SELECT 'trial_offices', COUNT(*)::int FROM trial_offices WHERE office_id = 'default'
 ORDER BY table_name;
+
+\echo '═══ 023 PREFLIGHT: identity rows with office_id=default (summary) ═══'
+
+SELECT
+  (SELECT COUNT(*)::int FROM users WHERE office_id = 'default') AS users_default,
+  (SELECT COUNT(*)::int FROM office_members WHERE office_id = 'default') AS office_members_default,
+  (SELECT COUNT(*)::int FROM onboarding_state WHERE office_id = 'default') AS onboarding_state_default,
+  (SELECT COUNT(*)::int FROM trial_offices WHERE office_id = 'default') AS trial_offices_default;
 
 \echo '═══ 023 PREFLIGHT: complete ═══'
