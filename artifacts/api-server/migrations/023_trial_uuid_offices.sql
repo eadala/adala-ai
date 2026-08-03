@@ -441,11 +441,17 @@ BEGIN
       AND om.office_id IS DISTINCT FROM r.new_office_uuid::text
       AND om.office_id IN (SELECT old_office_id FROM legacy_trial_office_map WHERE owner_user_id = r.owner_user_id);
 
+    -- Remap ALL users.office_id rows pointing at this mapped legacy trial id
+    -- (owner + invited members / stale rows). Exact old-id only — fail-closed.
+    UPDATE users
+    SET office_id = r.new_office_uuid::text
+    WHERE office_id = r.old_office_id;
+
+    -- Trusted owner only: also heal NULL / default (not automatic for others)
     UPDATE users
     SET office_id = r.new_office_uuid::text
     WHERE id = r.owner_user_id
-      AND (office_id IS NULL OR office_id = 'default' OR office_id = r.old_office_id
-           OR office_id IN (SELECT old_office_id FROM legacy_trial_office_map WHERE owner_user_id = r.owner_user_id));
+      AND (office_id IS NULL OR office_id = 'default');
 
     UPDATE trial_offices
     SET office_id = r.new_office_uuid::text

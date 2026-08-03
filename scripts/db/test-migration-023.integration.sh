@@ -407,7 +407,60 @@ SQL
   teardown_db
 }
 
-# ── 13) Preflight read-only + required classifications ─────────────────────
+# ── 13) Owner + invited member share same legacy trial_* office ────────────
+scenario_owner_and_invited_member_users_office_id() {
+  log "scenario: owner + invited member both have users.office_id = same trial_*"
+  setup_db ownermemusers
+  trap teardown_db EXIT
+  apply_base
+  seed_user "user_own" "own@test.local"
+  seed_user "user_inv" "inv@test.local"
+  psql_db <<'SQL' >/dev/null
+INSERT INTO trial_offices (user_id, office_id, office_name)
+VALUES ('user_own', 'trial_shared_om', 'مكتب مشترك');
+INSERT INTO office_members (office_id, user_id, role, status) VALUES
+  ('trial_shared_om', 'user_own', 'owner', 'active'),
+  ('trial_shared_om', 'user_inv', 'lawyer', 'active');
+UPDATE users SET office_id = 'trial_shared_om' WHERE id IN ('user_own', 'user_inv');
+INSERT INTO onboarding_state (user_id, office_id, completed, step) VALUES
+  ('user_own', 'trial_shared_om', true, 10),
+  ('user_inv', 'trial_shared_om', true, 10);
+INSERT INTO cases (id, title, office_id) VALUES ('case_shared_om', 'قضية مشتركة', 'trial_shared_om');
+SQL
+  if ! psql_db -f "$MIG023" >/tmp/mig023_ownermemusers.log 2>&1; then
+    bad "owner+member shared trial must succeed"
+    cat /tmp/mig023_ownermemusers.log >&2
+    trap - EXIT
+    teardown_db
+    return
+  fi
+  local new_id
+  new_id=$(psql_db -At -c "SELECT new_office_uuid::text FROM legacy_trial_office_map WHERE old_office_id='trial_shared_om'")
+  [[ "$new_id" =~ ^[0-9a-f-]{36}$ ]] && ok "shared trial mapped to UUID" || bad "map invalid ($new_id)"
+  psql_db -At -c "SELECT office_id FROM users WHERE id='user_own'" | grep -qx "$new_id" \
+    && ok "owner users.office_id remapped" || bad "owner users.office_id not remapped"
+  psql_db -At -c "SELECT office_id FROM users WHERE id='user_inv'" | grep -qx "$new_id" \
+    && ok "invited member users.office_id remapped" || bad "invited member users.office_id not remapped"
+  psql_db -At -c "SELECT COUNT(*) FROM users WHERE office_id LIKE 'trial_%'" | grep -qx 0 \
+    && ok "no users.office_id remains trial_*" || bad "users.office_id still trial_*"
+  psql_db -At -c "SELECT office_id FROM office_members WHERE user_id='user_inv' AND status='active'" \
+    | grep -qx "$new_id" && ok "invited membership remapped" || bad "invited membership not remapped"
+  psql_db -At -c "SELECT office_id FROM cases WHERE id='case_shared_om'" | grep -qx "$new_id" \
+    && ok "shared case remapped" || bad "shared case not remapped"
+  # Idempotent re-run must keep both users on the same UUID
+  if psql_db -f "$MIG023" >/tmp/mig023_ownermemusers_rerun.log 2>&1; then
+    local again
+    again=$(psql_db -At -c "SELECT office_id FROM users WHERE id='user_inv'")
+    [[ "$again" == "$new_id" ]] && ok "rerun keeps invited member on same UUID" || bad "rerun changed invited member ($again)"
+  else
+    bad "rerun after owner+member map must succeed"
+    cat /tmp/mig023_ownermemusers_rerun.log >&2
+  fi
+  trap - EXIT
+  teardown_db
+}
+
+# ── 14) Preflight read-only + required classifications ─────────────────────
 scenario_preflight_readonly() {
   log "scenario: preflight is read-only and reports classifications"
   setup_db preflight
@@ -528,6 +581,7 @@ scenario_explicit_trial_owner
 scenario_explicit_owner_membership
 scenario_trial_vs_member_owner_conflict
 scenario_admin_alone_not_owner
+scenario_owner_and_invited_member_users_office_id
 scenario_preflight_readonly
 
 echo ""

@@ -36,6 +36,11 @@ assert.match(mig023, /office_registry/);
 assert.match(mig023, /UPDATE trial_offices/);
 assert.match(mig023, /UPDATE onboarding_state/);
 assert.match(mig023, /UPDATE users/);
+assert.match(
+  mig023,
+  /Remap ALL users\.office_id rows pointing at this mapped legacy trial id/i,
+);
+assert.match(mig023, /WHERE office_id = r\.old_office_id/);
 assert.match(mig023, /'tasks'/);
 assert.match(mig023, /office_id IS NULL|NULL-task|Migration 022/i);
 assert.match(mig023, /RAISE EXCEPTION/);
@@ -108,6 +113,7 @@ assert.match(integSrc, /scenario_explicit_trial_owner/);
 assert.match(integSrc, /scenario_explicit_owner_membership/);
 assert.match(integSrc, /scenario_trial_vs_member_owner_conflict/);
 assert.match(integSrc, /scenario_admin_alone_not_owner/);
+assert.match(integSrc, /scenario_owner_and_invited_member_users_office_id/);
 assert.match(integSrc, /scenario_preflight_readonly/);
 console.log("  ✅ all required live scenarios declared");
 
