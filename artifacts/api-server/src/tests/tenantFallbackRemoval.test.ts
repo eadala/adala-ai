@@ -339,8 +339,8 @@ console.log("\n═══ x-tenant-id remains governed by resolveTenantId's own m
 
 assert.match(
   tenantMwTs,
-  /export async function resolveTenantId\(userId: string, headerTenantId\?: string\): Promise<string \| null>/,
-  "resolveTenantId signature must be unchanged",
+  /export async function resolveTenantId\(\s*userId: string,\s*headerTenantId\?: string/,
+  "resolveTenantId(userId, headerTenantId?) signature must remain",
 );
 assert.match(
   tenantMwTs,

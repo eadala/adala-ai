@@ -41,6 +41,7 @@ assert.ok(migrationFiles.includes("018_money_numeric_batch1.sql"));
 assert.ok(migrationFiles.includes("019_money_numeric_batch2.sql"));
 assert.ok(migrationFiles.includes("020_performance_hotpath_indexes.sql"));
 assert.ok(migrationFiles.includes("021_rag_schema_foundation.sql"));
+assert.ok(migrationFiles.includes("023_trial_uuid_offices.sql"));
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -563,6 +564,35 @@ assert.doesNotMatch(docCenterSrc, /ALTER TABLE document_center_files/);
 assert.doesNotMatch(docCenterSrc, /ALTER TABLE document_ai_metadata/);
 assert.match(docCenterSrc, /to_regclass\('public\.document_center_files'\)/);
 console.log("  ✅ migration 021 owns pgvector + composite tenant FK + document_center; Runtime DDL removed");
+
+
+console.log("\n═══ schemaAuthority: migration 023 trial → UUID offices (Stage 15.2c) ═══");
+const mig023 = readRepo("artifacts/api-server/migrations/023_trial_uuid_offices.sql");
+assert.match(mig023, /CREATE TABLE IF NOT EXISTS legacy_trial_office_map/);
+assert.match(mig023, /legacy_trial_office_conflicts/);
+assert.match(mig023, /legacy_default_office_unresolved/);
+assert.match(mig023, /INSERT INTO office_page/);
+assert.match(mig023, /RAISE EXCEPTION/);
+assert.match(mig023, /trial_offices/);
+assert.match(mig023, /role = 'owner'/);
+assert.match(mig023, /abort BEFORE office_page creation/i);
+assert.doesNotMatch(mig023, /FROM office_page ORDER BY created_at LIMIT 1/);
+assert.doesNotMatch(mig023, /role IN \('owner',\s*'admin'\)/);
+const preflight023 = readRepo("scripts/db/preflight-migration-023.sql");
+assert.match(preflight023, /READ-ONLY|SELECT only/i);
+assert.match(preflight023, /chosen_action/);
+assert.match(preflight023, /map_to_new_or_existing/);
+console.log("  ✅ migration 023 trusted-only ownership + read-only preflight; no first-office guess");
+
+console.log("\n═══ schemaAuthority: onboarding UUID provisioning fail-closed (PR-1) ═══");
+const onboardingPr1 = readRepo("artifacts/api-server/src/modules/platform/onboarding.ts");
+const trialPr1 = readRepo("artifacts/api-server/src/modules/platform/trialOnboarding.ts");
+assert.doesNotMatch(onboardingPr1, /\?\?\s*["']default["']/);
+assert.match(onboardingPr1, /LEGACY_NON_UUID/);
+assert.match(onboardingPr1, /provisionOfficeForUser/);
+assert.match(trialPr1, /needsMigration/);
+assert.match(trialPr1, /provisionOfficeForUser/);
+console.log("  ✅ onboarding/trial use UUID provision helper and do not invent default tenant ids");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
