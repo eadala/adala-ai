@@ -21,7 +21,8 @@
     "validate:platform": "node ../../scripts/governance/platform-check.mjs",
     "test:auth-fetch-migration": "pnpm --dir ../api-server exec tsx ../adala/src/tests/authFetchMigrationComplete.test.ts",
     "test:object-storage-labels": "pnpm --dir ../api-server exec tsx ../adala/src/tests/objectStorageLabels.test.ts",
-    "test:legal-core-pagination": "pnpm --dir ../api-server exec tsx ../adala/src/tests/legalCorePaginationUi.test.ts"
+    "test:legal-core-pagination": "pnpm --dir ../api-server exec tsx ../adala/src/tests/legalCorePaginationUi.test.ts",
+    "test:office-tasks-mutate": "pnpm --dir ../api-server exec tsx ../adala/src/tests/officeTasksMutate.test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
