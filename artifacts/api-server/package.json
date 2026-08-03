@@ -43,6 +43,9 @@
     "test:cors-origin": "node --import tsx src/tests/corsOriginPolicy.test.ts",
     "test:payments-error-swallowing": "node --import tsx src/tests/paymentsErrorSwallowing.test.ts",
     "test:schema-authority": "node --import tsx src/tests/schemaAuthority.test.ts && node --import tsx src/tests/messageFtsConfig.test.ts && node --import tsx src/tests/demoSeedPolicy.test.ts && node --import tsx src/tests/moneyNumericBatch1.test.ts && node --import tsx src/tests/moneyNumericBatch2.test.ts",
+    "test:office-provision": "node --import tsx src/tests/officeProvision.test.ts",
+    "test:tenant-heal7": "node --import tsx src/tests/tenantHeal7.test.ts",
+    "test:migration-023": "node --import tsx src/tests/trialUuidMigration023.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",
     "test:money-numeric-batch2": "node --import tsx src/tests/moneyNumericBatch2.test.ts",
     "test:demo-seed": "node --import tsx src/tests/demoSeedPolicy.test.ts"

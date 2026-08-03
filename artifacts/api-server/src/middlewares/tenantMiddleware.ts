@@ -1,22 +1,49 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /**
- * Tenant Middleware — Multi-Tenant Resolution
+ * Tenant Middleware — Multi-Tenant Resolution (Stage 15.2b)
  *
  * Resolves the current office (tenant) from the authenticated Clerk userId.
- * Strategy (in order):
- *   1. x-tenant-id header     (developer API keys / programmatic access)
- *   2. office_members lookup  (user belongs to an office)
- *   3. users.office_id        (primary office stored on user row)
- *   4. First office_page row  (backward-compat single-tenant fallback)
+ * Normal users resolve only to canonical UUID offices (or fail closed).
+ * HEAL-7 awaits provisionOfficeForUser — never mints trial_*.
  *
- * Sets req.tenantId on success; returns 401/403 on failure.
+ * Strategy (in order):
+ *   1. x-tenant-id header (membership-validated; SA may target any office)
+ *   1b. developer impersonation
+ *   2. in-memory cache (UUID only)
+ *   3. office_members
+ *   4. users.office_id
+ *   5. office_registry (await membership link for UUID)
+ *   6. trial_offices (UUID only; legacy trial_* → fail closed)
+ *   7. onboarding completed → await canonical provision (HEAL-7)
+ *
+ * Sets req.tenantId on success; returns 401/403/409 on failure.
  */
 import type { Request, Response, NextFunction } from "express";
 import { getAuth, createClerkClient } from "@clerk/express";
-import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { auditTenantResolution, resolveTenantWithTrace } from "../core/tenant/tenantResolver";
+import {
+  OfficeProvisionError,
+  provisionOfficeForUser,
+  type ProvisionOfficeForUserResult,
+} from "../lib/officeProvision";
+import {
+  LEGACY_NON_UUID_TENANT,
+  PLATFORM_FORBIDDEN_FOR_USER,
+  TENANT_PROVISION_FAILED,
+  TenantResolutionError,
+  acceptNormalUserTenantId,
+  assertCanonicalBusinessOfficeId,
+  classifyTenantId,
+  isCacheableTenantId,
+  takeCanonicalTenantOrContinue,
+} from "../lib/tenantResolution";
+import { isUuid } from "../lib/officePageResolverLogic";
+
+async function defaultDb(): Promise<DbLike> {
+  const { db } = await import("@workspace/db");
+  return db as unknown as DbLike;
+}
 
 let _saClerk2: ReturnType<typeof createClerkClient> | null = null;
 async function isSuperAdminUser(userId: string): Promise<boolean> {
@@ -31,159 +58,342 @@ async function isSuperAdminUser(userId: string): Promise<boolean> {
   } catch { return false; }
 }
 
-/* Simple in-memory cache: userId → officeId (TTL 5 min) */
+/* Simple in-memory cache: userId → officeId (TTL 5 min) — UUID only */
 const CACHE = new Map<string, { officeId: string; ts: number }>();
 const TTL_MS = 5 * 60 * 1000;
 
-export async function resolveTenantId(userId: string, headerTenantId?: string): Promise<string | null> {
-  /* 1. Explicit header (API keys, dev access)
-     SECURITY: validate the user is actually a member of the requested office.
-     A super-admin may also pass any office ID — checked via isSuperAdminUser.
-     Unvalidated header values are silently ignored (fall through to DB lookup). */
+/** Coalesce concurrent HEAL-7 provisions for the same user */
+const HEAL_INFLIGHT = new Map<string, Promise<string>>();
+
+type DbLike = {
+  execute: (query: ReturnType<typeof sql>) => Promise<unknown>;
+};
+
+export type ResolveTenantDeps = {
+  db?: DbLike;
+  provision?: (input: Parameters<typeof provisionOfficeForUser>[0]) => Promise<ProvisionOfficeForUserResult>;
+  isSuperAdmin?: (userId: string) => Promise<boolean>;
+  cache?: Map<string, { officeId: string; ts: number }>;
+  healInflight?: Map<string, Promise<string>>;
+  now?: () => number;
+};
+
+function rowsOf(result: unknown): Record<string, unknown>[] {
+  if (Array.isArray(result)) return result as Record<string, unknown>[];
+  const withRows = result as { rows?: Record<string, unknown>[] } | null;
+  return withRows?.rows ?? [];
+}
+
+function firstVal(result: unknown, key: string): string | undefined {
+  const row = rowsOf(result)[0];
+  if (!row || row[key] == null) return undefined;
+  return String(row[key]);
+}
+
+function cacheSet(
+  cache: Map<string, { officeId: string; ts: number }>,
+  userId: string,
+  officeId: string,
+  now: number,
+): void {
+  if (!isCacheableTenantId(officeId)) return;
+  cache.set(userId, { officeId, ts: now });
+}
+
+async function awaitLinkMembership(client: DbLike, userId: string, officeId: string): Promise<void> {
+  if (!isUuid(officeId)) return;
+  await client.execute(sql`
+    INSERT INTO office_members (office_id, user_id, role, status)
+    VALUES (${officeId}, ${userId}, 'owner', 'active')
+    ON CONFLICT (office_id, user_id) DO NOTHING
+  `);
+  await client.execute(sql`
+    UPDATE users SET office_id = ${officeId}
+    WHERE id = ${userId} AND (office_id IS NULL OR office_id = 'default')
+  `);
+}
+
+async function healProvisionOffice(
+  userId: string,
+  deps: Required<Pick<ResolveTenantDeps, "provision" | "healInflight">> & {
+    officeName?: string;
+  },
+): Promise<string> {
+  const existing = deps.healInflight.get(userId);
+  if (existing) return existing;
+
+  /* Register the in-flight promise synchronously so concurrent resolvers coalesce */
+  let settle!: (officeId: string) => void;
+  let fail!: (err: unknown) => void;
+  const gate = new Promise<string>((resolve, reject) => {
+    settle = resolve;
+    fail = reject;
+  });
+  deps.healInflight.set(userId, gate);
+
+  void (async () => {
+    try {
+      const result = await deps.provision({
+        ownerUserId: userId,
+        officeName: deps.officeName?.trim() || "مكتب المحاماة",
+        plan: "trial",
+        lifecycle: "trial",
+        context: "onboarding_state",
+        writeTrialOffices: true,
+        onboarding: { completed: true, step: 10, data: {} },
+      });
+      if (!isUuid(result.officeId)) {
+        throw new TenantResolutionError(
+          TENANT_PROVISION_FAILED,
+          "HEAL-7 provision returned a non-UUID office id",
+          { userId, officeId: result.officeId },
+        );
+      }
+      settle(result.officeId);
+    } catch (err: unknown) {
+      if (err instanceof TenantResolutionError) {
+        fail(err);
+        return;
+      }
+      if (err instanceof OfficeProvisionError) {
+        if (err.code === "LEGACY_NON_UUID") {
+          fail(new TenantResolutionError(
+            LEGACY_NON_UUID_TENANT,
+            err.message,
+            {
+              userId,
+              source: "TENANT-HEAL-7",
+              needsMigration: true,
+              migrationStage: "15.2c",
+              provisionCode: err.code,
+            },
+          ));
+          return;
+        }
+        fail(new TenantResolutionError(
+          TENANT_PROVISION_FAILED,
+          err.message,
+          { userId, source: "TENANT-HEAL-7", provisionCode: err.code },
+        ));
+        return;
+      }
+      fail(err);
+    } finally {
+      deps.healInflight.delete(userId);
+    }
+  })();
+
+  return gate;
+}
+
+export async function resolveTenantId(
+  userId: string,
+  headerTenantId?: string,
+  deps?: ResolveTenantDeps,
+): Promise<string | null> {
+  const client = deps?.db ?? (await defaultDb());
+  const cache = deps?.cache ?? CACHE;
+  const healInflight = deps?.healInflight ?? HEAL_INFLIGHT;
+  const nowFn = deps?.now ?? Date.now;
+  const checkSA = deps?.isSuperAdmin ?? isSuperAdminUser;
+  const provision = deps?.provision ?? ((input) => provisionOfficeForUser(input));
+
+  /* 1. Explicit header — membership-validated; SA may target a UUID office only */
   if (headerTenantId) {
     try {
-      const memberCheck = await db.execute(sql`
+      const memberCheck = await client.execute(sql`
         SELECT 1 FROM office_members
         WHERE user_id = ${userId} AND office_id = ${headerTenantId} AND status = 'active'
         LIMIT 1
       `);
-      const isMember = ((memberCheck as any)?.rows ?? []).length > 0;
-      if (isMember) return headerTenantId;
+      const isMember = rowsOf(memberCheck).length > 0;
+      if (isMember) {
+        return acceptNormalUserTenantId(headerTenantId, {
+          userId,
+          source: "header_membership",
+        });
+      }
 
-      /* Allow super-admins to target any office via header */
-      const isSA = await isSuperAdminUser(userId);
-      if (isSA) return headerTenantId;
-
-      /* Header not validated — fall through to normal DB lookup */
-    } catch { /* fall through */ }
+      const isSA = await checkSA(userId);
+      if (isSA) {
+        /* SA header targeting must be a canonical UUID — never legacy text as office_id */
+        return assertCanonicalBusinessOfficeId(headerTenantId, {
+          userId,
+          source: "header_sa",
+        });
+      }
+    } catch (err) {
+      if (err instanceof TenantResolutionError) throw err;
+      /* Header validation DB blip — fall through */
+    }
   }
 
-  /* 1b. Developer impersonation — SA viewing as another office */
+  /* 1b. Developer impersonation — SA may view a UUID office only (no legacy write context) */
   try {
-    const imp = await db.execute(sql`
+    const imp = await client.execute(sql`
       SELECT impersonated_office_id FROM developer_impersonation
       WHERE super_admin_user_id = ${userId}
         AND (expires_at IS NULL OR expires_at > NOW())
       LIMIT 1
     `);
-    const impOffice = ((imp as any)?.rows ?? [])[0]?.impersonated_office_id as string | undefined;
-    if (impOffice) return impOffice;
-  } catch {}
-
-  /* 2. Cache */
-  const cached = CACHE.get(userId);
-  if (cached && Date.now() - cached.ts < TTL_MS) return cached.officeId;
-
-  try {
-    /* 3. office_members join */
-    const memberRows = await db.execute(sql`
-      SELECT office_id FROM office_members
-      WHERE user_id = ${userId} AND status = 'active'
-      ORDER BY created_at ASC
-      LIMIT 1
-    `);
-    const memberId = ((memberRows as any)?.rows ?? [])[0]?.office_id as string | undefined;
-    if (memberId) {
-      CACHE.set(userId, { officeId: memberId, ts: Date.now() });
-      return memberId;
+    const impOffice = firstVal(imp, "impersonated_office_id");
+    if (impOffice) {
+      const isSA = await checkSA(userId);
+      if (!isSA) {
+        throw new TenantResolutionError(
+          PLATFORM_FORBIDDEN_FOR_USER,
+          "Impersonation requires a verified super-admin",
+          { userId, source: "impersonation", officeId: impOffice },
+        );
+      }
+      /* Legacy impersonation targets fail closed — cannot authorize business writes */
+      if (classifyTenantId(impOffice) !== "uuid") {
+        throw new TenantResolutionError(
+          LEGACY_NON_UUID_TENANT,
+          `Legacy impersonation target ${impOffice} requires migration (Stage 15.2c)`,
+          {
+            userId,
+            source: "impersonation",
+            legacyOfficeId: impOffice,
+            needsMigration: true,
+            migrationStage: "15.2c",
+            action: "remap_to_uuid_office_page",
+            blocksBusinessWrites: true,
+          },
+        );
+      }
+      return assertCanonicalBusinessOfficeId(impOffice, {
+        userId,
+        source: "impersonation",
+      });
     }
-
-    /* 4. users.office_id (primary office) */
-    const userRows = await db.execute(sql`
-      SELECT office_id FROM users WHERE id = ${userId} LIMIT 1
-    `);
-    const userOffice = ((userRows as any)?.rows ?? [])[0]?.office_id as string | undefined;
-    if (userOffice) {
-      CACHE.set(userId, { officeId: userOffice, ts: Date.now() });
-      return userOffice;
-    }
-
-    /* 5. office_registry — owner lookup by Clerk userId (safe: matches by owner) */
-    const regRows = await db.execute(sql`
-      SELECT id FROM office_registry
-      WHERE clerk_user_id = ${userId} AND status = 'active'
-      LIMIT 1
-    `);
-    const regOffice = ((regRows as any)?.rows ?? [])[0]?.id as string | undefined;
-    if (regOffice) {
-      /* Auto-heal: create office_members entry so future lookups hit step 3 */
-      db.execute(sql`
-        INSERT INTO office_members (office_id, user_id, role, status)
-        VALUES (${regOffice}, ${userId}, 'owner', 'active')
-        ON CONFLICT DO NOTHING
-      `).catch(() => {});
-      /* Also set users.office_id so step 4 works next time */
-      db.execute(sql`
-        UPDATE users SET office_id = ${regOffice}
-        WHERE id = ${userId} AND office_id IS NULL
-      `).catch(() => {});
-      CACHE.set(userId, { officeId: regOffice, ts: Date.now() });
-      return regOffice;
-    }
-
-    /* 6. trial_offices — users who completed onboarding but never got office_members */
-    const trialRows = await db.execute(sql`
-      SELECT office_id FROM trial_offices
-      WHERE user_id = ${userId}
-      LIMIT 1
-    `);
-    const trialOffice = ((trialRows as any)?.rows ?? [])[0]?.office_id as string | undefined;
-    if (trialOffice) {
-      /* Auto-heal: persist to office_members so future requests hit step 3 */
-      db.execute(sql`
-        INSERT INTO office_members (office_id, user_id, role, status)
-        VALUES (${trialOffice}, ${userId}, 'owner', 'active')
-        ON CONFLICT DO NOTHING
-      `).catch(() => {});
-      db.execute(sql`
-        UPDATE users SET office_id = ${trialOffice}
-        WHERE id = ${userId} AND office_id IS NULL
-      `).catch(() => {});
-      CACHE.set(userId, { officeId: trialOffice, ts: Date.now() });
-      return trialOffice;
-    }
-
-    /* 7. onboarding_state — user completed onboarding but office was never provisioned
-       This is a final safety net: auto-provision a trial office on the fly.
-       Once created, future requests hit step 3 (office_members). */
-    const onboardRows = await db.execute(sql`
-      SELECT 1 FROM onboarding_state
-      WHERE user_id = ${userId} AND completed = true
-      LIMIT 1
-    `);
-    const hasOnboarded = ((onboardRows as any)?.rows ?? []).length > 0;
-    if (hasOnboarded) {
-      const safeId = userId.replace(/[^a-zA-Z0-9]/g, "").slice(-8);
-      const newOfficeId = `trial_${safeId}`;
-      console.warn(`[TENANT-HEAL-7] Provisioning office ${newOfficeId} for onboarded user ${userId}`);
-      db.execute(sql`
-        INSERT INTO trial_offices (user_id, office_id, office_name)
-        VALUES (${userId}, ${newOfficeId}, 'مكتب المحاماة')
-        ON CONFLICT (user_id) DO NOTHING
-      `).catch(() => {});
-      db.execute(sql`
-        INSERT INTO office_members (office_id, user_id, role, status)
-        VALUES (${newOfficeId}, ${userId}, 'owner', 'active')
-        ON CONFLICT (office_id, user_id) DO NOTHING
-      `).catch(() => {});
-      db.execute(sql`
-        UPDATE onboarding_state SET office_id = ${newOfficeId}
-        WHERE user_id = ${userId}
-          AND (office_id IS NULL OR office_id = 'default')
-      `).catch(() => {});
-      CACHE.set(userId, { officeId: newOfficeId, ts: Date.now() });
-      return newOfficeId;
-    }
-
-    console.warn(
-      `[TENANT-403] userId=${userId} headerTenant=${headerTenantId ?? "none"} ` +
-      `→ all 7 resolution steps failed — no office found`
-    );
-    return null;
-  } catch (err: any) {
-    console.error(`[TENANT-ERR] userId=${userId} resolveTenantId threw: ${err?.message ?? err}`);
-    return null;
+  } catch (err) {
+    if (err instanceof TenantResolutionError) throw err;
+    /* optional table */
   }
+
+  /* 2. Cache — UUID only */
+  const cached = cache.get(userId);
+  if (cached && nowFn() - cached.ts < TTL_MS) {
+    if (isCacheableTenantId(cached.officeId)) return cached.officeId;
+    cache.delete(userId);
+  }
+
+  /* 3. office_members — UUID only; non-UUID (except empty/default sentinel) fails closed */
+  const memberRows = await client.execute(sql`
+    SELECT office_id FROM office_members
+    WHERE user_id = ${userId} AND status = 'active'
+    ORDER BY created_at ASC
+    LIMIT 1
+  `);
+  const memberId = firstVal(memberRows, "office_id");
+  if (memberId != null) {
+    const taken = takeCanonicalTenantOrContinue(memberId, {
+      userId,
+      source: "office_members",
+    });
+    if (taken.status === "uuid") {
+      cacheSet(cache, userId, taken.officeId, nowFn());
+      return taken.officeId;
+    }
+  }
+
+  /* 4. users.office_id */
+  const userRows = await client.execute(sql`
+    SELECT office_id FROM users WHERE id = ${userId} LIMIT 1
+  `);
+  const userOffice = firstVal(userRows, "office_id");
+  if (userOffice != null) {
+    const taken = takeCanonicalTenantOrContinue(userOffice, {
+      userId,
+      source: "users.office_id",
+    });
+    if (taken.status === "uuid") {
+      cacheSet(cache, userId, taken.officeId, nowFn());
+      return taken.officeId;
+    }
+  }
+
+  /* 5. office_registry — owner lookup */
+  const regRows = await client.execute(sql`
+    SELECT id FROM office_registry
+    WHERE clerk_user_id = ${userId} AND status = 'active'
+    LIMIT 1
+  `);
+  const regOffice = firstVal(regRows, "id");
+  if (regOffice != null) {
+    const taken = takeCanonicalTenantOrContinue(regOffice, {
+      userId,
+      source: "office_registry",
+    });
+    if (taken.status === "uuid") {
+      await awaitLinkMembership(client, userId, taken.officeId);
+      cacheSet(cache, userId, taken.officeId, nowFn());
+      return taken.officeId;
+    }
+  }
+
+  /* 6. trial_offices — UUID lifecycle only; legacy trial_* fail closed */
+  const trialRows = await client.execute(sql`
+    SELECT office_id FROM trial_offices
+    WHERE user_id = ${userId}
+    LIMIT 1
+  `);
+  const trialOffice = firstVal(trialRows, "office_id");
+  if (trialOffice != null) {
+    const taken = takeCanonicalTenantOrContinue(trialOffice, {
+      userId,
+      source: "trial_offices",
+    });
+    if (taken.status === "uuid") {
+      await awaitLinkMembership(client, userId, taken.officeId);
+      cacheSet(cache, userId, taken.officeId, nowFn());
+      return taken.officeId;
+    }
+  }
+
+  /* 7. TENANT-HEAL-7 — completed onboarding, no canonical office → await provision */
+  const onboardRows = await client.execute(sql`
+    SELECT office_id, data FROM onboarding_state
+    WHERE user_id = ${userId} AND completed = true
+    LIMIT 1
+  `);
+  const onboard = rowsOf(onboardRows)[0];
+  if (onboard) {
+    /* Never provision for synthetic platform context */
+    if (userId === "platform") {
+      throw new TenantResolutionError(
+        PLATFORM_FORBIDDEN_FOR_USER,
+        "Refusing HEAL-7 provision for platform context",
+        { userId, source: "TENANT-HEAL-7" },
+      );
+    }
+
+    let officeName = "مكتب المحاماة";
+    try {
+      const data = onboard.data;
+      const parsed = typeof data === "string" ? JSON.parse(data) : data;
+      if (parsed && typeof parsed === "object" && parsed !== null && "officeName" in parsed) {
+        const name = (parsed as { officeName?: unknown }).officeName;
+        if (typeof name === "string" && name.trim()) officeName = name;
+      }
+    } catch { /* keep default name */ }
+
+    console.warn(`[TENANT-HEAL-7] Awaiting canonical provision for onboarded user ${userId}`);
+    const officeId = await healProvisionOffice(userId, {
+      provision,
+      healInflight,
+      officeName,
+    });
+    cacheSet(cache, userId, officeId, nowFn());
+    return officeId;
+  }
+
+  console.warn(
+    `[TENANT-403] userId=${userId} headerTenant=${headerTenantId ?? "none"} ` +
+    `→ all 7 resolution steps failed — no office found`,
+  );
+  return null;
 }
 
 /** Invalidate cache for a user (call after membership changes) */
@@ -200,18 +410,32 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
   if (!userId) return res.status(401).json({ error: "يجب تسجيل الدخول أولاً" });
 
   const headerTenant = req.headers["x-tenant-id"] as string | undefined;
-  const tenantId = await resolveTenantId(userId, headerTenant);
-
-  if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب المرتبط بهذا الحساب" });
-
-  (req as any).tenantId = tenantId;
-  next();
+  try {
+    const tenantId = await resolveTenantId(userId, headerTenant);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب المرتبط بهذا الحساب" });
+    (req as any).tenantId = tenantId;
+    next();
+  } catch (err: any) {
+    if (err instanceof TenantResolutionError && err.code === LEGACY_NON_UUID_TENANT) {
+      return res.status(409).json({
+        error: "حسابك يستخدم معرّف مكتب قديم ويتطلب ترحيل البيانات",
+        code: err.code,
+        ...err.details,
+      });
+    }
+    if (err instanceof TenantResolutionError) {
+      return res.status(403).json({
+        error: err.message,
+        code: err.code,
+        ...err.details,
+      });
+    }
+    console.error(`[TENANT-ERR] userId=${userId} resolveTenantId threw: ${err?.message ?? err}`);
+    return res.status(403).json({ error: "خطأ في تحديد المكتب — حاول مجدداً." });
+  }
 }
 
 /**
- * requireAuthWithTenant lives in requireAuth.ts (canonical live export).
- * Do not re-export a duplicate here — importers must use middlewares/requireAuth.
- *
  * requireAuthWithTenantAudit — auth + tenant resolution with a non-blocking
  * tenant_audit_logs entry via TIRE. Use on sensitive endpoints that need a
  * full audit trail.
@@ -230,6 +454,7 @@ export async function requireAuthWithTenantAudit(
   const ip = (req.headers["x-forwarded-for"] as string) ?? req.socket?.remoteAddress ?? "";
   const ua = req.headers["user-agent"] ?? "";
 
+  const { auditTenantResolution, resolveTenantWithTrace } = await import("../core/tenant/tenantResolver");
   try {
     const trace = await resolveTenantWithTrace(userId, headerTenant);
     /* Non-blocking audit */
@@ -239,11 +464,17 @@ export async function requireAuthWithTenantAudit(
 
     const { runWithTenant } = await import("../core/tenantContext");
     const { db } = await import("@workspace/db");
-    const { sql } = await import("drizzle-orm");
     db.execute(sql`SELECT set_config('app.current_tenant', ${trace.tenantId}, false)`).catch(() => {});
     runWithTenant({ userId, officeId: trace.tenantId }, () => next());
   } catch (err: any) {
     auditTenantResolution(userId, null, err.message ?? "UNKNOWN", { ip, userAgent: ua });
+    if (err instanceof TenantResolutionError && err.code === LEGACY_NON_UUID_TENANT) {
+      return res.status(409).json({
+        error: "حسابك يستخدم معرّف مكتب قديم ويتطلب ترحيل البيانات",
+        code: err.code,
+        ...err.details,
+      });
+    }
     const isSA = await isSuperAdminUser(userId);
     if (isSA) {
       (req as any).isSuperAdmin = true;
