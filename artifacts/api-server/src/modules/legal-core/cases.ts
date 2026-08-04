@@ -17,7 +17,11 @@ import { CaseTasks }                               from "../../case/modules/task
 import { CaseDocuments }                           from "../../case/modules/documents";
 import { db }                                      from "@workspace/db";
 import { sql }                                     from "drizzle-orm";
-import { runCaseAutopilot, ensureAutopilotTable }  from "../../agents/caseAutopilot";
+import {
+  runCaseAutopilot,
+  ensureAutopilotTable,
+  httpStatusForAutopilotTaskCreation,
+} from "../../agents/caseAutopilot";
 import { auditLog, auditMeta }                      from "../../lib/auditLogger";
 import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace/api-zod";
 import { runAIAnalysis, getLatestInsight, approveAITask, rejectAITask } from "../../case/case.ai";
@@ -571,9 +575,35 @@ router.post("/cases/:id/autopilot", requireAuthWithTenant, async (req, res) => {
     const report = await runCaseAutopilot(caseId, tenantId, true);
     if (!report) return res.status(404).json({ error: "القضية غير موجودة" });
 
-    auditLog({ userId: auth?.userId, action: "autopilot", resource: "cases", resourceId: caseId,
-      details: `score=${report.healthScore} tasks=${report.tasksCreated}` }).catch(() => {});
-    res.json(report);
+    const taskCreation = report.taskCreation;
+    const httpStatus = httpStatusForAutopilotTaskCreation(taskCreation);
+
+    auditLog({
+      userId: auth?.userId,
+      action: "autopilot",
+      resource: "cases",
+      resourceId: caseId,
+      details:
+        `score=${report.healthScore} status=${taskCreation.status} ` +
+        `planned=${taskCreation.planned} created=${taskCreation.created} ` +
+        `failed=${taskCreation.failed} skipped=${taskCreation.skipped}` +
+        (taskCreation.reason ? ` reason=${taskCreation.reason}` : ""),
+    }).catch(() => {});
+
+    /* Never HTTP 200 with tasksCreated:0 when planned > 0 */
+    if (httpStatus !== 200) {
+      return res.status(httpStatus).json({
+        error:
+          taskCreation.reason === "MISSING_CANONICAL_OFFICE_UUID"
+            ? "تعذر إنشاء المهام: معرف المكتب غير صالح (يلزم Office UUID)"
+            : taskCreation.status === "partial"
+              ? "تم إنشاء بعض المهام فقط"
+              : "فشل إنشاء مهام الطيار الآلي",
+        ...report,
+      });
+    }
+
+    res.status(200).json(report);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

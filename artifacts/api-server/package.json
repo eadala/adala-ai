@@ -44,6 +44,8 @@
     "test:payments-error-swallowing": "node --import tsx src/tests/paymentsErrorSwallowing.test.ts",
     "test:schema-authority": "node --import tsx src/tests/schemaAuthority.test.ts && node --import tsx src/tests/messageFtsConfig.test.ts && node --import tsx src/tests/demoSeedPolicy.test.ts && node --import tsx src/tests/moneyNumericBatch1.test.ts && node --import tsx src/tests/moneyNumericBatch2.test.ts",
     "test:office-tasks-mutate": "node --import tsx src/tests/officeTasksMutate.test.ts",
+    "test:autopilot": "node --import tsx src/tests/autopilotFailureSignaling.test.ts",
+    "test:stage152e": "node --import tsx src/tests/stage152eIntegration.test.ts",
     "test:office-provision": "node --import tsx src/tests/officeProvision.test.ts",
     "test:tenant-heal7": "node --import tsx src/tests/tenantHeal7.test.ts",
     "test:migration-023": "node --import tsx src/tests/trialUuidMigration023.test.ts",

@@ -626,6 +626,15 @@ assert.match(trialPr1, /needsMigration/);
 assert.match(trialPr1, /provisionOfficeForUser/);
 console.log("  ✅ onboarding/trial use UUID provision helper and do not invent default tenant ids");
 
+
+console.log("\n═══ schemaAuthority: Stage 15.2e EventBus / CASE_CREATED officeId (PR-3) ═══");
+const caseEvents152e = readRepo("artifacts/api-server/src/case/case.events.ts");
+const eventBus152e = readRepo("artifacts/api-server/src/core/eventBus.ts");
+assert.match(caseEvents152e, /officeId/);
+assert.doesNotMatch(eventBus152e, /officeId\s*\?\?\s*["']default["']/);
+assert.doesNotMatch(eventBus152e, /\?\?\s*["']default["']/);
+console.log("  ✅ CASE_CREATED carries officeId; EventBus does not invent default tenant ids");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");
