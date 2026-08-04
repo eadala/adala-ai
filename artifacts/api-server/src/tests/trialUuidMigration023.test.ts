@@ -42,7 +42,7 @@ assert.match(
 );
 assert.match(mig023, /WHERE office_id = r\.old_office_id/);
 assert.match(mig023, /'tasks'/);
-assert.match(mig023, /office_id IS NULL|NULL-task|Migration 022/i);
+assert.match(mig023, /office_id IS NULL|NULL-task|Migration 024/i);
 assert.match(mig023, /RAISE EXCEPTION/);
 assert.match(mig023, /fail closed/i);
 assert.match(mig023, /Rollback/i);
@@ -85,7 +85,7 @@ assert.match(preflight, /conflict_reason/);
 assert.match(preflight, /map_to_new_or_existing/);
 assert.match(preflight, /unresolved/);
 assert.match(preflight, /conflict/);
-assert.match(preflight, /null_tasks_left_for_022|NULL tasks/i);
+assert.match(preflight, /null_tasks_left_for_024|NULL tasks/i);
 assert.match(preflight, /default/);
 assert.match(preflight, /two legacy ids/i);
 const preflightCode = preflight

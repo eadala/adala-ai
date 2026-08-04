@@ -41,8 +41,17 @@ assert.ok(migrationFiles.includes("018_money_numeric_batch1.sql"));
 assert.ok(migrationFiles.includes("019_money_numeric_batch2.sql"));
 assert.ok(migrationFiles.includes("020_performance_hotpath_indexes.sql"));
 assert.ok(migrationFiles.includes("021_rag_schema_foundation.sql"));
-assert.ok(migrationFiles.includes("022_tasks_tenant_ownership.sql"));
 assert.ok(migrationFiles.includes("023_trial_uuid_offices.sql"));
+assert.ok(migrationFiles.includes("024_tasks_tenant_ownership.sql"));
+/* Ordering: 024 must sort after 023 (023 remaps trial_* before NULL-task backfill). */
+assert.ok(
+  "023_trial_uuid_offices.sql" < "024_tasks_tenant_ownership.sql",
+  "024 must lexicographically follow 023",
+);
+assert.ok(
+  !migrationFiles.includes("022_tasks_tenant_ownership.sql"),
+  "legacy 022_tasks_tenant_ownership.sql must be renamed to 024",
+);
 console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-server/migrations/`);
 
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
@@ -568,22 +577,26 @@ console.log("  ✅ migration 021 owns pgvector + composite tenant FK + document_
 
 
 
-console.log("\n═══ schemaAuthority: migration 022 tasks tenant ownership (Stage 15) ═══");
-const mig022 = readRepo("artifacts/api-server/migrations/022_tasks_tenant_ownership.sql");
-assert.match(mig022, /CREATE TABLE IF NOT EXISTS tasks_orphan_quarantine/);
-assert.match(mig022, /FROM cases c/);
-assert.match(mig022, /office_branches/);
-assert.match(mig022, /ALTER TABLE tasks ALTER COLUMN office_id SET NOT NULL/);
-assert.match(mig022, /RAISE EXCEPTION/);
-assert.match(mig022, /idx_tasks_office_id/);
-assert.match(mig022, /FK to office_page intentionally omitted/);
-assert.doesNotMatch(mig022, /ORDER BY created_at LIMIT 1/);
+console.log("\n═══ schemaAuthority: migration 024 tasks tenant ownership (Stage 15) ═══");
+const mig024 = readRepo("artifacts/api-server/migrations/024_tasks_tenant_ownership.sql");
+assert.match(mig024, /CREATE TABLE IF NOT EXISTS tasks_orphan_quarantine/);
+assert.match(mig024, /FROM cases c/);
+assert.match(mig024, /office_branches/);
+assert.match(mig024, /ALTER TABLE tasks ALTER COLUMN office_id SET NOT NULL/);
+assert.match(mig024, /RAISE EXCEPTION/);
+assert.match(mig024, /idx_tasks_office_id/);
+assert.match(mig024, /FK to office_page intentionally omitted/);
+assert.doesNotMatch(mig024, /ORDER BY created_at LIMIT 1/);
+assert.match(mig024, /Migration 023[\s\S]*MUST be applied first/i);
+assert.match(mig024, /must not run while legacy trial_\* cases remain|Do NOT apply this file while legacy trial_\* cases remain/i);
+assert.match(mig024, /Autopilot UUID office writes must be deployed/i);
 const tasksOpsSrc = readSrc("modules/operations/tasks.ts");
 assert.doesNotMatch(tasksOpsSrc, /office_id IS NULL/);
 assert.match(tasksOpsSrc, /resolveTaskOfficeId/);
-const preflight022 = readRepo("scripts/db/preflight-migration-022.sql");
-assert.match(preflight022, /READ-ONLY|SELECT only/i);
-console.log("  ✅ migration 022 backfills trusted owners, quarantines orphans, NOT NULL; app has no NULL visibility");
+const preflight024 = readRepo("scripts/db/preflight-migration-024.sql");
+assert.match(preflight024, /READ-ONLY|SELECT only/i);
+assert.match(preflight024, /Migration 023 FIRST, then Migration 024/i);
+console.log("  ✅ migration 024 backfills trusted owners, quarantines orphans, NOT NULL; apply after 023; app has no NULL visibility");
 
 console.log("\n═══ schemaAuthority: migration 023 trial → UUID offices (Stage 15.2c) ═══");
 const mig023 = readRepo("artifacts/api-server/migrations/023_trial_uuid_offices.sql");

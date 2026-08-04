@@ -211,7 +211,7 @@ SQL
   teardown_db
 }
 
-# ── 5) NULL task left for 022; default unresolved ──────────────────────────
+# ── 5) NULL task left for 024; default unresolved ──────────────────────────
 scenario_null_task_and_default() {
   log "scenario: NULL task unchanged; default unresolved"
   setup_db nulldef
@@ -230,7 +230,7 @@ SQL
   psql_db -f "$MIG023" >/dev/null
   local null_oid
   null_oid=$(psql_db -At -c "SELECT office_id IS NULL FROM tasks WHERE id='aaaaaaaa-0001-4000-8000-0000000000e1'::uuid")
-  [[ "$null_oid" == "t" ]] && ok "NULL task left for Migration 022" || bad "NULL task was altered"
+  [[ "$null_oid" == "t" ]] && ok "NULL task left for Migration 024" || bad "NULL task was altered"
   psql_db -At -c "SELECT office_id FROM cases WHERE id='case_def'" | grep -qx "default" \
     && ok "default case left unresolved" || bad "default case was remapped"
   local def_rows
@@ -491,7 +491,7 @@ INSERT INTO trial_offices (user_id, office_id, office_name)
 VALUES ('user_pf4', 'trial_pf_conflict', 'تعارض');
 INSERT INTO office_members (office_id, user_id, role, status)
 VALUES ('trial_pf_conflict', 'user_pf5', 'owner', 'active');
--- NULL task for 022 + default inventory
+-- NULL task for 024 + default inventory
 INSERT INTO tasks (id, title, office_id, status)
 VALUES ('aaaaaaaa-0001-4000-8000-0000000000f2'::uuid, 'null', NULL, 'pending');
 INSERT INTO cases (id, title, office_id) VALUES ('case_pf_def', 'd', 'default');
@@ -546,8 +546,8 @@ SQL
     && ok "preflight reports remap row counts" || bad "missing remap counts"
   grep -qi "default office_id\|default_rows" /tmp/mig023_preflight.out \
     && ok "preflight reports default office_id rows" || bad "missing default inventory"
-  grep -qi "null_tasks_left_for_022\|NULL tasks" /tmp/mig023_preflight.out \
-    && ok "preflight reports NULL tasks for 022" || bad "missing NULL task report"
+  grep -qi "null_tasks_left_for_024\|NULL tasks" /tmp/mig023_preflight.out \
+    && ok "preflight reports NULL tasks for 024" || bad "missing NULL task report"
   grep -qi "tasks_with_trial_office_id\|tasks" /tmp/mig023_preflight.out \
     && ok "preflight reports tasks with trial_* ids" || bad "missing trial task report"
 

@@ -10,7 +10,7 @@
  *
  * Legacy NULL office_id rows are orphans (POST /office-tasks toUuid fallback,
  * case autopilot omitting office_id). They are backfilled via trusted
- * case_id→cases / branch_id→office_branches joins in migration 022, or moved
+ * case_id→cases / branch_id→office_branches joins in migration 024, or moved
  * to tasks_orphan_quarantine when ownership is ambiguous. Cleanup is not
  * inferred from the currently logged-in tenant.
  */

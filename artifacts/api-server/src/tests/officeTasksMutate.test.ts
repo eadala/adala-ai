@@ -19,12 +19,12 @@ const visTs = readFileSync(join(SRC, "lib/taskTenantVisibility.ts"), "utf8");
 const caseTasksTs = readFileSync(join(SRC, "case/modules/tasks.ts"), "utf8");
 const caseAiTs = readFileSync(join(SRC, "case/case.ai.ts"), "utf8");
 const casesTs = readFileSync(join(SRC, "modules/legal-core/cases.ts"), "utf8");
-const preflight022 = readFileSync(
-  resolve(__dirname, "../../../../scripts/db/preflight-migration-022.sql"),
+const preflight024 = readFileSync(
+  resolve(__dirname, "../../../../scripts/db/preflight-migration-024.sql"),
   "utf8",
 );
-const mig022 = readFileSync(
-  join(SRC, "..", "migrations", "022_tasks_tenant_ownership.sql"),
+const mig024 = readFileSync(
+  join(SRC, "..", "migrations", "024_tasks_tenant_ownership.sql"),
   "utf8",
 );
 const feTasks = readFileSync(
@@ -98,27 +98,34 @@ console.log("\n═══ mutation outcome matrix ═══");
   console.log("  ✅ own ok; other/NULL → 404; non-UUID → 403");
 }
 
-console.log("\n═══ migration 022 backfill + quarantine fail-closed ═══");
+console.log("\n═══ migration 024 backfill + quarantine fail-closed ═══");
 
 {
-  assert.match(mig022, /022_tasks_tenant_ownership/);
-  assert.match(mig022, /tasks_orphan_quarantine/);
-  assert.match(mig022, /case_id → cases|case_id→cases|FROM cases c/i);
-  assert.match(mig022, /office_branches/);
-  assert.match(mig022, /backfilled via case_id/);
-  assert.match(mig022, /unresolved after trusted backfill/);
-  assert.match(mig022, /quarantined unresolved rows/);
-  assert.match(mig022, /ALTER TABLE tasks ALTER COLUMN office_id SET NOT NULL/);
-  assert.match(mig022, /RAISE EXCEPTION/);
-  assert.match(mig022, /idx_tasks_office_id/);
-  assert.match(mig022, /FK to office_page intentionally omitted/);
-  assert.doesNotMatch(mig022, /ORDER BY created_at LIMIT 1/); // no first-office guess
-  const migBody = mig022.slice(mig022.indexOf("BEGIN;"));
+  assert.match(mig024, /024_tasks_tenant_ownership/);
+  assert.match(mig024, /tasks_orphan_quarantine/);
+  assert.match(mig024, /case_id → cases|case_id→cases|FROM cases c/i);
+  assert.match(mig024, /office_branches/);
+  assert.match(mig024, /backfilled via case_id/);
+  assert.match(mig024, /unresolved after trusted backfill/);
+  assert.match(mig024, /quarantined unresolved rows/);
+  assert.match(mig024, /ALTER TABLE tasks ALTER COLUMN office_id SET NOT NULL/);
+  assert.match(mig024, /RAISE EXCEPTION/);
+  assert.match(mig024, /idx_tasks_office_id/);
+  assert.match(mig024, /FK to office_page intentionally omitted/);
+  assert.doesNotMatch(mig024, /ORDER BY created_at LIMIT 1/); // no first-office guess
+  const migBody = mig024.slice(mig024.indexOf("BEGIN;"));
   assert.doesNotMatch(migBody, /current_setting\('app\.current/i);
   assert.doesNotMatch(migBody, /logged.in tenant|current user/i);
   assert.match(visTs, /Legacy NULL office_id rows are orphans|POST \/office-tasks|autopilot/i);
-  assert.match(preflight022, /READ-ONLY|SELECT only/i);
-  const preflightCode = preflight022
+  assert.match(mig024, /Migration 023[\s\S]*MUST be applied first/i);
+  assert.match(mig024, /Autopilot UUID office writes must be deployed/i);
+  assert.ok(
+    "023_trial_uuid_offices.sql" < "024_tasks_tenant_ownership.sql",
+    "024 must lexicographically follow 023",
+  );
+  assert.match(preflight024, /READ-ONLY|SELECT only/i);
+  assert.match(preflight024, /Migration 023 FIRST, then Migration 024/i);
+  const preflightCode = preflight024
     .split("\n")
     .filter((line) => !line.trim().startsWith("--"))
     .join("\n");
@@ -126,7 +133,7 @@ console.log("\n═══ migration 022 backfill + quarantine fail-closed ══�
     preflightCode,
     /^\s*(INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|TRUNCATE)\b/im,
   );
-  console.log("  ✅ migration backfills only trusted joins; quarantines ambiguous; NOT NULL gated");
+  console.log("  ✅ migration 024 after 023; trusted joins; quarantine; NOT NULL gated");
 }
 
 console.log("\n═══ frontend preserved ═══");

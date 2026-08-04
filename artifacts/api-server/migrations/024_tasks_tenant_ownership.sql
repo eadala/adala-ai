@@ -1,6 +1,20 @@
 -- =============================================================================
--- 022_tasks_tenant_ownership.sql
+-- 024_tasks_tenant_ownership.sql
 -- Stage 15 — Strict tasks.office_id ownership + legacy orphan cleanup
+--
+-- APPLY ORDER (mandatory):
+--   1) Migration 023 (023_trial_uuid_offices.sql) MUST be applied first.
+--   2) This migration (024) runs ONLY after 023.
+--   Do NOT apply this file while legacy trial_* cases remain — those case
+--   office_ids must already be remapped to canonical UUIDs by Migration 023.
+--   Applying 024 before 023 silently quarantines NULL tasks linked to
+--   trial_* cases that 023 would have made backfillable.
+--
+-- PRODUCTION GATE — Autopilot:
+--   Autopilot UUID office writes must be deployed BEFORE production apply of
+--   this migration. After SET NOT NULL, Autopilot paths that omit office_id
+--   will fail (errors may be swallowed). Autopilot hardening is a separate PR;
+--   do not apply 024 until that deploy is live (or Autopilot create is disabled).
 --
 -- Root cause of NULL office_id (code evidence):
 --   1) POST /office-tasks inserted NULL when toUuid(tenantId) failed
@@ -65,12 +79,12 @@ DECLARE
   remaining_null   INT := 0;
 BEGIN
   IF to_regclass('public.tasks') IS NULL THEN
-    RAISE NOTICE '022_tasks: tasks table missing — skipping';
+    RAISE NOTICE '024_tasks: tasks table missing — skipping';
     RETURN;
   END IF;
 
   SELECT COUNT(*)::int INTO total_null FROM tasks WHERE office_id IS NULL;
-  RAISE NOTICE '022_tasks: total NULL office_id rows = %', total_null;
+  RAISE NOTICE '024_tasks: total NULL office_id rows = %', total_null;
 
   -- ── A) Unambiguous backfill via case ownership ───────────────────────────
   WITH updated AS (
@@ -86,7 +100,7 @@ BEGIN
     RETURNING t.id
   )
   SELECT COUNT(*)::int INTO backfilled_case FROM updated;
-  RAISE NOTICE '022_tasks: backfilled via case_id→cases.office_id = %', backfilled_case;
+  RAISE NOTICE '024_tasks: backfilled via case_id→cases.office_id = %', backfilled_case;
 
   -- ── B) Unambiguous backfill via branch (no conflicting case office) ──────
   IF to_regclass('public.office_branches') IS NOT NULL THEN
@@ -114,10 +128,10 @@ BEGIN
   ELSE
     backfilled_branch := 0;
   END IF;
-  RAISE NOTICE '022_tasks: backfilled via branch_id→office_branches.office_id = %', backfilled_branch;
+  RAISE NOTICE '024_tasks: backfilled via branch_id→office_branches.office_id = %', backfilled_branch;
 
   SELECT COUNT(*)::int INTO unresolved FROM tasks WHERE office_id IS NULL;
-  RAISE NOTICE '022_tasks: unresolved after trusted backfill = %', unresolved;
+  RAISE NOTICE '024_tasks: unresolved after trusted backfill = %', unresolved;
 
   -- ── Quarantine ambiguous orphans (preserve; do not delete) ───────────────
   WITH moved AS (
@@ -151,16 +165,16 @@ BEGIN
   WHERE t.office_id IS NULL
     AND EXISTS (SELECT 1 FROM tasks_orphan_quarantine q WHERE q.id = t.id);
 
-  RAISE NOTICE '022_tasks: quarantined unresolved rows = %', quarantined;
+  RAISE NOTICE '024_tasks: quarantined unresolved rows = %', quarantined;
 
   SELECT COUNT(*)::int INTO remaining_null FROM tasks WHERE office_id IS NULL;
   RAISE NOTICE
-    '022_tasks summary: total_null=% backfilled_case=% backfilled_branch=% unresolved=% quarantined=% remaining_null=%',
+    '024_tasks summary: total_null=% backfilled_case=% backfilled_branch=% unresolved=% quarantined=% remaining_null=%',
     total_null, backfilled_case, backfilled_branch, unresolved, quarantined, remaining_null;
 
   IF remaining_null > 0 THEN
     RAISE EXCEPTION
-      '022_tasks: % tasks still have office_id IS NULL after quarantine — fail closed (inspect production; do not invent owners)',
+      '024_tasks: % tasks still have office_id IS NULL after quarantine — fail closed (inspect production; do not invent owners)',
       remaining_null;
   END IF;
 
@@ -169,10 +183,10 @@ BEGIN
     ALTER TABLE tasks ALTER COLUMN office_id SET NOT NULL;
   EXCEPTION
     WHEN others THEN
-      RAISE EXCEPTION '022_tasks: ALTER office_id SET NOT NULL failed: %', SQLERRM;
+      RAISE EXCEPTION '024_tasks: ALTER office_id SET NOT NULL failed: %', SQLERRM;
   END;
 
-  RAISE NOTICE '022_tasks: tasks.office_id is NOT NULL';
+  RAISE NOTICE '024_tasks: tasks.office_id is NOT NULL';
 END $$;
 
 -- Index (001/015 may already have variants — IF NOT EXISTS)

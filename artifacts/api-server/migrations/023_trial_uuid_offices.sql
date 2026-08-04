@@ -29,7 +29,7 @@
 --   insert or business remap (entire transaction rolls back).
 --
 -- Does NOT:
---   - duplicate Migration 022 NULL-task logic
+--   - duplicate Migration 024 NULL-task logic
 --   - auto-map office_id = 'default' (reported in legacy_default_office_unresolved)
 --   - delete unresolved user data
 --   - trust preflight script output (validation is repeated here independently)

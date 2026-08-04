@@ -1,27 +1,32 @@
 -- =============================================================================
--- preflight-migration-022.sql
--- Stage 15.5 — READ-ONLY production preflight for Migration 022
+-- preflight-migration-024.sql
+-- Stage 15.5 — READ-ONLY production preflight for Migration 024
 --
 -- SELECT only. No CREATE / INSERT / UPDATE / DELETE / TEMP tables.
--- Does not mutate data. Does not apply Migration 022.
+-- Does not mutate data. Does not apply Migration 024.
 --
--- Apply order (after approval): Migration 023 FIRST, then Migration 022.
--- Run this after 023 preflight (and preferably after 023 apply) so NULL tasks
--- linked to remapped cases can be classified as UUID-owned.
+-- APPLY ORDER (mandatory):
+--   Migration 023 FIRST, then Migration 024.
+--   Do not run Migration 024 while legacy trial_* cases remain.
+--   Run this after 023 preflight (and preferably after 023 apply) so NULL tasks
+--   linked to remapped cases can be classified as UUID-owned.
+--
+-- PRODUCTION GATE — Autopilot:
+--   Autopilot UUID office writes must be deployed before production apply of 024.
 --
 -- Usage:
 --   psql -U adalah -d adalah -v ON_ERROR_STOP=1 \
---     -f /opt/adala/scripts/db/preflight-migration-022.sql
+--     -f /opt/adala/scripts/db/preflight-migration-024.sql
 -- =============================================================================
 
-\echo '═══ 022 PREFLIGHT: summary ═══'
+\echo '═══ 024 PREFLIGHT: summary ═══'
 
 SELECT
   (SELECT COUNT(*)::int FROM tasks WHERE office_id IS NULL) AS null_tasks_total,
   (SELECT COUNT(*)::int FROM tasks WHERE office_id IS NOT NULL) AS tasks_with_office_id,
   (SELECT to_regclass('public.tasks_orphan_quarantine') IS NOT NULL) AS quarantine_table_exists;
 
-\echo '═══ 022 PREFLIGHT: NULL tasks linked to UUID cases (would backfill via case) ═══'
+\echo '═══ 024 PREFLIGHT: NULL tasks linked to UUID cases (would backfill via case) ═══'
 
 SELECT COUNT(*)::int AS null_tasks_uuid_case
 FROM tasks t
@@ -30,7 +35,7 @@ WHERE t.office_id IS NULL
   AND c.office_id IS NOT NULL
   AND c.office_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 
-\echo '═══ 022 PREFLIGHT: NULL tasks linked to trial_* or non-UUID cases ═══'
+\echo '═══ 024 PREFLIGHT: NULL tasks linked to trial_* or non-UUID cases ═══'
 
 SELECT
   COUNT(*) FILTER (
@@ -49,7 +54,7 @@ FROM tasks t
 JOIN cases c ON t.case_id IS NOT NULL AND t.case_id = c.id::text
 WHERE t.office_id IS NULL;
 
-\echo '═══ 022 PREFLIGHT: NULL tasks with case_id but no matching cases row ═══'
+\echo '═══ 024 PREFLIGHT: NULL tasks with case_id but no matching cases row ═══'
 
 SELECT COUNT(*)::int AS null_tasks_orphan_case_id
 FROM tasks t
@@ -57,7 +62,7 @@ WHERE t.office_id IS NULL
   AND t.case_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM cases c WHERE c.id::text = t.case_id);
 
-\echo '═══ 022 PREFLIGHT: NULL tasks linked to valid UUID branches (would backfill via branch) ═══'
+\echo '═══ 024 PREFLIGHT: NULL tasks linked to valid UUID branches (would backfill via branch) ═══'
 
 SELECT COUNT(*)::int AS null_tasks_uuid_branch
 FROM tasks t
@@ -74,7 +79,7 @@ WHERE t.office_id IS NULL
       AND lower(c.office_id) <> lower(b.office_id)
   );
 
-\echo '═══ 022 PREFLIGHT: case/branch ownership conflicts (NULL tasks) ═══'
+\echo '═══ 024 PREFLIGHT: case/branch ownership conflicts (NULL tasks) ═══'
 
 SELECT COUNT(*)::int AS null_tasks_case_branch_conflict
 FROM tasks t
@@ -85,7 +90,7 @@ WHERE t.office_id IS NULL
   AND b.office_id IS NOT NULL
   AND lower(c.office_id) <> lower(b.office_id);
 
-\echo '═══ 022 PREFLIGHT: tasks that would be quarantined (same rules as Migration 022) ═══'
+\echo '═══ 024 PREFLIGHT: tasks that would be quarantined (same rules as Migration 024) ═══'
 
 SELECT
   CASE
@@ -130,7 +135,7 @@ WHERE t.office_id IS NULL
 GROUP BY 1
 ORDER BY 1;
 
-\echo '═══ 022 PREFLIGHT: quarantine totals (would_quarantine + existing table) ═══'
+\echo '═══ 024 PREFLIGHT: quarantine totals (would_quarantine + existing table) ═══'
 
 SELECT
   (
@@ -161,7 +166,7 @@ SELECT
   ) AS would_quarantine_count,
   (SELECT to_regclass('public.tasks_orphan_quarantine') IS NOT NULL) AS quarantine_table_exists;
 
-\echo '═══ 022 PREFLIGHT: existing quarantine counts (read-only; safe if table absent) ═══'
+\echo '═══ 024 PREFLIGHT: existing quarantine counts (read-only; safe if table absent) ═══'
 
 SELECT
   (to_regclass('public.tasks_orphan_quarantine') IS NOT NULL) AS quarantine_table_exists;
@@ -173,11 +178,11 @@ DECLARE
   by_reason text;
 BEGIN
   IF to_regclass('public.tasks_orphan_quarantine') IS NULL THEN
-    RAISE NOTICE '022_preflight: tasks_orphan_quarantine does not exist (existing_quarantine_rows=0)';
+    RAISE NOTICE '024_preflight: tasks_orphan_quarantine does not exist (existing_quarantine_rows=0)';
     RETURN;
   END IF;
   EXECUTE 'SELECT COUNT(*) FROM tasks_orphan_quarantine' INTO n;
-  RAISE NOTICE '022_preflight: existing_quarantine_rows=%', n;
+  RAISE NOTICE '024_preflight: existing_quarantine_rows=%', n;
   EXECUTE $q$
     SELECT string_agg(quarantine_reason || '=' || cnt::text, ', ' ORDER BY quarantine_reason)
     FROM (
@@ -186,8 +191,8 @@ BEGIN
       GROUP BY quarantine_reason
     ) s
   $q$ INTO by_reason;
-  RAISE NOTICE '022_preflight: existing_quarantine_by_reason=%', COALESCE(by_reason, '(none)');
+  RAISE NOTICE '024_preflight: existing_quarantine_by_reason=%', COALESCE(by_reason, '(none)');
 END $$;
 
-\echo '═══ 022 PREFLIGHT: complete ═══'
+\echo '═══ 024 PREFLIGHT: complete ═══'
 \echo 'Decision: see Stage 15.5 thresholds (SAFE / MANUAL REVIEW / BLOCKED)'
