@@ -30,7 +30,7 @@ SELECT
      SELECT office_id FROM onboarding_state WHERE office_id LIKE 'trial_%'
    ) u) AS distinct_trial_office_ids,
   (SELECT COUNT(*) FROM tasks WHERE office_id LIKE 'trial_%') AS tasks_with_trial_office_id,
-  (SELECT COUNT(*) FROM tasks WHERE office_id IS NULL) AS null_tasks_left_for_022,
+  (SELECT COUNT(*) FROM tasks WHERE office_id IS NULL) AS null_tasks_left_for_024,
   (SELECT COUNT(*) FROM cases WHERE office_id = 'default') AS cases_with_default_office_id;
 
 \echo '═══ 023 PREFLIGHT: per-legacy-id ownership classification ═══'
