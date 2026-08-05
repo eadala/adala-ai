@@ -30,6 +30,8 @@ storage_files
 office_ledger
 office_entitlements
 platform_billing_invoices
+promo_codes
+gift_subscriptions
 office_branches
 stripe_events
 stripe_dead_letters
