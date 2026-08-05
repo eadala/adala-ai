@@ -182,7 +182,8 @@ export default defineConfig({
       "Content-Security-Policy": [
         "default-src 'self'",
         // Clerk needs unsafe-inline for injected styles; unsafe-eval removed
-        "script-src 'self' 'unsafe-inline' https://clerk.accounts.dev https://*.clerk.accounts.dev https://clerk.adalahai.com https://challenges.cloudflare.com https://js.stripe.com https://cdn.jsdelivr.net",
+        // Cloudflare Web Analytics beacon: https://static.cloudflareinsights.com (zone-injected)
+        "script-src 'self' 'unsafe-inline' https://clerk.accounts.dev https://*.clerk.accounts.dev https://clerk.adalahai.com https://challenges.cloudflare.com https://static.cloudflareinsights.com https://js.stripe.com https://cdn.jsdelivr.net",
         "worker-src 'self' blob:",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com data:",
