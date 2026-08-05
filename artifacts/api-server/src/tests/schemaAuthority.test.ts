@@ -44,6 +44,7 @@ assert.ok(migrationFiles.includes("021_rag_schema_foundation.sql"));
 assert.ok(migrationFiles.includes("023_trial_uuid_offices.sql"));
 assert.ok(migrationFiles.includes("024_tasks_tenant_ownership.sql"));
 assert.ok(migrationFiles.includes("025_billing_schema_authority.sql"));
+assert.ok(migrationFiles.includes("026_promo_schema_authority.sql"));
 /* Ordering: 024 must sort after 023 (023 remaps trial_* before NULL-task backfill). */
 assert.ok(
   "023_trial_uuid_offices.sql" < "024_tasks_tenant_ownership.sql",
@@ -52,6 +53,10 @@ assert.ok(
 assert.ok(
   "024_tasks_tenant_ownership.sql" < "025_billing_schema_authority.sql",
   "025 must lexicographically follow 024",
+);
+assert.ok(
+  "025_billing_schema_authority.sql" < "026_promo_schema_authority.sql",
+  "026 must lexicographically follow 025",
 );
 assert.ok(
   !migrationFiles.includes("022_tasks_tenant_ownership.sql"),
@@ -659,6 +664,26 @@ assert.doesNotMatch(
 const preflight025 = readRepo("scripts/db/preflight-migration-025.sql");
 assert.match(preflight025, /READ-ONLY|SELECT only/i);
 console.log("  ✅ migration 025 owns entitlements + platform invoices; tenant GETs no longer list all invoices");
+
+console.log("\n═══ schemaAuthority: migration 026 promo tables (Stage 16.3) ═══");
+const mig026 = readRepo("artifacts/api-server/migrations/026_promo_schema_authority.sql");
+assert.match(mig026, /CREATE TABLE IF NOT EXISTS promo_codes/);
+assert.match(mig026, /CREATE TABLE IF NOT EXISTS gift_subscriptions/);
+assert.match(mig026, /ADD COLUMN IF NOT EXISTS/);
+assert.match(mig026, /uq_promo_codes_code|UNIQUE \(code\)/);
+assert.match(mig026, /idx_gift_subscriptions_status_end_date/);
+assert.doesNotMatch(mig026, /DROP TABLE/i);
+assert.doesNotMatch(mig026, /USING\s+\w+::/i);
+const promoSrc026 = readSrc("modules/financial/promo.ts");
+assert.match(promoSrc026, /\/promo\/my-gift/);
+assert.match(promoSrc026, /FROM gift_subscriptions/);
+assert.match(promoSrc026, /FROM promo_codes|JOIN promo_codes/);
+assert.doesNotMatch(promoSrc026, /CREATE TABLE IF NOT EXISTS (promo_codes|gift_subscriptions)/);
+const preflight026 = readRepo("scripts/db/preflight-migration-026.sql");
+assert.match(preflight026, /READ-ONLY|SELECT only/i);
+const integ026 = readRepo("scripts/db/test-migrations.integration.sh");
+assert.match(integ026, /scenario_migration_026_promo|MIGRATION_026/);
+console.log("  ✅ migration 026 owns promo_codes + gift_subscriptions; Runtime DDL absent from promo.ts");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

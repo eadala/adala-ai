@@ -56,6 +56,8 @@
 | `office_ledger` | 010 |
 | `office_entitlements` | **025** |
 | `platform_billing_invoices` | **025** |
+| `promo_codes` | **026** |
+| `gift_subscriptions` | **026** |
 | `stripe_events` | 011 |
 | `stripe_dead_letters` | 011 |
 | `stripe_reconciliation_log` | 011 |

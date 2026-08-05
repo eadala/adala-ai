@@ -34,6 +34,7 @@ MIGRATION_019="$ROOT/artifacts/api-server/migrations/019_money_numeric_batch2.sq
 MIGRATION_020="$ROOT/artifacts/api-server/migrations/020_performance_hotpath_indexes.sql"
 MIGRATION_021="$ROOT/artifacts/api-server/migrations/021_rag_schema_foundation.sql"
 MIGRATION_025="$ROOT/artifacts/api-server/migrations/025_billing_schema_authority.sql"
+MIGRATION_026="$ROOT/artifacts/api-server/migrations/026_promo_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -174,10 +175,15 @@ apply_migration_025() {
   psql_db -f "$MIGRATION_025" >/dev/null
 }
 
-# P0 verify requires billing tables owned by 025. Idempotent if already applied.
+apply_migration_026() {
+  psql_db -f "$MIGRATION_026" >/dev/null
+}
+
+# P0 verify requires billing (025) + promo (026) tables. Idempotent if already applied.
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
+  apply_migration_026
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -208,11 +214,12 @@ apply_all_migrations() {
   apply_migration_020
   apply_migration_021
   apply_migration_025
+  apply_migration_026
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -4014,6 +4021,173 @@ SQL
   teardown_db
 }
 
+# ── Scenario: migration 026 promo schema authority (Stage 16.3) ─────────────
+scenario_migration_026_promo() {
+  log "Scenario 026 — promo schema: fresh / partial repair / data preserve / idempotent / my-gift SQL"
+
+  # ── A. Fresh database ────────────────────────────────────────────────────
+  setup_db "mig026_fresh"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+
+  local pre_promo pre_gift
+  pre_promo=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='promo_codes'
+    );")
+  pre_gift=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='gift_subscriptions'
+    );")
+  [[ "$pre_promo" == "f" ]] && ok "A pre-026: promo_codes absent" || bad "A pre-026: promo_codes should be absent"
+  [[ "$pre_gift" == "f" ]] && ok "A pre-026: gift_subscriptions absent" || bad "A pre-026: gift_subscriptions should be absent"
+
+  apply_migration_026
+
+  local post_promo post_gift promo_cols gift_cols uniq_code idx_status_end
+  post_promo=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='promo_codes'
+    );")
+  post_gift=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='gift_subscriptions'
+    );")
+  promo_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='promo_codes'
+      AND column_name IN ('id','code','plan_slug','duration_days','max_uses','used_count',
+                          'notes','expires_at','is_active','created_at');")
+  gift_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='gift_subscriptions'
+      AND column_name IN ('id','promo_code_id','plan_slug','end_date','notes','status',
+                          'renewed_count','created_at');")
+  uniq_code=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.promo_codes'::regclass AND contype='u'
+      AND pg_get_constraintdef(oid) ILIKE '%(code)%';")
+  idx_status_end=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_gift_subscriptions_status_end_date';")
+
+  [[ "$post_promo" == "t" ]] && ok "A: promo_codes created" || bad "A: promo_codes missing"
+  [[ "$post_gift" == "t" ]] && ok "A: gift_subscriptions created" || bad "A: gift_subscriptions missing"
+  [[ "$promo_cols" == "10" ]] && ok "A: promo_codes columns present" || bad "A: promo cols=$promo_cols"
+  [[ "$gift_cols" == "8" ]] && ok "A: gift_subscriptions columns present" || bad "A: gift cols=$gift_cols"
+  [[ "$uniq_code" -ge 1 ]] && ok "A: UNIQUE(code) present" || bad "A: UNIQUE(code) missing"
+  [[ "$idx_status_end" == "1" ]] && ok "A: status/end_date index" || bad "A: status/end_date index missing"
+
+  psql_db <<'SQL' >/dev/null
+INSERT INTO promo_codes (code, plan_slug, duration_days, max_uses)
+VALUES ('WELCOME26', 'pro', 30, 5);
+INSERT INTO gift_subscriptions (promo_code_id, plan_slug, end_date, notes, status)
+SELECT id, 'pro', NOW() + INTERVAL '30 days', 'mig026 test', 'active'
+FROM promo_codes WHERE code = 'WELCOME26';
+SQL
+  ok "A: promo + gift insert succeeded"
+
+  # GET /promo/my-gift query path must succeed and return a row
+  local my_gift_cnt
+  my_gift_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM (
+      SELECT gs.*, pc.code AS promo_code_text
+      FROM gift_subscriptions gs
+      LEFT JOIN promo_codes pc ON pc.id = gs.promo_code_id
+      WHERE gs.status = 'active' AND gs.end_date > NOW()
+      ORDER BY gs.end_date DESC LIMIT 1
+    ) q;")
+  [[ "$my_gift_cnt" == "1" ]] && ok "A: my-gift SELECT returns active gift" || bad "A: my-gift count=$my_gift_cnt"
+
+  apply_migration_026
+  ok "A/F: re-run 026 on fresh schema succeeded"
+
+  apply_migration_011
+  apply_migration_012
+  apply_migration_013
+  apply_migration_014
+  apply_migration_015
+  apply_migration_016
+  apply_migration_017
+  if verify_p0_schema /tmp/verify-026-fresh.log; then
+    ok "A: verify-schema after 010→017 + 025 + 026"
+  else
+    bad "A: verify-schema failed after 026"; tail -20 /tmp/verify-026-fresh.log
+  fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Partial legacy tables — repair without data loss ──────────────────
+  setup_db "mig026_partial"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE promo_codes (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  plan_slug TEXT NOT NULL,
+  duration_days INTEGER NOT NULL
+);
+INSERT INTO promo_codes (id, code, plan_slug, duration_days)
+VALUES ('legacy-promo-1', 'LEGACY26', 'basic', 14);
+
+CREATE TABLE gift_subscriptions (
+  id TEXT PRIMARY KEY,
+  plan_slug TEXT NOT NULL,
+  end_date TIMESTAMPTZ NOT NULL
+);
+INSERT INTO gift_subscriptions (id, plan_slug, end_date)
+VALUES ('legacy-gift-1', 'basic', NOW() + INTERVAL '7 days');
+SQL
+
+  apply_migration_026
+
+  local partial_promo_cols partial_gift_cols legacy_promo legacy_gift
+  partial_promo_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='promo_codes'
+      AND column_name IN ('max_uses','used_count','notes','expires_at','is_active','created_at');")
+  partial_gift_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='gift_subscriptions'
+      AND column_name IN ('promo_code_id','notes','status','renewed_count','created_at');")
+  legacy_promo=$(psql_db -At -c "
+    SELECT COUNT(*) FROM promo_codes
+    WHERE id='legacy-promo-1' AND code='LEGACY26' AND duration_days=14;")
+  legacy_gift=$(psql_db -At -c "
+    SELECT COUNT(*) FROM gift_subscriptions
+    WHERE id='legacy-gift-1' AND plan_slug='basic';")
+
+  [[ "$partial_promo_cols" == "6" ]] && ok "B: promo missing columns added" || bad "B: promo cols=$partial_promo_cols"
+  [[ "$partial_gift_cols" == "5" ]] && ok "B: gift missing columns added" || bad "B: gift cols=$partial_gift_cols"
+  [[ "$legacy_promo" == "1" ]] && ok "B: legacy promo row preserved" || bad "B: promo data lost"
+  [[ "$legacy_gift" == "1" ]] && ok "B: legacy gift row preserved" || bad "B: gift data lost"
+
+  apply_migration_026
+  ok "B/F: re-run 026 on repaired partial schema succeeded"
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -4035,6 +4209,7 @@ scenario_migration_018_money_numeric_batch1
 scenario_migration_019_money_numeric_batch2
 scenario_migration_021_rag_tenant_fk
 scenario_migration_025_billing
+scenario_migration_026_promo
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
