@@ -39,10 +39,18 @@ HAVING COUNT(*) > 1
 ORDER BY n DESC
 LIMIT 50;
 
-\echo '▶ 026 preflight: active gifts visible to GET /promo/my-gift'
+\echo '▶ 026 preflight: active gifts (global count — admin visibility only)'
 SELECT COUNT(*)::int AS active_gifts
 FROM gift_subscriptions
 WHERE status = 'active' AND end_date > NOW();
+
+\echo '▶ 026 preflight: gift rows missing ownership (invisible to tenant reads; do NOT guess/backfill)'
+SELECT
+  COUNT(*) FILTER (WHERE office_id IS NULL)::int AS missing_office_id,
+  COUNT(*) FILTER (WHERE user_id IS NULL)::int AS missing_user_id,
+  COUNT(*) FILTER (WHERE office_id IS NULL OR user_id IS NULL)::int AS missing_either,
+  COUNT(*)::int AS total_gifts
+FROM gift_subscriptions;
 
 \echo '▶ 026 preflight: chosen_action'
 SELECT

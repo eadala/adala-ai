@@ -4023,7 +4023,12 @@ SQL
 
 # ── Scenario: migration 026 promo schema authority (Stage 16.3) ─────────────
 scenario_migration_026_promo() {
-  log "Scenario 026 — promo schema: fresh / partial repair / data preserve / idempotent / my-gift SQL"
+  log "Scenario 026 — promo schema: ownership / fresh / partial repair / isolation / idempotent"
+
+  local OFFICE_A="aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1"
+  local OFFICE_B="bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"
+  local USER_A="user_a_clerk"
+  local USER_B="user_b_clerk"
 
   # ── A. Fresh database ────────────────────────────────────────────────────
   setup_db "mig026_fresh"
@@ -4052,7 +4057,8 @@ scenario_migration_026_promo() {
 
   apply_migration_026
 
-  local post_promo post_gift promo_cols gift_cols uniq_code idx_status_end
+  local post_promo post_gift promo_cols gift_cols uniq_code idx_status_end idx_office idx_user idx_ous
+  local office_nn user_nn
   post_promo=$(psql_db -At -c "
     SELECT EXISTS (
       SELECT 1 FROM information_schema.tables
@@ -4071,8 +4077,14 @@ scenario_migration_026_promo() {
   gift_cols=$(psql_db -At -c "
     SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema='public' AND table_name='gift_subscriptions'
-      AND column_name IN ('id','promo_code_id','plan_slug','end_date','notes','status',
-                          'renewed_count','created_at');")
+      AND column_name IN ('id','office_id','user_id','promo_code_id','plan_slug','end_date','notes',
+                          'status','renewed_count','created_at');")
+  office_nn=$(psql_db -At -c "
+    SELECT is_nullable FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='gift_subscriptions' AND column_name='office_id';")
+  user_nn=$(psql_db -At -c "
+    SELECT is_nullable FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='gift_subscriptions' AND column_name='user_id';")
   uniq_code=$(psql_db -At -c "
     SELECT COUNT(*) FROM pg_constraint
     WHERE conrelid='public.promo_codes'::regclass AND contype='u'
@@ -4080,34 +4092,86 @@ scenario_migration_026_promo() {
   idx_status_end=$(psql_db -At -c "
     SELECT COUNT(*) FROM pg_indexes
     WHERE schemaname='public' AND indexname='idx_gift_subscriptions_status_end_date';")
+  idx_office=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_gift_subscriptions_office_id';")
+  idx_user=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_gift_subscriptions_user_id';")
+  idx_ous=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_gift_subscriptions_office_user_status';")
 
   [[ "$post_promo" == "t" ]] && ok "A: promo_codes created" || bad "A: promo_codes missing"
   [[ "$post_gift" == "t" ]] && ok "A: gift_subscriptions created" || bad "A: gift_subscriptions missing"
   [[ "$promo_cols" == "10" ]] && ok "A: promo_codes columns present" || bad "A: promo cols=$promo_cols"
-  [[ "$gift_cols" == "8" ]] && ok "A: gift_subscriptions columns present" || bad "A: gift cols=$gift_cols"
+  [[ "$gift_cols" == "10" ]] && ok "A: gift_subscriptions columns present" || bad "A: gift cols=$gift_cols"
+  [[ "$office_nn" == "NO" ]] && ok "A: fresh office_id NOT NULL" || bad "A: office_id nullable=$office_nn"
+  [[ "$user_nn" == "NO" ]] && ok "A: fresh user_id NOT NULL" || bad "A: user_id nullable=$user_nn"
   [[ "$uniq_code" -ge 1 ]] && ok "A: UNIQUE(code) present" || bad "A: UNIQUE(code) missing"
   [[ "$idx_status_end" == "1" ]] && ok "A: status/end_date index" || bad "A: status/end_date index missing"
+  [[ "$idx_office" == "1" ]] && ok "A: office_id index" || bad "A: office_id index missing"
+  [[ "$idx_user" == "1" ]] && ok "A: user_id index" || bad "A: user_id index missing"
+  [[ "$idx_ous" == "1" ]] && ok "A: (office_id,user_id,status) index" || bad "A: composite ownership index missing"
 
-  psql_db <<'SQL' >/dev/null
+  psql_db <<SQL >/dev/null
 INSERT INTO promo_codes (code, plan_slug, duration_days, max_uses)
 VALUES ('WELCOME26', 'pro', 30, 5);
-INSERT INTO gift_subscriptions (promo_code_id, plan_slug, end_date, notes, status)
-SELECT id, 'pro', NOW() + INTERVAL '30 days', 'mig026 test', 'active'
+INSERT INTO gift_subscriptions (office_id, user_id, promo_code_id, plan_slug, end_date, notes, status)
+SELECT '${OFFICE_A}'::uuid, '${USER_A}', id, 'pro', NOW() + INTERVAL '30 days', 'mig026 test', 'active'
 FROM promo_codes WHERE code = 'WELCOME26';
+INSERT INTO gift_subscriptions (office_id, user_id, plan_slug, end_date, notes, status)
+VALUES
+  ('${OFFICE_B}'::uuid, '${USER_B}', 'basic', NOW() + INTERVAL '14 days', 'office B gift', 'active'),
+  ('${OFFICE_A}'::uuid, '${USER_B}', 'pro', NOW() + INTERVAL '10 days', 'same office other user', 'active'),
+  ('${OFFICE_A}'::uuid, '${USER_A}', 'basic', NOW() - INTERVAL '1 day', 'expired A', 'active'),
+  ('${OFFICE_A}'::uuid, '${USER_A}', 'basic', NOW() + INTERVAL '5 days', 'inactive A', 'cancelled');
 SQL
-  ok "A: promo + gift insert succeeded"
+  ok "A: promo + owned gift inserts succeeded"
 
-  # GET /promo/my-gift query path must succeed and return a row
-  local my_gift_cnt
+  # Scoped my-gift path for USER_A / OFFICE_A
+  local my_gift_cnt cross_user cross_office expired_inact legacy_null_vis
   my_gift_cnt=$(psql_db -At -c "
     SELECT COUNT(*) FROM (
       SELECT gs.*, pc.code AS promo_code_text
       FROM gift_subscriptions gs
       LEFT JOIN promo_codes pc ON pc.id = gs.promo_code_id
       WHERE gs.status = 'active' AND gs.end_date > NOW()
+        AND gs.office_id = '${OFFICE_A}'::uuid
+        AND gs.user_id = '${USER_A}'
       ORDER BY gs.end_date DESC LIMIT 1
     ) q;")
-  [[ "$my_gift_cnt" == "1" ]] && ok "A: my-gift SELECT returns active gift" || bad "A: my-gift count=$my_gift_cnt"
+  cross_user=$(psql_db -At -c "
+    SELECT COUNT(*) FROM gift_subscriptions
+    WHERE status='active' AND end_date > NOW()
+      AND office_id='${OFFICE_A}'::uuid AND user_id='${USER_A}'
+      AND notes = 'same office other user';")
+  cross_office=$(psql_db -At -c "
+    SELECT COUNT(*) FROM (
+      SELECT 1 FROM gift_subscriptions
+      WHERE status='active' AND end_date > NOW()
+        AND office_id='${OFFICE_A}'::uuid AND user_id='${USER_A}'
+        AND notes = 'office B gift'
+    ) q;")
+  expired_inact=$(psql_db -At -c "
+    SELECT COUNT(*) FROM (
+      SELECT 1 FROM gift_subscriptions
+      WHERE status='active' AND end_date > NOW()
+        AND office_id='${OFFICE_A}'::uuid AND user_id='${USER_A}'
+        AND notes IN ('expired A', 'inactive A')
+    ) q;")
+  [[ "$my_gift_cnt" == "1" ]] && ok "A: scoped my-gift returns owner gift" || bad "A: my-gift count=$my_gift_cnt"
+  [[ "$cross_user" == "0" ]] && ok "A: user A filter excludes user B gift" || bad "A: cross-user leak"
+  [[ "$cross_office" == "0" ]] && ok "A: office A filter excludes office B gift" || bad "A: cross-office leak"
+  [[ "$expired_inact" == "0" ]] && ok "A: expired/inactive excluded" || bad "A: expired/inactive visible"
+
+  # Duplicate active-gift check is ownership-scoped (user B active does not block user A)
+  local scoped_existing
+  scoped_existing=$(psql_db -At -c "
+    SELECT COUNT(*) FROM gift_subscriptions
+    WHERE status='active' AND end_date > NOW()
+      AND office_id='${OFFICE_A}'::uuid AND user_id='${USER_A}';")
+  [[ "$scoped_existing" == "1" ]] && ok "A: scoped active-gift check sees only owner" || bad "A: scoped existing=$scoped_existing"
 
   apply_migration_026
   ok "A/F: re-run 026 on fresh schema succeeded"
@@ -4128,7 +4192,7 @@ SQL
   trap - EXIT
   teardown_db
 
-  # ── B. Partial legacy tables — repair without data loss ──────────────────
+  # ── B. Partial legacy tables — repair without data loss / NULL ownership stays invisible ──
   setup_db "mig026_partial"
   trap teardown_db EXIT
   apply_migrations_base
@@ -4161,6 +4225,7 @@ SQL
   apply_migration_026
 
   local partial_promo_cols partial_gift_cols legacy_promo legacy_gift
+  local legacy_office_null legacy_user_null legacy_office_nn legacy_user_nn scoped_legacy
   partial_promo_cols=$(psql_db -At -c "
     SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema='public' AND table_name='promo_codes'
@@ -4168,18 +4233,39 @@ SQL
   partial_gift_cols=$(psql_db -At -c "
     SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema='public' AND table_name='gift_subscriptions'
-      AND column_name IN ('promo_code_id','notes','status','renewed_count','created_at');")
+      AND column_name IN ('office_id','user_id','promo_code_id','notes','status','renewed_count','created_at');")
   legacy_promo=$(psql_db -At -c "
     SELECT COUNT(*) FROM promo_codes
     WHERE id='legacy-promo-1' AND code='LEGACY26' AND duration_days=14;")
   legacy_gift=$(psql_db -At -c "
     SELECT COUNT(*) FROM gift_subscriptions
     WHERE id='legacy-gift-1' AND plan_slug='basic';")
+  legacy_office_null=$(psql_db -At -c "
+    SELECT COUNT(*) FROM gift_subscriptions
+    WHERE id='legacy-gift-1' AND office_id IS NULL;")
+  legacy_user_null=$(psql_db -At -c "
+    SELECT COUNT(*) FROM gift_subscriptions
+    WHERE id='legacy-gift-1' AND user_id IS NULL;")
+  legacy_office_nn=$(psql_db -At -c "
+    SELECT is_nullable FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='gift_subscriptions' AND column_name='office_id';")
+  legacy_user_nn=$(psql_db -At -c "
+    SELECT is_nullable FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='gift_subscriptions' AND column_name='user_id';")
+  scoped_legacy=$(psql_db -At -c "
+    SELECT COUNT(*) FROM gift_subscriptions
+    WHERE status='active' AND end_date > NOW()
+      AND office_id='${OFFICE_A}'::uuid AND user_id='${USER_A}';")
 
   [[ "$partial_promo_cols" == "6" ]] && ok "B: promo missing columns added" || bad "B: promo cols=$partial_promo_cols"
-  [[ "$partial_gift_cols" == "5" ]] && ok "B: gift missing columns added" || bad "B: gift cols=$partial_gift_cols"
+  [[ "$partial_gift_cols" == "7" ]] && ok "B: gift missing columns added (incl ownership)" || bad "B: gift cols=$partial_gift_cols"
   [[ "$legacy_promo" == "1" ]] && ok "B: legacy promo row preserved" || bad "B: promo data lost"
   [[ "$legacy_gift" == "1" ]] && ok "B: legacy gift row preserved" || bad "B: gift data lost"
+  [[ "$legacy_office_null" == "1" ]] && ok "B: legacy office_id left NULL (no guess/backfill)" || bad "B: office_id backfilled"
+  [[ "$legacy_user_null" == "1" ]] && ok "B: legacy user_id left NULL (no guess/backfill)" || bad "B: user_id backfilled"
+  [[ "$legacy_office_nn" == "YES" ]] && ok "B: repaired office_id stays nullable" || bad "B: office_id forced NOT NULL"
+  [[ "$legacy_user_nn" == "YES" ]] && ok "B: repaired user_id stays nullable" || bad "B: user_id forced NOT NULL"
+  [[ "$scoped_legacy" == "0" ]] && ok "B: NULL-owned legacy invisible to tenant filter" || bad "B: legacy leaked into tenant read"
 
   apply_migration_026
   ok "B/F: re-run 026 on repaired partial schema succeeded"

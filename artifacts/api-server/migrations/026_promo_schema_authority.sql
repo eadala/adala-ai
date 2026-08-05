@@ -15,17 +15,20 @@
 --     UNIQUE(code) — redeem/admin unique error handling
 --   gift_subscriptions:
 --     SELECT/INSERT/UPDATE — promo.ts, subscription.ts
---     columns: id, promo_code_id, plan_slug, end_date, notes, status,
---              renewed_count, created_at
+--     columns: id, office_id (UUID), user_id (TEXT), promo_code_id, plan_slug,
+--              end_date, notes, status, renewed_count, created_at
+--     Ownership: every new gift row MUST carry office_id + user_id.
+--     Tenant reads filter by both; legacy NULL-owned rows stay invisible.
 --
 -- Apply AFTER: … → 025
 -- Idempotent / legacy-safe:
---   - CREATE TABLE IF NOT EXISTS for fresh DBs
---   - ADD COLUMN IF NOT EXISTS repairs partial legacy tables (no type rewrite,
---     no NOT NULL force, no DROP, no silent cast)
+--   - CREATE TABLE IF NOT EXISTS for fresh DBs (office_id/user_id NOT NULL)
+--   - ADD COLUMN IF NOT EXISTS repairs partial legacy tables (nullable —
+--     do NOT force NOT NULL until legacy NULL ownership is cleaned by ops)
 --   - UNIQUE(code) skipped with WARNING if duplicate codes exist
 -- Do NOT apply via Runtime DDL / drizzle-kit push.
 -- Do NOT deploy/apply this file from the PR agent — ops apply out-of-band.
+-- Do NOT backfill office_id/user_id from the current requester.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 BEGIN;
@@ -118,8 +121,12 @@ CREATE INDEX IF NOT EXISTS idx_promo_codes_expires_at
   ON promo_codes (expires_at);
 
 -- ── gift_subscriptions ─────────────────────────────────────────────────────
+-- Fresh installs: office_id + user_id are NOT NULL (new rows must be owned).
+-- Legacy repair: ADD COLUMN stays nullable — never SET NOT NULL here.
 CREATE TABLE IF NOT EXISTS gift_subscriptions (
   id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  office_id       UUID NOT NULL,
+  user_id         TEXT NOT NULL,
   promo_code_id   TEXT,
   plan_slug       TEXT NOT NULL,
   end_date        TIMESTAMPTZ NOT NULL,
@@ -130,6 +137,8 @@ CREATE TABLE IF NOT EXISTS gift_subscriptions (
 );
 
 ALTER TABLE gift_subscriptions ADD COLUMN IF NOT EXISTS id TEXT;
+ALTER TABLE gift_subscriptions ADD COLUMN IF NOT EXISTS office_id UUID;
+ALTER TABLE gift_subscriptions ADD COLUMN IF NOT EXISTS user_id TEXT;
 ALTER TABLE gift_subscriptions ADD COLUMN IF NOT EXISTS promo_code_id TEXT;
 ALTER TABLE gift_subscriptions ADD COLUMN IF NOT EXISTS plan_slug TEXT;
 ALTER TABLE gift_subscriptions ADD COLUMN IF NOT EXISTS end_date TIMESTAMPTZ;
@@ -142,6 +151,9 @@ ALTER TABLE gift_subscriptions ALTER COLUMN status SET DEFAULT 'active';
 ALTER TABLE gift_subscriptions ALTER COLUMN renewed_count SET DEFAULT 0;
 ALTER TABLE gift_subscriptions ALTER COLUMN created_at SET DEFAULT NOW();
 
+-- Intentionally NO: ALTER COLUMN office_id/user_id SET NOT NULL
+-- Legacy NULL-owned rows must remain until ops remaps with trusted evidence.
+
 -- Query path for GET /promo/my-gift and subscription gift check
 CREATE INDEX IF NOT EXISTS idx_gift_subscriptions_status_end_date
   ON gift_subscriptions (status, end_date DESC);
@@ -151,5 +163,14 @@ CREATE INDEX IF NOT EXISTS idx_gift_subscriptions_promo_code_id
 
 CREATE INDEX IF NOT EXISTS idx_gift_subscriptions_created_at
   ON gift_subscriptions (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_gift_subscriptions_office_id
+  ON gift_subscriptions (office_id);
+
+CREATE INDEX IF NOT EXISTS idx_gift_subscriptions_user_id
+  ON gift_subscriptions (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_gift_subscriptions_office_user_status
+  ON gift_subscriptions (office_id, user_id, status);
 
 COMMIT;

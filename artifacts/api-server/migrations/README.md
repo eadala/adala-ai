@@ -150,7 +150,7 @@ bash scripts/db/verify-schema.sh
 | `023_trial_uuid_offices.sql` | Legacy `trial_*` → canonical `office_page` UUID remap (Stage 15.2c). Run **before** 024. |
 | `024_tasks_tenant_ownership.sql` | Strict `tasks.office_id` backfill + orphan quarantine + `NOT NULL` (Stage 15). **Requires 023 first.** Autopilot UUID office writes must be deployed before production apply. |
 | `025_billing_schema_authority.sql` | Formal `office_entitlements` + `platform_billing_invoices` (Stage 16.1). Fixes Billing GET 500s; tenant-scoped reads in app code. |
-| `026_promo_schema_authority.sql` | Formal `promo_codes` + `gift_subscriptions` (Stage 16.3). Fixes `GET /api/promo/my-gift` 500 when tables absent. |
+| `026_promo_schema_authority.sql` | Formal `promo_codes` + `gift_subscriptions` (Stage 16.3). Fixes `GET /api/promo/my-gift` 500 when tables absent. Gifts require `office_id` + `user_id`; tenant reads are ownership-scoped. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -178,7 +178,7 @@ bash scripts/db/verify-schema.sh
 | `office_entitlements` | **025** | billing overview / entitlements / provisioning |
 | `platform_billing_invoices` | **025** | billing platform invoices + stats |
 | `promo_codes` | **026** | promo admin + redeem |
-| `gift_subscriptions` | **026** | `GET /promo/my-gift`, office subscription gift check |
+| `gift_subscriptions` | **026** | `GET /promo/my-gift`, redeem, office subscription gift check (scoped by `office_id` + `user_id`) |
 | `stripe_events` | **011** | `stripeEventBuffer.ts` webhook buffer |
 | `stripe_dead_letters` | **011** | Stripe DLQ |
 | `stripe_reconciliation_log` | **011** | `stripeReconcile.ts` |
