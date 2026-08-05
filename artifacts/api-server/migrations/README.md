@@ -111,7 +111,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/024_tasks_tenant_ownership.sql
 
-# 25) تحقق بعد التنفيذ
+# 25) Billing schema authority — office_entitlements + platform_billing_invoices (Stage 16.1)
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/025_billing_schema_authority.sql
+
+# 26) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -141,6 +145,7 @@ bash scripts/db/verify-schema.sh
 | `021_rag_schema_foundation.sql` | pgvector + `document_center_files` / `document_ai_metadata` formalization + `rag_chunks` with composite tenant FK `(office_id, document_id) → (office_id, id)` + `vector(1536)` HNSW (Stage 11.2). **Requires pgvector-enabled Postgres (≥0.5).** Coolify: changing repo `docker-compose` does **not** change the deployed DB image — switch Coolify Postgres to `pgvector/pgvector:pg16` (or equivalent) **before** applying 021. Same major (16→16 pgvector) can keep the existing data volume; major upgrades need dump/restore. Embedding contract: Decision A — keep `vector(1536)` (text-embedding-3-small); Stage 11.3 must reject incompatible dims. |
 | `023_trial_uuid_offices.sql` | Legacy `trial_*` → canonical `office_page` UUID remap (Stage 15.2c). Run **before** 024. |
 | `024_tasks_tenant_ownership.sql` | Strict `tasks.office_id` backfill + orphan quarantine + `NOT NULL` (Stage 15). **Requires 023 first.** Autopilot UUID office writes must be deployed before production apply. |
+| `025_billing_schema_authority.sql` | Formal `office_entitlements` + `platform_billing_invoices` (Stage 16.1). Fixes Billing GET 500s; tenant-scoped reads in app code. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -165,6 +170,8 @@ bash scripts/db/verify-schema.sh
 | `storage_files` | **008** | `storageFileRegister.ts` / POST `/storage/files` insert |
 | `storage_folders` | **009** | `storage.ts` folder management |
 | `office_ledger` | **010** | billing / Stripe webhooks / reconcile |
+| `office_entitlements` | **025** | billing overview / entitlements / provisioning |
+| `platform_billing_invoices` | **025** | billing platform invoices + stats |
 | `stripe_events` | **011** | `stripeEventBuffer.ts` webhook buffer |
 | `stripe_dead_letters` | **011** | Stripe DLQ |
 | `stripe_reconciliation_log` | **011** | `stripeReconcile.ts` |

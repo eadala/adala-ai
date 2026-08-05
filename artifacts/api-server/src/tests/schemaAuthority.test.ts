@@ -43,10 +43,15 @@ assert.ok(migrationFiles.includes("020_performance_hotpath_indexes.sql"));
 assert.ok(migrationFiles.includes("021_rag_schema_foundation.sql"));
 assert.ok(migrationFiles.includes("023_trial_uuid_offices.sql"));
 assert.ok(migrationFiles.includes("024_tasks_tenant_ownership.sql"));
+assert.ok(migrationFiles.includes("025_billing_schema_authority.sql"));
 /* Ordering: 024 must sort after 023 (023 remaps trial_* before NULL-task backfill). */
 assert.ok(
   "023_trial_uuid_offices.sql" < "024_tasks_tenant_ownership.sql",
   "024 must lexicographically follow 023",
+);
+assert.ok(
+  "024_tasks_tenant_ownership.sql" < "025_billing_schema_authority.sql",
+  "025 must lexicographically follow 024",
 );
 assert.ok(
   !migrationFiles.includes("022_tasks_tenant_ownership.sql"),
@@ -634,6 +639,26 @@ assert.match(caseEvents152e, /officeId/);
 assert.doesNotMatch(eventBus152e, /officeId\s*\?\?\s*["']default["']/);
 assert.doesNotMatch(eventBus152e, /\?\?\s*["']default["']/);
 console.log("  ✅ CASE_CREATED carries officeId; EventBus does not invent default tenant ids");
+
+console.log("\n═══ schemaAuthority: migration 025 billing tables (Stage 16.1) ═══");
+const mig025 = readRepo("artifacts/api-server/migrations/025_billing_schema_authority.sql");
+assert.match(mig025, /CREATE TABLE IF NOT EXISTS office_entitlements/);
+assert.match(mig025, /CREATE TABLE IF NOT EXISTS platform_billing_invoices/);
+assert.match(mig025, /ADD COLUMN IF NOT EXISTS/);
+assert.match(mig025, /idx_platform_billing_invoices_office_id/);
+assert.match(mig025, /idx_platform_billing_invoices_status/);
+assert.match(mig025, /idx_platform_billing_invoices_due_date/);
+assert.doesNotMatch(mig025, /DROP TABLE/i);
+const billingSrc025 = readSrc("modules/financial/billing.ts");
+assert.match(billingSrc025, /requireAuthWithTenant/);
+assert.match(billingSrc025, /fetchBillingOverview|listTenantPlatformInvoices|tenantPlatformInvoiceStats/);
+assert.doesNotMatch(
+  billingSrc025,
+  /FROM platform_billing_invoices ORDER BY created_at DESC LIMIT 50/,
+);
+const preflight025 = readRepo("scripts/db/preflight-migration-025.sql");
+assert.match(preflight025, /READ-ONLY|SELECT only/i);
+console.log("  ✅ migration 025 owns entitlements + platform invoices; tenant GETs no longer list all invoices");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

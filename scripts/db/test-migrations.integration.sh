@@ -33,6 +33,7 @@ MIGRATION_018="$ROOT/artifacts/api-server/migrations/018_money_numeric_batch1.sq
 MIGRATION_019="$ROOT/artifacts/api-server/migrations/019_money_numeric_batch2.sql"
 MIGRATION_020="$ROOT/artifacts/api-server/migrations/020_performance_hotpath_indexes.sql"
 MIGRATION_021="$ROOT/artifacts/api-server/migrations/021_rag_schema_foundation.sql"
+MIGRATION_025="$ROOT/artifacts/api-server/migrations/025_billing_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -169,6 +170,17 @@ apply_migration_021() {
   psql_db -f "$MIGRATION_021" >/dev/null
 }
 
+apply_migration_025() {
+  psql_db -f "$MIGRATION_025" >/dev/null
+}
+
+# P0 verify requires billing tables owned by 025. Idempotent if already applied.
+verify_p0_schema() {
+  local log="${1:-/tmp/verify-p0.log}"
+  apply_migration_025
+  bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -195,17 +207,18 @@ apply_all_migrations() {
   apply_migration_019
   apply_migration_020
   apply_migration_021
+  apply_migration_025
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003,001,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018,019,020,021 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
   apply_all_migrations
 
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-empty.log 2>&1; then
+  if verify_p0_schema /tmp/verify-empty.log; then
     ok "verify-schema.sh passed on empty DB"
   else
     bad "verify-schema.sh failed on empty DB"
@@ -265,7 +278,7 @@ SQL
   apply_all_migrations
   apply_all_migrations
 
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-partial.log 2>&1; then
+  if verify_p0_schema /tmp/verify-partial.log; then
     ok "verify-schema.sh passed after double migration on partial DB"
   else
     bad "verify-schema.sh failed after double migration"
@@ -447,7 +460,7 @@ scenario_migration_006_idempotent() {
   apply_migration_015
   apply_migration_016
   apply_migration_017
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-006.log 2>&1; then
+  if verify_p0_schema /tmp/verify-006.log; then
     ok "verify-schema.sh passed after 006→017"
   else
     bad "verify-schema.sh failed after 006→017"
@@ -708,7 +721,7 @@ SQL
   apply_migration_015
   apply_migration_016
   apply_migration_017
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-010.log 2>&1; then
+  if verify_p0_schema /tmp/verify-010.log; then
     ok "A: verify-schema.sh passed after 010→017"
   else
     bad "A: verify-schema.sh failed after 010→017"; tail -20 /tmp/verify-010.log
@@ -989,7 +1002,7 @@ scenario_migration_011_stripe_infra() {
   apply_migration_015
   apply_migration_016
   apply_migration_017
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-011.log 2>&1; then
+  if verify_p0_schema /tmp/verify-011.log; then
     ok "A: verify-schema.sh passed after 011→017"
   else
     bad "A: verify-schema.sh failed after 011→017"; tail -20 /tmp/verify-011.log
@@ -1282,7 +1295,7 @@ scenario_migration_012_payment_transactions() {
   apply_migration_015
   apply_migration_016
   apply_migration_017
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-012.log 2>&1; then
+  if verify_p0_schema /tmp/verify-012.log; then
     ok "A: verify-schema.sh passed after 012+013+014+015+016+017"
   else
     bad "A: verify-schema.sh failed after 012+013+014+015+016+017"; tail -20 /tmp/verify-012.log
@@ -1516,7 +1529,7 @@ scenario_migration_013_erp() {
   apply_migration_015
   apply_migration_016
   apply_migration_017
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-013.log 2>&1; then
+  if verify_p0_schema /tmp/verify-013.log; then
     ok "A: verify-schema.sh passed after 013+014+015+016+017"
   else
     bad "A: verify-schema.sh failed after 013+014+015+016+017"; tail -20 /tmp/verify-013.log
@@ -2085,7 +2098,7 @@ scenario_migration_014_bankruptcy() {
   apply_migration_015
   apply_migration_016
   apply_migration_017
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-014.log 2>&1; then
+  if verify_p0_schema /tmp/verify-014.log; then
     ok "A: verify-schema.sh passed after 014+015+016+017"
   else
     bad "A: verify-schema.sh failed after 014+015+016+017"; tail -20 /tmp/verify-014.log
@@ -2415,7 +2428,7 @@ scenario_migration_015_tasks_branches() {
   apply_migration_016
   apply_migration_017
 
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-015.log 2>&1; then
+  if verify_p0_schema /tmp/verify-015.log; then
     ok "A: verify-schema.sh passed after 015+016+017"
   else
     bad "A: verify-schema.sh failed after 015+016+017"; tail -20 /tmp/verify-015.log
@@ -2674,7 +2687,7 @@ SQL
   ok "A/F: re-run 016 on fresh arabic schema succeeded (idempotent)"
   apply_migration_017
 
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-016.log 2>&1; then
+  if verify_p0_schema /tmp/verify-016.log; then
     ok "A: verify-schema.sh passed after 016+017"
   else
     bad "A: verify-schema.sh failed after 016+017"; tail -20 /tmp/verify-016.log
@@ -2962,7 +2975,7 @@ SQL
   admin_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM office_page;")
   [[ "$admin_cnt" -ge 1 ]] && ok "admin list offices (db.select officePageTable)" || bad "office_page empty"
 
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-endpoints.log 2>&1; then
+  if verify_p0_schema /tmp/verify-endpoints.log; then
     ok "verify-schema.sh passed after full chain including 006→017"
   else
     bad "verify-schema.sh failed on endpoint scenario"
@@ -3158,7 +3171,7 @@ SQL
   apply_migration_017
   ok "B/F: re-run 017 idempotent"
 
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-017.log 2>&1; then
+  if verify_p0_schema /tmp/verify-017.log; then
     ok "B: verify-schema.sh passed after 017"
   else
     bad "B: verify-schema.sh failed after 017"; tail -20 /tmp/verify-017.log
@@ -3474,7 +3487,7 @@ SQL
   apply_migration_018
   ok "B/F: re-run 018 idempotent"
 
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-018.log 2>&1; then
+  if verify_p0_schema /tmp/verify-018.log; then
     ok "B: verify-schema.sh passed after 018"
   else
     bad "B: verify-schema.sh failed after 018"; tail -20 /tmp/verify-018.log
@@ -3667,7 +3680,7 @@ SQL
   apply_migration_019
   ok "B/F: re-run 019 idempotent"
 
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify-019.log 2>&1; then
+  if verify_p0_schema /tmp/verify-019.log; then
     ok "B: verify-schema.sh passed after 019"
   else
     bad "B: verify-schema.sh failed after 019"; tail -20 /tmp/verify-019.log
@@ -3842,6 +3855,165 @@ SQL
   teardown_db
 }
 
+# ── Scenario: migration 025 billing schema authority (Stage 16.1) ───────────
+scenario_migration_025_billing() {
+  log "Scenario 025 — billing schema: fresh / partial repair / data preserve / idempotent"
+
+  # ── A. Fresh database ────────────────────────────────────────────────────
+  setup_db "mig025_fresh"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+
+  local pre_ent pre_inv
+  pre_ent=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='office_entitlements'
+    );")
+  pre_inv=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='platform_billing_invoices'
+    );")
+  [[ "$pre_ent" == "f" ]] && ok "A pre-025: office_entitlements absent" || bad "A pre-025: entitlements should be absent"
+  [[ "$pre_inv" == "f" ]] && ok "A pre-025: platform_billing_invoices absent" || bad "A pre-025: invoices should be absent"
+
+  apply_migration_025
+
+  local post_ent post_inv ent_cols inv_cols idx_office idx_status idx_due
+  post_ent=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='office_entitlements'
+    );")
+  post_inv=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='platform_billing_invoices'
+    );")
+  ent_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='office_entitlements'
+      AND column_name IN ('office_id','key','plan','limit','used','reset_at','updated_at');")
+  inv_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='platform_billing_invoices'
+      AND column_name IN ('id','office_id','plan_id','plan_name','amount','currency','status',
+                          'billing_cycle','issue_date','due_date','paid_at','notes','stripe_id','created_at');")
+  idx_office=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_platform_billing_invoices_office_id';")
+  idx_status=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_platform_billing_invoices_status';")
+  idx_due=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_platform_billing_invoices_due_date';")
+
+  [[ "$post_ent" == "t" ]] && ok "A: office_entitlements created" || bad "A: office_entitlements missing"
+  [[ "$post_inv" == "t" ]] && ok "A: platform_billing_invoices created" || bad "A: platform_billing_invoices missing"
+  [[ "$ent_cols" == "7" ]] && ok "A: entitlements columns present" || bad "A: ent cols=$ent_cols"
+  [[ "$inv_cols" == "14" ]] && ok "A: invoice columns present" || bad "A: inv cols=$inv_cols"
+  [[ "$idx_office" == "1" ]] && ok "A: office_id index" || bad "A: office index missing"
+  [[ "$idx_status" == "1" ]] && ok "A: status index" || bad "A: status index missing"
+  [[ "$idx_due" == "1" ]] && ok "A: due_date index" || bad "A: due_date index missing"
+
+  psql_db <<'SQL' >/dev/null
+INSERT INTO office_entitlements (office_id, key, plan, "limit", used)
+VALUES ('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 'CASES', 'pro', 100, 3)
+ON CONFLICT (office_id, key) DO NOTHING;
+INSERT INTO platform_billing_invoices
+  (id, office_id, plan_id, plan_name, amount, currency, status, billing_cycle, due_date)
+VALUES
+  ('inv-025-a', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 'pro', 'احترافي', 299, 'SAR', 'unpaid', 'monthly', NOW() + INTERVAL '7 days');
+SQL
+  ok "A: tenant-scoped insert into both tables"
+
+  apply_migration_025
+  ok "A/F: re-run 025 on fresh schema succeeded"
+
+  # Complete P0 chain so verify-schema can assert billing tables alongside prior owners
+  apply_migration_011
+  apply_migration_012
+  apply_migration_013
+  apply_migration_014
+  apply_migration_015
+  apply_migration_016
+  apply_migration_017
+  if verify_p0_schema /tmp/verify-025-fresh.log; then
+    ok "A: verify-schema after 010→017 + 025"
+  else
+    bad "A: verify-schema failed after 010→017 + 025"; tail -20 /tmp/verify-025-fresh.log
+  fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Partial legacy tables — repair without data loss ──────────────────
+  setup_db "mig025_partial"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_entitlements (
+  office_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  "limit" INTEGER,
+  used INTEGER
+);
+INSERT INTO office_entitlements (office_id, key, "limit", used)
+VALUES ('legacy-office', 'AI_CALLS', 50, 7);
+
+CREATE TABLE platform_billing_invoices (
+  id TEXT PRIMARY KEY,
+  plan_id TEXT,
+  amount NUMERIC,
+  status TEXT
+);
+INSERT INTO platform_billing_invoices (id, plan_id, amount, status)
+VALUES ('legacy-inv-1', 'basic', 99, 'paid');
+SQL
+
+  apply_migration_025
+
+  local partial_ent_cols partial_inv_cols legacy_ent legacy_inv
+  partial_ent_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='office_entitlements'
+      AND column_name IN ('plan','reset_at','updated_at');")
+  partial_inv_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='platform_billing_invoices'
+      AND column_name IN ('office_id','plan_name','currency','billing_cycle','issue_date','due_date','paid_at','notes','stripe_id','created_at');")
+  legacy_ent=$(psql_db -At -c "
+    SELECT COUNT(*) FROM office_entitlements
+    WHERE office_id='legacy-office' AND key='AI_CALLS' AND used=7;")
+  legacy_inv=$(psql_db -At -c "
+    SELECT COUNT(*) FROM platform_billing_invoices
+    WHERE id='legacy-inv-1' AND amount=99 AND status='paid';")
+
+  [[ "$partial_ent_cols" == "3" ]] && ok "B: entitlements missing columns added" || bad "B: ent cols=$partial_ent_cols"
+  [[ "$partial_inv_cols" == "10" ]] && ok "B: invoice missing columns added" || bad "B: inv cols=$partial_inv_cols"
+  [[ "$legacy_ent" == "1" ]] && ok "B: legacy entitlement row preserved" || bad "B: entitlement data lost"
+  [[ "$legacy_inv" == "1" ]] && ok "B: legacy invoice row preserved" || bad "B: invoice data lost"
+
+  apply_migration_025
+  ok "B/F: re-run 025 on repaired partial schema succeeded"
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -3862,6 +4034,7 @@ scenario_migration_017_cases_schema
 scenario_migration_018_money_numeric_batch1
 scenario_migration_019_money_numeric_batch2
 scenario_migration_021_rag_tenant_fk
+scenario_migration_025_billing
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
