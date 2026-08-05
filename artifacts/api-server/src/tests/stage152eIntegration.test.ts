@@ -213,6 +213,13 @@ console.log("\n═══ Stage 15.2e source: no unsafe business fallbacks ══
   assert.doesNotMatch(listener, /\?\?\s*["']default["']/);
   assert.match(listener, /resolveAutopilotOfficeId/);
 
+  const notifListener = readSrc("core/listeners/notificationListener.ts");
+  const notifOwn = readSrc("lib/notificationOwnership.ts");
+  assert.doesNotMatch(notifListener, /officeId\s*\?\?\s*["']default["']/);
+  assert.doesNotMatch(notifOwn, /\?\?\s*["']default["']/);
+  assert.match(notifOwn, /resolveAutopilotOfficeId/);
+  assert.match(notifListener, /deliverOwnedNotification|notificationOwnership/);
+
   assert.match(tasks, /resolveTaskOfficeId/);
   assert.match(tasks, /\$\{officeId\}::uuid/);
   assert.doesNotMatch(tasks, /office_id IS NULL/);
