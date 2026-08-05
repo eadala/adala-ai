@@ -142,9 +142,11 @@ router.post("/clients", requireAuthWithTenant, validate(CreateClientSchema), asy
       } catch { /* non-critical */ }
     }
 
+    /* Stage 16.4 — carry canonical office UUID; listener skips non-UUID */
     eventBus.emit({
       type: "CLIENT_ADDED",
-      data: { fullName, email, phone, type, company, source },
+      officeId: tenantId,
+      data: { fullName, email, phone, type, company, source, officeId: tenantId },
     }).catch(() => {});
 
     auditLog({ ...auditMeta(req), action: "create", resource: "client", resourceId: String((client as any)?.id ?? ""), details: `اسم: ${fullName}` }).catch(() => {});

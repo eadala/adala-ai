@@ -42,6 +42,8 @@ jobs:
           pnpm --filter @workspace/api-server run test:billing-025
           pnpm --filter @workspace/api-server run test:promo-026
           pnpm --filter @workspace/api-server run test:csp-insights
+          pnpm --filter @workspace/api-server run test:notification-listener
+          pnpm --filter @workspace/api-server run test:stage152e
       - name: Frontend tests
         run: |
           pnpm --filter @workspace/adala run test:auth-fetch

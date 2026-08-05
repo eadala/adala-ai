@@ -52,6 +52,7 @@
     "test:billing-025": "node --import tsx src/tests/billingSchemaAuthority025.test.ts",
     "test:promo-026": "node --import tsx src/tests/promoSchemaAuthority026.test.ts",
     "test:csp-insights": "node --import tsx src/tests/cloudflareInsightsCsp.test.ts",
+    "test:notification-listener": "node --import tsx src/tests/notificationListenerTenant.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",
     "test:money-numeric-batch2": "node --import tsx src/tests/moneyNumericBatch2.test.ts",
     "test:demo-seed": "node --import tsx src/tests/demoSeedPolicy.test.ts"
