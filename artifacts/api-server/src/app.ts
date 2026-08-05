@@ -108,6 +108,8 @@ app.use(helmet({
                        "https://clerk.adalahai.com",
                        // Clerk Turnstile bot-protection (both dev and prod)
                        "https://challenges.cloudflare.com",
+                       // Cloudflare Web Analytics beacon (zone-injected; not app-owned)
+                       "https://static.cloudflareinsights.com",
                        "https://js.stripe.com", "https://cdn.jsdelivr.net"],
       workerSrc:      ["'self'", "blob:"],
       styleSrc:       ["'self'", "'unsafe-inline'",
