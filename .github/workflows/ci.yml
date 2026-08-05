@@ -38,6 +38,8 @@ jobs:
           pnpm --filter @workspace/api-server run test:offices-my
           pnpm --filter @workspace/api-server run test:metrics-vitals
           pnpm --filter @workspace/api-server run test:cors-origin
+          pnpm --filter @workspace/api-server run test:schema-authority
+          pnpm --filter @workspace/api-server run test:billing-025
       - name: Frontend tests
         run: |
           pnpm --filter @workspace/adala run test:auth-fetch

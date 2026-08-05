@@ -54,6 +54,8 @@
 | `contract_templates` | 004 |
 | `storage_folders` | 009 |
 | `office_ledger` | 010 |
+| `office_entitlements` | **025** |
+| `platform_billing_invoices` | **025** |
 | `stripe_events` | 011 |
 | `stripe_dead_letters` | 011 |
 | `stripe_reconciliation_log` | 011 |

@@ -28,6 +28,8 @@ route_analytics
 office_storage_quota
 storage_files
 office_ledger
+office_entitlements
+platform_billing_invoices
 office_branches
 stripe_events
 stripe_dead_letters
