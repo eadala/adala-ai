@@ -59,8 +59,11 @@ assert.match(mig, /idx_event_daily_counts_office_id/);
 assert.match(mig, /idx_event_daily_counts_office_date/);
 assert.match(mig, /idx_event_daily_counts_event_date/);
 assert.match(mig, /idx_event_daily_counts_event_type/);
-assert.doesNotMatch(mig, /DROP TABLE/i);
-assert.doesNotMatch(mig, /DROP COLUMN/i);
+{
+  const sqlOnly = mig.replace(/--.*$/gm, "");
+  assert.doesNotMatch(sqlOnly, /\bDROP\s+TABLE\b/i);
+  assert.doesNotMatch(sqlOnly, /\bDROP\s+COLUMN\b/i);
+}
 assert.match(preflight, /READ-ONLY|SELECT only/i);
 assert.match(preflight, /default_office_rows|office_id = 'default'/);
 assert.match(preflight, /null_office_id|non_uuid_office_id/);

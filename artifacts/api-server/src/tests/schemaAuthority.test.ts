@@ -717,8 +717,11 @@ assert.match(mig027, /ADD COLUMN IF NOT EXISTS/);
 assert.match(mig027, /DROP DEFAULT/);
 assert.match(mig027, /uq_event_daily_counts_type_office_date|UNIQUE \(event_type, office_id, event_date\)/);
 assert.match(mig027, /idx_event_daily_counts_office_id/);
-assert.doesNotMatch(mig027, /DROP TABLE/i);
-assert.doesNotMatch(mig027, /DROP COLUMN/i);
+{
+  const sqlOnly027 = mig027.replace(/--.*$/gm, "");
+  assert.doesNotMatch(sqlOnly027, /\bDROP\s+TABLE\b/i);
+  assert.doesNotMatch(sqlOnly027, /\bDROP\s+COLUMN\b/i);
+}
 const analyticsListener027 = readSrc("core/listeners/analyticsListener.ts");
 assert.doesNotMatch(analyticsListener027, /CREATE TABLE IF NOT EXISTS event_daily_counts/);
 assert.doesNotMatch(analyticsListener027, /ensureEventCountsTable/);
