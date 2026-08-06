@@ -43,6 +43,7 @@ jobs:
           pnpm --filter @workspace/api-server run test:promo-026
           pnpm --filter @workspace/api-server run test:csp-insights
           pnpm --filter @workspace/api-server run test:notification-listener
+          pnpm --filter @workspace/api-server run test:analytics-027
           pnpm --filter @workspace/api-server run test:stage152e
       - name: Frontend tests
         run: |
