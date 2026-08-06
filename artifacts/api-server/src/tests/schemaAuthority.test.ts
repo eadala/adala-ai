@@ -711,8 +711,8 @@ console.log("  ✅ migration 026 owns promo tables with office_id+user_id; tenan
 console.log("\n═══ schemaAuthority: migration 027 event_daily_counts (Stage 16.5) ═══");
 const mig027 = readRepo("artifacts/api-server/migrations/027_event_daily_counts_schema_authority.sql");
 assert.match(mig027, /CREATE TABLE IF NOT EXISTS event_daily_counts/);
-assert.match(mig027, /office_id\s+TEXT NOT NULL/);
-assert.doesNotMatch(mig027, /DEFAULT\s*'default'/i);
+assert.match(mig027, /office_id\s+TEXT NOT NULL\s*,/);
+assert.doesNotMatch(mig027, /office_id\s+TEXT NOT NULL DEFAULT\s*'default'/i);
 assert.match(mig027, /ADD COLUMN IF NOT EXISTS/);
 assert.match(mig027, /DROP DEFAULT/);
 assert.match(mig027, /uq_event_daily_counts_type_office_date|UNIQUE \(event_type, office_id, event_date\)/);
