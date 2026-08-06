@@ -8,6 +8,8 @@ on:
     # Base-branch filter only (any head, including cursor/**).
     branches: [main, develop]
     types: [opened, synchronize, reopened, ready_for_review]
+  # Allow manual / API re-run when bot pushes do not emit pull_request/push events.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
