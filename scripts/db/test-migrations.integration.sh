@@ -4467,6 +4467,69 @@ SQL
 
   trap - EXIT
   teardown_db
+
+  # ── C. Duplicate upsert keys → RAISE EXCEPTION / abort (no UNIQUE skip) ──
+  setup_db "mig027_dups"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+  apply_migration_026
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE event_daily_counts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type TEXT NOT NULL,
+  office_id TEXT NOT NULL,
+  event_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  count INTEGER NOT NULL DEFAULT 1
+);
+INSERT INTO event_daily_counts (event_type, office_id, event_date, count) VALUES
+  ('CASE_CREATED', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', CURRENT_DATE, 1),
+  ('CASE_CREATED', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', CURRENT_DATE, 2);
+SQL
+
+  local chosen_action
+  chosen_action=$(psql_db -At -c "
+    SELECT
+      CASE
+        WHEN EXISTS (
+          SELECT 1 FROM (
+            SELECT event_type, office_id, event_date
+            FROM event_daily_counts
+            WHERE event_type IS NOT NULL AND office_id IS NOT NULL AND event_date IS NOT NULL
+            GROUP BY event_type, office_id, event_date
+            HAVING COUNT(*) > 1
+          ) d
+        )
+        THEN 'BLOCKED_CLEAN_DUPLICATES'
+        ELSE 'apply_027_repair_columns_indexes_drop_default'
+      END;")
+  [[ "$chosen_action" == "BLOCKED_CLEAN_DUPLICATES" ]] && ok "C: preflight chosen_action=BLOCKED_CLEAN_DUPLICATES" || bad "C: chosen_action=$chosen_action"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_027" >/tmp/mig027-dup.log 2>&1
+  local mig_rc=$?
+  set -e
+  [[ "$mig_rc" -ne 0 ]] && ok "C: migration 027 aborted on duplicates (rc=$mig_rc)" || bad "C: migration 027 should abort on duplicates"
+  grep -q 'duplicate group' /tmp/mig027-dup.log && ok "C: RAISE EXCEPTION mentions duplicate groups" || bad "C: missing duplicate EXCEPTION message"
+
+  local uniq_after
+  uniq_after=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.event_daily_counts'::regclass AND contype='u'
+      AND (
+        pg_get_constraintdef(oid) ILIKE '%(event_type, office_id, event_date)%'
+        OR pg_get_constraintdef(oid) ILIKE '%(event_type,%office_id,%event_date)%'
+      );" 2>/dev/null || echo 0)
+  [[ "$uniq_after" == "0" ]] && ok "C: UNIQUE not committed when duplicates exist" || bad "C: UNIQUE was added despite duplicates"
+
+  trap - EXIT
+  teardown_db
 }
 
 # ── Main ─────────────────────────────────────────────────────────────────────

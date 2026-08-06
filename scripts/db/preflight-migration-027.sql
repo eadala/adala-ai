@@ -50,7 +50,19 @@ SELECT
       WHERE table_schema = 'public' AND table_name = 'event_daily_counts'
     )
     THEN 'apply_027_create_missing_table'
+    WHEN EXISTS (
+      SELECT 1
+      FROM (
+        SELECT event_type, office_id, event_date
+        FROM event_daily_counts
+        WHERE event_type IS NOT NULL AND office_id IS NOT NULL AND event_date IS NOT NULL
+        GROUP BY event_type, office_id, event_date
+        HAVING COUNT(*) > 1
+      ) d
+    )
+    THEN 'BLOCKED_CLEAN_DUPLICATES'
     ELSE 'apply_027_repair_columns_indexes_drop_default'
   END AS chosen_action;
 
 \echo '▶ 027 preflight complete (READ-ONLY)'
+\echo 'Ops: if chosen_action=BLOCKED_CLEAN_DUPLICATES do NOT apply 027 until duplicates are cleaned.'

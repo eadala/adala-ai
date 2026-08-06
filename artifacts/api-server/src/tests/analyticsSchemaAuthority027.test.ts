@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   logAnalyticsSkip,
+  logAnalyticsUpsertFailure,
   resolveAnalyticsOfficeId,
   trackOwnedAnalyticsEvent,
 } from "../lib/analyticsOwnership";
@@ -55,6 +56,9 @@ assert.doesNotMatch(mig, /office_id\s+TEXT NOT NULL DEFAULT\s*'default'/i);
 assert.match(mig, /ADD COLUMN IF NOT EXISTS/);
 assert.match(mig, /DROP DEFAULT/);
 assert.match(mig, /uq_event_daily_counts_type_office_date|UNIQUE \(event_type, office_id, event_date\)/);
+assert.match(mig, /RAISE EXCEPTION/);
+assert.doesNotMatch(mig.replace(/--.*$/gm, ""), /RAISE WARNING/i);
+assert.match(mig, /duplicate group|BLOCKED_CLEAN_DUPLICATES|UNIQUE.*missing after apply/i);
 assert.match(mig, /idx_event_daily_counts_office_id/);
 assert.match(mig, /idx_event_daily_counts_office_date/);
 assert.match(mig, /idx_event_daily_counts_event_date/);
@@ -68,28 +72,32 @@ assert.match(preflight, /READ-ONLY|SELECT only/i);
 assert.match(preflight, /default_office_rows|office_id = 'default'/);
 assert.match(preflight, /null_office_id|non_uuid_office_id/);
 assert.match(preflight, /duplicate upsert-key|HAVING COUNT/);
+assert.match(preflight, /BLOCKED_CLEAN_DUPLICATES/);
 assert.match(preflight, /chosen_action/);
 assert.doesNotMatch(preflight, /^\s*(CREATE|ALTER|DROP)\b/im);
 assert.match(integ, /scenario_migration_027_event_daily_counts/);
 assert.match(integ, /MIGRATION_027/);
+assert.match(integ, /BLOCKED_CLEAN_DUPLICATES|duplicate.*abort|RAISE EXCEPTION/i);
 assert.match(expectedTables, /^event_daily_counts$/m);
 assert.match(expectedCols, /^event_daily_counts\.office_id$/m);
 assert.match(expectedCols, /^event_daily_counts\.event_type$/m);
 console.log("  ✅ migration 027 + preflight + harness + P0 inventory");
 
-console.log("\n═══ Runtime DDL removed from analyticsListener ═══");
+console.log("\n═══ Runtime DDL removed; no silent empty catch on upsert ═══");
 
 assert.doesNotMatch(listenerTs, /CREATE TABLE IF NOT EXISTS event_daily_counts/);
 assert.doesNotMatch(listenerTs, /ensureEventCountsTable/);
 assert.doesNotMatch(listenerTs, /ALTER TABLE event_daily_counts/);
 assert.doesNotMatch(listenerTs, /officeId\s*\?\?\s*["']default["']/);
 assert.doesNotMatch(listenerTs, /\?\?\s*["']default["']/);
+assert.doesNotMatch(listenerTs, /\.catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)/);
 assert.match(listenerTs, /trackOwnedAnalyticsEvent/);
 assert.match(ownershipTs, /classifyTenantId/);
 assert.match(ownershipTs, /toUuid/);
+assert.match(ownershipTs, /logAnalyticsUpsertFailure|upsert_failed/);
 assert.doesNotMatch(ownershipTs, /resolveAutopilotOfficeId/);
 assert.doesNotMatch(listenerTs, /resolveAutopilotOfficeId/);
-console.log("  ✅ no Runtime DDL; no Autopilot-named helper; no ?? default");
+console.log("  ✅ no Runtime DDL; no Autopilot helper; no empty catch");
 
 console.log("\n═══ resolveAnalyticsOfficeId — UUID only ═══");
 
@@ -189,6 +197,55 @@ async function main() {
     otherRan.push("notification-or-finance");
     assert.deepEqual(otherRan, ["notification-or-finance"]);
     console.log("  ✅ skip logs structured fields and does not throw into fan-out");
+  }
+
+  console.log("\n═══ upsert failure: structured log, no throw into fan-out ═══");
+
+  {
+    const errors: unknown[] = [];
+    const origErr = console.error;
+    console.error = (...args: unknown[]) => {
+      errors.push(args);
+    };
+    try {
+      const dbErr = Object.assign(new Error('no unique or exclusion constraint matching the ON CONFLICT specification'), {
+        code: "42P10",
+      });
+      assert.doesNotThrow(() =>
+        logAnalyticsUpsertFailure({
+          eventType: "CASE_CREATED",
+          officeId: OFFICE_UUID,
+          eventId: "evt-1",
+          error: dbErr,
+        }),
+      );
+      const failed = await trackOwnedAnalyticsEvent({
+        event: makeEvent(OFFICE_UUID),
+        upsertFn: async () => {
+          throw dbErr;
+        },
+      });
+      assert.equal(failed, "failed");
+      const flat = JSON.stringify(errors);
+      assert.match(flat, /upsert_failed/);
+      assert.match(flat, /CASE_CREATED/);
+      assert.match(flat, new RegExp(OFFICE_UUID));
+      assert.match(flat, /42P10|no unique or exclusion constraint/);
+    } finally {
+      console.error = origErr;
+    }
+
+    assert.match(eventBusTs, /Promise\.resolve\(handler\(stored\)\)\.catch/);
+    const otherRan: string[] = [];
+    await trackOwnedAnalyticsEvent({
+      event: makeEvent(OFFICE_UUID),
+      upsertFn: async () => {
+        throw new Error("db down");
+      },
+    });
+    otherRan.push("notification-or-finance");
+    assert.deepEqual(otherRan, ["notification-or-finance"]);
+    console.log("  ✅ upsert failure logged structured; fan-out continues");
   }
 
   console.log("\n═══ existing UUID analytics reads still scoped ═══");

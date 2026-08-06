@@ -58,7 +58,7 @@
 | `platform_billing_invoices` | **025** |
 | `promo_codes` | **026** |
 | `gift_subscriptions` | **026** |
-| `event_daily_counts` | **027** |
+| `event_daily_counts` | **027** (preflight → clean dups if `BLOCKED_CLEAN_DUPLICATES` → apply → verify UNIQUE → deploy) |
 | `stripe_events` | 011 |
 | `stripe_dead_letters` | 011 |
 | `stripe_reconciliation_log` | 011 |

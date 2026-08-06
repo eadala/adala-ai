@@ -35,6 +35,43 @@ export function logAnalyticsSkip(fields: {
   });
 }
 
+function extractDbError(err: unknown): { code: string | null; message: string } {
+  if (err && typeof err === "object") {
+    const e = err as { code?: unknown; message?: unknown; cause?: unknown };
+    const code =
+      typeof e.code === "string"
+        ? e.code
+        : e.cause && typeof e.cause === "object" && typeof (e.cause as { code?: unknown }).code === "string"
+          ? String((e.cause as { code: string }).code)
+          : null;
+    const message =
+      typeof e.message === "string"
+        ? e.message
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    return { code, message };
+  }
+  return { code: null, message: String(err) };
+}
+
+/** Structured upsert failure — no secrets; safe for ops logs. */
+export function logAnalyticsUpsertFailure(fields: {
+  eventType: string;
+  officeId: string;
+  eventId?: string | null;
+  error: unknown;
+}): void {
+  const { code, message } = extractDbError(fields.error);
+  console.error("[AnalyticsListener] upsert_failed", {
+    eventType: fields.eventType,
+    officeId: fields.officeId,
+    eventId: fields.eventId ?? null,
+    code,
+    message,
+  });
+}
+
 export type AnalyticsUpsertFn = (
   officeId: string,
   eventType: string,
@@ -43,11 +80,12 @@ export type AnalyticsUpsertFn = (
 /**
  * Resolve ownership and upsert daily counts via injected function.
  * Returns "skipped" without throwing when officeId is not a canonical UUID.
+ * Upsert failures are logged structured and swallowed so EventBus fan-out continues.
  */
 export async function trackOwnedAnalyticsEvent(input: {
   event: StoredEvent;
   upsertFn: AnalyticsUpsertFn;
-}): Promise<"tracked" | "skipped"> {
+}): Promise<"tracked" | "skipped" | "failed"> {
   const officeId = resolveAnalyticsOfficeId(input.event.officeId);
   if (!officeId) {
     const raw = input.event.officeId;
@@ -63,6 +101,16 @@ export async function trackOwnedAnalyticsEvent(input: {
     return "skipped";
   }
 
-  await input.upsertFn(officeId, input.event.type);
-  return "tracked";
+  try {
+    await input.upsertFn(officeId, input.event.type);
+    return "tracked";
+  } catch (error) {
+    logAnalyticsUpsertFailure({
+      eventType: input.event.type,
+      officeId,
+      eventId: input.event.id ?? null,
+      error,
+    });
+    return "failed";
+  }
 }

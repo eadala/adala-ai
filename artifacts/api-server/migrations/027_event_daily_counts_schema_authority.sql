@@ -17,11 +17,20 @@
 --   - CREATE TABLE IF NOT EXISTS for fresh DBs
 --   - ADD COLUMN IF NOT EXISTS repairs partial legacy tables
 --   - DROP DEFAULT on office_id when it was 'default' (non-destructive)
---   - UNIQUE skipped with WARNING if duplicate key groups exist
+--   - UNIQUE(event_type, office_id, event_date) is REQUIRED (ON CONFLICT upsert).
+--     Duplicate key groups → RAISE EXCEPTION / abort (never warn-and-continue).
+--   - Migration never COMMITs without that UNIQUE present.
 --   - no DROP TABLE / DROP COLUMN / type rewrite / forced NOT NULL on legacy
 -- Do NOT apply via Runtime DDL / drizzle-kit push.
 -- Do NOT deploy/apply this file from the PR agent — ops apply out-of-band.
 -- Do NOT backfill office_id from the current requester.
+--
+-- Ops order:
+--   1) psql -f scripts/db/preflight-migration-027.sql
+--   2) if chosen_action = BLOCKED_CLEAN_DUPLICATES → clean duplicates
+--   3) apply this migration
+--   4) verify UNIQUE(event_type, office_id, event_date) exists
+--   5) deploy API (listener has no Runtime DDL)
 -- ═══════════════════════════════════════════════════════════════════════════
 
 BEGIN;
@@ -67,12 +76,13 @@ EXCEPTION
   WHEN undefined_table THEN NULL;
 END $$;
 
--- UNIQUE(event_type, office_id, event_date) for ON CONFLICT upsert
+-- UNIQUE(event_type, office_id, event_date) for ON CONFLICT upsert — required.
 DO $$
 DECLARE
   dup_cnt BIGINT;
+  has_uq BOOLEAN;
 BEGIN
-  IF EXISTS (
+  SELECT EXISTS (
     SELECT 1 FROM pg_constraint
     WHERE conrelid = 'public.event_daily_counts'::regclass
       AND contype IN ('u', 'p')
@@ -80,18 +90,25 @@ BEGIN
         pg_get_constraintdef(oid) ILIKE '%(event_type, office_id, event_date)%'
         OR pg_get_constraintdef(oid) ILIKE '%(event_type,%office_id,%event_date)%'
       )
-  ) THEN
-    RETURN;
+  ) INTO has_uq;
+
+  IF NOT has_uq THEN
+    SELECT EXISTS (
+      SELECT 1
+      FROM pg_indexes i
+      JOIN pg_class c ON c.relname = i.indexname
+      JOIN pg_index x ON x.indexrelid = c.oid
+      WHERE i.schemaname = 'public'
+        AND i.tablename = 'event_daily_counts'
+        AND x.indisunique
+        AND (
+          pg_get_indexdef(c.oid) ILIKE '%(event_type, office_id, event_date)%'
+          OR pg_get_indexdef(c.oid) ILIKE '%(event_type,%office_id,%event_date)%'
+        )
+    ) INTO has_uq;
   END IF;
 
-  IF EXISTS (
-    SELECT 1 FROM pg_indexes
-    WHERE schemaname = 'public'
-      AND indexname IN (
-        'event_daily_counts_event_type_office_id_event_date_key',
-        'uq_event_daily_counts_type_office_date'
-      )
-  ) THEN
+  IF has_uq THEN
     RETURN;
   END IF;
 
@@ -105,21 +122,51 @@ BEGIN
   ) d;
 
   IF dup_cnt > 0 THEN
-    RAISE WARNING
-      '027_analytics: skipping UNIQUE(event_type, office_id, event_date) — % duplicate group(s); cleanup required before constraint can be added',
+    RAISE EXCEPTION
+      '027_analytics: % duplicate group(s) on (event_type, office_id, event_date); clean duplicates before applying UNIQUE required by ON CONFLICT (chosen_action=BLOCKED_CLEAN_DUPLICATES)',
       dup_cnt;
-  ELSE
-    BEGIN
-      ALTER TABLE event_daily_counts
-        ADD CONSTRAINT uq_event_daily_counts_type_office_date
-        UNIQUE (event_type, office_id, event_date);
-    EXCEPTION
-      WHEN duplicate_object THEN NULL;
-      WHEN invalid_table_definition THEN NULL;
-    END;
   END IF;
-EXCEPTION
-  WHEN undefined_table THEN NULL;
+
+  ALTER TABLE event_daily_counts
+    ADD CONSTRAINT uq_event_daily_counts_type_office_date
+    UNIQUE (event_type, office_id, event_date);
+END $$;
+
+-- Hard gate: never COMMIT without the UNIQUE required by analytics ON CONFLICT.
+DO $$
+DECLARE
+  has_uq BOOLEAN;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.event_daily_counts'::regclass
+      AND contype IN ('u', 'p')
+      AND (
+        pg_get_constraintdef(oid) ILIKE '%(event_type, office_id, event_date)%'
+        OR pg_get_constraintdef(oid) ILIKE '%(event_type,%office_id,%event_date)%'
+      )
+  ) INTO has_uq;
+
+  IF NOT has_uq THEN
+    SELECT EXISTS (
+      SELECT 1
+      FROM pg_indexes i
+      JOIN pg_class c ON c.relname = i.indexname
+      JOIN pg_index x ON x.indexrelid = c.oid
+      WHERE i.schemaname = 'public'
+        AND i.tablename = 'event_daily_counts'
+        AND x.indisunique
+        AND (
+          pg_get_indexdef(c.oid) ILIKE '%(event_type, office_id, event_date)%'
+          OR pg_get_indexdef(c.oid) ILIKE '%(event_type,%office_id,%event_date)%'
+        )
+    ) INTO has_uq;
+  END IF;
+
+  IF NOT has_uq THEN
+    RAISE EXCEPTION
+      '027_analytics: UNIQUE(event_type, office_id, event_date) missing after apply — aborting (required for ON CONFLICT upsert)';
+  END IF;
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_event_daily_counts_office_id

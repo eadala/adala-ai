@@ -4,6 +4,8 @@
  * Stage 16.5 — never invent "default" / platform / trial_* ownership.
  * Upsert event_daily_counts only when event.officeId is a canonical Office UUID.
  * Schema authority: artifacts/api-server/migrations/027_event_daily_counts_schema_authority.sql
+ *
+ * Ops order: preflight 027 → clean duplicates if any → apply 027 → verify UNIQUE → deploy.
  */
 import { eventBus, StoredEvent, EventType } from "../eventBus";
 import { db } from "@workspace/db";
@@ -13,6 +15,7 @@ import { trackOwnedAnalyticsEvent } from "../../lib/analyticsOwnership";
 export {
   resolveAnalyticsOfficeId,
   logAnalyticsSkip,
+  logAnalyticsUpsertFailure,
   trackOwnedAnalyticsEvent,
 } from "../../lib/analyticsOwnership";
 
@@ -51,12 +54,13 @@ async function upsertDailyCount(officeId: string, eventType: string): Promise<vo
     VALUES (${eventType}, ${officeId}, CURRENT_DATE, 1)
     ON CONFLICT (event_type, office_id, event_date)
     DO UPDATE SET count = event_daily_counts.count + 1
-  `).catch(() => {});
+  `);
 }
 
 export function registerAnalyticsListeners() {
   /* Track every single event with wildcard — UUID office only */
   eventBus.on("*", async (event: StoredEvent) => {
+    /* trackOwnedAnalyticsEvent logs upsert failures; never throws into fan-out */
     await trackOwnedAnalyticsEvent({
       event,
       upsertFn: upsertDailyCount,
