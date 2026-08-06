@@ -2,10 +2,12 @@ name: CI — Quality Gates
 
 on:
   push:
-    branches: [main, develop, "feature/**", "hotfix/**", "release/**"]
+    # Keep existing filters; include cursor/** so cloud-agent PR branches get checks on push.
+    branches: [main, develop, "feature/**", "hotfix/**", "release/**", "cursor/**"]
   pull_request:
+    # Base-branch filter only (any head, including cursor/**).
     branches: [main, develop]
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:
   group: ci-${{ github.ref }}
