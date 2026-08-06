@@ -118,6 +118,11 @@ gift_subscriptions.notes
 gift_subscriptions.status
 gift_subscriptions.renewed_count
 gift_subscriptions.created_at
+event_daily_counts.id
+event_daily_counts.event_type
+event_daily_counts.office_id
+event_daily_counts.event_date
+event_daily_counts.count
 office_branches.id
 office_branches.office_id
 office_branches.name

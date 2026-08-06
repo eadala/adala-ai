@@ -1,9 +1,23 @@
 /**
  * Analytics Listener — tracks all events for insights
+ *
+ * Stage 16.5 — never invent "default" / platform / trial_* ownership.
+ * Upsert event_daily_counts only when event.officeId is a canonical Office UUID.
+ * Schema authority: artifacts/api-server/migrations/027_event_daily_counts_schema_authority.sql
+ *
+ * Ops order: preflight 027 → clean duplicates if any → apply 027 → verify UNIQUE → deploy.
  */
 import { eventBus, StoredEvent, EventType } from "../eventBus";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { trackOwnedAnalyticsEvent } from "../../lib/analyticsOwnership";
+
+export {
+  resolveAnalyticsOfficeId,
+  logAnalyticsSkip,
+  logAnalyticsUpsertFailure,
+  trackOwnedAnalyticsEvent,
+} from "../../lib/analyticsOwnership";
 
 const EVENT_LABELS: Record<EventType, string> = {
   CASE_CREATED:        "قضية جديدة",
@@ -34,37 +48,28 @@ const EVENT_LABELS: Record<EventType, string> = {
   NEW_MESSAGE:               "رسالة داخلية جديدة",
 };
 
-async function ensureEventCountsTable() {
+async function upsertDailyCount(officeId: string, eventType: string): Promise<void> {
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS event_daily_counts (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      event_type  TEXT NOT NULL,
-      office_id   TEXT NOT NULL DEFAULT 'default',
-      event_date  DATE NOT NULL DEFAULT CURRENT_DATE,
-      count       INTEGER NOT NULL DEFAULT 1,
-      UNIQUE(event_type, office_id, event_date)
-    )
-  `).catch(() => {});
+    INSERT INTO event_daily_counts (event_type, office_id, event_date, count)
+    VALUES (${eventType}, ${officeId}, CURRENT_DATE, 1)
+    ON CONFLICT (event_type, office_id, event_date)
+    DO UPDATE SET count = event_daily_counts.count + 1
+  `);
 }
-ensureEventCountsTable();
 
 export function registerAnalyticsListeners() {
-  /* Track every single event with wildcard */
+  /* Track every single event with wildcard — UUID office only */
   eventBus.on("*", async (event: StoredEvent) => {
-    const officeId = event.officeId ?? "default";
-
-    /* Upsert daily count */
-    await db.execute(sql`
-      INSERT INTO event_daily_counts (event_type, office_id, event_date, count)
-      VALUES (${event.type}, ${officeId}, CURRENT_DATE, 1)
-      ON CONFLICT (event_type, office_id, event_date)
-      DO UPDATE SET count = event_daily_counts.count + 1
-    `).catch(() => {});
+    /* trackOwnedAnalyticsEvent logs upsert failures; never throws into fan-out */
+    await trackOwnedAnalyticsEvent({
+      event,
+      upsertFn: upsertDailyCount,
+    });
   });
 
   /* Revenue analytics on payment success */
   eventBus.on("PAYMENT_SUCCESS", async (event: StoredEvent) => {
-    const { amount, gateway } = event.data;
+    const { amount } = event.data ?? {};
     if (!amount) return;
     /* Could extend: push to revenue_time_series table */
   });

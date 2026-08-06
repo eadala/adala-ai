@@ -35,6 +35,7 @@ MIGRATION_020="$ROOT/artifacts/api-server/migrations/020_performance_hotpath_ind
 MIGRATION_021="$ROOT/artifacts/api-server/migrations/021_rag_schema_foundation.sql"
 MIGRATION_025="$ROOT/artifacts/api-server/migrations/025_billing_schema_authority.sql"
 MIGRATION_026="$ROOT/artifacts/api-server/migrations/026_promo_schema_authority.sql"
+MIGRATION_027="$ROOT/artifacts/api-server/migrations/027_event_daily_counts_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -179,11 +180,16 @@ apply_migration_026() {
   psql_db -f "$MIGRATION_026" >/dev/null
 }
 
-# P0 verify requires billing (025) + promo (026) tables. Idempotent if already applied.
+apply_migration_027() {
+  psql_db -f "$MIGRATION_027" >/dev/null
+}
+
+# P0 verify requires billing (025) + promo (026) + analytics (027). Idempotent if already applied.
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
   apply_migration_026
+  apply_migration_027
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -215,6 +221,7 @@ apply_all_migrations() {
   apply_migration_021
   apply_migration_025
   apply_migration_026
+  apply_migration_027
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
@@ -4274,6 +4281,257 @@ SQL
   teardown_db
 }
 
+# ── Scenario: migration 027 event_daily_counts schema authority (Stage 16.5) ─
+scenario_migration_027_event_daily_counts() {
+  log "Scenario 027 — analytics event_daily_counts: fresh / no DEFAULT default / partial / upsert / idempotent"
+
+  local OFFICE_A="aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1"
+  local OFFICE_B="bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"
+
+  # ── A. Fresh database ────────────────────────────────────────────────────
+  setup_db "mig027_fresh"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+  apply_migration_026
+
+  local pre_edc
+  pre_edc=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='event_daily_counts'
+    );")
+  [[ "$pre_edc" == "f" ]] && ok "A pre-027: event_daily_counts absent" || bad "A pre-027: event_daily_counts should be absent"
+
+  apply_migration_027
+
+  local post_edc cols office_nn office_default uniq_key idx_office idx_od idx_date idx_type
+  post_edc=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='event_daily_counts'
+    );")
+  cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='event_daily_counts'
+      AND column_name IN ('id','event_type','office_id','event_date','count');")
+  office_nn=$(psql_db -At -c "
+    SELECT is_nullable FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='event_daily_counts' AND column_name='office_id';")
+  office_default=$(psql_db -At -c "
+    SELECT COALESCE(column_default, '') FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='event_daily_counts' AND column_name='office_id';")
+  uniq_key=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.event_daily_counts'::regclass AND contype='u'
+      AND (
+        pg_get_constraintdef(oid) ILIKE '%(event_type, office_id, event_date)%'
+        OR pg_get_constraintdef(oid) ILIKE '%(event_type,%office_id,%event_date)%'
+      );")
+  idx_office=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_event_daily_counts_office_id';")
+  idx_od=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_event_daily_counts_office_date';")
+  idx_date=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_event_daily_counts_event_date';")
+  idx_type=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_event_daily_counts_event_type';")
+
+  [[ "$post_edc" == "t" ]] && ok "A: event_daily_counts created" || bad "A: event_daily_counts missing"
+  [[ "$cols" == "5" ]] && ok "A: proven columns present" || bad "A: cols=$cols"
+  [[ "$office_nn" == "NO" ]] && ok "A: fresh office_id NOT NULL" || bad "A: office_id nullable=$office_nn"
+  [[ "$office_default" != *default* ]] && ok "A: office_id has no DEFAULT 'default'" || bad "A: office_id default=$office_default"
+  [[ "$uniq_key" -ge 1 ]] && ok "A: UNIQUE(event_type, office_id, event_date)" || bad "A: upsert unique missing"
+  [[ "$idx_office" == "1" ]] && ok "A: office_id index" || bad "A: office_id index missing"
+  [[ "$idx_od" == "1" ]] && ok "A: (office_id, event_date) index" || bad "A: office_date index missing"
+  [[ "$idx_date" == "1" ]] && ok "A: event_date index" || bad "A: event_date index missing"
+  [[ "$idx_type" == "1" ]] && ok "A: event_type index" || bad "A: event_type index missing"
+
+  # UUID upsert path (analytics listener ON CONFLICT)
+  psql_db <<SQL >/dev/null
+INSERT INTO event_daily_counts (event_type, office_id, event_date, count)
+VALUES ('CASE_CREATED', '${OFFICE_A}', CURRENT_DATE, 1)
+ON CONFLICT (event_type, office_id, event_date)
+DO UPDATE SET count = event_daily_counts.count + 1;
+INSERT INTO event_daily_counts (event_type, office_id, event_date, count)
+VALUES ('CASE_CREATED', '${OFFICE_A}', CURRENT_DATE, 1)
+ON CONFLICT (event_type, office_id, event_date)
+DO UPDATE SET count = event_daily_counts.count + 1;
+INSERT INTO event_daily_counts (event_type, office_id, event_date, count)
+VALUES ('CASE_CREATED', '${OFFICE_B}', CURRENT_DATE, 1)
+ON CONFLICT (event_type, office_id, event_date)
+DO UPDATE SET count = event_daily_counts.count + 1;
+SQL
+
+  local cnt_a cnt_b jlwm_a
+  cnt_a=$(psql_db -At -c "
+    SELECT count FROM event_daily_counts
+    WHERE event_type='CASE_CREATED' AND office_id='${OFFICE_A}' AND event_date=CURRENT_DATE;")
+  cnt_b=$(psql_db -At -c "
+    SELECT count FROM event_daily_counts
+    WHERE event_type='CASE_CREATED' AND office_id='${OFFICE_B}' AND event_date=CURRENT_DATE;")
+  jlwm_a=$(psql_db -At -c "
+    SELECT COUNT(*)::int FROM event_daily_counts WHERE office_id='${OFFICE_A}';")
+
+  [[ "$cnt_a" == "2" ]] && ok "A: UUID upsert increments once per conflict" || bad "A: count_a=$cnt_a"
+  [[ "$cnt_b" == "1" ]] && ok "A: office B isolated from office A upsert" || bad "A: count_b=$cnt_b"
+  [[ "$jlwm_a" == "1" ]] && ok "A: existing UUID analytics reads still work" || bad "A: jlwm_a=$jlwm_a"
+
+  apply_migration_027
+  ok "A/F: re-run 027 on fresh schema succeeded (idempotent)"
+
+  apply_migration_011
+  apply_migration_012
+  apply_migration_013
+  apply_migration_014
+  apply_migration_015
+  apply_migration_016
+  apply_migration_017
+  if verify_p0_schema /tmp/verify-027-fresh.log; then
+    ok "A: verify-schema after 010→017 + 025 + 026 + 027"
+  else
+    bad "A: verify-schema failed after 027"; tail -20 /tmp/verify-027-fresh.log
+  fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Partial legacy Runtime DDL shape — drop DEFAULT 'default', keep rows ──
+  setup_db "mig027_partial"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+  apply_migration_026
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE event_daily_counts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type TEXT NOT NULL,
+  office_id TEXT NOT NULL DEFAULT 'default',
+  event_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  count INTEGER NOT NULL DEFAULT 1
+);
+INSERT INTO event_daily_counts (event_type, office_id, event_date, count)
+VALUES ('USER_LOGIN', 'default', CURRENT_DATE, 3);
+INSERT INTO event_daily_counts (event_type, office_id, event_date, count)
+VALUES ('CASE_CREATED', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', CURRENT_DATE, 5);
+SQL
+
+  local pre_default_def
+  pre_default_def=$(psql_db -At -c "
+    SELECT column_default FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='event_daily_counts' AND column_name='office_id';")
+  [[ "$pre_default_def" == *default* ]] && ok "B pre-027: legacy DEFAULT 'default' present" || bad "B: missing legacy default"
+
+  apply_migration_027
+
+  local post_default_def legacy_default legacy_uuid uniq_partial
+  post_default_def=$(psql_db -At -c "
+    SELECT COALESCE(column_default, '') FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='event_daily_counts' AND column_name='office_id';")
+  legacy_default=$(psql_db -At -c "
+    SELECT count FROM event_daily_counts
+    WHERE event_type='USER_LOGIN' AND office_id='default' AND event_date=CURRENT_DATE;")
+  legacy_uuid=$(psql_db -At -c "
+    SELECT count FROM event_daily_counts
+    WHERE event_type='CASE_CREATED' AND office_id='${OFFICE_A}' AND event_date=CURRENT_DATE;")
+  uniq_partial=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.event_daily_counts'::regclass AND contype='u'
+      AND (
+        pg_get_constraintdef(oid) ILIKE '%(event_type, office_id, event_date)%'
+        OR pg_get_constraintdef(oid) ILIKE '%(event_type,%office_id,%event_date)%'
+      );")
+
+  [[ "$post_default_def" != *default* ]] && ok "B: DEFAULT 'default' dropped (non-destructive)" || bad "B: default remains=$post_default_def"
+  [[ "$legacy_default" == "3" ]] && ok "B: legacy default-bucket row preserved" || bad "B: default row lost"
+  [[ "$legacy_uuid" == "5" ]] && ok "B: legacy UUID analytics row preserved" || bad "B: UUID row lost"
+  [[ "$uniq_partial" -ge 1 ]] && ok "B: UNIQUE upsert key added on partial table" || bad "B: unique missing on partial"
+
+  apply_migration_027
+  ok "B/F: re-run 027 on repaired partial schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── C. Duplicate upsert keys → RAISE EXCEPTION / abort (no UNIQUE skip) ──
+  setup_db "mig027_dups"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+  apply_migration_026
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE event_daily_counts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type TEXT NOT NULL,
+  office_id TEXT NOT NULL,
+  event_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  count INTEGER NOT NULL DEFAULT 1
+);
+INSERT INTO event_daily_counts (event_type, office_id, event_date, count) VALUES
+  ('CASE_CREATED', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', CURRENT_DATE, 1),
+  ('CASE_CREATED', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', CURRENT_DATE, 2);
+SQL
+
+  local chosen_action
+  chosen_action=$(psql_db -At -c "
+    SELECT
+      CASE
+        WHEN EXISTS (
+          SELECT 1 FROM (
+            SELECT event_type, office_id, event_date
+            FROM event_daily_counts
+            WHERE event_type IS NOT NULL AND office_id IS NOT NULL AND event_date IS NOT NULL
+            GROUP BY event_type, office_id, event_date
+            HAVING COUNT(*) > 1
+          ) d
+        )
+        THEN 'BLOCKED_CLEAN_DUPLICATES'
+        ELSE 'apply_027_repair_columns_indexes_drop_default'
+      END;")
+  [[ "$chosen_action" == "BLOCKED_CLEAN_DUPLICATES" ]] && ok "C: preflight chosen_action=BLOCKED_CLEAN_DUPLICATES" || bad "C: chosen_action=$chosen_action"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_027" >/tmp/mig027-dup.log 2>&1
+  local mig_rc=$?
+  set -e
+  [[ "$mig_rc" -ne 0 ]] && ok "C: migration 027 aborted on duplicates (rc=$mig_rc)" || bad "C: migration 027 should abort on duplicates"
+  grep -q 'duplicate group' /tmp/mig027-dup.log && ok "C: RAISE EXCEPTION mentions duplicate groups" || bad "C: missing duplicate EXCEPTION message"
+
+  local uniq_after
+  uniq_after=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.event_daily_counts'::regclass AND contype='u'
+      AND (
+        pg_get_constraintdef(oid) ILIKE '%(event_type, office_id, event_date)%'
+        OR pg_get_constraintdef(oid) ILIKE '%(event_type,%office_id,%event_date)%'
+      );" 2>/dev/null || echo 0)
+  [[ "$uniq_after" == "0" ]] && ok "C: UNIQUE not committed when duplicates exist" || bad "C: UNIQUE was added despite duplicates"
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -4296,6 +4554,7 @@ scenario_migration_019_money_numeric_batch2
 scenario_migration_021_rag_tenant_fk
 scenario_migration_025_billing
 scenario_migration_026_promo
+scenario_migration_027_event_daily_counts
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

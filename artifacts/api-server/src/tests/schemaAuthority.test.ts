@@ -45,6 +45,7 @@ assert.ok(migrationFiles.includes("023_trial_uuid_offices.sql"));
 assert.ok(migrationFiles.includes("024_tasks_tenant_ownership.sql"));
 assert.ok(migrationFiles.includes("025_billing_schema_authority.sql"));
 assert.ok(migrationFiles.includes("026_promo_schema_authority.sql"));
+assert.ok(migrationFiles.includes("027_event_daily_counts_schema_authority.sql"));
 /* Ordering: 024 must sort after 023 (023 remaps trial_* before NULL-task backfill). */
 assert.ok(
   "023_trial_uuid_offices.sql" < "024_tasks_tenant_ownership.sql",
@@ -57,6 +58,10 @@ assert.ok(
 assert.ok(
   "025_billing_schema_authority.sql" < "026_promo_schema_authority.sql",
   "026 must lexicographically follow 025",
+);
+assert.ok(
+  "026_promo_schema_authority.sql" < "027_event_daily_counts_schema_authority.sql",
+  "027 must lexicographically follow 026",
 );
 assert.ok(
   !migrationFiles.includes("022_tasks_tenant_ownership.sql"),
@@ -702,6 +707,41 @@ assert.match(preflight026, /missing_office_id|missing_user_id/);
 const integ026 = readRepo("scripts/db/test-migrations.integration.sh");
 assert.match(integ026, /scenario_migration_026_promo|MIGRATION_026/);
 console.log("  ✅ migration 026 owns promo tables with office_id+user_id; tenant paths scoped");
+
+console.log("\n═══ schemaAuthority: migration 027 event_daily_counts (Stage 16.5) ═══");
+const mig027 = readRepo("artifacts/api-server/migrations/027_event_daily_counts_schema_authority.sql");
+assert.match(mig027, /CREATE TABLE IF NOT EXISTS event_daily_counts/);
+assert.match(mig027, /office_id\s+TEXT NOT NULL\s*,/);
+assert.doesNotMatch(mig027, /office_id\s+TEXT NOT NULL DEFAULT\s*'default'/i);
+assert.match(mig027, /ADD COLUMN IF NOT EXISTS/);
+assert.match(mig027, /DROP DEFAULT/);
+assert.match(mig027, /uq_event_daily_counts_type_office_date|UNIQUE \(event_type, office_id, event_date\)/);
+assert.match(mig027, /RAISE EXCEPTION/);
+assert.doesNotMatch(mig027.replace(/--.*$/gm, ""), /RAISE WARNING/i);
+assert.match(mig027, /idx_event_daily_counts_office_id/);
+{
+  const sqlOnly027 = mig027.replace(/--.*$/gm, "");
+  assert.doesNotMatch(sqlOnly027, /\bDROP\s+TABLE\b/i);
+  assert.doesNotMatch(sqlOnly027, /\bDROP\s+COLUMN\b/i);
+}
+const analyticsListener027 = readSrc("core/listeners/analyticsListener.ts");
+assert.doesNotMatch(analyticsListener027, /CREATE TABLE IF NOT EXISTS event_daily_counts/);
+assert.doesNotMatch(analyticsListener027, /ensureEventCountsTable/);
+assert.doesNotMatch(analyticsListener027, /officeId\s*\?\?\s*["']default["']/);
+assert.doesNotMatch(analyticsListener027, /\.catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)/);
+assert.match(analyticsListener027, /trackOwnedAnalyticsEvent/);
+const analyticsOwn027 = readSrc("lib/analyticsOwnership.ts");
+assert.match(analyticsOwn027, /classifyTenantId/);
+assert.match(analyticsOwn027, /toUuid/);
+assert.match(analyticsOwn027, /logAnalyticsUpsertFailure|upsert_failed/);
+assert.doesNotMatch(analyticsOwn027, /resolveAutopilotOfficeId/);
+const preflight027 = readRepo("scripts/db/preflight-migration-027.sql");
+assert.match(preflight027, /READ-ONLY|SELECT only/i);
+assert.match(preflight027, /BLOCKED_CLEAN_DUPLICATES/);
+assert.match(preflight027, /chosen_action/);
+const integ027 = readRepo("scripts/db/test-migrations.integration.sh");
+assert.match(integ027, /scenario_migration_027_event_daily_counts|MIGRATION_027/);
+console.log("  ✅ migration 027 owns event_daily_counts; analytics UUID-only; Runtime DDL removed");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

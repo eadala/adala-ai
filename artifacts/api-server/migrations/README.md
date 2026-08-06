@@ -119,7 +119,26 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f artifacts/api-server/migrations/026_promo_schema_authority.sql
 
-# 27) تحقق بعد التنفيذ
+# 27) Analytics schema authority — event_daily_counts (Stage 16.5)
+#    Ops order (required — listener has no Runtime DDL):
+#      a) psql "$DATABASE_URL" -f scripts/db/preflight-migration-027.sql
+#      b) if chosen_action = BLOCKED_CLEAN_DUPLICATES → clean duplicate
+#         (event_type, office_id, event_date) groups; do NOT apply yet
+#      c) apply 027 (aborts if duplicates remain — never commits without UNIQUE)
+#      d) verify UNIQUE(event_type, office_id, event_date) exists
+#      e) deploy API build
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-027.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/027_event_daily_counts_schema_authority.sql
+psql "$DATABASE_URL" -At -c "
+  SELECT COUNT(*) FROM pg_constraint
+  WHERE conrelid = 'public.event_daily_counts'::regclass
+    AND contype = 'u'
+    AND pg_get_constraintdef(oid) ILIKE '%(event_type, office_id, event_date)%';
+"
+
+# 28) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -151,6 +170,7 @@ bash scripts/db/verify-schema.sh
 | `024_tasks_tenant_ownership.sql` | Strict `tasks.office_id` backfill + orphan quarantine + `NOT NULL` (Stage 15). **Requires 023 first.** Autopilot UUID office writes must be deployed before production apply. |
 | `025_billing_schema_authority.sql` | Formal `office_entitlements` + `platform_billing_invoices` (Stage 16.1). Fixes Billing GET 500s; tenant-scoped reads in app code. |
 | `026_promo_schema_authority.sql` | Formal `promo_codes` + `gift_subscriptions` (Stage 16.3). Fixes `GET /api/promo/my-gift` 500 when tables absent. Gifts require `office_id` + `user_id`; tenant reads are ownership-scoped. |
+| `027_event_daily_counts_schema_authority.sql` | Formal `event_daily_counts` (Stage 16.5). Removes Runtime DDL + `office_id DEFAULT 'default'`; analytics upserts require canonical Office UUID. Duplicate upsert-key groups abort apply (`BLOCKED_CLEAN_DUPLICATES`). Preflight: `scripts/db/preflight-migration-027.sql`. Ops: preflight → clean dups → apply 027 → verify UNIQUE → deploy. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -179,6 +199,7 @@ bash scripts/db/verify-schema.sh
 | `platform_billing_invoices` | **025** | billing platform invoices + stats |
 | `promo_codes` | **026** | promo admin + redeem |
 | `gift_subscriptions` | **026** | `GET /promo/my-gift`, redeem, office subscription gift check (scoped by `office_id` + `user_id`) |
+| `event_daily_counts` | **027** | Analytics wildcard listener daily rollups; JLWM enterprise report counts (scoped by `office_id`) |
 | `stripe_events` | **011** | `stripeEventBuffer.ts` webhook buffer |
 | `stripe_dead_letters` | **011** | Stripe DLQ |
 | `stripe_reconciliation_log` | **011** | `stripeReconcile.ts` |
@@ -201,6 +222,7 @@ bash scripts/db/verify-schema.sh
 فقط. بعد تطبيق 003–017، شغّل API مرة واحدة لإكمال الجداول المتبقية (enterprise).
 بعد تطبيق **016** لم يعد FTS الخاص بـ `office_messages.search_vector` يُنشأ عبر Runtime DDL.
 بعد تطبيق **017** لم تعد أعمدة `cases.case_number` / court / soft-delete تُنشأ عبر Runtime DDL.
+بعد تطبيق **027** لم يعد `event_daily_counts` يُنشأ عبر Runtime DDL في `analyticsListener.ts`.
 
 جداول مغطاة بـ 004/005/010/011/012/013/014/015/016/017 لم تعد تُنشأ عبر Runtime DDL:
 `contract_*`, `trial_offices`, `onboarding_state`, `system_events`, `plan_cms`, `office_ledger`,
