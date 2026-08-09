@@ -280,7 +280,8 @@ export async function runCaseAutopilot(
     runAt:             new Date().toISOString(),
   };
 
-  /* Persist analysis snapshot — failures are logged, never presented as task success */
+  /* Persist analysis snapshot — failures are logged, never presented as task success.
+     Schema: artifacts/api-server/migrations/028_case_autopilot_reports_schema_authority.sql */
   try {
     await db.execute(sql`
       INSERT INTO case_autopilot_reports
@@ -312,32 +313,4 @@ export async function runCaseAutopilot(
   }
 
   return report;
-}
-
-/* ── Ensure Table ───────────────────────────────────────── */
-
-export async function ensureAutopilotTable(): Promise<void> {
-  try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS case_autopilot_reports (
-        case_id            TEXT PRIMARY KEY,
-        office_id          TEXT NOT NULL,
-        health_score       INTEGER NOT NULL DEFAULT 0,
-        grade              TEXT NOT NULL DEFAULT 'F',
-        risks              JSONB NOT NULL DEFAULT '[]',
-        missing_data       JSONB NOT NULL DEFAULT '[]',
-        next_steps         JSONB NOT NULL DEFAULT '[]',
-        tasks_created      INTEGER NOT NULL DEFAULT 0,
-        outcome_prediction JSONB NOT NULL DEFAULT '{}',
-        ai_summary         TEXT,
-        run_at             TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-    await db.execute(sql`
-      CREATE INDEX IF NOT EXISTS idx_autopilot_office ON case_autopilot_reports(office_id)
-    `);
-  } catch (e: any) {
-    console.error("[Autopilot] ensureAutopilotTable failed:", e?.message ?? e);
-    throw e;
-  }
 }

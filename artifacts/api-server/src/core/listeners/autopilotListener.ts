@@ -6,18 +6,16 @@
  *
  * Stage 15.2d — never log success when planned tasks were skipped/failed;
  * never fall back to default/platform/trial_* office ids.
+ * Stage 19 — schema via migration 028; no Runtime DDL / ensureAutopilotTable.
  */
 
 import { eventBus }            from "../eventBus";
 import type { StoredEvent }    from "../eventBus";
 import {
   runCaseAutopilot,
-  ensureAutopilotTable,
   resolveAutopilotOfficeId,
   type AutopilotTaskCreateResult,
 } from "../../agents/caseAutopilot";
-
-let tableReady = false;
 
 function logAutopilotOutcome(fields: {
   tenantId: string | null;
@@ -53,12 +51,6 @@ function logAutopilotOutcome(fields: {
 
 export function registerAutopilotListeners(): void {
 
-  /* تهيئة الجدول مرة واحدة */
-  ensureAutopilotTable().then(() => { tableReady = true; }).catch((e: unknown) => {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[Autopilot] table init failed:", msg);
-  });
-
   /* CASE_CREATED → Autopilot بعد 3 ثوانٍ */
   eventBus.on("CASE_CREATED", async (event: StoredEvent) => {
     const { caseId } = event.data ?? {};
@@ -90,7 +82,6 @@ export function registerAutopilotListeners(): void {
           return;
         }
 
-        if (!tableReady) await ensureAutopilotTable();
         const report = await runCaseAutopilot(String(caseId), officeId, true);
         if (!report) {
           console.warn("[Autopilot] case_not_found", {

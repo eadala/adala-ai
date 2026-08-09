@@ -33,6 +33,7 @@ platform_billing_invoices
 promo_codes
 gift_subscriptions
 event_daily_counts
+case_autopilot_reports
 office_branches
 stripe_events
 stripe_dead_letters

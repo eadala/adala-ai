@@ -36,6 +36,7 @@ MIGRATION_021="$ROOT/artifacts/api-server/migrations/021_rag_schema_foundation.s
 MIGRATION_025="$ROOT/artifacts/api-server/migrations/025_billing_schema_authority.sql"
 MIGRATION_026="$ROOT/artifacts/api-server/migrations/026_promo_schema_authority.sql"
 MIGRATION_027="$ROOT/artifacts/api-server/migrations/027_event_daily_counts_schema_authority.sql"
+MIGRATION_028="$ROOT/artifacts/api-server/migrations/028_case_autopilot_reports_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -184,12 +185,18 @@ apply_migration_027() {
   psql_db -f "$MIGRATION_027" >/dev/null
 }
 
-# P0 verify requires billing (025) + promo (026) + analytics (027). Idempotent if already applied.
+apply_migration_028() {
+  psql_db -f "$MIGRATION_028" >/dev/null
+}
+
+# P0 verify requires billing (025) + promo (026) + analytics (027) + autopilot (028).
+# Idempotent if already applied.
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
   apply_migration_026
   apply_migration_027
+  apply_migration_028
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -222,11 +229,12 @@ apply_all_migrations() {
   apply_migration_025
   apply_migration_026
   apply_migration_027
+  apply_migration_028
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -3066,6 +3074,15 @@ scenario_incomplete_schema_no_runtime_ddl() {
     bad "planCms.ts still has Runtime DDL"
   fi
 
+  if ! grep -qE 'ensureAutopilotTable|CREATE TABLE IF NOT EXISTS case_autopilot_reports|ALTER TABLE case_autopilot_reports' \
+      "$ROOT/artifacts/api-server/src/agents/caseAutopilot.ts" \
+      "$ROOT/artifacts/api-server/src/core/listeners/autopilotListener.ts" \
+      "$ROOT/artifacts/api-server/src/modules/legal-core/cases.ts"; then
+    ok "Autopilot modules contain no Runtime DDL (migration 028)"
+  else
+    bad "Autopilot Runtime DDL still present"
+  fi
+
   trap - EXIT
   teardown_db
 }
@@ -4532,6 +4549,279 @@ SQL
   teardown_db
 }
 
+# ── Scenario: migration 028 case_autopilot_reports schema authority (Stage 19) ─
+scenario_migration_028_case_autopilot_reports() {
+  log "Scenario 028 — autopilot case_autopilot_reports: fresh / partial / upsert / idempotent / dup-block"
+
+  local OFFICE_A="aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1"
+  local OFFICE_B="bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"
+  local CASE_A="case-autopilot-a"
+  local CASE_B="case-autopilot-b"
+
+  # ── A. Fresh database ────────────────────────────────────────────────────
+  setup_db "mig028_fresh"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+  apply_migration_026
+  apply_migration_027
+
+  local pre_car
+  pre_car=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='case_autopilot_reports'
+    );")
+  [[ "$pre_car" == "f" ]] && ok "A pre-028: case_autopilot_reports absent" || bad "A pre-028: case_autopilot_reports should be absent"
+
+  apply_migration_028
+
+  local post_car cols pk_key idx_office
+  post_car=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema='public' AND table_name='case_autopilot_reports'
+    );")
+  cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='case_autopilot_reports'
+      AND column_name IN (
+        'case_id','office_id','health_score','grade','risks','missing_data',
+        'next_steps','tasks_created','outcome_prediction','ai_summary','run_at'
+      );")
+  pk_key=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.case_autopilot_reports'::regclass
+      AND contype IN ('p','u')
+      AND (
+        pg_get_constraintdef(oid) ILIKE '%PRIMARY KEY (case_id)%'
+        OR pg_get_constraintdef(oid) ILIKE '%UNIQUE (case_id)%'
+        OR pg_get_constraintdef(oid) ~* '\(case_id\)'
+      );")
+  idx_office=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_autopilot_office';")
+
+  [[ "$post_car" == "t" ]] && ok "A: case_autopilot_reports created" || bad "A: case_autopilot_reports missing"
+  [[ "$cols" == "11" ]] && ok "A: proven columns present" || bad "A: cols=$cols"
+  [[ "$pk_key" -ge 1 ]] && ok "A: PRIMARY KEY/UNIQUE(case_id)" || bad "A: case_id key missing"
+  [[ "$idx_office" == "1" ]] && ok "A: idx_autopilot_office" || bad "A: office_id index missing"
+
+  # Autopilot upsert path (ON CONFLICT case_id) + tenant-scoped read
+  psql_db <<SQL >/dev/null
+INSERT INTO case_autopilot_reports
+  (case_id, office_id, health_score, grade, risks, missing_data, next_steps,
+   tasks_created, outcome_prediction, ai_summary, run_at)
+VALUES (
+  '${CASE_A}', '${OFFICE_A}', 70, 'C', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+  1, '{}'::jsonb, 'summary-a', NOW()
+)
+ON CONFLICT (case_id) DO UPDATE SET
+  health_score = EXCLUDED.health_score,
+  grade = EXCLUDED.grade,
+  ai_summary = EXCLUDED.ai_summary,
+  run_at = NOW();
+INSERT INTO case_autopilot_reports
+  (case_id, office_id, health_score, grade, risks, missing_data, next_steps,
+   tasks_created, outcome_prediction, ai_summary, run_at)
+VALUES (
+  '${CASE_A}', '${OFFICE_A}', 85, 'B', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+  2, '{}'::jsonb, 'summary-a-updated', NOW()
+)
+ON CONFLICT (case_id) DO UPDATE SET
+  health_score = EXCLUDED.health_score,
+  grade = EXCLUDED.grade,
+  ai_summary = EXCLUDED.ai_summary,
+  run_at = NOW();
+INSERT INTO case_autopilot_reports
+  (case_id, office_id, health_score, grade, risks, missing_data, next_steps,
+   tasks_created, outcome_prediction, ai_summary, run_at)
+VALUES (
+  '${CASE_B}', '${OFFICE_B}', 90, 'A', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+  0, '{}'::jsonb, 'summary-b', NOW()
+)
+ON CONFLICT (case_id) DO UPDATE SET
+  health_score = EXCLUDED.health_score;
+SQL
+
+  local score_a score_b scoped_a
+  score_a=$(psql_db -At -c "
+    SELECT health_score FROM case_autopilot_reports
+    WHERE case_id='${CASE_A}' AND office_id='${OFFICE_A}';")
+  score_b=$(psql_db -At -c "
+    SELECT health_score FROM case_autopilot_reports
+    WHERE case_id='${CASE_B}' AND office_id='${OFFICE_B}';")
+  scoped_a=$(psql_db -At -c "
+    SELECT COUNT(*)::int FROM case_autopilot_reports
+    WHERE case_id='${CASE_A}' AND office_id='${OFFICE_A}';")
+
+  [[ "$score_a" == "85" ]] && ok "A: ON CONFLICT (case_id) upsert updates score" || bad "A: score_a=$score_a"
+  [[ "$score_b" == "90" ]] && ok "A: office B row isolated" || bad "A: score_b=$score_b"
+  [[ "$scoped_a" == "1" ]] && ok "A: tenant-scoped read by case_id+office_id" || bad "A: scoped_a=$scoped_a"
+
+  apply_migration_028
+  ok "A/F: re-run 028 on fresh schema succeeded (idempotent)"
+
+  apply_migration_011
+  apply_migration_012
+  apply_migration_013
+  apply_migration_014
+  apply_migration_015
+  apply_migration_016
+  apply_migration_017
+  if verify_p0_schema /tmp/verify-028-fresh.log; then
+    ok "A: verify-schema after 010→017 + 025→028"
+  else
+    bad "A: verify-schema failed after 028"; tail -20 /tmp/verify-028-fresh.log
+  fi
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Partial legacy Runtime DDL shape — repair columns, keep rows ───────
+  setup_db "mig028_partial"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+  apply_migration_026
+  apply_migration_027
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE case_autopilot_reports (
+  case_id TEXT,
+  office_id TEXT,
+  health_score INTEGER DEFAULT 0
+);
+INSERT INTO case_autopilot_reports (case_id, office_id, health_score)
+VALUES ('legacy-case-1', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 42);
+INSERT INTO case_autopilot_reports (case_id, office_id, health_score)
+VALUES ('legacy-case-2', 'default', 10);
+SQL
+
+  local pre_cols
+  pre_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='case_autopilot_reports';")
+  [[ "$pre_cols" == "3" ]] && ok "B pre-028: partial legacy table (3 cols)" || bad "B: pre_cols=$pre_cols"
+
+  apply_migration_028
+
+  local post_cols legacy_uuid legacy_default pk_partial idx_partial
+  post_cols=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='case_autopilot_reports'
+      AND column_name IN (
+        'case_id','office_id','health_score','grade','risks','missing_data',
+        'next_steps','tasks_created','outcome_prediction','ai_summary','run_at'
+      );")
+  legacy_uuid=$(psql_db -At -c "
+    SELECT health_score FROM case_autopilot_reports WHERE case_id='legacy-case-1';")
+  legacy_default=$(psql_db -At -c "
+    SELECT health_score FROM case_autopilot_reports WHERE case_id='legacy-case-2';")
+  pk_partial=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.case_autopilot_reports'::regclass
+      AND contype IN ('p','u')
+      AND (
+        pg_get_constraintdef(oid) ILIKE '%PRIMARY KEY (case_id)%'
+        OR pg_get_constraintdef(oid) ILIKE '%UNIQUE (case_id)%'
+        OR pg_get_constraintdef(oid) ~* '\(case_id\)'
+      );")
+  idx_partial=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND indexname='idx_autopilot_office';")
+
+  [[ "$post_cols" == "11" ]] && ok "B: missing columns repaired" || bad "B: post_cols=$post_cols"
+  [[ "$legacy_uuid" == "42" ]] && ok "B: legacy UUID row preserved" || bad "B: UUID row lost"
+  [[ "$legacy_default" == "10" ]] && ok "B: legacy default-bucket row preserved" || bad "B: default row lost"
+  [[ "$pk_partial" -ge 1 ]] && ok "B: PRIMARY KEY(case_id) added on partial table" || bad "B: PK missing on partial"
+  [[ "$idx_partial" == "1" ]] && ok "B: idx_autopilot_office on partial" || bad "B: index missing on partial"
+
+  apply_migration_028
+  ok "B/F: re-run 028 on repaired partial schema succeeded"
+
+  trap - EXIT
+  teardown_db
+
+  # ── C. Duplicate case_id → RAISE EXCEPTION / abort (no PK skip) ───────────
+  setup_db "mig028_dups"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+  apply_migration_026
+  apply_migration_027
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE case_autopilot_reports (
+  case_id TEXT,
+  office_id TEXT,
+  health_score INTEGER DEFAULT 0
+);
+INSERT INTO case_autopilot_reports (case_id, office_id, health_score) VALUES
+  ('dup-case', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 1),
+  ('dup-case', 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff', 2);
+SQL
+
+  local chosen_action
+  chosen_action=$(psql_db -At -c "
+    SELECT
+      CASE
+        WHEN EXISTS (
+          SELECT 1 FROM case_autopilot_reports WHERE case_id IS NULL
+        )
+          OR EXISTS (
+            SELECT 1
+            FROM (
+              SELECT case_id
+              FROM case_autopilot_reports
+              WHERE case_id IS NOT NULL
+              GROUP BY case_id
+              HAVING COUNT(*) > 1
+            ) d
+          )
+        THEN 'BLOCKED_CLEAN_DUPLICATES'
+        ELSE 'apply_028_repair_columns_indexes_pk'
+      END;")
+  [[ "$chosen_action" == "BLOCKED_CLEAN_DUPLICATES" ]] && ok "C: preflight chosen_action=BLOCKED_CLEAN_DUPLICATES" || bad "C: chosen_action=$chosen_action"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_028" >/tmp/mig028-dup.log 2>&1
+  local mig_rc=$?
+  set -e
+  [[ "$mig_rc" -ne 0 ]] && ok "C: migration 028 aborted on duplicates (rc=$mig_rc)" || bad "C: migration 028 should abort on duplicates"
+  grep -qE 'duplicate case_id|BLOCKED_CLEAN_DUPLICATES' /tmp/mig028-dup.log && ok "C: RAISE EXCEPTION mentions duplicate case_id" || bad "C: missing duplicate EXCEPTION message"
+
+  local pk_after
+  pk_after=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conrelid='public.case_autopilot_reports'::regclass
+      AND contype IN ('p','u')
+      AND (
+        pg_get_constraintdef(oid) ILIKE '%PRIMARY KEY (case_id)%'
+        OR pg_get_constraintdef(oid) ILIKE '%UNIQUE (case_id)%'
+        OR pg_get_constraintdef(oid) ~* '\(case_id\)'
+      );" 2>/dev/null || echo 0)
+  [[ "$pk_after" == "0" ]] && ok "C: PRIMARY KEY not committed when duplicates exist" || bad "C: PK was added despite duplicates"
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -4555,6 +4845,7 @@ scenario_migration_021_rag_tenant_fk
 scenario_migration_025_billing
 scenario_migration_026_promo
 scenario_migration_027_event_daily_counts
+scenario_migration_028_case_autopilot_reports
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

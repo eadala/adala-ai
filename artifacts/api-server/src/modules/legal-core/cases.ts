@@ -19,7 +19,6 @@ import { db }                                      from "@workspace/db";
 import { sql }                                     from "drizzle-orm";
 import {
   runCaseAutopilot,
-  ensureAutopilotTable,
   httpStatusForAutopilotTaskCreation,
 } from "../../agents/caseAutopilot";
 import { auditLog, auditMeta }                      from "../../lib/auditLogger";
@@ -556,7 +555,6 @@ router.get("/cases/:id/health", requireAuthWithTenant, async (req, res) => {
       if (row) return res.json(row);
     }
 
-    await ensureAutopilotTable();
     const report = await runCaseAutopilot(caseId, tenantId, false);
     if (!report) return res.status(404).json({ error: "القضية غير موجودة" });
     res.json(report);
@@ -571,7 +569,6 @@ router.post("/cases/:id/autopilot", requireAuthWithTenant, async (req, res) => {
     const caseId   = String(req.params.id);
     const auth     = getAuth(req);
 
-    await ensureAutopilotTable();
     const report = await runCaseAutopilot(caseId, tenantId, true);
     if (!report) return res.status(404).json({ error: "القضية غير موجودة" });
 
