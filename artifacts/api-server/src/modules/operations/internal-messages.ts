@@ -8,9 +8,46 @@ import {
   buildMessageAttachmentRows,
   buildMessageRecipientRows,
 } from "../../lib/internalMessageCreate";
+import {
+  assertCanonicalBusinessOfficeId,
+  TenantResolutionError,
+} from "../../lib/tenantResolution";
 import { getMessageFtsConfig } from "./messageFtsConfig";
 
 const router = Router();
+
+/**
+ * Stage 20.1 — business message paths require a canonical Office UUID.
+ * requireAuthWithTenant may inject synthetic "platform" for SA; that must
+ * never own or read office_messages rows.
+ */
+function resolveCanonicalMessageOfficeId(
+  req: Request,
+  res: Response,
+): string | null {
+  const userId = String((req as any).auth?.userId ?? (req as any).userId ?? "");
+  try {
+    return assertCanonicalBusinessOfficeId((req as any).tenantId, {
+      userId,
+      source: "internal-messages",
+    });
+  } catch (err: unknown) {
+    if (err instanceof TenantResolutionError) {
+      const status = err.code === "PLATFORM_FORBIDDEN_FOR_USER" ? 403 : 403;
+      res.status(status).json({
+        error: err.message,
+        code: err.code,
+        ...err.details,
+      });
+      return null;
+    }
+    res.status(403).json({
+      error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب.",
+      code: "MISSING_CANONICAL_OFFICE_UUID",
+    });
+    return null;
+  }
+}
 
 // Ensure case_id column exists on office_messages
 async function ensureCaseIdColumn() {
@@ -115,10 +152,17 @@ function getDeviceInfo(req: Request): string {
 }
 
 // GET /api/internal-messages?folder=inbox|sent|drafts|archive
-router.get("/", requireAuth, async (req: Request, res: Response) => {
+// Stage 20.1 — every folder/FTS path is scoped by canonical office_id.
+router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+
     const { folder = "inbox", search = "" } = req.query as any;
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const userId = (req as any).auth?.userId ?? (req as any).userId;
+    if (!userId) {
+      return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+    }
     const searchTerm: string | null = search ? String(search).trim() : null;
     const ftsConfig = searchTerm ? await getMessageFtsConfig() : null;
 
@@ -139,7 +183,8 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         FROM office_messages m
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
-        WHERE m.sender_id = ${userId} AND m.folder != 'draft'
+        WHERE m.office_id = ${tenantId}
+          AND m.sender_id = ${userId} AND m.folder != 'draft'
           ${messageSearchPredicate(searchTerm, ftsConfig)}
         GROUP BY m.id
         ORDER BY m.created_at DESC
@@ -156,7 +201,8 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
           '[]'::json AS attachments
         FROM office_messages m
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
-        WHERE m.sender_id = ${userId} AND m.folder = 'draft'
+        WHERE m.office_id = ${tenantId}
+          AND m.sender_id = ${userId} AND m.folder = 'draft'
           ${messageSearchPredicate(searchTerm, ftsConfig)}
         GROUP BY m.id
         ORDER BY m.created_at DESC
@@ -177,7 +223,8 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         FROM office_messages m
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
-        WHERE m.folder = 'archive'
+        WHERE m.office_id = ${tenantId}
+          AND m.folder = 'archive'
           ${messageSearchPredicate(searchTerm, ftsConfig)}
         GROUP BY m.id
         ORDER BY m.created_at DESC
@@ -201,7 +248,8 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         JOIN office_message_recipients r_me ON r_me.message_id = m.id AND r_me.user_id = ${userId}
         LEFT JOIN office_message_recipients r2 ON r2.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
-        WHERE m.folder = 'sent'
+        WHERE m.office_id = ${tenantId}
+          AND m.folder = 'sent'
           ${messageSearchPredicate(searchTerm, ftsConfig)}
         GROUP BY m.id, r_me.is_read, r_me.read_at, r_me.reader_ip
         ORDER BY m.created_at DESC
@@ -324,20 +372,27 @@ router.get("/case/:caseId", requireAuth, async (req: Request, res: Response) => 
 });
 
 // POST /api/internal-messages
-router.post("/", requireAuth, async (req: Request, res: Response) => {
+// Stage 20.1 — create requires canonical Office UUID and persists office_id.
+router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+
     const { subject, body, recipients = [], attachments = [], folder = "sent", tags = [], caseId } = req.body;
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const userId = (req as any).auth?.userId ?? (req as any).userId;
+    if (!userId) {
+      return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+    }
     const senderName = (req as any).auth?.sessionClaims?.fullName ?? "المرسِل";
     const ip = getClientIp(req);
     const device = getDeviceInfo(req);
     const tagsArr = `{${(tags as string[]).join(",")}}`;
 
     const ins = await db.execute(sql`
-      INSERT INTO office_messages (subject, body, sender_id, sender_name, sender_ip, device_info, folder, tags, case_id)
-      VALUES (${subject}, ${body}, ${userId}, ${senderName}, ${ip}, ${device}, ${folder}, ${tagsArr},
+      INSERT INTO office_messages (office_id, subject, body, sender_id, sender_name, sender_ip, device_info, folder, tags, case_id)
+      VALUES (${tenantId}, ${subject}, ${body}, ${userId}, ${senderName}, ${ip}, ${device}, ${folder}, ${tagsArr},
               ${caseId ? Number(caseId) : null})
-      RETURNING id, subject, body, sender_id, sender_name, folder, created_at, case_id
+      RETURNING id, office_id, subject, body, sender_id, sender_name, folder, created_at, case_id
     `);
 
     const msg = ins.rows[0] as any;
@@ -403,8 +458,12 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 // PUT /api/internal-messages/:id/archive
 router.put("/:id/archive", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string;
-    await db.execute(sql`UPDATE office_messages SET folder = 'archive' WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}`);
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+    await db.execute(sql`
+      UPDATE office_messages SET folder = 'archive'
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
+    `);
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -414,7 +473,8 @@ router.put("/:id/archive", requireAuthWithTenant, async (req: Request, res: Resp
 // DELETE /api/internal-messages/:id  (soft delete)
 router.delete("/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
     await db.execute(sql`
       UPDATE office_messages SET deleted_at = NOW()
       WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
