@@ -743,6 +743,55 @@ const integ027 = readRepo("scripts/db/test-migrations.integration.sh");
 assert.match(integ027, /scenario_migration_027_event_daily_counts|MIGRATION_027/);
 console.log("  ✅ migration 027 owns event_daily_counts; analytics UUID-only; Runtime DDL removed");
 
+console.log("\n═══ schemaAuthority: migration 028 case_autopilot_reports (Stage 19) ═══");
+const mig028 = readRepo("artifacts/api-server/migrations/028_case_autopilot_reports_schema_authority.sql");
+assert.match(mig028, /CREATE TABLE IF NOT EXISTS case_autopilot_reports/);
+assert.match(mig028, /case_id\s+TEXT PRIMARY KEY/);
+assert.match(mig028, /office_id\s+TEXT NOT NULL/);
+assert.match(mig028, /ADD COLUMN IF NOT EXISTS/);
+assert.match(mig028, /PRIMARY KEY \(case_id\)|case_autopilot_reports_pkey/);
+assert.match(mig028, /idx_autopilot_office/);
+assert.match(mig028, /RAISE EXCEPTION/);
+assert.match(mig028, /BLOCKED_CLEAN_DUPLICATES|duplicate case_id/i);
+assert.match(mig028, /indpred IS NULL/);
+assert.match(mig028, /indexprs IS NULL/);
+assert.match(mig028, /indnkeyatts = 1/);
+assert.match(mig028, /__mig028_on_conflict_probe__/);
+assert.doesNotMatch(mig028.replace(/--.*$/gm, ""), /RAISE WARNING/i);
+{
+  const sqlOnly028 = mig028.replace(/--.*$/gm, "");
+  assert.doesNotMatch(sqlOnly028, /\bDROP\s+TABLE\b/i);
+  assert.doesNotMatch(sqlOnly028, /\bDROP\s+COLUMN\b/i);
+}
+const stripComments028 = (src: string) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+const caseAutopilot028 = readSrc("agents/caseAutopilot.ts");
+assert.doesNotMatch(stripComments028(caseAutopilot028), /ensureAutopilotTable/);
+assert.doesNotMatch(stripComments028(caseAutopilot028), /CREATE TABLE IF NOT EXISTS case_autopilot_reports/);
+assert.doesNotMatch(stripComments028(caseAutopilot028), /ALTER TABLE case_autopilot_reports/);
+assert.match(caseAutopilot028, /ON CONFLICT \(case_id\) DO UPDATE/);
+const autopilotListener028 = readSrc("core/listeners/autopilotListener.ts");
+assert.doesNotMatch(stripComments028(autopilotListener028), /ensureAutopilotTable/);
+assert.doesNotMatch(stripComments028(autopilotListener028), /CREATE TABLE IF NOT EXISTS case_autopilot_reports/);
+assert.match(autopilotListener028, /resolveAutopilotOfficeId/);
+const cases028 = readSrc("modules/legal-core/cases.ts");
+assert.doesNotMatch(stripComments028(cases028), /ensureAutopilotTable/);
+const preflight028 = readRepo("scripts/db/preflight-migration-028.sql");
+assert.match(preflight028, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable/i);
+assert.match(preflight028, /BLOCKED_CLEAN_DUPLICATES/);
+assert.match(preflight028, /apply_028_create_missing_table/);
+assert.match(preflight028, /indpred IS NULL/);
+assert.match(preflight028, /on_conflict_case_id_supported/);
+assert.match(preflight028, /chosen_action/);
+const integ028 = readRepo("scripts/db/test-migrations.integration.sh");
+assert.match(integ028, /scenario_migration_028_case_autopilot_reports|MIGRATION_028/);
+assert.match(integ028, /partial UNIQUE rejected|UNIQUE\(lower\(case_id\)\) rejected/);
+const expectedTables028 = readRepo("scripts/db/expected-tables-p0.txt");
+assert.match(expectedTables028, /^case_autopilot_reports$/m);
+const bootTxt028 = readRepo("scripts/db/boot-created-tables.txt");
+assert.doesNotMatch(bootTxt028, /^case_autopilot_reports$/m);
+console.log("  ✅ migration 028 owns case_autopilot_reports; tight ON CONFLICT arbiter; Runtime DDL removed");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

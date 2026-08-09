@@ -123,6 +123,17 @@ event_daily_counts.event_type
 event_daily_counts.office_id
 event_daily_counts.event_date
 event_daily_counts.count
+case_autopilot_reports.case_id
+case_autopilot_reports.office_id
+case_autopilot_reports.health_score
+case_autopilot_reports.grade
+case_autopilot_reports.risks
+case_autopilot_reports.missing_data
+case_autopilot_reports.next_steps
+case_autopilot_reports.tasks_created
+case_autopilot_reports.outcome_prediction
+case_autopilot_reports.ai_summary
+case_autopilot_reports.run_at
 office_branches.id
 office_branches.office_id
 office_branches.name

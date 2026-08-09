@@ -40,6 +40,7 @@
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
 - `ensureJournalTables(officeId)` — CoA **seed only** (no DDL)
+- ~~`ensureAutopilotTable`~~ — removed; `case_autopilot_reports` via migration **028**
 
 ## جداول P0 مغطاة بـ Migrations (لا تنتظر boot)
 
@@ -59,6 +60,7 @@
 | `promo_codes` | **026** |
 | `gift_subscriptions` | **026** |
 | `event_daily_counts` | **027** (preflight → clean dups if `BLOCKED_CLEAN_DUPLICATES` → apply → verify UNIQUE → deploy) |
+| `case_autopilot_reports` | **028** (preflight → clean dups if `BLOCKED_CLEAN_DUPLICATES` → apply → verify PK(case_id) → deploy) |
 | `stripe_events` | 011 |
 | `stripe_dead_letters` | 011 |
 | `stripe_reconciliation_log` | 011 |

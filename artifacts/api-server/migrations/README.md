@@ -138,7 +138,29 @@ psql "$DATABASE_URL" -At -c "
     AND pg_get_constraintdef(oid) ILIKE '%(event_type, office_id, event_date)%';
 "
 
-# 28) تحقق بعد التنفيذ
+# 28) Autopilot schema authority — case_autopilot_reports (Stage 19 / P2)
+#    Ops order (required — ensureAutopilotTable removed):
+#      a) psql "$DATABASE_URL" -f scripts/db/preflight-migration-028.sql
+#      b) if chosen_action = BLOCKED_CLEAN_DUPLICATES → clean duplicate/NULL
+#         case_id rows; do NOT apply yet
+#      c) apply 028 (aborts if duplicates remain — never commits without PK)
+#      d) verify PRIMARY KEY / UNIQUE(case_id) exists
+#      e) deploy API build
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-028.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/028_case_autopilot_reports_schema_authority.sql
+psql "$DATABASE_URL" -At -c "
+  SELECT COUNT(*) FROM pg_constraint
+  WHERE conrelid = 'public.case_autopilot_reports'::regclass
+    AND contype IN ('p', 'u')
+    AND (
+      pg_get_constraintdef(oid) ILIKE '%PRIMARY KEY (case_id)%'
+      OR pg_get_constraintdef(oid) ILIKE '%UNIQUE (case_id)%'
+    );
+"
+
+# 29) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -171,6 +193,7 @@ bash scripts/db/verify-schema.sh
 | `025_billing_schema_authority.sql` | Formal `office_entitlements` + `platform_billing_invoices` (Stage 16.1). Fixes Billing GET 500s; tenant-scoped reads in app code. |
 | `026_promo_schema_authority.sql` | Formal `promo_codes` + `gift_subscriptions` (Stage 16.3). Fixes `GET /api/promo/my-gift` 500 when tables absent. Gifts require `office_id` + `user_id`; tenant reads are ownership-scoped. |
 | `027_event_daily_counts_schema_authority.sql` | Formal `event_daily_counts` (Stage 16.5). Removes Runtime DDL + `office_id DEFAULT 'default'`; analytics upserts require canonical Office UUID. Duplicate upsert-key groups abort apply (`BLOCKED_CLEAN_DUPLICATES`). Preflight: `scripts/db/preflight-migration-027.sql`. Ops: preflight → clean dups → apply 027 → verify UNIQUE → deploy. |
+| `028_case_autopilot_reports_schema_authority.sql` | Formal `case_autopilot_reports` (Stage 19 / P2). Removes Runtime DDL (`ensureAutopilotTable`). Supports Autopilot `ON CONFLICT (case_id)` upsert + `idx_autopilot_office`. Arbiter must be real `PRIMARY KEY`/`UNIQUE(case_id)` (or non-partial non-expression unique index on `case_id` only); probe upsert before COMMIT. Duplicate/NULL `case_id` → `BLOCKED_CLEAN_DUPLICATES`. Preflight: `scripts/db/preflight-migration-028.sql`. Ops: preflight → clean/block → apply 028 → verify arbiter → deploy. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -200,6 +223,7 @@ bash scripts/db/verify-schema.sh
 | `promo_codes` | **026** | promo admin + redeem |
 | `gift_subscriptions` | **026** | `GET /promo/my-gift`, redeem, office subscription gift check (scoped by `office_id` + `user_id`) |
 | `event_daily_counts` | **027** | Analytics wildcard listener daily rollups; JLWM enterprise report counts (scoped by `office_id`) |
+| `case_autopilot_reports` | **028** | Autopilot health snapshots (`runCaseAutopilot` upsert; GET health scoped by `case_id` + `office_id`) |
 | `stripe_events` | **011** | `stripeEventBuffer.ts` webhook buffer |
 | `stripe_dead_letters` | **011** | Stripe DLQ |
 | `stripe_reconciliation_log` | **011** | `stripeReconcile.ts` |
@@ -223,6 +247,7 @@ bash scripts/db/verify-schema.sh
 بعد تطبيق **016** لم يعد FTS الخاص بـ `office_messages.search_vector` يُنشأ عبر Runtime DDL.
 بعد تطبيق **017** لم تعد أعمدة `cases.case_number` / court / soft-delete تُنشأ عبر Runtime DDL.
 بعد تطبيق **027** لم يعد `event_daily_counts` يُنشأ عبر Runtime DDL في `analyticsListener.ts`.
+بعد تطبيق **028** لم يعد `case_autopilot_reports` يُنشأ عبر Runtime DDL (`ensureAutopilotTable` في `caseAutopilot.ts`).
 
 جداول مغطاة بـ 004/005/010/011/012/013/014/015/016/017 لم تعد تُنشأ عبر Runtime DDL:
 `contract_*`, `trial_offices`, `onboarding_state`, `system_events`, `plan_cms`, `office_ledger`,

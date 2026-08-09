@@ -10,7 +10,6 @@ audit_coverage_rules
 audit_risk_scores
 blocked_ips
 case_ai_insights
-case_autopilot_reports
 case_timeline
 checkout_settings
 client_accounts

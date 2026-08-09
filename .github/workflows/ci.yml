@@ -52,6 +52,7 @@ jobs:
           pnpm --filter @workspace/api-server run test:sse-tenant-isolation
           pnpm --filter @workspace/api-server run test:jlwm-eventbus-ownership
           pnpm --filter @workspace/api-server run test:analytics-027
+          pnpm --filter @workspace/api-server run test:autopilot-028
           pnpm --filter @workspace/api-server run test:stage152e
       - name: Frontend tests
         run: |
