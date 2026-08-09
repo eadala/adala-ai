@@ -55,24 +55,40 @@ assert.match(mig, /PRIMARY KEY \(case_id\)|case_autopilot_reports_pkey/);
 assert.match(mig, /RAISE EXCEPTION/);
 assert.match(mig, /BLOCKED_CLEAN_DUPLICATES|duplicate case_id/i);
 assert.match(mig, /idx_autopilot_office/);
+assert.match(mig, /indpred IS NULL/);
+assert.match(mig, /indexprs IS NULL/);
+assert.match(mig, /indnkeyatts = 1/);
+assert.match(mig, /indisvalid/);
+assert.match(mig, /ON CONFLICT \(case_id\) DO NOTHING/);
+assert.match(mig, /__mig028_on_conflict_probe__/);
 assert.doesNotMatch(mig.replace(/--.*$/gm, ""), /RAISE WARNING/i);
 {
   const sqlOnly = mig.replace(/--.*$/gm, "");
   assert.doesNotMatch(sqlOnly, /\bDROP\s+TABLE\b/i);
   assert.doesNotMatch(sqlOnly, /\bDROP\s+COLUMN\b/i);
   assert.doesNotMatch(sqlOnly, /created_at/i);
+  assert.doesNotMatch(sqlOnly, /pg_get_indexdef\(c\.oid\)\s+ILIKE\s+'%\(\s*case_id\s*\)%'/i);
+  assert.doesNotMatch(sqlOnly, /pg_get_constraintdef\(oid\)\s+~\*\s+'\\\(case_id\\\)'/);
 }
-assert.match(preflight, /READ-ONLY|SELECT only/i);
+assert.match(preflight, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable/i);
 assert.match(preflight, /case_autopilot_reports_present|table presence/i);
+assert.match(preflight, /to_regclass\('public\.case_autopilot_reports'\)/);
+assert.match(preflight, /apply_028_create_missing_table/);
 assert.match(preflight, /default_office_rows|office_id = 'default'/);
 assert.match(preflight, /null_office_id|non_uuid_office_id/);
 assert.match(preflight, /null_case_id|duplicate case_id/i);
 assert.match(preflight, /BLOCKED_CLEAN_DUPLICATES/);
+assert.match(preflight, /BLOCKED_INCOMPATIBLE_COLUMN_TYPES|incompatible column types|SET DEFAULT jsonb/i);
 assert.match(preflight, /chosen_action/);
-assert.doesNotMatch(preflight, /^\s*(CREATE|ALTER|DROP)\b/im);
+assert.match(preflight, /indpred IS NULL/);
+assert.match(preflight, /indexprs IS NULL/);
+assert.match(preflight, /on_conflict_case_id_supported/);
+assert.match(preflight, /apply_028_repair_add_case_id_arbiter/);
 assert.match(integ, /scenario_migration_028_case_autopilot_reports/);
 assert.match(integ, /MIGRATION_028/);
 assert.match(integ, /apply_migration_028/);
+assert.match(integ, /partial UNIQUE rejected|UNIQUE\(lower\(case_id\)\) rejected|multi-column unique rejected/i);
+assert.match(integ, /preflight succeeds when table absent|apply_028_create_missing_table/);
 assert.match(expectedTables, /^case_autopilot_reports$/m);
 assert.match(expectedCols, /^case_autopilot_reports\.case_id$/m);
 assert.match(expectedCols, /^case_autopilot_reports\.office_id$/m);
@@ -82,6 +98,19 @@ assert.doesNotMatch(bootTxt, /^case_autopilot_reports$/m);
 assert.match(readme, /028_case_autopilot_reports_schema_authority/);
 assert.match(readme, /preflight-migration-028/);
 console.log("  ✅ migration 028 + preflight + harness + P0 inventory");
+
+console.log("\n═══ ON CONFLICT (case_id) arbiter rules ═══");
+{
+  assert.match(mig, /array_length\(c\.conkey, 1\) = 1/);
+  assert.match(mig, /a\.attname = 'case_id'/);
+  assert.match(preflight, /array_length\(c\.conkey, 1\) = 1/);
+  assert.match(preflight, /a\.attname = 'case_id'/);
+  assert.match(
+    integ,
+    /real PK\(case_id\) accepted|UNIQUE\(case_id\)|partial UNIQUE rejected/,
+  );
+  console.log("  ✅ tight arbiter rules in migration + preflight + integration");
+}
 
 console.log("\n═══ Runtime DDL removed from Autopilot paths ═══");
 

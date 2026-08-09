@@ -753,6 +753,10 @@ assert.match(mig028, /PRIMARY KEY \(case_id\)|case_autopilot_reports_pkey/);
 assert.match(mig028, /idx_autopilot_office/);
 assert.match(mig028, /RAISE EXCEPTION/);
 assert.match(mig028, /BLOCKED_CLEAN_DUPLICATES|duplicate case_id/i);
+assert.match(mig028, /indpred IS NULL/);
+assert.match(mig028, /indexprs IS NULL/);
+assert.match(mig028, /indnkeyatts = 1/);
+assert.match(mig028, /__mig028_on_conflict_probe__/);
 assert.doesNotMatch(mig028.replace(/--.*$/gm, ""), /RAISE WARNING/i);
 {
   const sqlOnly028 = mig028.replace(/--.*$/gm, "");
@@ -773,16 +777,20 @@ assert.match(autopilotListener028, /resolveAutopilotOfficeId/);
 const cases028 = readSrc("modules/legal-core/cases.ts");
 assert.doesNotMatch(stripComments028(cases028), /ensureAutopilotTable/);
 const preflight028 = readRepo("scripts/db/preflight-migration-028.sql");
-assert.match(preflight028, /READ-ONLY|SELECT only/i);
+assert.match(preflight028, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable/i);
 assert.match(preflight028, /BLOCKED_CLEAN_DUPLICATES/);
+assert.match(preflight028, /apply_028_create_missing_table/);
+assert.match(preflight028, /indpred IS NULL/);
+assert.match(preflight028, /on_conflict_case_id_supported/);
 assert.match(preflight028, /chosen_action/);
 const integ028 = readRepo("scripts/db/test-migrations.integration.sh");
 assert.match(integ028, /scenario_migration_028_case_autopilot_reports|MIGRATION_028/);
+assert.match(integ028, /partial UNIQUE rejected|UNIQUE\(lower\(case_id\)\) rejected/);
 const expectedTables028 = readRepo("scripts/db/expected-tables-p0.txt");
 assert.match(expectedTables028, /^case_autopilot_reports$/m);
 const bootTxt028 = readRepo("scripts/db/boot-created-tables.txt");
 assert.doesNotMatch(bootTxt028, /^case_autopilot_reports$/m);
-console.log("  ✅ migration 028 owns case_autopilot_reports; Autopilot Runtime DDL removed");
+console.log("  ✅ migration 028 owns case_autopilot_reports; tight ON CONFLICT arbiter; Runtime DDL removed");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

@@ -4550,13 +4550,56 @@ SQL
 }
 
 # ── Scenario: migration 028 case_autopilot_reports schema authority (Stage 19) ─
+# Shared arbiter predicate used by Scenario 028 assertions (matches migration/preflight).
+mig028_arbiter_sql() {
+  cat <<'SQL'
+SELECT EXISTS (
+  SELECT 1 FROM pg_constraint c
+  WHERE c.conrelid = 'public.case_autopilot_reports'::regclass
+    AND c.contype IN ('p', 'u')
+    AND array_length(c.conkey, 1) = 1
+    AND EXISTS (
+      SELECT 1 FROM pg_attribute a
+      WHERE a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+        AND NOT a.attisdropped AND a.attname = 'case_id'
+    )
+) OR EXISTS (
+  SELECT 1 FROM pg_index x
+  WHERE x.indrelid = 'public.case_autopilot_reports'::regclass
+    AND x.indisunique AND x.indisvalid
+    AND x.indpred IS NULL AND x.indexprs IS NULL
+    AND x.indnkeyatts = 1
+    AND EXISTS (
+      SELECT 1 FROM pg_attribute a
+      WHERE a.attrelid = x.indrelid AND a.attnum = x.indkey[0]
+        AND NOT a.attisdropped AND a.attname = 'case_id'
+    )
+);
+SQL
+}
+
 scenario_migration_028_case_autopilot_reports() {
-  log "Scenario 028 — autopilot case_autopilot_reports: fresh / partial / upsert / idempotent / dup-block"
+  log "Scenario 028 — autopilot case_autopilot_reports: fresh / partial / upsert / arbiter / dup-block"
 
   local OFFICE_A="aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1"
   local OFFICE_B="bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"
   local CASE_A="case-autopilot-a"
   local CASE_B="case-autopilot-b"
+  local PREFLIGHT_028="$ROOT/scripts/db/preflight-migration-028.sql"
+
+  # ── A0. Greenfield preflight (table absent) under ON_ERROR_STOP ──────────
+  setup_db "mig028_preflight_absent"
+  trap teardown_db EXIT
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_028" >/tmp/preflight028-absent.log 2>&1
+  local pf_abs_rc=$?
+  set -e
+  [[ "$pf_abs_rc" -eq 0 ]] && ok "A0: preflight succeeds when table absent (ON_ERROR_STOP)" || bad "A0: preflight failed when table absent"
+  grep -q 'chosen_action=apply_028_create_missing_table' /tmp/preflight028-absent.log \
+    && ok "A0: chosen_action=apply_028_create_missing_table" \
+    || bad "A0: missing apply_028_create_missing_table"
+  trap - EXIT
+  teardown_db
 
   # ── A. Fresh database ────────────────────────────────────────────────────
   setup_db "mig028_fresh"
@@ -4581,7 +4624,7 @@ scenario_migration_028_case_autopilot_reports() {
 
   apply_migration_028
 
-  local post_car cols pk_key idx_office
+  local post_car cols pk_key idx_office arbiter
   post_car=$(psql_db -At -c "
     SELECT EXISTS (
       SELECT 1 FROM information_schema.tables
@@ -4595,21 +4638,24 @@ scenario_migration_028_case_autopilot_reports() {
         'next_steps','tasks_created','outcome_prediction','ai_summary','run_at'
       );")
   pk_key=$(psql_db -At -c "
-    SELECT COUNT(*) FROM pg_constraint
-    WHERE conrelid='public.case_autopilot_reports'::regclass
-      AND contype IN ('p','u')
-      AND (
-        pg_get_constraintdef(oid) ILIKE '%PRIMARY KEY (case_id)%'
-        OR pg_get_constraintdef(oid) ILIKE '%UNIQUE (case_id)%'
-        OR pg_get_constraintdef(oid) ~* '\(case_id\)'
+    SELECT COUNT(*) FROM pg_constraint c
+    WHERE c.conrelid='public.case_autopilot_reports'::regclass
+      AND c.contype='p'
+      AND array_length(c.conkey, 1) = 1
+      AND EXISTS (
+        SELECT 1 FROM pg_attribute a
+        WHERE a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+          AND NOT a.attisdropped AND a.attname = 'case_id'
       );")
+  arbiter=$(psql_db -At -c "$(mig028_arbiter_sql)")
   idx_office=$(psql_db -At -c "
     SELECT COUNT(*) FROM pg_indexes
     WHERE schemaname='public' AND indexname='idx_autopilot_office';")
 
   [[ "$post_car" == "t" ]] && ok "A: case_autopilot_reports created" || bad "A: case_autopilot_reports missing"
   [[ "$cols" == "11" ]] && ok "A: proven columns present" || bad "A: cols=$cols"
-  [[ "$pk_key" -ge 1 ]] && ok "A: PRIMARY KEY/UNIQUE(case_id)" || bad "A: case_id key missing"
+  [[ "$pk_key" -ge 1 ]] && ok "A: real PK(case_id) accepted" || bad "A: case_id PK missing"
+  [[ "$arbiter" == "t" ]] && ok "A: ON CONFLICT arbiter present" || bad "A: arbiter missing"
   [[ "$idx_office" == "1" ]] && ok "A: idx_autopilot_office" || bad "A: office_id index missing"
 
   # Autopilot upsert path (ON CONFLICT case_id) + tenant-scoped read
@@ -4729,13 +4775,14 @@ SQL
   legacy_default=$(psql_db -At -c "
     SELECT health_score FROM case_autopilot_reports WHERE case_id='legacy-case-2';")
   pk_partial=$(psql_db -At -c "
-    SELECT COUNT(*) FROM pg_constraint
-    WHERE conrelid='public.case_autopilot_reports'::regclass
-      AND contype IN ('p','u')
-      AND (
-        pg_get_constraintdef(oid) ILIKE '%PRIMARY KEY (case_id)%'
-        OR pg_get_constraintdef(oid) ILIKE '%UNIQUE (case_id)%'
-        OR pg_get_constraintdef(oid) ~* '\(case_id\)'
+    SELECT COUNT(*) FROM pg_constraint c
+    WHERE c.conrelid='public.case_autopilot_reports'::regclass
+      AND c.contype='p'
+      AND array_length(c.conkey, 1) = 1
+      AND EXISTS (
+        SELECT 1 FROM pg_attribute a
+        WHERE a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+          AND NOT a.attisdropped AND a.attname = 'case_id'
       );")
   idx_partial=$(psql_db -At -c "
     SELECT COUNT(*) FROM pg_indexes
@@ -4753,7 +4800,7 @@ SQL
   trap - EXIT
   teardown_db
 
-  # ── C. Duplicate case_id → RAISE EXCEPTION / abort (no PK skip) ───────────
+  # ── C. Duplicate / NULL case_id → RAISE EXCEPTION / abort ─────────────────
   setup_db "mig028_dups"
   trap teardown_db EXIT
   apply_migrations_base
@@ -4777,27 +4824,12 @@ INSERT INTO case_autopilot_reports (case_id, office_id, health_score) VALUES
   ('dup-case', 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff', 2);
 SQL
 
-  local chosen_action
-  chosen_action=$(psql_db -At -c "
-    SELECT
-      CASE
-        WHEN EXISTS (
-          SELECT 1 FROM case_autopilot_reports WHERE case_id IS NULL
-        )
-          OR EXISTS (
-            SELECT 1
-            FROM (
-              SELECT case_id
-              FROM case_autopilot_reports
-              WHERE case_id IS NOT NULL
-              GROUP BY case_id
-              HAVING COUNT(*) > 1
-            ) d
-          )
-        THEN 'BLOCKED_CLEAN_DUPLICATES'
-        ELSE 'apply_028_repair_columns_indexes_pk'
-      END;")
-  [[ "$chosen_action" == "BLOCKED_CLEAN_DUPLICATES" ]] && ok "C: preflight chosen_action=BLOCKED_CLEAN_DUPLICATES" || bad "C: chosen_action=$chosen_action"
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_028" >/tmp/preflight028-dups.log 2>&1
+  set -e
+  grep -q 'chosen_action=BLOCKED_CLEAN_DUPLICATES' /tmp/preflight028-dups.log \
+    && ok "C: preflight chosen_action=BLOCKED_CLEAN_DUPLICATES" \
+    || bad "C: preflight did not block duplicates"
 
   set +e
   psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_028" >/tmp/mig028-dup.log 2>&1
@@ -4806,17 +4838,228 @@ SQL
   [[ "$mig_rc" -ne 0 ]] && ok "C: migration 028 aborted on duplicates (rc=$mig_rc)" || bad "C: migration 028 should abort on duplicates"
   grep -qE 'duplicate case_id|BLOCKED_CLEAN_DUPLICATES' /tmp/mig028-dup.log && ok "C: RAISE EXCEPTION mentions duplicate case_id" || bad "C: missing duplicate EXCEPTION message"
 
-  local pk_after
-  pk_after=$(psql_db -At -c "
-    SELECT COUNT(*) FROM pg_constraint
-    WHERE conrelid='public.case_autopilot_reports'::regclass
-      AND contype IN ('p','u')
-      AND (
-        pg_get_constraintdef(oid) ILIKE '%PRIMARY KEY (case_id)%'
-        OR pg_get_constraintdef(oid) ILIKE '%UNIQUE (case_id)%'
-        OR pg_get_constraintdef(oid) ~* '\(case_id\)'
-      );" 2>/dev/null || echo 0)
-  [[ "$pk_after" == "0" ]] && ok "C: PRIMARY KEY not committed when duplicates exist" || bad "C: PK was added despite duplicates"
+  local arbiter_after
+  arbiter_after=$(psql_db -At -c "$(mig028_arbiter_sql)" 2>/dev/null || echo f)
+  [[ "$arbiter_after" == "f" ]] && ok "C: no ON CONFLICT arbiter committed when duplicates exist" || bad "C: arbiter present despite duplicates"
+
+  # NULL case_id also blocks
+  psql_db <<'SQL' >/dev/null
+TRUNCATE case_autopilot_reports;
+INSERT INTO case_autopilot_reports (case_id, office_id, health_score) VALUES
+  (NULL, 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 1);
+SQL
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_028" >/tmp/preflight028-null.log 2>&1
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_028" >/tmp/mig028-null.log 2>&1
+  local null_rc=$?
+  set -e
+  grep -q 'chosen_action=BLOCKED_CLEAN_DUPLICATES' /tmp/preflight028-null.log \
+    && ok "C2: preflight blocks NULL case_id" || bad "C2: preflight should block NULL case_id"
+  [[ "$null_rc" -ne 0 ]] && ok "C2: migration aborted on NULL case_id" || bad "C2: migration should abort on NULL case_id"
+
+  trap - EXIT
+  teardown_db
+
+  # ── D. Real UNIQUE(case_id) accepted (no PK) ─────────────────────────────
+  setup_db "mig028_unique"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+  apply_migration_026
+  apply_migration_027
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE case_autopilot_reports (
+  case_id TEXT NOT NULL UNIQUE,
+  office_id TEXT NOT NULL,
+  health_score INTEGER NOT NULL DEFAULT 0,
+  grade TEXT NOT NULL DEFAULT 'F',
+  risks JSONB NOT NULL DEFAULT '[]'::jsonb,
+  missing_data JSONB NOT NULL DEFAULT '[]'::jsonb,
+  next_steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+  tasks_created INTEGER NOT NULL DEFAULT 0,
+  outcome_prediction JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ai_summary TEXT,
+  run_at TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO case_autopilot_reports (case_id, office_id, health_score)
+VALUES ('u1', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 11);
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_028" >/tmp/preflight028-unique.log 2>&1
+  set -e
+  grep -q 'on_conflict_case_id_supported=t' /tmp/preflight028-unique.log \
+    && ok "D: preflight accepts real UNIQUE(case_id)" || bad "D: UNIQUE(case_id) not accepted as arbiter"
+  grep -qE 'chosen_action=apply_028_repair_columns_indexes_pk' /tmp/preflight028-unique.log \
+    && ok "D: preflight safe apply with UNIQUE arbiter" || bad "D: unexpected chosen_action for UNIQUE"
+
+  apply_migration_028
+  psql_db <<'SQL' >/dev/null
+INSERT INTO case_autopilot_reports
+  (case_id, office_id, health_score, grade, risks, missing_data, next_steps,
+   tasks_created, outcome_prediction, ai_summary, run_at)
+VALUES ('u1', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 22, 'B', '[]','[]','[]',0,'{}','x',NOW())
+ON CONFLICT (case_id) DO UPDATE SET health_score = EXCLUDED.health_score;
+SQL
+  local uniq_score
+  uniq_score=$(psql_db -At -c "SELECT health_score FROM case_autopilot_reports WHERE case_id='u1';")
+  [[ "$uniq_score" == "22" ]] && ok "D: ON CONFLICT works with UNIQUE(case_id)" || bad "D: score=$uniq_score"
+
+  trap - EXIT
+  teardown_db
+
+  # ── E. Partial / expression / multi-column unique rejected as arbiter ────
+  setup_db "mig028_bad_arbiter"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+  apply_migration_026
+  apply_migration_027
+
+  # E1 partial UNIQUE(case_id) WHERE ...
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE case_autopilot_reports (
+  case_id TEXT,
+  office_id TEXT,
+  health_score INTEGER DEFAULT 0
+);
+CREATE UNIQUE INDEX uq_partial_case ON case_autopilot_reports (case_id)
+  WHERE office_id IS NOT NULL;
+INSERT INTO case_autopilot_reports VALUES ('p1', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 1);
+SQL
+
+  local arbiter_partial
+  arbiter_partial=$(psql_db -At -c "$(mig028_arbiter_sql)")
+  [[ "$arbiter_partial" == "f" ]] && ok "E1: partial UNIQUE rejected as arbiter" || bad "E1: partial UNIQUE incorrectly accepted"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_028" >/tmp/preflight028-partial.log 2>&1
+  set -e
+  grep -q 'on_conflict_case_id_supported=f' /tmp/preflight028-partial.log \
+    && ok "E1: preflight on_conflict_case_id_supported=f for partial" \
+    || bad "E1: preflight should not claim ON CONFLICT supported"
+  grep -q 'chosen_action=apply_028_repair_add_case_id_arbiter' /tmp/preflight028-partial.log \
+    && ok "E1: preflight repair-add-arbiter (not false-safe)" \
+    || bad "E1: chosen_action=$(grep chosen_action /tmp/preflight028-partial.log | tail -1)"
+
+  apply_migration_028
+  arbiter_partial=$(psql_db -At -c "$(mig028_arbiter_sql)")
+  [[ "$arbiter_partial" == "t" ]] && ok "E1: migration adds real arbiter over partial unique" || bad "E1: arbiter still missing"
+  psql_db <<'SQL' >/dev/null
+INSERT INTO case_autopilot_reports
+  (case_id, office_id, health_score, grade, risks, missing_data, next_steps,
+   tasks_created, outcome_prediction, ai_summary, run_at)
+VALUES ('p1', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 9, 'C', '[]','[]','[]',0,'{}','x',NOW())
+ON CONFLICT (case_id) DO UPDATE SET health_score = EXCLUDED.health_score;
+SQL
+  ok "E1: ON CONFLICT works after migration repaired partial unique"
+
+  trap - EXIT
+  teardown_db
+
+  # E2 expression UNIQUE(lower(case_id))
+  setup_db "mig028_expr"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+  apply_migration_026
+  apply_migration_027
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE case_autopilot_reports (
+  case_id TEXT,
+  office_id TEXT,
+  health_score INTEGER DEFAULT 0
+);
+CREATE UNIQUE INDEX uq_expr_case ON case_autopilot_reports (lower(case_id));
+INSERT INTO case_autopilot_reports VALUES ('E1', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 1);
+SQL
+
+  local arbiter_expr
+  arbiter_expr=$(psql_db -At -c "$(mig028_arbiter_sql)")
+  [[ "$arbiter_expr" == "f" ]] && ok "E2: UNIQUE(lower(case_id)) rejected as arbiter" || bad "E2: expression unique incorrectly accepted"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_028" >/tmp/preflight028-expr.log 2>&1
+  set -e
+  grep -q 'on_conflict_case_id_supported=f' /tmp/preflight028-expr.log \
+    && ok "E2: preflight rejects expression unique" || bad "E2: preflight falsely supports expression unique"
+
+  apply_migration_028
+  psql_db <<'SQL' >/dev/null
+INSERT INTO case_autopilot_reports
+  (case_id, office_id, health_score, grade, risks, missing_data, next_steps,
+   tasks_created, outcome_prediction, ai_summary, run_at)
+VALUES ('E1', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 3, 'C', '[]','[]','[]',0,'{}','x',NOW())
+ON CONFLICT (case_id) DO UPDATE SET health_score = EXCLUDED.health_score;
+SQL
+  ok "E2: ON CONFLICT works after migration over expression unique"
+
+  trap - EXIT
+  teardown_db
+
+  # E3 multi-column unique
+  setup_db "mig028_multi"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_006
+  apply_migration_007
+  apply_migration_008
+  apply_migration_009
+  apply_migration_010
+  apply_migration_025
+  apply_migration_026
+  apply_migration_027
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE case_autopilot_reports (
+  case_id TEXT,
+  office_id TEXT,
+  health_score INTEGER DEFAULT 0
+);
+CREATE UNIQUE INDEX uq_multi ON case_autopilot_reports (case_id, office_id);
+INSERT INTO case_autopilot_reports VALUES ('m1', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 1);
+SQL
+
+  local arbiter_multi
+  arbiter_multi=$(psql_db -At -c "$(mig028_arbiter_sql)")
+  [[ "$arbiter_multi" == "f" ]] && ok "E3: multi-column unique rejected as arbiter" || bad "E3: multi-column unique incorrectly accepted"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_028" >/tmp/preflight028-multi.log 2>&1
+  set -e
+  grep -q 'on_conflict_case_id_supported=f' /tmp/preflight028-multi.log \
+    && ok "E3: preflight rejects multi-column unique" || bad "E3: preflight falsely supports multi-column unique"
+
+  apply_migration_028
+  local probe_ok
+  set +e
+  psql_db <<'SQL' >/tmp/mig028-multi-upsert.log 2>&1
+INSERT INTO case_autopilot_reports
+  (case_id, office_id, health_score, grade, risks, missing_data, next_steps,
+   tasks_created, outcome_prediction, ai_summary, run_at)
+VALUES ('m1', 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 4, 'C', '[]','[]','[]',0,'{}','x',NOW())
+ON CONFLICT (case_id) DO UPDATE SET health_score = EXCLUDED.health_score;
+SQL
+  probe_ok=$?
+  set -e
+  [[ "$probe_ok" -eq 0 ]] && ok "E3: migration never commits without valid ON CONFLICT arbiter" || bad "E3: ON CONFLICT still broken after 028"
 
   trap - EXIT
   teardown_db

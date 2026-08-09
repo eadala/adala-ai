@@ -9,18 +9,26 @@
 --   case_autopilot_reports:
 --     columns: case_id, office_id, health_score, grade, risks, missing_data,
 --              next_steps, tasks_created, outcome_prediction, ai_summary, run_at
---     PRIMARY KEY / UNIQUE(case_id) — ON CONFLICT (case_id) upsert
+--     PRIMARY KEY / UNIQUE(case_id) — ON CONFLICT (case_id) upsert arbiter
 --     INDEX idx_autopilot_office (office_id)
 --     WRITE: INSERT … ON CONFLICT (case_id) DO UPDATE (runCaseAutopilot)
 --     READ:  WHERE case_id = :id AND office_id = :tenantId
+--
+-- ON CONFLICT (case_id) arbiter rules (must match preflight-028):
+--   Accept ONLY:
+--     - PRIMARY KEY on exactly (case_id), OR
+--     - UNIQUE constraint on exactly (case_id), OR
+--     - unique index that is ALL of: unique, valid, exactly one key column,
+--       column is case_id, indpred IS NULL, indexprs IS NULL
+--   Reject: partial UNIQUE, expression UNIQUE, multi-column unique, invalid indexes
 --
 -- Apply AFTER: … → 027
 -- Idempotent / legacy-safe:
 --   - CREATE TABLE IF NOT EXISTS for fresh DBs
 --   - ADD COLUMN IF NOT EXISTS repairs partial legacy tables
 --   - PK/UNIQUE(case_id) is REQUIRED (ON CONFLICT upsert).
---     Duplicate case_id groups → RAISE EXCEPTION / abort (never warn-and-continue).
---   - Migration never COMMITs without that unique key present.
+--     Duplicate/NULL case_id → RAISE EXCEPTION / abort (never warn-and-continue).
+--   - Migration never COMMITs without a proven ON CONFLICT (case_id) arbiter.
 --   - no DROP TABLE / DROP COLUMN / type rewrite / forced NOT NULL on legacy
 -- Do NOT apply via Runtime DDL / drizzle-kit push.
 -- Do NOT deploy/apply this file from the PR agent — ops apply out-of-band.
@@ -28,9 +36,9 @@
 --
 -- Ops order:
 --   1) psql -f scripts/db/preflight-migration-028.sql
---   2) if chosen_action = BLOCKED_CLEAN_DUPLICATES → clean duplicate case_id rows
+--   2) if chosen_action starts with BLOCKED_ → clean / repair; do NOT apply yet
 --   3) apply this migration
---   4) verify PRIMARY KEY or UNIQUE(case_id) exists
+--   4) verify PRIMARY KEY or UNIQUE(case_id) exists (ON CONFLICT arbiter)
 --   5) deploy API (ensureAutopilotTable removed)
 -- ═══════════════════════════════════════════════════════════════════════════
 
@@ -80,37 +88,45 @@ DO $$
 DECLARE
   dup_cnt BIGINT;
   null_case_cnt BIGINT;
-  has_case_key BOOLEAN;
+  has_case_arbiter BOOLEAN;
 BEGIN
+  /* Exact arbiter rules — shared with preflight-028 */
   SELECT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conrelid = 'public.case_autopilot_reports'::regclass
-      AND contype IN ('u', 'p')
-      AND (
-        pg_get_constraintdef(oid) ILIKE '%PRIMARY KEY (case_id)%'
-        OR pg_get_constraintdef(oid) ILIKE '%UNIQUE (case_id)%'
-        OR pg_get_constraintdef(oid) ~* '\(case_id\)'
+    SELECT 1
+    FROM pg_constraint c
+    WHERE c.conrelid = 'public.case_autopilot_reports'::regclass
+      AND c.contype IN ('p', 'u')
+      AND array_length(c.conkey, 1) = 1
+      AND EXISTS (
+        SELECT 1 FROM pg_attribute a
+        WHERE a.attrelid = c.conrelid
+          AND a.attnum = c.conkey[1]
+          AND NOT a.attisdropped
+          AND a.attname = 'case_id'
       )
-  ) INTO has_case_key;
+  ) INTO has_case_arbiter;
 
-  IF NOT has_case_key THEN
+  IF NOT has_case_arbiter THEN
     SELECT EXISTS (
       SELECT 1
-      FROM pg_indexes i
-      JOIN pg_class c ON c.relname = i.indexname
-      JOIN pg_index x ON x.indexrelid = c.oid
-      WHERE i.schemaname = 'public'
-        AND i.tablename = 'case_autopilot_reports'
+      FROM pg_index x
+      WHERE x.indrelid = 'public.case_autopilot_reports'::regclass
         AND x.indisunique
-        AND (
-          pg_get_indexdef(c.oid) ILIKE '%(case_id)%'
-          OR pg_get_indexdef(c.oid) ~* '\(case_id\)'
+        AND x.indisvalid
+        AND x.indpred IS NULL
+        AND x.indexprs IS NULL
+        AND x.indnkeyatts = 1
+        AND EXISTS (
+          SELECT 1 FROM pg_attribute a
+          WHERE a.attrelid = x.indrelid
+            AND a.attnum = x.indkey[0]
+            AND NOT a.attisdropped
+            AND a.attname = 'case_id'
         )
-        AND pg_get_indexdef(c.oid) NOT ILIKE '%,%'
-    ) INTO has_case_key;
+    ) INTO has_case_arbiter;
   END IF;
 
-  IF has_case_key THEN
+  IF has_case_arbiter THEN
     RETURN;
   END IF;
 
@@ -143,43 +159,71 @@ BEGIN
     ADD CONSTRAINT case_autopilot_reports_pkey PRIMARY KEY (case_id);
 END $$;
 
--- Hard gate: never COMMIT without case_id uniqueness required by Autopilot upsert.
+-- Hard gate: never COMMIT without a proven ON CONFLICT (case_id) arbiter.
 DO $$
 DECLARE
-  has_case_key BOOLEAN;
+  has_case_arbiter BOOLEAN;
 BEGIN
   SELECT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conrelid = 'public.case_autopilot_reports'::regclass
-      AND contype IN ('u', 'p')
-      AND (
-        pg_get_constraintdef(oid) ILIKE '%PRIMARY KEY (case_id)%'
-        OR pg_get_constraintdef(oid) ILIKE '%UNIQUE (case_id)%'
-        OR pg_get_constraintdef(oid) ~* '\(case_id\)'
+    SELECT 1
+    FROM pg_constraint c
+    WHERE c.conrelid = 'public.case_autopilot_reports'::regclass
+      AND c.contype IN ('p', 'u')
+      AND array_length(c.conkey, 1) = 1
+      AND EXISTS (
+        SELECT 1 FROM pg_attribute a
+        WHERE a.attrelid = c.conrelid
+          AND a.attnum = c.conkey[1]
+          AND NOT a.attisdropped
+          AND a.attname = 'case_id'
       )
-  ) INTO has_case_key;
+  ) INTO has_case_arbiter;
 
-  IF NOT has_case_key THEN
+  IF NOT has_case_arbiter THEN
     SELECT EXISTS (
       SELECT 1
-      FROM pg_indexes i
-      JOIN pg_class c ON c.relname = i.indexname
-      JOIN pg_index x ON x.indexrelid = c.oid
-      WHERE i.schemaname = 'public'
-        AND i.tablename = 'case_autopilot_reports'
+      FROM pg_index x
+      WHERE x.indrelid = 'public.case_autopilot_reports'::regclass
         AND x.indisunique
-        AND (
-          pg_get_indexdef(c.oid) ILIKE '%(case_id)%'
-          OR pg_get_indexdef(c.oid) ~* '\(case_id\)'
+        AND x.indisvalid
+        AND x.indpred IS NULL
+        AND x.indexprs IS NULL
+        AND x.indnkeyatts = 1
+        AND EXISTS (
+          SELECT 1 FROM pg_attribute a
+          WHERE a.attrelid = x.indrelid
+            AND a.attnum = x.indkey[0]
+            AND NOT a.attisdropped
+            AND a.attname = 'case_id'
         )
-        AND pg_get_indexdef(c.oid) NOT ILIKE '%,%'
-    ) INTO has_case_key;
+    ) INTO has_case_arbiter;
   END IF;
 
-  IF NOT has_case_key THEN
+  IF NOT has_case_arbiter THEN
     RAISE EXCEPTION
-      '028_autopilot: PRIMARY KEY/UNIQUE(case_id) missing after apply — aborting (required for ON CONFLICT upsert)';
+      '028_autopilot: ON CONFLICT (case_id) arbiter missing after apply — need PRIMARY KEY/UNIQUE(case_id) (or non-partial non-expression unique index on case_id only); aborting';
   END IF;
+
+  /* Prove Autopilot upsert inference before COMMIT */
+  BEGIN
+    INSERT INTO case_autopilot_reports
+      (case_id, office_id, health_score, grade, risks, missing_data, next_steps,
+       tasks_created, outcome_prediction, ai_summary, run_at)
+    VALUES (
+      '__mig028_on_conflict_probe__',
+      '00000000-0000-4000-8000-000000000000',
+      0, 'F', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+      0, '{}'::jsonb, NULL, NOW()
+    )
+    ON CONFLICT (case_id) DO NOTHING;
+
+    DELETE FROM case_autopilot_reports
+    WHERE case_id = '__mig028_on_conflict_probe__';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE EXCEPTION
+      '028_autopilot: ON CONFLICT (case_id) probe failed — arbiter not usable for Autopilot upsert: %',
+      SQLERRM;
+  END;
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_autopilot_office
