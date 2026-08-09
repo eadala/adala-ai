@@ -55,6 +55,7 @@
     "test:notification-listener": "node --import tsx src/tests/notificationListenerTenant.test.ts",
     "test:finance-listener": "node --import tsx src/tests/financeListenerTenant.test.ts",
     "test:sse-tenant-isolation": "node --import tsx src/tests/sseTenantIsolation.test.ts",
+    "test:jlwm-eventbus-ownership": "node --import tsx src/tests/jlwmEventBusOwnership.test.ts",
     "test:analytics-027": "node --import tsx src/tests/analyticsSchemaAuthority027.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",
     "test:money-numeric-batch2": "node --import tsx src/tests/moneyNumericBatch2.test.ts",
