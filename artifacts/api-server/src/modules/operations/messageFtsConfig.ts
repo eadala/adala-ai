@@ -1,9 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- drizzle execute row typing */
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { resolveMessageFtsConfigFromCatalogResult } from "./messageFtsConfigLogic";
+import {
+  isAllowedMessageFtsConfig,
+  resolveMessageFtsConfigFromCatalogResult,
+  type MessageFtsAllowedConfig,
+  type MessageFtsResolveResult,
+} from "./messageFtsConfigLogic";
 
 export {
+  isAllowedMessageFtsConfig,
+  MESSAGE_FTS_ALLOWED_CONFIGS,
   parseFtsConfigFromGeneratedExpr,
   resolveMessageFtsConfigFromCatalogResult,
 } from "./messageFtsConfigLogic";
@@ -11,11 +18,25 @@ export {
 /**
  * FTS query config is owned by the live generated expression on
  * office_messages.search_vector (migration 016). Runtime must not
- * independently prefer arabic vs simple from the text-search catalog.
+ * independently prefer arabic vs simple from the text-search catalog,
+ * and must never pass non-allow-listed values to ::regconfig.
+ *
+ * Stage 20.2 — only authoritative allow-listed discoveries are cached.
+ * Absent / unreadable / unsupported / transient states return null
+ * (caller skips FTS) without poisoning the process cache.
  */
 
-let cachedMessageFtsConfig: string | null = null;
-let messageFtsConfigInflight: Promise<string> | null = null;
+export type SearchVectorCatalogRow = {
+  generated: string | null;
+  expr: string | null;
+  columnPresent: boolean;
+};
+
+type CatalogReader = () => Promise<SearchVectorCatalogRow>;
+
+let cachedMessageFtsConfig: MessageFtsAllowedConfig | null = null;
+let messageFtsConfigInflight: Promise<MessageFtsAllowedConfig | null> | null = null;
+let catalogReaderOverride: CatalogReader | null = null;
 
 export function __resetMessageFtsConfigCacheForTests(): void {
   cachedMessageFtsConfig = null;
@@ -26,11 +47,13 @@ export function __getCachedMessageFtsConfigForTests(): string | null {
   return cachedMessageFtsConfig;
 }
 
-async function readSearchVectorCatalogRow(): Promise<{
-  generated: string | null;
-  expr: string | null;
-  columnPresent: boolean;
-}> {
+export function __setMessageFtsCatalogReaderForTests(
+  reader: CatalogReader | null,
+): void {
+  catalogReaderOverride = reader;
+}
+
+async function readSearchVectorCatalogRow(): Promise<SearchVectorCatalogRow> {
   const result: any = await db.execute(sql`
     SELECT
       a.attgenerated::text AS generated,
@@ -60,12 +83,32 @@ async function readSearchVectorCatalogRow(): Promise<{
   };
 }
 
+function logFtsConfigOps(resolved: MessageFtsResolveResult): void {
+  if (
+    resolved.reason !== "unsupported_config" &&
+    resolved.reason !== "parse_failure" &&
+    resolved.reason !== "not_generated"
+  ) {
+    return;
+  }
+  /* Structured ops metadata only — never search terms / message bodies / secrets. */
+  console.warn(
+    JSON.stringify({
+      component: "messageFtsConfig",
+      event: "fts_config_not_usable",
+      reason: resolved.reason,
+      rejectedConfig: resolved.rejectedConfig ?? null,
+      cache: resolved.cache,
+    }),
+  );
+}
+
 /**
- * Returns the text-search config that matches office_messages.search_vector.
- * Caches only successful catalog reads; transient errors fall back to simple
- * for the current attempt without poisoning the cache.
+ * Returns the allow-listed text-search config that matches
+ * office_messages.search_vector, or null when FTS must be skipped.
+ * Caches only successful authoritative allow-listed catalog reads.
  */
-export async function getMessageFtsConfig(): Promise<string> {
+export async function getMessageFtsConfig(): Promise<MessageFtsAllowedConfig | null> {
   if (cachedMessageFtsConfig !== null) {
     return cachedMessageFtsConfig;
   }
@@ -74,17 +117,19 @@ export async function getMessageFtsConfig(): Promise<string> {
     return messageFtsConfigInflight;
   }
 
-  let settleInflight: Promise<string> | null = null;
+  let settleInflight: Promise<MessageFtsAllowedConfig | null> | null = null;
   settleInflight = (async () => {
     try {
-      const row = await readSearchVectorCatalogRow();
+      const reader = catalogReaderOverride ?? readSearchVectorCatalogRow;
+      const row = await reader();
       const resolved = resolveMessageFtsConfigFromCatalogResult({
         status: "ok",
         generated: row.generated,
         expr: row.expr,
         columnPresent: row.columnPresent,
       });
-      if (resolved.cache) {
+      logFtsConfigOps(resolved);
+      if (resolved.cache && resolved.config && isAllowedMessageFtsConfig(resolved.config)) {
         cachedMessageFtsConfig = resolved.config;
       }
       return resolved.config;
