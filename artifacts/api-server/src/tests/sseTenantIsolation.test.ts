@@ -10,7 +10,6 @@ import { fileURLToPath } from "node:url";
 import {
   SseTenantHub,
   resolveSseOfficeId,
-  type SseBroadcastEvent,
 } from "../lib/sseTenantIsolation";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -52,7 +51,13 @@ function mockResponse(): MockRes {
   };
 }
 
-function makeEvent(officeId: string | undefined): SseBroadcastEvent {
+function makeEvent(officeId: string | undefined): {
+  id: string;
+  type: string;
+  officeId?: string;
+  timestamp: string;
+  data: Record<string, unknown>;
+} {
   return {
     id: "evt-sse-1",
     type: "CASE_CREATED",

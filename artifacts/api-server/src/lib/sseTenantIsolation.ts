@@ -5,11 +5,6 @@
 import type { Response } from "express";
 import { classifyTenantId } from "./tenantResolution";
 
-export type SseBroadcastEvent = {
-  officeId?: string;
-  [key: string]: unknown;
-};
-
 /**
  * Canonical Office UUID for tenant SSE only.
  * Rejects missing / default / platform / trial_* / arbitrary text.
@@ -51,8 +46,12 @@ export class SseTenantHub {
     }
 
     if (userId) {
-      if (!this.userClients.has(userId)) this.userClients.set(userId, new Set());
-      this.userClients.get(userId)!.add(res);
+      let userBucket = this.userClients.get(userId);
+      if (!userBucket) {
+        userBucket = new Set();
+        this.userClients.set(userId, userBucket);
+      }
+      userBucket.add(res);
     }
 
     res.on("close", () => {
@@ -90,8 +89,9 @@ export class SseTenantHub {
    * Tenant-isolated SSE fan-out.
    * Fail closed when event.officeId is missing or non-canonical —
    * never remaps to another tenant and never broadcasts globally.
+   * Full event object is JSON-serialized as-is to matching office clients only.
    */
-  broadcastSSE(event: SseBroadcastEvent): void {
+  broadcastSSE(event: { officeId?: string }): void {
     const officeId = resolveSseOfficeId(event.officeId);
     if (!officeId) return;
 
