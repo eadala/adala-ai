@@ -85,17 +85,20 @@ console.log("  ✅ migration 028 + preflight + harness + P0 inventory");
 
 console.log("\n═══ Runtime DDL removed from Autopilot paths ═══");
 
-assert.doesNotMatch(caseAutopilotTs, /ensureAutopilotTable/);
-assert.doesNotMatch(caseAutopilotTs, /CREATE TABLE IF NOT EXISTS case_autopilot_reports/);
-assert.doesNotMatch(caseAutopilotTs, /ALTER TABLE case_autopilot_reports/);
-assert.doesNotMatch(caseAutopilotTs, /CREATE INDEX IF NOT EXISTS idx_autopilot_office/);
+{
+  const codeOnly = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  assert.doesNotMatch(codeOnly(caseAutopilotTs), /ensureAutopilotTable/);
+  assert.doesNotMatch(codeOnly(caseAutopilotTs), /CREATE TABLE IF NOT EXISTS case_autopilot_reports/);
+  assert.doesNotMatch(codeOnly(caseAutopilotTs), /ALTER TABLE case_autopilot_reports/);
+  assert.doesNotMatch(codeOnly(caseAutopilotTs), /CREATE INDEX IF NOT EXISTS idx_autopilot_office/);
+  assert.doesNotMatch(codeOnly(listenerTs), /ensureAutopilotTable/);
+  assert.doesNotMatch(codeOnly(listenerTs), /CREATE TABLE IF NOT EXISTS case_autopilot_reports/);
+  assert.doesNotMatch(codeOnly(listenerTs), /tableReady/);
+  assert.doesNotMatch(codeOnly(casesTs), /ensureAutopilotTable/);
+}
 assert.match(caseAutopilotTs, /028_case_autopilot_reports_schema_authority/);
 assert.match(caseAutopilotTs, /ON CONFLICT \(case_id\) DO UPDATE/);
-assert.doesNotMatch(listenerTs, /ensureAutopilotTable/);
-assert.doesNotMatch(listenerTs, /CREATE TABLE IF NOT EXISTS case_autopilot_reports/);
-assert.doesNotMatch(listenerTs, /tableReady/);
 assert.match(listenerTs, /resolveAutopilotOfficeId/);
-assert.doesNotMatch(casesTs, /ensureAutopilotTable/);
 assert.match(casesTs, /FROM case_autopilot_reports WHERE case_id/);
 assert.match(casesTs, /office_id = \$\{tenantId\}/);
 console.log("  ✅ no Runtime DDL; upsert + tenant-scoped reads preserved");

@@ -759,17 +759,19 @@ assert.doesNotMatch(mig028.replace(/--.*$/gm, ""), /RAISE WARNING/i);
   assert.doesNotMatch(sqlOnly028, /\bDROP\s+TABLE\b/i);
   assert.doesNotMatch(sqlOnly028, /\bDROP\s+COLUMN\b/i);
 }
+const stripComments028 = (src: string) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
 const caseAutopilot028 = readSrc("agents/caseAutopilot.ts");
-assert.doesNotMatch(caseAutopilot028, /ensureAutopilotTable/);
-assert.doesNotMatch(caseAutopilot028, /CREATE TABLE IF NOT EXISTS case_autopilot_reports/);
-assert.doesNotMatch(caseAutopilot028, /ALTER TABLE case_autopilot_reports/);
+assert.doesNotMatch(stripComments028(caseAutopilot028), /ensureAutopilotTable/);
+assert.doesNotMatch(stripComments028(caseAutopilot028), /CREATE TABLE IF NOT EXISTS case_autopilot_reports/);
+assert.doesNotMatch(stripComments028(caseAutopilot028), /ALTER TABLE case_autopilot_reports/);
 assert.match(caseAutopilot028, /ON CONFLICT \(case_id\) DO UPDATE/);
 const autopilotListener028 = readSrc("core/listeners/autopilotListener.ts");
-assert.doesNotMatch(autopilotListener028, /ensureAutopilotTable/);
-assert.doesNotMatch(autopilotListener028, /CREATE TABLE IF NOT EXISTS case_autopilot_reports/);
+assert.doesNotMatch(stripComments028(autopilotListener028), /ensureAutopilotTable/);
+assert.doesNotMatch(stripComments028(autopilotListener028), /CREATE TABLE IF NOT EXISTS case_autopilot_reports/);
 assert.match(autopilotListener028, /resolveAutopilotOfficeId/);
 const cases028 = readSrc("modules/legal-core/cases.ts");
-assert.doesNotMatch(cases028, /ensureAutopilotTable/);
+assert.doesNotMatch(stripComments028(cases028), /ensureAutopilotTable/);
 const preflight028 = readRepo("scripts/db/preflight-migration-028.sql");
 assert.match(preflight028, /READ-ONLY|SELECT only/i);
 assert.match(preflight028, /BLOCKED_CLEAN_DUPLICATES/);

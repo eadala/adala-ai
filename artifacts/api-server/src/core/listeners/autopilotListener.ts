@@ -6,7 +6,7 @@
  *
  * Stage 15.2d — never log success when planned tasks were skipped/failed;
  * never fall back to default/platform/trial_* office ids.
- * Stage 19 — schema via migration 028; no Runtime DDL / ensureAutopilotTable.
+ * Stage 19 — schema via migration 028; no Runtime DDL for this table.
  */
 
 import { eventBus }            from "../eventBus";
