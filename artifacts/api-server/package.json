@@ -20,6 +20,7 @@
     "test:storage-folders-acl": "node --import tsx src/tests/storageFoldersAcl.runtime.test.ts",
     "test:conversation-member-create": "node --import tsx src/tests/conversationMemberCreate.runtime.test.ts",
     "test:internal-message-create": "node --import tsx src/tests/internalMessageCreate.runtime.test.ts",
+    "test:internal-messages-tenant": "node --import tsx src/tests/internalMessagesTenantIsolation.test.ts",
     "test:conversations-list-query": "node --import tsx src/tests/conversationsListQuery.runtime.test.ts",
     "test:cron-overlap": "node --import tsx src/tests/cronOverlapGuard.runtime.test.ts",
     "test:db-indexes": "node --import tsx src/tests/dbHotpathIndexes.test.ts",

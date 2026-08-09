@@ -32,8 +32,12 @@ console.log("\n═══ source: set-based POST /internal-messages ═══");
   assert.ok(start >= 0 && end > start, "POST /internal-messages route present");
   const block = src.slice(start, end);
 
+  assert.match(block, /requireAuthWithTenant/);
+  assert.match(block, /resolveCanonicalMessageOfficeId/);
   assert.match(block, /buildMessageRecipientRows/);
   assert.match(block, /buildMessageAttachmentRows/);
+  assert.match(block, /INSERT INTO office_messages\s*\(\s*office_id\s*,/);
+  assert.match(block, /VALUES\s*\(\s*\$\{tenantId\}/);
   assert.match(block, /INSERT INTO office_message_recipients/);
   assert.match(block, /INSERT INTO office_message_attachments/);
   assert.match(block, /FROM unnest\(/);
@@ -43,7 +47,7 @@ console.log("\n═══ source: set-based POST /internal-messages ═══");
   assert.doesNotMatch(block, /for\s*\(\s*const\s+a\s+of\s+attachments/);
   /* Must not silently wrap the whole create in a new transaction */
   assert.doesNotMatch(block, /BEGIN\b|db\.transaction\b|\.transaction\(/);
-  console.log("  ✅ bulk unnest inserts; no per-row loops; no new transaction");
+  console.log("  ✅ bulk unnest inserts; office_id persisted; no per-row loops; no new transaction");
 }
 
 console.log("\n═══ runtime: identical recipients and attachments ═══");
@@ -150,7 +154,7 @@ console.log("\n═══ runtime: response parity ═══");
 
   assert.match(
     block,
-    /RETURNING id, subject, body, sender_id, sender_name, folder, created_at, case_id/,
+    /RETURNING id, office_id, subject, body, sender_id, sender_name, folder, created_at, case_id/,
   );
   assert.match(block, /res\.json\(msg\)/);
   assert.match(block, /eventBus\.sendToUsers\(recipientIds/);
