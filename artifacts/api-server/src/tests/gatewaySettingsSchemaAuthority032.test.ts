@@ -63,6 +63,10 @@ assert.match(pre, /NULL_OFFICE_ID/);
 assert.match(pre, /DROP_OFFICE_ID_DEFAULT/);
 assert.match(pre, /legacy_office_id_default_rows|legacy_default/);
 assert.match(pre, /office_id::text\s*=\s*'default'/);
+assert.match(pre, /ms_has_office_id|cs_has_office_id/);
+assert.match(pre, /MISSING_COLUMN_DEFAULTS/);
+assert.match(pre, /missing_default/);
+assert.match(pre, /gen_random_uuid%/);
 assert.match(pre, /lock_risk/);
 {
   const sqlOnlyPre = stripComments(pre);
@@ -71,9 +75,21 @@ assert.match(pre, /lock_risk/);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*DROP\s+TABLE\b/im);
   /* Bare office_id = 'default' aborts when office_id is non-text (e.g. int4). */
   assert.doesNotMatch(sqlOnlyPre, /WHERE\s+office_id\s*=\s*'default'/i);
+  /* office_id data probes must be gated on column presence. */
+  assert.match(sqlOnlyPre, /ms_has_office_id/);
+  assert.match(sqlOnlyPre, /cs_has_office_id/);
 }
 assert.match(mig, /office_id::text\s*=\s*'default'/);
-console.log("  ✅ preflight false-safe ladder; type-safe legacy default count; non-blocking");
+assert.match(mig, /id DEFAULT gen_random_uuid\(\) missing|column_name='id' AND column_default ILIKE '%gen_random_uuid%'/);
+console.log("  ✅ preflight false-safe ladder; gated office_id probes; default contract; non-blocking");
+
+console.log("\n═══ P0 verify-schema gate includes gateway settings ═══");
+const p0Tables = readRepo("scripts/db/expected-tables-p0.txt");
+assert.match(p0Tables, /^moyasar_settings$/m);
+assert.match(p0Tables, /^checkout_settings$/m);
+const verify = readRepo("scripts/db/verify-schema.sh");
+assert.match(verify, /expected-tables-p0\.txt/);
+console.log("  ✅ moyasar_settings + checkout_settings in P0 expected tables");
 
 console.log("\n═══ Runtime DDL removed; payment business paths preserved ═══");
 const payments = readSrc("modules/financial/payments.ts");

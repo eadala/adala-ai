@@ -168,6 +168,12 @@ payment_transactions.payment_link
 payment_transactions.settled_at
 payment_transactions.settlement_ref
 payment_transactions.created_at
+moyasar_settings.office_id
+moyasar_settings.id
+moyasar_settings.enabled
+checkout_settings.office_id
+checkout_settings.id
+checkout_settings.enabled
 office_erp_ledger.office_id
 office_erp_ledger.entry_type
 office_erp_ledger.amount

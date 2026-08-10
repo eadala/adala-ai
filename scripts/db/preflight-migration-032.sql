@@ -74,11 +74,14 @@ DECLARE
 
   incompatible_type TEXT := NULL;
   missing_col TEXT := NULL;
+  missing_default TEXT := NULL;
   null_office BIGINT := 0;
   dup_office BIGINT := 0;
   legacy_default BIGINT := 0;
   office_has_default BOOLEAN := false;
   office_nullable BOOLEAN := false;
+  ms_has_office_id BOOLEAN := false;
+  cs_has_office_id BOOLEAN := false;
 
   has_pk_ms BOOLEAN := false;
   has_pk_cs BOOLEAN := false;
@@ -105,6 +108,13 @@ BEGIN
       missing_col := COALESCE(missing_col, 'moyasar_settings.id');
     ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='moyasar_settings' AND column_name='id' AND udt_name IS DISTINCT FROM 'uuid') THEN
       incompatible_type := COALESCE(incompatible_type, 'moyasar_settings.id');
+    ELSE
+      SELECT c.column_default INTO col_default
+      FROM information_schema.columns c
+      WHERE c.table_schema='public' AND c.table_name='moyasar_settings' AND c.column_name='id';
+      IF col_default IS NULL OR col_default NOT ILIKE '%gen_random_uuid%' THEN
+        missing_default := COALESCE(missing_default, 'moyasar_settings.id');
+      END IF;
     END IF;
 
     actual_udt := NULL; is_nullble := NULL; col_default := NULL;
@@ -114,9 +124,12 @@ BEGIN
     WHERE c.table_schema='public' AND c.table_name='moyasar_settings' AND c.column_name='office_id';
     IF actual_udt IS NULL THEN
       missing_col := COALESCE(missing_col, 'moyasar_settings.office_id');
+      ms_has_office_id := false;
     ELSIF actual_udt IS DISTINCT FROM 'text' THEN
       incompatible_type := COALESCE(incompatible_type, 'moyasar_settings.office_id');
+      ms_has_office_id := true; /* column exists; data probes use ::text / IS NULL safely */
     ELSE
+      ms_has_office_id := true;
       IF is_nullble = 'YES' THEN office_nullable := true; END IF;
       IF col_default IS NOT NULL THEN office_has_default := true; END IF;
     END IF;
@@ -146,29 +159,60 @@ BEGIN
       missing_col := COALESCE(missing_col, 'moyasar_settings.test_mode');
     ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='moyasar_settings' AND column_name='test_mode' AND udt_name IS DISTINCT FROM 'bool') THEN
       incompatible_type := COALESCE(incompatible_type, 'moyasar_settings.test_mode');
+    ELSE
+      SELECT c.column_default INTO col_default
+      FROM information_schema.columns c
+      WHERE c.table_schema='public' AND c.table_name='moyasar_settings' AND c.column_name='test_mode';
+      IF col_default IS NULL OR col_default NOT ILIKE '%true%' THEN
+        missing_default := COALESCE(missing_default, 'moyasar_settings.test_mode');
+      END IF;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='moyasar_settings' AND column_name='enabled') THEN
       missing_col := COALESCE(missing_col, 'moyasar_settings.enabled');
     ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='moyasar_settings' AND column_name='enabled' AND udt_name IS DISTINCT FROM 'bool') THEN
       incompatible_type := COALESCE(incompatible_type, 'moyasar_settings.enabled');
+    ELSE
+      SELECT c.column_default INTO col_default
+      FROM information_schema.columns c
+      WHERE c.table_schema='public' AND c.table_name='moyasar_settings' AND c.column_name='enabled';
+      IF col_default IS NULL OR col_default NOT ILIKE '%false%' THEN
+        missing_default := COALESCE(missing_default, 'moyasar_settings.enabled');
+      END IF;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='moyasar_settings' AND column_name='created_at') THEN
       missing_col := COALESCE(missing_col, 'moyasar_settings.created_at');
     ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='moyasar_settings' AND column_name='created_at' AND udt_name IS DISTINCT FROM 'timestamp') THEN
       incompatible_type := COALESCE(incompatible_type, 'moyasar_settings.created_at');
+    ELSE
+      SELECT c.column_default INTO col_default
+      FROM information_schema.columns c
+      WHERE c.table_schema='public' AND c.table_name='moyasar_settings' AND c.column_name='created_at';
+      IF col_default IS NULL OR col_default NOT ILIKE '%now()%' THEN
+        missing_default := COALESCE(missing_default, 'moyasar_settings.created_at');
+      END IF;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='moyasar_settings' AND column_name='updated_at') THEN
       missing_col := COALESCE(missing_col, 'moyasar_settings.updated_at');
     ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='moyasar_settings' AND column_name='updated_at' AND udt_name IS DISTINCT FROM 'timestamp') THEN
       incompatible_type := COALESCE(incompatible_type, 'moyasar_settings.updated_at');
+    ELSE
+      SELECT c.column_default INTO col_default
+      FROM information_schema.columns c
+      WHERE c.table_schema='public' AND c.table_name='moyasar_settings' AND c.column_name='updated_at';
+      IF col_default IS NULL OR col_default NOT ILIKE '%now()%' THEN
+        missing_default := COALESCE(missing_default, 'moyasar_settings.updated_at');
+      END IF;
     END IF;
 
-    SELECT COUNT(*) INTO null_office FROM moyasar_settings WHERE office_id IS NULL;
-    SELECT COUNT(*) INTO dup_office FROM (
-      SELECT office_id FROM moyasar_settings GROUP BY office_id HAVING COUNT(*) > 1
-    ) d;
-    /* Cast to text so incompatible office_id types (e.g. int4) do not abort preflight. */
-    SELECT COUNT(*) INTO legacy_default FROM moyasar_settings WHERE office_id::text = 'default';
+    /* Never reference office_id until the column is confirmed to exist. */
+    IF ms_has_office_id THEN
+      SELECT COUNT(*) INTO null_office FROM moyasar_settings WHERE office_id IS NULL;
+      SELECT COUNT(*) INTO dup_office FROM (
+        SELECT office_id FROM moyasar_settings GROUP BY office_id HAVING COUNT(*) > 1
+      ) d;
+      /* Cast to text so incompatible office_id types (e.g. int4) do not abort preflight. */
+      SELECT COUNT(*) INTO legacy_default FROM moyasar_settings WHERE office_id::text = 'default';
+    END IF;
 
     SELECT EXISTS (
       SELECT 1 FROM pg_constraint c
@@ -221,6 +265,13 @@ BEGIN
       missing_col := COALESCE(missing_col, 'checkout_settings.id');
     ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='checkout_settings' AND column_name='id' AND udt_name IS DISTINCT FROM 'uuid') THEN
       incompatible_type := COALESCE(incompatible_type, 'checkout_settings.id');
+    ELSE
+      SELECT c.column_default INTO col_default
+      FROM information_schema.columns c
+      WHERE c.table_schema='public' AND c.table_name='checkout_settings' AND c.column_name='id';
+      IF col_default IS NULL OR col_default NOT ILIKE '%gen_random_uuid%' THEN
+        missing_default := COALESCE(missing_default, 'checkout_settings.id');
+      END IF;
     END IF;
 
     actual_udt := NULL; is_nullble := NULL; col_default := NULL;
@@ -230,9 +281,12 @@ BEGIN
     WHERE c.table_schema='public' AND c.table_name='checkout_settings' AND c.column_name='office_id';
     IF actual_udt IS NULL THEN
       missing_col := COALESCE(missing_col, 'checkout_settings.office_id');
+      cs_has_office_id := false;
     ELSIF actual_udt IS DISTINCT FROM 'text' THEN
       incompatible_type := COALESCE(incompatible_type, 'checkout_settings.office_id');
+      cs_has_office_id := true;
     ELSE
+      cs_has_office_id := true;
       IF is_nullble = 'YES' THEN office_nullable := true; END IF;
       IF col_default IS NOT NULL THEN office_has_default := true; END IF;
     END IF;
@@ -256,32 +310,63 @@ BEGIN
       missing_col := COALESCE(missing_col, 'checkout_settings.test_mode');
     ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='checkout_settings' AND column_name='test_mode' AND udt_name IS DISTINCT FROM 'bool') THEN
       incompatible_type := COALESCE(incompatible_type, 'checkout_settings.test_mode');
+    ELSE
+      SELECT c.column_default INTO col_default
+      FROM information_schema.columns c
+      WHERE c.table_schema='public' AND c.table_name='checkout_settings' AND c.column_name='test_mode';
+      IF col_default IS NULL OR col_default NOT ILIKE '%true%' THEN
+        missing_default := COALESCE(missing_default, 'checkout_settings.test_mode');
+      END IF;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='checkout_settings' AND column_name='enabled') THEN
       missing_col := COALESCE(missing_col, 'checkout_settings.enabled');
     ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='checkout_settings' AND column_name='enabled' AND udt_name IS DISTINCT FROM 'bool') THEN
       incompatible_type := COALESCE(incompatible_type, 'checkout_settings.enabled');
+    ELSE
+      SELECT c.column_default INTO col_default
+      FROM information_schema.columns c
+      WHERE c.table_schema='public' AND c.table_name='checkout_settings' AND c.column_name='enabled';
+      IF col_default IS NULL OR col_default NOT ILIKE '%false%' THEN
+        missing_default := COALESCE(missing_default, 'checkout_settings.enabled');
+      END IF;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='checkout_settings' AND column_name='created_at') THEN
       missing_col := COALESCE(missing_col, 'checkout_settings.created_at');
     ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='checkout_settings' AND column_name='created_at' AND udt_name IS DISTINCT FROM 'timestamp') THEN
       incompatible_type := COALESCE(incompatible_type, 'checkout_settings.created_at');
+    ELSE
+      SELECT c.column_default INTO col_default
+      FROM information_schema.columns c
+      WHERE c.table_schema='public' AND c.table_name='checkout_settings' AND c.column_name='created_at';
+      IF col_default IS NULL OR col_default NOT ILIKE '%now()%' THEN
+        missing_default := COALESCE(missing_default, 'checkout_settings.created_at');
+      END IF;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='checkout_settings' AND column_name='updated_at') THEN
       missing_col := COALESCE(missing_col, 'checkout_settings.updated_at');
     ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='checkout_settings' AND column_name='updated_at' AND udt_name IS DISTINCT FROM 'timestamp') THEN
       incompatible_type := COALESCE(incompatible_type, 'checkout_settings.updated_at');
+    ELSE
+      SELECT c.column_default INTO col_default
+      FROM information_schema.columns c
+      WHERE c.table_schema='public' AND c.table_name='checkout_settings' AND c.column_name='updated_at';
+      IF col_default IS NULL OR col_default NOT ILIKE '%now()%' THEN
+        missing_default := COALESCE(missing_default, 'checkout_settings.updated_at');
+      END IF;
     END IF;
 
-    null_office := null_office + (SELECT COUNT(*) FROM checkout_settings WHERE office_id IS NULL);
-    dup_office := dup_office + (
-      SELECT COUNT(*) FROM (
-        SELECT office_id FROM checkout_settings GROUP BY office_id HAVING COUNT(*) > 1
-      ) d
-    );
-    legacy_default := legacy_default + (
-      SELECT COUNT(*) FROM checkout_settings WHERE office_id::text = 'default'
-    );
+    /* Never reference office_id until the column is confirmed to exist. */
+    IF cs_has_office_id THEN
+      null_office := null_office + (SELECT COUNT(*) FROM checkout_settings WHERE office_id IS NULL);
+      dup_office := dup_office + (
+        SELECT COUNT(*) FROM (
+          SELECT office_id FROM checkout_settings GROUP BY office_id HAVING COUNT(*) > 1
+        ) d
+      );
+      legacy_default := legacy_default + (
+        SELECT COUNT(*) FROM checkout_settings WHERE office_id::text = 'default'
+      );
+    END IF;
 
     SELECT EXISTS (
       SELECT 1 FROM pg_constraint c
@@ -352,6 +437,10 @@ BEGIN
     action := 'SAFE_AUTO_REPAIR';
     reason_code := 'PARTIAL_SCHEMA';
     lock_risk := 'LOW';
+  ELSIF missing_default IS NOT NULL THEN
+    action := 'SAFE_AUTO_REPAIR';
+    reason_code := 'MISSING_COLUMN_DEFAULTS';
+    lock_risk := 'LOW';
   ELSIF office_has_default THEN
     action := 'SAFE_AUTO_REPAIR';
     reason_code := 'DROP_OFFICE_ID_DEFAULT';
@@ -365,7 +454,7 @@ BEGIN
     reason_code := 'PARTIAL_SCHEMA';
     lock_risk := 'MEDIUM';
 
-  /* ── Fully correct ── */
+  /* ── Fully correct (defaults + NOT NULL + no office_id DEFAULT + PK + UNIQUE) ── */
   ELSE
     action := 'ALREADY_CORRECT';
     reason_code := 'GATEWAY_SETTINGS_SCHEMA_READY';
@@ -373,17 +462,17 @@ BEGIN
   END IF;
 
   RAISE NOTICE '032_preflight: moyasar_settings_present=% checkout_settings_present=%', ms_present, cs_present;
-  RAISE NOTICE '032_preflight: missing_col=% incompatible_type=% incompatible_pk=% incompatible_unique=%',
-    missing_col, incompatible_type, incompatible_pk, incompatible_unique;
+  RAISE NOTICE '032_preflight: missing_col=% missing_default=% incompatible_type=% incompatible_pk=% incompatible_unique=%',
+    missing_col, missing_default, incompatible_type, incompatible_pk, incompatible_unique;
   RAISE NOTICE '032_preflight: pk_ms=% pk_cs=% unique_ms=% unique_cs=%',
     has_pk_ms, has_pk_cs, has_unique_ms, has_unique_cs;
   RAISE NOTICE '032_preflight: null_office_id=% duplicate_office_id_groups=% legacy_office_id_default_rows=%',
     null_office, dup_office, legacy_default;
-  RAISE NOTICE '032_preflight: office_id_has_default=% office_id_nullable=%',
-    office_has_default, office_nullable;
+  RAISE NOTICE '032_preflight: office_id_has_default=% office_id_nullable=% ms_has_office_id=% cs_has_office_id=%',
+    office_has_default, office_nullable, ms_has_office_id, cs_has_office_id;
   RAISE NOTICE '032_preflight: estimated_rows moyasar_settings=% checkout_settings=%',
     estimated_ms, estimated_cs;
-  RAISE NOTICE '032_preflight: lock_risk=% (CREATE TABLE / ADD COLUMN / SET NOT NULL / DROP DEFAULT / UNIQUE)',
+  RAISE NOTICE '032_preflight: lock_risk=% (CREATE TABLE / ADD COLUMN / SET DEFAULT / SET NOT NULL / DROP DEFAULT / UNIQUE)',
     lock_risk;
   RAISE NOTICE '032_preflight: chosen_action=% reason_code=%', action, reason_code;
   RAISE NOTICE '032_preflight: legacy_default_note=office_id=''default'' rows are preserved and do not alone block migration';
@@ -393,6 +482,6 @@ BEGIN
   ELSIF action = 'ALREADY_CORRECT' THEN
     RAISE NOTICE '032_preflight: ALREADY_CORRECT — apply 032 is idempotent no-op expected';
   ELSE
-    RAISE NOTICE '032_preflight: SAFE_AUTO_REPAIR — 032 can create/repair tables/columns/NOT NULL/DROP DEFAULT/UNIQUE';
+    RAISE NOTICE '032_preflight: SAFE_AUTO_REPAIR — 032 can create/repair tables/columns/defaults/NOT NULL/DROP DEFAULT/UNIQUE';
   END IF;
 END $$;

@@ -651,7 +651,14 @@ BEGIN
     RAISE EXCEPTION '032_gateway: POST_APPLY_READINESS_FAILED — checkout_settings UNIQUE(office_id) missing';
   END IF;
 
-  /* Expected defaults for test_mode / enabled / timestamps present */
+  /* Expected defaults: id / test_mode / enabled / timestamps */
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='moyasar_settings'
+      AND column_name='id' AND column_default ILIKE '%gen_random_uuid%'
+  ) THEN
+    RAISE EXCEPTION '032_gateway: POST_APPLY_READINESS_FAILED — moyasar_settings.id DEFAULT gen_random_uuid() missing';
+  END IF;
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema='public' AND table_name='moyasar_settings'
@@ -675,6 +682,13 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema='public' AND table_name='checkout_settings'
+      AND column_name='id' AND column_default ILIKE '%gen_random_uuid%'
+  ) THEN
+    RAISE EXCEPTION '032_gateway: POST_APPLY_READINESS_FAILED — checkout_settings.id DEFAULT gen_random_uuid() missing';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='checkout_settings'
       AND column_name='test_mode' AND column_default ILIKE '%true%'
   ) OR NOT EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -692,7 +706,7 @@ BEGIN
     RAISE EXCEPTION '032_gateway: POST_APPLY_READINESS_FAILED — checkout_settings expected defaults missing';
   END IF;
 
-  RAISE NOTICE '032_gateway: post-apply readiness gate passed (tables/cols/NOT NULL/no office_id DEFAULT/PK/UNIQUE(office_id)/defaults)';
+  RAISE NOTICE '032_gateway: post-apply readiness gate passed (tables/cols/NOT NULL/no office_id DEFAULT/PK/UNIQUE(office_id)/id+defaults)';
 END $$;
 
 COMMIT;

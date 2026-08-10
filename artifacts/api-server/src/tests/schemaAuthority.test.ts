@@ -981,6 +981,9 @@ assert.match(preflight032, /chosen_action/);
 assert.match(preflight032, /BLOCK_AND_MANUAL_REVIEW/);
 assert.match(preflight032, /DROP_OFFICE_ID_DEFAULT|legacy_office_id_default/);
 assert.match(preflight032, /DUPLICATE_OFFICE_ID/);
+assert.match(preflight032, /MISSING_COLUMN_DEFAULTS/);
+assert.match(preflight032, /ms_has_office_id/);
+assert.match(mig032, /id DEFAULT gen_random_uuid\(\) missing|column_name='id' AND column_default ILIKE '%gen_random_uuid%'/);
 const pay032 = readRepo("artifacts/api-server/src/modules/financial/payments.ts");
 assert.doesNotMatch(pay032, /ensureGatewaySettingsTables\s*\(/);
 assert.doesNotMatch(pay032, /CREATE TABLE IF NOT EXISTS moyasar_settings/);
@@ -988,7 +991,10 @@ assert.match(pay032, /INSERT INTO moyasar_settings \(office_id/);
 assert.match(pay032, /INSERT INTO checkout_settings \(office_id/);
 const integ032 = readRepo("scripts/db/test-migrations.integration.sh");
 assert.match(integ032, /scenario_migration_032|MIGRATION_032/);
-console.log("  ✅ migration 032 owns gateway settings; Runtime CREATE removed; office_id explicit on INSERT");
+const p0Tables032 = readRepo("scripts/db/expected-tables-p0.txt");
+assert.match(p0Tables032, /^moyasar_settings$/m);
+assert.match(p0Tables032, /^checkout_settings$/m);
+console.log("  ✅ migration 032 owns gateway settings; Runtime CREATE removed; office_id explicit on INSERT; P0 gated");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
