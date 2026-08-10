@@ -115,6 +115,28 @@ jobs:
         run: pnpm run test:db-migrations
 
   # ─────────────────────────────────────────
+  # Docker production image — Coolify Dockerfile path
+  # Catches pnpm deploy / api-runtime regressions CI previously missed.
+  # ─────────────────────────────────────────
+  docker-production:
+    name: "Docker — production Dockerfile"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert deploy legacy guard is present
+        run: |
+          grep -q '^force-legacy-deploy=true' .npmrc
+          grep -q 'force-legacy-deploy=true' Dockerfile
+          grep -q 'pnpm@9.15.9' Dockerfile
+          grep -q 'deploy --prod /app/api-runtime' Dockerfile
+      - name: Build Coolify production image
+        run: docker build -t adala-ci:production -f Dockerfile .
+      - name: Verify runtime image has AWS SDK external + bundle
+        run: |
+          docker run --rm --entrypoint sh adala-ci:production -c \
+            'test -f ./dist/index.mjs && test -d ./node_modules/@aws-sdk/client-s3 && test -d ./public'
+
+  # ─────────────────────────────────────────
   # Gate 1: TypeScript
   # ─────────────────────────────────────────
   typescript:
