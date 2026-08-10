@@ -36,6 +36,7 @@
 - ~~`ensureDemoColumns` (bankruptcy demo)~~ — no-op; `is_demo` columns via migration **014**
 - ~~`ensureTables` (branches)~~ — removed; `office_branches`, `tasks.branch_id`, and branch indexes via migration **015**
 - ~~`ensureFullTextSearch` (internal-messages)~~ — removed; `office_messages.search_vector` and `idx_messages_search` via migration **016**
+- ~~`ensureCaseIdColumn` (internal-messages)~~ — removed; `office_messages.case_id` TEXT via migration **030** (Stage 22); no Runtime INTEGER ADD COLUMN
 - `ensureTables` — `marketplace.ts`, `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -98,6 +99,7 @@
 | `tasks` | 015 |
 | `office_branches` | 015 |
 | `office_messages.search_vector` | 016 |
+| `office_messages.case_id` TEXT | **030** (preflight → apply INTEGER→TEXT exact `::text` → preflight ALREADY_CORRECT; FK deferred; Runtime `ensureCaseIdColumn` removed) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

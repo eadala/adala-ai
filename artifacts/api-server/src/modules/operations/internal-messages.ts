@@ -49,15 +49,8 @@ function resolveCanonicalMessageOfficeId(
   }
 }
 
-// Ensure case_id column exists on office_messages
-async function ensureCaseIdColumn() {
-  try {
-    await db.execute(sql`
-      ALTER TABLE office_messages ADD COLUMN IF NOT EXISTS case_id INTEGER REFERENCES cases(id) ON DELETE SET NULL
-    `);
-  } catch (_) {}
-}
-ensureCaseIdColumn();
+/* office_messages.case_id TEXT alignment is owned by migration 030 (Stage 22).
+   No Runtime INTEGER ADD COLUMN for case_id at boot. */
 
 /* Full-text search schema is owned by migration 016_office_messages_fts.sql.
    Query config is read from the live search_vector generated expression. */
@@ -364,7 +357,7 @@ router.get("/analytics", requireAuthWithTenant, async (req: Request, res: Respon
       db.execute(sql`
         SELECT c.id, c.title, COUNT(m.id)::int AS msg_count
         FROM office_messages m
-        JOIN cases c ON c.id::text = m.case_id::text AND c.office_id = ${tenantId}
+        JOIN cases c ON c.id = m.case_id AND c.office_id = ${tenantId}
         WHERE m.office_id = ${tenantId}
           AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
           AND m.created_at >= NOW() - (${days} || ' days')::interval
@@ -464,7 +457,7 @@ router.get("/case/:caseId", requireAuthWithTenant, async (req: Request, res: Res
       FROM office_messages m
       LEFT JOIN office_message_recipients r ON r.message_id = m.id
       WHERE m.office_id = ${tenantId}
-        AND m.case_id::text = ${caseKey}
+        AND m.case_id = ${caseKey}
       GROUP BY m.id
       ORDER BY m.created_at DESC
       LIMIT 100
@@ -560,10 +553,27 @@ router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
     const device = getDeviceInfo(req);
     const tagsArr = `{${(tags as string[]).join(",")}}`;
 
+    /* Stage 22 — caseId is TEXT (cases.id). Prove same-office ownership before link.
+       Never Number()/parseInt; never invent UUID mappings; never infer tenant from caseId. */
+    let provenCaseId: string | null = null;
+    if (caseId != null && String(caseId).trim() !== "") {
+      const caseKey = String(caseId).trim();
+      const caseCheck = await db.execute(sql`
+        SELECT id FROM cases
+        WHERE id = ${caseKey}
+          AND office_id = ${tenantId}
+        LIMIT 1
+      `);
+      if ((caseCheck.rows || []).length === 0) {
+        return res.status(403).json({ error: "القضية غير تابعة لمكتبك" });
+      }
+      provenCaseId = caseKey;
+    }
+
     const ins = await db.execute(sql`
       INSERT INTO office_messages (office_id, subject, body, sender_id, sender_name, sender_ip, device_info, folder, tags, case_id)
       VALUES (${tenantId}, ${subject}, ${body}, ${userId}, ${senderName}, ${ip}, ${device}, ${folder}, ${tagsArr},
-              ${caseId ? Number(caseId) : null})
+              ${provenCaseId})
       RETURNING id, office_id, subject, body, sender_id, sender_name, folder, created_at, case_id
     `);
 

@@ -143,8 +143,9 @@ console.log("\n═══ schema: cases.id TEXT vs office_messages.case_id ══
   assert.match(caseBlock, /c\.id\s*=\s*\$\{caseKey\}/);
   assert.match(caseBlock, /c\.office_id\s*=\s*\$\{tenantId\}/);
   assert.match(caseBlock, /m\.office_id\s*=\s*\$\{tenantId\}/);
-  assert.match(caseBlock, /m\.case_id::text\s*=\s*\$\{caseKey\}/);
-  console.log("  ✅ caseId treated as cases.id TEXT; no parseInt; office-scoped");
+  assert.match(caseBlock, /m\.case_id\s*=\s*\$\{caseKey\}/);
+  assert.doesNotMatch(caseBlock, /m\.case_id::text/);
+  console.log("  ✅ caseId TEXT↔TEXT with cases.id; no parseInt; office-scoped");
 }
 
 console.log("\n═══ route order: /analytics and /case before /:id ═══");
@@ -199,6 +200,11 @@ console.log("\n═══ SQL: office_id + participant / case ownership ═══
   assert.match(statsBlock, /WHERE office_id = \$\{tenantId\}[\s\S]*folder = 'draft'/);
 
   assert.match(analyticsBlock, /m\.office_id\s*=\s*\$\{tenantId\}/);
+  assert.match(
+    analyticsBlock,
+    /JOIN cases c ON c\.id = m\.case_id AND c\.office_id = \$\{tenantId\}/,
+  );
+  assert.doesNotMatch(analyticsBlock, /m\.case_id::text|c\.id::text\s*=\s*m\.case_id/);
   assert.match(
     analyticsBlock,
     /AND \(\s*body ILIKE '%AI%'[\s\S]*OR body ILIKE '%ذكاء%'[\s\S]*OR body ILIKE '%تلقائي%'[\s\S]*\)/,

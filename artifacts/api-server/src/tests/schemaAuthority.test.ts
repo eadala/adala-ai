@@ -48,6 +48,7 @@ assert.ok(migrationFiles.includes("026_promo_schema_authority.sql"));
 assert.ok(migrationFiles.includes("027_event_daily_counts_schema_authority.sql"));
 assert.ok(migrationFiles.includes("028_case_autopilot_reports_schema_authority.sql"));
 assert.ok(migrationFiles.includes("029_office_messages_fts_readiness.sql"));
+assert.ok(migrationFiles.includes("030_office_messages_case_id_text.sql"));
 /* Ordering: 024 must sort after 023 (023 remaps trial_* before NULL-task backfill). */
 assert.ok(
   "023_trial_uuid_offices.sql" < "024_tasks_tenant_ownership.sql",
@@ -69,6 +70,11 @@ assert.ok(
   "028_case_autopilot_reports_schema_authority.sql" <
     "029_office_messages_fts_readiness.sql",
   "029 must lexicographically follow 028",
+);
+assert.ok(
+  "029_office_messages_fts_readiness.sql" <
+    "030_office_messages_case_id_text.sql",
+  "030 must lexicographically follow 029",
 );
 assert.ok(
   !migrationFiles.includes("022_tasks_tenant_ownership.sql"),
@@ -833,6 +839,42 @@ const integ029 = readRepo("scripts/db/test-migrations.integration.sh");
 assert.match(integ029, /scenario_migration_029_office_messages_fts_readiness|MIGRATION_029/);
 assert.match(integ029, /apply_migration_029/);
 console.log("  ✅ migration 029 FTS readiness: safe add column/GIN only; BLOCK refuses destructive repair");
+
+console.log("\n═══ schemaAuthority: Batch office_messages.case_id TEXT (030) ═══");
+
+const mig030 = readRepo("artifacts/api-server/migrations/030_office_messages_case_id_text.sql");
+assert.match(mig030, /SAFE_CONVERT_INTEGER_TO_TEXT/);
+assert.match(mig030, /ALREADY_CORRECT/);
+assert.match(mig030, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(mig030, /RAISE EXCEPTION/);
+assert.match(mig030, /ALTER COLUMN case_id TYPE TEXT/);
+assert.match(mig030, /case_id::text/);
+assert.match(mig030, /CREATE INDEX IF NOT EXISTS idx_messages_case_id/);
+assert.match(mig030, /Never invent integer→UUID|never UUID invent/i);
+{
+  const sqlOnly030 = mig030.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly030, /\bDROP\s+COLUMN\b/i);
+  assert.doesNotMatch(sqlOnly030, /REFERENCES\s+cases\s*\(/i);
+}
+const preflight030 = readRepo("scripts/db/preflight-migration-030.sql");
+assert.match(preflight030, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable/i);
+assert.match(preflight030, /chosen_action/);
+assert.match(preflight030, /reason_code/);
+assert.match(preflight030, /estimated_rows/);
+assert.match(preflight030, /lock_risk/);
+assert.match(preflight030, /SAFE_CONVERT_INTEGER_TO_TEXT/);
+assert.match(preflight030, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight030, /cross_office_matches/);
+const integ030 = readRepo("scripts/db/test-migrations.integration.sh");
+assert.match(integ030, /scenario_migration_030_office_messages_case_id_text|MIGRATION_030/);
+assert.match(integ030, /apply_migration_030/);
+const im030 = readRepo("artifacts/api-server/src/modules/operations/internal-messages.ts");
+assert.doesNotMatch(im030, /function ensureCaseIdColumn|ensureCaseIdColumn\s*\(\s*\)/);
+assert.doesNotMatch(im030, /ADD COLUMN IF NOT EXISTS case_id\s+INTEGER/);
+assert.doesNotMatch(im030, /Number\s*\(\s*caseId\s*\)/);
+const cases030 = readRepo("artifacts/api-server/src/modules/legal-core/cases.ts");
+assert.doesNotMatch(cases030, /CREATE INDEX IF NOT EXISTS idx_messages_case_id/);
+console.log("  ✅ migration 030 case_id TEXT: exact ::text convert; Runtime DDL removed; FK deferred");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
