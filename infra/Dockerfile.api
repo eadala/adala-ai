@@ -5,7 +5,7 @@ RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY tsconfig.base.json ./
 COPY lib/db/package.json ./lib/db/
 COPY lib/api-zod/package.json ./lib/api-zod/
@@ -18,7 +18,9 @@ COPY lib/ ./lib/
 COPY artifacts/api-server/ ./artifacts/api-server/
 RUN pnpm --filter @workspace/db build 2>/dev/null || true
 RUN pnpm --filter @workspace/api-server run build
+# Relies on .npmrc force-legacy-deploy=true (pnpm 9 + pnpm 10 compatible).
 RUN pnpm --filter @workspace/api-server deploy --prod /app/api-runtime \
+    && test -d /app/api-runtime/node_modules/@aws-sdk/client-s3 \
     && cp -a /app/artifacts/api-server/dist/. /app/api-runtime/dist/
 
 FROM node:22-alpine AS runner

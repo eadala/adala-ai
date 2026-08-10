@@ -6,7 +6,9 @@
 # ── Stage 1: Builder ─────────────────────────────────────
 FROM node:22-alpine AS builder
 
-# Install pnpm (pin 9.15.x — deploy --legacy is unavailable in v9)
+# Install pnpm (pin 9.15.x). Do not float to pnpm 10 via `pnpm@latest` —
+# v10 deploy requires inject-workspace-packages or legacy mode.
+# Repo .npmrc sets force-legacy-deploy=true so deploy also survives pnpm ≥10.
 RUN npm install -g pnpm@9.15.9
 
 WORKDIR /app
@@ -29,8 +31,10 @@ RUN pnpm --filter @workspace/adala build
 # Build backend (esbuild → single bundled dist/index.mjs)
 RUN pnpm --filter @workspace/api-server build
 
-# Flat production node_modules for runtime externals (@aws-sdk/* in build.mjs)
+# Flat production node_modules for runtime externals (@aws-sdk/* in build.mjs).
+# Relies on .npmrc force-legacy-deploy=true (pnpm 9 + pnpm 10 compatible).
 RUN pnpm --filter @workspace/api-server deploy --prod /app/api-runtime \
+    && test -d /app/api-runtime/node_modules/@aws-sdk/client-s3 \
     && cp -a /app/artifacts/api-server/dist/. /app/api-runtime/dist/
 
 

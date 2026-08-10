@@ -115,6 +115,28 @@ jobs:
         run: pnpm run test:db-migrations
 
   # ─────────────────────────────────────────
+  # Docker production image — Coolify Dockerfile path
+  # Catches pnpm deploy / api-runtime regressions CI previously missed.
+  # ─────────────────────────────────────────
+  docker-production:
+    name: "Docker — production Dockerfile"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert deploy legacy guard is present
+        run: |
+          grep -q '^force-legacy-deploy=true' .npmrc
+          grep -q 'force-legacy-deploy=true' Dockerfile
+          grep -q 'pnpm@9.15.9' Dockerfile
+          grep -q 'deploy --prod /app/api-runtime' Dockerfile
+      - name: Build Coolify production image
+        run: docker build -t adala-ci:production -f Dockerfile .
+      - name: Verify runtime image has AWS SDK external + bundle
+        run: |
+          docker run --rm --entrypoint sh adala-ci:production -c \
+            'test -f ./dist/index.mjs && test -d ./node_modules/@aws-sdk/client-s3 && test -d ./public'
+
+  # ─────────────────────────────────────────
   # Gate 1: TypeScript
   # ─────────────────────────────────────────
   typescript:
@@ -480,6 +502,7 @@ jobs:
     needs:
       - test
       - db-migrations
+      - docker-production
       - typescript
       - lint
       - build
@@ -497,6 +520,7 @@ jobs:
           echo "=== CI Summary ==="
           echo "Tests:              ${{ needs.test.result }}"
           echo "DB Migrations:      ${{ needs.db-migrations.result }}"
+          echo "Docker Production:  ${{ needs.docker-production.result }}"
           echo "TypeScript:         ${{ needs.typescript.result }}"
           echo "ESLint:             ${{ needs.lint.result }}"
           echo "Build+Bundle:       ${{ needs.build.result }}"
@@ -526,6 +550,14 @@ jobs:
               FAILED=$((FAILED + 1))
             fi
           done
+
+          # Docker production is a hard requirement: must be success.
+          # failure / cancelled / skipped / anything else blocks merge.
+          DOCKER_RESULT="${{ needs.docker-production.result }}"
+          if [ "$DOCKER_RESULT" != "success" ]; then
+            echo "❌ Docker production gate not successful (result=$DOCKER_RESULT) — merge blocked"
+            FAILED=$((FAILED + 1))
+          fi
 
           if [ "$FAILED" -gt 0 ]; then
             echo "❌ $FAILED gate(s) failed — merge blocked"
