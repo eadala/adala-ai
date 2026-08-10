@@ -5429,6 +5429,209 @@ SQL
   else
     bad "K: migration 029 contains DROP COLUMN/INDEX"
   fi
+
+  # ── L. Absent search_vector + wrong existing idx_messages_search → BLOCK ─
+  # False-safe guard: CREATE INDEX IF NOT EXISTS must not skip over a btree
+  # that already owns the name and leave FTS "repaired" without a GIN.
+  setup_db "mig029_absent_vector_conflict"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  ensure_arabic_cfg
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  subject TEXT,
+  body TEXT,
+  sender_id TEXT,
+  folder TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_messages_search ON office_messages (id);
+INSERT INTO office_messages (office_id, subject, body, sender_id, folder)
+VALUES ('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 'عقد', 'نص', 'user-a', 'sent');
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-conflict.log 2>&1
+  set -e
+  grep -q 'chosen_action=BLOCK_AND_MANUAL_REVIEW' /tmp/preflight029-conflict.log \
+    && ok "L0: preflight BLOCK absent search_vector + wrong existing idx_messages_search" \
+    || bad "L0: chosen_action=$(grep chosen_action /tmp/preflight029-conflict.log | tail -1)"
+  grep -qE 'WRONG_INDEX_AM|WRONG_INDEX_DEFINITION|CONFLICTING_INDEX_NAME' /tmp/preflight029-conflict.log \
+    && ok "L0: reason codes conflicting index (not SAFE_AUTO_REPAIR_ADD_COLUMN)" \
+    || bad "L0: missing conflicting-index reason"
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR_ADD_COLUMN' /tmp/preflight029-conflict.log \
+    && bad "L0: must not classify SAFE_AUTO_REPAIR_ADD_COLUMN" \
+    || ok "L0: not classified as SAFE_AUTO_REPAIR_ADD_COLUMN"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_029" >/tmp/mig029-conflict.log 2>&1
+  local rc_conflict=$?
+  set -e
+  [[ "$rc_conflict" -ne 0 ]] \
+    && ok "L: migration does not commit false-ready state (aborts)" \
+    || bad "L: migration should abort on conflicting idx_messages_search"
+  grep -qE 'BLOCK_AND_MANUAL_REVIEW|POST_APPLY_READINESS_FAILED' /tmp/mig029-conflict.log \
+    && ok "L: abort mentions BLOCK/post-apply failure" \
+    || bad "L: missing abort reason"
+  local conflict_vector conflict_am
+  conflict_vector=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='office_messages'
+      AND column_name='search_vector';")
+  conflict_am=$(psql_db -At -c "
+    SELECT am.amname
+    FROM pg_class t
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    JOIN pg_index x ON x.indrelid = t.oid
+    JOIN pg_class i ON i.oid = x.indexrelid
+    JOIN pg_am am ON am.oid = i.relam
+    WHERE n.nspname='public' AND t.relname='office_messages'
+      AND i.relname='idx_messages_search';")
+  [[ "$conflict_vector" == "0" ]] \
+    && ok "L: search_vector still absent (no false-ready commit)" \
+    || bad "L: search_vector unexpectedly present after abort"
+  [[ "$conflict_am" != "gin" ]] \
+    && ok "L: incompatible idx_messages_search not DROP/replaced" \
+    || bad "L: index was auto-replaced"
+
+  trap - EXIT
+  teardown_db
+
+  # ── M. Partial GIN rejected ──────────────────────────────────────────────
+  setup_db "mig029_partial_gin"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject TEXT,
+  body TEXT,
+  folder TEXT,
+  search_vector tsvector GENERATED ALWAYS AS (
+    to_tsvector('simple', coalesce(subject, '') || ' ' || coalesce(body, ''))
+  ) STORED
+);
+CREATE INDEX idx_messages_search ON office_messages
+  USING gin (search_vector) WHERE folder = 'sent';
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-partial.log 2>&1
+  set -e
+  grep -q 'PARTIAL_INDEX' /tmp/preflight029-partial.log \
+    && ok "M0: preflight BLOCK partial GIN" \
+    || bad "M0: missing PARTIAL_INDEX reason"
+  grep -q 'chosen_action=BLOCK_AND_MANUAL_REVIEW' /tmp/preflight029-partial.log \
+    && ok "M0: chosen_action BLOCK for partial GIN" \
+    || bad "M0: not blocked"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_029" >/tmp/mig029-partial.log 2>&1
+  local rc_partial=$?
+  set -e
+  [[ "$rc_partial" -ne 0 ]] && ok "M: migration aborts on partial GIN" || bad "M: should abort"
+  local still_partial
+  still_partial=$(psql_db -At -c "
+    SELECT x.indpred IS NOT NULL
+    FROM pg_class t
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    JOIN pg_index x ON x.indrelid = t.oid
+    JOIN pg_class i ON i.oid = x.indexrelid
+    WHERE n.nspname='public' AND t.relname='office_messages'
+      AND i.relname='idx_messages_search';")
+  [[ "$still_partial" == "t" ]] \
+    && ok "M: partial GIN preserved (no DROP/replace)" \
+    || bad "M: partial index altered"
+
+  trap - EXIT
+  teardown_db
+
+  # ── N. Wrong-expression generated vector rejected ────────────────────────
+  setup_db "mig029_wrong_expr"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject TEXT,
+  body TEXT,
+  search_vector tsvector GENERATED ALWAYS AS (
+    to_tsvector('simple', coalesce(subject, ''))
+  ) STORED
+);
+CREATE INDEX idx_messages_search ON office_messages USING gin (search_vector);
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-wrongexpr.log 2>&1
+  set -e
+  grep -q 'WRONG_GENERATED_EXPRESSION' /tmp/preflight029-wrongexpr.log \
+    && ok "N0: preflight BLOCK wrong-expression generated vector" \
+    || bad "N0: missing WRONG_GENERATED_EXPRESSION"
+  grep -q 'chosen_action=BLOCK_AND_MANUAL_REVIEW' /tmp/preflight029-wrongexpr.log \
+    && ok "N0: chosen_action BLOCK" \
+    || bad "N0: not blocked"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_029" >/tmp/mig029-wrongexpr.log 2>&1
+  local rc_wexpr=$?
+  set -e
+  [[ "$rc_wexpr" -ne 0 ]] && ok "N: migration aborts on wrong expression" || bad "N: should abort"
+  local still_subj_only
+  still_subj_only=$(psql_db -At -c "
+    SELECT pg_get_expr(ad.adbin, ad.adrelid)
+    FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    LEFT JOIN pg_attrdef ad ON ad.adrelid = a.attrelid AND ad.adnum = a.attnum
+    WHERE n.nspname='public' AND c.relname='office_messages'
+      AND a.attname='search_vector' AND NOT a.attisdropped;")
+  [[ "$still_subj_only" == *"coalesce(subject"* || "$still_subj_only" == *"COALESCE(subject"* ]] \
+    && [[ "$still_subj_only" != *"body"* ]] \
+    && ok "N: wrong expression preserved (no rewrite)" \
+    || bad "N: expression changed unexpectedly: $still_subj_only"
+
+  trap - EXIT
+  teardown_db
+
+  # ── O. Correct STORED generated + valid GIN remains ALREADY_CORRECT ──────
+  setup_db "mig029_stored_ready"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject TEXT,
+  body TEXT,
+  search_vector tsvector GENERATED ALWAYS AS (
+    to_tsvector('simple', coalesce(subject, '') || ' ' || coalesce(body, ''))
+  ) STORED
+);
+CREATE INDEX idx_messages_search ON office_messages USING gin (search_vector);
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-stored.log 2>&1
+  set -e
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight029-stored.log \
+    && ok "O: correct stored generated vector + valid GIN remains ALREADY_CORRECT" \
+    || bad "O: chosen_action=$(grep chosen_action /tmp/preflight029-stored.log | tail -1)"
+  apply_migration_029
+  ok "O: migration 029 no-op on STORED+GIN ready shape"
+  local att_gen
+  att_gen=$(psql_db -At -c "
+    SELECT a.attgenerated::text
+    FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname='public' AND c.relname='office_messages'
+      AND a.attname='search_vector' AND NOT a.attisdropped;")
+  [[ "$att_gen" == "s" ]] && ok "O: attgenerated remains STORED (s)" || bad "O: attgenerated=$att_gen"
+
+  trap - EXIT
+  teardown_db
 }
 
 # ── Main ─────────────────────────────────────────────────────────────────────

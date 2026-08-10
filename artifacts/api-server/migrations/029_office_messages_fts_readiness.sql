@@ -9,6 +9,18 @@
 -- BLOCK_AND_MANUAL_REVIEW shapes abort apply (never DROP/ALTER incompatible
 -- search_vector; never replace a wrong existing idx_messages_search).
 --
+-- Classification (same ladder as scripts/db/preflight-migration-029.sql):
+--   ALREADY_CORRECT — STORED generated subject+body expression with
+--     arabic|simple + valid ready non-partial GIN on search_vector
+--   SAFE_AUTO_REPAIR_ADD_COLUMN — search_vector absent, subject/body present,
+--     and idx_messages_search absent (name free for CREATE INDEX)
+--   SAFE_AUTO_REPAIR_ADD_GIN — search_vector already authoritative; GIN missing
+--   BLOCK — all incompatible legacy shapes (incl. absent vector + conflicting
+--     idx_messages_search name/shape)
+--
+-- Post-apply readiness gate (ADD_COLUMN / ADD_GIN paths): before COMMIT,
+-- re-verify GIN readiness; RAISE EXCEPTION if not (no DROP/replace).
+--
 -- FTS config allow-list (Stage 20.2): arabic | simple only.
 -- Runtime getMessageFtsConfig() reads the live generated expression.
 --
@@ -47,13 +59,17 @@ DECLARE
   vector_udt TEXT := NULL;
   att_generated TEXT := NULL;
   gen_expr TEXT := NULL;
+  norm_expr TEXT := NULL;
   parsed_cfg TEXT := NULL;
   allowlisted BOOLEAN := false;
+  expr_intended BOOLEAN := false;
   idx_present BOOLEAN := false;
   idx_am TEXT := NULL;
   idx_valid BOOLEAN := NULL;
   idx_ready BOOLEAN := NULL;
   idx_on_search_vector BOOLEAN := false;
+  idx_partial BOOLEAN := false;
+  idx_ready_gin BOOLEAN := false;
   estimated_rows BIGINT := 0;
   action TEXT;
   reason_code TEXT;
@@ -113,8 +129,14 @@ BEGIN
 
   IF gen_expr IS NOT NULL THEN
     parsed_cfg := (regexp_match(gen_expr, 'to_tsvector\(\s*''([^'']+)''', 'i'))[1];
+    /* Strip ::regconfig / ::text casts; compare intended subject+body shape. */
+    norm_expr := lower(regexp_replace(gen_expr, '::[a-z_]+', '', 'g'));
   END IF;
   allowlisted := parsed_cfg IN ('arabic', 'simple');
+  expr_intended := allowlisted AND norm_expr IN (
+    'to_tsvector(''arabic'', ((coalesce(subject, '''') || '' '') || coalesce(body, '''')))',
+    'to_tsvector(''simple'', ((coalesce(subject, '''') || '' '') || coalesce(body, '''')))'
+  );
 
   SELECT
     true,
@@ -127,8 +149,9 @@ BEGIN
         AND a.attnum = x.indkey[0]
         AND NOT a.attisdropped
         AND a.attname = 'search_vector'
-    ) AND x.indnkeyatts = 1 AND x.indexprs IS NULL
-  INTO idx_present, idx_am, idx_valid, idx_ready, idx_on_search_vector
+    ) AND x.indnkeyatts = 1 AND x.indexprs IS NULL,
+    x.indpred IS NOT NULL
+  INTO idx_present, idx_am, idx_valid, idx_ready, idx_on_search_vector, idx_partial
   FROM pg_class t
   JOIN pg_namespace n ON n.oid = t.relnamespace
   JOIN pg_index x ON x.indrelid = t.oid
@@ -145,34 +168,69 @@ BEGIN
     idx_valid := NULL;
     idx_ready := NULL;
     idx_on_search_vector := false;
+    idx_partial := false;
   END IF;
 
+  idx_ready_gin :=
+    idx_present
+    AND idx_am = 'gin'
+    AND idx_on_search_vector
+    AND NOT idx_partial
+    AND idx_valid IS TRUE
+    AND idx_ready IS TRUE;
+
+  /* Classification priority — must match preflight-migration-029.sql. */
   IF NOT vector_present THEN
-    IF subject_present AND body_present THEN
-      action := 'SAFE_AUTO_REPAIR_ADD_COLUMN';
-      reason_code := 'SEARCH_VECTOR_ABSENT';
-    ELSE
+    IF NOT (subject_present AND body_present) THEN
       action := 'BLOCK_AND_MANUAL_REVIEW';
       reason_code := 'SUBJECT_OR_BODY_MISSING';
+    ELSIF idx_present AND NOT idx_ready_gin THEN
+      /* Name taken by incompatible index → CREATE INDEX IF NOT EXISTS would
+         skip and leave FTS without a usable GIN. Never SAFE_ADD_COLUMN. */
+      action := 'BLOCK_AND_MANUAL_REVIEW';
+      IF idx_am IS DISTINCT FROM 'gin' THEN
+        reason_code := 'WRONG_INDEX_AM';
+      ELSIF idx_partial THEN
+        reason_code := 'PARTIAL_INDEX';
+      ELSIF NOT idx_on_search_vector THEN
+        reason_code := 'WRONG_INDEX_DEFINITION';
+      ELSIF idx_valid IS NOT TRUE OR idx_ready IS NOT TRUE THEN
+        reason_code := 'INDEX_NOT_VALID_OR_NOT_READY';
+      ELSE
+        reason_code := 'CONFLICTING_INDEX_NAME';
+      END IF;
+    ELSE
+      action := 'SAFE_AUTO_REPAIR_ADD_COLUMN';
+      reason_code := 'SEARCH_VECTOR_ABSENT';
     END IF;
   ELSIF vector_udt IS DISTINCT FROM 'tsvector' THEN
     action := 'BLOCK_AND_MANUAL_REVIEW';
     reason_code := 'WRONG_SEARCH_VECTOR_TYPE';
-  ELSIF att_generated IS DISTINCT FROM 's' AND att_generated IS DISTINCT FROM 'v' THEN
+  ELSIF att_generated IS DISTINCT FROM 's' THEN
+    /* Require STORED generated ('s'); virtual ('v') and plain columns block. */
     action := 'BLOCK_AND_MANUAL_REVIEW';
-    reason_code := 'NON_GENERATED_TSVECTOR';
+    reason_code := CASE
+      WHEN att_generated = 'v' THEN 'NON_STORED_GENERATED'
+      ELSE 'NON_GENERATED_TSVECTOR'
+    END;
   ELSIF parsed_cfg IS NULL THEN
     action := 'BLOCK_AND_MANUAL_REVIEW';
     reason_code := 'UNPARSEABLE_GENERATED_EXPRESSION';
   ELSIF NOT allowlisted THEN
     action := 'BLOCK_AND_MANUAL_REVIEW';
     reason_code := 'UNSUPPORTED_FTS_CONFIG';
+  ELSIF NOT expr_intended THEN
+    action := 'BLOCK_AND_MANUAL_REVIEW';
+    reason_code := 'WRONG_GENERATED_EXPRESSION';
   ELSIF NOT idx_present THEN
     action := 'SAFE_AUTO_REPAIR_ADD_GIN';
     reason_code := 'GIN_MISSING';
   ELSIF idx_am IS DISTINCT FROM 'gin' THEN
     action := 'BLOCK_AND_MANUAL_REVIEW';
     reason_code := 'WRONG_INDEX_AM';
+  ELSIF idx_partial THEN
+    action := 'BLOCK_AND_MANUAL_REVIEW';
+    reason_code := 'PARTIAL_INDEX';
   ELSIF NOT idx_on_search_vector THEN
     action := 'BLOCK_AND_MANUAL_REVIEW';
     reason_code := 'WRONG_INDEX_DEFINITION';
@@ -215,18 +273,64 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_messages_search
       ON office_messages USING gin (search_vector);
     RAISE NOTICE '029_fts: ensured GIN idx_messages_search after column add';
-    RETURN;
-  END IF;
-
-  IF action = 'SAFE_AUTO_REPAIR_ADD_GIN' THEN
+  ELSIF action = 'SAFE_AUTO_REPAIR_ADD_GIN' THEN
     /* Index name must not already exist with a wrong AM/def — that is BLOCK. */
     CREATE INDEX IF NOT EXISTS idx_messages_search
       ON office_messages USING gin (search_vector);
     RAISE NOTICE '029_fts: added GIN idx_messages_search';
-    RETURN;
+  ELSE
+    RAISE EXCEPTION '029_fts: unexpected chosen_action=%', action;
   END IF;
 
-  RAISE EXCEPTION '029_fts: unexpected chosen_action=%', action;
+  /* Post-apply readiness gate — fail closed before COMMIT; never DROP/replace. */
+  SELECT
+    true,
+    am.amname,
+    x.indisvalid,
+    x.indisready,
+    EXISTS (
+      SELECT 1 FROM pg_attribute a
+      WHERE a.attrelid = x.indrelid
+        AND a.attnum = x.indkey[0]
+        AND NOT a.attisdropped
+        AND a.attname = 'search_vector'
+    ) AND x.indnkeyatts = 1 AND x.indexprs IS NULL,
+    x.indpred IS NOT NULL
+  INTO idx_present, idx_am, idx_valid, idx_ready, idx_on_search_vector, idx_partial
+  FROM pg_class t
+  JOIN pg_namespace n ON n.oid = t.relnamespace
+  JOIN pg_index x ON x.indrelid = t.oid
+  JOIN pg_class i ON i.oid = x.indexrelid
+  JOIN pg_am am ON am.oid = i.relam
+  WHERE n.nspname = 'public'
+    AND t.relname = 'office_messages'
+    AND i.relname = 'idx_messages_search'
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    idx_present := false;
+    idx_am := NULL;
+    idx_valid := NULL;
+    idx_ready := NULL;
+    idx_on_search_vector := false;
+    idx_partial := false;
+  END IF;
+
+  idx_ready_gin :=
+    idx_present
+    AND idx_am = 'gin'
+    AND idx_on_search_vector
+    AND NOT idx_partial
+    AND idx_valid IS TRUE
+    AND idx_ready IS TRUE;
+
+  IF NOT idx_ready_gin THEN
+    RAISE EXCEPTION
+      '029_fts: POST_APPLY_READINESS_FAILED — idx_messages_search is not a valid ready non-partial GIN on search_vector (am=% on_search_vector=% partial=% valid=% ready=%). Refusing COMMIT; no DROP/replace of existing index.',
+      idx_am, idx_on_search_vector, idx_partial, idx_valid, idx_ready;
+  END IF;
+
+  RAISE NOTICE '029_fts: post-apply readiness gate passed (GIN ready on search_vector)';
 END $$;
 
 COMMIT;

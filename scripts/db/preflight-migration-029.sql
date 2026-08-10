@@ -12,6 +12,16 @@
 --   SAFE_AUTO_REPAIR_ADD_GIN
 --   BLOCK_AND_MANUAL_REVIEW
 --
+-- ALREADY_CORRECT requires:
+--   - search_vector tsvector, STORED generated ('s')
+--   - expression = intended subject+body coalesce shape
+--   - config exactly arabic|simple (not schema-qualified/custom)
+--   - idx_messages_search valid ready non-partial GIN on search_vector
+--
+-- SAFE_AUTO_REPAIR_ADD_COLUMN only when:
+--   - search_vector absent, subject/body present
+--   - idx_messages_search absent (name free — conflicting shapes BLOCK)
+--
 -- Production lock/rewrite notes (report only — no DDL here):
 --   - ADD GENERATED … STORED rewrites office_messages (ACCESS EXCLUSIVE)
 --   - non-concurrent GIN build blocks writes for build duration
@@ -65,6 +75,7 @@ SELECT
   am.amname AS index_am,
   x.indisvalid,
   x.indisready,
+  x.indpred IS NOT NULL AS is_partial,
   pg_get_indexdef(i.oid) AS index_definition
 FROM pg_class t
 JOIN pg_namespace n ON n.oid = t.relnamespace
@@ -100,14 +111,18 @@ DECLARE
   vector_udt TEXT := NULL;
   att_generated TEXT := NULL;
   gen_expr TEXT := NULL;
+  norm_expr TEXT := NULL;
   parsed_cfg TEXT := NULL;
   allowlisted BOOLEAN := false;
+  expr_intended BOOLEAN := false;
   idx_present BOOLEAN := false;
   idx_am TEXT := NULL;
   idx_def TEXT := NULL;
   idx_valid BOOLEAN := NULL;
   idx_ready BOOLEAN := NULL;
   idx_on_search_vector BOOLEAN := false;
+  idx_partial BOOLEAN := false;
+  idx_ready_gin BOOLEAN := false;
   estimated_rows BIGINT := 0;
   lock_risk TEXT := 'LOW';
   action TEXT;
@@ -121,11 +136,13 @@ BEGIN
     generated_expression TEXT,
     parsed_config TEXT,
     allow_list_ok BOOLEAN,
+    expression_intended BOOLEAN,
     idx_messages_search_present BOOLEAN,
     index_am TEXT,
     index_definition TEXT,
     indisvalid BOOLEAN,
     indisready BOOLEAN,
+    index_partial BOOLEAN,
     estimated_rows BIGINT,
     lock_risk TEXT,
     chosen_action TEXT,
@@ -139,8 +156,8 @@ BEGIN
     action := 'BLOCK_AND_MANUAL_REVIEW';
     reason_code := 'OFFICE_MESSAGES_MISSING';
     INSERT INTO preflight_029_report VALUES (
-      false, false, NULL, NULL, NULL, NULL, false,
-      false, NULL, NULL, NULL, NULL, 0, 'LOW', action, reason_code
+      false, false, NULL, NULL, NULL, NULL, false, false,
+      false, NULL, NULL, NULL, NULL, false, 0, 'LOW', action, reason_code
     );
     RAISE NOTICE '029_preflight: chosen_action=% reason_code=%', action, reason_code;
     RETURN;
@@ -199,8 +216,13 @@ BEGIN
 
   IF gen_expr IS NOT NULL THEN
     parsed_cfg := (regexp_match(gen_expr, 'to_tsvector\(\s*''([^'']+)''', 'i'))[1];
+    norm_expr := lower(regexp_replace(gen_expr, '::[a-z_]+', '', 'g'));
   END IF;
   allowlisted := parsed_cfg IN ('arabic', 'simple');
+  expr_intended := allowlisted AND norm_expr IN (
+    'to_tsvector(''arabic'', ((coalesce(subject, '''') || '' '') || coalesce(body, '''')))',
+    'to_tsvector(''simple'', ((coalesce(subject, '''') || '' '') || coalesce(body, '''')))'
+  );
 
   SELECT
     true,
@@ -214,8 +236,9 @@ BEGIN
         AND a.attnum = x.indkey[0]
         AND NOT a.attisdropped
         AND a.attname = 'search_vector'
-    ) AND x.indnkeyatts = 1 AND x.indexprs IS NULL
-  INTO idx_present, idx_am, idx_def, idx_valid, idx_ready, idx_on_search_vector
+    ) AND x.indnkeyatts = 1 AND x.indexprs IS NULL,
+    x.indpred IS NOT NULL
+  INTO idx_present, idx_am, idx_def, idx_valid, idx_ready, idx_on_search_vector, idx_partial
   FROM pg_class t
   JOIN pg_namespace n ON n.oid = t.relnamespace
   JOIN pg_index x ON x.indrelid = t.oid
@@ -233,35 +256,66 @@ BEGIN
     idx_valid := NULL;
     idx_ready := NULL;
     idx_on_search_vector := false;
+    idx_partial := false;
   END IF;
+
+  idx_ready_gin :=
+    idx_present
+    AND idx_am = 'gin'
+    AND idx_on_search_vector
+    AND NOT idx_partial
+    AND idx_valid IS TRUE
+    AND idx_ready IS TRUE;
 
   /* Classification priority matches Migration 029. */
   IF NOT vector_present THEN
-    IF subject_present AND body_present THEN
-      action := 'SAFE_AUTO_REPAIR_ADD_COLUMN';
-      reason_code := 'SEARCH_VECTOR_ABSENT';
-    ELSE
+    IF NOT (subject_present AND body_present) THEN
       action := 'BLOCK_AND_MANUAL_REVIEW';
       reason_code := 'SUBJECT_OR_BODY_MISSING';
+    ELSIF idx_present AND NOT idx_ready_gin THEN
+      action := 'BLOCK_AND_MANUAL_REVIEW';
+      IF idx_am IS DISTINCT FROM 'gin' THEN
+        reason_code := 'WRONG_INDEX_AM';
+      ELSIF idx_partial THEN
+        reason_code := 'PARTIAL_INDEX';
+      ELSIF NOT idx_on_search_vector THEN
+        reason_code := 'WRONG_INDEX_DEFINITION';
+      ELSIF idx_valid IS NOT TRUE OR idx_ready IS NOT TRUE THEN
+        reason_code := 'INDEX_NOT_VALID_OR_NOT_READY';
+      ELSE
+        reason_code := 'CONFLICTING_INDEX_NAME';
+      END IF;
+    ELSE
+      action := 'SAFE_AUTO_REPAIR_ADD_COLUMN';
+      reason_code := 'SEARCH_VECTOR_ABSENT';
     END IF;
   ELSIF vector_udt IS DISTINCT FROM 'tsvector' THEN
     action := 'BLOCK_AND_MANUAL_REVIEW';
     reason_code := 'WRONG_SEARCH_VECTOR_TYPE';
-  ELSIF att_generated IS DISTINCT FROM 's' AND att_generated IS DISTINCT FROM 'v' THEN
+  ELSIF att_generated IS DISTINCT FROM 's' THEN
     action := 'BLOCK_AND_MANUAL_REVIEW';
-    reason_code := 'NON_GENERATED_TSVECTOR';
+    reason_code := CASE
+      WHEN att_generated = 'v' THEN 'NON_STORED_GENERATED'
+      ELSE 'NON_GENERATED_TSVECTOR'
+    END;
   ELSIF parsed_cfg IS NULL THEN
     action := 'BLOCK_AND_MANUAL_REVIEW';
     reason_code := 'UNPARSEABLE_GENERATED_EXPRESSION';
   ELSIF NOT allowlisted THEN
     action := 'BLOCK_AND_MANUAL_REVIEW';
     reason_code := 'UNSUPPORTED_FTS_CONFIG';
+  ELSIF NOT expr_intended THEN
+    action := 'BLOCK_AND_MANUAL_REVIEW';
+    reason_code := 'WRONG_GENERATED_EXPRESSION';
   ELSIF NOT idx_present THEN
     action := 'SAFE_AUTO_REPAIR_ADD_GIN';
     reason_code := 'GIN_MISSING';
   ELSIF idx_am IS DISTINCT FROM 'gin' THEN
     action := 'BLOCK_AND_MANUAL_REVIEW';
     reason_code := 'WRONG_INDEX_AM';
+  ELSIF idx_partial THEN
+    action := 'BLOCK_AND_MANUAL_REVIEW';
+    reason_code := 'PARTIAL_INDEX';
   ELSIF NOT idx_on_search_vector THEN
     action := 'BLOCK_AND_MANUAL_REVIEW';
     reason_code := 'WRONG_INDEX_DEFINITION';
@@ -281,19 +335,21 @@ BEGIN
     gen_expr,
     parsed_cfg,
     allowlisted,
+    expr_intended,
     idx_present,
     idx_am,
     idx_def,
     idx_valid,
     idx_ready,
+    idx_partial,
     estimated_rows,
     lock_risk,
     action,
     reason_code
   );
 
-  RAISE NOTICE '029_preflight: chosen_action=% reason_code=% parsed_config=% allow_list_ok=% estimated_rows=% lock_risk=%',
-    action, reason_code, parsed_cfg, allowlisted, estimated_rows, lock_risk;
+  RAISE NOTICE '029_preflight: chosen_action=% reason_code=% parsed_config=% allow_list_ok=% expression_intended=% estimated_rows=% lock_risk=%',
+    action, reason_code, parsed_cfg, allowlisted, expr_intended, estimated_rows, lock_risk;
 END $$;
 
 SELECT
@@ -304,11 +360,13 @@ SELECT
   generated_expression,
   parsed_config,
   allow_list_ok,
+  expression_intended,
   idx_messages_search_present,
   index_am,
   index_definition,
   indisvalid,
   indisready,
+  index_partial,
   estimated_rows,
   lock_risk,
   chosen_action,

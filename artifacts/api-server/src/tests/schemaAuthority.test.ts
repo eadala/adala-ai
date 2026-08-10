@@ -812,6 +812,9 @@ assert.match(mig029, /BLOCK_AND_MANUAL_REVIEW/);
 assert.match(mig029, /RAISE EXCEPTION/);
 assert.match(mig029, /GENERATED ALWAYS AS/);
 assert.match(mig029, /CREATE INDEX IF NOT EXISTS idx_messages_search/);
+assert.match(mig029, /POST_APPLY_READINESS_FAILED/);
+assert.match(mig029, /WRONG_GENERATED_EXPRESSION|PARTIAL_INDEX/);
+assert.match(mig029, /idx_present AND NOT idx_ready_gin/);
 {
   const sqlOnly029 = mig029.replace(/--.*$/gm, "");
   assert.doesNotMatch(sqlOnly029, /\bDROP\s+COLUMN\b/i);

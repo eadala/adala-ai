@@ -69,6 +69,10 @@ console.log("\n═══ preflight: SELECT-only report contract ═══");
   assert.match(preflight, /BLOCK_AND_MANUAL_REVIEW/);
   assert.match(preflight, /WRONG_SEARCH_VECTOR_TYPE|NON_GENERATED_TSVECTOR|UNSUPPORTED_FTS_CONFIG/);
   assert.match(preflight, /WRONG_INDEX_AM|INDEX_NOT_VALID_OR_NOT_READY/);
+  assert.match(preflight, /WRONG_GENERATED_EXPRESSION|PARTIAL_INDEX|NON_STORED_GENERATED/);
+  assert.match(preflight, /expression_intended|expr_intended/);
+  assert.match(preflight, /indpred|index_partial|idx_partial/);
+  assert.match(preflight, /idx_present AND NOT idx_ready_gin|CONFLICTING_INDEX_NAME/);
   const pfSql = sqlOnly(preflight);
   assert.doesNotMatch(pfSql, /\bDROP\s+COLUMN\b/i);
   assert.doesNotMatch(pfSql, /\bDROP\s+INDEX\b/i);
@@ -76,6 +80,9 @@ console.log("\n═══ preflight: SELECT-only report contract ═══");
   /* Allow ops notes mentioning CREATE INDEX; forbid executable durable DDL. */
   assert.doesNotMatch(pfSql, /^\s*CREATE\s+INDEX\b/im);
   assert.doesNotMatch(pfSql, /^\s*CREATE\s+TABLE\b(?!.*TEMP)/im);
+  /* STORED only — virtual ('v') must not be treated as ready. */
+  assert.match(preflight, /att_generated IS DISTINCT FROM 's'/);
+  assert.doesNotMatch(preflight, /att_generated IS DISTINCT FROM 's' AND att_generated IS DISTINCT FROM 'v'/);
   console.log("  ✅ preflight reports required fields; no durable DDL");
 }
 
@@ -102,10 +109,18 @@ console.log("\n═══ migration 029: safe repairs only; block legacy ══�
   assert.doesNotMatch(body, /^\s*CREATE\s+INDEX\s+CONCURRENTLY\b/im);
   assert.match(mig, /WRONG_SEARCH_VECTOR_TYPE/);
   assert.match(mig, /NON_GENERATED_TSVECTOR/);
+  assert.match(mig, /NON_STORED_GENERATED/);
   assert.match(mig, /UNSUPPORTED_FTS_CONFIG/);
+  assert.match(mig, /WRONG_GENERATED_EXPRESSION/);
+  assert.match(mig, /PARTIAL_INDEX/);
   assert.match(mig, /WRONG_INDEX_AM|WRONG_INDEX_DEFINITION|INDEX_NOT_VALID_OR_NOT_READY/);
+  assert.match(mig, /POST_APPLY_READINESS_FAILED/);
   assert.match(mig, /refusing destructive repair/i);
-  console.log("  ✅ ADD COLUMN / ADD GIN only; BLOCK raises; no DROP");
+  assert.match(mig, /att_generated IS DISTINCT FROM 's'/);
+  assert.doesNotMatch(mig, /att_generated IS DISTINCT FROM 's' AND att_generated IS DISTINCT FROM 'v'/);
+  assert.match(mig, /idx_present AND NOT idx_ready_gin|CONFLICTING_INDEX_NAME/);
+  assert.match(mig, /indpred IS NOT NULL/);
+  console.log("  ✅ ADD COLUMN / ADD GIN only; BLOCK raises; post-apply gate; no DROP");
 }
 
 console.log("\n═══ Stage 20.2 / 20.1 preserved ═══");
@@ -134,6 +149,10 @@ console.log("\n═══ harness + docs inventory ═══");
   assert.match(integ, /scenario_migration_029_office_messages_fts_readiness/);
   assert.match(integ, /SAFE_AUTO_REPAIR_ADD_COLUMN|SAFE_AUTO_REPAIR_ADD_GIN/);
   assert.match(integ, /BLOCK_AND_MANUAL_REVIEW/);
+  assert.match(integ, /absent_vector_conflict|wrong existing idx_messages_search|WRONG_INDEX_AM/);
+  assert.match(integ, /PARTIAL_INDEX|partial GIN/i);
+  assert.match(integ, /WRONG_GENERATED_EXPRESSION|wrong-expression/i);
+  assert.match(integ, /POST_APPLY_READINESS_FAILED|false-ready|does not commit false/i);
   assert.match(readme, /029_office_messages_fts_readiness/);
   assert.match(readme, /preflight-migration-029/);
   console.log("  ✅ integration harness + README inventory");
