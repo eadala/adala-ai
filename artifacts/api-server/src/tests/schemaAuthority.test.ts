@@ -85,8 +85,28 @@ console.log(`  ✅ ${migrationFiles.length} SQL migrations under artifacts/api-s
 const mig004 = readRepo("artifacts/api-server/migrations/004_legal_core_extensions.sql");
 assert.match(mig004, /CREATE TABLE IF NOT EXISTS contract_templates/);
 assert.match(mig004, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS source/);
+assert.match(mig004, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS store_order_id/);
+assert.match(mig004, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS created_by/);
+assert.match(mig004, /ALTER TABLE office_orders ADD COLUMN IF NOT EXISTS auto_case_id/);
 assert.match(mig004, /ALTER TABLE office_orders ADD COLUMN IF NOT EXISTS portal_token/);
 console.log("  ✅ migration 004 owns contract_* + cases/office_orders columns");
+
+const mig003 = readRepo("artifacts/api-server/migrations/003_drizzle_baseline_safe.sql");
+assert.match(mig003, /CREATE TABLE IF NOT EXISTS "office_orders"/);
+assert.match(mig003, /"status" text DEFAULT 'pending' NOT NULL/);
+console.log("  ✅ migration 003 owns office_orders.status baseline");
+
+console.log("\n═══ schemaAuthority: Stage 23.2 — no Runtime DDL on formally-owned cases/office_orders ═══");
+const webhookHandlersSrc = readRepo("artifacts/api-server/src/webhookHandlers.ts");
+assert.doesNotMatch(webhookHandlersSrc, /ALTER TABLE office_orders/);
+assert.doesNotMatch(webhookHandlersSrc, /ADD COLUMN IF NOT EXISTS status\s+TEXT DEFAULT 'pending'/);
+assert.doesNotMatch(webhookHandlersSrc, /ADD COLUMN IF NOT EXISTS auto_case_id/);
+assert.doesNotMatch(webhookHandlersSrc, /ADD COLUMN IF NOT EXISTS portal_token/);
+assert.doesNotMatch(webhookHandlersSrc, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS source/);
+assert.doesNotMatch(webhookHandlersSrc, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS store_order_id/);
+assert.doesNotMatch(webhookHandlersSrc, /ALTER TABLE cases ADD COLUMN IF NOT EXISTS created_by/);
+assert.match(webhookHandlersSrc, /migrations 003\/004/);
+console.log("  ✅ webhookHandlers.ts: no Runtime ALTER for cases/office_orders owned columns");
 
 const mig005 = readRepo("artifacts/api-server/migrations/005_tenant_platform_tables.sql");
 assert.match(mig005, /CREATE TABLE IF NOT EXISTS trial_offices/);
@@ -374,7 +394,9 @@ assert.match(branchesSrc, /015_tasks_branches_schema/);
 const casesSrc = readSrc("modules/legal-core/cases.ts");
 assert.doesNotMatch(casesSrc, /CREATE INDEX IF NOT EXISTS idx_tasks_case_id/);
 assert.doesNotMatch(casesSrc, /CREATE INDEX IF NOT EXISTS idx_tasks_office_case/);
+assert.doesNotMatch(casesSrc, /CREATE INDEX IF NOT EXISTS idx_events_case_id/);
 assert.match(casesSrc, /task indexes live in migration 015/);
+assert.match(casesSrc, /idx_events_case_id owned by migration 020/);
 console.log("  ✅ migration 015 owns tasks/branches; Runtime DDL/indexes removed");
 
 console.log("\n═══ schemaAuthority: Batch FTS (016) ═══");
@@ -408,6 +430,25 @@ assert.match(internalMessagesSrc, /016_office_messages_fts/);
 assert.match(internalMessagesSrc, /getMessageFtsConfig/);
 assert.match(internalMessagesSrc, /from "\.\/messageFtsConfig"/);
 assert.match(internalMessagesSrc, /plainto_tsquery\(\$\{ftsConfig\}::regconfig/);
+
+/* Stage 23.2: office_messages.conversation_id / deleted_at — no Runtime ALTER/FK */
+assert.doesNotMatch(
+  internalMessagesSrc,
+  /ALTER TABLE office_messages[\s\S]*ADD COLUMN IF NOT EXISTS conversation_id/,
+);
+assert.doesNotMatch(
+  internalMessagesSrc,
+  /ADD COLUMN IF NOT EXISTS conversation_id UUID\s*REFERENCES/,
+);
+assert.doesNotMatch(
+  internalMessagesSrc,
+  /ALTER TABLE office_messages ADD COLUMN IF NOT EXISTS deleted_at/,
+);
+assert.doesNotMatch(internalMessagesSrc, /CREATE INDEX IF NOT EXISTS idx_messages_conv/);
+assert.match(internalMessagesSrc, /CREATE TABLE IF NOT EXISTS message_conversations/);
+assert.match(internalMessagesSrc, /CREATE TABLE IF NOT EXISTS conversation_members/);
+assert.match(internalMessagesSrc, /Stage 23\.3 will move CREATE authority/);
+console.log("  ✅ Stage 23.2: no Runtime ALTER on office_messages.conversation_id/deleted_at; conversation CREATE retained temporarily");
 
 const messageFtsConfigSrc = readSrc("modules/operations/messageFtsConfig.ts");
 const messageFtsLogicSrc = readSrc("modules/operations/messageFtsConfigLogic.ts");
@@ -567,7 +608,9 @@ assert.match(mig020, /CREATE INDEX IF NOT EXISTS idx_events_case_id/);
 assert.match(mig020, /CREATE INDEX IF NOT EXISTS idx_conv_members_user/);
 assert.doesNotMatch(mig020, /CREATE TABLE|ALTER TABLE|DROP INDEX/i);
 assert.match(mig020, /020_indexes: skipping/);
-console.log("  ✅ migration 020 is CREATE INDEX IF NOT EXISTS only; guarded for missing tables/columns");
+const casesSrc020 = readSrc("modules/legal-core/cases.ts");
+assert.doesNotMatch(casesSrc020, /CREATE INDEX IF NOT EXISTS idx_events_case_id\s+ON events/);
+console.log("  ✅ migration 020 is CREATE INDEX IF NOT EXISTS only; guarded for missing tables/columns; Runtime idx_events_case_id removed");
 
 console.log("\n═══ schemaAuthority: migration 021 RAG schema foundation (Stage 11.2) ═══");
 const mig021 = readRepo("artifacts/api-server/migrations/021_rag_schema_foundation.sql");
