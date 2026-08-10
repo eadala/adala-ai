@@ -62,16 +62,13 @@ function messageSearchPredicate(searchTerm: string | null, ftsConfig: string | n
 }
 
 /* ── Group Conversations Schema ────────────────────────────────────────────
-   Adds the foundation for group/thread-based messaging:
+   Temporary Runtime CREATE for:
      message_conversations — the "room" (direct or group)
      conversation_members  — who is in the room + their role
-     office_messages.conversation_id — links a message to a conversation
+   (Stage 23.3 will move CREATE authority to a numbered migration.)
 
-   Rules:
-   • conversation_id is NULLABLE — existing messages are unaffected
-   • type = 'direct' for 1-to-1, 'group' for multi-member rooms
-   • office_id on both tables ensures full multi-tenant isolation
-   • No routes or UI built in this step — schema only
+   office_messages.conversation_id / deleted_at are owned by migration 016 —
+   no Runtime ALTER / REFERENCES / ADD COLUMN for those columns.
 ──────────────────────────────────────────────────────────────────────────── */
 async function ensureConversationTables() {
   /* 1. Conversations table */
@@ -114,19 +111,6 @@ async function ensureConversationTables() {
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS idx_conv_members_user
       ON conversation_members(user_id, office_id)
-  `).catch(() => {});
-
-  /* 3. Add conversation_id FK to office_messages (nullable — no breaking change) */
-  await db.execute(sql`
-    ALTER TABLE office_messages
-      ADD COLUMN IF NOT EXISTS conversation_id UUID
-      REFERENCES message_conversations(id) ON DELETE SET NULL
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_messages_conv
-      ON office_messages(conversation_id)
-      WHERE conversation_id IS NOT NULL
   `).catch(() => {});
 }
 ensureConversationTables();
@@ -727,10 +711,10 @@ router.post("/ai-tools", requireAuthWithTenant, async (req: Request, res: Respon
   }
 });
 
-/* ── Additional indexes (non-blocking startup) ─────────────────────────── */
+/* ── Additional indexes (non-blocking startup) ───────────────────────────
+   office_messages.deleted_at / conversation_id owned by migration 016 — no ALTER. */
 (async () => {
   const extras = [
-    sql`ALTER TABLE office_messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`,
     sql`CREATE INDEX IF NOT EXISTS idx_msgs_sender_date ON office_messages (sender_id, created_at DESC)`,
     sql`CREATE INDEX IF NOT EXISTS idx_msgs_office_date ON office_messages (office_id, created_at DESC)`,
     sql`CREATE INDEX IF NOT EXISTS idx_msgs_office_folder ON office_messages (office_id, folder)`,

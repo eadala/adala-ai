@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; schema authority */
 import { getStripeSync, getUncachableStripeClient } from './stripeClient';
 import { provisionTenant } from './services/tenantProvisioning';
 import { db } from "@workspace/db";
@@ -245,7 +246,7 @@ export class WebhookHandlers {
 
       try {
         /* TRANSACTION: subscription status + notification are atomic */
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         await db.transaction(async (tx: any) => {
           await tx.execute(sql`
             UPDATE subscriptions SET status = 'past_due' WHERE office_id = ${officeId}
@@ -480,18 +481,8 @@ async function handleOfficeServicePayment(opts: {
 
   function sqlOne(r: any) { return (r?.rows ?? r)?.[0] ?? null; }
 
-  /* ── Schema migrations (non-critical — silently skip if column exists) ── */
-  await db.execute(sql`
-    ALTER TABLE office_orders
-      ADD COLUMN IF NOT EXISTS status        TEXT DEFAULT 'pending',
-      ADD COLUMN IF NOT EXISTS auto_case_id  TEXT,
-      ADD COLUMN IF NOT EXISTS portal_token  TEXT
-  `).catch(() => {});
-
-  /* Add source tracking + linkage columns to cases (ad-hoc — not in Drizzle schema) */
-  await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'`).catch(() => {});
-  await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS store_order_id TEXT`).catch(() => {});
-  await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS created_by TEXT`).catch(() => {});
+  /* cases.source / store_order_id / created_by and office_orders.status /
+     auto_case_id / portal_token are owned by migrations 003/004 — no Runtime ALTER. */
 
   /* ── Step 2: Get the order + office (CRITICAL — abort if missing) ── */
   const orderRow = sqlOne(await db.execute(sql`
