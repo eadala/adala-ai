@@ -37,6 +37,7 @@
 - ~~`ensureTables` (branches)~~ — removed; `office_branches`, `tasks.branch_id`, and branch indexes via migration **015**
 - ~~`ensureFullTextSearch` (internal-messages)~~ — removed; `office_messages.search_vector` and `idx_messages_search` via migration **016**
 - ~~`ensureCaseIdColumn` (internal-messages)~~ — removed; `office_messages.case_id` TEXT via migration **030** (Stage 22); no Runtime INTEGER ADD COLUMN
+- ~~`ensureConversationTables`~~ — removed; `message_conversations` + `conversation_members` (+ `case_id TEXT`) via migration **031** (Stage 23.3B); compatible with **020** indexes
 - `ensureTables` — `marketplace.ts`, `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -100,6 +101,7 @@
 | `office_branches` | 015 |
 | `office_messages.search_vector` | 016 |
 | `office_messages.case_id` TEXT | **030** (preflight → apply INTEGER→TEXT exact `::text` → preflight ALREADY_CORRECT; FK deferred; Runtime `ensureCaseIdColumn` removed) |
+| `message_conversations` / `conversation_members` | **031** (preflight → apply CREATE/repair + `case_id TEXT` + indexes; FK legacy-safe; Runtime `ensureConversationTables` removed; compatible with **020**) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

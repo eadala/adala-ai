@@ -50,7 +50,7 @@ const router = Router();
     sql`CREATE INDEX IF NOT EXISTS idx_documents_case_office   ON documents (case_id, office_id)`,
     /* idx_events_case_id owned by migration 020 — no Runtime CREATE. */
     /* idx_messages_case_id owned by Migration 020/030 (Stage 22) — no Runtime CREATE. */
-    sql`CREATE INDEX IF NOT EXISTS idx_convs_case_id           ON message_conversations (case_id)`,
+    /* idx_convs_case_id owned by migration 020/031 (Stage 23.3B) — no Runtime CREATE. */
     sql`CREATE INDEX IF NOT EXISTS idx_case_hearings_case      ON case_hearings (case_id, office_id)`,
     sql`CREATE INDEX IF NOT EXISTS idx_case_hearings_upcoming  ON case_hearings (office_id, hearing_date) WHERE status != 'cancelled'`,
   ];

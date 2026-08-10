@@ -61,59 +61,10 @@ function messageSearchPredicate(searchTerm: string | null, ftsConfig: string | n
     : sql``;
 }
 
-/* ── Group Conversations Schema ────────────────────────────────────────────
-   Temporary Runtime CREATE for:
-     message_conversations — the "room" (direct or group)
-     conversation_members  — who is in the room + their role
-   (Stage 23.3 will move CREATE authority to a numbered migration.)
-
-   office_messages.conversation_id / deleted_at are owned by migration 016 —
-   no Runtime ALTER / REFERENCES / ADD COLUMN for those columns.
-──────────────────────────────────────────────────────────────────────────── */
-async function ensureConversationTables() {
-  /* 1. Conversations table */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS message_conversations (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id   TEXT NOT NULL,
-      title       TEXT,
-      type        TEXT NOT NULL DEFAULT 'direct' CHECK (type IN ('direct','group')),
-      created_by  TEXT NOT NULL,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_conv_office
-      ON message_conversations(office_id)
-  `).catch(() => {});
-
-  /* 2. Conversation members table */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS conversation_members (
-      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      conversation_id   UUID NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
-      office_id         TEXT NOT NULL,
-      user_id           TEXT NOT NULL,
-      user_name         TEXT,
-      role              TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin','member')),
-      joined_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE (conversation_id, user_id)
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_conv_members_conv
-      ON conversation_members(conversation_id)
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_conv_members_user
-      ON conversation_members(user_id, office_id)
-  `).catch(() => {});
-}
-ensureConversationTables();
+/* message_conversations + conversation_members schema authority:
+   artifacts/api-server/migrations/031_message_conversations_schema_authority.sql
+   (Stage 23.3B). No Runtime CREATE TABLE / CREATE INDEX for these tables.
+   office_messages.conversation_id / deleted_at remain owned by migration 016. */
 
 function getClientIp(req: Request): string {
   const forwarded = req.headers["x-forwarded-for"];
@@ -712,7 +663,8 @@ router.post("/ai-tools", requireAuthWithTenant, async (req: Request, res: Respon
 });
 
 /* ── Additional indexes (non-blocking startup) ───────────────────────────
-   office_messages.deleted_at / conversation_id owned by migration 016 — no ALTER. */
+   office_messages.deleted_at / conversation_id owned by migration 016 — no ALTER.
+   idx_conv_updated / conversation table indexes owned by migration 031 — no Runtime CREATE. */
 (async () => {
   const extras = [
     sql`CREATE INDEX IF NOT EXISTS idx_msgs_sender_date ON office_messages (sender_id, created_at DESC)`,
@@ -721,7 +673,6 @@ router.post("/ai-tools", requireAuthWithTenant, async (req: Request, res: Respon
     sql`CREATE INDEX IF NOT EXISTS idx_rcpt_user_unread  ON office_message_recipients (user_id, is_read) WHERE is_read = FALSE`,
     sql`CREATE INDEX IF NOT EXISTS idx_rcpt_msg         ON office_message_recipients (message_id)`,
     sql`CREATE INDEX IF NOT EXISTS idx_attach_msg       ON office_message_attachments (message_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_conv_updated      ON message_conversations (office_id, updated_at DESC)`,
   ];
   for (const m of extras) await db.execute(m).catch(() => {});
 })();
