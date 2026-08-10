@@ -240,12 +240,13 @@ BEGIN
     RAISE EXCEPTION '032_gateway: BLOCK_AND_MANUAL_REVIEW (reason_code=DUPLICATE_OFFICE_ID) — % duplicate office_id group(s) on checkout_settings; no auto-merge', dup_cnt;
   END IF;
 
-  /* Report legacy 'default' rows (do not block / remap) */
-  SELECT COUNT(*) INTO default_legacy_cnt FROM moyasar_settings WHERE office_id = 'default';
+  /* Report legacy 'default' rows (do not block / remap). Cast to text for safety
+     if this report ever runs near type-check edges; values are never remapped. */
+  SELECT COUNT(*) INTO default_legacy_cnt FROM moyasar_settings WHERE office_id::text = 'default';
   IF default_legacy_cnt > 0 THEN
     RAISE NOTICE '032_gateway: legacy moyasar_settings office_id=''default'' rows=% (preserved; future tenant cleanup)', default_legacy_cnt;
   END IF;
-  SELECT COUNT(*) INTO default_legacy_cnt FROM checkout_settings WHERE office_id = 'default';
+  SELECT COUNT(*) INTO default_legacy_cnt FROM checkout_settings WHERE office_id::text = 'default';
   IF default_legacy_cnt > 0 THEN
     RAISE NOTICE '032_gateway: legacy checkout_settings office_id=''default'' rows=% (preserved; future tenant cleanup)', default_legacy_cnt;
   END IF;

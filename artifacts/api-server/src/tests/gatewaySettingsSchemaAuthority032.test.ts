@@ -62,14 +62,18 @@ assert.match(pre, /DUPLICATE_OFFICE_ID/);
 assert.match(pre, /NULL_OFFICE_ID/);
 assert.match(pre, /DROP_OFFICE_ID_DEFAULT/);
 assert.match(pre, /legacy_office_id_default_rows|legacy_default/);
+assert.match(pre, /office_id::text\s*=\s*'default'/);
 assert.match(pre, /lock_risk/);
 {
   const sqlOnlyPre = stripComments(pre);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*CREATE\s+TABLE\b/im);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*ALTER\s+TABLE\b/im);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  /* Bare office_id = 'default' aborts when office_id is non-text (e.g. int4). */
+  assert.doesNotMatch(sqlOnlyPre, /WHERE\s+office_id\s*=\s*'default'/i);
 }
-console.log("  ✅ preflight false-safe ladder; legacy default rows reported non-blocking");
+assert.match(mig, /office_id::text\s*=\s*'default'/);
+console.log("  ✅ preflight false-safe ladder; type-safe legacy default count; non-blocking");
 
 console.log("\n═══ Runtime DDL removed; payment business paths preserved ═══");
 const payments = readSrc("modules/financial/payments.ts");

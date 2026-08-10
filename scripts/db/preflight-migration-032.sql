@@ -167,7 +167,8 @@ BEGIN
     SELECT COUNT(*) INTO dup_office FROM (
       SELECT office_id FROM moyasar_settings GROUP BY office_id HAVING COUNT(*) > 1
     ) d;
-    SELECT COUNT(*) INTO legacy_default FROM moyasar_settings WHERE office_id = 'default';
+    /* Cast to text so incompatible office_id types (e.g. int4) do not abort preflight. */
+    SELECT COUNT(*) INTO legacy_default FROM moyasar_settings WHERE office_id::text = 'default';
 
     SELECT EXISTS (
       SELECT 1 FROM pg_constraint c
@@ -278,7 +279,9 @@ BEGIN
         SELECT office_id FROM checkout_settings GROUP BY office_id HAVING COUNT(*) > 1
       ) d
     );
-    legacy_default := legacy_default + (SELECT COUNT(*) FROM checkout_settings WHERE office_id = 'default');
+    legacy_default := legacy_default + (
+      SELECT COUNT(*) FROM checkout_settings WHERE office_id::text = 'default'
+    );
 
     SELECT EXISTS (
       SELECT 1 FROM pg_constraint c
