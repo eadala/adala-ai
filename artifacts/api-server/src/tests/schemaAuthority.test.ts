@@ -46,6 +46,8 @@ assert.ok(migrationFiles.includes("024_tasks_tenant_ownership.sql"));
 assert.ok(migrationFiles.includes("025_billing_schema_authority.sql"));
 assert.ok(migrationFiles.includes("026_promo_schema_authority.sql"));
 assert.ok(migrationFiles.includes("027_event_daily_counts_schema_authority.sql"));
+assert.ok(migrationFiles.includes("028_case_autopilot_reports_schema_authority.sql"));
+assert.ok(migrationFiles.includes("029_office_messages_fts_readiness.sql"));
 /* Ordering: 024 must sort after 023 (023 remaps trial_* before NULL-task backfill). */
 assert.ok(
   "023_trial_uuid_offices.sql" < "024_tasks_tenant_ownership.sql",
@@ -62,6 +64,11 @@ assert.ok(
 assert.ok(
   "026_promo_schema_authority.sql" < "027_event_daily_counts_schema_authority.sql",
   "027 must lexicographically follow 026",
+);
+assert.ok(
+  "028_case_autopilot_reports_schema_authority.sql" <
+    "029_office_messages_fts_readiness.sql",
+  "029 must lexicographically follow 028",
 );
 assert.ok(
   !migrationFiles.includes("022_tasks_tenant_ownership.sql"),
@@ -794,6 +801,38 @@ assert.match(expectedTables028, /^case_autopilot_reports$/m);
 const bootTxt028 = readRepo("scripts/db/boot-created-tables.txt");
 assert.doesNotMatch(bootTxt028, /^case_autopilot_reports$/m);
 console.log("  ✅ migration 028 owns case_autopilot_reports; tight ON CONFLICT arbiter; Runtime DDL removed");
+
+console.log("\n═══ schemaAuthority: Batch FTS readiness (029) ═══");
+
+const mig029 = readRepo("artifacts/api-server/migrations/029_office_messages_fts_readiness.sql");
+assert.match(mig029, /SAFE_AUTO_REPAIR_ADD_COLUMN/);
+assert.match(mig029, /SAFE_AUTO_REPAIR_ADD_GIN/);
+assert.match(mig029, /ALREADY_CORRECT/);
+assert.match(mig029, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(mig029, /RAISE EXCEPTION/);
+assert.match(mig029, /GENERATED ALWAYS AS/);
+assert.match(mig029, /CREATE INDEX IF NOT EXISTS idx_messages_search/);
+assert.match(mig029, /POST_APPLY_READINESS_FAILED/);
+assert.match(mig029, /WRONG_GENERATED_EXPRESSION|PARTIAL_INDEX/);
+assert.match(mig029, /idx_present AND NOT idx_ready_gin/);
+{
+  const sqlOnly029 = mig029.replace(/--.*$/gm, "");
+  assert.doesNotMatch(sqlOnly029, /\bDROP\s+COLUMN\b/i);
+  assert.doesNotMatch(sqlOnly029, /\bDROP\s+INDEX\b/i);
+  assert.doesNotMatch(sqlOnly029, /^\s*CREATE\s+INDEX\s+CONCURRENTLY\b/im);
+}
+const preflight029 = readRepo("scripts/db/preflight-migration-029.sql");
+assert.match(preflight029, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable/i);
+assert.match(preflight029, /chosen_action/);
+assert.match(preflight029, /reason_code/);
+assert.match(preflight029, /estimated_rows/);
+assert.match(preflight029, /lock_risk/);
+assert.match(preflight029, /SAFE_AUTO_REPAIR_ADD_COLUMN/);
+assert.match(preflight029, /BLOCK_AND_MANUAL_REVIEW/);
+const integ029 = readRepo("scripts/db/test-migrations.integration.sh");
+assert.match(integ029, /scenario_migration_029_office_messages_fts_readiness|MIGRATION_029/);
+assert.match(integ029, /apply_migration_029/);
+console.log("  ✅ migration 029 FTS readiness: safe add column/GIN only; BLOCK refuses destructive repair");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
