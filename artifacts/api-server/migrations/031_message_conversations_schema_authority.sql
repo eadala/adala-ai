@@ -108,10 +108,13 @@ DECLARE
   idx_valid BOOLEAN;
   idx_ready BOOLEAN;
   idx_exists BOOLEAN;
+  idx_expr BOOLEAN;
+  idx_opts INT[];
   fk_installed BOOLEAN := false;
   fk_deferred_reason TEXT := NULL;
+  not_null_ok BOOLEAN;
 BEGIN
-  /* ── Type checks (BLOCK incompatible) ── */
+  /* ── Type checks (BLOCK incompatible existing types) ── */
   SELECT c.udt_name INTO udt FROM information_schema.columns c
   WHERE c.table_schema='public' AND c.table_name='message_conversations' AND c.column_name='id';
   IF udt IS DISTINCT FROM 'uuid' THEN
@@ -125,6 +128,36 @@ BEGIN
   END IF;
 
   SELECT c.udt_name INTO udt FROM information_schema.columns c
+  WHERE c.table_schema='public' AND c.table_name='message_conversations' AND c.column_name='title';
+  IF udt IS DISTINCT FROM 'text' THEN
+    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — message_conversations.title udt=%; expected text', udt;
+  END IF;
+
+  SELECT c.udt_name INTO udt FROM information_schema.columns c
+  WHERE c.table_schema='public' AND c.table_name='message_conversations' AND c.column_name='type';
+  IF udt IS DISTINCT FROM 'text' THEN
+    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — message_conversations.type udt=%; expected text', udt;
+  END IF;
+
+  SELECT c.udt_name INTO udt FROM information_schema.columns c
+  WHERE c.table_schema='public' AND c.table_name='message_conversations' AND c.column_name='created_by';
+  IF udt IS DISTINCT FROM 'text' THEN
+    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — message_conversations.created_by udt=%; expected text', udt;
+  END IF;
+
+  SELECT c.udt_name INTO udt FROM information_schema.columns c
+  WHERE c.table_schema='public' AND c.table_name='message_conversations' AND c.column_name='created_at';
+  IF udt IS DISTINCT FROM 'timestamptz' THEN
+    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — message_conversations.created_at udt=%; expected timestamptz', udt;
+  END IF;
+
+  SELECT c.udt_name INTO udt FROM information_schema.columns c
+  WHERE c.table_schema='public' AND c.table_name='message_conversations' AND c.column_name='updated_at';
+  IF udt IS DISTINCT FROM 'timestamptz' THEN
+    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — message_conversations.updated_at udt=%; expected timestamptz', udt;
+  END IF;
+
+  SELECT c.udt_name INTO udt FROM information_schema.columns c
   WHERE c.table_schema='public' AND c.table_name='message_conversations' AND c.column_name='case_id';
   IF udt IS NULL THEN
     RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=CASE_ID_MISSING) — case_id still absent after ADD COLUMN';
@@ -134,9 +167,21 @@ BEGIN
   END IF;
 
   SELECT c.udt_name INTO udt FROM information_schema.columns c
+  WHERE c.table_schema='public' AND c.table_name='conversation_members' AND c.column_name='id';
+  IF udt IS DISTINCT FROM 'uuid' THEN
+    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — conversation_members.id udt=%; expected uuid', udt;
+  END IF;
+
+  SELECT c.udt_name INTO udt FROM information_schema.columns c
   WHERE c.table_schema='public' AND c.table_name='conversation_members' AND c.column_name='conversation_id';
   IF udt IS DISTINCT FROM 'uuid' THEN
     RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — conversation_members.conversation_id udt=%; expected uuid', udt;
+  END IF;
+
+  SELECT c.udt_name INTO udt FROM information_schema.columns c
+  WHERE c.table_schema='public' AND c.table_name='conversation_members' AND c.column_name='office_id';
+  IF udt IS DISTINCT FROM 'text' THEN
+    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — conversation_members.office_id udt=%; expected text', udt;
   END IF;
 
   SELECT c.udt_name INTO udt FROM information_schema.columns c
@@ -145,24 +190,53 @@ BEGIN
     RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — conversation_members.user_id udt=%; expected text', udt;
   END IF;
 
-  /* ── NULL required identifiers ── */
-  SELECT COUNT(*) INTO null_cnt FROM message_conversations WHERE office_id IS NULL;
-  IF null_cnt > 0 THEN
-    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=NULL_REQUIRED_IDENTIFIERS) — % message_conversations row(s) with NULL office_id', null_cnt;
-  END IF;
-  SELECT COUNT(*) INTO null_cnt FROM message_conversations WHERE created_by IS NULL;
-  IF null_cnt > 0 THEN
-    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=NULL_REQUIRED_IDENTIFIERS) — % message_conversations row(s) with NULL created_by', null_cnt;
-  END IF;
-  SELECT COUNT(*) INTO null_cnt FROM message_conversations WHERE type IS NULL;
-  IF null_cnt > 0 THEN
-    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=NULL_REQUIRED_IDENTIFIERS) — % message_conversations row(s) with NULL type', null_cnt;
+  SELECT c.udt_name INTO udt FROM information_schema.columns c
+  WHERE c.table_schema='public' AND c.table_name='conversation_members' AND c.column_name='user_name';
+  IF udt IS DISTINCT FROM 'text' THEN
+    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — conversation_members.user_name udt=%; expected text', udt;
   END IF;
 
-  SELECT COUNT(*) INTO null_cnt FROM conversation_members WHERE conversation_id IS NULL OR office_id IS NULL OR user_id IS NULL;
-  IF null_cnt > 0 THEN
-    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=NULL_REQUIRED_IDENTIFIERS) — % conversation_members row(s) with NULL conversation_id/office_id/user_id', null_cnt;
+  SELECT c.udt_name INTO udt FROM information_schema.columns c
+  WHERE c.table_schema='public' AND c.table_name='conversation_members' AND c.column_name='role';
+  IF udt IS DISTINCT FROM 'text' THEN
+    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — conversation_members.role udt=%; expected text', udt;
   END IF;
+
+  SELECT c.udt_name INTO udt FROM information_schema.columns c
+  WHERE c.table_schema='public' AND c.table_name='conversation_members' AND c.column_name='joined_at';
+  IF udt IS DISTINCT FROM 'timestamptz' THEN
+    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — conversation_members.joined_at udt=%; expected timestamptz', udt;
+  END IF;
+
+  /* ── NULL required identifiers (BLOCK before SET NOT NULL) ── */
+  SELECT COUNT(*) INTO null_cnt FROM message_conversations
+  WHERE id IS NULL OR office_id IS NULL OR created_by IS NULL OR type IS NULL
+     OR created_at IS NULL OR updated_at IS NULL;
+  IF null_cnt > 0 THEN
+    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=NULL_REQUIRED_IDENTIFIERS) — % message_conversations row(s) with NULL required columns', null_cnt;
+  END IF;
+
+  SELECT COUNT(*) INTO null_cnt FROM conversation_members
+  WHERE id IS NULL OR conversation_id IS NULL OR office_id IS NULL OR user_id IS NULL
+     OR role IS NULL OR joined_at IS NULL;
+  IF null_cnt > 0 THEN
+    RAISE EXCEPTION '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=NULL_REQUIRED_IDENTIFIERS) — % conversation_members row(s) with NULL required columns', null_cnt;
+  END IF;
+
+  /* ── SET NOT NULL to match greenfield contract (safe: nulls already blocked) ── */
+  ALTER TABLE message_conversations ALTER COLUMN id SET NOT NULL;
+  ALTER TABLE message_conversations ALTER COLUMN office_id SET NOT NULL;
+  ALTER TABLE message_conversations ALTER COLUMN type SET NOT NULL;
+  ALTER TABLE message_conversations ALTER COLUMN created_by SET NOT NULL;
+  ALTER TABLE message_conversations ALTER COLUMN created_at SET NOT NULL;
+  ALTER TABLE message_conversations ALTER COLUMN updated_at SET NOT NULL;
+
+  ALTER TABLE conversation_members ALTER COLUMN id SET NOT NULL;
+  ALTER TABLE conversation_members ALTER COLUMN conversation_id SET NOT NULL;
+  ALTER TABLE conversation_members ALTER COLUMN office_id SET NOT NULL;
+  ALTER TABLE conversation_members ALTER COLUMN user_id SET NOT NULL;
+  ALTER TABLE conversation_members ALTER COLUMN role SET NOT NULL;
+  ALTER TABLE conversation_members ALTER COLUMN joined_at SET NOT NULL;
 
   /* ── Duplicate membership pairs ── */
   SELECT COUNT(*) INTO dup_cnt FROM (
@@ -250,9 +324,8 @@ BEGIN
     SELECT EXISTS (
       SELECT 1
       FROM pg_index x
-      JOIN pg_class i ON i.oid = x.indexrelid
       WHERE x.indrelid = 'public.conversation_members'::regclass
-        AND x.indisunique AND x.indisvalid
+        AND x.indisunique AND x.indisvalid AND x.indisready
         AND x.indpred IS NULL AND x.indexprs IS NULL
         AND x.indnkeyatts = 2
         AND EXISTS (
@@ -276,7 +349,7 @@ BEGIN
   /* ── Index helper: BLOCK incompatible same-name; create if absent ── */
   -- idx_conv_office: (office_id) non-partial
   SELECT true, am.amname, x.indisvalid, x.indisready, x.indpred IS NOT NULL,
-         (SELECT array_agg(a.attname ORDER BY ord.ordinality)
+         (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
           JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped),
          pg_get_expr(x.indpred, x.indrelid)
@@ -304,7 +377,7 @@ BEGIN
   -- idx_convs_case_id: (case_id) WHERE case_id IS NOT NULL  (020 definition)
   idx_exists := false;
   SELECT true, am.amname, x.indisvalid, x.indisready, x.indpred IS NOT NULL,
-         (SELECT array_agg(a.attname ORDER BY ord.ordinality)
+         (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
           JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped),
          pg_get_expr(x.indpred, x.indrelid)
@@ -336,11 +409,13 @@ BEGIN
 
   -- idx_conv_updated: (office_id, updated_at DESC) non-partial
   idx_exists := false;
-  SELECT true, x.indisvalid, x.indpred IS NOT NULL,
-         (SELECT array_agg(a.attname ORDER BY ord.ordinality)
+  SELECT true, x.indisvalid, x.indisready, x.indpred IS NOT NULL, x.indexprs IS NOT NULL,
+         (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
-          JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped)
-  INTO idx_exists, idx_valid, idx_partial, idx_cols
+          JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped),
+         (SELECT array_agg(o::int ORDER BY ord.ordinality)
+          FROM unnest(x.indoption) WITH ORDINALITY AS ord(o, ordinality))
+  INTO idx_exists, idx_valid, idx_ready, idx_partial, idx_expr, idx_cols, idx_opts
   FROM pg_class t
   JOIN pg_namespace n ON n.oid = t.relnamespace
   JOIN pg_index x ON x.indrelid = t.oid
@@ -351,10 +426,15 @@ BEGIN
     idx_exists := false;
   END IF;
   IF idx_exists THEN
-    IF idx_partial OR idx_cols IS DISTINCT FROM ARRAY['office_id','updated_at']::text[] OR idx_valid IS NOT TRUE THEN
+    IF idx_partial OR idx_expr
+       OR idx_cols IS DISTINCT FROM ARRAY['office_id','updated_at']::text[]
+       OR idx_opts IS NULL
+       OR array_length(idx_opts, 1) IS DISTINCT FROM 2
+       OR (idx_opts[2] & 1) IS DISTINCT FROM 1
+       OR idx_valid IS NOT TRUE OR idx_ready IS NOT TRUE THEN
       RAISE EXCEPTION
-        '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_INDEX) — idx_conv_updated incompatible (cols=% partial=%). No DROP INDEX.',
-        idx_cols, idx_partial;
+        '031_conv: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_INDEX) — idx_conv_updated incompatible (cols=% opts=% partial=%). Expected (office_id, updated_at DESC). No DROP INDEX.',
+        idx_cols, idx_opts, idx_partial;
     END IF;
   ELSE
     CREATE INDEX IF NOT EXISTS idx_conv_updated
@@ -364,7 +444,7 @@ BEGIN
   -- idx_conv_members_conv: (conversation_id)
   idx_exists := false;
   SELECT true, x.indisvalid, x.indpred IS NOT NULL,
-         (SELECT array_agg(a.attname ORDER BY ord.ordinality)
+         (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
           JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped)
   INTO idx_exists, idx_valid, idx_partial, idx_cols
@@ -390,7 +470,7 @@ BEGIN
   -- idx_conv_members_user: (user_id, office_id)
   idx_exists := false;
   SELECT true, x.indisvalid, x.indpred IS NOT NULL,
-         (SELECT array_agg(a.attname ORDER BY ord.ordinality)
+         (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
           JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped)
   INTO idx_exists, idx_valid, idx_partial, idx_cols
@@ -460,18 +540,102 @@ BEGIN
       COALESCE(fk_deferred_reason, 'unknown');
   END IF;
 
-  /* ── Post-apply readiness gate (fail closed) ── */
+  /* ── Post-apply readiness gate (fail closed; no false full-ready) ── */
   IF to_regclass('public.message_conversations') IS NULL
      OR to_regclass('public.conversation_members') IS NULL THEN
     RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — required table missing';
   END IF;
 
+  /* Required column types */
   IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='message_conversations'
+      AND column_name='id' AND udt_name='uuid'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='message_conversations'
+      AND column_name='office_id' AND udt_name='text'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='message_conversations'
+      AND column_name='title' AND udt_name='text'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='message_conversations'
+      AND column_name='type' AND udt_name='text'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='message_conversations'
+      AND column_name='created_by' AND udt_name='text'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='message_conversations'
+      AND column_name='created_at' AND udt_name='timestamptz'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='message_conversations'
+      AND column_name='updated_at' AND udt_name='timestamptz'
+  ) OR NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema='public' AND table_name='message_conversations'
       AND column_name='case_id' AND udt_name='text'
   ) THEN
-    RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — message_conversations.case_id is not TEXT';
+    RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — message_conversations required column types missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='conversation_members'
+      AND column_name='id' AND udt_name='uuid'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='conversation_members'
+      AND column_name='conversation_id' AND udt_name='uuid'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='conversation_members'
+      AND column_name='office_id' AND udt_name='text'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='conversation_members'
+      AND column_name='user_id' AND udt_name='text'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='conversation_members'
+      AND column_name='user_name' AND udt_name='text'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='conversation_members'
+      AND column_name='role' AND udt_name='text'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='conversation_members'
+      AND column_name='joined_at' AND udt_name='timestamptz'
+  ) THEN
+    RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — conversation_members required column types missing';
+  END IF;
+
+  /* NOT NULL contract (greenfield-equivalent) */
+  SELECT bool_and(a.attnotnull) INTO not_null_ok
+  FROM pg_attribute a
+  JOIN pg_class t ON t.oid = a.attrelid
+  JOIN pg_namespace n ON n.oid = t.relnamespace
+  WHERE n.nspname = 'public' AND t.relname = 'message_conversations'
+    AND a.attname IN ('id', 'office_id', 'type', 'created_by', 'created_at', 'updated_at')
+    AND NOT a.attisdropped AND a.attnum > 0;
+  IF not_null_ok IS NOT TRUE THEN
+    RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — message_conversations required NOT NULL missing';
+  END IF;
+
+  SELECT bool_and(a.attnotnull) INTO not_null_ok
+  FROM pg_attribute a
+  JOIN pg_class t ON t.oid = a.attrelid
+  JOIN pg_namespace n ON n.oid = t.relnamespace
+  WHERE n.nspname = 'public' AND t.relname = 'conversation_members'
+    AND a.attname IN ('id', 'conversation_id', 'office_id', 'user_id', 'role', 'joined_at')
+    AND NOT a.attisdropped AND a.attnum > 0;
+  IF not_null_ok IS NOT TRUE THEN
+    RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — conversation_members required NOT NULL missing';
   END IF;
 
   IF NOT EXISTS (
@@ -484,17 +648,7 @@ BEGIN
     RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — required PK missing';
   END IF;
 
-  /* ON CONFLICT arbiter probe */
-  BEGIN
-    INSERT INTO conversation_members (conversation_id, office_id, user_id, user_name, role)
-    SELECT id, '__mig031_probe_office__', '__mig031_probe_user__', 'probe', 'member'
-    FROM message_conversations
-    LIMIT 0; -- no-op shape check; real probe below if we have a temp conv
-  EXCEPTION WHEN OTHERS THEN
-    NULL;
-  END;
-
-  /* Prove UNIQUE (conversation_id, user_id) via constraint/index presence */
+  /* Strict UNIQUE (conversation_id, user_id) arbiter for ON CONFLICT */
   SELECT EXISTS (
     SELECT 1 FROM pg_constraint c
     WHERE c.conrelid = 'public.conversation_members'::regclass
@@ -503,7 +657,7 @@ BEGIN
   ) OR EXISTS (
     SELECT 1 FROM pg_index x
     WHERE x.indrelid = 'public.conversation_members'::regclass
-      AND x.indisunique AND x.indisvalid
+      AND x.indisunique AND x.indisvalid AND x.indisready
       AND x.indpred IS NULL AND x.indexprs IS NULL
       AND x.indnkeyatts = 2
       AND EXISTS (
@@ -521,16 +675,20 @@ BEGIN
     RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — UNIQUE(conversation_id,user_id) ON CONFLICT arbiter missing';
   END IF;
 
-  /* Index readiness: required five indexes with expected shapes */
+  /* Five indexes — expected shapes */
   IF NOT EXISTS (
     SELECT 1 FROM pg_class t
     JOIN pg_namespace n ON n.oid = t.relnamespace
     JOIN pg_index x ON x.indrelid = t.oid
     JOIN pg_class i ON i.oid = x.indexrelid
     WHERE n.nspname='public' AND t.relname='message_conversations' AND i.relname='idx_conv_office'
-      AND x.indisvalid AND x.indpred IS NULL
+      AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+      AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+           JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped)
+         = ARRAY['office_id']::text[]
   ) THEN
-    RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — idx_conv_office missing/invalid';
+    RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — idx_conv_office missing/invalid shape';
   END IF;
 
   IF NOT EXISTS (
@@ -539,7 +697,11 @@ BEGIN
     JOIN pg_index x ON x.indrelid = t.oid
     JOIN pg_class i ON i.oid = x.indexrelid
     WHERE n.nspname='public' AND t.relname='message_conversations' AND i.relname='idx_convs_case_id'
-      AND x.indisvalid AND x.indpred IS NOT NULL
+      AND x.indisvalid AND x.indisready AND x.indpred IS NOT NULL AND x.indexprs IS NULL
+      AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+           JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped)
+         = ARRAY['case_id']::text[]
       AND pg_get_expr(x.indpred, x.indrelid) ~* 'case_id[[:space:]]+IS[[:space:]]+NOT[[:space:]]+NULL'
   ) THEN
     RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — idx_convs_case_id missing or not partial WHERE case_id IS NOT NULL';
@@ -551,9 +713,15 @@ BEGIN
     JOIN pg_index x ON x.indrelid = t.oid
     JOIN pg_class i ON i.oid = x.indexrelid
     WHERE n.nspname='public' AND t.relname='message_conversations' AND i.relname='idx_conv_updated'
-      AND x.indisvalid
+      AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+      AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+           JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped)
+         = ARRAY['office_id','updated_at']::text[]
+      AND ((SELECT (array_agg(o::int ORDER BY ord.ordinality))[2]
+            FROM unnest(x.indoption) WITH ORDINALITY AS ord(o, ordinality)) & 1) = 1
   ) THEN
-    RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — idx_conv_updated missing/invalid';
+    RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — idx_conv_updated missing or not (office_id, updated_at DESC)';
   END IF;
 
   IF NOT EXISTS (
@@ -562,16 +730,24 @@ BEGIN
     JOIN pg_index x ON x.indrelid = t.oid
     JOIN pg_class i ON i.oid = x.indexrelid
     WHERE n.nspname='public' AND t.relname='conversation_members' AND i.relname='idx_conv_members_conv'
-      AND x.indisvalid
+      AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+      AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+           JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped)
+         = ARRAY['conversation_id']::text[]
   ) OR NOT EXISTS (
     SELECT 1 FROM pg_class t
     JOIN pg_namespace n ON n.oid = t.relnamespace
     JOIN pg_index x ON x.indrelid = t.oid
     JOIN pg_class i ON i.oid = x.indexrelid
     WHERE n.nspname='public' AND t.relname='conversation_members' AND i.relname='idx_conv_members_user'
-      AND x.indisvalid
+      AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+      AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+           JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped)
+         = ARRAY['user_id','office_id']::text[]
   ) THEN
-    RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — conversation_members indexes missing/invalid';
+    RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — conversation_members indexes missing/invalid shape';
   END IF;
 
   IF NOT EXISTS (
@@ -586,7 +762,22 @@ BEGIN
     RAISE EXCEPTION '031_conv: POST_APPLY_READINESS_FAILED — CHECK contracts missing';
   END IF;
 
-  RAISE NOTICE '031_conv: post-apply readiness gate passed (tables/cols/PK/UNIQUE/CHECK/indexes); fk_installed=%', fk_installed;
+  /* Re-read FK status for explicit reporting (installed vs deferred — never claim full FK if skipped) */
+  SELECT EXISTS (
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conrelid = 'public.conversation_members'::regclass
+      AND c.contype = 'f'
+      AND c.conname = 'conversation_members_conversation_id_fkey'
+  ) INTO fk_installed;
+
+  IF fk_installed THEN
+    RAISE NOTICE '031_conv: post-apply readiness gate passed (tables/cols/NOT NULL/PK/UNIQUE/CHECK/indexes); fk_status=INSTALLED';
+  ELSIF orphan_cnt > 0 OR fk_deferred_reason IS NOT NULL THEN
+    RAISE NOTICE '031_conv: post-apply readiness gate passed (tables/cols/NOT NULL/PK/UNIQUE/CHECK/indexes); fk_status=DEFERRED (%)',
+      COALESCE(fk_deferred_reason, format('orphan_members=%s', orphan_cnt));
+  ELSE
+    RAISE NOTICE '031_conv: post-apply readiness gate passed (tables/cols/NOT NULL/PK/UNIQUE/CHECK/indexes); fk_status=PENDING';
+  END IF;
 END $$;
 
 COMMIT;

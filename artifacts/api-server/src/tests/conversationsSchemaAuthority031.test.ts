@@ -49,15 +49,21 @@ assert.match(mig, /DUPLICATE_MEMBERSHIP/);
 assert.match(mig, /NULL_REQUIRED_IDENTIFIERS/);
 assert.match(mig, /POST_APPLY_READINESS_FAILED/);
 assert.match(mig, /Migration 020/);
+assert.match(mig, /ALTER COLUMN office_id SET NOT NULL/);
+assert.match(mig, /ALTER COLUMN conversation_id SET NOT NULL/);
+assert.match(mig, /attnotnull/);
+assert.match(mig, /fk_status=INSTALLED|fk_status=DEFERRED/);
+assert.match(mig, /updated_at DESC/);
+assert.match(mig, /indoption/);
 {
   const sqlOnly = stripComments(mig);
   assert.doesNotMatch(sqlOnly, /(?:^|;)\s*DROP\s+TABLE\b/im);
   assert.doesNotMatch(sqlOnly, /(?:^|;)\s*DROP\s+INDEX\b/im);
   assert.doesNotMatch(sqlOnly, /REFERENCES\s+cases\s*\(/i);
 }
-console.log("  ✅ 031 owns tables + case_id TEXT + indexes; no DROP; no cases FK");
+console.log("  ✅ 031 owns tables + case_id TEXT + indexes + SET NOT NULL; no DROP; no cases FK");
 
-console.log("\n═══ Preflight 031 SELECT-only + classifications ═══");
+console.log("\n═══ Preflight 031 SELECT-only + false-safe ladder ═══");
 assert.match(pre, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable/i);
 assert.match(pre, /chosen_action/);
 assert.match(pre, /reason_code/);
@@ -69,13 +75,19 @@ assert.match(pre, /BLOCK_AND_MANUAL_REVIEW/);
 assert.match(pre, /orphan_members|orphan_cnt/);
 assert.match(pre, /duplicate_membership|DUPLICATE_MEMBERSHIP/);
 assert.match(pre, /case_id_udt/);
+assert.match(pre, /INCOMPATIBLE_TYPE/);
+assert.match(pre, /SET_NOT_NULL_PENDING/);
+assert.match(pre, /attname = 'conversation_id'/);
+assert.match(pre, /attname = 'user_id'/);
+assert.match(pre, /idx_opts\[2\]|& 1/);
+assert.match(pre, /2\. BLOCKERS|Evaluate blockers|never short-circuit/i);
 {
   const sqlOnlyPre = stripComments(pre);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*CREATE\s+TABLE\b/im);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*ALTER\s+TABLE\b/im);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*DROP\s+TABLE\b/im);
 }
-console.log("  ✅ preflight reports chosen_action / blocks / orphans; SELECT-only");
+console.log("  ✅ preflight false-safe ladder + strict UNIQUE/index rules; SELECT-only");
 console.log("\n═══ Runtime DDL removed ═══");
 const im = readSrc("modules/operations/internal-messages.ts");
 const cases = readSrc("modules/legal-core/cases.ts");
