@@ -38,6 +38,7 @@ MIGRATION_026="$ROOT/artifacts/api-server/migrations/026_promo_schema_authority.
 MIGRATION_027="$ROOT/artifacts/api-server/migrations/027_event_daily_counts_schema_authority.sql"
 MIGRATION_028="$ROOT/artifacts/api-server/migrations/028_case_autopilot_reports_schema_authority.sql"
 MIGRATION_029="$ROOT/artifacts/api-server/migrations/029_office_messages_fts_readiness.sql"
+MIGRATION_030="$ROOT/artifacts/api-server/migrations/030_office_messages_case_id_text.sql"
 
 PASS=0
 FAIL=0
@@ -194,8 +195,13 @@ apply_migration_029() {
   psql_db -f "$MIGRATION_029" >/dev/null
 }
 
+apply_migration_030() {
+  psql_db -f "$MIGRATION_030" >/dev/null
+}
+
 # P0 verify requires billing (025) + promo (026) + analytics (027) + autopilot (028).
 # Idempotent if already applied. 029 is FTS readiness (safe after 016).
+# 030 aligns office_messages.case_id to TEXT (Stage 22).
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -203,6 +209,7 @@ verify_p0_schema() {
   apply_migration_027
   apply_migration_028
   apply_migration_029
+  apply_migration_030
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -237,11 +244,12 @@ apply_all_migrations() {
   apply_migration_027
   apply_migration_028
   apply_migration_029
+  apply_migration_030
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -5634,6 +5642,236 @@ SQL
   teardown_db
 }
 
+# ── Scenario: migration 030 office_messages.case_id TEXT (Stage 22) ────────
+scenario_migration_030_office_messages_case_id_text() {
+  log "Scenario 030 — case_id INTEGER→TEXT / already-TEXT / BLOCK unexpected"
+  local PREFLIGHT_030="$ROOT/scripts/db/preflight-migration-030.sql"
+  local CASE_UUID="aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1"
+  local OFFICE_A="11111111-1111-4111-8111-111111111111"
+  local OFFICE_B="22222222-2222-4222-8222-222222222222"
+
+  # ── A. INTEGER case_id + legacy 42 → TEXT '42' (no UUID invent) ──────────
+  setup_db "mig030_integer_legacy"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  apply_migration_017
+
+  # Ensure cases row (TEXT id) + INTEGER case_id message with orphan legacy 42
+  psql_db <<SQL >/dev/null
+INSERT INTO cases (id, office_id, title)
+VALUES ('${CASE_UUID}', '${OFFICE_A}', 'Case A')
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO office_messages (office_id, subject, body, sender_id, sender_name, folder, case_id)
+VALUES
+  ('${OFFICE_A}', 'linked-uuid-impossible', 'body', 'u1', 'U1', 'sent', NULL),
+  ('${OFFICE_A}', 'legacy-orphan', 'body-42', 'u1', 'U1', 'sent', 42);
+SQL
+
+  local pre_udt
+  pre_udt=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='office_messages' AND column_name='case_id';")
+  [[ "$pre_udt" == "int4" ]] && ok "A pre: case_id is INTEGER" || bad "A pre: case_id udt=$pre_udt"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_030" >/tmp/preflight030-int.log 2>&1
+  set -e
+  grep -q 'chosen_action=SAFE_CONVERT_INTEGER_TO_TEXT' /tmp/preflight030-int.log \
+    && ok "A0: preflight SAFE_CONVERT_INTEGER_TO_TEXT" \
+    || bad "A0: chosen_action=$(grep chosen_action /tmp/preflight030-int.log | tail -1)"
+
+  apply_migration_030
+
+  local post_udt legacy_val null_ok idx_present
+  post_udt=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='office_messages' AND column_name='case_id';")
+  legacy_val=$(psql_db -At -c "
+    SELECT case_id FROM office_messages WHERE subject='legacy-orphan' LIMIT 1;")
+  null_ok=$(psql_db -At -c "
+    SELECT COUNT(*)::text FROM office_messages WHERE subject='linked-uuid-impossible' AND case_id IS NULL;")
+  idx_present=$(psql_db -At -c "
+    SELECT COUNT(*)::text FROM pg_indexes
+    WHERE schemaname='public' AND tablename='office_messages' AND indexname='idx_messages_case_id';")
+
+  [[ "$post_udt" == "text" ]] && ok "A: case_id converted to TEXT" || bad "A: post udt=$post_udt"
+  [[ "$legacy_val" == "42" ]] && ok "A: legacy 42 preserved as TEXT '42'" || bad "A: legacy_val=$legacy_val"
+  [[ "$null_ok" == "1" ]] && ok "A: NULL case_id preserved" || bad "A: null_ok=$null_ok"
+  [[ "$idx_present" == "1" ]] && ok "A: idx_messages_case_id present" || bad "A: idx count=$idx_present"
+
+  # Must NOT invent a UUID for legacy 42
+  local invent_count
+  invent_count=$(psql_db -At -c "
+    SELECT COUNT(*)::text FROM office_messages
+    WHERE case_id IS NOT NULL
+      AND case_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\$'
+      AND subject='legacy-orphan';")
+  [[ "$invent_count" == "0" ]] && ok "A: legacy '42' NOT mapped to any UUID" || bad "A: invent_count=$invent_count"
+
+  # Idempotent re-apply
+  apply_migration_030
+  ok "A: re-apply 030 on converted TEXT succeeded (idempotent)"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_030" >/tmp/preflight030-after-a.log 2>&1
+  set -e
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight030-after-a.log \
+    && ok "A: post-apply preflight ALREADY_CORRECT" \
+    || bad "A: post chosen_action=$(grep chosen_action /tmp/preflight030-after-a.log | tail -1)"
+
+  # TEXT-to-TEXT join works for UUID case_id after convert
+  psql_db <<SQL >/dev/null
+INSERT INTO office_messages (office_id, subject, body, sender_id, sender_name, folder, case_id)
+VALUES ('${OFFICE_A}', 'uuid-link', 'body', 'u1', 'U1', 'sent', '${CASE_UUID}');
+SQL
+  local join_count
+  join_count=$(psql_db -At -c "
+    SELECT COUNT(*)::text
+    FROM office_messages m
+    JOIN cases c ON c.id = m.case_id AND c.office_id = m.office_id
+    WHERE m.subject='uuid-link';")
+  [[ "$join_count" == "1" ]] && ok "A: TEXT↔TEXT join works for UUID case_id" || bad "A: join_count=$join_count"
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Already TEXT → ALREADY_CORRECT / no-op rewrite ───────────────────
+  setup_db "mig030_already_text"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  subject TEXT,
+  body TEXT,
+  sender_id TEXT,
+  sender_name TEXT,
+  folder TEXT,
+  case_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO office_messages (office_id, subject, body, sender_id, folder, case_id)
+VALUES ('oa', 'keep', 'b', 'u1', 'sent', '42');
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_030" >/tmp/preflight030-text.log 2>&1
+  set -e
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight030-text.log \
+    && ok "B: already-TEXT preflight ALREADY_CORRECT" \
+    || bad "B: chosen_action=$(grep chosen_action /tmp/preflight030-text.log | tail -1)"
+
+  apply_migration_030
+  local keep_val
+  keep_val=$(psql_db -At -c "SELECT case_id FROM office_messages WHERE subject='keep';")
+  [[ "$keep_val" == "42" ]] && ok "B: already-TEXT '42' unchanged (no UUID invent)" || bad "B: keep_val=$keep_val"
+  apply_migration_030
+  ok "B: migration 030 idempotent on already-TEXT"
+
+  trap - EXIT
+  teardown_db
+
+  # ── C. Unexpected case_id type → BLOCK_AND_MANUAL_REVIEW ────────────────
+  setup_db "mig030_unexpected"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  subject TEXT,
+  body TEXT,
+  case_id BOOLEAN
+);
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_030" >/tmp/preflight030-block.log 2>&1
+  set -e
+  grep -q 'chosen_action=BLOCK_AND_MANUAL_REVIEW' /tmp/preflight030-block.log \
+    && ok "C0: unexpected type preflight BLOCK" \
+    || bad "C0: chosen_action=$(grep chosen_action /tmp/preflight030-block.log | tail -1)"
+  grep -q 'UNEXPECTED_CASE_ID_TYPE' /tmp/preflight030-block.log \
+    && ok "C0: reason_code UNEXPECTED_CASE_ID_TYPE" \
+    || bad "C0: missing UNEXPECTED_CASE_ID_TYPE"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_030" >/tmp/mig030-block.log 2>&1
+  local block_rc=$?
+  set -e
+  [[ "$block_rc" -ne 0 ]] && ok "C: migration 030 aborts on unexpected type" || bad "C: migration should abort"
+  grep -q 'BLOCK_AND_MANUAL_REVIEW' /tmp/mig030-block.log \
+    && ok "C: RAISE EXCEPTION mentions BLOCK_AND_MANUAL_REVIEW" \
+    || bad "C: missing BLOCK message"
+
+  local still_bool
+  still_bool=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='office_messages' AND column_name='case_id';")
+  [[ "$still_bool" == "bool" ]] && ok "C: case_id type unchanged after BLOCK" || bad "C: udt=$still_bool"
+
+  trap - EXIT
+  teardown_db
+
+  # ── D. Cross-office match surfaced; orphans do not invent repair ────────
+  setup_db "mig030_cross_office"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  apply_migration_017
+
+  psql_db <<SQL >/dev/null
+INSERT INTO cases (id, office_id, title) VALUES
+  ('${CASE_UUID}', '${OFFICE_A}', 'Case A')
+ON CONFLICT (id) DO NOTHING;
+-- After convert we will set textual UUID on office B message to surface cross-office
+INSERT INTO office_messages (office_id, subject, body, sender_id, sender_name, folder, case_id)
+VALUES ('${OFFICE_A}', 'orphan-int', 'b', 'u1', 'U1', 'sent', 99);
+SQL
+
+  apply_migration_030
+  psql_db <<SQL >/dev/null
+INSERT INTO office_messages (office_id, subject, body, sender_id, sender_name, folder, case_id)
+VALUES ('${OFFICE_B}', 'cross-office', 'b', 'u2', 'U2', 'sent', '${CASE_UUID}');
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_030" >/tmp/preflight030-cross.log 2>&1
+  set -e
+  grep -q 'cross_office_matches' /tmp/preflight030-cross.log \
+    && ok "D: preflight reports cross_office_matches" \
+    || bad "D: missing cross_office_matches"
+  grep -qiE 'CROSS_OFFICE_MATCHES_PRESENT|cross_office_matches require manual review|WARNING cross_office' \
+    /tmp/preflight030-cross.log \
+    && ok "D: cross-office surfaced for manual review" \
+    || bad "D: cross-office warning missing"
+
+  local orphan_text
+  orphan_text=$(psql_db -At -c "SELECT case_id FROM office_messages WHERE subject='orphan-int';")
+  [[ "$orphan_text" == "99" ]] && ok "D: orphan legacy remains textual '99'" || bad "D: orphan_text=$orphan_text"
+
+  # Source inventory: no Runtime ensureCaseIdColumn
+  if ! grep -qE 'ensureCaseIdColumn|ADD COLUMN IF NOT EXISTS case_id INTEGER' \
+      "$ROOT/artifacts/api-server/src/modules/operations/internal-messages.ts"; then
+    ok "D: internal-messages.ts has no Runtime case_id INTEGER DDL"
+  else
+    bad "D: Runtime case_id DDL still present"
+  fi
+  if ! grep -qE 'CREATE INDEX IF NOT EXISTS idx_messages_case_id' \
+      "$ROOT/artifacts/api-server/src/modules/legal-core/cases.ts"; then
+    ok "D: cases.ts has no Runtime idx_messages_case_id CREATE"
+  else
+    bad "D: Runtime idx_messages_case_id still in cases.ts"
+  fi
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -5659,6 +5897,7 @@ scenario_migration_026_promo
 scenario_migration_027_event_daily_counts
 scenario_migration_028_case_autopilot_reports
 scenario_migration_029_office_messages_fts_readiness
+scenario_migration_030_office_messages_case_id_text
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

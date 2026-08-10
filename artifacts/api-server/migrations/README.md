@@ -175,7 +175,25 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-029.sql
 
-# 30) تحقق بعد التنفيذ
+# 30) office_messages.case_id TEXT alignment (Stage 22)
+#    Ops order (required — no invent integer→UUID mapping; FK deferred):
+#      a) psql "$DATABASE_URL" -f scripts/db/preflight-migration-030.sql
+#      b) if chosen_action = BLOCK_AND_MANUAL_REVIEW → manual repair; do NOT apply
+#      c) if lock_risk = HIGH → schedule maintenance window
+#         (ALTER COLUMN TYPE … USING rewrites; ACCESS EXCLUSIVE)
+#      d) apply 030 (INTEGER→TEXT exact ::text; already-TEXT no-op)
+#      e) re-run preflight → expect ALREADY_CORRECT
+#    Legacy integer 42 becomes textual '42' unchanged — never mapped to a UUID.
+#    Orphans remain; validating FK intentionally deferred until orphan review.
+#    Runtime ensureCaseIdColumn removed — Migration 030 owns case_id TEXT.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-030.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/030_office_messages_case_id_text.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-030.sql
+
+# 31) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -210,6 +228,7 @@ bash scripts/db/verify-schema.sh
 | `027_event_daily_counts_schema_authority.sql` | Formal `event_daily_counts` (Stage 16.5). Removes Runtime DDL + `office_id DEFAULT 'default'`; analytics upserts require canonical Office UUID. Duplicate upsert-key groups abort apply (`BLOCKED_CLEAN_DUPLICATES`). Preflight: `scripts/db/preflight-migration-027.sql`. Ops: preflight → clean dups → apply 027 → verify UNIQUE → deploy. |
 | `028_case_autopilot_reports_schema_authority.sql` | Formal `case_autopilot_reports` (Stage 19 / P2). Removes Runtime DDL (`ensureAutopilotTable`). Supports Autopilot `ON CONFLICT (case_id)` upsert + `idx_autopilot_office`. Arbiter must be real `PRIMARY KEY`/`UNIQUE(case_id)` (or non-partial non-expression unique index on `case_id` only); probe upsert before COMMIT. Duplicate/NULL `case_id` → `BLOCKED_CLEAN_DUPLICATES`. Preflight: `scripts/db/preflight-migration-028.sql`. Ops: preflight → clean/block → apply 028 → verify arbiter → deploy. |
 | `029_office_messages_fts_readiness.sql` | FTS readiness follow-up to 016 (Stage 20.3). SAFE only: add missing generated STORED `search_vector` (`arabic`|`simple` + intended subject+body expression) and/or missing GIN `idx_messages_search`. BLOCK when `idx_messages_search` already exists with incompatible shape (incl. absent `search_vector` + name conflict), wrong type, non-STORED, wrong expression, partial/wrong/invalid index — no DROP COLUMN/INDEX. Post-apply GIN readiness gate before COMMIT. Preflight: `scripts/db/preflight-migration-029.sql` (`chosen_action` + `lock_risk`). Ops: preflight → block/manual or schedule HIGH lock_risk → apply 029 → preflight ALREADY_CORRECT. |
+| `030_office_messages_case_id_text.sql` | Align `office_messages.case_id` with authoritative `cases.id` TEXT (Stage 22). SAFE: INTEGER→TEXT via exact `case_id::text` (legacy `42` → `'42'`); already-TEXT is no-op. Never invent integer→UUID mappings; never NULL/delete orphans; validating FK intentionally deferred until legacy orphan review. Ensures schema-owned `idx_messages_case_id`. BLOCK on unexpected/incompatible `case_id` types. Runtime `ensureCaseIdColumn` removed. Preflight: `scripts/db/preflight-migration-030.sql` (`chosen_action` + orphan/cross-office counts + `lock_risk`). Ops: preflight → block/manual or schedule HIGH lock_risk → apply 030 → preflight ALREADY_CORRECT. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
