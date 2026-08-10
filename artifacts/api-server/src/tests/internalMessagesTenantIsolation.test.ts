@@ -94,7 +94,7 @@ const archiveBlock = sliceRoute(
 );
 const deleteBlock = sliceRoute(
   "// DELETE /api/internal-messages/:id",
-  "/* ══════════════════════════════════════════════════════\n   ANALYTICS",
+  "/* ══════════════════════════════════════════════════════\n   AI TOOLS",
 );
 
 console.log("\n═══ source: auth + canonical UUID gate ═══");

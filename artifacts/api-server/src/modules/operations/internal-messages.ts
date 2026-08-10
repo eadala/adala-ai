@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -265,24 +265,37 @@ router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
 });
 
 // GET /api/internal-messages/stats/counts
-router.get("/stats/counts", requireAuth, async (req: Request, res: Response) => {
+// Stage 21 — counts scoped to canonical office (same userId across offices ≠ merge).
+router.get("/stats/counts", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+    const userId = (req as any).auth?.userId ?? (req as any).userId;
+    if (!userId) {
+      return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+    }
 
     const inboxQ = await db.execute(sql`
       SELECT COUNT(*) AS total,
         SUM(CASE WHEN r.is_read = FALSE THEN 1 ELSE 0 END) AS unread
       FROM office_messages m
       JOIN office_message_recipients r ON r.message_id = m.id AND r.user_id = ${userId}
-      WHERE m.folder = 'sent'
+      WHERE m.office_id = ${tenantId}
+        AND m.folder = 'sent'
     `);
 
     const sentQ = await db.execute(sql`
-      SELECT COUNT(*) AS total FROM office_messages WHERE sender_id = ${userId} AND folder != 'draft'
+      SELECT COUNT(*) AS total FROM office_messages
+      WHERE office_id = ${tenantId}
+        AND sender_id = ${userId}
+        AND folder != 'draft'
     `);
 
     const draftQ = await db.execute(sql`
-      SELECT COUNT(*) AS total FROM office_messages WHERE sender_id = ${userId} AND folder = 'draft'
+      SELECT COUNT(*) AS total FROM office_messages
+      WHERE office_id = ${tenantId}
+        AND sender_id = ${userId}
+        AND folder = 'draft'
     `);
 
     res.json({
@@ -295,12 +308,192 @@ router.get("/stats/counts", requireAuth, async (req: Request, res: Response) => 
   }
 });
 
-// GET /api/internal-messages/:id
-router.get("/:id", requireAuth, async (req: Request, res: Response) => {
+/* ══════════════════════════════════════════════════════
+   ANALYTICS — GET /api/internal-messages/analytics
+   لوحة تحكم شاملة لنظام المراسلات
+   Stage 21 — registered BEFORE /:id so Express cannot shadow it.
+══════════════════════════════════════════════════════ */
+router.get("/analytics", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+    const userId   = (req as any).auth?.userId ?? "";
+    const days     = Math.min(90, Math.max(1, Number(req.query.days ?? 30)));
+
+    const [dailyCounts, topSenders, unreadCount, convStats, topCases, avgResponse, aiUsage] = await Promise.all([
+      db.execute(sql`
+        SELECT DATE(created_at) AS day, COUNT(*)::int AS count
+        FROM office_messages
+        WHERE office_id = ${tenantId}
+          AND created_at >= NOW() - (${days} || ' days')::interval
+          AND (deleted_at IS NULL OR deleted_at > NOW())
+          AND folder != 'draft'
+        GROUP BY day ORDER BY day DESC LIMIT ${days}
+      `).catch(() => ({ rows: [] })),
+
+      db.execute(sql`
+        SELECT sender_name, COUNT(*)::int AS count
+        FROM office_messages
+        WHERE office_id = ${tenantId}
+          AND created_at >= NOW() - (${days} || ' days')::interval
+          AND folder != 'draft'
+          AND (deleted_at IS NULL OR deleted_at > NOW())
+        GROUP BY sender_name ORDER BY count DESC LIMIT 5
+      `).catch(() => ({ rows: [] })),
+
+      db.execute(sql`
+        SELECT COUNT(*)::int AS n
+        FROM office_message_recipients r
+        JOIN office_messages m ON m.id = r.message_id
+        WHERE r.user_id = ${userId}
+          AND r.is_read = FALSE
+          AND m.office_id = ${tenantId}
+          AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
+      `).catch(() => ({ rows: [{ n: 0 }] })),
+
+      db.execute(sql`
+        SELECT
+          COUNT(DISTINCT mc.id)::int AS total_conversations,
+          (SELECT COUNT(*)::int FROM office_messages WHERE conversation_id IS NOT NULL
+            AND office_id = ${tenantId}
+            AND (deleted_at IS NULL OR deleted_at > NOW())) AS total_conv_messages
+        FROM message_conversations mc
+        WHERE mc.office_id = ${tenantId}
+      `).catch(() => ({ rows: [{ total_conversations: 0, total_conv_messages: 0 }] })),
+
+      db.execute(sql`
+        SELECT c.id, c.title, COUNT(m.id)::int AS msg_count
+        FROM office_messages m
+        JOIN cases c ON c.id::text = m.case_id::text AND c.office_id = ${tenantId}
+        WHERE m.office_id = ${tenantId}
+          AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
+          AND m.created_at >= NOW() - (${days} || ' days')::interval
+        GROUP BY c.id, c.title ORDER BY msg_count DESC LIMIT 5
+      `).catch(() => ({ rows: [] })),
+
+      db.execute(sql`
+        SELECT ROUND(AVG(EXTRACT(EPOCH FROM (r.read_at - m.created_at)) / 3600)::numeric, 1) AS avg_hours
+        FROM office_messages m
+        JOIN office_message_recipients r ON r.message_id = m.id
+        WHERE m.office_id = ${tenantId} AND r.is_read = TRUE AND r.read_at IS NOT NULL
+          AND m.created_at >= NOW() - (${days} || ' days')::interval
+      `).catch(() => ({ rows: [{ avg_hours: null }] })),
+
+      db.execute(sql`
+        SELECT COUNT(*)::int AS n
+        FROM office_messages
+        WHERE office_id = ${tenantId}
+          AND (
+            body ILIKE '%AI%'
+            OR body ILIKE '%ذكاء%'
+            OR body ILIKE '%تلقائي%'
+          )
+          AND created_at >= NOW() - (${days} || ' days')::interval
+      `).catch(() => ({ rows: [{ n: 0 }] })),
+    ]);
+
+    const daily = (dailyCounts as any).rows ?? [];
+    const totalMessages = daily.reduce((s: number, r: any) => s + Number(r.count), 0);
+    const conv = ((convStats as any).rows ?? [])[0] ?? {};
+
+    res.json({
+      period:           `${days} يوم`,
+      totalMessages,
+      unreadCount:      Number(((unreadCount as any).rows ?? [])[0]?.n ?? 0),
+      avgResponseHours: Number(((avgResponse as any).rows ?? [])[0]?.avg_hours ?? 0) || null,
+      aiMessages:       Number(((aiUsage as any).rows ?? [])[0]?.n ?? 0),
+      dailyCounts:      daily,
+      topSenders:       (topSenders as any).rows ?? [],
+      topCases:         (topCases as any).rows ?? [],
+      conversations: {
+        total:    Number(conv.total_conversations ?? 0),
+        messages: Number(conv.total_conv_messages ?? 0),
+      },
+      kpis: {
+        messagesPerDay:      totalMessages / Math.max(days, 1),
+        responseTimeRating:  (() => {
+          const h = Number(((avgResponse as any).rows ?? [])[0]?.avg_hours ?? 99);
+          if (h <= 1)  return "ممتاز";
+          if (h <= 4)  return "جيد";
+          if (h <= 24) return "متوسط";
+          return "بطيء";
+        })(),
+      },
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/internal-messages/case/:caseId — messages for a specific case
+// Stage 21 — canonical office + case ownership; no parseInt on cases.id (TEXT UUID).
+router.get("/case/:caseId", requireAuthWithTenant, async (req: Request, res: Response) => {
+  try {
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+
+    const { caseId } = req.params as Record<string, string>;
+    /* cases.id is TEXT (UUID). Reject empty; do not parseInt / invent identifiers. */
+    if (!caseId || !String(caseId).trim()) {
+      return res.json([]);
+    }
+    const caseKey = String(caseId).trim();
+
+    const owned = await db.execute(sql`
+      SELECT c.id
+      FROM cases c
+      WHERE c.id = ${caseKey}
+        AND c.office_id = ${tenantId}
+      LIMIT 1
+    `);
+    if (!owned.rows[0]) {
+      /* Foreign / missing case — empty list (no existence leak via error codes). */
+      return res.json([]);
+    }
+
+    const q = await db.execute(sql`
+      SELECT m.id, m.subject, m.body, m.sender_id, m.sender_name,
+             m.sender_ip, m.device_info, m.folder, m.tags, m.created_at, m.case_id,
+        COALESCE(
+          json_agg(DISTINCT jsonb_build_object(
+            'userId', r.user_id, 'userName', r.user_name,
+            'isRead', r.is_read, 'readAt', r.read_at
+          )) FILTER (WHERE r.id IS NOT NULL), '[]'
+        ) AS recipients
+      FROM office_messages m
+      LEFT JOIN office_message_recipients r ON r.message_id = m.id
+      WHERE m.office_id = ${tenantId}
+        AND m.case_id::text = ${caseKey}
+      GROUP BY m.id
+      ORDER BY m.created_at DESC
+      LIMIT 100
+    `);
+
+    res.json(q.rows ?? []);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/internal-messages/:id
+// Stage 21 — office-scoped + sender/recipient participant gate; uniform 404.
+router.get("/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
+  try {
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+
     const { id } = req.params as Record<string, string>;
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const userId = (req as any).auth?.userId ?? (req as any).userId;
+    if (!userId) {
+      return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+    }
     const ip = getClientIp(req);
+
+    /* Uniform not-found for malformed / foreign / non-participant ids. */
+    if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return res.status(404).json({ error: "not found" });
+    }
 
     const q = await db.execute(sql`
       SELECT m.id, m.subject, m.body, m.sender_id, m.sender_name, m.sender_ip, m.device_info,
@@ -320,52 +513,31 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
       LEFT JOIN office_message_recipients r ON r.message_id = m.id
       LEFT JOIN office_message_attachments a ON a.message_id = m.id
       WHERE m.id = ${id}::uuid
+        AND m.office_id = ${tenantId}
+        AND (
+          m.sender_id = ${userId}
+          OR EXISTS (
+            SELECT 1 FROM office_message_recipients rx
+            WHERE rx.message_id = m.id AND rx.user_id = ${userId}
+          )
+        )
       GROUP BY m.id
     `);
 
     if (!q.rows[0]) return res.status(404).json({ error: "not found" });
 
     await db.execute(sql`
-      UPDATE office_message_recipients
+      UPDATE office_message_recipients r
       SET is_read = TRUE, read_at = NOW(), reader_ip = ${ip}
-      WHERE message_id = ${id}::uuid AND user_id = ${userId} AND is_read = FALSE
+      FROM office_messages m
+      WHERE r.message_id = m.id
+        AND m.id = ${id}::uuid
+        AND m.office_id = ${tenantId}
+        AND r.user_id = ${userId}
+        AND r.is_read = FALSE
     `);
 
     res.json(q.rows[0]);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// GET /api/internal-messages/case/:caseId — messages for a specific case
-router.get("/case/:caseId", requireAuth, async (req: Request, res: Response) => {
-  try {
-    const { caseId } = req.params as Record<string, string>;
-    const numericId = parseInt(caseId, 10);
-
-    /* Guard: caseId must be a valid integer (INTEGER FK to cases) */
-    if (!caseId || isNaN(numericId)) {
-      return res.json([]);
-    }
-
-    const q = await db.execute(sql`
-      SELECT m.id, m.subject, m.body, m.sender_id, m.sender_name,
-             m.sender_ip, m.device_info, m.folder, m.tags, m.created_at, m.case_id,
-        COALESCE(
-          json_agg(DISTINCT jsonb_build_object(
-            'userId', r.user_id, 'userName', r.user_name,
-            'isRead', r.is_read, 'readAt', r.read_at
-          )) FILTER (WHERE r.id IS NOT NULL), '[]'
-        ) AS recipients
-      FROM office_messages m
-      LEFT JOIN office_message_recipients r ON r.message_id = m.id
-      WHERE m.case_id = ${numericId}
-      GROUP BY m.id
-      ORDER BY m.created_at DESC
-      LIMIT 100
-    `);
-
-    res.json(q.rows ?? []);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -486,122 +658,14 @@ router.delete("/:id", requireAuthWithTenant, async (req: Request, res: Response)
 });
 
 /* ══════════════════════════════════════════════════════
-   ANALYTICS — GET /api/internal-messages/analytics
-   لوحة تحكم شاملة لنظام المراسلات
-══════════════════════════════════════════════════════ */
-router.get("/analytics", requireAuthWithTenant, async (req: Request, res: Response) => {
-  try {
-    const tenantId = (req as any).tenantId as string;
-    const userId   = (req as any).auth?.userId ?? "";
-    const days     = Math.min(90, Math.max(1, Number(req.query.days ?? 30)));
-
-    const [dailyCounts, topSenders, unreadCount, convStats, topCases, avgResponse, aiUsage] = await Promise.all([
-      db.execute(sql`
-        SELECT DATE(created_at) AS day, COUNT(*)::int AS count
-        FROM office_messages
-        WHERE office_id = ${tenantId}
-          AND created_at >= NOW() - (${days} || ' days')::interval
-          AND (deleted_at IS NULL OR deleted_at > NOW())
-          AND folder != 'draft'
-        GROUP BY day ORDER BY day DESC LIMIT ${days}
-      `).catch(() => ({ rows: [] })),
-
-      db.execute(sql`
-        SELECT sender_name, COUNT(*)::int AS count
-        FROM office_messages
-        WHERE office_id = ${tenantId}
-          AND created_at >= NOW() - (${days} || ' days')::interval
-          AND folder != 'draft'
-          AND (deleted_at IS NULL OR deleted_at > NOW())
-        GROUP BY sender_name ORDER BY count DESC LIMIT 5
-      `).catch(() => ({ rows: [] })),
-
-      db.execute(sql`
-        SELECT COUNT(*)::int AS n
-        FROM office_message_recipients r
-        JOIN office_messages m ON m.id = r.message_id
-        WHERE r.user_id = ${userId} AND r.is_read = FALSE
-          AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
-      `).catch(() => ({ rows: [{ n: 0 }] })),
-
-      db.execute(sql`
-        SELECT
-          COUNT(DISTINCT mc.id)::int AS total_conversations,
-          (SELECT COUNT(*)::int FROM office_messages WHERE conversation_id IS NOT NULL
-            AND office_id = ${tenantId}
-            AND (deleted_at IS NULL OR deleted_at > NOW())) AS total_conv_messages
-        FROM message_conversations mc
-        WHERE mc.office_id = ${tenantId}
-      `).catch(() => ({ rows: [{ total_conversations: 0, total_conv_messages: 0 }] })),
-
-      db.execute(sql`
-        SELECT c.id, c.title, COUNT(m.id)::int AS msg_count
-        FROM office_messages m
-        JOIN cases c ON c.id::text = m.case_id::text AND c.office_id = ${tenantId}
-        WHERE m.office_id = ${tenantId}
-          AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
-          AND m.created_at >= NOW() - (${days} || ' days')::interval
-        GROUP BY c.id, c.title ORDER BY msg_count DESC LIMIT 5
-      `).catch(() => ({ rows: [] })),
-
-      db.execute(sql`
-        SELECT ROUND(AVG(EXTRACT(EPOCH FROM (r.read_at - m.created_at)) / 3600)::numeric, 1) AS avg_hours
-        FROM office_messages m
-        JOIN office_message_recipients r ON r.message_id = m.id
-        WHERE m.office_id = ${tenantId} AND r.is_read = TRUE AND r.read_at IS NOT NULL
-          AND m.created_at >= NOW() - (${days} || ' days')::interval
-      `).catch(() => ({ rows: [{ avg_hours: null }] })),
-
-      db.execute(sql`
-        SELECT COUNT(*)::int AS n
-        FROM office_messages
-        WHERE office_id = ${tenantId}
-          AND body ILIKE '%AI%' OR body ILIKE '%ذكاء%' OR body ILIKE '%تلقائي%'
-          AND created_at >= NOW() - (${days} || ' days')::interval
-      `).catch(() => ({ rows: [{ n: 0 }] })),
-    ]);
-
-    const daily = (dailyCounts as any).rows ?? [];
-    const totalMessages = daily.reduce((s: number, r: any) => s + Number(r.count), 0);
-    const conv = ((convStats as any).rows ?? [])[0] ?? {};
-
-    res.json({
-      period:           `${days} يوم`,
-      totalMessages,
-      unreadCount:      Number(((unreadCount as any).rows ?? [])[0]?.n ?? 0),
-      avgResponseHours: Number(((avgResponse as any).rows ?? [])[0]?.avg_hours ?? 0) || null,
-      aiMessages:       Number(((aiUsage as any).rows ?? [])[0]?.n ?? 0),
-      dailyCounts:      daily,
-      topSenders:       (topSenders as any).rows ?? [],
-      topCases:         (topCases as any).rows ?? [],
-      conversations: {
-        total:    Number(conv.total_conversations ?? 0),
-        messages: Number(conv.total_conv_messages ?? 0),
-      },
-      kpis: {
-        messagesPerDay:      totalMessages / Math.max(days, 1),
-        responseTimeRating:  (() => {
-          const h = Number(((avgResponse as any).rows ?? [])[0]?.avg_hours ?? 99);
-          if (h <= 1)  return "ممتاز";
-          if (h <= 4)  return "جيد";
-          if (h <= 24) return "متوسط";
-          return "بطيء";
-        })(),
-      },
-      generatedAt: new Date().toISOString(),
-    });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-/* ══════════════════════════════════════════════════════
    AI TOOLS — POST /api/internal-messages/ai-tools
    أدوات ذكاء اصطناعي مدمجة في المراسلات
+   Stage 21 — conversationId DB load is office-scoped.
 ══════════════════════════════════════════════════════ */
 router.post("/ai-tools", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
     const { tool, conversationId, messages: inputMessages, targetLanguage } = req.body as {
       tool: "summarize" | "extract_tasks" | "extract_decisions" | "extract_appointments" | "suggest_reply" | "translate" | "meeting_minutes";
       conversationId?: string;
@@ -615,6 +679,7 @@ router.post("/ai-tools", requireAuthWithTenant, async (req: Request, res: Respon
         SELECT m.sender_name, m.body, m.created_at
         FROM office_messages m
         WHERE m.conversation_id = ${conversationId}::uuid
+          AND m.office_id = ${tenantId}
           AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
         ORDER BY m.created_at ASC LIMIT 60
       `).catch(() => ({ rows: [] }));
