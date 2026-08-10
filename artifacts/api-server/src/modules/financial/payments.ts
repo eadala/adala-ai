@@ -30,46 +30,11 @@ function getBaseDomain(): string {
     : requireProductionBaseUrl();
 }
 
-function logEnsureFailure(step: string, err: unknown): void {
-  logger.error({ err }, `[payments] ensureGatewaySettingsTables failed: ${step}`);
-}
-
-/* Gateway settings tables remain Runtime DDL until a future Schema Authority batch.
+/* Gateway settings schema authority (Stage 23.4):
+   artifacts/api-server/migrations/032_gateway_settings_schema_authority.sql
+   No Runtime CREATE for moyasar_settings / checkout_settings.
    payment_transactions schema is owned by:
    artifacts/api-server/migrations/012_payment_transactions.sql */
-async function ensureGatewaySettingsTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS moyasar_settings (
-      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id         TEXT NOT NULL DEFAULT 'default',
-      publishable_key   TEXT,
-      secret_key        TEXT,
-      webhook_secret    TEXT,
-      test_mode         BOOLEAN DEFAULT true,
-      enabled           BOOLEAN DEFAULT false,
-      callback_url      TEXT,
-      created_at        TIMESTAMP DEFAULT NOW(),
-      updated_at        TIMESTAMP DEFAULT NOW(),
-      UNIQUE(office_id)
-    )
-  `).catch((err) => logEnsureFailure("moyasar_settings table", err));
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS checkout_settings (
-      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id         TEXT NOT NULL DEFAULT 'default',
-      secret_key        TEXT,
-      public_key        TEXT,
-      webhook_secret    TEXT,
-      test_mode         BOOLEAN DEFAULT true,
-      enabled           BOOLEAN DEFAULT false,
-      created_at        TIMESTAMP DEFAULT NOW(),
-      updated_at        TIMESTAMP DEFAULT NOW(),
-      UNIQUE(office_id)
-    )
-  `).catch((err) => logEnsureFailure("checkout_settings table", err));
-}
-ensureGatewaySettingsTables();
 
 /* ══════════════════════════════════════════════════
    STRIPE CONNECT — account management

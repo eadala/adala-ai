@@ -22,7 +22,7 @@
 | ~~`ensureBankruptcyV3Tables`~~ | removed — Bankruptcy schema via migration **014** | — |
 | ~~`ensurePerformanceIndexes`~~ | removed — indexes via migration **010** | — |
 | ~~`ensurePaymentCols`~~ | removed — `payment_transactions` via migration **012** | — |
-| `ensureGatewaySettingsTables` | `payments.ts` (module load) | `logger.error` — `moyasar_settings` / `checkout_settings` only |
+| ~~`ensureGatewaySettingsTables`~~ | removed — `moyasar_settings` / `checkout_settings` via migration **032** | — |
 
 ## ensure* أخرى (lazy — عند أول طلب HTTP)
 

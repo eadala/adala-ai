@@ -40,6 +40,7 @@ MIGRATION_028="$ROOT/artifacts/api-server/migrations/028_case_autopilot_reports_
 MIGRATION_029="$ROOT/artifacts/api-server/migrations/029_office_messages_fts_readiness.sql"
 MIGRATION_030="$ROOT/artifacts/api-server/migrations/030_office_messages_case_id_text.sql"
 MIGRATION_031="$ROOT/artifacts/api-server/migrations/031_message_conversations_schema_authority.sql"
+MIGRATION_032="$ROOT/artifacts/api-server/migrations/032_gateway_settings_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -204,10 +205,15 @@ apply_migration_031() {
   psql_db -f "$MIGRATION_031" >/dev/null
 }
 
+apply_migration_032() {
+  psql_db -f "$MIGRATION_032" >/dev/null
+}
+
 # P0 verify requires billing (025) + promo (026) + analytics (027) + autopilot (028).
 # Idempotent if already applied. 029 is FTS readiness (safe after 016).
 # 030 aligns office_messages.case_id to TEXT (Stage 22).
 # 031 owns message_conversations + conversation_members (Stage 23.3B).
+# 032 owns moyasar_settings + checkout_settings (Stage 23.4).
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -217,6 +223,7 @@ verify_p0_schema() {
   apply_migration_029
   apply_migration_030
   apply_migration_031
+  apply_migration_032
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -253,11 +260,12 @@ apply_all_migrations() {
   apply_migration_029
   apply_migration_030
   apply_migration_031
+  apply_migration_032
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -6499,6 +6507,507 @@ scenario_migration_031_message_conversations() {
 }
 
 
+# ── Scenario: migration 032 gateway settings schema authority (Stage 23.4) ─
+scenario_migration_032_gateway_settings() {
+  log "Scenario 032 — gateway settings: fresh / default drop / dups BLOCK / null BLOCK / wrong unique / idempotent"
+  local PREFLIGHT_032="$ROOT/scripts/db/preflight-migration-032.sql"
+
+  # A0: absent tables
+  setup_db "mig032_preflight_absent"
+  trap teardown_db EXIT
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_032" >/tmp/preflight032-absent.log 2>&1
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight032-absent.log \
+    && ok "A0: SAFE_AUTO_REPAIR (tables missing)" \
+    || bad "A0: missing SAFE_AUTO_REPAIR"
+  grep -q 'reason_code=TABLE_MISSING' /tmp/preflight032-absent.log \
+    && ok "A0: TABLE_MISSING" || bad "A0: reason"
+  trap - EXIT
+  teardown_db
+
+  # A: greenfield
+  setup_db "mig032_fresh"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  apply_migration_031
+  apply_migration_032
+  local nn def uniq
+  nn=$(psql_db -At -c "
+    SELECT a.attnotnull FROM pg_attribute a
+    JOIN pg_class t ON t.oid=a.attrelid JOIN pg_namespace n ON n.oid=t.relnamespace
+    WHERE n.nspname='public' AND t.relname='moyasar_settings' AND a.attname='office_id'")
+  [[ "$nn" == "t" ]] && ok "A: moyasar office_id NOT NULL" || bad "A: NOT NULL=$nn"
+  def=$(psql_db -At -c "
+    SELECT column_default IS NULL FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='moyasar_settings' AND column_name='office_id'")
+  [[ "$def" == "t" ]] && ok "A: moyasar office_id has no DEFAULT" || bad "A: default still set"
+  uniq=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.moyasar_settings'::regclass
+        AND c.contype IN ('u','p')
+        AND pg_get_constraintdef(c.oid) ~* '\\(office_id\\)'
+        AND pg_get_constraintdef(c.oid) !~* ','
+    )")
+  [[ "$uniq" == "t" ]] && ok "A: UNIQUE(office_id) on moyasar" || bad "A: unique missing"
+
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO moyasar_settings (office_id, publishable_key, enabled)
+    VALUES ('office-a', 'pk_test', true);
+    INSERT INTO moyasar_settings (office_id, publishable_key, enabled)
+    VALUES ('office-a', 'pk_dup', false)
+    ON CONFLICT (office_id) DO NOTHING;
+  " >/dev/null
+  ok "A: ON CONFLICT (office_id) usable"
+
+  apply_migration_032
+  ok "A: re-run 032 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_032" >/tmp/preflight032-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight032-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" \
+    || bad "A: chosen_action=$(grep chosen_action /tmp/preflight032-ready.log | tail -1)"
+  trap - EXIT
+  teardown_db
+
+  # B: Runtime-shaped table with DEFAULT 'default' — drop default, preserve row
+  setup_db "mig032_drop_default"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE moyasar_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL DEFAULT 'default',
+      publishable_key TEXT,
+      secret_key TEXT,
+      webhook_secret TEXT,
+      test_mode BOOLEAN DEFAULT true,
+      enabled BOOLEAN DEFAULT false,
+      callback_url TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE (office_id)
+    );
+    CREATE TABLE checkout_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL DEFAULT 'default',
+      secret_key TEXT,
+      public_key TEXT,
+      webhook_secret TEXT,
+      test_mode BOOLEAN DEFAULT true,
+      enabled BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE (office_id)
+    );
+    INSERT INTO moyasar_settings (office_id, publishable_key) VALUES ('default', 'legacy-pk');
+    INSERT INTO checkout_settings (office_id, public_key) VALUES ('default', 'legacy-pub');
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_032" >/tmp/preflight032-def.log 2>&1
+  grep -qE 'DROP_OFFICE_ID_DEFAULT|SAFE_AUTO_REPAIR' /tmp/preflight032-def.log \
+    && ok "B: preflight SAFE for DROP DEFAULT" \
+    || bad "B: chosen_action=$(grep chosen_action /tmp/preflight032-def.log | tail -1)"
+  grep -q 'legacy_office_id_default_rows=' /tmp/preflight032-def.log \
+    && ok "B: legacy default rows reported" \
+    || bad "B: missing legacy default count"
+  apply_migration_032
+  local legacy_val def_after
+  legacy_val=$(psql_db -At -c "SELECT office_id FROM moyasar_settings WHERE publishable_key='legacy-pk'")
+  [[ "$legacy_val" == "default" ]] && ok "B: legacy office_id='default' preserved" || bad "B: remapped to $legacy_val"
+  def_after=$(psql_db -At -c "
+    SELECT column_default IS NULL FROM information_schema.columns
+    WHERE table_name='moyasar_settings' AND column_name='office_id'")
+  [[ "$def_after" == "t" ]] && ok "B: DEFAULT removed" || bad "B: DEFAULT still present"
+  trap - EXIT
+  teardown_db
+
+  # C: missing safe column
+  setup_db "mig032_missing_col"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE moyasar_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL,
+      secret_key TEXT,
+      webhook_secret TEXT,
+      test_mode BOOLEAN DEFAULT true,
+      enabled BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE (office_id)
+    );
+    CREATE TABLE checkout_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL,
+      secret_key TEXT,
+      public_key TEXT,
+      webhook_secret TEXT,
+      test_mode BOOLEAN DEFAULT true,
+      enabled BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE (office_id)
+    );
+  " >/dev/null
+  apply_migration_032
+  local cb
+  cb=$(psql_db -At -c "SELECT udt_name FROM information_schema.columns WHERE table_name='moyasar_settings' AND column_name='callback_url'")
+  [[ "$cb" == "text" ]] && ok "C: missing callback_url added" || bad "C: callback_url=$cb"
+  trap - EXIT
+  teardown_db
+
+  # D: duplicate office_id BLOCK
+  setup_db "mig032_dups"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE moyasar_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT,
+      publishable_key TEXT,
+      secret_key TEXT,
+      webhook_secret TEXT,
+      callback_url TEXT,
+      test_mode BOOLEAN DEFAULT true,
+      enabled BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE TABLE checkout_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL,
+      secret_key TEXT,
+      public_key TEXT,
+      webhook_secret TEXT,
+      test_mode BOOLEAN DEFAULT true,
+      enabled BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE (office_id)
+    );
+    INSERT INTO moyasar_settings (office_id) VALUES ('o1'), ('o1');
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_032" >/tmp/preflight032-dup.log 2>&1
+  grep -q 'chosen_action=BLOCK_AND_MANUAL_REVIEW' /tmp/preflight032-dup.log \
+    && ok "D: preflight BLOCK duplicates" || bad "D: preflight action"
+  grep -q 'DUPLICATE_OFFICE_ID' /tmp/preflight032-dup.log \
+    && ok "D: reason DUPLICATE_OFFICE_ID" || bad "D: reason"
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_032" >/tmp/mig032-dup.log 2>&1; then
+    bad "D: 032 should BLOCK on duplicates"
+  else
+    grep -q 'DUPLICATE_OFFICE_ID' /tmp/mig032-dup.log \
+      && ok "D: migration BLOCK DUPLICATE_OFFICE_ID" || bad "D: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: NULL office_id BLOCK
+  setup_db "mig032_null"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE moyasar_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT,
+      publishable_key TEXT,
+      secret_key TEXT,
+      webhook_secret TEXT,
+      callback_url TEXT,
+      test_mode BOOLEAN DEFAULT true,
+      enabled BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE TABLE checkout_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL,
+      secret_key TEXT,
+      public_key TEXT,
+      webhook_secret TEXT,
+      test_mode BOOLEAN DEFAULT true,
+      enabled BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE (office_id)
+    );
+    INSERT INTO moyasar_settings (office_id) VALUES (NULL);
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_032" >/tmp/preflight032-null.log 2>&1
+  grep -q 'NULL_OFFICE_ID' /tmp/preflight032-null.log \
+    && ok "E: preflight NULL_OFFICE_ID" || bad "E: preflight"
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_032" >/tmp/mig032-null.log 2>&1; then
+    bad "E: 032 should BLOCK on NULL office_id"
+  else
+    grep -q 'NULL_OFFICE_ID' /tmp/mig032-null.log \
+      && ok "E: migration BLOCK NULL_OFFICE_ID" || bad "E: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F: incompatible type BLOCK
+  setup_db "mig032_badtype"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE moyasar_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id INTEGER NOT NULL,
+      publishable_key TEXT,
+      secret_key TEXT,
+      webhook_secret TEXT,
+      callback_url TEXT,
+      test_mode BOOLEAN DEFAULT true,
+      enabled BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE TABLE checkout_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL,
+      secret_key TEXT,
+      public_key TEXT,
+      webhook_secret TEXT,
+      test_mode BOOLEAN DEFAULT true,
+      enabled BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE (office_id)
+    );
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_032" >/tmp/preflight032-type.log 2>&1
+  grep -q 'INCOMPATIBLE_TYPE' /tmp/preflight032-type.log \
+    && ok "F: preflight INCOMPATIBLE_TYPE" || bad "F: preflight"
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_032" >/tmp/mig032-type.log 2>&1; then
+    bad "F: 032 should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig032-type.log \
+      && ok "F: migration BLOCK INCOMPATIBLE_TYPE" || bad "F: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # G: wrong UNIQUE shape (multi-col named office_id key) BLOCK
+  setup_db "mig032_wrong_unique"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  apply_migration_032
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE moyasar_settings DROP CONSTRAINT IF EXISTS moyasar_settings_office_id_key;
+    ALTER TABLE moyasar_settings ADD CONSTRAINT moyasar_settings_office_id_key UNIQUE (office_id, enabled);
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_032" >/tmp/preflight032-wuniq.log 2>&1
+  grep -q 'chosen_action=BLOCK_AND_MANUAL_REVIEW' /tmp/preflight032-wuniq.log \
+    && ok "G: preflight BLOCK wrong UNIQUE" || bad "G: preflight action"
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_032" >/tmp/mig032-wuniq.log 2>&1; then
+    bad "G: 032 should BLOCK wrong UNIQUE shape"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig032-wuniq.log \
+      && ok "G: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "G: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H: source audit — Runtime CREATE gone; payment_transactions still owned by 012
+  setup_db "mig032_src"
+  trap teardown_db EXIT
+  if ! grep -qE 'CREATE TABLE IF NOT EXISTS moyasar_settings|ensureGatewaySettingsTables' \
+      "$ROOT/artifacts/api-server/src/modules/financial/payments.ts"; then
+    ok "H: payments.ts has no Runtime gateway CREATE"
+  else
+    bad "H: Runtime gateway DDL still present"
+  fi
+  if grep -q '012_payment_transactions' \
+      "$ROOT/artifacts/api-server/src/modules/financial/payments.ts"; then
+    ok "H: payment_transactions 012 ownership comment preserved"
+  else
+    bad "H: 012 ownership reference missing"
+  fi
+  if grep -q 'CREATE TABLE IF NOT EXISTS payment_transactions' \
+      "$ROOT/artifacts/api-server/migrations/012_payment_transactions.sql"; then
+    ok "H: migration 012 still owns payment_transactions"
+  else
+    bad "H: 012 missing"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # I: missing office_id → SAFE_AUTO_REPAIR (no crash)
+  setup_db "mig032_miss_office"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE moyasar_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      secret_key TEXT,
+      publishable_key TEXT,
+      webhook_secret TEXT,
+      callback_url TEXT,
+      test_mode BOOLEAN DEFAULT true,
+      enabled BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE TABLE checkout_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL,
+      secret_key TEXT,
+      public_key TEXT,
+      webhook_secret TEXT,
+      test_mode BOOLEAN DEFAULT true,
+      enabled BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE (office_id)
+    );
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_032" >/tmp/preflight032-miss-office.log 2>&1; then
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight032-miss-office.log \
+      && ok "I: missing office_id → SAFE_AUTO_REPAIR" \
+      || bad "I: action=$(grep chosen_action /tmp/preflight032-miss-office.log | tail -1)"
+    grep -qE 'PARTIAL_SCHEMA|missing_col=.*office_id' /tmp/preflight032-miss-office.log \
+      && ok "I: reason PARTIAL_SCHEMA / office_id missing" || bad "I: reason"
+  else
+    bad "I: preflight crashed on missing office_id"
+  fi
+  apply_migration_032
+  local office_present
+  office_present=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name='moyasar_settings' AND column_name='office_id' AND udt_name='text'
+    )")
+  [[ "$office_present" == "t" ]] && ok "I: 032 repaired missing office_id" || bad "I: office_id still missing"
+  trap - EXIT
+  teardown_db
+
+  # J/K/L: missing required defaults → not ALREADY_CORRECT
+  setup_db "mig032_miss_defaults"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE moyasar_settings (
+      id UUID PRIMARY KEY,
+      office_id TEXT NOT NULL,
+      publishable_key TEXT,
+      secret_key TEXT,
+      webhook_secret TEXT,
+      callback_url TEXT,
+      test_mode BOOLEAN,
+      enabled BOOLEAN,
+      created_at TIMESTAMP,
+      updated_at TIMESTAMP,
+      UNIQUE (office_id)
+    );
+    CREATE TABLE checkout_settings (
+      id UUID PRIMARY KEY,
+      office_id TEXT NOT NULL,
+      secret_key TEXT,
+      public_key TEXT,
+      webhook_secret TEXT,
+      test_mode BOOLEAN,
+      enabled BOOLEAN,
+      created_at TIMESTAMP,
+      updated_at TIMESTAMP,
+      UNIQUE (office_id)
+    );
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_032" >/tmp/preflight032-miss-def.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight032-miss-def.log \
+    && bad "J: missing defaults must not be ALREADY_CORRECT" \
+    || ok "J: missing defaults not ALREADY_CORRECT"
+  grep -qE 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight032-miss-def.log \
+    && ok "J: SAFE_AUTO_REPAIR for missing defaults" || bad "J: action"
+  grep -q 'MISSING_COLUMN_DEFAULTS' /tmp/preflight032-miss-def.log \
+    && ok "J: reason MISSING_COLUMN_DEFAULTS" || bad "J: reason"
+  # M: 032 repairs missing safe defaults
+  apply_migration_032
+  local id_def tm_def en_def ca_def
+  id_def=$(psql_db -At -c "
+    SELECT column_default ILIKE '%gen_random_uuid%' FROM information_schema.columns
+    WHERE table_name='moyasar_settings' AND column_name='id'")
+  tm_def=$(psql_db -At -c "
+    SELECT column_default ILIKE '%true%' FROM information_schema.columns
+    WHERE table_name='moyasar_settings' AND column_name='test_mode'")
+  en_def=$(psql_db -At -c "
+    SELECT column_default ILIKE '%false%' FROM information_schema.columns
+    WHERE table_name='moyasar_settings' AND column_name='enabled'")
+  ca_def=$(psql_db -At -c "
+    SELECT column_default ILIKE '%now()%' FROM information_schema.columns
+    WHERE table_name='moyasar_settings' AND column_name='created_at'")
+  [[ "$id_def" == "t" && "$tm_def" == "t" && "$en_def" == "t" && "$ca_def" == "t" ]] \
+    && ok "M: 032 repaired id/test_mode/enabled/created_at defaults" \
+    || bad "M: defaults id=$id_def tm=$tm_def en=$en_def ca=$ca_def"
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO moyasar_settings (office_id, publishable_key) VALUES ('office-repair', 'pk');
+  " >/dev/null && ok "M: INSERT without id/timestamps works" || bad "M: INSERT failed"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_032" >/tmp/preflight032-repaired.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight032-repaired.log \
+    && ok "M: post-repair preflight ALREADY_CORRECT" || bad "M: post-repair action"
+  trap - EXIT
+  teardown_db
+
+  # N: post-apply readiness fails if id DEFAULT absent
+  setup_db "mig032_postapply_id"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  apply_migration_032
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE moyasar_settings ALTER COLUMN id DROP DEFAULT;
+    ALTER TABLE checkout_settings ALTER COLUMN id DROP DEFAULT;
+  " >/dev/null
+  # Re-run only the post-apply readiness DO from migration 032 (between marker and COMMIT)
+  if awk '/Post-apply readiness gate/,/^COMMIT;/' "$MIGRATION_032" \
+      | head -n -1 \
+      | psql_db -v ON_ERROR_STOP=1 -f - >/tmp/mig032-postapply-id.log 2>&1; then
+    bad "N: post-apply should FAIL without id DEFAULT"
+  else
+    grep -qE 'POST_APPLY_READINESS_FAILED.*id DEFAULT|id DEFAULT gen_random_uuid' /tmp/mig032-postapply-id.log \
+      && ok "N: post-apply fails without id DEFAULT" || bad "N: unexpected failure reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # O: P0 verify-schema gate — tables absent fail; present pass
+  setup_db "mig032_p0_gate"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify032-present.log 2>&1; then
+    ok "O: verify-schema passes with gateway settings present"
+  else
+    bad "O: verify-schema failed after full chain"; tail -30 /tmp/verify032-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP TABLE IF EXISTS moyasar_settings CASCADE;
+    DROP TABLE IF EXISTS checkout_settings CASCADE;
+  " >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify032-absent.log 2>&1; then
+    bad "O: verify-schema should FAIL without gateway settings tables"
+  else
+    grep -qE 'moyasar_settings|checkout_settings' /tmp/verify032-absent.log \
+      && ok "O: verify-schema reports missing gateway tables" \
+      || bad "O: missing table names not reported"
+  fi
+  apply_migration_032
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify032-restored.log 2>&1; then
+    ok "O: verify-schema passes after 032 restore"
+  else
+    bad "O: verify-schema failed after 032 restore"; tail -30 /tmp/verify032-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+}
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -6526,6 +7035,7 @@ scenario_migration_028_case_autopilot_reports
 scenario_migration_029_office_messages_fts_readiness
 scenario_migration_030_office_messages_case_id_text
 scenario_migration_031_message_conversations
+scenario_migration_032_gateway_settings
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

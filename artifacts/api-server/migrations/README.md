@@ -210,7 +210,23 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-031.sql
 
-# 32) تحقق بعد التنفيذ
+# 32) moyasar_settings + checkout_settings schema authority (Stage 23.4)
+#    Ops order (required — no DROP; no invent ownership; no auto-merge dups):
+#      a) psql "$DATABASE_URL" -f scripts/db/preflight-migration-032.sql
+#      b) if chosen_action = BLOCK_AND_MANUAL_REVIEW → manual repair; do NOT apply
+#         (dups / NULL office_id / incompatible types / incompatible UNIQUE/PK)
+#      c) apply 032 (CREATE/repair; DROP office_id DEFAULT; SET NOT NULL; UNIQUE)
+#      d) re-run preflight → expect ALREADY_CORRECT
+#    Legacy office_id='default' rows are preserved (reported, non-blocking).
+#    Runtime ensureGatewaySettingsTables removed — deploy API only after 032.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-032.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/032_gateway_settings_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-032.sql
+
+# 33) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -247,6 +263,7 @@ bash scripts/db/verify-schema.sh
 | `029_office_messages_fts_readiness.sql` | FTS readiness follow-up to 016 (Stage 20.3). SAFE only: add missing generated STORED `search_vector` (`arabic`|`simple` + intended subject+body expression) and/or missing GIN `idx_messages_search`. BLOCK when `idx_messages_search` already exists with incompatible shape (incl. absent `search_vector` + name conflict), wrong type, non-STORED, wrong expression, partial/wrong/invalid index — no DROP COLUMN/INDEX. Post-apply GIN readiness gate before COMMIT. Preflight: `scripts/db/preflight-migration-029.sql` (`chosen_action` + `lock_risk`). Ops: preflight → block/manual or schedule HIGH lock_risk → apply 029 → preflight ALREADY_CORRECT. |
 | `030_office_messages_case_id_text.sql` | Align `office_messages.case_id` with authoritative `cases.id` TEXT (Stage 22). SAFE: INTEGER→TEXT via exact `case_id::text` (legacy `42` → `'42'`); already-TEXT is no-op. Never invent integer→UUID mappings; never NULL/delete orphans; validating FK intentionally deferred until legacy orphan review. Ensures schema-owned `idx_messages_case_id`. BLOCK on unexpected/incompatible `case_id` types. Runtime `ensureCaseIdColumn` removed. Preflight: `scripts/db/preflight-migration-030.sql` (`chosen_action` + orphan/cross-office counts + `lock_risk`). Ops: preflight → block/manual or schedule HIGH lock_risk → apply 030 → preflight ALREADY_CORRECT. |
 | `031_message_conversations_schema_authority.sql` | Formal `message_conversations` + `conversation_members` (Stage 23.3B). Includes required `case_id TEXT` (Runtime CREATE omitted it). Indexes: `idx_conv_office`, `idx_convs_case_id` (020 partial form), `idx_conv_members_*`, `idx_conv_updated` `(office_id, updated_at DESC)`. Compatible with Migration **020** index-only authority (020 not rewritten). FK `conversation_members→message_conversations` ON DELETE CASCADE is legacy-safe (skip + WARNING on orphans; post-apply reports `fk_status=INSTALLED|DEFERRED|PENDING`). Safe `SET NOT NULL` on required columns when no NULL rows. BLOCK on dups/NULL ids/incompatible types/incompatible same-name indexes (no DROP INDEX). Runtime `ensureConversationTables` removed. Preflight: `scripts/db/preflight-migration-031.sql` (inspect → blockers → SAFE → ALREADY_CORRECT; never short-circuits past blockers). Ops: preflight → block/manual or apply 031 → preflight ALREADY_CORRECT → deploy API. |
+| `032_gateway_settings_schema_authority.sql` | Formal `moyasar_settings` + `checkout_settings` (Stage 23.4). `office_id TEXT NOT NULL` with **no** DEFAULT (drops legacy DEFAULT `'default'` only; row values preserved). Strict `UNIQUE(office_id)`. No FK. BLOCK on NULL/duplicate `office_id`, incompatible types/PK/UNIQUE. Runtime `ensureGatewaySettingsTables` removed. Preflight: `scripts/db/preflight-migration-032.sql`. Ops: preflight → block/manual or apply 032 → preflight ALREADY_CORRECT → deploy API. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -314,7 +331,7 @@ bash scripts/db/verify-schema.sh
 `bk_emergency_locks`, `tasks`, `office_branches`, `office_messages.search_vector`,
 `cases.case_number` / court_* / `deleted_at` / `version`
 (+ performance indexes من `ensurePerformanceIndexes`).
-`moyasar_settings` / `checkout_settings` remain Runtime DDL via `ensureGatewaySettingsTables()`.
+`moyasar_settings` / `checkout_settings` owned by migration **032** (Runtime `ensureGatewaySettingsTables` removed).
 `ensureJournalTables` retains CoA seed only (no DDL).
 
 ## Rollback
