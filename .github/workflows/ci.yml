@@ -502,6 +502,7 @@ jobs:
     needs:
       - test
       - db-migrations
+      - docker-production
       - typescript
       - lint
       - build
@@ -519,6 +520,7 @@ jobs:
           echo "=== CI Summary ==="
           echo "Tests:              ${{ needs.test.result }}"
           echo "DB Migrations:      ${{ needs.db-migrations.result }}"
+          echo "Docker Production:  ${{ needs.docker-production.result }}"
           echo "TypeScript:         ${{ needs.typescript.result }}"
           echo "ESLint:             ${{ needs.lint.result }}"
           echo "Build+Bundle:       ${{ needs.build.result }}"
@@ -548,6 +550,14 @@ jobs:
               FAILED=$((FAILED + 1))
             fi
           done
+
+          # Docker production is a hard requirement: must be success.
+          # failure / cancelled / skipped / anything else blocks merge.
+          DOCKER_RESULT="${{ needs.docker-production.result }}"
+          if [ "$DOCKER_RESULT" != "success" ]; then
+            echo "❌ Docker production gate not successful (result=$DOCKER_RESULT) — merge blocked"
+            FAILED=$((FAILED + 1))
+          fi
 
           if [ "$FAILED" -gt 0 ]; then
             echo "❌ $FAILED gate(s) failed — merge blocked"
