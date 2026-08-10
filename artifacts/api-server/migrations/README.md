@@ -193,7 +193,24 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-030.sql
 
-# 31) تحقق بعد التنفيذ
+# 31) message_conversations + conversation_members schema authority (Stage 23.3B)
+#    Ops order (required — no DROP; no invent ownership; FK may defer on orphans):
+#      a) psql "$DATABASE_URL" -f scripts/db/preflight-migration-031.sql
+#      b) if chosen_action = BLOCK_AND_MANUAL_REVIEW → manual repair; do NOT apply
+#         (dups / NULL ids / incompatible types / incompatible same-name indexes)
+#      c) apply 031 (CREATE/repair tables + case_id TEXT + indexes; FK legacy-safe)
+#      d) re-run preflight → expect ALREADY_CORRECT (FK may still be deferred)
+#    Migration 020 already owns matching hot-path indexes when tables exist;
+#    031 is complete table authority and remains compatible with 020.
+#    Runtime ensureConversationTables removed — deploy API only after 031.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-031.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/031_message_conversations_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-031.sql
+
+# 32) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -229,6 +246,7 @@ bash scripts/db/verify-schema.sh
 | `028_case_autopilot_reports_schema_authority.sql` | Formal `case_autopilot_reports` (Stage 19 / P2). Removes Runtime DDL (`ensureAutopilotTable`). Supports Autopilot `ON CONFLICT (case_id)` upsert + `idx_autopilot_office`. Arbiter must be real `PRIMARY KEY`/`UNIQUE(case_id)` (or non-partial non-expression unique index on `case_id` only); probe upsert before COMMIT. Duplicate/NULL `case_id` → `BLOCKED_CLEAN_DUPLICATES`. Preflight: `scripts/db/preflight-migration-028.sql`. Ops: preflight → clean/block → apply 028 → verify arbiter → deploy. |
 | `029_office_messages_fts_readiness.sql` | FTS readiness follow-up to 016 (Stage 20.3). SAFE only: add missing generated STORED `search_vector` (`arabic`|`simple` + intended subject+body expression) and/or missing GIN `idx_messages_search`. BLOCK when `idx_messages_search` already exists with incompatible shape (incl. absent `search_vector` + name conflict), wrong type, non-STORED, wrong expression, partial/wrong/invalid index — no DROP COLUMN/INDEX. Post-apply GIN readiness gate before COMMIT. Preflight: `scripts/db/preflight-migration-029.sql` (`chosen_action` + `lock_risk`). Ops: preflight → block/manual or schedule HIGH lock_risk → apply 029 → preflight ALREADY_CORRECT. |
 | `030_office_messages_case_id_text.sql` | Align `office_messages.case_id` with authoritative `cases.id` TEXT (Stage 22). SAFE: INTEGER→TEXT via exact `case_id::text` (legacy `42` → `'42'`); already-TEXT is no-op. Never invent integer→UUID mappings; never NULL/delete orphans; validating FK intentionally deferred until legacy orphan review. Ensures schema-owned `idx_messages_case_id`. BLOCK on unexpected/incompatible `case_id` types. Runtime `ensureCaseIdColumn` removed. Preflight: `scripts/db/preflight-migration-030.sql` (`chosen_action` + orphan/cross-office counts + `lock_risk`). Ops: preflight → block/manual or schedule HIGH lock_risk → apply 030 → preflight ALREADY_CORRECT. |
+| `031_message_conversations_schema_authority.sql` | Formal `message_conversations` + `conversation_members` (Stage 23.3B). Includes required `case_id TEXT` (Runtime CREATE omitted it). Indexes: `idx_conv_office`, `idx_convs_case_id` (020 partial form), `idx_conv_members_*`, `idx_conv_updated`. Compatible with Migration **020** index-only authority (020 not rewritten). FK `conversation_members→message_conversations` ON DELETE CASCADE is legacy-safe (skip + NOTICE on orphans). BLOCK on dups/NULL ids/incompatible types/incompatible same-name indexes (no DROP INDEX). Runtime `ensureConversationTables` removed. Preflight: `scripts/db/preflight-migration-031.sql`. Ops: preflight → block/manual or apply 031 → preflight ALREADY_CORRECT → deploy API. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.

@@ -39,6 +39,7 @@ MIGRATION_027="$ROOT/artifacts/api-server/migrations/027_event_daily_counts_sche
 MIGRATION_028="$ROOT/artifacts/api-server/migrations/028_case_autopilot_reports_schema_authority.sql"
 MIGRATION_029="$ROOT/artifacts/api-server/migrations/029_office_messages_fts_readiness.sql"
 MIGRATION_030="$ROOT/artifacts/api-server/migrations/030_office_messages_case_id_text.sql"
+MIGRATION_031="$ROOT/artifacts/api-server/migrations/031_message_conversations_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -199,9 +200,14 @@ apply_migration_030() {
   psql_db -f "$MIGRATION_030" >/dev/null
 }
 
+apply_migration_031() {
+  psql_db -f "$MIGRATION_031" >/dev/null
+}
+
 # P0 verify requires billing (025) + promo (026) + analytics (027) + autopilot (028).
 # Idempotent if already applied. 029 is FTS readiness (safe after 016).
 # 030 aligns office_messages.case_id to TEXT (Stage 22).
+# 031 owns message_conversations + conversation_members (Stage 23.3B).
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -210,6 +216,7 @@ verify_p0_schema() {
   apply_migration_028
   apply_migration_029
   apply_migration_030
+  apply_migration_031
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -245,11 +252,12 @@ apply_all_migrations() {
   apply_migration_028
   apply_migration_029
   apply_migration_030
+  apply_migration_031
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -5872,6 +5880,287 @@ SQL
   teardown_db
 }
 
+# ── Scenario: migration 031 message_conversations schema authority (Stage 23.3B) ─
+scenario_migration_031_message_conversations() {
+  log "Scenario 031 — conversations: fresh / case_id missing / dup BLOCK / incompatible index BLOCK / orphans / idempotent"
+  local PREFLIGHT_031="$ROOT/scripts/db/preflight-migration-031.sql"
+
+  # A0: preflight on absent tables
+  setup_db "mig031_preflight_absent"
+  trap teardown_db EXIT
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_031" >/tmp/preflight031-absent.log 2>&1
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight031-absent.log \
+    && ok "A0: chosen_action=SAFE_AUTO_REPAIR (tables missing)" \
+    || bad "A0: missing SAFE_AUTO_REPAIR for absent tables"
+  grep -q 'reason_code=TABLE_MISSING' /tmp/preflight031-absent.log \
+    && ok "A0: reason_code=TABLE_MISSING" \
+    || bad "A0: reason_code TABLE_MISSING missing"
+  trap - EXIT
+  teardown_db
+
+  # A: greenfield after 016/020 baseline path
+  setup_db "mig031_fresh"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  apply_migration_017
+  apply_migration_018
+  apply_migration_019
+  apply_migration_020
+  local pre_mc
+  pre_mc=$(psql_db -At -c "SELECT to_regclass('public.message_conversations') IS NOT NULL")
+  [[ "$pre_mc" == "f" ]] && ok "A pre-031: message_conversations absent" || bad "A pre-031: should be absent"
+
+  apply_migration_031
+  local case_udt pk_ok uniq_ok idx_partial
+  case_udt=$(psql_db -At -c "SELECT udt_name FROM information_schema.columns WHERE table_name='message_conversations' AND column_name='case_id'")
+  [[ "$case_udt" == "text" ]] && ok "A: case_id TEXT present" || bad "A: case_id udt=$case_udt"
+  pk_ok=$(psql_db -At -c "SELECT COUNT(*)::int FROM pg_constraint WHERE conrelid='public.message_conversations'::regclass AND contype='p'")
+  [[ "$pk_ok" -ge 1 ]] && ok "A: message_conversations PK" || bad "A: missing PK"
+  uniq_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.conversation_members'::regclass
+        AND c.contype IN ('u','p')
+        AND pg_get_constraintdef(c.oid) ILIKE '%(conversation_id, user_id)%'
+    )")
+  [[ "$uniq_ok" == "t" ]] && ok "A: UNIQUE(conversation_id,user_id) arbiter" || bad "A: UNIQUE missing"
+  idx_partial=$(psql_db -At -c "
+    SELECT pg_get_expr(x.indpred, x.indrelid)
+    FROM pg_class t
+    JOIN pg_namespace n ON n.oid=t.relnamespace
+    JOIN pg_index x ON x.indrelid=t.oid
+    JOIN pg_class i ON i.oid=x.indexrelid
+    WHERE n.nspname='public' AND t.relname='message_conversations' AND i.relname='idx_convs_case_id'")
+  if [[ "$idx_partial" == *"case_id IS NOT NULL"* ]]; then
+    ok "A: idx_convs_case_id partial (020 form)"
+  else
+    bad "A: idx pred=$idx_partial"
+  fi
+
+  # ON CONFLICT probe
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO message_conversations (id, office_id, title, type, created_by, case_id)
+    VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'office-a', 't', 'direct', 'u1', NULL);
+    INSERT INTO conversation_members (conversation_id, office_id, user_id, role)
+    VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'office-a', 'u1', 'admin');
+    INSERT INTO conversation_members (conversation_id, office_id, user_id, role)
+    VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'office-a', 'u1', 'admin')
+    ON CONFLICT (conversation_id, user_id) DO NOTHING;
+  " >/dev/null
+  ok "A: ON CONFLICT (conversation_id, user_id) usable"
+
+  apply_migration_031
+  ok "A: re-run 031 idempotent"
+
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_031" >/tmp/preflight031-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight031-ready.log \
+    && ok "A: preflight ALREADY_CORRECT after apply" \
+    || bad "A: preflight not ALREADY_CORRECT"
+  trap - EXIT
+  teardown_db
+
+  # B: legacy table without case_id → SAFE repair
+  setup_db "mig031_case_id_missing"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE message_conversations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL,
+      title TEXT,
+      type TEXT NOT NULL DEFAULT 'direct',
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE conversation_members (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      conversation_id UUID NOT NULL,
+      office_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      user_name TEXT,
+      role TEXT NOT NULL DEFAULT 'member',
+      joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (conversation_id, user_id)
+    );
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_031" >/tmp/preflight031-case.log 2>&1
+  grep -q 'reason_code=CASE_ID_MISSING' /tmp/preflight031-case.log \
+    && ok "B: preflight CASE_ID_MISSING" \
+    || bad "B: expected CASE_ID_MISSING"
+  apply_migration_031
+  case_udt=$(psql_db -At -c "SELECT udt_name FROM information_schema.columns WHERE table_name='message_conversations' AND column_name='case_id'")
+  [[ "$case_udt" == "text" ]] && ok "B: case_id added as TEXT" || bad "B: case_id udt=$case_udt"
+  trap - EXIT
+  teardown_db
+
+  # C: one table missing
+  setup_db "mig031_one_missing"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE message_conversations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL,
+      title TEXT,
+      type TEXT NOT NULL DEFAULT 'direct',
+      created_by TEXT NOT NULL,
+      case_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  " >/dev/null
+  apply_migration_031
+  local cm_ok
+  cm_ok=$(psql_db -At -c "SELECT to_regclass('public.conversation_members') IS NOT NULL")
+  [[ "$cm_ok" == "t" ]] && ok "C: missing conversation_members created" || bad "C: conversation_members still missing"
+  trap - EXIT
+  teardown_db
+
+  # D: duplicate membership BLOCK
+  setup_db "mig031_dups"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE message_conversations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL,
+      title TEXT,
+      type TEXT NOT NULL DEFAULT 'direct',
+      created_by TEXT NOT NULL,
+      case_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE conversation_members (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      conversation_id UUID NOT NULL,
+      office_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    INSERT INTO message_conversations (id, office_id, type, created_by)
+    VALUES ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'o1', 'direct', 'u1');
+    INSERT INTO conversation_members (conversation_id, office_id, user_id)
+    VALUES
+      ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'o1', 'u1'),
+      ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'o1', 'u1');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_031" >/tmp/mig031-dup.log 2>&1; then
+    bad "D: 031 should BLOCK on duplicate membership"
+  else
+    grep -q 'DUPLICATE_MEMBERSHIP' /tmp/mig031-dup.log \
+      && ok "D: BLOCK DUPLICATE_MEMBERSHIP" \
+      || bad "D: missing DUPLICATE_MEMBERSHIP in error"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: incompatible same-name idx_convs_case_id (non-partial) BLOCK
+  setup_db "mig031_bad_idx"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE message_conversations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL,
+      title TEXT,
+      type TEXT NOT NULL DEFAULT 'direct',
+      created_by TEXT NOT NULL,
+      case_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE conversation_members (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      conversation_id UUID NOT NULL REFERENCES message_conversations(id),
+      office_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (conversation_id, user_id)
+    );
+    CREATE INDEX idx_convs_case_id ON message_conversations (case_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_031" >/tmp/mig031-idx.log 2>&1; then
+    bad "E: 031 should BLOCK on incompatible idx_convs_case_id"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig031-idx.log \
+      && ok "E: BLOCK INCOMPATIBLE_INDEX" \
+      || bad "E: missing INCOMPATIBLE_INDEX"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F: orphan members → apply succeeds; FK deferred NOTICE
+  setup_db "mig031_orphans"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE message_conversations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      office_id TEXT NOT NULL,
+      title TEXT,
+      type TEXT NOT NULL DEFAULT 'direct',
+      created_by TEXT NOT NULL,
+      case_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE conversation_members (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      conversation_id UUID NOT NULL,
+      office_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (conversation_id, user_id)
+    );
+    INSERT INTO conversation_members (conversation_id, office_id, user_id)
+    VALUES ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'o1', 'u1');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_031" >/tmp/mig031-orphan.log 2>&1; then
+    grep -q 'FK_DEFERRED_ORPHANS\|DEFERRED' /tmp/mig031-orphan.log \
+      && ok "F: apply with orphans; FK deferred surfaced" \
+      || ok "F: apply with orphans succeeded (FK deferred)"
+    local fk_present
+    fk_present=$(psql_db -At -c "
+      SELECT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid='public.conversation_members'::regclass
+          AND conname='conversation_members_conversation_id_fkey'
+      )")
+    [[ "$fk_present" == "f" ]] && ok "F: FK not installed when orphans present" || bad "F: FK unexpectedly installed"
+  else
+    bad "F: 031 should succeed with FK deferred on orphans"
+    tail -30 /tmp/mig031-orphan.log
+  fi
+
+  # Source inventory: Runtime DDL gone
+  if ! grep -qE 'CREATE TABLE IF NOT EXISTS message_conversations|ensureConversationTables' \
+      "$ROOT/artifacts/api-server/src/modules/operations/internal-messages.ts"; then
+    ok "G: internal-messages.ts has no Runtime conversation CREATE"
+  else
+    bad "G: Runtime conversation DDL still present"
+  fi
+  if ! grep -qE 'CREATE INDEX IF NOT EXISTS idx_convs_case_id' \
+      "$ROOT/artifacts/api-server/src/modules/legal-core/cases.ts"; then
+    ok "G: cases.ts has no Runtime idx_convs_case_id"
+  else
+    bad "G: Runtime idx_convs_case_id still in cases.ts"
+  fi
+
+  trap - EXIT
+  teardown_db
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -5898,6 +6187,7 @@ scenario_migration_027_event_daily_counts
 scenario_migration_028_case_autopilot_reports
 scenario_migration_029_office_messages_fts_readiness
 scenario_migration_030_office_messages_case_id_text
+scenario_migration_031_message_conversations
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

@@ -445,10 +445,10 @@ assert.doesNotMatch(
   /ALTER TABLE office_messages ADD COLUMN IF NOT EXISTS deleted_at/,
 );
 assert.doesNotMatch(internalMessagesSrc, /CREATE INDEX IF NOT EXISTS idx_messages_conv/);
-assert.match(internalMessagesSrc, /CREATE TABLE IF NOT EXISTS message_conversations/);
-assert.match(internalMessagesSrc, /CREATE TABLE IF NOT EXISTS conversation_members/);
-assert.match(internalMessagesSrc, /Stage 23\.3 will move CREATE authority/);
-console.log("  ✅ Stage 23.2: no Runtime ALTER on office_messages.conversation_id/deleted_at; conversation CREATE retained temporarily");
+assert.doesNotMatch(internalMessagesSrc, /CREATE TABLE IF NOT EXISTS message_conversations/);
+assert.doesNotMatch(internalMessagesSrc, /CREATE TABLE IF NOT EXISTS conversation_members/);
+assert.match(internalMessagesSrc, /031_message_conversations_schema_authority/);
+console.log("  ✅ Stage 23.2/23.3B: no Runtime ALTER on office_messages cols; conversation CREATE removed (031)");
 
 const messageFtsConfigSrc = readSrc("modules/operations/messageFtsConfig.ts");
 const messageFtsLogicSrc = readSrc("modules/operations/messageFtsConfigLogic.ts");
@@ -918,6 +918,39 @@ assert.doesNotMatch(im030, /Number\s*\(\s*caseId\s*\)/);
 const cases030 = readRepo("artifacts/api-server/src/modules/legal-core/cases.ts");
 assert.doesNotMatch(cases030, /CREATE INDEX IF NOT EXISTS idx_messages_case_id/);
 console.log("  ✅ migration 030 case_id TEXT: exact ::text convert; Runtime DDL removed; FK deferred");
+
+console.log("\n═══ schemaAuthority: Batch conversations schema (031) ═══");
+
+const mig031 = readRepo("artifacts/api-server/migrations/031_message_conversations_schema_authority.sql");
+assert.match(mig031, /CREATE TABLE IF NOT EXISTS message_conversations/);
+assert.match(mig031, /CREATE TABLE IF NOT EXISTS conversation_members/);
+assert.match(mig031, /case_id\s+TEXT/);
+assert.match(mig031, /idx_convs_case_id/);
+assert.match(mig031, /WHERE case_id IS NOT NULL/);
+assert.match(mig031, /FK_DEFERRED_ORPHANS/);
+assert.match(mig031, /INCOMPATIBLE_INDEX/);
+assert.match(mig031, /POST_APPLY_READINESS_FAILED/);
+assert.match(mig031, /Migration 020/);
+{
+  const sqlOnly031 = mig031.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly031, /\bDROP\s+TABLE\b/i);
+  assert.doesNotMatch(sqlOnly031, /REFERENCES\s+cases\s*\(/i);
+}
+const preflight031 = readRepo("scripts/db/preflight-migration-031.sql");
+assert.match(preflight031, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable/i);
+assert.match(preflight031, /chosen_action/);
+assert.match(preflight031, /BLOCK_AND_MANUAL_REVIEW/);
+const im031 = readRepo("artifacts/api-server/src/modules/operations/internal-messages.ts");
+assert.doesNotMatch(im031, /CREATE TABLE IF NOT EXISTS message_conversations/);
+assert.doesNotMatch(im031, /ensureConversationTables\s*\(/);
+const cases031 = readRepo("artifacts/api-server/src/modules/legal-core/cases.ts");
+assert.doesNotMatch(cases031, /CREATE INDEX IF NOT EXISTS idx_convs_case_id/);
+const conv031 = readRepo("artifacts/api-server/src/modules/operations/conversations.ts");
+assert.match(conv031, /assertCanonicalBusinessOfficeId/);
+assert.match(conv031, /isMember\(convId, userId, tenantId\)/);
+const integ031 = readRepo("scripts/db/test-migrations.integration.sh");
+assert.match(integ031, /scenario_migration_031|MIGRATION_031/);
+console.log("  ✅ migration 031 owns conversation tables; Runtime DDL removed; tenant helpers office-bound");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
