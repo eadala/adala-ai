@@ -37,6 +37,7 @@ MIGRATION_025="$ROOT/artifacts/api-server/migrations/025_billing_schema_authorit
 MIGRATION_026="$ROOT/artifacts/api-server/migrations/026_promo_schema_authority.sql"
 MIGRATION_027="$ROOT/artifacts/api-server/migrations/027_event_daily_counts_schema_authority.sql"
 MIGRATION_028="$ROOT/artifacts/api-server/migrations/028_case_autopilot_reports_schema_authority.sql"
+MIGRATION_029="$ROOT/artifacts/api-server/migrations/029_office_messages_fts_readiness.sql"
 
 PASS=0
 FAIL=0
@@ -189,14 +190,19 @@ apply_migration_028() {
   psql_db -f "$MIGRATION_028" >/dev/null
 }
 
+apply_migration_029() {
+  psql_db -f "$MIGRATION_029" >/dev/null
+}
+
 # P0 verify requires billing (025) + promo (026) + analytics (027) + autopilot (028).
-# Idempotent if already applied.
+# Idempotent if already applied. 029 is FTS readiness (safe after 016).
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
   apply_migration_026
   apply_migration_027
   apply_migration_028
+  apply_migration_029
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -230,11 +236,12 @@ apply_all_migrations() {
   apply_migration_026
   apply_migration_027
   apply_migration_028
+  apply_migration_029
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -5065,6 +5072,365 @@ SQL
   teardown_db
 }
 
+# ── Scenario: migration 029 office_messages FTS readiness (Stage 20.3) ─────
+scenario_migration_029_office_messages_fts_readiness() {
+  log "Scenario 029 — FTS readiness: safe add column/GIN / already-correct / BLOCK shapes"
+  local PREFLIGHT_029="$ROOT/scripts/db/preflight-migration-029.sql"
+
+  read_generated_fts_cfg() {
+    psql_db -At -c "
+      SELECT (regexp_match(pg_get_expr(ad.adbin, ad.adrelid),
+                           'to_tsvector\(\s*''([^'']+)''', 'i'))[1]
+      FROM pg_attribute a
+      JOIN pg_class c ON c.oid = a.attrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      LEFT JOIN pg_attrdef ad ON ad.adrelid = a.attrelid AND ad.adnum = a.attnum
+      WHERE n.nspname='public'
+        AND c.relname='office_messages'
+        AND a.attname='search_vector'
+        AND NOT a.attisdropped
+        AND a.attgenerated IN ('s','v')
+      LIMIT 1;"
+  }
+
+  ensure_arabic_cfg() {
+    local arabic_present
+    arabic_present=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname='arabic');")
+    if [[ "$arabic_present" != "t" ]]; then
+      psql_db -c "CREATE TEXT SEARCH CONFIGURATION arabic (COPY = simple);" >/dev/null
+    fi
+  }
+
+  # ── A. Fresh/absent search_vector → SAFE_AUTO_REPAIR_ADD_COLUMN (+ GIN) ─
+  setup_db "mig029_absent_vector"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  ensure_arabic_cfg
+
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  subject TEXT,
+  body TEXT,
+  sender_id TEXT,
+  folder TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO office_messages (office_id, subject, body, sender_id, folder)
+VALUES ('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1', 'عقد', 'نص الرسالة', 'user-a', 'sent');
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-absent.log 2>&1
+  set -e
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR_ADD_COLUMN' /tmp/preflight029-absent.log \
+    && ok "A0: preflight SAFE_AUTO_REPAIR_ADD_COLUMN" \
+    || bad "A0: chosen_action=$(grep chosen_action /tmp/preflight029-absent.log | tail -1)"
+
+  apply_migration_029
+  local gen_cfg gin_cnt
+  gen_cfg=$(read_generated_fts_cfg)
+  gin_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND tablename='office_messages'
+      AND indexname='idx_messages_search';")
+  [[ "$gen_cfg" == "arabic" || "$gen_cfg" == "simple" ]] \
+    && ok "A: search_vector generated with allow-listed cfg=$gen_cfg" \
+    || bad "A: generated cfg=$gen_cfg"
+  [[ "$gin_cnt" == "1" ]] && ok "A: GIN idx_messages_search present" || bad "A: gin_cnt=$gin_cnt"
+
+  apply_migration_029
+  ok "A: idempotent re-run on repaired schema succeeded"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-after-a.log 2>&1
+  set -e
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight029-after-a.log \
+    && ok "A: preflight ALREADY_CORRECT after repair" \
+    || bad "A: post chosen_action=$(grep chosen_action /tmp/preflight029-after-a.log | tail -1)"
+
+  trap - EXIT
+  teardown_db
+
+  # ── B. Already correct arabic ────────────────────────────────────────────
+  setup_db "mig029_correct_arabic"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  ensure_arabic_cfg
+  apply_migration_016
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-arabic.log 2>&1
+  set -e
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight029-arabic.log \
+    && ok "B: preflight ALREADY_CORRECT (arabic path after 016)" \
+    || bad "B: chosen_action=$(grep chosen_action /tmp/preflight029-arabic.log | tail -1)"
+  apply_migration_029
+  ok "B: migration 029 no-op on already-correct arabic"
+  [[ "$(read_generated_fts_cfg)" == "arabic" ]] && ok "B: cfg remains arabic" || bad "B: cfg changed"
+
+  trap - EXIT
+  teardown_db
+
+  # ── C. Already correct simple ────────────────────────────────────────────
+  setup_db "mig029_correct_simple"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  # Force simple by removing arabic if we created a copy earlier — use explicit column
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id TEXT,
+  subject TEXT,
+  body TEXT,
+  sender_id TEXT,
+  folder TEXT,
+  search_vector tsvector GENERATED ALWAYS AS (
+    to_tsvector('simple', coalesce(subject, '') || ' ' || coalesce(body, ''))
+  ) STORED,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_messages_search ON office_messages USING gin (search_vector);
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-simple.log 2>&1
+  set -e
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight029-simple.log \
+    && ok "C: preflight ALREADY_CORRECT (simple)" \
+    || bad "C: chosen_action=$(grep chosen_action /tmp/preflight029-simple.log | tail -1)"
+  apply_migration_029
+  ok "C: migration 029 no-op on already-correct simple"
+  [[ "$(read_generated_fts_cfg)" == "simple" ]] && ok "C: cfg remains simple" || bad "C: cfg changed"
+
+  trap - EXIT
+  teardown_db
+
+  # ── D. Missing GIN only → SAFE_AUTO_REPAIR_ADD_GIN ───────────────────────
+  setup_db "mig029_missing_gin"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  ensure_arabic_cfg
+  apply_migration_016
+  psql_db -c "DROP INDEX IF EXISTS idx_messages_search;" >/dev/null
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-nogin.log 2>&1
+  set -e
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR_ADD_GIN' /tmp/preflight029-nogin.log \
+    && ok "D0: preflight SAFE_AUTO_REPAIR_ADD_GIN" \
+    || bad "D0: chosen_action=$(grep chosen_action /tmp/preflight029-nogin.log | tail -1)"
+
+  apply_migration_029
+  gin_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_indexes
+    WHERE schemaname='public' AND tablename='office_messages'
+      AND indexname='idx_messages_search';")
+  [[ "$gin_cnt" == "1" ]] && ok "D: GIN restored" || bad "D: gin_cnt=$gin_cnt"
+  apply_migration_029
+  ok "D: idempotent re-run after GIN add"
+
+  trap - EXIT
+  teardown_db
+
+  # ── E. Wrong type → BLOCK ────────────────────────────────────────────────
+  setup_db "mig029_wrong_type"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject TEXT,
+  body TEXT,
+  search_vector TEXT
+);
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-wrongtype.log 2>&1
+  set -e
+  grep -q 'chosen_action=BLOCK_AND_MANUAL_REVIEW' /tmp/preflight029-wrongtype.log \
+    && ok "E0: preflight BLOCK wrong type" || bad "E0: wrong-type preflight"
+  grep -q 'WRONG_SEARCH_VECTOR_TYPE' /tmp/preflight029-wrongtype.log \
+    && ok "E0: reason_code WRONG_SEARCH_VECTOR_TYPE" || bad "E0: missing reason"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_029" >/tmp/mig029-wrongtype.log 2>&1
+  local rc_wrong=$?
+  set -e
+  [[ "$rc_wrong" -ne 0 ]] && ok "E: migration aborts on wrong type" || bad "E: migration should abort"
+  grep -q 'BLOCK_AND_MANUAL_REVIEW' /tmp/mig029-wrongtype.log \
+    && ok "E: EXCEPTION mentions BLOCK" || bad "E: missing BLOCK message"
+  local still_text
+  still_text=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='office_messages'
+      AND column_name='search_vector';")
+  [[ "$still_text" == "text" ]] && ok "E: no auto-drop of incompatible column" || bad "E: column altered unexpectedly"
+
+  trap - EXIT
+  teardown_db
+
+  # ── F. Non-generated tsvector → BLOCK ────────────────────────────────────
+  setup_db "mig029_nongen"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject TEXT,
+  body TEXT,
+  search_vector tsvector
+);
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-nongen.log 2>&1
+  set -e
+  grep -q 'NON_GENERATED_TSVECTOR' /tmp/preflight029-nongen.log \
+    && ok "F0: reason NON_GENERATED_TSVECTOR" || bad "F0: missing nongen reason"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_029" >/tmp/mig029-nongen.log 2>&1
+  local rc_nongen=$?
+  set -e
+  [[ "$rc_nongen" -ne 0 ]] && ok "F: migration aborts on non-generated" || bad "F: should abort"
+  grep -qE 'DROP COLUMN' /tmp/mig029-nongen.log && bad "F: must not DROP COLUMN" || ok "F: no DROP COLUMN attempted"
+
+  trap - EXIT
+  teardown_db
+
+  # ── G. Unsupported cfg (english) → BLOCK ─────────────────────────────────
+  setup_db "mig029_english"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject TEXT,
+  body TEXT,
+  search_vector tsvector GENERATED ALWAYS AS (
+    to_tsvector('english', coalesce(subject, '') || ' ' || coalesce(body, ''))
+  ) STORED
+);
+CREATE INDEX idx_messages_search ON office_messages USING gin (search_vector);
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-english.log 2>&1
+  set -e
+  grep -q 'UNSUPPORTED_FTS_CONFIG' /tmp/preflight029-english.log \
+    && ok "G0: reason UNSUPPORTED_FTS_CONFIG" || bad "G0: missing unsupported reason"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_029" >/tmp/mig029-english.log 2>&1
+  local rc_eng=$?
+  set -e
+  [[ "$rc_eng" -ne 0 ]] && ok "G: migration aborts on unsupported cfg" || bad "G: should abort"
+  [[ "$(read_generated_fts_cfg)" == "english" ]] \
+    && ok "G: english expression preserved (no forced replace)" \
+    || bad "G: expression changed"
+
+  trap - EXIT
+  teardown_db
+
+  # ── H. Wrong / non-GIN index → BLOCK ─────────────────────────────────────
+  setup_db "mig029_wrong_am"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject TEXT,
+  body TEXT,
+  search_vector tsvector GENERATED ALWAYS AS (
+    to_tsvector('simple', coalesce(subject, '') || ' ' || coalesce(body, ''))
+  ) STORED
+);
+CREATE INDEX idx_messages_search ON office_messages (id);
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-wrongam.log 2>&1
+  set -e
+  grep -qE 'WRONG_INDEX_AM|WRONG_INDEX_DEFINITION' /tmp/preflight029-wrongam.log \
+    && ok "H0: preflight BLOCK wrong index" || bad "H0: missing wrong-index reason"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_029" >/tmp/mig029-wrongam.log 2>&1
+  local rc_am=$?
+  set -e
+  [[ "$rc_am" -ne 0 ]] && ok "H: migration aborts on wrong index AM/def" || bad "H: should abort"
+  local am_name
+  am_name=$(psql_db -At -c "
+    SELECT am.amname
+    FROM pg_class t
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    JOIN pg_index x ON x.indrelid = t.oid
+    JOIN pg_class i ON i.oid = x.indexrelid
+    JOIN pg_am am ON am.oid = i.relam
+    WHERE n.nspname='public' AND t.relname='office_messages'
+      AND i.relname='idx_messages_search';")
+  [[ "$am_name" != "gin" ]] && ok "H: wrong index not auto-replaced" || bad "H: index was replaced"
+
+  trap - EXIT
+  teardown_db
+
+  # ── I. Invalid / not-ready index → BLOCK ─────────────────────────────────
+  # Simulate invalid index via pg_index update in a throwaway DB (superuser).
+  setup_db "mig029_invalid_idx"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  psql_db <<'SQL' >/dev/null
+CREATE TABLE office_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject TEXT,
+  body TEXT,
+  search_vector tsvector GENERATED ALWAYS AS (
+    to_tsvector('simple', coalesce(subject, '') || ' ' || coalesce(body, ''))
+  ) STORED
+);
+CREATE INDEX idx_messages_search ON office_messages USING gin (search_vector);
+UPDATE pg_index SET indisvalid = false
+WHERE indexrelid = 'public.idx_messages_search'::regclass;
+SQL
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_029" >/tmp/preflight029-invalid.log 2>&1
+  set -e
+  grep -q 'INDEX_NOT_VALID_OR_NOT_READY' /tmp/preflight029-invalid.log \
+    && ok "I0: preflight BLOCK invalid index" || bad "I0: missing invalid-index reason"
+
+  set +e
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_029" >/tmp/mig029-invalid.log 2>&1
+  local rc_inv=$?
+  set -e
+  [[ "$rc_inv" -ne 0 ]] && ok "I: migration aborts on invalid index" || bad "I: should abort"
+
+  trap - EXIT
+  teardown_db
+
+  # ── J. Stage 20.2 null-skip remains office-scoped (source contract) ───────
+  if grep -q 'm.office_id = \${tenantId}' \
+      "$ROOT/artifacts/api-server/src/modules/operations/internal-messages.ts" \
+    && grep -q 'messageSearchPredicate' \
+      "$ROOT/artifacts/api-server/src/modules/operations/internal-messages.ts" \
+    && grep -q 'MESSAGE_FTS_ALLOWED_CONFIGS' \
+      "$ROOT/artifacts/api-server/src/modules/operations/messageFtsConfigLogic.ts"; then
+    ok "J: Stage 20.1 office_id + Stage 20.2 allow-list still present (null-skip stays scoped)"
+  else
+    bad "J: tenant/FTS allow-list surface regresssed"
+  fi
+
+  # ── K. Migration source never auto-drops incompatible legacy schema ──────
+  if ! grep -vE '^\s*--' "$MIGRATION_029" | grep -qiE 'DROP[[:space:]]+COLUMN|DROP[[:space:]]+INDEX'; then
+    ok "K: migration 029 SQL has no DROP COLUMN/INDEX"
+  else
+    bad "K: migration 029 contains DROP COLUMN/INDEX"
+  fi
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -5089,6 +5455,7 @@ scenario_migration_025_billing
 scenario_migration_026_promo
 scenario_migration_027_event_daily_counts
 scenario_migration_028_case_autopilot_reports
+scenario_migration_029_office_messages_fts_readiness
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
