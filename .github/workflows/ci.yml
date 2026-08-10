@@ -59,6 +59,7 @@ jobs:
           pnpm --filter @workspace/api-server run test:fts-029
           pnpm --filter @workspace/api-server run test:office-messages-case-id-030
           pnpm --filter @workspace/api-server run test:conversations-031
+          pnpm --filter @workspace/api-server run test:gateway-032
           pnpm --filter @workspace/api-server run test:stage152e
       - name: Frontend tests
         run: |

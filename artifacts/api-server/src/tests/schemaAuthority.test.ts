@@ -234,10 +234,11 @@ assert.doesNotMatch(paymentsSrc, /ensurePaymentCols/);
 assert.doesNotMatch(paymentsSrc, /ALTER TABLE payment_transactions/);
 assert.doesNotMatch(paymentsSrc, /ADD COLUMN IF NOT EXISTS settlement_status/);
 assert.match(paymentsSrc, /012_payment_transactions/);
-assert.match(paymentsSrc, /ensureGatewaySettingsTables/);
-assert.match(paymentsSrc, /CREATE TABLE IF NOT EXISTS moyasar_settings/);
-assert.match(paymentsSrc, /CREATE TABLE IF NOT EXISTS checkout_settings/);
-console.log("  ✅ migration 012 owns payment_transactions; ensurePaymentCols removed");
+assert.doesNotMatch(paymentsSrc, /ensureGatewaySettingsTables/);
+assert.doesNotMatch(paymentsSrc, /CREATE TABLE IF NOT EXISTS moyasar_settings/);
+assert.doesNotMatch(paymentsSrc, /CREATE TABLE IF NOT EXISTS checkout_settings/);
+assert.match(paymentsSrc, /032_gateway_settings_schema_authority/);
+console.log("  ✅ migration 012 owns payment_transactions; gateway settings Runtime CREATE removed (032)");
 
 console.log("\n═══ schemaAuthority: Batch ERP (013) ═══");
 
@@ -957,6 +958,37 @@ assert.match(conv031, /isMember\(convId, userId, tenantId\)/);
 const integ031 = readRepo("scripts/db/test-migrations.integration.sh");
 assert.match(integ031, /scenario_migration_031|MIGRATION_031/);
 console.log("  ✅ migration 031 owns conversation tables; Runtime DDL removed; tenant helpers office-bound");
+
+console.log("\n═══ schemaAuthority: Batch gateway settings (032) ═══");
+
+assert.ok(migrationFiles.includes("032_gateway_settings_schema_authority.sql"));
+const mig032 = readRepo("artifacts/api-server/migrations/032_gateway_settings_schema_authority.sql");
+assert.match(mig032, /CREATE TABLE IF NOT EXISTS moyasar_settings/);
+assert.match(mig032, /CREATE TABLE IF NOT EXISTS checkout_settings/);
+assert.match(mig032, /UNIQUE\s*\(\s*office_id\s*\)/);
+assert.match(mig032, /DROP DEFAULT/);
+assert.match(mig032, /DUPLICATE_OFFICE_ID|NULL_OFFICE_ID/);
+assert.match(mig032, /POST_APPLY_READINESS_FAILED/);
+assert.match(mig032, /office_id still has a DEFAULT|NO DEFAULT/i);
+{
+  const sqlOnly032 = mig032.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly032, /\bDROP\s+TABLE\b/i);
+  assert.doesNotMatch(sqlOnly032, /DEFAULT\s+'default'/i);
+}
+const preflight032 = readRepo("scripts/db/preflight-migration-032.sql");
+assert.match(preflight032, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable/i);
+assert.match(preflight032, /chosen_action/);
+assert.match(preflight032, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight032, /DROP_OFFICE_ID_DEFAULT|legacy_office_id_default/);
+assert.match(preflight032, /DUPLICATE_OFFICE_ID/);
+const pay032 = readRepo("artifacts/api-server/src/modules/financial/payments.ts");
+assert.doesNotMatch(pay032, /ensureGatewaySettingsTables\s*\(/);
+assert.doesNotMatch(pay032, /CREATE TABLE IF NOT EXISTS moyasar_settings/);
+assert.match(pay032, /INSERT INTO moyasar_settings \(office_id/);
+assert.match(pay032, /INSERT INTO checkout_settings \(office_id/);
+const integ032 = readRepo("scripts/db/test-migrations.integration.sh");
+assert.match(integ032, /scenario_migration_032|MIGRATION_032/);
+console.log("  ✅ migration 032 owns gateway settings; Runtime CREATE removed; office_id explicit on INSERT");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

@@ -64,6 +64,7 @@
     "test:fts-029": "node --import tsx src/tests/ftsReadinessSchemaAuthority029.test.ts",
     "test:office-messages-case-id-030": "node --import tsx src/tests/officeMessagesCaseIdSchemaAuthority030.test.ts",
     "test:conversations-031": "node --import tsx src/tests/conversationsSchemaAuthority031.test.ts",
+    "test:gateway-032": "node --import tsx src/tests/gatewaySettingsSchemaAuthority032.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",
     "test:money-numeric-batch2": "node --import tsx src/tests/moneyNumericBatch2.test.ts",
     "test:demo-seed": "node --import tsx src/tests/demoSeedPolicy.test.ts"

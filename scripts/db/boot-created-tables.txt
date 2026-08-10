@@ -11,7 +11,6 @@ audit_risk_scores
 blocked_ips
 case_ai_insights
 case_timeline
-checkout_settings
 client_accounts
 client_case_links
 client_portal_tokens
@@ -102,7 +101,6 @@ marketplace_orders
 marketplace_services
 message_conversations
 mfa_status_cache
-moyasar_settings
 office_ai_credits
 office_ai_settings
 office_integration_status
