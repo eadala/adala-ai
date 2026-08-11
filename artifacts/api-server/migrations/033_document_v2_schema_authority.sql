@@ -582,7 +582,8 @@ BEGIN
         AND x.indexprs IS NULL
         AND x.indnkeyatts = 2
         AND x.indnatts = 2
-        AND x.indkey::smallint[] = ARRAY[office_attnum, category_attnum]::smallint[]
+        AND x.indkey[0] = office_attnum
+        AND x.indkey[1] = category_attnum
         AND am.amname = 'btree'
       INTO reusable_named_index
       FROM pg_index x
