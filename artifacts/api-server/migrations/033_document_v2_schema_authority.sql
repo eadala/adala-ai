@@ -395,6 +395,12 @@ BEGIN
           spec.table_name, spec.constraint_name;
       END IF;
 
+      IF to_regclass(format('public.%I', spec.constraint_name)) IS NOT NULL THEN
+        RAISE EXCEPTION
+          '033_document_v2: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_PK) — a relation named % prevents adding the required % PK',
+          spec.constraint_name, spec.table_name;
+      END IF;
+
       EXECUTE format(
         'ALTER TABLE public.%I ADD CONSTRAINT %I PRIMARY KEY (id)',
         spec.table_name,
