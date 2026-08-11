@@ -276,11 +276,12 @@ apply_all_migrations() {
   apply_migration_031
   apply_migration_032
   apply_migration_033
+  apply_migration_034
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 + 033 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 + 033 + 034 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -1262,23 +1263,25 @@ scenario_migration_034_jlwm_core() {
 
   setup_db "mig034_p0"
   trap teardown_db EXIT
-  apply_migrations_base
-  apply_migration_025
-  apply_migration_026
-  apply_migration_027
-  apply_migration_028
-  apply_migration_029
-  apply_migration_030
-  apply_migration_031
-  apply_migration_032
-  apply_migration_033
-  apply_migration_034
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig034-p0-present.log 2>&1; then
+    ok "L: verify-schema passes with JLWM core present"
+  else
+    bad "L: verify-schema failed after full chain"; tail -30 /tmp/mig034-p0-present.log
+  fi
   psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE jlwm_config CASCADE;" >/dev/null
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig034-p0.log 2>&1; then
     bad "L: verify-schema should fail without jlwm_config"
   else
     grep -qi 'jlwm_config' /tmp/mig034-p0.log \
       && ok "L: P0 verify fails when jlwm_config absent" || bad "L: verify log missing jlwm_config"
+  fi
+  apply_migration_034
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig034-p0-restored.log 2>&1; then
+    ok "L: verify-schema passes after 034 restore"
+  else
+    bad "L: verify-schema failed after 034 restore"; tail -30 /tmp/mig034-p0-restored.log
   fi
   trap - EXIT
   teardown_db
