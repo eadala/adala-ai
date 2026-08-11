@@ -41,6 +41,10 @@ stripe_reconciliation_log
 payment_transactions
 moyasar_settings
 checkout_settings
+document_versions
+document_permissions
+storage_migration_log
+document_retention_policies
 office_erp_ledger
 financial_anomalies
 chart_of_accounts

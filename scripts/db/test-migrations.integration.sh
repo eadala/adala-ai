@@ -41,6 +41,7 @@ MIGRATION_029="$ROOT/artifacts/api-server/migrations/029_office_messages_fts_rea
 MIGRATION_030="$ROOT/artifacts/api-server/migrations/030_office_messages_case_id_text.sql"
 MIGRATION_031="$ROOT/artifacts/api-server/migrations/031_message_conversations_schema_authority.sql"
 MIGRATION_032="$ROOT/artifacts/api-server/migrations/032_gateway_settings_schema_authority.sql"
+MIGRATION_033="$ROOT/artifacts/api-server/migrations/033_document_v2_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -209,11 +210,16 @@ apply_migration_032() {
   psql_db -f "$MIGRATION_032" >/dev/null
 }
 
+apply_migration_033() {
+  psql_db -f "$MIGRATION_033" >/dev/null
+}
+
 # P0 verify requires billing (025) + promo (026) + analytics (027) + autopilot (028).
 # Idempotent if already applied. 029 is FTS readiness (safe after 016).
 # 030 aligns office_messages.case_id to TEXT (Stage 22).
 # 031 owns message_conversations + conversation_members (Stage 23.3B).
 # 032 owns moyasar_settings + checkout_settings (Stage 23.4).
+# 033 owns Document V2 tables + documents extension columns (Stage 23.5B).
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -224,6 +230,7 @@ verify_p0_schema() {
   apply_migration_030
   apply_migration_031
   apply_migration_032
+  apply_migration_033
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -261,11 +268,12 @@ apply_all_migrations() {
   apply_migration_030
   apply_migration_031
   apply_migration_032
+  apply_migration_033
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 + 033 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -7008,6 +7016,580 @@ scenario_migration_032_gateway_settings() {
 }
 
 
+# ── Scenario: migration 033 Document V2 schema authority (Stage 23.5B) ─────
+scenario_migration_033_document_v2() {
+  log "Scenario 033 — Document V2: greenfield / already-correct / missing / BLOCK / retention / P0"
+  local PREFLIGHT_033="$ROOT/scripts/db/preflight-migration-033.sql"
+
+  # A0: V2 tables absent → SAFE_AUTO_REPAIR (documents baseline from 003 present after apply_base)
+  setup_db "mig033_preflight_absent"
+  trap teardown_db EXIT
+  apply_migrations_base
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-absent.log 2>&1
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight033-absent.log \
+    && ok "A0: SAFE_AUTO_REPAIR (V2 tables missing)" \
+    || bad "A0: missing SAFE_AUTO_REPAIR"
+  grep -q 'reason_code=TABLE_MISSING' /tmp/preflight033-absent.log \
+    && ok "A0: TABLE_MISSING" || bad "A0: reason"
+  trap - EXIT
+  teardown_db
+
+  # A: greenfield apply + idempotent second apply + ALREADY_CORRECT + __default__ seed
+  setup_db "mig033_fresh"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  local has_fs seed_cnt uniq_ok
+  has_fs=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='documents' AND column_name='file_size'")
+  [[ "$has_fs" == "int8" ]] && ok "A: documents.file_size BIGINT present" || bad "A: file_size=$has_fs"
+  seed_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM document_retention_policies WHERE office_id='__default__'")
+  [[ "$seed_cnt" -ge 13 ]] && ok "A: __default__ seed >= 13 ($seed_cnt)" || bad "A: seed=$seed_cnt"
+  uniq_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.document_retention_policies'::regclass
+        AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* '\\(office_id,\\s*category\\)'
+    )")
+  [[ "$uniq_ok" == "t" ]] && ok "A: UNIQUE(office_id, category) present" || bad "A: unique missing"
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO document_retention_policies (office_id, category, retention_years)
+    VALUES ('office-a', 'عقد', 10)
+    ON CONFLICT (office_id, category) DO NOTHING;
+    INSERT INTO document_retention_policies (office_id, category, retention_years)
+    VALUES ('office-a', 'عقد', 12)
+    ON CONFLICT (office_id, category) DO UPDATE SET retention_years = EXCLUDED.retention_years;
+  " >/dev/null && ok "A: strict retention UNIQUE arbiter usable" || bad "A: ON CONFLICT failed"
+  apply_migration_033
+  ok "A: re-run 033 idempotent"
+  seed_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM document_retention_policies WHERE office_id='__default__'")
+  [[ "$seed_cnt" -ge 13 ]] && ok "A: __default__ seed idempotent ($seed_cnt)" || bad "A: seed after reapply=$seed_cnt"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight033-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" \
+    || bad "A: chosen_action=$(grep chosen_action /tmp/preflight033-ready.log | tail -1)"
+  trap - EXIT
+  teardown_db
+
+  # B: missing safe documents column → repaired
+  setup_db "mig033_missing_col"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE documents DROP COLUMN IF EXISTS file_size;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-misscol.log 2>&1
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight033-misscol.log \
+    && ok "B: missing file_size → SAFE_AUTO_REPAIR" || bad "B: preflight action"
+  apply_migration_033
+  has_fs=$(psql_db -At -c "
+    SELECT udt_name FROM information_schema.columns
+    WHERE table_name='documents' AND column_name='file_size'")
+  [[ "$has_fs" == "int8" ]] && ok "B: file_size restored" || bad "B: file_size=$has_fs"
+  trap - EXIT
+  teardown_db
+
+  # C: missing safe V2 table → repaired
+  setup_db "mig033_missing_table"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE document_versions CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-misstbl.log 2>&1
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight033-misstbl.log \
+    && ok "C: missing document_versions → SAFE" || bad "C: preflight"
+  apply_migration_033
+  local dv_ok
+  dv_ok=$(psql_db -At -c "SELECT to_regclass('public.document_versions') IS NOT NULL")
+  [[ "$dv_ok" == "t" ]] && ok "C: document_versions restored" || bad "C: still missing"
+  trap - EXIT
+  teardown_db
+
+  # D: incompatible type → BLOCK
+  setup_db "mig033_badtype"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE documents DROP COLUMN IF EXISTS file_size;
+    ALTER TABLE documents ADD COLUMN file_size TEXT;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-type.log 2>&1
+  grep -q 'INCOMPATIBLE_TYPE' /tmp/preflight033-type.log \
+    && ok "D: preflight INCOMPATIBLE_TYPE" || bad "D: preflight"
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_033" >/tmp/mig033-type.log 2>&1; then
+    bad "D: 033 should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig033-type.log \
+      && ok "D: migration BLOCK INCOMPATIBLE_TYPE" || bad "D: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: unsafe NULL on required column → BLOCK
+  setup_db "mig033_null"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE document_versions ALTER COLUMN office_id DROP NOT NULL;
+    INSERT INTO document_versions (document_id, office_id, version_number)
+    VALUES ('doc-1', NULL, 1);
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-null.log 2>&1
+  grep -q 'NULL_REQUIRED' /tmp/preflight033-null.log \
+    && ok "E: preflight NULL_REQUIRED" || bad "E: preflight"
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_033" >/tmp/mig033-null.log 2>&1; then
+    bad "E: 033 should BLOCK on NULL office_id"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig033-null.log \
+      && ok "E: migration BLOCK NULL_REQUIRED" || bad "E: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F: wrong PK → BLOCK
+  setup_db "mig033_wrong_pk"
+  trap teardown_db EXIT
+  apply_migrations_base
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE document_versions (
+      id TEXT NOT NULL,
+      document_id TEXT NOT NULL,
+      office_id TEXT NOT NULL,
+      version_number INT NOT NULL DEFAULT 1,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (document_id, version_number)
+    );
+  " >/dev/null
+  # Create other required objects minimally so PK check is reached for document_versions
+  apply_migration_033 >/tmp/mig033-pk.log 2>&1 || true
+  if grep -q 'INCOMPATIBLE_PK' /tmp/mig033-pk.log; then
+    ok "F: migration BLOCK INCOMPATIBLE_PK"
+  else
+    # If apply somehow succeeded, fail
+    if grep -q 'COMMIT' /tmp/mig033-pk.log 2>/dev/null && ! grep -qi 'ERROR\|EXCEPTION\|BLOCK' /tmp/mig033-pk.log; then
+      bad "F: 033 should BLOCK wrong PK"
+    else
+      grep -qE 'INCOMPATIBLE_PK|BLOCK_AND_MANUAL_REVIEW' /tmp/mig033-pk.log \
+        && ok "F: migration BLOCK wrong PK" || bad "F: unexpected=$(tail -5 /tmp/mig033-pk.log)"
+    fi
+  fi
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-pk.log 2>&1 || true
+  grep -qE 'INCOMPATIBLE_PK|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight033-pk.log \
+    && ok "F: preflight BLOCK wrong PK" || bad "F: preflight action"
+  trap - EXIT
+  teardown_db
+
+  # G: wrong index shape → BLOCK
+  setup_db "mig033_wrong_idx"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_dv_doc_id;
+    CREATE INDEX idx_dv_doc_id ON document_versions (office_id);
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-idx.log 2>&1
+  grep -q 'INCOMPATIBLE_INDEX' /tmp/preflight033-idx.log \
+    && ok "G: preflight INCOMPATIBLE_INDEX" || bad "G: preflight"
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_033" >/tmp/mig033-idx.log 2>&1; then
+    bad "G: 033 should BLOCK incompatible index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig033-idx.log \
+      && ok "G: migration BLOCK INCOMPATIBLE_INDEX" || bad "G: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H: duplicate retention (office_id, category) → BLOCK
+  setup_db "mig033_dup_ret"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE document_retention_policies
+      DROP CONSTRAINT IF EXISTS document_retention_policies_office_id_category_key;
+    INSERT INTO document_retention_policies (id, office_id, category, retention_years)
+    VALUES ('r1', 'office-x', 'عقد', 7), ('r2', 'office-x', 'عقد', 10);
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-dup.log 2>&1
+  grep -q 'DUPLICATE_RETENTION_KEY' /tmp/preflight033-dup.log \
+    && ok "H: preflight DUPLICATE_RETENTION_KEY" || bad "H: preflight"
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_033" >/tmp/mig033-dup.log 2>&1; then
+    bad "H: 033 should BLOCK duplicate retention keys"
+  else
+    grep -q 'DUPLICATE_RETENTION_KEY' /tmp/mig033-dup.log \
+      && ok "H: migration BLOCK DUPLICATE_RETENTION_KEY" || bad "H: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # I: compliance retention_policies preserved untouched
+  setup_db "mig033_compliance"
+  trap teardown_db EXIT
+  apply_migrations_base
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE retention_policies (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      resource_type TEXT NOT NULL UNIQUE,
+      retention_days INT NOT NULL DEFAULT 365,
+      auto_delete BOOLEAN DEFAULT false,
+      legal_hold BOOLEAN DEFAULT false
+    );
+    INSERT INTO retention_policies (resource_type, retention_days) VALUES ('audit_logs', 2555);
+  " >/dev/null
+  apply_migration_033
+  local comp_cnt comp_days
+  comp_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM retention_policies WHERE resource_type='audit_logs'")
+  comp_days=$(psql_db -At -c "SELECT retention_days FROM retention_policies WHERE resource_type='audit_logs'")
+  [[ "$comp_cnt" == "1" && "$comp_days" == "2555" ]] \
+    && ok "I: compliance retention_policies row preserved" \
+    || bad "I: compliance mutated cnt=$comp_cnt days=$comp_days"
+  local has_drp
+  has_drp=$(psql_db -At -c "SELECT to_regclass('public.document_retention_policies') IS NOT NULL")
+  [[ "$has_drp" == "t" ]] && ok "I: document_retention_policies created separately" || bad "I: drp missing"
+  # Ensure compliance shape columns still present
+  local has_rt
+  has_rt=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name='retention_policies' AND column_name='resource_type'
+    )")
+  [[ "$has_rt" == "t" ]] && ok "I: compliance resource_type column untouched" || bad "I: resource_type gone"
+  trap - EXIT
+  teardown_db
+
+  # J: source audit — Runtime V2 DDL removed; DC DML uses document_retention_policies; 021 unchanged
+  setup_db "mig033_src"
+  trap teardown_db EXIT
+  if ! grep -qE 'CREATE TABLE IF NOT EXISTS document_versions|ALTER TABLE documents ADD COLUMN' \
+      "$ROOT/artifacts/api-server/src/modules/documents/documentCenter.ts"; then
+    ok "J: documentCenter.ts has no Runtime V2 DDL"
+  else
+    bad "J: Runtime V2 DDL still present"
+  fi
+  if grep -q 'document_retention_policies' \
+      "$ROOT/artifacts/api-server/src/modules/documents/documentCenter.ts" \
+     && ! grep -qE 'INSERT INTO retention_policies|FROM[[:space:]]+retention_policies|JOIN[[:space:]]+retention_policies' \
+      "$ROOT/artifacts/api-server/src/modules/documents/documentCenter.ts"; then
+    ok "J: Document Center DML uses document_retention_policies"
+  else
+    bad "J: Document Center still targets retention_policies"
+  fi
+  if grep -q 'CREATE TABLE IF NOT EXISTS retention_policies' \
+      "$ROOT/artifacts/api-server/src/modules/security/complianceCenter.ts"; then
+    ok "J: complianceCenter Runtime retention_policies preserved"
+  else
+    bad "J: complianceCenter retention CREATE missing"
+  fi
+  if grep -q 'CREATE TABLE IF NOT EXISTS document_center_files' \
+      "$ROOT/artifacts/api-server/migrations/021_rag_schema_foundation.sql" \
+     && ! grep -q 'document_retention_policies' \
+      "$ROOT/artifacts/api-server/migrations/021_rag_schema_foundation.sql"; then
+    ok "J: Migration 021 core authority unchanged"
+  else
+    bad "J: 021 unexpectedly changed for V2"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # K: post-apply readiness fails when seed incomplete
+  setup_db "mig033_postapply"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DELETE FROM document_retention_policies WHERE office_id='__default__';
+  " >/dev/null
+  if awk '/Post-apply readiness \(must pass before COMMIT\)/,/^COMMIT;/' "$MIGRATION_033" \
+      | head -n -1 \
+      | psql_db -v ON_ERROR_STOP=1 -f - >/tmp/mig033-postapply.log 2>&1; then
+    bad "K: post-apply should FAIL without __default__ seed"
+  else
+    grep -q 'POST_APPLY_READINESS_FAILED' /tmp/mig033-postapply.log \
+      && ok "K: post-apply readiness fails without seed" || bad "K: unexpected failure"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # L: P0 verify-schema gate — 033 objects absent fail; present pass
+  setup_db "mig033_p0_gate"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify033-present.log 2>&1; then
+    ok "L: verify-schema passes with Document V2 present"
+  else
+    bad "L: verify-schema failed after full chain"; tail -30 /tmp/verify033-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP TABLE IF EXISTS document_versions CASCADE;
+    DROP TABLE IF EXISTS document_permissions CASCADE;
+    DROP TABLE IF EXISTS storage_migration_log CASCADE;
+    DROP TABLE IF EXISTS document_retention_policies CASCADE;
+  " >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify033-absent.log 2>&1; then
+    bad "L: verify-schema should FAIL without 033 tables"
+  else
+    grep -qE 'document_versions|document_permissions|storage_migration_log|document_retention_policies' /tmp/verify033-absent.log \
+      && ok "L: verify-schema reports missing 033 tables" \
+      || bad "L: missing table names not reported"
+  fi
+  apply_migration_033
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/verify033-restored.log 2>&1; then
+    ok "L: verify-schema passes after 033 restore"
+  else
+    bad "L: verify-schema failed after 033 restore"; tail -30 /tmp/verify033-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+
+  # M: UNIQUE same-name idx_dv_doc_id => BLOCK (multi-version safety)
+  setup_db "mig033_unique_dv"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_dv_doc_id;
+    CREATE UNIQUE INDEX idx_dv_doc_id ON document_versions (document_id);
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-uniqdv.log 2>&1
+  grep -q 'chosen_action=BLOCK_AND_MANUAL_REVIEW' /tmp/preflight033-uniqdv.log \
+    && ok "M: preflight BLOCK UNIQUE idx_dv_doc_id" || bad "M: preflight"
+  grep -q 'INCOMPATIBLE_INDEX' /tmp/preflight033-uniqdv.log \
+    && ok "M: reason INCOMPATIBLE_INDEX" || bad "M: reason"
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_033" >/tmp/mig033-uniqdv.log 2>&1; then
+    bad "M: 033 should BLOCK UNIQUE idx_dv_doc_id"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig033-uniqdv.log \
+      && ok "M: migration BLOCK UNIQUE idx_dv_doc_id" || bad "M: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # N: UNIQUE same-name idx_dp_office => BLOCK
+  setup_db "mig033_unique_dp"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_dp_office;
+    CREATE UNIQUE INDEX idx_dp_office ON document_permissions (office_id);
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-uniqdp.log 2>&1
+  grep -q 'INCOMPATIBLE_INDEX' /tmp/preflight033-uniqdp.log \
+    && ok "N: preflight BLOCK UNIQUE idx_dp_office" || bad "N: preflight"
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_033" >/tmp/mig033-uniqdp.log 2>&1; then
+    bad "N: 033 should BLOCK UNIQUE idx_dp_office"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig033-uniqdp.log \
+      && ok "N: migration BLOCK UNIQUE idx_dp_office" || bad "N: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # O: SML id INT PK without generation => not ALREADY_CORRECT; repair + INSERT without id
+  setup_db "mig033_sml_nogen"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP TABLE storage_migration_log CASCADE;
+    CREATE TABLE storage_migration_log (
+      id INT PRIMARY KEY,
+      office_id TEXT NOT NULL,
+      table_name TEXT NOT NULL,
+      record_id TEXT NOT NULL,
+      old_provider TEXT DEFAULT 'db_base64',
+      new_key TEXT,
+      file_size BIGINT,
+      checksum TEXT,
+      status TEXT DEFAULT 'pending',
+      error_msg TEXT,
+      migrated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX idx_sml_office_status ON storage_migration_log (office_id, status);
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-smlnogen.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight033-smlnogen.log \
+    && bad "O: missing id generation must not be ALREADY_CORRECT" \
+    || ok "O: not ALREADY_CORRECT without id generation"
+  grep -qE 'MISSING_ID_GENERATION|SAFE_AUTO_REPAIR' /tmp/preflight033-smlnogen.log \
+    && ok "O: preflight SAFE/MISSING_ID_GENERATION" || bad "O: preflight action"
+  apply_migration_033
+  local sml_id
+  sml_id=$(psql_db -At -c "
+    INSERT INTO storage_migration_log (office_id, table_name, record_id, new_key, status)
+    VALUES ('office-probe', 'documents', 'rec-1', 'key-1', 'done')
+    RETURNING id;")
+  [[ -n "$sml_id" && "$sml_id" != "" ]] \
+    && ok "O: app-style INSERT without id generated id=$sml_id" \
+    || bad "O: INSERT without id failed"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-smlfixed.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight033-smlfixed.log \
+    && ok "O: post-repair ALREADY_CORRECT" || bad "O: post-repair action"
+  trap - EXIT
+  teardown_db
+
+  # P: retention unique-index-only => consistent SAFE repair then ALREADY_CORRECT
+  setup_db "mig033_ret_idx_only"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE document_retention_policies
+      DROP CONSTRAINT IF EXISTS document_retention_policies_office_id_category_key;
+    CREATE UNIQUE INDEX IF NOT EXISTS document_retention_policies_office_id_category_key
+      ON document_retention_policies (office_id, category);
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-retidx.log 2>&1
+  grep -q 'chosen_action=BLOCK_AND_MANUAL_REVIEW' /tmp/preflight033-retidx.log \
+    && bad "P: unique-index-only should not BLOCK if migration can attach constraint" \
+    || ok "P: preflight not BLOCK for attachable unique index"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|MISSING' /tmp/preflight033-retidx.log \
+    && ok "P: preflight SAFE for missing UNIQUE constraint" || bad "P: preflight action"
+  apply_migration_033
+  local has_uq
+  has_uq=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.document_retention_policies'::regclass
+        AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* '\\(office_id,\\s*category\\)'
+    )")
+  [[ "$has_uq" == "t" ]] && ok "P: UNIQUE constraint present after 033" || bad "P: constraint missing"
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO document_retention_policies (office_id, category, retention_years)
+    VALUES ('office-p', 'عقد', 9)
+    ON CONFLICT (office_id, category) DO NOTHING;
+  " >/dev/null && ok "P: ON CONFLICT arbiter usable" || bad "P: ON CONFLICT failed"
+  trap - EXIT
+  teardown_db
+
+  # Q: missing table + blocker on another present table => BLOCK (not SAFE TABLE_MISSING)
+  setup_db "mig033_mixed_block"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP TABLE document_versions CASCADE;
+    ALTER TABLE document_permissions DROP COLUMN permission_type;
+    ALTER TABLE document_permissions ADD COLUMN permission_type INTEGER NOT NULL DEFAULT 1;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-mixed.log 2>&1
+  grep -q 'chosen_action=BLOCK_AND_MANUAL_REVIEW' /tmp/preflight033-mixed.log \
+    && ok "Q: mixed missing+blocker => BLOCK" || bad "Q: action=$(grep chosen_action /tmp/preflight033-mixed.log | tail -1)"
+  grep -q 'INCOMPATIBLE_TYPE' /tmp/preflight033-mixed.log \
+    && ok "Q: reason INCOMPATIBLE_TYPE wins over TABLE_MISSING" || bad "Q: reason"
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight033-mixed.log \
+    && bad "Q: must not classify as SAFE while blocker present" \
+    || ok "Q: not SAFE while blocker present"
+  trap - EXIT
+  teardown_db
+
+  # R: documents.version DEFAULT 10 => not ALREADY_CORRECT
+  setup_db "mig033_ver10"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE documents ALTER COLUMN version SET DEFAULT 10;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-ver10.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight033-ver10.log \
+    && bad "R: DEFAULT 10 must not be ALREADY_CORRECT" \
+    || ok "R: DEFAULT 10 not ALREADY_CORRECT"
+  grep -qE 'MISSING_COLUMN_DEFAULTS|SAFE_AUTO_REPAIR' /tmp/preflight033-ver10.log \
+    && ok "R: SAFE for wrong version default" || bad "R: action"
+  apply_migration_033
+  local ver_def
+  ver_def=$(psql_db -At -c "
+    SELECT regexp_replace(trim(both from split_part(column_default, '::', 1)), '''', '', 'g')
+    FROM information_schema.columns
+    WHERE table_name='documents' AND column_name='version'")
+  [[ "$ver_def" == "1" ]] && ok "R: 033 repairs version default to 1" || bad "R: default=$ver_def"
+  trap - EXIT
+  teardown_db
+
+  # S: wrong permission_type type => BLOCK
+  setup_db "mig033_bad_permtype"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE document_permissions DROP COLUMN permission_type;
+    ALTER TABLE document_permissions ADD COLUMN permission_type INTEGER NOT NULL DEFAULT 1;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-perm.log 2>&1
+  grep -q 'INCOMPATIBLE_TYPE' /tmp/preflight033-perm.log \
+    && ok "S: preflight BLOCK wrong permission_type" || bad "S: preflight"
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_033" >/tmp/mig033-perm.log 2>&1; then
+    bad "S: 033 should BLOCK wrong permission_type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig033-perm.log \
+      && ok "S: migration BLOCK wrong permission_type" || bad "S: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # T: SML required-column NULL => BLOCK
+  setup_db "mig033_sml_null"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE storage_migration_log ALTER COLUMN table_name DROP NOT NULL;
+    INSERT INTO storage_migration_log (office_id, table_name, record_id)
+    VALUES ('o1', NULL, 'r1');
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-smlnull.log 2>&1
+  grep -qE 'NULL_REQUIRED|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight033-smlnull.log \
+    && ok "T: preflight BLOCK SML NULL table_name" || bad "T: preflight"
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_033" >/tmp/mig033-smlnull.log 2>&1; then
+    bad "T: 033 should BLOCK SML NULL table_name"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig033-smlnull.log \
+      && ok "T: migration BLOCK NULL_REQUIRED" || bad "T: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # U: incomplete __default__ category set => SAFE repair; exact set restored
+  setup_db "mig033_seed_partial"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_033
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DELETE FROM document_retention_policies
+    WHERE office_id='__default__' AND category IN ('أخرى', 'هوية');
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_033" >/tmp/preflight033-seed.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight033-seed.log \
+    && bad "U: incomplete seed must not be ALREADY_CORRECT" \
+    || ok "U: incomplete seed not ALREADY_CORRECT"
+  grep -qE 'DEFAULT_SEED_PENDING|SAFE_AUTO_REPAIR' /tmp/preflight033-seed.log \
+    && ok "U: SAFE DEFAULT_SEED_PENDING" || bad "U: action"
+  apply_migration_033
+  local seed_missing
+  seed_missing=$(psql_db -At -c "
+    WITH expected(category) AS (
+      VALUES ('وكالة'),('عقد'),('حكم'),('مذكرة'),('لائحة_دعوى'),('محضر_جلسة'),
+             ('تقرير_خبير'),('مستند_إفلاس'),('فاتورة'),('مستند_مالي'),
+             ('هوية'),('سجل_تجاري'),('أخرى')
+    )
+    SELECT COUNT(*) FROM expected e
+    WHERE NOT EXISTS (
+      SELECT 1 FROM document_retention_policies d
+      WHERE d.office_id='__default__' AND d.category = e.category
+    )")
+  [[ "$seed_missing" == "0" ]] && ok "U: exact __default__ category set restored" || bad "U: missing=$seed_missing"
+  trap - EXIT
+  teardown_db
+}
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 require_cmd
 ensure_test_role
@@ -7036,6 +7618,7 @@ scenario_migration_029_office_messages_fts_readiness
 scenario_migration_030_office_messages_case_id_text
 scenario_migration_031_message_conversations
 scenario_migration_032_gateway_settings
+scenario_migration_033_document_v2
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
