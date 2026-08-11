@@ -45,6 +45,12 @@ document_versions
 document_permissions
 storage_migration_log
 document_retention_policies
+jlwm_config
+jlwm_memory_nodes
+jlwm_memory_edges
+jlwm_case_twins
+jlwm_client_twins
+jlwm_firm_twin
 office_erp_ledger
 financial_anomalies
 chart_of_accounts

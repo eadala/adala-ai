@@ -61,6 +61,7 @@ jobs:
           pnpm --filter @workspace/api-server run test:conversations-031
           pnpm --filter @workspace/api-server run test:gateway-032
           pnpm --filter @workspace/api-server run test:document-033
+          pnpm --filter @workspace/api-server run test:jlwm-034
           pnpm --filter @workspace/api-server run test:stage152e
       - name: Frontend tests
         run: |

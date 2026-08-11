@@ -17,8 +17,10 @@
 | ~~`ensureBankruptcyTables`~~ | removed — Bankruptcy schema via migration **014** | — |
 | ~~`ensureDocumentCenterSchema` V2 DDL~~ | removed — Document V2 via migration **033**; helper keeps 021 readiness checks only | — |
 | `ensureDocumentCenterSchema` (readiness) | `documentCenter.ts` | `logger.error` for missing 021 tables |
-| `ensureJLWMSchema` + 6 جداول فرعية | `jlwm/index.ts` | `logger.error` لكل واحد |
-| `ensureReliabilitySchema` | `reliabilityEngine.ts` | `logger.error` |
+| ~~`ensureJLWMSchema` DDL~~ | removed — 14 JLWM core tables via migration **034**; helper keeps SELECT-only readiness | — |
+| `ensureJLWMSchema` (readiness) | `jlwm.schema.ts` | `console.error` if Migration 034 tables missing |
+| `ensureFuturePathsTable` + satellites | `futureExplorer` / `simulationEngine` / `litigationIntelligence` / `predictionAccuracy` / `executiveIntelligence` / `legalCOO` | `logger.error` (035 pending) |
+| `ensureReliabilitySchema` | `reliabilityEngine.ts` | `logger.error` (036 pending) |
 | ~~`ensureBankruptcyV2Tables`~~ | removed — Bankruptcy schema via migration **014** | — |
 | ~~`ensureBankruptcyV3Tables`~~ | removed — Bankruptcy schema via migration **014** | — |
 | ~~`ensurePerformanceIndexes`~~ | removed — indexes via migration **010** | — |

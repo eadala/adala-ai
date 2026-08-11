@@ -1047,6 +1047,50 @@ assert.doesNotMatch(bootTxt033, /^storage_migration_log$/m);
 assert.doesNotMatch(bootTxt033, /^document_retention_policies$/m);
 console.log("  ✅ migration 033 owns Document V2; Runtime V2 DDL removed; DC uses document_retention_policies; P0 gated");
 
+console.log("\n═══ schemaAuthority: JLWM Core (034) ═══");
+assert.ok(migrationFiles.includes("034_jlwm_core_schema_authority.sql"));
+const mig034 = readRepo("artifacts/api-server/migrations/034_jlwm_core_schema_authority.sql");
+assert.match(mig034, /CREATE TABLE IF NOT EXISTS jlwm_config/);
+assert.match(mig034, /CREATE TABLE IF NOT EXISTS jlwm_memory_nodes/);
+assert.match(mig034, /CREATE TABLE IF NOT EXISTS jlwm_memory_edges/);
+assert.match(mig034, /CREATE TABLE IF NOT EXISTS jlwm_case_twins/);
+assert.match(mig034, /idx_jmn_uniq/);
+assert.match(mig034, /WHERE\s+node_ref\s+IS\s+NOT\s+NULL/i);
+assert.match(mig034, /FK_DEFERRED_ORPHANS/);
+assert.match(mig034, /NON_UUID_OFFICE_ID/);
+assert.match(mig034, /POST_APPLY_READINESS_FAILED/);
+{
+  const sqlOnly034 = mig034.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly034, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly034, /jlwm_future_paths|jlwm_ai_audit/);
+}
+const preflight034 = readRepo("scripts/db/preflight-migration-034.sql");
+assert.match(preflight034, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|only reads catalogs/i);
+assert.match(preflight034, /chosen_action/);
+assert.match(preflight034, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight034, /SAFE_AUTO_REPAIR/);
+assert.match(preflight034, /ALREADY_CORRECT/);
+assert.match(preflight034, /JLWM_CORE_SCHEMA_READY/);
+assert.match(preflight034, /Any blocker wins|blocker wins over every safe repair/i);
+const jlwmSchema034 = readSrc("modules/jlwm/jlwm.schema.ts");
+assert.match(jlwmSchema034, /034_jlwm_core_schema_authority|Migration 034/);
+assert.doesNotMatch(jlwmSchema034, /CREATE TABLE IF NOT EXISTS jlwm_config/);
+assert.doesNotMatch(jlwmSchema034, /CREATE INDEX IF NOT EXISTS idx_jmn_/);
+assert.match(readSrc("modules/jlwm/futureExplorer.ts"), /CREATE TABLE IF NOT EXISTS jlwm_future_paths/);
+assert.match(readSrc("modules/jlwm/reliabilityEngine.ts"), /CREATE TABLE IF NOT EXISTS jlwm_ai_audit/);
+const integ034 = readRepo("scripts/db/test-migrations.integration.sh");
+assert.match(integ034, /scenario_migration_034|MIGRATION_034/);
+const p0Tables034 = readRepo("scripts/db/expected-tables-p0.txt");
+assert.match(p0Tables034, /^jlwm_config$/m);
+assert.match(p0Tables034, /^jlwm_memory_nodes$/m);
+assert.match(p0Tables034, /^jlwm_case_twins$/m);
+const bootTxt034 = readRepo("scripts/db/boot-created-tables.txt");
+assert.doesNotMatch(bootTxt034, /^jlwm_config$/m);
+assert.doesNotMatch(bootTxt034, /^jlwm_memory_nodes$/m);
+assert.match(bootTxt034, /^jlwm_future_paths$/m);
+assert.match(bootTxt034, /^jlwm_ai_audit$/m);
+console.log("  ✅ migration 034 owns JLWM core; Runtime core DDL removed; satellites/reliability remain; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

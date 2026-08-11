@@ -244,7 +244,25 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-033.sql
 
-# 34) تحقق بعد التنفيذ
+# 34) JLWM Core schema authority (Stage 4B)
+#    Ops order (required — no DROP; no invent/remap/delete office_id):
+#      a) psql "$DATABASE_URL" -f scripts/db/preflight-migration-034.sql
+#      b) if chosen_action = BLOCK_AND_MANUAL_REVIEW → stop
+#      c) apply 034 (14 core JLWM tables + indexes + partial unique + edges FK)
+#      d) re-run preflight → expect ALREADY_CORRECT
+#      e) bash scripts/db/verify-schema.sh
+#      f) deploy API
+#    Does NOT own satellites (035) or Reliability (036).
+#    memory_edges FK is legacy-safe (DEFERRED on orphans; post-apply reports fk_status).
+#    Runtime ensureJLWMSchema DDL removed — deploy API only after 034.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-034.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/034_jlwm_core_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-034.sql
+
+# 35) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -283,6 +301,7 @@ bash scripts/db/verify-schema.sh
 | `031_message_conversations_schema_authority.sql` | Formal `message_conversations` + `conversation_members` (Stage 23.3B). Includes required `case_id TEXT` (Runtime CREATE omitted it). Indexes: `idx_conv_office`, `idx_convs_case_id` (020 partial form), `idx_conv_members_*`, `idx_conv_updated` `(office_id, updated_at DESC)`. Compatible with Migration **020** index-only authority (020 not rewritten). FK `conversation_members→message_conversations` ON DELETE CASCADE is legacy-safe (skip + WARNING on orphans; post-apply reports `fk_status=INSTALLED|DEFERRED|PENDING`). Safe `SET NOT NULL` on required columns when no NULL rows. BLOCK on dups/NULL ids/incompatible types/incompatible same-name indexes (no DROP INDEX). Runtime `ensureConversationTables` removed. Preflight: `scripts/db/preflight-migration-031.sql` (inspect → blockers → SAFE → ALREADY_CORRECT; never short-circuits past blockers). Ops: preflight → block/manual or apply 031 → preflight ALREADY_CORRECT → deploy API. |
 | `032_gateway_settings_schema_authority.sql` | Formal `moyasar_settings` + `checkout_settings` (Stage 23.4). `office_id TEXT NOT NULL` with **no** DEFAULT (drops legacy DEFAULT `'default'` only; row values preserved). Strict `UNIQUE(office_id)`. No FK. BLOCK on NULL/duplicate `office_id`, incompatible types/PK/UNIQUE. Runtime `ensureGatewaySettingsTables` removed. Preflight: `scripts/db/preflight-migration-032.sql`. Ops: preflight → block/manual or apply 032 → preflight ALREADY_CORRECT → deploy API. |
 | `033_document_v2_schema_authority.sql` | Document V2 schema authority (Stage 23.5B). Owns `documents` extension columns (`storage_key`/`storage_provider`/`checksum`/`version`/`is_archived`/`legal_category`/`tags`/`migrated_at`/`file_size`), `document_versions`, `document_permissions`, `storage_migration_log`, and **new** `document_retention_policies` (strict `UNIQUE(office_id, category)` + `__default__` seed). Does **not** alter/drop/re-own compliance `retention_policies`. No invented UNIQUE on `storage_migration_log`. BLOCK on incompatible types/NULL/PK/UNIQUE/INDEX and duplicate retention keys. Runtime V2 DDL removed from `ensureDocumentCenterSchema`. Preflight: `scripts/db/preflight-migration-033.sql`. Ops: preflight → block/manual or apply 033 → preflight ALREADY_CORRECT → verify-schema → deploy API. |
+| `034_jlwm_core_schema_authority.sql` | JLWM Core schema authority (Stage 4B). Owns the 14 tables from former `ensureJLWMSchema()`: `jlwm_config` (+ `UNIQUE(office_id)`), `jlwm_memory_nodes` (+ partial `UNIQUE idx_jmn_uniq (office_id,node_type,node_ref) WHERE node_ref IS NOT NULL`), `jlwm_memory_edges` (+ FK→nodes ON DELETE CASCADE, legacy-safe defer on orphans), world/patterns/command/twins/predictions/recommendations/radar/feedback. Twin UNIQUEs: `(office_id,case_id)`, `(office_id,client_id)`, `(office_id,snapshot_date)`. BLOCK on incompatible types/NULL/non-UUID `office_id`/duplicate arbiters/wrong PK/UNIQUE/INDEX. No invented UNIQUEs for targetless `ON CONFLICT DO NOTHING`. Does **not** own satellites (035) or Reliability (036). Runtime core DDL removed; seed DML preserved. Preflight: `scripts/db/preflight-migration-034.sql`. Ops: preflight → block/manual or apply 034 → preflight ALREADY_CORRECT → verify-schema → deploy API. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -353,6 +372,8 @@ bash scripts/db/verify-schema.sh
 `moyasar_settings` / `checkout_settings` owned by migration **032** (Runtime `ensureGatewaySettingsTables` removed).
 
 Document V2 (`document_versions` / `document_permissions` / `storage_migration_log` / `document_retention_policies` + `documents` extension columns including `file_size`) owned by migration **033** (Runtime V2 DDL removed from `ensureDocumentCenterSchema`). Compliance `retention_policies` remains Runtime in `complianceCenter.ts` and is intentionally separate.
+
+JLWM Core (14 tables from former `ensureJLWMSchema`) owned by migration **034**. P0-gated minimum: `jlwm_config`, `jlwm_memory_nodes`, `jlwm_memory_edges`, `jlwm_case_twins`, `jlwm_client_twins`, `jlwm_firm_twin` (additional core tables are owned by 034 but not all are P0-gated to keep the deploy gate focused on rebuild/twin critical path). Satellites + Reliability remain Runtime until **035**/**036**.
 `ensureJournalTables` retains CoA seed only (no DDL).
 
 ## Rollback
