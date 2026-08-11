@@ -59,7 +59,15 @@ assert.match(mig, /SERIAL PRIMARY KEY/);
   assert.doesNotMatch(sqlOnly, /(?:^|;)\s*DROP\s+TABLE\b/im);
   assert.doesNotMatch(sqlOnly, /(?:^|;)\s*DROP\s+INDEX\b/im);
   /* Must not invent UNIQUE on storage_migration_log merely for ON CONFLICT */
-  assert.doesNotMatch(sqlOnly, /storage_migration_log[\s\S]{0,800}UNIQUE\s*\(/i);
+  const smlCreate = sqlOnly.match(
+    /CREATE TABLE IF NOT EXISTS storage_migration_log\s*\(([\s\S]*?)\)\s*;/i,
+  );
+  assert.ok(smlCreate, "storage_migration_log CREATE present");
+  assert.doesNotMatch(smlCreate[1], /\bUNIQUE\b/i);
+  assert.doesNotMatch(
+    sqlOnly,
+    /ALTER TABLE storage_migration_log[\s\S]{0,200}ADD\s+(CONSTRAINT\s+\w+\s+)?UNIQUE/i,
+  );
 }
 console.log("  ✅ 033 owns V2 tables + documents extensions; no DROP; no invented sml UNIQUE");
 

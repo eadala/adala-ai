@@ -44,15 +44,21 @@ console.log("\n═══ objectStorageLabels ═══");
     join(root, "modules/documents/documentCenter.ts"),
     "utf8",
   );
+  const mig033 = readFileSync(
+    join(root, "..", "migrations", "033_document_v2_schema_authority.sql"),
+    "utf8",
+  );
   assert.match(src, /OBJECT_STORAGE_PROVIDER_SQL_PREDICATE/);
   assert.doesNotMatch(
     src,
     /COUNT\(\*\) FILTER \(WHERE storage_provider = 'replit_object_storage'\)/,
   );
+  /* Schema Authority: document_versions.storage_provider default owned by Migration 033 */
   assert.match(
-    src,
-    /storage_provider TEXT DEFAULT 'cloudflare_r2'/,
+    mig033,
+    /storage_provider TEXT DEFAULT 'cloudflare_r2'|SET DEFAULT 'cloudflare_r2'/,
   );
+  assert.doesNotMatch(src, /CREATE TABLE IF NOT EXISTS document_versions/);
   assert.doesNotMatch(src, /ALTER COLUMN storage_provider SET DEFAULT/);
   assert.doesNotMatch(src, /ALTER TABLE document_versions/);
   assert.match(
@@ -69,7 +75,7 @@ console.log("\n═══ objectStorageLabels ═══");
     src,
     /UPDATE\s+document_center_files[\s\S]*SET\s+storage_provider\s*=\s*'cloudflare_r2'\s*WHERE\s+storage_provider\s*=\s*'replit_object_storage'/,
   );
-  console.log("  ✅ documentCenter stats/default/version writer use aliases; no backfill");
+  console.log("  ✅ documentCenter stats/version writer use aliases; default via 033; no backfill");
 }
 
 console.log("\n✅ objectStorageLabels: all checks passed\n");

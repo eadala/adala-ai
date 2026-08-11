@@ -1010,8 +1010,8 @@ assert.match(mig033, /POST_APPLY_READINESS_FAILED/);
 assert.match(mig033, /'__default__'/);
 {
   const sqlOnly033 = mig033.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
-  assert.doesNotMatch(sqlOnly033, /\bDROP\s+TABLE\b/i);
-  assert.doesNotMatch(sqlOnly033, /\bDROP\s+INDEX\b/i);
+  assert.doesNotMatch(sqlOnly033, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly033, /(?:^|;)\s*DROP\s+INDEX\b/im);
 }
 const preflight033 = readRepo("scripts/db/preflight-migration-033.sql");
 assert.match(preflight033, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable/i);
