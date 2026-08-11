@@ -143,7 +143,14 @@ console.log("\n═══ Runtime DDL removed for 021-owned tables ═══");
   assert.doesNotMatch(dc, /idx_dam_doc_id/);
   assert.doesNotMatch(dc, /ALTER TABLE document_center_files/);
   assert.doesNotMatch(dc, /ALTER TABLE document_ai_metadata/);
-  console.log("  ✅ ensureDocumentCenterSchema: read-only readiness only");
+  /* Stage 23.5B: Document V2 Runtime DDL also removed (Migration 033). */
+  assert.doesNotMatch(dc, /CREATE TABLE IF NOT EXISTS document_versions/);
+  assert.doesNotMatch(dc, /CREATE TABLE IF NOT EXISTS document_permissions/);
+  assert.doesNotMatch(dc, /CREATE TABLE IF NOT EXISTS storage_migration_log/);
+  assert.doesNotMatch(dc, /CREATE TABLE IF NOT EXISTS retention_policies/);
+  assert.doesNotMatch(dc, /ALTER TABLE documents ADD COLUMN/);
+  assert.match(dc, /033_document_v2_schema_authority|document_retention_policies/);
+  console.log("  ✅ ensureDocumentCenterSchema: read-only readiness only (021 + 033)");
 }
 
 console.log("\n═══ infra: docker-compose uses pgvector image ═══");

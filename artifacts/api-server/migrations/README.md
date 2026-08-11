@@ -226,7 +226,25 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-032.sql
 
-# 33) تحقق بعد التنفيذ
+# 33) Document V2 schema authority (Stage 23.5B)
+#    Ops order (required — no DROP; no invent/remap tenant data; no compliance touch):
+#      a) psql "$DATABASE_URL" -f scripts/db/preflight-migration-033.sql
+#      b) if chosen_action = BLOCK_AND_MANUAL_REVIEW → stop (incompatible types / NULL /
+#         duplicate retention keys / incompatible PK/UNIQUE/INDEX)
+#      c) apply 033 (documents extension cols + V2 tables + document_retention_policies seed)
+#      d) re-run preflight → expect ALREADY_CORRECT
+#      e) bash scripts/db/verify-schema.sh
+#      f) deploy API
+#    Does NOT copy compliance retention_policies. New table: document_retention_policies.
+#    Runtime Document V2 DDL removed from ensureDocumentCenterSchema — deploy API only after 033.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-033.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/033_document_v2_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-033.sql
+
+# 34) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -264,6 +282,7 @@ bash scripts/db/verify-schema.sh
 | `030_office_messages_case_id_text.sql` | Align `office_messages.case_id` with authoritative `cases.id` TEXT (Stage 22). SAFE: INTEGER→TEXT via exact `case_id::text` (legacy `42` → `'42'`); already-TEXT is no-op. Never invent integer→UUID mappings; never NULL/delete orphans; validating FK intentionally deferred until legacy orphan review. Ensures schema-owned `idx_messages_case_id`. BLOCK on unexpected/incompatible `case_id` types. Runtime `ensureCaseIdColumn` removed. Preflight: `scripts/db/preflight-migration-030.sql` (`chosen_action` + orphan/cross-office counts + `lock_risk`). Ops: preflight → block/manual or schedule HIGH lock_risk → apply 030 → preflight ALREADY_CORRECT. |
 | `031_message_conversations_schema_authority.sql` | Formal `message_conversations` + `conversation_members` (Stage 23.3B). Includes required `case_id TEXT` (Runtime CREATE omitted it). Indexes: `idx_conv_office`, `idx_convs_case_id` (020 partial form), `idx_conv_members_*`, `idx_conv_updated` `(office_id, updated_at DESC)`. Compatible with Migration **020** index-only authority (020 not rewritten). FK `conversation_members→message_conversations` ON DELETE CASCADE is legacy-safe (skip + WARNING on orphans; post-apply reports `fk_status=INSTALLED|DEFERRED|PENDING`). Safe `SET NOT NULL` on required columns when no NULL rows. BLOCK on dups/NULL ids/incompatible types/incompatible same-name indexes (no DROP INDEX). Runtime `ensureConversationTables` removed. Preflight: `scripts/db/preflight-migration-031.sql` (inspect → blockers → SAFE → ALREADY_CORRECT; never short-circuits past blockers). Ops: preflight → block/manual or apply 031 → preflight ALREADY_CORRECT → deploy API. |
 | `032_gateway_settings_schema_authority.sql` | Formal `moyasar_settings` + `checkout_settings` (Stage 23.4). `office_id TEXT NOT NULL` with **no** DEFAULT (drops legacy DEFAULT `'default'` only; row values preserved). Strict `UNIQUE(office_id)`. No FK. BLOCK on NULL/duplicate `office_id`, incompatible types/PK/UNIQUE. Runtime `ensureGatewaySettingsTables` removed. Preflight: `scripts/db/preflight-migration-032.sql`. Ops: preflight → block/manual or apply 032 → preflight ALREADY_CORRECT → deploy API. |
+| `033_document_v2_schema_authority.sql` | Document V2 schema authority (Stage 23.5B). Owns `documents` extension columns (`storage_key`/`storage_provider`/`checksum`/`version`/`is_archived`/`legal_category`/`tags`/`migrated_at`/`file_size`), `document_versions`, `document_permissions`, `storage_migration_log`, and **new** `document_retention_policies` (strict `UNIQUE(office_id, category)` + `__default__` seed). Does **not** alter/drop/re-own compliance `retention_policies`. No invented UNIQUE on `storage_migration_log`. BLOCK on incompatible types/NULL/PK/UNIQUE/INDEX and duplicate retention keys. Runtime V2 DDL removed from `ensureDocumentCenterSchema`. Preflight: `scripts/db/preflight-migration-033.sql`. Ops: preflight → block/manual or apply 033 → preflight ALREADY_CORRECT → verify-schema → deploy API. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -332,6 +351,8 @@ bash scripts/db/verify-schema.sh
 `cases.case_number` / court_* / `deleted_at` / `version`
 (+ performance indexes من `ensurePerformanceIndexes`).
 `moyasar_settings` / `checkout_settings` owned by migration **032** (Runtime `ensureGatewaySettingsTables` removed).
+
+Document V2 (`document_versions` / `document_permissions` / `storage_migration_log` / `document_retention_policies` + `documents` extension columns including `file_size`) owned by migration **033** (Runtime V2 DDL removed from `ensureDocumentCenterSchema`). Compliance `retention_policies` remains Runtime in `complianceCenter.ts` and is intentionally separate.
 `ensureJournalTables` retains CoA seed only (no DDL).
 
 ## Rollback

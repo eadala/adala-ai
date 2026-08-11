@@ -996,6 +996,51 @@ assert.match(p0Tables032, /^moyasar_settings$/m);
 assert.match(p0Tables032, /^checkout_settings$/m);
 console.log("  ✅ migration 032 owns gateway settings; Runtime CREATE removed; office_id explicit on INSERT; P0 gated");
 
+console.log("\n═══ schemaAuthority: Document V2 (033) ═══");
+assert.ok(migrationFiles.includes("033_document_v2_schema_authority.sql"));
+const mig033 = readRepo("artifacts/api-server/migrations/033_document_v2_schema_authority.sql");
+assert.match(mig033, /CREATE TABLE IF NOT EXISTS document_versions/);
+assert.match(mig033, /CREATE TABLE IF NOT EXISTS document_permissions/);
+assert.match(mig033, /CREATE TABLE IF NOT EXISTS storage_migration_log/);
+assert.match(mig033, /CREATE TABLE IF NOT EXISTS document_retention_policies/);
+assert.match(mig033, /file_size BIGINT/);
+assert.match(mig033, /DUPLICATE_RETENTION_KEY/);
+assert.match(mig033, /INCOMPATIBLE_INDEX/);
+assert.match(mig033, /POST_APPLY_READINESS_FAILED/);
+assert.match(mig033, /'__default__'/);
+{
+  const sqlOnly033 = mig033.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly033, /\bDROP\s+TABLE\b/i);
+  assert.doesNotMatch(sqlOnly033, /\bDROP\s+INDEX\b/i);
+}
+const preflight033 = readRepo("scripts/db/preflight-migration-033.sql");
+assert.match(preflight033, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable/i);
+assert.match(preflight033, /chosen_action/);
+assert.match(preflight033, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight033, /SAFE_AUTO_REPAIR/);
+assert.match(preflight033, /ALREADY_CORRECT/);
+assert.match(preflight033, /DUPLICATE_RETENTION_KEY/);
+const docCenter033 = readSrc("modules/documents/documentCenter.ts");
+assert.match(docCenter033, /033_document_v2_schema_authority/);
+assert.doesNotMatch(docCenter033, /CREATE TABLE IF NOT EXISTS document_versions/);
+assert.doesNotMatch(docCenter033, /CREATE TABLE IF NOT EXISTS retention_policies/);
+assert.doesNotMatch(docCenter033, /ALTER TABLE documents ADD COLUMN/);
+assert.match(docCenter033, /document_retention_policies/);
+assert.doesNotMatch(docCenter033, /INSERT INTO retention_policies/);
+const compliance033 = readSrc("modules/security/complianceCenter.ts");
+assert.match(compliance033, /CREATE TABLE IF NOT EXISTS retention_policies/);
+assert.doesNotMatch(compliance033, /document_retention_policies/);
+const integ033 = readRepo("scripts/db/test-migrations.integration.sh");
+assert.match(integ033, /scenario_migration_033|MIGRATION_033/);
+const p0Tables033 = readRepo("scripts/db/expected-tables-p0.txt");
+assert.match(p0Tables033, /^document_versions$/m);
+assert.match(p0Tables033, /^document_retention_policies$/m);
+const bootTxt033 = readRepo("scripts/db/boot-created-tables.txt");
+assert.doesNotMatch(bootTxt033, /^document_versions$/m);
+assert.doesNotMatch(bootTxt033, /^storage_migration_log$/m);
+assert.doesNotMatch(bootTxt033, /^document_retention_policies$/m);
+console.log("  ✅ migration 033 owns Document V2; Runtime V2 DDL removed; DC uses document_retention_policies; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

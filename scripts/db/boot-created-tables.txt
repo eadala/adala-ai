@@ -27,12 +27,8 @@ data_requests
 demo_sync_log
 developer_accounts
 developer_impersonation
-document_ai_metadata
-document_center_files
-document_permissions
 document_signatures
 document_templates
-document_versions
 dr_health_checks
 dr_restore_points
 dr_test_runs
@@ -129,7 +125,6 @@ security_alerts
 security_events
 security_sessions
 server_config
-storage_migration_log
 support_ai_analysis
 support_knowledge_base
 support_ticket_attachments

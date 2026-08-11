@@ -15,7 +15,8 @@
 | ~~`ensureReconciliationTable`~~ | removed — schema via migration **011** | — |
 | ~~`ensureERPTables`~~ | removed — ERP schema via migration **013** | — |
 | ~~`ensureBankruptcyTables`~~ | removed — Bankruptcy schema via migration **014** | — |
-| `ensureDocumentCenterSchema` | `documentCenter.ts` | `logger.error` |
+| ~~`ensureDocumentCenterSchema` V2 DDL~~ | removed — Document V2 via migration **033**; helper keeps 021 readiness checks only | — |
+| `ensureDocumentCenterSchema` (readiness) | `documentCenter.ts` | `logger.error` for missing 021 tables |
 | `ensureJLWMSchema` + 6 جداول فرعية | `jlwm/index.ts` | `logger.error` لكل واحد |
 | `ensureReliabilitySchema` | `reliabilityEngine.ts` | `logger.error` |
 | ~~`ensureBankruptcyV2Tables`~~ | removed — Bankruptcy schema via migration **014** | — |
@@ -102,6 +103,8 @@
 | `office_messages.search_vector` | 016 |
 | `office_messages.case_id` TEXT | **030** (preflight → apply INTEGER→TEXT exact `::text` → preflight ALREADY_CORRECT; FK deferred; Runtime `ensureCaseIdColumn` removed) |
 | `message_conversations` / `conversation_members` | **031** (preflight → apply CREATE/repair + `case_id TEXT` + indexes; FK legacy-safe; Runtime `ensureConversationTables` removed; compatible with **020**) |
+| `document_center_files` / `document_ai_metadata` / `rag_chunks` | **021** |
+| `documents` V2 extension cols + `document_versions` / `document_permissions` / `storage_migration_log` / `document_retention_policies` | **033** (preflight → apply → re-preflight ALREADY_CORRECT → verify-schema → deploy; compliance `retention_policies` untouched) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 
