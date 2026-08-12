@@ -1476,8 +1476,9 @@ scenario_migration_035_jlwm_satellites() {
   if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_035" >/tmp/mig035-nullcase.log 2>&1; then
     bad "F: migration should BLOCK NULL case_id"
   else
-    grep -q 'NULL_REQUIRED' /tmp/mig035-nullcase.log \
-      && ok "F: migration BLOCK NULL_REQUIRED" || bad "F: mig reason"
+    # Migration uses specific NULL_CASE_ID; preflight collapses to NULL_REQUIRED
+    grep -qE 'NULL_CASE_ID|NULL_REQUIRED' /tmp/mig035-nullcase.log \
+      && ok "F: migration BLOCK NULL_CASE_ID" || bad "F: mig reason"
   fi
   trap - EXIT
   teardown_db

@@ -68,6 +68,8 @@ assert.match(mig, /priority, created_at DESC/);
 assert.match(mig, /NON_UUID_OFFICE_ID/);
 assert.match(mig, /NULL_OFFICE_ID/);
 assert.match(mig, /NULL_REQUIRED/);
+assert.match(mig, /NULL_CASE_ID/);
+assert.match(mig, /NULL_PERIOD/);
 assert.match(mig, /INCOMPATIBLE_TYPE/);
 assert.match(mig, /INCOMPATIBLE_PK/);
 assert.match(mig, /INCOMPATIBLE_INDEX/);
