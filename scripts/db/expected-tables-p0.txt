@@ -81,3 +81,9 @@ bk_alerts
 bk_opening_requests
 bk_opening_request_documents
 bk_emergency_locks
+jlwm_future_paths
+jlwm_simulations
+jlwm_litigation_intel
+jlwm_accuracy_records
+jlwm_executive_reports
+jlwm_coo_actions

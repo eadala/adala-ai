@@ -81,13 +81,14 @@ ensureOfficePageSlugs().catch(e => logger.error({ e }, "ensureOfficePageSlugs fa
 ensureDocumentCenterSchema().catch(e => logger.error({ e }, "ensureDocumentCenterSchema failed"));
 /* jlwm_* core → migration 034 (ensureJLWMSchema is SELECT-only readiness) */
 ensureJLWMSchema().catch(e => logger.error({ e }, "ensureJLWMSchema failed"));
-/* JLWM satellites + Reliability Runtime DDL remain until 035/036 */
+/* jlwm satellites → migration 035 (ensure* helpers are SELECT-only readiness) */
 ensureFuturePathsTable().catch(e => logger.error({ e }, "ensureFuturePathsTable failed"));
 ensureSimulationsTable().catch(e => logger.error({ e }, "ensureSimulationsTable failed"));
 ensureLitigationIntelTable().catch(e => logger.error({ e }, "ensureLitigationIntelTable failed"));
 ensureAccuracyTable().catch(e => logger.error({ e }, "ensureAccuracyTable failed"));
 ensureExecutiveTable().catch(e => logger.error({ e }, "ensureExecutiveTable failed"));
 ensureCOOTable().catch(e => logger.error({ e }, "ensureCOOTable failed"));
+/* Reliability Runtime DDL remains until 036 */
 ensureReliabilitySchema().catch(e => logger.error({ e }, "ensureReliabilitySchema failed"));
 
 /* Auto-seed JLWM demo data for North & South offices (idempotent — skips if already seeded) */

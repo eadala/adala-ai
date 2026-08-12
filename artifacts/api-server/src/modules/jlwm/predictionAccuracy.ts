@@ -3,6 +3,9 @@
  * Tracks actual outcomes vs AI predictions, calculates accuracy metrics,
  * stores historical accuracy, and provides confidence calibration data.
  * All data is tenant-isolated via office_id.
+ *
+ * Schema authority: Migration 035 (Stage 4C).
+ * ensureAccuracyTable is SELECT-only readiness (no CREATE/INDEX).
  */
 
 import { Router }                from "express";
@@ -12,33 +15,17 @@ import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 
 const router = Router();
 
-/* ── DB Bootstrap ────────────────────────────────────────────── */
+/* ── SELECT-only readiness (Migration 035) ───────────────────── */
 export async function ensureAccuracyTable(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS jlwm_accuracy_records (
-      id               TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id        TEXT NOT NULL,
-      prediction_id    TEXT,
-      case_id          TEXT NOT NULL,
-      prediction_type  TEXT NOT NULL,
-      predicted_value  JSONB NOT NULL DEFAULT '{}',
-      actual_value     JSONB NOT NULL DEFAULT '{}',
-      accuracy_score   FLOAT,
-      deviation        FLOAT,
-      notes            TEXT,
-      recorded_by      TEXT,
-      recorded_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_jac_office ON jlwm_accuracy_records(office_id)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_jac_type ON jlwm_accuracy_records(office_id, prediction_type)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_jac_case ON jlwm_accuracy_records(office_id, case_id)
-  `).catch(() => {});
+  const { rows } = await db.execute(sql`
+    SELECT to_regclass('public.jlwm_accuracy_records') IS NOT NULL AS ok
+  `).catch(() => ({ rows: [{}] }));
+  if (!(rows[0] as { ok?: boolean } | undefined)?.ok) {
+    console.error(
+      "[JLWM] Migration 035 satellite schema not ready — missing jlwm_accuracy_records",
+      "(apply artifacts/api-server/migrations/035_jlwm_satellites_schema_authority.sql)",
+    );
+  }
 }
 
 /* ── Helpers ─────────────────────────────────────────────────── */

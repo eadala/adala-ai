@@ -4,6 +4,9 @@
  * Generates proactive action plans with assignment/follow-up suggestions.
  * All actions REQUIRE user approval before execution (approval workflow).
  * Fully tenant-isolated via office_id.
+ *
+ * Schema authority: Migration 035 (Stage 4C).
+ * ensureCOOTable is SELECT-only readiness (no CREATE/INDEX).
  */
 
 import { Router }                from "express";
@@ -19,44 +22,17 @@ const COO_SYSTEM = `أنت المدير التشغيلي القانوني JLWM (
 مهمتك: اكتشاف المشكلات التشغيلية قبل أن تحدث، وإنشاء خطط عمل واضحة وقابلة للتنفيذ.
 كن استباقياً ودقيقاً. اقترح إجراءات محددة وعملية. أعد JSON فقط بدون أي نص إضافي.`;
 
-/* ── DB Bootstrap ────────────────────────────────────────────── */
+/* ── SELECT-only readiness (Migration 035) ───────────────────── */
 export async function ensureCOOTable(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS jlwm_coo_actions (
-      id               TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id        TEXT NOT NULL,
-      action_type      TEXT NOT NULL,
-      title            TEXT NOT NULL,
-      description      TEXT NOT NULL,
-      priority         TEXT NOT NULL DEFAULT 'medium',
-      status           TEXT NOT NULL DEFAULT 'pending_approval',
-      target_ref       JSONB NOT NULL DEFAULT '{}',
-      suggested_action JSONB NOT NULL DEFAULT '{}',
-      ai_reasoning     TEXT,
-      approved_by      TEXT,
-      approved_at      TIMESTAMPTZ,
-      rejected_by      TEXT,
-      rejected_at      TIMESTAMPTZ,
-      reject_reason    TEXT,
-      executed_at      TIMESTAMPTZ,
-      execution_result JSONB,
-      expires_at       TIMESTAMPTZ,
-      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_jca_office ON jlwm_coo_actions(office_id)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_jca_status ON jlwm_coo_actions(office_id, status)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_jca_type ON jlwm_coo_actions(office_id, action_type)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_jca_priority ON jlwm_coo_actions(office_id, priority, created_at DESC)
-  `).catch(() => {});
+  const { rows } = await db.execute(sql`
+    SELECT to_regclass('public.jlwm_coo_actions') IS NOT NULL AS ok
+  `).catch(() => ({ rows: [{}] }));
+  if (!(rows[0] as { ok?: boolean } | undefined)?.ok) {
+    console.error(
+      "[JLWM] Migration 035 satellite schema not ready — missing jlwm_coo_actions",
+      "(apply artifacts/api-server/migrations/035_jlwm_satellites_schema_authority.sql)",
+    );
+  }
 }
 
 /* ── Scanners ─────────────────────────────────────────────────── */
