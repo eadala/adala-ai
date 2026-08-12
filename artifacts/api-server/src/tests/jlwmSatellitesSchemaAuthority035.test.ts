@@ -120,7 +120,8 @@ const p0Tables = readRepo("scripts/db/expected-tables-p0.txt");
 for (const t of SATELLITE_TABLES) {
   assert.match(p0Tables, new RegExp(`^${t}$`, "m"));
 }
-assert.doesNotMatch(p0Tables, /^jlwm_ai_audit$/m);
+/* Reliability tables are P0-gated by Migration 036 (Stage 4D) */
+assert.match(p0Tables, /^jlwm_ai_audit$/m);
 const p0Cols = readRepo("scripts/db/expected-columns-p0.txt");
 assert.match(p0Cols, /^jlwm_future_paths\.office_id$/m);
 assert.match(p0Cols, /^jlwm_simulations\.office_id$/m);
@@ -133,9 +134,9 @@ assert.match(p0Cols, /^jlwm_litigation_intel\.case_id$/m);
 assert.match(p0Cols, /^jlwm_accuracy_records\.case_id$/m);
 assert.match(p0Cols, /^jlwm_executive_reports\.period_start$/m);
 assert.match(p0Cols, /^jlwm_executive_reports\.period_end$/m);
-console.log("  ✅ P0 gates all 6 satellites + critical columns; Reliability excluded");
+console.log("  ✅ P0 gates all 6 satellites + critical columns; Reliability gated by 036");
 
-console.log("\n═══ Runtime satellite DDL removed; Reliability remains ═══");
+console.log("\n═══ Runtime satellite DDL removed; Reliability moved to 036 ═══");
 const future = readSrc("modules/jlwm/futureExplorer.ts");
 const sim = readSrc("modules/jlwm/simulationEngine.ts");
 const lit = readSrc("modules/jlwm/litigationIntelligence.ts");
@@ -161,16 +162,17 @@ assert.match(acc, /to_regclass\('public\.jlwm_accuracy_records'\)/);
 assert.match(exec, /to_regclass\('public\.jlwm_executive_reports'\)/);
 assert.match(coo, /to_regclass\('public\.jlwm_coo_actions'\)/);
 const rel = readSrc("modules/jlwm/reliabilityEngine.ts");
-assert.match(rel, /CREATE TABLE IF NOT EXISTS jlwm_ai_audit/);
-assert.match(rel, /CREATE TABLE IF NOT EXISTS jlwm_trust_scores/);
-console.log("  ✅ Satellite Runtime DDL gone; Reliability Runtime DDL intentionally remain");
+assert.doesNotMatch(rel, /CREATE TABLE IF NOT EXISTS jlwm_ai_audit/);
+assert.doesNotMatch(rel, /CREATE INDEX IF NOT EXISTS idx_jaa_/);
+assert.match(rel, /to_regclass\('public\.jlwm_ai_audit'\)/);
+console.log("  ✅ Satellite Runtime DDL gone; Reliability Runtime DDL removed (036)");
 
 console.log("\n═══ Boot inventory + CI wiring ═══");
 const bootTxt = readRepo("scripts/db/boot-created-tables.txt");
 for (const t of SATELLITE_TABLES) {
   assert.doesNotMatch(bootTxt, new RegExp(`^${t}$`, "m"));
 }
-assert.match(bootTxt, /^jlwm_ai_audit$/m);
+assert.doesNotMatch(bootTxt, /^jlwm_ai_audit$/m);
 const pkg = readRepo("artifacts/api-server/package.json");
 assert.match(pkg, /test:jlwm-035/);
 const ci = readRepo(".github/workflows/ci.yml");

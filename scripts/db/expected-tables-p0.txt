@@ -87,3 +87,8 @@ jlwm_litigation_intel
 jlwm_accuracy_records
 jlwm_executive_reports
 jlwm_coo_actions
+jlwm_ai_audit
+jlwm_trust_scores
+jlwm_recommendation_tracking
+jlwm_data_quality
+jlwm_learning_events

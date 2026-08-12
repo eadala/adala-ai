@@ -16,6 +16,9 @@
 --   INCOMPATIBLE_TYPE, NULL_OFFICE_ID, NON_UUID_OFFICE_ID, NULL_REQUIRED,
 --   INCOMPATIBLE_PK, INCOMPATIBLE_INDEX
 --   JLWM_RELIABILITY_SCHEMA_READY means ALREADY_CORRECT.
+-- Indexes are ALWAYS probed by name (even when the expected table is missing).
+-- DESC-last indexes require last key DESC and all prefix keys ASC.
+-- Any blocker wins over every safe repair, including missing tables.
 --
 -- On BLOCK: RAISE EXCEPTION so ON_ERROR_STOP scripts fail closed.
 -- ═══════════════════════════════════════════════════════════════════════════

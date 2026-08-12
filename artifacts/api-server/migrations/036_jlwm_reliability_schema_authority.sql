@@ -424,7 +424,7 @@ DECLARE
   index_columns TEXT[];
   index_options INT[];
   desc_ok BOOLEAN;
-  i INT;
+  opt_i INT;
 BEGIN
   FOR spec IN
     SELECT * FROM (VALUES
@@ -468,12 +468,12 @@ BEGIN
         IF (index_options[cardinality(index_options)] & 1) IS DISTINCT FROM 1 THEN
           desc_ok := false;
         END IF;
-        FOR i IN 1 .. cardinality(index_options)-1 LOOP
-          IF (index_options[i] & 1) IS DISTINCT FROM 0 THEN desc_ok := false; END IF;
+        FOR opt_i IN 1 .. cardinality(index_options)-1 LOOP
+          IF (index_options[opt_i] & 1) IS DISTINCT FROM 0 THEN desc_ok := false; END IF;
         END LOOP;
       ELSE
-        FOR i IN 1 .. cardinality(index_options) LOOP
-          IF (index_options[i] & 1) IS DISTINCT FROM 0 THEN desc_ok := false; END IF;
+        FOR opt_i IN 1 .. cardinality(index_options) LOOP
+          IF (index_options[opt_i] & 1) IS DISTINCT FROM 0 THEN desc_ok := false; END IF;
         END LOOP;
       END IF;
       IF actual_table_oid IS DISTINCT FROM expected_table_oid

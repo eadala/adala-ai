@@ -279,7 +279,23 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-035.sql
 
-# 36) تحقق بعد التنفيذ
+# 36) JLWM Reliability schema authority (Stage 4D)
+#    Ops order (required — no DROP; no invent/remap/delete office_id):
+#      a) psql "$DATABASE_URL" -f scripts/db/preflight-migration-036.sql
+#      b) if chosen_action = BLOCK_AND_MANUAL_REVIEW → stop
+#      c) apply 036 (5 Reliability tables + 6 indexes)
+#      d) re-run preflight → expect ALREADY_CORRECT
+#      e) bash scripts/db/verify-schema.sh
+#      f) deploy API
+#    Runtime ensureReliabilitySchema CREATE/INDEX removed — deploy API only after 036.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-036.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/036_jlwm_reliability_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-036.sql
+
+# 37) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -320,6 +336,7 @@ bash scripts/db/verify-schema.sh
 | `033_document_v2_schema_authority.sql` | Document V2 schema authority (Stage 23.5B). Owns `documents` extension columns (`storage_key`/`storage_provider`/`checksum`/`version`/`is_archived`/`legal_category`/`tags`/`migrated_at`/`file_size`), `document_versions`, `document_permissions`, `storage_migration_log`, and **new** `document_retention_policies` (strict `UNIQUE(office_id, category)` + `__default__` seed). Does **not** alter/drop/re-own compliance `retention_policies`. No invented UNIQUE on `storage_migration_log`. BLOCK on incompatible types/NULL/PK/UNIQUE/INDEX and duplicate retention keys. Runtime V2 DDL removed from `ensureDocumentCenterSchema`. Preflight: `scripts/db/preflight-migration-033.sql`. Ops: preflight → block/manual or apply 033 → preflight ALREADY_CORRECT → verify-schema → deploy API. |
 | `034_jlwm_core_schema_authority.sql` | JLWM Core schema authority (Stage 4B). Owns the 14 tables from former `ensureJLWMSchema()`: `jlwm_config` (+ `UNIQUE(office_id)`), `jlwm_memory_nodes` (+ partial `UNIQUE idx_jmn_uniq (office_id,node_type,node_ref) WHERE node_ref IS NOT NULL`), `jlwm_memory_edges` (+ FK→nodes ON DELETE CASCADE, legacy-safe defer on orphans), world/patterns/command/twins/predictions/recommendations/radar/feedback. Twin UNIQUEs: `(office_id,case_id)`, `(office_id,client_id)`, `(office_id,snapshot_date)`. BLOCK on incompatible types/NULL/non-UUID `office_id`/duplicate arbiters/wrong PK/UNIQUE/INDEX. No invented UNIQUEs for targetless `ON CONFLICT DO NOTHING`. Does **not** own satellites (035) or Reliability (036). Runtime core DDL removed; seed DML preserved. Preflight: `scripts/db/preflight-migration-034.sql`. Ops: preflight → block/manual or apply 034 → preflight ALREADY_CORRECT → verify-schema → deploy API. |
 | `035_jlwm_satellites_schema_authority.sql` | JLWM Satellites schema authority (Stage 4C). Owns the 6 tables from former Runtime satellite ensure*: `jlwm_future_paths`, `jlwm_simulations`, `jlwm_litigation_intel`, `jlwm_accuracy_records`, `jlwm_executive_reports`, `jlwm_coo_actions` (+ exact named indexes including DESC on `idx_jer_type` / `idx_jca_priority`). BLOCK on incompatible types/NULL/non-UUID `office_id`/NULL required identifiers/wrong PK/INDEX. No invented UNIQUEs. Does **not** own Reliability (036). Runtime satellite CREATE/INDEX removed; DML preserved. Preflight: `scripts/db/preflight-migration-035.sql`. Ops: preflight → block/manual or apply 035 → re-preflight → verify-schema → deploy API. |
+| `036_jlwm_reliability_schema_authority.sql` | JLWM Reliability schema authority (Stage 4D). Owns the 5 tables from former `ensureReliabilitySchema()`: `jlwm_ai_audit`, `jlwm_trust_scores`, `jlwm_recommendation_tracking`, `jlwm_data_quality`, `jlwm_learning_events` (+ exact named indexes including DESC on `idx_jaa_type` / `idx_jts_office` / `idx_jdq_office` / `idx_jle_office`). BLOCK on incompatible types/NULL/non-UUID `office_id`/NULL required identifiers/wrong PK/INDEX. No invented UNIQUEs. Runtime Reliability CREATE/INDEX removed; DML preserved (+ narrow 034/035 column compatibility fixes in app). Preflight: `scripts/db/preflight-migration-036.sql`. Ops: preflight → block/manual or apply 036 → re-preflight → verify-schema → deploy API. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -393,7 +410,7 @@ Document V2 (`document_versions` / `document_permissions` / `storage_migration_l
 
 JLWM Core (14 tables from former `ensureJLWMSchema`) owned by migration **034**. P0-gated minimum: `jlwm_config`, `jlwm_memory_nodes`, `jlwm_memory_edges`, `jlwm_case_twins`, `jlwm_client_twins`, `jlwm_firm_twin` (additional core tables are owned by 034 but not all are P0-gated to keep the deploy gate focused on rebuild/twin critical path).
 
-JLWM Satellites (6 tables from former Runtime satellite ensure*) owned by migration **035** and P0-gated: `jlwm_future_paths`, `jlwm_simulations`, `jlwm_litigation_intel`, `jlwm_accuracy_records`, `jlwm_executive_reports`, `jlwm_coo_actions`. Reliability remains Runtime until **036**.
+JLWM Satellites (6 tables from former Runtime satellite ensure*) owned by migration **035** and P0-gated: `jlwm_future_paths`, `jlwm_simulations`, `jlwm_litigation_intel`, `jlwm_accuracy_records`, `jlwm_executive_reports`, `jlwm_coo_actions`. Reliability (5 tables from former `ensureReliabilitySchema`) owned by migration **036** and P0-gated: `jlwm_ai_audit`, `jlwm_trust_scores`, `jlwm_recommendation_tracking`, `jlwm_data_quality`, `jlwm_learning_events`.
 `ensureJournalTables` retains CoA seed only (no DDL).
 
 ## Rollback

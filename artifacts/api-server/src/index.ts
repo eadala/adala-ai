@@ -88,7 +88,7 @@ ensureLitigationIntelTable().catch(e => logger.error({ e }, "ensureLitigationInt
 ensureAccuracyTable().catch(e => logger.error({ e }, "ensureAccuracyTable failed"));
 ensureExecutiveTable().catch(e => logger.error({ e }, "ensureExecutiveTable failed"));
 ensureCOOTable().catch(e => logger.error({ e }, "ensureCOOTable failed"));
-/* Reliability Runtime DDL remains until 036 */
+/* Reliability: Migration 036 SELECT-only readiness (Runtime CREATE/INDEX removed) */
 ensureReliabilitySchema().catch(e => logger.error({ e }, "ensureReliabilitySchema failed"));
 
 /* Auto-seed JLWM demo data for North & South offices (idempotent — skips if already seeded) */

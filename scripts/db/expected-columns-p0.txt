@@ -321,3 +321,12 @@ jlwm_executive_reports.office_id
 jlwm_executive_reports.period_start
 jlwm_executive_reports.period_end
 jlwm_coo_actions.office_id
+jlwm_ai_audit.office_id
+jlwm_ai_audit.created_at
+jlwm_trust_scores.office_id
+jlwm_trust_scores.computed_at
+jlwm_recommendation_tracking.office_id
+jlwm_data_quality.office_id
+jlwm_data_quality.computed_at
+jlwm_learning_events.office_id
+jlwm_learning_events.created_at

@@ -21,7 +21,8 @@
 | `ensureJLWMSchema` (readiness) | `jlwm.schema.ts` | `console.error` if Migration 034 tables missing |
 | ~~`ensureFuturePathsTable` + satellite DDL~~ | removed — 6 JLWM satellite tables via migration **035**; helpers keep SELECT-only readiness | — |
 | `ensureFuturePathsTable` (+ satellite readiness) | `futureExplorer` / `simulationEngine` / `litigationIntelligence` / `predictionAccuracy` / `executiveIntelligence` / `legalCOO` | `console.error` if Migration 035 tables missing |
-| `ensureReliabilitySchema` | `reliabilityEngine.ts` | `logger.error` (036 pending) |
+| ~~`ensureReliabilitySchema` DDL~~ | removed — 5 Reliability tables via migration **036**; helper keeps SELECT-only readiness | — |
+| `ensureReliabilitySchema` (readiness) | `reliabilityEngine.ts` | `console.error` if Migration 036 tables missing |
 | ~~`ensureBankruptcyV2Tables`~~ | removed — Bankruptcy schema via migration **014** | — |
 | ~~`ensureBankruptcyV3Tables`~~ | removed — Bankruptcy schema via migration **014** | — |
 | ~~`ensurePerformanceIndexes`~~ | removed — indexes via migration **010** | — |
