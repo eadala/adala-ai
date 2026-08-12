@@ -90,6 +90,8 @@ assert.match(pre, /ALREADY_CORRECT/);
 assert.match(pre, /SAFE_AUTO_REPAIR/);
 assert.match(pre, /BLOCK_AND_MANUAL_REVIEW/);
 assert.match(pre, /JLWM_CORE_SCHEMA_READY/);
+assert.match(pre, /READY_WITH_DEFERRED_FK/);
+assert.match(pre, /fk_status\s*=\s*'INSTALLED'/);
 assert.match(pre, /NON_UUID_OFFICE_ID/);
 assert.match(pre, /DUPLICATE_CONFIG_OFFICE_ID/);
 assert.match(pre, /DUPLICATE_CASE_TWIN/);
@@ -99,13 +101,22 @@ assert.match(pre, /idx_jmn_uniq/);
 assert.match(pre, /fk_status/);
 assert.match(pre, /lock_risk/);
 assert.match(pre, /Any blocker wins|blocker wins over every safe repair/i);
+assert.match(pre, /ONLY when fk_status=INSTALLED|FULL READY/i);
+assert.match(pre, /not ALREADY_CORRECT \/ not JLWM_CORE_SCHEMA_READY/);
 {
   const sqlOnlyPre = stripComments(pre);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*CREATE\s+TABLE\b/im);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*ALTER\s+TABLE\b/im);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  /* Deferred/pending FK must never fall through to ALREADY_CORRECT */
+  assert.match(sqlOnlyPre, /READY_WITH_DEFERRED_FK/);
+  assert.match(sqlOnlyPre, /fk_status\s*=\s*'INSTALLED'/);
+  assert.doesNotMatch(
+    sqlOnlyPre,
+    /FK INSTALLED or DEFERRED\(orphans\) allowed for ALREADY_CORRECT/,
+  );
 }
-console.log("  ✅ preflight fail-closed; blockers before SAFE");
+console.log("  ✅ preflight fail-closed; blockers before SAFE; ALREADY only when FK INSTALLED");
 
 console.log("\n═══ P0 verify-schema gate includes JLWM Core critical tables ═══");
 const p0Tables = readRepo("scripts/db/expected-tables-p0.txt");

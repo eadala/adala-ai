@@ -1054,6 +1054,10 @@ scenario_migration_034_jlwm_core() {
   grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight034-ready.log \
     && ok "A: preflight ALREADY_CORRECT" \
     || bad "A: $(grep chosen_action /tmp/preflight034-ready.log | tail -1)"
+  grep -q 'reason_code=JLWM_CORE_SCHEMA_READY' /tmp/preflight034-ready.log \
+    && ok "A: JLWM_CORE_SCHEMA_READY" || bad "A: missing JLWM_CORE_SCHEMA_READY"
+  grep -q 'fk_status=INSTALLED' /tmp/preflight034-ready.log \
+    && ok "A: fk_status=INSTALLED for FULL READY" || bad "A: fk_status not INSTALLED"
   trap - EXIT
   teardown_db
 
@@ -1241,6 +1245,9 @@ scenario_migration_034_jlwm_core() {
     || bad "J: migration failed on orphans"
   grep -qi 'FK_DEFERRED_ORPHANS\|fk_status=DEFERRED\|DEFERRED' /tmp/mig034-orphan.log \
     && ok "J: deferred FK surfaced" || bad "J: no defer notice"
+  grep -qi 'NOT FULLY READY\|not claiming JLWM_CORE_SCHEMA_READY' /tmp/mig034-orphan.log \
+    && ok "J: post-apply does not claim FULL READY / JLWM_CORE_SCHEMA_READY" \
+    || bad "J: post-apply taxonomy"
   fk_from=$(psql_db -At -c "
     SELECT EXISTS (
       SELECT 1 FROM pg_constraint c
@@ -1248,6 +1255,27 @@ scenario_migration_034_jlwm_core() {
         AND c.conname='jlwm_memory_edges_from_node_id_fkey'
     )")
   [[ "$fk_from" == "f" ]] && ok "J: FK not falsely installed" || bad "J: FK installed despite orphans"
+  # Orphan edges + otherwise-correct schema must NOT be ALREADY_CORRECT
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_034" >/tmp/preflight034-orphan.log 2>&1 || true
+  if grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight034-orphan.log; then
+    bad "J: orphan edges must NOT return ALREADY_CORRECT"
+  else
+    ok "J: orphan edges are not ALREADY_CORRECT"
+  fi
+  if grep -q 'reason_code=JLWM_CORE_SCHEMA_READY' /tmp/preflight034-orphan.log; then
+    bad "J: orphan edges must NOT return JLWM_CORE_SCHEMA_READY"
+  else
+    ok "J: orphan edges are not JLWM_CORE_SCHEMA_READY"
+  fi
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight034-orphan.log \
+    && ok "J: orphan edges → SAFE_AUTO_REPAIR" \
+    || bad "J: $(grep chosen_action /tmp/preflight034-orphan.log | tail -1)"
+  grep -q 'reason_code=READY_WITH_DEFERRED_FK' /tmp/preflight034-orphan.log \
+    && ok "J: reason_code=READY_WITH_DEFERRED_FK" || bad "J: missing READY_WITH_DEFERRED_FK"
+  grep -qE 'fk_status=DEFERRED' /tmp/preflight034-orphan.log \
+    && ok "J: fk_status=DEFERRED authoritative" || bad "J: fk_status not DEFERRED"
+  orphan_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM jlwm_memory_edges WHERE from_node_id='missing-from'")
+  [[ "$orphan_cnt" == "1" ]] && ok "J: orphan edge not deleted/remapped" || bad "J: orphan mutated"
   trap - EXIT
   teardown_db
 

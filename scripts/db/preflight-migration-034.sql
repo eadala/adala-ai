@@ -9,11 +9,16 @@
 --   2. Collect blockers across all present objects.
 --   3. Any blocker wins over every safe repair, including missing tables.
 --   4. With no blockers, report SAFE_AUTO_REPAIR for any contract gap;
---      otherwise report ALREADY_CORRECT.
+--      otherwise report ALREADY_CORRECT only when fully ready.
 --
 -- Safe when ALL 14 tables are absent (TABLE_MISSING → SAFE_AUTO_REPAIR).
--- FK: ALREADY_CORRECT allows fk_status=INSTALLED OR DEFERRED(orphans);
---     missing FK with ZERO orphans → SAFE (FK still addable).
+-- FK readiness taxonomy (fk_status is authoritative detail):
+--   FULL READY:
+--     ALREADY_CORRECT + reason_code=JLWM_CORE_SCHEMA_READY
+--     ONLY when fk_status=INSTALLED and the rest of the 14-table contract is correct.
+--   LEGACY SAFE BUT FK DEFERRED / PENDING:
+--     SAFE_AUTO_REPAIR + reason_code=READY_WITH_DEFERRED_FK
+--     when fk_status is DEFERRED* or PENDING (never ALREADY_CORRECT).
 -- On BLOCK: RAISE EXCEPTION so ON_ERROR_STOP scripts fail closed.
 -- ═══════════════════════════════════════════════════════════════════════════
 
@@ -1033,16 +1038,24 @@ BEGIN
     action := 'SAFE_AUTO_REPAIR';
     reason_code := 'SET_NOT_NULL_PENDING';
     lock_risk := 'MEDIUM';
-  ELSIF missing_fk THEN
-    /* Full contract except FK not installed and ZERO orphans → SAFE */
+  ELSIF missing_fk
+     OR fk_status = 'PENDING'
+     OR fk_status LIKE 'DEFERRED%' THEN
+    /* Schema otherwise usable, but memory-edge FK is not fully installed.
+       Never claim ALREADY_CORRECT / JLWM_CORE_SCHEMA_READY here. */
     action := 'SAFE_AUTO_REPAIR';
-    reason_code := 'FK_PENDING_OR_DEFERRED';
+    reason_code := 'READY_WITH_DEFERRED_FK';
     lock_risk := 'MEDIUM';
-  ELSE
-    /* FK INSTALLED or DEFERRED(orphans) allowed for ALREADY_CORRECT */
+  ELSIF fk_status = 'INSTALLED' THEN
+    /* FULL READY — only when FK is INSTALLED and every other contract check passed */
     action := 'ALREADY_CORRECT';
     reason_code := 'JLWM_CORE_SCHEMA_READY';
     lock_risk := 'LOW';
+  ELSE
+    /* Defensive: unknown/non-INSTALLED fk_status is never full-ready */
+    action := 'SAFE_AUTO_REPAIR';
+    reason_code := 'READY_WITH_DEFERRED_FK';
+    lock_risk := 'MEDIUM';
   END IF;
 
   /* ── 10) Diagnostics notices ──────────────────────────────────────────── */
@@ -1099,10 +1112,14 @@ BEGIN
     RAISE NOTICE '034_preflight: BLOCK — do not apply Migration 034 until every reported blocker is resolved';
     RAISE EXCEPTION '034_preflight: chosen_action=% reason_code=%', action, reason_code;
   ELSIF action = 'SAFE_AUTO_REPAIR' THEN
-    RAISE NOTICE '034_preflight: SAFE_AUTO_REPAIR — Migration 034 may repair the reported non-blocking gaps';
+    IF reason_code = 'READY_WITH_DEFERRED_FK' THEN
+      RAISE NOTICE '034_preflight: SAFE_AUTO_REPAIR reason_code=READY_WITH_DEFERRED_FK — LEGACY SAFE BUT FK NOT FULLY READY (fk_status=%); not ALREADY_CORRECT / not JLWM_CORE_SCHEMA_READY',
+        fk_status;
+    ELSE
+      RAISE NOTICE '034_preflight: SAFE_AUTO_REPAIR — Migration 034 may repair the reported non-blocking gaps';
+    END IF;
   ELSE
-    RAISE NOTICE '034_preflight: ALREADY_CORRECT — Migration 034 is expected to be an idempotent no-op (fk_status=%)',
-      fk_status;
+    RAISE NOTICE '034_preflight: ALREADY_CORRECT — FULL READY (reason_code=JLWM_CORE_SCHEMA_READY; fk_status=INSTALLED)';
   END IF;
 END
 $preflight$;

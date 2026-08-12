@@ -1612,9 +1612,18 @@ BEGIN
     fk_status := 'PENDING';
   END IF;
 
-  RAISE NOTICE
-    '034_jlwm_core: post-apply readiness gate passed (14 tables; idx_jmn_uniq exact; twin/config UNIQUEs; fk_status=%)',
-    fk_status;
+  /* Taxonomy aligned with preflight-migration-034.sql:
+       FULL READY            → fk_status=INSTALLED (preflight ALREADY_CORRECT / JLWM_CORE_SCHEMA_READY)
+       LEGACY SAFE BUT FK DEFERRED/PENDING → not full-ready (preflight SAFE / READY_WITH_DEFERRED_FK)
+     Post-apply still COMMITs when deferred (orphans never deleted/remapped). */
+  IF fk_status = 'INSTALLED' THEN
+    RAISE NOTICE
+      '034_jlwm_core: post-apply FULL READY (14 tables; idx_jmn_uniq exact; twin/config UNIQUEs; fk_status=INSTALLED)';
+  ELSE
+    RAISE NOTICE
+      '034_jlwm_core: post-apply schema objects ready but FK NOT FULLY READY (fk_status=%); not claiming JLWM_CORE_SCHEMA_READY',
+      fk_status;
+  END IF;
 END $$;
 
 COMMIT;

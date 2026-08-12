@@ -1071,6 +1071,8 @@ assert.match(preflight034, /BLOCK_AND_MANUAL_REVIEW/);
 assert.match(preflight034, /SAFE_AUTO_REPAIR/);
 assert.match(preflight034, /ALREADY_CORRECT/);
 assert.match(preflight034, /JLWM_CORE_SCHEMA_READY/);
+assert.match(preflight034, /READY_WITH_DEFERRED_FK/);
+assert.match(preflight034, /fk_status\s*=\s*'INSTALLED'/);
 assert.match(preflight034, /Any blocker wins|blocker wins over every safe repair/i);
 const jlwmSchema034 = readSrc("modules/jlwm/jlwm.schema.ts");
 assert.match(jlwmSchema034, /034_jlwm_core_schema_authority|Migration 034/);
