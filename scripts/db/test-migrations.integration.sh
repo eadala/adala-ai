@@ -1531,7 +1531,7 @@ scenario_migration_035_jlwm_satellites() {
   trap - EXIT
   teardown_db
 
-  /* H2: earlier DESC key on idx_jer_type must BLOCK — never ALREADY_CORRECT */
+  # H2: earlier DESC key on idx_jer_type must BLOCK — never ALREADY_CORRECT
   setup_db "mig035_wrong_desc"
   trap teardown_db EXIT
   apply_migrations_base
@@ -1559,7 +1559,7 @@ scenario_migration_035_jlwm_satellites() {
   trap - EXIT
   teardown_db
 
-  /* H3: missing expected table + same-name wrong index => BLOCK over SAFE/TABLE_MISSING */
+  # H3: missing expected table + same-name wrong index => BLOCK over SAFE/TABLE_MISSING
   setup_db "mig035_miss_tbl_bad_idx"
   trap teardown_db EXIT
   apply_migrations_base
