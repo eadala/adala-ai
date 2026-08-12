@@ -131,15 +131,90 @@ assert.doesNotMatch(rel, /SELECT\s+predictions\b/i);
 assert.doesNotMatch(rel, /FROM\s+jlwm_predictions[\s\S]{0,300}\bcase_id\s*=/i);
 assert.doesNotMatch(rel, /FROM\s+jlwm_predictions[\s\S]{0,300}\bcomputed_at\b/i);
 assert.doesNotMatch(rel, /toISOString\(\)\s*\+\s*["']::timestamptz["']/);
+assert.match(rel, /export async function selectCaseBundlePrediction/);
 const predictionQueries = [...rel.matchAll(/FROM\s+jlwm_predictions[\s\S]*?LIMIT 1/gi)].map(
   ([query]) => query,
 );
-assert.equal(predictionQueries.length, 2, "both prediction reads remain");
-for (const query of predictionQueries) {
-  assert.match(query, /WHERE office_id\s*=\s*\$\{(?:officeId|caseId)\}/);
-  assert.match(query, /subject_type\s*=\s*'case'/);
+assert.equal(predictionQueries.length, 1, "single shared case_bundle prediction read");
+assert.match(predictionQueries[0], /WHERE office_id\s*=\s*\$\{officeId\}/);
+assert.match(predictionQueries[0], /subject_type\s*=\s*'case'/);
+assert.match(predictionQueries[0], /prediction_type\s*=\s*'case_bundle'/);
+assert.match(predictionQueries[0], /ORDER BY created_at DESC/);
+assert.match(rel, /await selectCaseBundlePrediction\(\s*officeId,\s*entityId\s*\)/, "explain path");
+assert.match(rel, /selectCaseBundlePrediction\(\s*officeId,\s*caseId\s*\)/, "confidence path");
+console.log("  ✅ prediction DML uses case_bundle + supporting_data/created_at; tenant filters retained");
+
+console.log("\n═══ Behavioral: case_bundle wins over newer slice rows ═══");
+/* In-memory mirror of the formal-034 SELECT used by selectCaseBundlePrediction.
+ * Integration Scenario 036 N executes the same predicate against live Postgres. */
+type PredRow = {
+  prediction_type: string;
+  subject_type: string;
+  subject_id: string;
+  office_id: string;
+  created_at: string;
+  supporting_data: Record<string, unknown>;
+};
+function selectCaseBundleMirror(
+  rows: PredRow[],
+  officeId: string,
+  subjectId: string,
+): PredRow | undefined {
+  return rows
+    .filter(
+      (r) =>
+        r.office_id === officeId &&
+        r.subject_type === "case" &&
+        r.subject_id === subjectId &&
+        r.prediction_type === "case_bundle",
+    )
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
 }
-console.log("  ✅ prediction DML uses subject_type/supporting_data/created_at; tenant filters retained");
+const officeA = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+const caseA = "case-1111-2222-3333-444444444444";
+const bundleData = { marker: "BUNDLE_SUPPORTING", outcome: { value: "win", confidence: 0.8 } };
+const sliceDuration = { marker: "SLICE_DURATION", value: 90 };
+const sliceAppeal = { marker: "SLICE_APPEAL", probability: 0.2 };
+const fixtureRows: PredRow[] = [
+  {
+    office_id: officeA,
+    subject_type: "case",
+    subject_id: caseA,
+    prediction_type: "case_bundle",
+    created_at: "2026-01-01T10:00:00.000Z",
+    supporting_data: bundleData,
+  },
+  {
+    office_id: officeA,
+    subject_type: "case",
+    subject_id: caseA,
+    prediction_type: "duration",
+    created_at: "2026-01-01T11:00:00.000Z",
+    supporting_data: sliceDuration,
+  },
+  {
+    office_id: officeA,
+    subject_type: "case",
+    subject_id: caseA,
+    prediction_type: "appeal",
+    created_at: "2026-01-01T12:00:00.000Z",
+    supporting_data: sliceAppeal,
+  },
+];
+const newestAny = [...fixtureRows].sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
+assert.equal(newestAny.prediction_type, "appeal", "fixture: newest row is a slice");
+assert.equal(newestAny.supporting_data.marker, "SLICE_APPEAL");
+const selected = selectCaseBundleMirror(fixtureRows, officeA, caseA);
+assert.ok(selected, "case_bundle row selected");
+assert.equal(selected?.prediction_type, "case_bundle");
+assert.equal(selected?.supporting_data.marker, "BUNDLE_SUPPORTING");
+assert.notEqual(selected?.supporting_data.marker, newestAny.supporting_data.marker);
+/* SQL source must encode the same filters the mirror applies */
+assert.match(
+  predictionQueries[0],
+  /prediction_type\s*=\s*'case_bundle'[\s\S]*ORDER BY created_at DESC/,
+);
+console.log("  ✅ case_bundle supporting_data selected over newer duration/appeal slices");
 
 console.log("\n═══ 034/035 ownership boundaries + wiring ═══");
 for (const path of [

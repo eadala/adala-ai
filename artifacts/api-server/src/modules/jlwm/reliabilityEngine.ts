@@ -257,18 +257,31 @@ async function computeTrustScore(officeId: string): Promise<{
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
-/* COMPONENT 3 — Explainable AI                                   */
+/* Formal 034 prediction read — case_bundle only                  */
+/* predictionEngine writes one case_bundle then newer slice rows; */
+/* Reliability must not treat the newest slice as the full bundle */
 /* ═══════════════════════════════════════════════════════════════ */
-async function buildExplanation(officeId: string, type: string, entityId: string) {
-  /* Formal Migration 034: subject_type/subject_id/supporting_data/created_at */
-  const pred = await db.execute(sql`
+export async function selectCaseBundlePrediction(
+  officeId: string,
+  subjectId: string,
+): Promise<{ rows: any[] }> {
+  return db.execute(sql`
     SELECT supporting_data, predicted_value, created_at
     FROM jlwm_predictions
     WHERE office_id = ${officeId}
       AND subject_type = 'case'
-      AND subject_id = ${entityId}
+      AND subject_id = ${subjectId}
+      AND prediction_type = 'case_bundle'
     ORDER BY created_at DESC LIMIT 1
   `).catch(() => ({ rows: [] }));
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* COMPONENT 3 — Explainable AI                                   */
+/* ═══════════════════════════════════════════════════════════════ */
+async function buildExplanation(officeId: string, type: string, entityId: string) {
+  /* Formal Migration 034: case_bundle supporting_data / created_at */
+  const pred = await selectCaseBundlePrediction(officeId, entityId);
 
   const caseCtx = await db.execute(sql`
     SELECT c.title, c.status, c.case_type, c.description,
@@ -538,14 +551,8 @@ router.get("/jlwm/reliability/confidence/:caseId", requireAuthWithTenant, async 
   const caseId   = String(req.params.caseId);
 
   const [predRow, docCount, taskStats, hearingCount] = await Promise.all([
-    /* Formal Migration 034 columns */
-    db.execute(sql`
-      SELECT supporting_data, predicted_value, created_at FROM jlwm_predictions
-      WHERE office_id = ${officeId}
-        AND subject_type = 'case'
-        AND subject_id = ${caseId}
-      ORDER BY created_at DESC LIMIT 1
-    `).catch(() => ({ rows: [] })),
+    /* Formal Migration 034: case_bundle supporting_data */
+    selectCaseBundlePrediction(officeId, caseId),
 
     db.execute(sql`
       SELECT COUNT(*)::int AS cnt FROM documents

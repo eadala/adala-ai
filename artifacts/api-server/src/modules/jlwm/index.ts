@@ -42,7 +42,7 @@ export { ensureLitigationIntelTable } from "./litigationIntelligence";
 export { ensureAccuracyTable }      from "./predictionAccuracy";
 export { ensureExecutiveTable }     from "./executiveIntelligence";
 export { ensureCOOTable }           from "./legalCOO";
-export { ensureReliabilitySchema }  from "./reliabilityEngine";
+export { ensureReliabilitySchema, selectCaseBundlePrediction }  from "./reliabilityEngine";
 
 const jlwmRouter = Router();
 

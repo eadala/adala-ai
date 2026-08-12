@@ -2066,27 +2066,100 @@ from pathlib import Path
 text = Path(sys.argv[1]).read_text()
 if "subject_type = 'case'" not in text or "supporting_data" not in text or "recorded_at" not in text:
     raise SystemExit("missing 034/035 DML columns")
+if "prediction_type = 'case_bundle'" not in text:
+    raise SystemExit("missing prediction_type=case_bundle filter")
+if not re.search(r"await selectCaseBundlePrediction\(\s*officeId,\s*entityId\s*\)", text):
+    raise SystemExit("explain path missing selectCaseBundlePrediction")
+if not re.search(r"selectCaseBundlePrediction\(\s*officeId,\s*caseId\s*\)", text):
+    raise SystemExit("confidence path missing selectCaseBundlePrediction")
 if re.search(r"SELECT\s+predictions\b", text, re.IGNORECASE):
     raise SystemExit("legacy SELECT predictions remains")
 if re.search(r"FROM\s+jlwm_predictions[\s\S]{0,300}\bcase_id\s*=", text, re.IGNORECASE):
     raise SystemExit("legacy predictions case_id filter remains")
 prediction_queries = re.findall(r"FROM\s+jlwm_predictions[\s\S]*?LIMIT 1", text, re.IGNORECASE)
-if len(prediction_queries) != 2 or any(
-    not re.search(r"WHERE\s+office_id\s*=", query, re.IGNORECASE)
-    or re.search(r"\bcomputed_at\b", query, re.IGNORECASE)
-    for query in prediction_queries
+if len(prediction_queries) != 1:
+    raise SystemExit("expected single shared jlwm_predictions read")
+q = prediction_queries[0]
+if (
+    not re.search(r"WHERE\s+office_id\s*=", q, re.IGNORECASE)
+    or not re.search(r"prediction_type\s*=\s*'case_bundle'", q)
+    or re.search(r"\bcomputed_at\b", q, re.IGNORECASE)
 ):
-    raise SystemExit("prediction queries lost tenant filter or still use computed_at")
+    raise SystemExit("prediction query lost tenant/case_bundle filter or still uses computed_at")
 if re.search(r"toISOString\(\)\s*\+\s*[\"']::timestamptz", text):
     raise SystemExit("applied_at concatenates a cast into an ISO value")
 if re.search(r"ALTER\s+TABLE\s+jlwm_predictions", text, re.IGNORECASE):
     raise SystemExit("reliability DML alters Migration 034 predictions schema")
 PY
   then
-    ok "M: reliability DML uses subject_type/supporting_data/recorded_at and keeps office filters"
+    ok "M: reliability DML uses case_bundle/supporting_data/recorded_at and keeps office filters"
   else
     bad "M: reliability DML source contract failed"
   fi
+
+  # N: behavioral — older case_bundle wins over newer duration/appeal slices.
+  setup_db "mig036_case_bundle"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  local BUNDLE_OID='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+  local BUNDLE_CASE='case-1111-2222-3333-444444444444'
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO jlwm_predictions
+      (id, office_id, subject_type, subject_id, prediction_type, predicted_value,
+       confidence_score, supporting_data, created_at)
+    VALUES
+      ('pred-bundle', '$BUNDLE_OID', 'case', '$BUNDLE_CASE', 'case_bundle', 'win', 0.8,
+       '{\"marker\":\"BUNDLE_SUPPORTING\",\"outcome\":{\"value\":\"win\",\"confidence\":0.8}}'::jsonb,
+       '2026-01-01 10:00:00+00'),
+      ('pred-duration', '$BUNDLE_OID', 'case', '$BUNDLE_CASE', 'duration', '90', 0.6,
+       '{\"marker\":\"SLICE_DURATION\",\"value\":90}'::jsonb,
+       '2026-01-01 11:00:00+00'),
+      ('pred-appeal', '$BUNDLE_OID', 'case', '$BUNDLE_CASE', 'appeal', '0.2', 0.5,
+       '{\"marker\":\"SLICE_APPEAL\",\"probability\":0.2}'::jsonb,
+       '2026-01-01 12:00:00+00');
+  " >/dev/null
+  # Exact Reliability selectCaseBundlePrediction predicate (explain + confidence).
+  local selected_marker
+  selected_marker=$(psql_db -At -c "
+    SELECT supporting_data->>'marker'
+    FROM jlwm_predictions
+    WHERE office_id = '$BUNDLE_OID'
+      AND subject_type = 'case'
+      AND subject_id = '$BUNDLE_CASE'
+      AND prediction_type = 'case_bundle'
+    ORDER BY created_at DESC
+    LIMIT 1;
+  ")
+  [[ "$selected_marker" == "BUNDLE_SUPPORTING" ]] \
+    && ok "N: case_bundle supporting_data selected over newer slices" \
+    || bad "N: selected marker=$selected_marker (expected BUNDLE_SUPPORTING)"
+  local newest_marker
+  newest_marker=$(psql_db -At -c "
+    SELECT supporting_data->>'marker'
+    FROM jlwm_predictions
+    WHERE office_id = '$BUNDLE_OID'
+      AND subject_type = 'case'
+      AND subject_id = '$BUNDLE_CASE'
+    ORDER BY created_at DESC
+    LIMIT 1;
+  ")
+  [[ "$newest_marker" == "SLICE_APPEAL" ]] \
+    && ok "N: newest unfiltered row is appeal slice (would be wrong without filter)" \
+    || bad "N: newest marker=$newest_marker"
+  # Source wiring: both explain and confidence call the shared helper.
+  if grep -qE 'await selectCaseBundlePrediction\(\s*officeId,\s*entityId\s*\)' \
+       "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts" \
+     && grep -qE 'selectCaseBundlePrediction\(\s*officeId,\s*caseId\s*\)' \
+       "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts"; then
+    ok "N: explain + confidence both call selectCaseBundlePrediction"
+  else
+    bad "N: explain/confidence call sites missing"
+  fi
+  trap - EXIT
+  teardown_db
 }
 
 
