@@ -2,6 +2,9 @@
  * JLWM Phase 2 — Future Explorer
  * Generates Optimistic / Realistic / Pessimistic paths for cases, clients, and office.
  * Results stored in jlwm_future_paths table.
+ *
+ * Schema authority: Migration 035 (Stage 4C).
+ * ensureFuturePathsTable is SELECT-only readiness (no CREATE/INDEX).
  */
 
 import { Router }                from "express";
@@ -17,24 +20,17 @@ const FE_SYSTEM = `أنت محلل استراتيجي قانوني متخصص ف
 مهمتك: بناء مسارات مستقبلية واقعية بناءً على البيانات الفعلية.
 أعد JSON فقط بدون أي نص إضافي. كن محدداً ودقيقاً في الأرقام والمواعيد.`;
 
-/* ── DB table bootstrap ──────────────────────────────────────── */
+/* ── SELECT-only readiness (Migration 035) ───────────────────── */
 export async function ensureFuturePathsTable(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS jlwm_future_paths (
-      id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id     TEXT NOT NULL,
-      subject_type  TEXT NOT NULL,   -- case|client|office
-      subject_id    TEXT,
-      optimistic    JSONB NOT NULL DEFAULT '{}',
-      realistic     JSONB NOT NULL DEFAULT '{}',
-      pessimistic   JSONB NOT NULL DEFAULT '{}',
-      model_used    TEXT,
-      expires_at    TIMESTAMPTZ,
-      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_jfp_office ON jlwm_future_paths(office_id)`).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_jfp_subject ON jlwm_future_paths(subject_type, subject_id)`).catch(() => {});
+  const { rows } = await db.execute(sql`
+    SELECT to_regclass('public.jlwm_future_paths') IS NOT NULL AS ok
+  `).catch(() => ({ rows: [{}] }));
+  if (!(rows[0] as { ok?: boolean } | undefined)?.ok) {
+    console.error(
+      "[JLWM] Migration 035 satellite schema not ready — missing jlwm_future_paths",
+      "(apply artifacts/api-server/migrations/035_jlwm_satellites_schema_authority.sql)",
+    );
+  }
 }
 
 /* ── Path generator helpers ─────────────────────────────────── */

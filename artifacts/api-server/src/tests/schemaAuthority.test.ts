@@ -1078,7 +1078,7 @@ const jlwmSchema034 = readSrc("modules/jlwm/jlwm.schema.ts");
 assert.match(jlwmSchema034, /034_jlwm_core_schema_authority|Migration 034/);
 assert.doesNotMatch(jlwmSchema034, /CREATE TABLE IF NOT EXISTS jlwm_config/);
 assert.doesNotMatch(jlwmSchema034, /CREATE INDEX IF NOT EXISTS idx_jmn_/);
-assert.match(readSrc("modules/jlwm/futureExplorer.ts"), /CREATE TABLE IF NOT EXISTS jlwm_future_paths/);
+assert.doesNotMatch(readSrc("modules/jlwm/futureExplorer.ts"), /CREATE TABLE IF NOT EXISTS jlwm_future_paths/);
 assert.match(readSrc("modules/jlwm/reliabilityEngine.ts"), /CREATE TABLE IF NOT EXISTS jlwm_ai_audit/);
 const integ034 = readRepo("scripts/db/test-migrations.integration.sh");
 assert.match(integ034, /scenario_migration_034|MIGRATION_034/);
@@ -1089,9 +1089,47 @@ assert.match(p0Tables034, /^jlwm_case_twins$/m);
 const bootTxt034 = readRepo("scripts/db/boot-created-tables.txt");
 assert.doesNotMatch(bootTxt034, /^jlwm_config$/m);
 assert.doesNotMatch(bootTxt034, /^jlwm_memory_nodes$/m);
-assert.match(bootTxt034, /^jlwm_future_paths$/m);
+assert.doesNotMatch(bootTxt034, /^jlwm_future_paths$/m);
 assert.match(bootTxt034, /^jlwm_ai_audit$/m);
-console.log("  ✅ migration 034 owns JLWM core; Runtime core DDL removed; satellites/reliability remain; P0 gated");
+console.log("  ✅ migration 034 owns JLWM core; Runtime core DDL removed; satellites moved to 035; reliability remain; P0 gated");
+
+console.log("\n═══ schemaAuthority: JLWM Satellites (035) ═══");
+assert.ok(migrationFiles.includes("035_jlwm_satellites_schema_authority.sql"));
+const mig035 = readRepo("artifacts/api-server/migrations/035_jlwm_satellites_schema_authority.sql");
+assert.match(mig035, /CREATE TABLE IF NOT EXISTS jlwm_future_paths/);
+assert.match(mig035, /CREATE TABLE IF NOT EXISTS jlwm_simulations/);
+assert.match(mig035, /CREATE TABLE IF NOT EXISTS jlwm_litigation_intel/);
+assert.match(mig035, /CREATE TABLE IF NOT EXISTS jlwm_accuracy_records/);
+assert.match(mig035, /CREATE TABLE IF NOT EXISTS jlwm_executive_reports/);
+assert.match(mig035, /CREATE TABLE IF NOT EXISTS jlwm_coo_actions/);
+assert.match(mig035, /idx_jer_type/);
+assert.match(mig035, /generated_at DESC/);
+assert.match(mig035, /idx_jca_priority/);
+assert.match(mig035, /NON_UUID_OFFICE_ID/);
+assert.match(mig035, /POST_APPLY_READINESS_FAILED/);
+{
+  const sqlOnly035 = mig035.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly035, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly035, /jlwm_ai_audit|jlwm_trust_scores/);
+}
+const preflight035 = readRepo("scripts/db/preflight-migration-035.sql");
+assert.match(preflight035, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|only reads catalogs/i);
+assert.match(preflight035, /chosen_action/);
+assert.match(preflight035, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight035, /SAFE_AUTO_REPAIR/);
+assert.match(preflight035, /ALREADY_CORRECT/);
+assert.match(preflight035, /JLWM_SATELLITES_SCHEMA_READY/);
+assert.match(preflight035, /Any blocker wins|blocker wins over every safe repair/i);
+assert.doesNotMatch(readSrc("modules/jlwm/futureExplorer.ts"), /CREATE TABLE IF NOT EXISTS jlwm_future_paths/);
+assert.doesNotMatch(readSrc("modules/jlwm/legalCOO.ts"), /CREATE TABLE IF NOT EXISTS jlwm_coo_actions/);
+assert.match(readSrc("modules/jlwm/reliabilityEngine.ts"), /CREATE TABLE IF NOT EXISTS jlwm_ai_audit/);
+const integ035 = readRepo("scripts/db/test-migrations.integration.sh");
+assert.match(integ035, /scenario_migration_035|MIGRATION_035/);
+const p0Tables035 = readRepo("scripts/db/expected-tables-p0.txt");
+assert.match(p0Tables035, /^jlwm_future_paths$/m);
+assert.match(p0Tables035, /^jlwm_coo_actions$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^jlwm_executive_reports\.period_start$/m);
+console.log("  ✅ migration 035 owns JLWM satellites; Runtime satellite DDL removed; Reliability remains; P0 gated");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 

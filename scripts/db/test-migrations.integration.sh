@@ -43,6 +43,7 @@ MIGRATION_031="$ROOT/artifacts/api-server/migrations/031_message_conversations_s
 MIGRATION_032="$ROOT/artifacts/api-server/migrations/032_gateway_settings_schema_authority.sql"
 MIGRATION_033="$ROOT/artifacts/api-server/migrations/033_document_v2_schema_authority.sql"
 MIGRATION_034="$ROOT/artifacts/api-server/migrations/034_jlwm_core_schema_authority.sql"
+MIGRATION_035="$ROOT/artifacts/api-server/migrations/035_jlwm_satellites_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -234,11 +235,16 @@ verify_p0_schema() {
   apply_migration_032
   apply_migration_033
   apply_migration_034
+  apply_migration_035
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
 apply_migration_034() {
   psql_db -f "$MIGRATION_034" >/dev/null
+}
+
+apply_migration_035() {
+  psql_db -f "$MIGRATION_035" >/dev/null
 }
 
 apply_migrations_through_013() {
@@ -277,11 +283,12 @@ apply_all_migrations() {
   apply_migration_032
   apply_migration_033
   apply_migration_034
+  apply_migration_035
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 + 033 + 034 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 + 033 + 034 + 035 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -1284,8 +1291,11 @@ scenario_migration_034_jlwm_core() {
   else
     ok "K: Runtime core CREATE removed from jlwm.schema.ts"
   fi
-  grep -q 'CREATE TABLE IF NOT EXISTS jlwm_future_paths' "$ROOT/artifacts/api-server/src/modules/jlwm/futureExplorer.ts" \
-    && ok "K: satellite Runtime DDL remains" || bad "K: satellite DDL missing unexpectedly"
+  if grep -q 'CREATE TABLE IF NOT EXISTS jlwm_future_paths' "$ROOT/artifacts/api-server/src/modules/jlwm/futureExplorer.ts"; then
+    bad "K: satellite Runtime DDL still present (must be Migration 035)"
+  else
+    ok "K: satellite Runtime CREATE removed (owned by 035)"
+  fi
   grep -q 'CREATE TABLE IF NOT EXISTS jlwm_ai_audit' "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts" \
     && ok "K: reliability Runtime DDL remains" || bad "K: reliability DDL missing unexpectedly"
 
@@ -1316,6 +1326,269 @@ scenario_migration_034_jlwm_core() {
 
   grep -q 'POST_APPLY_READINESS_FAILED' "$MIGRATION_034" \
     && ok "M: post-apply readiness gate present" || bad "M: post-apply gate missing"
+}
+
+
+scenario_migration_035_jlwm_satellites() {
+  log "Scenario 035 — JLWM Satellites: greenfield / already-correct / BLOCK / indexes / P0"
+  local PREFLIGHT_035="$ROOT/scripts/db/preflight-migration-035.sql"
+  local OID='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+
+  setup_db "mig035_preflight_absent"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_035" >/tmp/preflight035-absent.log 2>&1 || true
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight035-absent.log \
+    && ok "A0: SAFE_AUTO_REPAIR (satellites missing)" \
+    || bad "A0: missing SAFE_AUTO_REPAIR"
+  grep -q 'reason_code=TABLE_MISSING' /tmp/preflight035-absent.log \
+    && ok "A0: TABLE_MISSING" || bad "A0: reason"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig035_fresh"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  local fp idx_desc
+  fp=$(psql_db -At -c "SELECT to_regclass('public.jlwm_future_paths') IS NOT NULL")
+  [[ "$fp" == "t" ]] && ok "A: jlwm_future_paths present" || bad "A: future_paths missing"
+  idx_desc=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class i
+      JOIN pg_namespace n ON n.oid=i.relnamespace
+      JOIN pg_index x ON x.indexrelid=i.oid
+      WHERE n.nspname='public' AND i.relname='idx_jer_type'
+        AND x.indisunique IS FALSE AND x.indpred IS NULL
+        AND (x.indoption[array_length(x.indkey,1)-1] & 1) = 1
+    )")
+  [[ "$idx_desc" == "t" ]] && ok "A: idx_jer_type DESC last key" || bad "A: idx_jer_type DESC"
+  apply_migration_035
+  ok "A: re-run 035 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_035" >/tmp/preflight035-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight035-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" \
+    || bad "A: $(grep chosen_action /tmp/preflight035-ready.log | tail -1)"
+  grep -q 'reason_code=JLWM_SATELLITES_SCHEMA_READY' /tmp/preflight035-ready.log \
+    && ok "A: JLWM_SATELLITES_SCHEMA_READY" || bad "A: reason"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig035_missing_table"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE jlwm_coo_actions CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_035" >/tmp/preflight035-misstbl.log 2>&1 || true
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight035-misstbl.log \
+    && ok "B: missing jlwm_coo_actions → SAFE" || bad "B: preflight"
+  apply_migration_035
+  local coo
+  coo=$(psql_db -At -c "SELECT to_regclass('public.jlwm_coo_actions') IS NOT NULL")
+  [[ "$coo" == "t" ]] && ok "B: jlwm_coo_actions restored" || bad "B: still missing"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig035_missing_idx"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX IF EXISTS idx_jfp_office;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_035" >/tmp/preflight035-missidx.log 2>&1 || true
+  grep -q 'SAFE_AUTO_REPAIR\|PARTIAL_SCHEMA\|MISSING' /tmp/preflight035-missidx.log \
+    && ok "C: missing index → SAFE" || bad "C: preflight"
+  apply_migration_035
+  local idx
+  idx=$(psql_db -At -c "SELECT to_regclass('public.idx_jfp_office') IS NOT NULL")
+  [[ "$idx" == "t" ]] && ok "C: idx_jfp_office restored" || bad "C: index missing"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig035_badtype"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_future_paths DROP COLUMN office_id;
+    ALTER TABLE jlwm_future_paths ADD COLUMN office_id INTEGER;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_035" >/tmp/preflight035-type.log 2>&1; then
+    bad "D: preflight should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight035-type.log \
+      && ok "D: preflight BLOCK INCOMPATIBLE_TYPE" || bad "D: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_035" >/tmp/mig035-type.log 2>&1; then
+    bad "D: migration should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig035-type.log \
+      && ok "D: migration BLOCK INCOMPATIBLE_TYPE" || bad "D: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig035_null_office"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_future_paths ALTER COLUMN office_id DROP NOT NULL;
+    INSERT INTO jlwm_future_paths (id, office_id, subject_type)
+    VALUES ('null-fp', NULL, 'office');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_035" >/tmp/preflight035-null.log 2>&1; then
+    bad "E: preflight should BLOCK NULL office_id"
+  else
+    grep -q 'NULL_OFFICE_ID\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight035-null.log \
+      && ok "E: preflight BLOCK NULL_OFFICE_ID" || bad "E: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_035" >/tmp/mig035-null.log 2>&1; then
+    bad "E: migration should BLOCK NULL office_id"
+  else
+    grep -q 'NULL_OFFICE_ID' /tmp/mig035-null.log \
+      && ok "E: migration BLOCK NULL_OFFICE_ID" || bad "E: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig035_null_case"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_simulations ALTER COLUMN case_id DROP NOT NULL;
+    INSERT INTO jlwm_simulations (id, office_id, case_id, scenario_type)
+    VALUES ('null-case', '$OID', NULL, 'appeal');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_035" >/tmp/preflight035-nullcase.log 2>&1; then
+    bad "F: preflight should BLOCK NULL case_id"
+  else
+    grep -q 'NULL_REQUIRED\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight035-nullcase.log \
+      && ok "F: preflight BLOCK NULL_REQUIRED case_id" || bad "F: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_035" >/tmp/mig035-nullcase.log 2>&1; then
+    bad "F: migration should BLOCK NULL case_id"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig035-nullcase.log \
+      && ok "F: migration BLOCK NULL_REQUIRED" || bad "F: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig035_non_uuid"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO jlwm_future_paths (office_id, subject_type)
+    VALUES ('default', 'office');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_035" >/tmp/preflight035-nuuid.log 2>&1; then
+    bad "G: preflight should BLOCK non-UUID"
+  else
+    grep -q 'NON_UUID_OFFICE_ID\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight035-nuuid.log \
+      && ok "G: preflight BLOCK NON_UUID_OFFICE_ID" || bad "G: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_035" >/tmp/mig035-nuuid.log 2>&1; then
+    bad "G: migration should BLOCK non-UUID"
+  else
+    grep -q 'NON_UUID_OFFICE_ID' /tmp/mig035-nuuid.log \
+      && ok "G: migration BLOCK NON_UUID_OFFICE_ID" || bad "G: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig035_wrong_idx"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_jfp_office;
+    CREATE INDEX idx_jfp_office ON jlwm_future_paths(subject_type);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_035" >/tmp/preflight035-wrongidx.log 2>&1; then
+    bad "H: preflight should BLOCK wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight035-wrongidx.log \
+      && ok "H: preflight BLOCK INCOMPATIBLE_INDEX" || bad "H: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_035" >/tmp/mig035-wrongidx.log 2>&1; then
+    bad "H: migration should BLOCK wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig035-wrongidx.log \
+      && ok "H: migration BLOCK INCOMPATIBLE_INDEX" || bad "H: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig035_wrong_pk"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_simulations DROP CONSTRAINT jlwm_simulations_pkey;
+    ALTER TABLE jlwm_simulations ADD PRIMARY KEY (office_id, case_id, id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_035" >/tmp/preflight035-wrongpk.log 2>&1; then
+    bad "I: preflight should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight035-wrongpk.log \
+      && ok "I: preflight BLOCK INCOMPATIBLE_PK" || bad "I: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_035" >/tmp/mig035-wrongpk.log 2>&1; then
+    bad "I: migration should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig035-wrongpk.log \
+      && ok "I: migration BLOCK INCOMPATIBLE_PK" || bad "I: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  if grep -q 'CREATE TABLE IF NOT EXISTS jlwm_future_paths' "$ROOT/artifacts/api-server/src/modules/jlwm/futureExplorer.ts"; then
+    bad "J: Runtime jlwm_future_paths CREATE still present"
+  else
+    ok "J: Runtime satellite CREATE removed from futureExplorer.ts"
+  fi
+  grep -q 'CREATE TABLE IF NOT EXISTS jlwm_ai_audit' "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts" \
+    && ok "J: reliability Runtime DDL remains" || bad "J: reliability DDL missing unexpectedly"
+
+  setup_db "mig035_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig035-p0-present.log 2>&1; then
+    ok "K: verify-schema passes with satellites present"
+  else
+    bad "K: verify-schema failed after full chain"; tail -30 /tmp/mig035-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE jlwm_future_paths CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig035-p0.log 2>&1; then
+    bad "K: verify-schema should fail without jlwm_future_paths"
+  else
+    grep -qi 'jlwm_future_paths' /tmp/mig035-p0.log \
+      && ok "K: P0 verify fails when jlwm_future_paths absent" || bad "K: verify log missing jlwm_future_paths"
+  fi
+  apply_migration_035
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig035-p0-restored.log 2>&1; then
+    ok "K: verify-schema passes after 035 restore"
+  else
+    bad "K: verify-schema failed after 035 restore"; tail -30 /tmp/mig035-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+
+  grep -q 'POST_APPLY_READINESS_FAILED' "$MIGRATION_035" \
+    && ok "L: post-apply readiness gate present" || bad "L: post-apply gate missing"
 }
 
 
@@ -7952,6 +8225,7 @@ scenario_migration_031_message_conversations
 scenario_migration_032_gateway_settings
 scenario_migration_033_document_v2
 scenario_migration_034_jlwm_core
+scenario_migration_035_jlwm_satellites
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

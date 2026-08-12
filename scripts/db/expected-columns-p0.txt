@@ -310,3 +310,14 @@ bk_opening_request_documents.request_id
 bk_opening_request_documents.is_demo
 bk_emergency_locks.office_id
 bk_emergency_locks.is_active
+jlwm_future_paths.office_id
+jlwm_simulations.office_id
+jlwm_simulations.case_id
+jlwm_litigation_intel.office_id
+jlwm_litigation_intel.case_id
+jlwm_accuracy_records.office_id
+jlwm_accuracy_records.case_id
+jlwm_executive_reports.office_id
+jlwm_executive_reports.period_start
+jlwm_executive_reports.period_end
+jlwm_coo_actions.office_id
