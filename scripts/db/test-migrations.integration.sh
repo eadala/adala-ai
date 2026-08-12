@@ -1803,7 +1803,7 @@ scenario_migration_036_jlwm_reliability() {
   psql_db -v ON_ERROR_STOP=1 -c "
     ALTER TABLE jlwm_ai_audit ALTER COLUMN office_id DROP NOT NULL;
     INSERT INTO jlwm_ai_audit (id, office_id, query_type, model_used)
-    VALUES ('audit-null-office', NULL, 'test', 'test');
+    VALUES ('$OID', NULL, 'test', 'test');
   " >/dev/null
   if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-null-office.log 2>&1; then
     bad "E: preflight should BLOCK NULL office_id"
@@ -1828,8 +1828,8 @@ scenario_migration_036_jlwm_reliability() {
   apply_migration_035
   apply_migration_036
   psql_db -v ON_ERROR_STOP=1 -c "
-    INSERT INTO jlwm_trust_scores (office_id)
-    VALUES ('not-a-uuid');
+    INSERT INTO jlwm_trust_scores (id, office_id)
+    VALUES ('$OID', 'not-a-uuid');
   " >/dev/null
   if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-nuuid.log 2>&1; then
     bad "F: preflight should BLOCK non-UUID"
