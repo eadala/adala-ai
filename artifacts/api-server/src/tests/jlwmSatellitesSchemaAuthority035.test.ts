@@ -98,13 +98,22 @@ assert.match(pre, /NULL_OFFICE_ID/);
 assert.match(pre, /NULL_REQUIRED/);
 assert.match(pre, /INCOMPATIBLE_INDEX/);
 assert.match(pre, /Any blocker wins|blocker wins over every safe repair/i);
+/* DESC: prefix ASC + last DESC (mirror apply); always probe index by name */
+assert.match(pre, /ALWAYS probe by index name|probe by index name/i);
+assert.match(pre, /last key DESC, all prefix keys ASC|prefix keys ASC/i);
+assert.match(pre, /desc_ok/);
+assert.doesNotMatch(
+  stripComments(pre),
+  /Missing target table → index gap; skip catalog probe/,
+);
+assert.match(mig, /Mirror apply-time DESC: last DESC \+ all prefix keys ASC/);
 {
   const sqlOnlyPre = stripComments(pre);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*CREATE\s+TABLE\b/im);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*ALTER\s+TABLE\b/im);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*DROP\s+TABLE\b/im);
 }
-console.log("  ✅ preflight fail-closed; blockers before SAFE");
+console.log("  ✅ preflight fail-closed; blockers before SAFE; strict DESC + always index-name probe");
 
 console.log("\n═══ P0 verify-schema gate includes JLWM Satellites ═══");
 const p0Tables = readRepo("scripts/db/expected-tables-p0.txt");
@@ -169,6 +178,8 @@ assert.match(ci, /test:jlwm-035/);
 const integ = readRepo("scripts/db/test-migrations.integration.sh");
 assert.match(integ, /MIGRATION_035|scenario_migration_035/);
 assert.match(integ, /apply_migration_035/);
+assert.match(integ, /mig035_wrong_desc|prefix-DESC idx_jer_type/);
+assert.match(integ, /mig035_miss_tbl_bad_idx|missing table \+ wrong same-name/);
 const indexTs = readSrc("index.ts");
 assert.match(indexTs, /migration 035|Migration 035/i);
 assert.match(indexTs, /ensureReliabilitySchema/);

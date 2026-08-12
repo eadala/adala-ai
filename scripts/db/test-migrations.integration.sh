@@ -1531,6 +1531,63 @@ scenario_migration_035_jlwm_satellites() {
   trap - EXIT
   teardown_db
 
+  /* H2: earlier DESC key on idx_jer_type must BLOCK — never ALREADY_CORRECT */
+  setup_db "mig035_wrong_desc"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_jer_type;
+    CREATE INDEX idx_jer_type ON jlwm_executive_reports(office_id DESC, report_type, generated_at DESC);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_035" >/tmp/preflight035-wrongdesc.log 2>&1; then
+    bad "H2: preflight must not ALREADY_CORRECT with prefix DESC"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight035-wrongdesc.log \
+      && ok "H2: preflight BLOCK prefix-DESC idx_jer_type" || bad "H2: preflight reason"
+    grep -q 'ALREADY_CORRECT\|JLWM_SATELLITES_SCHEMA_READY' /tmp/preflight035-wrongdesc.log \
+      && bad "H2: must never report ALREADY_CORRECT for prefix DESC" \
+      || ok "H2: no ALREADY_CORRECT for prefix DESC"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_035" >/tmp/mig035-wrongdesc.log 2>&1; then
+    bad "H2: migration should BLOCK prefix-DESC idx_jer_type"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig035-wrongdesc.log \
+      && ok "H2: migration BLOCK INCOMPATIBLE_INDEX prefix DESC" || bad "H2: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  /* H3: missing expected table + same-name wrong index => BLOCK over SAFE/TABLE_MISSING */
+  setup_db "mig035_miss_tbl_bad_idx"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP TABLE jlwm_coo_actions CASCADE;
+    CREATE TABLE jlwm_coo_actions_orphan (office_id TEXT);
+    CREATE INDEX idx_jca_office ON jlwm_coo_actions_orphan(office_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_035" >/tmp/preflight035-misstbl-idx.log 2>&1; then
+    bad "H3: preflight must BLOCK missing table + wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight035-misstbl-idx.log \
+      && ok "H3: preflight BLOCK INCOMPATIBLE_INDEX (table missing)" || bad "H3: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight035-misstbl-idx.log \
+      && bad "H3: must never SAFE when same-name index incompatible" \
+      || ok "H3: no SAFE_AUTO_REPAIR over incompatible index"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_035" >/tmp/mig035-misstbl-idx.log 2>&1; then
+    bad "H3: migration should BLOCK missing table + wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig035-misstbl-idx.log \
+      && ok "H3: migration BLOCK INCOMPATIBLE_INDEX" || bad "H3: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
   setup_db "mig035_wrong_pk"
   trap teardown_db EXIT
   apply_migrations_base

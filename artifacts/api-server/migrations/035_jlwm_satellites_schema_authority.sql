@@ -747,6 +747,8 @@ DECLARE
   index_columns TEXT[];
   index_options INT[];
   last_opt INT;
+  desc_ok BOOLEAN;
+  opt_i INT;
 BEGIN
   FOREACH tbl IN ARRAY ARRAY[
     'jlwm_future_paths','jlwm_simulations','jlwm_litigation_intel',
@@ -857,15 +859,28 @@ BEGIN
   JOIN pg_index x ON x.indexrelid = i.oid
   WHERE n.nspname = 'public' AND i.relname = 'idx_jer_type';
 
-  last_opt := CASE WHEN index_options IS NULL THEN NULL
-                   ELSE index_options[array_length(index_options, 1)] END;
+  /* Mirror apply-time DESC: last DESC + all prefix keys ASC */
+  desc_ok := true;
+  IF index_options IS NULL
+     OR array_length(index_options, 1) IS DISTINCT FROM 3 THEN
+    desc_ok := false;
+  ELSE
+    last_opt := index_options[array_length(index_options, 1)];
+    IF (last_opt & 1) IS DISTINCT FROM 1 THEN
+      desc_ok := false;
+    END IF;
+    FOR opt_i IN 1 .. (array_length(index_options, 1) - 1) LOOP
+      IF (index_options[opt_i] & 1) IS DISTINCT FROM 0 THEN
+        desc_ok := false;
+      END IF;
+    END LOOP;
+  END IF;
   IF index_ok IS NOT TRUE
      OR index_columns IS DISTINCT FROM ARRAY['office_id','report_type','generated_at']::text[]
-     OR last_opt IS NULL
-     OR (last_opt & 1) IS DISTINCT FROM 1 THEN
+     OR desc_ok IS NOT TRUE THEN
     RAISE EXCEPTION
-      '035_jlwm_satellites: POST_APPLY_READINESS_FAILED — idx_jer_type not exact (ok=% cols=% opts=%)',
-      index_ok, index_columns, index_options;
+      '035_jlwm_satellites: POST_APPLY_READINESS_FAILED — idx_jer_type not exact (ok=% cols=% opts=% desc_ok=%)',
+      index_ok, index_columns, index_options, desc_ok;
   END IF;
 
   /* idx_jca_priority: (office_id, priority, created_at DESC) */
@@ -889,15 +904,27 @@ BEGIN
   JOIN pg_index x ON x.indexrelid = i.oid
   WHERE n.nspname = 'public' AND i.relname = 'idx_jca_priority';
 
-  last_opt := CASE WHEN index_options IS NULL THEN NULL
-                   ELSE index_options[array_length(index_options, 1)] END;
+  desc_ok := true;
+  IF index_options IS NULL
+     OR array_length(index_options, 1) IS DISTINCT FROM 3 THEN
+    desc_ok := false;
+  ELSE
+    last_opt := index_options[array_length(index_options, 1)];
+    IF (last_opt & 1) IS DISTINCT FROM 1 THEN
+      desc_ok := false;
+    END IF;
+    FOR opt_i IN 1 .. (array_length(index_options, 1) - 1) LOOP
+      IF (index_options[opt_i] & 1) IS DISTINCT FROM 0 THEN
+        desc_ok := false;
+      END IF;
+    END LOOP;
+  END IF;
   IF index_ok IS NOT TRUE
      OR index_columns IS DISTINCT FROM ARRAY['office_id','priority','created_at']::text[]
-     OR last_opt IS NULL
-     OR (last_opt & 1) IS DISTINCT FROM 1 THEN
+     OR desc_ok IS NOT TRUE THEN
     RAISE EXCEPTION
-      '035_jlwm_satellites: POST_APPLY_READINESS_FAILED — idx_jca_priority not exact (ok=% cols=% opts=%)',
-      index_ok, index_columns, index_options;
+      '035_jlwm_satellites: POST_APPLY_READINESS_FAILED — idx_jca_priority not exact (ok=% cols=% opts=% desc_ok=%)',
+      index_ok, index_columns, index_options, desc_ok;
   END IF;
 
   RAISE NOTICE

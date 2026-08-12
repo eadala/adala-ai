@@ -20,7 +20,10 @@
 --     INCOMPATIBLE_TYPE   — wrong relkind or column udt
 --     INCOMPATIBLE_PK     — PK present but not solely (id)
 --     INCOMPATIBLE_INDEX  — same-name index wrong shape (table/cols/unique/
---                           partial/expression/valid/ready/DESC bits)
+--                           partial/expression/valid/ready/DESC bits).
+--                           Indexes are ALWAYS probed by name (even when the
+--                           expected table is missing). DESC-last indexes
+--                           require last key DESC and all prefix keys ASC.
 --     NULL_OFFICE_ID      — office_id IS NULL on present rows
 --     NULL_REQUIRED       — Runtime NOT NULL column has NULL rows
 --     NON_UUID_OFFICE_ID  — office_id text present but not UUID-shaped
@@ -112,7 +115,9 @@ DECLARE
   index_opts INT[];
   index_has_desc BOOLEAN;
   last_has_desc BOOLEAN;
+  desc_ok BOOLEAN;
   opts_i INT;
+  opts_len INT;
 
   empty_text TEXT := '<none>';
   rows_notice TEXT := '';
@@ -437,7 +442,9 @@ BEGIN
     END IF;
   END LOOP;
 
-  /* ── 5) Named indexes (non-unique, non-partial; optional DESC last key) ─ */
+  /* ── 5) Named indexes (non-unique, non-partial; DESC last + prefix ASC) ─
+     ALWAYS probe by index name — even when the expected target table is
+     missing — so a same-name wrong-shape index BLOCKs over TABLE_MISSING. */
   FOR index_spec IN
     SELECT * FROM (VALUES
       ('idx_jfp_office','jlwm_future_paths',ARRAY['office_id']::TEXT[],false),
@@ -457,12 +464,6 @@ BEGIN
       ('idx_jca_priority','jlwm_coo_actions',ARRAY['office_id','priority','created_at']::TEXT[],true)
     ) AS expected_index(index_name, table_name, expected_cols, is_desc_last)
   LOOP
-    /* Missing target table → index gap; skip catalog probe */
-    IF to_regclass(format('public.%I', index_spec.table_name)) IS NULL THEN
-      missing_indexes := array_append(missing_indexes, index_spec.index_name);
-      CONTINUE;
-    END IF;
-
     index_oid := NULL;
     index_relkind := NULL;
     index_table := NULL;
@@ -499,16 +500,34 @@ BEGIN
     IF NOT FOUND THEN
       missing_indexes := array_append(missing_indexes, index_spec.index_name);
     ELSE
-      /* indoption bit 0 = DESC */
+      /* Mirror Migration 035 apply-time DESC rules exactly:
+         - is_desc_last: last key DESC, all prefix keys ASC
+         - otherwise: every key ASC (no DESC bits) */
+      desc_ok := true;
       index_has_desc := false;
       last_has_desc := false;
-      IF index_opts IS NOT NULL AND cardinality(index_opts) > 0 THEN
-        FOR opts_i IN 1..cardinality(index_opts) LOOP
-          IF (index_opts[opts_i] & 1) = 1 THEN
+      opts_len := COALESCE(cardinality(index_opts), 0);
+      IF index_opts IS NULL
+         OR opts_len IS DISTINCT FROM cardinality(index_spec.expected_cols) THEN
+        desc_ok := false;
+      ELSIF index_spec.is_desc_last THEN
+        last_has_desc := (index_opts[opts_len] & 1) = 1;
+        IF NOT last_has_desc THEN
+          desc_ok := false;
+        END IF;
+        FOR opts_i IN 1..(opts_len - 1) LOOP
+          IF (index_opts[opts_i] & 1) IS DISTINCT FROM 0 THEN
+            desc_ok := false;
             index_has_desc := true;
           END IF;
         END LOOP;
-        last_has_desc := (index_opts[cardinality(index_opts)] & 1) = 1;
+      ELSE
+        FOR opts_i IN 1..opts_len LOOP
+          IF (index_opts[opts_i] & 1) IS DISTINCT FROM 0 THEN
+            desc_ok := false;
+            index_has_desc := true;
+          END IF;
+        END LOOP;
       END IF;
 
       IF index_relkind NOT IN ('i', 'I')
@@ -519,21 +538,15 @@ BEGIN
          OR index_valid IS DISTINCT FROM TRUE
          OR index_ready IS DISTINCT FROM TRUE
          OR index_cols IS DISTINCT FROM index_spec.expected_cols
-         OR (
-           CASE
-             WHEN index_spec.is_desc_last THEN
-               last_has_desc IS DISTINCT FROM TRUE
-             ELSE
-               index_has_desc IS DISTINCT FROM FALSE
-           END
-         ) THEN
+         OR desc_ok IS NOT TRUE THEN
         incompatible_indexes := array_append(
           incompatible_indexes,
-          format('%s(table=%s,cols=%s,unique=%s,partial=%s,expr=%s,desc_last=%s,opts=%s)',
+          format('%s(table=%s,cols=%s,unique=%s,partial=%s,expr=%s,desc_ok=%s,desc_last=%s,opts=%s)',
             index_spec.index_name, coalesce(index_table,'<none>'),
             coalesce(index_cols::TEXT,'<none>'), coalesce(index_unique::TEXT,'<null>'),
             coalesce(index_partial::TEXT,'<null>'), coalesce(index_expression::TEXT,'<null>'),
-            coalesce(last_has_desc::TEXT,'<null>'), coalesce(index_opts::TEXT,'<none>'))
+            coalesce(desc_ok::TEXT,'<null>'), coalesce(last_has_desc::TEXT,'<null>'),
+            coalesce(index_opts::TEXT,'<none>'))
         );
       END IF;
     END IF;
