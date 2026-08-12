@@ -1767,6 +1767,43 @@ scenario_migration_036_jlwm_reliability() {
   trap - EXIT
   teardown_db
 
+  # C2: missing safe defaults are SAFE and Migration 036 restores them.
+  setup_db "mig036_miss_defaults"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_ai_audit ALTER COLUMN created_at DROP DEFAULT;
+    ALTER TABLE jlwm_ai_audit ALTER COLUMN evidence_count DROP DEFAULT;
+    ALTER TABLE jlwm_learning_events ALTER COLUMN evidence DROP DEFAULT;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-miss-def.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight036-miss-def.log \
+    && bad "C2: missing defaults must not be ALREADY_CORRECT" \
+    || ok "C2: missing defaults not ALREADY_CORRECT"
+  grep -qE 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight036-miss-def.log \
+    && ok "C2: SAFE_AUTO_REPAIR for missing defaults" || bad "C2: action"
+  grep -q 'MISSING_COLUMN_DEFAULTS' /tmp/preflight036-miss-def.log \
+    && ok "C2: reason MISSING_COLUMN_DEFAULTS" || bad "C2: reason"
+  apply_migration_036
+  local ca_def ev_def le_def
+  ca_def=$(psql_db -At -c "
+    SELECT column_default ILIKE '%now%' FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='jlwm_ai_audit' AND column_name='created_at'")
+  ev_def=$(psql_db -At -c "
+    SELECT column_default = '0' FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='jlwm_ai_audit' AND column_name='evidence_count'")
+  le_def=$(psql_db -At -c "
+    SELECT column_default IS NOT NULL FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='jlwm_learning_events' AND column_name='evidence'")
+  [[ "$ca_def" == "t" && "$ev_def" == "t" && "$le_def" == "t" ]] \
+    && ok "C2: Migration 036 restored safe defaults" \
+    || bad "C2: defaults not restored (created_at=$ca_def evidence_count=$ev_def evidence=$le_def)"
+  trap - EXIT
+  teardown_db
+
   # D: incompatible type blocks both preflight and apply.
   setup_db "mig036_badtype"
   trap teardown_db EXIT
@@ -1842,6 +1879,33 @@ scenario_migration_036_jlwm_reliability() {
   else
     grep -q 'NON_UUID_OFFICE_ID' /tmp/mig036-nuuid.log \
       && ok "F: migration BLOCK NON_UUID_OFFICE_ID" || bad "F: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F2: NULL required non-office fields block both preflight and apply.
+  setup_db "mig036_null_required"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_recommendation_tracking ALTER COLUMN title DROP NOT NULL;
+    INSERT INTO jlwm_recommendation_tracking (id, office_id, title)
+    VALUES ('null-title', '$OID', NULL);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-nullreq.log 2>&1; then
+    bad "F2: preflight should BLOCK NULL required fields"
+  else
+    grep -q 'NULL_REQUIRED\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight036-nullreq.log \
+      && ok "F2: preflight BLOCK NULL_REQUIRED" || bad "F2: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_036" >/tmp/mig036-nullreq.log 2>&1; then
+    bad "F2: migration should BLOCK NULL required fields"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig036-nullreq.log \
+      && ok "F2: migration BLOCK NULL_REQUIRED" || bad "F2: migration reason"
   fi
   trap - EXIT
   teardown_db
