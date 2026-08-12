@@ -79,7 +79,9 @@ async function initStripe() {
 ensureOfficePageSlugs().catch(e => logger.error({ e }, "ensureOfficePageSlugs failed"));
 /* stripe_* → migration 011; payment_transactions → 012; ERP tables → 013; bankruptcy_* → migration 014 */
 ensureDocumentCenterSchema().catch(e => logger.error({ e }, "ensureDocumentCenterSchema failed"));
+/* jlwm_* core → migration 034 (ensureJLWMSchema is SELECT-only readiness) */
 ensureJLWMSchema().catch(e => logger.error({ e }, "ensureJLWMSchema failed"));
+/* JLWM satellites + Reliability Runtime DDL remain until 035/036 */
 ensureFuturePathsTable().catch(e => logger.error({ e }, "ensureFuturePathsTable failed"));
 ensureSimulationsTable().catch(e => logger.error({ e }, "ensureSimulationsTable failed"));
 ensureLitigationIntelTable().catch(e => logger.error({ e }, "ensureLitigationIntelTable failed"));

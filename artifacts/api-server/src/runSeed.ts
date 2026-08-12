@@ -16,8 +16,9 @@ import { ensureReliabilitySchema }     from "./modules/jlwm/reliabilityEngine";
 async function main() {
   console.log("🌱 JLWM Demo Seed — Starting...");
 
-  /* Ensure all JLWM tables exist */
-  console.log("📦 Ensuring JLWM schema...");
+  /* Core JLWM schema: Migration 034 (readiness check only — no Runtime DDL).
+     Satellites + Reliability still ensure* at Runtime until 035/036. */
+  console.log("📦 Checking JLWM core schema (Migration 034) + ensuring satellites...");
   await ensureJLWMSchema();
   await ensureFuturePathsTable();
   await ensureSimulationsTable();

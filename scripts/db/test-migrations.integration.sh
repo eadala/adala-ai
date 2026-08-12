@@ -42,6 +42,7 @@ MIGRATION_030="$ROOT/artifacts/api-server/migrations/030_office_messages_case_id
 MIGRATION_031="$ROOT/artifacts/api-server/migrations/031_message_conversations_schema_authority.sql"
 MIGRATION_032="$ROOT/artifacts/api-server/migrations/032_gateway_settings_schema_authority.sql"
 MIGRATION_033="$ROOT/artifacts/api-server/migrations/033_document_v2_schema_authority.sql"
+MIGRATION_034="$ROOT/artifacts/api-server/migrations/034_jlwm_core_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -220,6 +221,7 @@ apply_migration_033() {
 # 031 owns message_conversations + conversation_members (Stage 23.3B).
 # 032 owns moyasar_settings + checkout_settings (Stage 23.4).
 # 033 owns Document V2 tables + documents extension columns (Stage 23.5B).
+# 034 owns JLWM Core 14 tables (Stage 4B).
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -231,7 +233,12 @@ verify_p0_schema() {
   apply_migration_031
   apply_migration_032
   apply_migration_033
+  apply_migration_034
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
+}
+
+apply_migration_034() {
+  psql_db -f "$MIGRATION_034" >/dev/null
 }
 
 apply_migrations_through_013() {
@@ -269,11 +276,12 @@ apply_all_migrations() {
   apply_migration_031
   apply_migration_032
   apply_migration_033
+  apply_migration_034
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 + 033 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 + 033 + 034 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -987,6 +995,330 @@ SQL
 }
 
 # ── Scenario 3e: Stripe infrastructure (011) ────────────────────────────────
+
+# ── Scenario: migration 034 JLWM Core schema authority (Stage 4B) ───────────
+scenario_migration_034_jlwm_core() {
+  log "Scenario 034 — JLWM Core: greenfield / already-correct / BLOCK / orphans / P0"
+  local PREFLIGHT_034="$ROOT/scripts/db/preflight-migration-034.sql"
+  local OID='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+
+  setup_db "mig034_preflight_absent"
+  trap teardown_db EXIT
+  apply_migrations_base
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_034" >/tmp/preflight034-absent.log 2>&1 || true
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight034-absent.log \
+    && ok "A0: SAFE_AUTO_REPAIR (core missing)" \
+    || bad "A0: missing SAFE_AUTO_REPAIR"
+  grep -q 'reason_code=TABLE_MISSING' /tmp/preflight034-absent.log \
+    && ok "A0: TABLE_MISSING" || bad "A0: reason"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig034_fresh"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  local cfg uniq_nodes fk_from
+  cfg=$(psql_db -At -c "SELECT to_regclass('public.jlwm_config') IS NOT NULL")
+  [[ "$cfg" == "t" ]] && ok "A: jlwm_config present" || bad "A: config missing"
+  uniq_nodes=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class i
+      JOIN pg_namespace n ON n.oid=i.relnamespace
+      JOIN pg_index x ON x.indexrelid=i.oid
+      WHERE n.nspname='public' AND i.relname='idx_jmn_uniq'
+        AND x.indisunique AND x.indpred IS NOT NULL
+        AND pg_get_expr(x.indpred, x.indrelid) ILIKE '%node_ref%IS NOT NULL%'
+    )")
+  [[ "$uniq_nodes" == "t" ]] && ok "A: idx_jmn_uniq partial UNIQUE exact" || bad "A: idx_jmn_uniq"
+  fk_from=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.jlwm_memory_edges'::regclass
+        AND c.conname='jlwm_memory_edges_from_node_id_fkey'
+    )")
+  [[ "$fk_from" == "t" ]] && ok "A: memory_edges from FK INSTALLED" || bad "A: FK from"
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO jlwm_config (office_id) VALUES ('$OID')
+    ON CONFLICT (office_id) DO NOTHING;
+    INSERT INTO jlwm_case_twins (office_id, case_id) VALUES ('$OID', 'case-1')
+    ON CONFLICT (office_id, case_id) DO UPDATE SET updated_at=NOW();
+    INSERT INTO jlwm_memory_nodes (office_id, node_type, node_ref, label)
+    VALUES ('$OID', 'case', 'case-1', 'n1')
+    ON CONFLICT (office_id, node_type, node_ref) WHERE node_ref IS NOT NULL
+    DO UPDATE SET label=EXCLUDED.label;
+  " >/dev/null && ok "A: config/twin/partial-unique arbiters usable" || bad "A: ON CONFLICT failed"
+  apply_migration_034
+  ok "A: re-run 034 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_034" >/tmp/preflight034-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight034-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" \
+    || bad "A: $(grep chosen_action /tmp/preflight034-ready.log | tail -1)"
+  grep -q 'reason_code=JLWM_CORE_SCHEMA_READY' /tmp/preflight034-ready.log \
+    && ok "A: JLWM_CORE_SCHEMA_READY" || bad "A: missing JLWM_CORE_SCHEMA_READY"
+  grep -q 'fk_status=INSTALLED' /tmp/preflight034-ready.log \
+    && ok "A: fk_status=INSTALLED for FULL READY" || bad "A: fk_status not INSTALLED"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig034_missing_table"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE jlwm_feedback CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_034" >/tmp/preflight034-misstbl.log 2>&1 || true
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight034-misstbl.log \
+    && ok "B: missing jlwm_feedback → SAFE" || bad "B: preflight"
+  apply_migration_034
+  local fb
+  fb=$(psql_db -At -c "SELECT to_regclass('public.jlwm_feedback') IS NOT NULL")
+  [[ "$fb" == "t" ]] && ok "B: jlwm_feedback restored" || bad "B: still missing"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig034_missing_idx"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX IF EXISTS idx_jft_office;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_034" >/tmp/preflight034-missidx.log 2>&1 || true
+  grep -q 'SAFE_AUTO_REPAIR\|PARTIAL_SCHEMA\|MISSING' /tmp/preflight034-missidx.log \
+    && ok "C: missing index → SAFE" || bad "C: preflight"
+  apply_migration_034
+  local idx
+  idx=$(psql_db -At -c "SELECT to_regclass('public.idx_jft_office') IS NOT NULL")
+  [[ "$idx" == "t" ]] && ok "C: idx_jft_office restored" || bad "C: index missing"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig034_badtype"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_config DROP COLUMN office_id;
+    ALTER TABLE jlwm_config ADD COLUMN office_id INTEGER;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_034" >/tmp/preflight034-type.log 2>&1; then
+    bad "D: preflight should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight034-type.log \
+      && ok "D: preflight BLOCK INCOMPATIBLE_TYPE" || bad "D: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_034" >/tmp/mig034-type.log 2>&1; then
+    bad "D: migration should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig034-type.log \
+      && ok "D: migration BLOCK INCOMPATIBLE_TYPE" || bad "D: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig034_null_office"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_config ALTER COLUMN office_id DROP NOT NULL;
+    INSERT INTO jlwm_config (id, office_id) VALUES ('null-cfg', NULL);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_034" >/tmp/preflight034-null.log 2>&1; then
+    bad "E: preflight should BLOCK NULL office_id"
+  else
+    grep -q 'NULL_OFFICE_ID\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight034-null.log \
+      && ok "E: preflight BLOCK NULL_OFFICE_ID" || bad "E: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_034" >/tmp/mig034-null.log 2>&1; then
+    bad "E: migration should BLOCK NULL office_id"
+  else
+    grep -q 'NULL_OFFICE_ID' /tmp/mig034-null.log \
+      && ok "E: migration BLOCK NULL_OFFICE_ID" || bad "E: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig034_dup_config"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_config DROP CONSTRAINT IF EXISTS jlwm_config_office_id_key;
+    INSERT INTO jlwm_config (office_id) VALUES ('$OID');
+    INSERT INTO jlwm_config (office_id) VALUES ('$OID');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_034" >/tmp/preflight034-dupcfg.log 2>&1; then
+    bad "F: preflight should BLOCK duplicate config"
+  else
+    grep -q 'DUPLICATE_CONFIG_OFFICE_ID\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight034-dupcfg.log \
+      && ok "F: preflight BLOCK DUPLICATE_CONFIG_OFFICE_ID" || bad "F: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_034" >/tmp/mig034-dupcfg.log 2>&1; then
+    bad "F: migration should BLOCK duplicate config"
+  else
+    grep -q 'DUPLICATE_CONFIG_OFFICE_ID' /tmp/mig034-dupcfg.log \
+      && ok "F: migration BLOCK DUPLICATE_CONFIG_OFFICE_ID" || bad "F: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig034_dup_twin"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_case_twins DROP CONSTRAINT IF EXISTS jlwm_case_twins_office_id_case_id_key;
+    INSERT INTO jlwm_case_twins (office_id, case_id) VALUES ('$OID', 'c1');
+    INSERT INTO jlwm_case_twins (office_id, case_id) VALUES ('$OID', 'c1');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_034" >/tmp/preflight034-duptwin.log 2>&1; then
+    bad "G: preflight should BLOCK duplicate twin"
+  else
+    grep -q 'DUPLICATE_CASE_TWIN\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight034-duptwin.log \
+      && ok "G: preflight BLOCK DUPLICATE_CASE_TWIN" || bad "G: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_034" >/tmp/mig034-duptwin.log 2>&1; then
+    bad "G: migration should BLOCK duplicate twin"
+  else
+    grep -q 'DUPLICATE_CASE_TWIN' /tmp/mig034-duptwin.log \
+      && ok "G: migration BLOCK DUPLICATE_CASE_TWIN" || bad "G: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig034_bad_partial"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_jmn_uniq;
+    CREATE UNIQUE INDEX idx_jmn_uniq ON jlwm_memory_nodes(office_id, node_type, node_ref);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_034" >/tmp/preflight034-partial.log 2>&1; then
+    bad "H: preflight should BLOCK non-partial idx_jmn_uniq"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight034-partial.log \
+      && ok "H: preflight BLOCK wrong idx_jmn_uniq" || bad "H: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_034" >/tmp/mig034-partial.log 2>&1; then
+    bad "H: migration should BLOCK wrong idx_jmn_uniq"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig034-partial.log \
+      && ok "H: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "H: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig034_non_uuid"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO jlwm_config (office_id) VALUES ('default');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_034" >/tmp/preflight034-nuuid.log 2>&1; then
+    bad "I: preflight should BLOCK non-UUID office_id"
+  else
+    grep -q 'NON_UUID_OFFICE_ID\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight034-nuuid.log \
+      && ok "I: preflight BLOCK NON_UUID_OFFICE_ID" || bad "I: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_034" >/tmp/mig034-nuuid.log 2>&1; then
+    bad "I: migration should BLOCK non-UUID"
+  else
+    grep -q 'NON_UUID_OFFICE_ID' /tmp/mig034-nuuid.log \
+      && ok "I: migration BLOCK NON_UUID_OFFICE_ID" || bad "I: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig034_orphans"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_memory_edges DROP CONSTRAINT IF EXISTS jlwm_memory_edges_from_node_id_fkey;
+    ALTER TABLE jlwm_memory_edges DROP CONSTRAINT IF EXISTS jlwm_memory_edges_to_node_id_fkey;
+    INSERT INTO jlwm_memory_edges (office_id, from_node_id, to_node_id, edge_type)
+    VALUES ('$OID', 'missing-from', 'missing-to', 'linked_to');
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_034" >/tmp/mig034-orphan.log 2>&1 \
+    && ok "J: migration commits with orphan edges (FK deferred)" \
+    || bad "J: migration failed on orphans"
+  grep -qi 'FK_DEFERRED_ORPHANS\|fk_status=DEFERRED\|DEFERRED' /tmp/mig034-orphan.log \
+    && ok "J: deferred FK surfaced" || bad "J: no defer notice"
+  grep -qi 'NOT FULLY READY\|not claiming JLWM_CORE_SCHEMA_READY' /tmp/mig034-orphan.log \
+    && ok "J: post-apply does not claim FULL READY / JLWM_CORE_SCHEMA_READY" \
+    || bad "J: post-apply taxonomy"
+  fk_from=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.jlwm_memory_edges'::regclass
+        AND c.conname='jlwm_memory_edges_from_node_id_fkey'
+    )")
+  [[ "$fk_from" == "f" ]] && ok "J: FK not falsely installed" || bad "J: FK installed despite orphans"
+  # Orphan edges + otherwise-correct schema must NOT be ALREADY_CORRECT
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_034" >/tmp/preflight034-orphan.log 2>&1 || true
+  if grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight034-orphan.log; then
+    bad "J: orphan edges must NOT return ALREADY_CORRECT"
+  else
+    ok "J: orphan edges are not ALREADY_CORRECT"
+  fi
+  if grep -q 'reason_code=JLWM_CORE_SCHEMA_READY' /tmp/preflight034-orphan.log; then
+    bad "J: orphan edges must NOT return JLWM_CORE_SCHEMA_READY"
+  else
+    ok "J: orphan edges are not JLWM_CORE_SCHEMA_READY"
+  fi
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight034-orphan.log \
+    && ok "J: orphan edges → SAFE_AUTO_REPAIR" \
+    || bad "J: $(grep chosen_action /tmp/preflight034-orphan.log | tail -1)"
+  grep -q 'reason_code=READY_WITH_DEFERRED_FK' /tmp/preflight034-orphan.log \
+    && ok "J: reason_code=READY_WITH_DEFERRED_FK" || bad "J: missing READY_WITH_DEFERRED_FK"
+  grep -qE 'fk_status=DEFERRED' /tmp/preflight034-orphan.log \
+    && ok "J: fk_status=DEFERRED authoritative" || bad "J: fk_status not DEFERRED"
+  orphan_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM jlwm_memory_edges WHERE from_node_id='missing-from'")
+  [[ "$orphan_cnt" == "1" ]] && ok "J: orphan edge not deleted/remapped" || bad "J: orphan mutated"
+  trap - EXIT
+  teardown_db
+
+  if grep -q 'CREATE TABLE IF NOT EXISTS jlwm_config' "$ROOT/artifacts/api-server/src/modules/jlwm/jlwm.schema.ts"; then
+    bad "K: Runtime jlwm_config CREATE still present"
+  else
+    ok "K: Runtime core CREATE removed from jlwm.schema.ts"
+  fi
+  grep -q 'CREATE TABLE IF NOT EXISTS jlwm_future_paths' "$ROOT/artifacts/api-server/src/modules/jlwm/futureExplorer.ts" \
+    && ok "K: satellite Runtime DDL remains" || bad "K: satellite DDL missing unexpectedly"
+  grep -q 'CREATE TABLE IF NOT EXISTS jlwm_ai_audit' "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts" \
+    && ok "K: reliability Runtime DDL remains" || bad "K: reliability DDL missing unexpectedly"
+
+  setup_db "mig034_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig034-p0-present.log 2>&1; then
+    ok "L: verify-schema passes with JLWM core present"
+  else
+    bad "L: verify-schema failed after full chain"; tail -30 /tmp/mig034-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE jlwm_config CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig034-p0.log 2>&1; then
+    bad "L: verify-schema should fail without jlwm_config"
+  else
+    grep -qi 'jlwm_config' /tmp/mig034-p0.log \
+      && ok "L: P0 verify fails when jlwm_config absent" || bad "L: verify log missing jlwm_config"
+  fi
+  apply_migration_034
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig034-p0-restored.log 2>&1; then
+    ok "L: verify-schema passes after 034 restore"
+  else
+    bad "L: verify-schema failed after 034 restore"; tail -30 /tmp/mig034-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+
+  grep -q 'POST_APPLY_READINESS_FAILED' "$MIGRATION_034" \
+    && ok "M: post-apply readiness gate present" || bad "M: post-apply gate missing"
+}
+
+
 scenario_migration_011_stripe_infra() {
   log "Scenario 3e — migration 011: fresh / complete / partial / duplicates / invalid status / idempotent"
 
@@ -7619,6 +7951,7 @@ scenario_migration_030_office_messages_case_id_text
 scenario_migration_031_message_conversations
 scenario_migration_032_gateway_settings
 scenario_migration_033_document_v2
+scenario_migration_034_jlwm_core
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
